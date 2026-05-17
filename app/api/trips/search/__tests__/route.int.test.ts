@@ -14,11 +14,12 @@
  *   AC-13 Prisma select whitelist — only 7 fields in response
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { addDays, startOfDay } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { GET } from '../route';
+import { ratelimit } from '@/lib/ratelimit';
 
 const TZ = 'Asia/Ho_Chi_Minh';
 
@@ -228,6 +229,49 @@ describe('GET /api/trips/search — integration', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.length).toBeGreaterThan(0);
+  });
+
+  it('AC-2: uppercase-with-diacritics "HÀ NỘI" matches "Hà Nội"', async () => {
+    const req = makeRequest({ origin: 'HÀ NỘI', destination: 'TP.HCM', date: TOMORROW_STR, ticketCount: '1' });
+    const res = await GET(req);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.length).toBeGreaterThan(0);
+  });
+
+  // ---- AC-7: Rate limit (429 + Retry-After) ----
+
+  it('AC-7: returns 429 with Retry-After when rate limit exceeded', async () => {
+    const spy = vi
+      .spyOn(ratelimit, 'limit')
+      .mockResolvedValueOnce({ allowed: false, remaining: 0, retryAfter: 30 });
+    try {
+      const req = makeRequest({
+        origin: 'Hà Nội',
+        destination: 'TP.HCM',
+        date: TOMORROW_STR,
+        ticketCount: '1',
+      });
+      const res = await GET(req);
+      expect(res.status).toBe(429);
+      expect(res.headers.get('Retry-After')).toBe('30');
+      const body = await res.json();
+      expect(body).toEqual({ error: 'Too many requests' });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  // ---- AC-3 (extra): maintenance-bus trips excluded ----
+
+  it('AC-3: maintenance-bus trips excluded from results', async () => {
+    // Seed: buses[2] (maintenance now..+3d) has r2 trip tomorrow 11am.
+    // r2 also has buses[3] trip tomorrow 7am. Only buses[3] should surface.
+    const req = makeRequest({ origin: 'Đà Nẵng', destination: 'Huế', date: TOMORROW_STR, ticketCount: '1' });
+    const res = await GET(req);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.length).toBe(1);
   });
 
   // ---- AC-11: 500 scrubbed ----

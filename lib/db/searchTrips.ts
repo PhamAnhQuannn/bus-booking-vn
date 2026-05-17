@@ -68,7 +68,12 @@ export async function searchTrips(input: TripSearchInput): Promise<TripResult[]>
       salesClosed: false,
       bus: {
         capacity: { gte: ticketCount },
-        OR: [{ maintenanceStart: null }, { maintenanceEnd: { lt: new Date() } }],
+        // AC-3: maintenance window must not overlap trip day [startUtc, endUtc]
+        OR: [
+          { maintenanceStart: null },
+          { maintenanceEnd: { lt: startUtc } },
+          { maintenanceStart: { gt: endUtc } },
+        ],
       },
     },
     select: searchResultSelect,

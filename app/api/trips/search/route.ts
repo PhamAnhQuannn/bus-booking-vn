@@ -110,10 +110,12 @@ async function handler(request: NextRequest): Promise<Response> {
         capacity: {
           gte: ticketCount,
         },
-        // Exclude buses under maintenance (AC-3: maintenance-bus exclusion)
+        // AC-3: exclude buses whose maintenance window overlaps the trip day [startUtc, endUtc].
+        // Include iff maintenance is unset, ended before window, or starts after window.
         OR: [
           { maintenanceStart: null },
-          { maintenanceEnd: { lt: new Date() } },
+          { maintenanceEnd: { lt: startUtc } },
+          { maintenanceStart: { gt: endUtc } },
         ],
       },
     },

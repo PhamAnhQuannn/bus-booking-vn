@@ -25,8 +25,6 @@ export const searchResultSelect = {
   id: true,
   departureAt: true,
   price: true,
-  salesClosed: true,
-  status: true,
   bus: {
     select: {
       capacity: true,
