@@ -1,20 +1,46 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Bus Booking VN
 
-## Getting Started
+Vietnamese bus-booking platform — Next.js 15 + TypeScript + Tailwind + Prisma + Postgres.
 
-First, run the development server:
+## Local Development Setup
+
+### 1. Prerequisites
+
+- Node.js 20+
+- pnpm 10+
+- Docker Desktop
+
+### 2. Environment
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local
+# Edit .env.local if you need custom DB credentials
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. Start Postgres (dev + shadow)
+
+```bash
+docker compose -f docker-compose.dev.yml up -d
+```
+
+Two Postgres 16 instances start:
+- Port **5432** — `bbvn_dev` (main development DB)
+- Port **5433** — `bbvn_shadow` (Prisma shadow DB for migrations)
+
+### 4. Run Migrations + Seed
+
+```bash
+pnpm prisma migrate deploy
+pnpm prisma db seed
+```
+
+### 5. Start Dev Server
+
+```bash
+pnpm dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
