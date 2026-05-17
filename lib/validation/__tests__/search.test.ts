@@ -24,7 +24,7 @@ describe('searchParamsSchema', () => {
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      const keys = result.error.issues.map((i: { path: (string | number)[] }) => i.path[0]);
+      const keys = result.error.issues.map((i) => String(i.path[0]));
       expect(keys).toContain('origin');
     }
   });
@@ -38,7 +38,7 @@ describe('searchParamsSchema', () => {
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      const keys = result.error.issues.map((i: { path: (string | number)[] }) => i.path[0]);
+      const keys = result.error.issues.map((i) => String(i.path[0]));
       expect(keys).toContain('destination');
     }
   });
@@ -52,7 +52,7 @@ describe('searchParamsSchema', () => {
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      const keys = result.error.issues.map((i: { path: (string | number)[] }) => i.path[0]);
+      const keys = result.error.issues.map((i) => String(i.path[0]));
       expect(keys).toContain('ticketCount');
     }
   });
@@ -66,7 +66,7 @@ describe('searchParamsSchema', () => {
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      const keys = result.error.issues.map((i: { path: (string | number)[] }) => i.path[0]);
+      const keys = result.error.issues.map((i) => String(i.path[0]));
       expect(keys).toContain('ticketCount');
     }
   });
@@ -80,7 +80,7 @@ describe('searchParamsSchema', () => {
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      const keys = result.error.issues.map((i: { path: (string | number)[] }) => i.path[0]);
+      const keys = result.error.issues.map((i) => String(i.path[0]));
       expect(keys).toContain('date');
     }
   });
@@ -112,7 +112,7 @@ describe('searchParamsSchema', () => {
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      const keys = result.error.issues.map((i: { path: (string | number)[] }) => i.path[0]);
+      const keys = result.error.issues.map((i) => String(i.path[0]));
       expect(keys).toContain('origin');
     }
   });
