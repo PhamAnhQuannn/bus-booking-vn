@@ -41,7 +41,7 @@ async function main() {
   const op1 = await prisma.operator.create({
     data: {
       legalName: 'Công ty TNHH Xe Khách Phương Bắc',
-      contactPhone: '+84901111111',
+      contactPhone: '+8490xxxxxx1',
       contactEmail: 'lienhe@phuongbac.vn',
     },
   });
@@ -49,7 +49,7 @@ async function main() {
   const op2 = await prisma.operator.create({
     data: {
       legalName: 'Công ty CP Vận Tải Miền Nam',
-      contactPhone: '+84902222222',
+      contactPhone: '+8490xxxxxx2',
       contactEmail: 'hotro@mientam.vn',
     },
   });
@@ -146,6 +146,16 @@ async function main() {
       busId: buses[3].id,
       departureAt: vnTime(addDays(todayStart, 1), 7, 0),
       price: 200000,
+      status: 'scheduled',
+      salesClosed: false,
+    },
+    // AC-3 coverage: maintenance-bus trip (buses[2] is under maintenance now..+3 days)
+    // Tomorrow 11am falls inside the maintenance window — must be excluded by search.
+    {
+      routeId: r2.id,
+      busId: buses[2].id,
+      departureAt: vnTime(addDays(todayStart, 1), 11, 0),
+      price: 220000,
       status: 'scheduled',
       salesClosed: false,
     },
