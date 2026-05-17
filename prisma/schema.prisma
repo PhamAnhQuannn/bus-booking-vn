@@ -1,0 +1,65 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Operator {
+  id           String    @id @default(cuid())
+  legalName    String
+  contactPhone String
+  contactEmail String
+  disabledAt   DateTime?
+  createdAt    DateTime  @default(now())
+  buses        Bus[]
+
+  @@index([id])
+}
+
+model Bus {
+  id                String    @id @default(cuid())
+  operatorId        String
+  capacity          Int
+  plateNumber       String    @unique
+  maintenanceStart  DateTime?
+  maintenanceEnd    DateTime?
+  operator          Operator  @relation(fields: [operatorId], references: [id])
+  trips             Trip[]
+
+  @@index([operatorId])
+}
+
+model Route {
+  id          String   @id @default(cuid())
+  origin      String
+  destination String
+  createdAt   DateTime @default(now())
+  trips       Trip[]
+
+  @@index([origin, destination])
+}
+
+enum TripStatus {
+  scheduled
+  departed
+  completed
+  cancelled
+}
+
+model Trip {
+  id             String     @id @default(cuid())
+  routeId        String
+  busId          String
+  departureAt    DateTime
+  price          Int
+  status         TripStatus @default(scheduled)
+  salesClosed    Boolean    @default(false)
+  route          Route      @relation(fields: [routeId], references: [id])
+  bus            Bus        @relation(fields: [busId], references: [id])
+
+  @@index([status, departureAt])
+  @@index([routeId, departureAt])
+}
