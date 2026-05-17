@@ -17,6 +17,16 @@ set -euo pipefail
 
 BASE_URL="${1:-http://localhost:3000}"
 
+# ---- 0. Apply migrations + seed (AC-8: fresh-boot flow) ----
+if [ -z "${DATABASE_URL:-}" ]; then
+  echo "FAIL: DATABASE_URL not set — fresh-boot requires DB connection"
+  exit 1
+fi
+echo "Applying migrations..."
+pnpm prisma migrate deploy
+echo "Seeding database..."
+pnpm prisma db seed
+
 # Compute tomorrow's date in YYYY-MM-DD format (works on Linux and macOS)
 if date --version 2>/dev/null | grep -q GNU; then
   TOMORROW=$(date -d "+1 day" +%Y-%m-%d)
