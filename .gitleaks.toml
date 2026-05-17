@@ -1,0 +1,10 @@
+title = "Bus Booking VN - Gitleaks Config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "vn-mobile-number"
+description = "Vietnamese mobile phone number"
+regex = '''\+84[35789]\d{8}'''
+tags = ["phone", "PII", "VN"]
