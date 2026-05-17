@@ -101,11 +101,13 @@ function EmptyState({
   destination,
   date,
   ticketCount,
+  showPrev,
 }: {
   origin: string;
   destination: string;
   date: string;
   ticketCount: string;
+  showPrev: boolean;
 }) {
   const prevDate = shiftDate(date, -1);
   const nextDate = shiftDate(date, 1);
@@ -122,13 +124,15 @@ function EmptyState({
       </p>
       <p className="text-sm text-muted-foreground">Thử ngày khác:</p>
       <div className="flex gap-3">
-        <Link
-          href={buildUrl(prevDate)}
-          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-muted"
-          aria-label={`Tìm ngày trước: ${formatVnDate(prevDate)}`}
-        >
-          ← {formatVnDate(prevDate)}
-        </Link>
+        {showPrev && (
+          <Link
+            href={buildUrl(prevDate)}
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-muted"
+            aria-label={`Tìm ngày trước: ${formatVnDate(prevDate)}`}
+          >
+            ← {formatVnDate(prevDate)}
+          </Link>
+        )}
         <Link
           href={buildUrl(nextDate)}
           className="inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-muted"
@@ -147,12 +151,14 @@ function ResultsList({
   destination,
   date,
   ticketCount,
+  showPrev,
 }: {
   trips: TripResult[];
   origin: string;
   destination: string;
   date: string;
   ticketCount: string;
+  showPrev: boolean;
 }) {
   const prevDate = shiftDate(date, -1);
   const nextDate = shiftDate(date, 1);
@@ -164,15 +170,17 @@ function ResultsList({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* ±1 day chips */}
+      {/* ±1 day chips — prev hidden when date == today (VN) */}
       <div className="flex gap-3">
-        <Link
-          href={buildUrl(prevDate)}
-          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-muted"
-          aria-label={`Tìm ngày ${formatVnDate(prevDate)}`}
-        >
-          ← Ngày trước
-        </Link>
+        {showPrev && (
+          <Link
+            href={buildUrl(prevDate)}
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-muted"
+            aria-label={`Tìm ngày ${formatVnDate(prevDate)}`}
+          >
+            ← Ngày trước
+          </Link>
+        )}
         <span className="flex-1 text-center text-sm font-medium leading-11">
           {formatVnDate(date)}
         </span>
@@ -224,6 +232,11 @@ export default async function SearchPage({ searchParams }: PageProps) {
 
   const trips = await searchTrips({ origin, destination, date, ticketCount });
 
+  // AC-4: suppress prev-day chip when searched date == today (Asia/Ho_Chi_Minh).
+  // en-CA locale emits YYYY-MM-DD; pin timeZone to VN so DST/UTC drift cannot mis-render.
+  const todayVN = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
+  const showPrev = date !== todayVN;
+
   return (
     <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-6">
       {/* Header + back to form */}
@@ -246,6 +259,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
           destination={destination}
           date={date}
           ticketCount={String(ticketCount)}
+          showPrev={showPrev}
         />
       ) : (
         <ResultsList
@@ -254,6 +268,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
           destination={destination}
           date={date}
           ticketCount={String(ticketCount)}
+          showPrev={showPrev}
         />
       )}
     </main>
