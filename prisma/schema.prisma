@@ -8,13 +8,14 @@ datasource db {
 }
 
 model Operator {
-  id           String    @id @default(cuid())
-  legalName    String
-  contactPhone String
-  contactEmail String
-  disabledAt   DateTime?
-  createdAt    DateTime  @default(now())
-  buses        Bus[]
+  id                String    @id @default(cuid())
+  legalName         String
+  contactPhone      String
+  contactEmail      String
+  notificationPhone String?
+  disabledAt        DateTime?
+  createdAt         DateTime  @default(now())
+  buses             Bus[]
 
   @@index([id])
 }
@@ -68,6 +69,7 @@ model Trip {
   route        Route      @relation(fields: [routeId], references: [id])
   bus          Bus        @relation(fields: [busId], references: [id])
   holds        Hold[]
+  bookings     Booking[]
 
   @@index([status, departureAt])
   @@index([routeId, departureAt])
@@ -83,7 +85,75 @@ model Hold {
   status        HoldStatus @default(active)
   createdAt     DateTime   @default(now())
   trip          Trip       @relation(fields: [tripId], references: [id])
+  booking       Booking?
 
   @@index([tripId, status, expiresAt])
   @@index([expiresAt])
+}
+
+enum BookingStatus {
+  awaiting_payment
+  pending_cash_payment
+  paid_operator_notified
+  completed
+  cancelled
+  trip_cancelled
+  no_show
+  payment_failed_expired
+}
+
+enum PaymentMethod {
+  cash
+  momo
+  zalopay
+  card
+}
+
+enum NotificationChannel {
+  sms
+}
+
+enum NotificationStatus {
+  pending
+  sent
+  failed
+}
+
+model Booking {
+  id                 String        @id @db.Uuid
+  bookingRef         String        @unique
+  confirmationToken  String        @unique
+  tripId             String
+  holdId             String?       @unique
+  buyerName          String
+  buyerPhone         String
+  ticketCount        Int
+  totalVnd           Int
+  paymentMethod      PaymentMethod
+  paymentExternalRef String?
+  status             BookingStatus @default(awaiting_payment)
+  isManual           Boolean       @default(false)
+  createdAt          DateTime      @default(now())
+  trip               Trip          @relation(fields: [tripId], references: [id])
+  hold               Hold?         @relation(fields: [holdId], references: [id], onDelete: Restrict)
+  notifications      NotificationLog[]
+
+  @@index([tripId, status])
+  @@index([confirmationToken])
+}
+
+model NotificationLog {
+  id          String              @id @default(cuid())
+  bookingId   String              @db.Uuid
+  channel     NotificationChannel @default(sms)
+  template    String
+  recipient   String
+  payload     String
+  status      NotificationStatus  @default(pending)
+  externalRef String?
+  sentAt      DateTime?
+  createdAt   DateTime            @default(now())
+  booking     Booking             @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
 }
