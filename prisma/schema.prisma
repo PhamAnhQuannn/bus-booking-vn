@@ -137,9 +137,25 @@ model Booking {
   trip               Trip          @relation(fields: [tripId], references: [id])
   hold               Hold?         @relation(fields: [holdId], references: [id], onDelete: Restrict)
   notifications      NotificationLog[]
+  paymentEvents      PaymentEvent[]
 
   @@index([tripId, status])
   @@index([confirmationToken])
+}
+
+model PaymentEvent {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId   String   @db.Uuid
+  adapter     String
+  externalRef String
+  rawBody     String   @db.Text
+  resultCode  Int
+  receivedAt  DateTime @default(now())
+
+  booking     Booking  @relation(fields: [bookingId], references: [id])
+
+  @@unique([adapter, externalRef])
+  @@index([bookingId])
 }
 
 model NotificationLog {
