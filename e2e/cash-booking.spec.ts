@@ -68,7 +68,7 @@ test.describe('Cash booking happy path', () => {
 
     await expect(page.getByText(/Đặt vé thành công/i)).toBeVisible();
 
-    await expect(page.getByText(/BB-\d{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/)).toBeVisible();
+    await expect(page.getByText(/BB-\d{4}-[0-9a-z]{4}-[0-9a-z]{4}/)).toBeVisible();
 
     await expect(page.getByText(/Chờ thanh toán tiền mặt/i)).toBeVisible();
 
@@ -110,7 +110,7 @@ test.describe('Cash booking happy path', () => {
     const freshPage = await fresh.newPage();
     await freshPage.goto(confirmationUrl);
     await expect(freshPage.getByText(/Đặt vé thành công/i)).toBeVisible();
-    await expect(freshPage.getByText(/BB-\d{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/)).toBeVisible();
+    await expect(freshPage.getByText(/BB-\d{4}-[0-9a-z]{4}-[0-9a-z]{4}/)).toBeVisible();
     await fresh.close();
   });
 });

@@ -15,8 +15,8 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db/client';
 import { extractHoldCookie } from '@/lib/security/holdCookie';
+import { getHoldDetails } from '@/lib/booking/getHoldDetails';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -25,7 +25,6 @@ export async function GET(req: NextRequest, ctx: RouteContext): Promise<Response
   const wrappedHandler = withErrorHandler(async (request: NextRequest) => {
     const { id } = await ctx.params;
 
-    // ---- 1. Verify bb_hold cookie ----
     const cookieHeader = request.headers.get('cookie');
     const verified = extractHoldCookie(cookieHeader);
 
@@ -33,42 +32,16 @@ export async function GET(req: NextRequest, ctx: RouteContext): Promise<Response
       return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
     }
 
-    // ---- 2. Load hold from DB ----
-    const hold = await prisma.hold.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        tripId: true,
-        ticketCount: true,
-        expiresAt: true,
-        status: true,
-        trip: {
-          select: {
-            price: true,
-          },
-        },
-      },
-    });
+    const details = await getHoldDetails(id);
 
-    if (!hold) {
+    if (!details) {
       return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 });
     }
 
-    // ---- 3. Return hold details ----
-    const totalVND = hold.trip.price * hold.ticketCount;
-
-    return NextResponse.json(
-      {
-        tripId: hold.tripId,
-        ticketCount: hold.ticketCount,
-        expiresAt: hold.expiresAt.toISOString(),
-        totalVND,
-      },
-      {
-        status: 200,
-        headers: { 'Cache-Control': 'no-store' },
-      }
-    );
+    return NextResponse.json(details, {
+      status: 200,
+      headers: { 'Cache-Control': 'no-store' },
+    });
   });
 
   return wrappedHandler(req);

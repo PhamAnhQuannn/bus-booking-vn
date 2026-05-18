@@ -1,13 +1,16 @@
 /**
  * /booking/review — Order review step.
  *
- * Server component: fetches hold details from GET /api/holds/[id] using the
- * bb_hold cookie forwarded from the request. If cookie is missing or invalid,
- * redirects to /search.
+ * Server component: verifies bb_hold cookie ownership of `holdId` then calls
+ * getHoldDetails in-process — NEVER self-fetches its own API. Mistake Log
+ * 2026-05-17 (Issue 002): server components calling own routes break under
+ * port-bump and add an HTTP hop for no reason. Call the lib function directly.
  */
 
-import { cookies, headers } from 'next/headers';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { verifyCookieValue } from '@/lib/security/holdCookie';
+import { getHoldDetails } from '@/lib/booking/getHoldDetails';
 import { ReviewClient } from './ReviewClient';
 
 interface ReviewPageProps {
@@ -28,26 +31,15 @@ export default async function ReviewPage({ searchParams }: ReviewPageProps) {
     redirect('/search');
   }
 
-  // Derive the base URL from the incoming request headers so the server-side
-  // fetch hits the same origin the page is being served from. A hardcoded
-  // localhost:3000 fallback breaks whenever Next dev auto-bumps ports (e.g.
-  // when port 3000 is taken by another app and next dev lands on 3001).
-  const hdrs = await headers();
-  const host = hdrs.get('host') ?? 'localhost:3000';
-  const proto = hdrs.get('x-forwarded-proto') ?? 'http';
-  const baseUrl = `${proto}://${host}`;
-  const res = await fetch(`${baseUrl}/api/holds/${holdId}`, {
-    headers: {
-      cookie: `bb_hold=${bbHold.value}`,
-    },
-    cache: 'no-store',
-  });
-
-  if (!res.ok) {
+  const verified = verifyCookieValue(bbHold.value);
+  if (!verified || verified.holdId !== holdId) {
     redirect('/search');
   }
 
-  const data = await res.json();
+  const details = await getHoldDetails(holdId);
+  if (!details) {
+    redirect('/search');
+  }
 
   return (
     <main className="max-w-md mx-auto p-6">
@@ -55,10 +47,10 @@ export default async function ReviewPage({ searchParams }: ReviewPageProps) {
       <ReviewClient
         holdDetails={{
           holdId,
-          tripId: data.tripId,
-          ticketCount: data.ticketCount,
-          expiresAt: data.expiresAt,
-          totalVND: data.totalVND,
+          tripId: details.tripId,
+          ticketCount: details.ticketCount,
+          expiresAt: details.expiresAt,
+          totalVND: details.totalVND,
         }}
       />
     </main>
