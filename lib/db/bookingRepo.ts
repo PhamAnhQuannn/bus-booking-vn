@@ -30,6 +30,9 @@ import { Prisma } from '@prisma/client';
 import { uuidv7 } from 'uuidv7';
 import { generateBookingRef } from '@/lib/booking/bookingRef';
 import { generateConfirmationToken } from '@/lib/booking/confirmationToken';
+import { bookingDetailSelect, type BookingFullDetails } from '@/lib/db/bookingSelects';
+
+export { bookingDetailSelect, type BookingFullDetails };
 
 export interface CreateCashBookingInput {
   holdId: string;
@@ -111,6 +114,7 @@ export async function createCashBookingFromHold(
               AND h."expiresAt" > NOW()
               AND t.status = 'scheduled'::"TripStatus"
               AND t."salesClosed" = false
+              AND t."departureAt" > NOW()
             ON CONFLICT ("holdId") DO NOTHING
             RETURNING
               id, "bookingRef", "confirmationToken", "tripId", "holdId",
@@ -165,42 +169,25 @@ export async function createCashBookingFromHold(
   return { ok: false, reason: 'ref_collision' };
 }
 
-const bookingDetailSelect = {
-  id: true,
-  bookingRef: true,
-  confirmationToken: true,
-  buyerName: true,
-  buyerPhone: true,
-  ticketCount: true,
-  totalVnd: true,
-  paymentMethod: true,
-  status: true,
-  createdAt: true,
-  trip: {
-    select: {
-      id: true,
-      departureAt: true,
-      price: true,
-      route: { select: { origin: true, destination: true } },
-      bus: {
-        select: {
-          plateNumber: true,
-          operator: { select: { legalName: true } },
-        },
-      },
-    },
-  },
-} as const satisfies Prisma.BookingSelect;
-
-export type BookingFullDetails = Prisma.BookingGetPayload<{
-  select: typeof bookingDetailSelect;
-}>;
-
 export async function getBookingByConfirmationToken(
   confirmationToken: string
 ): Promise<BookingFullDetails | null> {
   return prisma.booking.findUnique({
     where: { confirmationToken },
     select: bookingDetailSelect,
+  });
+}
+
+/**
+ * Lookup booking by holdId. Returns the minimum fields the orchestrator needs
+ * to recover from an idempotent re-attempt (when createCashBookingFromHold
+ * returns `already_booked`).
+ */
+export async function getBookingByHoldId(
+  holdId: string
+): Promise<{ id: string; confirmationToken: string } | null> {
+  return prisma.booking.findUnique({
+    where: { holdId },
+    select: { id: true, confirmationToken: true },
   });
 }
