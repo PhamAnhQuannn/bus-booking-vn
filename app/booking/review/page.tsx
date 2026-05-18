@@ -54,6 +54,7 @@ export default async function ReviewPage({ searchParams }: ReviewPageProps) {
       <h1 className="text-2xl font-bold mb-6">Xem lại đơn hàng</h1>
       <ReviewClient
         holdDetails={{
+          holdId,
           tripId: data.tripId,
           ticketCount: data.ticketCount,
           expiresAt: data.expiresAt,

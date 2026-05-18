@@ -6,14 +6,21 @@
  * Displays hold details fetched from GET /api/holds/[id] server-side (passed as props).
  * Shows total formatted as ###.###đ (Vietnamese currency style).
  * Includes HoldTimer + HoldExpiryModal.
+ *
+ * On "Xác nhận thanh toán" click, POSTs to /api/bookings/initiate with
+ * { holdId, paymentMethod: 'cash' }. On 200 → router.push to the
+ * confirmation page keyed by the returned confirmationToken. The bb_hold
+ * cookie travels automatically via same-origin credentials.
  */
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useHoldTimerStore } from '@/lib/state/holdTimerStore';
 import { HoldTimer } from '@/components/HoldTimer';
 import { HoldExpiryModal } from '@/components/HoldExpiryModal';
 
 export interface HoldDetails {
+  holdId: string;
   tripId: string;
   ticketCount: number;
   expiresAt: string;
@@ -24,9 +31,6 @@ interface ReviewClientProps {
   holdDetails: HoldDetails;
 }
 
-/**
- * Format a number as Vietnamese Dong: 300000 → "300.000đ"
- */
 function formatVND(amount: number): string {
   return (
     new Intl.NumberFormat('vi-VN', {
@@ -37,13 +41,52 @@ function formatVND(amount: number): string {
   );
 }
 
+const ERROR_LABEL: Record<string, string> = {
+  HOLD_EXPIRED: 'Hết thời gian giữ chỗ. Vui lòng đặt lại.',
+  TRIP_DEPARTED: 'Chuyến đã khởi hành. Vui lòng chọn chuyến khác.',
+  NOT_FOUND: 'Không tìm thấy giữ chỗ. Vui lòng đặt lại.',
+  FORBIDDEN: 'Phiên giữ chỗ không hợp lệ. Vui lòng đặt lại.',
+  INVALID: 'Yêu cầu không hợp lệ.',
+  TOO_MANY_REQUESTS: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.',
+  UNAVAILABLE: 'Hệ thống tạm thời bận. Vui lòng thử lại.',
+};
+
 export function ReviewClient({ holdDetails }: ReviewClientProps) {
-  const { expiresAt, totalVND, ticketCount, tripId } = holdDetails;
+  const router = useRouter();
+  const { holdId, expiresAt, totalVND, ticketCount, tripId } = holdDetails;
   const { startTimer } = useHoldTimerStore();
+
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     startTimer(expiresAt);
   }, [expiresAt, startTimer]);
+
+  async function handleSubmit() {
+    if (submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/bookings/initiate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ holdId, paymentMethod: 'cash' }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.confirmationToken) {
+        router.push(`/booking/confirmation/${data.confirmationToken}`);
+        return;
+      }
+      const code = typeof data?.error === 'string' ? data.error : 'UNAVAILABLE';
+      setError(ERROR_LABEL[code] ?? ERROR_LABEL.UNAVAILABLE);
+      setSubmitting(false);
+    } catch {
+      setError(ERROR_LABEL.UNAVAILABLE);
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -69,11 +112,22 @@ export function ReviewClient({ holdDetails }: ReviewClientProps) {
 
       <HoldTimer />
 
+      {error && (
+        <div
+          role="alert"
+          className="bg-red-50 border border-red-200 text-red-800 rounded px-4 py-3 text-sm"
+        >
+          {error}
+        </div>
+      )}
+
       <button
         type="button"
-        className="w-full bg-green-600 text-white rounded px-4 py-2 font-semibold hover:bg-green-700"
+        onClick={handleSubmit}
+        disabled={submitting}
+        className="w-full bg-green-600 text-white rounded px-4 py-2 font-semibold hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed"
       >
-        Xác nhận thanh toán
+        {submitting ? 'Đang xử lý...' : 'Xác nhận thanh toán'}
       </button>
     </div>
   );
