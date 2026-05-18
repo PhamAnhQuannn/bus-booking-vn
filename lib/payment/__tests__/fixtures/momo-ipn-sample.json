@@ -1,0 +1,15 @@
+{
+  "partnerCode": "MOMOBKUN20180529",
+  "orderId": "BB-2026-abcd-1234",
+  "requestId": "req-001",
+  "amount": 150000,
+  "orderInfo": "Bus booking payment",
+  "orderType": "momo_wallet",
+  "transId": 3456789,
+  "resultCode": 0,
+  "message": "Successful.",
+  "payType": "qr",
+  "responseTime": 1716050000000,
+  "extraData": "",
+  "signature": "9e544fd809cf59f6ea1cb19ef966526f17f2eadbda6b83c2d2db144af9d7253e"
+}
