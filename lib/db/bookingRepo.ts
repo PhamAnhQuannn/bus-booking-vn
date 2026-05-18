@@ -1,0 +1,206 @@
+/**
+ * Booking repository — atomic cash-booking creation and confirmation lookup.
+ *
+ * createCashBookingFromHold():
+ *   Race-safe, idempotent insert from an active hold.
+ *
+ *   1. INSERT ... ON CONFLICT ("holdId") DO NOTHING RETURNING * — this
+ *      eliminates the read-then-write race entirely. Two concurrent calls
+ *      with the same holdId: one inserts, one returns 0 rows.
+ *   2. The WHERE clause inside the SELECT subquery validates the hold is
+ *      still active + unexpired AND the trip is still scheduled + open.
+ *      If either is false the INSERT is suppressed via WHERE EXISTS.
+ *   3. After insert, mark the hold as 'converted' (best-effort — the booking
+ *      row is the source of truth).
+ *
+ *   Returns:
+ *     { ok: true, booking } — success
+ *     { ok: false, reason: 'hold_expired'    } — hold no longer eligible
+ *     { ok: false, reason: 'already_booked'  } — idempotent re-attempt (DB unique
+ *                                                hit) — caller should fetch the
+ *                                                existing booking
+ *     { ok: false, reason: 'ref_collision'   } — bookingRef unique constraint
+ *                                                tripped (caller retries)
+ *
+ * Uses Prisma.$queryRaw (template-tag, parameterised) — never $queryRawUnsafe.
+ */
+
+import { prisma } from '@/lib/db/client';
+import { Prisma } from '@prisma/client';
+import { uuidv7 } from 'uuidv7';
+import { generateBookingRef } from '@/lib/booking/bookingRef';
+import { generateConfirmationToken } from '@/lib/booking/confirmationToken';
+
+export interface CreateCashBookingInput {
+  holdId: string;
+  buyerName: string;
+  buyerPhone: string;
+}
+
+export type CreateCashBookingResult =
+  | { ok: true; booking: BookingRow }
+  | { ok: false; reason: 'hold_expired' | 'already_booked' | 'ref_collision' };
+
+export interface BookingRow {
+  id: string;
+  bookingRef: string;
+  confirmationToken: string;
+  tripId: string;
+  holdId: string | null;
+  buyerName: string;
+  buyerPhone: string;
+  ticketCount: number;
+  totalVnd: number;
+  paymentMethod: 'cash' | 'momo' | 'zalopay' | 'card';
+  status:
+    | 'awaiting_payment'
+    | 'pending_cash_payment'
+    | 'paid_operator_notified'
+    | 'completed'
+    | 'cancelled'
+    | 'trip_cancelled'
+    | 'no_show'
+    | 'payment_failed_expired';
+  isManual: boolean;
+  createdAt: Date;
+}
+
+const MAX_REF_ATTEMPTS = 5;
+
+export async function createCashBookingFromHold(
+  input: CreateCashBookingInput
+): Promise<CreateCashBookingResult> {
+  const { holdId, buyerName, buyerPhone } = input;
+
+  for (let attempt = 0; attempt < MAX_REF_ATTEMPTS; attempt++) {
+    const bookingId = uuidv7();
+    const bookingRef = generateBookingRef();
+    const confirmationToken = generateConfirmationToken();
+
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        // Race-safe insert: ON CONFLICT (holdId) DO NOTHING.
+        // The SELECT subquery joins Hold + Trip and asserts the hold is still
+        // eligible. If the hold is expired/converted/cancelled OR the trip
+        // is no longer scheduled, no row is selected → no row is inserted.
+        const inserted = await tx.$queryRaw<BookingRow[]>(
+          Prisma.sql`
+            INSERT INTO "Booking" (
+              id, "bookingRef", "confirmationToken", "tripId", "holdId",
+              "buyerName", "buyerPhone", "ticketCount", "totalVnd",
+              "paymentMethod", status, "isManual", "createdAt"
+            )
+            SELECT
+              ${bookingId}::uuid,
+              ${bookingRef},
+              ${confirmationToken},
+              h."tripId",
+              h.id,
+              ${buyerName},
+              ${buyerPhone},
+              h."ticketCount",
+              t.price * h."ticketCount",
+              'cash'::"PaymentMethod",
+              'pending_cash_payment'::"BookingStatus",
+              false,
+              NOW()
+            FROM "Hold" h
+            JOIN "Trip" t ON t.id = h."tripId"
+            WHERE h.id = ${holdId}
+              AND h.status = 'active'::"HoldStatus"
+              AND h."expiresAt" > NOW()
+              AND t.status = 'scheduled'::"TripStatus"
+              AND t."salesClosed" = false
+            ON CONFLICT ("holdId") DO NOTHING
+            RETURNING
+              id, "bookingRef", "confirmationToken", "tripId", "holdId",
+              "buyerName", "buyerPhone", "ticketCount", "totalVnd",
+              "paymentMethod", status, "isManual", "createdAt"
+          `
+        );
+
+        if (inserted.length === 0) {
+          // Either: (a) hold ineligible (zero rows from SELECT subquery), or
+          //        (b) ON CONFLICT fired (holdId already has a booking).
+          // Disambiguate by checking for an existing booking on this holdId.
+          const existing = await tx.$queryRaw<Array<{ id: string }>>(
+            Prisma.sql`SELECT id FROM "Booking" WHERE "holdId" = ${holdId} LIMIT 1`
+          );
+          if (existing.length > 0) {
+            return { kind: 'already_booked' as const };
+          }
+          return { kind: 'hold_expired' as const };
+        }
+
+        // Convert the hold so it no longer counts toward capacity.
+        await tx.$executeRaw(
+          Prisma.sql`
+            UPDATE "Hold"
+            SET status = 'converted'::"HoldStatus"
+            WHERE id = ${holdId} AND status = 'active'::"HoldStatus"
+          `
+        );
+
+        return { kind: 'ok' as const, booking: inserted[0] };
+      });
+
+      if (result.kind === 'ok') return { ok: true, booking: result.booking };
+      if (result.kind === 'already_booked') return { ok: false, reason: 'already_booked' };
+      return { ok: false, reason: 'hold_expired' };
+    } catch (err: unknown) {
+      // P2002: unique violation. bookingRef or confirmationToken collided.
+      // confirmationToken is 192-bit random — collision is astronomically rare.
+      // bookingRef is 8 base36 chars → ~2.8e12 space → still rare but possible
+      // across years. Retry with fresh values.
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002'
+      ) {
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  return { ok: false, reason: 'ref_collision' };
+}
+
+const bookingDetailSelect = {
+  id: true,
+  bookingRef: true,
+  confirmationToken: true,
+  buyerName: true,
+  buyerPhone: true,
+  ticketCount: true,
+  totalVnd: true,
+  paymentMethod: true,
+  status: true,
+  createdAt: true,
+  trip: {
+    select: {
+      id: true,
+      departureAt: true,
+      price: true,
+      route: { select: { origin: true, destination: true } },
+      bus: {
+        select: {
+          plateNumber: true,
+          operator: { select: { legalName: true } },
+        },
+      },
+    },
+  },
+} as const satisfies Prisma.BookingSelect;
+
+export type BookingFullDetails = Prisma.BookingGetPayload<{
+  select: typeof bookingDetailSelect;
+}>;
+
+export async function getBookingByConfirmationToken(
+  confirmationToken: string
+): Promise<BookingFullDetails | null> {
+  return prisma.booking.findUnique({
+    where: { confirmationToken },
+    select: bookingDetailSelect,
+  });
+}

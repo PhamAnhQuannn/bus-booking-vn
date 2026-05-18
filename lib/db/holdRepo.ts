@@ -74,7 +74,17 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
                    AND "expiresAt" > NOW()),
                 0
               )
-            - 0  /* paidBookings placeholder for Issue 003 */
+            - COALESCE(
+                (SELECT SUM("ticketCount")
+                 FROM "Booking"
+                 WHERE "tripId" = t.id
+                   AND status IN (
+                     'pending_cash_payment'::"BookingStatus",
+                     'paid_operator_notified'::"BookingStatus",
+                     'completed'::"BookingStatus"
+                   )),
+                0
+              )
           FROM "Trip" t
           JOIN "Bus" b ON b.id = t."busId"
           WHERE t.id = ${tripId}

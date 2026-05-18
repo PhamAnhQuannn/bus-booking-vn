@@ -127,11 +127,34 @@ export async function searchTrips(input: TripSearchInput): Promise<TripResult[]>
     blockedMap.set(row.id, row.blockedSeats);
   }
 
+  // Aggregate paid (or pending-cash) booking ticketCount sums per trip.
+  // Mirrors holdRepo's capacity subtraction so search results never show seats
+  // that are reserved by a booking but not by an active hold.
+  type BookingSum = { tripId: string; bookedSeats: bigint };
+  const bookingSums = await prisma.$queryRaw<BookingSum[]>(
+    Prisma.sql`
+      SELECT "tripId", SUM("ticketCount") AS "bookedSeats"
+      FROM "Booking"
+      WHERE "tripId" = ANY(${tripIds}::text[])
+        AND status IN (
+          'pending_cash_payment'::"BookingStatus",
+          'paid_operator_notified'::"BookingStatus",
+          'completed'::"BookingStatus"
+        )
+      GROUP BY "tripId"
+    `
+  );
+  const bookingSumMap = new Map<string, number>();
+  for (const row of bookingSums) {
+    bookingSumMap.set(row.tripId, Number(row.bookedSeats));
+  }
+
   const results: TripResult[] = [];
   for (const trip of trips) {
     const blocked = blockedMap.get(trip.id) ?? 0;
     const heldSeats = holdSumMap.get(trip.id) ?? 0;
-    const available = trip.bus.capacity - blocked - heldSeats;
+    const bookedSeats = bookingSumMap.get(trip.id) ?? 0;
+    const available = trip.bus.capacity - blocked - heldSeats - bookedSeats;
     if (available >= ticketCount) {
       results.push({
         tripId: trip.id,
