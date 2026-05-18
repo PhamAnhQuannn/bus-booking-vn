@@ -11,7 +11,7 @@
 
 import { logger } from '@/lib/logger';
 
-export type SmsTemplate = 'bookingPendingCash' | 'operatorNewBooking';
+export type SmsTemplate = 'bookingPendingCash' | 'operatorNewBooking' | 'customerBookingPaid';
 
 export interface SendSmsInput {
   to: string;
@@ -39,6 +39,12 @@ export function renderTemplate(template: SmsTemplate, payload: Record<string, st
       return (
         `BusBookVN: ${payload.ticketCount} khach moi, chuyen ${payload.route} ` +
         `${payload.departureAt}. SDT: ${payload.buyerPhone}. Ma: ${payload.bookingRef}.`
+      );
+    case 'customerBookingPaid':
+      return (
+        `BusBookVN: Thanh toan MoMo thanh cong. ${payload.ticketCount} ve, chuyen ` +
+        `${payload.route} ${payload.departureAt}. Ma: ${payload.bookingRef}. ` +
+        `Xac nhan: ${payload.confirmationUrl}`
       );
     default: {
       const exhaustive: never = template;

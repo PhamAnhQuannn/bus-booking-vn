@@ -40,6 +40,12 @@ export interface CreateCashBookingInput {
   buyerPhone: string;
 }
 
+export interface CreateMomoBookingInput {
+  holdId: string;
+  buyerName: string;
+  buyerPhone: string;
+}
+
 export type CreateCashBookingResult =
   | { ok: true; booking: BookingRow }
   | { ok: false; reason: 'hold_expired' | 'already_booked' | 'ref_collision' };
@@ -156,6 +162,105 @@ export async function createCashBookingFromHold(
       // confirmationToken is 192-bit random — collision is astronomically rare.
       // bookingRef is 8 base36 chars → ~2.8e12 space → still rare but possible
       // across years. Retry with fresh values.
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002'
+      ) {
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  return { ok: false, reason: 'ref_collision' };
+}
+
+/**
+ * createMomoBookingFromHold — same atomic pattern as createCashBookingFromHold.
+ *
+ * Differences vs cash:
+ *   - paymentMethod = 'momo'
+ *   - status = 'awaiting_payment'
+ *   - paymentExternalRef = NULL (filled in after IPN confirms payment)
+ *
+ * Zero NotificationLog rows are seeded here — notifications are deferred
+ * to webhook receipt (after MoMo confirms payment). AC-F1.
+ */
+export async function createMomoBookingFromHold(
+  input: CreateMomoBookingInput
+): Promise<CreateCashBookingResult> {
+  const { holdId, buyerName, buyerPhone } = input;
+
+  for (let attempt = 0; attempt < MAX_REF_ATTEMPTS; attempt++) {
+    const bookingId = uuidv7();
+    const bookingRef = generateBookingRef();
+    const confirmationToken = generateConfirmationToken();
+
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        const inserted = await tx.$queryRaw<BookingRow[]>(
+          Prisma.sql`
+            INSERT INTO "Booking" (
+              id, "bookingRef", "confirmationToken", "tripId", "holdId",
+              "buyerName", "buyerPhone", "ticketCount", "totalVnd",
+              "paymentMethod", status, "isManual", "createdAt"
+            )
+            SELECT
+              ${bookingId}::uuid,
+              ${bookingRef},
+              ${confirmationToken},
+              h."tripId",
+              h.id,
+              ${buyerName},
+              ${buyerPhone},
+              h."ticketCount",
+              t.price * h."ticketCount",
+              'momo'::"PaymentMethod",
+              'awaiting_payment'::"BookingStatus",
+              false,
+              NOW()
+            FROM "Hold" h
+            JOIN "Trip" t ON t.id = h."tripId"
+            WHERE h.id = ${holdId}
+              AND h.status = 'active'::"HoldStatus"
+              AND h."expiresAt" > NOW()
+              AND t.status = 'scheduled'::"TripStatus"
+              AND t."salesClosed" = false
+              AND t."departureAt" > NOW()
+            ON CONFLICT ("holdId") DO NOTHING
+            RETURNING
+              id, "bookingRef", "confirmationToken", "tripId", "holdId",
+              "buyerName", "buyerPhone", "ticketCount", "totalVnd",
+              "paymentMethod", status, "isManual", "createdAt"
+          `
+        );
+
+        if (inserted.length === 0) {
+          const existing = await tx.$queryRaw<Array<{ id: string }>>(
+            Prisma.sql`SELECT id FROM "Booking" WHERE "holdId" = ${holdId} LIMIT 1`
+          );
+          if (existing.length > 0) {
+            return { kind: 'already_booked' as const };
+          }
+          return { kind: 'hold_expired' as const };
+        }
+
+        // Convert the hold so it no longer counts toward capacity.
+        await tx.$executeRaw(
+          Prisma.sql`
+            UPDATE "Hold"
+            SET status = 'converted'::"HoldStatus"
+            WHERE id = ${holdId} AND status = 'active'::"HoldStatus"
+          `
+        );
+
+        return { kind: 'ok' as const, booking: inserted[0] };
+      });
+
+      if (result.kind === 'ok') return { ok: true, booking: result.booking };
+      if (result.kind === 'already_booked') return { ok: false, reason: 'already_booked' };
+      return { ok: false, reason: 'hold_expired' };
+    } catch (err: unknown) {
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&
         err.code === 'P2002'
