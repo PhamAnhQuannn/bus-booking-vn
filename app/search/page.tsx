@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { searchParamsSchema } from '@/lib/validation/search';
 import { searchTrips, type TripResult } from '@/lib/db/searchTrips';
 import { SearchFormWrapper } from '@/components/search/SearchFormWrapper';
+import { BookButton } from '@/components/search/BookButton';
 
 export const metadata: Metadata = {
   title: 'Tìm chuyến xe | BBVN',
@@ -64,7 +65,7 @@ function formatDepartureAt(iso: string): string {
   });
 }
 
-function TripCard({ trip }: { trip: TripResult }) {
+function TripCard({ trip, ticketCount }: { trip: TripResult; ticketCount: number }) {
   return (
     <article
       className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4 shadow-sm"
@@ -86,11 +87,9 @@ function TripCard({ trip }: { trip: TripResult }) {
           <strong>{trip.availableSeats}</strong>
         </span>
       </div>
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <span className="text-xl font-bold text-primary">{formatPrice(trip.price)}</span>
-        <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-          Còn vé
-        </span>
+        <BookButton tripId={trip.tripId} ticketCount={ticketCount} />
       </div>
     </article>
   );
@@ -157,14 +156,19 @@ function ResultsList({
   origin: string;
   destination: string;
   date: string;
-  ticketCount: string;
+  ticketCount: number;
   showPrev: boolean;
 }) {
   const prevDate = shiftDate(date, -1);
   const nextDate = shiftDate(date, 1);
 
   function buildUrl(newDate: string) {
-    const p = new URLSearchParams({ origin, destination, date: newDate, ticketCount });
+    const p = new URLSearchParams({
+      origin,
+      destination,
+      date: newDate,
+      ticketCount: String(ticketCount),
+    });
     return `/search?${p.toString()}`;
   }
 
@@ -197,7 +201,7 @@ function ResultsList({
       <ul className="flex flex-col gap-3" aria-label={`${trips.length} chuyến xe`}>
         {trips.map((trip) => (
           <li key={trip.tripId}>
-            <TripCard trip={trip} />
+            <TripCard trip={trip} ticketCount={ticketCount} />
           </li>
         ))}
       </ul>
@@ -267,7 +271,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
           origin={origin}
           destination={destination}
           date={date}
-          ticketCount={String(ticketCount)}
+          ticketCount={ticketCount}
           showPrev={showPrev}
         />
       )}
