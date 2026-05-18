@@ -1,0 +1,69 @@
+/**
+ * GET /api/cron/sweep-holds
+ *
+ * Invoked every minute by Vercel Cron (see vercel.json).
+ * Secures via CRON_SECRET header check (Vercel injects this automatically).
+ *
+ * Modes (controlled by HOLD_SWEEPER_MODE env var):
+ *   "count"  — count expired active holds, log and return without mutation (safe default)
+ *   "update" — mark up to 500 expired-but-still-active holds as status='expired'
+ *              Uses LIMIT + FOR UPDATE SKIP LOCKED for safe concurrent execution.
+ *
+ * Returns: { mode, expiredCount } on success, 401 on auth failure.
+ */
+
+export const runtime = 'nodejs';
+
+import { type NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/db/client';
+import { Prisma } from '@prisma/client';
+import { logger } from '@/lib/logger';
+
+const BATCH_LIMIT = 500;
+
+export async function GET(req: NextRequest): Promise<Response> {
+  // Authenticate via CRON_SECRET (Vercel sets Authorization: Bearer <secret>)
+  const authHeader = req.headers.get('authorization');
+  const cronSecret = process.env.CRON_SECRET;
+
+  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
+  }
+
+  const mode = process.env.HOLD_SWEEPER_MODE ?? 'count';
+
+  if (mode === 'count') {
+    // Count-only mode: read without mutation
+    const count = await prisma.hold.count({
+      where: {
+        status: 'active',
+        expiresAt: { lt: new Date() },
+      },
+    });
+    logger.info({ mode, expiredCount: count }, 'sweep-holds: count mode');
+    return NextResponse.json({ mode, expiredCount: count });
+  }
+
+  // "update" mode: expire holds in batches using raw SQL with SKIP LOCKED
+  type UpdateResult = { id: string };
+  const result = await prisma.$queryRaw<UpdateResult[]>(
+    Prisma.sql`
+      WITH expired AS (
+        SELECT id FROM "Hold"
+        WHERE status = 'active'::"HoldStatus"
+          AND "expiresAt" < NOW()
+        LIMIT ${BATCH_LIMIT}
+        FOR UPDATE SKIP LOCKED
+      )
+      UPDATE "Hold"
+      SET status = 'expired'::"HoldStatus"
+      WHERE id IN (SELECT id FROM expired)
+      RETURNING id
+    `
+  );
+
+  const updated = result.length;
+  const updatedCount = updated;
+  logger.info({ mode, expiredCount: updatedCount }, 'sweep-holds: update mode');
+  return NextResponse.json({ mode, expiredCount: updatedCount });
+}
