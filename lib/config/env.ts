@@ -32,6 +32,40 @@ const envSchema = z.object({
     .string()
     .default('false')
     .transform((v) => v === 'true'),
+
+  // ---------------------------------------------------------------------------
+  // MoMo payment gateway (Issue 004)
+  // Defaults to MoMo sandbox credentials (vendor-published, public).
+  // Override in production with real credentials.
+  // ---------------------------------------------------------------------------
+
+  /**
+   * MoMo partner code — identifies the merchant.
+   * Sandbox default: MOMOBKUN20180529
+   */
+  MOMO_PARTNER_CODE: z.string().default('MOMOBKUN20180529'),
+
+  /**
+   * MoMo access key — used in signature construction (canonical sort string).
+   * Sandbox default: klm05TvNBzhg7h7j
+   */
+  MOMO_ACCESS_KEY: z.string().default('klm05TvNBzhg7h7j'),
+
+  /**
+   * MoMo secret key — HMAC-SHA256 key for request + IPN signature verification.
+   * NEVER log this value.
+   * Sandbox default: at67qH6mk8w5Y1nAyMoYKMWACiEi2bsa
+   */
+  MOMO_SECRET_KEY: z.string().default('at67qH6mk8w5Y1nAyMoYKMWACiEi2bsa'),
+
+  /**
+   * MoMo gateway create-order endpoint.
+   * Sandbox default: https://test-payment.momo.vn/v2/gateway/api/create
+   */
+  MOMO_ENDPOINT: z
+    .string()
+    .url()
+    .default('https://test-payment.momo.vn/v2/gateway/api/create'),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;
