@@ -1,0 +1,200 @@
+'use client';
+
+/**
+ * CustomerForm — client component for the buyer info step.
+ *
+ * - Pre-fills buyerPhone from localStorage (key: busbooking_last_phone).
+ * - Client-side Zod validation before submit.
+ * - Submits to POST /api/holds via createHoldRequest().
+ * - On success: saves phone to localStorage, updates stores, navigates to /booking/review.
+ * - On 409 SOLD_OUT: shows error toast + sets soldOut state.
+ * - On 429: shows retry-after message.
+ * - Uses useActionState from 'react' (Next 16 / React 19).
+ */
+
+import { useActionState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { z } from 'zod';
+import { useBookingStore } from '@/lib/state/bookingStore';
+import { useHoldTimerStore } from '@/lib/state/holdTimerStore';
+import { createHoldRequest } from '@/lib/api/holdsClient';
+
+const LS_PHONE_KEY = 'busbooking_last_phone';
+
+const clientSchema = z.object({
+  buyerName: z
+    .string()
+    .trim()
+    .min(4, 'Họ tên phải có ít nhất 4 ký tự')
+    .max(100, 'Họ tên không được vượt quá 100 ký tự')
+    .regex(/^[\p{L}\p{M}\s'.-]+$/u, 'Họ tên chỉ được chứa chữ cái, dấu cách và các ký tự hợp lệ'),
+  buyerPhone: z
+    .string()
+    .trim()
+    .regex(/^(0|\+84)[35789][0-9]{8}$/, 'Số điện thoại không hợp lệ'),
+});
+
+type FormState =
+  | { status: 'idle' }
+  | { status: 'validating' }
+  | { status: 'submitting' }
+  | { status: 'sold_out' }
+  | { status: 'rate_limited'; retryAfter: number }
+  | { status: 'error'; message: string }
+  | { status: 'field_errors'; errors: Record<string, string> };
+
+type FormData = {
+  buyerName: string;
+  buyerPhone: string;
+};
+
+export function CustomerForm() {
+  const router = useRouter();
+  const { tripId, ticketCount, setHold, setBuyerInfo } = useBookingStore();
+  const { startTimer } = useHoldTimerStore();
+  const phoneInputRef = useRef<HTMLInputElement>(null);
+
+  // Pre-fill phone from localStorage
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const saved = localStorage.getItem(LS_PHONE_KEY);
+    if (saved && phoneInputRef.current) {
+      phoneInputRef.current.value = saved;
+    }
+  }, []);
+
+  const [state, formAction, isPending] = useActionState(
+    async (_prevState: FormState, formData: FormData): Promise<FormState> => {
+      // Client-side validation
+      const parsed = clientSchema.safeParse(formData);
+      if (!parsed.success) {
+        const errors: Record<string, string> = {};
+        for (const issue of parsed.error.issues) {
+          const key = String(issue.path[0]);
+          if (key) errors[key] = issue.message;
+        }
+        return { status: 'field_errors', errors };
+      }
+
+      if (!tripId || !ticketCount) {
+        return { status: 'error', message: 'Thông tin chuyến xe bị thiếu. Vui lòng chọn lại.' };
+      }
+
+      const result = await createHoldRequest({
+        tripId,
+        ticketCount,
+        buyerName: parsed.data.buyerName,
+        buyerPhone: parsed.data.buyerPhone,
+      });
+
+      if (!result.ok) {
+        if (result.code === 'SOLD_OUT') {
+          // Invalidate App Router cache so stale seat counts are not shown.
+          // No client-side search store exists; router.refresh() covers RSC cache.
+          router.refresh();
+          return { status: 'sold_out' };
+        }
+        if (result.code === 'TOO_MANY_REQUESTS') {
+          return { status: 'rate_limited', retryAfter: result.retryAfter ?? 60 };
+        }
+        return { status: 'error', message: 'Có lỗi xảy ra. Vui lòng thử lại.' };
+      }
+
+      // Save phone for next time
+      localStorage.setItem(LS_PHONE_KEY, parsed.data.buyerPhone);
+
+      // Update stores
+      setBuyerInfo(parsed.data.buyerName, parsed.data.buyerPhone);
+      setHold(result.holdId, result.expiresAt);
+      startTimer(result.expiresAt);
+
+      // Navigate to review
+      router.push(`/booking/review?holdId=${result.holdId}`);
+      return { status: 'idle' };
+    },
+    { status: 'idle' } as FormState
+  );
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    formAction({
+      buyerName: (fd.get('buyerName') as string) ?? '',
+      buyerPhone: (fd.get('buyerPhone') as string) ?? '',
+    });
+  }
+
+  const fieldErrors =
+    state.status === 'field_errors' ? state.errors : {};
+
+  return (
+    <form onSubmit={handleSubmit} noValidate className="space-y-4">
+      <div>
+        <label htmlFor="buyerName" className="block text-sm font-medium mb-1">
+          Họ và tên
+        </label>
+        <input
+          id="buyerName"
+          name="buyerName"
+          type="text"
+          required
+          disabled={isPending}
+          className="w-full border rounded px-3 py-2 disabled:opacity-60"
+          aria-describedby={fieldErrors.buyerName ? 'buyerName-error' : undefined}
+        />
+        {fieldErrors.buyerName && (
+          <p id="buyerName-error" className="text-red-600 text-sm mt-1">
+            {fieldErrors.buyerName}
+          </p>
+        )}
+      </div>
+
+      <div>
+        <label htmlFor="buyerPhone" className="block text-sm font-medium mb-1">
+          Số điện thoại
+        </label>
+        <input
+          id="buyerPhone"
+          name="buyerPhone"
+          type="tel"
+          required
+          ref={phoneInputRef}
+          disabled={isPending}
+          className="w-full border rounded px-3 py-2 disabled:opacity-60"
+          aria-describedby={fieldErrors.buyerPhone ? 'buyerPhone-error' : undefined}
+        />
+        {fieldErrors.buyerPhone && (
+          <p id="buyerPhone-error" className="text-red-600 text-sm mt-1">
+            {fieldErrors.buyerPhone}
+          </p>
+        )}
+      </div>
+
+      {state.status === 'sold_out' && (
+        <div role="alert" className="bg-red-50 border border-red-200 rounded p-3 text-red-700">
+          Chuyến xe này đã hết chỗ. Vui lòng chọn chuyến khác.
+        </div>
+      )}
+
+      {state.status === 'rate_limited' && (
+        <div role="alert" className="bg-yellow-50 border border-yellow-200 rounded p-3 text-yellow-800">
+          Quá nhiều yêu cầu. Vui lòng thử lại sau {state.retryAfter} giây.
+        </div>
+      )}
+
+      {state.status === 'error' && (
+        <div role="alert" className="bg-red-50 border border-red-200 rounded p-3 text-red-700">
+          {state.message}
+        </div>
+      )}
+
+      <button
+        type="submit"
+        disabled={isPending}
+        className="w-full bg-blue-600 text-white rounded px-4 py-2 font-semibold hover:bg-blue-700 disabled:opacity-60"
+      >
+        {isPending ? 'Đang xử lý...' : 'Tiếp tục'}
+      </button>
+    </form>
+  );
+}
