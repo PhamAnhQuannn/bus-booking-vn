@@ -20,14 +20,14 @@ model Operator {
 }
 
 model Bus {
-  id                String    @id @default(cuid())
-  operatorId        String
-  capacity          Int
-  plateNumber       String    @unique
-  maintenanceStart  DateTime?
-  maintenanceEnd    DateTime?
-  operator          Operator  @relation(fields: [operatorId], references: [id])
-  trips             Trip[]
+  id               String    @id @default(cuid())
+  operatorId       String
+  capacity         Int
+  plateNumber      String    @unique
+  maintenanceStart DateTime?
+  maintenanceEnd   DateTime?
+  operator         Operator  @relation(fields: [operatorId], references: [id])
+  trips            Trip[]
 
   @@index([operatorId])
 }
@@ -49,17 +49,41 @@ enum TripStatus {
   cancelled
 }
 
+enum HoldStatus {
+  active
+  converted
+  expired
+  cancelled_trip
+}
+
 model Trip {
-  id             String     @id @default(cuid())
-  routeId        String
-  busId          String
-  departureAt    DateTime
-  price          Int
-  status         TripStatus @default(scheduled)
-  salesClosed    Boolean    @default(false)
-  route          Route      @relation(fields: [routeId], references: [id])
-  bus            Bus        @relation(fields: [busId], references: [id])
+  id           String     @id @default(cuid())
+  routeId      String
+  busId        String
+  departureAt  DateTime
+  price        Int
+  status       TripStatus @default(scheduled)
+  salesClosed  Boolean    @default(false)
+  blockedSeats Int        @default(0)
+  route        Route      @relation(fields: [routeId], references: [id])
+  bus          Bus        @relation(fields: [busId], references: [id])
+  holds        Hold[]
 
   @@index([status, departureAt])
   @@index([routeId, departureAt])
+}
+
+model Hold {
+  id            String     @id @default(cuid())
+  tripId        String
+  ticketCount   Int
+  customerPhone String
+  customerName  String
+  expiresAt     DateTime
+  status        HoldStatus @default(active)
+  createdAt     DateTime   @default(now())
+  trip          Trip       @relation(fields: [tripId], references: [id])
+
+  @@index([tripId, status, expiresAt])
+  @@index([expiresAt])
 }

@@ -31,6 +31,10 @@ async function main() {
   console.log('Seeding database...');
 
   // Clear existing data (safe for CI fresh-boot)
+  // Holds must go before trips: FK Hold.tripId → Trip has no cascade, and
+  // a stale e2e capacity-1 hold from a prior run would also poison the
+  // race-condition test by consuming the only seat.
+  await prisma.hold.deleteMany();
   await prisma.trip.deleteMany();
   await prisma.route.deleteMany();
   await prisma.bus.deleteMany();
@@ -69,12 +73,16 @@ async function main() {
     }), // Under maintenance
     prisma.bus.create({ data: { operatorId: op2.id, capacity: 40, plateNumber: '51B-99001' } }),
     prisma.bus.create({ data: { operatorId: op2.id, capacity: 40, plateNumber: '51B-99002' } }),
+    // Capacity-1 bus dedicated for e2e race-condition test (AC-4)
+    prisma.bus.create({ data: { operatorId: op1.id, capacity: 1, plateNumber: 'E2E-RACE-01' } }),
   ]);
 
   // ---- Routes ----
   const r1 = await prisma.route.create({ data: { origin: 'Hà Nội', destination: 'TP.HCM' } });
   const r2 = await prisma.route.create({ data: { origin: 'Đà Nẵng', destination: 'Huế' } });
   const r3 = await prisma.route.create({ data: { origin: 'Cần Thơ', destination: 'Đà Lạt' } });
+  // Dedicated route for e2e race-condition test (capacity-1 bus, AC-4)
+  const rRace = await prisma.route.create({ data: { origin: 'E2E Race Origin', destination: 'E2E Race Destination' } });
 
   // ---- Trips ----
   // today in VN time
@@ -184,6 +192,15 @@ async function main() {
       status: 'scheduled',
       salesClosed: false,
     },
+    // AC-4 race-condition e2e trip: capacity-1 bus, departs tomorrow at 06:00
+    {
+      routeId: rRace.id,
+      busId: buses[5].id,
+      departureAt: vnTime(addDays(todayStart, 1), 6, 0),
+      price: 100000,
+      status: 'scheduled',
+      salesClosed: false,
+    },
   ];
 
   for (const trip of tripData) {
@@ -191,7 +208,7 @@ async function main() {
   }
 
   console.log(
-    `Seeded: 2 operators, 5 buses, 3 routes, ${tripData.length} trips (mix of statuses for AC-3).`
+    `Seeded: 2 operators, 6 buses, 4 routes, ${tripData.length} trips (mix of statuses for AC-3; capacity-1 trip for AC-4 race test).`
   );
 }
 
