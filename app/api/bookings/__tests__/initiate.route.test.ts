@@ -1,15 +1,17 @@
 /**
- * Unit tests for POST /api/bookings/initiate (cash path).
+ * Unit tests for POST /api/bookings/initiate (cash + MoMo paths).
  *
- * Mocks: initiateCashBooking orchestrator, extractHoldCookie, ratelimit.
+ * Mocks: initiateCashBooking, initiateMomoBooking orchestrators,
+ *        extractHoldCookie, ratelimit.
  *
  * Covers status mapping:
- *   200  ok           — orchestrator success
- *   400  INVALID      — non-JSON body, missing fields, bad paymentMethod
+ *   200  ok           — orchestrator success (cash or momo)
+ *   400  INVALID      — non-JSON body, missing fields, unknown paymentMethod
  *   403  FORBIDDEN    — no cookie OR cookie holdId ≠ body holdId
  *   404  NOT_FOUND    — orchestrator returns hold_not_found
  *   409  CONFLICT     — orchestrator returns hold_expired OR trip_departed
  *   429  TOO_MANY     — rate limiter denies
+ *   502  GATEWAY_ERR  — momo orchestrator returns gateway_error
  *   503  UNAVAILABLE  — orchestrator returns ref_collision
  */
 
@@ -17,6 +19,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/lib/booking/initiateBooking', () => ({
   initiateCashBooking: vi.fn(),
+}));
+
+vi.mock('@/lib/booking/initiateMomoBooking', () => ({
+  initiateMomoBooking: vi.fn(),
 }));
 
 vi.mock('@/lib/security/holdCookie', () => ({
@@ -32,6 +38,7 @@ vi.mock('@/lib/ratelimit', () => ({
 
 import { POST } from '../initiate/route';
 import { initiateCashBooking } from '@/lib/booking/initiateBooking';
+import { initiateMomoBooking } from '@/lib/booking/initiateMomoBooking';
 import { extractHoldCookie } from '@/lib/security/holdCookie';
 import { ratelimit } from '@/lib/ratelimit';
 import { NextRequest } from 'next/server';
@@ -173,11 +180,11 @@ describe('POST /api/bookings/initiate — input validation', () => {
     expect(json.error).toBe('INVALID');
   });
 
-  it('returns 400 INVALID when paymentMethod is not "cash"', async () => {
+  it('returns 400 INVALID when paymentMethod is an unknown value', async () => {
     allowRatelimit();
 
     const res = await POST(
-      makeRequest({ body: { holdId: HOLD_ID, paymentMethod: 'momo' }, cookie: `bb_hold=x` })
+      makeRequest({ body: { holdId: HOLD_ID, paymentMethod: 'card' }, cookie: `bb_hold=x` })
     );
     const json = await res.json();
 
@@ -263,5 +270,73 @@ describe('POST /api/bookings/initiate — rate limit', () => {
     expect(res.headers.get('Retry-After')).toBe('45');
     expect(extractHoldCookie).not.toHaveBeenCalled();
     expect(initiateCashBooking).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/bookings/initiate — MoMo path', () => {
+  it('returns 200 with bookingId + payUrl on successful MoMo initiation', async () => {
+    allowRatelimit();
+    matchCookie();
+    vi.mocked(initiateMomoBooking).mockResolvedValueOnce({
+      ok: true,
+      bookingId: BOOKING_ID,
+      confirmationToken: CONFIRMATION_TOKEN,
+      payUrl: 'https://payment.momo.vn/pay/app?orderId=BB-2026-test-0001',
+    });
+
+    const res = await POST(
+      makeRequest({
+        body: { holdId: HOLD_ID, paymentMethod: 'momo' },
+        cookie: `bb_hold=signedvalue`,
+      })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.bookingId).toBe(BOOKING_ID);
+    expect(json.payUrl).toBe('https://payment.momo.vn/pay/app?orderId=BB-2026-test-0001');
+    expect(res.headers.get('Cache-Control')).toContain('no-store');
+    expect(initiateCashBooking).not.toHaveBeenCalled();
+  });
+
+  it('returns 502 GATEWAY_ERROR when MoMo gateway fails', async () => {
+    allowRatelimit();
+    matchCookie();
+    vi.mocked(initiateMomoBooking).mockResolvedValueOnce({
+      ok: false,
+      error: 'gateway_error',
+      gatewayMessage: 'network_timeout',
+    });
+
+    const res = await POST(
+      makeRequest({
+        body: { holdId: HOLD_ID, paymentMethod: 'momo' },
+        cookie: `bb_hold=signedvalue`,
+      })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(502);
+    expect(json.error).toBe('GATEWAY_ERROR');
+  });
+
+  it('returns 409 HOLD_EXPIRED for momo path when hold is expired', async () => {
+    allowRatelimit();
+    matchCookie();
+    vi.mocked(initiateMomoBooking).mockResolvedValueOnce({
+      ok: false,
+      error: 'hold_expired',
+    });
+
+    const res = await POST(
+      makeRequest({
+        body: { holdId: HOLD_ID, paymentMethod: 'momo' },
+        cookie: `bb_hold=signedvalue`,
+      })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(json.error).toBe('HOLD_EXPIRED');
   });
 });

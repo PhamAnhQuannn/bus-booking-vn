@@ -1,11 +1,13 @@
 /**
- * POST /api/bookings/initiate (cash path).
+ * POST /api/bookings/initiate — cash and MoMo payment initiation.
  *
  * Pipeline:
  *   1. Rate-limit by IP (429 + Retry-After)
- *   2. Parse + validate body — { holdId, paymentMethod: 'cash' } (400 INVALID)
+ *   2. Parse + validate body — { holdId, paymentMethod: 'cash' | 'momo' } (400 INVALID)
  *   3. Verify bb_hold cookie matches body.holdId (403 FORBIDDEN)
- *   4. Delegate to initiateCashBooking orchestrator
+ *   4. Dispatch to orchestrator by paymentMethod:
+ *      - 'cash' → initiateCashBooking → returns { bookingId, confirmationToken }
+ *      - 'momo' → initiateMomoBooking → returns { bookingId, payUrl }
  *   5. Map orchestrator result to HTTP status
  *
  * baseUrl derived from incoming request headers (x-forwarded-proto + host) —
@@ -19,13 +21,14 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { initiateCashBooking } from '@/lib/booking/initiateBooking';
+import { initiateMomoBooking } from '@/lib/booking/initiateMomoBooking';
 import { extractHoldCookie } from '@/lib/security/holdCookie';
 import { ratelimit } from '@/lib/ratelimit';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 const initiateInputSchema = z.object({
   holdId: z.string().min(1).max(128),
-  paymentMethod: z.literal('cash'),
+  paymentMethod: z.enum(['cash', 'momo']),
 });
 
 async function handler(req: NextRequest): Promise<Response> {
@@ -52,7 +55,7 @@ async function handler(req: NextRequest): Promise<Response> {
   if (!parsed.success) {
     return NextResponse.json({ error: 'INVALID' }, { status: 400 });
   }
-  const { holdId } = parsed.data;
+  const { holdId, paymentMethod } = parsed.data;
 
   const verified = extractHoldCookie(req.headers.get('cookie'));
   if (!verified || verified.holdId !== holdId) {
@@ -65,11 +68,39 @@ async function handler(req: NextRequest): Promise<Response> {
     req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? req.nextUrl.host;
   const baseUrl = `${proto}://${host}`;
 
-  const result = await initiateCashBooking({ holdId, baseUrl });
+  // ---------------------------------------------------------------------------
+  // Cash path (unchanged)
+  // ---------------------------------------------------------------------------
+  if (paymentMethod === 'cash') {
+    const result = await initiateCashBooking({ holdId, baseUrl });
+
+    if (result.ok) {
+      return NextResponse.json(
+        { bookingId: result.bookingId, confirmationToken: result.confirmationToken },
+        { status: 200, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+
+    switch (result.error) {
+      case 'hold_not_found':
+        return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 });
+      case 'hold_expired':
+        return NextResponse.json({ error: 'HOLD_EXPIRED' }, { status: 409 });
+      case 'trip_departed':
+        return NextResponse.json({ error: 'TRIP_DEPARTED' }, { status: 409 });
+      case 'ref_collision':
+        return NextResponse.json({ error: 'UNAVAILABLE' }, { status: 503 });
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // MoMo path
+  // ---------------------------------------------------------------------------
+  const result = await initiateMomoBooking({ holdId, baseUrl });
 
   if (result.ok) {
     return NextResponse.json(
-      { bookingId: result.bookingId, confirmationToken: result.confirmationToken },
+      { bookingId: result.bookingId, payUrl: result.payUrl },
       { status: 200, headers: { 'Cache-Control': 'no-store' } }
     );
   }
@@ -83,6 +114,8 @@ async function handler(req: NextRequest): Promise<Response> {
       return NextResponse.json({ error: 'TRIP_DEPARTED' }, { status: 409 });
     case 'ref_collision':
       return NextResponse.json({ error: 'UNAVAILABLE' }, { status: 503 });
+    case 'gateway_error':
+      return NextResponse.json({ error: 'GATEWAY_ERROR' }, { status: 502 });
   }
 }
 
