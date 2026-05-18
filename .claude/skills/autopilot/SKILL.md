@@ -1,6 +1,6 @@
 ---
 name: autopilot
-description: Status-driven self-execution loop for the project. Each cycle invokes /project-status, picks the top RECOMMENDED NEXT STEP, optionally pre-runs /grill-me when /project-status flagged spec gaps, executes the picked skill via the Skill tool, then re-surveys. When the picked skill is /commit-split, autopilot also auto-stages and commits each group from the returned plan (one plan-level confirm; never push). Stops when /project-status surfaces /ultrareview as top step (billed, user-triggered — suggest+exit, never invoke) or recommendation set empties; also stops on stuck-rec, subskill failure, [SPLIT NEEDED] commit plan, or /route ambiguity. Pre-launch chain is fully delegated to /project-status (no hardcoded chain). Auto-approves subskill internal APPROVAL gates (e.g. /plan Phase 1/2/3 confirmations, /commit-split RISKY group re-confirms) by treating the artifact's own recommendation as the best-choice answer. CONTENT gates (subskill needs user-supplied data) still halt via subskill-input-block. Use when the user wants to advance the project semi-autonomously across multiple slices ("autopilot", "auto run", "self-drive", "auto commit", "advance project automatically", "/autopilot").
+description: Status-driven self-execution loop for the project. Each cycle invokes /project-status, picks the top RECOMMENDED NEXT STEP, optionally pre-runs /grill-me when /project-status flagged spec gaps, executes the picked skill via the Skill tool, then re-surveys. When the picked skill is /commit-split, autopilot also auto-stages and commits each group from the returned plan (one plan-level confirm; never push). Stops only when the recommendation set empties. Billed/user-triggered skills (currently /ultrareview) are filtered out of the rec list each cycle as defense-in-depth — they must already be excluded by /project-status, but if one slips through, autopilot silently drops it and promotes the next rec; never invokes a billed skill. Also stops on stuck-rec, subskill failure, [SPLIT NEEDED] commit plan, or /route ambiguity. Pre-launch chain is fully delegated to /project-status (no hardcoded chain). Auto-approves subskill internal APPROVAL gates (e.g. /plan Phase 1/2/3 confirmations, /commit-split RISKY group re-confirms) by treating the artifact's own recommendation as the best-choice answer. CONTENT gates (subskill needs user-supplied data) still halt via subskill-input-block. Use when the user wants to advance the project semi-autonomously across multiple slices ("autopilot", "auto run", "self-drive", "auto commit", "advance project automatically", "/autopilot").
 output_size:
   XS: 10m
   S: 20m
@@ -15,7 +15,7 @@ output_size:
 
 Manually re-running /project-status, picking the next skill, and invoking it for every slice burns a maker's whole afternoon on context-switching. Autopilot closes that loop so your hands-on time is spent only where the recommendation is wrong.
 
-Invoke as `/autopilot`. Closes the loop between `/project-status` (recommends) and the executor skills (`/lead`, `/tdd`, `/grill-me`, `/commit-split`, etc.). Picks the top recommendation each cycle, runs it via the Skill tool, re-surveys, repeats. Runs autonomously — no per-cycle or plan-level confirm. Halts only on subskill failure, stuck-detection, `[SPLIT NEEDED]` commit plans, /route ambiguity, `/ultrareview` recommendation (suggest+exit, never invoke), or empty recommendation set.
+Invoke as `/autopilot`. Closes the loop between `/project-status` (recommends) and the executor skills (`/lead`, `/tdd`, `/grill-me`, `/commit-split`, etc.). Picks the top recommendation each cycle, runs it via the Skill tool, re-surveys, repeats. Runs autonomously — no per-cycle or plan-level confirm. Halts only on subskill failure, stuck-detection, `[SPLIT NEEDED]` commit plans, /route ambiguity, or empty recommendation set. Billed/user-triggered skills (`/ultrareview`) are silently filtered from the rec list each cycle — never invoked, never an exit trigger on their own.
 
 Sits adjacent to `/loop` (timing-only repeater — not state-aware) and `/route` (one-shot dispatch — no loop). `/autopilot` is the only skill that **chains skill→skill** based on live project state.
 
@@ -26,7 +26,7 @@ Sits adjacent to `/loop` (timing-only repeater — not state-aware) and `/route`
 - **Auto-level:** Full auto. No per-cycle confirm, no plan-level confirm, no pre-launch chain confirms. Each cycle prints an informational status card then proceeds. User can interrupt at any time by typing in the chat.
 - **Heavy-skill policy:** `/lead`, `/plan`, `/commit-split`, and any other subskill that emits internal pause-for-approval gates run as black-box invocations BUT autopilot auto-approves every APPROVAL gate they produce (see § Subskill gate auto-approval). Net effect: a single /autopilot cycle picks `/plan` and runs it through Triage → Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 6 in one pass without prompting the user.
 - **Auto-approve protocol:** When a subskill reaches an APPROVAL gate ("pause for confirmation", "present and wait", "approve / changes / abort"), autopilot responds `approve` with the artifact's own recommended choice as rationale, prints a one-line trace, and the subskill continues. APPROVAL gates that contain explicit `[KILL]`, `[ABORT]`, `[RED FLAG]`, `STRONG-PASS == false`, or "do not proceed" annotations in the artifact are NOT auto-approved — they convert to a halt (see § Stop rules).
-- **Stop rules:** `top_rec == /ultrareview` (suggest+exit, never invoke) **OR** `RECOMMENDED NEXT STEPS` empty **OR** same recommendation 2x in a row (stuck) **OR** stuck-branch escalation (same rec 3x **OR** same subskill failed 3x consecutive) **OR** any subskill failure **OR** `[SPLIT NEEDED]` in /commit-split plan **OR** /project-status surfaces /route as top step (ambiguous goal) **OR** subskill prompts for input autopilot can't synthesize from upstream artifacts (subskill-input-block). No max-iteration cap. Pre-launch stage does NOT exit — autopilot keeps cycling (Step 7 delegated loop) until /ultrareview surfaces or the rec set empties.
+- **Stop rules:** `RECOMMENDED NEXT STEPS` (post Step 2.5 billed-skill filter) empty **OR** same recommendation 2x in a row (stuck) **OR** stuck-branch escalation (same rec 3x **OR** same subskill failed 3x consecutive) **OR** any subskill failure **OR** `[SPLIT NEEDED]` in /commit-split plan **OR** /project-status surfaces /route as top step (ambiguous goal) **OR** subskill prompts for input autopilot can't synthesize from upstream artifacts (subskill-input-block). Billed/user-triggered skills (`/ultrareview`) are silently filtered from the rec list by Step 2.5 — they are NOT a stop trigger on their own; the next rec is promoted, and exit happens only when the post-filter list empties. No max-iteration cap. Pre-launch stage does NOT exit — autopilot keeps cycling (Step 7 delegated loop) until the post-filter rec set empties.
 - **Read-only outside subskills:** /autopilot itself never edits files (other than via subskills), never pushes. Step 6.5 commit loop is the only direct git side-effect — local commits only, never push.
 
 ---
@@ -90,7 +90,7 @@ Maintain `auto_approvals_this_cycle = 0`. Increment on each successful auto-appr
    ─────────────────────────────────────
    AUTOPILOT — starting
    Auto-level:  Full auto (no confirms)
-   Stop on:     ultrareview-rec | empty-recs | repeat-rec | subskill-failure | split-needed | route-ambiguity | subskill-input-block
+   Stop on:     empty-recs | repeat-rec | subskill-failure | split-needed | route-ambiguity | subskill-input-block
    ─────────────────────────────────────
    ```
 2. Initialize in-session state (these are mental notes — no state file):
@@ -119,12 +119,30 @@ From the output, extract:
 | Field | Source section in /project-status output |
 |---|---|
 | `stage` | `STAGE:` line at the top |
-| `top_rec` | First entry under `RECOMMENDED NEXT STEPS` — verbatim slash-command + arg string |
-| `top_rec_reason` | Trailing prose after the `—` on that same line |
+| `recs[]` | Full numbered list under `RECOMMENDED NEXT STEPS` (≤5 entries). Each parsed into `{ skill_name, args, reason, raw }` where `raw` is the verbatim slash-command + arg string |
+| `top_rec` | `recs[0].raw` **after** the Step 2.5 filter |
+| `top_rec_reason` | `recs[0].reason` — trailing prose after the `—` on that line |
 | `pregrill_flagged` | `SITUATION → SKILL` row that says `→ /grill-me "<X>" then …` for the picked slice |
 | `route_fallback` | `DESCRIPTION DISPATCH` block — only present if /project-status got a free-form arg; ignore for /autopilot |
 
 If `/project-status` recommends `/route "<goal>"` as the top step (ambiguity case), pause and ask the user for the concrete goal — do not auto-pick a skill from /route's output without confirmation.
+
+### Step 2.5 — Filter billed/user-only skills from rec list
+
+Billed skills (registry mirrored from `/project-status`: currently `/ultrareview`) must never be invoked by autopilot. They should already be absent — `/project-status` excludes them at the source — but autopilot filters again as defense-in-depth.
+
+```
+BILLED_SKILLS = { "ultrareview" }
+recs = recs.filter(r => r.skill_name not in BILLED_SKILLS)
+```
+
+- If any entries were dropped, print one trace line:
+  `[autopilot] billed skill /<name> filtered from rec list (defense-in-depth; /project-status should already exclude it); promoted rec #<K> → top: <new top_rec>`
+- If the filtered list is empty, fall through to the empty-recs stop rule in Step 3 — print an additional context line:
+  `[autopilot] only billed skill(s) remained after filter; treating as empty-recs exit.`
+- Recompute `top_rec = recs[0].raw` (or null if empty).
+
+Keep `BILLED_SKILLS` in sync with `/project-status` Billed-Skill Registry. Single source of truth lives in `/project-status`; autopilot mirrors.
 
 ### Step 3 — Stop check
 
@@ -132,8 +150,7 @@ Apply in order. First match exits the loop.
 
 | Condition | Action |
 |---|---|
-| `top_rec == "/ultrareview"` | Print /ultrareview suggest banner (Step 7 format), exit cleanly. Never invoke. |
-| `RECOMMENDED NEXT STEPS` empty | Print pre-launch-complete summary (if stage=pre-launch) or generic-done summary, exit. |
+| `RECOMMENDED NEXT STEPS` (post-filter) empty | Print pre-launch-complete summary (if stage=pre-launch) or generic-done summary, exit. |
 | `stage == "pre-launch"` | Enter Step 7 delegated loop — do NOT exit on stage alone. Continue to Step 4 with pre-launch-loop exit conditions in force. |
 | `last_subskill_result == "failure"` | Print failure summary, exit. |
 | Subskill prompts for input no upstream artifact supplies (e.g. `/write-a-prd` asks for product description on a target with no product) | Print subskill-input-block halt card (format below), exit. |
@@ -347,16 +364,16 @@ When `stage = pre-launch`, do NOT run a hardcoded chain. /project-status
 is the routing source — including for pre-launch — and already
 class-routes the chain correctly (XL prepends ops cluster
 `/dr-drill → /rollback-plan → /deploy-health-gate → /prod-smoke`;
-XS/S/M/L emit `/verify → /smoke-test → /commit-split → /ultrareview`
-directly via stage table).
+XS/S/M/L emit `/verify → /smoke-test → /commit-split` directly via
+stage table). `/ultrareview` is billed/user-triggered and intentionally
+excluded from the recommendation chain (see Step 2.5 + Billed-Skill
+Registry in /project-status).
 
 Re-enter the survey loop with these exit conditions instead of the
 generic stage-based exit:
 
-- `RECOMMENDED NEXT STEPS` from /project-status is empty → print
-  pre-launch-complete summary, exit.
-- `top_rec == /ultrareview` → print the suggest banner (billed,
-  user-triggered, never invoke), exit cleanly.
+- `RECOMMENDED NEXT STEPS` from /project-status (post Step 2.5 filter)
+  is empty → print pre-launch-complete summary, exit.
 - `previous_recommendation == top_rec` → stuck rules from Step 3 still
   fire (2x soft, 3x escalation to /lead).
 
@@ -366,15 +383,13 @@ the boost list and stage table one slot at a time. Missing-from-disk
 boost skills (`/dr-drill` etc. before they exist) are silent-dropped by
 /project-status at the matrix layer; autopilot never sees them.
 
-`/ultrareview` suggest banner format:
+Pre-launch-complete summary format (printed when post-filter rec list empties):
 
 ```
 ─────────────────────────────────────
 AUTOPILOT — pre-launch complete
-/project-status surfaced /ultrareview as the top step.
-Run it manually when ready (billed, user-triggered):
-
-  /ultrareview
+All non-billed recommendations exhausted.
+Manual follow-up (billed, user-triggered): /ultrareview
 
 Cycles run:    <N>
 Stage at exit: pre-launch
@@ -535,7 +550,7 @@ Resume any time with /autopilot.
 
 ## Never do
 
-- Never invoke `/ultrareview` — it is user-triggered and billed. When /project-status surfaces it as `top_rec`, print suggest banner (Step 7 format) and exit.
+- Never invoke `/ultrareview` or any other skill in the Billed-Skill Registry (mirrored in autopilot Step 2.5 as `BILLED_SKILLS`). /project-status excludes these at the source; autopilot Step 2.5 re-filters as defense-in-depth and never exits on a billed-skill rec — it promotes the next rec, and if the post-filter list is empty, exits via the empty-recs path (pre-launch-complete summary suggests manual `/ultrareview`).
 - Never hardcode a pre-launch chain. `/project-status` is the routing source; `/autopilot` is the executor. New stages, new class-routings, new boost skills land in `/project-status` — `/autopilot` picks them up automatically via the Step 7 delegated loop.
 - Never push, deploy, or run destructive git operations.
 - Never auto-push. Step 6.5 auto-commit is local-only — `git push` is always manual.
@@ -570,7 +585,7 @@ Resume any time with /autopilot.
 
 A clean /autopilot session ends with one of:
 
-- **pre-launch exit** — pre-launch chain ran, /ultrareview suggested, exit summary printed
+- **pre-launch exit** — pre-launch chain ran, all non-billed recs exhausted, exit summary printed suggesting manual `/ultrareview`
 - **stuck exit** — stuck-detection fired; user chose `halt` or `force-skip` led to clean halt
 - **stuck-branch escalation** — 3x-rec or 3x-subskill-fail tripped; /lead escalation surfaced; user chose rollback / switch-path / debug-manual
 - **failure exit** — subskill failure or commit-loop failure surfaced verbatim, no retry

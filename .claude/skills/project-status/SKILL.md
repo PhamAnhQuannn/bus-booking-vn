@@ -42,6 +42,7 @@ Each input is optional. Note presence/absence in the report.
 | E2E specs (`e2e/**/*.spec.ts`, `tests/e2e/**`)                                           | Glob             | count → 0                         |
 | `.claude/skills/**/SKILL.md`                                                             | Glob             | (always present)                  |
 | `docs/classify/<project>.md` (class label `**Class: <XS\|S\|M\|L\|XL>**`)                | Glob + Read      | flag — recommend `/project-classify`; default to `M` for filter pass |
+| `docs/design/wireframes/**.md`, `docs/design/design-system.md`, `docs/design/flows/**.md`, `docs/design/a11y-*.md` | Glob | "no design docs — UI/UX gate open" |
 | `D:\Skills\reports\sim100\<class>-*.md` + `D:\Skills\reports\<class>-*.md` (same-class sim fixtures, dedupe by slug, prefer sim100; sample up to 5) | Glob + Read | warn — sanity-check section emits "SKIP: no fixtures (need ≥3)" |
 
 ---
@@ -58,7 +59,7 @@ common manifests by stack — substitute your stack's equivalent.
 | planned       | Issues exist, no dependency manifest                                 | `/plan` (Large track)                             |
 | building      | Code present, ≥1 issue NOT-STARTED or IN-PROGRESS                    | per-issue (see Issue Progress)                    |
 | mature        | All issues DONE, no e2e tests (e2e glob count = 0)                   | `/coverage-map` + `/smoke-test`                   |
-| pre-launch    | All issues DONE, e2e exists, branch ahead of default branch          | `/verify` → `/commit-split` → `/ultrareview`      |
+| pre-launch    | All issues DONE, e2e exists, branch ahead of default branch          | `/verify` → `/commit-split`                       |
 
 Tie-breakers:
 - If two rows could match (e.g., issues exist AND a manifest exists but no
@@ -93,6 +94,7 @@ For each `issues/*.md` (PRD excluded):
      - `schema` / `prisma` / `migration` / `alembic` → schema file + migration dir
      - `cron` / `scheduled` / `sweep` → `app/api/cron/**`, `vercel.json`, scheduler manifests
      - `infra` / `config` / `deploy` → root config files (`next.config.*`, `pyproject.toml`, `go.mod`, `.github/**`, `Dockerfile`)
+     - `page` / `screen` / `ui` / `frontend` / `form` / `modal` / `nav` / `dashboard` / `table` / `component` → `app/**/page.tsx`, `app/(*)/**`, `app/**/layout.tsx`, `components/**`, `src/components/**`, `pages/**/*.{tsx,vue}` (stack equivalent)
 3. Classify:
    - **NOT-STARTED** — zero files match scope globs
    - **IN-PROGRESS** — scope files present, but ≥1 acceptance criterion has
@@ -189,6 +191,34 @@ MID-IMPLEMENTATION
   Renaming/removing exported symbol           → /atomic-file-edit
   Native module ABI mismatch                  → /better-sqlite3-rebuild (if installed)
   Subsystem feels tangled                     → /improve-codebase-architecture
+  Frontend feature kickoff                    → /scaffold-feature
+  Backend contract not ready                  → /mock-server, /endpoint-stub
+  Form input + validation wiring              → /form-wire
+  Error boundary wiring on new surface        → /error-boundary-wire
+
+FRONTEND LIFECYCLE (class ∈ {S, M, L, XL}, stage ∈ {planned, building}, frontend scope detected)
+  Multiple UI issues, full lifecycle needed   → /build-frontend
+  One UI slice, scope clear, AC set           → /tdd "<AC>"
+  UI slice spec unclear                       → /grill-me "<slice>" → /build-frontend
+  Resume mid-chain after halt                 → /build-frontend --phase=<N>
+
+FRONTEND BUILD (stage ∈ {planned, building}, frontend scope detected, design docs missing for slice)
+  No wireframes for slice                     → /ui-wireframe "<screen>"
+  No user flow diagram                        → /user-flow "<flow>"
+  No design tokens / component inventory      → /design-system
+  No a11y design pass                         → /a11y-design "<feature>"
+  Form-heavy slice                            → /form-design
+  Navigation / IA decision pending            → /nav-pattern-pick
+  Dashboard surface                           → /dashboard-layout
+  Data-table surface                          → /data-table-design
+  Typography unspecified                      → /typography-hierarchy-spec
+  Motion / animation spec missing             → /motion-direction-spec
+  Designer handoff needed                     → /figma-handoff-spec
+  Backend not ready, want to build UI first   → /mock-server, /endpoint-stub
+  New feature scaffold                        → /scaffold-feature
+  Form input wiring                           → /form-wire
+  Error boundary wiring                       → /error-boundary-wire
+  Cross-doc design drift                      → /design-review
 
 CLASS-SPECIFIC BUILD (boost — see Class-Aware Boost section below)
   Class XL building (platform/infra cluster)  → /otel-wire, /sbom-generate, /env-config, /codegen-from-contract, /mock-server, /migration-author
@@ -199,6 +229,11 @@ POST-CODE-CHANGE (before commit, stage ∈ {building, pre-launch, mature} only)
   Small fix made                              → /verify
   UI/frontend change                          → /smoke-test
   Many files mixed across domains             → /commit-split
+  UI/frontend change, cross-viewport check    → /responsive-test
+  UI/frontend change, visual baseline         → /visual-regression
+  UI/frontend change, runtime a11y scan       → /a11y-runtime
+  UI/frontend change, browser smoke           → /smoke-test
+  Frontend perf regression suspected          → /devtools-audit, /perf-audit
 
 AUDIT / SURVEY
   "Where are we, what next?"                  → /project-status (this skill)
@@ -207,7 +242,7 @@ AUDIT / SURVEY
   "Is naming/structure consistent?"           → /consistency-audit
 
 PRE-LAUNCH (all issues DONE, stage ∈ {pre-launch, mature} ONLY — suppressed otherwise)
-  Fixed sequence                              → /verify → /smoke-test → /commit-split → /ultrareview
+  Fixed sequence                              → /verify → /smoke-test → /commit-split (then manually run /ultrareview — billed, never auto-recommended; see Billed-Skill Registry)
   Class XL pre-launch (ops cluster — boost)   → /dr-drill, /rollback-plan, /deploy-health-gate, /prod-smoke
 
 GREENFIELD / SPEC'D
@@ -216,6 +251,8 @@ GREENFIELD / SPEC'D
 ```
 
 **Stage gating (P3.5 — over-rec dampening):** The PRE-LAUNCH and POST-CODE-CHANGE groups render **only** when the current detected stage is in their declared stage set. Suppress them entirely for `stage ∈ {greenfield, spec'd, planned}` (the baseline showed `/verify` over-recommended at 62–68% in XS/S non-pre-launch cells). Caller can still invoke `/verify`, `/commit-split`, `/smoke-test` directly — gating affects only what `/project-status` recommends.
+
+**FRONTEND BUILD gating:** The FRONTEND BUILD group renders **only** when (a) detected stage ∈ `{planned, building}`, (b) ≥1 IN-PROGRESS or next-up NOT-STARTED issue maps to a frontend scope (per the universal-trigger frontend row in Issue Progress Classification), AND (c) at least one expected `docs/design/*` artifact is missing for that slice. Rows for already-satisfied design docs are silent-dropped (e.g. `docs/design/wireframes/<slice>.md` exists → omit the `/ui-wireframe` row). Cluster suppressed entirely on backend-only repos and on stages outside `{planned, building}`.
 
 For free-form intent ("I want to do X but unsure which skill"), defer to
 `/route "<X>"` — it owns the trigger table and reads git state.
@@ -283,17 +320,27 @@ Centralized here (single edit point) rather than per-skill frontmatter on
 ─────────────────────────────────────────────────────────────────────────
 (S,  greenfield|spec'd|planned)  → /idea-capture, /lean-canvas, /problem-validation, /founder-fit, /project-classify
 (L,  planned)                    → /write-a-prd, /prd-to-issues, /prioritize, /acceptance-criteria, /traceability-matrix, /edge-case-enum
-(L,  building)                   → /tdd, /pr-review-bot, /debt-scan, /simplify, /traceability-matrix, /edge-case-enum
+(L,  building)                   → /build-frontend*, /tdd, /pr-review-bot, /debt-scan, /simplify, /traceability-matrix, /edge-case-enum
+(M,  planned|building)           → /build-frontend*, /tdd, /smoke-test  (frontend-aware miss-fill)
 (XL, planned)                    → /regulatory-preflight, /threat-model-pre, /data-flow-diagram-pre, /pen-test-procurement-plan, /conflict-of-interest-disclosure, /code-of-conduct, /sbom-generate
-(XL, building)                   → /otel-wire, /sbom-generate, /env-config, /codegen-from-contract, /mock-server, /migration-author
+(XL, building)                   → /build-frontend*, /otel-wire, /sbom-generate, /env-config, /codegen-from-contract, /mock-server, /migration-author
 (XL, pre-launch)                 → /dr-drill, /rollback-plan, /deploy-health-gate, /prod-smoke
-(S,  building)                   → /perf-audit  (single-skill miss-fill, not a full cluster)
+(S,  building)                   → /build-frontend*, /perf-audit  (single-skill miss-fill, not a full cluster)
+
+* = gated by frontend-scope detector (step 2a below); only prepended when frontend_present = true.
 ```
 
 **Algorithm** (run after Class-Aware Filter drop pass, before Recommended Next Steps):
 
 1. Read `(class, stage)` from classify doc + Stage Detection.
 2. If `(class, stage)` matches a row above, take the boost list in order.
+2a. **Frontend-scope detection** — scan `issues/*.md` scope/title fields.
+   If any matches scope keywords {`page`, `component`, `ui`, `ux`, `form`,
+   `dashboard`, `nav`, `modal`, `wizard`, `onboarding`, `landing`,
+   `paywall`, `table`, `chart`, `search`, `card`, `tab`, `screen`, `view`,
+   `layout`} → set `frontend_present = true`. Otherwise drop every `*`-
+   tagged skill (currently only `/build-frontend`) from the boost list
+   silently.
 3. Drop any boost skill whose `output_size[class] = skip` (filter still
    wins — never re-add a class-skipped skill).
 4. Drop any boost skill not installed (`.claude/skills/<slug>/SKILL.md`
@@ -436,6 +483,21 @@ specific skill directly. Do not bury the right answer behind a dispatcher.
 Produce ≤5 ranked steps. Each names a specific skill **with a concrete
 invocation string** the user can copy-paste.
 
+### Billed / user-triggered skills (never recommend)
+
+The following skills cost money or are explicitly user-triggered. They MUST
+NOT appear in `RECOMMENDED NEXT STEPS`, `SITUATION → SKILL`, `FRONTEND
+BUILD`, `STAGE-APPROPRIATE NEXT SKILL`, or any other recommendation slot
+emitted by /project-status. When a stage table or boost row would otherwise
+surface one, drop it from the rendered list (silent-drop — do not emit a
+"filtered" line; these are not class-skip filters).
+
+Registry (extend here when adding new billed skills):
+  - /ultrareview   — billed cloud review, user-triggered only
+
+This is a hard exclusion, separate from the class-skip filter. It applies
+regardless of stage, class, or boost.
+
 Selection rules by stage (default = class M). Class-aware overrides apply
 the Class-Aware Boost block first, then fill remaining slots from this table:
 
@@ -444,9 +506,9 @@ the Class-Aware Boost block first, then fill remaining slots from this table:
 | greenfield    | `/write-a-prd` (class M default); class S → `/idea-capture`                     |
 | spec'd        | `/prd-to-issues`, then `/grill-me`; class S → `/lean-canvas` if validation pending |
 | planned       | `/plan` (M default); class L → `/write-a-prd → /prd-to-issues → /prioritize`; class XL → `/regulatory-preflight → /threat-model-pre → /data-flow-diagram-pre` |
-| building      | For each high-priority issue: `/lead` if multi-layer, else `/tdd <ac>`. Class boost (XL → platform/infra cluster; L → review/debt cluster; S → /perf-audit if perf-sensitive) prepends |
+| building      | For each high-priority issue: if frontend-scope issues ≥3 (`frontend_present = true` AND class ∈ {S, M, L, XL}) → top-1 = `/build-frontend`, which orchestrates the full lifecycle (spec→design→build→verify→ship). Otherwise: if frontend scope AND design docs missing → prepend `/ui-wireframe → /user-flow → /design-system → /a11y-design` (plus pattern-specific rows from FRONTEND BUILD cluster — `/form-design`, `/nav-pattern-pick`, `/dashboard-layout`, `/data-table-design`, etc. — based on issue keywords), then `/lead` if multi-layer, else `/tdd <ac>`. Class boost (XL → platform/infra cluster; L → review/debt cluster; S → /perf-audit if perf-sensitive) appends after the UI/UX prepend |
 | mature        | `/coverage-map` → feeds `/tdd`; `/smoke-test` for golden paths                  |
-| pre-launch    | `/verify` → `/smoke-test` → `/commit-split` → push → `/ultrareview`; class XL → prepend `/dr-drill, /rollback-plan, /deploy-health-gate, /prod-smoke` |
+| pre-launch    | `/verify` → `/smoke-test` → `/commit-split` → push (then manually run `/ultrareview` — billed, not auto-recommended); class XL → prepend `/dr-drill, /rollback-plan, /deploy-health-gate, /prod-smoke` |
 
 **Top-1 auto-elevation rules (in priority order — first match wins):**
 1. Any **P1 risk** elevates its remediation skill to position 1 regardless of stage/class.
@@ -454,7 +516,9 @@ the Class-Aware Boost block first, then fill remaining slots from this table:
 3. `class=S AND stage ∈ {greenfield, spec'd, planned} AND validation pending` → top-1 = `/lean-canvas`.
 4. `class=L AND stage=planned AND no PRD` → top-1 = `/write-a-prd`.
 5. `class=XL AND stage=planned AND regulated domain` → top-1 = `/regulatory-preflight`.
-6. If the stage row offers `/lead` and the IN-PROGRESS issue spec is unclear,
+5a. `frontend_present = true AND class ∈ {S, M, L, XL} AND stage ∈ {planned, building} AND frontend-scope issues ≥3` → top-1 = `/build-frontend`. Single-slice cases (1–2 issues) fall through to rule 6 (`/ui-wireframe` first). (Rule 1 P1 risk still wins.)
+6. `stage=building AND IN-PROGRESS issue has frontend scope AND no wireframes` → top-1 = `/ui-wireframe "<screen>"`, position 2 = `/user-flow "<flow>"`. Code-writing skills (`/lead`, `/tdd`) follow. (Rule 1 P1 risk still wins.)
+7. If the stage row offers `/lead` and the IN-PROGRESS issue spec is unclear,
    **prepend** `/grill-me "<issue>"` before the `/lead` call.
 
 ---
@@ -506,6 +570,13 @@ RISK SURFACE
   P1: zero e2e tests — golden path uncovered
   P2: admin route lacks role check (issue 005 IN-PROGRESS)
   P3: 2 TODOs in <api-route path>
+
+FRONTEND BUILD  (slice 005 = booking-flow UI, no design docs)
+  → /ui-wireframe "booking review screen"
+  → /user-flow "purchase flow"
+  → /design-system
+  → /a11y-design "booking flow"
+  → /form-design  (slice has 4-field payment form)
 
 SITUATION → SKILL  (currently actionable, class=<X> filtered)
   Slice 005 multi-layer + spec gaps → /grill-me "issue 005" then /lead "issue 005"
@@ -593,7 +664,9 @@ DESCRIPTION DISPATCH
   risks point to the right audit skill (test gaps → `/coverage-map`, TODOs →
   `/debt-scan`, naming → `/consistency-audit`).
 - **Pre-launch chain**: at the `pre-launch` stage, recommend the canonical
-  `/verify` → `/smoke-test` → `/commit-split` → `/ultrareview` sequence.
+  `/verify` → `/smoke-test` → `/commit-split` sequence. `/ultrareview` is
+  billed/user-triggered and intentionally excluded from recommendations
+  (see Billed-Skill Registry).
 - Read-only. Never edits, commits, runs migrations, or starts servers.
 
 ---
@@ -614,6 +687,10 @@ DESCRIPTION DISPATCH
 - Class-skip filter applied — skills whose `output_size:` for the project's
   class = `skip` are dropped from Situation → Skill matrix and Recommended
   Next Steps
+- Billed-Skill Registry exclusion applied — every skill in the registry
+  (currently: `/ultrareview`) is absent from `RECOMMENDED NEXT STEPS`,
+  `SITUATION → SKILL`, `FRONTEND BUILD`, and `STAGE-APPROPRIATE NEXT SKILL`,
+  regardless of stage/class/boost (silent-drop, separate from class-skip)
 - Filtered-count surfaced in report (`Filtered: N skills dropped as
   class=<X> skip`)
 - Class-Aware Boost pass applied — `(class, stage)` boost row prepends
@@ -622,6 +699,22 @@ DESCRIPTION DISPATCH
 - Stage gating applied — PRE-LAUNCH and POST-CODE-CHANGE matrix groups
   suppressed when current stage ∉ their declared stage set (over-rec
   dampening for `/verify`, `/commit-split`, `/smoke-test`)
+- Design-doc presence checked for each IN-PROGRESS issue with frontend
+  scope (wireframes / user-flow / design-system / a11y) — gaps surface
+  FRONTEND BUILD cluster rows
+- FRONTEND BUILD cluster renders only when stage ∈ {planned, building},
+  frontend scope detected, AND at least one expected `docs/design/*`
+  artifact missing; rows for already-satisfied design docs silent-dropped
+- POST-CODE-CHANGE cluster includes UI-verification rows
+  (`/responsive-test`, `/visual-regression`, `/a11y-runtime`,
+  `/smoke-test`, `/devtools-audit`) gated by stage ∈ {building,
+  pre-launch, mature}
+- Top-1 auto-elevation surfaces `/ui-wireframe` when stage=building +
+  frontend scope + no wireframes (P1 risk auto-elevation still wins)
+- Frontend-scope detector (step 2a) run on `issues/*.md`; `frontend_present`
+  flag set; `/build-frontend` prepended to recommendations when
+  `frontend_present = true` AND class ∈ {S, M, L, XL} AND stage ∈ {planned,
+  building} AND frontend-scope issues ≥3 (rule 5a auto-elevation)
 - Sim-match line rendered with one of: `OK` / `WARN — …` / `SKIP — …`
   (one-line default; verbose drill-down only on `--verify-verbose`)
 - Fixture pool globs **both** `reports/sim100/<class>-*.md` and
