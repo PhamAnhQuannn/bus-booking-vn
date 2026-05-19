@@ -20,6 +20,7 @@ model Operator {
   routes            Route[]
   trips             Trip[]
   recurringTemplates RecurringTripTemplate[]
+  payouts           Payout[]
 
   @@index([id])
 }
@@ -137,6 +138,7 @@ model Trip {
   holds                Hold[]
   bookings             Booking[]
   generationLogs       RecurringGenerationLog[]
+  payouts              Payout[]
 
   @@index([status, departureAt])
   @@index([routeId, departureAt])
@@ -324,6 +326,7 @@ model Session {
 
 enum OperatorRole {
   admin
+  staff
 }
 
 model OperatorUser {
@@ -375,6 +378,38 @@ model OperatorOtpAttempt {
   ipAddress    String?
 
   @@index([phone, createdAt(sort: Desc)])
+}
+
+// ---------------------------------------------------------------------------
+// Issue 016 — Operator revenue reporting + payout tracking
+// ---------------------------------------------------------------------------
+
+enum PayoutStatus {
+  pending
+  processing
+  settled
+  failed
+}
+
+model Payout {
+  id            String       @id @default(cuid())
+  tripId        String
+  operatorId    String
+  gross         Int
+  platformFee   Int
+  net           Int
+  status        PayoutStatus @default(pending)
+  scheduledAt   DateTime
+  settledAt     DateTime?
+  failureReason String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  trip          Trip         @relation(fields: [tripId], references: [id])
+  operator      Operator     @relation(fields: [operatorId], references: [id])
+
+  @@index([tripId])
+  @@index([status, scheduledAt])
+  @@index([operatorId, status])
 }
 
 // ---------------------------------------------------------------------------
