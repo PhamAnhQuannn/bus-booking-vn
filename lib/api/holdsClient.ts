@@ -2,10 +2,13 @@
  * Client-side fetch wrapper for /api/holds.
  *
  * Encapsulates the POST /api/holds request and maps responses to typed results.
- * Used by CustomerForm to create a hold.
+ * Used by CustomerForm to create a hold. CSRF double-submit: echoes the bb_csrf
+ * cookie value in the X-CSRF-Token header so proxy.ts admits the request.
  *
  * On 409 SOLD_OUT: the caller shows an error and calls router.refresh() to invalidate the App Router cache (see CustomerForm.tsx).
  */
+
+import { readCsrfToken } from '@/lib/auth/csrfClient';
 
 export interface HoldRequestBody {
   tripId: string;
@@ -33,7 +36,10 @@ export async function createHoldRequest(body: HoldRequestBody): Promise<HoldResu
   try {
     res = await fetch('/api/holds', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': readCsrfToken(),
+      },
       body: JSON.stringify(body),
       credentials: 'same-origin',
     });

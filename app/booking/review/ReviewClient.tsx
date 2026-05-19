@@ -18,6 +18,7 @@ import { useRouter } from 'next/navigation';
 import { useHoldTimerStore } from '@/lib/state/holdTimerStore';
 import { HoldTimer } from '@/components/HoldTimer';
 import { HoldExpiryModal } from '@/components/HoldExpiryModal';
+import { readCsrfToken } from '@/lib/auth/csrfClient';
 
 export interface HoldDetails {
   holdId: string;
@@ -70,7 +71,10 @@ export function ReviewClient({ holdDetails }: ReviewClientProps) {
     try {
       const res = await fetch('/api/bookings/initiate', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          'X-CSRF-Token': readCsrfToken(),
+        },
         credentials: 'include',
         body: JSON.stringify({ holdId, paymentMethod: 'cash' }),
       });
