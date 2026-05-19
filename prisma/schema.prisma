@@ -16,21 +16,43 @@ model Operator {
   disabledAt        DateTime?
   createdAt         DateTime  @default(now())
   buses             Bus[]
+  operatorUsers     OperatorUser[]
 
   @@index([id])
+}
+
+enum BusType {
+  coach
+  sleeper
+  limousine
 }
 
 model Bus {
   id               String    @id @default(cuid())
   operatorId       String
   capacity         Int
-  plateNumber      String    @unique
+  licensePlate     String
+  busType          BusType
+  deactivatedAt    DateTime?
   maintenanceStart DateTime?
   maintenanceEnd   DateTime?
   operator         Operator  @relation(fields: [operatorId], references: [id])
   trips            Trip[]
+  maintenances     BusMaintenance[]
 
-  @@index([operatorId])
+  @@unique([operatorId, licensePlate])
+}
+
+model BusMaintenance {
+  id        String   @id @default(cuid())
+  busId     String
+  startAt   DateTime
+  endAt     DateTime
+  reason    String?
+  createdAt DateTime @default(now())
+  bus       Bus      @relation(fields: [busId], references: [id], onDelete: Cascade)
+
+  @@index([busId])
 }
 
 model Route {
@@ -229,6 +251,7 @@ enum OperatorRole {
 
 model OperatorUser {
   id                     String       @id @default(cuid())
+  operatorId             String
   phone                  String       @unique
   contactPhone           String
   notificationPhone      String
@@ -239,9 +262,11 @@ model OperatorUser {
   disabledAt             DateTime?
   createdAt              DateTime     @default(now())
   updatedAt              DateTime     @updatedAt
+  operator               Operator     @relation(fields: [operatorId], references: [id])
   sessions               OperatorSession[]
 
   @@index([createdAt])
+  @@index([operatorId])
 }
 
 model OperatorSession {

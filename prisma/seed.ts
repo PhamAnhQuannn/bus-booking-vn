@@ -63,21 +63,22 @@ async function main() {
 
   // ---- Buses ----
   const buses = await Promise.all([
-    prisma.bus.create({ data: { operatorId: op1.id, capacity: 40, plateNumber: '29B-12345' } }),
-    prisma.bus.create({ data: { operatorId: op1.id, capacity: 40, plateNumber: '29B-12346' } }),
+    prisma.bus.create({ data: { operatorId: op1.id, capacity: 40, licensePlate: '29B-12345', busType: 'coach' } }),
+    prisma.bus.create({ data: { operatorId: op1.id, capacity: 40, licensePlate: '29B-12346', busType: 'coach' } }),
     prisma.bus.create({
       data: {
         operatorId: op1.id,
         capacity: 40,
-        plateNumber: '29B-12347',
+        licensePlate: '29B-12347',
+        busType: 'coach',
         maintenanceStart: new Date(),
         maintenanceEnd: addDays(new Date(), 3),
       },
     }), // Under maintenance
-    prisma.bus.create({ data: { operatorId: op2.id, capacity: 40, plateNumber: '51B-99001' } }),
-    prisma.bus.create({ data: { operatorId: op2.id, capacity: 40, plateNumber: '51B-99002' } }),
+    prisma.bus.create({ data: { operatorId: op2.id, capacity: 40, licensePlate: '51B-99001', busType: 'coach' } }),
+    prisma.bus.create({ data: { operatorId: op2.id, capacity: 40, licensePlate: '51B-99002', busType: 'coach' } }),
     // Capacity-1 bus dedicated for e2e race-condition test (AC-4)
-    prisma.bus.create({ data: { operatorId: op1.id, capacity: 1, plateNumber: 'E2E-RACE-01' } }),
+    prisma.bus.create({ data: { operatorId: op1.id, capacity: 1, licensePlate: 'E2E-RACE-01', busType: 'coach' } }),
   ]);
 
   // ---- Routes ----
@@ -216,6 +217,7 @@ async function main() {
   const seedOpHash = await hashPassword('BBOp2026!');
   await prisma.operatorUser.create({
     data: {
+      operatorId: op1.id,
       phone: '+8490xxxxxx1',
       contactPhone: '+8490xxxxxx2',
       notificationPhone: '+8490xxxxxx3',
