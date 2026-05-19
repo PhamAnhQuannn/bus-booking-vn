@@ -23,7 +23,7 @@ export async function POST(req: NextRequest, routeCtx: RouteContext): Promise<Re
   const { id } = await routeCtx.params;
 
   return withErrorHandler(
-    requireOperatorAuth({})(async (_req: NextRequest, ctx: OperatorAuthContext) => {
+    requireOperatorAuth({ staffTripScope: () => id })(async (_req: NextRequest, ctx: OperatorAuthContext) => {
       try {
         const result = await markDeparted(ctx.operatorId, id);
         return NextResponse.json({

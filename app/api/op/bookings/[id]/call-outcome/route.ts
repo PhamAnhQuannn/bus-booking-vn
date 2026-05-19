@@ -14,6 +14,7 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth/requireOperatorAuth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
+import { prisma } from '@/lib/db/client';
 import { CallOutcomeSchema } from '@/lib/booking/schemas';
 import { recordCallOutcome } from '@/lib/booking/recordCallOutcome';
 import { BookingServiceError } from '@/lib/booking/recordCallOutcome';
@@ -24,7 +25,18 @@ export async function POST(req: NextRequest, routeCtx: RouteContext): Promise<Re
   const { id } = await routeCtx.params;
 
   return withErrorHandler(
-    requireOperatorAuth({})(async (request: NextRequest, ctx: OperatorAuthContext) => {
+    requireOperatorAuth({
+      // Issue 018: staff are scoped to their assigned trip. Resolve the booking's
+      // tripId so the guard can 404 when a staff member targets a booking on
+      // another trip (don't leak that the booking exists).
+      staffTripScope: async (ctx) => {
+        const row = await prisma.booking.findFirst({
+          where: { id, trip: { operatorId: ctx.operatorId } },
+          select: { tripId: true },
+        });
+        return row?.tripId ?? null;
+      },
+    })(async (request: NextRequest, ctx: OperatorAuthContext) => {
       let body: unknown;
       try {
         body = await request.json();

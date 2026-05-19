@@ -14,6 +14,7 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth/requireOperatorAuth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
+import { prisma } from '@/lib/db/client';
 import { recordCashCollected } from '@/lib/booking/recordCashCollected';
 import { BookingServiceError } from '@/lib/booking/recordCallOutcome';
 
@@ -23,7 +24,17 @@ export async function POST(req: NextRequest, routeCtx: RouteContext): Promise<Re
   const { id } = await routeCtx.params;
 
   return withErrorHandler(
-    requireOperatorAuth({})(async (_req: NextRequest, ctx: OperatorAuthContext) => {
+    requireOperatorAuth({
+      // Issue 018: staff scoped to assigned trip — resolve booking's tripId so the
+      // guard 404s when a staff member targets a booking on another trip.
+      staffTripScope: async (ctx) => {
+        const row = await prisma.booking.findFirst({
+          where: { id, trip: { operatorId: ctx.operatorId } },
+          select: { tripId: true },
+        });
+        return row?.tripId ?? null;
+      },
+    })(async (_req: NextRequest, ctx: OperatorAuthContext) => {
       try {
         const { booking, totalVnd } = await recordCashCollected(ctx.operatorId, id);
         return NextResponse.json({ booking, collectedVnd: totalVnd });

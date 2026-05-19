@@ -26,6 +26,21 @@ export const GET = withErrorHandler(
       );
     }
 
+    // Issue 018: staff are auto-scoped to their assigned trip. A no-filter
+    // request returns only assigned-trip bookings; an explicit tripId that
+    // doesn't match the assignment is a 404 (don't leak other trips). This is
+    // inline rather than via the staffTripScope option because the no-filter
+    // case must *force* the scope, not reject the request.
+    if (ctx.role === 'staff') {
+      if (ctx.assignedTripId === null) {
+        return NextResponse.json({ error: 'not_found' }, { status: 404 });
+      }
+      if (parsed.data.tripId && parsed.data.tripId !== ctx.assignedTripId) {
+        return NextResponse.json({ error: 'not_found' }, { status: 404 });
+      }
+      parsed.data.tripId = ctx.assignedTripId;
+    }
+
     const result = await listOperatorBookings(ctx.operatorId, parsed.data);
     return NextResponse.json(result);
   })

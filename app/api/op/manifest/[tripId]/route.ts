@@ -22,7 +22,7 @@ export async function GET(req: NextRequest, routeCtx: RouteContext): Promise<Res
   const { tripId } = await routeCtx.params;
 
   return withErrorHandler(
-    requireOperatorAuth({})(async (_req: NextRequest, ctx: OperatorAuthContext) => {
+    requireOperatorAuth({ staffTripScope: () => tripId })(async (_req: NextRequest, ctx: OperatorAuthContext) => {
       const manifest = await getManifest(ctx.operatorId, tripId);
       if (!manifest) {
         return NextResponse.json({ error: 'not_found' }, { status: 404 });
