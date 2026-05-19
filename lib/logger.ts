@@ -64,6 +64,8 @@ export const loggerOptions: LoggerOptions = {
       '*.codeHash',
       'newPassword',
       'currentPassword',
+      'tempPassword',
+      '*.tempPassword',
       'contactPhone',
       'notificationPhone',
       '*.address',

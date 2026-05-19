@@ -10,7 +10,7 @@ import { prisma } from '@/lib/db/client';
 import type { NotificationStatus, NotificationChannel } from '@prisma/client';
 
 export interface CreateNotificationLogInput {
-  bookingId: string;
+  bookingId?: string | null;
   channel?: NotificationChannel;
   template: string;
   recipient: string;
@@ -23,7 +23,7 @@ export interface CreateNotificationLogInput {
 export async function createNotificationLog(input: CreateNotificationLogInput) {
   return prisma.notificationLog.create({
     data: {
-      bookingId: input.bookingId,
+      bookingId: input.bookingId ?? null,
       channel: input.channel ?? 'sms',
       template: input.template,
       recipient: input.recipient,
