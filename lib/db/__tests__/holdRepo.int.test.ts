@@ -54,6 +54,7 @@ beforeAll(async () => {
     data: {
       routeId,
       busId: busId1,
+      operatorId,
       departureAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // tomorrow
       price: 100000,
       status: 'scheduled',
@@ -66,6 +67,7 @@ beforeAll(async () => {
     data: {
       routeId,
       busId: busId_cap1,
+      operatorId,
       departureAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
       price: 100000,
       status: 'scheduled',

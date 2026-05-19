@@ -96,6 +96,7 @@ async function main() {
   const tripData: Array<{
     routeId: string;
     busId: string;
+    operatorId: string;
     departureAt: Date;
     price: number;
     status: TripStatus;
@@ -105,6 +106,7 @@ async function main() {
     {
       routeId: r1.id,
       busId: buses[0].id,
+      operatorId: op1.id,
       departureAt: vnTime(addDays(todayStart, 0), 6, 0),
       price: 250000,
       status: 'scheduled',
@@ -113,6 +115,7 @@ async function main() {
     {
       routeId: r1.id,
       busId: buses[0].id,
+      operatorId: op1.id,
       departureAt: vnTime(addDays(todayStart, 1), 8, 30),
       price: 270000,
       status: 'scheduled',
@@ -121,6 +124,7 @@ async function main() {
     {
       routeId: r1.id,
       busId: buses[1].id,
+      operatorId: op1.id,
       departureAt: vnTime(addDays(todayStart, 2), 14, 0),
       price: 300000,
       status: 'scheduled',
@@ -129,6 +133,7 @@ async function main() {
     {
       routeId: r1.id,
       busId: buses[1].id,
+      operatorId: op1.id,
       departureAt: vnTime(addDays(todayStart, 3), 20, 0),
       price: 280000,
       status: 'scheduled',
@@ -138,6 +143,7 @@ async function main() {
     {
       routeId: r1.id,
       busId: buses[0].id,
+      operatorId: op1.id,
       departureAt: vnTime(addDays(todayStart, 4), 10, 0),
       price: 260000,
       status: 'cancelled',
@@ -147,6 +153,7 @@ async function main() {
     {
       routeId: r1.id,
       busId: buses[1].id,
+      operatorId: op1.id,
       departureAt: vnTime(addDays(todayStart, 5), 12, 0),
       price: 290000,
       status: 'scheduled',
@@ -156,6 +163,7 @@ async function main() {
     {
       routeId: r2.id,
       busId: buses[3].id,
+      operatorId: op1.id,
       departureAt: vnTime(addDays(todayStart, 1), 7, 0),
       price: 200000,
       status: 'scheduled',
@@ -166,6 +174,7 @@ async function main() {
     {
       routeId: r2.id,
       busId: buses[2].id,
+      operatorId: op1.id,
       departureAt: vnTime(addDays(todayStart, 1), 11, 0),
       price: 220000,
       status: 'scheduled',
@@ -174,6 +183,7 @@ async function main() {
     {
       routeId: r2.id,
       busId: buses[3].id,
+      operatorId: op1.id,
       departureAt: vnTime(addDays(todayStart, 2), 13, 0),
       price: 210000,
       status: 'scheduled',
@@ -183,6 +193,7 @@ async function main() {
     {
       routeId: r3.id,
       busId: buses[4].id,
+      operatorId: op2.id,
       departureAt: vnTime(addDays(todayStart, 1), 9, 0),
       price: 350000,
       status: 'scheduled',
@@ -191,6 +202,7 @@ async function main() {
     {
       routeId: r3.id,
       busId: buses[4].id,
+      operatorId: op2.id,
       departureAt: vnTime(addDays(todayStart, 7), 15, 0),
       price: 340000,
       status: 'scheduled',
@@ -200,6 +212,7 @@ async function main() {
     {
       routeId: rRace.id,
       busId: buses[5].id,
+      operatorId: op1.id,
       departureAt: vnTime(addDays(todayStart, 1), 6, 0),
       price: 100000,
       status: 'scheduled',

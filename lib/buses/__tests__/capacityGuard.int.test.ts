@@ -47,6 +47,7 @@ beforeAll(async () => {
     data: {
       routeId,
       busId,
+      operatorId,
       departureAt: new Date(Date.now() - 86_400_000),
       price: 100_000,
       status: 'completed',
@@ -58,6 +59,7 @@ beforeAll(async () => {
     data: {
       routeId,
       busId,
+      operatorId,
       departureAt: new Date(Date.now() + 86_400_000),
       price: 100_000,
       status: 'scheduled',
@@ -69,6 +71,7 @@ beforeAll(async () => {
     data: {
       routeId,
       busId,
+      operatorId,
       departureAt: new Date(Date.now() + 2 * 86_400_000),
       price: 100_000,
       status: 'scheduled',
