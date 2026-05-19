@@ -10,7 +10,7 @@
  */
 
 import { redirect, notFound } from 'next/navigation';
-import { getOperatorSession } from '@/lib/op/getOperatorSession';
+import { getOperatorStaff } from '@/lib/op/getOperatorStaff';
 import { getTrip } from '@/lib/trips/getTrip';
 import TripDetailClient from './TripDetailClient';
 
@@ -18,17 +18,17 @@ type PageProps = { params: Promise<{ id: string }> };
 
 export default async function OpTripDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const session = await getOperatorSession();
+  const view = await getOperatorStaff();
 
-  if (!session) {
+  if (!view) {
     redirect('/op/login');
   }
 
-  if (session.requiresPasswordChange) {
+  if (view.requiresPasswordChange) {
     redirect('/op/first-login');
   }
 
-  const trip = await getTrip(session.operatorId, id);
+  const trip = await getTrip(view.operatorId, id);
   if (!trip) {
     notFound();
   }
@@ -36,7 +36,7 @@ export default async function OpTripDetailPage({ params }: PageProps) {
   return (
     <main style={{ maxWidth: 800, margin: '40px auto', padding: '0 16px' }}>
       <h1>Chi tiết chuyến xe</h1>
-      <TripDetailClient trip={trip} />
+      <TripDetailClient trip={trip} staff={view.staff} isAdmin={view.isAdmin} />
     </main>
   );
 }

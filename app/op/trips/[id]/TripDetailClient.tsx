@@ -9,6 +9,7 @@
 
 import { useState } from 'react';
 import type { TripDto } from '@/lib/trips/tripDto';
+import type { StaffDto } from '@/lib/staff/toStaffDto';
 import {
   blockSeatsApi,
   reassignBusApi,
@@ -16,9 +17,12 @@ import {
   salesToggleApi,
   pairedReturnApi,
 } from '@/lib/api/tripsClient';
+import { assignServiceApi } from '@/lib/api/staffClient';
 
 interface Props {
   trip: TripDto;
+  staff: StaffDto[];
+  isAdmin: boolean;
 }
 
 function translateError(code: string): string {
@@ -30,16 +34,22 @@ function translateError(code: string): string {
     case 'capacity_too_small': return 'Xe mới không đủ chỗ cho đặt vé hiện tại';
     case 'bus_overlap_with_outbound': return 'Xe bận chuyến khác cùng giờ';
     case 'no_reverse_route': return 'Không tìm thấy tuyến ngược chiều';
+    case 'trip_not_found': return 'Không tìm thấy chuyến';
+    case 'trip_not_assignable': return 'Chuyến không thể gán (đã huỷ/khởi hành/hoàn tất)';
     case 'not_found': return 'Không tìm thấy';
     case 'invalid_input': return 'Dữ liệu không hợp lệ';
     default: return 'Đã xảy ra lỗi';
   }
 }
 
-export default function TripDetailClient({ trip: initialTrip }: Props) {
+export default function TripDetailClient({ trip: initialTrip, staff: initialStaff, isAdmin }: Props) {
   const [trip, setTrip] = useState<TripDto>(initialTrip);
+  const [staff, setStaff] = useState<StaffDto[]>(initialStaff);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string>('');
+
+  // Assign staff to this trip
+  const [assignStaffId, setAssignStaffId] = useState('');
 
   // Block seats
   const [blockCount, setBlockCount] = useState<number>(trip.blockedSeats);
@@ -143,7 +153,32 @@ export default function TripDetailClient({ trip: initialTrip }: Props) {
     }
   }
 
+  async function handleAssignService() {
+    if (!assignStaffId) { setMessage('Chọn nhân viên để gán.'); return; }
+    setBusy(true);
+    setMessage('');
+    try {
+      const res = await assignServiceApi(assignStaffId, trip.id);
+      setStaff((prev) =>
+        prev.map((m) =>
+          m.id === res.staff.id
+            ? res.staff
+            : m.assignedTripId === trip.id
+              ? { ...m, assignedTripId: null }
+              : m
+        )
+      );
+      setMessage(`Đã gán ${res.staff.displayName} cho chuyến này.`);
+    } catch (err: unknown) {
+      const data = (err as { data?: { error?: string } }).data;
+      setMessage(translateError(data?.error ?? ''));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const cancelled = trip.status === 'cancelled';
+  const assignedStaff = staff.find((m) => m.assignedTripId === trip.id);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -267,6 +302,41 @@ export default function TripDetailClient({ trip: initialTrip }: Props) {
               Tạo chuyến về
             </button>
           </section>
+
+          {/* Assign staff to service */}
+          {isAdmin && (
+            <section style={{ padding: 16, border: '1px solid #ddd', borderRadius: 4 }}>
+              <h2 style={{ marginTop: 0 }}>Gán nhân viên phục vụ</h2>
+              <p style={{ marginTop: 0, color: '#666' }}>
+                Nhân viên hiện tại: {assignedStaff ? assignedStaff.displayName : '—'}
+              </p>
+              <select
+                value={assignStaffId}
+                onChange={(e) => setAssignStaffId(e.target.value)}
+                data-testid="assign-staff-select"
+                style={{ minWidth: 240 }}
+              >
+                <option value="">— Chọn nhân viên —</option>
+                {staff
+                  .filter((m) => !m.disabled)
+                  .map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.displayName}
+                      {m.assignedTripId && m.assignedTripId !== trip.id ? ' (đang gán chuyến khác)' : ''}
+                    </option>
+                  ))}
+              </select>
+              <button
+                type="button"
+                onClick={handleAssignService}
+                disabled={busy}
+                data-testid="assign-staff-submit"
+                style={{ marginLeft: 8 }}
+              >
+                Gán nhân viên
+              </button>
+            </section>
+          )}
 
           {/* Cancel */}
           <section style={{ padding: 16, border: '1px solid #fcc', borderRadius: 4 }}>
