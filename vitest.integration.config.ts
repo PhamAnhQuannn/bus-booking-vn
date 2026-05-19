@@ -44,6 +44,10 @@ export default defineConfig({
     testTimeout: 30_000,
     reporters: ['default'],
     env: localEnv,
+    // Sequential execution required: initiateBooking.int.test.ts has a global
+    // notificationLog.deleteMany({}) afterEach that races with any concurrent test
+    // that also creates NotificationLog rows. The integration DB is shared.
+    maxWorkers: 1,
   },
   resolve: {
     alias: {
