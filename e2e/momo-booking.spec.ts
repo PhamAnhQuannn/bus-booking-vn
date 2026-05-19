@@ -26,6 +26,7 @@
 import { test, expect, type APIRequestContext } from '@playwright/test';
 import crypto from 'crypto';
 import { BOOKING_REF_REGEX } from '../lib/booking/bookingRef';
+import { primeCsrf } from './helpers/csrf';
 
 // MoMo sandbox credentials (vendor-public — safe to use in tests)
 const MOMO_SECRET_KEY = 'at67qH6mk8w5Y1nAyMoYKMWACiEi2bsa';
@@ -81,6 +82,9 @@ const TOMORROW = vnTomorrow();
  * to get a hold cookie set on the browser context.
  */
 async function seedHoldViaUI(request: APIRequestContext, baseURL: string) {
+  // Prime CSRF (also implicitly hits GET to set bb_csrf cookie)
+  const csrf = await primeCsrf(request);
+
   // Get a hold by hitting the holds API directly
   // We need to find a trip first via the search API
   const searchRes = await request.get(`${baseURL}/api/trips/search`, {
@@ -107,6 +111,7 @@ async function seedHoldViaUI(request: APIRequestContext, baseURL: string) {
       customerName: 'MoMo E2E Test',
       customerPhone: '+8490xxxxxx9',
     },
+    headers: { 'X-CSRF-Token': csrf },
   });
 
   if (!holdRes.ok()) return null;
@@ -122,6 +127,7 @@ async function seedHoldViaUI(request: APIRequestContext, baseURL: string) {
     tripId,
     price: trips[0].price,
     holdCookieValue,
+    csrf,
   };
 }
 
@@ -137,7 +143,10 @@ test.describe('MoMo booking — initiate + webhook IPN', () => {
 
     const initiateRes = await request.post(`${baseURL}/api/bookings/initiate`, {
       data: { holdId: holdInfo.holdId, paymentMethod: 'momo' },
-      headers: { cookie: `bb_hold=${holdInfo.holdCookieValue}` },
+      headers: {
+        cookie: `bb_hold=${holdInfo.holdCookieValue}`,
+        'X-CSRF-Token': holdInfo.csrf,
+      },
     });
 
     // May fail with 502 if MoMo sandbox not reachable in test env — that's expected
@@ -169,7 +178,10 @@ test.describe('MoMo booking — webhook IPN processing', () => {
     // Create cash booking (simpler for test — avoids MoMo gateway)
     const initiateRes = await request.post(`${baseURL}/api/bookings/initiate`, {
       data: { holdId: holdInfo.holdId, paymentMethod: 'cash' },
-      headers: { cookie: `bb_hold=${holdInfo.holdCookieValue}` },
+      headers: {
+        cookie: `bb_hold=${holdInfo.holdCookieValue}`,
+        'X-CSRF-Token': holdInfo.csrf,
+      },
     });
     test.skip(!initiateRes.ok(), 'Booking initiate failed');
     if (!initiateRes.ok()) return;

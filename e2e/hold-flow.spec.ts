@@ -13,6 +13,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
+import { primeCsrf } from './helpers/csrf';
 
 /**
  * VN-timezone "tomorrow" as YYYY-MM-DD.
@@ -169,8 +170,12 @@ test.describe('Hold creation API - race condition (integration)', () => {
       buyerPhone: '0912345678',
     };
 
+    const csrf = await primeCsrf(request);
     const promises = Array.from({ length: N }, () =>
-      request.post('/api/holds', { data: body })
+      request.post('/api/holds', {
+        data: body,
+        headers: { 'X-CSRF-Token': csrf },
+      })
     );
 
     const responses = await Promise.all(promises);
