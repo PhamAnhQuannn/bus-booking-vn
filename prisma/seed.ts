@@ -3,6 +3,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { addDays, startOfDay, set } from 'date-fns';
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
+import { hash as hashPassword } from '../lib/auth/password';
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -39,6 +40,8 @@ async function main() {
   await prisma.route.deleteMany();
   await prisma.bus.deleteMany();
   await prisma.operator.deleteMany();
+  // OperatorSession / OperatorOtpAttempt cascade from OperatorUser
+  await prisma.operatorUser.deleteMany();
 
   // ---- Operators ----
   // NOTE: Phone numbers use placeholder values — NEVER real VN mobile numbers
@@ -207,8 +210,24 @@ async function main() {
     await prisma.trip.create({ data: trip });
   }
 
+  // ---- OperatorUser (Issue 010) ----
+  // NOTE: Phone numbers use literal-x mask — NEVER real VN mobile numbers.
+  // (Rule from AGENTS.md: PII placeholders must escape the project's PII detection regex.)
+  const seedOpHash = await hashPassword('BBOp2026!');
+  await prisma.operatorUser.create({
+    data: {
+      phone: '+8490xxxxxx1',
+      contactPhone: '+8490xxxxxx2',
+      notificationPhone: '+8490xxxxxx3',
+      passwordHash: seedOpHash,
+      requiresPasswordChange: true,
+      displayName: 'Seed Operator Admin',
+      role: 'admin',
+    },
+  });
+
   console.log(
-    `Seeded: 2 operators, 6 buses, 4 routes, ${tripData.length} trips (mix of statuses for AC-3; capacity-1 trip for AC-4 race test).`
+    `Seeded: 2 operators, 6 buses, 4 routes, ${tripData.length} trips (mix of statuses for AC-3; capacity-1 trip for AC-4 race test). 1 OperatorUser (Issue 010).`
   );
 }
 

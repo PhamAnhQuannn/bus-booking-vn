@@ -218,3 +218,57 @@ model Session {
 
   @@index([customerId])
 }
+
+// ---------------------------------------------------------------------------
+// Issue 010 — Operator auth models
+// ---------------------------------------------------------------------------
+
+enum OperatorRole {
+  admin
+}
+
+model OperatorUser {
+  id                     String       @id @default(cuid())
+  phone                  String       @unique
+  contactPhone           String
+  notificationPhone      String
+  passwordHash           String
+  requiresPasswordChange Boolean      @default(true)
+  displayName            String
+  role                   OperatorRole @default(admin)
+  disabledAt             DateTime?
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+  sessions               OperatorSession[]
+
+  @@index([createdAt])
+}
+
+model OperatorSession {
+  id               String       @id @default(cuid())
+  operatorUserId   String
+  refreshTokenHash String       @unique
+  tokenFamily      String
+  rotationCount    Int          @default(0)
+  expiresAt        DateTime
+  createdAt        DateTime     @default(now())
+  revokedAt        DateTime?
+  operator         OperatorUser @relation(fields: [operatorUserId], references: [id], onDelete: Cascade)
+
+  @@index([operatorUserId])
+}
+
+model OperatorOtpAttempt {
+  id           String    @id @default(cuid())
+  phone        String
+  codeHash     String
+  salt         String
+  expiresAt    DateTime
+  consumed     Boolean   @default(false)
+  consumedAt   DateTime?
+  attemptCount Int       @default(0)
+  createdAt    DateTime  @default(now())
+  ipAddress    String?
+
+  @@index([phone, createdAt(sort: Desc)])
+}
