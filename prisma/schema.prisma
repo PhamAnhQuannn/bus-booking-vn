@@ -120,27 +120,30 @@ enum NotificationStatus {
 }
 
 model Booking {
-  id                 String        @id @db.Uuid
-  bookingRef         String        @unique
-  confirmationToken  String        @unique
+  id                 String            @id @db.Uuid
+  bookingRef         String            @unique
+  confirmationToken  String            @unique
   tripId             String
-  holdId             String?       @unique
+  holdId             String?           @unique
+  customerId         String?
   buyerName          String
   buyerPhone         String
   ticketCount        Int
   totalVnd           Int
   paymentMethod      PaymentMethod
   paymentExternalRef String?
-  status             BookingStatus @default(awaiting_payment)
-  isManual           Boolean       @default(false)
-  createdAt          DateTime      @default(now())
-  trip               Trip          @relation(fields: [tripId], references: [id])
-  hold               Hold?         @relation(fields: [holdId], references: [id], onDelete: Restrict)
+  status             BookingStatus     @default(awaiting_payment)
+  isManual           Boolean           @default(false)
+  createdAt          DateTime          @default(now())
+  trip               Trip              @relation(fields: [tripId], references: [id])
+  hold               Hold?             @relation(fields: [holdId], references: [id], onDelete: Restrict)
+  customer           Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
   notifications      NotificationLog[]
   paymentEvents      PaymentEvent[]
 
   @@index([tripId, status])
   @@index([confirmationToken])
+  @@index([customerId])
 }
 
 model PaymentEvent {
@@ -152,7 +155,7 @@ model PaymentEvent {
   resultCode  Int
   receivedAt  DateTime @default(now())
 
-  booking     Booking  @relation(fields: [bookingId], references: [id])
+  booking Booking @relation(fields: [bookingId], references: [id])
 
   @@unique([adapter, externalRef])
   @@index([bookingId])
@@ -172,4 +175,46 @@ model NotificationLog {
   booking     Booking             @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([bookingId])
+}
+
+model Customer {
+  id           String    @id @default(cuid())
+  phone        String    @unique
+  email        String?
+  passwordHash String?
+  displayName  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  lastLoginAt  DateTime?
+  sessions     Session[]
+  bookings     Booking[]
+}
+
+model OtpAttempt {
+  id           String    @id @default(cuid())
+  phone        String
+  codeHash     String
+  salt         String
+  expiresAt    DateTime
+  consumed     Boolean   @default(false)
+  consumedAt   DateTime?
+  attemptCount Int       @default(0)
+  createdAt    DateTime  @default(now())
+  ipAddress    String?
+
+  @@index([phone, createdAt(sort: Desc)])
+}
+
+model Session {
+  id               String    @id @default(cuid())
+  customerId       String
+  refreshTokenHash String    @unique
+  tokenFamily      String
+  rotationCount    Int       @default(0)
+  expiresAt        DateTime
+  createdAt        DateTime  @default(now())
+  revokedAt        DateTime?
+  customer         Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
 }
