@@ -25,6 +25,12 @@ export interface AccessPayload {
   role: 'customer';
 }
 
+export interface OperatorAccessPayload {
+  sub: string;
+  scope: 'operator';
+  requiresPasswordChange: boolean;
+}
+
 /**
  * Sign an access token.
  * Returns a compact HS256 JWT with exp = now + 900 s.
@@ -40,8 +46,9 @@ export async function signAccess(payload: AccessPayload): Promise<string> {
 }
 
 /**
- * Verify an access token.
+ * Verify a customer access token.
  * Returns { sub, role } on success, null on any failure (expired, tampered, missing).
+ * Also rejects tokens that carry scope='operator' (INVALID_SCOPE guard).
  */
 export async function verifyAccess(token: string): Promise<AccessPayload | null> {
   try {
@@ -51,8 +58,50 @@ export async function verifyAccess(token: string): Promise<AccessPayload | null>
     });
     const sub = payload.sub;
     const role = payload['role'];
+    const scope = payload['scope'];
+    // Reject operator-scoped tokens from customer HOF (scope cross-contamination guard)
+    if (scope === 'operator') return null;
     if (typeof sub !== 'string' || role !== 'customer') return null;
     return { sub, role: 'customer' };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Sign an operator access token.
+ * Returns a compact HS256 JWT with exp = now + 900 s, scope='operator',
+ * and requiresPasswordChange claim.
+ * The requiresPasswordChange claim enables proxy.ts to enforce the forced-redirect
+ * without a DB call. The JWT is rotated on password-change, so stale-claim risk
+ * is bounded by the 15-min access-token TTL.
+ */
+export async function signOperatorAccess(payload: OperatorAccessPayload): Promise<string> {
+  const secret = getSecret();
+  return new SignJWT({ scope: payload.scope, requiresPasswordChange: payload.requiresPasswordChange })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setSubject(payload.sub)
+    .setIssuedAt()
+    .setExpirationTime(`${ACCESS_TTL_SECONDS}s`)
+    .sign(secret);
+}
+
+/**
+ * Verify an operator access token.
+ * Returns { sub, scope, requiresPasswordChange } on success, null on any failure.
+ * Rejects customer-scoped tokens (INVALID_SCOPE guard).
+ */
+export async function verifyOperatorAccess(token: string): Promise<OperatorAccessPayload | null> {
+  try {
+    const secret = getSecret();
+    const { payload } = await jwtVerify(token, secret, {
+      algorithms: ['HS256'],
+    });
+    const sub = payload.sub;
+    const scope = payload['scope'];
+    if (typeof sub !== 'string' || scope !== 'operator') return null;
+    const requiresPasswordChange = payload['requiresPasswordChange'] === true;
+    return { sub, scope: 'operator', requiresPasswordChange };
   } catch {
     return null;
   }

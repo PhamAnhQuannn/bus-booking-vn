@@ -69,4 +69,26 @@ describe('jwt', () => {
     const result = await verifyAccess(expiredToken);
     expect(result).toBeNull();
   });
+
+  // ---------------------------------------------------------------------------
+  // Cross-scope rejection (AC5 — Gap 1)
+  // ---------------------------------------------------------------------------
+
+  describe('cross-scope rejection', () => {
+    it('verifyAccess returns null for operator-scoped JWT (INVALID_SCOPE guard)', async () => {
+      const { signOperatorAccess, verifyAccess } = await import('../jwt');
+      const opToken = await signOperatorAccess({ sub: 'op-99', scope: 'operator', requiresPasswordChange: false });
+      const result = await verifyAccess(opToken);
+      // Must reject — operator scope must not pass the customer guard
+      expect(result).toBeNull();
+    });
+
+    it('verifyOperatorAccess returns null for customer-scoped JWT (INVALID_SCOPE guard)', async () => {
+      const { signAccess, verifyOperatorAccess } = await import('../jwt');
+      const custToken = await signAccess({ sub: 'cust-99', role: 'customer' });
+      const result = await verifyOperatorAccess(custToken);
+      // Must reject — customer scope must not pass the operator guard
+      expect(result).toBeNull();
+    });
+  });
 });
