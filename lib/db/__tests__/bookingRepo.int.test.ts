@@ -40,12 +40,12 @@ beforeAll(async () => {
   operatorId = operator.id;
 
   const bus = await prisma.bus.create({
-    data: { operatorId, capacity: 10, plateNumber: 'TEST-BR-001' },
+    data: { operatorId, capacity: 10, licensePlate: 'TEST-BR-001', busType: 'coach' },
   });
   busId = bus.id;
 
   const bus1 = await prisma.bus.create({
-    data: { operatorId, capacity: 1, plateNumber: 'TEST-BR-002' },
+    data: { operatorId, capacity: 1, licensePlate: 'TEST-BR-002', busType: 'coach' },
   });
   busId_cap1 = bus1.id;
 
@@ -253,7 +253,7 @@ describe('getBookingByConfirmationToken', () => {
     expect(fetched?.trip.route.origin).toBe('BR Test Origin');
     expect(fetched?.trip.route.destination).toBe('BR Test Destination');
     expect(fetched?.trip.bus.operator.legalName).toBe('BookingRepo Test Operator');
-    expect(fetched?.trip.bus.plateNumber).toBe('TEST-BR-001');
+    expect(fetched?.trip.bus.licensePlate).toBe('TEST-BR-001');
   });
 
   it('returns null for an unknown token', async () => {

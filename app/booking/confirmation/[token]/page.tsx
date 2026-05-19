@@ -90,7 +90,7 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
           </div>
           <div className="flex justify-between gap-4">
             <dt className="text-gray-600">Xe</dt>
-            <dd className="text-right font-mono">{trip.bus.plateNumber}</dd>
+            <dd className="text-right font-mono">{trip.bus.licensePlate}</dd>
           </div>
           <div className="flex justify-between gap-4">
             <dt className="text-gray-600">Nhà xe</dt>

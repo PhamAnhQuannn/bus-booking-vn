@@ -36,12 +36,12 @@ beforeAll(async () => {
   operatorId = operator.id;
 
   const bus1 = await prisma.bus.create({
-    data: { operatorId, capacity: 10, plateNumber: 'TEST-HR-001' },
+    data: { operatorId, capacity: 10, licensePlate: 'TEST-HR-001', busType: 'coach' },
   });
   busId1 = bus1.id;
 
   const bus2 = await prisma.bus.create({
-    data: { operatorId, capacity: 1, plateNumber: 'TEST-HR-002' },
+    data: { operatorId, capacity: 1, licensePlate: 'TEST-HR-002', busType: 'coach' },
   });
   busId_cap1 = bus2.id;
 
