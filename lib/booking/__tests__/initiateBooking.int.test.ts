@@ -43,7 +43,7 @@ beforeAll(async () => {
   busId = bus.id;
 
   const route = await prisma.route.create({
-    data: { origin: 'IB Test Origin', destination: 'IB Test Destination' },
+    data: { origin: 'IB Test Origin', destination: 'IB Test Destination', operatorId, durationMinutes: 240 },
   });
   routeId = route.id;
 

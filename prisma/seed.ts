@@ -82,11 +82,11 @@ async function main() {
   ]);
 
   // ---- Routes ----
-  const r1 = await prisma.route.create({ data: { origin: 'Hà Nội', destination: 'TP.HCM' } });
-  const r2 = await prisma.route.create({ data: { origin: 'Đà Nẵng', destination: 'Huế' } });
-  const r3 = await prisma.route.create({ data: { origin: 'Cần Thơ', destination: 'Đà Lạt' } });
+  const r1 = await prisma.route.create({ data: { origin: 'Hà Nội', destination: 'TP.HCM', operatorId: op1.id, durationMinutes: 960 } });
+  const r2 = await prisma.route.create({ data: { origin: 'Đà Nẵng', destination: 'Huế', operatorId: op1.id, durationMinutes: 120 } });
+  const r3 = await prisma.route.create({ data: { origin: 'Cần Thơ', destination: 'Đà Lạt', operatorId: op2.id, durationMinutes: 300 } });
   // Dedicated route for e2e race-condition test (capacity-1 bus, AC-4)
-  const rRace = await prisma.route.create({ data: { origin: 'E2E Race Origin', destination: 'E2E Race Destination' } });
+  const rRace = await prisma.route.create({ data: { origin: 'E2E Race Origin', destination: 'E2E Race Destination', operatorId: op1.id, durationMinutes: 240 } });
 
   // ---- Trips ----
   // today in VN time
