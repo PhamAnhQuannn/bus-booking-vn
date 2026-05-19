@@ -21,10 +21,14 @@ const mockPrisma = vi.hoisted(() => {
     update: vi.fn(),
     updateMany: vi.fn(),
   };
-  const txProxy = { operatorSession };
+  const operatorUser = {
+    findUnique: vi.fn().mockResolvedValue({ operatorId: 'op-org-1', role: 'admin' }),
+  };
+  const txProxy = { operatorSession, operatorUser };
   return {
     $transaction: vi.fn(async (fn: (tx: typeof txProxy) => Promise<unknown>) => fn(txProxy)),
     operatorSession,
+    operatorUser,
   };
 });
 

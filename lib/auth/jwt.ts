@@ -28,6 +28,8 @@ export interface AccessPayload {
 export interface OperatorAccessPayload {
   sub: string;
   scope: 'operator';
+  /** Issue 016: operator role claim — 'admin' | 'staff'. Encoded in JWT for Edge-runtime read. */
+  role: 'admin' | 'staff';
   requiresPasswordChange: boolean;
   /** Operator org id (Issue 011) — encoded in JWT for Edge-runtime read. */
   operatorId: string;
@@ -82,6 +84,8 @@ export async function signOperatorAccess(payload: OperatorAccessPayload): Promis
   const secret = getSecret();
   return new SignJWT({
     scope: payload.scope,
+    // Issue 016: role claim — defensive: falls back to 'admin' if not provided (one-release grace for old sessions).
+    role: payload.role ?? 'admin',
     requiresPasswordChange: payload.requiresPasswordChange,
     operatorId: payload.operatorId,
   })
@@ -110,7 +114,10 @@ export async function verifyOperatorAccess(token: string): Promise<OperatorAcces
     // Issue 011: tokens without operatorId claim are stale — force re-login.
     if (typeof operatorId !== 'string' || operatorId.length === 0) return null;
     const requiresPasswordChange = payload['requiresPasswordChange'] === true;
-    return { sub, scope: 'operator', requiresPasswordChange, operatorId };
+    // Issue 016: role claim — defensive fallback to 'admin' for tokens minted before this release.
+    const rawRole = payload['role'];
+    const role: 'admin' | 'staff' = rawRole === 'staff' ? 'staff' : 'admin';
+    return { sub, scope: 'operator', role, requiresPasswordChange, operatorId };
   } catch {
     return null;
   }

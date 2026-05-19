@@ -93,7 +93,8 @@ export interface IssueOperatorSessionResult extends OperatorSessionTokens {
 export async function issueOperatorSession(
   operatorUserId: string,
   requiresPasswordChange = false,
-  operatorId?: string
+  operatorId?: string,
+  role?: 'admin' | 'staff'
 ): Promise<IssueOperatorSessionResult> {
   const family = crypto.randomUUID();
   const tokenId = crypto.randomUUID();
@@ -118,19 +119,24 @@ export async function issueOperatorSession(
   });
 
   // Issue 011: operatorId claim is required. Resolve from DB if caller didn't pass it.
+  // Issue 016: role claim also resolved from DB if not passed by caller.
   let resolvedOperatorId = operatorId;
-  if (!resolvedOperatorId) {
+  let resolvedRole = role;
+  if (!resolvedOperatorId || !resolvedRole) {
     const user = await prisma.operatorUser.findUnique({
       where: { id: operatorUserId },
-      select: { operatorId: true },
+      select: { operatorId: true, role: true },
     });
     if (!user) throw new Error('OPERATOR_USER_NOT_FOUND');
-    resolvedOperatorId = user.operatorId;
+    resolvedOperatorId ??= user.operatorId;
+    resolvedRole ??= user.role as 'admin' | 'staff';
   }
 
   const accessToken = await signOperatorAccess({
     sub: operatorUserId,
     scope: 'operator',
+    // Issue 016: role claim — defensive fallback to 'admin' for one-release grace period.
+    role: resolvedRole ?? 'admin',
     requiresPasswordChange,
     operatorId: resolvedOperatorId,
   });
@@ -194,19 +200,24 @@ export async function rotateOperatorRefresh(
     });
 
     // Issue 011: operatorId must be present in the new token.
+    // Issue 016: role claim also required in the new token.
     let resolvedOperatorId = operatorId;
-    if (!resolvedOperatorId) {
+    let resolvedRole: 'admin' | 'staff' | undefined;
+    if (!resolvedOperatorId || !resolvedRole) {
       const user = await tx.operatorUser.findUnique({
         where: { id: session.operatorUserId },
-        select: { operatorId: true },
+        select: { operatorId: true, role: true },
       });
       if (!user) throw new Error('OPERATOR_USER_NOT_FOUND');
-      resolvedOperatorId = user.operatorId;
+      resolvedOperatorId ??= user.operatorId;
+      resolvedRole ??= user.role as 'admin' | 'staff';
     }
 
     const accessToken = await signOperatorAccess({
       sub: session.operatorUserId,
       scope: 'operator',
+      // Issue 016: role claim — defensive fallback to 'admin' for one-release grace period.
+      role: resolvedRole ?? 'admin',
       requiresPasswordChange,
       operatorId: resolvedOperatorId,
     });
