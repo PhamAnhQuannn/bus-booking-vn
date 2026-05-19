@@ -139,6 +139,7 @@ model Trip {
   bookings             Booking[]
   generationLogs       RecurringGenerationLog[]
   payouts              Payout[]
+  assignedStaff        OperatorUser[]            @relation("StaffAssignment")
 
   @@index([status, departureAt])
   @@index([routeId, departureAt])
@@ -262,7 +263,7 @@ model PaymentEvent {
 
 model NotificationLog {
   id           String              @id @default(cuid())
-  bookingId    String              @db.Uuid
+  bookingId    String?             @db.Uuid
   channel      NotificationChannel @default(sms)
   template     String
   recipient    String
@@ -272,7 +273,7 @@ model NotificationLog {
   sentAt       DateTime?
   scheduledFor DateTime?           // S19 cron: payout_scheduled dispatch time (completedAt+3d)
   createdAt    DateTime            @default(now())
-  booking      Booking             @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  booking      Booking?            @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([bookingId])
   @@index([template, scheduledFor])
@@ -344,11 +345,15 @@ model OperatorUser {
   updatedAt              DateTime     @updatedAt
   /// Issue 014: badge — last time operator viewed the bookings queue
   lastBookingsViewedAt   DateTime?
+  /// Issue 017: single trip a staff member is assigned to (V1 constraint); null for admins
+  assignedTripId         String?
   operator               Operator     @relation(fields: [operatorId], references: [id])
+  assignedTrip           Trip?        @relation("StaffAssignment", fields: [assignedTripId], references: [id])
   sessions               OperatorSession[]
 
   @@index([createdAt])
   @@index([operatorId])
+  @@index([assignedTripId])
 }
 
 model OperatorSession {
