@@ -26,12 +26,15 @@ const ACCESS_COOKIE = 'bb_op_access';
 export interface RequireOperatorAuthOptions {
   /** Allow the wrapped route to run even if requiresPasswordChange=true. Default: false. */
   allowDuringPasswordChange?: boolean;
+  /** Issue 017: return 403 FORBIDDEN when the authenticated operator's role !== 'admin'. Default: false. */
+  adminOnly?: boolean;
 }
 
-/** Context the HOF threads to the wrapped handler (Issue 011). */
+/** Context the HOF threads to the wrapped handler (Issue 011, role added Issue 017). */
 export interface OperatorAuthContext {
   operatorUserId: string;
   operatorId: string;
+  role: 'admin' | 'staff';
 }
 
 type Handler = (req: NextRequest, ctx: OperatorAuthContext) => Promise<Response>;
@@ -40,7 +43,7 @@ type AnyHandler = Handler | LegacyHandler;
 type HOF = (handler: AnyHandler) => LegacyHandler;
 
 export function requireOperatorAuth(options: RequireOperatorAuthOptions = {}): HOF {
-  const { allowDuringPasswordChange = false } = options;
+  const { allowDuringPasswordChange = false, adminOnly = false } = options;
 
   return (handler: AnyHandler): LegacyHandler => {
     return async (req: NextRequest): Promise<Response> => {
@@ -66,6 +69,7 @@ export function requireOperatorAuth(options: RequireOperatorAuthOptions = {}): H
           requiresPasswordChange: true,
           disabledAt: true,
           operatorId: true,
+          role: true,
         },
       });
 
@@ -78,9 +82,15 @@ export function requireOperatorAuth(options: RequireOperatorAuthOptions = {}): H
         return NextResponse.json({ error: 'PASSWORD_CHANGE_REQUIRED' }, { status: 403 });
       }
 
+      // Issue 017: admin-only routes reject staff role
+      if (adminOnly && operator.role !== 'admin') {
+        return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 });
+      }
+
       const ctx: OperatorAuthContext = {
         operatorUserId: operator.id,
         operatorId: operator.operatorId,
+        role: operator.role,
       };
       return (handler as Handler)(req, ctx);
     };
