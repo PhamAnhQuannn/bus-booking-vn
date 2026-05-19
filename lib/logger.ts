@@ -27,6 +27,8 @@
  * - currentPassword            — plaintext current password (Issue 010)
  * - contactPhone               — operator contact phone PII (Issue 010)
  * - notificationPhone          — operator notification phone PII (Issue 010)
+ * - *.address                  — pickup point street address (Issue 012)
+ * - pickupAddress              — top-level pickup address shorthand (Issue 012)
  */
 
 import pino, { type LoggerOptions } from 'pino';
@@ -60,6 +62,8 @@ export const loggerOptions: LoggerOptions = {
       'currentPassword',
       'contactPhone',
       'notificationPhone',
+      '*.address',
+      'pickupAddress',
     ],
     censor: '[REDACTED]',
   },

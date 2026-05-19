@@ -58,6 +58,7 @@ export async function searchTrips(input: TripSearchInput): Promise<TripResult[]>
       SELECT id FROM "Route"
       WHERE unaccent_immutable(lower(origin)) ILIKE '%' || ${normalizedOrigin} || '%'
         AND unaccent_immutable(lower(destination)) ILIKE '%' || ${normalizedDest} || '%'
+        AND "deactivatedAt" IS NULL
     `
   );
 

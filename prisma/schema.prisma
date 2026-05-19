@@ -17,6 +17,7 @@ model Operator {
   createdAt         DateTime  @default(now())
   buses             Bus[]
   operatorUsers     OperatorUser[]
+  routes            Route[]
 
   @@index([id])
 }
@@ -56,13 +57,34 @@ model BusMaintenance {
 }
 
 model Route {
-  id          String   @id @default(cuid())
-  origin      String
-  destination String
-  createdAt   DateTime @default(now())
-  trips       Trip[]
+  id              String       @id @default(cuid())
+  origin          String
+  destination     String
+  operatorId      String
+  durationMinutes Int
+  deactivatedAt   DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  trips           Trip[]
+  operator        Operator     @relation(fields: [operatorId], references: [id], onDelete: Restrict)
+  pickupPoints    PickupPoint[]
 
   @@index([origin, destination])
+  @@index([operatorId])
+}
+
+model PickupPoint {
+  id            String    @id @default(cuid())
+  routeId       String
+  name          String
+  address       String
+  displayOrder  Int
+  deactivatedAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  route         Route     @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  @@index([routeId, displayOrder])
 }
 
 enum TripStatus {
