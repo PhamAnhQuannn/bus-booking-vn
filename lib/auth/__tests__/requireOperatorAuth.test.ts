@@ -67,6 +67,8 @@ function makeOperator(overrides: Partial<{
   requiresPasswordChange: boolean;
   disabledAt: Date | null;
   operatorId: string;
+  role: 'admin' | 'staff';
+  assignedTripId: string | null;
 }> = {}) {
   return {
     id: 'op-1',
@@ -75,6 +77,8 @@ function makeOperator(overrides: Partial<{
     requiresPasswordChange: false,
     disabledAt: null,
     operatorId: 'op-org-1',
+    role: 'admin' as 'admin' | 'staff',
+    assignedTripId: null as string | null,
     ...overrides,
   };
 }
@@ -200,6 +204,99 @@ describe('requireOperatorAuth', () => {
       const json = await res.json();
       expect(json.error).toBe('UNAUTHORIZED');
       expect(fakeHandler).not.toHaveBeenCalled();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // (f) Issue 018 staff-scope guard
+  // ---------------------------------------------------------------------------
+
+  describe('(f) staffTripScope guard', () => {
+    function primeStaff(assignedTripId: string | null) {
+      mockCookieStore.get.mockReturnValue({ value: 'valid-token' });
+      mockVerifyOperatorAccess.mockResolvedValue({ sub: 'op-1', scope: 'operator', requiresPasswordChange: false });
+      mockPrismaOperatorUser.findUnique.mockResolvedValue(
+        makeOperator({ role: 'staff', assignedTripId })
+      );
+    }
+
+    it('invokes the handler when the resolved tripId matches the staff assignment', async () => {
+      primeStaff('trip-1');
+
+      const handler = requireOperatorAuth({ staffTripScope: () => 'trip-1' })(fakeHandler);
+      const res = await handler(makeRequest({ cookie: 'valid-token' }));
+
+      expect(fakeHandler).toHaveBeenCalled();
+      expect(res.status).toBe(200);
+    });
+
+    it('returns 404 when the resolved tripId is a different trip (cross-trip)', async () => {
+      primeStaff('trip-1');
+
+      const handler = requireOperatorAuth({ staffTripScope: () => 'trip-2' })(fakeHandler);
+      const res = await handler(makeRequest({ cookie: 'valid-token' }));
+
+      expect(res.status).toBe(404);
+      const json = await res.json();
+      expect(json.error).toBe('not_found');
+      expect(fakeHandler).not.toHaveBeenCalled();
+    });
+
+    it('returns 404 when the staff member has no assignment (assignedTripId=null)', async () => {
+      primeStaff(null);
+
+      const handler = requireOperatorAuth({ staffTripScope: () => 'trip-1' })(fakeHandler);
+      const res = await handler(makeRequest({ cookie: 'valid-token' }));
+
+      expect(res.status).toBe(404);
+      const json = await res.json();
+      expect(json.error).toBe('not_found');
+      expect(fakeHandler).not.toHaveBeenCalled();
+    });
+
+    it('returns 404 when the resolver cannot map the target to a trip (returns null)', async () => {
+      primeStaff('trip-1');
+
+      const handler = requireOperatorAuth({ staffTripScope: () => null })(fakeHandler);
+      const res = await handler(makeRequest({ cookie: 'valid-token' }));
+
+      expect(res.status).toBe(404);
+      const json = await res.json();
+      expect(json.error).toBe('not_found');
+      expect(fakeHandler).not.toHaveBeenCalled();
+    });
+
+    it('reflects a re-assignment on the next request (fresh assignedTripId read)', async () => {
+      // First request: assigned to trip-1, resolver targets trip-1 → admitted.
+      primeStaff('trip-1');
+      const handler = requireOperatorAuth({ staffTripScope: () => 'trip-1' })(fakeHandler);
+      const first = await handler(makeRequest({ cookie: 'valid-token' }));
+      expect(first.status).toBe(200);
+
+      // Admin re-assigns to trip-2 (Issue 017). Next request reads the fresh
+      // assignment; the same resolver targeting trip-1 is now a cross-trip 404.
+      vi.clearAllMocks();
+      fakeHandler.mockResolvedValue(NextResponse.json({ ok: true }));
+      primeStaff('trip-2');
+      const second = await handler(makeRequest({ cookie: 'valid-token' }));
+      expect(second.status).toBe(404);
+      expect(fakeHandler).not.toHaveBeenCalled();
+    });
+
+    it('admin role bypasses the staff-scope guard regardless of resolver value', async () => {
+      mockCookieStore.get.mockReturnValue({ value: 'valid-token' });
+      mockVerifyOperatorAccess.mockResolvedValue({ sub: 'op-1', scope: 'operator', requiresPasswordChange: false });
+      mockPrismaOperatorUser.findUnique.mockResolvedValue(
+        makeOperator({ role: 'admin', assignedTripId: null })
+      );
+
+      const resolver = vi.fn(() => 'trip-99');
+      const handler = requireOperatorAuth({ staffTripScope: resolver })(fakeHandler);
+      const res = await handler(makeRequest({ cookie: 'valid-token' }));
+
+      expect(fakeHandler).toHaveBeenCalled();
+      expect(res.status).toBe(200);
+      expect(resolver).not.toHaveBeenCalled();
     });
   });
 });

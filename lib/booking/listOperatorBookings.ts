@@ -17,6 +17,7 @@ export const ListOperatorBookingsParamsSchema = z.object({
   busId: z.string().optional(),
   serviceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   routeId: z.string().optional(),
+  tripId: z.string().optional(),
   contactStatus: z.enum(['pending', 'reached', 'no_answer', 'callback']).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
   cursor: z.string().optional(),
@@ -65,7 +66,7 @@ export async function listOperatorBookings(
   params: ListOperatorBookingsParams
 ): Promise<ListOperatorBookingsResult> {
   const parsed = ListOperatorBookingsParamsSchema.parse(params);
-  const { busId, serviceDate, routeId, contactStatus, limit, cursor } = parsed;
+  const { busId, serviceDate, routeId, tripId, contactStatus, limit, cursor } = parsed;
 
   // Build date range filter from serviceDate.
   // Trip.departureAt is stored in UTC. Vietnam timezone is UTC+7, so a Vietnam-local
@@ -86,6 +87,7 @@ export async function listOperatorBookings(
       ...(cursor ? { id: { gt: cursor } } : {}),
       trip: {
         operatorId,
+        ...(tripId ? { id: tripId } : {}),
         ...(busId ? { busId } : {}),
         ...(routeId ? { routeId } : {}),
         ...(dateFilter ? { departureAt: dateFilter } : {}),  // VN-local day window

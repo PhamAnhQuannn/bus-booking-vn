@@ -28,13 +28,29 @@ export interface RequireOperatorAuthOptions {
   allowDuringPasswordChange?: boolean;
   /** Issue 017: return 403 FORBIDDEN when the authenticated operator's role !== 'admin'. Default: false. */
   adminOnly?: boolean;
+  /**
+   * Issue 018: staff-scope guard for trip-scoped routes. When set and the
+   * authenticated operator's role === 'staff', the resolver returns the tripId
+   * the request targets; the route is admitted only if that tripId equals the
+   * staff member's assignedTripId. Any mismatch — a different trip, a trip the
+   * resolver can't map (returns null), or a staff member with no assignment
+   * (assignedTripId === null) — returns 404, never 403: staff must not learn
+   * that other trips exist. Admin callers bypass this guard entirely.
+   *
+   * The resolver may read the request body or hit the DB (e.g. booking → tripId),
+   * so it is async. assignedTripId is read fresh from the DB on every request,
+   * so a re-assignment (Issue 017) takes effect on the staff member's next call
+   * with no stale-session window.
+   */
+  staffTripScope?: (ctx: OperatorAuthContext) => string | null | Promise<string | null>;
 }
 
-/** Context the HOF threads to the wrapped handler (Issue 011, role added Issue 017). */
+/** Context the HOF threads to the wrapped handler (Issue 011, role added Issue 017, assignedTripId added Issue 018). */
 export interface OperatorAuthContext {
   operatorUserId: string;
   operatorId: string;
   role: 'admin' | 'staff';
+  assignedTripId: string | null;
 }
 
 type Handler = (req: NextRequest, ctx: OperatorAuthContext) => Promise<Response>;
@@ -43,7 +59,7 @@ type AnyHandler = Handler | LegacyHandler;
 type HOF = (handler: AnyHandler) => LegacyHandler;
 
 export function requireOperatorAuth(options: RequireOperatorAuthOptions = {}): HOF {
-  const { allowDuringPasswordChange = false, adminOnly = false } = options;
+  const { allowDuringPasswordChange = false, adminOnly = false, staffTripScope } = options;
 
   return (handler: AnyHandler): LegacyHandler => {
     return async (req: NextRequest): Promise<Response> => {
@@ -70,6 +86,7 @@ export function requireOperatorAuth(options: RequireOperatorAuthOptions = {}): H
           disabledAt: true,
           operatorId: true,
           role: true,
+          assignedTripId: true,
         },
       });
 
@@ -91,7 +108,21 @@ export function requireOperatorAuth(options: RequireOperatorAuthOptions = {}): H
         operatorUserId: operator.id,
         operatorId: operator.operatorId,
         role: operator.role,
+        assignedTripId: operator.assignedTripId,
       };
+
+      // Issue 018: staff-scope guard. Constrain staff to their assigned trip;
+      // any mismatch is a 404 (do not leak the existence of other trips).
+      if (staffTripScope && ctx.role === 'staff') {
+        if (ctx.assignedTripId === null) {
+          return NextResponse.json({ error: 'not_found' }, { status: 404 });
+        }
+        const targetTripId = await staffTripScope(ctx);
+        if (targetTripId === null || targetTripId !== ctx.assignedTripId) {
+          return NextResponse.json({ error: 'not_found' }, { status: 404 });
+        }
+      }
+
       return (handler as Handler)(req, ctx);
     };
   };

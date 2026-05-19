@@ -179,6 +179,36 @@ export async function pairedReturnApi(
   return res.json();
 }
 
+export async function departTripApi(
+  id: string
+): Promise<{ ok: boolean; alreadyDeparted: boolean; trip: TripDto }> {
+  const res = await fetch(`/api/op/trips/${id}/depart`, {
+    method: 'POST',
+    headers: { 'X-CSRF-Token': readCsrfToken() },
+    credentials: 'same-origin',
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw Object.assign(new Error('departTrip failed'), { status: res.status, data });
+  }
+  return res.json();
+}
+
+export async function completeTripApi(
+  id: string
+): Promise<{ ok: boolean; alreadyCompleted: boolean; trip: TripDto; payoutJobsEnqueued: number }> {
+  const res = await fetch(`/api/op/trips/${id}/complete`, {
+    method: 'POST',
+    headers: { 'X-CSRF-Token': readCsrfToken() },
+    credentials: 'same-origin',
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw Object.assign(new Error('completeTrip failed'), { status: res.status, data });
+  }
+  return res.json();
+}
+
 // ---------------------------------------------------------------------------
 // Trip Templates
 // ---------------------------------------------------------------------------
