@@ -11,7 +11,7 @@ export interface TripDto {
   operatorId: string;
   departureAt: string; // ISO 8601
   price: number;
-  status: 'scheduled' | 'cancelled' | 'completed';
+  status: 'scheduled' | 'departed' | 'cancelled' | 'completed';
   salesClosed: boolean;
   blockedSeats: number;
   capacity: number;
