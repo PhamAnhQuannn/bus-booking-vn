@@ -125,13 +125,93 @@ Rating computed from: (a) domain set in group, (b) presence of schema/payment/au
 
 ### Auto-chain on approval
 
-Plan is presented, user approves. **On approve → auto-stage group → auto-`/verify` → next group; final group → auto-`/smoke-test`.** Not "suggest" — fire.
+Plan is presented, user approves. **On approve → auto-stage group → auto-`/verify` → next group; final group → auto-`/smoke-test` → push branch → open draft PR → review gates against PR# → ready or stay-draft.** Not "suggest" — fire.
 
 - Wait for explicit user `approve` / `yes` / `go`
 - For each group in order: `git add <files>` → `git commit -m "<message>"` → invoke `/verify`
 - If `/verify` fails mid-chain: halt, surface the failing group, do not proceed to the next group
 - After the final group lands cleanly: invoke `/smoke-test` automatically
+- After `/smoke-test` passes: run push + draft-PR sub-step (below), then review gates against the open draft PR
 - `RISKY`-rated groups pause for re-confirmation before staging even within an approved chain
+
+### Push + draft-PR after final commit
+
+After the final group lands and `/smoke-test` passes, push the branch and open a **draft** PR. Draft state is the hard-block signal — review gates run against the open PR; the PR transitions to ready only when P1 count hits 0.
+
+Pre-push gate (refuse, surface to user):
+- Current branch must NOT be `main` / `master` / `trunk` / `develop` — if it is, stop and tell user to switch to a feature branch first. Never push commits directly to a default branch.
+- `git remote` must list at least one remote (prefer `origin`). If none, skip push+PR and tell user.
+- `gh auth status` must succeed. If `gh` missing or unauthenticated, push only and surface the compare URL for manual PR creation. Review gates skip (they require `<PR#>`); user must open PR manually then re-invoke `/code-review <PR#>` etc. by hand.
+
+Re-confirm before pushing (blast radius > local commit):
+- Show user: branch name, remote, commit count, target base branch (`gh repo view --json defaultBranchRef`).
+- Wait for explicit `push` / `yes` / `go`. `approve` from the original plan does NOT carry over — push is a separate gate.
+
+On confirm:
+1. `git push -u <remote> <branch>` (use `-u` only if upstream not set)
+2. Build PR title from the highest-impact commit subject (schema > payment > auth > business domain > ui > infra > claude-config). Strip the `type(scope):` prefix when the body already lists per-commit scopes.
+3. Build PR body via HEREDOC. Include marker `<!-- opened-by-commit-split -->` at end so `/pr-inbox` recognizes this as a chain-managed draft. Test plan lines are filled in by review gates after they run (initial values shown as `pending`):
+   ```
+   <!-- opened-by-commit-split -->
+   ## Summary
+   - <one bullet per commit group, in dependency order>
+
+   ## Test plan
+   - [x] /verify passed per group
+   - [x] /smoke-test passed on final group
+   - [ ] /code-review: pending
+   - [ ] /pr-review: pending
+   - [ ] /architect-review: pending (or "skipped — no risk groups")
+   - [ ] <any group-specific gate, e.g. payment-webhook review>
+   ```
+4. **`gh pr create --draft --title "<title>" --body "$(cat <<'EOF' ... EOF)" --base <default-branch>`** — open as DRAFT. Capture PR# from `gh pr create` stdout (last URL segment) or follow with `gh pr view --json number -q .number` on the branch.
+5. Add label `commit-split-chain` for `/pr-inbox` filtering: `gh pr edit <PR#> --add-label commit-split-chain` (best-effort; ignore if label doesn't exist in repo).
+6. Surface to user: "Draft PR opened: <URL>. Running review gates against PR #<PR#>…"
+
+If `gh pr create` fails (network, perms, draft policy), surface the error verbatim + the compare URL `https://<host>/<owner>/<repo>/compare/<base>...<branch>`. Do not retry blindly. Review gates abort (no PR# to run against).
+
+### Review gates on draft PR
+
+After the draft PR is open and PR# is captured, run review-quality gates **against the PR**. Any **P1** finding from any gate keeps the PR in draft state (hard-block signal). Gates run with chain context: set env var `COMMIT_SPLIT_CHAIN=1` (or write marker file `.claude/_chain-marker`) so each review skill auto-comments findings to the PR per its own logic.
+
+Gate order (run sequentially, surface combined findings):
+
+1. **`/code-review <PR#>`** — line-level diff review (correctness, security, failure mode, test coverage, naming, hygiene). Pinned to PR's `headRefOid`. Writes `docs/qa/code-review-pr<PR#>-YYYYMMDD.md` + posts findings comment on PR (chain mode). Read P1 count from report header.
+2. **`/pr-review <PR#>`** — PR-shape review (scope, size, commit msgs, negative-space audit on real PR body, rollback path, PR desc). Writes `docs/qa/pr-review-pr<PR#>-YYYYMMDD.md` + posts comment. Read P1 count from header.
+3. **`/architect-review <PR#>`** — repo-wide architectural audit at PR HEAD (via temp branch from PR ref). **Conditional trigger** — only invoke when:
+   - Committed group set includes `schema` | `auth` | `payment`, OR
+   - Committed group set spans 3+ detected business domains
+   - Otherwise skip (heavy; not warranted for low-risk diffs). When skipped, treat as 0 P1 and record "skipped — no risk groups" in PR body Test plan.
+
+After each gate, update the PR body Test plan line via `gh pr edit <PR#> --body "<new body>"`: replace `pending` with `<P1> P1, <P2> P2 (clean if all zero)` or `skipped — no risk groups`.
+
+**Hard-block logic (draft → ready transition):**
+
+- Sum P1 counts across the three reports (skipped architect-review contributes 0).
+- If combined P1 == 0:
+  - `gh pr ready <PR#>` → PR transitions to ready-for-review.
+  - Surface PR URL to user. Done.
+- If combined P1 > 0:
+  - PR stays draft (no `gh pr ready` call). Each gate has already posted its own findings comment (chain mode). Optionally post one aggregated summary comment listing all P1 findings with source skill tagged: `gh pr comment <PR#> --body "<aggregated P1 list>"`.
+  - Surface combined P1 list to user (file:line + fix per finding, source skill tagged) plus the PR URL.
+  - Tell user: "PR #<PR#> stays draft until P1 findings are fixed. Fix locally, push to update the branch, then re-invoke `/commit-split` review-gate step (or `/code-review <PR#>` etc. individually). OR type `override-p1: <reason>` to mark ready anyway."
+
+**Override path:**
+
+- User responds `override-p1: <reason>`.
+  1. Read current PR body: `gh pr view <PR#> --json body -q .body`.
+  2. Append `## Review Overrides` section listing the reason + each P1 finding it bypasses (file:line + source skill).
+  3. `gh pr edit <PR#> --body "<new body>"` to commit the appended section.
+  4. `gh pr ready <PR#>` to transition the PR to ready.
+  5. Surface PR URL.
+
+P2/P3 findings: review skills already posted them as separate comments. Surfaced in PR body Test plan counts. Do not gate.
+
+**Re-run behavior:**
+
+- Review reports are idempotent per PR + per day (PR mode filenames include `pr<PR#>` so they don't collide with local-mode reports).
+- If user fixes P1 and re-pushes the branch, the PR's `headRefOid` updates. Re-invoke the review-gate step (or `/commit-split` from the push step) — gates re-pin to the new SHA, re-run, re-comment with fresh findings.
+- The chain does NOT auto-detect re-pushes. User triggers re-run explicitly.
 
 ---
 
@@ -172,7 +252,7 @@ Group 3 [<detected-domain>] — N files — rollback: SAFE | CARE | RISKY
   Resolve: decide if this belongs in <domain-A>, <domain-B>, or shared-lib, then split manually.
 
 RECOMMENDED NEXT STEP: git add <group-1-files> && git commit -m "..."
-APPROVE TO AUTO-CHAIN: reply `approve` → auto-stage → auto-/verify per group → auto-/smoke-test after final group
+APPROVE TO AUTO-CHAIN: reply `approve` → auto-stage → auto-/verify per group → auto-/smoke-test after final group → push (separate confirm) → open DRAFT PR → /code-review <PR#> + /pr-review <PR#> + /architect-review <PR#> (conditional) → P1==0 marks PR ready; P1>0 leaves PR draft + posts findings comment; `override-p1: <reason>` marks ready with override recorded in PR body
 ```
 
 ---
@@ -186,3 +266,8 @@ APPROVE TO AUTO-CHAIN: reply `approve` → auto-stage → auto-/verify per group
 - Cross-domain files are flagged
 - Gate / post-commit requirements are noted per group
 - On user approval, auto-chain fires `/verify` per group and `/smoke-test` after the final group
+- After `/smoke-test` passes, prompt for push confirm; on confirm, push branch and open **draft** PR via `gh pr create --draft`; capture PR#; label `commit-split-chain`; surface URL (or compare URL if `gh` unavailable — review gates skip in that case)
+- Review gates (`/code-review <PR#>`, `/pr-review <PR#>`, conditional `/architect-review <PR#>`) run against the open draft PR with chain context (`COMMIT_SPLIT_CHAIN=1`); each writes its `docs/qa/*-pr<PR#>-*.md` report and posts a PR comment
+- Combined P1 == 0 → `gh pr ready <PR#>` transitions PR to ready; P1 > 0 → PR stays draft, user fixes + re-pushes (or supplies `override-p1: <reason>`)
+- On `override-p1: <reason>`: append `## Review Overrides` section to PR body via `gh pr edit`, then `gh pr ready <PR#>`
+- PR body Test plan lists review findings counts (updated after each gate); PR body Review Overrides section lists any `override-p1` reasons; PR body marker `<!-- opened-by-commit-split -->` lets `/pr-inbox` recognize chain-managed drafts

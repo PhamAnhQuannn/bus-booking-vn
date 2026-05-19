@@ -51,6 +51,12 @@ Match the user's description + current git state against trigger conditions:
 | native-module ABI mismatch (e.g. "broke after npm install", "NODE_MODULE_VERSION")      | `/better-sqlite3-rebuild` (Node + better-sqlite3 example)             |
 | "removing/renaming a symbol used in many files"                                         | `/atomic-file-edit` first                                             |
 | "browser test", "smoke", "playwright"                                                   | `/smoke-test`                                                         |
+| "review PRs", "what needs review", "open PR list", "PR inbox"                           | `/pr-inbox`                                                           |
+| "address review", "respond to review", "what does the reviewer want", "act on PR feedback" (with a PR#) | `/pr-feedback-route <PR#>`                                |
+| "deep security check on PR", "crypto review", "threat-model delta" (with a PR#) | `/security-review-deep <PR#>`                                          |
+| "perf review", "is this slow", "N+1", "bundle size" (with a PR#)                | `/perf-review <PR#>`                                                   |
+| "observability gaps", "logs traces metrics", "is this instrumented" (with a PR#) | `/observability-review <PR#>`                                          |
+| "back-compat", "breaking change", "new dep safe" (with a PR#)                   | `/backcompat-review <PR#>`                                             |
 
 ---
 

@@ -44,6 +44,9 @@ Each input is optional. Note presence/absence in the report.
 | `docs/classify/<project>.md` (class label `**Class: <XS\|S\|M\|L\|XL>**`)                | Glob + Read      | flag — recommend `/project-classify`; default to `M` for filter pass |
 | `docs/design/wireframes/**.md`, `docs/design/design-system.md`, `docs/design/flows/**.md`, `docs/design/a11y-*.md` | Glob | "no design docs — UI/UX gate open" |
 | `D:\Skills\reports\sim100\<class>-*.md` + `D:\Skills\reports\<class>-*.md` (same-class sim fixtures, dedupe by slug, prefer sim100; sample up to 5) | Glob + Read | warn — sanity-check section emits "SKIP: no fixtures (need ≥3)" |
+| `gh pr list --state open --json number --limit 1` (capture `open_pr_count = N`) | Bash | silent-fail if `gh` not authed or not a GitHub repo → treat as `open_pr_count = 0` |
+
+Render `Open PRs: <N>  (run /pr-inbox to triage)` in the audit header only when `open_pr_count ≥ 1`.
 
 ---
 
@@ -241,6 +244,9 @@ AUDIT / SURVEY
   "What debt accumulated?"                    → /debt-scan
   "Is naming/structure consistent?"           → /consistency-audit
 
+OPEN PRs (open_pr_count ≥ 1; stage ∈ {building, mature, pre-launch})
+  Open PRs need review                        → /pr-inbox   (triages each PR, surfaces the right /code-review + /pr-review + /architect-review + always-on /security-review-deep + /perf-review + /observability-review + /backcompat-review commands per PR — single dispatcher, no enumeration here)
+
 PRE-LAUNCH (all issues DONE, stage ∈ {pre-launch, mature} ONLY — suppressed otherwise)
   Fixed sequence                              → /verify → /smoke-test → /commit-split (then manually run /ultrareview — billed, never auto-recommended; see Billed-Skill Registry)
   Class XL pre-launch (ops cluster — boost)   → /dr-drill, /rollback-plan, /deploy-health-gate, /prod-smoke
@@ -350,6 +356,11 @@ Centralized here (single edit point) rather than per-skill frontmatter on
    boost set, filling remaining slots up to 5.
 7. P1 auto-elevation (L363) still wins over everything — it prepends a
    risk-driven step to position 1 regardless of boost set.
+8. **Open-PR elevation (post-boost, pre-cap).** If `open_pr_count ≥ 1` AND
+   stage ∈ {`building`, `mature`, `pre-launch`} → prepend `/pr-inbox` to
+   position 1 (shifting boost + stage-table picks down by one). Still apply
+   the cap of 5. Rule 7 (P1 risk) still wins when both fire — risk-driven
+   remediation owns position 1; `/pr-inbox` slots to position 2.
 
 Render a one-line summary in the report:
 
@@ -512,6 +523,7 @@ the Class-Aware Boost block first, then fill remaining slots from this table:
 
 **Top-1 auto-elevation rules (in priority order — first match wins):**
 1. Any **P1 risk** elevates its remediation skill to position 1 regardless of stage/class.
+1a. **Open-PR elevation.** `open_pr_count ≥ 1 AND stage ∈ {building, mature, pre-launch}` → top-1 = `/pr-inbox`. Stage-table top recommendation drops one slot. Rule 1 (P1 risk) still wins when both fire. Bounded to `building`+ because open PRs in `greenfield`/`spec'd`/`planned` would mean inconsistent repo state — fall back to existing detection.
 2. `class=S AND stage ∈ {greenfield, spec'd, planned} AND no PRD` → top-1 = `/idea-capture`.
 3. `class=S AND stage ∈ {greenfield, spec'd, planned} AND validation pending` → top-1 = `/lean-canvas`.
 4. `class=L AND stage=planned AND no PRD` → top-1 = `/write-a-prd`.
