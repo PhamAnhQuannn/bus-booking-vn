@@ -87,6 +87,8 @@ model PickupPoint {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   route         Route     @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  /// Bookings that have a pickup point assigned (Issue 014)
+  bookings      Booking[]
 
   @@index([routeId, displayOrder])
 }
@@ -117,6 +119,10 @@ model Trip {
   blockedSeats         Int                       @default(0)
   cancelReason         String?
   cancelledAt          DateTime?
+  /// Issue 014: timestamp when operator marked trip as departed
+  departedAt           DateTime?
+  /// Issue 014: timestamp when operator marked trip as completed
+  completedAt          DateTime?
   /// FK to RecurringTripTemplate; null for one-off trips
   recurringTemplateId  String?
   /// Paired return trip id (self-referential)
@@ -168,6 +174,14 @@ enum BookingStatus {
   payment_failed_expired
 }
 
+/// Contact status for operator call-queue management (Issue 014).
+enum ContactStatus {
+  pending
+  reached
+  no_answer
+  callback
+}
+
 enum PaymentMethod {
   cash
   momo
@@ -201,15 +215,32 @@ model Booking {
   status             BookingStatus     @default(awaiting_payment)
   isManual           Boolean           @default(false)
   createdAt          DateTime          @default(now())
+  /// Issue 014: operator call-queue contact tracking
+  contactStatus      ContactStatus     @default(pending)
+  /// Pickup point assigned during call-outcome (FK → PickupPoint; null = use route default)
+  pickupPointId      String?
+  /// Free-text pickup note when no configured pickup points exist
+  pickupNote         String?
+  /// Timestamp when boarding was marked (SET-TRUE-ONLY per SPEC NOTE)
+  pickedUpAt         DateTime?
+  /// Timestamp when cash was collected by operator
+  cashCollectedAt    DateTime?
+  /// Escalation note set by operator
+  escalationNote     String?
+  /// Timestamp of escalation
+  escalatedAt        DateTime?
   trip               Trip              @relation(fields: [tripId], references: [id])
   hold               Hold?             @relation(fields: [holdId], references: [id], onDelete: Restrict)
   customer           Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  pickupPoint        PickupPoint?      @relation(fields: [pickupPointId], references: [id], onDelete: SetNull)
   notifications      NotificationLog[]
   paymentEvents      PaymentEvent[]
 
   @@index([tripId, status])
   @@index([confirmationToken])
   @@index([customerId])
+  @@index([tripId, contactStatus])
+  @@index([tripId, pickedUpAt])
 }
 
 model PaymentEvent {
@@ -228,19 +259,21 @@ model PaymentEvent {
 }
 
 model NotificationLog {
-  id          String              @id @default(cuid())
-  bookingId   String              @db.Uuid
-  channel     NotificationChannel @default(sms)
-  template    String
-  recipient   String
-  payload     String
-  status      NotificationStatus  @default(pending)
-  externalRef String?
-  sentAt      DateTime?
-  createdAt   DateTime            @default(now())
-  booking     Booking             @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  id           String              @id @default(cuid())
+  bookingId    String              @db.Uuid
+  channel      NotificationChannel @default(sms)
+  template     String
+  recipient    String
+  payload      String
+  status       NotificationStatus  @default(pending)
+  externalRef  String?
+  sentAt       DateTime?
+  scheduledFor DateTime?           // S19 cron: payout_scheduled dispatch time (completedAt+3d)
+  createdAt    DateTime            @default(now())
+  booking      Booking             @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([bookingId])
+  @@index([template, scheduledFor])
 }
 
 model Customer {
@@ -306,6 +339,8 @@ model OperatorUser {
   disabledAt             DateTime?
   createdAt              DateTime     @default(now())
   updatedAt              DateTime     @updatedAt
+  /// Issue 014: badge — last time operator viewed the bookings queue
+  lastBookingsViewedAt   DateTime?
   operator               Operator     @relation(fields: [operatorId], references: [id])
   sessions               OperatorSession[]
 
