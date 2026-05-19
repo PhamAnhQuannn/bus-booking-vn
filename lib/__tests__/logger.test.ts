@@ -68,4 +68,16 @@ describe('logger redactPaths', () => {
       expect(redactPaths, `missing top-level redact path: ${field}`).toContain(field);
     }
   });
+
+  it('masks Issue 010 operator auth PII fields', async () => {
+    const { loggerOptions } = await import('../logger');
+    const redactPaths = Array.isArray(loggerOptions.redact)
+      ? loggerOptions.redact
+      : (loggerOptions.redact as { paths: string[] }).paths;
+
+    const required = ['newPassword', 'currentPassword', 'contactPhone', 'notificationPhone'];
+    for (const field of required) {
+      expect(redactPaths, `missing redact path: ${field}`).toContain(field);
+    }
+  });
 });

@@ -23,6 +23,10 @@
  * - *.refreshToken             — refresh token (Issue 007)
  * - *.refreshTokenHash         — stored refresh token hash (Issue 007)
  * - *.codeHash                 — stored OTP hash (Issue 007)
+ * - newPassword                — plaintext new password (Issue 010)
+ * - currentPassword            — plaintext current password (Issue 010)
+ * - contactPhone               — operator contact phone PII (Issue 010)
+ * - notificationPhone          — operator notification phone PII (Issue 010)
  */
 
 import pino, { type LoggerOptions } from 'pino';
@@ -52,6 +56,10 @@ export const loggerOptions: LoggerOptions = {
       '*.refreshToken',
       '*.refreshTokenHash',
       '*.codeHash',
+      'newPassword',
+      'currentPassword',
+      'contactPhone',
+      'notificationPhone',
     ],
     censor: '[REDACTED]',
   },

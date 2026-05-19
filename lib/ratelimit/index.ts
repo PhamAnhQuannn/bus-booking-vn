@@ -127,3 +127,6 @@ export function createRatelimit(options: InMemoryRatelimitOptions): Ratelimit {
 
 /** Default shared ratelimit: 60 requests/min/IP */
 export const ratelimit = createRatelimit({ limit: 60, windowMs: 60_000 });
+
+/** Operator forgot-password OTP send: 3 per 15 min per phone (Issue 010) */
+export const opForgotPasswordRatelimit = createRatelimit({ limit: 3, windowMs: 15 * 60_000 });
