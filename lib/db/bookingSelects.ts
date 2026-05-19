@@ -31,7 +31,7 @@ export const bookingDetailSelect = {
       route: { select: { origin: true, destination: true } },
       bus: {
         select: {
-          plateNumber: true,
+          licensePlate: true,
           operator: { select: { legalName: true, contactPhone: true } },
         },
       },
