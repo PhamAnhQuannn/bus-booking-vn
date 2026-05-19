@@ -88,9 +88,9 @@ async function prepareOperators(): Promise<{
     );
     if (opBUser.rows.length === 0) {
       await client.query(
-        `INSERT INTO "OperatorUser" ("id","phone","passwordHash","operatorId","role","requiresPasswordChange","displayName")
-         VALUES (gen_random_uuid()::text, $1, $2, $3, 'admin', false, 'Op B Admin')`,
-        [OP_B_PHONE, await hash(OP_B_PASSWORD), opBId]
+        `INSERT INTO "OperatorUser" ("id","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName")
+         VALUES (gen_random_uuid()::text, $1, $4, $5, $2, $3, 'admin', false, 'Op B Admin')`,
+        [OP_B_PHONE, await hash(OP_B_PASSWORD), opBId, '+8490xxxxxx9', '+8490xxxxxx8']
       );
     }
 
