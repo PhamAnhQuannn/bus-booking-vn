@@ -80,4 +80,39 @@ describe('logger redactPaths', () => {
       expect(redactPaths, `missing redact path: ${field}`).toContain(field);
     }
   });
+
+  it('masks Issue 015 manual booking PII fields (buyerPhone + buyerName)', async () => {
+    const { loggerOptions } = await import('../logger');
+    const redactPaths = Array.isArray(loggerOptions.redact)
+      ? loggerOptions.redact
+      : (loggerOptions.redact as { paths: string[] }).paths;
+
+    expect(redactPaths, 'missing buyerPhone redact path').toContain('buyerPhone');
+    expect(redactPaths, 'missing buyerName redact path').toContain('buyerName');
+  });
+
+  it('redacts buyerPhone and buyerName to [REDACTED] in pino stream output', async () => {
+    const { Writable } = await import('stream');
+    const pino = await import('pino');
+    const { loggerOptions } = await import('../logger');
+
+    const chunks: string[] = [];
+    const sink = new Writable({
+      write(chunk, _enc, cb) {
+        chunks.push(chunk.toString());
+        cb();
+      },
+    });
+
+    const testLogger = pino.default({ ...loggerOptions, level: 'info' }, sink);
+    testLogger.info({ buyerPhone: '0912345678', buyerName: 'Nguyen Van A' }, 'test redaction');
+
+    // Drain the stream
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const output = chunks.join('');
+    expect(output).toContain('[REDACTED]');
+    expect(output).not.toContain('0912345678');
+    expect(output).not.toContain('Nguyen Van A');
+  });
 });

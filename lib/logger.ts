@@ -29,6 +29,10 @@
  * - notificationPhone          — operator notification phone PII (Issue 010)
  * - *.address                  — pickup point street address (Issue 012)
  * - pickupAddress              — top-level pickup address shorthand (Issue 012)
+ * - pickupNote                 — operator free-text pickup note (Issue 014)
+ * - escalationNote             — operator escalation note (Issue 014)
+ * - buyerPhone                 — manual booking buyer phone PII (Issue 015)
+ * - buyerName                  — manual booking buyer name PII (Issue 015)
  */
 
 import pino, { type LoggerOptions } from 'pino';
@@ -64,6 +68,10 @@ export const loggerOptions: LoggerOptions = {
       'notificationPhone',
       '*.address',
       'pickupAddress',
+      'pickupNote',
+      'escalationNote',
+      'buyerPhone',
+      'buyerName',
     ],
     censor: '[REDACTED]',
   },

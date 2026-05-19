@@ -161,3 +161,36 @@ export const SalesToggleSchema = z.object({
 });
 
 export type SalesToggleInput = z.infer<typeof SalesToggleSchema>;
+
+// ---------------------------------------------------------------------------
+// POST /api/op/trips/[id]/manual-booking  (Issue 015)
+// ---------------------------------------------------------------------------
+
+// buyerName: min 4 Unicode letters (accepts any script, not ASCII-only)
+const UNICODE_LETTER_REGEX = /\p{L}/u;
+
+// buyerPhone: VN mobile (local or +84) — same predicate as lib/validation/auth.ts
+// PII placeholder form (+8490xxxxxx[0-9]) is accepted for test fixtures — regex uses \d
+const BUYER_PHONE_REGEX = /^(0|\+84)[35789]\d{8}$/;
+
+export const ManualBookingSchema = z.object({
+  buyerName: z
+    .string()
+    .trim()
+    .min(4, 'buyerName must be at least 4 characters')
+    .refine(
+      (v) => UNICODE_LETTER_REGEX.test(v),
+      'buyerName must contain at least one letter'
+    ),
+  buyerPhone: z
+    .string()
+    .trim()
+    .regex(BUYER_PHONE_REGEX, 'buyerPhone must be a valid VN mobile number'),
+  ticketCount: z
+    .number()
+    .int()
+    .min(1, 'ticketCount must be at least 1'),
+  paymentMethod: z.enum(['paid', 'cash']),
+});
+
+export type ManualBookingInput = z.infer<typeof ManualBookingSchema>;

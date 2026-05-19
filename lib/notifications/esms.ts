@@ -11,7 +11,13 @@
 
 import { logger } from '@/lib/logger';
 
-export type SmsTemplate = 'bookingPendingCash' | 'operatorNewBooking' | 'customerBookingPaid' | 'otpCode';
+export type SmsTemplate =
+  | 'bookingPendingCash'
+  | 'operatorNewBooking'
+  | 'customerBookingPaid'
+  | 'otpCode'
+  | 'manualBookingPaid'
+  | 'manualBookingCash';
 
 export interface SendSmsInput {
   to: string;
@@ -64,6 +70,18 @@ export function renderTemplate(template: SmsTemplate, payload: Record<string, st
       );
     case 'otpCode':
       return `BusBookVN: Ma xac thuc cua ban la ${payload.code}. Het han sau ${payload.expiryMinutes} phut. Khong chia se ma nay.`;
+    case 'manualBookingPaid':
+      return (
+        `BusBookVN: Nha xe xac nhan ${payload.ticketCount} ve, chuyen ${payload.route} ` +
+        `${payload.departureAt}. Da thanh toan. Ma dat cho: ${payload.bookingRef}. ` +
+        `Ho tro: ${payload.operatorPhone}`
+      );
+    case 'manualBookingCash':
+      return (
+        `BusBookVN: Nha xe giu cho ${payload.ticketCount} ve, chuyen ${payload.route} ` +
+        `${payload.departureAt}. Vui long tra tien mat khi len xe. Ma dat cho: ${payload.bookingRef}. ` +
+        `Ho tro: ${payload.operatorPhone}`
+      );
     default: {
       const exhaustive: never = template;
       throw new Error(`unknown template: ${String(exhaustive)}`);

@@ -29,6 +29,38 @@ describe('renderTemplate', () => {
   });
 });
 
+describe('renderTemplate — manual booking templates', () => {
+  it('renders manualBookingPaid with all placeholders', () => {
+    const body = renderTemplate('manualBookingPaid', {
+      ticketCount: 2,
+      route: 'Hanoi → Sapa',
+      departureAt: '20/05 07:00',
+      bookingRef: 'BB-2026-ab12-cd34',
+      operatorPhone: '0901xxxxxx', // local format — avoids gitleaks
+    });
+    expect(body).toContain('2 ve');
+    expect(body).toContain('Hanoi → Sapa');
+    expect(body).toContain('BB-2026-ab12-cd34');
+    expect(body).toContain('Da thanh toan');
+    expect(body).toContain('0901xxxxxx');
+  });
+
+  it('renders manualBookingCash with all placeholders', () => {
+    const body = renderTemplate('manualBookingCash', {
+      ticketCount: 3,
+      route: 'HCM → Can Tho',
+      departureAt: '21/05 08:00',
+      bookingRef: 'BB-2026-ef56-gh78',
+      operatorPhone: '0902xxxxxx', // local format — avoids gitleaks
+    });
+    expect(body).toContain('3 ve');
+    expect(body).toContain('HCM → Can Tho');
+    expect(body).toContain('BB-2026-ef56-gh78');
+    expect(body).toContain('tien mat');
+    expect(body).toContain('0902xxxxxx');
+  });
+});
+
 describe('sendSms (stub)', () => {
   it('returns ok:true with a stub externalRef', async () => {
     const result = await sendSms({
