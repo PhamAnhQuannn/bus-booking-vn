@@ -1,6 +1,6 @@
 /**
  * Ratelimit factory — exports Ratelimit interface, InMemoryRatelimit (dev/CI default),
- * and UpstashRatelimit stub (production, body deferred to Issue 002).
+ * and UpstashRatelimit (production, sliding window via @upstash/ratelimit).
  */
 
 export interface RatelimitResult {
@@ -66,23 +66,48 @@ export class InMemoryRatelimit implements Ratelimit {
 
 /**
  * Production rate limiter backed by Upstash Redis.
- * The full body (sliding window algorithm) is deferred to Issue 002.
- * In this issue it stubs the interface so the route handler can import
- * a Ratelimit without runtime errors in production builds.
+ * Uses sliding window algorithm via @upstash/ratelimit.
  */
 export class UpstashRatelimit implements Ratelimit {
-  constructor(_options: { limit?: number; windowMs?: number }) {
-    // Upstash client initialized lazily on first call (Issue 002)
+  private readonly maxRequests: number;
+  private readonly windowMs: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private rl: any = null;
+
+  constructor(options: InMemoryRatelimitOptions) {
+    this.maxRequests = options.limit;
+    this.windowMs = options.windowMs;
   }
 
-  async limit(_identifier: string): Promise<RatelimitResult> {
-    // Deferred to Issue 002 — in production, this should never be called
-    // without UPSTASH_REDIS_REST_URL being set.
-    if (!process.env.UPSTASH_REDIS_REST_URL) {
-      throw new Error('UPSTASH_REDIS_REST_URL is required for UpstashRatelimit');
-    }
-    // Stub: allow all requests until Issue 002 wires real Upstash client
-    return { allowed: true, remaining: 59, retryAfter: 0 };
+  private async getClient() {
+    if (this.rl !== null) return this.rl;
+
+    const url = process.env.UPSTASH_REDIS_REST_URL;
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+    if (!url || !token) throw new Error('Upstash env vars not configured');
+
+    // Lazy import to avoid loading Upstash in CI/dev without env vars
+    const { Ratelimit: UpstashRL } = await import('@upstash/ratelimit');
+    const { Redis } = await import('@upstash/redis');
+    const redis = new Redis({ url, token });
+    const windowStr = `${Math.round(this.windowMs / 60_000)} m` as `${number} m`;
+    this.rl = new UpstashRL({
+      redis,
+      limiter: UpstashRL.slidingWindow(this.maxRequests, windowStr),
+    });
+    return this.rl;
+  }
+
+  async limit(identifier: string): Promise<RatelimitResult> {
+    const client = await this.getClient();
+    const result = await client.limit(identifier);
+    const now = Date.now();
+    const retryAfterSecs = result.success ? 0 : Math.max(0, Math.ceil((result.reset - now) / 1000));
+    return {
+      allowed: result.success,
+      remaining: result.remaining,
+      retryAfter: retryAfterSecs,
+    };
   }
 }
 
@@ -94,7 +119,7 @@ export class UpstashRatelimit implements Ratelimit {
  * - Production (UPSTASH_REDIS_REST_URL set): UpstashRatelimit
  */
 export function createRatelimit(options: InMemoryRatelimitOptions): Ratelimit {
-  if (process.env.UPSTASH_REDIS_REST_URL) {
+  if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
     return new UpstashRatelimit(options);
   }
   return new InMemoryRatelimit(options);
@@ -102,4 +127,3 @@ export function createRatelimit(options: InMemoryRatelimitOptions): Ratelimit {
 
 /** Default shared ratelimit: 60 requests/min/IP */
 export const ratelimit = createRatelimit({ limit: 60, windowMs: 60_000 });
-

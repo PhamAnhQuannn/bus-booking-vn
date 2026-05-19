@@ -34,4 +34,38 @@ describe('logger redactPaths', () => {
       : (loggerOptions.redact as { paths: string[] }).paths;
     expect(redactPaths).toContain('req.headers.authorization');
   });
+
+  it('masks all 8 Issue 007 auth PII fields', async () => {
+    const { loggerOptions } = await import('../logger');
+    const redactPaths = Array.isArray(loggerOptions.redact)
+      ? loggerOptions.redact
+      : (loggerOptions.redact as { paths: string[] }).paths;
+
+    const required = [
+      '*.password',
+      '*.passwordHash',
+      '*.otpCode',
+      '*.code',
+      '*.accessToken',
+      '*.refreshToken',
+      '*.refreshTokenHash',
+      '*.codeHash',
+    ];
+
+    for (const field of required) {
+      expect(redactPaths, `missing redact path: ${field}`).toContain(field);
+    }
+  });
+
+  it('has top-level redact paths for phone, otp, otpProof, accessToken, refreshToken', async () => {
+    const { loggerOptions } = await import('../logger');
+    const redactPaths = Array.isArray(loggerOptions.redact)
+      ? loggerOptions.redact
+      : (loggerOptions.redact as { paths: string[] }).paths;
+
+    const topLevel = ['phone', 'otp', 'otpProof', 'accessToken', 'refreshToken'];
+    for (const field of topLevel) {
+      expect(redactPaths, `missing top-level redact path: ${field}`).toContain(field);
+    }
+  });
 });

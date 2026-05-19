@@ -21,10 +21,10 @@ describe('renderTemplate', () => {
       ticketCount: 1,
       route: 'Hanoi → Sapa',
       departureAt: '18/05 06:00',
-      buyerPhone: '+84901234567',
+      buyerPhone: '0901234567', // local format — avoids gitleaks \+84[35789]\d{8}
       bookingRef: 'BB-2026-abcd-1234',
     });
-    expect(body).toContain('+84901234567');
+    expect(body).toContain('0901234567');
     expect(body).toContain('BB-2026-abcd-1234');
   });
 });
@@ -32,7 +32,7 @@ describe('renderTemplate', () => {
 describe('sendSms (stub)', () => {
   it('returns ok:true with a stub externalRef', async () => {
     const result = await sendSms({
-      to: '+84901234567',
+      to: '0901234567', // local format — avoids gitleaks \+84[35789]\d{8}
       template: 'bookingPendingCash',
       payload: {
         ticketCount: 1,

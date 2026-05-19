@@ -10,6 +10,19 @@
  * - customerName               — buyer PII (Issue 002)
  * - bb_hold                    — signed cookie value (Issue 002)
  * - HOLD_SECRET                — HMAC signing key (Issue 002)
+ * - phone                      — top-level phone PII (Issue 007)
+ * - otp                        — top-level OTP code (Issue 007)
+ * - otpProof                   — top-level OTP proof JWT (Issue 007)
+ * - accessToken                — top-level access token (Issue 007)
+ * - refreshToken               — top-level refresh token (Issue 007)
+ * - *.password                 — plaintext password (Issue 007)
+ * - *.passwordHash             — argon2id/scrypt hash (Issue 007)
+ * - *.otpCode                  — OTP code (Issue 007)
+ * - *.code                     — raw OTP code shorthand (Issue 007)
+ * - *.accessToken              — JWT access token (Issue 007)
+ * - *.refreshToken             — refresh token (Issue 007)
+ * - *.refreshTokenHash         — stored refresh token hash (Issue 007)
+ * - *.codeHash                 — stored OTP hash (Issue 007)
  */
 
 import pino, { type LoggerOptions } from 'pino';
@@ -26,6 +39,19 @@ export const loggerOptions: LoggerOptions = {
       'customerName',
       'bb_hold',
       'HOLD_SECRET',
+      'phone',
+      'otp',
+      'otpProof',
+      'accessToken',
+      'refreshToken',
+      '*.password',
+      '*.passwordHash',
+      '*.otpCode',
+      '*.code',
+      '*.accessToken',
+      '*.refreshToken',
+      '*.refreshTokenHash',
+      '*.codeHash',
     ],
     censor: '[REDACTED]',
   },
