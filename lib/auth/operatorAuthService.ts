@@ -43,6 +43,7 @@ export async function operatorLogin(input: OperatorLoginInput): Promise<Operator
       passwordHash: true,
       requiresPasswordChange: true,
       disabledAt: true,
+      operatorId: true,
     },
   });
 
@@ -62,7 +63,7 @@ export async function operatorLogin(input: OperatorLoginInput): Promise<Operator
     throw new AuthServiceError('INVALID_CREDENTIALS');
   }
 
-  const session = await issueOperatorSession(user.id, user.requiresPasswordChange);
+  const session = await issueOperatorSession(user.id, user.requiresPasswordChange, user.operatorId);
 
   return {
     accessToken: session.accessToken,

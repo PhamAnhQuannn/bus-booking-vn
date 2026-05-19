@@ -77,7 +77,7 @@ describe('jwt', () => {
   describe('cross-scope rejection', () => {
     it('verifyAccess returns null for operator-scoped JWT (INVALID_SCOPE guard)', async () => {
       const { signOperatorAccess, verifyAccess } = await import('../jwt');
-      const opToken = await signOperatorAccess({ sub: 'op-99', scope: 'operator', requiresPasswordChange: false });
+      const opToken = await signOperatorAccess({ sub: 'op-99', scope: 'operator', requiresPasswordChange: false, operatorId: 'op-org-1' });
       const result = await verifyAccess(opToken);
       // Must reject — operator scope must not pass the customer guard
       expect(result).toBeNull();

@@ -44,10 +44,12 @@ const OP_AUTH_FREE_PATHS = new Set(['/op/login', '/op/first-login']);
 // /op/* path prefixes that are auth-API routes (exempted from page redirect)
 const OP_API_AUTH_PREFIX = '/api/op/auth/';
 
-/** Decode the JWT payload without hitting the DB — used for forced-redirect guard. */
+/** Decode the JWT payload without hitting the DB — used for forced-redirect guard.
+ *  Issue 011: operatorId claim is mandatory. Tokens without it are stale (pre-Issue-011
+ *  mint) and must force re-login. */
 async function decodeOperatorJwt(
   token: string
-): Promise<{ sub: string; requiresPasswordChange: boolean } | null> {
+): Promise<{ sub: string; requiresPasswordChange: boolean; operatorId: string } | null> {
   try {
     const raw =
       process.env.JWT_SECRET ??
@@ -56,9 +58,13 @@ async function decodeOperatorJwt(
     const secret = new TextEncoder().encode(raw);
     const { payload } = await jwtVerify(token, secret, { algorithms: ['HS256'] });
     if (payload['scope'] !== 'operator' || typeof payload.sub !== 'string') return null;
+    const operatorId = payload['operatorId'];
+    // Issue 011: missing operatorId claim → stale token → force re-login
+    if (typeof operatorId !== 'string' || operatorId.length === 0) return null;
     return {
       sub: payload.sub,
       requiresPasswordChange: payload['requiresPasswordChange'] === true,
+      operatorId,
     };
   } catch {
     return null;

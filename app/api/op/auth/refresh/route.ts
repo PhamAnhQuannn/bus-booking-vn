@@ -36,16 +36,18 @@ async function handler(_req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: 'INVALID_SESSION' }, { status: 401 });
   }
 
-  // Look up requiresPasswordChange so the new access token carries the current flag
+  // Look up requiresPasswordChange + operatorId so the new access token carries
+  // both claims (Issue 011 — operatorId in JWT for Edge-runtime read).
   const operator = await prisma.operatorUser.findUnique({
     where: { id: verified.payload.operatorUserId },
-    select: { requiresPasswordChange: true },
+    select: { requiresPasswordChange: true, operatorId: true },
   });
   const requiresPasswordChange = operator?.requiresPasswordChange ?? false;
+  const operatorId = operator?.operatorId;
 
   let result;
   try {
-    result = await rotateOperatorRefresh(verified.hash, requiresPasswordChange);
+    result = await rotateOperatorRefresh(verified.hash, requiresPasswordChange, operatorId);
   } catch {
     // SESSION_NOT_FOUND or other DB error
     cookieStore.set('bb_op_access', '', { maxAge: 0, path: '/' });

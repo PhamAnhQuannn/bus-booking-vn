@@ -63,7 +63,7 @@ beforeEach(() => {
     if (name === 'bb_op_access') return { value: 'valid-token' };
     return undefined;
   });
-  mockVerifyOperatorAccess.mockResolvedValue({ sub: 'op-1', scope: 'operator', requiresPasswordChange: false });
+  mockVerifyOperatorAccess.mockResolvedValue({ sub: 'op-1', scope: 'operator', requiresPasswordChange: false, operatorId: 'op-org-1' });
   mockOperatorFindUnique.mockResolvedValue(OPERATOR);
   mockOperatorUpdate.mockResolvedValue({});
 });

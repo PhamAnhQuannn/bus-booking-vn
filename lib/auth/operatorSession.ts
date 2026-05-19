@@ -92,7 +92,8 @@ export interface IssueOperatorSessionResult extends OperatorSessionTokens {
 
 export async function issueOperatorSession(
   operatorUserId: string,
-  requiresPasswordChange = false
+  requiresPasswordChange = false,
+  operatorId?: string
 ): Promise<IssueOperatorSessionResult> {
   const family = crypto.randomUUID();
   const tokenId = crypto.randomUUID();
@@ -116,7 +117,23 @@ export async function issueOperatorSession(
     },
   });
 
-  const accessToken = await signOperatorAccess({ sub: operatorUserId, scope: 'operator', requiresPasswordChange });
+  // Issue 011: operatorId claim is required. Resolve from DB if caller didn't pass it.
+  let resolvedOperatorId = operatorId;
+  if (!resolvedOperatorId) {
+    const user = await prisma.operatorUser.findUnique({
+      where: { id: operatorUserId },
+      select: { operatorId: true },
+    });
+    if (!user) throw new Error('OPERATOR_USER_NOT_FOUND');
+    resolvedOperatorId = user.operatorId;
+  }
+
+  const accessToken = await signOperatorAccess({
+    sub: operatorUserId,
+    scope: 'operator',
+    requiresPasswordChange,
+    operatorId: resolvedOperatorId,
+  });
 
   return { accessToken, refreshToken, refreshHash, family };
 }
@@ -127,7 +144,8 @@ export async function issueOperatorSession(
 
 export async function rotateOperatorRefresh(
   oldHash: string,
-  requiresPasswordChange = false
+  requiresPasswordChange = false,
+  operatorId?: string
 ): Promise<OperatorSessionTokens | { reuse: true }> {
   return prisma.$transaction(async (tx) => {
     const session = await tx.operatorSession.findUnique({
@@ -175,10 +193,22 @@ export async function rotateOperatorRefresh(
       },
     });
 
+    // Issue 011: operatorId must be present in the new token.
+    let resolvedOperatorId = operatorId;
+    if (!resolvedOperatorId) {
+      const user = await tx.operatorUser.findUnique({
+        where: { id: session.operatorUserId },
+        select: { operatorId: true },
+      });
+      if (!user) throw new Error('OPERATOR_USER_NOT_FOUND');
+      resolvedOperatorId = user.operatorId;
+    }
+
     const accessToken = await signOperatorAccess({
       sub: session.operatorUserId,
       scope: 'operator',
       requiresPasswordChange,
+      operatorId: resolvedOperatorId,
     });
 
     return { accessToken, refreshToken: newRefreshToken, refreshHash: newRefreshHash };

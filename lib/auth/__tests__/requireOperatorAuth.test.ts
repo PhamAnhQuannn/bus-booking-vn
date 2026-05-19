@@ -66,6 +66,7 @@ function makeOperator(overrides: Partial<{
   displayName: string;
   requiresPasswordChange: boolean;
   disabledAt: Date | null;
+  operatorId: string;
 }> = {}) {
   return {
     id: 'op-1',
@@ -73,6 +74,7 @@ function makeOperator(overrides: Partial<{
     displayName: 'Seed Admin',
     requiresPasswordChange: false,
     disabledAt: null,
+    operatorId: 'op-org-1',
     ...overrides,
   };
 }

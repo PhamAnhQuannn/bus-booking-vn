@@ -28,13 +28,21 @@ export interface RequireOperatorAuthOptions {
   allowDuringPasswordChange?: boolean;
 }
 
-type Handler = (req: NextRequest) => Promise<Response>;
-type HOF = (handler: Handler) => Handler;
+/** Context the HOF threads to the wrapped handler (Issue 011). */
+export interface OperatorAuthContext {
+  operatorUserId: string;
+  operatorId: string;
+}
+
+type Handler = (req: NextRequest, ctx: OperatorAuthContext) => Promise<Response>;
+type LegacyHandler = (req: NextRequest) => Promise<Response>;
+type AnyHandler = Handler | LegacyHandler;
+type HOF = (handler: AnyHandler) => LegacyHandler;
 
 export function requireOperatorAuth(options: RequireOperatorAuthOptions = {}): HOF {
   const { allowDuringPasswordChange = false } = options;
 
-  return (handler: Handler): Handler => {
+  return (handler: AnyHandler): LegacyHandler => {
     return async (req: NextRequest): Promise<Response> => {
       const cookieStore = await cookies();
       const tokenCookie = cookieStore.get(ACCESS_COOKIE);
@@ -57,6 +65,7 @@ export function requireOperatorAuth(options: RequireOperatorAuthOptions = {}): H
           displayName: true,
           requiresPasswordChange: true,
           disabledAt: true,
+          operatorId: true,
         },
       });
 
@@ -69,7 +78,11 @@ export function requireOperatorAuth(options: RequireOperatorAuthOptions = {}): H
         return NextResponse.json({ error: 'PASSWORD_CHANGE_REQUIRED' }, { status: 403 });
       }
 
-      return handler(req);
+      const ctx: OperatorAuthContext = {
+        operatorUserId: operator.id,
+        operatorId: operator.operatorId,
+      };
+      return (handler as Handler)(req, ctx);
     };
   };
 }

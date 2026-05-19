@@ -41,7 +41,7 @@ function makeRequest(): NextRequest {
 beforeEach(() => {
   vi.clearAllMocks();
   // Default: operator exists and does not require password change
-  mockOperatorFindUnique.mockResolvedValue({ requiresPasswordChange: false });
+  mockOperatorFindUnique.mockResolvedValue({ requiresPasswordChange: false, operatorId: 'op-org-1' });
 });
 
 describe('POST /api/op/auth/refresh', () => {

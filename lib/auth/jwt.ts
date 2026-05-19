@@ -29,6 +29,8 @@ export interface OperatorAccessPayload {
   sub: string;
   scope: 'operator';
   requiresPasswordChange: boolean;
+  /** Operator org id (Issue 011) — encoded in JWT for Edge-runtime read. */
+  operatorId: string;
 }
 
 /**
@@ -78,7 +80,11 @@ export async function verifyAccess(token: string): Promise<AccessPayload | null>
  */
 export async function signOperatorAccess(payload: OperatorAccessPayload): Promise<string> {
   const secret = getSecret();
-  return new SignJWT({ scope: payload.scope, requiresPasswordChange: payload.requiresPasswordChange })
+  return new SignJWT({
+    scope: payload.scope,
+    requiresPasswordChange: payload.requiresPasswordChange,
+    operatorId: payload.operatorId,
+  })
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(payload.sub)
     .setIssuedAt()
@@ -100,8 +106,11 @@ export async function verifyOperatorAccess(token: string): Promise<OperatorAcces
     const sub = payload.sub;
     const scope = payload['scope'];
     if (typeof sub !== 'string' || scope !== 'operator') return null;
+    const operatorId = payload['operatorId'];
+    // Issue 011: tokens without operatorId claim are stale — force re-login.
+    if (typeof operatorId !== 'string' || operatorId.length === 0) return null;
     const requiresPasswordChange = payload['requiresPasswordChange'] === true;
-    return { sub, scope: 'operator', requiresPasswordChange };
+    return { sub, scope: 'operator', requiresPasswordChange, operatorId };
   } catch {
     return null;
   }

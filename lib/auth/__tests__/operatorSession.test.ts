@@ -77,7 +77,7 @@ describe('issueOperatorSession', () => {
   it('creates a session with rotationCount=0 and a new tokenFamily', async () => {
     mockPrisma.operatorSession.create.mockResolvedValue(makeSession());
 
-    const result = await issueOperatorSession('op-user-1');
+    const result = await issueOperatorSession('op-user-1', false, 'op-org-1');
 
     expect(result).toHaveProperty('accessToken');
     expect(result).toHaveProperty('refreshToken');
@@ -97,8 +97,8 @@ describe('issueOperatorSession', () => {
   it('returns different families on consecutive calls', async () => {
     mockPrisma.operatorSession.create.mockResolvedValue(makeSession());
 
-    const r1 = await issueOperatorSession('op-user-1');
-    const r2 = await issueOperatorSession('op-user-1');
+    const r1 = await issueOperatorSession('op-user-1', false, 'op-org-1');
+    const r2 = await issueOperatorSession('op-user-1', false, 'op-org-1');
 
     expect(r1.family).not.toBe(r2.family);
   });
@@ -115,7 +115,7 @@ describe('rotateOperatorRefresh', () => {
     mockPrisma.operatorSession.update.mockResolvedValue({ ...session, revokedAt: new Date() });
     mockPrisma.operatorSession.create.mockResolvedValue(makeSession({ rotationCount: 3 }));
 
-    const result = await rotateOperatorRefresh('old-hash');
+    const result = await rotateOperatorRefresh('old-hash', false, 'op-org-1');
 
     expect(result).not.toHaveProperty('reuse');
     expect(result).toHaveProperty('accessToken');

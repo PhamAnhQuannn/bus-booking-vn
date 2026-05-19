@@ -63,7 +63,7 @@ function makeRequest(body: unknown, cookie = 'valid-access-token'): NextRequest 
   });
 }
 
-const OPERATOR = { id: 'op-1', passwordHash: 'stored-hash', disabledAt: null };
+const OPERATOR = { id: 'op-1', passwordHash: 'stored-hash', disabledAt: null, operatorId: 'op-org-1' };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -71,7 +71,7 @@ beforeEach(() => {
     if (name === 'bb_op_access') return { value: 'valid-access-token' };
     return undefined;
   });
-  mockVerifyOperatorAccess.mockResolvedValue({ sub: 'op-1', scope: 'operator', requiresPasswordChange: false });
+  mockVerifyOperatorAccess.mockResolvedValue({ sub: 'op-1', scope: 'operator', requiresPasswordChange: false, operatorId: 'op-org-1' });
   mockOperatorFindUnique.mockResolvedValue(OPERATOR);
   mockVerifyPassword.mockResolvedValue(true); // currentPassword matches
   mockHashPassword.mockResolvedValue('new-hash');

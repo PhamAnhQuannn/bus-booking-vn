@@ -65,7 +65,7 @@ async function handler(req: NextRequest): Promise<Response> {
 
   const user = await prisma.operatorUser.findUnique({
     where: { id: payload.sub },
-    select: { id: true, passwordHash: true, disabledAt: true },
+    select: { id: true, passwordHash: true, disabledAt: true, operatorId: true },
   });
 
   if (!user || user.disabledAt !== null) {
@@ -107,8 +107,9 @@ async function handler(req: NextRequest): Promise<Response> {
     revokeAllOperatorSessions(user.id, currentSessionId),
   ]);
 
-  // Issue fresh tokens — requiresPasswordChange is now false (just cleared above)
-  const session = await issueOperatorSession(user.id, false);
+  // Issue fresh tokens — requiresPasswordChange is now false (just cleared above).
+  // Issue 011: operatorId carried in JWT claim for Edge-runtime read.
+  const session = await issueOperatorSession(user.id, false, user.operatorId);
 
   cookieStore.set(ACCESS_COOKIE, session.accessToken, {
     httpOnly: true,
