@@ -247,6 +247,8 @@ model Booking {
   @@index([tripId, contactStatus])
   @@index([tripId, pickedUpAt])
   @@index([status, reminderSentAt])
+  /// Issue 009: register-time guest-booking backfill scan (match buyerPhone → Customer.phone)
+  @@index([buyerPhone])
 }
 
 model PaymentEvent {
