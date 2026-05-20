@@ -155,7 +155,7 @@ export function CustomerForm() {
           aria-describedby={fieldErrors.buyerName ? 'buyerName-error' : undefined}
         />
         {fieldErrors.buyerName && (
-          <p id="buyerName-error" className="text-red-600 text-sm mt-1">
+          <p id="buyerName-error" className="text-destructive text-sm mt-1">
             {fieldErrors.buyerName}
           </p>
         )}
@@ -176,26 +176,26 @@ export function CustomerForm() {
           aria-describedby={fieldErrors.buyerPhone ? 'buyerPhone-error' : undefined}
         />
         {fieldErrors.buyerPhone && (
-          <p id="buyerPhone-error" className="text-red-600 text-sm mt-1">
+          <p id="buyerPhone-error" className="text-destructive text-sm mt-1">
             {fieldErrors.buyerPhone}
           </p>
         )}
       </div>
 
       {state.status === 'sold_out' && (
-        <div role="alert" className="bg-red-50 border border-red-200 rounded p-3 text-red-700">
+        <div role="alert" className="bg-destructive/10 border border-destructive/30 rounded p-3 text-destructive">
           Chuyến xe này đã hết chỗ. Vui lòng chọn chuyến khác.
         </div>
       )}
 
       {state.status === 'rate_limited' && (
-        <div role="alert" className="bg-yellow-50 border border-yellow-200 rounded p-3 text-yellow-800">
+        <div role="alert" className="bg-warning border border-warning-border rounded p-3 text-warning-foreground">
           Quá nhiều yêu cầu. Vui lòng thử lại sau {state.retryAfter} giây.
         </div>
       )}
 
       {state.status === 'error' && (
-        <div role="alert" className="bg-red-50 border border-red-200 rounded p-3 text-red-700">
+        <div role="alert" className="bg-destructive/10 border border-destructive/30 rounded p-3 text-destructive">
           {state.message}
         </div>
       )}

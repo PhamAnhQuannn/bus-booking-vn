@@ -69,7 +69,7 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
         </p>
         <p className="text-sm">
           Trạng thái:{' '}
-          <span className="font-semibold text-amber-700">
+          <span className="font-semibold text-warning-foreground">
             {STATUS_LABEL[booking.status] ?? booking.status}
           </span>
         </p>
@@ -126,11 +126,11 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
       </section>
 
       {isCashPending && (
-        <section className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-2">
-          <h2 className="text-base font-semibold text-amber-900">
+        <section className="bg-warning border border-warning-border rounded-lg p-4 space-y-2">
+          <h2 className="text-base font-semibold text-warning-foreground">
             Thanh toán tiền mặt khi lên xe
           </h2>
-          <p className="text-sm text-amber-900">
+          <p className="text-sm text-warning-foreground">
             Vui lòng thanh toán trực tiếp cho nhà xe khi lên xe. Hãy đến điểm đón
             trước giờ khởi hành ít nhất 15 phút. Tin nhắn xác nhận đã được gửi tới
             số điện thoại của bạn.
