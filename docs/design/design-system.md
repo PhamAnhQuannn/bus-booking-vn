@@ -1,0 +1,173 @@
+---
+last-updated: 2026-05-20
+tailwind: v4 (CSS-first, no tailwind.config.ts)
+token-source: app/globals.css
+ui-primitives: components/ui/
+shadcn-flavor: base-ui (@base-ui/react)
+---
+
+# Design System — Bus-Booking VN
+
+## Standard (the resolved decision)
+
+**Tailwind utility classes + semantic tokens. NO inline `style={{}}`.**
+
+The codebase is split today: `search/`, the `booking/` flow, the home page, and
+`CustomerForm.tsx` are already tailwind-clean; all of `app/auth/**`,
+`app/account/**`, and `app/op/**` (pages + their `*Client.tsx`, ~28 files) use
+inline `style={{}}`. The normalization target is to move the inline-style
+surfaces onto the tokens + components below. Inline style is the divergence to
+remove, not a second supported path.
+
+## Token Model
+
+Tailwind v4 CSS-first. Tokens are CSS custom properties (oklch) defined in
+`app/globals.css` — `:root` (light) + `.dark` (dark). The `@theme inline { ... }`
+block maps each `--<token>` to a Tailwind color/radius utility
+(`--color-primary: var(--primary)` → `bg-primary` / `text-primary`). Full shadcn
+neutral set is already present. **There is no `tailwind.config.ts` — token edits
+happen in `globals.css` only.**
+
+### Color Tokens
+
+Grayscale-neutral palette (chroma ≈ 0 except `destructive`). Reference via the
+Tailwind class — never raw oklch/hex in JSX.
+
+| Token | Light | Dark | Tailwind class | Use |
+|-------|-------|------|----------------|-----|
+| background | `oklch(1 0 0)` | `oklch(0.145 0 0)` | `bg-background` | page background |
+| foreground | `oklch(0.145 0 0)` | `oklch(0.985 0 0)` | `text-foreground` | body text |
+| card | `oklch(1 0 0)` | `oklch(0.205 0 0)` | `bg-card text-card-foreground` | grouped surfaces |
+| popover | `oklch(1 0 0)` | `oklch(0.205 0 0)` | `bg-popover` | overlays, menus |
+| primary | `oklch(0.205 0 0)` | `oklch(0.922 0 0)` | `bg-primary text-primary-foreground` | primary CTA |
+| secondary | `oklch(0.97 0 0)` | `oklch(0.269 0 0)` | `bg-secondary` | secondary button/surface |
+| muted | `oklch(0.97 0 0)` | `oklch(0.269 0 0)` | `bg-muted` | subtle fill |
+| muted-foreground | `oklch(0.556 0 0)` | `oklch(0.708 0 0)` | `text-muted-foreground` | metadata, labels |
+| accent | `oklch(0.97 0 0)` | `oklch(0.269 0 0)` | `bg-accent` | hover/active fill |
+| destructive | `oklch(0.577 0.245 27.325)` | `oklch(0.704 0.191 22.216)` | `bg-destructive` / `text-destructive` | errors, destructive |
+| border | `oklch(0.922 0 0)` | `oklch(1 0 0 / 10%)` | `border` | dividers, outlines |
+| input | `oklch(0.922 0 0)` | `oklch(1 0 0 / 15%)` | `border-input` | form field borders |
+| ring | `oklch(0.708 0 0)` | `oklch(0.556 0 0)` | `ring-ring` | focus ring |
+| chart-1..5 | grayscale ramp | grayscale ramp | `fill-chart-N` | report charts (payouts/revenue) |
+| sidebar* | see globals.css | see globals.css | `bg-sidebar*` | operator nav shell (if adopted) |
+
+**Status colors:** there is NO semantic `success` / `warning` token. Existing UI
+uses raw tailwind palette inline (`bg-amber-50 border-amber-200 text-amber-900`
+for pending, `bg-green-50 text-green-900` success, `bg-red-50 text-red-900`
+failure — see `booking/result/[token]/page.tsx`). **Open question:** promote
+amber/green status families to semantic tokens (`warning`, `success`) or keep as
+documented raw-palette convention. Until resolved, use the result-page palette
+verbatim for status banners so they stay consistent.
+
+### Spacing
+
+Tailwind default 4px base. No half-steps. Common: `1`(4) `2`(8) `3`(12) `4`(16)
+`6`(24) `8`(32) `12`(48).
+
+### Typography
+
+Font: `--font-sans` (applied to `html` in `@layer base`); `--font-mono`
+(`--font-geist-mono`) for refs/codes (`font-mono` on `bookingRef`). `--font-heading`
+aliases sans. No formal type scale doc — defer to `/typography-hierarchy-spec`.
+Current usage: `text-2xl font-bold` page title, `text-lg font-semibold` section,
+`text-base` body, `text-sm` meta, `text-xs` micro.
+
+### Radius
+
+`--radius: 0.625rem` (10px). Derived scale in `@theme`:
+
+| Class | Formula | ≈ | Use |
+|-------|---------|---|-----|
+| `rounded-sm` | radius × 0.6 | 6px | badges |
+| `rounded-md` | radius × 0.8 | 8px | inputs (note: Input uses `rounded-lg`) |
+| `rounded-lg` | radius | 10px | buttons, inputs, cards |
+| `rounded-xl` | radius × 1.4 | 14px | panels |
+| `rounded-2xl`–`4xl` | radius × 1.8–2.6 | 18–26px | large containers |
+
+### Shadow / Motion
+
+No custom shadow or motion tokens defined. Use Tailwind defaults
+(`shadow-sm` resting cards). `tw-animate-css` is imported for animation utilities.
+All motion must honor `prefers-reduced-motion`. Formalize later if needed.
+
+## Component Inventory
+
+### UI primitives (`components/ui/`)
+
+Only two exist today — base-ui (`@base-ui/react`) + cva. `cn` from `@/lib/utils`.
+
+| Component | Source | Variants / sizes | Notes |
+|-----------|--------|------------------|-------|
+| Button | `components/ui/button.tsx` | variant: default, outline, secondary, ghost, destructive, link · size: default(h-8), xs(h-6), sm(h-7), lg(h-9), icon, icon-xs/sm/lg | `focus-visible:ring-3`. **destructive is SOFT** (`bg-destructive/10 text-destructive`), not solid fill |
+| Input | `components/ui/input.tsx` | default | h-8, `rounded-lg`, `border-input`, `aria-invalid` styling, `focus-visible:ring-3` |
+
+**Missing primitives** (used as inline markup or not yet built): Label, Card,
+Dialog/Modal, Select, RadioGroup, Checkbox, Toast, Skeleton, Table. As surfaces
+normalize, promote repeated inline patterns into `components/ui/` rather than
+re-inlining. Highest-value first promotions: **Label** (every form needs it for
+a11y), **Card** (account/op surfaces), **Table** (manifest, bookings, fleet,
+routes — see `/data-table-design`).
+
+### Custom components
+
+| Component | Source | Justification |
+|-----------|--------|---------------|
+| HoldTimer | `components/HoldTimer.tsx` | countdown w/ aria-live; no primitive equivalent |
+| HoldExpiryModal | `components/HoldExpiryModal.tsx` | hold-expiry interrupt dialog |
+| CustomerForm | `components/search/...`/booking | buyer-info form (tailwind-clean reference impl) |
+| SearchForm / SearchFormWrapper | `components/search/` | trip search; base-ui Input quirks (drive via `onValueChange`, not `fill()` — see Mistake Log) |
+| BookButton | `components/search/BookButton.tsx` | tripId+ticketCount CTA → hold flow |
+
+### Variant Matrix — Button
+
+| variant | xs(h-6) | sm(h-7) | default(h-8) | lg(h-9) | icon* |
+|---------|---------|---------|--------------|---------|-------|
+| default | ✅ | ✅ | ✅ | ✅ | ✅ |
+| outline | ✅ | ✅ | ✅ | ✅ | ✅ |
+| secondary | ✅ | ✅ | ✅ | ✅ | ✅ |
+| ghost | ✅ | ✅ | ✅ | ✅ | ✅ |
+| destructive | ✅ | ✅ | ✅ | ✅ | ✅ |
+| link | n/a (inline text) | | | | |
+
+## Usage Rules
+
+### Do
+- Reference tokens via Tailwind classes (`bg-primary`, `text-muted-foreground`).
+- Use `<Button>` / `<Input>` primitives, not raw `<button>` / `<input>` + inline style.
+- All interactive elements ≥ 44×44px hit area.
+- Every form input has a visible associated label.
+- Button text labels the action ("Đặt vé", "Lưu", not "OK").
+- Status banners: reuse the `booking/result` amber/green/red palette verbatim.
+
+### Don't
+- No inline `style={{}}` for color/spacing/layout (the thing being removed).
+- No raw oklch/hex in JSX.
+- No `tailwind.config.ts` — edit tokens in `globals.css`.
+- No two equal-weight primary CTAs on one screen.
+- No `placeholder` used as a label.
+- No solid-fill assumption for `destructive` Button — it renders soft.
+
+## A11y Minimums
+- Contrast ≥ 4.5:1 normal text, ≥ 3:1 large/bold.
+- Visible focus ring on every interactive (`focus-visible:ring-3` baked into primitives).
+- Touch target ≥ 44×44px.
+- Modal (HoldExpiryModal + future Dialog) traps focus, Esc closes.
+- Honor `prefers-reduced-motion`.
+
+Defer detailed pass to `/a11y-design`.
+
+## Open Questions
+- Promote amber/green status colors to semantic `warning`/`success` tokens?
+- Dark mode in scope for Phase A, or post-launch? (`.dark` tokens exist but no toggle.)
+- Operator shell: adopt `sidebar*` tokens (dashboard nav) or keep flat layout?
+
+## Out of Scope
+- Marketing/print styles.
+- Net-new token invention — the neutral set is complete; this doc documents it.
+
+## Auto-chain
+- Status-token decision + contrast → `/a11y-design`.
+- Form label/field patterns → `/form-design`.
+- Operator table surfaces → `/data-table-design`; dashboards → `/dashboard-layout`.
+- Type scale → `/typography-hierarchy-spec`.
+- Drift across normalized surfaces → `/consistency-audit`.
