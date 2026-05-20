@@ -3,18 +3,35 @@
 /**
  * RoutesClient — client island for operator route management (Issue 012).
  *
- * Handles all mutations against /api/op/routes** with CSRF double-submit
- * (X-CSRF-Token header read from bb_csrf cookie via readCsrfToken()).
+ * Mutations go through lib/api/routesClient.ts (CSRF double-submit:
+ * X-CSRF-Token on every non-GET; GET list sends none). Design-system surface:
+ * Card list + Table, Badge active-state, Alert messages, Dialog create/edit,
+ * inline PickupPointsPanel expander row.
  *
- * UI surface:
- *   - List of routes (initialRoutes from RSC; refresh after each mutation).
- *   - Create route form (POST /api/op/routes).
- *   - Per-row Edit (PATCH) + Deactivate (POST /[id]/deactivate).
- *   - Per-row Pickup Points panel (subview).
+ * Every data-testid is preserved (sandbox-gated e2e keys off them).
  */
 
-import { useState } from 'react';
-import { readCsrfToken } from '@/lib/auth/csrfClient';
+import { Fragment, useState } from 'react';
+import {
+  listRoutesApi,
+  createRouteApi,
+  patchRouteApi,
+  deactivateRouteApi,
+  type RouteItem as ApiRouteItem,
+} from '@/lib/api/routesClient';
+import { routeActiveDisplay } from '@/lib/op/statusLabels';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 import RouteEditDialog from './RouteEditDialog';
 import PickupPointsPanel from './PickupPointsPanel';
 
@@ -33,80 +50,85 @@ interface Props {
   initialRoutes: RouteItem[];
 }
 
-function csrfHeaders(extra: Record<string, string> = {}): HeadersInit {
-  return { 'X-CSRF-Token': readCsrfToken(), ...extra };
-}
-
-function jsonHeaders(): HeadersInit {
-  return csrfHeaders({ 'Content-Type': 'application/json' });
+interface ApiError {
+  status?: number;
+  data?: { error?: string } | null;
 }
 
 function translateError(code: string): string {
   switch (code) {
-    case 'reactivation_not_supported': return 'Không hỗ trợ kích hoạt lại tuyến đã bị vô hiệu hoá';
-    case 'already_deactivated': return 'Tuyến đã bị vô hiệu hoá trước đó';
-    case 'not_found': return 'Không tìm thấy tuyến';
-    case 'invalid_input': return 'Dữ liệu không hợp lệ';
-    case 'bad_request': return 'Yêu cầu không hợp lệ';
-    default: return 'Đã xảy ra lỗi';
+    case 'reactivation_not_supported':
+      return 'Không hỗ trợ kích hoạt lại tuyến đã bị vô hiệu hoá';
+    case 'already_deactivated':
+      return 'Tuyến đã bị vô hiệu hoá trước đó';
+    case 'not_found':
+      return 'Không tìm thấy tuyến';
+    case 'invalid_input':
+      return 'Dữ liệu không hợp lệ';
+    case 'bad_request':
+      return 'Yêu cầu không hợp lệ';
+    default:
+      return 'Đã xảy ra lỗi';
   }
+}
+
+function errorMessage(e: unknown): string {
+  return translateError((e as ApiError).data?.error ?? '');
 }
 
 export default function RoutesClient({ initialRoutes }: Props) {
   const [routes, setRoutes] = useState<RouteItem[]>(initialRoutes);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string>('');
+  const [message, setMessage] = useState('');
+  const [isError, setIsError] = useState(false);
   const [editingRoute, setEditingRoute] = useState<RouteItem | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [expandedRouteId, setExpandedRouteId] = useState<string | null>(null);
 
+  function ok(text: string) {
+    setMessage(text);
+    setIsError(false);
+  }
+  function fail(e: unknown) {
+    setMessage(errorMessage(e));
+    setIsError(true);
+  }
+
   async function refreshRoutes() {
-    const res = await fetch('/api/op/routes', { method: 'GET' });
-    if (res.ok) {
-      const json = await res.json();
-      setRoutes(json.routes ?? []);
-    }
+    const { routes: next } = await listRoutesApi();
+    setRoutes(next as unknown as RouteItem[]);
   }
 
   async function handleCreate(origin: string, destination: string, durationMinutes: number) {
     setBusy(true);
     setMessage('');
     try {
-      const res = await fetch('/api/op/routes', {
-        method: 'POST',
-        headers: jsonHeaders(),
-        body: JSON.stringify({ origin, destination, durationMinutes }),
-      });
-      if (res.status === 201) {
-        setMessage('Đã tạo tuyến mới.');
-        setShowCreateDialog(false);
-        await refreshRoutes();
-      } else {
-        const json = await res.json().catch(() => ({}));
-        setMessage(translateError(json.error ?? ''));
-      }
+      await createRouteApi({ origin, destination, durationMinutes });
+      ok('Đã tạo tuyến mới.');
+      setShowCreateDialog(false);
+      await refreshRoutes();
+    } catch (e) {
+      fail(e);
     } finally {
       setBusy(false);
     }
   }
 
-  async function handleEdit(routeId: string, origin: string, destination: string, durationMinutes: number) {
+  async function handleEdit(
+    routeId: string,
+    origin: string,
+    destination: string,
+    durationMinutes: number
+  ) {
     setBusy(true);
     setMessage('');
     try {
-      const res = await fetch(`/api/op/routes/${routeId}`, {
-        method: 'PATCH',
-        headers: jsonHeaders(),
-        body: JSON.stringify({ origin, destination, durationMinutes }),
-      });
-      if (res.ok) {
-        setMessage('Đã cập nhật tuyến.');
-        setEditingRoute(null);
-        await refreshRoutes();
-      } else {
-        const json = await res.json().catch(() => ({}));
-        setMessage(translateError(json.error ?? ''));
-      }
+      await patchRouteApi(routeId, { origin, destination, durationMinutes });
+      ok('Đã cập nhật tuyến.');
+      setEditingRoute(null);
+      await refreshRoutes();
+    } catch (e) {
+      fail(e);
     } finally {
       setBusy(false);
     }
@@ -117,43 +139,34 @@ export default function RoutesClient({ initialRoutes }: Props) {
     setBusy(true);
     setMessage('');
     try {
-      const res = await fetch(`/api/op/routes/${routeId}/deactivate`, {
-        method: 'POST',
-        headers: csrfHeaders(),
-      });
-      if (res.ok) {
-        setMessage('Đã vô hiệu hoá tuyến.');
-        await refreshRoutes();
-      } else {
-        const json = await res.json().catch(() => ({}));
-        setMessage(translateError(json.error ?? ''));
-      }
+      await deactivateRouteApi(routeId);
+      ok('Đã vô hiệu hoá tuyến.');
+      await refreshRoutes();
+    } catch (e) {
+      fail(e);
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div>
+    <div className="space-y-4">
       {message && (
-        <div
-          data-testid="routes-message"
-          style={{ padding: 12, marginBottom: 16, background: '#f4f4f4', borderRadius: 4 }}
-        >
-          {message}
-        </div>
+        <Alert variant={isError ? 'error' : 'success'} data-testid="routes-message">
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
       )}
 
-      <section style={{ marginBottom: 16 }}>
-        <button
+      <div>
+        <Button
           type="button"
           onClick={() => setShowCreateDialog(true)}
           disabled={busy}
           data-testid="create-route-btn"
         >
           Thêm tuyến mới
-        </button>
-      </section>
+        </Button>
+      </div>
 
       {showCreateDialog && (
         <RouteEditDialog
@@ -176,88 +189,93 @@ export default function RoutesClient({ initialRoutes }: Props) {
         />
       )}
 
-      <section>
-        <h2>Danh sách tuyến ({routes.length})</h2>
-        {routes.length === 0 ? (
-          <p>Chưa có tuyến nào.</p>
-        ) : (
-          <table
-            style={{ width: '100%', borderCollapse: 'collapse' }}
-            data-testid="routes-table"
-          >
-            <thead>
-              <tr style={{ background: '#f4f4f4' }}>
-                <th style={{ padding: 8, textAlign: 'left' }}>Điểm đi</th>
-                <th style={{ padding: 8, textAlign: 'left' }}>Điểm đến</th>
-                <th style={{ padding: 8, textAlign: 'left' }}>Thời gian (phút)</th>
-                <th style={{ padding: 8, textAlign: 'left' }}>Trạng thái</th>
-                <th style={{ padding: 8, textAlign: 'left' }}>Hành động</th>
-              </tr>
-            </thead>
-            <tbody>
-              {routes.map((route) => (
-                <>
-                  <tr key={route.id} data-testid={`route-row-${route.id}`}>
-                    <td style={{ padding: 8 }} data-testid={`route-origin-${route.id}`}>
-                      {route.origin}
-                    </td>
-                    <td style={{ padding: 8 }} data-testid={`route-destination-${route.id}`}>
-                      {route.destination}
-                    </td>
-                    <td style={{ padding: 8 }}>{route.durationMinutes}</td>
-                    <td style={{ padding: 8 }}>
-                      {route.deactivatedAt ? (
-                        <span style={{ color: 'red' }}>Vô hiệu hoá</span>
-                      ) : (
-                        <span style={{ color: 'green' }}>Hoạt động</span>
-                      )}
-                    </td>
-                    <td style={{ padding: 8 }}>
-                      {!route.deactivatedAt && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => setEditingRoute(route)}
-                            disabled={busy}
-                            data-testid={`route-edit-${route.id}`}
-                          >
-                            Sửa
-                          </button>{' '}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setExpandedRouteId(expandedRouteId === route.id ? null : route.id)
-                            }
-                            data-testid={`route-pickup-toggle-${route.id}`}
-                          >
-                            {expandedRouteId === route.id ? 'Đóng điểm đón' : 'Điểm đón'}
-                          </button>{' '}
-                          <button
-                            type="button"
-                            onClick={() => handleDeactivate(route.id)}
-                            disabled={busy}
-                            data-testid={`route-deactivate-${route.id}`}
-                            style={{ color: 'red' }}
-                          >
-                            Vô hiệu hoá
-                          </button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                  {expandedRouteId === route.id && (
-                    <tr key={`${route.id}-pickup`}>
-                      <td colSpan={5} style={{ background: '#fafafa', padding: 16 }}>
-                        <PickupPointsPanel routeId={route.id} />
-                      </td>
-                    </tr>
-                  )}
-                </>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
+      {routes.length === 0 ? (
+        <Card>
+          <CardContent>
+            <p className="py-6 text-center text-sm text-muted-foreground">Chưa có tuyến nào.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="overflow-hidden py-0">
+          <Table data-testid="routes-table">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Điểm đi</TableHead>
+                <TableHead>Điểm đến</TableHead>
+                <TableHead>Thời gian (phút)</TableHead>
+                <TableHead>Trạng thái</TableHead>
+                <TableHead>Hành động</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {routes.map((route) => {
+                const active = !route.deactivatedAt;
+                const status = routeActiveDisplay(active);
+                return (
+                  <Fragment key={route.id}>
+                    <TableRow data-testid={`route-row-${route.id}`}>
+                      <TableCell data-testid={`route-origin-${route.id}`}>{route.origin}</TableCell>
+                      <TableCell data-testid={`route-destination-${route.id}`}>
+                        {route.destination}
+                      </TableCell>
+                      <TableCell className="tabular-nums">{route.durationMinutes}</TableCell>
+                      <TableCell>
+                        <Badge variant={status.variant}>{status.label}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        {active && (
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setEditingRoute(route)}
+                              disabled={busy}
+                              data-testid={`route-edit-${route.id}`}
+                            >
+                              Sửa
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                setExpandedRouteId(
+                                  expandedRouteId === route.id ? null : route.id
+                                )
+                              }
+                              data-testid={`route-pickup-toggle-${route.id}`}
+                            >
+                              {expandedRouteId === route.id ? 'Đóng điểm đón' : 'Điểm đón'}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleDeactivate(route.id)}
+                              disabled={busy}
+                              data-testid={`route-deactivate-${route.id}`}
+                            >
+                              Vô hiệu hoá
+                            </Button>
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                    {expandedRouteId === route.id && (
+                      <TableRow>
+                        <TableCell colSpan={5} className="bg-muted/40">
+                          <PickupPointsPanel routeId={route.id} />
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </Card>
+      )}
     </div>
   );
 }

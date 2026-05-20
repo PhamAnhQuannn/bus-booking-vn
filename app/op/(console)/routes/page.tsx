@@ -46,8 +46,8 @@ export default async function OpRoutesPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8 md:px-6">
-      <h1>Quản lý tuyến đường</h1>
-      <p style={{ color: '#666' }}>
+      <h1 className="text-2xl font-semibold tracking-tight">Quản lý tuyến đường</h1>
+      <p className="mt-1 mb-6 text-sm text-muted-foreground">
         Danh sách tuyến đường. Mỗi nhà xe chỉ thấy tuyến của riêng mình.
       </p>
       <RoutesClient initialRoutes={routes} />

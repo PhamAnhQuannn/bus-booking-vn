@@ -31,15 +31,17 @@ export default async function ManifestPage({ params }: PageProps) {
   if (!manifest) {
     return (
       <div className="mx-auto w-full max-w-5xl px-4 py-8 md:px-6">
-        <h1>Manifest</h1>
-        <p>Không tìm thấy chuyến xe.</p>
+        <h1 className="mb-6 text-2xl font-semibold tracking-tight">Manifest</h1>
+        <p className="text-sm text-muted-foreground">Không tìm thấy chuyến xe.</p>
       </div>
     );
   }
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 md:px-6">
-      <h1>Manifest chuyến {tripId.slice(0, 8)}…</h1>
+      <h1 className="mb-6 text-2xl font-semibold tracking-tight">
+        Manifest chuyến {tripId.slice(0, 8)}…
+      </h1>
 
       {/* AC7: ManifestRefresh handles refresh button + Last updated timestamp */}
       <ManifestRefresh

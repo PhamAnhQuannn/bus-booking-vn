@@ -3,11 +3,42 @@
 /**
  * DashboardClient — operator booking queue client island (Issue 014 AC2).
  *
- * Renders booking queue with filter controls. Reads CSRF cookie for mutations.
+ * Reference surface for the design-system migration: Card filter band +
+ * Label/Input/Select, Table queue, accessible Badge contact/flag chips,
+ * Load-more Button with aria-live status. Every data-testid is preserved
+ * (sandbox-gated e2e keys off them).
+ *
+ * Reads via listBookingsApi (GET, no CSRF token). base-ui Select is controlled
+ * with onValueChange, NOT onChange.
  */
 
 import { useState } from 'react';
+import Link from 'next/link';
 import type { BookingQueueRow } from '@/lib/booking/toBookingQueueRow';
+import { listBookingsApi } from '@/lib/api/bookingsClient';
+import { Card, CardContent } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
+import { bookingStatusDisplay } from '@/lib/op/statusLabels';
+import type { BookingStatus } from '@prisma/client';
 
 interface Props {
   initialRows: BookingQueueRow[];
@@ -22,7 +53,16 @@ const CONTACT_STATUS_LABELS: Record<string, string> = {
   callback: 'Gọi lại sau',
 };
 
-export default function DashboardClient({ initialRows, initialNextCursor, operatorId }: Props) {
+const CONTACT_STATUS_OPTIONS = [
+  { value: 'pending', label: 'Chưa gọi' },
+  { value: 'reached', label: 'Đã liên lạc' },
+  { value: 'no_answer', label: 'Không bắt máy' },
+  { value: 'callback', label: 'Gọi lại sau' },
+];
+
+const ALL = '__all__';
+
+export default function DashboardClient({ initialRows, initialNextCursor }: Props) {
   const [rows, setRows] = useState<BookingQueueRow[]>(initialRows);
   const [nextCursor, setNextCursor] = useState<string | null>(initialNextCursor);
   const [busId, setBusId] = useState('');
@@ -34,20 +74,13 @@ export default function DashboardClient({ initialRows, initialNextCursor, operat
 
   async function fetchBookings(params: Record<string, string>, append = false) {
     setLoading(true);
+    setMessage('');
     try {
-      const qs = new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v)));
-      const res = await fetch(`/api/op/bookings?${qs.toString()}`, { credentials: 'same-origin' });
-      if (!res.ok) {
-        setMessage('Lỗi tải dữ liệu.');
-        return;
-      }
-      const json = await res.json();
-      if (append) {
-        setRows((prev) => [...prev, ...(json.rows ?? [])]);
-      } else {
-        setRows(json.rows ?? []);
-      }
-      setNextCursor(json.nextCursor ?? null);
+      const result = await listBookingsApi(params);
+      setRows((prev) => (append ? [...prev, ...result.rows] : result.rows));
+      setNextCursor(result.nextCursor);
+    } catch {
+      setMessage('Lỗi tải dữ liệu.');
     } finally {
       setLoading(false);
     }
@@ -64,121 +97,175 @@ export default function DashboardClient({ initialRows, initialNextCursor, operat
   }
 
   return (
-    <div>
+    <div className="space-y-4">
       {message && (
-        <div
-          data-testid="dashboard-message"
-          style={{ padding: 12, marginBottom: 16, background: '#fff3cd', borderRadius: 4 }}
-        >
-          {message}
-        </div>
+        <Alert variant="error" data-testid="dashboard-message">
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
       )}
 
-      <form onSubmit={handleFilter} style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        <input
-          placeholder="ID xe buýt"
-          value={busId}
-          onChange={(e) => setBusId(e.target.value)}
-          data-testid="filter-bus-id"
-          style={{ padding: 6, borderRadius: 4, border: '1px solid #ccc' }}
-        />
-        <input
-          type="date"
-          placeholder="Ngày đi"
-          value={serviceDate}
-          onChange={(e) => setServiceDate(e.target.value)}
-          data-testid="filter-service-date"
-          style={{ padding: 6, borderRadius: 4, border: '1px solid #ccc' }}
-        />
-        <input
-          placeholder="ID tuyến"
-          value={routeId}
-          onChange={(e) => setRouteId(e.target.value)}
-          data-testid="filter-route-id"
-          style={{ padding: 6, borderRadius: 4, border: '1px solid #ccc' }}
-        />
-        <select
-          value={contactStatus}
-          onChange={(e) => setContactStatus(e.target.value)}
-          data-testid="filter-contact-status"
-          style={{ padding: 6, borderRadius: 4, border: '1px solid #ccc' }}
-        >
-          <option value="">Tất cả trạng thái liên lạc</option>
-          <option value="pending">Chưa gọi</option>
-          <option value="reached">Đã liên lạc</option>
-          <option value="no_answer">Không bắt máy</option>
-          <option value="callback">Gọi lại sau</option>
-        </select>
-        <button type="submit" disabled={loading} data-testid="filter-submit">
-          Lọc
-        </button>
-      </form>
+      <Card>
+        <CardContent>
+          <form
+            onSubmit={handleFilter}
+            className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:items-end"
+          >
+            <div className="grid gap-1.5">
+              <Label htmlFor="filter-bus-id">ID xe buýt</Label>
+              <Input
+                id="filter-bus-id"
+                placeholder="ID xe buýt"
+                value={busId}
+                onChange={(e) => setBusId(e.target.value)}
+                data-testid="filter-bus-id"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="filter-service-date">Ngày đi</Label>
+              <Input
+                id="filter-service-date"
+                type="date"
+                value={serviceDate}
+                onChange={(e) => setServiceDate(e.target.value)}
+                data-testid="filter-service-date"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="filter-route-id">ID tuyến</Label>
+              <Input
+                id="filter-route-id"
+                placeholder="ID tuyến"
+                value={routeId}
+                onChange={(e) => setRouteId(e.target.value)}
+                data-testid="filter-route-id"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Trạng thái liên lạc</Label>
+              <Select
+                value={contactStatus === '' ? ALL : contactStatus}
+                onValueChange={(v: string | null) => setContactStatus(v === ALL || v == null ? '' : v)}
+              >
+                <SelectTrigger data-testid="filter-contact-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>Tất cả trạng thái liên lạc</SelectItem>
+                  {CONTACT_STATUS_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="sm:col-span-2 lg:col-span-4">
+              <Button type="submit" disabled={loading} data-testid="filter-submit">
+                {loading ? 'Đang lọc...' : 'Lọc'}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
 
       {rows.length === 0 ? (
-        <p>Không có đặt vé nào.</p>
+        <Card>
+          <CardContent>
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              Không có đặt vé nào.
+            </p>
+          </CardContent>
+        </Card>
       ) : (
-        <table
-          style={{ width: '100%', borderCollapse: 'collapse' }}
-          data-testid="booking-queue-table"
-        >
-          <thead>
-            <tr style={{ background: '#f4f4f4' }}>
-              <th style={{ padding: 8, textAlign: 'left' }}>Mã đặt</th>
-              <th style={{ padding: 8, textAlign: 'left' }}>Hành khách</th>
-              <th style={{ padding: 8, textAlign: 'left' }}>SĐT</th>
-              <th style={{ padding: 8, textAlign: 'left' }}>Vé</th>
-              <th style={{ padding: 8, textAlign: 'left' }}>Liên lạc</th>
-              <th style={{ padding: 8, textAlign: 'left' }}>Điểm đón</th>
-              <th style={{ padding: 8, textAlign: 'left' }}>TT thanh toán</th>
-              <th style={{ padding: 8, textAlign: 'left' }}>Khởi hành</th>
-              <th style={{ padding: 8, textAlign: 'left' }}>Cờ</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr
-                key={row.id}
-                data-testid={`booking-row-${row.id}`}
-                style={{
-                  background: row.escalatedAt ? '#fff3cd' : 'transparent',
-                  borderBottom: '1px solid #eee',
-                }}
-              >
-                <td style={{ padding: 8 }}>
-                  <a href={`/op/dashboard/${row.id}`} data-testid={`booking-detail-${row.id}`}>
-                    {row.bookingRef}
-                  </a>
-                </td>
-                <td style={{ padding: 8 }}>{row.buyerName}</td>
-                <td style={{ padding: 8 }}>{row.buyerPhone}</td>
-                <td style={{ padding: 8 }}>{row.ticketCount}</td>
-                <td style={{ padding: 8 }}>{CONTACT_STATUS_LABELS[row.contactStatus] ?? row.contactStatus}</td>
-                <td style={{ padding: 8 }}>{row.pickupPointName ?? '—'}</td>
-                <td style={{ padding: 8 }}>{row.paymentStatus}</td>
-                <td style={{ padding: 8 }}>
-                  {new Date(row.departureAt).toLocaleString('vi-VN')}
-                </td>
-                <td style={{ padding: 8 }}>
-                  {row.manualFlag && <span title="Thủ công">✏</span>}
-                  {row.cashFlag && <span title="Tiền mặt">💵</span>}
-                  {row.escalatedAt && <span title="Cần xử lý">⚠</span>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <Card className="overflow-hidden py-0">
+          <Table data-testid="booking-queue-table">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Mã đặt</TableHead>
+                <TableHead>Hành khách</TableHead>
+                <TableHead>SĐT</TableHead>
+                <TableHead>Vé</TableHead>
+                <TableHead>Liên lạc</TableHead>
+                <TableHead>Điểm đón</TableHead>
+                <TableHead>TT thanh toán</TableHead>
+                <TableHead>Khởi hành</TableHead>
+                <TableHead>Cờ</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((row) => {
+                const pay = bookingStatusDisplay(row.paymentStatus as BookingStatus);
+                return (
+                  <TableRow
+                    key={row.id}
+                    data-testid={`booking-row-${row.id}`}
+                    className={row.escalatedAt ? 'bg-warning/40' : undefined}
+                  >
+                    <TableCell>
+                      <Link
+                        href={`/op/dashboard/${row.id}`}
+                        data-testid={`booking-detail-${row.id}`}
+                        className="font-medium text-primary underline-offset-4 hover:underline"
+                      >
+                        {row.bookingRef}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{row.buyerName}</TableCell>
+                    <TableCell className="tabular-nums">{row.buyerPhone}</TableCell>
+                    <TableCell className="tabular-nums">{row.ticketCount}</TableCell>
+                    <TableCell>
+                      {CONTACT_STATUS_LABELS[row.contactStatus] ?? row.contactStatus}
+                    </TableCell>
+                    <TableCell>{row.pickupPointName ?? '—'}</TableCell>
+                    <TableCell>
+                      <Badge variant={pay.variant}>{pay.label}</Badge>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap tabular-nums">
+                      {new Date(row.departureAt).toLocaleString('vi-VN')}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        {row.manualFlag && (
+                          <Badge variant="neutral" aria-label="Thủ công" title="Thủ công">
+                            ✏
+                          </Badge>
+                        )}
+                        {row.cashFlag && (
+                          <Badge variant="pending" aria-label="Tiền mặt" title="Tiền mặt">
+                            💵
+                          </Badge>
+                        )}
+                        {row.escalatedAt && (
+                          <Badge variant="danger" aria-label="Cần xử lý" title="Cần xử lý">
+                            ⚠
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </Card>
       )}
 
+      <div aria-live="polite" className="sr-only">
+        {loading ? 'Đang tải đặt vé' : `${rows.length} đặt vé`}
+      </div>
+
       {nextCursor && (
-        <button
-          type="button"
-          onClick={handleLoadMore}
-          disabled={loading}
-          data-testid="load-more-btn"
-          style={{ marginTop: 16 }}
-        >
-          Tải thêm
-        </button>
+        <div className="flex justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleLoadMore}
+            disabled={loading}
+            data-testid="load-more-btn"
+          >
+            {loading ? 'Đang tải...' : 'Tải thêm'}
+          </Button>
+        </div>
       )}
     </div>
   );

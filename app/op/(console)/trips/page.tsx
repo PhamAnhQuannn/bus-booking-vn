@@ -29,8 +29,8 @@ export default async function OpTripsPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 md:px-6">
-      <h1>Quản lý chuyến xe</h1>
-      <p style={{ color: '#666' }}>
+      <h1 className="text-2xl font-semibold tracking-tight">Quản lý chuyến xe</h1>
+      <p className="mt-1 mb-6 text-sm text-muted-foreground">
         Danh sách chuyến xe. Mỗi nhà xe chỉ thấy chuyến của riêng mình.
       </p>
       <TripsClient initialTrips={trips} />

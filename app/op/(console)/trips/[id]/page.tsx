@@ -35,7 +35,7 @@ export default async function OpTripDetailPage({ params }: PageProps) {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 md:px-6">
-      <h1>Chi tiết chuyến xe</h1>
+      <h1 className="mb-6 text-2xl font-semibold tracking-tight">Chi tiết chuyến xe</h1>
       <TripDetailClient trip={trip} staff={view.staff} isAdmin={view.isAdmin} />
     </div>
   );

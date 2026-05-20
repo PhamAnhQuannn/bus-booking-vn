@@ -16,6 +16,7 @@ import { touchLastViewed } from '@/lib/booking/touchLastViewed';
 import { cookies } from 'next/headers';
 import { verifyOperatorAccess } from '@/lib/auth/jwt';
 import { prisma } from '@/lib/db/client';
+import { Badge } from '@/components/ui/badge';
 import DashboardClient from './DashboardClient';
 
 export default async function OpDashboardPage() {
@@ -55,22 +56,12 @@ export default async function OpDashboardPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 md:px-6">
-      <h1>
+      <h1 className="mb-6 flex items-center gap-3 text-2xl font-semibold tracking-tight">
         Hàng đợi đặt vé
         {unviewedCount > 0 && (
-          <span
-            data-testid="booking-badge"
-            style={{
-              marginLeft: 12,
-              background: '#e74c3c',
-              color: '#fff',
-              borderRadius: 12,
-              padding: '2px 10px',
-              fontSize: 14,
-            }}
-          >
+          <Badge variant="count" data-testid="booking-badge">
             {unviewedCount} mới
-          </span>
+          </Badge>
         )}
       </h1>
       <DashboardClient

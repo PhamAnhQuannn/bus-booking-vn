@@ -3,71 +3,94 @@
 /**
  * PickupPointsPanel — inline subview for managing pickup points on a route (Issue 012).
  *
- * Loads pickup points from GET /api/op/routes/[id]/pickup-points on mount.
- * Supports:
+ * Loads pickup points via routesClient on mount. Supports:
  *   - Add new pickup point (POST).
- *   - Arrow-button reorder (ChevronUp / ChevronDown via lucide-react).
- *     Each click recomputes orderedIds and PATCHes the full array.
+ *   - Arrow-button reorder (ChevronUp / ChevronDown). Each click recomputes
+ *     orderedIds and PATCHes the full ordered array.
  *   - Deactivate (POST /[ppId]/deactivate).
  *
- * CSRF: all state-changing requests include X-CSRF-Token via readCsrfToken().
+ * CSRF: all state-changing requests carry X-CSRF-Token via routesClient.
  */
 
 import { useEffect, useState } from 'react';
 import { ChevronUp, ChevronDown } from 'lucide-react';
-import { readCsrfToken } from '@/lib/auth/csrfClient';
-
-interface PickupPoint {
-  id: string;
-  name: string;
-  address: string;
-  displayOrder: number;
-  deactivatedAt: string | null;
-}
+import {
+  listPickupPointsApi,
+  createPickupPointApi,
+  reorderPickupPointsApi,
+  deactivatePickupPointApi,
+  type PickupPoint,
+} from '@/lib/api/routesClient';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 
 interface Props {
   routeId: string;
 }
 
-function csrfHeaders(extra: Record<string, string> = {}): HeadersInit {
-  return { 'X-CSRF-Token': readCsrfToken(), ...extra };
-}
-
-function jsonHeaders(): HeadersInit {
-  return csrfHeaders({ 'Content-Type': 'application/json' });
+interface ApiError {
+  status?: number;
+  data?: { error?: string } | null;
 }
 
 function translateError(code: string): string {
   switch (code) {
-    case 'not_found': return 'Không tìm thấy';
-    case 'too_many_pickup_points': return 'Đã đạt tối đa 50 điểm đón';
-    case 'already_deactivated': return 'Điểm đón đã bị vô hiệu hoá';
-    case 'unknown_pickup_points': return 'Danh sách thứ tự chứa điểm đón không xác định';
-    case 'incomplete_reorder': return 'Danh sách thứ tự không đầy đủ';
-    case 'invalid_input': return 'Dữ liệu không hợp lệ';
-    default: return 'Đã xảy ra lỗi';
+    case 'not_found':
+      return 'Không tìm thấy';
+    case 'too_many_pickup_points':
+      return 'Đã đạt tối đa 50 điểm đón';
+    case 'already_deactivated':
+      return 'Điểm đón đã bị vô hiệu hoá';
+    case 'unknown_pickup_points':
+      return 'Danh sách thứ tự chứa điểm đón không xác định';
+    case 'incomplete_reorder':
+      return 'Danh sách thứ tự không đầy đủ';
+    case 'invalid_input':
+      return 'Dữ liệu không hợp lệ';
+    default:
+      return 'Đã xảy ra lỗi';
   }
 }
 
 export default function PickupPointsPanel({ routeId }: Props) {
   const [points, setPoints] = useState<PickupPoint[]>([]);
-  // Start as true; loadPoints() flips it to false after first fetch.
-  // The panel unmounts when the row collapses, so no need to reset on routeId change.
+  // Start true; loadPoints() flips to false after first fetch. The panel
+  // unmounts when the row collapses, so no reset on routeId change needed.
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [isError, setIsError] = useState(false);
 
   // Add-form state
   const [newName, setNewName] = useState('');
   const [newAddress, setNewAddress] = useState('');
 
+  function fail(e: unknown) {
+    setMessage(translateError((e as ApiError).data?.error ?? ''));
+    setIsError(true);
+  }
+
   async function loadPoints() {
-    const res = await fetch(`/api/op/routes/${routeId}/pickup-points`, { method: 'GET' });
-    if (res.ok) {
-      const json = await res.json();
-      const all: PickupPoint[] = json.pickupPoints ?? [];
-      // Show active points sorted by displayOrder
-      setPoints(all.filter((p) => p.deactivatedAt === null).sort((a, b) => a.displayOrder - b.displayOrder));
+    try {
+      const { pickupPoints } = await listPickupPointsApi(routeId);
+      // Active points sorted by displayOrder.
+      setPoints(
+        pickupPoints
+          .filter((p) => p.deactivatedAt === null)
+          .sort((a, b) => a.displayOrder - b.displayOrder)
+      );
+    } catch {
+      // Leave list empty on load failure; user can retry by reopening.
     }
     setLoading(false);
   }
@@ -83,20 +106,14 @@ export default function PickupPointsPanel({ routeId }: Props) {
     setBusy(true);
     setMessage('');
     try {
-      const res = await fetch(`/api/op/routes/${routeId}/pickup-points`, {
-        method: 'POST',
-        headers: jsonHeaders(),
-        body: JSON.stringify({ name: newName.trim(), address: newAddress.trim() }),
-      });
-      if (res.status === 201) {
-        setMessage('Đã thêm điểm đón.');
-        setNewName('');
-        setNewAddress('');
-        await loadPoints();
-      } else {
-        const json = await res.json().catch(() => ({}));
-        setMessage(translateError(json.error ?? ''));
-      }
+      await createPickupPointApi(routeId, { name: newName.trim(), address: newAddress.trim() });
+      setMessage('Đã thêm điểm đón.');
+      setIsError(false);
+      setNewName('');
+      setNewAddress('');
+      await loadPoints();
+    } catch (e) {
+      fail(e);
     } finally {
       setBusy(false);
     }
@@ -106,17 +123,10 @@ export default function PickupPointsPanel({ routeId }: Props) {
     setBusy(true);
     setMessage('');
     try {
-      const res = await fetch(`/api/op/routes/${routeId}/pickup-points`, {
-        method: 'PATCH',
-        headers: jsonHeaders(),
-        body: JSON.stringify({ orderedIds }),
-      });
-      if (res.ok) {
-        await loadPoints();
-      } else {
-        const json = await res.json().catch(() => ({}));
-        setMessage(translateError(json.error ?? ''));
-      }
+      await reorderPickupPointsApi(routeId, orderedIds);
+      await loadPoints();
+    } catch (e) {
+      fail(e);
     } finally {
       setBusy(false);
     }
@@ -141,98 +151,95 @@ export default function PickupPointsPanel({ routeId }: Props) {
     setBusy(true);
     setMessage('');
     try {
-      const res = await fetch(`/api/op/routes/${routeId}/pickup-points/${ppId}/deactivate`, {
-        method: 'POST',
-        headers: csrfHeaders(),
-      });
-      if (res.ok) {
-        setMessage('Đã vô hiệu hoá điểm đón.');
-        await loadPoints();
-      } else {
-        const json = await res.json().catch(() => ({}));
-        setMessage(translateError(json.error ?? ''));
-      }
+      await deactivatePickupPointApi(routeId, ppId);
+      setMessage('Đã vô hiệu hoá điểm đón.');
+      setIsError(false);
+      await loadPoints();
+    } catch (e) {
+      fail(e);
     } finally {
       setBusy(false);
     }
   }
 
-  if (loading) return <p>Đang tải...</p>;
+  if (loading) return <p className="text-sm text-muted-foreground">Đang tải...</p>;
 
   return (
-    <div data-testid={`pickup-panel-${routeId}`}>
-      <h3 style={{ marginTop: 0 }}>Điểm đón ({points.length})</h3>
+    <div data-testid={`pickup-panel-${routeId}`} className="space-y-3">
+      <h3 className="text-sm font-semibold">Điểm đón ({points.length})</h3>
 
       {message && (
-        <div
-          data-testid="pickup-message"
-          style={{ padding: 8, marginBottom: 12, background: '#f4f4f4', borderRadius: 4 }}
-        >
-          {message}
-        </div>
+        <Alert variant={isError ? 'error' : 'success'} data-testid="pickup-message">
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
       )}
 
       {points.length === 0 ? (
-        <p>Chưa có điểm đón nào.</p>
+        <p className="text-sm text-muted-foreground">Chưa có điểm đón nào.</p>
       ) : (
-        <table
-          style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}
-          data-testid={`pickup-table-${routeId}`}
-        >
-          <thead>
-            <tr style={{ background: '#eee' }}>
-              <th style={{ padding: 6, textAlign: 'left' }}>#</th>
-              <th style={{ padding: 6, textAlign: 'left' }}>Tên</th>
-              <th style={{ padding: 6, textAlign: 'left' }}>Địa chỉ</th>
-              <th style={{ padding: 6, textAlign: 'left' }}>Hành động</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table data-testid={`pickup-table-${routeId}`}>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-10">#</TableHead>
+              <TableHead>Tên</TableHead>
+              <TableHead>Địa chỉ</TableHead>
+              <TableHead>Hành động</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {points.map((pp, idx) => (
-              <tr key={pp.id} data-testid={`pickup-row-${pp.id}`}>
-                <td style={{ padding: 6 }}>{idx + 1}</td>
-                <td style={{ padding: 6 }} data-testid={`pickup-name-${pp.id}`}>{pp.name}</td>
-                <td style={{ padding: 6 }}>{pp.address}</td>
-                <td style={{ padding: 6, whiteSpace: 'nowrap' }}>
-                  <button
-                    type="button"
-                    onClick={() => moveUp(idx)}
-                    disabled={busy || idx === 0}
-                    data-testid={`pickup-up-${pp.id}`}
-                    aria-label="Lên"
-                  >
-                    <ChevronUp size={16} />
-                  </button>{' '}
-                  <button
-                    type="button"
-                    onClick={() => moveDown(idx)}
-                    disabled={busy || idx === points.length - 1}
-                    data-testid={`pickup-down-${pp.id}`}
-                    aria-label="Xuống"
-                  >
-                    <ChevronDown size={16} />
-                  </button>{' '}
-                  <button
-                    type="button"
-                    onClick={() => handleDeactivate(pp.id)}
-                    disabled={busy}
-                    data-testid={`pickup-deactivate-${pp.id}`}
-                    style={{ color: 'red' }}
-                  >
-                    Xoá
-                  </button>
-                </td>
-              </tr>
+              <TableRow key={pp.id} data-testid={`pickup-row-${pp.id}`}>
+                <TableCell className="tabular-nums">{idx + 1}</TableCell>
+                <TableCell data-testid={`pickup-name-${pp.id}`}>{pp.name}</TableCell>
+                <TableCell>{pp.address}</TableCell>
+                <TableCell className="whitespace-nowrap">
+                  <div className="flex gap-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => moveUp(idx)}
+                      disabled={busy || idx === 0}
+                      data-testid={`pickup-up-${pp.id}`}
+                      aria-label="Lên"
+                    >
+                      <ChevronUp className="size-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => moveDown(idx)}
+                      disabled={busy || idx === points.length - 1}
+                      data-testid={`pickup-down-${pp.id}`}
+                      aria-label="Xuống"
+                    >
+                      <ChevronDown className="size-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDeactivate(pp.id)}
+                      disabled={busy}
+                      data-testid={`pickup-deactivate-${pp.id}`}
+                    >
+                      Xoá
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
 
       {/* Add pickup point form */}
-      <form onSubmit={handleAdd} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <label style={{ display: 'block' }}>
-          Tên điểm đón
-          <input
+      <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-3">
+        <div className="grid gap-1.5">
+          <Label htmlFor={`pickup-new-name-${routeId}`}>Tên điểm đón</Label>
+          <Input
+            id={`pickup-new-name-${routeId}`}
             type="text"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
@@ -240,12 +247,13 @@ export default function PickupPointsPanel({ routeId }: Props) {
             maxLength={120}
             disabled={busy}
             data-testid={`pickup-new-name-${routeId}`}
-            style={{ display: 'block', marginTop: 4, width: 180 }}
+            className="w-48"
           />
-        </label>
-        <label style={{ display: 'block' }}>
-          Địa chỉ
-          <input
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor={`pickup-new-address-${routeId}`}>Địa chỉ</Label>
+          <Input
+            id={`pickup-new-address-${routeId}`}
             type="text"
             value={newAddress}
             onChange={(e) => setNewAddress(e.target.value)}
@@ -253,16 +261,16 @@ export default function PickupPointsPanel({ routeId }: Props) {
             maxLength={500}
             disabled={busy}
             data-testid={`pickup-new-address-${routeId}`}
-            style={{ display: 'block', marginTop: 4, width: 260 }}
+            className="w-64"
           />
-        </label>
-        <button
+        </div>
+        <Button
           type="submit"
           disabled={busy || !newName.trim() || !newAddress.trim()}
           data-testid={`pickup-add-${routeId}`}
         >
           {busy ? 'Đang xử lý...' : 'Thêm điểm đón'}
-        </button>
+        </Button>
       </form>
     </div>
   );

@@ -6,11 +6,30 @@
  * CSRF double-submit: X-CSRF-Token via tripsClient.ts on all mutations.
  *
  * daysOfMask bitmask: Mon=1, Tue=2, Wed=4, Thu=8, Fri=16, Sat=32, Sun=64 (1-127).
+ *
+ * Design-system surface: Card create form (Label/Input + Checkbox day bits via
+ * onCheckedChange), Table list, Badge active state, Alert messages, Button
+ * actions. Every data-testid is preserved (sandbox-gated e2e keys off them).
  */
 
 import { useState } from 'react';
 import type { TemplateDto } from '@/lib/trips/tripDto';
 import { createTemplateApi, patchTemplateApi } from '@/lib/api/tripsClient';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 
 interface Props {
   initialTemplates: TemplateDto[];
@@ -42,6 +61,7 @@ export default function TemplatesClient({ initialTemplates }: Props) {
   const [templates, setTemplates] = useState<TemplateDto[]>(initialTemplates);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string>('');
+  const [isError, setIsError] = useState(false);
 
   // Create form
   const [routeId, setRouteId] = useState('');
@@ -51,6 +71,16 @@ export default function TemplatesClient({ initialTemplates }: Props) {
   const [daysMask, setDaysMask] = useState<number>(31); // Mon-Fri default
   const [validFrom, setValidFrom] = useState('');
   const [validUntil, setValidUntil] = useState('');
+
+  function ok(text: string) {
+    setMessage(text);
+    setIsError(false);
+  }
+  function fail(err: unknown) {
+    const data = (err as { data?: { error?: string } }).data;
+    setMessage(translateError(data?.error ?? ''));
+    setIsError(true);
+  }
 
   async function refreshTemplates() {
     const res = await fetch('/api/op/trip-templates', { credentials: 'same-origin' });
@@ -64,6 +94,7 @@ export default function TemplatesClient({ initialTemplates }: Props) {
     e.preventDefault();
     if (daysMask < 1 || daysMask > 127) {
       setMessage('Chọn ít nhất một ngày trong tuần.');
+      setIsError(true);
       return;
     }
     setBusy(true);
@@ -78,7 +109,7 @@ export default function TemplatesClient({ initialTemplates }: Props) {
         validFrom,
         validUntil,
       });
-      setMessage('Đã tạo lịch cố định.');
+      ok('Đã tạo lịch cố định.');
       setRouteId('');
       setBusId('');
       setPrice(0);
@@ -87,9 +118,8 @@ export default function TemplatesClient({ initialTemplates }: Props) {
       setValidFrom('');
       setValidUntil('');
       await refreshTemplates();
-    } catch (err: unknown) {
-      const data = (err as { data?: { error?: string } }).data;
-      setMessage(translateError(data?.error ?? ''));
+    } catch (err) {
+      fail(err);
     } finally {
       setBusy(false);
     }
@@ -101,11 +131,10 @@ export default function TemplatesClient({ initialTemplates }: Props) {
     setMessage('');
     try {
       await patchTemplateApi(templateId, { deactivatedAt: new Date().toISOString() });
-      setMessage('Đã vô hiệu hoá lịch.');
+      ok('Đã vô hiệu hoá lịch.');
       await refreshTemplates();
-    } catch (err: unknown) {
-      const data = (err as { data?: { error?: string } }).data;
-      setMessage(translateError(data?.error ?? ''));
+    } catch (err) {
+      fail(err);
     } finally {
       setBusy(false);
     }
@@ -116,158 +145,172 @@ export default function TemplatesClient({ initialTemplates }: Props) {
   }
 
   return (
-    <div>
+    <div className="space-y-6">
       {message && (
-        <div
-          data-testid="templates-message"
-          style={{ padding: 12, marginBottom: 16, background: '#f4f4f4', borderRadius: 4 }}
-        >
-          {message}
-        </div>
+        <Alert variant={isError ? 'error' : 'success'} data-testid="templates-message">
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
       )}
 
       {/* Create form */}
-      <section style={{ marginBottom: 32, padding: 16, border: '1px solid #ddd', borderRadius: 4 }}>
-        <h2 style={{ marginTop: 0 }}>Tạo lịch mới</h2>
-        <form onSubmit={handleCreate}>
-          <label style={{ display: 'block', marginBottom: 8 }}>
-            ID tuyến
-            <input
-              type="text"
-              value={routeId}
-              onChange={(e) => setRouteId(e.target.value)}
-              required
-              data-testid="new-template-route"
-              style={{ display: 'block', width: '100%', marginTop: 4 }}
-            />
-          </label>
-          <label style={{ display: 'block', marginBottom: 8 }}>
-            ID xe
-            <input
-              type="text"
-              value={busId}
-              onChange={(e) => setBusId(e.target.value)}
-              required
-              data-testid="new-template-bus"
-              style={{ display: 'block', width: '100%', marginTop: 4 }}
-            />
-          </label>
-          <label style={{ display: 'block', marginBottom: 8 }}>
-            Giá (VND)
-            <input
-              type="number"
-              value={price}
-              onChange={(e) => setPrice(parseInt(e.target.value, 10))}
-              min={0}
-              required
-              data-testid="new-template-price"
-              style={{ display: 'block', width: 160, marginTop: 4 }}
-            />
-          </label>
-          <label style={{ display: 'block', marginBottom: 8 }}>
-            Giờ khởi hành (HH:MM)
-            <input
-              type="time"
-              value={depTime}
-              onChange={(e) => setDepTime(e.target.value)}
-              required
-              data-testid="new-template-deptime"
-              style={{ display: 'block', marginTop: 4 }}
-            />
-          </label>
-          <fieldset style={{ marginBottom: 8, border: '1px solid #ccc', borderRadius: 4, padding: 8 }}>
-            <legend>Ngày trong tuần</legend>
-            <div style={{ display: 'flex', gap: 12 }}>
-              {DAY_LABELS.map((d) => (
-                <label key={d.bit} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <input
-                    type="checkbox"
-                    checked={Boolean(daysMask & d.bit)}
-                    onChange={() => toggleDay(d.bit)}
-                    data-testid={`day-bit-${d.bit}`}
-                  />
-                  {d.label}
-                </label>
-              ))}
+      <Card>
+        <CardHeader>
+          <CardTitle as="h2">Tạo lịch mới</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleCreate} className="grid max-w-md gap-4">
+            <div className="grid gap-1.5">
+              <Label htmlFor="new-template-route">ID tuyến</Label>
+              <Input
+                id="new-template-route"
+                type="text"
+                value={routeId}
+                onChange={(e) => setRouteId(e.target.value)}
+                required
+                data-testid="new-template-route"
+              />
             </div>
-          </fieldset>
-          <label style={{ display: 'block', marginBottom: 8 }}>
-            Hiệu lực từ
-            <input
-              type="date"
-              value={validFrom}
-              onChange={(e) => setValidFrom(e.target.value)}
-              required
-              data-testid="new-template-validfrom"
-              style={{ display: 'block', marginTop: 4 }}
-            />
-          </label>
-          <label style={{ display: 'block', marginBottom: 8 }}>
-            Hiệu lực đến
-            <input
-              type="date"
-              value={validUntil}
-              onChange={(e) => setValidUntil(e.target.value)}
-              required
-              data-testid="new-template-validuntil"
-              style={{ display: 'block', marginTop: 4 }}
-            />
-          </label>
-          <button type="submit" disabled={busy} data-testid="create-template-submit">
-            {busy ? 'Đang xử lý...' : 'Tạo lịch'}
-          </button>
-        </form>
-      </section>
+            <div className="grid gap-1.5">
+              <Label htmlFor="new-template-bus">ID xe</Label>
+              <Input
+                id="new-template-bus"
+                type="text"
+                value={busId}
+                onChange={(e) => setBusId(e.target.value)}
+                required
+                data-testid="new-template-bus"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="new-template-price">Giá (VND)</Label>
+              <Input
+                id="new-template-price"
+                type="number"
+                value={price}
+                onChange={(e) => setPrice(parseInt(e.target.value, 10))}
+                min={0}
+                required
+                data-testid="new-template-price"
+                className="w-40"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="new-template-deptime">Giờ khởi hành (HH:MM)</Label>
+              <Input
+                id="new-template-deptime"
+                type="time"
+                value={depTime}
+                onChange={(e) => setDepTime(e.target.value)}
+                required
+                data-testid="new-template-deptime"
+                className="w-40"
+              />
+            </div>
+            <fieldset className="rounded-lg border border-border p-3">
+              <legend className="px-1 text-sm font-medium">Ngày trong tuần</legend>
+              <div className="flex flex-wrap gap-4">
+                {DAY_LABELS.map((d) => (
+                  <Label key={d.bit} className="flex items-center gap-2 font-normal">
+                    {/* base-ui Checkbox: onCheckedChange, NOT onChange. */}
+                    <Checkbox
+                      checked={Boolean(daysMask & d.bit)}
+                      onCheckedChange={() => toggleDay(d.bit)}
+                      data-testid={`day-bit-${d.bit}`}
+                    />
+                    {d.label}
+                  </Label>
+                ))}
+              </div>
+            </fieldset>
+            <div className="grid gap-1.5">
+              <Label htmlFor="new-template-validfrom">Hiệu lực từ</Label>
+              <Input
+                id="new-template-validfrom"
+                type="date"
+                value={validFrom}
+                onChange={(e) => setValidFrom(e.target.value)}
+                required
+                data-testid="new-template-validfrom"
+                className="w-48"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="new-template-validuntil">Hiệu lực đến</Label>
+              <Input
+                id="new-template-validuntil"
+                type="date"
+                value={validUntil}
+                onChange={(e) => setValidUntil(e.target.value)}
+                required
+                data-testid="new-template-validuntil"
+                className="w-48"
+              />
+            </div>
+            <div>
+              <Button type="submit" disabled={busy} data-testid="create-template-submit">
+                {busy ? 'Đang xử lý...' : 'Tạo lịch'}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
 
       {/* Template list */}
-      <section>
-        <h2>Danh sách lịch ({templates.length})</h2>
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Danh sách lịch ({templates.length})</h2>
         {templates.length === 0 ? (
-          <p>Chưa có lịch nào.</p>
+          <Card>
+            <p className="px-4 py-6 text-center text-sm text-muted-foreground">Chưa có lịch nào.</p>
+          </Card>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }} data-testid="templates-table">
-            <thead>
-              <tr style={{ background: '#f4f4f4' }}>
-                <th style={{ padding: 8, textAlign: 'left' }}>ID</th>
-                <th style={{ padding: 8, textAlign: 'left' }}>Tuyến</th>
-                <th style={{ padding: 8, textAlign: 'left' }}>Xe</th>
-                <th style={{ padding: 8, textAlign: 'left' }}>Giờ</th>
-                <th style={{ padding: 8, textAlign: 'left' }}>Ngày</th>
-                <th style={{ padding: 8, textAlign: 'left' }}>Hiệu lực</th>
-                <th style={{ padding: 8, textAlign: 'left' }}>Hành động</th>
-              </tr>
-            </thead>
-            <tbody>
-              {templates.map((t) => (
-                <tr key={t.id} data-testid={`template-row-${t.id}`}>
-                  <td style={{ padding: 8, fontFamily: 'monospace', fontSize: 12 }}>
-                    {t.id.slice(0, 8)}…
-                  </td>
-                  <td style={{ padding: 8 }}>{t.routeId}</td>
-                  <td style={{ padding: 8 }}>{t.busId}</td>
-                  <td style={{ padding: 8 }}>{t.departureLocalTime}</td>
-                  <td style={{ padding: 8 }}>{maskToLabel(t.daysOfMask)}</td>
-                  <td style={{ padding: 8 }}>
-                    {t.validFrom} → {t.validUntil}
-                    {t.deactivatedAt ? ' (vô hiệu)' : ''}
-                  </td>
-                  <td style={{ padding: 8 }}>
-                    {!t.deactivatedAt && (
-                      <button
-                        type="button"
-                        onClick={() => handleDeactivate(t.id)}
-                        disabled={busy}
-                        data-testid={`template-deactivate-${t.id}`}
-                        style={{ color: 'red' }}
-                      >
-                        Vô hiệu hoá
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <Card className="overflow-hidden py-0">
+            <Table data-testid="templates-table">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Tuyến</TableHead>
+                  <TableHead>Xe</TableHead>
+                  <TableHead>Giờ</TableHead>
+                  <TableHead>Ngày</TableHead>
+                  <TableHead>Hiệu lực</TableHead>
+                  <TableHead>Hành động</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {templates.map((t) => (
+                  <TableRow key={t.id} data-testid={`template-row-${t.id}`}>
+                    <TableCell className="font-mono text-xs">{t.id.slice(0, 8)}…</TableCell>
+                    <TableCell className="font-mono text-xs">{t.routeId}</TableCell>
+                    <TableCell className="font-mono text-xs">{t.busId}</TableCell>
+                    <TableCell className="tabular-nums">{t.departureLocalTime}</TableCell>
+                    <TableCell>{maskToLabel(t.daysOfMask)}</TableCell>
+                    <TableCell className="whitespace-nowrap tabular-nums">
+                      {t.validFrom} → {t.validUntil}
+                      {t.deactivatedAt && (
+                        <Badge variant="danger" className="ml-2">
+                          Vô hiệu
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {!t.deactivatedAt && (
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDeactivate(t.id)}
+                          disabled={busy}
+                          data-testid={`template-deactivate-${t.id}`}
+                        >
+                          Vô hiệu hoá
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
         )}
       </section>
     </div>

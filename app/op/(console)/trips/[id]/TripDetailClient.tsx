@@ -3,13 +3,19 @@
 /**
  * TripDetailClient — client island for single trip detail/actions (Issue 013).
  *
- * Actions: block seats, reassign bus, sales-toggle, cancel, paired-return.
- * All mutations use X-CSRF-Token via tripsClient.ts.
+ * Actions: block seats, reassign bus, sales-toggle, cancel, paired-return,
+ * assign staff (admin). All mutations use X-CSRF-Token via tripsClient.ts.
+ *
+ * Design-system surface: Card sections, Badge trip status (statusLabels),
+ * Label/Input/Select/Button forms, Alert messages, Dialog-based cancel
+ * (≥10-char reason) via CancelTripDialog. Every data-testid is preserved
+ * (sandbox-gated e2e keys off them).
  */
 
 import { useState } from 'react';
 import type { TripDto } from '@/lib/trips/tripDto';
 import type { StaffDto } from '@/lib/staff/toStaffDto';
+import type { TripStatus } from '@prisma/client';
 import {
   blockSeatsApi,
   reassignBusApi,
@@ -18,6 +24,21 @@ import {
   pairedReturnApi,
 } from '@/lib/api/tripsClient';
 import { assignServiceApi } from '@/lib/api/staffClient';
+import { tripStatusDisplay } from '@/lib/op/statusLabels';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
+import CancelTripDialog from '../CancelTripDialog';
 
 interface Props {
   trip: TripDto;
@@ -47,6 +68,8 @@ export default function TripDetailClient({ trip: initialTrip, staff: initialStaf
   const [staff, setStaff] = useState<StaffDto[]>(initialStaff);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string>('');
+  const [isError, setIsError] = useState(false);
+  const [showCancel, setShowCancel] = useState(false);
 
   // Assign staff to this trip
   const [assignStaffId, setAssignStaffId] = useState('');
@@ -61,36 +84,50 @@ export default function TripDetailClient({ trip: initialTrip, staff: initialStaf
   const [returnDep, setReturnDep] = useState('');
   const [returnPrice, setReturnPrice] = useState<number>(trip.price ?? 0);
 
+  function ok(text: string) {
+    setMessage(text);
+    setIsError(false);
+  }
+  function fail(err: unknown) {
+    const data = (err as { data?: { error?: string } }).data;
+    setMessage(translateError(data?.error ?? ''));
+    setIsError(true);
+  }
+
   async function handleBlockSeats() {
     setBusy(true);
     setMessage('');
     try {
       const res = await blockSeatsApi(trip.id, blockCount);
       setTrip(res.trip);
-      setMessage('Đã cập nhật ghế chặn.');
-    } catch (err: unknown) {
-      const data = (err as { data?: { error?: string } }).data;
-      setMessage(translateError(data?.error ?? ''));
+      ok('Đã cập nhật ghế chặn.');
+    } catch (err) {
+      fail(err);
     } finally {
       setBusy(false);
     }
   }
 
   async function handleReassignBus() {
-    if (!newBusId.trim()) { setMessage('Nhập ID xe mới.'); return; }
+    if (!newBusId.trim()) {
+      setMessage('Nhập ID xe mới.');
+      setIsError(true);
+      return;
+    }
     setBusy(true);
     setMessage('');
     try {
       const res = await reassignBusApi(trip.id, newBusId.trim());
       setTrip(res.trip);
       setNewBusId('');
-      setMessage('Đã đổi xe.');
-    } catch (err: unknown) {
+      ok('Đã đổi xe.');
+    } catch (err) {
       const data = (err as { data?: { error?: string; required?: number; provided?: number } }).data;
       if (data?.error === 'capacity_too_small') {
         setMessage(`Xe mới không đủ chỗ: cần ${data.required}, xe có ${data.provided}.`);
+        setIsError(true);
       } else {
-        setMessage(translateError(data?.error ?? ''));
+        fail(err);
       }
     } finally {
       setBusy(false);
@@ -103,40 +140,37 @@ export default function TripDetailClient({ trip: initialTrip, staff: initialStaf
     try {
       const res = await salesToggleApi(trip.id, !trip.salesClosed);
       setTrip(res.trip);
-      setMessage(res.trip.salesClosed ? 'Đã đóng bán vé.' : 'Đã mở bán vé.');
-    } catch (err: unknown) {
-      const data = (err as { data?: { error?: string } }).data;
-      setMessage(translateError(data?.error ?? ''));
+      ok(res.trip.salesClosed ? 'Đã đóng bán vé.' : 'Đã mở bán vé.');
+    } catch (err) {
+      fail(err);
     } finally {
       setBusy(false);
     }
   }
 
-  async function handleCancel() {
-    const reason = prompt('Lý do huỷ chuyến (tối thiểu 10 ký tự):');
-    if (!reason || reason.length < 10) {
-      setMessage('Lý do phải có ít nhất 10 ký tự.');
-      return;
-    }
-    if (!confirm('Huỷ chuyến này? Hành động không thể hoàn tác.')) return;
+  async function handleCancelConfirm(reason: string) {
     setBusy(true);
     setMessage('');
     try {
       const result = await cancelTripApi(trip.id, reason);
-      setMessage(
+      ok(
         `Đã huỷ chuyến. Đặt vé bị huỷ: ${result.cancelledBookings}. Giữ chỗ bị huỷ: ${result.cancelledHolds}. SMS: ${result.notificationsEnqueued}.`
       );
       setTrip({ ...trip, status: 'cancelled' });
-    } catch (err: unknown) {
-      const data = (err as { data?: { error?: string } }).data;
-      setMessage(translateError(data?.error ?? ''));
+      setShowCancel(false);
+    } catch (err) {
+      fail(err);
     } finally {
       setBusy(false);
     }
   }
 
   async function handlePairedReturn() {
-    if (!returnDep) { setMessage('Chọn giờ khởi hành chuyến về.'); return; }
+    if (!returnDep) {
+      setMessage('Chọn giờ khởi hành chuyến về.');
+      setIsError(true);
+      return;
+    }
     setBusy(true);
     setMessage('');
     try {
@@ -144,17 +178,20 @@ export default function TripDetailClient({ trip: initialTrip, staff: initialStaf
         returnDepartureAt: new Date(returnDep).toISOString(),
         price: returnPrice || undefined,
       });
-      setMessage(`Đã tạo chuyến về: ${res.returnTrip.id.slice(0, 8)}…`);
-    } catch (err: unknown) {
-      const data = (err as { data?: { error?: string } }).data;
-      setMessage(translateError(data?.error ?? ''));
+      ok(`Đã tạo chuyến về: ${res.returnTrip.id.slice(0, 8)}…`);
+    } catch (err) {
+      fail(err);
     } finally {
       setBusy(false);
     }
   }
 
   async function handleAssignService() {
-    if (!assignStaffId) { setMessage('Chọn nhân viên để gán.'); return; }
+    if (!assignStaffId) {
+      setMessage('Chọn nhân viên để gán.');
+      setIsError(true);
+      return;
+    }
     setBusy(true);
     setMessage('');
     try {
@@ -168,10 +205,9 @@ export default function TripDetailClient({ trip: initialTrip, staff: initialStaf
               : m
         )
       );
-      setMessage(`Đã gán ${res.staff.displayName} cho chuyến này.`);
-    } catch (err: unknown) {
-      const data = (err as { data?: { error?: string } }).data;
-      setMessage(translateError(data?.error ?? ''));
+      ok(`Đã gán ${res.staff.displayName} cho chuyến này.`);
+    } catch (err) {
+      fail(err);
     } finally {
       setBusy(false);
     }
@@ -179,178 +215,248 @@ export default function TripDetailClient({ trip: initialTrip, staff: initialStaf
 
   const cancelled = trip.status === 'cancelled';
   const assignedStaff = staff.find((m) => m.assignedTripId === trip.id);
+  const status = tripStatusDisplay(trip.status as TripStatus, trip.salesClosed);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div className="space-y-6">
       {message && (
-        <div
-          data-testid="trip-detail-message"
-          style={{ padding: 12, background: '#f4f4f4', borderRadius: 4 }}
-        >
-          {message}
-        </div>
+        <Alert variant={isError ? 'error' : 'success'} data-testid="trip-detail-message">
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
       )}
 
       {/* Trip summary */}
-      <section style={{ padding: 16, border: '1px solid #ddd', borderRadius: 4 }}>
-        <h2 style={{ marginTop: 0 }}>Thông tin chuyến</h2>
-        <dl style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 16px' }}>
-          <dt>ID</dt><dd data-testid="trip-id" style={{ fontFamily: 'monospace' }}>{trip.id}</dd>
-          <dt>Tuyến</dt><dd>{trip.routeId}</dd>
-          <dt>Xe</dt><dd>{trip.busId}</dd>
-          <dt>Khởi hành</dt><dd>{new Date(trip.departureAt).toLocaleString('vi-VN')}</dd>
-          <dt>Giá</dt><dd>{trip.price?.toLocaleString('vi-VN')}đ</dd>
-          <dt>Trạng thái</dt><dd data-testid="trip-status">{trip.status}</dd>
-          <dt>Đóng bán</dt><dd>{trip.salesClosed ? 'Có' : 'Không'}</dd>
-          <dt>Ghế còn</dt><dd data-testid="trip-available">{trip.availableSeats}</dd>
-          <dt>Ghế chặn</dt><dd>{trip.blockedSeats}</dd>
-        </dl>
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle as="h2">Thông tin chuyến</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+            <dt className="text-muted-foreground">ID</dt>
+            <dd data-testid="trip-id" className="font-mono break-all">{trip.id}</dd>
+            <dt className="text-muted-foreground">Tuyến</dt>
+            <dd className="font-mono">{trip.routeId}</dd>
+            <dt className="text-muted-foreground">Xe</dt>
+            <dd className="font-mono">{trip.busId}</dd>
+            <dt className="text-muted-foreground">Khởi hành</dt>
+            <dd className="tabular-nums">{new Date(trip.departureAt).toLocaleString('vi-VN')}</dd>
+            <dt className="text-muted-foreground">Giá</dt>
+            <dd className="tabular-nums">{trip.price?.toLocaleString('vi-VN')}đ</dd>
+            <dt className="text-muted-foreground">Trạng thái</dt>
+            <dd data-testid="trip-status">
+              <Badge variant={status.variant}>{status.label}</Badge>
+            </dd>
+            <dt className="text-muted-foreground">Đóng bán</dt>
+            <dd>{trip.salesClosed ? 'Có' : 'Không'}</dd>
+            <dt className="text-muted-foreground">Ghế còn</dt>
+            <dd data-testid="trip-available" className="tabular-nums">{trip.availableSeats}</dd>
+            <dt className="text-muted-foreground">Ghế chặn</dt>
+            <dd className="tabular-nums">{trip.blockedSeats}</dd>
+          </dl>
+        </CardContent>
+      </Card>
 
       {!cancelled && (
         <>
           {/* Block seats */}
-          <section style={{ padding: 16, border: '1px solid #ddd', borderRadius: 4 }}>
-            <h2 style={{ marginTop: 0 }}>Chặn ghế</h2>
-            <label>
-              Số ghế chặn
-              <input
-                type="number"
-                value={blockCount}
-                onChange={(e) => setBlockCount(parseInt(e.target.value, 10))}
-                min={0}
-                data-testid="block-seats-input"
-                style={{ marginLeft: 8, width: 80 }}
-              />
-            </label>
-            <button
-              type="button"
-              onClick={handleBlockSeats}
-              disabled={busy}
-              data-testid="block-seats-submit"
-              style={{ marginLeft: 8 }}
-            >
-              Cập nhật
-            </button>
-          </section>
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2">Chặn ghế</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="block-seats-input">Số ghế chặn</Label>
+                  <Input
+                    id="block-seats-input"
+                    type="number"
+                    value={blockCount}
+                    onChange={(e) => setBlockCount(parseInt(e.target.value, 10))}
+                    min={0}
+                    data-testid="block-seats-input"
+                    className="w-28"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  onClick={handleBlockSeats}
+                  disabled={busy}
+                  data-testid="block-seats-submit"
+                >
+                  Cập nhật
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Reassign bus */}
-          <section style={{ padding: 16, border: '1px solid #ddd', borderRadius: 4 }}>
-            <h2 style={{ marginTop: 0 }}>Đổi xe</h2>
-            <input
-              type="text"
-              value={newBusId}
-              onChange={(e) => setNewBusId(e.target.value)}
-              placeholder="ID xe mới"
-              data-testid="reassign-bus-input"
-              style={{ width: 240 }}
-            />
-            <button
-              type="button"
-              onClick={handleReassignBus}
-              disabled={busy}
-              data-testid="reassign-bus-submit"
-              style={{ marginLeft: 8 }}
-            >
-              Đổi xe
-            </button>
-          </section>
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2">Đổi xe</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="grid flex-1 gap-1.5">
+                  <Label htmlFor="reassign-bus-input">ID xe mới</Label>
+                  <Input
+                    id="reassign-bus-input"
+                    type="text"
+                    value={newBusId}
+                    onChange={(e) => setNewBusId(e.target.value)}
+                    placeholder="ID xe mới"
+                    data-testid="reassign-bus-input"
+                    className="max-w-xs"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  onClick={handleReassignBus}
+                  disabled={busy}
+                  data-testid="reassign-bus-submit"
+                >
+                  Đổi xe
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Sales toggle */}
-          <section style={{ padding: 16, border: '1px solid #ddd', borderRadius: 4 }}>
-            <h2 style={{ marginTop: 0 }}>Bán vé</h2>
-            <button
-              type="button"
-              onClick={handleSalesToggle}
-              disabled={busy}
-              data-testid="sales-toggle-btn"
-            >
-              {trip.salesClosed ? 'Mở bán vé' : 'Đóng bán vé'}
-            </button>
-          </section>
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2">Bán vé</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSalesToggle}
+                disabled={busy}
+                data-testid="sales-toggle-btn"
+              >
+                {trip.salesClosed ? 'Mở bán vé' : 'Đóng bán vé'}
+              </Button>
+            </CardContent>
+          </Card>
 
           {/* Paired return */}
-          <section style={{ padding: 16, border: '1px solid #ddd', borderRadius: 4 }}>
-            <h2 style={{ marginTop: 0 }}>Tạo chuyến về</h2>
-            <label style={{ display: 'block', marginBottom: 8 }}>
-              Giờ khởi hành chuyến về
-              <input
-                type="datetime-local"
-                value={returnDep}
-                onChange={(e) => setReturnDep(e.target.value)}
-                data-testid="return-departure-input"
-                style={{ display: 'block', marginTop: 4 }}
-              />
-            </label>
-            <label style={{ display: 'block', marginBottom: 8 }}>
-              Giá (để trống = dùng giá chuyến đi)
-              <input
-                type="number"
-                value={returnPrice}
-                onChange={(e) => setReturnPrice(parseInt(e.target.value, 10))}
-                min={0}
-                data-testid="return-price-input"
-                style={{ display: 'block', width: 160, marginTop: 4 }}
-              />
-            </label>
-            <button
-              type="button"
-              onClick={handlePairedReturn}
-              disabled={busy}
-              data-testid="paired-return-submit"
-            >
-              Tạo chuyến về
-            </button>
-          </section>
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2">Tạo chuyến về</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid max-w-sm gap-4">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="return-departure-input">Giờ khởi hành chuyến về</Label>
+                  <Input
+                    id="return-departure-input"
+                    type="datetime-local"
+                    value={returnDep}
+                    onChange={(e) => setReturnDep(e.target.value)}
+                    data-testid="return-departure-input"
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="return-price-input">Giá (để trống = dùng giá chuyến đi)</Label>
+                  <Input
+                    id="return-price-input"
+                    type="number"
+                    value={returnPrice}
+                    onChange={(e) => setReturnPrice(parseInt(e.target.value, 10))}
+                    min={0}
+                    data-testid="return-price-input"
+                    className="w-40"
+                  />
+                </div>
+                <div>
+                  <Button
+                    type="button"
+                    onClick={handlePairedReturn}
+                    disabled={busy}
+                    data-testid="paired-return-submit"
+                  >
+                    Tạo chuyến về
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Assign staff to service */}
           {isAdmin && (
-            <section style={{ padding: 16, border: '1px solid #ddd', borderRadius: 4 }}>
-              <h2 style={{ marginTop: 0 }}>Gán nhân viên phục vụ</h2>
-              <p style={{ marginTop: 0, color: '#666' }}>
-                Nhân viên hiện tại: {assignedStaff ? assignedStaff.displayName : '—'}
-              </p>
-              <select
-                value={assignStaffId}
-                onChange={(e) => setAssignStaffId(e.target.value)}
-                data-testid="assign-staff-select"
-                style={{ minWidth: 240 }}
-              >
-                <option value="">— Chọn nhân viên —</option>
-                {staff
-                  .filter((m) => !m.disabled)
-                  .map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.displayName}
-                      {m.assignedTripId && m.assignedTripId !== trip.id ? ' (đang gán chuyến khác)' : ''}
-                    </option>
-                  ))}
-              </select>
-              <button
-                type="button"
-                onClick={handleAssignService}
-                disabled={busy}
-                data-testid="assign-staff-submit"
-                style={{ marginLeft: 8 }}
-              >
-                Gán nhân viên
-              </button>
-            </section>
+            <Card>
+              <CardHeader>
+                <CardTitle as="h2">Gán nhân viên phục vụ</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="mb-3 text-sm text-muted-foreground">
+                  Nhân viên hiện tại: {assignedStaff ? assignedStaff.displayName : '—'}
+                </p>
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="grid gap-1.5">
+                    <Label>Nhân viên</Label>
+                    {/* base-ui Select: onValueChange, NOT onChange. */}
+                    <Select
+                      value={assignStaffId}
+                      onValueChange={(value: string | null) => setAssignStaffId(value ?? '')}
+                    >
+                      <SelectTrigger
+                        data-testid="assign-staff-select"
+                        className="min-w-60"
+                      >
+                        <SelectValue placeholder="— Chọn nhân viên —" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {staff
+                          .filter((m) => !m.disabled)
+                          .map((m) => (
+                            <SelectItem key={m.id} value={m.id}>
+                              {m.displayName}
+                              {m.assignedTripId && m.assignedTripId !== trip.id
+                                ? ' (đang gán chuyến khác)'
+                                : ''}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={handleAssignService}
+                    disabled={busy}
+                    data-testid="assign-staff-submit"
+                  >
+                    Gán nhân viên
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           )}
 
           {/* Cancel */}
-          <section style={{ padding: 16, border: '1px solid #fcc', borderRadius: 4 }}>
-            <h2 style={{ marginTop: 0, color: '#c00' }}>Huỷ chuyến</h2>
-            <button
-              type="button"
-              onClick={handleCancel}
+          <Card className="border-destructive/40">
+            <CardHeader>
+              <CardTitle as="h2" className="text-destructive">Huỷ chuyến</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => setShowCancel(true)}
+                disabled={busy}
+                data-testid="cancel-trip-btn"
+              >
+                Huỷ chuyến
+              </Button>
+            </CardContent>
+          </Card>
+
+          {showCancel && (
+            <CancelTripDialog
+              onConfirm={handleCancelConfirm}
+              onClose={() => setShowCancel(false)}
               disabled={busy}
-              data-testid="cancel-trip-btn"
-              style={{ background: '#c00', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: 4 }}
-            >
-              Huỷ chuyến
-            </button>
-          </section>
+            />
+          )}
         </>
       )}
     </div>

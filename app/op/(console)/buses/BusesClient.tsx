@@ -3,47 +3,69 @@
 /**
  * BusesClient — client island for operator fleet management (Issue 011).
  *
- * Handles all mutations against /api/op/buses* with CSRF double-submit
- * (X-CSRF-Token header read from bb_csrf cookie via readCsrfToken()).
+ * Mutations go through lib/api/busesClient.ts (CSRF double-submit). The client
+ * throws { status, data } on failure; this island maps data.error → a localized
+ * Vietnamese message (and reads violatingTrips / tripIds / conflictingTrips off
+ * data when present).
  *
- * UI surface:
- *   - List of buses (initialBuses from RSC; refresh after each mutation).
- *   - Add Bus form (POST /api/op/buses).
- *   - Per-row Edit (PATCH) + Deactivate (POST /[id]/deactivate).
- *   - Per-row Maintenance windows panel: list + add + delete.
- *
- * Error mapping (user-visible Vietnamese strings):
- *   plate_in_use                 → "Biển số đã tồn tại"
- *   capacity_reduction_blocked   → "Không thể giảm sức chứa: có chuyến đã vượt mức"
- *   future_trips_assigned        → "Còn chuyến tương lai gắn xe này"
- *   maintenance_overlap          → "Khung bảo trì trùng lặp"
- *   reactivation_not_supported   → "Không hỗ trợ kích hoạt lại"
- *   not_found                    → "Không tìm thấy"
+ * UI: Card add-bus form (Label/Input/Select), Table fleet list with per-row
+ * capacity edit + deactivate + maintenance expander. Every data-testid preserved
+ * (sandbox-gated e2e keys off them).
  */
 
 import { useState } from 'react';
-import { readCsrfToken } from '@/lib/auth/csrfClient';
+import {
+  listBusesApi,
+  getBusApi,
+  createBusApi,
+  patchCapacityApi,
+  deactivateBusApi,
+  addMaintenanceApi,
+  deleteMaintenanceApi,
+  type MaintenanceWindow,
+} from '@/lib/api/busesClient';
 import type { OperatorBusListItem } from '@/lib/buses/listOperatorBuses';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 
 type BusType = 'coach' | 'sleeper' | 'limousine';
 
-interface MaintenanceWindow {
-  id: string;
-  startAt: string;
-  endAt: string;
-  reason: string | null;
-}
+const BUS_TYPE_LABELS: Record<string, string> = {
+  coach: 'Coach',
+  sleeper: 'Sleeper',
+  limousine: 'Limousine',
+};
 
 interface Props {
   initialBuses: OperatorBusListItem[];
 }
 
-function csrfHeaders(extra: Record<string, string> = {}): HeadersInit {
-  return { 'X-CSRF-Token': readCsrfToken(), ...extra };
-}
-
-function jsonHeaders(): HeadersInit {
-  return csrfHeaders({ 'Content-Type': 'application/json' });
+interface ApiError {
+  status?: number;
+  data?: {
+    error?: string;
+    violatingTrips?: { tripId: string; occupancy: number }[];
+    tripIds?: string[];
+  } | null;
 }
 
 function translateError(code: string): string {
@@ -64,6 +86,7 @@ export default function BusesClient({ initialBuses }: Props) {
   const [buses, setBuses] = useState<OperatorBusListItem[]>(initialBuses);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string>('');
+  const [isError, setIsError] = useState(false);
 
   // Add-bus form state
   const [newPlate, setNewPlate] = useState('');
@@ -74,25 +97,30 @@ export default function BusesClient({ initialBuses }: Props) {
   const [expandedBusId, setExpandedBusId] = useState<string | null>(null);
   const [maintenanceByBus, setMaintenanceByBus] = useState<Record<string, MaintenanceWindow[]>>({});
 
+  function ok(msg: string) {
+    setMessage(msg);
+    setIsError(false);
+  }
+  function fail(msg: string) {
+    setMessage(msg);
+    setIsError(true);
+  }
+
   async function refreshBuses() {
-    const res = await fetch('/api/op/buses?activeOnly=1', { method: 'GET' });
-    if (res.ok) {
-      const json = await res.json();
+    try {
+      const json = await listBusesApi(true);
       setBuses(json.buses ?? []);
+    } catch {
+      /* leave existing list on refresh failure */
     }
   }
 
   async function loadMaintenance(busId: string) {
-    const res = await fetch(`/api/op/buses/${busId}`, { method: 'GET' });
-    if (res.ok) {
-      const json = await res.json();
-      const windows: MaintenanceWindow[] = (json.bus?.maintenances ?? []).map((m: { id: string; startAt: string; endAt: string; reason: string | null }) => ({
-        id: m.id,
-        startAt: m.startAt,
-        endAt: m.endAt,
-        reason: m.reason,
-      }));
-      setMaintenanceByBus((s) => ({ ...s, [busId]: windows }));
+    try {
+      const json = await getBusApi(busId);
+      setMaintenanceByBus((s) => ({ ...s, [busId]: json.bus?.maintenances ?? [] }));
+    } catch {
+      /* ignore */
     }
   }
 
@@ -101,25 +129,14 @@ export default function BusesClient({ initialBuses }: Props) {
     setBusy(true);
     setMessage('');
     try {
-      const res = await fetch('/api/op/buses', {
-        method: 'POST',
-        headers: jsonHeaders(),
-        body: JSON.stringify({
-          licensePlate: newPlate,
-          capacity: newCapacity,
-          busType: newBusType,
-        }),
-      });
-      if (res.status === 201) {
-        setMessage('Đã thêm xe.');
-        setNewPlate('');
-        setNewCapacity(30);
-        setNewBusType('coach');
-        await refreshBuses();
-      } else {
-        const json = await res.json().catch(() => ({}));
-        setMessage(translateError(json.error ?? ''));
-      }
+      await createBusApi({ licensePlate: newPlate, capacity: newCapacity, busType: newBusType });
+      ok('Đã thêm xe.');
+      setNewPlate('');
+      setNewCapacity(30);
+      setNewBusType('coach');
+      await refreshBuses();
+    } catch (e) {
+      fail(translateError((e as ApiError).data?.error ?? ''));
     } finally {
       setBusy(false);
     }
@@ -129,24 +146,16 @@ export default function BusesClient({ initialBuses }: Props) {
     setBusy(true);
     setMessage('');
     try {
-      const res = await fetch(`/api/op/buses/${busId}`, {
-        method: 'PATCH',
-        headers: jsonHeaders(),
-        body: JSON.stringify({ capacity }),
-      });
-      if (res.ok) {
-        setMessage('Đã cập nhật.');
-        await refreshBuses();
+      await patchCapacityApi(busId, capacity);
+      ok('Đã cập nhật.');
+      await refreshBuses();
+    } catch (e) {
+      const data = (e as ApiError).data;
+      if (data?.error === 'capacity_reduction_blocked' && Array.isArray(data.violatingTrips)) {
+        const trips = data.violatingTrips.map((t) => `${t.tripId} (${t.occupancy} chỗ)`).join(', ');
+        fail(`Không thể giảm sức chứa: ${trips}`);
       } else {
-        const json = await res.json().catch(() => ({}));
-        if (json.error === 'capacity_reduction_blocked' && Array.isArray(json.violatingTrips)) {
-          const trips = (json.violatingTrips as Array<{ tripId: string; occupancy: number }>)
-            .map((t) => `${t.tripId} (${t.occupancy} chỗ)`)
-            .join(', ');
-          setMessage(`Không thể giảm sức chứa: ${trips}`);
-        } else {
-          setMessage(translateError(json.error ?? ''));
-        }
+        fail(translateError(data?.error ?? ''));
       }
     } finally {
       setBusy(false);
@@ -158,20 +167,15 @@ export default function BusesClient({ initialBuses }: Props) {
     setBusy(true);
     setMessage('');
     try {
-      const res = await fetch(`/api/op/buses/${busId}/deactivate`, {
-        method: 'POST',
-        headers: csrfHeaders(),
-      });
-      if (res.ok) {
-        setMessage('Đã vô hiệu hoá xe.');
-        await refreshBuses();
+      await deactivateBusApi(busId);
+      ok('Đã vô hiệu hoá xe.');
+      await refreshBuses();
+    } catch (e) {
+      const data = (e as ApiError).data;
+      if (data?.error === 'future_trips_assigned' && Array.isArray(data.tripIds)) {
+        fail(`Còn chuyến tương lai gắn xe này: ${data.tripIds.join(', ')}`);
       } else {
-        const json = await res.json().catch(() => ({}));
-        if (json.error === 'future_trips_assigned' && Array.isArray(json.tripIds)) {
-          setMessage(`Còn chuyến tương lai gắn xe này: ${json.tripIds.join(', ')}`);
-        } else {
-          setMessage(translateError(json.error ?? ''));
-        }
+        fail(translateError(data?.error ?? ''));
       }
     } finally {
       setBusy(false);
@@ -193,30 +197,22 @@ export default function BusesClient({ initialBuses }: Props) {
     setBusy(true);
     setMessage('');
     try {
-      const res = await fetch(`/api/op/buses/${busId}/maintenance`, {
-        method: 'POST',
-        headers: jsonHeaders(),
-        body: JSON.stringify({
-          startAt: new Date(startAt).toISOString(),
-          endAt: new Date(endAt).toISOString(),
-          reason: reason || undefined,
-        }),
+      const json = await addMaintenanceApi(busId, {
+        startAt: new Date(startAt).toISOString(),
+        endAt: new Date(endAt).toISOString(),
+        reason: reason || undefined,
       });
-      if (res.status === 201) {
-        const json = await res.json();
-        const conflicts = Array.isArray(json.conflictingTrips) ? json.conflictingTrips : [];
-        if (conflicts.length > 0) {
-          setMessage(
-            `Đã thêm khung bảo trì. Cảnh báo: ${conflicts.length} chuyến chồng lấn (${conflicts.map((c: { tripId: string }) => c.tripId).join(', ')}).`
-          );
-        } else {
-          setMessage('Đã thêm khung bảo trì.');
-        }
-        await loadMaintenance(busId);
+      const conflicts = Array.isArray(json.conflictingTrips) ? json.conflictingTrips : [];
+      if (conflicts.length > 0) {
+        ok(
+          `Đã thêm khung bảo trì. Cảnh báo: ${conflicts.length} chuyến chồng lấn (${conflicts.map((c) => c.tripId).join(', ')}).`
+        );
       } else {
-        const json = await res.json().catch(() => ({}));
-        setMessage(translateError(json.error ?? ''));
+        ok('Đã thêm khung bảo trì.');
       }
+      await loadMaintenance(busId);
+    } catch (e) {
+      fail(translateError((e as ApiError).data?.error ?? ''));
     } finally {
       setBusy(false);
     }
@@ -227,116 +223,120 @@ export default function BusesClient({ initialBuses }: Props) {
     setBusy(true);
     setMessage('');
     try {
-      const res = await fetch(`/api/op/buses/${busId}/maintenance/${mid}`, {
-        method: 'DELETE',
-        headers: csrfHeaders(),
-      });
-      if (res.ok) {
-        setMessage('Đã xoá khung bảo trì.');
-        await loadMaintenance(busId);
-      } else {
-        const json = await res.json().catch(() => ({}));
-        setMessage(translateError(json.error ?? ''));
-      }
+      await deleteMaintenanceApi(busId, mid);
+      ok('Đã xoá khung bảo trì.');
+      await loadMaintenance(busId);
+    } catch (e) {
+      fail(translateError((e as ApiError).data?.error ?? ''));
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div>
+    <div className="space-y-6">
       {message && (
-        <div
-          data-testid="fleet-message"
-          style={{ padding: 12, marginBottom: 16, background: '#f4f4f4', borderRadius: 4 }}
-        >
-          {message}
-        </div>
+        <Alert variant={isError ? 'error' : 'success'} data-testid="fleet-message">
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
       )}
 
       {/* Add-bus form */}
-      <section style={{ marginBottom: 32, padding: 16, border: '1px solid #ddd', borderRadius: 4 }}>
-        <h2 style={{ marginTop: 0 }}>Thêm xe mới</h2>
-        <form onSubmit={handleAdd}>
-          <label style={{ display: 'block', marginBottom: 8 }}>
-            Biển số
-            <input
-              type="text"
-              value={newPlate}
-              onChange={(e) => setNewPlate(e.target.value)}
-              required
-              minLength={6}
-              maxLength={11}
-              data-testid="new-plate"
-              style={{ display: 'block', width: '100%', marginTop: 4 }}
-            />
-          </label>
-          <label style={{ display: 'block', marginBottom: 8 }}>
-            Sức chứa
-            <input
-              type="number"
-              value={newCapacity}
-              onChange={(e) => setNewCapacity(parseInt(e.target.value, 10))}
-              min={1}
-              max={80}
-              required
-              data-testid="new-capacity"
-              style={{ display: 'block', width: '100%', marginTop: 4 }}
-            />
-          </label>
-          <label style={{ display: 'block', marginBottom: 8 }}>
-            Loại xe
-            <select
-              value={newBusType}
-              onChange={(e) => setNewBusType(e.target.value as BusType)}
-              data-testid="new-bustype"
-              style={{ display: 'block', width: '100%', marginTop: 4 }}
-            >
-              <option value="coach">Coach</option>
-              <option value="sleeper">Sleeper</option>
-              <option value="limousine">Limousine</option>
-            </select>
-          </label>
-          <button type="submit" disabled={busy} data-testid="add-bus-submit">
-            {busy ? 'Đang xử lý...' : 'Thêm xe'}
-          </button>
-        </form>
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle as="h2">Thêm xe mới</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleAdd} className="grid max-w-md gap-4">
+            <div className="grid gap-1.5">
+              <Label htmlFor="new-plate">Biển số</Label>
+              <Input
+                id="new-plate"
+                type="text"
+                value={newPlate}
+                onChange={(e) => setNewPlate(e.target.value)}
+                required
+                minLength={6}
+                maxLength={11}
+                data-testid="new-plate"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="new-capacity">Sức chứa</Label>
+              <Input
+                id="new-capacity"
+                type="number"
+                value={newCapacity}
+                onChange={(e) => setNewCapacity(parseInt(e.target.value, 10))}
+                min={1}
+                max={80}
+                required
+                data-testid="new-capacity"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Loại xe</Label>
+              <Select
+                value={newBusType}
+                onValueChange={(v: string | null) => v && setNewBusType(v as BusType)}
+              >
+                <SelectTrigger data-testid="new-bustype">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="coach">Coach</SelectItem>
+                  <SelectItem value="sleeper">Sleeper</SelectItem>
+                  <SelectItem value="limousine">Limousine</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Button type="submit" disabled={busy} data-testid="add-bus-submit">
+                {busy ? 'Đang xử lý...' : 'Thêm xe'}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
 
       {/* Bus list */}
-      <section>
-        <h2>Danh sách xe ({buses.length})</h2>
-        {buses.length === 0 ? (
-          <p>Chưa có xe nào.</p>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }} data-testid="buses-table">
-            <thead>
-              <tr style={{ background: '#f4f4f4' }}>
-                <th style={{ padding: 8, textAlign: 'left' }}>Biển số</th>
-                <th style={{ padding: 8, textAlign: 'left' }}>Sức chứa</th>
-                <th style={{ padding: 8, textAlign: 'left' }}>Loại</th>
-                <th style={{ padding: 8, textAlign: 'left' }}>Hành động</th>
-              </tr>
-            </thead>
-            <tbody>
-              {buses.map((bus) => (
-                <RowGroup
-                  key={bus.id}
-                  bus={bus}
-                  expanded={expandedBusId === bus.id}
-                  maintenance={maintenanceByBus[bus.id] ?? []}
-                  onToggle={() => handleToggleExpand(bus.id)}
-                  onPatchCapacity={(cap) => handlePatchCapacity(bus.id, cap)}
-                  onDeactivate={() => handleDeactivate(bus.id)}
-                  onAddMaintenance={(s, e, r) => handleAddMaintenance(bus.id, s, e, r)}
-                  onDeleteMaintenance={(mid) => handleDeleteMaintenance(bus.id, mid)}
-                  disabled={busy}
-                />
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
+      <Card className="overflow-hidden py-0">
+        <CardHeader className="px-4 pt-4">
+          <CardTitle as="h2">Danh sách xe ({buses.length})</CardTitle>
+        </CardHeader>
+        <CardContent className="px-0">
+          {buses.length === 0 ? (
+            <p className="px-4 pb-4 text-sm text-muted-foreground">Chưa có xe nào.</p>
+          ) : (
+            <Table data-testid="buses-table">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Biển số</TableHead>
+                  <TableHead>Sức chứa</TableHead>
+                  <TableHead>Loại</TableHead>
+                  <TableHead>Hành động</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {buses.map((bus) => (
+                  <RowGroup
+                    key={bus.id}
+                    bus={bus}
+                    expanded={expandedBusId === bus.id}
+                    maintenance={maintenanceByBus[bus.id] ?? []}
+                    onToggle={() => handleToggleExpand(bus.id)}
+                    onPatchCapacity={(cap) => handlePatchCapacity(bus.id, cap)}
+                    onDeactivate={() => handleDeactivate(bus.id)}
+                    onAddMaintenance={(s, e, r) => handleAddMaintenance(bus.id, s, e, r)}
+                    onDeleteMaintenance={(mid) => handleDeleteMaintenance(bus.id, mid)}
+                    disabled={busy}
+                  />
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -375,114 +375,147 @@ function RowGroup({
 
   return (
     <>
-      <tr data-testid={`bus-row-${bus.id}`}>
-        <td style={{ padding: 8 }} data-testid={`bus-plate-${bus.id}`}>
+      <TableRow data-testid={`bus-row-${bus.id}`}>
+        <TableCell data-testid={`bus-plate-${bus.id}`} className="font-medium">
           {bus.licensePlate}
-        </td>
-        <td style={{ padding: 8 }}>
-          <input
-            type="number"
-            value={editCapacity}
-            onChange={(e) => setEditCapacity(parseInt(e.target.value, 10))}
-            min={1}
-            max={80}
-            data-testid={`bus-capacity-${bus.id}`}
-            style={{ width: 80 }}
-          />
-          <button
-            type="button"
-            onClick={() => onPatchCapacity(editCapacity)}
-            disabled={disabled || editCapacity === bus.capacity}
-            data-testid={`bus-save-${bus.id}`}
-          >
-            Lưu
-          </button>
-        </td>
-        <td style={{ padding: 8 }}>{bus.busType}</td>
-        <td style={{ padding: 8 }}>
-          <button type="button" onClick={onToggle} data-testid={`bus-toggle-${bus.id}`}>
-            {expanded ? 'Đóng' : 'Bảo trì'}
-          </button>{' '}
-          <button
-            type="button"
-            onClick={onDeactivate}
-            disabled={disabled}
-            data-testid={`bus-deactivate-${bus.id}`}
-            style={{ color: 'red' }}
-          >
-            Vô hiệu hoá
-          </button>
-        </td>
-      </tr>
+        </TableCell>
+        <TableCell>
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              value={editCapacity}
+              onChange={(e) => setEditCapacity(parseInt(e.target.value, 10))}
+              min={1}
+              max={80}
+              data-testid={`bus-capacity-${bus.id}`}
+              className="w-20"
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => onPatchCapacity(editCapacity)}
+              disabled={disabled || editCapacity === bus.capacity}
+              data-testid={`bus-save-${bus.id}`}
+            >
+              Lưu
+            </Button>
+          </div>
+        </TableCell>
+        <TableCell>
+          <Badge variant="neutral">{BUS_TYPE_LABELS[bus.busType] ?? bus.busType}</Badge>
+        </TableCell>
+        <TableCell>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={onToggle}
+              data-testid={`bus-toggle-${bus.id}`}
+              aria-expanded={expanded}
+            >
+              {expanded ? 'Đóng' : 'Bảo trì'}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              onClick={onDeactivate}
+              disabled={disabled}
+              data-testid={`bus-deactivate-${bus.id}`}
+            >
+              Vô hiệu hoá
+            </Button>
+          </div>
+        </TableCell>
+      </TableRow>
       {expanded && (
-        <tr>
-          <td colSpan={4} style={{ background: '#fafafa', padding: 16 }}>
-            <h3 style={{ marginTop: 0 }}>Khung bảo trì</h3>
-            {maintenance.length === 0 ? (
-              <p>Chưa có khung bảo trì.</p>
-            ) : (
-              <ul>
-                {maintenance.map((m) => (
-                  <li key={m.id} data-testid={`maintenance-${m.id}`}>
-                    {new Date(m.startAt).toLocaleString()} → {new Date(m.endAt).toLocaleString()}
-                    {m.reason ? ` — ${m.reason}` : ''}{' '}
-                    <button
-                      type="button"
-                      onClick={() => onDeleteMaintenance(m.id)}
-                      disabled={disabled}
-                      data-testid={`maintenance-delete-${m.id}`}
+        <TableRow>
+          <TableCell colSpan={4} className="bg-muted/40">
+            <div className="space-y-3 p-2">
+              <h3 className="text-sm font-semibold">Khung bảo trì</h3>
+              {maintenance.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Chưa có khung bảo trì.</p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {maintenance.map((m) => (
+                    <li
+                      key={m.id}
+                      data-testid={`maintenance-${m.id}`}
+                      className="flex flex-wrap items-center gap-2 text-sm"
                     >
-                      Xoá
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div style={{ marginTop: 12 }}>
-              <label style={{ display: 'block', marginBottom: 4 }}>
-                Bắt đầu
-                <input
-                  type="datetime-local"
-                  value={mStart}
-                  onChange={(e) => setMStart(e.target.value)}
-                  data-testid={`maintenance-start-${bus.id}`}
-                />
-              </label>
-              <label style={{ display: 'block', marginBottom: 4 }}>
-                Kết thúc
-                <input
-                  type="datetime-local"
-                  value={mEnd}
-                  onChange={(e) => setMEnd(e.target.value)}
-                  data-testid={`maintenance-end-${bus.id}`}
-                />
-              </label>
-              <label style={{ display: 'block', marginBottom: 4 }}>
-                Lý do
-                <input
-                  type="text"
-                  value={mReason}
-                  onChange={(e) => setMReason(e.target.value)}
-                  data-testid={`maintenance-reason-${bus.id}`}
-                />
-              </label>
-              <button
-                type="button"
-                onClick={async () => {
-                  if (!mStart || !mEnd) return;
-                  await onAddMaintenance(mStart, mEnd, mReason);
-                  setMStart('');
-                  setMEnd('');
-                  setMReason('');
-                }}
-                disabled={disabled || !mStart || !mEnd}
-                data-testid={`maintenance-add-${bus.id}`}
-              >
-                Thêm khung
-              </button>
+                      <span className="tabular-nums">
+                        {new Date(m.startAt).toLocaleString('vi-VN')} →{' '}
+                        {new Date(m.endAt).toLocaleString('vi-VN')}
+                      </span>
+                      {m.reason ? <span className="text-muted-foreground">— {m.reason}</span> : null}
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant="ghost"
+                        onClick={() => onDeleteMaintenance(m.id)}
+                        disabled={disabled}
+                        data-testid={`maintenance-delete-${m.id}`}
+                      >
+                        Xoá
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="grid max-w-md gap-3">
+                <div className="grid gap-1.5">
+                  <Label htmlFor={`maintenance-start-${bus.id}`}>Bắt đầu</Label>
+                  <Input
+                    id={`maintenance-start-${bus.id}`}
+                    type="datetime-local"
+                    value={mStart}
+                    onChange={(e) => setMStart(e.target.value)}
+                    data-testid={`maintenance-start-${bus.id}`}
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor={`maintenance-end-${bus.id}`}>Kết thúc</Label>
+                  <Input
+                    id={`maintenance-end-${bus.id}`}
+                    type="datetime-local"
+                    value={mEnd}
+                    onChange={(e) => setMEnd(e.target.value)}
+                    data-testid={`maintenance-end-${bus.id}`}
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor={`maintenance-reason-${bus.id}`}>Lý do</Label>
+                  <Input
+                    id={`maintenance-reason-${bus.id}`}
+                    type="text"
+                    value={mReason}
+                    onChange={(e) => setMReason(e.target.value)}
+                    data-testid={`maintenance-reason-${bus.id}`}
+                  />
+                </div>
+                <div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={async () => {
+                      if (!mStart || !mEnd) return;
+                      await onAddMaintenance(mStart, mEnd, mReason);
+                      setMStart('');
+                      setMEnd('');
+                      setMReason('');
+                    }}
+                    disabled={disabled || !mStart || !mEnd}
+                    data-testid={`maintenance-add-${bus.id}`}
+                  >
+                    Thêm khung
+                  </Button>
+                </div>
+              </div>
             </div>
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       )}
     </>
   );
