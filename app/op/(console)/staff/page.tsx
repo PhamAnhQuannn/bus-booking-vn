@@ -25,12 +25,12 @@ export default async function OpStaffPage() {
   }
 
   return (
-    <main style={{ maxWidth: 900, margin: '40px auto', padding: '0 16px' }}>
+    <div className="mx-auto w-full max-w-4xl px-4 py-8 md:px-6">
       <h1>Quản lý nhân viên</h1>
       <p style={{ color: '#666' }}>
         Danh sách nhân viên của nhà xe. Tạo tài khoản nhân viên sẽ gửi mật khẩu tạm thời qua SMS.
       </p>
       <StaffClient initialStaff={view.staff} isAdmin={view.isAdmin} />
-    </main>
+    </div>
   );
 }

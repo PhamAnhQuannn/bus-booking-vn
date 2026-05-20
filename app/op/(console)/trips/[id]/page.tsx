@@ -34,9 +34,9 @@ export default async function OpTripDetailPage({ params }: PageProps) {
   }
 
   return (
-    <main style={{ maxWidth: 800, margin: '40px auto', padding: '0 16px' }}>
+    <div className="mx-auto w-full max-w-3xl px-4 py-8 md:px-6">
       <h1>Chi tiết chuyến xe</h1>
       <TripDetailClient trip={trip} staff={view.staff} isAdmin={view.isAdmin} />
-    </main>
+    </div>
   );
 }

@@ -45,12 +45,12 @@ export default async function OpRoutesPage() {
   const routes = await listRoutes({ operatorId: operator.operatorId });
 
   return (
-    <main style={{ maxWidth: 900, margin: '40px auto', padding: '0 16px' }}>
+    <div className="mx-auto w-full max-w-4xl px-4 py-8 md:px-6">
       <h1>Quản lý tuyến đường</h1>
       <p style={{ color: '#666' }}>
         Danh sách tuyến đường. Mỗi nhà xe chỉ thấy tuyến của riêng mình.
       </p>
       <RoutesClient initialRoutes={routes} />
-    </main>
+    </div>
   );
 }

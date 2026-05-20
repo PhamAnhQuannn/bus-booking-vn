@@ -25,12 +25,12 @@ export default async function OpBusesPage() {
   }
 
   return (
-    <main style={{ maxWidth: 900, margin: '40px auto', padding: '0 16px' }}>
+    <div className="mx-auto w-full max-w-4xl px-4 py-8 md:px-6">
       <h1>Quản lý phương tiện</h1>
       <p style={{ color: '#666' }}>
         Danh sách xe đang hoạt động. Mỗi nhà xe chỉ thấy phương tiện của riêng mình.
       </p>
       <BusesClient initialBuses={fleet.buses} />
-    </main>
+    </div>
   );
 }

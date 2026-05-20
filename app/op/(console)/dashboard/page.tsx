@@ -54,7 +54,7 @@ export default async function OpDashboardPage() {
   const initial = await listOperatorBookings(session.operatorId, {});
 
   return (
-    <main style={{ maxWidth: 1200, margin: '40px auto', padding: '0 16px' }}>
+    <div className="mx-auto w-full max-w-6xl px-4 py-8 md:px-6">
       <h1>
         Hàng đợi đặt vé
         {unviewedCount > 0 && (
@@ -78,6 +78,6 @@ export default async function OpDashboardPage() {
         initialNextCursor={initial.nextCursor}
         operatorId={session.operatorId}
       />
-    </main>
+    </div>
   );
 }

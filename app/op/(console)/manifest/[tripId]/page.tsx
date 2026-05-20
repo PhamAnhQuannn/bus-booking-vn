@@ -30,15 +30,15 @@ export default async function ManifestPage({ params }: PageProps) {
 
   if (!manifest) {
     return (
-      <main style={{ maxWidth: 1000, margin: '40px auto', padding: '0 16px' }}>
+      <div className="mx-auto w-full max-w-5xl px-4 py-8 md:px-6">
         <h1>Manifest</h1>
         <p>Không tìm thấy chuyến xe.</p>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main style={{ maxWidth: 1000, margin: '40px auto', padding: '0 16px' }}>
+    <div className="mx-auto w-full max-w-5xl px-4 py-8 md:px-6">
       <h1>Manifest chuyến {tripId.slice(0, 8)}…</h1>
 
       {/* AC7: ManifestRefresh handles refresh button + Last updated timestamp */}
@@ -47,6 +47,6 @@ export default async function ManifestPage({ params }: PageProps) {
         initialGeneratedAt={manifest.generatedAt}
         initialRows={manifest.rows}
       />
-    </main>
+    </div>
   );
 }

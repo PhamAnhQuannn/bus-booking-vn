@@ -24,7 +24,7 @@ export default async function OpUpcomingPage() {
   const { trips } = await listUpcomingForOperator(session.operatorId, {});
 
   return (
-    <main style={{ maxWidth: 1000, margin: '40px auto', padding: '0 16px' }}>
+    <div className="mx-auto w-full max-w-5xl px-4 py-8 md:px-6">
       <h1>Chuyến xe sắp khởi hành</h1>
       {trips.length === 0 ? (
         <p>Không có chuyến nào trong thời gian tới.</p>
@@ -68,6 +68,6 @@ export default async function OpUpcomingPage() {
           </tbody>
         </table>
       )}
-    </main>
+    </div>
   );
 }

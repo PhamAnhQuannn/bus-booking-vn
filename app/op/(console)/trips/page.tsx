@@ -28,12 +28,12 @@ export default async function OpTripsPage() {
   const trips = await listTrips(session.operatorId);
 
   return (
-    <main style={{ maxWidth: 1000, margin: '40px auto', padding: '0 16px' }}>
+    <div className="mx-auto w-full max-w-5xl px-4 py-8 md:px-6">
       <h1>Quản lý chuyến xe</h1>
       <p style={{ color: '#666' }}>
         Danh sách chuyến xe. Mỗi nhà xe chỉ thấy chuyến của riêng mình.
       </p>
       <TripsClient initialTrips={trips} />
-    </main>
+    </div>
   );
 }

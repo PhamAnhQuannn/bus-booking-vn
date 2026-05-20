@@ -71,7 +71,7 @@ export default async function RevenueReportPage({
   });
 
   return (
-    <main style={{ maxWidth: 1200, margin: '40px auto', padding: '0 16px' }}>
+    <div className="mx-auto w-full max-w-6xl px-4 py-8 md:px-6">
       <h1>Báo cáo doanh thu</h1>
       <p style={{ color: '#666', marginBottom: 24 }}>
         Doanh thu từ vé đã thanh toán của các chuyến xe trong khoảng thời gian đã chọn.
@@ -82,6 +82,6 @@ export default async function RevenueReportPage({
         dateTo={dateTo}
         routeId={routeId}
       />
-    </main>
+    </div>
   );
 }

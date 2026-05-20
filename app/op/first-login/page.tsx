@@ -3,7 +3,7 @@
 /**
  * /op/first-login — Forced password change page for operators.
  * POSTs { currentPassword, newPassword } to /api/op/auth/password/change.
- * On success → redirects to /op/profile.
+ * On success → redirects to /op/dashboard.
  *
  * Only reachable after login when requiresPasswordChange = true.
  * The change route uses requireOperatorAuth({ allowDuringPasswordChange: true }).
@@ -48,7 +48,8 @@ export default function OpFirstLoginPage() {
       });
 
       if (res.status === 204) {
-        router.push('/op/profile');
+        router.push('/op/dashboard');
+        router.refresh();
         return;
       }
 

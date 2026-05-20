@@ -4,7 +4,7 @@
  * /op/login — Operator login page.
  * POSTs { scope: 'operator', phone, password } to /api/auth/login.
  * On requiresPasswordChange → redirects to /op/first-login.
- * Otherwise → redirects to /op/profile.
+ * Otherwise → redirects to /op/dashboard.
  *
  * CSRF: CSRF_EXEMPT_PREFIXES does NOT cover /api/auth/login — must send X-CSRF-Token.
  */
@@ -50,7 +50,7 @@ export default function OpLoginPage() {
       if (json.requiresPasswordChange) {
         router.push('/op/first-login');
       } else {
-        router.push('/op/profile');
+        router.push('/op/dashboard');
       }
     } catch {
       setError('Lỗi kết nối. Vui lòng thử lại.');

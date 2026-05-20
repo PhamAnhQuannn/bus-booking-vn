@@ -27,12 +27,12 @@ export default async function OpTripTemplatesPage() {
   const templates = await listTemplates(session.operatorId);
 
   return (
-    <main style={{ maxWidth: 1000, margin: '40px auto', padding: '0 16px' }}>
+    <div className="mx-auto w-full max-w-5xl px-4 py-8 md:px-6">
       <h1>Lịch chạy cố định</h1>
       <p style={{ color: '#666' }}>
         Tạo lịch tự động sinh chuyến hàng ngày theo mặt nạ ngày trong tuần.
       </p>
       <TemplatesClient initialTemplates={templates} />
-    </main>
+    </div>
   );
 }
