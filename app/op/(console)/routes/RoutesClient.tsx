@@ -17,7 +17,6 @@ import {
   createRouteApi,
   patchRouteApi,
   deactivateRouteApi,
-  type RouteItem as ApiRouteItem,
 } from '@/lib/api/routesClient';
 import { routeActiveDisplay } from '@/lib/op/statusLabels';
 import { Card, CardContent } from '@/components/ui/card';

@@ -6,17 +6,32 @@
  * Handles date-range filter form. On submit, re-navigates with new searchParams
  * (which triggers a server-side re-render of the RSC page).
  *
- * The CSV download link is a plain <a href="..."> anchor — the browser triggers
- * the download automatically via the API's Content-Disposition: attachment header.
+ * The CSV download link is a plain <a href="..."> anchor (styled as a Button via
+ * buttonVariants) — the browser triggers the download automatically via the API's
+ * Content-Disposition: attachment header. This is a CLIENT component, so the anchor
+ * is not a self-fetch; the table data is rendered server-side and passed as initialRows.
  *
- * Rule (Issue 003 Mistake Log): this is a CLIENT component, so it may fetch
- * the CSV download URL via a normal anchor — not a self-fetch. The table data
- * is already rendered server-side and passed as initialRows.
+ * Design-system surface: Card filter band (Label/Input + Button), Table + <tfoot>
+ * totals, Badge payout status. No data-testids in this surface (no e2e keys off it).
  */
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { RevenueRow } from '@/lib/payouts/buildRevenueCsv';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableFooter,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 
 interface Props {
   initialRows: RevenueRow[];
@@ -40,13 +55,18 @@ function formatDate(date: Date): string {
   }).format(new Date(date));
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Chờ xử lý',
-  processing: 'Đang xử lý',
-  settled: 'Đã thanh toán',
-  failed: 'Thất bại',
-  '': '—',
+type BadgeVariant = 'neutral' | 'success' | 'danger' | 'pending';
+
+const PAYOUT_STATUS: Record<string, { label: string; variant: BadgeVariant }> = {
+  pending: { label: 'Chờ xử lý', variant: 'pending' },
+  processing: { label: 'Đang xử lý', variant: 'neutral' },
+  settled: { label: 'Đã thanh toán', variant: 'success' },
+  failed: { label: 'Thất bại', variant: 'danger' },
 };
+
+function payoutDisplay(status: string | null | undefined): { label: string; variant: BadgeVariant } {
+  return PAYOUT_STATUS[status ?? ''] ?? { label: status ?? '—', variant: 'neutral' };
+}
 
 export default function RevenueClient({ initialRows, dateFrom, dateTo }: Props) {
   const router = useRouter();
@@ -61,112 +81,101 @@ export default function RevenueClient({ initialRows, dateFrom, dateTo }: Props) 
 
   const csvHref = `/api/op/reports/revenue.csv?dateFrom=${from}&dateTo=${to}`;
 
+  const totalGross = initialRows.reduce((s, r) => s + r.grossRevenueVnd, 0);
+  const totalFee = initialRows.reduce((s, r) => s + r.platformFeeVnd, 0);
+  const totalNet = initialRows.reduce((s, r) => s + r.netPayoutVnd, 0);
+
   return (
-    <div>
-      {/* Date filter form */}
-      <form onSubmit={handleFilter} style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'flex-end' }}>
-        <div>
-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Từ ngày</label>
-          <input
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            required
-            style={{ padding: '6px 10px', border: '1px solid #ccc', borderRadius: 4 }}
-          />
-        </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Đến ngày</label>
-          <input
-            type="date"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            required
-            style={{ padding: '6px 10px', border: '1px solid #ccc', borderRadius: 4 }}
-          />
-        </div>
-        <button
-          type="submit"
-          style={{
-            padding: '6px 16px',
-            background: '#1a73e8',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 4,
-            cursor: 'pointer',
-          }}
-        >
-          Lọc
-        </button>
-        <a
-          href={csvHref}
-          style={{
-            padding: '6px 16px',
-            background: '#34a853',
-            color: '#fff',
-            borderRadius: 4,
-            textDecoration: 'none',
-            fontSize: 14,
-          }}
-        >
-          Tải CSV
-        </a>
-      </form>
+    <div className="space-y-4">
+      {/* Date filter band */}
+      <Card>
+        <CardContent>
+          <form onSubmit={handleFilter} className="flex flex-wrap items-end gap-4">
+            <div className="grid gap-1.5">
+              <Label htmlFor="revenue-date-from">Từ ngày</Label>
+              <Input
+                id="revenue-date-from"
+                type="date"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                required
+                className="w-44"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="revenue-date-to">Đến ngày</Label>
+              <Input
+                id="revenue-date-to"
+                type="date"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                required
+                className="w-44"
+              />
+            </div>
+            <Button type="submit">Lọc</Button>
+            <a href={csvHref} className={buttonVariants({ variant: 'outline' })}>
+              Tải CSV
+            </a>
+          </form>
+        </CardContent>
+      </Card>
 
       {/* Revenue table */}
       {initialRows.length === 0 ? (
-        <p style={{ color: '#666' }}>Không có dữ liệu trong khoảng thời gian này.</p>
+        <Card>
+          <CardContent>
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              Không có dữ liệu trong khoảng thời gian này.
+            </p>
+          </CardContent>
+        </Card>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-            <thead>
-              <tr style={{ background: '#f5f5f5', textAlign: 'left' }}>
-                <th style={thStyle}>Mã chuyến</th>
-                <th style={thStyle}>Khởi hành</th>
-                <th style={thStyle}>Tuyến</th>
-                <th style={thStyle}>Số ghế</th>
-                <th style={thStyle}>Doanh thu (VND)</th>
-                <th style={thStyle}>Phí nền tảng (VND)</th>
-                <th style={thStyle}>Thanh toán ròng (VND)</th>
-                <th style={thStyle}>Trạng thái</th>
-              </tr>
-            </thead>
-            <tbody>
-              {initialRows.map((row) => (
-                <tr key={row.tripId} style={{ borderBottom: '1px solid #eee' }}>
-                  <td style={tdStyle}>{row.tripId.slice(0, 8)}…</td>
-                  <td style={tdStyle}>{formatDate(row.departureAt)}</td>
-                  <td style={tdStyle}>{row.routeName}</td>
-                  <td style={tdStyle}>{row.seatsSold}</td>
-                  <td style={tdStyle}>{formatVnd(row.grossRevenueVnd)}</td>
-                  <td style={tdStyle}>{formatVnd(row.platformFeeVnd)}</td>
-                  <td style={tdStyle}>{formatVnd(row.netPayoutVnd)}</td>
-                  <td style={tdStyle}>{STATUS_LABELS[row.payoutStatus ?? ''] ?? row.payoutStatus}</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr style={{ fontWeight: 600, background: '#f5f5f5' }}>
-                <td style={tdStyle} colSpan={4}>Tổng cộng</td>
-                <td style={tdStyle}>{formatVnd(initialRows.reduce((s, r) => s + r.grossRevenueVnd, 0))}</td>
-                <td style={tdStyle}>{formatVnd(initialRows.reduce((s, r) => s + r.platformFeeVnd, 0))}</td>
-                <td style={tdStyle}>{formatVnd(initialRows.reduce((s, r) => s + r.netPayoutVnd, 0))}</td>
-                <td style={tdStyle}></td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+        <Card className="overflow-hidden py-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Mã chuyến</TableHead>
+                <TableHead>Khởi hành</TableHead>
+                <TableHead>Tuyến</TableHead>
+                <TableHead>Số ghế</TableHead>
+                <TableHead>Doanh thu (VND)</TableHead>
+                <TableHead>Phí nền tảng (VND)</TableHead>
+                <TableHead>Thanh toán ròng (VND)</TableHead>
+                <TableHead>Trạng thái</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {initialRows.map((row) => {
+                const status = payoutDisplay(row.payoutStatus);
+                return (
+                  <TableRow key={row.tripId}>
+                    <TableCell className="font-mono text-xs">{row.tripId.slice(0, 8)}…</TableCell>
+                    <TableCell className="whitespace-nowrap">{formatDate(row.departureAt)}</TableCell>
+                    <TableCell>{row.routeName}</TableCell>
+                    <TableCell className="tabular-nums">{row.seatsSold}</TableCell>
+                    <TableCell className="tabular-nums">{formatVnd(row.grossRevenueVnd)}</TableCell>
+                    <TableCell className="tabular-nums">{formatVnd(row.platformFeeVnd)}</TableCell>
+                    <TableCell className="tabular-nums">{formatVnd(row.netPayoutVnd)}</TableCell>
+                    <TableCell>
+                      <Badge variant={status.variant}>{status.label}</Badge>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+            <TableFooter>
+              <TableRow>
+                <TableCell colSpan={4}>Tổng cộng</TableCell>
+                <TableCell className="tabular-nums">{formatVnd(totalGross)}</TableCell>
+                <TableCell className="tabular-nums">{formatVnd(totalFee)}</TableCell>
+                <TableCell className="tabular-nums">{formatVnd(totalNet)}</TableCell>
+                <TableCell />
+              </TableRow>
+            </TableFooter>
+          </Table>
+        </Card>
       )}
     </div>
   );
 }
-
-const thStyle: React.CSSProperties = {
-  padding: '10px 12px',
-  borderBottom: '2px solid #ddd',
-  whiteSpace: 'nowrap',
-};
-
-const tdStyle: React.CSSProperties = {
-  padding: '8px 12px',
-};

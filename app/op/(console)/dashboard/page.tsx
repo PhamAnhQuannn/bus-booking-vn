@@ -15,7 +15,6 @@ import { getUnviewedPaidCount } from '@/lib/booking/getUnviewedPaidCount';
 import { touchLastViewed } from '@/lib/booking/touchLastViewed';
 import { cookies } from 'next/headers';
 import { verifyOperatorAccess } from '@/lib/auth/jwt';
-import { prisma } from '@/lib/db/client';
 import { Badge } from '@/components/ui/badge';
 import DashboardClient from './DashboardClient';
 

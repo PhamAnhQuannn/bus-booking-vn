@@ -72,8 +72,8 @@ export default async function RevenueReportPage({
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 md:px-6">
-      <h1>Báo cáo doanh thu</h1>
-      <p style={{ color: '#666', marginBottom: 24 }}>
+      <h1 className="text-2xl font-semibold tracking-tight">Báo cáo doanh thu</h1>
+      <p className="mt-1 mb-6 text-sm text-muted-foreground">
         Doanh thu từ vé đã thanh toán của các chuyến xe trong khoảng thời gian đã chọn.
       </p>
       <RevenueClient

@@ -3,20 +3,33 @@
 /**
  * PayoutsClient — client island for the operator payouts report page.
  *
- * Displays payout rows. For failed payouts, shows a "Thử lại" (Retry) button
- * that POSTs to /api/op/reports/payouts/[id]/retry (client-to-API call — allowed
- * because this is a client component, not an RSC self-fetch).
+ * Displays payout rows. For failed payouts, shows a "Thử lại" (Retry) button that
+ * POSTs via retryPayoutApi (lib/api/reportsClient.ts) — a client-to-API call, allowed
+ * because this is a client component, not an RSC self-fetch.
  *
- * After a successful retry, calls router.refresh() to re-render the RSC page
- * with the updated payout status from DB.
+ * After a successful retry, calls router.refresh() to re-render the RSC page with the
+ * updated payout status from DB. CSRF: retryPayoutApi sends X-CSRF-Token (non-GET).
  *
- * CSRF: the POST includes X-CSRF-Token header via readCsrfToken() (Issue 007 Mistake Log).
+ * Design-system surface: Table list, Badge status, Alert on retry failure, Button retry.
+ * No data-testids in this surface (no e2e keys off it).
  */
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { readCsrfToken } from '@/lib/auth/csrfClient';
+import { retryPayoutApi } from '@/lib/api/reportsClient';
 import type { PayoutReportRow } from '@/lib/payouts/getPayoutReport';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 
 interface Props {
   initialRows: PayoutReportRow[];
@@ -37,19 +50,18 @@ function formatDate(date: Date | string): string {
   }).format(new Date(date));
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Chờ xử lý',
-  processing: 'Đang xử lý',
-  settled: 'Đã thanh toán',
-  failed: 'Thất bại',
+type BadgeVariant = 'neutral' | 'success' | 'danger' | 'pending';
+
+const STATUS_DISPLAY: Record<string, { label: string; variant: BadgeVariant }> = {
+  pending: { label: 'Chờ xử lý', variant: 'pending' },
+  processing: { label: 'Đang xử lý', variant: 'neutral' },
+  settled: { label: 'Đã thanh toán', variant: 'success' },
+  failed: { label: 'Thất bại', variant: 'danger' },
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  pending: '#f9a825',
-  processing: '#1a73e8',
-  settled: '#34a853',
-  failed: '#d93025',
-};
+function statusDisplay(status: string): { label: string; variant: BadgeVariant } {
+  return STATUS_DISPLAY[status] ?? { label: status, variant: 'neutral' };
+}
 
 export default function PayoutsClient({ initialRows }: Props) {
   const router = useRouter();
@@ -60,131 +72,97 @@ export default function PayoutsClient({ initialRows }: Props) {
     setRetrying(payoutId);
     setError('');
     try {
-      const csrfToken = readCsrfToken();
-      const res = await fetch(`/api/op/reports/payouts/${payoutId}/retry`, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: {
-          'X-CSRF-Token': csrfToken ?? '',
-        },
-      });
-
-      if (res.ok) {
-        router.refresh();
+      await retryPayoutApi(payoutId);
+      router.refresh();
+    } catch (err) {
+      const code = (err as { data?: { error?: string } }).data?.error;
+      if (code === 'not_failed') {
+        setError('Không thể thử lại: khoản thanh toán không ở trạng thái thất bại.');
+      } else if (code === 'not_found') {
+        setError('Không tìm thấy khoản thanh toán.');
       } else {
-        const data = await res.json();
-        if (data.error === 'not_failed') {
-          setError('Không thể thử lại: khoản thanh toán không ở trạng thái thất bại.');
-        } else if (data.error === 'not_found') {
-          setError('Không tìm thấy khoản thanh toán.');
-        } else {
-          setError('Đã xảy ra lỗi. Vui lòng thử lại.');
-        }
+        setError('Đã xảy ra lỗi. Vui lòng thử lại.');
       }
-    } catch {
-      setError('Lỗi kết nối. Vui lòng thử lại.');
     } finally {
       setRetrying(null);
     }
   }
 
   return (
-    <div>
+    <div className="space-y-4">
       {error && (
-        <div
-          role="alert"
-          style={{
-            background: '#fce8e6',
-            color: '#c5221f',
-            padding: '10px 14px',
-            borderRadius: 4,
-            marginBottom: 16,
-          }}
-        >
-          {error}
-        </div>
+        <Alert variant="error">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       {initialRows.length === 0 ? (
-        <p style={{ color: '#666' }}>Chưa có khoản thanh toán nào.</p>
+        <Card>
+          <CardContent>
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              Chưa có khoản thanh toán nào.
+            </p>
+          </CardContent>
+        </Card>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-            <thead>
-              <tr style={{ background: '#f5f5f5', textAlign: 'left' }}>
-                <th style={thStyle}>Tuyến</th>
-                <th style={thStyle}>Khởi hành</th>
-                <th style={thStyle}>Doanh thu</th>
-                <th style={thStyle}>Phí nền tảng</th>
-                <th style={thStyle}>Thanh toán ròng</th>
-                <th style={thStyle}>Trạng thái</th>
-                <th style={thStyle}>Ngày dự kiến</th>
-                <th style={thStyle}>Ngày thanh toán</th>
-                <th style={thStyle}>Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              {initialRows.map((row) => (
-                <tr key={row.payoutId} style={{ borderBottom: '1px solid #eee' }}>
-                  <td style={tdStyle}>{row.routeName}</td>
-                  <td style={tdStyle}>{formatDate(row.departureAt)}</td>
-                  <td style={tdStyle}>{formatVnd(row.gross)}</td>
-                  <td style={tdStyle}>{formatVnd(row.platformFee)}</td>
-                  <td style={tdStyle}>{formatVnd(row.net)}</td>
-                  <td style={tdStyle}>
-                    <span
-                      style={{
-                        color: STATUS_COLORS[row.status] ?? '#333',
-                        fontWeight: 500,
-                      }}
-                    >
-                      {STATUS_LABELS[row.status] ?? row.status}
-                    </span>
-                    {row.failureReason && (
-                      <span style={{ color: '#999', fontSize: 12, marginLeft: 6 }}>
-                        ({row.failureReason})
-                      </span>
-                    )}
-                  </td>
-                  <td style={tdStyle}>{formatDate(row.scheduledAt)}</td>
-                  <td style={tdStyle}>{row.settledAt ? formatDate(row.settledAt) : '—'}</td>
-                  <td style={tdStyle}>
-                    {row.status === 'failed' && (
-                      <button
-                        onClick={() => handleRetry(row.payoutId)}
-                        disabled={retrying === row.payoutId}
-                        style={{
-                          padding: '4px 10px',
-                          background: '#d93025',
-                          color: '#fff',
-                          border: 'none',
-                          borderRadius: 4,
-                          cursor: retrying === row.payoutId ? 'not-allowed' : 'pointer',
-                          opacity: retrying === row.payoutId ? 0.7 : 1,
-                          fontSize: 13,
-                        }}
-                        aria-label={`Thử lại thanh toán cho ${row.routeName}`}
-                      >
-                        {retrying === row.payoutId ? 'Đang xử lý…' : 'Thử lại'}
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Card className="overflow-hidden py-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tuyến</TableHead>
+                <TableHead>Khởi hành</TableHead>
+                <TableHead>Doanh thu</TableHead>
+                <TableHead>Phí nền tảng</TableHead>
+                <TableHead>Thanh toán ròng</TableHead>
+                <TableHead>Trạng thái</TableHead>
+                <TableHead>Ngày dự kiến</TableHead>
+                <TableHead>Ngày thanh toán</TableHead>
+                <TableHead>Thao tác</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {initialRows.map((row) => {
+                const status = statusDisplay(row.status);
+                return (
+                  <TableRow key={row.payoutId}>
+                    <TableCell>{row.routeName}</TableCell>
+                    <TableCell className="whitespace-nowrap">{formatDate(row.departureAt)}</TableCell>
+                    <TableCell className="tabular-nums">{formatVnd(row.gross)}</TableCell>
+                    <TableCell className="tabular-nums">{formatVnd(row.platformFee)}</TableCell>
+                    <TableCell className="tabular-nums">{formatVnd(row.net)}</TableCell>
+                    <TableCell>
+                      <Badge variant={status.variant}>{status.label}</Badge>
+                      {row.failureReason && (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          ({row.failureReason})
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">{formatDate(row.scheduledAt)}</TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {row.settledAt ? formatDate(row.settledAt) : '—'}
+                    </TableCell>
+                    <TableCell>
+                      {row.status === 'failed' && (
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleRetry(row.payoutId)}
+                          disabled={retrying === row.payoutId}
+                          aria-label={`Thử lại thanh toán cho ${row.routeName}`}
+                        >
+                          {retrying === row.payoutId ? 'Đang xử lý…' : 'Thử lại'}
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </Card>
       )}
     </div>
   );
 }
-
-const thStyle: React.CSSProperties = {
-  padding: '10px 12px',
-  borderBottom: '2px solid #ddd',
-  whiteSpace: 'nowrap',
-};
-
-const tdStyle: React.CSSProperties = {
-  padding: '8px 12px',
-};

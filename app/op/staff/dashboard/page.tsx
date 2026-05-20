@@ -36,13 +36,13 @@ export default async function StaffDashboardPage() {
   }
 
   return (
-    <main style={{ maxWidth: 1200, margin: '40px auto', padding: '0 16px' }}>
-      <h1>Chuyến của tôi</h1>
+    <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-6">
+      <h1 className="mb-6 text-2xl font-semibold tracking-tight">Chuyến của tôi</h1>
 
       {view.assignedTripId === null ? (
         <div
           data-testid="staff-empty-state"
-          style={{ padding: 24, background: '#f4f4f4', borderRadius: 4, marginTop: 16 }}
+          className="space-y-1 rounded-lg border border-border bg-muted p-6 text-sm text-muted-foreground"
         >
           <p>Bạn chưa được phân công chuyến nào.</p>
           <p>Vui lòng liên hệ quản trị viên để được phân công chuyến.</p>
