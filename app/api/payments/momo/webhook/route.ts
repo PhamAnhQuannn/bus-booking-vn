@@ -30,6 +30,7 @@ import { prisma } from '@/lib/db/client';
 import { createNotificationLog } from '@/lib/db/notificationLogRepo';
 import { sendSms, renderTemplate, type SmsTemplate } from '@/lib/notifications/esms';
 import { withErrorHandler } from '@/lib/withErrorHandler';
+import { attachGuestBookingByPhone } from '@/lib/booking/attachGuestBookingByPhone';
 import { logger } from '@/lib/logger';
 
 /** MoMo resultCodes that mean payment definitively failed (per Issue 004 spec). */
@@ -138,7 +139,10 @@ async function handler(req: NextRequest): Promise<Response> {
         `);
 
         if ((updated as number) > 0) {
-          // Newly transitioned — seed notification rows
+          // Newly transitioned — attach to a registered customer by phone (Issue 009)
+          await attachGuestBookingByPhone(tx, booking.id, booking.buyerPhone);
+
+          // Seed notification rows
           const operator = booking.trip.bus.operator;
           const operatorRecipient = operator.notificationPhone ?? operator.contactPhone;
           const routeLabel = `${booking.trip.route.origin} - ${booking.trip.route.destination}`;
