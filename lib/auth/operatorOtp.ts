@@ -101,7 +101,7 @@ export async function sendOperatorPasswordResetOtp(rawPhone: string): Promise<Se
         0,
         NOW()
       )
-      ON CONFLICT ON CONSTRAINT "OperatorOtpAttempt_phone_active_key"
+      ON CONFLICT (phone) WHERE consumed = false
       DO UPDATE SET
         "codeHash"    = EXCLUDED."codeHash",
         salt          = EXCLUDED.salt,

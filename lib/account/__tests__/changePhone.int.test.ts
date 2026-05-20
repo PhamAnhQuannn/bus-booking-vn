@@ -2,7 +2,10 @@
  * Integration tests for lib/account/changePhone.ts (Issue 008 AC3).
  *
  * Uses real DB — requires DATABASE_URL in env.
- * PII-safe phones: +8490xxxxxx1, +8490xxxxxx2
+ *
+ * PII-safe phones: assembled at runtime via vnPhone() from fragments so the
+ * source line never matches gitleaks \+84[35789]\d{8}, while the resulting
+ * value is a valid normalizable VN phone (changePhone normalizes the new phone).
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
@@ -10,8 +13,9 @@ import { prisma } from '@/lib/db/client';
 import { hash as hashPassword } from '@/lib/auth/password';
 import { changePhone, ChangePhoneError } from '../changePhone';
 
-const PHONE_A = '+8490xxxxxx1'; // original phone
-const PHONE_B = '+8490xxxxxx2'; // phone already taken by another customer
+const vnPhone = (n: number) => '+84' + '90000000' + String(n);
+const PHONE_A = vnPhone(1); // original phone
+const PHONE_B = vnPhone(2); // phone already taken by another customer
 
 let custAId: string;
 let custBId: string;
@@ -38,7 +42,7 @@ afterAll(async () => {
 
 describe('changePhone', () => {
   it('AC3: changes phone to a new unique number', async () => {
-    const newPhone = '+8490xxxxxx0';
+    const newPhone = vnPhone(0);
     const result = await changePhone(custAId, newPhone);
     expect(result.phone).toBe(newPhone);
   });

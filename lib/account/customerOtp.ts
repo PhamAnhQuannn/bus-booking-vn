@@ -109,7 +109,7 @@ export async function sendCustomerAccountOtp(rawPhone: string): Promise<SendCust
         0,
         NOW()
       )
-      ON CONFLICT ON CONSTRAINT "OtpAttempt_phone_active_key"
+      ON CONFLICT (phone) WHERE consumed = false
       DO UPDATE SET
         "codeHash"     = EXCLUDED."codeHash",
         salt           = EXCLUDED.salt,

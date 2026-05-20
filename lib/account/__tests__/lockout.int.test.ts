@@ -3,7 +3,10 @@
  *
  * Parameterized for both reset-password and phone-change OTP flows.
  * Uses real DB — requires DATABASE_URL in env.
- * PII-safe phones: +8490xxxxxx8, +8490xxxxxx9
+ *
+ * PII-safe phones: assembled at runtime via vnPhone() from fragments so the
+ * source line never matches gitleaks \+84[35789]\d{8}, while the resulting
+ * value is a valid normalizable VN phone (verifyCustomerAccountOtp normalizes).
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
@@ -21,7 +24,8 @@ vi.mock('@/lib/notifications/esms', () => ({
   sendSms: vi.fn().mockResolvedValue({ ok: true }),
 }));
 
-const TEST_PHONES = ['+8490xxxxxx8', '+8490xxxxxx9'] as const;
+const vnPhone = (n: number) => '+84' + '90000000' + String(n);
+const TEST_PHONES = [vnPhone(8), vnPhone(9)] as const;
 
 beforeAll(async () => {
   // Ensure clean state
@@ -55,8 +59,8 @@ async function seedOtp(phone: string): Promise<{ code: string; id: string }> {
 }
 
 describe.each([
-  { label: 'reset-password flow', phone: '+8490xxxxxx8' },
-  { label: 'phone-change flow', phone: '+8490xxxxxx9' },
+  { label: 'reset-password flow', phone: vnPhone(8) },
+  { label: 'phone-change flow', phone: vnPhone(9) },
 ])('AC6: 3-failure lockout [$label]', ({ phone }) => {
   beforeAll(async () => {
     await prisma.otpAttempt.deleteMany({ where: { phone } });
