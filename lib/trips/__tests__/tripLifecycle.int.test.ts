@@ -158,6 +158,9 @@ afterAll(async () => {
   await prisma.booking.deleteMany({
     where: { trip: { operatorId: { in: [operatorId, otherOperatorId] } } },
   });
+  await prisma.payout.deleteMany({
+    where: { operatorId: { in: [operatorId, otherOperatorId] } },
+  });
   await prisma.trip.deleteMany({ where: { operatorId: { in: [operatorId, otherOperatorId] } } });
   await prisma.route.deleteMany({ where: { operatorId: { in: [operatorId, otherOperatorId] } } });
   await prisma.bus.deleteMany({ where: { operatorId: { in: [operatorId, otherOperatorId] } } });
@@ -359,6 +362,9 @@ describe('markCompleted', () => {
     expect(finalRow?.departedAt).not.toBeNull();
     expect(finalRow?.completedAt).not.toBeNull();
 
+    // completeTripCore (Issue 019) creates a Payout child row on completion;
+    // delete it before the trip to satisfy Payout_tripId_fkey.
+    await prisma.payout.deleteMany({ where: { tripId: seqTrip.id } });
     await prisma.trip.delete({ where: { id: seqTrip.id } });
   });
 });
