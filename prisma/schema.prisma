@@ -299,16 +299,21 @@ model JobRunLog {
 }
 
 model Customer {
-  id           String    @id @default(cuid())
-  phone        String    @unique
-  email        String?
-  passwordHash String?
-  displayName  String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  lastLoginAt  DateTime?
-  sessions     Session[]
-  bookings     Booking[]
+  id            String    @id @default(cuid())
+  /// Nullable: set to NULL on soft-delete/anonymization; Postgres allows multiple NULLs on @unique
+  phone         String?   @unique
+  email         String?
+  passwordHash  String?
+  displayName   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastLoginAt   DateTime?
+  /// Issue 008: soft-delete timestamp; non-null = account deleted
+  deletedAt     DateTime?
+  /// Issue 008: anonymization timestamp; set together with deletedAt
+  anonymizedAt  DateTime?
+  sessions      Session[]
+  bookings      Booking[]
 }
 
 model OtpAttempt {
