@@ -13,6 +13,10 @@
     "vitest:int": "vitest run --config vitest.integration.config.ts",
     "test:all": "vitest run && vitest run --config vitest.integration.config.ts",
     "test:e2e": "playwright test",
+    "admin:create-operator": "tsx --env-file=.env.production scripts/admin/createOperator.ts",
+    "admin:disable-operator": "tsx --env-file=.env.production scripts/admin/disableOperator.ts",
+    "admin:reset-operator-admin-password": "tsx --env-file=.env.production scripts/admin/resetOperatorAdminPassword.ts",
+    "admin:list-operators": "tsx --env-file=.env.production scripts/admin/listOperators.ts",
     "prepare": "husky"
   },
   "dependencies": {
