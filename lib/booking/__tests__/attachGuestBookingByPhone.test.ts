@@ -14,28 +14,28 @@ function makeTx(opts: {
   customer?: { id: string } | null;
   updateCount?: number;
 }) {
-  const findUnique = vi.fn().mockResolvedValue(opts.customer ?? null);
+  const findFirst = vi.fn().mockResolvedValue(opts.customer ?? null);
   const updateMany = vi.fn().mockResolvedValue({ count: opts.updateCount ?? 0 });
   const tx = {
-    customer: { findUnique },
+    customer: { findFirst },
     booking: { updateMany },
   } as unknown as Prisma.TransactionClient;
-  return { tx, findUnique, updateMany };
+  return { tx, findFirst, updateMany };
 }
 
 describe('attachGuestBookingByPhone', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('attaches a matching customer, scoped to unowned bookings', async () => {
-    const { tx, findUnique, updateMany } = makeTx({
+    const { tx, findFirst, updateMany } = makeTx({
       customer: { id: 'cust-1' },
       updateCount: 1,
     });
 
     await attachGuestBookingByPhone(tx, 'bk-1', '0901234567');
 
-    expect(findUnique).toHaveBeenCalledWith({
-      where: { phone: '+84901234567' },
+    expect(findFirst).toHaveBeenCalledWith({
+      where: { phone: '+84901234567', deletedAt: null },
       select: { id: true },
     });
     expect(updateMany).toHaveBeenCalledWith({
@@ -45,9 +45,9 @@ describe('attachGuestBookingByPhone', () => {
   });
 
   it('skips silently when buyerPhone fails normalisation', async () => {
-    const { tx, findUnique, updateMany } = makeTx({});
+    const { tx, findFirst, updateMany } = makeTx({});
     await attachGuestBookingByPhone(tx, 'bk-1', 'not-a-phone');
-    expect(findUnique).not.toHaveBeenCalled();
+    expect(findFirst).not.toHaveBeenCalled();
     expect(updateMany).not.toHaveBeenCalled();
   });
 

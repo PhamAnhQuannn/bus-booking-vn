@@ -18,6 +18,7 @@ import { z } from 'zod';
 import { useBookingStore } from '@/lib/state/bookingStore';
 import { useHoldTimerStore } from '@/lib/state/holdTimerStore';
 import { createHoldRequest } from '@/lib/api/holdsClient';
+import { getDisplayName } from '@/app/auth/register/page';
 
 const LS_PHONE_KEY = 'busbooking_last_phone';
 
@@ -53,6 +54,7 @@ export function CustomerForm() {
   const { tripId, ticketCount, setHold, setBuyerInfo } = useBookingStore();
   const { startTimer } = useHoldTimerStore();
   const phoneInputRef = useRef<HTMLInputElement>(null);
+  const buyerNameRef = useRef<HTMLInputElement>(null);
 
   // Pre-fill phone from localStorage
   useEffect(() => {
@@ -60,6 +62,15 @@ export function CustomerForm() {
     const saved = localStorage.getItem(LS_PHONE_KEY);
     if (saved && phoneInputRef.current) {
       phoneInputRef.current.value = saved;
+    }
+  }, []);
+
+  // Pre-fill buyer name from the logged-in customer's display name (AC4).
+  // Field stays editable — this only seeds the initial value.
+  useEffect(() => {
+    const name = getDisplayName();
+    if (name && buyerNameRef.current && !buyerNameRef.current.value) {
+      buyerNameRef.current.value = name;
     }
   }, []);
 
@@ -138,6 +149,7 @@ export function CustomerForm() {
           name="buyerName"
           type="text"
           required
+          ref={buyerNameRef}
           disabled={isPending}
           className="w-full border rounded px-3 py-2 disabled:opacity-60"
           aria-describedby={fieldErrors.buyerName ? 'buyerName-error' : undefined}

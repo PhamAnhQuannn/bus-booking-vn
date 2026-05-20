@@ -41,8 +41,8 @@ export async function attachGuestBookingByPhone(
     throw err;
   }
 
-  const customer = await tx.customer.findUnique({
-    where: { phone: normalized },
+  const customer = await tx.customer.findFirst({
+    where: { phone: normalized, deletedAt: null },
     select: { id: true },
   });
   if (!customer) return;
