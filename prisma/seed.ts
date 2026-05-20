@@ -36,12 +36,18 @@ async function main() {
   // a stale e2e capacity-1 hold from a prior run would also poison the
   // race-condition test by consuming the only seat.
   await prisma.hold.deleteMany();
+  // Booking-child rows without cascade must go before Booking; Payout + Booking
+  // FK Trip without cascade, so both must precede trip.deleteMany.
+  await prisma.paymentEvent.deleteMany();
+  await prisma.payout.deleteMany();
+  await prisma.booking.deleteMany();
   await prisma.trip.deleteMany();
   await prisma.route.deleteMany();
   await prisma.bus.deleteMany();
-  await prisma.operator.deleteMany();
-  // OperatorSession / OperatorOtpAttempt cascade from OperatorUser
+  // OperatorUser FK → Operator (no cascade); OperatorSession / OperatorOtpAttempt
+  // cascade from OperatorUser, so OperatorUser must precede operator.deleteMany.
   await prisma.operatorUser.deleteMany();
+  await prisma.operator.deleteMany();
 
   // ---- Operators ----
   // NOTE: Phone numbers use placeholder values — NEVER real VN mobile numbers
