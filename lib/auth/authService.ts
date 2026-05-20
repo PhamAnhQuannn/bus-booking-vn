@@ -12,6 +12,7 @@ import { consume } from './otp';
 import { hash as hashPassword, verify as verifyPassword, dummyVerify } from './password';
 import { createSession, rotateRefresh, revokeSession } from './session';
 import { verify as verifyRefreshToken } from './refreshToken';
+import { backfillGuestBookingsForCustomer } from '@/lib/booking/attachGuestBookingByPhone';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -66,9 +67,14 @@ export async function register(input: RegisterInput): Promise<AuthResult> {
 
   let customer: { id: string; phone: string; displayName: string | null };
   try {
-    customer = await prisma.customer.create({
-      data: { phone, passwordHash, displayName: input.displayName ?? null },
-      select: { id: true, phone: true, displayName: true },
+    customer = await prisma.$transaction(async (tx) => {
+      const created = await tx.customer.create({
+        data: { phone, passwordHash, displayName: input.displayName ?? null },
+        select: { id: true, phone: true, displayName: true },
+      });
+      // Issue 009 AC(a): attach pre-existing guest bookings made with this phone.
+      await backfillGuestBookingsForCustomer(tx, created.id, created.phone);
+      return created;
     });
   } catch (err) {
     // Prisma unique constraint violation on Customer.phone
