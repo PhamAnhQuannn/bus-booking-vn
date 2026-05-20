@@ -482,3 +482,23 @@ model RecurringGenerationLog {
   @@index([templateId])
   @@index([date])
 }
+
+// ---------------------------------------------------------------------------
+// Issue 020 — Platform-admin CLI audit trail
+// ---------------------------------------------------------------------------
+
+/// Append-only audit log for platform-admin CLI write actions.
+/// `actor` is a plain string (OS user / jumpbox identity), not an FK — the CLI
+/// runs outside the app's auth context. `argsRedacted` stores the command args
+/// with phone numbers masked to last-4 (see lib/audit/redactPhone.ts).
+model AdminAuditLog {
+  id           String   @id @default(cuid())
+  actor        String
+  action       String
+  target       String
+  argsRedacted String?
+  timestamp    DateTime @default(now())
+
+  @@index([timestamp])
+  @@index([action, timestamp])
+}
