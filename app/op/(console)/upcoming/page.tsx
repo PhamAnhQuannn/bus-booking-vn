@@ -6,9 +6,21 @@
  */
 
 import { redirect } from 'next/navigation';
+import type { TripStatus } from '@prisma/client';
 import { getOperatorSession } from '@/lib/op/getOperatorSession';
 import { listUpcomingForOperator } from '@/lib/trips/listUpcomingForOperator';
 import type { TripDto } from '@/lib/trips/tripDto';
+import { tripStatusDisplay } from '@/lib/op/statusLabels';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 
 export default async function OpUpcomingPage() {
   const session = await getOperatorSession();
@@ -25,48 +37,49 @@ export default async function OpUpcomingPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 md:px-6">
-      <h1>Chuyến xe sắp khởi hành</h1>
+      <h1 className="mb-6 text-2xl font-semibold tracking-tight">Chuyến xe sắp khởi hành</h1>
       {trips.length === 0 ? (
-        <p>Không có chuyến nào trong thời gian tới.</p>
+        <Card className="px-4 py-6 text-center text-sm text-muted-foreground">
+          Không có chuyến nào trong thời gian tới.
+        </Card>
       ) : (
-        <table
-          style={{ width: '100%', borderCollapse: 'collapse' }}
-          data-testid="upcoming-trips-table"
-        >
-          <thead>
-            <tr style={{ background: '#f4f4f4' }}>
-              <th style={{ padding: 8, textAlign: 'left' }}>Khởi hành</th>
-              <th style={{ padding: 8, textAlign: 'left' }}>Giá</th>
-              <th style={{ padding: 8, textAlign: 'left' }}>Trạng thái</th>
-              <th style={{ padding: 8, textAlign: 'left' }}>Ghế còn</th>
-              <th style={{ padding: 8, textAlign: 'left' }}>Manifest</th>
-            </tr>
-          </thead>
-          <tbody>
-            {trips.map((trip: TripDto) => (
-              <tr
-                key={trip.id}
-                data-testid={`upcoming-trip-${trip.id}`}
-                style={{ borderBottom: '1px solid #eee' }}
-              >
-                <td style={{ padding: 8 }}>
-                  {new Date(trip.departureAt).toLocaleString('vi-VN')}
-                </td>
-                <td style={{ padding: 8 }}>{trip.price?.toLocaleString('vi-VN')}đ</td>
-                <td style={{ padding: 8 }}>{trip.status}</td>
-                <td style={{ padding: 8 }}>{trip.availableSeats}</td>
-                <td style={{ padding: 8 }}>
-                  <a
-                    href={`/op/manifest/${trip.id}`}
-                    data-testid={`manifest-link-${trip.id}`}
-                  >
-                    Xem manifest
-                  </a>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <Card className="overflow-hidden py-0">
+          <Table data-testid="upcoming-trips-table">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Khởi hành</TableHead>
+                <TableHead>Giá</TableHead>
+                <TableHead>Trạng thái</TableHead>
+                <TableHead>Ghế còn</TableHead>
+                <TableHead>Manifest</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {trips.map((trip: TripDto) => {
+                const status = tripStatusDisplay(trip.status as TripStatus);
+                return (
+                  <TableRow key={trip.id} data-testid={`upcoming-trip-${trip.id}`}>
+                    <TableCell>{new Date(trip.departureAt).toLocaleString('vi-VN')}</TableCell>
+                    <TableCell>{trip.price?.toLocaleString('vi-VN')}đ</TableCell>
+                    <TableCell>
+                      <Badge variant={status.variant}>{status.label}</Badge>
+                    </TableCell>
+                    <TableCell>{trip.availableSeats}</TableCell>
+                    <TableCell>
+                      <a
+                        className="text-primary underline-offset-4 hover:underline"
+                        href={`/op/manifest/${trip.id}`}
+                        data-testid={`manifest-link-${trip.id}`}
+                      >
+                        Xem manifest
+                      </a>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </Card>
       )}
     </div>
   );

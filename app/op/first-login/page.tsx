@@ -7,15 +7,17 @@
  *
  * Only reachable after login when requiresPasswordChange = true.
  * The change route uses requireOperatorAuth({ allowDuringPasswordChange: true }).
+ * Shell-exempt: lives outside the (console) route group, so no operator sidebar.
  */
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-
-function getCsrf(): string {
-  const match = document.cookie.match(/(?:^|;\s*)bb_csrf=([^;]+)/);
-  return match ? decodeURIComponent(match[1]) : '';
-}
+import { readCsrfToken } from '@/lib/auth/csrfClient';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function OpFirstLoginPage() {
   const router = useRouter();
@@ -42,7 +44,7 @@ export default function OpFirstLoginPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRF-Token': getCsrf(),
+          'X-CSRF-Token': readCsrfToken(),
         },
         body: JSON.stringify({ currentPassword, newPassword }),
       });
@@ -71,43 +73,43 @@ export default function OpFirstLoginPage() {
   }
 
   return (
-    <main style={{ maxWidth: 400, margin: '80px auto', padding: '0 16px' }}>
-      <h1>Đổi mật khẩu lần đầu</h1>
-      <p>Bạn cần đặt mật khẩu mới trước khi tiếp tục.</p>
-      <form onSubmit={handleSubmit}>
-        <label>
-          Mật khẩu hiện tại
-          <input
-            type="password"
-            name="currentPassword"
-            required
-            style={{ display: 'block', width: '100%', marginTop: 4 }}
-          />
-        </label>
-        <label style={{ marginTop: 12, display: 'block' }}>
-          Mật khẩu mới
-          <input
-            type="password"
-            name="newPassword"
-            required
-            minLength={8}
-            style={{ display: 'block', width: '100%', marginTop: 4 }}
-          />
-        </label>
-        <label style={{ marginTop: 12, display: 'block' }}>
-          Xác nhận mật khẩu mới
-          <input
-            type="password"
-            name="confirmPassword"
-            required
-            style={{ display: 'block', width: '100%', marginTop: 4 }}
-          />
-        </label>
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-        <button type="submit" disabled={loading} style={{ marginTop: 12 }}>
-          {loading ? 'Đang lưu...' : 'Đổi mật khẩu'}
-        </button>
-      </form>
+    <main className="mx-auto flex min-h-svh w-full max-w-md flex-col justify-center px-4 py-12">
+      <h1 className="mb-2 text-2xl font-semibold tracking-tight">Đổi mật khẩu lần đầu</h1>
+      <p className="mb-6 text-sm text-muted-foreground">
+        Bạn cần đặt mật khẩu mới trước khi tiếp tục.
+      </p>
+      <Card>
+        <CardContent className="pt-4">
+          <form onSubmit={handleSubmit} className="grid gap-4">
+            <div className="grid gap-1.5">
+              <Label htmlFor="op-current-password">Mật khẩu hiện tại</Label>
+              <Input id="op-current-password" type="password" name="currentPassword" required />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="op-new-password">Mật khẩu mới</Label>
+              <Input
+                id="op-new-password"
+                type="password"
+                name="newPassword"
+                required
+                minLength={8}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="op-confirm-password">Xác nhận mật khẩu mới</Label>
+              <Input id="op-confirm-password" type="password" name="confirmPassword" required />
+            </div>
+            {error && (
+              <Alert variant="error">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            <Button type="submit" disabled={loading}>
+              {loading ? 'Đang lưu...' : 'Đổi mật khẩu'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </main>
   );
 }

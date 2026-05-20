@@ -26,7 +26,7 @@ export default async function OpProfilePage() {
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-8 md:px-6">
-      <h1>Hồ sơ quản trị viên</h1>
+      <h1 className="mb-6 text-2xl font-semibold tracking-tight">Hồ sơ quản trị viên</h1>
       <OpProfileClient profile={profile} />
     </div>
   );
