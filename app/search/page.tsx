@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { searchParamsSchema } from '@/lib/validation/search';
 import { searchTrips, type TripResult } from '@/lib/db/searchTrips';
 import { SearchFormWrapper } from '@/components/search/SearchFormWrapper';
+import { SearchStoreHydrator } from '@/components/search/SearchStoreHydrator';
 import { BookButton } from '@/components/search/BookButton';
 
 export const metadata: Metadata = {
@@ -180,7 +181,7 @@ function ResultsList({
           <Link
             href={buildUrl(prevDate)}
             className="inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-muted"
-            aria-label={`Tìm ngày ${formatVnDate(prevDate)}`}
+            aria-label={`Ngày trước: ${formatVnDate(prevDate)}`}
           >
             ← Ngày trước
           </Link>
@@ -191,7 +192,7 @@ function ResultsList({
         <Link
           href={buildUrl(nextDate)}
           className="inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-muted"
-          aria-label={`Tìm ngày ${formatVnDate(nextDate)}`}
+          aria-label={`Ngày sau: ${formatVnDate(nextDate)}`}
         >
           Ngày sau →
         </Link>
@@ -243,12 +244,17 @@ export default async function SearchPage({ searchParams }: PageProps) {
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-6">
+      {/* Seed searchStore so back-nav to "/" restores the form (AC-5) */}
+      <SearchStoreHydrator
+        query={{ origin, destination, date, ticketCount: String(ticketCount) }}
+      />
+
       {/* Header + back to form */}
       <div className="flex items-center gap-3">
         <Link
           href="/"
           className="inline-flex min-h-11 items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          aria-label="Quay lại trang tìm kiếm"
+          aria-label="Tìm lại — quay về trang tìm kiếm"
         >
           ← Tìm lại
         </Link>
