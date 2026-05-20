@@ -16,10 +16,9 @@ export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/client';
-import { Prisma } from '@prisma/client';
+import { runJob } from '@/lib/jobs/runJob';
+import { expireHolds } from '@/lib/jobs/expireHolds';
 import { logger } from '@/lib/logger';
-
-const BATCH_LIMIT = 500;
 
 export async function GET(req: NextRequest): Promise<Response> {
   // Authenticate via CRON_SECRET (Vercel sets Authorization: Bearer <secret>)
@@ -33,7 +32,8 @@ export async function GET(req: NextRequest): Promise<Response> {
   const mode = process.env.HOLD_SWEEPER_MODE ?? 'count';
 
   if (mode === 'count') {
-    // Count-only mode: read without mutation
+    // Count-only mode: read without mutation. No JobRunLog row — this path
+    // never mutates, so the advisory-lock + audit wrapper is unnecessary.
     const count = await prisma.hold.count({
       where: {
         status: 'active',
@@ -44,26 +44,8 @@ export async function GET(req: NextRequest): Promise<Response> {
     return NextResponse.json({ mode, expiredCount: count });
   }
 
-  // "update" mode: expire holds in batches using raw SQL with SKIP LOCKED
-  type UpdateResult = { id: string };
-  const result = await prisma.$queryRaw<UpdateResult[]>(
-    Prisma.sql`
-      WITH expired AS (
-        SELECT id FROM "Hold"
-        WHERE status = 'active'::"HoldStatus"
-          AND "expiresAt" < NOW()
-        LIMIT ${BATCH_LIMIT}
-        FOR UPDATE SKIP LOCKED
-      )
-      UPDATE "Hold"
-      SET status = 'expired'::"HoldStatus"
-      WHERE id IN (SELECT id FROM expired)
-      RETURNING id
-    `
-  );
-
-  const updated = result.length;
-  const updatedCount = updated;
-  logger.info({ mode, expiredCount: updatedCount }, 'sweep-holds: update mode');
-  return NextResponse.json({ mode, expiredCount: updatedCount });
+  // "update" mode: expire holds under the advisory lock + JobRunLog wrapper.
+  const result = await runJob('hold-expiry', expireHolds);
+  logger.info({ mode, ...result }, 'sweep-holds: update mode');
+  return NextResponse.json({ mode, expiredCount: result.rowsAffected, status: result.status });
 }

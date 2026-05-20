@@ -1,0 +1,56 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+vi.mock('@/lib/jobs/runJob', () => ({
+  runJob: vi.fn(),
+}));
+
+import { GET } from '../route';
+import { runJob } from '@/lib/jobs/runJob';
+import { NextRequest } from 'next/server';
+
+function makeRequest(headers?: Record<string, string>): NextRequest {
+  return new NextRequest('http://localhost/api/cron/complete-trips', {
+    method: 'GET',
+    headers,
+  });
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  delete process.env.CRON_SECRET;
+  vi.mocked(runJob).mockResolvedValue({ rowsAffected: 0, status: 'success' });
+});
+
+afterEach(() => {
+  delete process.env.CRON_SECRET;
+});
+
+describe('GET /api/cron/complete-trips', () => {
+  describe('auth', () => {
+    it('returns 401 when CRON_SECRET is set and header is missing', async () => {
+      process.env.CRON_SECRET = 'my-secret';
+      const res = await GET(makeRequest());
+      expect(res.status).toBe(401);
+      expect(runJob).not.toHaveBeenCalled();
+    });
+
+    it('returns 401 when CRON_SECRET is set and header is wrong', async () => {
+      process.env.CRON_SECRET = 'my-secret';
+      const res = await GET(makeRequest({ authorization: 'Bearer wrong-secret' }));
+      expect(res.status).toBe(401);
+      expect(runJob).not.toHaveBeenCalled();
+    });
+
+    it('allows access when CRON_SECRET matches', async () => {
+      process.env.CRON_SECRET = 'my-secret';
+      const res = await GET(makeRequest({ authorization: 'Bearer my-secret' }));
+      expect(res.status).toBe(200);
+      expect(runJob).toHaveBeenCalledWith('trip-complete', expect.any(Function));
+    });
+
+    it('allows access when CRON_SECRET is not set (no auth required)', async () => {
+      const res = await GET(makeRequest());
+      expect(res.status).toBe(200);
+    });
+  });
+});

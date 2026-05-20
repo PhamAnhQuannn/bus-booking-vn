@@ -9,8 +9,13 @@ vi.mock('@/lib/db/client', () => ({
   },
 }));
 
+vi.mock('@/lib/jobs/runJob', () => ({
+  runJob: vi.fn(),
+}));
+
 import { GET } from '../route';
 import { prisma } from '@/lib/db/client';
+import { runJob } from '@/lib/jobs/runJob';
 import { NextRequest } from 'next/server';
 
 function makeRequest(headers?: Record<string, string>): NextRequest {
@@ -56,13 +61,9 @@ describe('GET /api/cron/sweep-holds', () => {
   });
 
   describe('update mode', () => {
-    it('calls $queryRaw for update and returns expiredCount', async () => {
+    it('delegates to runJob and returns expiredCount from rowsAffected', async () => {
       process.env.HOLD_SWEEPER_MODE = 'update';
-      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([
-        { id: 'id-1' },
-        { id: 'id-2' },
-        { id: 'id-3' },
-      ] as never);
+      vi.mocked(runJob).mockResolvedValueOnce({ rowsAffected: 3, status: 'success' });
 
       const req = makeRequest();
       const res = await GET(req);
@@ -71,6 +72,8 @@ describe('GET /api/cron/sweep-holds', () => {
       expect(res.status).toBe(200);
       expect(json.mode).toBe('update');
       expect(json.expiredCount).toBe(3);
+      expect(json.status).toBe('success');
+      expect(runJob).toHaveBeenCalledWith('hold-expiry', expect.any(Function));
       expect(prisma.hold.count).not.toHaveBeenCalled();
     });
   });
