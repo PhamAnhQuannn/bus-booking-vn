@@ -1,0 +1,420 @@
+/**
+ * Integration tests for the Issue 019 background cron-job cores (lib/jobs/*).
+ *
+ * Run with: pnpm vitest:int
+ *
+ * Each AC maps to one block:
+ * - AC1 expireHolds        — active hold past expiresAt flips to 'expired'
+ * - AC2 autoCloseSales     — scheduled trip past departure gets salesClosed=true
+ * - AC3 autoCompleteTrips  — departed trip past duration → completed + Payout row
+ * - AC4 sendReminders      — 24h reminder fires once (reminderSentAt guard)
+ * - AC5 processPayouts     — pending→settled (ok) and pending→failed (forced fail)
+ * - AC6 withAdvisoryLock   — second invocation skipped_locked while lock held
+ *
+ * Cores select GLOBALLY (no operator filter), so assertions check the specific
+ * seeded row rather than the core's aggregate rowsAffected count.
+ */
+
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { randomUUID } from 'crypto';
+import { prisma } from '@/lib/db/client';
+import { _resetEnvCache } from '@/lib/config/env';
+import { expireHolds } from '../expireHolds';
+import { autoCloseSales } from '../autoCloseSales';
+import { autoCompleteTrips } from '../autoCompleteTrips';
+import { sendReminders } from '../sendReminders';
+import { processPayouts } from '../processPayouts';
+import { withAdvisoryLock } from '../withAdvisoryLock';
+import type { JobCore } from '../types';
+
+// ────────────────────────────────────────────────────────────────────────────
+// Fixtures
+// ────────────────────────────────────────────────────────────────────────────
+
+let operatorId: string;
+let routeId: string;
+let busId: string;
+
+async function createTrip(
+  departureAt: Date,
+  status: string,
+  salesClosed: boolean,
+  extra: { departedAt?: Date } = {}
+): Promise<string> {
+  const trip = await prisma.trip.create({
+    data: {
+      routeId,
+      busId,
+      operatorId,
+      departureAt,
+      price: 100_000,
+      status: status as 'scheduled' | 'departed' | 'completed' | 'cancelled',
+      salesClosed,
+      departedAt: extra.departedAt ?? null,
+    },
+  });
+  return trip.id;
+}
+
+async function createBooking(
+  tripId: string,
+  ref: string,
+  status: string,
+  totalVnd = 150_000
+): Promise<string> {
+  const id = randomUUID();
+  const b = await prisma.booking.create({
+    data: {
+      id,
+      bookingRef: ref,
+      confirmationToken: 'tok-' + ref,
+      tripId,
+      buyerName: 'Cron Tester',
+      buyerPhone: '+8490xxxxxx1',
+      ticketCount: 1,
+      totalVnd,
+      paymentMethod: 'cash',
+      status: status as 'paid_operator_notified' | 'pending_cash_payment' | 'completed' | 'cancelled',
+      isManual: false,
+      contactStatus: 'pending',
+    },
+  });
+  return b.id;
+}
+
+beforeAll(async () => {
+  const op = await prisma.operator.create({
+    data: {
+      legalName: 'Cron Test Op',
+      contactPhone: '+8490xxxxxx2',
+      contactEmail: 'cron@test.dev',
+    },
+  });
+  operatorId = op.id;
+
+  const bus = await prisma.bus.create({
+    data: { operatorId, capacity: 40, licensePlate: 'CRON-001', busType: 'coach' },
+  });
+  busId = bus.id;
+
+  const route = await prisma.route.create({
+    data: {
+      origin: 'Cron Origin',
+      destination: 'Cron Destination',
+      operatorId,
+      durationMinutes: 90,
+    },
+  });
+  routeId = route.id;
+});
+
+afterAll(async () => {
+  // Reverse FK order.
+  await prisma.notificationLog.deleteMany({
+    where: { booking: { trip: { operatorId } } },
+  });
+  await prisma.payout.deleteMany({ where: { operatorId } });
+  await prisma.hold.deleteMany({ where: { trip: { operatorId } } });
+  await prisma.booking.deleteMany({ where: { trip: { operatorId } } });
+  await prisma.trip.deleteMany({ where: { operatorId } });
+  await prisma.route.deleteMany({ where: { operatorId } });
+  await prisma.bus.deleteMany({ where: { operatorId } });
+  await prisma.operator.deleteMany({ where: { id: operatorId } });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// AC1 — expireHolds
+// ────────────────────────────────────────────────────────────────────────────
+
+describe('AC1 expireHolds', () => {
+  it('flips an active hold past expiresAt to expired', async () => {
+    const tripId = await createTrip(new Date(Date.now() + 10 * 86_400_000), 'scheduled', false);
+    const hold = await prisma.hold.create({
+      data: {
+        tripId,
+        ticketCount: 1,
+        customerPhone: '+8490xxxxxx3',
+        customerName: 'Hold Tester',
+        expiresAt: new Date(Date.now() - 60_000), // 1 min ago
+        status: 'active',
+      },
+    });
+
+    await prisma.$transaction((tx) => expireHolds(tx));
+
+    const row = await prisma.hold.findUnique({ where: { id: hold.id }, select: { status: true } });
+    expect(row?.status).toBe('expired');
+  });
+
+  it('leaves a not-yet-expired active hold untouched', async () => {
+    const tripId = await createTrip(new Date(Date.now() + 10 * 86_400_000), 'scheduled', false);
+    const hold = await prisma.hold.create({
+      data: {
+        tripId,
+        ticketCount: 1,
+        customerPhone: '+8490xxxxxx4',
+        customerName: 'Future Hold',
+        expiresAt: new Date(Date.now() + 5 * 60_000), // 5 min out
+        status: 'active',
+      },
+    });
+
+    await prisma.$transaction((tx) => expireHolds(tx));
+
+    const row = await prisma.hold.findUnique({ where: { id: hold.id }, select: { status: true } });
+    expect(row?.status).toBe('active');
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// AC2 — autoCloseSales
+// ────────────────────────────────────────────────────────────────────────────
+
+describe('AC2 autoCloseSales', () => {
+  it('sets salesClosed=true on a scheduled trip whose departure has arrived', async () => {
+    const tripId = await createTrip(new Date(Date.now() - 60_000), 'scheduled', false);
+
+    await prisma.$transaction((tx) => autoCloseSales(tx));
+
+    const row = await prisma.trip.findUnique({ where: { id: tripId }, select: { salesClosed: true } });
+    expect(row?.salesClosed).toBe(true);
+  });
+
+  it('leaves a future scheduled trip open', async () => {
+    const tripId = await createTrip(new Date(Date.now() + 86_400_000), 'scheduled', false);
+
+    await prisma.$transaction((tx) => autoCloseSales(tx));
+
+    const row = await prisma.trip.findUnique({ where: { id: tripId }, select: { salesClosed: true } });
+    expect(row?.salesClosed).toBe(false);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// AC3 — autoCompleteTrips + Payout creation
+// ────────────────────────────────────────────────────────────────────────────
+
+describe('AC3 autoCompleteTrips', () => {
+  it('completes a departed trip past its duration and creates one Payout row', async () => {
+    // durationMinutes=90; departed 100 min ago → departureAt + 90m is in the past.
+    const departureAt = new Date(Date.now() - 100 * 60_000);
+    const tripId = await createTrip(departureAt, 'departed', true, { departedAt: departureAt });
+    await createBooking(tripId, 'BB-2026-cron-ac31', 'paid_operator_notified', 150_000);
+
+    await prisma.$transaction((tx) => autoCompleteTrips(tx));
+
+    const trip = await prisma.trip.findUnique({
+      where: { id: tripId },
+      select: { status: true, completedAt: true },
+    });
+    expect(trip?.status).toBe('completed');
+    expect(trip?.completedAt).not.toBeNull();
+
+    const payouts = await prisma.payout.findMany({ where: { tripId } });
+    expect(payouts.length).toBe(1);
+    const payout = payouts[0];
+    expect(payout.gross).toBe(150_000);
+    expect(payout.platformFee + payout.net).toBe(payout.gross);
+    expect(payout.status).toBe('pending');
+
+    // scheduledAt ≈ completedAt + 3 days (±60s).
+    const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+    const expected = trip!.completedAt!.getTime() + THREE_DAYS_MS;
+    expect(Math.abs(payout.scheduledAt.getTime() - expected)).toBeLessThan(60_000);
+  });
+
+  it('does not touch a departed trip still within its duration', async () => {
+    // departed 10 min ago, duration 90m → not yet elapsed.
+    const departureAt = new Date(Date.now() - 10 * 60_000);
+    const tripId = await createTrip(departureAt, 'departed', true, { departedAt: departureAt });
+
+    await prisma.$transaction((tx) => autoCompleteTrips(tx));
+
+    const trip = await prisma.trip.findUnique({ where: { id: tripId }, select: { status: true } });
+    expect(trip?.status).toBe('departed');
+    const payouts = await prisma.payout.findMany({ where: { tripId } });
+    expect(payouts.length).toBe(0);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// AC4 — sendReminders (fires once)
+// ────────────────────────────────────────────────────────────────────────────
+
+describe('AC4 sendReminders', () => {
+  it('sends the 24h reminder exactly once per booking', async () => {
+    // Departure 24h out → inside the 23–25h window.
+    const tripId = await createTrip(new Date(Date.now() + 24 * 3_600_000), 'scheduled', false);
+    const bookingId = await createBooking(tripId, 'BB-2026-cron-ac41', 'paid_operator_notified');
+
+    await prisma.$transaction((tx) => sendReminders(tx));
+
+    let logs = await prisma.notificationLog.findMany({
+      where: { bookingId, template: 'bookingReminder24h' },
+    });
+    expect(logs.length).toBe(1);
+    expect(logs[0].status).toBe('sent');
+
+    const afterFirst = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: { reminderSentAt: true },
+    });
+    expect(afterFirst?.reminderSentAt).not.toBeNull();
+
+    // Second run must NOT re-fire for this booking (reminderSentAt guard).
+    await prisma.$transaction((tx) => sendReminders(tx));
+
+    logs = await prisma.notificationLog.findMany({
+      where: { bookingId, template: 'bookingReminder24h' },
+    });
+    expect(logs.length).toBe(1);
+  });
+
+  it('does not remind a booking outside the 23–25h window', async () => {
+    const tripId = await createTrip(new Date(Date.now() + 48 * 3_600_000), 'scheduled', false);
+    const bookingId = await createBooking(tripId, 'BB-2026-cron-ac42', 'paid_operator_notified');
+
+    await prisma.$transaction((tx) => sendReminders(tx));
+
+    const logs = await prisma.notificationLog.findMany({
+      where: { bookingId, template: 'bookingReminder24h' },
+    });
+    expect(logs.length).toBe(0);
+    const row = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: { reminderSentAt: true },
+    });
+    expect(row?.reminderSentAt).toBeNull();
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// AC5 — processPayouts transitions
+// ────────────────────────────────────────────────────────────────────────────
+
+describe('AC5 processPayouts', () => {
+  async function createDuePayout(): Promise<string> {
+    const tripId = await createTrip(new Date(Date.now() - 5 * 86_400_000), 'completed', true);
+    const payout = await prisma.payout.create({
+      data: {
+        tripId,
+        operatorId,
+        gross: 150_000,
+        platformFee: 9_000,
+        net: 141_000,
+        status: 'pending',
+        scheduledAt: new Date(Date.now() - 60_000), // due (past)
+      },
+    });
+    return payout.id;
+  }
+
+  it('happy path: pending → settled', async () => {
+    const payoutId = await createDuePayout();
+
+    await prisma.$transaction((tx) => processPayouts(tx));
+
+    const row = await prisma.payout.findUnique({
+      where: { id: payoutId },
+      select: { status: true, settledAt: true, failureReason: true },
+    });
+    expect(row?.status).toBe('settled');
+    expect(row?.settledAt).not.toBeNull();
+    expect(row?.failureReason).toBeNull();
+  });
+
+  it('forced failure: pending → failed with failureReason', async () => {
+    const payoutId = await createDuePayout();
+
+    process.env.PAYOUT_SETTLEMENT_FORCE_FAIL = 'true';
+    _resetEnvCache();
+    try {
+      await prisma.$transaction((tx) => processPayouts(tx));
+    } finally {
+      delete process.env.PAYOUT_SETTLEMENT_FORCE_FAIL;
+      _resetEnvCache();
+    }
+
+    const row = await prisma.payout.findUnique({
+      where: { id: payoutId },
+      select: { status: true, settledAt: true, failureReason: true },
+    });
+    expect(row?.status).toBe('failed');
+    expect(row?.failureReason).toBe('settlement_forced_fail');
+    expect(row?.settledAt).toBeNull();
+  });
+
+  it('does not process a payout scheduled in the future', async () => {
+    const tripId = await createTrip(new Date(Date.now() - 86_400_000), 'completed', true);
+    const payout = await prisma.payout.create({
+      data: {
+        tripId,
+        operatorId,
+        gross: 100_000,
+        platformFee: 6_000,
+        net: 94_000,
+        status: 'pending',
+        scheduledAt: new Date(Date.now() + 3 * 86_400_000), // not due
+      },
+    });
+
+    await prisma.$transaction((tx) => processPayouts(tx));
+
+    const row = await prisma.payout.findUnique({ where: { id: payout.id }, select: { status: true } });
+    expect(row?.status).toBe('pending');
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// AC6 — withAdvisoryLock mutual exclusion
+// ────────────────────────────────────────────────────────────────────────────
+
+describe('AC6 withAdvisoryLock', () => {
+  it('returns skipped_locked (core does not run) while another tx holds the lock', async () => {
+    const jobName = 'test-lock-' + randomUUID().slice(0, 8);
+    let coreRan = false;
+    const spyCore: JobCore = async () => {
+      coreRan = true;
+      return { rowsAffected: 1, status: 'success' };
+    };
+
+    // Hold the same advisory key in an open transaction until we release it.
+    let release!: () => void;
+    const held = new Promise<void>((r) => {
+      release = r;
+    });
+    const holding = prisma.$transaction(async (tx) => {
+      // $executeRaw (not $queryRaw): pg_advisory_xact_lock returns void, which
+      // the pg driver adapter can't deserialize as a result column.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${jobName}))`;
+      await held;
+    });
+
+    // Let the holding tx acquire the lock first.
+    await new Promise((r) => setTimeout(r, 250));
+
+    const result = await withAdvisoryLock(jobName, spyCore);
+
+    release();
+    await holding;
+
+    expect(result.status).toBe('skipped_locked');
+    expect(result.rowsAffected).toBe(0);
+    expect(coreRan).toBe(false);
+  });
+
+  it('runs the core and returns its result when the lock is free', async () => {
+    const jobName = 'test-lock-' + randomUUID().slice(0, 8);
+    let coreRan = false;
+    const spyCore: JobCore = async () => {
+      coreRan = true;
+      return { rowsAffected: 7, status: 'success' };
+    };
+
+    const result = await withAdvisoryLock(jobName, spyCore);
+
+    expect(coreRan).toBe(true);
+    expect(result.status).toBe('success');
+    expect(result.rowsAffected).toBe(7);
+  });
+});
