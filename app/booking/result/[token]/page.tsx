@@ -2,8 +2,8 @@
  * /booking/result/[token] — MoMo payment result / polling page.
  *
  * Status-based rendering:
- *   awaiting_payment      → "Đang chờ thanh toán" + auto-refresh every 5s
- *                           (capped at 24 refreshes ≈ 2 min via ?r= counter)
+ *   awaiting_payment       → "Đang chờ thanh toán" + auto-refresh every 5s
+ *                            (capped at 24 refreshes ≈ 2 min via ?r= counter)
  *   paid_operator_notified → Success banner + link to /booking/confirmation/[token]
  *   payment_failed_expired → Failure banner + retry CTA to /search
  *   other statuses         → Fallback (e.g. booking cancelled)
@@ -11,12 +11,13 @@
  * Server component: calls getBookingByConfirmationToken in-process — NEVER
  * self-fetches its own API (Mistake Log 2026-05-17).
  *
- * Auto-refresh uses <meta httpEquiv="refresh"> rendered directly in the page
- * (Next.js docs state meta http-equiv is not supported via generateMetadata —
- * render the tag inline in the component tree instead).
+ * Reachable via the MoMo return URL with no prior bookingStore state, so
+ * /booking/layout.tsx whitelists this prefix to bypass its tripId guard.
+ *
+ * Auto-refresh uses <meta httpEquiv="refresh"> rendered inline in the tree
+ * (Next.js does not support meta http-equiv via generateMetadata).
  */
 
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getBookingByConfirmationToken } from '@/lib/db/bookingRepo';
 
@@ -39,30 +40,26 @@ function formatVND(amount: number): string {
 
 export default async function ResultPage({ params, searchParams }: ResultPageProps) {
   const { token } = await params;
-  const sp = await searchParams;
-  const refreshCount = Math.min(parseInt(sp.r ?? '0', 10) || 0, MAX_AUTO_REFRESH);
 
   const booking = await getBookingByConfirmationToken(token);
   if (!booking) {
     notFound();
   }
 
+  const sp = await searchParams;
+  const refreshCount = Math.min(parseInt(sp.r ?? '0', 10) || 0, MAX_AUTO_REFRESH);
+
   const isPending = booking.status === 'awaiting_payment';
   const isPaid = booking.status === 'paid_operator_notified' || booking.status === 'completed';
   const isFailed = booking.status === 'payment_failed_expired';
 
-  // Auto-refresh URL increments counter until cap
   const nextRefreshCount = refreshCount + 1;
   const shouldAutoRefresh = isPending && refreshCount < MAX_AUTO_REFRESH;
   const refreshUrl = `/booking/result/${token}?r=${nextRefreshCount}`;
 
   return (
     <>
-      {shouldAutoRefresh && (
-        // Render meta refresh inline — not supported via generateMetadata API
-        <meta httpEquiv="refresh" content={`5;url=${refreshUrl}`} />
-      )}
-
+      {shouldAutoRefresh && <meta httpEquiv="refresh" content={`5;url=${refreshUrl}`} />}
       <main className="max-w-md mx-auto p-6 space-y-6">
         <header className="space-y-1">
           <h1 className="text-2xl font-bold">
@@ -111,12 +108,12 @@ export default async function ResultPage({ params, searchParams }: ResultPagePro
               Cảm ơn bạn đã đặt vé qua BusBookVN. Vui lòng xem thông tin xác nhận để
               biết chi tiết chuyến đi.
             </p>
-            <Link
+            <a
               href={`/booking/confirmation/${token}`}
               className="inline-block bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-green-800"
             >
               Xem thông tin đặt vé
-            </Link>
+            </a>
           </section>
         )}
 
@@ -130,12 +127,12 @@ export default async function ResultPage({ params, searchParams }: ResultPagePro
               Giao dịch MoMo của bạn chưa hoàn tất hoặc đã bị hủy. Vui lòng thử lại
               với chuyến xe khác.
             </p>
-            <Link
+            <a
               href="/search"
               className="inline-block bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-red-800"
             >
               Tìm chuyến khác
-            </Link>
+            </a>
           </section>
         )}
 

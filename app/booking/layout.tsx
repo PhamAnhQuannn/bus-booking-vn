@@ -4,29 +4,33 @@
  * /booking layout — client component guard.
  *
  * Checks bookingStore.tripId on mount for the pre-booking flow (customer-info,
- * review). Confirmation pages (`/booking/confirmation/:token`) are reachable
- * via SMS/email link with no prior session state — they MUST bypass the
- * tripId guard. The confirmationToken in the URL is itself the access key.
+ * review). Confirmation (`/booking/confirmation/:token`) and result
+ * (`/booking/result/:token`) pages are reachable via SMS/email link or the
+ * MoMo return URL with no prior session state — they MUST bypass the tripId
+ * guard. The token in the URL is itself the access key.
  */
 
 import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useBookingStore } from '@/lib/state/bookingStore';
 
+const TOKEN_LANDING_PREFIXES = ['/booking/confirmation', '/booking/result'];
+
 export default function BookingLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const tripId = useBookingStore((s) => s.tripId);
 
-  const isConfirmation = pathname?.startsWith('/booking/confirmation') ?? false;
+  const isTokenLanding =
+    TOKEN_LANDING_PREFIXES.some((p) => pathname?.startsWith(p)) ?? false;
 
   useEffect(() => {
-    if (!isConfirmation && !tripId) {
+    if (!isTokenLanding && !tripId) {
       router.replace('/search');
     }
-  }, [isConfirmation, tripId, router]);
+  }, [isTokenLanding, tripId, router]);
 
-  if (!isConfirmation && !tripId) return null;
+  if (!isTokenLanding && !tripId) return null;
 
   return <>{children}</>;
 }
