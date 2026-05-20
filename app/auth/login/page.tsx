@@ -7,7 +7,7 @@
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { setAccessToken } from '@/app/auth/register/page';
+import { setAccessToken, setDisplayName } from '@/app/auth/register/page';
 
 function getCsrf(): string {
   const match = document.cookie.match(/(?:^|;\s*)bb_csrf=([^;]+)/);
@@ -41,6 +41,7 @@ export default function LoginPage() {
         return;
       }
       setAccessToken(json.accessToken);
+      setDisplayName(json.customer?.displayName ?? null);
       router.push(returnTo);
     } catch {
       setError('Lỗi kết nối. Vui lòng thử lại.');

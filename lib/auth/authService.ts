@@ -36,7 +36,7 @@ export interface AuthResult {
   csrf: string;
   customer: {
     id: string;
-    phone: string;
+    phone: string | null;
     displayName: string | null;
   };
 }
@@ -65,7 +65,7 @@ export async function register(input: RegisterInput): Promise<AuthResult> {
   const phone = normalizePhone(input.phone);
   const passwordHash = await hashPassword(input.password);
 
-  let customer: { id: string; phone: string; displayName: string | null };
+  let customer: { id: string; phone: string | null; displayName: string | null };
   try {
     customer = await prisma.$transaction(async (tx) => {
       const created = await tx.customer.create({
@@ -73,7 +73,10 @@ export async function register(input: RegisterInput): Promise<AuthResult> {
         select: { id: true, phone: true, displayName: true },
       });
       // Issue 009 AC(a): attach pre-existing guest bookings made with this phone.
-      await backfillGuestBookingsForCustomer(tx, created.id, created.phone);
+      // phone is guaranteed non-null here — we just set it above.
+      if (created.phone) {
+        await backfillGuestBookingsForCustomer(tx, created.id, created.phone);
+      }
       return created;
     });
   } catch (err) {
@@ -106,8 +109,8 @@ export async function register(input: RegisterInput): Promise<AuthResult> {
 export async function login(input: LoginInput): Promise<AuthResult> {
   const phone = normalizePhone(input.phone);
 
-  const customer = await prisma.customer.findUnique({
-    where: { phone },
+  const customer = await prisma.customer.findFirst({
+    where: { phone, deletedAt: null },
     select: { id: true, phone: true, displayName: true, passwordHash: true },
   });
 

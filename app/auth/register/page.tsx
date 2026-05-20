@@ -25,6 +25,12 @@ let _accessToken: string | null = null;
 export function getAccessToken(): string | null { return _accessToken; }
 export function setAccessToken(t: string | null): void { _accessToken = t; }
 
+// Module-level display-name store — pre-fills the checkout buyer-name field (AC4).
+// In-memory like the access token; lost on hard reload (same as the session).
+let _displayName: string | null = null;
+export function getDisplayName(): string | null { return _displayName; }
+export function setDisplayName(n: string | null): void { _displayName = n; }
+
 export default function RegisterPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -112,6 +118,7 @@ export default function RegisterPage() {
         return;
       }
       setAccessToken(json.accessToken);
+      setDisplayName(displayName ?? null);
       router.push(returnTo);
     } catch {
       setError('Lỗi kết nối. Vui lòng thử lại.');

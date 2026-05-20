@@ -37,6 +37,8 @@ const CSRF_EXEMPT = new Set(['/api/payments/momo/webhook']);
 const CSRF_EXEMPT_PREFIXES = [
   '/api/op/auth/forgot-password',
   '/api/op/auth/refresh',
+  '/api/auth/forgot-password',   // Issue 008: customer forgot-password (pre-auth)
+  '/api/auth/reset-password',    // Issue 008: customer reset-password (pre-auth, proof-protected)
 ];
 
 // /op/* paths that do NOT require a valid operator session
