@@ -51,13 +51,16 @@ Tailwind class — never raw oklch/hex in JSX.
 | chart-1..5 | grayscale ramp | grayscale ramp | `fill-chart-N` | report charts (payouts/revenue) |
 | sidebar* | see globals.css | see globals.css | `bg-sidebar*` | operator nav shell (if adopted) |
 
-**Status colors:** there is NO semantic `success` / `warning` token. Existing UI
-uses raw tailwind palette inline (`bg-amber-50 border-amber-200 text-amber-900`
-for pending, `bg-green-50 text-green-900` success, `bg-red-50 text-red-900`
-failure — see `booking/result/[token]/page.tsx`). **Open question:** promote
-amber/green status families to semantic tokens (`warning`, `success`) or keep as
-documented raw-palette convention. Until resolved, use the result-page palette
-verbatim for status banners so they stay consistent.
+**Status colors (RESOLVED 2026-05-20):** semantic `success` / `warning` tokens now
+exist in `globals.css`, each a triplet — `--success`/`--success-foreground`/`--success-border`
+and `--warning`/`--warning-foreground`/`--warning-border`. oklch values were chosen to
+match Tailwind `green-50/900/200` and `amber-50/900/200` so the existing raw-palette
+banners migrate pixel-equivalent. Reference via classes: `bg-success text-success-foreground
+border-success-border` (success/info banner), `bg-warning text-warning-foreground
+border-warning-border` (pending/warning), and the existing `bg-destructive/10 text-destructive`
+for failure. **This supersedes the prior "use the result-page raw palette verbatim" rule** —
+new code uses the tokens; `app/booking/result/[token]` + `confirmation` + `review` +
+`CustomerForm` migrate off raw `bg-amber-*`/`bg-green-*` in Phase 6.
 
 ### Spacing
 

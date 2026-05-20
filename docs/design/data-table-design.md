@@ -2,7 +2,7 @@
 feature: operator-data-table
 decision: one shared operator Table primitive + Badge primitive; mobile→stacked-card at 768px
 last-updated: 2026-05-20
-status: draft
+status: ready-to-build
 inherits: docs/design/design-system.md
 resolves: data-table "MISSING — build via /data-table-design" flags in a11y-operator-console.md, operator-{fleet,routes,trips,manifest,dashboard}.md
 ---
@@ -22,8 +22,11 @@ passed in — NOT five hand-rolled `<table>`s. Mobile (≤767px) the SAME data r
 stacked `<Card>` rows (Card itself MISSING — built per `/dashboard-layout`). Single 768px
 breakpoint, matches the global `md` and the nav shell breakpoint (`nav-pattern-pick.md`).
 
-No new tokens. Badge lifecycle palette reuses the raw `booking/result` amber/green/red values
-already in `globals.css` (design-system.md has NO semantic success/warning token).
+**UPDATED 2026-05-20:** semantic `success`/`warning` token triplets now exist in `globals.css`
+(`bg-success text-success-foreground border-success-border`, `bg-warning …`). Badge/Table use
+THESE tokens, NOT the raw `bg-green-50`/`bg-amber-50` literals quoted below — the token oklch
+values match those Tailwind shades, so this supersedes the "raw palette verbatim" note without
+changing appearance. `danger` reuses the existing `bg-destructive/10 text-destructive` soft pattern.
 
 ## The 5 Consumers (canonical column specs)
 
@@ -165,9 +168,9 @@ NEVER color-only (a11y-operator-console.md: "include text label"; WCAG 1.4.1). N
 | Variant | Surface | bg / text |
 |---------|---------|-----------|
 | `neutral` | busType (coach/sleeper/limousine), default | `bg-secondary text-secondary-foreground` |
-| `success` | route active, paid/completed states | `bg-green-50 text-green-900` (raw `booking/result` palette) |
-| `danger` | route disabled, cancelled/failed states | `bg-red-50 text-red-900` |
-| `pending` | awaiting/pending states | `bg-amber-50 text-amber-900` |
+| `success` | route active, paid/completed states | `bg-success text-success-foreground border border-success-border` |
+| `danger` | route disabled, cancelled/failed states | `bg-destructive/10 text-destructive` |
+| `pending` | awaiting/pending states | `bg-warning text-warning-foreground border border-warning-border` |
 | `count` | "N mới" unviewed badge | `bg-primary text-primary-foreground`, rounded-full |
 
 No semantic success/warning token exists (design-system.md) — these use the raw amber/green/red
@@ -233,7 +236,7 @@ alone never conveys meaning (1.4.1 / 1.1.1).
 | zebra row (optional) | `even:bg-muted/30` — but keep TEXT on background tone |
 | sticky header | `sticky top-0 bg-background z-10` |
 | row hover (desktop) | `hover:bg-accent/50` |
-| escalated row tint | `bg-amber-50` (raw `booking/result`) |
+| escalated row tint | `bg-warning` (semantic token) |
 | cell border | `border-b border-border` |
 | sort header focus | `focus-visible:ring-3 ring-ring` (global F1 ring caveat) |
 | badge (status) | per variant table above, `rounded-sm` |

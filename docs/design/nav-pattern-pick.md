@@ -2,7 +2,7 @@
 feature: operator-console-nav
 decision: persistent-sidebar (desktop) + top-bar-drawer (mobile)
 last-updated: 2026-05-20
-status: draft
+status: ready-to-build
 inherits: docs/design/design-system.md
 resolves: operator-dashboard.md / a11y-operator-console.md / design-system.md "nav pattern pending"
 ---

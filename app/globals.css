@@ -27,6 +27,12 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-border: var(--success-border);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-border: var(--warning-border);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -64,6 +70,14 @@
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
+  /* Status tokens — bg/foreground/border match Tailwind green-50/900/200 + amber-50/900/200
+     so the Phase 6 customer-page migration off the raw green/amber utilities is pixel-equivalent. */
+  --success: oklch(0.982 0.018 155.826);
+  --success-foreground: oklch(0.393 0.095 152.535);
+  --success-border: oklch(0.925 0.084 155.995);
+  --warning: oklch(0.987 0.022 95.277);
+  --warning-foreground: oklch(0.414 0.112 45.904);
+  --warning-border: oklch(0.924 0.12 95.746);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
@@ -99,6 +113,13 @@
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
+  /* Dark status tokens — out of scope for Phase A (no toggle yet); kept coherent for completeness. */
+  --success: oklch(0.27 0.05 152);
+  --success-foreground: oklch(0.92 0.05 152);
+  --success-border: oklch(0.4 0.07 152);
+  --warning: oklch(0.3 0.05 60);
+  --warning-foreground: oklch(0.92 0.06 90);
+  --warning-border: oklch(0.45 0.08 70);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);

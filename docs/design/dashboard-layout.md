@@ -2,7 +2,7 @@
 feature: operator-dashboard-layouts
 decision: card-primitive + three dashboard surface layouts (admin queue / reports / staff single-trip)
 last-updated: 2026-05-20
-status: draft
+status: ready-to-build
 inherits: docs/design/design-system.md, docs/design/nav-pattern-pick.md, docs/design/data-table-design.md
 resolves: operator-dashboard.md / operator-reports-*.md / operator-staff-dashboard.md "/dashboard-layout pending"
 ---
@@ -221,12 +221,13 @@ until Alert built:
 
 | Kind | Role | Surface |
 |------|------|---------|
-| success/info (depart/complete done) | `role="status" aria-live="polite"` | amber: `bg-amber-50 text-amber-900 border border-amber-200 rounded-lg p-3` |
-| error (load fail, retry fail) | `role="alert" aria-live="assertive"` | red: `bg-red-50 text-red-900 border border-red-200 rounded-lg p-3` |
+| success (depart/complete done) | `role="status" aria-live="polite"` | `bg-success text-success-foreground border border-success-border rounded-lg p-3` |
+| warning/info (pending, advisory) | `role="status" aria-live="polite"` | `bg-warning text-warning-foreground border border-warning-border rounded-lg p-3` |
+| error (load fail, retry fail) | `role="alert" aria-live="assertive"` | `bg-destructive/10 text-destructive border border-destructive/20 rounded-lg p-3` |
 
-Result/booking palette raw values (design-system.md — no semantic success/warn token). Build
-Alert primitive later to encapsulate; until then inline these classes. Banner text never
-color-only — copy carries the meaning.
+**UPDATED 2026-05-20:** semantic `success`/`warning`/`destructive` tokens now exist — Alert
+primitive (P5) encapsulates these variants; surfaces use `<Alert variant=…>`, not inline classes.
+Banner text never color-only — copy carries the meaning.
 
 ## Build Notes
 
