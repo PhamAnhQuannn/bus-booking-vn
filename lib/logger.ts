@@ -33,6 +33,7 @@
  * - escalationNote             — operator escalation note (Issue 014)
  * - buyerPhone                 — manual booking buyer phone PII (Issue 015)
  * - buyerName                  — manual booking buyer name PII (Issue 015)
+ * - *.recipient                — NotificationLog/Payout recipient phone (Issue 019)
  */
 
 import pino, { type LoggerOptions } from 'pino';
@@ -74,6 +75,7 @@ export const loggerOptions: LoggerOptions = {
       'escalationNote',
       'buyerPhone',
       'buyerName',
+      '*.recipient',
     ],
     censor: '[REDACTED]',
   },

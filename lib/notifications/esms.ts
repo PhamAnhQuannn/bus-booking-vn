@@ -18,7 +18,8 @@ export type SmsTemplate =
   | 'otpCode'
   | 'manualBookingPaid'
   | 'manualBookingCash'
-  | 'staffTempPassword';
+  | 'staffTempPassword'
+  | 'bookingReminder24h';
 
 export interface SendSmsInput {
   to: string;
@@ -87,6 +88,12 @@ export function renderTemplate(template: SmsTemplate, payload: Record<string, st
       return (
         `BusBookVN: Tai khoan nhan vien da tao. SDT dang nhap: ${payload.phone}. ` +
         `Mat khau tam thoi: ${payload.tempPassword}. Dang nhap va doi mat khau: ${payload.loginUrl}`
+      );
+    case 'bookingReminder24h':
+      return (
+        `BusBookVN: Nhac nho chuyen ${payload.route} khoi hanh ${payload.departureAt} ` +
+        `(con ~24h). ${payload.ticketCount} ve. Ma dat cho: ${payload.bookingRef}. ` +
+        `Vui long co mat truoc gio khoi hanh.`
       );
     default: {
       const exhaustive: never = template;

@@ -66,6 +66,17 @@ const envSchema = z.object({
     .string()
     .url()
     .default('https://test-payment.momo.vn/v2/gateway/api/create'),
+
+  /**
+   * Payout settlement test-injection flag (Issue 019).
+   * When "true", settlePayout() returns a failure result so the payout
+   * processor's pending → processing → failed path can be exercised in tests.
+   * Production default "false" — the stub always settles successfully.
+   */
+  PAYOUT_SETTLEMENT_FORCE_FAIL: z
+    .string()
+    .default('false')
+    .transform((v) => v === 'true'),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;
