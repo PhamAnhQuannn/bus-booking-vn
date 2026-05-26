@@ -11,6 +11,8 @@ const pages = [
   ['home', '/'],
   ['auth-login', '/auth/login'],
   ['account-settings', '/account/settings'],
+  ['search-results', '/search?origin=H%C3%A0%20N%E1%BB%99i&destination=TP.HCM&date=2026-05-27&ticketCount=1'],
+  ['op-login', '/op/login'],
 ];
 
 const browser = await chromium.launch();

@@ -11,6 +11,7 @@
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { ArrowRight, Clock, Armchair } from 'lucide-react';
 import { searchParamsSchema } from '@/lib/validation/search';
 import { searchTrips, type TripResult } from '@/lib/db/searchTrips';
 import { SearchFormWrapper } from '@/components/search/SearchFormWrapper';
@@ -72,18 +73,22 @@ function TripCard({ trip, ticketCount }: { trip: TripResult; ticketCount: number
       className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4 shadow-sm"
       aria-label={`Chuyến từ ${trip.routeOrigin} đến ${trip.routeDestination}`}
     >
-      <div className="flex items-center justify-between">
-        <span className="text-lg font-semibold">
-          {trip.routeOrigin} → {trip.routeDestination}
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5 text-lg font-semibold">
+          {trip.routeOrigin}
+          <ArrowRight className="size-4 text-primary" aria-hidden="true" />
+          {trip.routeDestination}
         </span>
         <span className="text-sm text-muted-foreground">{trip.operatorLegalName}</span>
       </div>
       <div className="flex items-center gap-4 text-sm">
-        <span>
+        <span className="inline-flex items-center gap-1.5">
+          <Clock className="size-4 text-muted-foreground" aria-hidden="true" />
           <span className="text-muted-foreground">Khởi hành: </span>
           <strong>{formatDepartureAt(trip.departureAt)}</strong>
         </span>
-        <span>
+        <span className="inline-flex items-center gap-1.5">
+          <Armchair className="size-4 text-muted-foreground" aria-hidden="true" />
           <span className="text-muted-foreground">Chỗ trống: </span>
           <strong>{trip.availableSeats}</strong>
         </span>
@@ -243,7 +248,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
   const showPrev = date !== todayVN;
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-6">
+    <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6">
       {/* Seed searchStore so back-nav to "/" restores the form (AC-5) */}
       <SearchStoreHydrator
         query={{ origin, destination, date, ticketCount: String(ticketCount) }}
