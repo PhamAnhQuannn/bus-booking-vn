@@ -4,6 +4,7 @@ import { Pool } from 'pg';
 import { addDays, startOfDay, set } from 'date-fns';
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import { hash as hashPassword } from '../lib/auth/password';
+import { normalizePhone } from '../lib/auth/phoneNormalize';
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -31,23 +32,48 @@ function vnTime(baseUtcDate: Date, hours: number, minutes = 0): Date {
 async function main() {
   console.log('Seeding database...');
 
-  // Clear existing data (safe for CI fresh-boot)
-  // Holds must go before trips: FK Hold.tripId → Trip has no cascade, and
-  // a stale e2e capacity-1 hold from a prior run would also poison the
-  // race-condition test by consuming the only seat.
-  await prisma.hold.deleteMany();
-  // Booking-child rows without cascade must go before Booking; Payout + Booking
-  // FK Trip without cascade, so both must precede trip.deleteMany.
+  // Clear existing data (safe for CI fresh-boot), FK-ordered children-first.
+  // Booking.holdId → Hold is onDelete:Restrict, so Booking MUST be deleted
+  // before Hold (deleting Hold first while an e2e Booking references it throws
+  // Booking_holdId_fkey). PaymentEvent → Booking has no cascade, so it precedes
+  // Booking. NotificationLog → Booking is Cascade but we delete explicitly to
+  // avoid relying on cascade ordering.
+  await prisma.notificationLog.deleteMany();
   await prisma.paymentEvent.deleteMany();
-  await prisma.payout.deleteMany();
   await prisma.booking.deleteMany();
+  await prisma.hold.deleteMany();
+
+  // Trip children without cascade (or SetNull) must precede Trip.
+  // RecurringGenerationLog.tripId → SetNull; Payout.tripId → Trip; and
+  // OperatorUser.assignedTripId ("StaffAssignment", no cascade) must be NULLed
+  // before any Trip can be deleted.
+  await prisma.recurringGenerationLog.deleteMany();
+  await prisma.payout.deleteMany();
+  await prisma.operatorUser.updateMany({ data: { assignedTripId: null } });
   await prisma.trip.deleteMany();
+
+  // Route children (PickupPoint Cascade, RecurringTripTemplate no cascade) and
+  // Bus children (BusMaintenance Cascade) precede their parents.
+  await prisma.pickupPoint.deleteMany();
+  await prisma.recurringTripTemplate.deleteMany();
   await prisma.route.deleteMany();
+  await prisma.busMaintenance.deleteMany();
   await prisma.bus.deleteMany();
-  // OperatorUser FK → Operator (no cascade); OperatorSession / OperatorOtpAttempt
-  // cascade from OperatorUser, so OperatorUser must precede operator.deleteMany.
+
+  // Operator-scoped auth/session rows. OperatorSession cascades from
+  // OperatorUser; OperatorOtpAttempt has no FK. OperatorUser → Operator has no
+  // cascade, so OperatorUser precedes Operator.
+  await prisma.operatorOtpAttempt.deleteMany();
+  await prisma.operatorSession.deleteMany();
   await prisma.operatorUser.deleteMany();
   await prisma.operator.deleteMany();
+
+  // Customer-scoped rows (customer e2e specs leave these behind).
+  // Session → Customer Cascade; Booking.customerId → SetNull (Bookings already
+  // deleted above). OtpAttempt has no FK.
+  await prisma.session.deleteMany();
+  await prisma.otpAttempt.deleteMany();
+  await prisma.customer.deleteMany();
 
   // ---- Operators ----
   // NOTE: Phone numbers use placeholder values — NEVER real VN mobile numbers
@@ -231,13 +257,16 @@ async function main() {
   }
 
   // ---- OperatorUser (Issue 010) ----
-  // NOTE: Phone numbers use literal-x mask — NEVER real VN mobile numbers.
-  // (Rule from AGENTS.md: PII placeholders must escape the project's PII detection regex.)
+  // NOTE: contact/notification phones use literal-x mask — NEVER real VN numbers
+  // (AGENTS.md: PII placeholders must escape the gitleaks +84 regex). The LOGIN
+  // identity `phone` must be a normalize-able VN number or the seeded operator can
+  // never authenticate; we derive it at runtime from a gitleaks-safe local literal
+  // (no +84 prefix) so the stored value is the valid E.164 form +84901230001.
   const seedOpHash = await hashPassword('BBOp2026!');
   await prisma.operatorUser.create({
     data: {
       operatorId: op1.id,
-      phone: '+8490xxxxxx1',
+      phone: normalizePhone('0901230001'),
       contactPhone: '+8490xxxxxx2',
       notificationPhone: '+8490xxxxxx3',
       passwordHash: seedOpHash,

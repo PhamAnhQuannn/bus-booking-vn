@@ -14,7 +14,7 @@
  * 2. CSRF double-submit enforcement for all state-changing /api/* routes:
  *    Exempt:
  *      - GET / HEAD / OPTIONS (safe methods)
- *      - /api/payments/momo/webhook (HMAC body verification used instead)
+ *      - /api/payments/{momo,zalopay,card}/webhook (HMAC body verification used instead)
  *      - /api/op/auth/forgot-password* (pre-auth; no session cookie available)
  *      - /api/op/auth/refresh (uses HttpOnly refresh cookie; no JS-readable CSRF token)
  *    On first GET: issues bb_csrf cookie (non-HttpOnly, SameSite=Lax) if absent.
@@ -32,7 +32,11 @@ const OP_ACCESS_COOKIE = 'bb_op_access';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 // Exact-path exemptions (CSRF)
-const CSRF_EXEMPT = new Set(['/api/payments/momo/webhook']);
+const CSRF_EXEMPT = new Set([
+  '/api/payments/momo/webhook',
+  '/api/payments/zalopay/webhook',
+  '/api/payments/card/webhook',
+]);
 // Prefix exemptions (CSRF) — routes where the CSRF cookie is unavailable pre-auth
 const CSRF_EXEMPT_PREFIXES = [
   '/api/op/auth/forgot-password',
