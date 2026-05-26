@@ -19,6 +19,10 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getAccessToken, setAccessToken, setDisplayName } from '@/app/auth/register/page';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 // ---- helpers ---------------------------------------------------------------
 
@@ -29,6 +33,13 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
     'X-CSRF-Token': readCsrfToken(),
     ...extra,
   };
+}
+
+function OkText({ children }: { children: React.ReactNode }) {
+  return <p className="text-sm text-success-foreground">{children}</p>;
+}
+function ErrText({ children }: { children: React.ReactNode }) {
+  return <p className="text-sm text-destructive">{children}</p>;
 }
 
 // ---- sub-form: change display name -----------------------------------------
@@ -72,27 +83,24 @@ function ChangeNameForm() {
   }
 
   return (
-    <section style={{ marginBottom: 32 }}>
-      <h2>Tên hiển thị</h2>
-      <form onSubmit={handleSubmit}>
-        <label>
-          Tên mới
-          <input
-            type="text"
-            name="displayName"
-            required
-            minLength={4}
-            maxLength={100}
-            style={{ display: 'block', width: '100%', marginTop: 4 }}
-          />
-        </label>
-        {status === 'ok' && <p style={{ color: 'green' }}>Đã cập nhật tên hiển thị.</p>}
-        {status === 'err' && <p style={{ color: 'red' }}>{errMsg}</p>}
-        <button type="submit" disabled={loading} style={{ marginTop: 8 }}>
-          {loading ? 'Đang lưu...' : 'Lưu tên'}
-        </button>
-      </form>
-    </section>
+    <Card>
+      <CardHeader>
+        <CardTitle as="h2">Tên hiển thị</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="displayName">Tên mới</Label>
+            <Input id="displayName" type="text" name="displayName" required minLength={4} maxLength={100} />
+          </div>
+          {status === 'ok' && <OkText>Đã cập nhật tên hiển thị.</OkText>}
+          {status === 'err' && <ErrText>{errMsg}</ErrText>}
+          <Button type="submit" disabled={loading} className="self-start">
+            {loading ? 'Đang lưu...' : 'Lưu tên'}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -145,45 +153,32 @@ function ChangePasswordForm() {
   }
 
   return (
-    <section style={{ marginBottom: 32 }}>
-      <h2>Đổi mật khẩu</h2>
-      <form onSubmit={handleSubmit}>
-        <label>
-          Mật khẩu hiện tại
-          <input
-            type="password"
-            name="currentPassword"
-            required
-            style={{ display: 'block', width: '100%', marginTop: 4 }}
-          />
-        </label>
-        <label style={{ marginTop: 12, display: 'block' }}>
-          Mật khẩu mới
-          <input
-            type="password"
-            name="newPassword"
-            required
-            minLength={8}
-            style={{ display: 'block', width: '100%', marginTop: 4 }}
-          />
-        </label>
-        <label style={{ marginTop: 12, display: 'block' }}>
-          Xác nhận mật khẩu mới
-          <input
-            type="password"
-            name="confirmPassword"
-            required
-            minLength={8}
-            style={{ display: 'block', width: '100%', marginTop: 4 }}
-          />
-        </label>
-        {status === 'ok' && <p style={{ color: 'green' }}>Đã đổi mật khẩu. Vui lòng đăng nhập lại.</p>}
-        {status === 'err' && <p style={{ color: 'red' }}>{errMsg}</p>}
-        <button type="submit" disabled={loading} style={{ marginTop: 8 }}>
-          {loading ? 'Đang xử lý...' : 'Đổi mật khẩu'}
-        </button>
-      </form>
-    </section>
+    <Card>
+      <CardHeader>
+        <CardTitle as="h2">Đổi mật khẩu</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="currentPassword">Mật khẩu hiện tại</Label>
+            <Input id="currentPassword" type="password" name="currentPassword" required />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="newPassword">Mật khẩu mới</Label>
+            <Input id="newPassword" type="password" name="newPassword" required minLength={8} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="confirmPassword">Xác nhận mật khẩu mới</Label>
+            <Input id="confirmPassword" type="password" name="confirmPassword" required minLength={8} />
+          </div>
+          {status === 'ok' && <OkText>Đã đổi mật khẩu. Vui lòng đăng nhập lại.</OkText>}
+          {status === 'err' && <ErrText>{errMsg}</ErrText>}
+          <Button type="submit" disabled={loading} className="self-start">
+            {loading ? 'Đang xử lý...' : 'Đổi mật khẩu'}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -264,61 +259,69 @@ function ChangePhoneForm() {
 
   if (phoneStep === 'confirm') {
     return (
-      <section style={{ marginBottom: 32 }}>
-        <h2>Xác nhận số điện thoại mới</h2>
-        <p>Nhập mã OTP đã gửi đến {pendingPhone}.</p>
-        <form onSubmit={handleConfirm}>
-          <label>
-            Mã OTP (6 chữ số)
-            <input
-              type="text"
-              name="code"
-              required
-              maxLength={6}
-              pattern="[0-9]{6}"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              style={{ display: 'block', width: '100%', marginTop: 4 }}
-            />
-          </label>
-          {status === 'ok' && <p style={{ color: 'green' }}>Đã đổi số điện thoại thành công.</p>}
-          {status === 'err' && <p style={{ color: 'red' }}>{errMsg}</p>}
-          <button type="submit" disabled={loading} style={{ marginTop: 8 }}>
-            {loading ? 'Đang xác nhận...' : 'Xác nhận'}
-          </button>
-          <button
-            type="button"
-            onClick={() => { setPhoneStep('init'); setStatus('idle'); }}
-            style={{ marginLeft: 8 }}
-          >
-            Hủy
-          </button>
-        </form>
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle as="h2">Xác nhận số điện thoại mới</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="mb-3 text-sm text-muted-foreground">Nhập mã OTP đã gửi đến {pendingPhone}.</p>
+          <form onSubmit={handleConfirm} className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="phone-otp">Mã OTP (6 chữ số)</Label>
+              <Input
+                id="phone-otp"
+                type="text"
+                name="code"
+                required
+                maxLength={6}
+                pattern="[0-9]{6}"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+              />
+            </div>
+            {status === 'ok' && <OkText>Đã đổi số điện thoại thành công.</OkText>}
+            {status === 'err' && <ErrText>{errMsg}</ErrText>}
+            <div className="flex gap-2">
+              <Button type="submit" disabled={loading}>
+                {loading ? 'Đang xác nhận...' : 'Xác nhận'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={loading}
+                onClick={() => {
+                  setPhoneStep('init');
+                  setStatus('idle');
+                }}
+              >
+                Hủy
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <section style={{ marginBottom: 32 }}>
-      <h2>Đổi số điện thoại</h2>
-      <form onSubmit={handleInit}>
-        <label>
-          Số điện thoại mới
-          <input
-            type="tel"
-            name="newPhone"
-            required
-            placeholder="0901234567"
-            style={{ display: 'block', width: '100%', marginTop: 4 }}
-          />
-        </label>
-        {status === 'ok' && <p style={{ color: 'green' }}>Đã đổi số điện thoại thành công.</p>}
-        {status === 'err' && <p style={{ color: 'red' }}>{errMsg}</p>}
-        <button type="submit" disabled={loading} style={{ marginTop: 8 }}>
-          {loading ? 'Đang gửi OTP...' : 'Gửi mã OTP'}
-        </button>
-      </form>
-    </section>
+    <Card>
+      <CardHeader>
+        <CardTitle as="h2">Đổi số điện thoại</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleInit} className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="newPhone">Số điện thoại mới</Label>
+            <Input id="newPhone" type="tel" name="newPhone" required placeholder="0901234567" />
+          </div>
+          {status === 'ok' && <OkText>Đã đổi số điện thoại thành công.</OkText>}
+          {status === 'err' && <ErrText>{errMsg}</ErrText>}
+          <Button type="submit" disabled={loading} className="self-start">
+            {loading ? 'Đang gửi OTP...' : 'Gửi mã OTP'}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -358,33 +361,38 @@ function DeleteAccountForm() {
   }
 
   return (
-    <section style={{ marginBottom: 32, borderTop: '1px solid #ccc', paddingTop: 24 }}>
-      <h2 style={{ color: '#c00' }}>Xóa tài khoản</h2>
-      <p>Thao tác này không thể hoàn tác. Tất cả dữ liệu cá nhân sẽ bị xóa.</p>
-      {!confirmed ? (
-        <button
-          onClick={() => setConfirmed(true)}
-          style={{ background: '#c00', color: '#fff', border: 'none', padding: '8px 16px', cursor: 'pointer' }}
-        >
+    <Card className="border-destructive/30">
+      <CardHeader>
+        <CardTitle as="h2" className="text-destructive">
           Xóa tài khoản
-        </button>
-      ) : (
-        <div>
-          <p style={{ color: '#c00', fontWeight: 'bold' }}>Bạn có chắc chắn muốn xóa tài khoản?</p>
-          {status === 'err' && <p style={{ color: 'red' }}>{errMsg}</p>}
-          <button
-            onClick={handleDelete}
-            disabled={loading}
-            style={{ background: '#c00', color: '#fff', border: 'none', padding: '8px 16px', cursor: 'pointer', marginRight: 8 }}
-          >
-            {loading ? 'Đang xóa...' : 'Xác nhận xóa'}
-          </button>
-          <button onClick={() => setConfirmed(false)} disabled={loading}>
-            Hủy
-          </button>
-        </div>
-      )}
-    </section>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <p className="text-sm text-muted-foreground">
+          Thao tác này không thể hoàn tác. Tất cả dữ liệu cá nhân sẽ bị xóa.
+        </p>
+        {!confirmed ? (
+          <Button variant="destructive" className="self-start" onClick={() => setConfirmed(true)}>
+            Xóa tài khoản
+          </Button>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <p className="text-sm font-semibold text-destructive">
+              Bạn có chắc chắn muốn xóa tài khoản?
+            </p>
+            {status === 'err' && <ErrText>{errMsg}</ErrText>}
+            <div className="flex gap-2">
+              <Button variant="destructive" disabled={loading} onClick={handleDelete}>
+                {loading ? 'Đang xóa...' : 'Xác nhận xóa'}
+              </Button>
+              <Button variant="outline" disabled={loading} onClick={() => setConfirmed(false)}>
+                Hủy
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -392,8 +400,8 @@ function DeleteAccountForm() {
 
 export default function AccountSettingsPage() {
   return (
-    <main style={{ maxWidth: 480, margin: '60px auto', padding: '0 16px' }}>
-      <h1>Cài đặt tài khoản</h1>
+    <main className="mx-auto flex w-full max-w-xl flex-col gap-6 px-4 py-10">
+      <h1 className="text-2xl font-bold">Cài đặt tài khoản</h1>
       <ChangeNameForm />
       <ChangePasswordForm />
       <ChangePhoneForm />

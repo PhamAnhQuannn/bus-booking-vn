@@ -9,10 +9,15 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getAccessToken } from '@/app/auth/register/page';
-import { STATUS_LABEL, STATUS_COLOR } from './bookingStatus';
+import { STATUS_LABEL, STATUS_VARIANT } from './bookingStatus';
 import type { CustomerBookingRow } from '@/lib/booking/listCustomerBookings';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 type Tab = 'upcoming' | 'past';
 
@@ -25,22 +30,6 @@ const dateFmt = new Intl.DateTimeFormat('vi-VN', {
   hour: '2-digit',
   minute: '2-digit',
 });
-
-function Badge({ status }: { status: CustomerBookingRow['status'] }) {
-  return (
-    <span
-      style={{
-        background: STATUS_COLOR[status],
-        color: '#fff',
-        borderRadius: 4,
-        padding: '2px 8px',
-        fontSize: 12,
-      }}
-    >
-      {STATUS_LABEL[status]}
-    </span>
-  );
-}
 
 export default function BookingsHistoryPage() {
   const router = useRouter();
@@ -91,58 +80,61 @@ export default function BookingsHistoryPage() {
   }, [tab, load]);
 
   return (
-    <main style={{ maxWidth: 640, margin: '40px auto', padding: '0 16px' }}>
-      <h1>Lịch sử đặt vé</h1>
+    <main className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 py-10">
+      <h1 className="text-2xl font-bold">Lịch sử đặt vé</h1>
 
-      <div style={{ display: 'flex', gap: 8, margin: '16px 0', borderBottom: '1px solid #e0e0e0' }}>
+      <div className="flex gap-2 border-b border-border" role="tablist">
         {(['upcoming', 'past'] as const).map((t) => (
           <button
             key={t}
+            role="tab"
+            aria-selected={tab === t}
             onClick={() => setTab(t)}
-            style={{
-              padding: '8px 16px',
-              border: 'none',
-              borderBottom: tab === t ? '2px solid #1a1a1a' : '2px solid transparent',
-              background: 'none',
-              fontWeight: tab === t ? 'bold' : 'normal',
-              cursor: 'pointer',
-            }}
+            className={cn(
+              'border-b-2 px-4 py-2 text-sm font-medium transition-colors',
+              tab === t
+                ? 'border-primary text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            )}
           >
             {t === 'upcoming' ? 'Sắp tới' : 'Đã qua'}
           </button>
         ))}
       </div>
 
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      {!loading && rows.length === 0 && !error && <p>Chưa có vé nào.</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {!loading && rows.length === 0 && !error && (
+        <p className="text-sm text-muted-foreground">Chưa có vé nào.</p>
+      )}
 
-      <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+      <ul className="flex list-none flex-col gap-3 p-0">
         {rows.map((b) => (
-          <li
-            key={b.id}
-            style={{ border: '1px solid #e0e0e0', borderRadius: 8, padding: 16, marginBottom: 12 }}
-          >
-            <a href={`/account/bookings/${b.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <strong style={{ fontSize: 16 }}>
-                  {b.route.origin} → {b.route.destination}
-                </strong>
-                <Badge status={b.status} />
-              </div>
-              <div style={{ color: '#555', marginTop: 4 }}>{dateFmt.format(new Date(b.departureAt))}</div>
-              <div style={{ color: '#555', marginTop: 4 }}>
-                {b.ticketCount} vé · {vnd(b.totalVnd)} · {b.bookingRef}
-              </div>
-            </a>
+          <li key={b.id}>
+            <Link href={`/account/bookings/${b.id}`} className="block">
+              <Card className="gap-2 py-4 transition-colors hover:bg-muted/50">
+                <div className="flex items-center justify-between gap-2 px-4">
+                  <strong className="text-base">
+                    {b.route.origin} → {b.route.destination}
+                  </strong>
+                  <Badge variant={STATUS_VARIANT[b.status]}>{STATUS_LABEL[b.status]}</Badge>
+                </div>
+                <div className="px-4 text-sm text-muted-foreground">
+                  {dateFmt.format(new Date(b.departureAt))}
+                </div>
+                <div className="px-4 text-sm text-muted-foreground">
+                  {b.ticketCount} vé · {vnd(b.totalVnd)} · <span className="font-mono">{b.bookingRef}</span>
+                </div>
+              </Card>
+            </Link>
           </li>
         ))}
       </ul>
 
-      {loading && <p>Đang tải...</p>}
+      {loading && <p className="text-sm text-muted-foreground">Đang tải...</p>}
       {nextCursor && !loading && (
-        <button onClick={() => void load(tab, nextCursor)} style={{ marginTop: 8 }}>
+        <Button variant="outline" className="self-start" onClick={() => void load(tab, nextCursor)}>
           Tải thêm
-        </button>
+        </Button>
       )}
     </main>
   );

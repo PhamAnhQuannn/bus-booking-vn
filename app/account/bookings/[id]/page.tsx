@@ -15,8 +15,11 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { getAccessToken } from '@/app/auth/register/page';
-import { STATUS_LABEL, STATUS_COLOR } from '../bookingStatus';
+import { STATUS_LABEL, STATUS_VARIANT } from '../bookingStatus';
 import type { CustomerBookingDetail } from '@/lib/booking/getCustomerBookingDetail';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 
 const vnd = (n: number) => `${n.toLocaleString('vi-VN')} ₫`;
 const dateFmt = new Intl.DateTimeFormat('vi-VN', {
@@ -33,9 +36,9 @@ const TICKETABLE = new Set(['pending_cash_payment', 'paid_operator_notified', 'c
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ fontSize: 12, color: '#888', textTransform: 'uppercase' }}>{label}</div>
-      <div style={{ fontSize: 15, marginTop: 2 }}>{children}</div>
+    <div>
+      <div className="text-xs uppercase text-muted-foreground">{label}</div>
+      <div className="mt-0.5 text-sm">{children}</div>
     </div>
   );
 }
@@ -129,77 +132,55 @@ export default function BookingDetailPage() {
   }, [id, booking, loginRedirect]);
 
   return (
-    <main style={{ maxWidth: 560, margin: '40px auto', padding: '0 16px' }}>
-      <Link href="/account/bookings" style={{ color: '#1a1a1a', textDecoration: 'none', fontSize: 14 }}>
+    <main className="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 py-10">
+      <Link
+        href="/account/bookings"
+        className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+      >
         ← Lịch sử đặt vé
       </Link>
 
-      {loading && <p style={{ marginTop: 24 }}>Đang tải...</p>}
-      {error && <p style={{ color: 'red', marginTop: 24 }}>{error}</p>}
+      {loading && <p className="text-sm text-muted-foreground">Đang tải...</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
       {booking && (
         <>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              margin: '24px 0 8px',
-            }}
-          >
-            <h1 style={{ fontSize: 22, margin: 0 }}>
+          <div className="flex items-center justify-between gap-2">
+            <h1 className="text-2xl font-bold">
               {booking.route.origin} → {booking.route.destination}
             </h1>
-            <span
-              style={{
-                background: STATUS_COLOR[booking.status],
-                color: '#fff',
-                borderRadius: 4,
-                padding: '4px 10px',
-                fontSize: 13,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {STATUS_LABEL[booking.status]}
-            </span>
+            <Badge variant={STATUS_VARIANT[booking.status]}>{STATUS_LABEL[booking.status]}</Badge>
           </div>
-          <div style={{ color: '#555', marginBottom: 24 }}>{booking.bookingRef}</div>
+          <div className="font-mono text-sm text-muted-foreground">{booking.bookingRef}</div>
 
-          <div style={{ border: '1px solid #e0e0e0', borderRadius: 8, padding: 20 }}>
-            <Field label="Khởi hành">{dateFmt.format(new Date(booking.departureAt))}</Field>
-            <Field label="Số vé">{booking.ticketCount}</Field>
-            <Field label="Tổng tiền">{vnd(booking.totalVnd)}</Field>
-            <Field label="Biển số xe">{booking.busLicensePlate}</Field>
+          <Card>
+            <CardContent className="flex flex-col gap-3">
+              <Field label="Khởi hành">{dateFmt.format(new Date(booking.departureAt))}</Field>
+              <Field label="Số vé">{booking.ticketCount}</Field>
+              <Field label="Tổng tiền">{vnd(booking.totalVnd)}</Field>
+              <Field label="Biển số xe">{booking.busLicensePlate}</Field>
 
-            <div style={{ borderTop: '1px solid #e0e0e0', margin: '16px 0' }} />
+              <div className="border-t border-border" />
 
-            <Field label="Người đặt">{booking.buyerName}</Field>
-            <Field label="Số điện thoại">{booking.buyerPhone}</Field>
+              <Field label="Người đặt">{booking.buyerName}</Field>
+              <Field label="Số điện thoại">{booking.buyerPhone}</Field>
 
-            <div style={{ borderTop: '1px solid #e0e0e0', margin: '16px 0' }} />
+              <div className="border-t border-border" />
 
-            <Field label="Nhà xe">{booking.operator.legalName}</Field>
-            <Field label="Liên hệ nhà xe">{booking.operator.contactPhone}</Field>
-          </div>
+              <Field label="Nhà xe">{booking.operator.legalName}</Field>
+              <Field label="Liên hệ nhà xe">{booking.operator.contactPhone}</Field>
+            </CardContent>
+          </Card>
 
           {TICKETABLE.has(booking.status) && (
-            <button
+            <Button
+              size="lg"
+              className="self-start"
               onClick={() => void downloadTicket()}
               disabled={downloading}
-              style={{
-                marginTop: 20,
-                padding: '12px 20px',
-                border: 'none',
-                borderRadius: 8,
-                background: '#1a1a1a',
-                color: '#fff',
-                fontSize: 15,
-                cursor: downloading ? 'default' : 'pointer',
-                opacity: downloading ? 0.6 : 1,
-              }}
             >
               {downloading ? 'Đang tải...' : 'Tải vé PDF'}
-            </button>
+            </Button>
           )}
         </>
       )}

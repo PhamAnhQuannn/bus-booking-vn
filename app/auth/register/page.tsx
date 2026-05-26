@@ -12,6 +12,11 @@
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
 type Step = 'phone' | 'otp' | 'details';
 
@@ -128,83 +133,87 @@ export default function RegisterPage() {
   }
 
   return (
-    <main style={{ maxWidth: 400, margin: '80px auto', padding: '0 16px' }}>
-      <h1>Đăng ký</h1>
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 px-4 py-12">
+      <Card>
+        <CardHeader>
+          <h1 className="text-2xl font-bold">Đăng ký</h1>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {step === 'phone' && (
+            <form onSubmit={handleSendOtp} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="phone">Số điện thoại</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  name="phone"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  required
+                  placeholder="0901234567"
+                />
+              </div>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              <Button type="submit" size="lg" disabled={loading} className="w-full">
+                {loading ? 'Đang gửi...' : 'Gửi mã OTP'}
+              </Button>
+            </form>
+          )}
 
-      {step === 'phone' && (
-        <form onSubmit={handleSendOtp}>
-          <label>
-            Số điện thoại
-            <input
-              type="tel"
-              name="phone"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              required
-              placeholder="0901234567"
-              style={{ display: 'block', width: '100%', marginTop: 4 }}
-            />
-          </label>
-          {error && <p style={{ color: 'red' }}>{error}</p>}
-          <button type="submit" disabled={loading} style={{ marginTop: 12 }}>
-            {loading ? 'Đang gửi...' : 'Gửi mã OTP'}
-          </button>
-        </form>
-      )}
+          {step === 'otp' && (
+            <form onSubmit={handleVerifyOtp} className="flex flex-col gap-4">
+              <p className="text-sm text-muted-foreground">
+                Nhập mã 6 chữ số đã gửi đến {phone}
+              </p>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="code">Mã OTP</Label>
+                <Input
+                  id="code"
+                  type="text"
+                  name="code"
+                  maxLength={6}
+                  required
+                  inputMode="numeric"
+                  pattern="[0-9]{6}"
+                  autoComplete="one-time-code"
+                />
+              </div>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              <Button type="submit" size="lg" disabled={loading} className="w-full">
+                {loading ? 'Đang xác minh...' : 'Xác minh'}
+              </Button>
+            </form>
+          )}
 
-      {step === 'otp' && (
-        <form onSubmit={handleVerifyOtp}>
-          <p>Nhập mã 6 chữ số đã gửi đến {phone}</p>
-          <label>
-            Mã OTP
-            <input
-              type="text"
-              name="code"
-              maxLength={6}
-              required
-              inputMode="numeric"
-              pattern="[0-9]{6}"
-              style={{ display: 'block', width: '100%', marginTop: 4 }}
-            />
-          </label>
-          {error && <p style={{ color: 'red' }}>{error}</p>}
-          <button type="submit" disabled={loading} style={{ marginTop: 12 }}>
-            {loading ? 'Đang xác minh...' : 'Xác minh'}
-          </button>
-        </form>
-      )}
+          {step === 'details' && (
+            <form onSubmit={handleRegister} className="flex flex-col gap-4">
+              <p className="text-sm text-muted-foreground">Tạo mật khẩu</p>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="password">Mật khẩu</Label>
+                <Input id="password" type="password" name="password" required minLength={8} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="displayName">Tên hiển thị (tuỳ chọn)</Label>
+                <Input id="displayName" type="text" name="displayName" />
+              </div>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              <Button type="submit" size="lg" disabled={loading} className="w-full">
+                {loading ? 'Đang đăng ký...' : 'Đăng ký'}
+              </Button>
+            </form>
+          )}
 
-      {step === 'details' && (
-        <form onSubmit={handleRegister}>
-          <p>Tạo mật khẩu</p>
-          <label>
-            Mật khẩu
-            <input
-              type="password"
-              name="password"
-              required
-              minLength={8}
-              style={{ display: 'block', width: '100%', marginTop: 4 }}
-            />
-          </label>
-          <label style={{ marginTop: 12, display: 'block' }}>
-            Tên hiển thị (tuỳ chọn)
-            <input
-              type="text"
-              name="displayName"
-              style={{ display: 'block', width: '100%', marginTop: 4 }}
-            />
-          </label>
-          {error && <p style={{ color: 'red' }}>{error}</p>}
-          <button type="submit" disabled={loading} style={{ marginTop: 12 }}>
-            {loading ? 'Đang đăng ký...' : 'Đăng ký'}
-          </button>
-        </form>
-      )}
-
-      <p style={{ marginTop: 16 }}>
-        Đã có tài khoản? <a href="/auth/login">Đăng nhập</a>
-      </p>
+          <p className="text-sm text-muted-foreground">
+            Đã có tài khoản?{' '}
+            <Link
+              href="/auth/login"
+              className="text-primary underline-offset-4 hover:underline"
+            >
+              Đăng nhập
+            </Link>
+          </p>
+        </CardContent>
+      </Card>
     </main>
   );
 }

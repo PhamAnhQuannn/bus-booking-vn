@@ -12,6 +12,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
 type Step = 'phone' | 'reset' | 'done';
 
@@ -112,97 +117,107 @@ export default function ForgotPasswordPage() {
 
   if (step === 'done') {
     return (
-      <main style={{ maxWidth: 400, margin: '80px auto', padding: '0 16px' }}>
-        <h1>Đặt lại mật khẩu thành công</h1>
-        <p>Mật khẩu của bạn đã được cập nhật.</p>
-        <button onClick={() => router.push('/auth/login')} style={{ marginTop: 12 }}>
-          Đăng nhập
-        </button>
+      <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 px-4 py-12">
+        <Card>
+          <CardHeader>
+            <h1 className="text-2xl font-bold">Đặt lại mật khẩu thành công</h1>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <p className="text-sm text-muted-foreground">Mật khẩu của bạn đã được cập nhật.</p>
+            <Button size="lg" className="w-full" onClick={() => router.push('/auth/login')}>
+              Đăng nhập
+            </Button>
+          </CardContent>
+        </Card>
       </main>
     );
   }
 
   if (step === 'reset') {
     return (
-      <main style={{ maxWidth: 400, margin: '80px auto', padding: '0 16px' }}>
-        <h1>Đặt lại mật khẩu</h1>
-        <p>Nhập mã OTP đã gửi đến số điện thoại của bạn và mật khẩu mới.</p>
-        <form onSubmit={handleReset}>
-          <label>
-            Mã OTP (6 chữ số)
-            <input
-              type="text"
-              name="code"
-              required
-              maxLength={6}
-              pattern="[0-9]{6}"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              style={{ display: 'block', width: '100%', marginTop: 4 }}
-            />
-          </label>
-          <label style={{ marginTop: 12, display: 'block' }}>
-            Mật khẩu mới
-            <input
-              type="password"
-              name="newPassword"
-              required
-              minLength={8}
-              style={{ display: 'block', width: '100%', marginTop: 4 }}
-            />
-          </label>
-          <label style={{ marginTop: 12, display: 'block' }}>
-            Xác nhận mật khẩu mới
-            <input
-              type="password"
-              name="confirmPassword"
-              required
-              minLength={8}
-              style={{ display: 'block', width: '100%', marginTop: 4 }}
-            />
-          </label>
-          {error && <p style={{ color: 'red' }}>{error}</p>}
-          <button type="submit" disabled={loading} style={{ marginTop: 12 }}>
-            {loading ? 'Đang xử lý...' : 'Đặt lại mật khẩu'}
-          </button>
-        </form>
-        <p style={{ marginTop: 12 }}>
-          <button
-            type="button"
-            onClick={() => { setStep('phone'); setError(''); }}
-            style={{ background: 'none', border: 'none', color: 'blue', cursor: 'pointer', padding: 0 }}
-          >
-            Dùng số điện thoại khác
-          </button>
-        </p>
+      <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 px-4 py-12">
+        <Card>
+          <CardHeader>
+            <h1 className="text-2xl font-bold">Đặt lại mật khẩu</h1>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <p className="text-sm text-muted-foreground">
+              Nhập mã OTP đã gửi đến số điện thoại của bạn và mật khẩu mới.
+            </p>
+            <form onSubmit={handleReset} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="code">Mã OTP (6 chữ số)</Label>
+                <Input
+                  id="code"
+                  type="text"
+                  name="code"
+                  required
+                  maxLength={6}
+                  pattern="[0-9]{6}"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="newPassword">Mật khẩu mới</Label>
+                <Input id="newPassword" type="password" name="newPassword" required minLength={8} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="confirmPassword">Xác nhận mật khẩu mới</Label>
+                <Input id="confirmPassword" type="password" name="confirmPassword" required minLength={8} />
+              </div>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              <Button type="submit" size="lg" disabled={loading} className="w-full">
+                {loading ? 'Đang xử lý...' : 'Đặt lại mật khẩu'}
+              </Button>
+            </form>
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              className="self-start px-0"
+              onClick={() => {
+                setStep('phone');
+                setError('');
+              }}
+            >
+              Dùng số điện thoại khác
+            </Button>
+          </CardContent>
+        </Card>
       </main>
     );
   }
 
   // step === 'phone'
   return (
-    <main style={{ maxWidth: 400, margin: '80px auto', padding: '0 16px' }}>
-      <h1>Quên mật khẩu</h1>
-      <p>Nhập số điện thoại đã đăng ký. Chúng tôi sẽ gửi mã OTP để đặt lại mật khẩu.</p>
-      <form onSubmit={handleRequestOtp}>
-        <label>
-          Số điện thoại
-          <input
-            type="tel"
-            name="phone"
-            required
-            placeholder="0901234567"
-            style={{ display: 'block', width: '100%', marginTop: 4 }}
-          />
-        </label>
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-        <button type="submit" disabled={loading} style={{ marginTop: 12 }}>
-          {loading ? 'Đang gửi...' : 'Gửi mã OTP'}
-        </button>
-      </form>
-      <p style={{ marginTop: 16 }}>
-        <a href="/auth/login">Quay lại đăng nhập</a>
-      </p>
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 px-4 py-12">
+      <Card>
+        <CardHeader>
+          <h1 className="text-2xl font-bold">Quên mật khẩu</h1>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <p className="text-sm text-muted-foreground">
+            Nhập số điện thoại đã đăng ký. Chúng tôi sẽ gửi mã OTP để đặt lại mật khẩu.
+          </p>
+          <form onSubmit={handleRequestOtp} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="phone">Số điện thoại</Label>
+              <Input id="phone" type="tel" name="phone" required placeholder="0901234567" />
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <Button type="submit" size="lg" disabled={loading} className="w-full">
+              {loading ? 'Đang gửi...' : 'Gửi mã OTP'}
+            </Button>
+          </form>
+          <Link
+            href="/auth/login"
+            className="text-sm text-primary underline-offset-4 hover:underline"
+          >
+            Quay lại đăng nhập
+          </Link>
+        </CardContent>
+      </Card>
     </main>
   );
 }

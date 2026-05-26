@@ -7,7 +7,12 @@
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { setAccessToken, setDisplayName } from '@/app/auth/register/page';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
 function getCsrf(): string {
   const match = document.cookie.match(/(?:^|;\s*)bb_csrf=([^;]+)/);
@@ -51,39 +56,45 @@ export default function LoginPage() {
   }
 
   return (
-    <main style={{ maxWidth: 400, margin: '80px auto', padding: '0 16px' }}>
-      <h1>Đăng nhập</h1>
-      <form onSubmit={handleLogin}>
-        <label>
-          Số điện thoại
-          <input
-            type="tel"
-            name="phone"
-            required
-            placeholder="0901234567"
-            style={{ display: 'block', width: '100%', marginTop: 4 }}
-          />
-        </label>
-        <label style={{ marginTop: 12, display: 'block' }}>
-          Mật khẩu
-          <input
-            type="password"
-            name="password"
-            required
-            style={{ display: 'block', width: '100%', marginTop: 4 }}
-          />
-        </label>
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-        <button type="submit" disabled={loading} style={{ marginTop: 12 }}>
-          {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
-        </button>
-      </form>
-      <p style={{ marginTop: 16 }}>
-        <a href="/auth/forgot-password">Quên mật khẩu?</a>
-      </p>
-      <p>
-        Chưa có tài khoản? <a href="/auth/register">Đăng ký</a>
-      </p>
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 px-4 py-12">
+      <Card>
+        <CardHeader>
+          <h1 className="text-2xl font-bold">Đăng nhập</h1>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <form onSubmit={handleLogin} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="phone">Số điện thoại</Label>
+              <Input id="phone" type="tel" name="phone" required placeholder="0901234567" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="password">Mật khẩu</Label>
+              <Input id="password" type="password" name="password" required />
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <Button type="submit" size="lg" disabled={loading} className="w-full">
+              {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+            </Button>
+          </form>
+          <div className="flex flex-col gap-1 text-sm">
+            <Link
+              href="/auth/forgot-password"
+              className="text-primary underline-offset-4 hover:underline"
+            >
+              Quên mật khẩu?
+            </Link>
+            <p className="text-muted-foreground">
+              Chưa có tài khoản?{' '}
+              <Link
+                href="/auth/register"
+                className="text-primary underline-offset-4 hover:underline"
+              >
+                Đăng ký
+              </Link>
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     </main>
   );
 }

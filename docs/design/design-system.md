@@ -12,12 +12,11 @@ shadcn-flavor: base-ui (@base-ui/react)
 
 **Tailwind utility classes + semantic tokens. NO inline `style={{}}`.**
 
-The codebase is split today: `search/`, the `booking/` flow, the home page, and
-`CustomerForm.tsx` are already tailwind-clean; all of `app/auth/**`,
-`app/account/**`, and `app/op/**` (pages + their `*Client.tsx`, ~28 files) use
-inline `style={{}}`. The normalization target is to move the inline-style
-surfaces onto the tokens + components below. Inline style is the divergence to
-remove, not a second supported path.
+Normalization complete (2026-05-26): every page under `app/**` is now tailwind +
+token clean — `grep "style={{" app/` returns zero matches. The last inline-style
+surfaces (`app/auth/**`, `app/account/**`, and the `app/op/.../buses` server page)
+were migrated onto the tokens + primitives below. Inline `style={{}}` is the
+divergence to keep out, not a second supported path.
 
 ## Token Model
 
@@ -97,19 +96,20 @@ All motion must honor `prefers-reduced-motion`. Formalize later if needed.
 
 ### UI primitives (`components/ui/`)
 
-Only two exist today — base-ui (`@base-ui/react`) + cva. `cn` from `@/lib/utils`.
+14 primitives exist (as of 2026-05-26) — base-ui (`@base-ui/react`) + cva. `cn`
+from `@/lib/utils`: `button`, `input`, `label`, `card`, `badge`, `table`, `alert`,
+`select`, `dialog`, `tabs`, `radio-group`, `skeleton`, `toast`, `checkbox`.
 
 | Component | Source | Variants / sizes | Notes |
 |-----------|--------|------------------|-------|
-| Button | `components/ui/button.tsx` | variant: default, outline, secondary, ghost, destructive, link · size: default(h-8), xs(h-6), sm(h-7), lg(h-9), icon, icon-xs/sm/lg | `focus-visible:ring-3`. **destructive is SOFT** (`bg-destructive/10 text-destructive`), not solid fill |
+| Button | `components/ui/button.tsx` | variant: default, outline, secondary, ghost, destructive, link · size: default(h-8), xs(h-6), sm(h-7), lg(h-9), icon, icon-xs/sm/lg | `focus-visible:ring-3`. **destructive is SOFT** (`bg-destructive/10 text-destructive`), not solid fill. No `asChild` — style a `<Link>` with `buttonVariants({…})` instead |
 | Input | `components/ui/input.tsx` | default | h-8, `rounded-lg`, `border-input`, `aria-invalid` styling, `focus-visible:ring-3` |
+| Card | `components/ui/card.tsx` | Card/Header/Title/Description/Action/Content/Footer | `CardTitle` accepts `as="h2"\|"h3"\|"h4"` — use a raw `<h1>` for page titles |
+| Badge | `components/ui/badge.tsx` | neutral, success, danger, pending, count | status pills (see `account/bookings/bookingStatus.ts` `STATUS_VARIANT`) |
+| Label | `components/ui/label.tsx` | default | pair with `<Input id>` via `htmlFor` |
 
-**Missing primitives** (used as inline markup or not yet built): Label, Card,
-Dialog/Modal, Select, RadioGroup, Checkbox, Toast, Skeleton, Table. As surfaces
-normalize, promote repeated inline patterns into `components/ui/` rather than
-re-inlining. Highest-value first promotions: **Label** (every form needs it for
-a11y), **Card** (account/op surfaces), **Table** (manifest, bookings, fleet,
-routes — see `/data-table-design`).
+Other primitives (`table`, `alert`, `select`, `dialog`, `tabs`, `radio-group`,
+`skeleton`, `toast`, `checkbox`) follow the same shadcn-on-base-ui shape.
 
 ### Custom components
 

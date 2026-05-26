@@ -4,6 +4,10 @@
  */
 
 import type { BookingPaymentStatus } from '@/lib/booking/bookingDto';
+import type { badgeVariants } from '@/components/ui/badge';
+import type { VariantProps } from 'class-variance-authority';
+
+type BadgeVariant = NonNullable<VariantProps<typeof badgeVariants>['variant']>;
 
 export const STATUS_LABEL: Record<BookingPaymentStatus, string> = {
   awaiting_payment: 'Chờ thanh toán',
@@ -16,13 +20,14 @@ export const STATUS_LABEL: Record<BookingPaymentStatus, string> = {
   payment_failed_expired: 'Thanh toán thất bại',
 };
 
-export const STATUS_COLOR: Record<BookingPaymentStatus, string> = {
-  awaiting_payment: '#b8860b',
-  pending_cash_payment: '#b8860b',
-  paid_operator_notified: '#2e7d32',
-  completed: '#2e7d32',
-  cancelled: '#999',
-  trip_cancelled: '#c62828',
-  no_show: '#c62828',
-  payment_failed_expired: '#c62828',
+/** Maps each payment status to a semantic Badge variant (design-system tokens). */
+export const STATUS_VARIANT: Record<BookingPaymentStatus, BadgeVariant> = {
+  awaiting_payment: 'pending',
+  pending_cash_payment: 'pending',
+  paid_operator_notified: 'success',
+  completed: 'success',
+  cancelled: 'neutral',
+  trip_cancelled: 'danger',
+  no_show: 'danger',
+  payment_failed_expired: 'danger',
 };
