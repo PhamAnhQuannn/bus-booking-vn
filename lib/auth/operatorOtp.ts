@@ -76,9 +76,17 @@ export async function sendOperatorPasswordResetOtp(rawPhone: string): Promise<Se
     return { ok: false, reason: 'locked_out', retryAfter };
   }
 
-  const rl = await opForgotPasswordRatelimit.limit(phone);
-  if (!rl.allowed) {
-    return { ok: false, reason: 'rate_limited', retryAfter: rl.retryAfter };
+  // The in-memory limiter lives in the dev-server process and persists across e2e
+  // runs/projects, so the gated forgot-password specs would trip the 3/15min cap
+  // mid-suite. Skip the limiter only in the dev/e2e peek mode (dual-guarded exactly
+  // like the test-peek endpoint; OTP_PEEK_ENABLED must NEVER be set in production).
+  const peekMode =
+    process.env.NODE_ENV !== 'production' && process.env.OTP_PEEK_ENABLED === 'true';
+  if (!peekMode) {
+    const rl = await opForgotPasswordRatelimit.limit(phone);
+    if (!rl.allowed) {
+      return { ok: false, reason: 'rate_limited', retryAfter: rl.retryAfter };
+    }
   }
 
   const code = generateCode();

@@ -48,6 +48,19 @@ let cancelledTripId: string;
 let otherOperatorTripId: string;
 
 beforeAll(async () => {
+  // Idempotent pre-clean: phone is globally unique, so a prior aborted run that
+  // skipped afterAll leaves an OperatorUser row that collides with the first
+  // createStaff here. Remove any leftover rows (and their sessions) up front.
+  const stale = await prisma.operatorUser.findMany({
+    where: { phone: { in: NORMALIZED_PHONES } },
+    select: { id: true },
+  });
+  if (stale.length > 0) {
+    const staleIds = stale.map((s) => s.id);
+    await prisma.operatorSession.deleteMany({ where: { operatorUserId: { in: staleIds } } });
+    await prisma.operatorUser.deleteMany({ where: { id: { in: staleIds } } });
+  }
+
   const opA = await prisma.operator.create({
     data: {
       legalName: 'Staff Test Op A',
