@@ -23,12 +23,14 @@
 import { test, expect } from '@playwright/test';
 import { Client } from 'pg';
 import { primeCsrf } from './helpers/csrf';
+import { hash } from '../lib/auth/password';
+import { normalizePhone } from '../lib/auth/phoneNormalize';
 
 const SANDBOX_ENABLED = process.env.E2E_OP_ROUTES_ENABLED === 'true';
 const DB_URL =
   process.env.DATABASE_URL ?? 'postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_dev';
 
-const SEED_PHONE = '+8490xxxxxx1';
+const SEED_PHONE = normalizePhone('0901230001');
 const SEED_PASSWORD = 'BBOp2026!';
 
 const OP_B_PHONE = '+8490xxxxxx9';
@@ -39,7 +41,6 @@ async function prepareOperators(): Promise<{
   opBId: string;
   opBRouteId: string;
 }> {
-  const { hash } = await import('../lib/auth/password');
   const client = new Client({ connectionString: DB_URL });
   await client.connect();
   try {
@@ -88,8 +89,8 @@ async function prepareOperators(): Promise<{
     );
     if (opBUser.rows.length === 0) {
       await client.query(
-        `INSERT INTO "OperatorUser" ("id","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName")
-         VALUES (gen_random_uuid()::text, $1, $4, $5, $2, $3, 'admin', false, 'Op B Admin')`,
+        `INSERT INTO "OperatorUser" ("id","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName","updatedAt")
+         VALUES (gen_random_uuid()::text, $1, $4, $5, $2, $3, 'admin', false, 'Op B Admin', NOW())`,
         [OP_B_PHONE, await hash(OP_B_PASSWORD), opBId, '+8490xxxxxx9', '+8490xxxxxx8']
       );
     }

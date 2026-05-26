@@ -13,7 +13,31 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
+import { Client } from 'pg';
 import { primeCsrf } from './helpers/csrf';
+
+const DB_URL =
+  process.env.DATABASE_URL ?? 'postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_dev';
+
+// Clear any holds left on the capacity-1 race trip by a prior run/project.
+// Holds persist for their full TTL, so without this the second Playwright
+// project (mobile-390) finds the single seat already held by the first
+// project (chromium) and sees 0 successes instead of exactly 1.
+async function clearRaceTripHolds(): Promise<void> {
+  const client = new Client({ connectionString: DB_URL });
+  await client.connect();
+  try {
+    await client.query(
+      `DELETE FROM "Hold" WHERE "tripId" IN (
+         SELECT t.id FROM "Trip" t
+         JOIN "Route" r ON r.id = t."routeId"
+         WHERE r.origin = 'E2E Race Origin' AND r.destination = 'E2E Race Destination'
+       )`
+    );
+  } finally {
+    await client.end();
+  }
+}
 
 /**
  * VN-timezone "tomorrow" as YYYY-MM-DD.
@@ -136,6 +160,10 @@ test.describe('Hold booking flow', () => {
 });
 
 test.describe('Hold creation API - race condition (integration)', () => {
+  test.beforeEach(async () => {
+    await clearRaceTripHolds();
+  });
+
   test('20 concurrent POST /api/holds for capacity-1 trip yields exactly 1 success', async ({
     request,
   }) => {

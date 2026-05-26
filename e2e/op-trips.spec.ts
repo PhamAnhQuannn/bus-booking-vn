@@ -20,12 +20,14 @@
 import { test, expect } from '@playwright/test';
 import { Client } from 'pg';
 import { primeCsrf } from './helpers/csrf';
+import { hash } from '../lib/auth/password';
+import { normalizePhone } from '../lib/auth/phoneNormalize';
 
 const SANDBOX_ENABLED = process.env.E2E_OP_TRIPS_ENABLED === 'true';
 const DB_URL =
   process.env.DATABASE_URL ?? 'postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_dev';
 
-const SEED_PHONE = '+8490xxxxxx1';
+const SEED_PHONE = normalizePhone('0901230001');
 const SEED_PASSWORD = 'BBOp2026!';
 const OP_B_PHONE = '+8490xxxxxx9';
 const OP_B_PASSWORD = 'BBOp2026!';
@@ -40,7 +42,6 @@ interface PrepareCtx {
 }
 
 async function prepareTrips(): Promise<PrepareCtx> {
-  const { hash } = await import('../lib/auth/password');
   const client = new Client({ connectionString: DB_URL });
   await client.connect();
   try {
@@ -59,10 +60,32 @@ async function prepareTrips(): Promise<PrepareCtx> {
       [SEED_PHONE]
     );
 
-    // Clean op A trip fixtures
+    // Clean this spec's own op A trip fixtures ONLY — scope to test routes
+    // (origins 'E2E-%' / 'OW-%'). A blanket op-A trip wipe would also delete the
+    // seeded race trip (route origin 'E2E Race Origin' — space, not hyphen, so it
+    // does NOT match 'E2E-%') that customer specs (hold-flow/momo/search) depend on.
+    // Clear child bookings first to avoid Booking_tripId_fkey violations.
     await client.query(
-      `DELETE FROM "Trip" WHERE "operatorId" = $1 AND "id" IN (
-         SELECT t.id FROM "Trip" t WHERE t."operatorId" = $1
+      `DELETE FROM "NotificationLog" WHERE "bookingId" IN (
+         SELECT b.id FROM "Booking" b
+         JOIN "Trip" t ON t.id = b."tripId"
+         JOIN "Route" r ON r.id = t."routeId"
+         WHERE t."operatorId" = $1 AND (r.origin LIKE 'E2E-%' OR r.origin LIKE 'OW-%')
+       )`,
+      [opAId]
+    );
+    await client.query(
+      `DELETE FROM "Booking" WHERE "tripId" IN (
+         SELECT t.id FROM "Trip" t
+         JOIN "Route" r ON r.id = t."routeId"
+         WHERE t."operatorId" = $1 AND (r.origin LIKE 'E2E-%' OR r.origin LIKE 'OW-%')
+       )`,
+      [opAId]
+    );
+    await client.query(
+      `DELETE FROM "Trip" WHERE "operatorId" = $1 AND "routeId" IN (
+         SELECT r.id FROM "Route" r
+         WHERE r."operatorId" = $1 AND (r.origin LIKE 'E2E-%' OR r.origin LIKE 'OW-%')
        )`,
       [opAId]
     );
@@ -91,8 +114,8 @@ async function prepareTrips(): Promise<PrepareCtx> {
       routeABId = existAB.rows[0].id;
     } else {
       const ins = await client.query(
-        `INSERT INTO "Route" ("id","operatorId","origin","destination","durationMinutes","deactivatedAt")
-         VALUES (gen_random_uuid()::text, $1, $2, $3, 120, NULL) RETURNING id`,
+        `INSERT INTO "Route" ("id","operatorId","origin","destination","durationMinutes","deactivatedAt","updatedAt")
+         VALUES (gen_random_uuid()::text, $1, $2, $3, 120, NULL, NOW()) RETURNING id`,
         [opAId, originName, destName]
       );
       routeABId = ins.rows[0].id;
@@ -106,8 +129,8 @@ async function prepareTrips(): Promise<PrepareCtx> {
       routeBAId = existBA.rows[0].id;
     } else {
       const ins = await client.query(
-        `INSERT INTO "Route" ("id","operatorId","origin","destination","durationMinutes","deactivatedAt")
-         VALUES (gen_random_uuid()::text, $1, $2, $3, 120, NULL) RETURNING id`,
+        `INSERT INTO "Route" ("id","operatorId","origin","destination","durationMinutes","deactivatedAt","updatedAt")
+         VALUES (gen_random_uuid()::text, $1, $2, $3, 120, NULL, NOW()) RETURNING id`,
         [opAId, destName, originName]
       );
       routeBAId = ins.rows[0].id;
@@ -129,8 +152,8 @@ async function prepareTrips(): Promise<PrepareCtx> {
       );
       opBId = ins.rows[0].id;
       await client.query(
-        `INSERT INTO "OperatorUser" ("id","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName")
-         VALUES (gen_random_uuid()::text, $1, $4, $5, $2, $3, 'admin', false, 'Op B Trips Admin')`,
+        `INSERT INTO "OperatorUser" ("id","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName","updatedAt")
+         VALUES (gen_random_uuid()::text, $1, $4, $5, $2, $3, 'admin', false, 'Op B Trips Admin', NOW())`,
         [OP_B_PHONE, await hash(OP_B_PASSWORD), opBId, '+8490xxxxxx9', '+8490xxxxxx8']
       );
     } else {
@@ -148,8 +171,8 @@ async function prepareTrips(): Promise<PrepareCtx> {
     const opBBusId: string = opBBusRow.rows[0].id;
 
     const opBRouteRow = await client.query(
-      `INSERT INTO "Route" ("id","operatorId","origin","destination","durationMinutes")
-       VALUES (gen_random_uuid()::text, $1, 'OPB-Origin','OPB-Dest', 60)
+      `INSERT INTO "Route" ("id","operatorId","origin","destination","durationMinutes","updatedAt")
+       VALUES (gen_random_uuid()::text, $1, 'OPB-Origin','OPB-Dest', 60, NOW())
        ON CONFLICT DO NOTHING RETURNING id`,
       [opBId]
     );
@@ -319,8 +342,8 @@ test.describe('Operator trip lifecycle (Issue 013)', () => {
     const client = new Client({ connectionString: DB_URL });
     await client.connect();
     const oneWayRoute = await client.query(
-      `INSERT INTO "Route" ("id","operatorId","origin","destination","durationMinutes")
-       VALUES (gen_random_uuid()::text, $1, 'OW-Origin', 'OW-Dest-Unique', 120) RETURNING id`,
+      `INSERT INTO "Route" ("id","operatorId","origin","destination","durationMinutes","updatedAt")
+       VALUES (gen_random_uuid()::text, $1, 'OW-Origin', 'OW-Dest-Unique', 120, NOW()) RETURNING id`,
       [ctx.opAId]
     );
     const oneWayRouteId: string = oneWayRoute.rows[0].id;

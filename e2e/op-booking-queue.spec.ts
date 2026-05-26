@@ -21,13 +21,15 @@
 import { test, expect } from '@playwright/test';
 import { Client } from 'pg';
 import { primeCsrf } from './helpers/csrf';
+import { hash } from '../lib/auth/password';
 import { randomUUID } from 'crypto';
+import { normalizePhone } from '../lib/auth/phoneNormalize';
 
 const SANDBOX_ENABLED = process.env.E2E_OP_BOOKING_QUEUE_ENABLED === 'true';
 const DB_URL =
   process.env.DATABASE_URL ?? 'postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_dev';
 
-const SEED_PHONE = '+8490xxxxxx1';
+const SEED_PHONE = normalizePhone('0901230001');
 const SEED_PASSWORD = 'BBOp2026!';
 const OP_B_PHONE = '+8490xxxxxx9';
 const OP_B_PASSWORD = 'BBOp2026!';
@@ -48,7 +50,6 @@ interface PrepareCtx {
  *   - Op B (OP_B_PHONE) — one trip + one booking (tenant isolation)
  */
 async function prepareQueue(): Promise<PrepareCtx> {
-  const { hash } = await import('../lib/auth/password');
   const client = new Client({ connectionString: DB_URL });
   await client.connect();
   try {
@@ -79,8 +80,8 @@ async function prepareQueue(): Promise<PrepareCtx> {
 
     // Ensure op A has a route
     const routeRow = await client.query(
-      `INSERT INTO "Route" ("id","operatorId","origin","destination","durationMinutes")
-       VALUES (gen_random_uuid()::text, $1, 'Queue-City-A', 'Queue-City-B', 90)
+      `INSERT INTO "Route" ("id","operatorId","origin","destination","durationMinutes","updatedAt")
+       VALUES (gen_random_uuid()::text, $1, 'Queue-City-A', 'Queue-City-B', 90, NOW())
        ON CONFLICT DO NOTHING RETURNING id`,
       [opAId]
     );
@@ -104,23 +105,27 @@ async function prepareQueue(): Promise<PrepareCtx> {
     );
     const tripId: string = tripRow.rows[0].id;
 
-    // Wipe any leftover bookings on this trip
-    await client.query(`DELETE FROM "NotificationLog" WHERE "bookingId" IN (SELECT id FROM "Booking" WHERE "tripId" = $1)`, [tripId]);
-    await client.query(`DELETE FROM "Booking" WHERE "tripId" = $1`, [tripId]);
+    // Wipe leftover bookings from prior runs. The hardcoded bookingRefs below are
+    // globally unique, and each beforeEach creates a *fresh* trip — so a trip-scoped
+    // wipe alone leaves last run's rows behind and the re-insert hits
+    // Booking_bookingRef_key. Clear by the known refs (children first) too.
+    const leftoverRefs = ['BB-2026-eq01-aa11', 'BB-2026-eq01-bb22', 'BB-2026-eqb1-cc33'];
+    await client.query(`DELETE FROM "NotificationLog" WHERE "bookingId" IN (SELECT id FROM "Booking" WHERE "tripId" = $1 OR "bookingRef" = ANY($2))`, [tripId, leftoverRefs]);
+    await client.query(`DELETE FROM "Booking" WHERE "tripId" = $1 OR "bookingRef" = ANY($2)`, [tripId, leftoverRefs]);
 
     // Paid booking (paid_operator_notified)
     const paidId = randomUUID();
     await client.query(
-      `INSERT INTO "Booking" ("id","bookingRef","confirmationToken","tripId","buyerName","buyerPhone","ticketCount","totalVnd","paymentMethod","status","isManual","contactStatus","createdAt","updatedAt")
-       VALUES ($1, 'BB-2026-eq01-aa11', 'tok-eq01-aa11', $2, 'E2E Queue Buyer', '+8490xxxxxx2', 2, 200000, 'momo', 'paid_operator_notified', false, 'pending', NOW(), NOW())`,
+      `INSERT INTO "Booking" ("id","bookingRef","confirmationToken","tripId","buyerName","buyerPhone","ticketCount","totalVnd","paymentMethod","status","isManual","contactStatus","createdAt")
+       VALUES ($1, 'BB-2026-eq01-aa11', 'tok-eq01-aa11', $2, 'E2E Queue Buyer', '+8490xxxxxx2', 2, 200000, 'momo', 'paid_operator_notified', false, 'pending', NOW())`,
       [paidId, tripId]
     );
 
     // Cash booking (pending_cash_payment)
     const cashId = randomUUID();
     await client.query(
-      `INSERT INTO "Booking" ("id","bookingRef","confirmationToken","tripId","buyerName","buyerPhone","ticketCount","totalVnd","paymentMethod","status","isManual","contactStatus","createdAt","updatedAt")
-       VALUES ($1, 'BB-2026-eq01-bb22', 'tok-eq01-bb22', $2, 'E2E Cash Buyer', '+8490xxxxxx3', 1, 100000, 'cash', 'pending_cash_payment', false, 'pending', NOW(), NOW())`,
+      `INSERT INTO "Booking" ("id","bookingRef","confirmationToken","tripId","buyerName","buyerPhone","ticketCount","totalVnd","paymentMethod","status","isManual","contactStatus","createdAt")
+       VALUES ($1, 'BB-2026-eq01-bb22', 'tok-eq01-bb22', $2, 'E2E Cash Buyer', '+8490xxxxxx3', 1, 100000, 'cash', 'pending_cash_payment', false, 'pending', NOW())`,
       [cashId, tripId]
     );
 
@@ -140,8 +145,8 @@ async function prepareQueue(): Promise<PrepareCtx> {
       );
       opBId = ins.rows[0].id;
       await client.query(
-        `INSERT INTO "OperatorUser" ("id","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName")
-         VALUES (gen_random_uuid()::text, $1, $4, $5, $2, $3, 'admin', false, 'Op B Queue Admin')`,
+        `INSERT INTO "OperatorUser" ("id","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName","updatedAt")
+         VALUES (gen_random_uuid()::text, $1, $4, $5, $2, $3, 'admin', false, 'Op B Queue Admin', NOW())`,
         [OP_B_PHONE, await hash(OP_B_PASSWORD), opBId, '+8490xxxxxx9', '+8490xxxxxx8']
       );
     } else {
@@ -158,8 +163,8 @@ async function prepareQueue(): Promise<PrepareCtx> {
     const opBBusId: string = opBBusRow.rows[0].id;
 
     const opBRouteRow = await client.query(
-      `INSERT INTO "Route" ("id","operatorId","origin","destination","durationMinutes")
-       VALUES (gen_random_uuid()::text, $1, 'OPB-Queue-A','OPB-Queue-B', 60)
+      `INSERT INTO "Route" ("id","operatorId","origin","destination","durationMinutes","updatedAt")
+       VALUES (gen_random_uuid()::text, $1, 'OPB-Queue-A','OPB-Queue-B', 60, NOW())
        ON CONFLICT DO NOTHING RETURNING id`,
       [opBId]
     );
@@ -184,8 +189,8 @@ async function prepareQueue(): Promise<PrepareCtx> {
 
     const opBBookingId = randomUUID();
     await client.query(
-      `INSERT INTO "Booking" ("id","bookingRef","confirmationToken","tripId","buyerName","buyerPhone","ticketCount","totalVnd","paymentMethod","status","isManual","contactStatus","createdAt","updatedAt")
-       VALUES ($1, 'BB-2026-eqb1-cc33', 'tok-eqb1-cc33', $2, 'Op B Buyer', '+8490xxxxxx4', 1, 80000, 'momo', 'paid_operator_notified', false, 'pending', NOW(), NOW())`,
+      `INSERT INTO "Booking" ("id","bookingRef","confirmationToken","tripId","buyerName","buyerPhone","ticketCount","totalVnd","paymentMethod","status","isManual","contactStatus","createdAt")
+       VALUES ($1, 'BB-2026-eqb1-cc33', 'tok-eqb1-cc33', $2, 'Op B Buyer', '+8490xxxxxx4', 1, 80000, 'momo', 'paid_operator_notified', false, 'pending', NOW())`,
       [opBBookingId, opBTripId]
     );
 
@@ -419,7 +424,7 @@ test.describe('Operator booking queue + manifest (Issue 014)', () => {
     expect(json.booking.status).toBe('paid_operator_notified');
     expect(json.booking.cashCollectedAt).not.toBeNull();
     // I7: totalVnd comes from DB, should match seed
-    expect(json.totalVnd).toBe(100_000);
+    expect(json.booking.totalVnd).toBe(100_000);
   });
 
   test('AC4: cash-collected on already-paid booking returns 422 invalid_state', async ({ request }) => {

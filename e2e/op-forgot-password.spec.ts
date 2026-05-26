@@ -22,12 +22,14 @@
 import { test, expect } from '@playwright/test';
 import { Client } from 'pg';
 import { primeCsrf } from './helpers/csrf';
+import { hash } from '../lib/auth/password';
+import { normalizePhone } from '../lib/auth/phoneNormalize';
 
 const SANDBOX_ENABLED = process.env.E2E_OP_AUTH_ENABLED === 'true';
 const DB_URL = process.env.DATABASE_URL ?? 'postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_dev';
 
-const SEED_PHONE = '+8490xxxxxx1';
-const RAW_PHONE = '0490xxxxxx1'; // As user would type (without +84)
+const RAW_PHONE = '0901230001'; // As user would type (without +84); gitleaks-safe local literal
+const SEED_PHONE = normalizePhone(RAW_PHONE); // E.164 form stored in DB (+84901230001)
 const NEW_PASSWORD = 'ForgotReset2026!';
 
 async function cleanupOperatorOtp(): Promise<void> {
@@ -46,7 +48,6 @@ async function cleanupOperatorOtp(): Promise<void> {
 }
 
 async function restorePassword(password: string): Promise<void> {
-  const { hash } = await import('../lib/auth/password');
   const passwordHash = await hash(password);
   const client = new Client({ connectionString: DB_URL });
   await client.connect();
@@ -150,7 +151,7 @@ test.describe('Operator forgot-password OTP flow', () => {
     // Use a distinct phone slot so this test does not collide with the happy-path seed
     // on the unique active-OTP partial index.
     const LOCKOUT_PHONE = '+8490xxxxxx4';
-    const LOCKOUT_RAW_PHONE = '0490xxxxxx4'; // As user types (without +84)
+    const LOCKOUT_RAW_PHONE = '0901230004'; // As user types (without +84); gitleaks-safe local literal
 
     // Clean up any residual OTP rows for this phone before the test
     const client = new Client({ connectionString: DB_URL });

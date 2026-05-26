@@ -35,12 +35,14 @@
 import { test, expect } from '@playwright/test';
 import { Client } from 'pg';
 import { primeCsrf } from './helpers/csrf';
+import { hash } from '../lib/auth/password';
+import { normalizePhone } from '../lib/auth/phoneNormalize';
 
 const SANDBOX_ENABLED = process.env.E2E_OP_STAFF_CLIENT_ENABLED === 'true';
 const DB_URL =
   process.env.DATABASE_URL ?? 'postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_dev';
 
-const SEED_PHONE = '+8490xxxxxx1';
+const SEED_PHONE = normalizePhone('0901230001');
 const SEED_PASSWORD = 'BBOp2026!';
 
 // Staff assigned to the scheduled trip.
@@ -60,8 +62,6 @@ interface Fixtures {
 }
 
 async function prepareFixtures(): Promise<Fixtures> {
-  const { hash } = await import('../lib/auth/password');
-  const { normalizePhone } = await import('../lib/auth/phoneNormalize');
   const client = new Client({ connectionString: DB_URL });
   await client.connect();
   try {
@@ -88,6 +88,22 @@ async function prepareFixtures(): Promise<Fixtures> {
     );
 
     // Op A route + bus + two scheduled trips (assigned + "other").
+    // FK-ordered cleanup of prior-run trips (price=133331 marker) and their
+    // children. The depart→complete test creates a Payout + NotificationLog
+    // referencing these trips' bookings; delete those before the Trip rows.
+    const priorTrips = `SELECT id FROM "Trip" WHERE "operatorId" = $1 AND price = 133331`;
+    await client.query(`DELETE FROM "Payout" WHERE "tripId" IN (${priorTrips})`, [opAId]);
+    await client.query(
+      `DELETE FROM "NotificationLog" WHERE "bookingId" IN
+         (SELECT id FROM "Booking" WHERE "tripId" IN (${priorTrips}))`,
+      [opAId]
+    );
+    await client.query(
+      `DELETE FROM "PaymentEvent" WHERE "bookingId" IN
+         (SELECT id FROM "Booking" WHERE "tripId" IN (${priorTrips}))`,
+      [opAId]
+    );
+    await client.query(`DELETE FROM "Booking" WHERE "tripId" IN (${priorTrips})`, [opAId]);
     await client.query(`DELETE FROM "Trip" WHERE "operatorId" = $1 AND price = 133331`, [opAId]);
     await client.query(`DELETE FROM "Bus" WHERE "operatorId" = $1 AND "licensePlate" = 'STAFFCLI-A'`, [opAId]);
     await client.query(`DELETE FROM "Route" WHERE "operatorId" = $1 AND origin = 'StaffCli Origin'`, [opAId]);
@@ -98,19 +114,19 @@ async function prepareFixtures(): Promise<Fixtures> {
       [opAId]
     );
     const routeA = await client.query(
-      `INSERT INTO "Route" ("id","operatorId","origin","destination","durationMinutes")
-       VALUES (gen_random_uuid()::text, $1, 'StaffCli Origin', 'StaffCli Dest', 120) RETURNING id`,
+      `INSERT INTO "Route" ("id","operatorId","origin","destination","durationMinutes","updatedAt")
+       VALUES (gen_random_uuid()::text, $1, 'StaffCli Origin', 'StaffCli Dest', 120, NOW()) RETURNING id`,
       [opAId]
     );
     const dep = new Date(Date.now() + 86_400_000).toISOString();
     const assignedTrip = await client.query(
-      `INSERT INTO "Trip" ("id","routeId","busId","operatorId","departureAt","price","status","salesClosed")
-       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, 133331, 'scheduled', false) RETURNING id`,
+      `INSERT INTO "Trip" ("id","routeId","busId","operatorId","departureAt","price","status","salesClosed","updatedAt")
+       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, 133331, 'scheduled', false, NOW()) RETURNING id`,
       [routeA.rows[0].id, busA.rows[0].id, opAId, dep]
     );
     const otherTrip = await client.query(
-      `INSERT INTO "Trip" ("id","routeId","busId","operatorId","departureAt","price","status","salesClosed")
-       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, 133331, 'scheduled', false) RETURNING id`,
+      `INSERT INTO "Trip" ("id","routeId","busId","operatorId","departureAt","price","status","salesClosed","updatedAt")
+       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, 133331, 'scheduled', false, NOW()) RETURNING id`,
       [routeA.rows[0].id, busA.rows[0].id, opAId, dep]
     );
     const assignedTripId: string = assignedTrip.rows[0].id;
@@ -119,15 +135,15 @@ async function prepareFixtures(): Promise<Fixtures> {
     // Seed assigned staff (assignedTripId set) + unassigned staff (null).
     const assigned = await client.query(
       `INSERT INTO "OperatorUser"
-         ("id","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName","assignedTripId")
-       VALUES (gen_random_uuid()::text, $1, $4, $5, $2, $3, 'staff', false, 'E2E StaffClient Assigned', $6)
+         ("id","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName","assignedTripId","updatedAt")
+       VALUES (gen_random_uuid()::text, $1, $4, $5, $2, $3, 'staff', false, 'E2E StaffClient Assigned', $6, NOW())
        RETURNING id`,
       [assignedPhone, assignedHash, opAId, '+8490xxxxxx7', '+8490xxxxxx6', assignedTripId]
     );
     const unassigned = await client.query(
       `INSERT INTO "OperatorUser"
-         ("id","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName","assignedTripId")
-       VALUES (gen_random_uuid()::text, $1, $4, $5, $2, $3, 'staff', false, 'E2E StaffClient Unassigned', NULL)
+         ("id","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName","assignedTripId","updatedAt")
+       VALUES (gen_random_uuid()::text, $1, $4, $5, $2, $3, 'staff', false, 'E2E StaffClient Unassigned', NULL, NOW())
        RETURNING id`,
       [unassignedPhone, unassignedHash, opAId, '+8490xxxxxx5', '+8490xxxxxx4']
     );
@@ -180,8 +196,11 @@ test.describe('Operator staff-scoped client (Issue 018)', () => {
     fx = await prepareFixtures();
   });
 
-  test('assigned staff lands on the single-trip dashboard', async ({ page, request }) => {
-    await loginStaff(request, ASSIGNED_LOCAL, ASSIGNED_PASSWORD);
+  test('assigned staff lands on the single-trip dashboard', async ({ page }) => {
+    // Auth via page.request so the session cookie lands in the page's context
+    // jar — the standalone `request` fixture has a separate cookie jar that the
+    // browser navigation can't see.
+    await loginStaff(page.request, ASSIGNED_LOCAL, ASSIGNED_PASSWORD);
     await page.goto('/op/staff/dashboard');
     // Single-trip view: queue + manifest tabs render; no admin nav.
     await expect(page.getByTestId('tab-queue')).toBeVisible();
@@ -258,15 +277,15 @@ test.describe('Operator staff-scoped client (Issue 018)', () => {
 
   test('unassigned staff sees the empty state and gets 404 on trip-scoped reads', async ({
     page,
-    request,
   }) => {
-    await loginStaff(request, UNASSIGNED_LOCAL, UNASSIGNED_PASSWORD);
+    // Auth + API reads via page.request so both share the page's cookie jar.
+    await loginStaff(page.request, UNASSIGNED_LOCAL, UNASSIGNED_PASSWORD);
 
     await page.goto('/op/staff/dashboard');
     await expect(page.getByTestId('staff-empty-state')).toBeVisible();
 
     // Trip-scoped read with any tripId → 404 (no assignment).
-    const res = await request.get(`/api/op/manifest/${fx.assignedTripId}`);
+    const res = await page.request.get(`/api/op/manifest/${fx.assignedTripId}`);
     expect(res.status()).toBe(404);
     expect((await res.json()).error).toBe('not_found');
   });

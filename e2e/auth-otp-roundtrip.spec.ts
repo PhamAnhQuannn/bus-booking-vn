@@ -180,6 +180,10 @@ test.describe('Auth OTP roundtrip', () => {
     expect(rtCookieAfterLogin!.value.length).toBeGreaterThan(0);
 
     // ---- 8. Silent refresh — access token re-issued via bb_rt cookie ----
+    // JWT iat/exp are second-precision; without this wait a same-second refresh
+    // would mint a byte-identical access token and the rotation assertion below
+    // would flake. >1s guarantees a distinct iat.
+    await page.waitForTimeout(1100);
     const refreshRes = await page.evaluate(
       async ([csrfToken, baseUrl]) => {
         const r = await fetch(`${baseUrl}/api/auth/refresh`, {
