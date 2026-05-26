@@ -9,6 +9,7 @@ import { redirect } from 'next/navigation';
 import type { TripStatus } from '@prisma/client';
 import { getOperatorSession } from '@/lib/op/getOperatorSession';
 import { listUpcomingForOperator } from '@/lib/trips/listUpcomingForOperator';
+import { listRoutes } from '@/lib/routes/listRoutes';
 import type { TripDto } from '@/lib/trips/tripDto';
 import { tripStatusDisplay } from '@/lib/op/statusLabels';
 import { Card } from '@/components/ui/card';
@@ -21,8 +22,11 @@ import {
   TableHead,
   TableCell,
 } from '@/components/ui/table';
+import UpcomingFilter from './UpcomingFilter';
 
-export default async function OpUpcomingPage() {
+type PageProps = { searchParams: Promise<{ routeId?: string }> };
+
+export default async function OpUpcomingPage({ searchParams }: PageProps) {
   const session = await getOperatorSession();
 
   if (!session) {
@@ -33,11 +37,21 @@ export default async function OpUpcomingPage() {
     redirect('/op/first-login');
   }
 
-  const { trips } = await listUpcomingForOperator(session.operatorId, {});
+  const { routeId } = await searchParams;
+
+  const [{ trips }, routes] = await Promise.all([
+    listUpcomingForOperator(session.operatorId, routeId ? { routeId } : {}),
+    listRoutes({ operatorId: session.operatorId }),
+  ]);
+
+  const routeOptions = routes
+    .filter((r) => r.deactivatedAt === null)
+    .map((r) => ({ id: r.id, origin: r.origin, destination: r.destination }));
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 md:px-6">
       <h1 className="mb-6 text-2xl font-semibold tracking-tight">Chuyến xe sắp khởi hành</h1>
+      <UpcomingFilter routes={routeOptions} selected={routeId ?? ''} />
       {trips.length === 0 ? (
         <Card className="px-4 py-6 text-center text-sm text-muted-foreground">
           Không có chuyến nào trong thời gian tới.

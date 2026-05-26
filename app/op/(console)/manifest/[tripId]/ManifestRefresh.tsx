@@ -14,6 +14,7 @@
 import { useState } from 'react';
 import type { ManifestRow } from '@/lib/manifest/getManifest';
 import type { BookingStatus } from '@prisma/client';
+import { markPickedUpApi, recordCashCollectedApi } from '@/lib/api/bookingsClient';
 import { bookingStatusDisplay } from '@/lib/op/statusLabels';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -49,6 +50,43 @@ export default function ManifestRefresh({ tripId, initialGeneratedAt, initialRow
   const [generatedAt, setGeneratedAt] = useState(initialGeneratedAt);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [actingId, setActingId] = useState<string | null>(null);
+
+  // Story 51: mark a passenger boarded.
+  async function handleMarkPickedUp(bookingId: string) {
+    setActingId(bookingId);
+    setError('');
+    try {
+      const res = await markPickedUpApi(bookingId);
+      setRows((prev) =>
+        prev.map((r) =>
+          r.bookingId === bookingId ? { ...r, pickedUpAt: res.booking.pickedUpAt } : r
+        )
+      );
+    } catch {
+      setError('Lỗi đánh dấu lên xe. Vui lòng thử lại.');
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  // Story 52: record cash collected for a pending-cash booking.
+  async function handleCashCollected(bookingId: string) {
+    setActingId(bookingId);
+    setError('');
+    try {
+      const res = await recordCashCollectedApi(bookingId);
+      setRows((prev) =>
+        prev.map((r) =>
+          r.bookingId === bookingId ? { ...r, paymentStatus: res.booking.status } : r
+        )
+      );
+    } catch {
+      setError('Lỗi thu tiền mặt. Vui lòng thử lại.');
+    } finally {
+      setActingId(null);
+    }
+  }
 
   async function handleRefresh() {
     setLoading(true);
@@ -111,6 +149,7 @@ export default function ManifestRefresh({ tripId, initialGeneratedAt, initialRow
                 <TableHead>TT thanh toán</TableHead>
                 <TableHead>Lên xe</TableHead>
                 <TableHead>Cờ</TableHead>
+                <TableHead>Thao tác</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -144,6 +183,33 @@ export default function ManifestRefresh({ tripId, initialGeneratedAt, initialRow
                         {row.cashFlag && <span aria-label="Tiền mặt" title="Tiền mặt">💵</span>}
                         {row.escalatedAt && (
                           <span aria-label="Cần xử lý" title="Cần xử lý">⚠</span>
+                        )}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="flex flex-wrap gap-2">
+                        {!row.pickedUpAt && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleMarkPickedUp(row.bookingId)}
+                            disabled={actingId === row.bookingId}
+                            data-testid={`mark-pickedup-${row.bookingId}`}
+                          >
+                            Lên xe
+                          </Button>
+                        )}
+                        {row.cashFlag && row.paymentStatus === 'pending_cash_payment' && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => handleCashCollected(row.bookingId)}
+                            disabled={actingId === row.bookingId}
+                            data-testid={`cash-collected-${row.bookingId}`}
+                          >
+                            Thu tiền
+                          </Button>
                         )}
                       </span>
                     </TableCell>
