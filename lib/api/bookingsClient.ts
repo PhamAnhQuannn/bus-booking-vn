@@ -10,6 +10,7 @@
 
 import { readCsrfToken } from '@/lib/auth/csrfClient';
 import type { BookingQueueRow } from '@/lib/booking/toBookingQueueRow';
+import type { BookingDto } from '@/lib/booking/bookingDto';
 
 export interface ListBookingsParams {
   busId?: string;
@@ -37,8 +38,7 @@ export async function listBookingsApi(
 }
 
 // --- Booking-detail mutations (Issue 014) ---------------------------------
-// These back the (not-yet-built) /op/dashboard/[id] detail surface. Endpoints
-// exist today; wire them when the detail page lands. All POST → X-CSRF-Token.
+// These back the /op/dashboard/[id] detail surface. All POST → X-CSRF-Token.
 
 async function postBooking<T>(path: string, body?: unknown, errLabel = 'request'): Promise<T> {
   const res = await fetch(path, {
@@ -60,18 +60,42 @@ async function postBooking<T>(path: string, body?: unknown, errLabel = 'request'
 export function recordCallOutcomeApi(
   id: string,
   body: { outcome: 'reached' | 'no_answer' | 'callback'; pickupPointId?: string; pickupNote?: string }
-): Promise<{ booking: unknown }> {
+): Promise<{ booking: BookingDto }> {
   return postBooking(`/api/op/bookings/${id}/call-outcome`, body, 'recordCallOutcome');
 }
 
-export function recordEscalationApi(id: string, note: string): Promise<{ booking: unknown }> {
+export function recordEscalationApi(id: string, note: string): Promise<{ booking: BookingDto }> {
   return postBooking(`/api/op/bookings/${id}/escalation`, { note }, 'recordEscalation');
 }
 
-export function markPickedUpApi(id: string): Promise<{ booking: unknown; alreadyPickedUp: boolean }> {
+export function markPickedUpApi(id: string): Promise<{ booking: BookingDto; alreadyPickedUp: boolean }> {
   return postBooking(`/api/op/bookings/${id}/picked-up`, {}, 'markPickedUp');
 }
 
-export function recordCashCollectedApi(id: string): Promise<{ booking: unknown; collectedVnd: number }> {
+export function recordCashCollectedApi(id: string): Promise<{ booking: BookingDto; collectedVnd: number }> {
   return postBooking(`/api/op/bookings/${id}/cash-collected`, {}, 'recordCashCollected');
+}
+
+// --- Manual booking (Issue 015, story 48) ---------------------------------
+// Operator walk-in / phone-in booking on a specific trip. totalVnd is derived
+// server-side (I7-exempt: operator is price authority for own trips).
+
+export interface ManualBookingResult {
+  id: string;
+  bookingRef: string;
+  ticketCount: number;
+  totalVnd: number;
+  status: 'paid_operator_notified' | 'pending_cash_payment';
+}
+
+export function manualBookingApi(
+  tripId: string,
+  body: {
+    buyerName: string;
+    buyerPhone: string;
+    ticketCount: number;
+    paymentMethod: 'paid' | 'cash';
+  }
+): Promise<{ booking: ManualBookingResult }> {
+  return postBooking(`/api/op/trips/${tripId}/manual-booking`, body, 'manualBooking');
 }

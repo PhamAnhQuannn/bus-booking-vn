@@ -21,8 +21,8 @@ vi.mock('@/lib/booking/initiateBooking', () => ({
   initiateCashBooking: vi.fn(),
 }));
 
-vi.mock('@/lib/booking/initiateMomoBooking', () => ({
-  initiateMomoBooking: vi.fn(),
+vi.mock('@/lib/booking/initiateOnlineBooking', () => ({
+  initiateOnlineBooking: vi.fn(),
 }));
 
 vi.mock('@/lib/security/holdCookie', () => ({
@@ -38,7 +38,7 @@ vi.mock('@/lib/ratelimit', () => ({
 
 import { POST } from '../initiate/route';
 import { initiateCashBooking } from '@/lib/booking/initiateBooking';
-import { initiateMomoBooking } from '@/lib/booking/initiateMomoBooking';
+import { initiateOnlineBooking } from '@/lib/booking/initiateOnlineBooking';
 import { extractHoldCookie } from '@/lib/security/holdCookie';
 import { ratelimit } from '@/lib/ratelimit';
 import { NextRequest } from 'next/server';
@@ -184,7 +184,7 @@ describe('POST /api/bookings/initiate — input validation', () => {
     allowRatelimit();
 
     const res = await POST(
-      makeRequest({ body: { holdId: HOLD_ID, paymentMethod: 'card' }, cookie: `bb_hold=x` })
+      makeRequest({ body: { holdId: HOLD_ID, paymentMethod: 'bitcoin' }, cookie: `bb_hold=x` })
     );
     const json = await res.json();
 
@@ -277,7 +277,7 @@ describe('POST /api/bookings/initiate — MoMo path', () => {
   it('returns 200 with bookingId + payUrl on successful MoMo initiation', async () => {
     allowRatelimit();
     matchCookie();
-    vi.mocked(initiateMomoBooking).mockResolvedValueOnce({
+    vi.mocked(initiateOnlineBooking).mockResolvedValueOnce({
       ok: true,
       bookingId: BOOKING_ID,
       confirmationToken: CONFIRMATION_TOKEN,
@@ -302,7 +302,7 @@ describe('POST /api/bookings/initiate — MoMo path', () => {
   it('returns 502 GATEWAY_ERROR when MoMo gateway fails', async () => {
     allowRatelimit();
     matchCookie();
-    vi.mocked(initiateMomoBooking).mockResolvedValueOnce({
+    vi.mocked(initiateOnlineBooking).mockResolvedValueOnce({
       ok: false,
       error: 'gateway_error',
       gatewayMessage: 'network_timeout',
@@ -323,7 +323,7 @@ describe('POST /api/bookings/initiate — MoMo path', () => {
   it('returns 409 HOLD_EXPIRED for momo path when hold is expired', async () => {
     allowRatelimit();
     matchCookie();
-    vi.mocked(initiateMomoBooking).mockResolvedValueOnce({
+    vi.mocked(initiateOnlineBooking).mockResolvedValueOnce({
       ok: false,
       error: 'hold_expired',
     });

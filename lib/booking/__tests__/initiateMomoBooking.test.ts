@@ -19,7 +19,7 @@ import type { PaymentGateway, CreatePaymentInput } from '@/lib/payment/gateway';
 // ---------------------------------------------------------------------------
 
 vi.mock('@/lib/db/bookingRepo', () => ({
-  createMomoBookingFromHold: vi.fn(),
+  createOnlineBookingFromHold: vi.fn(),
   getBookingByHoldId: vi.fn(),
 }));
 
@@ -45,7 +45,7 @@ vi.mock('@/lib/booking/attachGuestBooking', () => ({
 // ---------------------------------------------------------------------------
 
 import { initiateMomoBooking } from '../initiateMomoBooking';
-import { createMomoBookingFromHold, getBookingByHoldId } from '@/lib/db/bookingRepo';
+import { createOnlineBookingFromHold, getBookingByHoldId } from '@/lib/db/bookingRepo';
 import { prisma } from '@/lib/db/client';
 
 // ---------------------------------------------------------------------------
@@ -133,7 +133,7 @@ describe('initiateMomoBooking — happy path', () => {
   it('creates awaiting_payment booking, returns payUrl, zero NotificationLog at initiate', async () => {
     vi.mocked(prisma.hold.findUnique).mockResolvedValue(MOCK_HOLD as never);
     vi.mocked(getBookingByHoldId).mockResolvedValueOnce(null); // idempotency check
-    vi.mocked(createMomoBookingFromHold).mockResolvedValue({
+    vi.mocked(createOnlineBookingFromHold).mockResolvedValue({
       ok: true,
       booking: MOCK_BOOKING_ROW,
     });
@@ -168,7 +168,7 @@ describe('initiateMomoBooking — gateway failure', () => {
   it('compensates (deletes booking + reverts hold) when gateway fails', async () => {
     vi.mocked(prisma.hold.findUnique).mockResolvedValue(MOCK_HOLD as never);
     vi.mocked(getBookingByHoldId).mockResolvedValueOnce(null);
-    vi.mocked(createMomoBookingFromHold).mockResolvedValue({
+    vi.mocked(createOnlineBookingFromHold).mockResolvedValue({
       ok: true,
       booking: MOCK_BOOKING_ROW,
     });
@@ -221,7 +221,7 @@ describe('initiateMomoBooking — error paths', () => {
   it('returns hold_expired when repo returns hold_expired', async () => {
     vi.mocked(prisma.hold.findUnique).mockResolvedValue(MOCK_HOLD as never);
     vi.mocked(getBookingByHoldId).mockResolvedValueOnce(null);
-    vi.mocked(createMomoBookingFromHold).mockResolvedValue({ ok: false, reason: 'hold_expired' });
+    vi.mocked(createOnlineBookingFromHold).mockResolvedValue({ ok: false, reason: 'hold_expired' });
     vi.mocked(prisma.trip.findUnique).mockResolvedValue({
       departureAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
     } as never);
@@ -254,6 +254,6 @@ describe('initiateMomoBooking — idempotency', () => {
     // No new gateway call
     expect(gateway.calls.length).toBe(0);
     // No DB insert
-    expect(createMomoBookingFromHold).not.toHaveBeenCalled();
+    expect(createOnlineBookingFromHold).not.toHaveBeenCalled();
   });
 });

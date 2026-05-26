@@ -28,6 +28,12 @@ interface ResultPageProps {
 
 const MAX_AUTO_REFRESH = 24; // ~2 min at 5s interval
 
+const GATEWAY_LABEL: Record<string, string> = {
+  momo: 'MoMo',
+  zalopay: 'ZaloPay',
+  card: 'thẻ',
+};
+
 function formatVND(amount: number): string {
   return (
     new Intl.NumberFormat('vi-VN', {
@@ -52,6 +58,7 @@ export default async function ResultPage({ params, searchParams }: ResultPagePro
   const isPending = booking.status === 'awaiting_payment';
   const isPaid = booking.status === 'paid_operator_notified' || booking.status === 'completed';
   const isFailed = booking.status === 'payment_failed_expired';
+  const gatewayLabel = GATEWAY_LABEL[booking.paymentMethod] ?? 'trực tuyến';
 
   const nextRefreshCount = refreshCount + 1;
   const shouldAutoRefresh = isPending && refreshCount < MAX_AUTO_REFRESH;
@@ -80,10 +87,10 @@ export default async function ResultPage({ params, searchParams }: ResultPagePro
         {isPending && (
           <section className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-2">
             <h2 className="text-base font-semibold text-amber-900">
-              Đang chờ xác nhận thanh toán MoMo
+              Đang chờ xác nhận thanh toán {gatewayLabel}
             </h2>
             <p className="text-sm text-amber-800">
-              Vui lòng hoàn tất thanh toán trong ứng dụng MoMo. Trang này tự động
+              Vui lòng hoàn tất thanh toán {gatewayLabel}. Trang này tự động
               cập nhật sau 5 giây.
             </p>
             {refreshCount >= MAX_AUTO_REFRESH && (
@@ -124,7 +131,7 @@ export default async function ResultPage({ params, searchParams }: ResultPagePro
               Thanh toán không thành công
             </h2>
             <p className="text-sm text-red-800">
-              Giao dịch MoMo của bạn chưa hoàn tất hoặc đã bị hủy. Vui lòng thử lại
+              Giao dịch {gatewayLabel} của bạn chưa hoàn tất hoặc đã bị hủy. Vui lòng thử lại
               với chuyến xe khác.
             </p>
             <a

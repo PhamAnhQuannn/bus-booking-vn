@@ -8,9 +8,10 @@
  * Includes HoldTimer + HoldExpiryModal.
  *
  * On "Xác nhận thanh toán" click, POSTs to /api/bookings/initiate with
- * { holdId, paymentMethod: 'cash' }. On 200 → router.push to the
- * confirmation page keyed by the returned confirmationToken. The bb_hold
- * cookie travels automatically via same-origin credentials.
+ * { holdId, paymentMethod }. Cash → 200 { confirmationToken } → router.push
+ * to the confirmation page. Online (momo|zalopay|card) → 200 { payUrl } →
+ * window.location to the gateway (real MoMo sandbox or local stub-pay). The
+ * bb_hold cookie travels automatically via same-origin credentials.
  */
 
 import { useEffect, useState } from 'react';
@@ -50,13 +51,24 @@ const ERROR_LABEL: Record<string, string> = {
   INVALID: 'Yêu cầu không hợp lệ.',
   TOO_MANY_REQUESTS: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.',
   UNAVAILABLE: 'Hệ thống tạm thời bận. Vui lòng thử lại.',
+  GATEWAY_ERROR: 'Cổng thanh toán gặp lỗi. Vui lòng thử lại.',
 };
+
+type PaymentMethod = 'cash' | 'momo' | 'zalopay' | 'card';
+
+const PAYMENT_METHODS: ReadonlyArray<{ value: PaymentMethod; label: string }> = [
+  { value: 'cash', label: 'Tiền mặt' },
+  { value: 'momo', label: 'MoMo' },
+  { value: 'zalopay', label: 'ZaloPay' },
+  { value: 'card', label: 'Thẻ' },
+];
 
 export function ReviewClient({ holdDetails }: ReviewClientProps) {
   const router = useRouter();
   const { holdId, expiresAt, totalVND, ticketCount, tripId } = holdDetails;
   const { startTimer } = useHoldTimerStore();
 
+  const [method, setMethod] = useState<PaymentMethod>('cash');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,11 +88,15 @@ export function ReviewClient({ holdDetails }: ReviewClientProps) {
           'X-CSRF-Token': readCsrfToken(),
         },
         credentials: 'include',
-        body: JSON.stringify({ holdId, paymentMethod: 'cash' }),
+        body: JSON.stringify({ holdId, paymentMethod: method }),
       });
       const data = await res.json().catch(() => null);
-      if (res.ok && data?.confirmationToken) {
+      if (res.ok && method === 'cash' && data?.confirmationToken) {
         router.push(`/booking/confirmation/${data.confirmationToken}`);
+        return;
+      }
+      if (res.ok && method !== 'cash' && data?.payUrl) {
+        window.location.href = data.payUrl;
         return;
       }
       const code = typeof data?.error === 'string' ? data.error : 'UNAVAILABLE';
@@ -115,6 +131,32 @@ export function ReviewClient({ holdDetails }: ReviewClientProps) {
       </div>
 
       <HoldTimer />
+
+      <fieldset className="bg-white border rounded-lg p-4 space-y-2">
+        <legend className="text-sm font-semibold px-1">Phương thức thanh toán</legend>
+        <div className="grid grid-cols-2 gap-2">
+          {PAYMENT_METHODS.map((m) => (
+            <label
+              key={m.value}
+              className={`flex items-center gap-2 border rounded px-3 py-2 cursor-pointer text-sm ${
+                method === m.value
+                  ? 'border-blue-600 bg-blue-50 text-blue-800'
+                  : 'border-gray-200'
+              }`}
+            >
+              <input
+                type="radio"
+                name="paymentMethod"
+                value={m.value}
+                checked={method === m.value}
+                onChange={() => setMethod(m.value)}
+                disabled={submitting}
+              />
+              {m.label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
 
       {error && (
         <div
