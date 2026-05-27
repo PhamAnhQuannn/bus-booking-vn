@@ -8,6 +8,12 @@ shadcn-flavor: base-ui (@base-ui/react)
 
 # Design System — Bus-Booking VN
 
+> **⚠️ Superseded for tokens/identity (2026-05-27).** The canonical source of truth is now
+> [`design-language.md`](./design-language.md) (v1.0), which reconciles this doc with the
+> as-built UI ([`baseline-built-ui-20260527.md`](./baseline-built-ui-20260527.md)) and the OTA
+> benchmark. Where this doc and the design language disagree, the design language wins.
+> This file remains a detailed primitive/variant reference.
+
 ## Standard (the resolved decision)
 
 **Tailwind utility classes + semantic tokens. NO inline `style={{}}`.**
