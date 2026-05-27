@@ -39,10 +39,10 @@ export function SearchForm() {
       id={formId}
       onSubmit={handleSubmit}
       aria-label="Trip search"
-      className="flex w-full max-w-md flex-col gap-4"
+      className="flex w-full flex-col gap-4"
     >
       {/* Origin */}
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1.5">
         <label htmlFor={`${formId}-origin`} className="text-sm font-medium">
           Điểm xuất phát
         </label>
@@ -63,7 +63,7 @@ export function SearchForm() {
       </div>
 
       {/* Destination */}
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1.5">
         <label htmlFor={`${formId}-destination`} className="text-sm font-medium">
           Điểm đến
         </label>
@@ -83,46 +83,48 @@ export function SearchForm() {
         />
       </div>
 
-      {/* Date */}
-      <div className="flex flex-col gap-1">
-        <label htmlFor={`${formId}-date`} className="text-sm font-medium">
-          Ngày đi
-        </label>
-        <Input
-          id={`${formId}-date`}
-          name="date"
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          required
-          className="min-h-11"
-          aria-required="true"
-        />
-      </div>
+      {/* Date + ticket count on one row — date wider, count compact */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="col-span-2 flex flex-col gap-1.5">
+          <label htmlFor={`${formId}-date`} className="text-sm font-medium">
+            Ngày đi
+          </label>
+          <Input
+            id={`${formId}-date`}
+            name="date"
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            required
+            className="min-h-11"
+            aria-required="true"
+          />
+        </div>
 
-      {/* Ticket count */}
-      <div className="flex flex-col gap-1">
-        <label htmlFor={`${formId}-ticketCount`} className="text-sm font-medium">
-          Số vé
-        </label>
-        <Input
-          id={`${formId}-ticketCount`}
-          name="ticketCount"
-          type="number"
-          min={1}
-          max={10}
-          value={ticketCount}
-          onChange={(e) => setTicketCount(e.target.value)}
-          required
-          className="min-h-11"
-          aria-required="true"
-        />
+        <div className="col-span-1 flex flex-col gap-1.5">
+          <label htmlFor={`${formId}-ticketCount`} className="text-sm font-medium">
+            Số vé
+          </label>
+          <Input
+            id={`${formId}-ticketCount`}
+            name="ticketCount"
+            type="number"
+            min={1}
+            max={10}
+            value={ticketCount}
+            onChange={(e) => setTicketCount(e.target.value)}
+            required
+            className="min-h-11"
+            aria-required="true"
+          />
+        </div>
       </div>
 
       {/* Submit */}
       <Button
         type="submit"
-        className="min-h-11 w-full text-base font-semibold"
+        size="lg"
+        className="mt-1 min-h-11 w-full text-base font-semibold"
         disabled={!origin.trim() || !destination.trim() || !date}
       >
         Tìm chuyến xe
