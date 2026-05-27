@@ -14,8 +14,9 @@
  */
 
 import { notFound } from 'next/navigation';
-import { CheckCircle2, Phone, Clock, Bus, MapPin, Wallet } from 'lucide-react';
+import { CheckCircle2, Phone, Clock, Bus, MapPin, Wallet, CalendarPlus } from 'lucide-react';
 import { getBookingByConfirmationToken } from '@/lib/db/bookingRepo';
+import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
@@ -39,6 +40,31 @@ function formatDeparture(d: Date): string {
     dateStyle: 'full',
     timeStyle: 'short',
   });
+}
+
+/** UTC timestamp in iCalendar basic format (YYYYMMDDTHHMMSSZ). */
+function toIcsDate(d: Date): string {
+  return d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+}
+
+/** Build a downloadable .ics data URI for the trip departure (2h default block). */
+function buildCalendarHref(opts: { ref: string; origin: string; destination: string; departure: Date }): string {
+  const end = new Date(opts.departure.getTime() + 2 * 3600 * 1000);
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//BBVN//Booking//VI',
+    'BEGIN:VEVENT',
+    `UID:${opts.ref}@bbvn`,
+    `DTSTAMP:${toIcsDate(new Date())}`,
+    `DTSTART:${toIcsDate(opts.departure)}`,
+    `DTEND:${toIcsDate(end)}`,
+    `SUMMARY:Chuyến xe ${opts.origin} → ${opts.destination}`,
+    `DESCRIPTION:Mã đặt vé ${opts.ref}`,
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\r\n');
+  return `data:text/calendar;charset=utf-8,${encodeURIComponent(ics)}`;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -94,13 +120,29 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
           <CheckCircle2 className="size-8" aria-hidden="true" />
         </span>
         <h1 className="text-2xl font-bold">Đặt vé thành công</h1>
-        <div className="flex flex-col items-center gap-2">
-          <span className="font-mono text-sm font-semibold">{booking.bookingRef}</span>
-          <Badge variant={STATUS_VARIANT[booking.status] ?? 'neutral'}>
-            {STATUS_LABEL[booking.status] ?? booking.status}
-          </Badge>
-        </div>
+        <Badge variant={STATUS_VARIANT[booking.status] ?? 'neutral'}>
+          {STATUS_LABEL[booking.status] ?? booking.status}
+        </Badge>
       </header>
+
+      {/* Prominent e-ticket ref */}
+      <div className="flex flex-col items-center gap-1 rounded-xl border border-dashed border-primary/40 bg-primary/5 px-4 py-4 text-center">
+        <span className="text-xs uppercase tracking-wide text-muted-foreground">Mã đặt vé</span>
+        <span className="font-mono text-2xl font-bold tracking-widest text-primary">{booking.bookingRef}</span>
+        <a
+          href={buildCalendarHref({
+            ref: booking.bookingRef,
+            origin: trip.route.origin,
+            destination: trip.route.destination,
+            departure: trip.departureAt,
+          })}
+          download={`chuyen-xe-${booking.bookingRef}.ics`}
+          className={buttonVariants({ variant: 'outline', size: 'sm', className: 'mt-2' })}
+        >
+          <CalendarPlus className="size-4" aria-hidden="true" />
+          Thêm vào lịch
+        </a>
+      </div>
 
       <Card>
         <CardHeader>

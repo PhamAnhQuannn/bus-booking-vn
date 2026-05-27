@@ -17,9 +17,10 @@ import { useParams, useRouter } from 'next/navigation';
 import { getAccessToken } from '@/app/auth/register/page';
 import { STATUS_LABEL, STATUS_VARIANT } from '../bookingStatus';
 import type { CustomerBookingDetail } from '@/lib/booking/getCustomerBookingDetail';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Phone } from 'lucide-react';
 
 const vnd = (n: number) => `${n.toLocaleString('vi-VN')} ₫`;
 const dateFmt = new Intl.DateTimeFormat('vi-VN', {
@@ -132,13 +133,20 @@ export default function BookingDetailPage() {
   }, [id, booking, loginRedirect]);
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 py-10">
-      <Link
-        href="/account/bookings"
-        className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-      >
-        ← Lịch sử đặt vé
-      </Link>
+    <main className="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 py-8">
+      <nav aria-label="breadcrumb" className="text-sm text-muted-foreground">
+        <ol className="flex items-center gap-1.5">
+          <li>
+            <Link href="/account/bookings" className="underline-offset-4 hover:text-foreground hover:underline">
+              Lịch sử đặt vé
+            </Link>
+          </li>
+          <li aria-hidden="true">/</li>
+          <li aria-current="page" className="font-medium text-foreground">
+            {booking?.bookingRef ?? 'Chi tiết'}
+          </li>
+        </ol>
+      </nav>
 
       {loading && <p className="text-sm text-muted-foreground">Đang tải...</p>}
       {error && <p className="text-sm text-destructive">{error}</p>}
@@ -172,16 +180,20 @@ export default function BookingDetailPage() {
             </CardContent>
           </Card>
 
-          {TICKETABLE.has(booking.status) && (
-            <Button
-              size="lg"
-              className="self-start"
-              onClick={() => void downloadTicket()}
-              disabled={downloading}
+          <div className="flex flex-wrap gap-2">
+            {TICKETABLE.has(booking.status) && (
+              <Button size="lg" onClick={() => void downloadTicket()} disabled={downloading}>
+                {downloading ? 'Đang tải...' : 'Tải vé PDF'}
+              </Button>
+            )}
+            <a
+              href={`tel:${booking.operator.contactPhone}`}
+              className={buttonVariants({ variant: 'outline', size: 'lg' })}
             >
-              {downloading ? 'Đang tải...' : 'Tải vé PDF'}
-            </Button>
-          )}
+              <Phone className="size-4" aria-hidden="true" />
+              Gọi nhà xe
+            </a>
+          </div>
         </>
       )}
     </main>
