@@ -25,6 +25,24 @@ export interface OperatorKpis {
   paidBookings: number;
   paidRatePct: number; // 0–100, rounded
   statusBreakdown: { status: string; count: number }[];
+  /** Daily gross revenue across the window (continuous, one entry per day) — for sparklines. */
+  dailyRevenue: number[];
+  /** % change in gross revenue vs the previous equal-length window; null when no prior data. */
+  revenueDeltaPct: number | null;
+}
+
+const PAID_SQL = Prisma.sql`b.status IN ('pending_cash_payment'::"BookingStatus",'paid_operator_notified'::"BookingStatus",'completed'::"BookingStatus")`;
+
+/** Enumerate YYYY-MM-DD strings from dateFrom..dateTo inclusive. */
+function dateRange(dateFrom: string, dateTo: string): string[] {
+  const out: string[] = [];
+  const d = new Date(`${dateFrom}T00:00:00Z`);
+  const end = new Date(`${dateTo}T00:00:00Z`);
+  while (d <= end) {
+    out.push(d.toISOString().slice(0, 10));
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return out;
 }
 
 export interface GetOperatorKpisInput {
@@ -39,8 +57,12 @@ export async function getOperatorKpis(input: GetOperatorKpisInput): Promise<Oper
   const { operatorId, dateFrom, dateTo } = input;
   const windowStart = new Date(`${dateFrom}T00:00:00+07:00`);
   const windowEnd = new Date(`${dateTo}T23:59:59+07:00`);
+  // Previous equal-length window, ending just before this one.
+  const spanMs = windowEnd.getTime() - windowStart.getTime();
+  const prevEnd = new Date(windowStart.getTime() - 1);
+  const prevStart = new Date(windowStart.getTime() - 1 - spanMs);
 
-  const [revenueRows, breakdownRows, capacityRows] = await Promise.all([
+  const [revenueRows, breakdownRows, capacityRows, dailyRows, prevRows] = await Promise.all([
     getRevenueReport({ operatorId, dateFrom, dateTo }),
     prisma.$queryRaw<{ status: string; count: number }[]>(
       Prisma.sql`
@@ -65,6 +87,32 @@ export async function getOperatorKpis(input: GetOperatorKpisInput): Promise<Oper
           AND t.status <> 'cancelled'::"TripStatus"
       `
     ),
+    // Daily gross revenue (paid bookings) bucketed by VN-local departure date.
+    prisma.$queryRaw<{ d: string; rev: bigint }[]>(
+      Prisma.sql`
+        SELECT to_char((t."departureAt" AT TIME ZONE 'Asia/Ho_Chi_Minh')::date, 'YYYY-MM-DD') AS d,
+               COALESCE(SUM(b."totalVnd"), 0)::bigint AS rev
+        FROM "Booking" b
+        JOIN "Trip" t ON b."tripId" = t.id
+        WHERE t."operatorId" = ${operatorId}
+          AND ${PAID_SQL}
+          AND t."departureAt" >= ${windowStart}
+          AND t."departureAt" <= ${windowEnd}
+        GROUP BY d
+      `
+    ),
+    // Previous-window gross (paid) for the period-compare delta.
+    prisma.$queryRaw<{ rev: bigint }[]>(
+      Prisma.sql`
+        SELECT COALESCE(SUM(b."totalVnd"), 0)::bigint AS rev
+        FROM "Booking" b
+        JOIN "Trip" t ON b."tripId" = t.id
+        WHERE t."operatorId" = ${operatorId}
+          AND ${PAID_SQL}
+          AND t."departureAt" >= ${prevStart}
+          AND t."departureAt" <= ${prevEnd}
+      `
+    ),
   ]);
 
   const seatsSold = revenueRows.reduce((s, r) => s + r.seatsSold, 0);
@@ -78,6 +126,13 @@ export async function getOperatorKpis(input: GetOperatorKpisInput): Promise<Oper
 
   const capacityTotal = capacityRows[0]?.capacity ?? 0;
 
+  // Continuous daily series (fill zero-revenue days) for the sparkline.
+  const revByDay = new Map(dailyRows.map((r) => [r.d, Number(r.rev)]));
+  const dailyRevenue = dateRange(dateFrom, dateTo).map((d) => revByDay.get(d) ?? 0);
+
+  const prevGross = Number(prevRows[0]?.rev ?? 0);
+  const revenueDeltaPct = prevGross > 0 ? Math.round(((grossRevenueVnd - prevGross) / prevGross) * 100) : null;
+
   return {
     periodTrips: revenueRows.length,
     seatsSold,
@@ -89,5 +144,7 @@ export async function getOperatorKpis(input: GetOperatorKpisInput): Promise<Oper
     paidBookings,
     paidRatePct: totalBookings > 0 ? Math.round((paidBookings / totalBookings) * 100) : 0,
     statusBreakdown: breakdownRows,
+    dailyRevenue,
+    revenueDeltaPct,
   };
 }

@@ -13,6 +13,7 @@ import { getOperatorKpis } from '@/lib/reports/getOperatorKpis';
 import { getFunnel } from '@/lib/analytics/getFunnel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Sparkline } from '@/components/ui/sparkline';
 
 function toVnDateString(date: Date): string {
   return new Intl.DateTimeFormat('en-CA', {
@@ -47,13 +48,39 @@ const STATUS_LABEL: Record<string, string> = {
   payment_failed_expired: 'Thanh toán lỗi',
 };
 
-function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function DeltaBadge({ pct }: { pct: number | null }) {
+  if (pct === null) return null;
+  const up = pct >= 0;
+  return (
+    <span
+      className={up ? 'text-xs font-medium text-success-foreground' : 'text-xs font-medium text-destructive'}
+    >
+      {up ? '▲' : '▼'} {Math.abs(pct)}% so với kỳ trước
+    </span>
+  );
+}
+
+function Kpi({
+  label,
+  value,
+  hint,
+  delta,
+  spark,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  delta?: number | null;
+  spark?: number[];
+}) {
   return (
     <Card>
       <CardContent className="flex flex-col gap-1 py-5">
         <span className="text-sm text-muted-foreground">{label}</span>
         <span className="font-mono text-2xl font-bold tracking-tight">{value}</span>
+        {delta !== undefined && <DeltaBadge pct={delta} />}
         {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+        {spark && spark.length > 1 && <Sparkline data={spark} className="mt-2" />}
       </CardContent>
     </Card>
   );
@@ -122,7 +149,7 @@ export default async function OverviewPage({
 
       {/* KPI tiles */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi label="Doanh thu" value={formatVnd(kpis.grossRevenueVnd)} hint={`Thực nhận ${formatVnd(kpis.netPayoutVnd)}`} />
+        <Kpi label="Doanh thu" value={formatVnd(kpis.grossRevenueVnd)} hint={`Thực nhận ${formatVnd(kpis.netPayoutVnd)}`} delta={kpis.revenueDeltaPct} spark={kpis.dailyRevenue} />
         <Kpi label="Ghế đã bán" value={String(kpis.seatsSold)} hint={`${kpis.periodTrips} chuyến`} />
         <Kpi label="Tỷ lệ lấp đầy" value={`${kpis.occupancyPct}%`} hint={`${kpis.seatsSold}/${kpis.capacityTotal} ghế`} />
         <Kpi label="Tỷ lệ thanh toán" value={`${kpis.paidRatePct}%`} hint={`${kpis.paidBookings}/${kpis.totalBookings} đơn`} />

@@ -34,6 +34,9 @@
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
   --color-warning-border: var(--warning-border);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-border: var(--info-border);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -93,11 +96,17 @@
   --border: oklch(0.91 0.008 75);
   --input: oklch(0.91 0.008 75);
   --ring: oklch(0.646 0.222 41.116);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  /* Teal info accent (design-language v1.0 §1) — informational chips/links + chart series.
+     Orange stays the single ACTION accent; teal is informational only. */
+  --info: oklch(0.95 0.03 195);
+  --info-foreground: oklch(0.44 0.08 200);
+  --info-border: oklch(0.88 0.05 195);
+  /* Branded chart ramp (was grayscale) — orange/teal/amber/green/indigo. */
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.55 0.10 195);
+  --chart-3: oklch(0.70 0.15 90);
+  --chart-4: oklch(0.60 0.13 150);
+  --chart-5: oklch(0.55 0.12 270);
   --radius: 0.75rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
@@ -137,11 +146,14 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.705 0.213 47.604);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --info: oklch(0.3 0.05 200);
+  --info-foreground: oklch(0.9 0.05 195);
+  --info-border: oklch(0.45 0.07 198);
+  --chart-1: oklch(0.705 0.213 47.604);
+  --chart-2: oklch(0.65 0.10 195);
+  --chart-3: oklch(0.78 0.14 90);
+  --chart-4: oklch(0.70 0.12 150);
+  --chart-5: oklch(0.66 0.12 270);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.705 0.213 47.604);
