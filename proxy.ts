@@ -29,6 +29,8 @@ import { generateToken, compareTokens } from '@/lib/auth/csrf';
 const CSRF_COOKIE = 'bb_csrf';
 const CSRF_HEADER = 'X-CSRF-Token';
 const OP_ACCESS_COOKIE = 'bb_op_access';
+const SID_COOKIE = 'bb_sid'; // anonymous funnel session id (no PII)
+const SID_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 // Exact-path exemptions (CSRF)
@@ -105,18 +107,30 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   // Layer 2 — CSRF double-submit enforcement
   // -------------------------------------------------------------------------
 
-  // Issue CSRF cookie on any safe method request that doesn't already have one
+  // Issue CSRF + anonymous-session cookies on any safe method request missing them
   if (SAFE_METHODS.has(requestMethod)) {
-    const existing = request.cookies.get(CSRF_COOKIE)?.value;
-    if (!existing) {
+    const hasCsrf = request.cookies.get(CSRF_COOKIE)?.value;
+    const hasSid = request.cookies.get(SID_COOKIE)?.value;
+    if (!hasCsrf || !hasSid) {
       const response = NextResponse.next();
-      const token = generateToken();
-      response.cookies.set(CSRF_COOKIE, token, {
-        httpOnly: false, // Must be readable by JS for double-submit
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NODE_ENV === 'production',
-      });
+      const secure = process.env.NODE_ENV === 'production';
+      if (!hasCsrf) {
+        response.cookies.set(CSRF_COOKIE, generateToken(), {
+          httpOnly: false, // Must be readable by JS for double-submit
+          sameSite: 'lax',
+          path: '/',
+          secure,
+        });
+      }
+      if (!hasSid) {
+        response.cookies.set(SID_COOKIE, generateToken(), {
+          httpOnly: true, // server-only; funnel correlation, never read by JS
+          sameSite: 'lax',
+          path: '/',
+          maxAge: SID_MAX_AGE,
+          secure,
+        });
+      }
       return response;
     }
     return NextResponse.next();

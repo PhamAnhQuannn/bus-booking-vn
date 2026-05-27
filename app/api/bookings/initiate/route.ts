@@ -25,6 +25,7 @@ import { initiateOnlineBooking } from '@/lib/booking/initiateOnlineBooking';
 import { extractHoldCookie } from '@/lib/security/holdCookie';
 import { ratelimit } from '@/lib/ratelimit';
 import { withErrorHandler } from '@/lib/withErrorHandler';
+import { track, sessionIdFromRequest } from '@/lib/analytics/track';
 
 const initiateInputSchema = z.object({
   holdId: z.string().min(1).max(128),
@@ -75,6 +76,11 @@ async function handler(req: NextRequest): Promise<Response> {
     const result = await initiateCashBooking({ holdId, baseUrl });
 
     if (result.ok) {
+      void track('payment_initiated', {
+        sessionId: sessionIdFromRequest(req),
+        bookingId: result.bookingId,
+        context: { paymentMethod },
+      });
       return NextResponse.json(
         { bookingId: result.bookingId, confirmationToken: result.confirmationToken },
         { status: 200, headers: { 'Cache-Control': 'no-store' } }
@@ -99,6 +105,11 @@ async function handler(req: NextRequest): Promise<Response> {
   const result = await initiateOnlineBooking({ holdId, baseUrl, method: paymentMethod });
 
   if (result.ok) {
+    void track('payment_initiated', {
+      sessionId: sessionIdFromRequest(req),
+      bookingId: result.bookingId,
+      context: { paymentMethod },
+    });
     return NextResponse.json(
       { bookingId: result.bookingId, payUrl: result.payUrl },
       { status: 200, headers: { 'Cache-Control': 'no-store' } }

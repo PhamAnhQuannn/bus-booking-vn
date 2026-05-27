@@ -32,6 +32,7 @@ import { createNotificationLog } from '@/lib/db/notificationLogRepo';
 import { sendSms, renderTemplate, type SmsTemplate } from '@/lib/notifications/esms';
 import { attachGuestBookingByPhone } from '@/lib/booking/attachGuestBookingByPhone';
 import { logger } from '@/lib/logger';
+import { track, sessionIdForBooking } from '@/lib/analytics/track';
 import type { PaymentGateway } from './gateway';
 
 export interface ProcessPaymentWebhookInput {
@@ -122,6 +123,7 @@ export async function processPaymentWebhook(
   }
 
   const pending: PendingDispatch[] = [];
+  let paidBookingId: string | null = null;
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -150,6 +152,7 @@ export async function processPaymentWebhook(
         if ((updated as number) > 0) {
           // Newly transitioned — attach to a registered customer by phone (Issue 009)
           await attachGuestBookingByPhone(tx, booking.id, booking.buyerPhone);
+          paidBookingId = booking.id; // funnel booking_paid fired post-commit
 
           const operator = booking.trip.bus.operator;
           const operatorRecipient = operator.notificationPhone ?? operator.contactPhone;
@@ -234,6 +237,15 @@ export async function processPaymentWebhook(
       return NextResponse.json({ message: 'ok' }, { status: 200 });
     }
     throw err;
+  }
+
+  // Funnel: booking_paid (post-commit, fire-and-forget). The webhook has no user
+  // cookie, so the session is resolved from the earlier payment_initiated event.
+  if (paidBookingId) {
+    const bid = paidBookingId;
+    void sessionIdForBooking(bid).then((sessionId) =>
+      track('booking_paid', { sessionId, bookingId: bid, context: { adapter } })
+    );
   }
 
   // Schedule SMS dispatch after response (non-blocking)

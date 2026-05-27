@@ -15,6 +15,7 @@ import {
   Ticket,
   CopyPlus,
   BarChart3,
+  Gauge,
   Users,
   UserCircle,
   type LucideIcon,
@@ -47,6 +48,7 @@ interface NavItem {
 // Canonical order from nav-pattern-pick.md, mapped to routes that exist today.
 const NAV_ITEMS: NavItem[] = [
   { label: "Bảng điều khiển", href: "/op/dashboard", icon: LayoutDashboard, badge: true },
+  { label: "Tổng quan", href: "/op/reports/overview", icon: Gauge, match: "/op/reports/overview" },
   { label: "Chuyến sắp tới", href: "/op/upcoming", icon: CalendarClock },
   { label: "Đội xe", href: "/op/buses", icon: Bus },
   { label: "Tuyến đường", href: "/op/routes", icon: Route },

@@ -509,3 +509,23 @@ model AdminAuditLog {
   @@index([timestamp])
   @@index([action, timestamp])
 }
+
+// ---------------------------------------------------------------------------
+// Conversion-funnel instrumentation
+// ---------------------------------------------------------------------------
+
+/// Append-only anonymous funnel event. `sessionId` is a random cookie value (no
+/// PII), `step` is one of search_performed | hold_created | payment_initiated |
+/// booking_paid. Written fire-and-forget — never blocks the request path.
+model FunnelEvent {
+  id        String   @id @default(cuid())
+  sessionId String
+  step      String
+  tripId    String?
+  bookingId String?
+  context   Json?
+  createdAt DateTime @default(now())
+
+  @@index([step, createdAt])
+  @@index([sessionId])
+}

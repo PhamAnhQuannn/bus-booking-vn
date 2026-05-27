@@ -21,6 +21,7 @@ import { searchParamsSchema } from '@/lib/validation/search';
 import { searchTrips } from '@/lib/db/searchTrips';
 import { ratelimit } from '@/lib/ratelimit';
 import { withErrorHandler } from '@/lib/withErrorHandler';
+import { track, sessionIdFromRequest } from '@/lib/analytics/track';
 
 async function handler(request: NextRequest): Promise<Response> {
   // ---- 1. Parse and validate query params ----
@@ -62,6 +63,12 @@ async function handler(request: NextRequest): Promise<Response> {
 
   // ---- 3. Search trips (holds-aware when SEARCH_USE_BLOCKED_SEATS=true) ----
   const results = await searchTrips({ origin, destination, date, ticketCount });
+
+  // Funnel: search_performed (fire-and-forget, never blocks the response)
+  void track('search_performed', {
+    sessionId: sessionIdFromRequest(request),
+    context: { origin, destination, date, ticketCount, results: results.length },
+  });
 
   return NextResponse.json(results, {
     status: 200,
