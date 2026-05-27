@@ -86,7 +86,7 @@ function TripCard({ trip, ticketCount }: { trip: TripResult; ticketCount: number
           >
             {trip.operatorLegalName.replace(/^(Công ty|CÔNG TY)\s*/i, '').trim().charAt(0)}
           </span>
-          <span className="hidden text-sm text-muted-foreground sm:inline">
+          <span className="text-sm text-muted-foreground">
             {trip.operatorLegalName}
           </span>
         </div>
@@ -98,7 +98,7 @@ function TripCard({ trip, ticketCount }: { trip: TripResult; ticketCount: number
         </span>
         <span className="inline-flex items-center gap-1.5">
           <Armchair className="size-4" aria-hidden="true" />
-          Còn <strong className="text-foreground">{trip.availableSeats}</strong> chỗ
+          Chỗ trống <strong className="text-foreground">{trip.availableSeats}</strong>
         </span>
       </div>
       <div className="mt-1 flex items-center justify-between gap-3 border-t border-border/60 pt-3">
@@ -201,20 +201,20 @@ function ResultsList({
         {showPrev ? (
           <Link
             href={buildUrl(prevDate)}
-            className="inline-flex min-h-9 items-center justify-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="inline-flex min-h-11 items-center justify-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             aria-label={`Ngày trước: ${formatVnDate(prevDate)}`}
           >
             ← Trước
           </Link>
         ) : (
-          <span className="min-h-9" />
+          <span className="min-h-11" />
         )}
-        <span className="flex-1 text-center text-sm font-semibold leading-9">
+        <span className="flex-1 text-center text-sm font-semibold leading-[2.75rem]">
           {formatVnDate(date)}
         </span>
         <Link
           href={buildUrl(nextDate)}
-          className="inline-flex min-h-9 items-center justify-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="inline-flex min-h-11 items-center justify-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           aria-label={`Ngày sau: ${formatVnDate(nextDate)}`}
         >
           Sau →
