@@ -4,10 +4,25 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { Dialog } from "@base-ui/react/dialog"
-import { MenuIcon, XIcon, LogOutIcon } from "lucide-react"
+import {
+  MenuIcon,
+  XIcon,
+  LogOutIcon,
+  LayoutDashboard,
+  CalendarClock,
+  Bus,
+  Route,
+  Ticket,
+  CopyPlus,
+  BarChart3,
+  Users,
+  UserCircle,
+  type LucideIcon,
+} from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
+import { Logo } from "@/components/brand/Logo"
 import { readCsrfToken } from "@/lib/auth/csrfClient"
 
 export interface OperatorNavProps {
@@ -20,6 +35,7 @@ export interface OperatorNavProps {
 interface NavItem {
   label: string
   href: string
+  icon: LucideIcon
   /** When set, item is active if the pathname starts with this prefix. */
   match?: string
   /** Admin-only item. */
@@ -30,15 +46,15 @@ interface NavItem {
 
 // Canonical order from nav-pattern-pick.md, mapped to routes that exist today.
 const NAV_ITEMS: NavItem[] = [
-  { label: "Bảng điều khiển", href: "/op/dashboard", badge: true },
-  { label: "Chuyến sắp tới", href: "/op/upcoming" },
-  { label: "Đội xe", href: "/op/buses" },
-  { label: "Tuyến đường", href: "/op/routes" },
-  { label: "Chuyến đi", href: "/op/trips", match: "/op/trips" },
-  { label: "Mẫu chuyến", href: "/op/trip-templates" },
-  { label: "Báo cáo", href: "/op/reports/revenue", match: "/op/reports" },
-  { label: "Nhân viên", href: "/op/staff", adminOnly: true },
-  { label: "Hồ sơ", href: "/op/profile" },
+  { label: "Bảng điều khiển", href: "/op/dashboard", icon: LayoutDashboard, badge: true },
+  { label: "Chuyến sắp tới", href: "/op/upcoming", icon: CalendarClock },
+  { label: "Đội xe", href: "/op/buses", icon: Bus },
+  { label: "Tuyến đường", href: "/op/routes", icon: Route },
+  { label: "Chuyến đi", href: "/op/trips", icon: Ticket, match: "/op/trips" },
+  { label: "Mẫu chuyến", href: "/op/trip-templates", icon: CopyPlus },
+  { label: "Báo cáo", href: "/op/reports/revenue", icon: BarChart3, match: "/op/reports" },
+  { label: "Nhân viên", href: "/op/staff", icon: Users, adminOnly: true },
+  { label: "Hồ sơ", href: "/op/profile", icon: UserCircle },
 ]
 
 function isActive(pathname: string, item: NavItem): boolean {
@@ -76,7 +92,10 @@ function NavLinks({
                   : "text-sidebar-foreground hover:bg-sidebar-accent/60"
               )}
             >
-              <span>{item.label}</span>
+              <span className="flex items-center gap-2.5">
+                <item.icon className="size-4 shrink-0" aria-hidden="true" />
+                {item.label}
+              </span>
               {item.badge && unviewedCount > 0 && (
                 <Badge
                   variant="count"
@@ -148,9 +167,9 @@ export function OperatorNav({ role, unviewedCount }: OperatorNavProps) {
         <div className="flex h-14 items-center px-4">
           <Link
             href="/op/dashboard"
-            className="rounded-md font-semibold tracking-tight outline-none focus-visible:ring-3 focus-visible:ring-sidebar-ring"
+            className="rounded-md outline-none focus-visible:ring-3 focus-visible:ring-sidebar-ring"
           >
-            Bus-Booking
+            <Logo variant="combo" />
           </Link>
         </div>
         <div className="flex-1 overflow-y-auto px-2 py-2">
@@ -173,9 +192,9 @@ export function OperatorNav({ role, unviewedCount }: OperatorNavProps) {
           </Dialog.Trigger>
           <Link
             href="/op/dashboard"
-            className="rounded-md font-semibold tracking-tight outline-none focus-visible:ring-3 focus-visible:ring-sidebar-ring"
+            className="rounded-md outline-none focus-visible:ring-3 focus-visible:ring-sidebar-ring"
           >
-            Bus-Booking
+            <Logo variant="combo" />
           </Link>
           {unviewedCount > 0 && (
             <Badge
@@ -195,8 +214,8 @@ export function OperatorNav({ role, unviewedCount }: OperatorNavProps) {
             className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-sidebar text-sidebar-foreground shadow-lg transition-transform duration-200 ease-out outline-none data-[ending-style]:-translate-x-full data-[ending-style]:duration-150 data-[starting-style]:-translate-x-full md:hidden"
           >
             <div className="flex h-14 items-center justify-between px-4">
-              <Dialog.Title className="font-semibold tracking-tight">
-                Bus-Booking
+              <Dialog.Title>
+                <Logo variant="combo" />
               </Dialog.Title>
               <Dialog.Close
                 aria-label="Đóng menu"
