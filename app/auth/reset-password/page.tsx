@@ -10,7 +10,7 @@
  * No CSRF required — /api/auth/reset-password is pre-auth exempted in proxy.ts.
  */
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,15 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
 export default function ResetPasswordPage() {
+  // useSearchParams() requires a Suspense boundary for static prerender (Next 16).
+  return (
+    <Suspense fallback={null}>
+      <ResetPasswordPageInner />
+    </Suspense>
+  );
+}
+
+function ResetPasswordPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const prefillPhone = searchParams.get('phone') ?? '';

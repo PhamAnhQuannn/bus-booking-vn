@@ -10,7 +10,7 @@
  * CSRF token read from bb_csrf cookie set by proxy.ts.
  */
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -37,6 +37,15 @@ export function getDisplayName(): string | null { return _displayName; }
 export function setDisplayName(n: string | null): void { _displayName = n; }
 
 export default function RegisterPage() {
+  // useSearchParams() requires a Suspense boundary for static prerender (Next 16).
+  return (
+    <Suspense fallback={null}>
+      <RegisterPageInner />
+    </Suspense>
+  );
+}
+
+function RegisterPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get('returnTo') ?? '/';

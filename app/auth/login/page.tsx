@@ -5,7 +5,7 @@
  * CSRF token read from bb_csrf cookie (set by proxy.ts on first GET).
  */
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { setAccessToken, setDisplayName } from '@/app/auth/register/page';
@@ -20,6 +20,15 @@ function getCsrf(): string {
 }
 
 export default function LoginPage() {
+  // useSearchParams() requires a Suspense boundary for static prerender (Next 16).
+  return (
+    <Suspense fallback={null}>
+      <LoginPageInner />
+    </Suspense>
+  );
+}
+
+function LoginPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get('returnTo') ?? '/';
