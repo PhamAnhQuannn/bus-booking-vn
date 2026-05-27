@@ -11,6 +11,13 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useHoldTimerStore } from '@/lib/state/holdTimerStore';
 import { useBookingStore } from '@/lib/state/bookingStore';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 export function HoldExpiryModal() {
   const router = useRouter();
@@ -23,36 +30,25 @@ export function HoldExpiryModal() {
     clearBooking();
   }, [isExpired, clearBooking]);
 
-  if (!isExpired) return null;
-
   function handleGoToSearch() {
     router.replace('/search');
   }
 
+  // Controlled open with no onOpenChange handler → Esc/backdrop cannot close it; expiry forces re-search.
   return (
-    <div
-      role="alertdialog"
-      aria-modal="true"
-      aria-labelledby="expiry-modal-title"
-      aria-describedby="expiry-modal-desc"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-    >
-      <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-4 text-center space-y-4">
-        <div className="text-4xl">⏰</div>
-        <h2 id="expiry-modal-title" className="text-xl font-bold text-gray-900">
-          Chỗ giữ đã hết hạn
-        </h2>
-        <p id="expiry-modal-desc" className="text-gray-600">
+    <Dialog open={isExpired}>
+      <DialogContent showCloseButton={false} className="max-w-sm text-center">
+        <div className="text-4xl" aria-hidden="true">
+          ⏰
+        </div>
+        <DialogTitle className="text-xl font-bold">Chỗ giữ đã hết hạn</DialogTitle>
+        <DialogDescription>
           Chỗ ngồi của bạn đã được giải phóng. Vui lòng tìm kiếm và chọn chuyến xe mới.
-        </p>
-        <button
-          type="button"
-          onClick={handleGoToSearch}
-          className="w-full bg-blue-600 text-white rounded px-4 py-2 font-semibold hover:bg-blue-700"
-        >
+        </DialogDescription>
+        <Button size="lg" className="w-full" onClick={handleGoToSearch}>
           Tìm chuyến xe mới
-        </button>
-      </div>
-    </div>
+        </Button>
+      </DialogContent>
+    </Dialog>
   );
 }

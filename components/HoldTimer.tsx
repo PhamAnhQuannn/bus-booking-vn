@@ -4,7 +4,7 @@
  * HoldTimer — countdown display for the seat hold.
  *
  * Shows MM:SS countdown derived from holdTimerStore.
- * Applies a warning class (text-red-600) when T-2 minutes or less remain.
+ * Applies a warning class (text-destructive) when T-2 minutes or less remain.
  */
 
 import { useHoldTimerStore } from '@/lib/state/holdTimerStore';
@@ -24,7 +24,7 @@ export function HoldTimer() {
   return (
     <div
       className={`flex items-center gap-2 text-sm font-medium ${
-        isWarning ? 'text-red-600' : 'text-gray-600'
+        isWarning ? 'text-destructive' : 'text-muted-foreground'
       }`}
       aria-live="polite"
       aria-label={`Thời gian giữ chỗ còn lại: ${formatMs(remainingMs)}`}

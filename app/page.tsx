@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { Wallet, ShieldCheck, Bus, ArrowRight } from 'lucide-react';
+import { Wallet, ShieldCheck, Bus } from 'lucide-react';
 import { SearchFormWrapper } from '@/components/search/SearchFormWrapper';
 import { Card, CardContent } from '@/components/ui/card';
 import { getSearchablePlaces } from '@/lib/db/getSearchablePlaces';
@@ -15,16 +14,6 @@ const TRUST = [
   { icon: ShieldCheck, title: 'Xác nhận qua SMS', desc: 'Nhà xe gọi xác nhận giờ đón & chỗ ngồi.' },
   { icon: Bus, title: 'Nhiều nhà xe', desc: 'So sánh chuyến trên toàn quốc, không cần chọn ghế.' },
 ];
-
-const POPULAR = [
-  { origin: 'Hà Nội', destination: 'TP.HCM' },
-  { origin: 'Đà Nẵng', destination: 'Huế' },
-  { origin: 'Cần Thơ', destination: 'Đà Lạt' },
-];
-
-function popularHref({ origin, destination }: { origin: string; destination: string }) {
-  return `/search?${new URLSearchParams({ origin, destination, ticketCount: '1' }).toString()}`;
-}
 
 export default async function HomePage() {
   const places = await getSearchablePlaces();
@@ -47,22 +36,6 @@ export default async function HomePage() {
               <SearchFormWrapper places={places} />
             </CardContent>
           </Card>
-
-          {/* Popular routes */}
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            <span className="text-sm text-muted-foreground">Tuyến phổ biến:</span>
-            {POPULAR.map((r) => (
-              <Link
-                key={`${r.origin}-${r.destination}`}
-                href={popularHref(r)}
-                className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1 text-sm font-medium shadow-e1 transition-colors hover:border-primary/40 hover:text-primary"
-              >
-                {r.origin}
-                <ArrowRight className="size-3.5 text-primary" aria-hidden="true" />
-                {r.destination}
-              </Link>
-            ))}
-          </div>
         </div>
       </section>
 

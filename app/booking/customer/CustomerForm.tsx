@@ -19,6 +19,9 @@ import { useBookingStore } from '@/lib/state/bookingStore';
 import { useHoldTimerStore } from '@/lib/state/holdTimerStore';
 import { createHoldRequest } from '@/lib/api/holdsClient';
 import { getDisplayName } from '@/app/auth/register/page';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const LS_PHONE_KEY = 'busbooking_last_phone';
 
@@ -141,17 +144,16 @@ export function CustomerForm() {
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-4">
       <div>
-        <label htmlFor="buyerName" className="block text-sm font-medium mb-1">
+        <Label htmlFor="buyerName" className="mb-1">
           Họ và tên
-        </label>
-        <input
+        </Label>
+        <Input
           id="buyerName"
           name="buyerName"
           type="text"
           required
           ref={buyerNameRef}
           disabled={isPending}
-          className="w-full border rounded px-3 py-2 disabled:opacity-60"
           aria-describedby={fieldErrors.buyerName ? 'buyerName-error' : undefined}
         />
         {fieldErrors.buyerName && (
@@ -162,17 +164,16 @@ export function CustomerForm() {
       </div>
 
       <div>
-        <label htmlFor="buyerPhone" className="block text-sm font-medium mb-1">
+        <Label htmlFor="buyerPhone" className="mb-1">
           Số điện thoại
-        </label>
-        <input
+        </Label>
+        <Input
           id="buyerPhone"
           name="buyerPhone"
           type="tel"
           required
           ref={phoneInputRef}
           disabled={isPending}
-          className="w-full border rounded px-3 py-2 disabled:opacity-60"
           aria-describedby={fieldErrors.buyerPhone ? 'buyerPhone-error' : undefined}
         />
         {fieldErrors.buyerPhone && (
@@ -200,13 +201,9 @@ export function CustomerForm() {
         </div>
       )}
 
-      <button
-        type="submit"
-        disabled={isPending}
-        className="w-full bg-blue-600 text-white rounded px-4 py-2 font-semibold hover:bg-blue-700 disabled:opacity-60"
-      >
+      <Button type="submit" size="lg" disabled={isPending} className="w-full">
         {isPending ? 'Đang xử lý...' : 'Tiếp tục'}
-      </button>
+      </Button>
     </form>
   );
 }

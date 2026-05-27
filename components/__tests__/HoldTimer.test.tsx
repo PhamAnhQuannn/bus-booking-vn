@@ -33,7 +33,7 @@ describe('HoldTimer', () => {
     render(<HoldTimer />);
     const countdown = screen.getByTestId('hold-timer-countdown');
     const wrapper = countdown.parentElement!;
-    expect(wrapper.className).toContain('text-red-600');
+    expect(wrapper.className).toContain('text-destructive');
   });
 
   it('does NOT apply warning class when isWarning=false', () => {
@@ -45,8 +45,8 @@ describe('HoldTimer', () => {
     render(<HoldTimer />);
     const countdown = screen.getByTestId('hold-timer-countdown');
     const wrapper = countdown.parentElement!;
-    expect(wrapper.className).not.toContain('text-red-600');
-    expect(wrapper.className).toContain('text-gray-600');
+    expect(wrapper.className).not.toContain('text-destructive');
+    expect(wrapper.className).toContain('text-muted-foreground');
   });
 
   it('formats countdown correctly for sub-minute time', () => {
