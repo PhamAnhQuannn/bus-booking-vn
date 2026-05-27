@@ -181,7 +181,8 @@ jobs:
         run: pnpm prisma db seed
 
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
+        # mobile-390 project uses devices['iPhone SE'] → WebKit. chromium kept for the desktop project.
+        run: pnpm exec playwright install --with-deps chromium webkit
 
       - name: Build Next.js app
         run: pnpm build
