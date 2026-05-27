@@ -10,7 +10,11 @@ regex = '''\+84[35789]\d{8}'''
 tags = ["phone", "PII", "VN"]
 
 [allowlist]
-description = "Placeholder/fake VN phone numbers live only in seeds, tests, and the redact util — not real PII. Real app/lib source is still scanned by the rule."
+description = "Placeholder/fake VN phone numbers in seeds, tests, the redact util, and the shared doc-example literal — not real PII. Real app/lib source is still scanned."
+regexes = [
+  # Canonical fake doc-example number reused in docstrings (redactPhone, attachGuestBookingByPhone, …).
+  '''\+84901234567''',
+]
 paths = [
   '''prisma/seed\.ts''',
   '''lib/audit/redactPhone\.ts''',
