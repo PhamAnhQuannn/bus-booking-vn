@@ -16,10 +16,15 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Wallet, Smartphone, CreditCard, Banknote } from 'lucide-react';
 import { useHoldTimerStore } from '@/lib/state/holdTimerStore';
 import { HoldTimer } from '@/components/HoldTimer';
 import { HoldExpiryModal } from '@/components/HoldExpiryModal';
+import { BookingSteps } from '@/components/booking/BookingSteps';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
+import { cn } from '@/lib/utils';
 
 export interface HoldDetails {
   holdId: string;
@@ -56,11 +61,11 @@ const ERROR_LABEL: Record<string, string> = {
 
 type PaymentMethod = 'cash' | 'momo' | 'zalopay' | 'card';
 
-const PAYMENT_METHODS: ReadonlyArray<{ value: PaymentMethod; label: string }> = [
-  { value: 'cash', label: 'Tiền mặt' },
-  { value: 'momo', label: 'MoMo' },
-  { value: 'zalopay', label: 'ZaloPay' },
-  { value: 'card', label: 'Thẻ' },
+const PAYMENT_METHODS: ReadonlyArray<{ value: PaymentMethod; label: string; icon: typeof Wallet }> = [
+  { value: 'cash', label: 'Tiền mặt', icon: Banknote },
+  { value: 'momo', label: 'MoMo', icon: Wallet },
+  { value: 'zalopay', label: 'ZaloPay', icon: Smartphone },
+  { value: 'card', label: 'Thẻ', icon: CreditCard },
 ];
 
 export function ReviewClient({ holdDetails }: ReviewClientProps) {
@@ -109,72 +114,84 @@ export function ReviewClient({ holdDetails }: ReviewClientProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <HoldExpiryModal />
+      <BookingSteps current={2} />
 
-      <div className="bg-white border rounded-lg p-4 space-y-3">
-        <h2 className="text-lg font-semibold">Chi tiết đặt chỗ</h2>
-        <dl className="space-y-2">
-          <div className="flex justify-between">
-            <dt className="text-gray-600">Mã chuyến</dt>
-            <dd className="font-mono text-sm">{tripId}</dd>
-          </div>
-          <div className="flex justify-between">
-            <dt className="text-gray-600">Số vé</dt>
-            <dd>{ticketCount}</dd>
-          </div>
-          <div className="flex justify-between font-semibold text-lg border-t pt-2">
-            <dt>Tổng cộng</dt>
-            <dd className="text-blue-700">{formatVND(totalVND)}</dd>
-          </div>
-        </dl>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle as="h2">Chi tiết đặt chỗ</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <dl className="flex flex-col gap-2.5 text-sm">
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted-foreground">Mã chuyến</dt>
+              <dd className="truncate font-mono text-xs">{tripId}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-muted-foreground">Số vé</dt>
+              <dd>{ticketCount}</dd>
+            </div>
+            <div className="mt-1 flex items-center justify-between border-t border-border pt-3 text-lg font-semibold">
+              <dt>Tổng cộng</dt>
+              <dd className="font-mono text-primary">{formatVND(totalVND)}</dd>
+            </div>
+          </dl>
+        </CardContent>
+      </Card>
 
       <HoldTimer />
 
-      <fieldset className="bg-white border rounded-lg p-4 space-y-2">
-        <legend className="text-sm font-semibold px-1">Phương thức thanh toán</legend>
-        <div className="grid grid-cols-2 gap-2">
-          {PAYMENT_METHODS.map((m) => (
-            <label
-              key={m.value}
-              className={`flex items-center gap-2 border rounded px-3 py-2 cursor-pointer text-sm ${
-                method === m.value
-                  ? 'border-blue-600 bg-blue-50 text-blue-800'
-                  : 'border-gray-200'
-              }`}
-            >
-              <input
-                type="radio"
-                name="paymentMethod"
-                value={m.value}
-                checked={method === m.value}
-                onChange={() => setMethod(m.value)}
-                disabled={submitting}
-              />
-              {m.label}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <Card>
+        <CardHeader>
+          <CardTitle as="h2">Phương thức thanh toán</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <fieldset className="grid grid-cols-2 gap-2">
+            <legend className="sr-only">Phương thức thanh toán</legend>
+            {PAYMENT_METHODS.map((m) => {
+              const Icon = m.icon;
+              const selected = method === m.value;
+              return (
+                <label
+                  key={m.value}
+                  className={cn(
+                    'flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+                    selected
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border hover:bg-muted'
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value={m.value}
+                    checked={selected}
+                    onChange={() => setMethod(m.value)}
+                    disabled={submitting}
+                    className="sr-only"
+                  />
+                  <Icon className="size-4" aria-hidden="true" />
+                  {m.label}
+                </label>
+              );
+            })}
+          </fieldset>
+        </CardContent>
+      </Card>
 
       {error && (
         <div
           role="alert"
-          className="bg-red-50 border border-red-200 text-red-800 rounded px-4 py-3 text-sm"
+          className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
         >
           {error}
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={handleSubmit}
-        disabled={submitting}
-        className="w-full bg-green-600 text-white rounded px-4 py-2 font-semibold hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed"
-      >
+      <Button type="button" size="lg" className="w-full" onClick={handleSubmit} disabled={submitting}>
         {submitting ? 'Đang xử lý...' : 'Xác nhận thanh toán'}
-      </button>
+      </Button>
     </div>
   );
 }

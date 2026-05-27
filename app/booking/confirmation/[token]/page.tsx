@@ -14,7 +14,10 @@
  */
 
 import { notFound } from 'next/navigation';
+import { CheckCircle2, Phone, Clock, Bus, MapPin, Wallet } from 'lucide-react';
 import { getBookingByConfirmationToken } from '@/lib/db/bookingRepo';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
 interface ConfirmationPageProps {
   params: Promise<{ token: string }>;
@@ -49,6 +52,29 @@ const STATUS_LABEL: Record<string, string> = {
   payment_failed_expired: 'Thanh toán thất bại',
 };
 
+const STATUS_VARIANT: Record<string, 'success' | 'pending' | 'danger' | 'neutral'> = {
+  awaiting_payment: 'pending',
+  pending_cash_payment: 'pending',
+  paid_operator_notified: 'success',
+  completed: 'success',
+  cancelled: 'neutral',
+  trip_cancelled: 'danger',
+  no_show: 'danger',
+  payment_failed_expired: 'danger',
+};
+
+function Row({ icon: Icon, label, children }: { icon: typeof Phone; label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-4 text-sm">
+      <dt className="inline-flex items-center gap-2 text-muted-foreground">
+        <Icon className="size-4" aria-hidden="true" />
+        {label}
+      </dt>
+      <dd className="text-right">{children}</dd>
+    </div>
+  );
+}
+
 export default async function ConfirmationPage({ params }: ConfirmationPageProps) {
   const { token } = await params;
 
@@ -61,81 +87,79 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
   const isCashPending = booking.status === 'pending_cash_payment';
 
   return (
-    <main className="max-w-md mx-auto p-6 space-y-6">
-      <header className="space-y-1">
+    <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-10">
+      {/* Success header */}
+      <header className="flex flex-col items-center gap-3 text-center">
+        <span className="flex size-14 items-center justify-center rounded-full bg-success text-success-foreground">
+          <CheckCircle2 className="size-8" aria-hidden="true" />
+        </span>
         <h1 className="text-2xl font-bold">Đặt vé thành công</h1>
-        <p className="text-sm text-gray-600">
-          Mã đặt chỗ: <span className="font-mono font-semibold">{booking.bookingRef}</span>
-        </p>
-        <p className="text-sm">
-          Trạng thái:{' '}
-          <span className="font-semibold text-warning-foreground">
+        <div className="flex flex-col items-center gap-2">
+          <span className="font-mono text-sm font-semibold">{booking.bookingRef}</span>
+          <Badge variant={STATUS_VARIANT[booking.status] ?? 'neutral'}>
             {STATUS_LABEL[booking.status] ?? booking.status}
-          </span>
-        </p>
+          </Badge>
+        </div>
       </header>
 
-      <section className="bg-white border rounded-lg p-4 space-y-3">
-        <h2 className="text-lg font-semibold">Chi tiết chuyến đi</h2>
-        <dl className="space-y-2 text-sm">
-          <div className="flex justify-between gap-4">
-            <dt className="text-gray-600">Tuyến</dt>
-            <dd className="text-right">
+      <Card>
+        <CardHeader>
+          <CardTitle as="h2">Chi tiết chuyến đi</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <dl className="flex flex-col gap-2.5">
+            <Row icon={MapPin} label="Tuyến">
               {trip.route.origin} → {trip.route.destination}
-            </dd>
-          </div>
-          <div className="flex justify-between gap-4">
-            <dt className="text-gray-600">Khởi hành</dt>
-            <dd className="text-right">{formatDeparture(trip.departureAt)}</dd>
-          </div>
-          <div className="flex justify-between gap-4">
-            <dt className="text-gray-600">Xe</dt>
-            <dd className="text-right font-mono">{trip.bus.licensePlate}</dd>
-          </div>
-          <div className="flex justify-between gap-4">
-            <dt className="text-gray-600">Nhà xe</dt>
-            <dd className="text-right">{trip.bus.operator.legalName}</dd>
-          </div>
-          <div className="flex justify-between gap-4">
-            <dt className="text-gray-600">Hotline nhà xe</dt>
-            <dd className="text-right font-mono">{trip.bus.operator.contactPhone}</dd>
-          </div>
-        </dl>
-      </section>
+            </Row>
+            <Row icon={Clock} label="Khởi hành">{formatDeparture(trip.departureAt)}</Row>
+            <Row icon={Bus} label="Xe"><span className="font-mono">{trip.bus.licensePlate}</span></Row>
+            <Row icon={Bus} label="Nhà xe">{trip.bus.operator.legalName}</Row>
+            <Row icon={Phone} label="Hotline nhà xe">
+              <a href={`tel:${trip.bus.operator.contactPhone}`} className="font-mono text-primary hover:underline">
+                {trip.bus.operator.contactPhone}
+              </a>
+            </Row>
+          </dl>
+        </CardContent>
+      </Card>
 
-      <section className="bg-white border rounded-lg p-4 space-y-3">
-        <h2 className="text-lg font-semibold">Thông tin đặt vé</h2>
-        <dl className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <dt className="text-gray-600">Hành khách</dt>
-            <dd>{booking.buyerName}</dd>
-          </div>
-          <div className="flex justify-between">
-            <dt className="text-gray-600">Số điện thoại</dt>
-            <dd className="font-mono">{booking.buyerPhone}</dd>
-          </div>
-          <div className="flex justify-between">
-            <dt className="text-gray-600">Số vé</dt>
-            <dd>{booking.ticketCount}</dd>
-          </div>
-          <div className="flex justify-between font-semibold text-lg border-t pt-2">
-            <dt>Tổng cộng</dt>
-            <dd className="text-blue-700">{formatVND(booking.totalVnd)}</dd>
-          </div>
-        </dl>
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle as="h2">Thông tin đặt vé</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <dl className="flex flex-col gap-2.5 text-sm">
+            <div className="flex justify-between">
+              <dt className="text-muted-foreground">Hành khách</dt>
+              <dd>{booking.buyerName}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-muted-foreground">Số điện thoại</dt>
+              <dd className="font-mono">{booking.buyerPhone}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-muted-foreground">Số vé</dt>
+              <dd>{booking.ticketCount}</dd>
+            </div>
+            <div className="mt-1 flex items-center justify-between border-t border-border pt-3 text-lg font-semibold">
+              <dt>Tổng cộng</dt>
+              <dd className="font-mono text-primary">{formatVND(booking.totalVnd)}</dd>
+            </div>
+          </dl>
+        </CardContent>
+      </Card>
 
       {isCashPending && (
-        <section className="bg-warning border border-warning-border rounded-lg p-4 space-y-2">
-          <h2 className="text-base font-semibold text-warning-foreground">
+        <div className="flex flex-col gap-2 rounded-xl border border-warning-border bg-warning p-4">
+          <h2 className="inline-flex items-center gap-2 text-base font-semibold text-warning-foreground">
+            <Wallet className="size-4" aria-hidden="true" />
             Thanh toán tiền mặt khi lên xe
           </h2>
           <p className="text-sm text-warning-foreground">
-            Vui lòng thanh toán trực tiếp cho nhà xe khi lên xe. Hãy đến điểm đón
-            trước giờ khởi hành ít nhất 15 phút. Tin nhắn xác nhận đã được gửi tới
-            số điện thoại của bạn.
+            Vui lòng thanh toán trực tiếp cho nhà xe khi lên xe. Hãy đến điểm đón trước giờ khởi
+            hành ít nhất 15 phút. Tin nhắn xác nhận đã được gửi tới số điện thoại của bạn.
           </p>
-        </section>
+        </div>
       )}
     </main>
   );
