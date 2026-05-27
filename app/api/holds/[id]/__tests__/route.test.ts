@@ -28,6 +28,12 @@ const HOLD_ID = 'hold-uuid-1234';
 const TRIP_ID = 'trip-cuid-5678';
 const EXPIRES_AT = new Date('2026-05-17T13:10:00.000Z');
 
+const MOCK_TRIP_REL = {
+  departureAt: new Date('2026-05-18T01:00:00.000Z'),
+  route: { origin: 'Hà Nội', destination: 'TP.HCM' },
+  bus: { operator: { legalName: 'Nhà xe Test' } },
+};
+
 const MOCK_HOLD = {
   id: HOLD_ID,
   tripId: TRIP_ID,
@@ -36,6 +42,7 @@ const MOCK_HOLD = {
   status: 'active',
   trip: {
     price: 150000,
+    ...MOCK_TRIP_REL,
   },
 };
 
@@ -122,7 +129,7 @@ describe('GET /api/holds/[id]', () => {
     vi.mocked(prisma.hold.findUnique).mockResolvedValueOnce({
       ...MOCK_HOLD,
       ticketCount: 3,
-      trip: { price: 200000 },
+      trip: { price: 200000, ...MOCK_TRIP_REL },
     } as never);
 
     const req = makeRequest(HOLD_ID, `bb_hold=fake`);

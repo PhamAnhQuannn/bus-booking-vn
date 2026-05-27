@@ -18,9 +18,9 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Wallet, Smartphone, CreditCard, Banknote } from 'lucide-react';
 import { useHoldTimerStore } from '@/lib/state/holdTimerStore';
-import { HoldTimer } from '@/components/HoldTimer';
 import { HoldExpiryModal } from '@/components/HoldExpiryModal';
 import { BookingSteps } from '@/components/booking/BookingSteps';
+import { BookingSummaryRail } from '@/components/booking/BookingSummaryRail';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
@@ -31,21 +31,16 @@ export interface HoldDetails {
   tripId: string;
   ticketCount: number;
   expiresAt: string;
+  unitPriceVND: number;
   totalVND: number;
+  routeOrigin: string;
+  routeDestination: string;
+  departureAt: string;
+  operatorLegalName: string;
 }
 
 interface ReviewClientProps {
   holdDetails: HoldDetails;
-}
-
-function formatVND(amount: number): string {
-  return (
-    new Intl.NumberFormat('vi-VN', {
-      style: 'decimal',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount) + 'đ'
-  );
 }
 
 const ERROR_LABEL: Record<string, string> = {
@@ -70,7 +65,7 @@ const PAYMENT_METHODS: ReadonlyArray<{ value: PaymentMethod; label: string; icon
 
 export function ReviewClient({ holdDetails }: ReviewClientProps) {
   const router = useRouter();
-  const { holdId, expiresAt, totalVND, ticketCount, tripId } = holdDetails;
+  const { holdId, expiresAt } = holdDetails;
   const { startTimer } = useHoldTimerStore();
 
   const [method, setMethod] = useState<PaymentMethod>('cash');
@@ -114,84 +109,77 @@ export function ReviewClient({ holdDetails }: ReviewClientProps) {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col-reverse gap-6 md:grid md:grid-cols-[1fr_20rem] md:items-start">
       <HoldExpiryModal />
-      <BookingSteps current={2} />
 
-      <Card>
-        <CardHeader>
-          <CardTitle as="h2">Chi tiết đặt chỗ</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <dl className="flex flex-col gap-2.5 text-sm">
-            <div className="flex justify-between gap-4">
-              <dt className="text-muted-foreground">Mã chuyến</dt>
-              <dd className="truncate font-mono text-xs">{tripId}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">Số vé</dt>
-              <dd>{ticketCount}</dd>
-            </div>
-            <div className="mt-1 flex items-center justify-between border-t border-border pt-3 text-lg font-semibold">
-              <dt>Tổng cộng</dt>
-              <dd className="font-mono text-primary">{formatVND(totalVND)}</dd>
-            </div>
-          </dl>
-        </CardContent>
-      </Card>
+      {/* Left: steps + payment method + submit */}
+      <div className="flex flex-col gap-6">
+        <BookingSteps current={2} />
 
-      <HoldTimer />
+        <Card>
+          <CardHeader>
+            <CardTitle as="h2">Phương thức thanh toán</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <fieldset className="grid grid-cols-2 gap-2">
+              <legend className="sr-only">Phương thức thanh toán</legend>
+              {PAYMENT_METHODS.map((m) => {
+                const Icon = m.icon;
+                const selected = method === m.value;
+                return (
+                  <label
+                    key={m.value}
+                    className={cn(
+                      'flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+                      selected
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border hover:bg-muted'
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value={m.value}
+                      checked={selected}
+                      onChange={() => setMethod(m.value)}
+                      disabled={submitting}
+                      className="sr-only"
+                    />
+                    <Icon className="size-4" aria-hidden="true" />
+                    {m.label}
+                  </label>
+                );
+              })}
+            </fieldset>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle as="h2">Phương thức thanh toán</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <fieldset className="grid grid-cols-2 gap-2">
-            <legend className="sr-only">Phương thức thanh toán</legend>
-            {PAYMENT_METHODS.map((m) => {
-              const Icon = m.icon;
-              const selected = method === m.value;
-              return (
-                <label
-                  key={m.value}
-                  className={cn(
-                    'flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
-                    selected
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border hover:bg-muted'
-                  )}
-                >
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value={m.value}
-                    checked={selected}
-                    onChange={() => setMethod(m.value)}
-                    disabled={submitting}
-                    className="sr-only"
-                  />
-                  <Icon className="size-4" aria-hidden="true" />
-                  {m.label}
-                </label>
-              );
-            })}
-          </fieldset>
-        </CardContent>
-      </Card>
+        {error && (
+          <div
+            role="alert"
+            className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+          >
+            {error}
+          </div>
+        )}
 
-      {error && (
-        <div
-          role="alert"
-          className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-        >
-          {error}
-        </div>
-      )}
+        <Button type="button" size="lg" className="w-full" onClick={handleSubmit} disabled={submitting}>
+          {submitting ? 'Đang xử lý...' : 'Xác nhận thanh toán'}
+        </Button>
+      </div>
 
-      <Button type="button" size="lg" className="w-full" onClick={handleSubmit} disabled={submitting}>
-        {submitting ? 'Đang xử lý...' : 'Xác nhận thanh toán'}
-      </Button>
+      {/* Right: sticky order summary (PTN-07) */}
+      <BookingSummaryRail
+        summary={{
+          routeOrigin: holdDetails.routeOrigin,
+          routeDestination: holdDetails.routeDestination,
+          departureAt: holdDetails.departureAt,
+          operatorLegalName: holdDetails.operatorLegalName,
+          ticketCount: holdDetails.ticketCount,
+          unitPriceVND: holdDetails.unitPriceVND,
+          totalVND: holdDetails.totalVND,
+        }}
+      />
     </div>
   );
 }

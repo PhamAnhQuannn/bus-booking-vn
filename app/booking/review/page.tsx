@@ -42,7 +42,7 @@ export default async function ReviewPage({ searchParams }: ReviewPageProps) {
   }
 
   return (
-    <main className="mx-auto w-full max-w-md px-4 py-8">
+    <main className="mx-auto w-full max-w-3xl px-4 py-8">
       <h1 className="mb-6 text-2xl font-bold">Xem lại đơn hàng</h1>
       <ReviewClient
         holdDetails={{
@@ -50,7 +50,12 @@ export default async function ReviewPage({ searchParams }: ReviewPageProps) {
           tripId: details.tripId,
           ticketCount: details.ticketCount,
           expiresAt: details.expiresAt,
+          unitPriceVND: details.unitPriceVND,
           totalVND: details.totalVND,
+          routeOrigin: details.routeOrigin,
+          routeDestination: details.routeDestination,
+          departureAt: details.departureAt,
+          operatorLegalName: details.operatorLegalName,
         }}
       />
     </main>
