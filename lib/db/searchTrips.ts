@@ -35,6 +35,9 @@ export interface TripResult {
   price: number;
   availableSeats: number;
   operatorLegalName: string;
+  operatorId: string;
+  busType: 'coach' | 'sleeper' | 'limousine';
+  durationMinutes: number;
   routeOrigin: string;
   routeDestination: string;
 }
@@ -163,6 +166,9 @@ export async function searchTrips(input: TripSearchInput): Promise<TripResult[]>
         price: trip.price,
         availableSeats: available,
         operatorLegalName: trip.bus.operator.legalName,
+        operatorId: trip.bus.operatorId,
+        busType: trip.bus.busType,
+        durationMinutes: trip.route.durationMinutes,
         routeOrigin: trip.route.origin,
         routeDestination: trip.route.destination,
       });

@@ -12,10 +12,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, Clock, Armchair } from 'lucide-react';
-import { searchParamsSchema } from '@/lib/validation/search';
+import { searchParamsSchema, searchFiltersSchema } from '@/lib/validation/search';
 import { searchTrips, type TripResult } from '@/lib/db/searchTrips';
+import { applyTripFilters, type TripFacets } from '@/lib/search/applyTripFilters';
 import { SearchFormWrapper } from '@/components/search/SearchFormWrapper';
 import { SearchStoreHydrator } from '@/components/search/SearchStoreHydrator';
+import { SearchFilterRail, SearchToolbar } from '@/components/search/SearchFilters';
 import { BookButton } from '@/components/search/BookButton';
 import { getSearchablePlaces } from '@/lib/db/getSearchablePlaces';
 
@@ -107,7 +109,15 @@ function TripCard({ trip, ticketCount }: { trip: TripResult; ticketCount: number
           <span className="text-xs text-muted-foreground">Giá vé</span>
           <span className="font-mono text-xl font-bold text-primary">{formatPrice(trip.price)}</span>
         </div>
-        <BookButton tripId={trip.tripId} ticketCount={ticketCount} />
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/trips/${trip.tripId}`}
+            className="inline-flex min-h-11 items-center text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          >
+            Xem chi tiết
+          </Link>
+          <BookButton tripId={trip.tripId} ticketCount={ticketCount} />
+        </div>
       </div>
     </article>
   );
@@ -164,6 +174,8 @@ function EmptyState({
 
 function ResultsList({
   trips,
+  facets,
+  totalBeforeFilters,
   origin,
   destination,
   date,
@@ -171,6 +183,8 @@ function ResultsList({
   showPrev,
 }: {
   trips: TripResult[];
+  facets: TripFacets;
+  totalBeforeFilters: number;
   origin: string;
   destination: string;
   date: string;
@@ -191,45 +205,60 @@ function ResultsList({
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Result count */}
-      <p className="text-sm text-muted-foreground">
-        Tìm thấy <strong className="text-foreground">{trips.length}</strong> chuyến xe
-      </p>
+    <div className="md:grid md:grid-cols-[16rem_1fr] md:gap-6">
+      {/* PTN-03: persistent sticky filter rail (desktop) */}
+      <SearchFilterRail facets={facets} />
 
-      {/* ±1 day nav — segmented bar; prev hidden when date == today (VN) */}
-      <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1 shadow-e1">
-        {showPrev ? (
+      <div className="flex min-w-0 flex-col gap-4">
+        {/* ±1 day nav — segmented bar; prev hidden when date == today (VN) */}
+        <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1 shadow-e1">
+          {showPrev ? (
+            <Link
+              href={buildUrl(prevDate)}
+              className="inline-flex min-h-11 items-center justify-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              aria-label={`Ngày trước: ${formatVnDate(prevDate)}`}
+            >
+              ← Trước
+            </Link>
+          ) : (
+            <span className="min-h-11" />
+          )}
+          <span className="flex-1 text-center text-sm font-semibold leading-[2.75rem]">
+            {formatVnDate(date)}
+          </span>
           <Link
-            href={buildUrl(prevDate)}
+            href={buildUrl(nextDate)}
             className="inline-flex min-h-11 items-center justify-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            aria-label={`Ngày trước: ${formatVnDate(prevDate)}`}
+            aria-label={`Ngày sau: ${formatVnDate(nextDate)}`}
           >
-            ← Trước
+            Sau →
           </Link>
-        ) : (
-          <span className="min-h-11" />
-        )}
-        <span className="flex-1 text-center text-sm font-semibold leading-[2.75rem]">
-          {formatVnDate(date)}
-        </span>
-        <Link
-          href={buildUrl(nextDate)}
-          className="inline-flex min-h-11 items-center justify-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          aria-label={`Ngày sau: ${formatVnDate(nextDate)}`}
-        >
-          Sau →
-        </Link>
-      </div>
+        </div>
 
-      {/* Trip cards */}
-      <ul className="flex flex-col gap-3" aria-label={`${trips.length} chuyến xe`}>
-        {trips.map((trip) => (
-          <li key={trip.tripId}>
-            <TripCard trip={trip} ticketCount={ticketCount} />
-          </li>
-        ))}
-      </ul>
+        {/* Sort + active-filter chips + mobile filter button */}
+        <SearchToolbar facets={facets} />
+
+        {/* Result count (reflects active filters) */}
+        <p className="text-sm text-muted-foreground" aria-live="polite">
+          Hiển thị <strong className="text-foreground">{trips.length}</strong>
+          {trips.length !== totalBeforeFilters ? `/${totalBeforeFilters}` : ''} chuyến xe
+        </p>
+
+        {/* Trip cards, or filtered-empty notice */}
+        {trips.length === 0 ? (
+          <p className="rounded-lg border border-border bg-muted/40 px-4 py-6 text-center text-sm text-muted-foreground">
+            Không có chuyến nào khớp bộ lọc. Hãy bỏ bớt bộ lọc.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-3" aria-label={`${trips.length} chuyến xe`}>
+            {trips.map((trip) => (
+              <li key={trip.tripId}>
+                <TripCard trip={trip} ticketCount={ticketCount} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
@@ -260,7 +289,15 @@ export default async function SearchPage({ searchParams }: PageProps) {
 
   const { origin, destination, date, ticketCount } = parsed.data;
 
-  const trips = await searchTrips({ origin, destination, date, ticketCount });
+  const baseTrips = await searchTrips({ origin, destination, date, ticketCount });
+
+  // Layer optional filters/sort over the base set. Schema has defaults + is fully
+  // optional, so this parse always succeeds; fall back to defaults on the off chance.
+  const filters = searchFiltersSchema.safeParse(params);
+  const { trips, facets, totalBeforeFilters } = applyTripFilters(
+    baseTrips,
+    filters.success ? filters.data : searchFiltersSchema.parse({})
+  );
 
   // AC-4: suppress prev-day chip when searched date == today (Asia/Ho_Chi_Minh).
   // en-CA locale emits YYYY-MM-DD; pin timeZone to VN so DST/UTC drift cannot mis-render.
@@ -268,7 +305,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
   const showPrev = date !== todayVN;
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6">
+    <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6">
       {/* Seed searchStore so back-nav to "/" restores the form (AC-5) */}
       <SearchStoreHydrator
         query={{ origin, destination, date, ticketCount: String(ticketCount) }}
@@ -288,7 +325,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
         </h1>
       </div>
 
-      {trips.length === 0 ? (
+      {totalBeforeFilters === 0 ? (
         <EmptyState
           origin={origin}
           destination={destination}
@@ -299,6 +336,8 @@ export default async function SearchPage({ searchParams }: PageProps) {
       ) : (
         <ResultsList
           trips={trips}
+          facets={facets}
+          totalBeforeFilters={totalBeforeFilters}
           origin={origin}
           destination={destination}
           date={date}

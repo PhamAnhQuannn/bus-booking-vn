@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 const NAV = [
   { href: '/', label: 'Trang chủ' },
   { href: '/search', label: 'Tìm chuyến xe' },
+  { href: '/routes', label: 'Tuyến đường' },
   { href: '/account/bookings', label: 'Tài khoản' },
 ];
 
