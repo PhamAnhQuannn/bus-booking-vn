@@ -70,31 +70,42 @@ function formatDepartureAt(iso: string): string {
 function TripCard({ trip, ticketCount }: { trip: TripResult; ticketCount: number }) {
   return (
     <article
-      className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4 shadow-sm"
+      className="group flex flex-col gap-3 rounded-xl border border-border bg-card p-5 shadow-e1 transition-all hover:border-primary/30 hover:shadow-e2 motion-safe:hover:-translate-y-0.5"
       aria-label={`Chuyến từ ${trip.routeOrigin} đến ${trip.routeDestination}`}
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="flex items-center gap-1.5 text-lg font-semibold">
-          {trip.routeOrigin}
-          <ArrowRight className="size-4 text-primary" aria-hidden="true" />
-          {trip.routeDestination}
-        </span>
-        <span className="text-sm text-muted-foreground">{trip.operatorLegalName}</span>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2 text-lg font-semibold">
+          <span>{trip.routeOrigin}</span>
+          <ArrowRight className="size-4 shrink-0 text-primary" aria-hidden="true" />
+          <span>{trip.routeDestination}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span
+            className="flex size-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary"
+            aria-hidden="true"
+          >
+            {trip.operatorLegalName.replace(/^(Công ty|CÔNG TY)\s*/i, '').trim().charAt(0)}
+          </span>
+          <span className="hidden text-sm text-muted-foreground sm:inline">
+            {trip.operatorLegalName}
+          </span>
+        </div>
       </div>
-      <div className="flex items-center gap-4 text-sm">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-muted-foreground">
         <span className="inline-flex items-center gap-1.5">
-          <Clock className="size-4 text-muted-foreground" aria-hidden="true" />
-          <span className="text-muted-foreground">Khởi hành: </span>
-          <strong>{formatDepartureAt(trip.departureAt)}</strong>
+          <Clock className="size-4" aria-hidden="true" />
+          Khởi hành <strong className="font-mono text-foreground">{formatDepartureAt(trip.departureAt)}</strong>
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <Armchair className="size-4 text-muted-foreground" aria-hidden="true" />
-          <span className="text-muted-foreground">Chỗ trống: </span>
-          <strong>{trip.availableSeats}</strong>
+          <Armchair className="size-4" aria-hidden="true" />
+          Còn <strong className="text-foreground">{trip.availableSeats}</strong> chỗ
         </span>
       </div>
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-xl font-bold text-primary">{formatPrice(trip.price)}</span>
+      <div className="mt-1 flex items-center justify-between gap-3 border-t border-border/60 pt-3">
+        <div className="flex flex-col">
+          <span className="text-xs text-muted-foreground">Giá vé</span>
+          <span className="font-mono text-xl font-bold text-primary">{formatPrice(trip.price)}</span>
+        </div>
         <BookButton tripId={trip.tripId} ticketCount={ticketCount} />
       </div>
     </article>
@@ -180,26 +191,33 @@ function ResultsList({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* ±1 day chips — prev hidden when date == today (VN) */}
-      <div className="flex gap-3">
-        {showPrev && (
+      {/* Result count */}
+      <p className="text-sm text-muted-foreground">
+        Tìm thấy <strong className="text-foreground">{trips.length}</strong> chuyến xe
+      </p>
+
+      {/* ±1 day nav — segmented bar; prev hidden when date == today (VN) */}
+      <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1 shadow-e1">
+        {showPrev ? (
           <Link
             href={buildUrl(prevDate)}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-muted"
+            className="inline-flex min-h-9 items-center justify-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             aria-label={`Ngày trước: ${formatVnDate(prevDate)}`}
           >
-            ← Ngày trước
+            ← Trước
           </Link>
+        ) : (
+          <span className="min-h-9" />
         )}
-        <span className="flex-1 text-center text-sm font-medium leading-11">
+        <span className="flex-1 text-center text-sm font-semibold leading-9">
           {formatVnDate(date)}
         </span>
         <Link
           href={buildUrl(nextDate)}
-          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-muted"
+          className="inline-flex min-h-9 items-center justify-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           aria-label={`Ngày sau: ${formatVnDate(nextDate)}`}
         >
-          Ngày sau →
+          Sau →
         </Link>
       </div>
 
