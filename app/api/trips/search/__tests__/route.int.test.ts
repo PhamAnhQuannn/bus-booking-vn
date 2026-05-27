@@ -14,12 +14,13 @@
  *   AC-13 Prisma select whitelist — only 7 fields in response
  */
 
-import { describe, it, expect, beforeAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { addDays, startOfDay } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { GET } from '../route';
 import { ratelimit } from '@/lib/ratelimit';
+import { prisma } from '@/lib/db/client';
 
 const TZ = 'Asia/Ho_Chi_Minh';
 
@@ -46,15 +47,94 @@ function makeRequest(params: Record<string, string>): NextRequest {
 const now = new Date();
 const vnToday = startOfDay(toZonedTime(now, TZ));
 
-const TODAY_STR = vnDateStr(now);
 const TOMORROW_STR = vnDateStr(addDays(vnToday, 1));
 const DAY2_STR = vnDateStr(addDays(vnToday, 2));
-const DAY4_STR = vnDateStr(addDays(vnToday, 4));
-const DAY5_STR = vnDateStr(addDays(vnToday, 5));
 
 beforeAll(() => {
   if (!process.env.DATABASE_URL) {
     throw new Error('DATABASE_URL must be set for integration tests');
+  }
+});
+
+// ---- AC-3 isolated fixtures ----
+// AC-3 exclusion tests must NOT depend on the global seed's date sparsity (the
+// dense demo seed + other int-test fixtures pollute shared routes/dates). Each
+// exclusion case gets its own uniquely-named route so the only trips present are
+// the ones created here — deterministic regardless of seed.
+const AC3 = {
+  cancel: { origin: 'ACThreeCancelOrigin', dest: 'ACThreeCancelDest' },
+  closed: { origin: 'ACThreeClosedOrigin', dest: 'ACThreeClosedDest' },
+  maint: { origin: 'ACThreeMaintOrigin', dest: 'ACThreeMaintDest' },
+};
+let ac3OperatorId: string;
+const ac3RouteIds: string[] = [];
+
+beforeAll(async () => {
+  const op = await prisma.operator.create({
+    data: {
+      legalName: 'AC3 Exclusion Test Operator',
+      contactPhone: '+8490xxxxxx5',
+      contactEmail: 'ac3@route-int.test',
+      notificationPhone: '+8490xxxxxx6',
+    },
+  });
+  ac3OperatorId = op.id;
+  const departTomorrow = (h: number) => new Date(`${TOMORROW_STR}T${String(h).padStart(2, '0')}:00:00+07:00`);
+
+  // Cancelled-only route
+  const rCancel = await prisma.route.create({
+    data: { origin: AC3.cancel.origin, destination: AC3.cancel.dest, operatorId: op.id, durationMinutes: 180 },
+  });
+  const busC = await prisma.bus.create({
+    data: { operatorId: op.id, capacity: 20, licensePlate: 'AC3-CANC-1', busType: 'coach' },
+  });
+  await prisma.trip.create({
+    data: { routeId: rCancel.id, busId: busC.id, operatorId: op.id, departureAt: departTomorrow(7), price: 100000, status: 'cancelled', salesClosed: false },
+  });
+
+  // SalesClosed-only route
+  const rClosed = await prisma.route.create({
+    data: { origin: AC3.closed.origin, destination: AC3.closed.dest, operatorId: op.id, durationMinutes: 180 },
+  });
+  const busS = await prisma.bus.create({
+    data: { operatorId: op.id, capacity: 20, licensePlate: 'AC3-CLOSED-1', busType: 'coach' },
+  });
+  await prisma.trip.create({
+    data: { routeId: rClosed.id, busId: busS.id, operatorId: op.id, departureAt: departTomorrow(7), price: 100000, status: 'scheduled', salesClosed: true },
+  });
+
+  // Maintenance route: 1 normal trip (surfaces) + 1 maintenance-bus trip (excluded) → exactly 1 result.
+  const rMaint = await prisma.route.create({
+    data: { origin: AC3.maint.origin, destination: AC3.maint.dest, operatorId: op.id, durationMinutes: 180 },
+  });
+  const busNormal = await prisma.bus.create({
+    data: { operatorId: op.id, capacity: 20, licensePlate: 'AC3-MAINT-OK', busType: 'coach' },
+  });
+  const busMaint = await prisma.bus.create({
+    data: {
+      operatorId: op.id, capacity: 20, licensePlate: 'AC3-MAINT-DOWN', busType: 'coach',
+      maintenanceStart: new Date(Date.now() - 24 * 3600 * 1000),
+      maintenanceEnd: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+    },
+  });
+  await prisma.trip.create({
+    data: { routeId: rMaint.id, busId: busNormal.id, operatorId: op.id, departureAt: departTomorrow(7), price: 100000, status: 'scheduled', salesClosed: false },
+  });
+  await prisma.trip.create({
+    data: { routeId: rMaint.id, busId: busMaint.id, operatorId: op.id, departureAt: departTomorrow(11), price: 100000, status: 'scheduled', salesClosed: false },
+  });
+
+  ac3RouteIds.push(rCancel.id, rClosed.id, rMaint.id);
+});
+
+afterAll(async () => {
+  if (ac3RouteIds.length) {
+    await prisma.trip.deleteMany({ where: { routeId: { in: ac3RouteIds } } });
+    await prisma.route.deleteMany({ where: { id: { in: ac3RouteIds } } });
+  }
+  if (ac3OperatorId) {
+    await prisma.bus.deleteMany({ where: { operatorId: ac3OperatorId } });
+    await prisma.operator.deleteMany({ where: { id: ac3OperatorId } });
   }
 });
 
@@ -136,7 +216,18 @@ describe('GET /api/trips/search — integration', () => {
     const item = body[0];
     const keys = Object.keys(item).sort();
     expect(keys).toEqual(
-      ['availableSeats', 'departureAt', 'operatorLegalName', 'price', 'routeDestination', 'routeOrigin', 'tripId'].sort()
+      [
+        'availableSeats',
+        'busType',
+        'departureAt',
+        'durationMinutes',
+        'operatorId',
+        'operatorLegalName',
+        'price',
+        'routeDestination',
+        'routeOrigin',
+        'tripId',
+      ].sort()
     );
     // No internal fields leaked
     expect(item).not.toHaveProperty('id');
@@ -167,22 +258,20 @@ describe('GET /api/trips/search — integration', () => {
   // ---- AC-3: Filter exclusions ----
 
   it('AC-3: cancelled trips excluded from results', async () => {
-    // Seed has a cancelled trip on Day 4 for Hà Nội→TP.HCM
-    const req = makeRequest({ origin: 'Hà Nội', destination: 'TP.HCM', date: DAY4_STR, ticketCount: '1' });
+    // Isolated fixture: the AC3 cancel route has exactly one trip, status=cancelled.
+    const req = makeRequest({ origin: AC3.cancel.origin, destination: AC3.cancel.dest, date: TOMORROW_STR, ticketCount: '1' });
     const res = await GET(req);
     expect(res.status).toBe(200);
     const body = await res.json();
-    // Cancelled trip should not appear — array empty (no other scheduled trips that day)
     expect(body).toEqual([]);
   });
 
   it('AC-3: salesClosed trips excluded from results', async () => {
-    // Seed has a salesClosed trip on Day 5 for Hà Nội→TP.HCM
-    const req = makeRequest({ origin: 'Hà Nội', destination: 'TP.HCM', date: DAY5_STR, ticketCount: '1' });
+    // Isolated fixture: the AC3 closed route has exactly one trip, salesClosed=true.
+    const req = makeRequest({ origin: AC3.closed.origin, destination: AC3.closed.dest, date: TOMORROW_STR, ticketCount: '1' });
     const res = await GET(req);
     expect(res.status).toBe(200);
     const body = await res.json();
-    // salesClosed trip should not appear
     expect(body).toEqual([]);
   });
 
@@ -265,9 +354,9 @@ describe('GET /api/trips/search — integration', () => {
   // ---- AC-3 (extra): maintenance-bus trips excluded ----
 
   it('AC-3: maintenance-bus trips excluded from results', async () => {
-    // Seed: buses[2] (maintenance now..+3d) has r2 trip tomorrow 11am.
-    // r2 also has buses[3] trip tomorrow 7am. Only buses[3] should surface.
-    const req = makeRequest({ origin: 'Đà Nẵng', destination: 'Huế', date: TOMORROW_STR, ticketCount: '1' });
+    // Isolated fixture: AC3 maint route has 1 normal-bus trip (surfaces) + 1
+    // maintenance-bus trip (excluded). Only the normal trip should return.
+    const req = makeRequest({ origin: AC3.maint.origin, destination: AC3.maint.dest, date: TOMORROW_STR, ticketCount: '1' });
     const res = await GET(req);
     expect(res.status).toBe(200);
     const body = await res.json();
