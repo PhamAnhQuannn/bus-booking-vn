@@ -76,6 +76,7 @@ export const loggerOptions: LoggerOptions = {
       'buyerPhone',
       'buyerName',
       '*.recipient',
+      'newPhone',                // Issue 008: phone-change new phone (PII)
     ],
     censor: '[REDACTED]',
   },

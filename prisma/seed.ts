@@ -4,6 +4,7 @@ import { Pool } from 'pg';
 import { addDays, startOfDay, set } from 'date-fns';
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import { hash as hashPassword } from '../lib/auth/password';
+import { normalizePhone } from '../lib/auth/phoneNormalize';
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -31,17 +32,48 @@ function vnTime(baseUtcDate: Date, hours: number, minutes = 0): Date {
 async function main() {
   console.log('Seeding database...');
 
-  // Clear existing data (safe for CI fresh-boot)
-  // Holds must go before trips: FK Hold.tripId → Trip has no cascade, and
-  // a stale e2e capacity-1 hold from a prior run would also poison the
-  // race-condition test by consuming the only seat.
+  // Clear existing data (safe for CI fresh-boot), FK-ordered children-first.
+  // Booking.holdId → Hold is onDelete:Restrict, so Booking MUST be deleted
+  // before Hold (deleting Hold first while an e2e Booking references it throws
+  // Booking_holdId_fkey). PaymentEvent → Booking has no cascade, so it precedes
+  // Booking. NotificationLog → Booking is Cascade but we delete explicitly to
+  // avoid relying on cascade ordering.
+  await prisma.notificationLog.deleteMany();
+  await prisma.paymentEvent.deleteMany();
+  await prisma.booking.deleteMany();
   await prisma.hold.deleteMany();
+
+  // Trip children without cascade (or SetNull) must precede Trip.
+  // RecurringGenerationLog.tripId → SetNull; Payout.tripId → Trip; and
+  // OperatorUser.assignedTripId ("StaffAssignment", no cascade) must be NULLed
+  // before any Trip can be deleted.
+  await prisma.recurringGenerationLog.deleteMany();
+  await prisma.payout.deleteMany();
+  await prisma.operatorUser.updateMany({ data: { assignedTripId: null } });
   await prisma.trip.deleteMany();
+
+  // Route children (PickupPoint Cascade, RecurringTripTemplate no cascade) and
+  // Bus children (BusMaintenance Cascade) precede their parents.
+  await prisma.pickupPoint.deleteMany();
+  await prisma.recurringTripTemplate.deleteMany();
   await prisma.route.deleteMany();
+  await prisma.busMaintenance.deleteMany();
   await prisma.bus.deleteMany();
-  await prisma.operator.deleteMany();
-  // OperatorSession / OperatorOtpAttempt cascade from OperatorUser
+
+  // Operator-scoped auth/session rows. OperatorSession cascades from
+  // OperatorUser; OperatorOtpAttempt has no FK. OperatorUser → Operator has no
+  // cascade, so OperatorUser precedes Operator.
+  await prisma.operatorOtpAttempt.deleteMany();
+  await prisma.operatorSession.deleteMany();
   await prisma.operatorUser.deleteMany();
+  await prisma.operator.deleteMany();
+
+  // Customer-scoped rows (customer e2e specs leave these behind).
+  // Session → Customer Cascade; Booking.customerId → SetNull (Bookings already
+  // deleted above). OtpAttempt has no FK.
+  await prisma.session.deleteMany();
+  await prisma.otpAttempt.deleteMany();
+  await prisma.customer.deleteMany();
 
   // ---- Operators ----
   // NOTE: Phone numbers use placeholder values — NEVER real VN mobile numbers
@@ -58,6 +90,14 @@ async function main() {
       legalName: 'Công ty CP Vận Tải Miền Nam',
       contactPhone: '+8490xxxxxx2',
       contactEmail: 'hotro@mientam.vn',
+    },
+  });
+
+  const op3 = await prisma.operator.create({
+    data: {
+      legalName: 'Công ty TNHH Vận Tải Tây Nguyên',
+      contactPhone: '+8490xxxxxx4',
+      contactEmail: 'cskh@taynguyen.vn',
     },
   });
 
@@ -79,14 +119,44 @@ async function main() {
     prisma.bus.create({ data: { operatorId: op2.id, capacity: 40, licensePlate: '51B-99002', busType: 'coach' } }),
     // Capacity-1 bus dedicated for e2e race-condition test (AC-4)
     prisma.bus.create({ data: { operatorId: op1.id, capacity: 1, licensePlate: 'E2E-RACE-01', busType: 'coach' } }),
+    // --- Variety buses (indices 6+) for the new filters; indices 0–5 above stay stable ---
+    prisma.bus.create({ data: { operatorId: op1.id, capacity: 34, licensePlate: '29B-22001', busType: 'sleeper' } }),    // 6
+    prisma.bus.create({ data: { operatorId: op1.id, capacity: 22, licensePlate: '29B-22002', busType: 'limousine' } }),  // 7
+    prisma.bus.create({ data: { operatorId: op2.id, capacity: 45, licensePlate: '51B-99003', busType: 'coach' } }),      // 8
+    prisma.bus.create({ data: { operatorId: op2.id, capacity: 34, licensePlate: '51B-99004', busType: 'sleeper' } }),    // 9
+    prisma.bus.create({ data: { operatorId: op2.id, capacity: 22, licensePlate: '51B-99005', busType: 'limousine' } }),  // 10
+    prisma.bus.create({ data: { operatorId: op3.id, capacity: 40, licensePlate: '47B-30001', busType: 'coach' } }),      // 11
+    prisma.bus.create({ data: { operatorId: op3.id, capacity: 34, licensePlate: '47B-30002', busType: 'sleeper' } }),    // 12
+    prisma.bus.create({ data: { operatorId: op3.id, capacity: 22, licensePlate: '47B-30003', busType: 'limousine' } }),  // 13
   ]);
 
   // ---- Routes ----
   const r1 = await prisma.route.create({ data: { origin: 'Hà Nội', destination: 'TP.HCM', operatorId: op1.id, durationMinutes: 960 } });
   const r2 = await prisma.route.create({ data: { origin: 'Đà Nẵng', destination: 'Huế', operatorId: op1.id, durationMinutes: 120 } });
   const r3 = await prisma.route.create({ data: { origin: 'Cần Thơ', destination: 'Đà Lạt', operatorId: op2.id, durationMinutes: 300 } });
+  // --- Additional real routes for the new /routes + search-filter surfaces ---
+  const r4 = await prisma.route.create({ data: { origin: 'Hà Nội', destination: 'Sa Pa', operatorId: op1.id, durationMinutes: 330 } });
+  const r5 = await prisma.route.create({ data: { origin: 'Hà Nội', destination: 'Hải Phòng', operatorId: op2.id, durationMinutes: 150 } });
+  const r6 = await prisma.route.create({ data: { origin: 'Sài Gòn', destination: 'Đà Lạt', operatorId: op2.id, durationMinutes: 360 } });
+  const r7 = await prisma.route.create({ data: { origin: 'Huế', destination: 'Đà Nẵng', operatorId: op3.id, durationMinutes: 120 } });
+  const r8 = await prisma.route.create({ data: { origin: 'Nha Trang', destination: 'Đà Lạt', operatorId: op3.id, durationMinutes: 240 } });
+  // Same origin/destination as r6 but a different operator → /routes shows "2 nhà xe".
+  const r9 = await prisma.route.create({ data: { origin: 'Sài Gòn', destination: 'Đà Lạt', operatorId: op3.id, durationMinutes: 360 } });
   // Dedicated route for e2e race-condition test (capacity-1 bus, AC-4)
   const rRace = await prisma.route.create({ data: { origin: 'E2E Race Origin', destination: 'E2E Race Destination', operatorId: op1.id, durationMinutes: 240 } });
+
+  // ---- Pickup points (light) so /trips/[id] detail shows a pickup section ----
+  const pickupRoutes = [r1, r2, r3, r4, r5, r6, r7, r8, r9];
+  await Promise.all(
+    pickupRoutes.flatMap((r) => [
+      prisma.pickupPoint.create({
+        data: { routeId: r.id, name: `Bến xe ${r.origin}`, address: `Quầy vé, Bến xe ${r.origin}`, displayOrder: 0 },
+      }),
+      prisma.pickupPoint.create({
+        data: { routeId: r.id, name: `Văn phòng ${r.origin}`, address: `VP trung tâm, ${r.origin}`, displayOrder: 1 },
+      }),
+    ])
+  );
 
   // ---- Trips ----
   // today in VN time
@@ -220,18 +290,79 @@ async function main() {
     },
   ];
 
-  for (const trip of tripData) {
-    await prisma.trip.create({ data: trip });
+  // ---- Generated demo trips ----
+  // Dense + deterministic: EVERY real route gets 3 trips EVERY day for the next 14
+  // days — one per bus type (coach/sleeper/limousine) at 3 rotating windows. This
+  // guarantees any upcoming (origin, destination, date) search returns several trips
+  // with real busType/window/price variety for the filter UI. (The earlier sparse
+  // 40-trip round-robin left most route+date combos empty.)
+  // One bus per distinct type per operator (clean buses; excludes maintenance + race).
+  const busByOpType: Record<string, { id: string; type: 'coach' | 'sleeper' | 'limousine' }[]> = {
+    [op1.id]: [
+      { id: buses[0].id, type: 'coach' },
+      { id: buses[6].id, type: 'sleeper' },
+      { id: buses[7].id, type: 'limousine' },
+    ],
+    [op2.id]: [
+      { id: buses[3].id, type: 'coach' },
+      { id: buses[9].id, type: 'sleeper' },
+      { id: buses[10].id, type: 'limousine' },
+    ],
+    [op3.id]: [
+      { id: buses[11].id, type: 'coach' },
+      { id: buses[12].id, type: 'sleeper' },
+      { id: buses[13].id, type: 'limousine' },
+    ],
+  };
+  const realRoutes = [r1, r2, r3, r4, r5, r6, r7, r8, r9];
+  const windows = [
+    { h: 7, m: 0 },
+    { h: 13, m: 30 },
+    { h: 19, m: 0 },
+    { h: 23, m: 30 },
+  ];
+  const TYPE_PREMIUM = { coach: 0, sleeper: 60000, limousine: 120000 } as const;
+  const DAYS = 14;
+
+  for (const route of realRoutes) {
+    const pool = busByOpType[route.operatorId];
+    for (let day = 0; day < DAYS; day++) {
+      for (let k = 0; k < pool.length; k++) {
+        const bus = pool[k];
+        // Rotate window start by day so all 4 windows appear across the span and a
+        // single day still shows 3 distinct departure times.
+        const w = windows[(day + k) % windows.length];
+        const departureAt = vnTime(addDays(todayStart, day), w.h, w.m);
+        const price =
+          Math.round(
+            (60000 + route.durationMinutes * 600 + TYPE_PREMIUM[bus.type] + (day % 4) * 7000) / 1000
+          ) * 1000;
+        tripData.push({
+          routeId: route.id,
+          busId: bus.id,
+          operatorId: route.operatorId,
+          departureAt,
+          price,
+          status: 'scheduled',
+          salesClosed: false,
+        });
+      }
+    }
   }
 
+  await prisma.trip.createMany({ data: tripData });
+
   // ---- OperatorUser (Issue 010) ----
-  // NOTE: Phone numbers use literal-x mask — NEVER real VN mobile numbers.
-  // (Rule from AGENTS.md: PII placeholders must escape the project's PII detection regex.)
+  // NOTE: contact/notification phones use literal-x mask — NEVER real VN numbers
+  // (AGENTS.md: PII placeholders must escape the gitleaks +84 regex). The LOGIN
+  // identity `phone` must be a normalize-able VN number or the seeded operator can
+  // never authenticate; we derive it at runtime from a gitleaks-safe local literal
+  // (no +84 prefix) so the stored value is the valid E.164 form +84901230001.
   const seedOpHash = await hashPassword('BBOp2026!');
   await prisma.operatorUser.create({
     data: {
       operatorId: op1.id,
-      phone: '+8490xxxxxx1',
+      phone: normalizePhone('0901230001'),
       contactPhone: '+8490xxxxxx2',
       notificationPhone: '+8490xxxxxx3',
       passwordHash: seedOpHash,
@@ -242,7 +373,9 @@ async function main() {
   });
 
   console.log(
-    `Seeded: 2 operators, 6 buses, 4 routes, ${tripData.length} trips (mix of statuses for AC-3; capacity-1 trip for AC-4 race test). 1 OperatorUser (Issue 010).`
+    `Seeded: 3 operators, 14 buses (coach/sleeper/limousine), 10 routes (9 real + 1 e2e), ` +
+      `${tripData.length} trips (12 curated for AC-3/AC-4 + 9 routes × 14 days × 3 types dense demo grid). ` +
+      `1 OperatorUser (Issue 010).`
   );
 }
 

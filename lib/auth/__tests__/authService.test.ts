@@ -11,8 +11,15 @@ const { mockPrisma, mockSession, mockConsume, mockHashPassword, mockVerifyPasswo
     customer: {
       create: vi.fn(),
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       update: vi.fn(),
     },
+    booking: {
+      // needed by backfillGuestBookingsForCustomer inside register $transaction
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+    },
+    // Transaction: execute the callback with the same mock object (so customer.create mock is used)
+    $transaction: vi.fn(),
   };
   const mockSession = {
     createSession: vi.fn(),
@@ -64,6 +71,9 @@ beforeEach(() => {
   mockDummyVerify.mockResolvedValue(undefined);
   mockSession.createSession.mockResolvedValue(SESSION_STUB);
   mockPrisma.customer.update.mockResolvedValue({});
+  mockPrisma.booking.updateMany.mockResolvedValue({ count: 0 });
+  // Execute transaction callback using mockPrisma itself as tx, so customer.create mock is used
+  mockPrisma.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) => fn(mockPrisma));
 });
 
 // ---------------------------------------------------------------------------
@@ -113,7 +123,7 @@ describe('authService.register', () => {
 // ---------------------------------------------------------------------------
 describe('authService.login', () => {
   it('returns authResult on correct credentials', async () => {
-    mockPrisma.customer.findUnique.mockResolvedValue({
+    mockPrisma.customer.findFirst.mockResolvedValue({
       ...CUSTOMER_STUB,
       passwordHash: 'hash',
     });
@@ -123,7 +133,7 @@ describe('authService.login', () => {
   });
 
   it('throws INVALID_CREDENTIALS for wrong password', async () => {
-    mockPrisma.customer.findUnique.mockResolvedValue({
+    mockPrisma.customer.findFirst.mockResolvedValue({
       ...CUSTOMER_STUB,
       passwordHash: 'hash',
     });
@@ -133,14 +143,14 @@ describe('authService.login', () => {
   });
 
   it('throws INVALID_CREDENTIALS and runs dummyVerify for nonexistent phone', async () => {
-    mockPrisma.customer.findUnique.mockResolvedValue(null);
+    mockPrisma.customer.findFirst.mockResolvedValue(null);
 
     await expect(login({ phone: '0901234567', password: 'whatever' })).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
     expect(mockDummyVerify).toHaveBeenCalledTimes(1);
   });
 
   it('throws INVALID_CREDENTIALS when passwordHash is null', async () => {
-    mockPrisma.customer.findUnique.mockResolvedValue({
+    mockPrisma.customer.findFirst.mockResolvedValue({
       ...CUSTOMER_STUB,
       passwordHash: null,
     });

@@ -14,9 +14,11 @@ import type { SearchQuery } from '@/lib/stores/searchStore';
 
 interface Props {
   initialValues?: Partial<SearchQuery>;
+  /** Bookable place names for the origin/destination typeahead suggestions. */
+  places?: string[];
 }
 
-export function SearchFormWrapper({ initialValues }: Props) {
+export function SearchFormWrapper({ initialValues, places }: Props) {
   const setQuery = useSearchStore((s) => s.setQuery);
 
   useEffect(() => {
@@ -25,5 +27,5 @@ export function SearchFormWrapper({ initialValues }: Props) {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return <SearchForm />;
+  return <SearchForm places={places} />;
 }

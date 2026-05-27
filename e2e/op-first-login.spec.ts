@@ -19,15 +19,18 @@
 import { test, expect } from '@playwright/test';
 import { Client } from 'pg';
 import { primeCsrf } from './helpers/csrf';
+import { normalizePhone } from '../lib/auth/phoneNormalize';
+import { hash } from '../lib/auth/password';
 
 const SANDBOX_ENABLED = process.env.E2E_OP_AUTH_ENABLED === 'true';
 const DB_URL = process.env.DATABASE_URL ?? 'postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_dev';
 
-const SEED_PHONE = '+8490xxxxxx1';
+const SEED_PHONE = normalizePhone('0901230001');
 const SEED_PASSWORD = 'BBOp2026!';
 const NEW_PASSWORD = 'NewOpPass2026!';
 
 async function resetSeedOperator(): Promise<void> {
+  const passwordHash = await hash(SEED_PASSWORD);
   const client = new Client({ connectionString: DB_URL });
   await client.connect();
   try {
@@ -37,10 +40,12 @@ async function resetSeedOperator(): Promise<void> {
        WHERE "operatorUserId" = (SELECT id FROM "OperatorUser" WHERE phone = $1)`,
       [SEED_PHONE]
     );
-    // Reset requiresPasswordChange so tests can repeat
+    // Reset requiresPasswordChange AND restore the seed password — the full-flow
+    // test rotates it to NEW_PASSWORD, so each run must restore BBOp2026! or
+    // subsequent logins fail (no session → /op/login redirect, 401 not 400).
     await client.query(
-      `UPDATE "OperatorUser" SET "requiresPasswordChange" = true WHERE phone = $1`,
-      [SEED_PHONE]
+      `UPDATE "OperatorUser" SET "requiresPasswordChange" = true, "passwordHash" = $2 WHERE phone = $1`,
+      [SEED_PHONE, passwordHash]
     );
   } finally {
     await client.end();

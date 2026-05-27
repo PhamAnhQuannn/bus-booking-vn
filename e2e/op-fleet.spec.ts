@@ -20,12 +20,14 @@
 import { test, expect } from '@playwright/test';
 import { Client } from 'pg';
 import { primeCsrf } from './helpers/csrf';
+import { hash } from '../lib/auth/password';
+import { normalizePhone } from '../lib/auth/phoneNormalize';
 
 const SANDBOX_ENABLED = process.env.E2E_OP_FLEET_ENABLED === 'true';
 const DB_URL =
   process.env.DATABASE_URL ?? 'postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_dev';
 
-const SEED_PHONE = '+8490xxxxxx1';
+const SEED_PHONE = normalizePhone('0901230001');
 const SEED_PASSWORD = 'BBOp2026!';
 
 // Op B fixture — second operator org used to verify cross-op rejection (AC6).
@@ -33,7 +35,6 @@ const OP_B_PHONE = '+8490xxxxxx9';
 const OP_B_PASSWORD = 'BBOp2026!';
 
 async function prepareOperators(): Promise<{ opAId: string; opBId: string; opBBusId: string }> {
-  const { hash } = await import('../lib/auth/password');
   const client = new Client({ connectionString: DB_URL });
   await client.connect();
   try {
@@ -54,7 +55,14 @@ async function prepareOperators(): Promise<{ opAId: string; opBId: string; opBBu
 
     // Wipe op A's buses (avoid stale test data)
     await client.query(`DELETE FROM "BusMaintenance" WHERE "busId" IN (SELECT id FROM "Bus" WHERE "operatorId" = $1)`, [opAId]);
-    await client.query(`DELETE FROM "Bus" WHERE "operatorId" = $1 AND "licensePlate" LIKE 'E2E-%'`, [opAId]);
+    // LIKE 'E2E-%' would also match the seeded capacity-1 race bus 'E2E-RACE-01',
+    // which has a seeded Trip → FK violation Trip_busId_fkey. Only wipe childless
+    // test buses (this spec's own buses never get trips); never the seed race bus.
+    await client.query(
+      `DELETE FROM "Bus" WHERE "operatorId" = $1 AND "licensePlate" LIKE 'E2E-%'
+       AND id NOT IN (SELECT "busId" FROM "Trip")`,
+      [opAId]
+    );
 
     // Ensure op B exists (separate org) with one bus we'll try to read cross-op
     const opB = await client.query(`SELECT id FROM "Operator" WHERE "contactPhone" = $1 LIMIT 1`, [OP_B_PHONE]);
@@ -77,8 +85,8 @@ async function prepareOperators(): Promise<{ opAId: string; opBId: string; opBBu
     );
     if (opBUser.rows.length === 0) {
       await client.query(
-        `INSERT INTO "OperatorUser" ("id","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName")
-         VALUES (gen_random_uuid()::text, $1, $4, $5, $2, $3, 'admin', false, 'Op B Admin')`,
+        `INSERT INTO "OperatorUser" ("id","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName","updatedAt")
+         VALUES (gen_random_uuid()::text, $1, $4, $5, $2, $3, 'admin', false, 'Op B Admin', NOW())`,
         [OP_B_PHONE, await hash(OP_B_PASSWORD), opBId, '+8490xxxxxx9', '+8490xxxxxx8']
       );
     }

@@ -46,6 +46,14 @@ export interface CreateMomoBookingInput {
   buyerPhone: string;
 }
 
+export type OnlineBookingMethod = 'momo' | 'zalopay' | 'card';
+
+export interface CreateOnlineBookingInput {
+  holdId: string;
+  buyerName: string;
+  buyerPhone: string;
+}
+
 export type CreateCashBookingResult =
   | { ok: true; booking: BookingRow }
   | { ok: false; reason: 'hold_expired' | 'already_booked' | 'ref_collision' };
@@ -176,18 +184,23 @@ export async function createCashBookingFromHold(
 }
 
 /**
- * createMomoBookingFromHold — same atomic pattern as createCashBookingFromHold.
+ * createOnlineBookingFromHold — same atomic pattern as createCashBookingFromHold,
+ * generalised across every online (pay-first) method: momo | zalopay | card.
  *
  * Differences vs cash:
- *   - paymentMethod = 'momo'
+ *   - paymentMethod = the passed `method`
  *   - status = 'awaiting_payment'
  *   - paymentExternalRef = NULL (filled in after IPN confirms payment)
  *
+ * The method is bound as a text param and cast to the PaymentMethod enum
+ * (`${method}::"PaymentMethod"`) — parameterised, never interpolated.
+ *
  * Zero NotificationLog rows are seeded here — notifications are deferred
- * to webhook receipt (after MoMo confirms payment). AC-F1.
+ * to webhook receipt (after the gateway confirms payment). AC-F1.
  */
-export async function createMomoBookingFromHold(
-  input: CreateMomoBookingInput
+export async function createOnlineBookingFromHold(
+  input: CreateOnlineBookingInput,
+  method: OnlineBookingMethod
 ): Promise<CreateCashBookingResult> {
   const { holdId, buyerName, buyerPhone } = input;
 
@@ -215,7 +228,7 @@ export async function createMomoBookingFromHold(
               ${buyerPhone},
               h."ticketCount",
               t.price * h."ticketCount",
-              'momo'::"PaymentMethod",
+              ${method}::"PaymentMethod",
               'awaiting_payment'::"BookingStatus",
               false,
               NOW()
@@ -272,6 +285,16 @@ export async function createMomoBookingFromHold(
   }
 
   return { ok: false, reason: 'ref_collision' };
+}
+
+/**
+ * createMomoBookingFromHold — thin wrapper preserved for existing callers/tests.
+ * Delegates to the generic createOnlineBookingFromHold with method 'momo'.
+ */
+export async function createMomoBookingFromHold(
+  input: CreateMomoBookingInput
+): Promise<CreateCashBookingResult> {
+  return createOnlineBookingFromHold(input, 'momo');
 }
 
 export async function getBookingByConfirmationToken(

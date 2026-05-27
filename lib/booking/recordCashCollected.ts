@@ -16,6 +16,7 @@ import { Prisma } from '@prisma/client';
 import { after } from 'next/server';
 import { BookingServiceError } from './recordCallOutcome';
 import { toBookingDto, type BookingDtoRow } from './toBookingDto';
+import { attachGuestBookingByPhone } from './attachGuestBookingByPhone';
 import { createNotificationLog } from '@/lib/db/notificationLogRepo';
 import { sendSms, renderTemplate } from '@/lib/notifications/esms';
 import { logger } from '@/lib/logger';
@@ -123,6 +124,9 @@ export async function recordCashCollected(
           pickupPoint: { select: { name: true } },
         },
       });
+
+      // Issue 009: attach to a registered customer by phone on the paid transition
+      await attachGuestBookingByPhone(tx, updated.id, updated.buyerPhone);
 
       const operator = updated.trip.bus.operator;
       const opPhone = operator.notificationPhone ?? operator.contactPhone;

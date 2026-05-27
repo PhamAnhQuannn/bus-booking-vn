@@ -247,6 +247,8 @@ model Booking {
   @@index([tripId, contactStatus])
   @@index([tripId, pickedUpAt])
   @@index([status, reminderSentAt])
+  /// Issue 009: register-time guest-booking backfill scan (match buyerPhone → Customer.phone)
+  @@index([buyerPhone])
 }
 
 model PaymentEvent {
@@ -297,16 +299,21 @@ model JobRunLog {
 }
 
 model Customer {
-  id           String    @id @default(cuid())
-  phone        String    @unique
-  email        String?
-  passwordHash String?
-  displayName  String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  lastLoginAt  DateTime?
-  sessions     Session[]
-  bookings     Booking[]
+  id            String    @id @default(cuid())
+  /// Nullable: set to NULL on soft-delete/anonymization; Postgres allows multiple NULLs on @unique
+  phone         String?   @unique
+  email         String?
+  passwordHash  String?
+  displayName   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastLoginAt   DateTime?
+  /// Issue 008: soft-delete timestamp; non-null = account deleted
+  deletedAt     DateTime?
+  /// Issue 008: anonymization timestamp; set together with deletedAt
+  anonymizedAt  DateTime?
+  sessions      Session[]
+  bookings      Booking[]
 }
 
 model OtpAttempt {
@@ -501,4 +508,24 @@ model AdminAuditLog {
 
   @@index([timestamp])
   @@index([action, timestamp])
+}
+
+// ---------------------------------------------------------------------------
+// Conversion-funnel instrumentation
+// ---------------------------------------------------------------------------
+
+/// Append-only anonymous funnel event. `sessionId` is a random cookie value (no
+/// PII), `step` is one of search_performed | hold_created | payment_initiated |
+/// booking_paid. Written fire-and-forget — never blocks the request path.
+model FunnelEvent {
+  id        String   @id @default(cuid())
+  sessionId String
+  step      String
+  tripId    String?
+  bookingId String?
+  context   Json?
+  createdAt DateTime @default(now())
+
+  @@index([step, createdAt])
+  @@index([sessionId])
 }

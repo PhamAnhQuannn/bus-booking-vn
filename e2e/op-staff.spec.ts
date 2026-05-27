@@ -31,12 +31,14 @@
 import { test, expect } from '@playwright/test';
 import { Client } from 'pg';
 import { primeCsrf } from './helpers/csrf';
+import { hash } from '../lib/auth/password';
+import { normalizePhone } from '../lib/auth/phoneNormalize';
 
 const SANDBOX_ENABLED = process.env.E2E_OP_STAFF_ENABLED === 'true';
 const DB_URL =
   process.env.DATABASE_URL ?? 'postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_dev';
 
-const SEED_PHONE = '+8490xxxxxx1';
+const SEED_PHONE = normalizePhone('0901230001');
 const SEED_PASSWORD = 'BBOp2026!';
 
 // Op B fixture — second operator org used to verify cross-op trip rejection.
@@ -56,8 +58,6 @@ interface Fixtures {
 }
 
 async function prepareFixtures(): Promise<Fixtures> {
-  const { hash } = await import('../lib/auth/password');
-  const { normalizePhone } = await import('../lib/auth/phoneNormalize');
   const client = new Client({ connectionString: DB_URL });
   await client.connect();
   try {
@@ -89,8 +89,8 @@ async function prepareFixtures(): Promise<Fixtures> {
     // ready staff token; the admin-only API gate must 403 it regardless of role state).
     await client.query(
       `INSERT INTO "OperatorUser"
-         ("id","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName")
-       VALUES (gen_random_uuid()::text, $1, $4, $5, $2, $3, 'staff', false, 'E2E Staff NonAdmin')`,
+         ("id","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName","updatedAt")
+       VALUES (gen_random_uuid()::text, $1, $4, $5, $2, $3, 'staff', false, 'E2E Staff NonAdmin', NOW())`,
       [staffPhone, staffHash, opAId, '+8490xxxxxx7', '+8490xxxxxx6']
     );
 
@@ -105,19 +105,19 @@ async function prepareFixtures(): Promise<Fixtures> {
       [opAId]
     );
     const routeA = await client.query(
-      `INSERT INTO "Route" ("id","operatorId","origin","destination","durationMinutes")
-       VALUES (gen_random_uuid()::text, $1, 'StaffE2E Origin', 'StaffE2E Dest', 120) RETURNING id`,
+      `INSERT INTO "Route" ("id","operatorId","origin","destination","durationMinutes","updatedAt")
+       VALUES (gen_random_uuid()::text, $1, 'StaffE2E Origin', 'StaffE2E Dest', 120, NOW()) RETURNING id`,
       [opAId]
     );
     const dep = new Date(Date.now() + 86_400_000).toISOString();
     const scheduled = await client.query(
-      `INSERT INTO "Trip" ("id","routeId","busId","operatorId","departureAt","price","status","salesClosed")
-       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, 111111, 'scheduled', false) RETURNING id`,
+      `INSERT INTO "Trip" ("id","routeId","busId","operatorId","departureAt","price","status","salesClosed","updatedAt")
+       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, 111111, 'scheduled', false, NOW()) RETURNING id`,
       [routeA.rows[0].id, busA.rows[0].id, opAId, dep]
     );
     const cancelled = await client.query(
-      `INSERT INTO "Trip" ("id","routeId","busId","operatorId","departureAt","price","status","salesClosed")
-       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, 111111, 'cancelled', true) RETURNING id`,
+      `INSERT INTO "Trip" ("id","routeId","busId","operatorId","departureAt","price","status","salesClosed","updatedAt")
+       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, 111111, 'cancelled', true, NOW()) RETURNING id`,
       [routeA.rows[0].id, busA.rows[0].id, opAId, dep]
     );
 
@@ -143,13 +143,13 @@ async function prepareFixtures(): Promise<Fixtures> {
       [opBId]
     );
     const routeB = await client.query(
-      `INSERT INTO "Route" ("id","operatorId","origin","destination","durationMinutes")
-       VALUES (gen_random_uuid()::text, $1, 'StaffE2E B Origin', 'StaffE2E B Dest', 60) RETURNING id`,
+      `INSERT INTO "Route" ("id","operatorId","origin","destination","durationMinutes","updatedAt")
+       VALUES (gen_random_uuid()::text, $1, 'StaffE2E B Origin', 'StaffE2E B Dest', 60, NOW()) RETURNING id`,
       [opBId]
     );
     const opBTrip = await client.query(
-      `INSERT INTO "Trip" ("id","routeId","busId","operatorId","departureAt","price","status","salesClosed")
-       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, 222222, 'scheduled', false) RETURNING id`,
+      `INSERT INTO "Trip" ("id","routeId","busId","operatorId","departureAt","price","status","salesClosed","updatedAt")
+       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, 222222, 'scheduled', false, NOW()) RETURNING id`,
       [routeB.rows[0].id, busB.rows[0].id, opBId, dep]
     );
 
@@ -175,7 +175,9 @@ async function loginAdmin(request: import('@playwright/test').APIRequestContext)
 
 // Unique VN-local phone per create, gitleaks-safe (no +84 literal).
 function freshStaffPhone(): string {
-  const tail = String(Date.now()).slice(-7);
+  // VN local mobile = 10 digits: leading 0 + prefix 9 + 8 more. Take the last
+  // 8 digits of the epoch ms so each call is unique within a run.
+  const tail = String(Date.now()).slice(-8);
   return `09${tail}`;
 }
 

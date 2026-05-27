@@ -18,6 +18,10 @@ import { z } from 'zod';
 import { useBookingStore } from '@/lib/state/bookingStore';
 import { useHoldTimerStore } from '@/lib/state/holdTimerStore';
 import { createHoldRequest } from '@/lib/api/holdsClient';
+import { getDisplayName } from '@/app/auth/register/page';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const LS_PHONE_KEY = 'busbooking_last_phone';
 
@@ -53,6 +57,7 @@ export function CustomerForm() {
   const { tripId, ticketCount, setHold, setBuyerInfo } = useBookingStore();
   const { startTimer } = useHoldTimerStore();
   const phoneInputRef = useRef<HTMLInputElement>(null);
+  const buyerNameRef = useRef<HTMLInputElement>(null);
 
   // Pre-fill phone from localStorage
   useEffect(() => {
@@ -60,6 +65,15 @@ export function CustomerForm() {
     const saved = localStorage.getItem(LS_PHONE_KEY);
     if (saved && phoneInputRef.current) {
       phoneInputRef.current.value = saved;
+    }
+  }, []);
+
+  // Pre-fill buyer name from the logged-in customer's display name (AC4).
+  // Field stays editable — this only seeds the initial value.
+  useEffect(() => {
+    const name = getDisplayName();
+    if (name && buyerNameRef.current && !buyerNameRef.current.value) {
+      buyerNameRef.current.value = name;
     }
   }, []);
 
@@ -130,71 +144,66 @@ export function CustomerForm() {
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-4">
       <div>
-        <label htmlFor="buyerName" className="block text-sm font-medium mb-1">
+        <Label htmlFor="buyerName" className="mb-1">
           Họ và tên
-        </label>
-        <input
+        </Label>
+        <Input
           id="buyerName"
           name="buyerName"
           type="text"
           required
+          ref={buyerNameRef}
           disabled={isPending}
-          className="w-full border rounded px-3 py-2 disabled:opacity-60"
           aria-describedby={fieldErrors.buyerName ? 'buyerName-error' : undefined}
         />
         {fieldErrors.buyerName && (
-          <p id="buyerName-error" className="text-red-600 text-sm mt-1">
+          <p id="buyerName-error" className="text-destructive text-sm mt-1">
             {fieldErrors.buyerName}
           </p>
         )}
       </div>
 
       <div>
-        <label htmlFor="buyerPhone" className="block text-sm font-medium mb-1">
+        <Label htmlFor="buyerPhone" className="mb-1">
           Số điện thoại
-        </label>
-        <input
+        </Label>
+        <Input
           id="buyerPhone"
           name="buyerPhone"
           type="tel"
           required
           ref={phoneInputRef}
           disabled={isPending}
-          className="w-full border rounded px-3 py-2 disabled:opacity-60"
           aria-describedby={fieldErrors.buyerPhone ? 'buyerPhone-error' : undefined}
         />
         {fieldErrors.buyerPhone && (
-          <p id="buyerPhone-error" className="text-red-600 text-sm mt-1">
+          <p id="buyerPhone-error" className="text-destructive text-sm mt-1">
             {fieldErrors.buyerPhone}
           </p>
         )}
       </div>
 
       {state.status === 'sold_out' && (
-        <div role="alert" className="bg-red-50 border border-red-200 rounded p-3 text-red-700">
+        <div role="alert" className="bg-destructive/10 border border-destructive/30 rounded p-3 text-destructive">
           Chuyến xe này đã hết chỗ. Vui lòng chọn chuyến khác.
         </div>
       )}
 
       {state.status === 'rate_limited' && (
-        <div role="alert" className="bg-yellow-50 border border-yellow-200 rounded p-3 text-yellow-800">
+        <div role="alert" className="bg-warning border border-warning-border rounded p-3 text-warning-foreground">
           Quá nhiều yêu cầu. Vui lòng thử lại sau {state.retryAfter} giây.
         </div>
       )}
 
       {state.status === 'error' && (
-        <div role="alert" className="bg-red-50 border border-red-200 rounded p-3 text-red-700">
+        <div role="alert" className="bg-destructive/10 border border-destructive/30 rounded p-3 text-destructive">
           {state.message}
         </div>
       )}
 
-      <button
-        type="submit"
-        disabled={isPending}
-        className="w-full bg-blue-600 text-white rounded px-4 py-2 font-semibold hover:bg-blue-700 disabled:opacity-60"
-      >
+      <Button type="submit" size="lg" disabled={isPending} className="w-full">
         {isPending ? 'Đang xử lý...' : 'Tiếp tục'}
-      </button>
+      </Button>
     </form>
   );
 }

@@ -1,13 +1,13 @@
 /**
- * POST /api/bookings/initiate — cash and MoMo payment initiation.
+ * POST /api/bookings/initiate — cash + online (momo | zalopay | card) initiation.
  *
  * Pipeline:
  *   1. Rate-limit by IP (429 + Retry-After)
- *   2. Parse + validate body — { holdId, paymentMethod: 'cash' | 'momo' } (400 INVALID)
+ *   2. Parse + validate body — { holdId, paymentMethod: 'cash'|'momo'|'zalopay'|'card' } (400 INVALID)
  *   3. Verify bb_hold cookie matches body.holdId (403 FORBIDDEN)
  *   4. Dispatch to orchestrator by paymentMethod:
- *      - 'cash' → initiateCashBooking → returns { bookingId, confirmationToken }
- *      - 'momo' → initiateMomoBooking → returns { bookingId, payUrl }
+ *      - 'cash'                  → initiateCashBooking → { bookingId, confirmationToken }
+ *      - 'momo'|'zalopay'|'card' → initiateOnlineBooking(method) → { bookingId, payUrl }
  *   5. Map orchestrator result to HTTP status
  *
  * baseUrl derived from incoming request headers (x-forwarded-proto + host) —
@@ -21,14 +21,15 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { initiateCashBooking } from '@/lib/booking/initiateBooking';
-import { initiateMomoBooking } from '@/lib/booking/initiateMomoBooking';
+import { initiateOnlineBooking } from '@/lib/booking/initiateOnlineBooking';
 import { extractHoldCookie } from '@/lib/security/holdCookie';
 import { ratelimit } from '@/lib/ratelimit';
 import { withErrorHandler } from '@/lib/withErrorHandler';
+import { track, sessionIdFromRequest } from '@/lib/analytics/track';
 
 const initiateInputSchema = z.object({
   holdId: z.string().min(1).max(128),
-  paymentMethod: z.enum(['cash', 'momo']),
+  paymentMethod: z.enum(['cash', 'momo', 'zalopay', 'card']),
 });
 
 async function handler(req: NextRequest): Promise<Response> {
@@ -75,6 +76,11 @@ async function handler(req: NextRequest): Promise<Response> {
     const result = await initiateCashBooking({ holdId, baseUrl });
 
     if (result.ok) {
+      void track('payment_initiated', {
+        sessionId: sessionIdFromRequest(req),
+        bookingId: result.bookingId,
+        context: { paymentMethod },
+      });
       return NextResponse.json(
         { bookingId: result.bookingId, confirmationToken: result.confirmationToken },
         { status: 200, headers: { 'Cache-Control': 'no-store' } }
@@ -94,11 +100,16 @@ async function handler(req: NextRequest): Promise<Response> {
   }
 
   // ---------------------------------------------------------------------------
-  // MoMo path
+  // Online path (momo | zalopay | card) — stub gateway locally, real in Phase 2
   // ---------------------------------------------------------------------------
-  const result = await initiateMomoBooking({ holdId, baseUrl });
+  const result = await initiateOnlineBooking({ holdId, baseUrl, method: paymentMethod });
 
   if (result.ok) {
+    void track('payment_initiated', {
+      sessionId: sessionIdFromRequest(req),
+      bookingId: result.bookingId,
+      context: { paymentMethod },
+    });
     return NextResponse.json(
       { bookingId: result.bookingId, payUrl: result.payUrl },
       { status: 200, headers: { 'Cache-Control': 'no-store' } }

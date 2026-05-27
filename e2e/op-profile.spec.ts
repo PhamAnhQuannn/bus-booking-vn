@@ -13,16 +13,17 @@
 import { test, expect } from '@playwright/test';
 import { Client } from 'pg';
 import { primeCsrf } from './helpers/csrf';
+import { hash } from '../lib/auth/password';
+import { normalizePhone } from '../lib/auth/phoneNormalize';
 
 const SANDBOX_ENABLED = process.env.E2E_OP_AUTH_ENABLED === 'true';
 const DB_URL = process.env.DATABASE_URL ?? 'postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_dev';
 
 // After first-login e2e the seed operator's password will be NEW_PASSWORD.
 // Run these tests only after op-first-login flow OR reset requiresPasswordChange=false + restore password.
-const SEED_PHONE = '+8490xxxxxx1';
+const SEED_PHONE = normalizePhone('0901230001');
 
 async function prepareOperator(): Promise<void> {
-  const { hash } = await import('../lib/auth/password');
   const passwordHash = await hash('BBOp2026!');
   const client = new Client({ connectionString: DB_URL });
   await client.connect();
@@ -77,8 +78,8 @@ test.describe('Operator profile GET + PATCH', () => {
     const patchRes = await request.patch('/api/op/profile', {
       data: {
         displayName: 'Updated Admin Name',
-        contactPhone: '+8490xxxxxx2',
-        notificationPhone: '+8490xxxxxx3',
+        contactPhone: '0901230002',
+        notificationPhone: '0901230003',
       },
       headers: { 'X-CSRF-Token': csrf },
     });
@@ -99,8 +100,8 @@ test.describe('Operator profile GET + PATCH', () => {
 
     const res = await request.patch('/api/op/profile', {
       data: {
-        contactPhone: '+8490xxxxxx2',
-        notificationPhone: '+8490xxxxxx2', // same as contactPhone
+        contactPhone: '0901230002',
+        notificationPhone: '0901230002', // same as contactPhone
       },
       headers: { 'X-CSRF-Token': csrf },
     });

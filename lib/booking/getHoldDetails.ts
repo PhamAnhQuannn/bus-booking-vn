@@ -15,7 +15,12 @@ export interface HoldDetails {
   tripId: string;
   ticketCount: number;
   expiresAt: string;
+  unitPriceVND: number;
   totalVND: number;
+  routeOrigin: string;
+  routeDestination: string;
+  departureAt: string;
+  operatorLegalName: string;
 }
 
 export async function getHoldDetails(holdId: string): Promise<HoldDetails | null> {
@@ -25,7 +30,14 @@ export async function getHoldDetails(holdId: string): Promise<HoldDetails | null
       tripId: true,
       ticketCount: true,
       expiresAt: true,
-      trip: { select: { price: true } },
+      trip: {
+        select: {
+          price: true,
+          departureAt: true,
+          route: { select: { origin: true, destination: true } },
+          bus: { select: { operator: { select: { legalName: true } } } },
+        },
+      },
     },
   });
 
@@ -35,6 +47,11 @@ export async function getHoldDetails(holdId: string): Promise<HoldDetails | null
     tripId: hold.tripId,
     ticketCount: hold.ticketCount,
     expiresAt: hold.expiresAt.toISOString(),
+    unitPriceVND: hold.trip.price,
     totalVND: hold.trip.price * hold.ticketCount,
+    routeOrigin: hold.trip.route.origin,
+    routeDestination: hold.trip.route.destination,
+    departureAt: hold.trip.departureAt.toISOString(),
+    operatorLegalName: hold.trip.bus.operator.legalName,
   };
 }

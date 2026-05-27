@@ -77,6 +77,31 @@ const envSchema = z.object({
     .string()
     .default('false')
     .transform((v) => v === 'true'),
+
+  // ---------------------------------------------------------------------------
+  // Local fake-gateway stub (Phase 1 — run all online-payment stories with no
+  // real PSP credentials). When PAYMENTS_STUB="true", getGatewayFor('momo')
+  // returns the stub adapter too; zalopay/card ALWAYS use the stub until their
+  // real adapters land in Phase 2. The stub signs its own IPN with
+  // STUB_PAYMENT_SECRET (HMAC-SHA256) so the verifyWebhook path is exercised
+  // for real locally.
+  // ---------------------------------------------------------------------------
+
+  /** Route all online payments through the local fake-gateway stub. */
+  PAYMENTS_STUB: z
+    .string()
+    .default('false')
+    .transform((v) => v === 'true'),
+
+  /**
+   * HMAC key the fake gateway uses to sign + verify its own stub IPNs.
+   * Dev-only — never used by a real PSP. MUST be overridden (or unused) in
+   * production where PAYMENTS_STUB is false.
+   */
+  STUB_PAYMENT_SECRET: z
+    .string()
+    .min(16, 'STUB_PAYMENT_SECRET must be at least 16 characters')
+    .default('dev-stub-payment-secret-local-only-change-me'),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

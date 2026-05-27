@@ -21,6 +21,7 @@ import { buildSetCookieHeader } from '@/lib/security/holdCookie';
 import { ratelimit } from '@/lib/ratelimit';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { logger } from '@/lib/logger';
+import { track, sessionIdFromRequest } from '@/lib/analytics/track';
 
 async function handler(req: NextRequest): Promise<Response> {
   // ---- 1. Rate limit by IP ----
@@ -75,6 +76,13 @@ async function handler(req: NextRequest): Promise<Response> {
   const expiresAtISO = expiresAt.toISOString();
 
   logger.info({ holdId, tripId, ticketCount }, 'Hold created');
+
+  // Funnel: hold_created (fire-and-forget)
+  void track('hold_created', {
+    sessionId: sessionIdFromRequest(req),
+    tripId,
+    context: { holdId, ticketCount },
+  });
 
   // ---- 4. Set bb_hold cookie ----
   const setCookieHeader = buildSetCookieHeader(holdId, expiresAtISO);

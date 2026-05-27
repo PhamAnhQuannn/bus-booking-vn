@@ -14,17 +14,7 @@ import { otpVerifyInput } from '@/lib/validation/auth';
 import { verifyOtp } from '@/lib/auth/authService';
 import { normalizePhone } from '@/lib/auth/phoneNormalize';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { SignJWT } from 'jose';
-
-const OTP_PROOF_TTL_SECONDS = 300; // 5 minutes
-
-function getJwtSecret(): Uint8Array {
-  const raw =
-    process.env.JWT_SECRET ??
-    (process.env.NODE_ENV === 'test' ? 'a'.repeat(32) : null);
-  if (!raw) throw new Error('JWT_SECRET not configured');
-  return new TextEncoder().encode(raw);
-}
+import { issueOtpProof } from '@/lib/auth/otpProof';
 
 async function handler(req: NextRequest): Promise<Response> {
   let body: unknown;
@@ -52,13 +42,9 @@ async function handler(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: 'attempt_cap' }, { status: 429 });
   }
 
-  // status === 'ok' — issue short-lived OTP proof JWT
+  // status === 'ok' — issue short-lived OTP proof JWT via shared util
   const normalizedPhone = normalizePhone(phone);
-  const otpProof = await new SignJWT({ phone: normalizedPhone, purpose: 'otp_proof' })
-    .setProtectedHeader({ alg: 'HS256' })
-    .setIssuedAt()
-    .setExpirationTime(`${OTP_PROOF_TTL_SECONDS}s`)
-    .sign(getJwtSecret());
+  const otpProof = await issueOtpProof(normalizedPhone, 'otp_proof');
 
   return NextResponse.json({ otpProof });
 }

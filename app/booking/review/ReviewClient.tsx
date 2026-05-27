@@ -8,38 +8,39 @@
  * Includes HoldTimer + HoldExpiryModal.
  *
  * On "Xác nhận thanh toán" click, POSTs to /api/bookings/initiate with
- * { holdId, paymentMethod: 'cash' }. On 200 → router.push to the
- * confirmation page keyed by the returned confirmationToken. The bb_hold
- * cookie travels automatically via same-origin credentials.
+ * { holdId, paymentMethod }. Cash → 200 { confirmationToken } → router.push
+ * to the confirmation page. Online (momo|zalopay|card) → 200 { payUrl } →
+ * window.location to the gateway (real MoMo sandbox or local stub-pay). The
+ * bb_hold cookie travels automatically via same-origin credentials.
  */
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Wallet, Smartphone, CreditCard, Banknote } from 'lucide-react';
 import { useHoldTimerStore } from '@/lib/state/holdTimerStore';
-import { HoldTimer } from '@/components/HoldTimer';
 import { HoldExpiryModal } from '@/components/HoldExpiryModal';
+import { BookingSteps } from '@/components/booking/BookingSteps';
+import { BookingSummaryRail } from '@/components/booking/BookingSummaryRail';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
+import { cn } from '@/lib/utils';
 
 export interface HoldDetails {
   holdId: string;
   tripId: string;
   ticketCount: number;
   expiresAt: string;
+  unitPriceVND: number;
   totalVND: number;
+  routeOrigin: string;
+  routeDestination: string;
+  departureAt: string;
+  operatorLegalName: string;
 }
 
 interface ReviewClientProps {
   holdDetails: HoldDetails;
-}
-
-function formatVND(amount: number): string {
-  return (
-    new Intl.NumberFormat('vi-VN', {
-      style: 'decimal',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount) + 'đ'
-  );
 }
 
 const ERROR_LABEL: Record<string, string> = {
@@ -50,13 +51,24 @@ const ERROR_LABEL: Record<string, string> = {
   INVALID: 'Yêu cầu không hợp lệ.',
   TOO_MANY_REQUESTS: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.',
   UNAVAILABLE: 'Hệ thống tạm thời bận. Vui lòng thử lại.',
+  GATEWAY_ERROR: 'Cổng thanh toán gặp lỗi. Vui lòng thử lại.',
 };
+
+type PaymentMethod = 'cash' | 'momo' | 'zalopay' | 'card';
+
+const PAYMENT_METHODS: ReadonlyArray<{ value: PaymentMethod; label: string; icon: typeof Wallet }> = [
+  { value: 'cash', label: 'Tiền mặt', icon: Banknote },
+  { value: 'momo', label: 'MoMo', icon: Wallet },
+  { value: 'zalopay', label: 'ZaloPay', icon: Smartphone },
+  { value: 'card', label: 'Thẻ', icon: CreditCard },
+];
 
 export function ReviewClient({ holdDetails }: ReviewClientProps) {
   const router = useRouter();
-  const { holdId, expiresAt, totalVND, ticketCount, tripId } = holdDetails;
+  const { holdId, expiresAt } = holdDetails;
   const { startTimer } = useHoldTimerStore();
 
+  const [method, setMethod] = useState<PaymentMethod>('cash');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,11 +88,15 @@ export function ReviewClient({ holdDetails }: ReviewClientProps) {
           'X-CSRF-Token': readCsrfToken(),
         },
         credentials: 'include',
-        body: JSON.stringify({ holdId, paymentMethod: 'cash' }),
+        body: JSON.stringify({ holdId, paymentMethod: method }),
       });
       const data = await res.json().catch(() => null);
-      if (res.ok && data?.confirmationToken) {
+      if (res.ok && method === 'cash' && data?.confirmationToken) {
         router.push(`/booking/confirmation/${data.confirmationToken}`);
+        return;
+      }
+      if (res.ok && method !== 'cash' && data?.payUrl) {
+        window.location.href = data.payUrl;
         return;
       }
       const code = typeof data?.error === 'string' ? data.error : 'UNAVAILABLE';
@@ -93,46 +109,77 @@ export function ReviewClient({ holdDetails }: ReviewClientProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col-reverse gap-6 md:grid md:grid-cols-[1fr_20rem] md:items-start">
       <HoldExpiryModal />
 
-      <div className="bg-white border rounded-lg p-4 space-y-3">
-        <h2 className="text-lg font-semibold">Chi tiết đặt chỗ</h2>
-        <dl className="space-y-2">
-          <div className="flex justify-between">
-            <dt className="text-gray-600">Mã chuyến</dt>
-            <dd className="font-mono text-sm">{tripId}</dd>
+      {/* Left: steps + payment method + submit */}
+      <div className="flex flex-col gap-6">
+        <BookingSteps current={2} />
+
+        <Card>
+          <CardHeader>
+            <CardTitle as="h2">Phương thức thanh toán</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <fieldset className="grid grid-cols-2 gap-2">
+              <legend className="sr-only">Phương thức thanh toán</legend>
+              {PAYMENT_METHODS.map((m) => {
+                const Icon = m.icon;
+                const selected = method === m.value;
+                return (
+                  <label
+                    key={m.value}
+                    className={cn(
+                      'flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+                      selected
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border hover:bg-muted'
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value={m.value}
+                      checked={selected}
+                      onChange={() => setMethod(m.value)}
+                      disabled={submitting}
+                      className="sr-only"
+                    />
+                    <Icon className="size-4" aria-hidden="true" />
+                    {m.label}
+                  </label>
+                );
+              })}
+            </fieldset>
+          </CardContent>
+        </Card>
+
+        {error && (
+          <div
+            role="alert"
+            className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+          >
+            {error}
           </div>
-          <div className="flex justify-between">
-            <dt className="text-gray-600">Số vé</dt>
-            <dd>{ticketCount}</dd>
-          </div>
-          <div className="flex justify-between font-semibold text-lg border-t pt-2">
-            <dt>Tổng cộng</dt>
-            <dd className="text-blue-700">{formatVND(totalVND)}</dd>
-          </div>
-        </dl>
+        )}
+
+        <Button type="button" size="lg" className="w-full" onClick={handleSubmit} disabled={submitting}>
+          {submitting ? 'Đang xử lý...' : 'Xác nhận thanh toán'}
+        </Button>
       </div>
 
-      <HoldTimer />
-
-      {error && (
-        <div
-          role="alert"
-          className="bg-red-50 border border-red-200 text-red-800 rounded px-4 py-3 text-sm"
-        >
-          {error}
-        </div>
-      )}
-
-      <button
-        type="button"
-        onClick={handleSubmit}
-        disabled={submitting}
-        className="w-full bg-green-600 text-white rounded px-4 py-2 font-semibold hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed"
-      >
-        {submitting ? 'Đang xử lý...' : 'Xác nhận thanh toán'}
-      </button>
+      {/* Right: sticky order summary (PTN-07) */}
+      <BookingSummaryRail
+        summary={{
+          routeOrigin: holdDetails.routeOrigin,
+          routeDestination: holdDetails.routeDestination,
+          departureAt: holdDetails.departureAt,
+          operatorLegalName: holdDetails.operatorLegalName,
+          ticketCount: holdDetails.ticketCount,
+          unitPriceVND: holdDetails.unitPriceVND,
+          totalVND: holdDetails.totalVND,
+        }}
+      />
     </div>
   );
 }

@@ -18,12 +18,14 @@
 import { test, expect } from '@playwright/test';
 import { Client } from 'pg';
 import { primeCsrf } from './helpers/csrf';
+import { hash } from '../lib/auth/password';
+import { normalizePhone } from '../lib/auth/phoneNormalize';
 
 const SANDBOX_ENABLED = process.env.E2E_OP_MANUAL_BOOKING_ENABLED === 'true';
 const DB_URL =
   process.env.DATABASE_URL ?? 'postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_dev';
 
-const SEED_PHONE = '+8490xxxxxx1';
+const SEED_PHONE = normalizePhone('0901230001');
 const SEED_PASSWORD = 'BBOp2026!';
 
 interface PrepareCtx {
@@ -33,7 +35,6 @@ interface PrepareCtx {
 }
 
 async function prepareManualBooking(): Promise<PrepareCtx> {
-  const { hash } = await import('../lib/auth/password');
   const client = new Client({ connectionString: DB_URL });
   await client.connect();
   try {
@@ -78,8 +79,8 @@ async function prepareManualBooking(): Promise<PrepareCtx> {
       routeId = existRoute.rows[0].id;
     } else {
       const ins = await client.query(
-        `INSERT INTO "Route" ("id","operatorId","origin","destination","durationMinutes")
-         VALUES (gen_random_uuid()::text, $1, 'MB-E2E-Origin', 'MB-E2E-Dest', 120) RETURNING id`,
+        `INSERT INTO "Route" ("id","operatorId","origin","destination","durationMinutes","updatedAt")
+         VALUES (gen_random_uuid()::text, $1, 'MB-E2E-Origin', 'MB-E2E-Dest', 120, NOW()) RETURNING id`,
         [operatorId]
       );
       routeId = ins.rows[0].id;
@@ -222,9 +223,10 @@ test.describe('Operator manual booking (Issue 015)', () => {
     const list = await request.get(`/api/op/bookings?tripId=${ctx.tripId}`);
     expect(list.status()).toBe(200);
     const json = await list.json();
-    const bookings: Array<{ isManual: boolean }> = json.bookings ?? json.items ?? [];
+    // Queue-list DTO (toBookingQueueRow) exposes the AC5 isManual flag as `manualFlag`.
+    const bookings: Array<{ manualFlag: boolean }> = json.rows ?? json.bookings ?? json.items ?? [];
     expect(bookings.length).toBeGreaterThan(0);
-    const manualBooking = bookings.find((b) => b.isManual === true);
+    const manualBooking = bookings.find((b) => b.manualFlag === true);
     expect(manualBooking).toBeDefined();
   });
 
@@ -250,6 +252,9 @@ test.describe('Operator manual booking (Issue 015)', () => {
   });
 
   test('auth: 401 without operator session', async ({ request }) => {
+    // Prime CSRF so the double-submit middleware doesn't 403 before the auth
+    // check runs — we're asserting the *auth* gate (401), not the CSRF gate.
+    const csrf = await primeCsrf(request);
     const res = await request.post(`/api/op/trips/${ctx.tripId}/manual-booking`, {
       data: {
         buyerName: 'Anon User',
@@ -257,6 +262,7 @@ test.describe('Operator manual booking (Issue 015)', () => {
         ticketCount: 1,
         paymentMethod: 'paid',
       },
+      headers: { 'X-CSRF-Token': csrf },
     });
     expect(res.status()).toBe(401);
   });

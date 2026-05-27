@@ -14,6 +14,10 @@ import { prisma } from '@/lib/db/client';
 export interface OperatorSession {
   operatorId: string;
   requiresPasswordChange: boolean;
+  /** OperatorUser row id (JWT sub) — needed for badge tracking + ownership writes. */
+  operatorUserId: string;
+  /** Operator role — gates admin-only nav/actions. */
+  role: 'admin' | 'staff';
 }
 
 export async function getOperatorSession(): Promise<OperatorSession | null> {
@@ -37,5 +41,7 @@ export async function getOperatorSession(): Promise<OperatorSession | null> {
   return {
     operatorId: operator.operatorId,
     requiresPasswordChange: operator.requiresPasswordChange,
+    operatorUserId: payload.sub,
+    role: payload.role,
   };
 }

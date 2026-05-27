@@ -14,7 +14,7 @@
  * 2. CSRF double-submit enforcement for all state-changing /api/* routes:
  *    Exempt:
  *      - GET / HEAD / OPTIONS (safe methods)
- *      - /api/payments/momo/webhook (HMAC body verification used instead)
+ *      - /api/payments/{momo,zalopay,card}/webhook (HMAC body verification used instead)
  *      - /api/op/auth/forgot-password* (pre-auth; no session cookie available)
  *      - /api/op/auth/refresh (uses HttpOnly refresh cookie; no JS-readable CSRF token)
  *    On first GET: issues bb_csrf cookie (non-HttpOnly, SameSite=Lax) if absent.
@@ -29,14 +29,22 @@ import { generateToken, compareTokens } from '@/lib/auth/csrf';
 const CSRF_COOKIE = 'bb_csrf';
 const CSRF_HEADER = 'X-CSRF-Token';
 const OP_ACCESS_COOKIE = 'bb_op_access';
+const SID_COOKIE = 'bb_sid'; // anonymous funnel session id (no PII)
+const SID_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 // Exact-path exemptions (CSRF)
-const CSRF_EXEMPT = new Set(['/api/payments/momo/webhook']);
+const CSRF_EXEMPT = new Set([
+  '/api/payments/momo/webhook',
+  '/api/payments/zalopay/webhook',
+  '/api/payments/card/webhook',
+]);
 // Prefix exemptions (CSRF) — routes where the CSRF cookie is unavailable pre-auth
 const CSRF_EXEMPT_PREFIXES = [
   '/api/op/auth/forgot-password',
   '/api/op/auth/refresh',
+  '/api/auth/forgot-password',   // Issue 008: customer forgot-password (pre-auth)
+  '/api/auth/reset-password',    // Issue 008: customer reset-password (pre-auth, proof-protected)
 ];
 
 // /op/* paths that do NOT require a valid operator session
@@ -99,18 +107,30 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   // Layer 2 — CSRF double-submit enforcement
   // -------------------------------------------------------------------------
 
-  // Issue CSRF cookie on any safe method request that doesn't already have one
+  // Issue CSRF + anonymous-session cookies on any safe method request missing them
   if (SAFE_METHODS.has(requestMethod)) {
-    const existing = request.cookies.get(CSRF_COOKIE)?.value;
-    if (!existing) {
+    const hasCsrf = request.cookies.get(CSRF_COOKIE)?.value;
+    const hasSid = request.cookies.get(SID_COOKIE)?.value;
+    if (!hasCsrf || !hasSid) {
       const response = NextResponse.next();
-      const token = generateToken();
-      response.cookies.set(CSRF_COOKIE, token, {
-        httpOnly: false, // Must be readable by JS for double-submit
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NODE_ENV === 'production',
-      });
+      const secure = process.env.NODE_ENV === 'production';
+      if (!hasCsrf) {
+        response.cookies.set(CSRF_COOKIE, generateToken(), {
+          httpOnly: false, // Must be readable by JS for double-submit
+          sameSite: 'lax',
+          path: '/',
+          secure,
+        });
+      }
+      if (!hasSid) {
+        response.cookies.set(SID_COOKIE, generateToken(), {
+          httpOnly: true, // server-only; funnel correlation, never read by JS
+          sameSite: 'lax',
+          path: '/',
+          maxAge: SID_MAX_AGE,
+          secure,
+        });
+      }
       return response;
     }
     return NextResponse.next();

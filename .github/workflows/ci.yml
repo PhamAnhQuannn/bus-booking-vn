@@ -94,6 +94,8 @@ jobs:
     env:
       DATABASE_URL: postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_dev
       SHADOW_DATABASE_URL: postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_shadow
+      # Test-only secret (64 hex) — required by lib/config/env.ts (no default).
+      HOLD_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 
     steps:
       - uses: actions/checkout@v4
@@ -149,6 +151,10 @@ jobs:
     env:
       DATABASE_URL: postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_dev
       PLAYWRIGHT_BASE_URL: http://localhost:3000
+      # Test-only secret (64 hex) — required by lib/config/env.ts (no default).
+      HOLD_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      # Route online payments through the local stub gateway for e2e.
+      PAYMENTS_STUB: 'true'
 
     steps:
       - uses: actions/checkout@v4
@@ -175,7 +181,8 @@ jobs:
         run: pnpm prisma db seed
 
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
+        # mobile-390 project uses devices['iPhone SE'] → WebKit. chromium kept for the desktop project.
+        run: pnpm exec playwright install --with-deps chromium webkit
 
       - name: Build Next.js app
         run: pnpm build
@@ -197,6 +204,10 @@ jobs:
   gitleaks:
     name: Secret Scanning (gitleaks)
     runs-on: ubuntu-latest
+    # gitleaks-action@v2 reads PR commits on pull_request events — needs PR read.
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -204,7 +215,8 @@ jobs:
 
       - name: Run gitleaks
         uses: gitleaks/gitleaks-action@v2
+        # v2 has no `args` input (it warned "Unexpected input(s) 'args'"); it
+        # auto-detects the repo .gitleaks.toml. Point at it explicitly via env.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          args: detect --config .gitleaks.toml --redact
+          GITLEAKS_CONFIG: .gitleaks.toml

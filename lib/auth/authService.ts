@@ -12,6 +12,7 @@ import { consume } from './otp';
 import { hash as hashPassword, verify as verifyPassword, dummyVerify } from './password';
 import { createSession, rotateRefresh, revokeSession } from './session';
 import { verify as verifyRefreshToken } from './refreshToken';
+import { backfillGuestBookingsForCustomer } from '@/lib/booking/attachGuestBookingByPhone';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -35,7 +36,7 @@ export interface AuthResult {
   csrf: string;
   customer: {
     id: string;
-    phone: string;
+    phone: string | null;
     displayName: string | null;
   };
 }
@@ -64,11 +65,19 @@ export async function register(input: RegisterInput): Promise<AuthResult> {
   const phone = normalizePhone(input.phone);
   const passwordHash = await hashPassword(input.password);
 
-  let customer: { id: string; phone: string; displayName: string | null };
+  let customer: { id: string; phone: string | null; displayName: string | null };
   try {
-    customer = await prisma.customer.create({
-      data: { phone, passwordHash, displayName: input.displayName ?? null },
-      select: { id: true, phone: true, displayName: true },
+    customer = await prisma.$transaction(async (tx) => {
+      const created = await tx.customer.create({
+        data: { phone, passwordHash, displayName: input.displayName ?? null },
+        select: { id: true, phone: true, displayName: true },
+      });
+      // Issue 009 AC(a): attach pre-existing guest bookings made with this phone.
+      // phone is guaranteed non-null here — we just set it above.
+      if (created.phone) {
+        await backfillGuestBookingsForCustomer(tx, created.id, created.phone);
+      }
+      return created;
     });
   } catch (err) {
     // Prisma unique constraint violation on Customer.phone
@@ -100,8 +109,8 @@ export async function register(input: RegisterInput): Promise<AuthResult> {
 export async function login(input: LoginInput): Promise<AuthResult> {
   const phone = normalizePhone(input.phone);
 
-  const customer = await prisma.customer.findUnique({
-    where: { phone },
+  const customer = await prisma.customer.findFirst({
+    where: { phone, deletedAt: null },
     select: { id: true, phone: true, displayName: true, passwordHash: true },
   });
 

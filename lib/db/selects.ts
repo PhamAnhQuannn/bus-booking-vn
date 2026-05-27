@@ -1,19 +1,22 @@
 /**
  * Prisma select whitelist for trip search results.
  *
- * AC-13: Only the 7 fields defined in the API contract are selected.
+ * AC-13: Only fields in the API contract are selected.
  * Never use `select: undefined` — always use this const.
  */
 
 import type { Prisma } from '@prisma/client';
 
 /**
- * Typed const enforcing a 7-field select whitelist for the TripResult API shape:
+ * Typed const enforcing the select whitelist for the TripResult API shape:
  * - tripId (mapped from id)
  * - departureAt
  * - price
  * - availableSeats (derived from bus.capacity, not stored — computed after query)
  * - operatorLegalName (via bus.operator.legalName)
+ * - operatorId (via bus.operatorId) — operator filter facet
+ * - busType (via bus.busType) — comfort-tier filter facet
+ * - durationMinutes (via route.durationMinutes) — duration filter/sort facet
  * - routeOrigin (via route.origin)
  * - routeDestination (via route.destination)
  *
@@ -28,6 +31,8 @@ export const searchResultSelect = {
   bus: {
     select: {
       capacity: true,
+      busType: true,
+      operatorId: true,
       operator: {
         select: {
           legalName: true,
@@ -39,6 +44,7 @@ export const searchResultSelect = {
     select: {
       origin: true,
       destination: true,
+      durationMinutes: true,
     },
   },
 } satisfies Prisma.TripSelect;
@@ -60,6 +66,9 @@ export function toTripResult(trip: TripSearchResult) {
     price: trip.price,
     availableSeats: trip.bus.capacity,
     operatorLegalName: trip.bus.operator.legalName,
+    operatorId: trip.bus.operatorId,
+    busType: trip.bus.busType,
+    durationMinutes: trip.route.durationMinutes,
     routeOrigin: trip.route.origin,
     routeDestination: trip.route.destination,
   };

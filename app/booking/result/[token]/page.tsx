@@ -2,8 +2,8 @@
  * /booking/result/[token] — MoMo payment result / polling page.
  *
  * Status-based rendering:
- *   awaiting_payment      → "Đang chờ thanh toán" + auto-refresh every 5s
- *                           (capped at 24 refreshes ≈ 2 min via ?r= counter)
+ *   awaiting_payment       → "Đang chờ thanh toán" + auto-refresh every 5s
+ *                            (capped at 24 refreshes ≈ 2 min via ?r= counter)
  *   paid_operator_notified → Success banner + link to /booking/confirmation/[token]
  *   payment_failed_expired → Failure banner + retry CTA to /search
  *   other statuses         → Fallback (e.g. booking cancelled)
@@ -11,14 +11,19 @@
  * Server component: calls getBookingByConfirmationToken in-process — NEVER
  * self-fetches its own API (Mistake Log 2026-05-17).
  *
- * Auto-refresh uses <meta httpEquiv="refresh"> rendered directly in the page
- * (Next.js docs state meta http-equiv is not supported via generateMetadata —
- * render the tag inline in the component tree instead).
+ * Reachable via the MoMo return URL with no prior bookingStore state, so
+ * /booking/layout.tsx whitelists this prefix to bypass its tripId guard.
+ *
+ * Auto-refresh uses <meta httpEquiv="refresh"> rendered inline in the tree
+ * (Next.js does not support meta http-equiv via generateMetadata).
  */
 
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
+import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { getBookingByConfirmationToken } from '@/lib/db/bookingRepo';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { buttonVariants } from '@/components/ui/button';
 
 interface ResultPageProps {
   params: Promise<{ token: string }>;
@@ -26,6 +31,12 @@ interface ResultPageProps {
 }
 
 const MAX_AUTO_REFRESH = 24; // ~2 min at 5s interval
+
+const GATEWAY_LABEL: Record<string, string> = {
+  momo: 'MoMo',
+  zalopay: 'ZaloPay',
+  card: 'thẻ',
+};
 
 function formatVND(amount: number): string {
   return (
@@ -39,32 +50,46 @@ function formatVND(amount: number): string {
 
 export default async function ResultPage({ params, searchParams }: ResultPageProps) {
   const { token } = await params;
-  const sp = await searchParams;
-  const refreshCount = Math.min(parseInt(sp.r ?? '0', 10) || 0, MAX_AUTO_REFRESH);
 
   const booking = await getBookingByConfirmationToken(token);
   if (!booking) {
     notFound();
   }
 
+  const sp = await searchParams;
+  const refreshCount = Math.min(parseInt(sp.r ?? '0', 10) || 0, MAX_AUTO_REFRESH);
+
   const isPending = booking.status === 'awaiting_payment';
   const isPaid = booking.status === 'paid_operator_notified' || booking.status === 'completed';
   const isFailed = booking.status === 'payment_failed_expired';
+  const gatewayLabel = GATEWAY_LABEL[booking.paymentMethod] ?? 'trực tuyến';
 
-  // Auto-refresh URL increments counter until cap
   const nextRefreshCount = refreshCount + 1;
   const shouldAutoRefresh = isPending && refreshCount < MAX_AUTO_REFRESH;
   const refreshUrl = `/booking/result/${token}?r=${nextRefreshCount}`;
 
   return (
     <>
-      {shouldAutoRefresh && (
-        // Render meta refresh inline — not supported via generateMetadata API
-        <meta httpEquiv="refresh" content={`5;url=${refreshUrl}`} />
-      )}
-
-      <main className="max-w-md mx-auto p-6 space-y-6">
-        <header className="space-y-1">
+      {shouldAutoRefresh && <meta httpEquiv="refresh" content={`5;url=${refreshUrl}`} />}
+      <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-8">
+        <header className="flex flex-col items-center gap-3 text-center">
+          <span
+            className={
+              isPaid
+                ? 'flex size-14 items-center justify-center rounded-full bg-success text-success-foreground'
+                : isFailed
+                  ? 'flex size-14 items-center justify-center rounded-full bg-destructive/10 text-destructive'
+                  : 'flex size-14 items-center justify-center rounded-full bg-warning text-warning-foreground'
+            }
+          >
+            {isPaid ? (
+              <CheckCircle2 className="size-8" aria-hidden="true" />
+            ) : isFailed ? (
+              <XCircle className="size-8" aria-hidden="true" />
+            ) : (
+              <Loader2 className="size-8 motion-safe:animate-spin" aria-hidden="true" />
+            )}
+          </span>
           <h1 className="text-2xl font-bold">
             {isPaid
               ? 'Thanh toán thành công'
@@ -74,23 +99,22 @@ export default async function ResultPage({ params, searchParams }: ResultPagePro
                   ? 'Thanh toán thất bại'
                   : 'Kết quả đặt vé'}
           </h1>
-          <p className="text-sm text-gray-600">
-            Mã đặt chỗ: <span className="font-mono font-semibold">{booking.bookingRef}</span>
+          <p className="text-sm text-muted-foreground">
+            Mã đặt chỗ: <span className="font-mono font-semibold text-foreground">{booking.bookingRef}</span>
           </p>
         </header>
 
         {/* Awaiting payment — polling banner */}
         {isPending && (
-          <section className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-2">
-            <h2 className="text-base font-semibold text-amber-900">
-              Đang chờ xác nhận thanh toán MoMo
+          <div className="flex flex-col gap-2 rounded-xl border border-warning-border bg-warning p-4">
+            <h2 className="text-base font-semibold text-warning-foreground">
+              Đang chờ xác nhận thanh toán {gatewayLabel}
             </h2>
-            <p className="text-sm text-amber-800">
-              Vui lòng hoàn tất thanh toán trong ứng dụng MoMo. Trang này tự động
-              cập nhật sau 5 giây.
+            <p className="text-sm text-warning-foreground">
+              Vui lòng hoàn tất thanh toán {gatewayLabel}. Trang này tự động cập nhật sau 5 giây.
             </p>
             {refreshCount >= MAX_AUTO_REFRESH && (
-              <p className="text-sm text-amber-700 font-medium">
+              <p className="text-sm font-medium text-warning-foreground">
                 Trang đã dừng tự động làm mới.{' '}
                 <a href={`/booking/result/${token}`} className="underline">
                   Tải lại trang
@@ -98,76 +122,69 @@ export default async function ResultPage({ params, searchParams }: ResultPagePro
                 để kiểm tra trạng thái.
               </p>
             )}
-          </section>
+          </div>
         )}
 
         {/* Paid / success */}
         {isPaid && (
-          <section className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-3">
-            <h2 className="text-base font-semibold text-green-900">
-              Đặt vé và thanh toán thành công!
-            </h2>
-            <p className="text-sm text-green-800">
-              Cảm ơn bạn đã đặt vé qua BusBookVN. Vui lòng xem thông tin xác nhận để
-              biết chi tiết chuyến đi.
+          <div className="flex flex-col gap-3 rounded-xl border border-success-border bg-success p-4">
+            <p className="text-sm text-success-foreground">
+              Cảm ơn bạn đã đặt vé qua BBVN. Vui lòng xem thông tin xác nhận để biết chi tiết chuyến đi.
             </p>
             <Link
               href={`/booking/confirmation/${token}`}
-              className="inline-block bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-green-800"
+              className={buttonVariants({ variant: 'default', size: 'default' }) + ' self-start'}
             >
               Xem thông tin đặt vé
             </Link>
-          </section>
+          </div>
         )}
 
         {/* Failed */}
         {isFailed && (
-          <section className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-3">
-            <h2 className="text-base font-semibold text-red-900">
-              Thanh toán không thành công
-            </h2>
-            <p className="text-sm text-red-800">
-              Giao dịch MoMo của bạn chưa hoàn tất hoặc đã bị hủy. Vui lòng thử lại
-              với chuyến xe khác.
+          <div className="flex flex-col gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-4">
+            <p className="text-sm text-destructive">
+              Giao dịch {gatewayLabel} của bạn chưa hoàn tất hoặc đã bị hủy. Vui lòng thử lại với chuyến xe khác.
             </p>
-            <Link
-              href="/search"
-              className="inline-block bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-red-800"
-            >
+            <Link href="/search" className={buttonVariants({ variant: 'default', size: 'default' }) + ' self-start'}>
               Tìm chuyến khác
             </Link>
-          </section>
+          </div>
         )}
 
         {/* Generic fallback for unexpected statuses */}
         {!isPending && !isPaid && !isFailed && (
-          <section className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <p className="text-sm text-gray-700">
+          <div className="rounded-xl border border-border bg-muted p-4">
+            <p className="text-sm text-muted-foreground">
               Đặt vé của bạn đang được xử lý. Vui lòng liên hệ hỗ trợ nếu cần trợ giúp.
             </p>
-          </section>
+          </div>
         )}
 
         {/* Booking summary */}
-        <section className="bg-white border rounded-lg p-4 space-y-3">
-          <h2 className="text-lg font-semibold">Thông tin đặt vé</h2>
-          <dl className="space-y-2 text-sm">
-            <div className="flex justify-between gap-4">
-              <dt className="text-gray-600">Tuyến</dt>
-              <dd className="text-right">
-                {booking.trip.route.origin} → {booking.trip.route.destination}
-              </dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-gray-600">Số vé</dt>
-              <dd>{booking.ticketCount}</dd>
-            </div>
-            <div className="flex justify-between font-semibold text-lg border-t pt-2">
-              <dt>Tổng cộng</dt>
-              <dd className="text-blue-700">{formatVND(booking.totalVnd)}</dd>
-            </div>
-          </dl>
-        </section>
+        <Card>
+          <CardHeader>
+            <CardTitle as="h2">Thông tin đặt vé</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <dl className="flex flex-col gap-2.5 text-sm">
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Tuyến</dt>
+                <dd className="text-right">
+                  {booking.trip.route.origin} → {booking.trip.route.destination}
+                </dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Số vé</dt>
+                <dd>{booking.ticketCount}</dd>
+              </div>
+              <div className="mt-1 flex items-center justify-between border-t border-border pt-3 text-lg font-semibold">
+                <dt>Tổng cộng</dt>
+                <dd className="font-mono text-primary">{formatVND(booking.totalVnd)}</dd>
+              </div>
+            </dl>
+          </CardContent>
+        </Card>
       </main>
     </>
   );

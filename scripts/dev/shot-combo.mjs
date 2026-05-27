@@ -1,0 +1,12 @@
+import { chromium } from '@playwright/test';
+const base = process.env.SHOT_BASE ?? 'http://localhost:3001';
+const b = await chromium.launch();
+const p = await (await b.newContext({ viewport: { width: 1100, height: 900 } })).newPage();
+await p.goto(base + '/', { waitUntil: 'networkidle' });
+const dest = p.getByLabel('Điểm đến');
+await dest.click();
+await dest.fill('a');
+await p.waitForTimeout(500);
+await p.screenshot({ path: 'docs/dev/screenshots/combo-open.png' });
+console.log('saved combo-open.png');
+await b.close();

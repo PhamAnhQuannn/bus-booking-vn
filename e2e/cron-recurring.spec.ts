@@ -15,13 +15,15 @@
 import { test, expect } from '@playwright/test';
 import { Client } from 'pg';
 import { primeCsrf } from './helpers/csrf';
+import { hash } from '../lib/auth/password';
+import { normalizePhone } from '../lib/auth/phoneNormalize';
 
 const SANDBOX_ENABLED = process.env.E2E_CRON_RECURRING_ENABLED === 'true';
 const DB_URL =
   process.env.DATABASE_URL ?? 'postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_dev';
 const CRON_SECRET = process.env.CRON_SECRET ?? '';
 
-const SEED_PHONE = '+8490xxxxxx1';
+const SEED_PHONE = normalizePhone('0901230001');
 const SEED_PASSWORD = 'BBOp2026!';
 
 interface PrepareResult {
@@ -30,7 +32,6 @@ interface PrepareResult {
 }
 
 async function prepareTemplate(): Promise<PrepareResult> {
-  const { hash } = await import('../lib/auth/password');
   const client = new Client({ connectionString: DB_URL });
   await client.connect();
   try {
@@ -54,8 +55,8 @@ async function prepareTemplate(): Promise<PrepareResult> {
 
     // Route
     const routeRow = await client.query(
-      `INSERT INTO "Route" ("id","operatorId","origin","destination","durationMinutes")
-       VALUES (gen_random_uuid()::text, $1, 'CRON-Origin', 'CRON-Dest', 100)
+      `INSERT INTO "Route" ("id","operatorId","origin","destination","durationMinutes","updatedAt")
+       VALUES (gen_random_uuid()::text, $1, 'CRON-Origin', 'CRON-Dest', 100, NOW())
        ON CONFLICT DO NOTHING RETURNING id`,
       [opAId]
     );
@@ -77,8 +78,8 @@ async function prepareTemplate(): Promise<PrepareResult> {
 
     const templateRow = await client.query(
       `INSERT INTO "RecurringTripTemplate"
-         ("id","operatorId","routeId","busId","price","departureLocalTime","daysOfMask","validFrom","validUntil")
-       VALUES (gen_random_uuid()::text, $1, $2, $3, 50000, '09:00', 127, $4::date, $5::date)
+         ("id","operatorId","routeId","busId","price","departureLocalTime","daysOfMask","validFrom","validUntil","updatedAt")
+       VALUES (gen_random_uuid()::text, $1, $2, $3, 50000, '09:00', 127, $4::date, $5::date, NOW())
        RETURNING id`,
       [opAId, routeId, busId, validFrom, validUntil]
     );
