@@ -23,7 +23,7 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
       <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between gap-4 px-4">
-        <Link href="/" className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Link href="/" className="rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
           <Logo variant="combo" />
         </Link>
         <nav className="flex items-center gap-1 text-sm" aria-label="Điều hướng chính">
@@ -34,10 +34,11 @@ export function SiteHeader() {
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'rounded-md px-3 py-2 font-medium transition-colors',
+                  'inline-flex min-h-11 items-center rounded-md px-3 font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
                   active
-                    ? 'text-primary'
+                    ? 'font-semibold text-primary'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >

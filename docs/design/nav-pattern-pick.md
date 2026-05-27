@@ -11,9 +11,16 @@ resolves: operator-dashboard.md / a11y-operator-console.md / design-system.md "n
 
 Resolves the "pending `/nav-pattern-pick`" flag referenced by `a11y-operator-console.md`,
 `wireframes/operator-dashboard.md`, and `design-system.md`. Scope: the `/op/*` console shell
-ONLY. Customer flow (search→book→confirm) and auth/account use a plain centered single-column
-layout — no persistent nav, header brand link only. Staff dashboard (`/op/staff/dashboard`)
-is single-trip, NO admin shell (see `operator-staff-dashboard.md`).
+ONLY. Staff dashboard (`/op/staff/dashboard`) is single-trip, NO admin shell (see
+`operator-staff-dashboard.md`).
+
+> **Customer-side update (2026-05-26):** the customer flow now uses a **minimal persistent
+> top header** (`components/layout/SiteHeader.tsx` — brand logo + 3 links: Trang chủ / Tìm
+> chuyến xe / Tài khoản) **and a footer** (`SiteFooter.tsx` — brand, link groups, legal,
+> copyright), both hidden on `/op/*` + `/dev/*`. This supersedes the original
+> "brand link only, no persistent nav" line below for the customer side; the product-ready
+> pass added them for brand presence + wayfinding. Active link uses `aria-current="page"`
+> + weight (not color-only); links carry a visible focus ring + ≥44px target.
 
 ## Decision
 
