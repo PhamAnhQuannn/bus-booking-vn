@@ -64,11 +64,11 @@ test.describe('AC-4: Search results display', () => {
     // Price formatted in VND
     await expect(first.getByText(/đ/i)).toBeVisible();
 
-    // Available seats
-    await expect(first.getByText(/Chỗ trống/)).toBeVisible();
+    // Seats-left badge (PTN-04: "Còn N chỗ" / "Chỉ còn N chỗ")
+    await expect(first.getByText(/chỗ/)).toBeVisible();
 
-    // Departure time visible (HH:MM format)
-    await expect(first.getByText(/Khởi hành/)).toBeVisible();
+    // Departure time visible (HH:MM, depart→arrive row — no "Khởi hành" label)
+    await expect(first.getByText(/\d{1,2}:\d{2}/).first()).toBeVisible();
   });
 
   test('shows "Không tìm thấy" for no results', async ({ page }) => {
@@ -89,10 +89,10 @@ test.describe('AC-4: Search results display', () => {
     const count = await cards.count();
 
     if (count > 1) {
-      // Extract departure times and verify ascending order
+      // Extract departure times (first HH:MM in each card's depart→arrive row) and verify ascending order
       const times: string[] = [];
       for (let i = 0; i < count; i++) {
-        const text = await cards.nth(i).locator('text=/Khởi hành/').textContent();
+        const text = await cards.nth(i).getByText(/\d{1,2}:\d{2}/).first().textContent();
         if (text) times.push(text);
       }
       // Verify each subsequent time is >= previous (lexicographic HH:MM sort works)
