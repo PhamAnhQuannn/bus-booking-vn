@@ -10,9 +10,11 @@
  */
 
 import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { ArrowRight, Armchair } from 'lucide-react';
 import { searchParamsSchema, searchFiltersSchema } from '@/lib/validation/search';
+import { track } from '@/lib/analytics/track';
 import { searchTrips, type TripResult } from '@/lib/db/searchTrips';
 import { applyTripFilters, type TripFacets } from '@/lib/search/applyTripFilters';
 import { SearchFormWrapper } from '@/components/search/SearchFormWrapper';
@@ -319,6 +321,13 @@ export default async function SearchPage({ searchParams }: PageProps) {
   const { origin, destination, date, ticketCount } = parsed.data;
 
   const baseTrips = await searchTrips({ origin, destination, date, ticketCount });
+
+  // Funnel top-step. The /search RSC calls searchTrips() in-process (never the
+  // JSON API route), so search_performed must be fired here — fire-and-forget,
+  // read bb_sid (httpOnly) server-side. No session on the first-ever request of
+  // a new visitor (proxy mints bb_sid in the same response) → undercount by 1/session.
+  const sessionId = (await cookies()).get('bb_sid')?.value ?? null;
+  void track('search_performed', { sessionId, context: { resultCount: baseTrips.length } });
 
   // Layer optional filters/sort over the base set. Schema has defaults + is fully
   // optional, so this parse always succeeds; fall back to defaults on the off chance.
