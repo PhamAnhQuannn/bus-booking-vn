@@ -12,6 +12,8 @@
 
 import { notFound } from 'next/navigation';
 import { getEnv } from '@/lib/config/env';
+import { buttonVariants } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { submitStubPayment } from './actions';
 
 interface StubPayPageProps {
@@ -49,24 +51,26 @@ export default async function StubPayPage({ searchParams }: StubPayPageProps) {
   }
 
   return (
-    <main className="max-w-md mx-auto p-6 space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold">Cổng thanh toán thử (DEV)</h1>
-        <p className="text-sm text-gray-600">
+    <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-8">
+      <header className="flex flex-col gap-1">
+        <h1 className="font-display text-2xl font-bold tracking-tight">Cổng thanh toán thử (DEV)</h1>
+        <p className="text-sm text-muted-foreground">
           Fake <span className="font-mono">{adapter}</span> gateway — no real money moves.
         </p>
       </header>
 
-      <section className="bg-white border rounded-lg p-4 space-y-2 text-sm">
-        <div className="flex justify-between gap-4">
-          <span className="text-gray-600">Mã đơn</span>
-          <span className="font-mono">{orderId}</span>
-        </div>
-        <div className="flex justify-between font-semibold text-lg border-t pt-2">
-          <span>Số tiền</span>
-          <span className="text-blue-700">{formatVND(amount)}</span>
-        </div>
-      </section>
+      <Card>
+        <CardContent className="flex flex-col gap-2 py-4 text-sm">
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">Mã đơn</span>
+            <span className="font-mono">{orderId}</span>
+          </div>
+          <div className="flex justify-between border-t pt-2 text-lg font-semibold">
+            <span>Số tiền</span>
+            <span className="font-mono text-primary">{formatVND(amount)}</span>
+          </div>
+        </CardContent>
+      </Card>
 
       <form className="flex gap-3">
         <input type="hidden" name="adapter" value={adapter} />
@@ -78,18 +82,18 @@ export default async function StubPayPage({ searchParams }: StubPayPageProps) {
           name="outcome"
           value="success"
           formAction={submitStubPayment}
-          className="flex-1 bg-green-700 text-white text-sm font-medium px-4 py-3 rounded-md hover:bg-green-800"
+          className={buttonVariants({ variant: 'default', size: 'lg', className: 'flex-1' })}
         >
-          Pay success
+          Thanh toán
         </button>
         <button
           type="submit"
           name="outcome"
           value="fail"
           formAction={submitStubPayment}
-          className="flex-1 bg-red-700 text-white text-sm font-medium px-4 py-3 rounded-md hover:bg-red-800"
+          className={buttonVariants({ variant: 'destructive', size: 'lg', className: 'flex-1' })}
         >
-          Pay fail
+          Thất bại
         </button>
       </form>
     </main>

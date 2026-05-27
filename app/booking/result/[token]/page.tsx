@@ -71,7 +71,7 @@ export default async function ResultPage({ params, searchParams }: ResultPagePro
   return (
     <>
       {shouldAutoRefresh && <meta httpEquiv="refresh" content={`5;url=${refreshUrl}`} />}
-      <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-10">
+      <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-8">
         <header className="flex flex-col items-center gap-3 text-center">
           <span
             className={

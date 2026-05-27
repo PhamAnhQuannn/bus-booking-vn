@@ -87,7 +87,7 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
   const isCashPending = booking.status === 'pending_cash_payment';
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-10">
+    <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-8">
       {/* Success header */}
       <header className="flex flex-col items-center gap-3 text-center">
         <span className="flex size-14 items-center justify-center rounded-full bg-success text-success-foreground">
