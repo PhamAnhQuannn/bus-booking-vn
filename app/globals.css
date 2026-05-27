@@ -53,6 +53,12 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  /* Warm-tinted layered elevation scale (trend-travel.md): e1 resting → e4 modal.
+     Use shadow-e1..e4 instead of flat shadow-sm. */
+  --shadow-e1: 0 1px 2px -1px oklch(0.3 0.03 60 / 0.10), 0 1px 1px oklch(0.3 0.03 60 / 0.05);
+  --shadow-e2: 0 2px 8px -2px oklch(0.3 0.03 60 / 0.12), 0 1px 2px oklch(0.3 0.03 60 / 0.06);
+  --shadow-e3: 0 8px 24px -4px oklch(0.3 0.03 60 / 0.14);
+  --shadow-e4: 0 16px 48px -8px oklch(0.3 0.03 60 / 0.18);
 }
 
 :root {
@@ -92,7 +98,7 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
+  --radius: 0.75rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.646 0.222 41.116);
