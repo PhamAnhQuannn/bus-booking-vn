@@ -11,7 +11,7 @@
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight, Clock, Armchair } from 'lucide-react';
+import { ArrowRight, Armchair } from 'lucide-react';
 import { searchParamsSchema, searchFiltersSchema } from '@/lib/validation/search';
 import { searchTrips, type TripResult } from '@/lib/db/searchTrips';
 import { applyTripFilters, type TripFacets } from '@/lib/search/applyTripFilters';
@@ -19,7 +19,14 @@ import { SearchFormWrapper } from '@/components/search/SearchFormWrapper';
 import { SearchStoreHydrator } from '@/components/search/SearchStoreHydrator';
 import { SearchFilterRail, SearchToolbar } from '@/components/search/SearchFilters';
 import { BookButton } from '@/components/search/BookButton';
+import { Badge } from '@/components/ui/badge';
 import { getSearchablePlaces } from '@/lib/db/getSearchablePlaces';
+
+const BUS_TYPE_LABEL: Record<'coach' | 'sleeper' | 'limousine', string> = {
+  coach: 'Ghế ngồi',
+  sleeper: 'Giường nằm',
+  limousine: 'Limousine',
+};
 
 export const metadata: Metadata = {
   title: 'Tìm chuyến xe | BBVN',
@@ -61,8 +68,8 @@ function formatPrice(price: number): string {
   return price.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
 }
 
-/** Format ISO departure time to Vietnamese time display */
-function formatDepartureAt(iso: string): string {
+/** Format ISO time to VN HH:MM */
+function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('vi-VN', {
     hour: '2-digit',
     minute: '2-digit',
@@ -70,14 +77,27 @@ function formatDepartureAt(iso: string): string {
   });
 }
 
+/** Arrival ISO = departure + duration. */
+function arrivalIso(departIso: string, durationMinutes: number): string {
+  return new Date(new Date(departIso).getTime() + durationMinutes * 60000).toISOString();
+}
+
+function durationLabel(mins: number): string {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m ? `${h}h${m}` : `${h}h`;
+}
+
 function TripCard({ trip, ticketCount }: { trip: TripResult; ticketCount: number }) {
+  const lowSeats = trip.availableSeats <= 5;
   return (
     <article
       className="group flex flex-col gap-3 rounded-xl border border-border bg-card p-5 shadow-e1 transition-all hover:border-primary/30 hover:shadow-e2 motion-safe:hover:-translate-y-0.5"
       aria-label={`Chuyến từ ${trip.routeOrigin} đến ${trip.routeDestination}`}
     >
+      {/* Operator + route */}
       <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2 text-lg font-semibold">
+        <div className="flex items-center gap-2 font-semibold">
           <span>{trip.routeOrigin}</span>
           <ArrowRight className="size-4 shrink-0 text-primary" aria-hidden="true" />
           <span>{trip.routeDestination}</span>
@@ -89,21 +109,30 @@ function TripCard({ trip, ticketCount }: { trip: TripResult; ticketCount: number
           >
             {trip.operatorLegalName.replace(/^(Công ty|CÔNG TY)\s*/i, '').trim().charAt(0)}
           </span>
-          <span className="text-sm text-muted-foreground">
-            {trip.operatorLegalName}
-          </span>
+          <span className="text-sm text-muted-foreground">{trip.operatorLegalName}</span>
         </div>
       </div>
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-muted-foreground">
-        <span className="inline-flex items-center gap-1.5">
-          <Clock className="size-4" aria-hidden="true" />
-          Khởi hành <strong className="font-mono text-foreground">{formatDepartureAt(trip.departureAt)}</strong>
+
+      {/* Depart → arrive + duration */}
+      <div className="flex items-center gap-2 font-mono text-lg font-semibold">
+        <span>{formatTime(trip.departureAt)}</span>
+        <span className="text-xs font-normal text-muted-foreground">
+          {durationLabel(trip.durationMinutes)}
         </span>
-        <span className="inline-flex items-center gap-1.5">
-          <Armchair className="size-4" aria-hidden="true" />
-          Chỗ trống <strong className="text-foreground">{trip.availableSeats}</strong>
-        </span>
+        <span className="text-muted-foreground">→</span>
+        <span>{formatTime(arrivalIso(trip.departureAt, trip.durationMinutes))}</span>
       </div>
+
+      {/* Badges: bus type + seats-left urgency */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="neutral">{BUS_TYPE_LABEL[trip.busType]}</Badge>
+        <Badge variant={lowSeats ? 'pending' : 'neutral'}>
+          <Armchair className="size-3.5" aria-hidden="true" />
+          {lowSeats ? `Chỉ còn ${trip.availableSeats} chỗ` : `Còn ${trip.availableSeats} chỗ`}
+        </Badge>
+      </div>
+
+      {/* Price + actions */}
       <div className="mt-1 flex items-center justify-between gap-3 border-t border-border/60 pt-3">
         <div className="flex flex-col">
           <span className="text-xs text-muted-foreground">Giá vé</span>
