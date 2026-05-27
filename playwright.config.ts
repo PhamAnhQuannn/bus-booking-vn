@@ -24,11 +24,13 @@ export default defineConfig({
       },
     },
   ],
-  webServer: process.env.CI
-    ? undefined
-    : {
-        command: 'pnpm dev',
-        url: 'http://localhost:3000',
-        reuseExistingServer: !process.env.CI,
-      },
+  // CI: serve the production build (ci.yml runs `pnpm build` first). Local: dev server.
+  // Previously undefined in CI with no server-start step → every page.goto hit
+  // "connection refused".
+  webServer: {
+    command: process.env.CI ? 'pnpm start' : 'pnpm dev',
+    url: 'http://localhost:3000',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+  },
 });
