@@ -8,3 +8,9 @@ id = "vn-mobile-number"
 description = "Vietnamese mobile phone number"
 regex = '''\+84[35789]\d{8}'''
 tags = ["phone", "PII", "VN"]
+
+[allowlist]
+description = "Known fake placeholder numbers in docs/comments — not secrets"
+regexes = [
+  '''\+84901234567''',
+]
