@@ -14,12 +14,12 @@ import { type FormEvent, useId } from 'react';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { PlaceCombobox } from '@/components/ui/combobox';
 import { useSearchStore } from '@/lib/stores/searchStore';
 
 export function SearchForm({ places = [] }: { places?: string[] }) {
   const router = useRouter();
   const formId = useId();
-  const placesListId = `${formId}-places`;
 
   const { origin, destination, date, ticketCount, setOrigin, setDestination, setDate, setTicketCount } =
     useSearchStore();
@@ -42,33 +42,19 @@ export function SearchForm({ places = [] }: { places?: string[] }) {
       aria-label="Trip search"
       className="flex w-full flex-col gap-4"
     >
-      {/* Shared place suggestions (origins + destinations of active routes) */}
-      {places.length > 0 && (
-        <datalist id={placesListId}>
-          {places.map((p) => (
-            <option key={p} value={p} />
-          ))}
-        </datalist>
-      )}
-
       {/* Origin */}
       <div className="flex flex-col gap-1.5">
         <label htmlFor={`${formId}-origin`} className="text-sm font-medium">
           Điểm xuất phát
         </label>
-        <Input
+        <PlaceCombobox
           id={`${formId}-origin`}
-          name="origin"
-          type="text"
-          placeholder="Ví dụ: Hà Nội"
+          items={places}
           value={origin}
-          onChange={(e) => setOrigin(e.target.value)}
+          onValueChange={setOrigin}
+          placeholder="Ví dụ: Hà Nội"
           required
-          minLength={1}
           maxLength={50}
-          autoComplete="off"
-          list={places.length > 0 ? placesListId : undefined}
-          className="min-h-11"
           aria-required="true"
         />
       </div>
@@ -78,19 +64,14 @@ export function SearchForm({ places = [] }: { places?: string[] }) {
         <label htmlFor={`${formId}-destination`} className="text-sm font-medium">
           Điểm đến
         </label>
-        <Input
+        <PlaceCombobox
           id={`${formId}-destination`}
-          name="destination"
-          type="text"
-          placeholder="Ví dụ: TP.HCM"
+          items={places}
           value={destination}
-          onChange={(e) => setDestination(e.target.value)}
+          onValueChange={setDestination}
+          placeholder="Ví dụ: TP.HCM"
           required
-          minLength={1}
           maxLength={50}
-          autoComplete="off"
-          list={places.length > 0 ? placesListId : undefined}
-          className="min-h-11"
           aria-required="true"
         />
       </div>
