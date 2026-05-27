@@ -17,6 +17,7 @@ import { searchTrips, type TripResult } from '@/lib/db/searchTrips';
 import { SearchFormWrapper } from '@/components/search/SearchFormWrapper';
 import { SearchStoreHydrator } from '@/components/search/SearchStoreHydrator';
 import { BookButton } from '@/components/search/BookButton';
+import { getSearchablePlaces } from '@/lib/db/getSearchablePlaces';
 
 export const metadata: Metadata = {
   title: 'Tìm chuyến xe | BBVN',
@@ -248,10 +249,11 @@ export default async function SearchPage({ searchParams }: PageProps) {
 
   // If no valid params, show the search form
   if (!parsed.success) {
+    const places = await getSearchablePlaces();
     return (
       <main className="mx-auto flex w-full max-w-md flex-col gap-8 px-4 py-8">
         <h1 className="text-2xl font-bold">Tìm chuyến xe</h1>
-        <SearchFormWrapper initialValues={raw} />
+        <SearchFormWrapper initialValues={raw} places={places} />
       </main>
     );
   }

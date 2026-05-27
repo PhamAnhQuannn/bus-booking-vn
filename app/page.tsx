@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Wallet, ShieldCheck, Bus, ArrowRight } from 'lucide-react';
 import { SearchFormWrapper } from '@/components/search/SearchFormWrapper';
 import { Card, CardContent } from '@/components/ui/card';
+import { getSearchablePlaces } from '@/lib/db/getSearchablePlaces';
 
 export const metadata: Metadata = {
   title: 'Đặt vé xe khách | BBVN',
@@ -25,7 +26,8 @@ function popularHref({ origin, destination }: { origin: string; destination: str
   return `/search?${new URLSearchParams({ origin, destination, ticketCount: '1' }).toString()}`;
 }
 
-export default function HomePage() {
+export default async function HomePage() {
+  const places = await getSearchablePlaces();
   return (
     <main className="flex flex-1 flex-col">
       {/* Hero band */}
@@ -42,7 +44,7 @@ export default function HomePage() {
 
           <Card className="w-full text-left shadow-e3">
             <CardContent className="py-2">
-              <SearchFormWrapper />
+              <SearchFormWrapper places={places} />
             </CardContent>
           </Card>
 

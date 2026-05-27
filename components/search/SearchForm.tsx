@@ -16,9 +16,10 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useSearchStore } from '@/lib/stores/searchStore';
 
-export function SearchForm() {
+export function SearchForm({ places = [] }: { places?: string[] }) {
   const router = useRouter();
   const formId = useId();
+  const placesListId = `${formId}-places`;
 
   const { origin, destination, date, ticketCount, setOrigin, setDestination, setDate, setTicketCount } =
     useSearchStore();
@@ -41,6 +42,15 @@ export function SearchForm() {
       aria-label="Trip search"
       className="flex w-full flex-col gap-4"
     >
+      {/* Shared place suggestions (origins + destinations of active routes) */}
+      {places.length > 0 && (
+        <datalist id={placesListId}>
+          {places.map((p) => (
+            <option key={p} value={p} />
+          ))}
+        </datalist>
+      )}
+
       {/* Origin */}
       <div className="flex flex-col gap-1.5">
         <label htmlFor={`${formId}-origin`} className="text-sm font-medium">
@@ -57,6 +67,7 @@ export function SearchForm() {
           minLength={1}
           maxLength={50}
           autoComplete="off"
+          list={places.length > 0 ? placesListId : undefined}
           className="min-h-11"
           aria-required="true"
         />
@@ -78,6 +89,7 @@ export function SearchForm() {
           minLength={1}
           maxLength={50}
           autoComplete="off"
+          list={places.length > 0 ? placesListId : undefined}
           className="min-h-11"
           aria-required="true"
         />
