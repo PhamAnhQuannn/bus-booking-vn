@@ -68,12 +68,17 @@ export default async function TripDetailPage({
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-8">
-      <Link
-        href="/search"
-        className="inline-flex min-h-11 items-center gap-1 self-start text-sm text-muted-foreground hover:text-foreground"
-      >
-        ← Quay lại kết quả
-      </Link>
+      <nav aria-label="breadcrumb" className="text-sm text-muted-foreground">
+        <ol className="flex flex-wrap items-center gap-1.5">
+          <li><Link href="/" className="underline-offset-4 hover:text-foreground hover:underline">Trang chủ</Link></li>
+          <li aria-hidden="true">/</li>
+          <li><Link href="/search" className="underline-offset-4 hover:text-foreground hover:underline">Tìm chuyến</Link></li>
+          <li aria-hidden="true">/</li>
+          <li aria-current="page" className="font-medium text-foreground">
+            {trip.routeOrigin} → {trip.routeDestination}
+          </li>
+        </ol>
+      </nav>
 
       {/* Header */}
       <div className="flex flex-col gap-2">

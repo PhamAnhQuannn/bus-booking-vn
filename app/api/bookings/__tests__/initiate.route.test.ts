@@ -36,6 +36,13 @@ vi.mock('@/lib/ratelimit', () => ({
   },
 }));
 
+// Funnel tracking is fire-and-forget; mock so importing the route doesn't pull in
+// the real Prisma client (no DATABASE_URL in unit env).
+vi.mock('@/lib/analytics/track', () => ({
+  track: vi.fn(),
+  sessionIdFromRequest: vi.fn(() => null),
+}));
+
 import { POST } from '../initiate/route';
 import { initiateCashBooking } from '@/lib/booking/initiateBooking';
 import { initiateOnlineBooking } from '@/lib/booking/initiateOnlineBooking';

@@ -6,6 +6,17 @@ builds-on: review-20260526.md, anti-generic-audit.md, design-system.md
 
 # Product Design Scorecard
 
+> **Implementation update 2026-05-27 — redesign slices 1–6 shipped** (branch `feat/ota-redesign`).
+> Landed: PTN-03 search results + persistent filter rail + sort + active-filter chips + mobile sheet;
+> PTN-07 sticky checkout summary rail (review); PTN-04 richer trip card (depart→arrive, bus-type +
+> seats-left badges); PTN-06 e-ticket (prominent ref + add-to-calendar) + manage-booking breadcrumb/call;
+> teal `info` + branded chart tokens; KPI sparkline + period-compare delta; breadcrumbs on trip-detail +
+> account pages. By-inspection re-score: **`/search` 4.20→~4.7**, **`/booking/review` 4.25→~4.7**,
+> **overview dashboard 4.00→~4.6**, **trip detail 4.45→~4.7**. Estimated product **≈4.7/5**;
+> anti-generic genericness est. **0.54→~0.30** (secondary teal accent, results+summary rail layout
+> personality, richer cards, motion-ready). Formal `/anti-generic-design-check` + `/product-design-scorecard`
+> re-runs against a browser pass remain the final confirmation.
+
 Treats the app as a complete product and scores every primary surface against five
 weighted dimensions. Scores are 1–5 (5 = exemplary). This is a living doc; re-run
 after each design-affecting change.

@@ -80,7 +80,14 @@ export default function BookingsHistoryPage() {
   }, [tab, load]);
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 py-10">
+    <main className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 py-8">
+      <nav aria-label="breadcrumb" className="text-sm text-muted-foreground">
+        <ol className="flex items-center gap-1.5">
+          <li><Link href="/" className="underline-offset-4 hover:text-foreground hover:underline">Trang chủ</Link></li>
+          <li aria-hidden="true">/</li>
+          <li aria-current="page" className="font-medium text-foreground">Lịch sử đặt vé</li>
+        </ol>
+      </nav>
       <h1 className="text-2xl font-bold">Lịch sử đặt vé</h1>
 
       <div className="flex gap-2 border-b border-border" role="tablist">

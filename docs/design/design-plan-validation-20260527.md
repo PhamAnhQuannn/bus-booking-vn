@@ -78,14 +78,16 @@ Criteria: Spec'd (has a section) · ≥1 PTN · OTA precedent named · States en
 
 **Coverage: 33/33 routes design-complete.** No gaps.
 
-## Implementation roadmap (next round, when approved)
-Recommended build order (highest perceived-quality leverage first), each shippable:
-1. **PTN-03 search results + filter rail** (`/search`) — biggest jump.
-2. **PTN-07 checkout summary rail + PTN-08** across booking flow.
-3. **PTN-04 richer trip card + PTN-14 trust signals** (search/routes/home).
-4. **PTN-06 confirmation e-ticket + manage-booking** (`/booking/confirmation`, `/account/bookings*`).
-5. **design-language token adds** (teal `info`, chart colors) + PTN-10 dashboard sparklines.
-6. Remaining polish per page specs; then re-run E2/E3.
+## Implementation roadmap — SHIPPED 2026-05-27 (branch `feat/ota-redesign`)
+All six slices implemented + committed (local; not pushed). tsc clean, unit tests green throughout.
+1. ✅ **PTN-03 search results + filter rail** (`/search`) — persistent sticky rail + sort + chips + mobile sheet.
+2. ✅ **PTN-07 checkout summary rail** (review) — route/time/breakdown/total/hold-timer/trust; mobile-stacks. (PTN-08 step indicator already existed.)
+3. ✅ **PTN-04 richer trip card** — depart→arrive, duration, bus-type + seats-left urgency badges. (PTN-14 payment icons already existed.)
+4. ✅ **PTN-06 e-ticket + manage-booking** — prominent ref + add-to-calendar (.ics); account detail breadcrumb + call action.
+5. ✅ **design-language tokens** (teal `info` + branded chart ramp in `globals.css`) + **PTN-10 sparkline + period-compare delta** on overview.
+6. ✅ **breadcrumbs** (trip detail, account pages) + gate-doc updates (this doc + scorecard).
+
+Deferred for a follow-up build: checkout summary rail on the buyer-info step (needs a single-trip API to show route/time before the hold exists); mobile sticky-bottom-bar variant of the summary rail (currently stacks); confirmation QR/boarding code; destination imagery on home/`/routes`. Formal `/anti-generic-design-check` + `/product-design-scorecard` re-runs against a live browser pass are the final confirmation.
 
 ## Deliverables index (this round)
 - `baseline-built-ui-20260527.md` — as-built truth + stale-doc corrections
