@@ -1,0 +1,37 @@
+{
+  "generated": "2026-05-28T00:00:00Z",
+  "scope": "auth-cluster baseline (PR #2 @ 4ac6ac30) — UI-only diff; not a full-repo lex",
+  "modules": [
+    "app/auth/login",
+    "app/auth/register",
+    "app/auth/forgot-password",
+    "app/auth/reset-password",
+    "app/op/login",
+    "app/op/first-login",
+    "components/auth/AuthSplitLayout",
+    "components/brand/Logo",
+    "components/layout/SiteHeader",
+    "components/layout/SiteFooter",
+    "lib/utils",
+    "lib/auth/csrfClient"
+  ],
+  "edges": [
+    {"from": "app/auth/login/page.tsx", "to": "components/auth/AuthSplitLayout"},
+    {"from": "app/auth/login/page.tsx", "to": "app/auth/register/page"},
+    {"from": "app/auth/register/page.tsx", "to": "components/auth/AuthSplitLayout"},
+    {"from": "app/auth/forgot-password/page.tsx", "to": "components/auth/AuthSplitLayout"},
+    {"from": "app/auth/reset-password/page.tsx", "to": "components/auth/AuthSplitLayout"},
+    {"from": "app/op/login/page.tsx", "to": "components/auth/AuthSplitLayout"},
+    {"from": "app/op/login/page.tsx", "to": "lib/auth/csrfClient"},
+    {"from": "app/op/first-login/page.tsx", "to": "components/auth/AuthSplitLayout"},
+    {"from": "app/op/first-login/page.tsx", "to": "lib/auth/csrfClient"},
+    {"from": "components/auth/AuthSplitLayout.tsx", "to": "components/brand/Logo"},
+    {"from": "components/auth/AuthSplitLayout.tsx", "to": "lib/utils"}
+  ],
+  "layer_map": {
+    "ui": ["app/**", "components/**"],
+    "service": ["lib/**"],
+    "db": ["prisma", "lib/db"]
+  },
+  "findings": {"p1": 0, "p2": 0, "p3": 2}
+}
