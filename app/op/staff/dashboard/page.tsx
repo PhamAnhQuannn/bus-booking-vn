@@ -17,6 +17,7 @@
 
 import { redirect } from 'next/navigation';
 import { getStaffDashboard } from '@/lib/op/getStaffDashboard';
+import { PageHeader } from '@/components/op/PageHeader';
 import StaffDashboardClient from './StaffDashboardClient';
 
 export default async function StaffDashboardPage() {
@@ -37,7 +38,14 @@ export default async function StaffDashboardPage() {
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-6">
-      <h1 className="mb-6 text-2xl font-semibold tracking-tight">Chuyến của tôi</h1>
+      <PageHeader
+        title="Chuyến của tôi"
+        subtitle={
+          view.assignedTripId === null
+            ? 'Chưa được gán chuyến nào.'
+            : 'Theo dõi hàng đợi đặt vé + manifest cho chuyến được phân công.'
+        }
+      />
 
       {view.assignedTripId === null ? (
         <div

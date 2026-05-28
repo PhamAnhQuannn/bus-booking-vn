@@ -266,7 +266,7 @@ export default function StaffDashboardClient({
                         className={row.escalatedAt ? 'bg-warning/10' : undefined}
                       >
                         <TableCell>
-                          <a className="text-primary underline-offset-2 hover:underline" href={`/op/dashboard/${row.id}`}>
+                          <a className="text-primary underline-offset-2 hover:underline" href={`/op/bookings/${row.id}`}>
                             {row.bookingRef}
                           </a>
                         </TableCell>
