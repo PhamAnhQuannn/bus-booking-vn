@@ -12,6 +12,7 @@
 import { redirect, notFound } from 'next/navigation';
 import { getOperatorSession } from '@/lib/op/getOperatorSession';
 import { getBookingDetailPage } from '@/lib/booking/getBookingDetailPage';
+import { PageHeader } from '@/components/op/PageHeader';
 import BookingDetailClient from './BookingDetailClient';
 
 type PageProps = { params: Promise<{ id: string }> };
@@ -35,7 +36,14 @@ export default async function OpBookingDetailPage({ params }: PageProps) {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 md:px-6">
-      <h1 className="mb-6 text-2xl font-semibold tracking-tight">Chi tiết đặt vé</h1>
+      <PageHeader
+        breadcrumb={[
+          { label: 'Đặt vé', href: '/op/bookings' },
+          { label: data.booking.bookingRef },
+        ]}
+        title="Chi tiết đặt vé"
+        backHref="/op/bookings"
+      />
       <BookingDetailClient booking={data.booking} pickupPoints={data.pickupPoints} />
     </div>
   );

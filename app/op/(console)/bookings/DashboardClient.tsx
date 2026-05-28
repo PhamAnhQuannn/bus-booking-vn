@@ -37,7 +37,7 @@ import {
   TableHead,
   TableCell,
 } from '@/components/ui/table';
-import { bookingStatusDisplay } from '@/lib/op/statusLabels';
+import { bookingStatusDisplay, contactStatusDisplay } from '@/lib/op/statusLabels';
 import type { BookingStatus } from '@prisma/client';
 
 interface Props {
@@ -45,13 +45,6 @@ interface Props {
   initialNextCursor: string | null;
   operatorId: string;
 }
-
-const CONTACT_STATUS_LABELS: Record<string, string> = {
-  pending: 'Chưa gọi',
-  reached: 'Đã liên lạc',
-  no_answer: 'Không bắt máy',
-  callback: 'Gọi lại sau',
-};
 
 const CONTACT_STATUS_OPTIONS = [
   { value: 'pending', label: 'Chưa gọi' },
@@ -203,7 +196,7 @@ export default function DashboardClient({ initialRows, initialNextCursor }: Prop
                   >
                     <TableCell>
                       <Link
-                        href={`/op/dashboard/${row.id}`}
+                        href={`/op/bookings/${row.id}`}
                         data-testid={`booking-detail-${row.id}`}
                         className="font-medium text-primary underline-offset-4 hover:underline"
                       >
@@ -214,7 +207,9 @@ export default function DashboardClient({ initialRows, initialNextCursor }: Prop
                     <TableCell className="tabular-nums">{row.buyerPhone}</TableCell>
                     <TableCell className="tabular-nums">{row.ticketCount}</TableCell>
                     <TableCell>
-                      {CONTACT_STATUS_LABELS[row.contactStatus] ?? row.contactStatus}
+                      <Badge variant={contactStatusDisplay(row.contactStatus).variant}>
+                        {contactStatusDisplay(row.contactStatus).label}
+                      </Badge>
                     </TableCell>
                     <TableCell>{row.pickupPointName ?? '—'}</TableCell>
                     <TableCell>
