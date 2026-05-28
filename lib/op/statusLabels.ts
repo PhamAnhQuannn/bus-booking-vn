@@ -1,12 +1,13 @@
 import type { BookingStatus, TripStatus } from "@prisma/client"
 
-import type { badgeVariants } from "@/components/ui/badge"
-import type { VariantProps } from "class-variance-authority"
-
-type BadgeVariant = NonNullable<VariantProps<typeof badgeVariants>["variant"]>
+// Issue 028: variant vocabulary owned by lib/, NOT borrowed from components/ui/badge.
+// The badge component independently configures cva with the same set; if the two
+// drift, TypeScript flags the mismatch at the badge call site (where the prop is
+// passed). This inverts the prior layer reversal (lib → components/ui type import).
+export type StatusBadgeVariant = "neutral" | "success" | "danger" | "pending"
 
 export interface StatusDisplay {
-  variant: BadgeVariant
+  variant: StatusBadgeVariant
   label: string
 }
 
