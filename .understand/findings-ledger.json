@@ -1,21 +1,23 @@
 {
-  "gate_fix_cycles": 1,
+  "gate_fix_cycles": 2,
   "findings": {
     "sec-open-redirect-returnto": {
       "count": 1,
       "issue_file": "issues/021-fix-auth-open-redirect.md",
-      "status": "open",
+      "status": "fixed",
       "severity": "P1",
       "source": "security-review",
-      "first_seen": "2026-05-28"
+      "first_seen": "2026-05-28",
+      "resolved_in": "PR #3 (squash c827c3b on master)"
     },
     "test-resend-otp-cooldown": {
       "count": 1,
       "issue_file": "issues/022-fix-resend-otp-test.md",
-      "status": "open",
+      "status": "fixed",
       "severity": "P2",
       "source": "code-review",
-      "first_seen": "2026-05-28"
+      "first_seen": "2026-05-28",
+      "resolved_in": "PR #3 (squash c827c3b on master)"
     },
     "arch-client-session-singleton-coupling": {
       "count": 1,
@@ -24,6 +26,63 @@
       "severity": "P3",
       "source": "architect-review",
       "first_seen": "2026-05-28"
+    },
+    "test-api-op-activity-missing": {
+      "count": 1,
+      "issue_file": "issues/024-fix-api-op-activity-test.md",
+      "status": "open",
+      "severity": "P1",
+      "source": "pr-review+code-review",
+      "first_seen": "2026-05-28",
+      "pr": 4
+    },
+    "layer-dashboard-prisma-direct": {
+      "count": 1,
+      "issue_file": "issues/025-fix-dashboard-prisma-direct.md",
+      "status": "open",
+      "severity": "P1",
+      "source": "architect-review",
+      "first_seen": "2026-05-28",
+      "pr": 4
+    },
+    "sec-staff-rsc-role-bypass": {
+      "count": 1,
+      "issue_file": "issues/026-fix-staff-rsc-role-gate.md",
+      "status": "open",
+      "severity": "P1",
+      "source": "security-review",
+      "first_seen": "2026-05-28",
+      "pr": 4,
+      "pre_existing": true,
+      "introduced_by": "Issue 017"
+    },
+    "test-getactivityfeed-missing": {
+      "count": 1,
+      "issue_file": "issues/027-fix-getactivityfeed-test.md",
+      "status": "open",
+      "severity": "P2",
+      "source": "code-review",
+      "first_seen": "2026-05-28",
+      "pr": 4
+    },
+    "arch-statuslabels-ui-type-reversal": {
+      "count": 1,
+      "issue_file": "issues/028-fix-statuslabels-type-reversal.md",
+      "status": "open",
+      "severity": "P2",
+      "source": "architect-review",
+      "first_seen": "2026-05-28",
+      "pr": 4
+    },
+    "arch-no-adr-directory": {
+      "count": 1,
+      "issue_file": "issues/029-establish-adr-practice.md",
+      "status": "open",
+      "severity": "P2",
+      "source": "architect-review",
+      "first_seen": "2026-05-28",
+      "pr": 4,
+      "scope": "project-wide"
     }
   }
 }
