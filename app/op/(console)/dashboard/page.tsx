@@ -26,7 +26,7 @@ import { getOperatorKpis } from "@/lib/reports/getOperatorKpis"
 import { listUpcomingForOperator } from "@/lib/trips/listUpcomingForOperator"
 import { listOperatorBookings } from "@/lib/booking/listOperatorBookings"
 import { getActivityFeed } from "@/lib/op/getActivityFeed"
-import { prisma } from "@/lib/db/client"
+import { listRoutesForTripIds } from "@/lib/op/listRoutesForTripIds"
 import { getDefaultDateRange, serverNow } from "@/lib/op/dateRanges"
 
 import { PageHeader } from "@/components/op/PageHeader"
@@ -72,12 +72,7 @@ export default async function OperatorDashboardPage() {
 
   // Enrich with route origin/destination for the mini-cards.
   const routeIds = Array.from(new Set(todayCandidates.map((t) => t.routeId)))
-  const routes = routeIds.length
-    ? await prisma.route.findMany({
-        where: { id: { in: routeIds }, operatorId: session.operatorId },
-        select: { id: true, origin: true, destination: true },
-      })
-    : []
+  const routes = await listRoutesForTripIds(session.operatorId, routeIds)
   const routeMap = new Map(routes.map((r) => [r.id, r]))
 
   const todayTrips: TripMiniCardRow[] = todayCandidates.map((t) => {
