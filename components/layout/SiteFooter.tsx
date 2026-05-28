@@ -1,8 +1,8 @@
 'use client';
 
 /**
- * Customer-facing site footer. Hidden on operator console (`/op/*`) and dev
- * stub-pay (`/dev/*`) — same scope as SiteHeader.
+ * Customer-facing site footer. Hidden on operator console (`/op/*`), dev
+ * stub-pay (`/dev/*`), and auth pages (`/auth/*`) — same scope as SiteHeader.
  */
 
 import Link from 'next/link';
@@ -26,7 +26,8 @@ const linkClass =
 
 export function SiteFooter() {
   const pathname = usePathname();
-  if (pathname.startsWith('/op') || pathname.startsWith('/dev')) return null;
+  if (pathname.startsWith('/op') || pathname.startsWith('/dev') || pathname.startsWith('/auth'))
+    return null;
 
   const year = new Date().getFullYear();
 

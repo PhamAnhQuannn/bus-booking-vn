@@ -2,7 +2,8 @@
 
 /**
  * Customer-facing site header. Hidden on operator console (`/op/*`, which has its
- * own (console) sidebar shell) and on the dev stub-pay page (`/dev/*`).
+ * own (console) sidebar shell), the dev stub-pay page (`/dev/*`), and the auth
+ * pages (`/auth/*`, which use the full-bleed AuthSplitLayout shell).
  */
 
 import Link from 'next/link';
@@ -19,7 +20,8 @@ const NAV = [
 
 export function SiteHeader() {
   const pathname = usePathname();
-  if (pathname.startsWith('/op') || pathname.startsWith('/dev')) return null;
+  if (pathname.startsWith('/op') || pathname.startsWith('/dev') || pathname.startsWith('/auth'))
+    return null;
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
