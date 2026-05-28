@@ -1,0 +1,29 @@
+{
+  "gate_fix_cycles": 1,
+  "findings": {
+    "sec-open-redirect-returnto": {
+      "count": 1,
+      "issue_file": "issues/021-fix-auth-open-redirect.md",
+      "status": "open",
+      "severity": "P1",
+      "source": "security-review",
+      "first_seen": "2026-05-28"
+    },
+    "test-resend-otp-cooldown": {
+      "count": 1,
+      "issue_file": "issues/022-fix-resend-otp-test.md",
+      "status": "open",
+      "severity": "P2",
+      "source": "code-review",
+      "first_seen": "2026-05-28"
+    },
+    "arch-client-session-singleton-coupling": {
+      "count": 1,
+      "issue_file": "issues/023-fix-auth-client-session-coupling.md",
+      "status": "open",
+      "severity": "P3",
+      "source": "architect-review",
+      "first_seen": "2026-05-28"
+    }
+  }
+}
