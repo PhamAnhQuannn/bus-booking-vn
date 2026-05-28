@@ -9,10 +9,11 @@ import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { setAccessToken, setDisplayName } from '@/app/auth/register/page';
+import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 
 function getCsrf(): string {
   const match = document.cookie.match(/(?:^|;\s*)bb_csrf=([^;]+)/);
@@ -65,11 +66,8 @@ function LoginPageInner() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 px-4 py-12">
-      <Card>
-        <CardHeader>
-          <h1 className="text-2xl font-bold">Đăng nhập</h1>
-        </CardHeader>
+    <AuthSplitLayout audience="customer" title="Đăng nhập">
+      <Card className="shadow-e3">
         <CardContent className="flex flex-col gap-4">
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
@@ -80,8 +78,12 @@ function LoginPageInner() {
               <Label htmlFor="password">Mật khẩu</Label>
               <Input id="password" type="password" name="password" required />
             </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" size="lg" disabled={loading} className="w-full">
+            {error && (
+              <p className="text-sm text-destructive" role="alert" aria-live="assertive">
+                {error}
+              </p>
+            )}
+            <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="w-full">
               {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
             </Button>
           </form>
@@ -102,8 +104,17 @@ function LoginPageInner() {
               </Link>
             </p>
           </div>
+          <div className="mt-1 border-t border-border pt-4 text-sm text-muted-foreground">
+            Bạn là nhà xe?{' '}
+            <Link
+              href="/op/login"
+              className="font-medium text-primary underline-offset-4 hover:underline"
+            >
+              Đăng nhập nhà xe
+            </Link>
+          </div>
         </CardContent>
       </Card>
-    </main>
+    </AuthSplitLayout>
   );
 }

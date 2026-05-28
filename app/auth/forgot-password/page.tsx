@@ -13,10 +13,11 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 
 type Step = 'phone' | 'reset' | 'done';
 
@@ -117,11 +118,8 @@ export default function ForgotPasswordPage() {
 
   if (step === 'done') {
     return (
-      <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 px-4 py-12">
-        <Card>
-          <CardHeader>
-            <h1 className="text-2xl font-bold">Đặt lại mật khẩu thành công</h1>
-          </CardHeader>
+      <AuthSplitLayout audience="customer" title="Đặt lại mật khẩu thành công">
+        <Card className="shadow-e3">
           <CardContent className="flex flex-col gap-4">
             <p className="text-sm text-muted-foreground">Mật khẩu của bạn đã được cập nhật.</p>
             <Button size="lg" className="w-full" onClick={() => router.push('/auth/login')}>
@@ -129,21 +127,19 @@ export default function ForgotPasswordPage() {
             </Button>
           </CardContent>
         </Card>
-      </main>
+      </AuthSplitLayout>
     );
   }
 
   if (step === 'reset') {
     return (
-      <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 px-4 py-12">
-        <Card>
-          <CardHeader>
-            <h1 className="text-2xl font-bold">Đặt lại mật khẩu</h1>
-          </CardHeader>
+      <AuthSplitLayout
+        audience="customer"
+        title="Đặt lại mật khẩu"
+        subtitle="Nhập mã OTP đã gửi đến số điện thoại của bạn và mật khẩu mới."
+      >
+        <Card className="shadow-e3">
           <CardContent className="flex flex-col gap-4">
-            <p className="text-sm text-muted-foreground">
-              Nhập mã OTP đã gửi đến số điện thoại của bạn và mật khẩu mới.
-            </p>
             <form onSubmit={handleReset} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="code">Mã OTP (6 chữ số)</Label>
@@ -166,8 +162,12 @@ export default function ForgotPasswordPage() {
                 <Label htmlFor="confirmPassword">Xác nhận mật khẩu mới</Label>
                 <Input id="confirmPassword" type="password" name="confirmPassword" required minLength={8} />
               </div>
-              {error && <p className="text-sm text-destructive">{error}</p>}
-              <Button type="submit" size="lg" disabled={loading} className="w-full">
+              {error && (
+                <p className="text-sm text-destructive" role="alert" aria-live="assertive">
+                  {error}
+                </p>
+              )}
+              <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="w-full">
                 {loading ? 'Đang xử lý...' : 'Đặt lại mật khẩu'}
               </Button>
             </form>
@@ -185,28 +185,30 @@ export default function ForgotPasswordPage() {
             </Button>
           </CardContent>
         </Card>
-      </main>
+      </AuthSplitLayout>
     );
   }
 
   // step === 'phone'
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 px-4 py-12">
-      <Card>
-        <CardHeader>
-          <h1 className="text-2xl font-bold">Quên mật khẩu</h1>
-        </CardHeader>
+    <AuthSplitLayout
+      audience="customer"
+      title="Quên mật khẩu"
+      subtitle="Nhập số điện thoại đã đăng ký. Chúng tôi sẽ gửi mã OTP để đặt lại mật khẩu."
+    >
+      <Card className="shadow-e3">
         <CardContent className="flex flex-col gap-4">
-          <p className="text-sm text-muted-foreground">
-            Nhập số điện thoại đã đăng ký. Chúng tôi sẽ gửi mã OTP để đặt lại mật khẩu.
-          </p>
           <form onSubmit={handleRequestOtp} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="phone">Số điện thoại</Label>
               <Input id="phone" type="tel" name="phone" required placeholder="0901234567" />
             </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" size="lg" disabled={loading} className="w-full">
+            {error && (
+              <p className="text-sm text-destructive" role="alert" aria-live="assertive">
+                {error}
+              </p>
+            )}
+            <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="w-full">
               {loading ? 'Đang gửi...' : 'Gửi mã OTP'}
             </Button>
           </form>
@@ -218,6 +220,6 @@ export default function ForgotPasswordPage() {
           </Link>
         </CardContent>
       </Card>
-    </main>
+    </AuthSplitLayout>
   );
 }
