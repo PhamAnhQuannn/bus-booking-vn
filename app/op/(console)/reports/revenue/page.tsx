@@ -12,26 +12,9 @@
 import { redirect } from 'next/navigation';
 import { getOperatorSession } from '@/lib/op/getOperatorSession';
 import { getRevenueReport } from '@/lib/payouts/getRevenueReport';
+import { getDefaultDateRange } from '@/lib/op/dateRanges';
+import { PageHeader } from '@/components/op/PageHeader';
 import RevenueClient from './RevenueClient';
-
-/** Format a Date as YYYY-MM-DD in Asia/Ho_Chi_Minh tz. */
-function toVnDateString(date: Date): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Ho_Chi_Minh',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(date);
-}
-
-/** Compute the default date range (last 30 days) in VN tz. Called once per request. */
-function getDefaultDateRange(): { defaultDateFrom: string; defaultDateTo: string } {
-  const now = Date.now();
-  return {
-    defaultDateTo: toVnDateString(new Date(now)),
-    defaultDateFrom: toVnDateString(new Date(now - 30 * 24 * 3600 * 1000)),
-  };
-}
 
 interface SearchParams {
   dateFrom?: string;
@@ -57,7 +40,7 @@ export default async function RevenueReportPage({
   const params = await searchParams;
 
   // Default date range: last 30 days in VN tz
-  const { defaultDateFrom, defaultDateTo } = getDefaultDateRange();
+  const { from: defaultDateFrom, to: defaultDateTo } = getDefaultDateRange(30);
 
   const dateFrom = params.dateFrom ?? defaultDateFrom;
   const dateTo = params.dateTo ?? defaultDateTo;
@@ -72,10 +55,11 @@ export default async function RevenueReportPage({
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 md:px-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Báo cáo doanh thu</h1>
-      <p className="mt-1 mb-6 text-sm text-muted-foreground">
-        Doanh thu từ vé đã thanh toán của các chuyến xe trong khoảng thời gian đã chọn.
-      </p>
+      <PageHeader
+        breadcrumb={[{ label: 'Báo cáo' }, { label: 'Doanh thu' }]}
+        title="Báo cáo doanh thu"
+        subtitle="Doanh thu từ vé đã thanh toán của các chuyến xe trong khoảng thời gian đã chọn."
+      />
       <RevenueClient
         initialRows={rows}
         dateFrom={dateFrom}

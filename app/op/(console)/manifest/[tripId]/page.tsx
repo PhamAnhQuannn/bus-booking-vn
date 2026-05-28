@@ -8,8 +8,11 @@
  */
 
 import { redirect } from 'next/navigation';
+import { Bus } from 'lucide-react';
 import { getOperatorSession } from '@/lib/op/getOperatorSession';
 import { getManifest } from '@/lib/manifest/getManifest';
+import { PageHeader } from '@/components/op/PageHeader';
+import { EmptyState } from '@/components/op/EmptyState';
 import ManifestRefresh from './ManifestRefresh';
 
 type PageProps = { params: Promise<{ tripId: string }> };
@@ -31,17 +34,31 @@ export default async function ManifestPage({ params }: PageProps) {
   if (!manifest) {
     return (
       <div className="mx-auto w-full max-w-5xl px-4 py-8 md:px-6">
-        <h1 className="mb-6 text-2xl font-semibold tracking-tight">Manifest</h1>
-        <p className="text-sm text-muted-foreground">Không tìm thấy chuyến xe.</p>
+        <PageHeader
+          breadcrumb={[{ label: 'Chuyến đi', href: '/op/trips' }, { label: 'Manifest' }]}
+          title="Manifest"
+        />
+        <EmptyState
+          icon={<Bus />}
+          variant="card"
+          title="Không tìm thấy chuyến xe."
+          description="Chuyến đã bị xoá hoặc không thuộc nhà xe của bạn."
+          action={{ label: 'Quay lại danh sách chuyến', href: '/op/trips' }}
+        />
       </div>
     );
   }
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 md:px-6">
-      <h1 className="mb-6 text-2xl font-semibold tracking-tight">
-        Manifest chuyến {tripId.slice(0, 8)}…
-      </h1>
+      <PageHeader
+        breadcrumb={[
+          { label: 'Chuyến đi', href: '/op/trips' },
+          { label: `Chuyến ${tripId.slice(0, 8)}…`, href: `/op/trips/${tripId}` },
+          { label: 'Manifest' },
+        ]}
+        title={`Manifest chuyến ${tripId.slice(0, 8)}…`}
+      />
 
       {/* AC7: ManifestRefresh handles refresh button + Last updated timestamp */}
       <ManifestRefresh

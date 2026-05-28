@@ -18,6 +18,8 @@ export interface OperatorSession {
   operatorUserId: string;
   /** Operator role — gates admin-only nav/actions. */
   role: 'admin' | 'staff';
+  /** Operator (company) display name — surfaced in ConsoleHeader operator pill. */
+  operatorName: string;
 }
 
 export async function getOperatorSession(): Promise<OperatorSession | null> {
@@ -34,6 +36,7 @@ export async function getOperatorSession(): Promise<OperatorSession | null> {
       operatorId: true,
       disabledAt: true,
       requiresPasswordChange: true,
+      operator: { select: { legalName: true } },
     },
   });
   if (!operator || operator.disabledAt !== null) return null;
@@ -43,5 +46,6 @@ export async function getOperatorSession(): Promise<OperatorSession | null> {
     requiresPasswordChange: operator.requiresPasswordChange,
     operatorUserId: payload.sub,
     role: payload.role,
+    operatorName: operator.operator.legalName,
   };
 }

@@ -11,6 +11,7 @@
 
 import { redirect } from 'next/navigation';
 import { getOperatorFleet } from '@/lib/op/getOperatorFleet';
+import { PageHeader } from '@/components/op/PageHeader';
 import BusesClient from './BusesClient';
 
 export default async function OpBusesPage() {
@@ -26,13 +27,11 @@ export default async function OpBusesPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8 md:px-6">
-      <h1 className="text-2xl font-bold">Quản lý phương tiện</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Danh sách xe đang hoạt động. Mỗi nhà xe chỉ thấy phương tiện của riêng mình.
-      </p>
-      <div className="mt-6">
-        <BusesClient initialBuses={fleet.buses} />
-      </div>
+      <PageHeader
+        title="Quản lý phương tiện"
+        subtitle="Danh sách xe đang hoạt động. Mỗi nhà xe chỉ thấy phương tiện của riêng mình."
+      />
+      <BusesClient initialBuses={fleet.buses} />
     </div>
   );
 }

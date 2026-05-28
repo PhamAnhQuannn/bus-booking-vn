@@ -50,18 +50,8 @@ function formatDate(date: Date | string): string {
   }).format(new Date(date));
 }
 
-type BadgeVariant = 'neutral' | 'success' | 'danger' | 'pending';
-
-const STATUS_DISPLAY: Record<string, { label: string; variant: BadgeVariant }> = {
-  pending: { label: 'Chờ xử lý', variant: 'pending' },
-  processing: { label: 'Đang xử lý', variant: 'neutral' },
-  settled: { label: 'Đã thanh toán', variant: 'success' },
-  failed: { label: 'Thất bại', variant: 'danger' },
-};
-
-function statusDisplay(status: string): { label: string; variant: BadgeVariant } {
-  return STATUS_DISPLAY[status] ?? { label: status, variant: 'neutral' };
-}
+// Status display sourced from lib/op/statusLabels (single source of truth).
+import { payoutStatusDisplay as statusDisplay } from '@/lib/op/statusLabels';
 
 export default function PayoutsClient({ initialRows }: Props) {
   const router = useRouter();

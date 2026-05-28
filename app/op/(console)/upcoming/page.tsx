@@ -22,6 +22,7 @@ import {
   TableHead,
   TableCell,
 } from '@/components/ui/table';
+import { PageHeader } from '@/components/op/PageHeader';
 import UpcomingFilter from './UpcomingFilter';
 
 type PageProps = { searchParams: Promise<{ routeId?: string }> };
@@ -50,8 +51,10 @@ export default async function OpUpcomingPage({ searchParams }: PageProps) {
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 md:px-6">
-      <h1 className="mb-6 text-2xl font-semibold tracking-tight">Chuyến xe sắp khởi hành</h1>
-      <UpcomingFilter routes={routeOptions} selected={routeId ?? ''} />
+      <PageHeader
+        title="Chuyến xe sắp khởi hành"
+        filters={<UpcomingFilter routes={routeOptions} selected={routeId ?? ''} />}
+      />
       {trips.length === 0 ? (
         <Card className="px-4 py-6 text-center text-sm text-muted-foreground">
           Không có chuyến nào trong thời gian tới.

@@ -11,27 +11,11 @@ import { redirect } from 'next/navigation';
 import { getOperatorSession } from '@/lib/op/getOperatorSession';
 import { getOperatorKpis } from '@/lib/reports/getOperatorKpis';
 import { getFunnel } from '@/lib/analytics/getFunnel';
+import { getDefaultDateRange } from '@/lib/op/dateRanges';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Sparkline } from '@/components/ui/sparkline';
-
-function toVnDateString(date: Date): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Ho_Chi_Minh',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(date);
-}
-
-/** Default range (last 30 days) in VN tz. Module-scope helper keeps the RSC body pure. */
-function getDefaultDateRange(): { from: string; to: string } {
-  const now = Date.now();
-  return {
-    to: toVnDateString(new Date(now)),
-    from: toVnDateString(new Date(now - 30 * 24 * 3600 * 1000)),
-  };
-}
+import { PageHeader } from '@/components/op/PageHeader';
+import { ReportsCharts } from './ReportsCharts';
 
 function formatVnd(v: number): string {
   return v.toLocaleString('vi-VN') + 'đ';
@@ -101,7 +85,7 @@ export default async function OverviewPage({
   if (session.requiresPasswordChange) redirect('/op/first-login');
 
   const params = await searchParams;
-  const { from, to } = getDefaultDateRange();
+  const { from, to } = getDefaultDateRange(30);
   const dateFrom = params.dateFrom ?? from;
   const dateTo = params.dateTo ?? to;
 
@@ -114,10 +98,11 @@ export default async function OverviewPage({
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 md:px-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Tổng quan</h1>
-      <p className="mt-1 mb-6 text-sm text-muted-foreground">
-        Chỉ số hoạt động trong khoảng thời gian đã chọn.
-      </p>
+      <PageHeader
+        breadcrumb={[{ label: 'Báo cáo' }, { label: 'Tổng quan' }]}
+        title="Tổng quan"
+        subtitle="Chỉ số hoạt động trong khoảng thời gian đã chọn."
+      />
 
       {/* Date range — plain GET form, no JS required */}
       <form method="get" className="mb-6 flex flex-wrap items-end gap-3">
@@ -155,28 +140,26 @@ export default async function OverviewPage({
         <Kpi label="Tỷ lệ thanh toán" value={`${kpis.paidRatePct}%`} hint={`${kpis.paidBookings}/${kpis.totalBookings} đơn`} />
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        {/* Booking status breakdown */}
-        <Card>
-          <CardHeader>
-            <CardTitle as="h2" className="text-base">Đơn theo trạng thái</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {kpis.statusBreakdown.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Chưa có đơn nào trong kỳ.</p>
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {kpis.statusBreakdown.map((s) => (
-                  <li key={s.status} className="flex items-center justify-between text-sm">
-                    <span>{STATUS_LABEL[s.status] ?? s.status}</span>
-                    <Badge variant="neutral">{s.count}</Badge>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
+      {/* Revenue line chart + status donut (Recharts, dynamic-loaded). */}
+      <ReportsCharts
+        revenueSeries={(function buildSeries() {
+          const days: string[] = [];
+          const d = new Date(`${dateFrom}T00:00:00Z`);
+          const end = new Date(`${dateTo}T00:00:00Z`);
+          while (d <= end) {
+            days.push(d.toISOString().slice(0, 10));
+            d.setUTCDate(d.getUTCDate() + 1);
+          }
+          return days.map((date, i) => ({ date, revenueVnd: kpis.dailyRevenue[i] ?? 0 }));
+        })()}
+        statusBreakdown={kpis.statusBreakdown.map((s) => ({
+          status: s.status,
+          label: STATUS_LABEL[s.status] ?? s.status,
+          count: s.count,
+        }))}
+      />
 
+      <div className="mt-6 grid gap-6">
         {/* Conversion funnel */}
         <Card>
           <CardHeader>
@@ -198,7 +181,7 @@ export default async function OverviewPage({
                     </div>
                     <div className="h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
                       <div
-                        className="h-full rounded-full bg-primary"
+                        className="h-full rounded-full bg-info-foreground"
                         style={{ width: `${step.conversionPct}%` }}
                       />
                     </div>
@@ -212,3 +195,5 @@ export default async function OverviewPage({
     </div>
   );
 }
+
+// Reference: Badge import removed when status-list ul replaced by donut chart.

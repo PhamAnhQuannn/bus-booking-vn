@@ -15,7 +15,7 @@ import { useState } from 'react';
 import type { ManifestRow } from '@/lib/manifest/getManifest';
 import type { BookingStatus } from '@prisma/client';
 import { markPickedUpApi, recordCashCollectedApi } from '@/lib/api/bookingsClient';
-import { bookingStatusDisplay } from '@/lib/op/statusLabels';
+import { bookingStatusDisplay, contactStatusDisplay } from '@/lib/op/statusLabels';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -34,16 +34,6 @@ interface Props {
   initialGeneratedAt: string;
   initialRows: ManifestRow[];
 }
-
-const CONTACT_DISPLAY: Record<
-  ManifestRow['contactStatus'],
-  { label: string; variant: 'neutral' | 'success' | 'danger' | 'pending' }
-> = {
-  pending: { label: 'Chưa gọi', variant: 'pending' },
-  reached: { label: 'Đã liên lạc', variant: 'success' },
-  no_answer: { label: 'Không bắt máy', variant: 'danger' },
-  callback: { label: 'Gọi lại sau', variant: 'neutral' },
-};
 
 export default function ManifestRefresh({ tripId, initialGeneratedAt, initialRows }: Props) {
   const [rows, setRows] = useState<ManifestRow[]>(initialRows);
@@ -154,10 +144,7 @@ export default function ManifestRefresh({ tripId, initialGeneratedAt, initialRow
             </TableHeader>
             <TableBody>
               {rows.map((row) => {
-                const contact = CONTACT_DISPLAY[row.contactStatus] ?? {
-                  label: row.contactStatus,
-                  variant: 'neutral' as const,
-                };
+                const contact = contactStatusDisplay(row.contactStatus);
                 const payment = bookingStatusDisplay(row.paymentStatus as BookingStatus);
                 return (
                   <TableRow

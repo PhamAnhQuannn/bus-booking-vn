@@ -5,100 +5,81 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { Dialog } from "@base-ui/react/dialog"
 import {
-  MenuIcon,
-  XIcon,
+  ChevronsLeftIcon,
   LogOutIcon,
-  LayoutDashboard,
-  CalendarClock,
-  Bus,
-  Route,
-  Ticket,
-  CopyPlus,
-  BarChart3,
-  Gauge,
-  Users,
-  UserCircle,
-  type LucideIcon,
+  MenuIcon,
+  PanelLeftIcon,
+  SearchIcon,
+  XIcon,
 } from "lucide-react"
 
-import { cn } from "@/lib/utils"
+import {
+  isNavItemActive,
+  visibleNavItems,
+  type NavItem,
+  type NavRole,
+} from "@/components/op/navConfig"
+import { useOperatorNav } from "@/components/op/OperatorNavContext"
 import { Badge } from "@/components/ui/badge"
 import { Logo } from "@/components/brand/Logo"
 import { readCsrfToken } from "@/lib/auth/csrfClient"
+import { cn } from "@/lib/utils"
 
 export interface OperatorNavProps {
-  /** Operator role — gates the admin-only "Nhân viên" item. */
-  role: "admin" | "staff"
-  /** Unviewed paid-booking count for the "N mới" badge on the dashboard item. */
+  role: NavRole
+  /** Unviewed paid-booking count for the "N mới" badge on the bookings item. */
   unviewedCount: number
 }
 
-interface NavItem {
-  label: string
-  href: string
-  icon: LucideIcon
-  /** When set, item is active if the pathname starts with this prefix. */
-  match?: string
-  /** Admin-only item. */
-  adminOnly?: boolean
-  /** Show the "N mới" unviewed-paid badge. */
-  badge?: boolean
-}
-
-// Canonical order from nav-pattern-pick.md, mapped to routes that exist today.
-const NAV_ITEMS: NavItem[] = [
-  { label: "Bảng điều khiển", href: "/op/dashboard", icon: LayoutDashboard, badge: true },
-  { label: "Tổng quan", href: "/op/reports/overview", icon: Gauge, match: "/op/reports/overview" },
-  { label: "Chuyến sắp tới", href: "/op/upcoming", icon: CalendarClock },
-  { label: "Đội xe", href: "/op/buses", icon: Bus },
-  { label: "Tuyến đường", href: "/op/routes", icon: Route },
-  { label: "Chuyến đi", href: "/op/trips", icon: Ticket, match: "/op/trips" },
-  { label: "Mẫu chuyến", href: "/op/trip-templates", icon: CopyPlus },
-  { label: "Báo cáo", href: "/op/reports/revenue", icon: BarChart3, match: "/op/reports" },
-  { label: "Nhân viên", href: "/op/staff", icon: Users, adminOnly: true },
-  { label: "Hồ sơ", href: "/op/profile", icon: UserCircle },
-]
-
-function isActive(pathname: string, item: NavItem): boolean {
-  if (item.match) {
-    return pathname === item.match || pathname.startsWith(item.match + "/")
-  }
-  return pathname === item.href || pathname.startsWith(item.href + "/")
+interface NavLinksProps {
+  items: NavItem[]
+  pathname: string
+  unviewedCount: number
+  collapsed?: boolean
+  onNavigate?: () => void
 }
 
 function NavLinks({
   items,
   pathname,
   unviewedCount,
+  collapsed = false,
   onNavigate,
-}: {
-  items: NavItem[]
-  pathname: string
-  unviewedCount: number
-  onNavigate?: () => void
-}) {
+}: NavLinksProps) {
   return (
     <ul className="flex flex-col gap-0.5">
       {items.map((item) => {
-        const active = isActive(pathname, item)
+        const active = isNavItemActive(pathname, item)
+        const showBadge = item.bookingsBadge && unviewedCount > 0
         return (
-          <li key={item.href}>
+          <li key={item.id}>
             <Link
               href={item.href}
               onClick={onNavigate}
               aria-current={active ? "page" : undefined}
+              title={collapsed ? item.label : undefined}
               className={cn(
-                "relative flex min-h-11 items-center justify-between gap-2 rounded-md py-2.5 pr-3 pl-4 text-sm font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-sidebar-ring",
+                "relative flex min-h-11 items-center gap-2.5 rounded-md text-sm font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-sidebar-ring",
+                collapsed ? "justify-center px-2" : "justify-between py-2.5 pr-3 pl-4",
                 active
                   ? "bg-sidebar-accent font-semibold text-sidebar-primary before:absolute before:top-1.5 before:bottom-1.5 before:left-0 before:w-1 before:rounded-r before:bg-sidebar-primary"
                   : "text-sidebar-foreground hover:bg-sidebar-accent/60"
               )}
             >
-              <span className="flex items-center gap-2.5">
+              <span
+                className={cn(
+                  "flex items-center",
+                  collapsed ? "" : "gap-2.5"
+                )}
+              >
                 <item.icon className="size-4 shrink-0" aria-hidden="true" />
-                {item.label}
+                {collapsed ? (
+                  <span className="sr-only">{item.label}</span>
+                ) : (
+                  item.label
+                )}
               </span>
-              {item.badge && unviewedCount > 0 && (
+              {showBadge && !collapsed ? (
                 <Badge
                   variant="count"
                   data-testid="nav-unviewed-badge"
@@ -106,7 +87,13 @@ function NavLinks({
                 >
                   {unviewedCount}
                 </Badge>
-              )}
+              ) : null}
+              {showBadge && collapsed ? (
+                <span
+                  aria-hidden="true"
+                  className="absolute top-1 right-1 inline-flex size-2 rounded-full bg-primary"
+                />
+              ) : null}
             </Link>
           </li>
         )
@@ -115,7 +102,7 @@ function NavLinks({
   )
 }
 
-function LogoutButton({ className }: { className?: string }) {
+function LogoutButton({ collapsed = false }: { collapsed?: boolean }) {
   const router = useRouter()
   const [pending, setPending] = React.useState(false)
 
@@ -128,7 +115,7 @@ function LogoutButton({ className }: { className?: string }) {
         credentials: "same-origin",
       })
     } catch {
-      // best-effort — clear-cookie is idempotent; navigate regardless
+      // best-effort
     }
     router.push("/op/login")
     router.refresh()
@@ -139,46 +126,119 @@ function LogoutButton({ className }: { className?: string }) {
       type="button"
       onClick={handleLogout}
       disabled={pending}
+      title={collapsed ? "Đăng xuất" : undefined}
       className={cn(
-        "flex min-h-11 w-full items-center gap-2 rounded-md py-2.5 pr-3 pl-4 text-sm font-medium text-sidebar-foreground outline-none transition-colors hover:bg-sidebar-accent/60 focus-visible:ring-3 focus-visible:ring-sidebar-ring disabled:opacity-50",
-        className
+        "flex min-h-11 w-full items-center gap-2 rounded-md text-sm font-medium text-sidebar-foreground outline-none transition-colors hover:bg-sidebar-accent/60 focus-visible:ring-3 focus-visible:ring-sidebar-ring disabled:opacity-50",
+        collapsed ? "justify-center px-2" : "py-2.5 pr-3 pl-4"
       )}
     >
-      <LogOutIcon className="size-4" />
-      {pending ? "Đang đăng xuất..." : "Đăng xuất"}
+      <LogOutIcon aria-hidden="true" className="size-4" />
+      {collapsed ? (
+        <span className="sr-only">Đăng xuất</span>
+      ) : pending ? (
+        "Đang đăng xuất..."
+      ) : (
+        "Đăng xuất"
+      )}
     </button>
   )
 }
 
 export function OperatorNav({ role, unviewedCount }: OperatorNavProps) {
-  const pathname = usePathname()
-  const [drawerOpen, setDrawerOpen] = React.useState(false)
+  const pathname = usePathname() || ""
+  const { drawerOpen, setDrawerOpen, collapsed, toggleCollapsed, onOpenCommand } =
+    useOperatorNav()
 
-  const items = NAV_ITEMS.filter((i) => !i.adminOnly || role === "admin")
-
-  // Drawer closes via each link's onNavigate (below), plus Esc/scrim from Dialog —
-  // no route-change effect needed (would be a synchronous setState-in-effect).
+  const items = visibleNavItems(role)
 
   return (
     <>
       {/* Desktop persistent sidebar (≥768px) */}
       <nav
         aria-label="Bảng điều khiển"
-        className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex"
+        className={cn(
+          "sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200 md:flex",
+          collapsed ? "w-14" : "w-60"
+        )}
       >
-        <div className="flex h-14 items-center px-4">
+        <div
+          className={cn(
+            "flex h-14 items-center",
+            collapsed ? "justify-center px-1" : "justify-between px-4"
+          )}
+        >
           <Link
             href="/op/dashboard"
             className="rounded-md outline-none focus-visible:ring-3 focus-visible:ring-sidebar-ring"
+            aria-label="Bảng điều khiển"
           >
-            <Logo variant="combo" />
+            <Logo variant={collapsed ? "glyph" : "combo"} />
           </Link>
+          {!collapsed ? (
+            <button
+              type="button"
+              aria-label="Thu gọn thanh điều hướng"
+              onClick={toggleCollapsed}
+              className="inline-flex size-7 items-center justify-center rounded-md outline-none transition-colors hover:bg-sidebar-accent/60 focus-visible:ring-3 focus-visible:ring-sidebar-ring"
+            >
+              <ChevronsLeftIcon aria-hidden="true" className="size-4" />
+            </button>
+          ) : null}
         </div>
-        <div className="flex-1 overflow-y-auto px-2 py-2">
-          <NavLinks items={items} pathname={pathname} unviewedCount={unviewedCount} />
+
+        {/* Cmd-K search slot — visible on collapsed bar too */}
+        {onOpenCommand ? (
+          <div className={cn("px-2 pb-2", collapsed && "px-1")}>
+            <button
+              type="button"
+              onClick={onOpenCommand}
+              aria-label="Mở bảng lệnh"
+              aria-keyshortcuts="Meta+K Control+K"
+              className={cn(
+                "flex w-full items-center gap-2 rounded-md border border-sidebar-border bg-background/40 text-xs text-muted-foreground outline-none transition-colors hover:bg-sidebar-accent/60 focus-visible:ring-3 focus-visible:ring-sidebar-ring",
+                collapsed ? "size-10 justify-center" : "px-2 py-1.5"
+              )}
+            >
+              <SearchIcon aria-hidden="true" className="size-3.5" />
+              {collapsed ? (
+                <span className="sr-only">Tìm lệnh</span>
+              ) : (
+                <>
+                  <span>Tìm lệnh…</span>
+                  <kbd className="ml-auto rounded border border-border bg-muted px-1 font-mono text-[10px]">
+                    ⌘K
+                  </kbd>
+                </>
+              )}
+            </button>
+          </div>
+        ) : null}
+
+        <div className={cn("flex-1 overflow-y-auto py-2", collapsed ? "px-1" : "px-2")}>
+          <NavLinks
+            items={items}
+            pathname={pathname}
+            unviewedCount={unviewedCount}
+            collapsed={collapsed}
+          />
         </div>
-        <div className="border-t border-sidebar-border px-2 py-2">
-          <LogoutButton />
+        <div
+          className={cn(
+            "border-t border-sidebar-border py-2",
+            collapsed ? "px-1" : "px-2"
+          )}
+        >
+          {collapsed ? (
+            <button
+              type="button"
+              aria-label="Mở rộng thanh điều hướng"
+              onClick={toggleCollapsed}
+              className="mb-1 inline-flex size-10 w-full items-center justify-center rounded-md outline-none transition-colors hover:bg-sidebar-accent/60 focus-visible:ring-3 focus-visible:ring-sidebar-ring"
+            >
+              <PanelLeftIcon aria-hidden="true" className="size-4" />
+            </button>
+          ) : null}
+          <LogoutButton collapsed={collapsed} />
         </div>
       </nav>
 
@@ -198,7 +258,7 @@ export function OperatorNav({ role, unviewedCount }: OperatorNavProps) {
           >
             <Logo variant="combo" />
           </Link>
-          {unviewedCount > 0 && (
+          {unviewedCount > 0 ? (
             <Badge
               variant="count"
               className="ml-auto"
@@ -206,7 +266,7 @@ export function OperatorNav({ role, unviewedCount }: OperatorNavProps) {
             >
               {unviewedCount}
             </Badge>
-          )}
+          ) : null}
         </header>
 
         <Dialog.Portal>

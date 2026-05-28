@@ -10,6 +10,7 @@
 import { redirect } from 'next/navigation';
 import { getOperatorSession } from '@/lib/op/getOperatorSession';
 import { getPayoutReport } from '@/lib/payouts/getPayoutReport';
+import { PageHeader } from '@/components/op/PageHeader';
 import PayoutsClient from './PayoutsClient';
 
 export default async function PayoutsReportPage() {
@@ -27,10 +28,11 @@ export default async function PayoutsReportPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 md:px-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Lịch sử thanh toán</h1>
-      <p className="mt-1 mb-6 text-sm text-muted-foreground">
-        Danh sách các khoản thanh toán cho nhà xe. Nhấn &quot;Thử lại&quot; để yêu cầu xử lý lại khoản thất bại.
-      </p>
+      <PageHeader
+        breadcrumb={[{ label: 'Báo cáo' }, { label: 'Thanh toán' }]}
+        title="Lịch sử thanh toán"
+        subtitle={'Danh sách các khoản thanh toán cho nhà xe. Nhấn "Thử lại" để yêu cầu xử lý lại khoản thất bại.'}
+      />
       <PayoutsClient initialRows={rows} />
     </div>
   );

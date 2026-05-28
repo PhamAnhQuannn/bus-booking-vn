@@ -12,6 +12,7 @@
 import { redirect } from 'next/navigation';
 import { getOperatorSession } from '@/lib/op/getOperatorSession';
 import { listTrips } from '@/lib/trips/getTrip';
+import { PageHeader } from '@/components/op/PageHeader';
 import TripsClient from './TripsClient';
 
 export default async function OpTripsPage() {
@@ -29,10 +30,10 @@ export default async function OpTripsPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 md:px-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Quản lý chuyến xe</h1>
-      <p className="mt-1 mb-6 text-sm text-muted-foreground">
-        Danh sách chuyến xe. Mỗi nhà xe chỉ thấy chuyến của riêng mình.
-      </p>
+      <PageHeader
+        title="Quản lý chuyến xe"
+        subtitle="Danh sách chuyến xe. Mỗi nhà xe chỉ thấy chuyến của riêng mình."
+      />
       <TripsClient initialTrips={trips} />
     </div>
   );
