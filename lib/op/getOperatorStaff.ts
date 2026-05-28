@@ -43,6 +43,10 @@ export async function getOperatorStaff(): Promise<OperatorStaffView | null> {
     },
   });
   if (!operator || operator.disabledAt !== null) return null;
+  // Issue 026: mirror the API's `requireOperatorAuth({ adminOnly: true })` gate
+  // so the RSC pre-fetch can't bypass it. Staff role gets nothing — the page's
+  // `if (!view) redirect('/op/login')` then sends them away.
+  if (operator.role !== 'admin') return null;
 
   const staff = await listStaff(operator.operatorId);
   return {

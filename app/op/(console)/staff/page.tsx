@@ -10,16 +10,22 @@
  */
 
 import { redirect } from 'next/navigation';
+import { getOperatorSession } from '@/lib/op/getOperatorSession';
 import { getOperatorStaff } from '@/lib/op/getOperatorStaff';
 import { PageHeader } from '@/components/op/PageHeader';
 import StaffClient from './StaffClient';
 
 export default async function OpStaffPage() {
-  const view = await getOperatorStaff();
+  // Issue 026: explicit role check at the page so a logged-in staff user lands
+  // on /op/bookings instead of being bounced to /op/login (where they'd loop).
+  // getOperatorStaff also enforces the role gate at the lib layer (defense in depth).
+  const session = await getOperatorSession();
+  if (!session) redirect('/op/login');
+  if (session.requiresPasswordChange) redirect('/op/first-login');
+  if (session.role !== 'admin') redirect('/op/bookings');
 
-  if (!view) {
-    redirect('/op/login');
-  }
+  const view = await getOperatorStaff();
+  if (!view) redirect('/op/login'); // safety net — lib should have returned a view by here
 
   if (view.requiresPasswordChange) {
     redirect('/op/first-login');
