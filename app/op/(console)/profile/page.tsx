@@ -11,6 +11,7 @@
 
 import { redirect } from 'next/navigation';
 import { getOperatorProfile } from '@/lib/op/getOperatorProfile';
+import { PageHeader } from '@/components/op/PageHeader';
 import OpProfileClient from './OpProfileClient';
 
 export default async function OpProfilePage() {
@@ -26,7 +27,7 @@ export default async function OpProfilePage() {
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-8 md:px-6">
-      <h1 className="mb-6 text-2xl font-semibold tracking-tight">Hồ sơ quản trị viên</h1>
+      <PageHeader title="Hồ sơ quản trị viên" subtitle="Cập nhật thông tin liên hệ + đổi mật khẩu." />
       <OpProfileClient profile={profile} />
     </div>
   );

@@ -42,6 +42,7 @@ import {
   TableHead,
   TableCell,
 } from '@/components/ui/table';
+import { ConfirmDialog } from '@/components/op/ConfirmDialog';
 
 interface Props {
   initialStaff: StaffDto[];
@@ -67,6 +68,8 @@ export default function StaffClient({ initialStaff, isAdmin }: Props) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string>('');
   const [isError, setIsError] = useState(false);
+  // PR 4: ConfirmDialog replaces window.confirm for disabling staff.
+  const [pendingDisable, setPendingDisable] = useState<string | null>(null);
 
   // Create-staff form state
   const [newName, setNewName] = useState('');
@@ -118,7 +121,6 @@ export default function StaffClient({ initialStaff, isAdmin }: Props) {
   }
 
   async function handleDisable(staffId: string) {
-    if (!confirm('Vô hiệu hoá nhân viên này? Mọi phiên đăng nhập sẽ bị thu hồi.')) return;
     setBusy(true);
     setMessage('');
     try {
@@ -208,7 +210,7 @@ export default function StaffClient({ initialStaff, isAdmin }: Props) {
                     member={member}
                     isAdmin={isAdmin}
                     onRename={(name) => handleRename(member.id, name)}
-                    onDisable={() => handleDisable(member.id)}
+                    onDisable={() => setPendingDisable(member.id)}
                     disabled={busy}
                   />
                 ))}
@@ -217,6 +219,26 @@ export default function StaffClient({ initialStaff, isAdmin }: Props) {
           </Card>
         )}
       </section>
+
+      <ConfirmDialog
+        open={pendingDisable !== null}
+        onClose={() => setPendingDisable(null)}
+        onConfirm={async () => {
+          const id = pendingDisable;
+          setPendingDisable(null);
+          if (id) await handleDisable(id);
+        }}
+        title="Vô hiệu hoá nhân viên?"
+        description="Hành động không thể hoàn tác."
+        consequences={[
+          'Mọi phiên đăng nhập của nhân viên sẽ bị thu hồi.',
+          'Tài khoản không thể đăng nhập lại.',
+          'Lịch sử hoạt động được giữ nguyên.',
+        ]}
+        confirmLabel="Vô hiệu hoá"
+        destructive
+        busy={busy}
+      />
     </div>
   );
 }
@@ -229,7 +251,7 @@ interface RowProps {
   member: StaffDto;
   isAdmin: boolean;
   onRename: (name: string) => Promise<void>;
-  onDisable: () => Promise<void>;
+  onDisable: () => void;
   disabled: boolean;
 }
 

@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/table';
 import RouteEditDialog from './RouteEditDialog';
 import PickupPointsPanel from './PickupPointsPanel';
+import { ConfirmDialog } from '@/components/op/ConfirmDialog';
 
 export interface RouteItem {
   id: string;
@@ -83,6 +84,8 @@ export default function RoutesClient({ initialRoutes }: Props) {
   const [editingRoute, setEditingRoute] = useState<RouteItem | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [expandedRouteId, setExpandedRouteId] = useState<string | null>(null);
+  // PR 4: ConfirmDialog replaces window.confirm for deactivation.
+  const [pendingDeactivate, setPendingDeactivate] = useState<string | null>(null);
 
   function ok(text: string) {
     setMessage(text);
@@ -134,7 +137,6 @@ export default function RoutesClient({ initialRoutes }: Props) {
   }
 
   async function handleDeactivate(routeId: string) {
-    if (!confirm('Vô hiệu hoá tuyến này? Hành động không thể hoàn tác.')) return;
     setBusy(true);
     setMessage('');
     try {
@@ -251,7 +253,7 @@ export default function RoutesClient({ initialRoutes }: Props) {
                               type="button"
                               variant="destructive"
                               size="sm"
-                              onClick={() => handleDeactivate(route.id)}
+                              onClick={() => setPendingDeactivate(route.id)}
                               disabled={busy}
                               data-testid={`route-deactivate-${route.id}`}
                             >
@@ -275,6 +277,26 @@ export default function RoutesClient({ initialRoutes }: Props) {
           </Table>
         </Card>
       )}
+
+      <ConfirmDialog
+        open={pendingDeactivate !== null}
+        onClose={() => setPendingDeactivate(null)}
+        onConfirm={async () => {
+          const id = pendingDeactivate;
+          setPendingDeactivate(null);
+          if (id) await handleDeactivate(id);
+        }}
+        title="Vô hiệu hoá tuyến?"
+        description="Hành động không thể hoàn tác."
+        consequences={[
+          'Tuyến sẽ ẩn khỏi danh sách hoạt động.',
+          'Khách hàng không thể tìm kiếm tuyến này.',
+          'Chuyến đang gắn tuyến vẫn tiếp tục hoạt động cho đến khi hoàn tất.',
+        ]}
+        confirmLabel="Vô hiệu hoá"
+        destructive
+        busy={busy}
+      />
     </div>
   );
 }

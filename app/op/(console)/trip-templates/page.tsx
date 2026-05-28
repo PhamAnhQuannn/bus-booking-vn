@@ -11,6 +11,7 @@
 import { redirect } from 'next/navigation';
 import { getOperatorSession } from '@/lib/op/getOperatorSession';
 import { listTemplates } from '@/lib/trips/generateFromTemplate';
+import { PageHeader } from '@/components/op/PageHeader';
 import TemplatesClient from './TemplatesClient';
 
 export default async function OpTripTemplatesPage() {
@@ -28,10 +29,10 @@ export default async function OpTripTemplatesPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 md:px-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Lịch chạy cố định</h1>
-      <p className="mt-1 mb-6 text-sm text-muted-foreground">
-        Tạo lịch tự động sinh chuyến hàng ngày theo mặt nạ ngày trong tuần.
-      </p>
+      <PageHeader
+        title="Lịch chạy cố định"
+        subtitle="Tạo lịch tự động sinh chuyến hàng ngày theo mặt nạ ngày trong tuần."
+      />
       <TemplatesClient initialTemplates={templates} />
     </div>
   );

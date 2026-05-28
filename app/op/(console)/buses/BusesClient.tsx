@@ -46,14 +46,9 @@ import {
   TableHead,
   TableCell,
 } from '@/components/ui/table';
-
-type BusType = 'coach' | 'sleeper' | 'limousine';
-
-const BUS_TYPE_LABELS: Record<string, string> = {
-  coach: 'Coach',
-  sleeper: 'Sleeper',
-  limousine: 'Limousine',
-};
+import { ConfirmDialog } from '@/components/op/ConfirmDialog';
+import { busTypeLabel } from '@/lib/op/statusLabels';
+import type { BusType } from '@prisma/client';
 
 interface Props {
   initialBuses: OperatorBusListItem[];
@@ -87,6 +82,9 @@ export default function BusesClient({ initialBuses }: Props) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string>('');
   const [isError, setIsError] = useState(false);
+  // PR 3: ConfirmDialog replaces window.confirm for destructive actions.
+  const [pendingDeactivate, setPendingDeactivate] = useState<string | null>(null);
+  const [pendingMaintDelete, setPendingMaintDelete] = useState<{ busId: string; mid: string } | null>(null);
 
   // Add-bus form state
   const [newPlate, setNewPlate] = useState('');
@@ -163,7 +161,6 @@ export default function BusesClient({ initialBuses }: Props) {
   }
 
   async function handleDeactivate(busId: string) {
-    if (!confirm('Vô hiệu hoá xe này? Hành động không thể hoàn tác.')) return;
     setBusy(true);
     setMessage('');
     try {
@@ -219,7 +216,6 @@ export default function BusesClient({ initialBuses }: Props) {
   }
 
   async function handleDeleteMaintenance(busId: string, mid: string) {
-    if (!confirm('Xoá khung bảo trì?')) return;
     setBusy(true);
     setMessage('');
     try {
@@ -326,9 +322,9 @@ export default function BusesClient({ initialBuses }: Props) {
                     maintenance={maintenanceByBus[bus.id] ?? []}
                     onToggle={() => handleToggleExpand(bus.id)}
                     onPatchCapacity={(cap) => handlePatchCapacity(bus.id, cap)}
-                    onDeactivate={() => handleDeactivate(bus.id)}
+                    onDeactivate={() => setPendingDeactivate(bus.id)}
                     onAddMaintenance={(s, e, r) => handleAddMaintenance(bus.id, s, e, r)}
-                    onDeleteMaintenance={(mid) => handleDeleteMaintenance(bus.id, mid)}
+                    onDeleteMaintenance={(mid) => setPendingMaintDelete({ busId: bus.id, mid })}
                     disabled={busy}
                   />
                 ))}
@@ -337,6 +333,41 @@ export default function BusesClient({ initialBuses }: Props) {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={pendingDeactivate !== null}
+        onClose={() => setPendingDeactivate(null)}
+        onConfirm={async () => {
+          const id = pendingDeactivate;
+          setPendingDeactivate(null);
+          if (id) await handleDeactivate(id);
+        }}
+        title="Vô hiệu hoá xe?"
+        description="Hành động không thể hoàn tác."
+        consequences={[
+          'Xe sẽ không xuất hiện trong danh sách hoạt động.',
+          'Không thể gắn xe vào chuyến mới.',
+          'Phải không còn chuyến tương lai gắn xe này (nếu còn, thao tác sẽ bị chặn).',
+        ]}
+        confirmLabel="Vô hiệu hoá"
+        destructive
+        busy={busy}
+      />
+
+      <ConfirmDialog
+        open={pendingMaintDelete !== null}
+        onClose={() => setPendingMaintDelete(null)}
+        onConfirm={async () => {
+          const target = pendingMaintDelete;
+          setPendingMaintDelete(null);
+          if (target) await handleDeleteMaintenance(target.busId, target.mid);
+        }}
+        title="Xoá khung bảo trì?"
+        description="Khung bảo trì sẽ bị xoá vĩnh viễn."
+        confirmLabel="Xoá"
+        destructive
+        busy={busy}
+      />
     </div>
   );
 }
@@ -351,9 +382,9 @@ interface RowProps {
   maintenance: MaintenanceWindow[];
   onToggle: () => void;
   onPatchCapacity: (capacity: number) => Promise<void>;
-  onDeactivate: () => Promise<void>;
+  onDeactivate: () => void;
   onAddMaintenance: (startAt: string, endAt: string, reason: string) => Promise<void>;
-  onDeleteMaintenance: (mid: string) => Promise<void>;
+  onDeleteMaintenance: (mid: string) => void;
   disabled: boolean;
 }
 
@@ -403,7 +434,7 @@ function RowGroup({
           </div>
         </TableCell>
         <TableCell>
-          <Badge variant="neutral">{BUS_TYPE_LABELS[bus.busType] ?? bus.busType}</Badge>
+          <Badge variant="neutral">{busTypeLabel(bus.busType)}</Badge>
         </TableCell>
         <TableCell>
           <div className="flex flex-wrap gap-2">
