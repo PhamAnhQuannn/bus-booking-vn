@@ -13,6 +13,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
+import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -73,13 +74,13 @@ export default function OpFirstLoginPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-svh w-full max-w-md flex-col justify-center px-4 py-12">
-      <h1 className="mb-2 text-2xl font-semibold tracking-tight">Đổi mật khẩu lần đầu</h1>
-      <p className="mb-6 text-sm text-muted-foreground">
-        Bạn cần đặt mật khẩu mới trước khi tiếp tục.
-      </p>
-      <Card>
-        <CardContent className="pt-4">
+    <AuthSplitLayout
+      audience="operator"
+      title="Đổi mật khẩu lần đầu"
+      subtitle="Bạn cần đặt mật khẩu mới trước khi tiếp tục."
+    >
+      <Card className="shadow-e3">
+        <CardContent>
           <form onSubmit={handleSubmit} className="grid gap-4">
             <div className="grid gap-1.5">
               <Label htmlFor="op-current-password">Mật khẩu hiện tại</Label>
@@ -104,12 +105,12 @@ export default function OpFirstLoginPage() {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading} aria-busy={loading} className="w-full">
               {loading ? 'Đang lưu...' : 'Đổi mật khẩu'}
             </Button>
           </form>
         </CardContent>
       </Card>
-    </main>
+    </AuthSplitLayout>
   );
 }

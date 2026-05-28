@@ -10,13 +10,15 @@
  * CSRF token read from bb_csrf cookie set by proxy.ts.
  */
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 type Step = 'phone' | 'otp' | 'details';
 
@@ -35,6 +37,29 @@ export function setAccessToken(t: string | null): void { _accessToken = t; }
 let _displayName: string | null = null;
 export function getDisplayName(): string | null { return _displayName; }
 export function setDisplayName(n: string | null): void { _displayName = n; }
+
+const STEP_INDEX: Record<Step, number> = { phone: 0, otp: 1, details: 2 };
+const STEP_SUBTITLE: Record<Step, string> = {
+  phone: 'Bước 1/3 · Số điện thoại',
+  otp: 'Bước 2/3 · Xác minh OTP',
+  details: 'Bước 3/3 · Tạo mật khẩu',
+};
+
+function StepDots({ current }: { current: number }) {
+  return (
+    <div className="flex items-center gap-2" aria-hidden="true">
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className={cn(
+            'h-1.5 flex-1 rounded-full transition-colors',
+            i < current ? 'bg-primary/40' : i === current ? 'bg-primary' : 'bg-border'
+          )}
+        />
+      ))}
+    </div>
+  );
+}
 
 export default function RegisterPage() {
   // useSearchParams() requires a Suspense boundary for static prerender (Next 16).
@@ -55,6 +80,34 @@ function RegisterPageInner() {
   const [otpProof, setOtpProof] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
+
+  // Tick the resend cooldown down once per second.
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setTimeout(() => setResendIn((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
+
+  // POST /api/auth/otp/send for `phone`. Returns true on success.
+  async function sendOtp(target: string): Promise<boolean> {
+    const res = await fetch('/api/auth/otp/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrf() },
+      body: JSON.stringify({ phone: target }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      if (json.error === 'rate_limited') {
+        setResendIn(json.retryAfter ?? 30);
+        setError(`Quá nhiều yêu cầu. Thử lại sau ${json.retryAfter ?? 30}s.`);
+      } else {
+        setError('Không thể gửi mã OTP. Vui lòng thử lại.');
+      }
+      return false;
+    }
+    return true;
+  }
 
   // Step 1: send OTP
   async function handleSendOtp(e: React.FormEvent<HTMLFormElement>) {
@@ -62,21 +115,24 @@ function RegisterPageInner() {
     setError('');
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/otp/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrf() },
-        body: JSON.stringify({ phone }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        if (json.error === 'rate_limited') {
-          setError(`Quá nhiều yêu cầu. Thử lại sau ${json.retryAfter}s.`);
-        } else {
-          setError('Không thể gửi mã OTP. Vui lòng thử lại.');
-        }
-        return;
+      if (await sendOtp(phone)) {
+        setStep('otp');
+        setResendIn(30);
       }
-      setStep('otp');
+    } catch {
+      setError('Lỗi kết nối. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Step 2: resend OTP (cooldown-gated)
+  async function handleResend() {
+    if (resendIn > 0 || loading) return;
+    setError('');
+    setLoading(true);
+    try {
+      if (await sendOtp(phone)) setResendIn(30);
     } catch {
       setError('Lỗi kết nối. Vui lòng thử lại.');
     } finally {
@@ -142,12 +198,11 @@ function RegisterPageInner() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 px-4 py-12">
-      <Card>
-        <CardHeader>
-          <h1 className="text-2xl font-bold">Đăng ký</h1>
-        </CardHeader>
+    <AuthSplitLayout audience="customer" title="Đăng ký" subtitle={STEP_SUBTITLE[step]}>
+      <Card className="shadow-e3">
         <CardContent className="flex flex-col gap-4">
+          <StepDots current={STEP_INDEX[step]} />
+
           {step === 'phone' && (
             <form onSubmit={handleSendOtp} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
@@ -162,8 +217,12 @@ function RegisterPageInner() {
                   placeholder="0901234567"
                 />
               </div>
-              {error && <p className="text-sm text-destructive">{error}</p>}
-              <Button type="submit" size="lg" disabled={loading} className="w-full">
+              {error && (
+                <p className="text-sm text-destructive" role="alert" aria-live="assertive">
+                  {error}
+                </p>
+              )}
+              <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="w-full">
                 {loading ? 'Đang gửi...' : 'Gửi mã OTP'}
               </Button>
             </form>
@@ -187,16 +246,29 @@ function RegisterPageInner() {
                   autoComplete="one-time-code"
                 />
               </div>
-              {error && <p className="text-sm text-destructive">{error}</p>}
-              <Button type="submit" size="lg" disabled={loading} className="w-full">
+              {error && (
+                <p className="text-sm text-destructive" role="alert" aria-live="assertive">
+                  {error}
+                </p>
+              )}
+              <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="w-full">
                 {loading ? 'Đang xác minh...' : 'Xác minh'}
+              </Button>
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="self-center"
+                disabled={loading || resendIn > 0}
+                onClick={handleResend}
+              >
+                {resendIn > 0 ? `Gửi lại mã sau ${resendIn}s` : 'Gửi lại mã'}
               </Button>
             </form>
           )}
 
           {step === 'details' && (
             <form onSubmit={handleRegister} className="flex flex-col gap-4">
-              <p className="text-sm text-muted-foreground">Tạo mật khẩu</p>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="password">Mật khẩu</Label>
                 <Input id="password" type="password" name="password" required minLength={8} />
@@ -205,8 +277,12 @@ function RegisterPageInner() {
                 <Label htmlFor="displayName">Tên hiển thị (tuỳ chọn)</Label>
                 <Input id="displayName" type="text" name="displayName" />
               </div>
-              {error && <p className="text-sm text-destructive">{error}</p>}
-              <Button type="submit" size="lg" disabled={loading} className="w-full">
+              {error && (
+                <p className="text-sm text-destructive" role="alert" aria-live="assertive">
+                  {error}
+                </p>
+              )}
+              <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="w-full">
                 {loading ? 'Đang đăng ký...' : 'Đăng ký'}
               </Button>
             </form>
@@ -223,6 +299,6 @@ function RegisterPageInner() {
           </p>
         </CardContent>
       </Card>
-    </main>
+    </AuthSplitLayout>
   );
 }

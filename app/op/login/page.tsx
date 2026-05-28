@@ -13,6 +13,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
+import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -62,10 +63,9 @@ export default function OpLoginPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-svh w-full max-w-md flex-col justify-center px-4 py-12">
-      <h1 className="mb-6 text-2xl font-semibold tracking-tight">Đăng nhập — Quản trị viên</h1>
-      <Card>
-        <CardContent className="pt-4">
+    <AuthSplitLayout audience="operator" title="Đăng nhập — Quản trị viên">
+      <Card className="shadow-e3">
+        <CardContent>
           <form onSubmit={handleLogin} className="grid gap-4">
             <div className="grid gap-1.5">
               <Label htmlFor="op-login-phone">Số điện thoại</Label>
@@ -86,7 +86,7 @@ export default function OpLoginPage() {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading} aria-busy={loading} className="w-full">
               {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
             </Button>
           </form>
@@ -97,6 +97,6 @@ export default function OpLoginPage() {
           </p>
         </CardContent>
       </Card>
-    </main>
+    </AuthSplitLayout>
   );
 }

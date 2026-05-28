@@ -13,10 +13,11 @@
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 
 export default function ResetPasswordPage() {
   // useSearchParams() requires a Suspense boundary for static prerender (Next 16).
@@ -105,11 +106,8 @@ function ResetPasswordPageInner() {
 
   if (done) {
     return (
-      <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 px-4 py-12">
-        <Card>
-          <CardHeader>
-            <h1 className="text-2xl font-bold">Thành công</h1>
-          </CardHeader>
+      <AuthSplitLayout audience="customer" title="Thành công">
+        <Card className="shadow-e3">
           <CardContent className="flex flex-col gap-4">
             <p className="text-sm text-muted-foreground">Mật khẩu của bạn đã được cập nhật.</p>
             <Button size="lg" className="w-full" onClick={() => router.push('/auth/login')}>
@@ -117,16 +115,13 @@ function ResetPasswordPageInner() {
             </Button>
           </CardContent>
         </Card>
-      </main>
+      </AuthSplitLayout>
     );
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 px-4 py-12">
-      <Card>
-        <CardHeader>
-          <h1 className="text-2xl font-bold">Đặt lại mật khẩu</h1>
-        </CardHeader>
+    <AuthSplitLayout audience="customer" title="Đặt lại mật khẩu">
+      <Card className="shadow-e3">
         <CardContent className="flex flex-col gap-4">
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
@@ -161,8 +156,12 @@ function ResetPasswordPageInner() {
               <Label htmlFor="confirmPassword">Xác nhận mật khẩu mới</Label>
               <Input id="confirmPassword" type="password" name="confirmPassword" required minLength={8} />
             </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" size="lg" disabled={loading} className="w-full">
+            {error && (
+              <p className="text-sm text-destructive" role="alert" aria-live="assertive">
+                {error}
+              </p>
+            )}
+            <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="w-full">
               {loading ? 'Đang xử lý...' : 'Đặt lại mật khẩu'}
             </Button>
           </form>
@@ -179,6 +178,6 @@ function ResetPasswordPageInner() {
           </div>
         </CardContent>
       </Card>
-    </main>
+    </AuthSplitLayout>
   );
 }
