@@ -14,9 +14,11 @@ import { useRouter } from 'next/navigation';
 import { getAccessToken } from '@/app/auth/register/page';
 import { STATUS_LABEL, STATUS_VARIANT } from './bookingStatus';
 import type { CustomerBookingRow } from '@/lib/booking/listCustomerBookings';
-import { Button } from '@/components/ui/button';
+import { Ticket, ArrowRight } from 'lucide-react';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
 type Tab = 'upcoming' | 'past';
@@ -30,6 +32,51 @@ const dateFmt = new Intl.DateTimeFormat('vi-VN', {
   hour: '2-digit',
   minute: '2-digit',
 });
+
+/** Skeleton row matching the booking card shape (route line + meta lines). */
+function BookingCardSkeleton() {
+  return (
+    <Card className="gap-2 py-4">
+      <div className="flex items-center justify-between gap-2 px-4">
+        <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-5 w-16 rounded-full" />
+      </div>
+      <div className="px-4">
+        <Skeleton className="h-4 w-48" />
+      </div>
+      <div className="px-4">
+        <Skeleton className="h-4 w-56" />
+      </div>
+    </Card>
+  );
+}
+
+/** Composed empty state — icon, message, and a CTA back into the search flow. */
+function EmptyBookings({ tab }: { tab: Tab }) {
+  return (
+    <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed border-border bg-card/50 px-6 py-12 text-center shadow-e1">
+      <span className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+        <Ticket className="size-6" aria-hidden="true" />
+      </span>
+      <div className="flex flex-col gap-1">
+        <p className="font-semibold">
+          {tab === 'upcoming' ? 'Chưa có chuyến nào sắp tới' : 'Chưa có vé đã qua'}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          {tab === 'upcoming'
+            ? 'Đặt vé xe khách liên tỉnh chỉ trong 30 giây.'
+            : 'Vé đã hoàn thành sẽ hiển thị ở đây.'}
+        </p>
+      </div>
+      {tab === 'upcoming' && (
+        <Link href="/" className={cn(buttonVariants({ size: 'lg' }), 'gap-1')}>
+          Tìm chuyến xe
+          <ArrowRight className="size-4" aria-hidden="true" />
+        </Link>
+      )}
+    </div>
+  );
+}
 
 export default function BookingsHistoryPage() {
   const router = useRouter();
@@ -109,35 +156,48 @@ export default function BookingsHistoryPage() {
         ))}
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      {!loading && rows.length === 0 && !error && (
-        <p className="text-sm text-muted-foreground">Chưa có vé nào.</p>
+      {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
+
+      {/* First-load skeletons match the card shape so the layout doesn't jump. */}
+      {loading && rows.length === 0 && (
+        <ul className="flex list-none flex-col gap-3 p-0" aria-hidden="true">
+          {[0, 1, 2].map((i) => (
+            <li key={i}>
+              <BookingCardSkeleton />
+            </li>
+          ))}
+        </ul>
       )}
 
-      <ul className="flex list-none flex-col gap-3 p-0">
-        {rows.map((b) => (
-          <li key={b.id}>
-            <Link href={`/account/bookings/${b.id}`} className="block">
-              <Card className="gap-2 py-4 transition-colors hover:bg-muted/50">
-                <div className="flex items-center justify-between gap-2 px-4">
-                  <strong className="text-base">
-                    {b.route.origin} → {b.route.destination}
-                  </strong>
-                  <Badge variant={STATUS_VARIANT[b.status]}>{STATUS_LABEL[b.status]}</Badge>
-                </div>
-                <div className="px-4 text-sm text-muted-foreground">
-                  {dateFmt.format(new Date(b.departureAt))}
-                </div>
-                <div className="px-4 text-sm text-muted-foreground">
-                  {b.ticketCount} vé · {vnd(b.totalVnd)} · <span className="font-mono">{b.bookingRef}</span>
-                </div>
-              </Card>
-            </Link>
-          </li>
-        ))}
-      </ul>
+      {!loading && rows.length === 0 && !error && <EmptyBookings tab={tab} />}
 
-      {loading && <p className="text-sm text-muted-foreground">Đang tải...</p>}
+      {rows.length > 0 && (
+        <ul className="flex list-none flex-col gap-3 p-0">
+          {rows.map((b) => (
+            <li key={b.id}>
+              <Link href={`/account/bookings/${b.id}`} className="block">
+                <Card className="gap-2 py-4 shadow-e1 transition-all hover:shadow-e2 motion-safe:hover:-translate-y-0.5">
+                  <div className="flex items-center justify-between gap-2 px-4">
+                    <strong className="text-base">
+                      {b.route.origin} → {b.route.destination}
+                    </strong>
+                    <Badge variant={STATUS_VARIANT[b.status]}>{STATUS_LABEL[b.status]}</Badge>
+                  </div>
+                  <div className="px-4 text-sm text-muted-foreground">
+                    {dateFmt.format(new Date(b.departureAt))}
+                  </div>
+                  <div className="px-4 text-sm text-muted-foreground">
+                    {b.ticketCount} vé · {vnd(b.totalVnd)} · <span className="font-mono">{b.bookingRef}</span>
+                  </div>
+                </Card>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* Load-more: skeleton while appending, button otherwise. */}
+      {loading && rows.length > 0 && <BookingCardSkeleton />}
       {nextCursor && !loading && (
         <Button variant="outline" className="self-start" onClick={() => void load(tab, nextCursor)}>
           Tải thêm

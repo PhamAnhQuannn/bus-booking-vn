@@ -20,6 +20,7 @@ import type { CustomerBookingDetail } from '@/lib/booking/getCustomerBookingDeta
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Phone } from 'lucide-react';
 
 const vnd = (n: number) => `${n.toLocaleString('vi-VN')} ₫`;
@@ -38,7 +39,7 @@ const TICKETABLE = new Set(['pending_cash_payment', 'paid_operator_notified', 'c
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="text-xs uppercase text-muted-foreground">{label}</div>
+      <div className="text-xs font-medium text-muted-foreground">{label}</div>
       <div className="mt-0.5 text-sm">{children}</div>
     </div>
   );
@@ -148,8 +149,27 @@ export default function BookingDetailPage() {
         </ol>
       </nav>
 
-      {loading && <p className="text-sm text-muted-foreground">Đang tải...</p>}
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {loading && (
+        <div className="flex flex-col gap-4" aria-hidden="true">
+          <div className="flex items-center justify-between gap-2">
+            <Skeleton className="h-8 w-56" />
+            <Skeleton className="h-6 w-20 rounded-full" />
+          </div>
+          <Skeleton className="h-4 w-28" />
+          <Card>
+            <CardContent className="flex flex-col gap-3">
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex flex-col gap-1.5">
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-4 w-40" />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+          <Skeleton className="h-11 w-36 rounded-full" />
+        </div>
+      )}
+      {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
 
       {booking && (
         <>
