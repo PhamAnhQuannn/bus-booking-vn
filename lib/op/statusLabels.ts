@@ -82,15 +82,25 @@ export function payoutStatusDisplay(status: string | null | undefined): StatusDi
   return PAYOUT_STATUS[status] ?? { variant: "neutral", label: status }
 }
 
-// Bus type label — previously inlined in BusesClient + lib/api/busesClient.
+// Bus type label — Vietnamese long-haul nomenclature (OTA convention).
+//   coach     → Xe ghế ngồi        (seated coach, 24-45 chỗ typical)
+//   sleeper   → Xe giường nằm      (sleeper bus, 22/30/34/41 giường common)
+//   limousine → Xe Limousine       (luxury 9-22-chỗ premium minibus)
+// Capacity is displayed in "chỗ" (slots) universally — works for both ghế (seats)
+// and giường (berths) without overloading the type label.
 const BUS_TYPE_LABELS: Record<string, string> = {
-  coach: "Coach",
-  sleeper: "Sleeper",
-  limousine: "Limousine",
+  coach: "Xe ghế ngồi",
+  sleeper: "Xe giường nằm",
+  limousine: "Xe Limousine",
 }
 
 export function busTypeLabel(busType: string): string {
   return BUS_TYPE_LABELS[busType] ?? busType
+}
+
+/** Compose "Xe giường nằm 30 chỗ" / "Xe Limousine 9 chỗ" — used in summary tiles. */
+export function busTypeWithCapacity(busType: string, capacity: number): string {
+  return `${busTypeLabel(busType)} ${capacity} chỗ`
 }
 
 // Booking flag glyphs — manual / cash / escalated. Variant maps to Badge variant.
