@@ -175,3 +175,29 @@
     @apply font-sans;
   }
 }
+
+/* Hero cover band — slow cinematic Ken-Burns drift. Applied via the arbitrary
+   `animate-[kenburns_…]` utility under a `motion-safe:` guard (no motion when the
+   user prefers reduced motion). Alternate 1→1.08 never shrinks below fit → no edge gap. */
+@keyframes kenburns {
+  from {
+    transform: scale(1) translateY(0);
+  }
+  to {
+    transform: scale(1.08) translateY(-1.2%);
+  }
+}
+
+/* Intro-banner floating glow blobs (motion-safe). */
+@keyframes blob {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(24px, -28px) scale(1.12);
+  }
+  66% {
+    transform: translate(-18px, 16px) scale(0.94);
+  }
+}
