@@ -54,6 +54,11 @@ export const useSearchStore = create<SearchStore>()(
     {
       name: 'bbvn-search-query',
       storage: createJSONStorage(() => localStorage),
+      // SSR-safe: do NOT rehydrate synchronously on store creation, or the first
+      // client render (persisted values) would diverge from the server render
+      // (empty DEFAULT_STATE) and throw a hydration mismatch. Consumers call
+      // useSearchStore.persist.rehydrate() in a mount effect instead.
+      skipHydration: true,
       // Only persist the query fields, not the action functions
       partialize: (state) => ({
         origin: state.origin,
