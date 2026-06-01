@@ -186,12 +186,14 @@ export function OperatorNav({ role, unviewedCount }: OperatorNavProps) {
           ) : null}
         </div>
 
-        {/* Cmd-K search slot — visible on collapsed bar too */}
-        {onOpenCommand ? (
-          <div className={cn("px-2 pb-2", collapsed && "px-1")}>
+        {/* Cmd-K search slot — visible on collapsed bar too. Always rendered to
+            keep the SSR + hydration tree identical; CommandPalette registers
+            `onOpenCommand` in an effect so calling via optional-chain is the
+            stable no-op until the palette is ready. */}
+        <div className={cn("px-2 pb-2", collapsed && "px-1")}>
             <button
               type="button"
-              onClick={onOpenCommand}
+              onClick={() => onOpenCommand?.()}
               aria-label="Mở bảng lệnh"
               aria-keyshortcuts="Meta+K Control+K"
               className={cn(
@@ -212,7 +214,6 @@ export function OperatorNav({ role, unviewedCount }: OperatorNavProps) {
               )}
             </button>
           </div>
-        ) : null}
 
         <div className={cn("flex-1 overflow-y-auto py-2", collapsed ? "px-1" : "px-2")}>
           <NavLinks

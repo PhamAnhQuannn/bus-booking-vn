@@ -22,7 +22,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import {
   Table,
   TableHeader,
@@ -83,23 +83,19 @@ export default function RevenueClient({ initialRows, dateFrom, dateTo }: Props) 
           <form onSubmit={handleFilter} className="flex flex-wrap items-end gap-4">
             <div className="grid gap-1.5">
               <Label htmlFor="revenue-date-from">Từ ngày</Label>
-              <Input
+              <DatePicker
                 id="revenue-date-from"
-                type="date"
                 value={from}
-                onChange={(e) => setFrom(e.target.value)}
-                required
+                onValueChange={setFrom}
                 className="w-44"
               />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="revenue-date-to">Đến ngày</Label>
-              <Input
+              <DatePicker
                 id="revenue-date-to"
-                type="date"
                 value={to}
-                onChange={(e) => setTo(e.target.value)}
-                required
+                onValueChange={setTo}
                 className="w-44"
               />
             </div>

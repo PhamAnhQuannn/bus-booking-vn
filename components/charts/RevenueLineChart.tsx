@@ -106,7 +106,7 @@ export function RevenueLineChart({
                       <span className="text-muted-foreground">
                         {p.dataKey === "current" ? "Kỳ này" : "Kỳ trước"}:
                       </span>
-                      <span className="font-mono tabular-nums">
+                      <span className="tabular-nums">
                         {formatFullVnd(Number(p.value ?? 0))}
                       </span>
                     </div>

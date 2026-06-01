@@ -1,199 +1,297 @@
 /**
- * /op/reports/overview — Operator KPI dashboard (Tổng quan).
+ * /op/reports/overview — Per-bus performance overview.
  *
- * Headline metrics (revenue, seats, occupancy, paid-rate), booking-status
- * breakdown, and the platform conversion funnel for the selected date range.
- * Reuses getOperatorKpis (which itself reuses getRevenueReport) + getFunnel.
+ * Operator picks a date range. Page renders one row per active bus with that
+ * bus's metrics over the window: trips run, seats sold, revenue, occupancy %.
+ * Click a row → /op/buses/[id] for trip-level + manifest drilldown.
+ *
+ * Replaces the prior operator-wide KPI aggregate — that view was duplicating
+ * what /op/reports/revenue already showed AND was not actionable per fleet
+ * unit. Per-bus answers "which xe is making me money / sitting idle".
+ *
  * In-process lib calls only (no self-fetch — AGENTS.md rule).
  */
 
-import { redirect } from 'next/navigation';
-import { getOperatorSession } from '@/lib/op/getOperatorSession';
-import { getOperatorKpis } from '@/lib/reports/getOperatorKpis';
-import { getFunnel } from '@/lib/analytics/getFunnel';
-import { getDefaultDateRange } from '@/lib/op/dateRanges';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Sparkline } from '@/components/ui/sparkline';
-import { PageHeader } from '@/components/op/PageHeader';
-import { ReportsCharts } from './ReportsCharts';
+import { redirect } from "next/navigation"
+import Link from "next/link"
 
-function formatVnd(v: number): string {
-  return v.toLocaleString('vi-VN') + 'đ';
-}
-
-const STATUS_LABEL: Record<string, string> = {
-  awaiting_payment: 'Chờ thanh toán',
-  pending_cash_payment: 'Chờ tiền mặt',
-  paid_operator_notified: 'Đã thanh toán',
-  completed: 'Hoàn tất',
-  cancelled: 'Đã hủy',
-  trip_cancelled: 'Chuyến hủy',
-  no_show: 'Không lên xe',
-  payment_failed_expired: 'Thanh toán lỗi',
-};
-
-function DeltaBadge({ pct }: { pct: number | null }) {
-  if (pct === null) return null;
-  const up = pct >= 0;
-  return (
-    <span
-      className={up ? 'text-xs font-medium text-success-foreground' : 'text-xs font-medium text-destructive'}
-    >
-      {up ? '▲' : '▼'} {Math.abs(pct)}% so với kỳ trước
-    </span>
-  );
-}
-
-function Kpi({
-  label,
-  value,
-  hint,
-  delta,
-  spark,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-  delta?: number | null;
-  spark?: number[];
-}) {
-  return (
-    <Card>
-      <CardContent className="flex flex-col gap-1 py-5">
-        <span className="text-sm text-muted-foreground">{label}</span>
-        <span className="font-mono text-2xl font-bold tracking-tight">{value}</span>
-        {delta !== undefined && <DeltaBadge pct={delta} />}
-        {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
-        {spark && spark.length > 1 && <Sparkline data={spark} className="mt-2" />}
-      </CardContent>
-    </Card>
-  );
-}
+import { getOperatorSession } from "@/lib/op/getOperatorSession"
+import { getBusPerformance } from "@/lib/reports/getBusPerformance"
+import { getDefaultDateRange } from "@/lib/op/dateRanges"
+import { busTypeLabel } from "@/lib/op/statusLabels"
+import { Bus } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
+import { DatePicker } from "@/components/ui/date-picker"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { PageHeader } from "@/components/op/PageHeader"
+import { EmptyState } from "@/components/op/EmptyState"
 
 interface SearchParams {
-  dateFrom?: string;
-  dateTo?: string;
+  dateFrom?: string
+  dateTo?: string
 }
 
-export default async function OverviewPage({
+function formatVnd(v: number): string {
+  return v.toLocaleString("vi-VN") + "đ"
+}
+
+function occupancyVariant(pct: number): "neutral" | "success" | "pending" | "danger" {
+  if (pct >= 90) return "danger" // overcrowded watch
+  if (pct >= 70) return "success"
+  if (pct >= 40) return "pending"
+  return "neutral"
+}
+
+export default async function ReportsOverviewPage({
   searchParams,
 }: {
-  searchParams: Promise<SearchParams>;
+  searchParams: Promise<SearchParams>
 }) {
-  const session = await getOperatorSession();
-  if (!session) redirect('/op/login');
-  if (session.requiresPasswordChange) redirect('/op/first-login');
+  const session = await getOperatorSession()
+  if (!session) redirect("/op/login")
+  if (session.requiresPasswordChange) redirect("/op/first-login")
 
-  const params = await searchParams;
-  const { from, to } = getDefaultDateRange(30);
-  const dateFrom = params.dateFrom ?? from;
-  const dateTo = params.dateTo ?? to;
+  const params = await searchParams
+  const { from, to } = getDefaultDateRange(30)
+  const dateFrom = params.dateFrom ?? from
+  const dateTo = params.dateTo ?? to
 
-  const [kpis, funnel] = await Promise.all([
-    getOperatorKpis({ operatorId: session.operatorId, dateFrom, dateTo }),
-    getFunnel({ dateFrom, dateTo }),
-  ]);
+  const rows = await getBusPerformance({
+    operatorId: session.operatorId,
+    dateFrom,
+    dateTo,
+  })
 
-  const funnelTop = funnel[0]?.sessions ?? 0;
+  // Totals row.
+  const totals = rows.reduce(
+    (acc, r) => ({
+      tripsCount: acc.tripsCount + r.tripsCount,
+      seatsSold: acc.seatsSold + r.seatsSold,
+      capacityTotal: acc.capacityTotal + r.capacityTotal,
+      grossRevenueVnd: acc.grossRevenueVnd + r.grossRevenueVnd,
+    }),
+    { tripsCount: 0, seatsSold: 0, capacityTotal: 0, grossRevenueVnd: 0 }
+  )
+  const totalOccupancy =
+    totals.capacityTotal > 0
+      ? Math.round((totals.seatsSold / totals.capacityTotal) * 100)
+      : 0
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 md:px-6">
       <PageHeader
-        breadcrumb={[{ label: 'Báo cáo' }, { label: 'Tổng quan' }]}
-        title="Tổng quan"
-        subtitle="Chỉ số hoạt động trong khoảng thời gian đã chọn."
+        title="Tổng quan theo xe"
+        subtitle="Mỗi xe một dòng — bấm vào biển số để xem chi tiết chuyến + danh sách hành khách."
       />
 
-      {/* Date range — plain GET form, no JS required */}
+      {/* Date range — plain GET form */}
       <form method="get" className="mb-6 flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-sm">
+        <div className="flex flex-col gap-1 text-sm">
           <span className="text-muted-foreground">Từ ngày</span>
-          <input
-            type="date"
+          <DatePicker
             name="dateFrom"
             defaultValue={dateFrom}
-            className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            aria-label="Từ ngày"
+            className="w-44"
           />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
+        </div>
+        <div className="flex flex-col gap-1 text-sm">
           <span className="text-muted-foreground">Đến ngày</span>
-          <input
-            type="date"
+          <DatePicker
             name="dateTo"
             defaultValue={dateTo}
-            className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            aria-label="Đến ngày"
+            className="w-44"
           />
-        </label>
+        </div>
         <button
           type="submit"
-          className="h-9 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground shadow-e1 transition-colors hover:bg-primary/90"
+          className="h-9 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-e1 transition-colors hover:bg-primary/90"
         >
           Áp dụng
         </button>
       </form>
 
-      {/* KPI tiles */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi label="Doanh thu" value={formatVnd(kpis.grossRevenueVnd)} hint={`Thực nhận ${formatVnd(kpis.netPayoutVnd)}`} delta={kpis.revenueDeltaPct} spark={kpis.dailyRevenue} />
-        <Kpi label="Ghế đã bán" value={String(kpis.seatsSold)} hint={`${kpis.periodTrips} chuyến`} />
-        <Kpi label="Tỷ lệ lấp đầy" value={`${kpis.occupancyPct}%`} hint={`${kpis.seatsSold}/${kpis.capacityTotal} ghế`} />
-        <Kpi label="Tỷ lệ thanh toán" value={`${kpis.paidRatePct}%`} hint={`${kpis.paidBookings}/${kpis.totalBookings} đơn`} />
-      </div>
-
-      {/* Revenue line chart + status donut (Recharts, dynamic-loaded). */}
-      <ReportsCharts
-        revenueSeries={(function buildSeries() {
-          const days: string[] = [];
-          const d = new Date(`${dateFrom}T00:00:00Z`);
-          const end = new Date(`${dateTo}T00:00:00Z`);
-          while (d <= end) {
-            days.push(d.toISOString().slice(0, 10));
-            d.setUTCDate(d.getUTCDate() + 1);
-          }
-          return days.map((date, i) => ({ date, revenueVnd: kpis.dailyRevenue[i] ?? 0 }));
-        })()}
-        statusBreakdown={kpis.statusBreakdown.map((s) => ({
-          status: s.status,
-          label: STATUS_LABEL[s.status] ?? s.status,
-          count: s.count,
-        }))}
-      />
-
-      <div className="mt-6 grid gap-6">
-        {/* Conversion funnel */}
-        <Card>
-          <CardHeader>
-            <CardTitle as="h2" className="text-base">Phễu chuyển đổi (toàn sàn)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {funnelTop === 0 ? (
-              <p className="text-sm text-muted-foreground">Chưa có dữ liệu phễu trong kỳ.</p>
-            ) : (
-              <ul className="flex flex-col gap-3">
-                {funnel.map((step) => (
-                  <li key={step.step} className="flex flex-col gap-1">
-                    <div className="flex items-center justify-between text-sm">
-                      <span>{step.label}</span>
-                      <span className="font-mono text-muted-foreground">
-                        {step.sessions} · {step.conversionPct}%
-                        {step.dropPct > 0 ? ` (−${step.dropPct}%)` : ''}
-                      </span>
-                    </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
-                      <div
-                        className="h-full rounded-full bg-info-foreground"
-                        style={{ width: `${step.conversionPct}%` }}
-                      />
-                    </div>
-                  </li>
+      {/* Per-bus table */}
+      {rows.length === 0 ? (
+        <EmptyState
+          icon={<Bus />}
+          variant="card"
+          title="Chưa có xe nào đang hoạt động"
+          description="Thêm xe để bắt đầu theo dõi doanh thu và tỷ lệ lấp đầy."
+          action={{ label: "Đi tới Đội xe", href: "/op/buses" }}
+        />
+      ) : (
+        <>
+          {/* Desktop table */}
+          <Card className="hidden overflow-hidden py-0 md:block">
+            <Table data-testid="bus-performance-table">
+              <caption className="sr-only">
+                Hiệu quả từng xe trong khoảng từ {dateFrom} đến {dateTo}
+              </caption>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Biển số</TableHead>
+                  <TableHead>Loại xe</TableHead>
+                  <TableHead className="text-right">Sức chứa</TableHead>
+                  <TableHead className="text-right">Chuyến đã chạy</TableHead>
+                  <TableHead className="text-right">Ghế đã bán</TableHead>
+                  <TableHead className="text-right">Doanh thu</TableHead>
+                  <TableHead>Tỷ lệ lấp đầy</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((r) => (
+                  <TableRow
+                    key={r.busId}
+                    data-testid={`bus-perf-row-${r.busId}`}
+                  >
+                    <TableCell>
+                      <Link
+                        href={`/op/buses/${r.busId}`}
+                        className="font-medium text-primary underline-offset-4 hover:underline"
+                      >
+                        {r.licensePlate}
+                      </Link>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="neutral">{busTypeLabel(r.busType)}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {r.capacity}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {r.tripsCount}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {r.seatsSold}
+                      {r.capacityTotal > 0 ? (
+                        <span className="text-xs text-muted-foreground">
+                          {" "}/ {r.capacityTotal}
+                        </span>
+                      ) : null}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums">
+                      {formatVnd(r.grossRevenueVnd)}
+                    </TableCell>
+                    <TableCell>
+                      {r.tripsCount === 0 ? (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      ) : (
+                        <Badge variant={occupancyVariant(r.occupancyPct)}>
+                          {r.occupancyPct}%
+                        </Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-}
+              </TableBody>
+              <TableFooter>
+                <TableRow>
+                  <TableCell colSpan={2} className="font-semibold">
+                    Tổng cộng ({rows.length} xe)
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">—</TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums">
+                    {totals.tripsCount}
+                  </TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums">
+                    {totals.seatsSold}
+                    {totals.capacityTotal > 0 ? (
+                      <span className="text-xs text-muted-foreground">
+                        {" "}/ {totals.capacityTotal}
+                      </span>
+                    ) : null}
+                  </TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums">
+                    {formatVnd(totals.grossRevenueVnd)}
+                  </TableCell>
+                  <TableCell>
+                    {totals.capacityTotal === 0 ? (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    ) : (
+                      <Badge variant={occupancyVariant(totalOccupancy)}>
+                        {totalOccupancy}%
+                      </Badge>
+                    )}
+                  </TableCell>
+                </TableRow>
+              </TableFooter>
+            </Table>
+          </Card>
 
-// Reference: Badge import removed when status-list ul replaced by donut chart.
+          {/* Mobile stacked cards */}
+          <ul role="list" className="flex flex-col gap-3 md:hidden">
+            {rows.map((r) => (
+              <li key={r.busId}>
+                <Link
+                  href={`/op/buses/${r.busId}`}
+                  className="block rounded-xl border border-border bg-card p-4 text-card-foreground shadow-e1 outline-none transition-all hover:-translate-y-px hover:border-primary/40 hover:shadow-e2 focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:hover:translate-y-0"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="font-mono text-lg font-semibold tracking-tight">
+                      {r.licensePlate}
+                    </span>
+                    {r.tripsCount === 0 ? (
+                      <Badge variant="neutral">Chưa chạy</Badge>
+                    ) : (
+                      <Badge variant={occupancyVariant(r.occupancyPct)}>
+                        {r.occupancyPct}%
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    {busTypeLabel(r.busType)} {r.capacity} chỗ
+                  </div>
+                  <dl className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                    <div>
+                      <dt className="text-muted-foreground">Chuyến</dt>
+                      <dd className="font-medium tabular-nums">{r.tripsCount}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Ghế bán</dt>
+                      <dd className="font-medium tabular-nums">{r.seatsSold}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Doanh thu</dt>
+                      <dd className="font-medium tabular-nums">
+                        {formatVnd(r.grossRevenueVnd)}
+                      </dd>
+                    </div>
+                  </dl>
+                </Link>
+              </li>
+            ))}
+            <li>
+              <Card>
+                <CardContent className="py-3 text-sm">
+                  <div className="flex items-center justify-between font-semibold">
+                    <span>Tổng cộng ({rows.length} xe)</span>
+                    {totals.capacityTotal > 0 ? (
+                      <Badge variant={occupancyVariant(totalOccupancy)}>
+                        {totalOccupancy}%
+                      </Badge>
+                    ) : null}
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground tabular-nums">
+                    {totals.tripsCount} chuyến · {totals.seatsSold} ghế ·{" "}
+                    {formatVnd(totals.grossRevenueVnd)}
+                  </div>
+                </CardContent>
+              </Card>
+            </li>
+          </ul>
+        </>
+      )}
+    </div>
+  )
+}

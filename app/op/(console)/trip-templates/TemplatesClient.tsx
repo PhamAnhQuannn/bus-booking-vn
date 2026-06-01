@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -224,24 +225,20 @@ export default function TemplatesClient({ initialTemplates }: Props) {
             </fieldset>
             <div className="grid gap-1.5">
               <Label htmlFor="new-template-validfrom">Hiệu lực từ</Label>
-              <Input
+              <DatePicker
                 id="new-template-validfrom"
-                type="date"
                 value={validFrom}
-                onChange={(e) => setValidFrom(e.target.value)}
-                required
+                onValueChange={setValidFrom}
                 data-testid="new-template-validfrom"
                 className="w-48"
               />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="new-template-validuntil">Hiệu lực đến</Label>
-              <Input
+              <DatePicker
                 id="new-template-validuntil"
-                type="date"
                 value={validUntil}
-                onChange={(e) => setValidUntil(e.target.value)}
-                required
+                onValueChange={setValidUntil}
                 data-testid="new-template-validuntil"
                 className="w-48"
               />

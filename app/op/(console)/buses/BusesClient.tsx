@@ -9,10 +9,11 @@
  * data when present).
  *
  * UI: Card add-bus form (Label/Input/Select), Table fleet list with per-row
- * capacity edit + deactivate + maintenance expander. Every data-testid preserved
- * (sandbox-gated e2e keys off them).
+ * capacity edit + deactivate + maintenance expander + detail-page link. Every
+ * data-testid preserved (sandbox-gated e2e keys off them).
  */
 
+import Link from 'next/link';
 import { useState } from 'react';
 import {
   listBusesApi,
@@ -280,9 +281,9 @@ export default function BusesClient({ initialBuses }: Props) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="coach">Coach</SelectItem>
-                  <SelectItem value="sleeper">Sleeper</SelectItem>
-                  <SelectItem value="limousine">Limousine</SelectItem>
+                  <SelectItem value="coach">Xe ghế ngồi</SelectItem>
+                  <SelectItem value="sleeper">Xe giường nằm</SelectItem>
+                  <SelectItem value="limousine">Xe Limousine</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -408,7 +409,12 @@ function RowGroup({
     <>
       <TableRow data-testid={`bus-row-${bus.id}`}>
         <TableCell data-testid={`bus-plate-${bus.id}`} className="font-medium">
-          {bus.licensePlate}
+          <Link
+            href={`/op/buses/${bus.id}`}
+            className="text-primary underline-offset-4 hover:underline"
+          >
+            {bus.licensePlate}
+          </Link>
         </TableCell>
         <TableCell>
           <div className="flex items-center gap-2">
@@ -438,6 +444,13 @@ function RowGroup({
         </TableCell>
         <TableCell>
           <div className="flex flex-wrap gap-2">
+            <Link
+              href={`/op/buses/${bus.id}`}
+              data-testid={`bus-detail-${bus.id}`}
+              className="inline-flex h-7 items-center rounded-[min(var(--radius-md),12px)] border border-border bg-background px-2.5 text-[0.8rem] font-medium text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              Chi tiết
+            </Link>
             <Button
               type="button"
               size="sm"
