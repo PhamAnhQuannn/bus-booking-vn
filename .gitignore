@@ -45,3 +45,13 @@ dev-server*.log
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# taste-skill (local-only frontend design skills, installed via `npx skills add`)
+.agents/
+.claude/skills/design-taste-frontend
+.claude/skills/redesign-existing-projects
+
+# dev throwaway artifacts (verification screenshots, raw diff dumps, scratch scripts)
+gitdiff.txt
+docs/dev/screenshots/
+scripts/dev/
