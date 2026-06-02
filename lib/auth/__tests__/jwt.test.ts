@@ -91,4 +91,62 @@ describe('jwt', () => {
       expect(result).toBeNull();
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Issue 054 — admin realm (THIRD realm) sign/verify + cross-realm matrix
+  // ---------------------------------------------------------------------------
+
+  describe('admin realm (Issue 054)', () => {
+    it('signAdminAccess + verifyAdminAccess roundtrip returns sub/scope/role/totpVerified', async () => {
+      const { signAdminAccess, verifyAdminAccess } = await import('../jwt');
+      const token = await signAdminAccess({ sub: 'admin-1', scope: 'admin', role: 'FINANCE', totpVerified: true });
+      const payload = await verifyAdminAccess(token);
+      expect(payload).not.toBeNull();
+      expect(payload!.sub).toBe('admin-1');
+      expect(payload!.scope).toBe('admin');
+      expect(payload!.role).toBe('FINANCE');
+      expect(payload!.totpVerified).toBe(true);
+    });
+
+    it('exp - iat === 600 seconds (admin token is shorter-lived)', async () => {
+      const { signAdminAccess } = await import('../jwt');
+      const token = await signAdminAccess({ sub: 'admin-2', scope: 'admin', role: 'SUPER_ADMIN', totpVerified: false });
+      const { decodeJwt } = await import('jose');
+      const decoded = decodeJwt(token);
+      expect(decoded.exp! - decoded.iat!).toBe(600);
+    });
+
+    it('rejects an unknown role claim', async () => {
+      const { verifyAdminAccess } = await import('../jwt');
+      const { SignJWT } = await import('jose');
+      const secret = new TextEncoder().encode('a'.repeat(32));
+      const token = await new SignJWT({ scope: 'admin', role: 'HACKER', totpVerified: true })
+        .setProtectedHeader({ alg: 'HS256' })
+        .setSubject('admin-x')
+        .setIssuedAt()
+        .setExpirationTime('600s')
+        .sign(secret);
+      expect(await verifyAdminAccess(token)).toBeNull();
+    });
+
+    // CROSS-REALM MATRIX
+    it('admin token → verifyAccess === null AND verifyOperatorAccess === null', async () => {
+      const { signAdminAccess, verifyAccess, verifyOperatorAccess } = await import('../jwt');
+      const adminToken = await signAdminAccess({ sub: 'admin-3', scope: 'admin', role: 'SUPPORT', totpVerified: false });
+      expect(await verifyAccess(adminToken)).toBeNull();
+      expect(await verifyOperatorAccess(adminToken)).toBeNull();
+    });
+
+    it('customer token → verifyAdminAccess === null', async () => {
+      const { signAccess, verifyAdminAccess } = await import('../jwt');
+      const custToken = await signAccess({ sub: 'cust-3', role: 'customer' });
+      expect(await verifyAdminAccess(custToken)).toBeNull();
+    });
+
+    it('operator token → verifyAdminAccess === null', async () => {
+      const { signOperatorAccess, verifyAdminAccess } = await import('../jwt');
+      const opToken = await signOperatorAccess({ sub: 'op-3', scope: 'operator', role: 'admin', requiresPasswordChange: false, operatorId: 'op-org-3' });
+      expect(await verifyAdminAccess(opToken)).toBeNull();
+    });
+  });
 });

@@ -36,6 +36,25 @@ export interface OperatorAccessPayload {
 }
 
 /**
+ * Issue 054: Admin realm access payload (THIRD auth realm).
+ * `scope: 'admin'` is the realm discriminant; `role` is the admin RBAC role;
+ * `totpVerified` reflects whether the session cleared the TOTP step (issue 055+).
+ */
+export interface AdminAccessPayload {
+  sub: string;
+  scope: 'admin';
+  role: 'SUPER_ADMIN' | 'FINANCE' | 'SUPPORT';
+  totpVerified: boolean;
+}
+
+// Admin access tokens are deliberately SHORTER-lived than operator (900s) /
+// customer tokens — the admin realm is the highest-privilege surface, so a
+// stolen access token has a smaller blast-radius window.
+const ADMIN_ACCESS_TTL_SECONDS = 600; // 10 minutes
+
+const ADMIN_ROLES = new Set<AdminAccessPayload['role']>(['SUPER_ADMIN', 'FINANCE', 'SUPPORT']);
+
+/**
  * Sign an access token.
  * Returns a compact HS256 JWT with exp = now + 900 s.
  */
@@ -63,8 +82,9 @@ export async function verifyAccess(token: string): Promise<AccessPayload | null>
     const sub = payload.sub;
     const role = payload['role'];
     const scope = payload['scope'];
-    // Reject operator-scoped tokens from customer HOF (scope cross-contamination guard)
-    if (scope === 'operator') return null;
+    // Reject operator- AND admin-scoped tokens from customer HOF (scope
+    // cross-contamination guard — Issue 054 added the 'admin' realm).
+    if (scope === 'operator' || scope === 'admin') return null;
     if (typeof sub !== 'string' || role !== 'customer') return null;
     return { sub, role: 'customer' };
   } catch {
@@ -109,6 +129,8 @@ export async function verifyOperatorAccess(token: string): Promise<OperatorAcces
     });
     const sub = payload.sub;
     const scope = payload['scope'];
+    // Cross-realm guard: requiring scope==='operator' rejects both customer
+    // (scope absent) and admin (scope==='admin', Issue 054) tokens here.
     if (typeof sub !== 'string' || scope !== 'operator') return null;
     const operatorId = payload['operatorId'];
     // Issue 011: tokens without operatorId claim are stale — force re-login.
@@ -118,6 +140,54 @@ export async function verifyOperatorAccess(token: string): Promise<OperatorAcces
     const rawRole = payload['role'];
     const role: 'admin' | 'staff' = rawRole === 'staff' ? 'staff' : 'admin';
     return { sub, scope: 'operator', role, requiresPasswordChange, operatorId };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Issue 054: Sign an admin access token.
+ * Returns a compact HS256 JWT with exp = now + 600 s, scope='admin', and the
+ * role + totpVerified claims. role/totpVerified are read by requireAdminAuth /
+ * Edge middleware without a DB call.
+ */
+export async function signAdminAccess(payload: AdminAccessPayload): Promise<string> {
+  const secret = getSecret();
+  return new SignJWT({
+    scope: payload.scope,
+    role: payload.role,
+    totpVerified: payload.totpVerified,
+  })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setSubject(payload.sub)
+    .setIssuedAt()
+    .setExpirationTime(`${ADMIN_ACCESS_TTL_SECONDS}s`)
+    .sign(secret);
+}
+
+/**
+ * Issue 054: Verify an admin access token.
+ * Returns { sub, scope, role, totpVerified } on success, null on any failure.
+ * Cross-realm guard: requires scope==='admin', so customer (scope absent) and
+ * operator (scope==='operator') tokens are both rejected here. role must be one
+ * of the three admin roles; totpVerified is read strictly as === true.
+ */
+export async function verifyAdminAccess(token: string): Promise<AdminAccessPayload | null> {
+  try {
+    const secret = getSecret();
+    const { payload } = await jwtVerify(token, secret, {
+      algorithms: ['HS256'],
+    });
+    const sub = payload.sub;
+    const scope = payload['scope'];
+    if (typeof sub !== 'string' || scope !== 'admin') return null;
+    const rawRole = payload['role'];
+    if (typeof rawRole !== 'string' || !ADMIN_ROLES.has(rawRole as AdminAccessPayload['role'])) {
+      return null;
+    }
+    const role = rawRole as AdminAccessPayload['role'];
+    const totpVerified = payload['totpVerified'] === true;
+    return { sub, scope: 'admin', role, totpVerified };
   } catch {
     return null;
   }
