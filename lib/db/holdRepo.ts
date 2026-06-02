@@ -5,7 +5,9 @@
  *   1. Acquires pg_advisory_xact_lock(hashtext('hold:' || tripId)) — serialises
  *      concurrent attempts for the same trip inside a single DB transaction.
  *   2. Conditionally INSERTs a new Hold only if
- *      (capacity - blockedSeats - active-hold sum) >= ticketCount.
+ *      (capacity - active-hold sum - confirmed-booking sum) >= ticketCount.
+ *      (Issue 040: the blockedSeats term was removed — block-seats is retired.
+ *      Trip.blockedSeats column is dropped in a later wave; until then, not read.)
  *   3. Returns { holdId, expiresAt } on success, null when sold-out.
  *
  * Uses Prisma.$queryRaw (template-tag, parameterised) — never $queryRawUnsafe.
@@ -65,7 +67,6 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
         WHERE (
           SELECT
             b.capacity
-            - t."blockedSeats"
             - COALESCE(
                 (SELECT SUM("ticketCount")
                  FROM "Hold"

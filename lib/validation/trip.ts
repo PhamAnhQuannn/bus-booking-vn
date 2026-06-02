@@ -42,16 +42,6 @@ export const PatchTripSchema = z
 export type PatchTripInput = z.infer<typeof PatchTripSchema>;
 
 // ---------------------------------------------------------------------------
-// POST /api/op/trips/[id]/block-seats
-// ---------------------------------------------------------------------------
-
-export const BlockSeatsSchema = z.object({
-  blockedSeats: z.number().int().min(0),
-});
-
-export type BlockSeatsInput = z.infer<typeof BlockSeatsSchema>;
-
-// ---------------------------------------------------------------------------
 // POST /api/op/trips/[id]/reassign-bus
 // ---------------------------------------------------------------------------
 
@@ -82,17 +72,6 @@ export const FromTemplateSchema = z.object({
 });
 
 export type FromTemplateInput = z.infer<typeof FromTemplateSchema>;
-
-// ---------------------------------------------------------------------------
-// POST /api/op/trips/[id]/paired-return  — create paired outbound+return
-// ---------------------------------------------------------------------------
-
-export const PairedReturnSchema = z.object({
-  returnDepartureAt: z.string().datetime().pipe(z.coerce.date()),
-  price: z.number().int().min(0).optional(),
-});
-
-export type PairedReturnInput = z.infer<typeof PairedReturnSchema>;
 
 // ---------------------------------------------------------------------------
 // POST /api/op/trip-templates  — create recurring template

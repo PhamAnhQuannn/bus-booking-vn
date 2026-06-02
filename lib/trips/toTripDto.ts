@@ -14,7 +14,6 @@ interface TripRow {
   price: number;
   status: string;
   salesClosed: boolean;
-  blockedSeats: number;
   recurringTemplateId: string | null;
   pairedTripId: string | null;
   cancelReason: string | null;
@@ -27,7 +26,8 @@ export function toTripDto(row: TripRow): TripDto {
   const capacity = row.bus.capacity;
   const holdsCount = row._count.holds;
   const bookingsCount = row._count.bookings;
-  const availableSeats = Math.max(0, capacity - row.blockedSeats - holdsCount - bookingsCount);
+  // Issue 040: blockedSeats removed from availability (block-seats retired).
+  const availableSeats = Math.max(0, capacity - holdsCount - bookingsCount);
 
   return {
     id: row.id,
@@ -38,7 +38,6 @@ export function toTripDto(row: TripRow): TripDto {
     price: row.price,
     status: row.status as TripDto['status'],
     salesClosed: row.salesClosed,
-    blockedSeats: row.blockedSeats,
     capacity,
     holdsCount,
     bookingsCount,

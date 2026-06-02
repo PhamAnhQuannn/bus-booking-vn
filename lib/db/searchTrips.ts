@@ -9,9 +9,13 @@
  * AC-13: select whitelist via searchResultSelect.
  *
  * Availability is ALWAYS computed as:
- *   capacity - blockedSeats - SUM(active hold ticketCounts) - SUM(paid/pending booking ticketCounts)
+ *   capacity - SUM(active hold ticketCounts) - SUM(paid/pending booking ticketCounts)
  * never raw capacity. (P1 fix 2026-06-01: the prior SEARCH_USE_BLOCKED_SEATS flag defaulted false
  * and shipped raw capacity in the default config — an oversell gap. Flag removed.)
+ *
+ * Issue 040: the blockedSeats term was removed from availability — the block-seats
+ * feature is retired. The Trip.blockedSeats column is dropped in a later wave (Phase B);
+ * until then it is simply not read here.
  */
 
 import { prisma } from '@/lib/db/client';
@@ -89,8 +93,8 @@ export async function searchTrips(input: TripSearchInput): Promise<TripResult[]>
     orderBy: { departureAt: 'asc' },
   });
 
-  // Compute available seats accounting for blockedSeats (denormalised), live active-hold
-  // sums, and paid/pending booking sums, then filter by ticketCount.
+  // Compute available seats accounting for live active-hold sums and paid/pending
+  // booking sums, then filter by ticketCount.
   if (trips.length === 0) return [];
 
   const tripIds = trips.map((t) => t.id);
@@ -111,20 +115,6 @@ export async function searchTrips(input: TripSearchInput): Promise<TripResult[]>
   const holdSumMap = new Map<string, number>();
   for (const row of holdSums) {
     holdSumMap.set(row.tripId, Number(row.heldSeats));
-  }
-
-  // Fetch blockedSeats for all matched trips (not in select whitelist per AC-13)
-  type BlockedRow = { id: string; blockedSeats: number };
-  const blockedRows = await prisma.$queryRaw<BlockedRow[]>(
-    Prisma.sql`
-      SELECT id, "blockedSeats"
-      FROM "Trip"
-      WHERE id = ANY(${tripIds}::text[])
-    `
-  );
-  const blockedMap = new Map<string, number>();
-  for (const row of blockedRows) {
-    blockedMap.set(row.id, row.blockedSeats);
   }
 
   // Aggregate paid (or pending-cash) booking ticketCount sums per trip.
@@ -151,10 +141,9 @@ export async function searchTrips(input: TripSearchInput): Promise<TripResult[]>
 
   const results: TripResult[] = [];
   for (const trip of trips) {
-    const blocked = blockedMap.get(trip.id) ?? 0;
     const heldSeats = holdSumMap.get(trip.id) ?? 0;
     const bookedSeats = bookingSumMap.get(trip.id) ?? 0;
-    const available = trip.bus.capacity - blocked - heldSeats - bookedSeats;
+    const available = trip.bus.capacity - heldSeats - bookedSeats;
     if (available >= ticketCount) {
       results.push({
         tripId: trip.id,

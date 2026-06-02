@@ -4,11 +4,12 @@
  * Covers ACs:
  *   AC1  create trip — POST /api/op/trips
  *   AC2  cross-op isolation — trip owned by op B → 404
- *   AC3  block seats (block_exceeds_available → 422)
  *   AC4  cancel trip + notification log (already_cancelled → 422)
  *   AC5  recurring template create + list — POST/GET /api/op/trip-templates
- *   AC6  paired return (no_reverse_route → 422)
  *   AC7  sales-toggle flip salesClosed
+ *
+ * Issue 040: AC3 (block-seats) and AC6 (paired-return) removed along with the
+ * deleted /block-seats and /paired-return routes.
  *
  * SANDBOX-GATED: set E2E_OP_TRIPS_ENABLED=true to run.
  *   - Requires running dev server with seeded DB
@@ -243,31 +244,6 @@ test.describe('Operator trip lifecycle (Issue 013)', () => {
     expect(json.error).toBe('not_found');
   });
 
-  test('AC3: block_exceeds_available → 422', async ({ request }) => {
-    const csrf = await primeCsrf(request);
-    await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
-      headers: { 'X-CSRF-Token': csrf },
-    });
-
-    const depAt = new Date(Date.now() + 86400 * 1000 * 3).toISOString();
-    const created = await request.post('/api/op/trips', {
-      data: { routeId: ctx.routeABId, busId: ctx.busAId, departureAt: depAt, price: 80000 },
-      headers: { 'X-CSRF-Token': csrf },
-    });
-    expect(created.status()).toBe(201);
-    const tripId = (await created.json()).trip.id;
-
-    // Bus capacity is 40. Blocking 999 should fail.
-    const block = await request.post(`/api/op/trips/${tripId}/block-seats`, {
-      data: { blockedSeats: 999 },
-      headers: { 'X-CSRF-Token': csrf },
-    });
-    expect(block.status()).toBe(422);
-    const json = await block.json();
-    expect(json.error).toBe('block_exceeds_available');
-  });
-
   test('AC4: cancel trip → 200 ok; second cancel → 200 already_cancelled (AC3 idempotent)', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
@@ -328,43 +304,6 @@ test.describe('Operator trip lifecycle (Issue 013)', () => {
     expect(list.status()).toBe(200);
     const ids: string[] = (await list.json()).templates.map((t: { id: string }) => t.id);
     expect(ids).toContain(templateId);
-  });
-
-  test('AC6: paired return with no reverse route → 422 no_reverse_route', async ({ request }) => {
-    const csrf = await primeCsrf(request);
-    await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
-      headers: { 'X-CSRF-Token': csrf },
-    });
-
-    // Use a route that has no reverse counterpart
-    // Create a one-way-only route
-    const client = new Client({ connectionString: DB_URL });
-    await client.connect();
-    const oneWayRoute = await client.query(
-      `INSERT INTO "Route" ("id","operatorId","origin","destination","durationMinutes","updatedAt")
-       VALUES (gen_random_uuid()::text, $1, 'OW-Origin', 'OW-Dest-Unique', 120, NOW()) RETURNING id`,
-      [ctx.opAId]
-    );
-    const oneWayRouteId: string = oneWayRoute.rows[0].id;
-    await client.end();
-
-    const depAt = new Date(Date.now() + 86400 * 1000 * 5).toISOString();
-    const created = await request.post('/api/op/trips', {
-      data: { routeId: oneWayRouteId, busId: ctx.busAId, departureAt: depAt, price: 60000 },
-      headers: { 'X-CSRF-Token': csrf },
-    });
-    expect(created.status()).toBe(201);
-    const tripId = (await created.json()).trip.id;
-
-    const returnDepAt = new Date(Date.now() + 86400 * 1000 * 5 + 3600 * 2 * 1000).toISOString();
-    const ret = await request.post(`/api/op/trips/${tripId}/paired-return`, {
-      data: { returnDepartureAt: returnDepAt },
-      headers: { 'X-CSRF-Token': csrf },
-    });
-    expect(ret.status()).toBe(422);
-    const json = await ret.json();
-    expect(json.error).toBe('no_reverse_route');
   });
 
   test('AC7: sales-toggle flips salesClosed', async ({ request }) => {

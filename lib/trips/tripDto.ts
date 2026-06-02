@@ -13,7 +13,6 @@ export interface TripDto {
   price: number;
   status: 'scheduled' | 'departed' | 'cancelled' | 'completed';
   salesClosed: boolean;
-  blockedSeats: number;
   capacity: number;
   holdsCount: number;
   bookingsCount: number;

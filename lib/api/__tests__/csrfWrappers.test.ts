@@ -59,11 +59,9 @@ const CASES: Case[] = [
   // tripsClient
   { name: 'createTripApi', invoke: () => trips.createTripApi({ routeId: 'route-1', busId: 'bus-1', departureAt: '2026-06-01T07:00:00Z', price: 250000 }) },
   { name: 'patchTripApi', invoke: () => trips.patchTripApi('trip-1', { price: 260000 }) },
-  { name: 'blockSeatsApi', invoke: () => trips.blockSeatsApi('trip-1', 2) },
   { name: 'reassignBusApi', invoke: () => trips.reassignBusApi('trip-1', 'bus-2') },
   { name: 'cancelTripApi', invoke: () => trips.cancelTripApi('trip-1', 'Hỏng xe, huỷ chuyến') },
   { name: 'salesToggleApi', invoke: () => trips.salesToggleApi('trip-1', true) },
-  { name: 'pairedReturnApi', invoke: () => trips.pairedReturnApi('trip-1', { returnDepartureAt: '2026-06-02T07:00:00Z' }) },
   { name: 'departTripApi', invoke: () => trips.departTripApi('trip-1') },
   { name: 'completeTripApi', invoke: () => trips.completeTripApi('trip-1') },
   { name: 'createTemplateApi', invoke: () => trips.createTemplateApi({ routeId: 'route-1', busId: 'bus-1', price: 250000, departureLocalTime: '07:00', daysOfMask: 127, validFrom: '2026-06-01', validUntil: '2026-12-31' }) },

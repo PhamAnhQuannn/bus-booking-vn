@@ -5,10 +5,11 @@
  * Run with: pnpm test:integration
  *
  * P1 regression (2026-06-01): searchTrips() must ALWAYS report
- *   availableSeats = capacity - blockedSeats - activeHeldSeats - paid/pendingBookedSeats
+ *   availableSeats = capacity - activeHeldSeats - paid/pendingBookedSeats
  * and never raw capacity. The prior SEARCH_USE_BLOCKED_SEATS flag defaulted false and
  * shipped raw capacity in the default config (oversell). These tests pin the holds-aware
  * + bookings-aware behaviour as the ONLY behaviour.
+ * (Issue 040: blockedSeats term removed from availability — block-seats retired.)
  */
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';

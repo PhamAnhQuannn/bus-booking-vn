@@ -3,8 +3,8 @@
  *
  * Returns null when the trip does not exist or is not bookable (not scheduled,
  * sales closed, or already departed) so the page can render notFound(). Available
- * seats use the same capacity − blocked − activeHolds − paidBookings calculation
- * as searchTrips (Issue 002).
+ * seats use the same capacity − activeHolds − paidBookings calculation
+ * as searchTrips (Issue 002; Issue 040 removed the blocked-seats term).
  */
 
 import { prisma } from '@/lib/db/client';
@@ -33,7 +33,6 @@ export async function getTripDetails(id: string): Promise<TripDetails | null> {
       price: true,
       status: true,
       salesClosed: true,
-      blockedSeats: true,
       bus: {
         select: {
           capacity: true,
@@ -78,7 +77,7 @@ export async function getTripDetails(id: string): Promise<TripDetails | null> {
 
   const held = holdAgg._sum.ticketCount ?? 0;
   const booked = bookingAgg._sum.ticketCount ?? 0;
-  const availableSeats = Math.max(0, trip.bus.capacity - trip.blockedSeats - held - booked);
+  const availableSeats = Math.max(0, trip.bus.capacity - held - booked);
 
   return {
     tripId: trip.id,

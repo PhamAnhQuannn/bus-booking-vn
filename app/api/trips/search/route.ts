@@ -10,8 +10,8 @@
  * Wrapped in withErrorHandler — 500 scrubbed (AC-11)
  * Node runtime (NOT Edge) — required for pg driver
  *
- * searchTrips() always subtracts blockedSeats + active holds + paid/pending bookings
- * from capacity (never raw capacity).
+ * searchTrips() always subtracts active holds + paid/pending bookings
+ * from capacity (never raw capacity). (Issue 040 removed the blockedSeats term.)
  */
 
 export const runtime = 'nodejs';
