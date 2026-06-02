@@ -67,9 +67,17 @@ function makePost(id: string, body: unknown) {
   };
 }
 
+// Future-relative window so the schema's `startAt > new Date()` refine stays
+// satisfied as wall-clock advances. The prior hardcoded 2026-06-01 window became
+// "now" on that date and 422'd every DB-path test — a date time-bomb (see CLAUDE.md
+// Mistake Log: hardcoded future dates that age into the past).
+const DAY_MS = 24 * 60 * 60 * 1000;
+const WINDOW_START = new Date(Date.now() + 7 * DAY_MS);
+WINDOW_START.setUTCHours(0, 0, 0, 0);
+const WINDOW_END = new Date(WINDOW_START.getTime() + DAY_MS);
 const VALID_BODY = {
-  startAt: '2026-06-01T00:00:00.000Z',
-  endAt: '2026-06-02T00:00:00.000Z',
+  startAt: WINDOW_START.toISOString(),
+  endAt: WINDOW_END.toISOString(),
   reason: 'routine',
 };
 
@@ -105,8 +113,8 @@ describe('POST /api/op/buses/[id]/maintenance', () => {
     mockBusMaintFindMany.mockResolvedValue([
       {
         id: 'm-existing',
-        startAt: new Date('2026-06-01T12:00:00Z'),
-        endAt: new Date('2026-06-01T18:00:00Z'),
+        startAt: new Date(WINDOW_START.getTime() + 12 * 60 * 60 * 1000),
+        endAt: new Date(WINDOW_START.getTime() + 18 * 60 * 60 * 1000),
       },
     ]);
     const { req, ctx } = makePost('b1', VALID_BODY);
@@ -128,7 +136,7 @@ describe('POST /api/op/buses/[id]/maintenance', () => {
       reason: 'routine',
     });
     mockTripFindMany.mockResolvedValue([
-      { id: 't1', departureAt: new Date('2026-06-01T08:00:00Z') },
+      { id: 't1', departureAt: new Date(WINDOW_START.getTime() + 8 * 60 * 60 * 1000) },
     ]);
 
     const { req, ctx } = makePost('b1', VALID_BODY);
