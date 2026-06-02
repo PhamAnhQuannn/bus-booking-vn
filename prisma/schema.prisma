@@ -465,9 +465,9 @@ model OperatorOtpAttempt {
 // ---------------------------------------------------------------------------
 
 enum PayoutStatus {
-  pending
+  requested
   processing
-  settled
+  paid
   failed
 }
 
@@ -478,7 +478,7 @@ model Payout {
   gross         Int
   platformFee   Int
   net           Int
-  status        PayoutStatus @default(pending)
+  status        PayoutStatus @default(requested)
   scheduledAt   DateTime
   settledAt     DateTime?
   failureReason String?
