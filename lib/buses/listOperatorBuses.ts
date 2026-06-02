@@ -9,6 +9,7 @@
  */
 
 import { prisma } from '@/lib/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 
 export interface OperatorBusListItem {
   id: string;
@@ -23,10 +24,13 @@ export async function listOperatorBuses(
   opts: { activeOnly: boolean }
 ): Promise<OperatorBusListItem[]> {
   const rows = await prisma.bus.findMany({
-    where: {
-      operatorId,
-      ...(opts.activeOnly ? { deactivatedAt: null } : {}),
-    },
+    // SYS20 rule 5: operator-owned read goes through the tenant-scope one-way door
+    // (lib/core/db) rather than inlining `where: { operatorId }`. Behavior identical.
+    ...withOperatorScope(operatorId, {
+      where: {
+        ...(opts.activeOnly ? { deactivatedAt: null } : {}),
+      },
+    }),
     select: {
       id: true,
       licensePlate: true,
