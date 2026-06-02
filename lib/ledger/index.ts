@@ -37,3 +37,14 @@ export {
   SETTLEMENT_DELAY_DAYS,
   SETTLEMENT_DELAY_SQL_INTERVAL,
 } from './constants';
+
+// Issue 052: chargeback + payout_reversal — bank-dispute reversal (post-payout
+// capable), operator liability + platform bad-debt backstop (S15#7). Idempotent.
+export {
+  recordChargeback,
+  listChargebacks,
+  ChargebackError,
+  type RecordChargebackInput,
+  type RecordChargebackResult,
+  type DisputeEntry,
+} from './chargeback';
