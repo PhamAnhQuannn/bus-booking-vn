@@ -12,7 +12,7 @@ import { getSearchablePlaces } from '@/lib/db/getSearchablePlaces';
 
 export const metadata: Metadata = {
   title: 'Đặt vé xe khách | BBVN',
-  description: 'Tìm và đặt vé xe khách liên tỉnh trên toàn quốc — đặt trong 30 giây.',
+  description: 'Tìm và đặt vé xe khách liên tỉnh trên toàn quốc, đặt trong 30 giây.',
 };
 
 const TRUST = [

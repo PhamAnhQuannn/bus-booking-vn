@@ -12,11 +12,12 @@ import { buttonVariants } from '@/components/ui/button';
 export function IntroBanner() {
   return (
     <section className="relative w-full overflow-hidden bg-primary text-primary-foreground">
-      {/* Floating glow blobs */}
+      {/* Off-axis brand glow: one organic (non-circular) light pool drifting from the
+          top-left, plus a fixed warm radial wash anchored bottom-right. Two sources, not
+          three symmetric orbs — keeps the orange identity without the AI-blob silhouette. */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-24 -top-16 size-72 rounded-full bg-white/25 blur-3xl will-change-transform motion-safe:animate-[blob_18s_ease-in-out_infinite]" />
-        <div className="absolute -bottom-24 right-0 size-80 rounded-full bg-amber-300/30 blur-3xl will-change-transform motion-safe:animate-[blob_24s_ease-in-out_infinite_reverse]" />
-        <div className="absolute left-1/3 top-1/4 size-64 rounded-full bg-white/10 blur-3xl will-change-transform motion-safe:animate-[blob_30s_ease-in-out_infinite]" />
+        <div className="absolute -left-24 -top-16 size-80 rounded-[42%_58%_56%_44%/48%_42%_58%_52%] bg-white/25 blur-3xl will-change-transform motion-safe:animate-[blob_22s_ease-in-out_infinite]" />
+        <div className="absolute inset-0 bg-[radial-gradient(60%_55%_at_85%_110%,rgba(252,211,77,0.35),transparent_70%)]" />
       </div>
       {/* Grain */}
       <div
@@ -38,8 +39,8 @@ export function IntroBanner() {
         </h2>
 
         <p className="max-w-2xl text-base text-primary-foreground/90 sm:text-lg">
-          BBVN kết nối bạn với hàng nghìn nhà xe trên toàn quốc — tìm chuyến, đặt vé, thuê xe hợp đồng.
-          Nhanh, an toàn, hỗ trợ 24/7.
+          BBVN kết nối bạn với hàng nghìn nhà xe trên toàn quốc. Tìm chuyến, đặt vé, thuê xe hợp đồng,
+          nhanh và an toàn, hỗ trợ 24/7.
         </p>
 
         <div className="mt-1 flex flex-wrap items-center justify-center gap-3">

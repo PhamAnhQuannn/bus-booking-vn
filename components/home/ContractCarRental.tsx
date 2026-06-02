@@ -1,14 +1,11 @@
-'use client';
-
 /**
- * ContractCarRental — "Dịch vụ thuê xe hợp đồng" showcase carousel. Display-only tiles
- * of famous Thanh Hóa tourism spots (no booking flow yet — non-interactive figures), with
- * a "Liên hệ thuê xe" CTA in the header. Mirrors the PopularTrips carousel mechanics
- * (scroll-snap, fraction-fit, page-wise arrows). Images: public/tourism/<slug>.jpg.
+ * ContractCarRental — "Dịch vụ thuê xe hợp đồng" showcase. Display-only bento mosaic of
+ * famous Thanh Hóa tourism spots (no booking flow yet — non-interactive figures), with a
+ * "Liên hệ thuê xe" CTA in the header. Distinct layout family from the PopularTrips
+ * carousel (static mixed-size grid, no scroll-snap). Images: public/tourism/<slug>.jpg.
  */
 
-import { useRef } from 'react';
-import { ChevronLeft, ChevronRight, MapPin, Phone } from 'lucide-react';
+import { MapPin, Phone } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
@@ -30,63 +27,51 @@ const PLACES: Place[] = [
   { name: 'Thác Mây', slug: 'thac-may' },
 ];
 
+/**
+ * Per-index cell spans over a 6-column × 4-row desktop bento. Fixed row tracks
+ * (`lg:auto-rows-[10.5rem]`) + tiles filling their cell guarantee every row's bottom
+ * edges align — no ragged heights. 8 items → 8 filled cells, zero gaps: one 4×2 anchor
+ * (idx0), then rows 3+3 (right column) / 2+2+2 / 3+3. On mobile the lg: spans drop away
+ * (2-col track) and each tile uses a uniform 4:3 ratio (`lg:aspect-auto` clears it at lg).
+ */
+const CELLS = [
+  'lg:col-span-4 lg:row-span-2',
+  'lg:col-span-2 lg:row-span-1',
+  'lg:col-span-2 lg:row-span-1',
+  'lg:col-span-2 lg:row-span-1',
+  'lg:col-span-2 lg:row-span-1',
+  'lg:col-span-2 lg:row-span-1',
+  'lg:col-span-3 lg:row-span-1',
+  'lg:col-span-3 lg:row-span-1',
+];
+
 export function ContractCarRental() {
-  const scrollerRef = useRef<HTMLUListElement>(null);
-
-  function nudge(direction: 1 | -1) {
-    const el = scrollerRef.current;
-    if (!el) return;
-    el.scrollBy({ left: direction * el.clientWidth * 0.9, behavior: 'smooth' });
-  }
-
   return (
     <section className="mx-auto w-full max-w-7xl px-4 py-10">
       <div className="mb-6 flex items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
           <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Dịch vụ thuê xe hợp đồng</h2>
           <p className="text-base text-muted-foreground">
-            Thuê xe hợp đồng đời mới, tài xế kinh nghiệm — tham quan các điểm du lịch nổi tiếng trên toàn quốc.
+            Thuê xe hợp đồng đời mới, tài xế kinh nghiệm. Tham quan các điểm du lịch nổi tiếng trên toàn quốc.
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <a href="/lien-he-dat-xe" className={cn(buttonVariants({ variant: 'outline' }), 'gap-1.5')}>
-            <Phone className="size-4" aria-hidden="true" />
-            <span className="hidden sm:inline">Liên hệ thuê xe</span>
-            <span className="sm:hidden">Liên hệ</span>
-          </a>
-          <div className="hidden gap-2 md:flex">
-            <button
-              type="button"
-              onClick={() => nudge(-1)}
-              aria-label="Cuộn sang trái"
-              className="inline-flex size-11 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-e1 transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-            >
-              <ChevronLeft className="size-6" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={() => nudge(1)}
-              aria-label="Cuộn sang phải"
-              className="inline-flex size-11 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-e1 transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-            >
-              <ChevronRight className="size-6" aria-hidden="true" />
-            </button>
-          </div>
-        </div>
+        <a
+          href="/lien-he-dat-xe"
+          className={cn(buttonVariants({ variant: 'outline' }), 'shrink-0 gap-1.5')}
+        >
+          <Phone className="size-4" aria-hidden="true" />
+          <span className="hidden sm:inline">Liên hệ thuê xe</span>
+          <span className="sm:hidden">Liên hệ</span>
+        </a>
       </div>
 
       <ul
-        ref={scrollerRef}
-        role="region"
         aria-label="Điểm du lịch Thanh Hóa"
-        className="flex snap-x snap-mandatory list-none gap-4 overflow-x-auto p-0 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="reveal grid list-none grid-cols-2 gap-3 p-0 lg:grid-cols-6 lg:auto-rows-[10.5rem] lg:gap-4"
       >
-        {PLACES.map((p) => (
-          <li
-            key={p.slug}
-            className="shrink-0 snap-start basis-[88%] sm:basis-[calc(50%-0.5rem)] lg:basis-[calc(33.333%-0.667rem)] xl:basis-[calc(25%-0.75rem)]"
-          >
-            <figure className="group relative m-0 block aspect-[4/3] w-full overflow-hidden rounded-xl shadow-e1 transition-all hover:shadow-e2">
+        {PLACES.map((p, i) => (
+          <li key={p.slug} className={cn('aspect-[4/3] lg:aspect-auto', CELLS[i])}>
+            <figure className="group relative m-0 block size-full overflow-hidden rounded-xl shadow-e1 transition-all hover:shadow-e2">
               {/* eslint-disable-next-line @next/next/no-img-element -- local /public thumbnail; next/image+sharp not used in this app */}
               <img
                 src={`/tourism/${p.slug}.jpg`}

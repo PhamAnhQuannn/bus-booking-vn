@@ -18,7 +18,7 @@ import { z } from 'zod';
 import { useBookingStore } from '@/lib/state/bookingStore';
 import { useHoldTimerStore } from '@/lib/state/holdTimerStore';
 import { createHoldRequest } from '@/lib/api/holdsClient';
-import { getDisplayName } from '@/app/auth/register/page';
+import { getDisplayName, getCustomerPhone } from '@/app/auth/register/page';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -59,11 +59,14 @@ export function CustomerForm() {
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const buyerNameRef = useRef<HTMLInputElement>(null);
 
-  // Pre-fill phone from localStorage
+  // Pre-fill phone: a signed-in customer's registered account phone wins
+  // (Issue 030); otherwise fall back to the last-typed phone from localStorage
+  // (guest convenience). Field stays editable — this only seeds the value.
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const saved = localStorage.getItem(LS_PHONE_KEY);
-    if (saved && phoneInputRef.current) {
+    if (typeof window === 'undefined' || !phoneInputRef.current) return;
+    const accountPhone = getCustomerPhone();
+    const saved = accountPhone ?? localStorage.getItem(LS_PHONE_KEY);
+    if (saved) {
       phoneInputRef.current.value = saved;
     }
   }, []);
