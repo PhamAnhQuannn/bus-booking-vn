@@ -1,0 +1,12 @@
+-- Issue 053 Part A: make Payout.tripId nullable.
+--
+-- On-demand WITHDRAWAL payouts (operator pulling their own available net balance)
+-- are NOT trip-scoped — a withdrawal spans revenue from many completed trips and
+-- has no single owning Trip. The auto-sweep payouts (one per completed trip,
+-- Issue 050) still populate tripId; only withdrawal payouts carry tripId = NULL.
+--
+-- The existing FK ("Payout_tripId_fkey") and the @@index([tripId]) already
+-- tolerate a nullable column (a NULL FK value is simply not enforced against the
+-- parent, and Postgres B-tree indexes store NULLs), so the ONLY DDL change needed
+-- is dropping the NOT NULL constraint. No FK re-creation, no index rebuild.
+ALTER TABLE "Payout" ALTER COLUMN "tripId" DROP NOT NULL;

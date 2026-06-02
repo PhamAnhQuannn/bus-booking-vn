@@ -473,7 +473,11 @@ enum PayoutStatus {
 
 model Payout {
   id            String       @id @default(cuid())
-  tripId        String
+  // Issue 053: nullable — on-demand WITHDRAWAL payouts are NOT trip-scoped
+  // (the operator pulls their own available net balance, which spans many trips).
+  // Auto-sweep (per-completed-trip) payouts still set tripId. Per-trip revenue
+  // reports must tolerate / filter null-trip rows (see getPayoutReport.ts).
+  tripId        String?
   operatorId    String
   gross         Int
   platformFee   Int
@@ -484,7 +488,7 @@ model Payout {
   failureReason String?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
-  trip          Trip         @relation(fields: [tripId], references: [id])
+  trip          Trip?        @relation(fields: [tripId], references: [id])
   operator      Operator     @relation(fields: [operatorId], references: [id])
 
   @@index([tripId])
