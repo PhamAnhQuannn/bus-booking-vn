@@ -3,27 +3,32 @@
  * payment receiver route (momo, zalopay, card).
  *
  * Security: HMAC signature verified via the injected gateway.verifyWebhook()
- * before any DB writes. Idempotent: PaymentEvent @@unique([adapter, externalRef])
- * prevents duplicate processing on replay.
+ * before any DB writes. The adapter returns a normalized CanonicalPaymentEvent
+ * { orderRef, providerTxnId, amount, currency, status } — native gateway field
+ * names + result codes never reach this function. Idempotent: PaymentEvent
+ * @@unique([adapter, providerTxnId]) prevents duplicate processing on replay.
  *
  * PII policy: NEVER log buyer phone, raw webhook body, or secret key.
  * Log only bookingRef, event type, sig-verify outcome.
  *
  * Transaction logic:
  *   1. INSERT PaymentEvent (idempotent: P2002 conflict → 200 no-op)
- *   2. If resultCode === 0 (success):
- *      - Amount verify (money-loss guard): if IPN amount < booking.totalVnd, REJECT —
+ *   2. If status === 'paid':
+ *      - Currency guard FIRST: if currency !== 'VND', log currency_mismatch and
+ *        do NOT transition (audit row stays, booking stays awaiting_payment).
+ *      - Amount verify (money-loss guard): if amount < booking.totalVnd, REJECT —
  *        log amount_mismatch, leave booking awaiting_payment, no paid transition.
  *      - Else guarded UPDATE Booking status → paid_operator_notified
  *        (WHERE status='awaiting_payment' — safe for replays)
- *      - If update count > 0: attach guest by phone + INSERT 2 NotificationLog
- *   3. If resultCode in failureResultCodes: status → payment_failed_expired
- *   4. If resultCode in pendingResultCodes: no status transition
+ *      - If update count > 0: INSERT 2 NotificationLog
+ *   3. If status === 'failed': status → payment_failed_expired
+ *   4. If status === 'pending': no status transition
+ *   5. If status === 'unknown': no status transition (PaymentEvent row recorded)
  *
  * After transaction: schedule SMS dispatch via after() (non-blocking).
  *
- * Each gateway route passes its OWN failure/pending result-code sets
- * (sourced from that gateway's spec verbatim) — never inferred here.
+ * Status mapping (native result code → canonical status) lives entirely in each
+ * adapter (lib/payment/{momo,stub}.ts) — never inferred here.
  */
 
 import { NextResponse } from 'next/server';
@@ -45,10 +50,6 @@ export interface ProcessPaymentWebhookInput {
   proto: string;
   /** host header (for building the confirmation URL in SMS). */
   host: string;
-  /** resultCodes meaning payment definitively failed (gateway-spec verbatim). */
-  failureResultCodes: Set<number>;
-  /** resultCodes meaning pending / processing (no status transition yet). */
-  pendingResultCodes: Set<number>;
 }
 
 interface PendingDispatch {
@@ -69,8 +70,7 @@ function formatDepartureForSms(d: Date): string {
 export async function processPaymentWebhook(
   input: ProcessPaymentWebhookInput
 ): Promise<Response> {
-  const { rawBody, gateway, adapter, proto, host, failureResultCodes, pendingResultCodes } =
-    input;
+  const { rawBody, gateway, adapter, proto, host } = input;
 
   const verifyResult = gateway.verifyWebhook(rawBody);
 
@@ -83,8 +83,8 @@ export async function processPaymentWebhook(
     return NextResponse.json({ error: 'INVALID_SIGNATURE' }, { status: 400 });
   }
 
-  const { parsed } = verifyResult;
-  const { orderId: bookingRef, transId, resultCode } = parsed;
+  const { event } = verifyResult;
+  const { orderRef: bookingRef, providerTxnId, amount, currency, status } = event;
 
   const booking = await prisma.booking.findUnique({
     where: { bookingRef },
@@ -128,30 +128,39 @@ export async function processPaymentWebhook(
 
   try {
     await prisma.$transaction(async (tx) => {
-      // INSERT PaymentEvent — idempotent: @@unique([adapter, externalRef])
+      // INSERT PaymentEvent — idempotent: @@unique([adapter, providerTxnId]).
+      // providerTxnId + currency are non-PII reconciliation fields, intentionally
+      // loggable (logger redact list reviewed — no new redaction needed).
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (tx as any).paymentEvent.create({
         data: {
           bookingId: booking.id,
           adapter,
-          externalRef: String(transId),
+          providerTxnId,
+          currency,
           rawBody, // stored for audit; never logged
-          resultCode,
         },
       });
 
-      if (resultCode === 0 && parsed.amount < booking.totalVnd) {
-        // Money-loss guard: a success-code IPN that UNDERPAYS must NOT transition
-        // the booking to paid. VND-only by construction (S15#3), so the amount is
-        // the server-side check (there is no currency field on the canonical event).
-        // The PaymentEvent row is already recorded above for audit; the booking is
-        // left in awaiting_payment for the reconciliation sweeper to resolve.
+      if (status === 'paid' && currency !== 'VND') {
+        // Currency guard (FIRST, before amount): the amount check is VND-denominated
+        // by construction (S15#3). A non-VND success event cannot be amount-compared
+        // safely, so do NOT transition. PaymentEvent row already recorded for audit;
+        // booking stays awaiting_payment for the reconciliation sweeper to resolve.
         logger.warn(
-          { adapter, bookingRef, expectedVnd: booking.totalVnd, receivedVnd: parsed.amount },
-          'payment.webhook.amount_mismatch — underpaid success IPN rejected, not marked paid'
+          { adapter, bookingRef, currency },
+          'payment.webhook.currency_mismatch — non-VND success event rejected, not marked paid'
         );
-      } else if (resultCode === 0) {
-        if (parsed.amount > booking.totalVnd) {
+      } else if (status === 'paid' && amount < booking.totalVnd) {
+        // Money-loss guard: a paid event that UNDERPAYS must NOT transition the
+        // booking to paid. The PaymentEvent row is already recorded above for audit;
+        // the booking is left in awaiting_payment for the reconciliation sweeper.
+        logger.warn(
+          { adapter, bookingRef, expectedVnd: booking.totalVnd, receivedVnd: amount },
+          'payment.webhook.amount_mismatch — underpaid paid event rejected, not marked paid'
+        );
+      } else if (status === 'paid') {
+        if (amount > booking.totalVnd) {
           // Overpayment: still mark paid, but the difference must NOT be silently kept.
           // Record the delta here; the refund-out rail (issue 051, ledger wave) consumes
           // this to refund the difference. VND-only by construction (S15#3).
@@ -160,8 +169,8 @@ export async function processPaymentWebhook(
               adapter,
               bookingRef,
               expectedVnd: booking.totalVnd,
-              receivedVnd: parsed.amount,
-              overpayVnd: parsed.amount - booking.totalVnd,
+              receivedVnd: amount,
+              overpayVnd: amount - booking.totalVnd,
             },
             'payment.webhook.overpaid — marked paid, overpay delta flagged for refund-out'
           );
@@ -170,7 +179,7 @@ export async function processPaymentWebhook(
         const updated = await tx.$executeRaw(Prisma.sql`
           UPDATE "Booking"
           SET status = 'paid_operator_notified'::"BookingStatus",
-              "paymentExternalRef" = ${String(transId)}
+              "paymentExternalRef" = ${providerTxnId}
           WHERE id = ${booking.id}::uuid
             AND status = 'awaiting_payment'::"BookingStatus"
         `);
@@ -239,7 +248,7 @@ export async function processPaymentWebhook(
           );
         }
         // If updated === 0, already transitioned (replay/duplicate) — no-op
-      } else if (failureResultCodes.has(resultCode)) {
+      } else if (status === 'failed') {
         // Failure: guarded status transition (only from awaiting_payment)
         await tx.$executeRaw(Prisma.sql`
           UPDATE "Booking"
@@ -247,21 +256,21 @@ export async function processPaymentWebhook(
           WHERE id = ${booking.id}::uuid
             AND status = 'awaiting_payment'::"BookingStatus"
         `);
-      } else if (pendingResultCodes.has(resultCode)) {
+      } else if (status === 'pending') {
         logger.info(
-          { adapter, bookingRef, resultCode },
-          'payment.webhook.pending_resultcode — no status transition'
+          { adapter, bookingRef },
+          'payment.webhook.pending — no status transition'
         );
       }
-      // Unknown resultCode: PaymentEvent row recorded, no transition
+      // Unknown status: PaymentEvent row recorded, no transition
     });
   } catch (err: unknown) {
     if (
       err instanceof Prisma.PrismaClientKnownRequestError &&
       err.code === 'P2002'
     ) {
-      // @@unique([adapter, externalRef]) conflict — duplicate IPN delivery
-      logger.info({ adapter, bookingRef, transId }, 'payment.webhook.duplicate_ipn — 200 idempotent');
+      // @@unique([adapter, providerTxnId]) conflict — duplicate IPN delivery
+      logger.info({ adapter, bookingRef, providerTxnId }, 'payment.webhook.duplicate_ipn — 200 idempotent');
       return NextResponse.json({ message: 'ok' }, { status: 200 });
     }
     throw err;

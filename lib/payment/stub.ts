@@ -20,7 +20,7 @@
  *
  * Idempotency: stub transId is deterministic — `stub_${orderId}_${outcome}` —
  * so replaying the same outcome collides on PaymentEvent @@unique([adapter,
- * externalRef]) and exercises the 200-no-op path.
+ * providerTxnId]) and exercises the 200-no-op path.
  */
 
 import crypto from 'crypto';
@@ -30,6 +30,7 @@ import type {
   CreatePaymentInput,
   CreatePaymentResult,
   VerifyWebhookResult,
+  CanonicalPaymentStatus,
 } from './gateway';
 
 /** Result codes the stub emits. 0 = paid, 99 = failed. */
@@ -64,7 +65,8 @@ export type StubOutcome = 'success' | 'fail';
 
 /**
  * Build a fully-signed stub IPN payload for the given order + outcome.
- * Shaped to satisfy the ParsedIpn coercions in verifyWebhook.
+ * The signed body still carries resultCode (0/99) which verifyWebhook maps
+ * into the canonical status.
  */
 export function buildStubIpn(input: {
   secretKey: string;
@@ -130,21 +132,25 @@ export function createStubAdapter(config: StubConfig): PaymentGateway {
       return { ok: false, reason: 'sig_mismatch' };
     }
 
+    // Map the signed stub IPN into the canonical event. resultCode stays
+    // internal: STUB_SUCCESS_CODE (0) → paid, STUB_FAILURE_CODE (99) → failed.
+    // VND by construction.
+    const resultCode = Number(parsed.resultCode ?? -1);
+    const status: CanonicalPaymentStatus =
+      resultCode === STUB_SUCCESS_CODE
+        ? 'paid'
+        : resultCode === STUB_FAILURE_CODE
+          ? 'failed'
+          : 'unknown';
+
     return {
       ok: true,
-      parsed: {
-        orderId: String(parsed.orderId ?? ''),
-        transId: String(parsed.transId ?? ''),
-        resultCode: Number(parsed.resultCode ?? -1),
+      event: {
+        orderRef: String(parsed.orderId ?? ''),
+        providerTxnId: String(parsed.transId ?? ''),
         amount: Number(parsed.amount ?? 0),
-        message: String(parsed.message ?? ''),
-        partnerCode: String(parsed.partnerCode ?? ''),
-        requestId: String(parsed.requestId ?? ''),
-        orderInfo: String(parsed.orderInfo ?? ''),
-        orderType: String(parsed.orderType ?? ''),
-        payType: String(parsed.payType ?? ''),
-        responseTime: Number(parsed.responseTime ?? 0),
-        extraData: String(parsed.extraData ?? ''),
+        currency: 'VND',
+        status,
       },
     };
   };

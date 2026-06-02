@@ -6,15 +6,15 @@
  * PAYMENTS_STUB=true, real ZaloPay adapter swapped in (Phase 2) with no change
  * here. Delegates all logic to the shared processPaymentWebhook.
  *
- * Stub resultCodes: success = STUB_SUCCESS_CODE (0), fail = STUB_FAILURE_CODE (99).
- * No pending state in the stub.
+ * Native result code → canonical status mapping lives in the adapter
+ * (lib/payment/stub.ts): success = STUB_SUCCESS_CODE (0) → paid,
+ * fail = STUB_FAILURE_CODE (99) → failed. No pending state in the stub.
  */
 
 export const runtime = 'nodejs';
 
 import { type NextRequest } from 'next/server';
 import { getGatewayFor } from '@/lib/payment/select';
-import { STUB_FAILURE_CODE } from '@/lib/payment/stub';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { processPaymentWebhook } from '@/lib/payment/processWebhook';
 
@@ -30,8 +30,6 @@ async function handler(req: NextRequest): Promise<Response> {
     adapter: 'zalopay',
     proto,
     host,
-    failureResultCodes: new Set([STUB_FAILURE_CODE]),
-    pendingResultCodes: new Set(),
   });
 }
 

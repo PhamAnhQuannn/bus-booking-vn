@@ -16,7 +16,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getEnv } from '@/lib/config/env';
 import { getGatewayFor, type OnlinePaymentMethod } from '@/lib/payment/select';
-import { buildStubIpn, STUB_FAILURE_CODE, type StubOutcome } from '@/lib/payment/stub';
+import { buildStubIpn, type StubOutcome } from '@/lib/payment/stub';
 import { processPaymentWebhook } from '@/lib/payment/processWebhook';
 
 const STUB_ADAPTERS = new Set<OnlinePaymentMethod>(['momo', 'zalopay', 'card']);
@@ -61,8 +61,6 @@ export async function submitStubPayment(formData: FormData): Promise<void> {
     adapter,
     proto,
     host,
-    failureResultCodes: new Set([STUB_FAILURE_CODE]),
-    pendingResultCodes: new Set(),
   });
 
   redirect(redirectUrl);

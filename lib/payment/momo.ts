@@ -27,6 +27,7 @@ import type {
   CreatePaymentInput,
   CreatePaymentResult,
   VerifyWebhookResult,
+  CanonicalPaymentStatus,
 } from './gateway';
 
 export interface MomoConfig {
@@ -34,6 +35,21 @@ export interface MomoConfig {
   accessKey: string;
   secretKey: string;
   endpoint: string;
+}
+
+/**
+ * MoMo resultCode → canonical status classifier. Sets relocated from the
+ * webhook route VERBATIM (Issue 004 acceptance spec — never augmented from
+ * upstream MoMo docs; see AGENTS.md mistake log 2026-05-18). Native MoMo
+ * resultCodes stay internal to this file; only the canonical status escapes.
+ */
+const MOMO_FAILURE_RESULT_CODES = new Set([1001, 1002, 1003, 1004, 1005, 4100]);
+const MOMO_PENDING_RESULT_CODES = new Set([9000, 1000]);
+function classifyMomoStatus(resultCode: number): CanonicalPaymentStatus {
+  if (resultCode === 0) return 'paid';
+  if (MOMO_FAILURE_RESULT_CODES.has(resultCode)) return 'failed';
+  if (MOMO_PENDING_RESULT_CODES.has(resultCode)) return 'pending';
+  return 'unknown';
 }
 
 /**
@@ -102,35 +118,24 @@ export function createMomoAdapter(
       return { ok: false, reason: 'sig_mismatch' };
     }
 
-    // Extract parsed IPN fields with safe coercions
-    const orderId = String(parsed.orderId ?? '');
-    const transId = String(parsed.transId ?? '');
+    // Parse the raw IPN fields needed for the canonical event. The native
+    // resultCode stays internal to this file (mapped to status below);
+    // message/partnerCode/requestId/orderInfo/orderType/payType/responseTime/
+    // extraData are not consumed downstream and are intentionally dropped.
+    const orderRef = String(parsed.orderId ?? '');
+    const providerTxnId = String(parsed.transId ?? '');
     const resultCode = Number(parsed.resultCode ?? -1);
     const amount = Number(parsed.amount ?? 0);
-    const message = String(parsed.message ?? '');
-    const partnerCodeVal = String(parsed.partnerCode ?? '');
-    const requestId = String(parsed.requestId ?? '');
-    const orderInfo = String(parsed.orderInfo ?? '');
-    const orderType = String(parsed.orderType ?? '');
-    const payType = String(parsed.payType ?? '');
-    const responseTime = Number(parsed.responseTime ?? 0);
-    const extraData = String(parsed.extraData ?? '');
 
+    // MoMo IPN carries no currency field — VND by construction.
     return {
       ok: true,
-      parsed: {
-        orderId,
-        transId,
-        resultCode,
+      event: {
+        orderRef,
+        providerTxnId,
         amount,
-        message,
-        partnerCode: partnerCodeVal,
-        requestId,
-        orderInfo,
-        orderType,
-        payType,
-        responseTime,
-        extraData,
+        currency: 'VND',
+        status: classifyMomoStatus(resultCode),
       },
     };
   };

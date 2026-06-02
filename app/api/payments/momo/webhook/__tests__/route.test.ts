@@ -3,6 +3,7 @@
  *
  * Test cases:
  *   - paid IPN (resultCode=0): 200, booking updated, 2 NotificationLog rows
+ *   - currency mismatch (non-VND success): 200, NO paid transition, no notifications
  *   - failed IPN (resultCode=1001): 200, booking updated to payment_failed_expired
  *   - bad signature: 400
  *   - replay/duplicate (P2002 unique conflict): 200 idempotent
@@ -98,28 +99,32 @@ const MOCK_BOOKING = {
   },
 };
 
-/** Build a fake verifyWebhook-ok result */
+type CanonicalStatus = 'paid' | 'failed' | 'pending' | 'unknown';
+
+/** Map a MoMo resultCode to the canonical status (mirrors classifyMomoStatus). */
+function statusForResultCode(resultCode: number): CanonicalStatus {
+  if (resultCode === 0) return 'paid';
+  if (new Set([1001, 1002, 1003, 1004, 1005, 4100]).has(resultCode)) return 'failed';
+  if (new Set([9000, 1000]).has(resultCode)) return 'pending';
+  return 'unknown';
+}
+
+/** Build a fake verifyWebhook-ok result in the canonical event shape. */
 function fakeVerifyOk(parsed: {
   orderId: string;
   transId: string;
   resultCode: number;
   amount?: number;
+  currency?: string;
 }) {
   return {
     ok: true as const,
-    parsed: {
-      orderId: parsed.orderId,
-      transId: parsed.transId,
-      resultCode: parsed.resultCode,
+    event: {
+      orderRef: parsed.orderId,
+      providerTxnId: parsed.transId,
       amount: parsed.amount ?? 200000,
-      message: parsed.resultCode === 0 ? 'Successful.' : 'Error',
-      partnerCode: 'MOMOBKUN20180529',
-      requestId: 'req-001',
-      orderInfo: 'Bus booking',
-      orderType: 'momo_wallet',
-      payType: 'qr',
-      responseTime: 1716050000000,
-      extraData: '',
+      currency: parsed.currency ?? 'VND',
+      status: statusForResultCode(parsed.resultCode),
     },
   };
 }
@@ -299,6 +304,52 @@ describe('POST /api/payments/momo/webhook — underpaid IPN (money-loss guard)',
   });
 });
 
+describe('POST /api/payments/momo/webhook — currency mismatch (non-VND success)', () => {
+  it('does NOT mark booking paid when a success event is non-VND; records the event, no notifications', async () => {
+    vi.mocked(getMomoAdapter).mockReturnValue({
+      verifyWebhook: vi.fn().mockReturnValue(
+        fakeVerifyOk({
+          orderId: BOOKING_REF,
+          transId: '8888001',
+          resultCode: 0,
+          amount: 200000,
+          currency: 'USD',
+        })
+      ),
+      createPayment: vi.fn(),
+    });
+    vi.mocked(prisma.booking.findUnique).mockResolvedValue(MOCK_BOOKING as never);
+
+    const executeRawMock = vi.fn().mockResolvedValue(1);
+    const paymentEventCreate = vi.fn().mockResolvedValue({});
+    vi.mocked(prisma.$transaction).mockImplementationOnce(async (fn) => {
+      const fakeTx = {
+        paymentEvent: { create: paymentEventCreate },
+        $executeRaw: executeRawMock,
+      };
+      await fn(fakeTx as never);
+      return undefined;
+    });
+
+    const res = await POST(makeRequest(JSON.stringify({ signature: 'test', resultCode: 0 })));
+    const json = await res.json();
+
+    // Still ack the IPN (200), but no paid transition and no notifications.
+    expect(res.status).toBe(200);
+    expect(json.message).toBe('ok');
+    expect(paymentEventCreate).toHaveBeenCalledOnce(); // audit row recorded
+    expect(executeRawMock).not.toHaveBeenCalled(); // no status UPDATE
+    expect(createNotificationLog).not.toHaveBeenCalled();
+
+    // A structured currency_mismatch warn carries the currency.
+    const mismatchWarn = vi
+      .mocked(logger.warn)
+      .mock.calls.find(([obj]) => obj && typeof obj === 'object' && 'currency' in obj);
+    expect(mismatchWarn).toBeDefined();
+    expect((mismatchWarn![0] as { currency: string }).currency).toBe('USD');
+  });
+});
+
 describe('POST /api/payments/momo/webhook — failed IPN (resultCode=1001)', () => {
   it('returns 200 and transitions booking to payment_failed_expired', async () => {
     vi.mocked(getMomoAdapter).mockReturnValue({
@@ -343,7 +394,7 @@ describe('POST /api/payments/momo/webhook — replay (idempotent)', () => {
     const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint', {
       code: 'P2002',
       clientVersion: '7.0.0',
-      meta: { target: ['adapter', 'externalRef'] },
+      meta: { target: ['adapter', 'providerTxnId'] },
     });
     vi.mocked(prisma.$transaction).mockRejectedValueOnce(p2002);
 
