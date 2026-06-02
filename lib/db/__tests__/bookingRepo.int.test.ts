@@ -19,7 +19,11 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { prisma } from '@/lib/db/client';
 import { createHold } from '../holdRepo';
-import { createCashBookingFromHold, getBookingByConfirmationToken } from '../bookingRepo';
+import {
+  createCashBookingFromHold,
+  createOnlineBookingFromHold,
+  getBookingByConfirmationToken,
+} from '../bookingRepo';
 
 let operatorId: string;
 let routeId: string;
@@ -282,6 +286,36 @@ describe('capacity correctness — bookings subtract from holdRepo availability'
       customerName: 'Second',
     });
     expect(secondHold).toBeNull();
+  });
+});
+
+describe('createOnlineBookingFromHold — concurrent sell (issue 036)', () => {
+  it('10 parallel online sells with same holdId → exactly 1 ok, 9 already_booked', async () => {
+    // The trip row is locked FOR UPDATE OF t at the top of each sell txn, so the
+    // racing conversions serialize; ON CONFLICT (holdId) then guarantees exactly
+    // one booking. The other sells see the row and return already_booked — never
+    // an oversell (the seat was already capacity-bounded at hold creation).
+    const holdId = await activeHold(1);
+    const results = await Promise.all(
+      Array.from({ length: 10 }, () =>
+        createOnlineBookingFromHold(
+          { holdId, buyerName: 'Race Buyer', buyerPhone: '+8490xxxxxx5' },
+          'momo'
+        )
+      )
+    );
+    const okCount = results.filter((r) => r.ok).length;
+    const dupCount = results.filter((r) => !r.ok && r.reason === 'already_booked').length;
+    expect(okCount).toBe(1);
+    expect(dupCount).toBe(9);
+
+    const bookings = await prisma.booking.findMany({ where: { holdId } });
+    expect(bookings.length).toBe(1);
+    expect(bookings[0].status).toBe('awaiting_payment');
+    expect(bookings[0].paymentMethod).toBe('momo');
+
+    const hold = await prisma.hold.findUnique({ where: { id: holdId } });
+    expect(hold?.status).toBe('converted');
   });
 });
 

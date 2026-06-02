@@ -221,6 +221,24 @@ export async function createOnlineBookingFromHold(
 
     try {
       const result = await prisma.$transaction(async (tx) => {
+        // Issue 036: serialize concurrent sells on the same trip by locking the
+        // trip row FOR UPDATE before the convert. The oversell vector itself is
+        // already closed at HOLD CREATION (capacity-bounded advisory lock in
+        // lib/db/holdRepo.ts) — converting an already-held seat cannot oversell,
+        // so available-capacity is re-validated structurally by the hold
+        // invariant, not recomputed here. This lock is defense-in-depth: it makes
+        // racing conversions on one trip queue rather than interleave (Mistake
+        // Log 011 FOR-UPDATE pattern). Locks only the Trip row (FOR UPDATE OF t).
+        await tx.$executeRaw(
+          Prisma.sql`
+            SELECT t.id
+            FROM "Trip" t
+            JOIN "Hold" h ON h."tripId" = t.id
+            WHERE h.id = ${holdId}
+            FOR UPDATE OF t
+          `
+        );
+
         const inserted = await tx.$queryRaw<BookingRow[]>(
           Prisma.sql`
             INSERT INTO "Booking" (
