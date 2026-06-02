@@ -38,12 +38,19 @@ export interface CreateCashBookingInput {
   holdId: string;
   buyerName: string;
   buyerPhone: string;
+  /**
+   * Customer.id of the signed-in buyer, or null for a guest booking (Issue 031).
+   * Stamped on the Booking row at creation — session is the ownership proof, so
+   * no post-hoc phone-match attach is needed (or wanted: phone-match is spoofable).
+   */
+  customerId?: string | null;
 }
 
 export interface CreateMomoBookingInput {
   holdId: string;
   buyerName: string;
   buyerPhone: string;
+  customerId?: string | null;
 }
 
 export type OnlineBookingMethod = 'momo' | 'zalopay' | 'card';
@@ -52,6 +59,8 @@ export interface CreateOnlineBookingInput {
   holdId: string;
   buyerName: string;
   buyerPhone: string;
+  /** Customer.id of the signed-in buyer, or null for a guest booking (Issue 031). */
+  customerId?: string | null;
 }
 
 export type CreateCashBookingResult =
@@ -87,7 +96,7 @@ const MAX_REF_ATTEMPTS = 5;
 export async function createCashBookingFromHold(
   input: CreateCashBookingInput
 ): Promise<CreateCashBookingResult> {
-  const { holdId, buyerName, buyerPhone } = input;
+  const { holdId, buyerName, buyerPhone, customerId = null } = input;
 
   for (let attempt = 0; attempt < MAX_REF_ATTEMPTS; attempt++) {
     const bookingId = uuidv7();
@@ -104,7 +113,7 @@ export async function createCashBookingFromHold(
           Prisma.sql`
             INSERT INTO "Booking" (
               id, "bookingRef", "confirmationToken", "tripId", "holdId",
-              "buyerName", "buyerPhone", "ticketCount", "totalVnd",
+              "customerId", "buyerName", "buyerPhone", "ticketCount", "totalVnd",
               "paymentMethod", status, "isManual", "createdAt"
             )
             SELECT
@@ -113,6 +122,7 @@ export async function createCashBookingFromHold(
               ${confirmationToken},
               h."tripId",
               h.id,
+              ${customerId}::text,
               ${buyerName},
               ${buyerPhone},
               h."ticketCount",
@@ -202,7 +212,7 @@ export async function createOnlineBookingFromHold(
   input: CreateOnlineBookingInput,
   method: OnlineBookingMethod
 ): Promise<CreateCashBookingResult> {
-  const { holdId, buyerName, buyerPhone } = input;
+  const { holdId, buyerName, buyerPhone, customerId = null } = input;
 
   for (let attempt = 0; attempt < MAX_REF_ATTEMPTS; attempt++) {
     const bookingId = uuidv7();
@@ -215,7 +225,7 @@ export async function createOnlineBookingFromHold(
           Prisma.sql`
             INSERT INTO "Booking" (
               id, "bookingRef", "confirmationToken", "tripId", "holdId",
-              "buyerName", "buyerPhone", "ticketCount", "totalVnd",
+              "customerId", "buyerName", "buyerPhone", "ticketCount", "totalVnd",
               "paymentMethod", status, "isManual", "createdAt"
             )
             SELECT
@@ -224,6 +234,7 @@ export async function createOnlineBookingFromHold(
               ${confirmationToken},
               h."tripId",
               h.id,
+              ${customerId}::text,
               ${buyerName},
               ${buyerPhone},
               h."ticketCount",

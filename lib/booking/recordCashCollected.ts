@@ -16,7 +16,6 @@ import { Prisma } from '@prisma/client';
 import { after } from 'next/server';
 import { BookingServiceError } from './recordCallOutcome';
 import { toBookingDto, type BookingDtoRow } from './toBookingDto';
-import { attachGuestBookingByPhone } from './attachGuestBookingByPhone';
 import { createNotificationLog } from '@/lib/db/notificationLogRepo';
 import { sendSms, renderTemplate } from '@/lib/notifications/esms';
 import { logger } from '@/lib/logger';
@@ -125,8 +124,10 @@ export async function recordCashCollected(
         },
       });
 
-      // Issue 009: attach to a registered customer by phone on the paid transition
-      await attachGuestBookingByPhone(tx, updated.id, updated.buyerPhone);
+      // Issue 031: no phone-match attach on the paid transition. A signed-in
+      // buyer already has Booking.customerId from initiate; a guest links only
+      // via OTP-proven register backfill. (Cash bookings are operator-marked
+      // paid, so there is no buyer session here to stamp ownership from.)
 
       const operator = updated.trip.bus.operator;
       const opPhone = operator.notificationPhone ?? operator.contactPhone;

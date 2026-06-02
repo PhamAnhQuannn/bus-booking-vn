@@ -59,6 +59,7 @@ interface RequestOpts {
   cookie?: string;
   ip?: string;
   raw?: string;
+  auth?: string;
 }
 
 function makeRequest(opts: RequestOpts = {}): NextRequest {
@@ -69,6 +70,7 @@ function makeRequest(opts: RequestOpts = {}): NextRequest {
     'x-forwarded-proto': 'https',
   };
   if (opts.cookie) headers.cookie = opts.cookie;
+  if (opts.auth) headers.authorization = opts.auth;
   return new NextRequest('https://example.test/api/bookings/initiate', {
     method: 'POST',
     headers,
@@ -277,6 +279,66 @@ describe('POST /api/bookings/initiate — rate limit', () => {
     expect(res.headers.get('Retry-After')).toBe('45');
     expect(extractHoldCookie).not.toHaveBeenCalled();
     expect(initiateCashBooking).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/bookings/initiate — customerId stamping (Issue 031)', () => {
+  it('threads the signed-in customerId to the cash orchestrator when a Bearer token is present', async () => {
+    const { signAccess } = await import('@/lib/auth/jwt');
+    const token = await signAccess({ sub: 'cust-initiate', role: 'customer' });
+
+    allowRatelimit();
+    matchCookie();
+    vi.mocked(initiateCashBooking).mockResolvedValueOnce({
+      ok: true,
+      bookingId: BOOKING_ID,
+      confirmationToken: CONFIRMATION_TOKEN,
+    });
+
+    await POST(makeRequest({ cookie: 'bb_hold=signedvalue', auth: `Bearer ${token}` }));
+
+    const call = vi.mocked(initiateCashBooking).mock.calls[0]?.[0];
+    expect(call?.customerId).toBe('cust-initiate');
+  });
+
+  it('passes customerId=null for a guest booking (no Authorization header)', async () => {
+    allowRatelimit();
+    matchCookie();
+    vi.mocked(initiateCashBooking).mockResolvedValueOnce({
+      ok: true,
+      bookingId: BOOKING_ID,
+      confirmationToken: CONFIRMATION_TOKEN,
+    });
+
+    await POST(makeRequest({ cookie: 'bb_hold=signedvalue' }));
+
+    const call = vi.mocked(initiateCashBooking).mock.calls[0]?.[0];
+    expect(call?.customerId).toBeNull();
+  });
+
+  it('threads customerId to the online orchestrator too', async () => {
+    const { signAccess } = await import('@/lib/auth/jwt');
+    const token = await signAccess({ sub: 'cust-online', role: 'customer' });
+
+    allowRatelimit();
+    matchCookie();
+    vi.mocked(initiateOnlineBooking).mockResolvedValueOnce({
+      ok: true,
+      bookingId: BOOKING_ID,
+      confirmationToken: CONFIRMATION_TOKEN,
+      payUrl: 'https://payment.momo.vn/pay/app?orderId=BB-2026-test-0001',
+    });
+
+    await POST(
+      makeRequest({
+        body: { holdId: HOLD_ID, paymentMethod: 'momo' },
+        cookie: 'bb_hold=signedvalue',
+        auth: `Bearer ${token}`,
+      })
+    );
+
+    const call = vi.mocked(initiateOnlineBooking).mock.calls[0]?.[0];
+    expect(call?.customerId).toBe('cust-online');
   });
 });
 

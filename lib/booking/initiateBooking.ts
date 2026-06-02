@@ -45,6 +45,12 @@ export interface InitiateCashBookingInput {
   holdId: string;
   baseUrl: string;
   /**
+   * Customer.id of the signed-in buyer, or null/undefined for a guest (Issue 031).
+   * Stamped on the Booking row at creation so the booking is owned without a
+   * post-hoc phone-match attach.
+   */
+  customerId?: string | null;
+  /**
    * Inject-able deferred-work scheduler. Defaults to Next.js `after`.
    * Tests pass a collector so they can drive dispatch deterministically.
    */
@@ -81,7 +87,7 @@ function formatDepartureForSms(d: Date): string {
 export async function initiateCashBooking(
   input: InitiateCashBookingInput
 ): Promise<InitiateCashBookingResult> {
-  const { holdId, baseUrl } = input;
+  const { holdId, baseUrl, customerId = null } = input;
   const afterFn = input.afterFn ?? after;
 
   const hold = await prisma.hold.findUnique({
@@ -143,6 +149,7 @@ export async function initiateCashBooking(
     holdId,
     buyerName: hold.customerName,
     buyerPhone: hold.customerPhone,
+    customerId,
   });
 
   let bookingId: string;

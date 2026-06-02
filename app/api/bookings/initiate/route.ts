@@ -23,6 +23,7 @@ import { z } from 'zod';
 import { initiateCashBooking } from '@/lib/booking/initiateBooking';
 import { initiateOnlineBooking } from '@/lib/booking/initiateOnlineBooking';
 import { extractHoldCookie } from '@/lib/security/holdCookie';
+import { getCustomerOptional } from '@/lib/auth/requireCustomerAuth';
 import { ratelimit } from '@/lib/ratelimit';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { track, sessionIdFromRequest } from '@/lib/analytics/track';
@@ -63,6 +64,11 @@ async function handler(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 });
   }
 
+  // Optional auth: a signed-in buyer stamps Booking.customerId at creation
+  // (Issue 031). Guests stay null and link later only via OTP-proven register
+  // backfill — never via the spoofable phone-match attach.
+  const customerId = await getCustomerOptional(req);
+
   const proto =
     req.headers.get('x-forwarded-proto') ?? req.nextUrl.protocol.replace(/:$/, '');
   const host =
@@ -73,7 +79,7 @@ async function handler(req: NextRequest): Promise<Response> {
   // Cash path (unchanged)
   // ---------------------------------------------------------------------------
   if (paymentMethod === 'cash') {
-    const result = await initiateCashBooking({ holdId, baseUrl });
+    const result = await initiateCashBooking({ holdId, baseUrl, customerId });
 
     if (result.ok) {
       void track('payment_initiated', {
@@ -102,7 +108,7 @@ async function handler(req: NextRequest): Promise<Response> {
   // ---------------------------------------------------------------------------
   // Online path (momo | zalopay | card) — stub gateway locally, real in Phase 2
   // ---------------------------------------------------------------------------
-  const result = await initiateOnlineBooking({ holdId, baseUrl, method: paymentMethod });
+  const result = await initiateOnlineBooking({ holdId, baseUrl, method: paymentMethod, customerId });
 
   if (result.ok) {
     void track('payment_initiated', {

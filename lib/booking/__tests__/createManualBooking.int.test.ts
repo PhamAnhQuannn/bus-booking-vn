@@ -18,6 +18,7 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { prisma } from '@/lib/db/client';
 import { createManualBooking } from '../createManualBooking';
+import { normalizePhone } from '@/lib/auth/phoneNormalize';
 
 let operatorId: string;
 let otherOperatorId: string;
@@ -278,6 +279,43 @@ describe('createManualBooking — salesClosed bypass', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.booking.isManual).toBe(true);
+  });
+});
+
+describe('createManualBooking — Issue 031 attach hardening', () => {
+  it('does NOT attach to a registered customer by matching phone (spoof closed)', async () => {
+    // A registered customer whose phone equals the manual booking's buyerPhone.
+    // normalizePhone(...) computes the E.164 form at runtime — no raw +84 literal
+    // in source (gitleaks PII guard). Pre-031 the phone-match attach would have
+    // linked the operator-created booking to this account.
+    const spoofPhone = BASE_INPUT.buyerPhone; // '0912345678'
+    const victim = await prisma.customer.create({
+      data: { phone: normalizePhone(spoofPhone), displayName: 'Victim' },
+    });
+    try {
+      const result = await createManualBooking({
+        ...BASE_INPUT,
+        tripId,
+        operatorId,
+        buyerPhone: spoofPhone,
+        paymentMethod: 'paid' as const,
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+
+      const row = await prisma.booking.findUnique({
+        where: { id: result.booking.id },
+        select: { customerId: true },
+      });
+      // Operator-created booking has no buyer session → stays unlinked.
+      expect(row?.customerId).toBeNull();
+    } finally {
+      await prisma.booking.updateMany({
+        where: { customerId: victim.id },
+        data: { customerId: null },
+      });
+      await prisma.customer.delete({ where: { id: victim.id } });
+    }
   });
 });
 
