@@ -8,19 +8,19 @@ datasource db {
 }
 
 model Operator {
-  id                String    @id @default(cuid())
-  legalName         String
-  contactPhone      String
-  contactEmail      String
-  notificationPhone String?
-  disabledAt        DateTime?
-  createdAt         DateTime  @default(now())
-  buses             Bus[]
-  operatorUsers     OperatorUser[]
-  routes            Route[]
-  trips             Trip[]
+  id                 String                  @id @default(cuid())
+  legalName          String
+  contactPhone       String
+  contactEmail       String
+  notificationPhone  String?
+  disabledAt         DateTime?
+  createdAt          DateTime                @default(now())
+  buses              Bus[]
+  operatorUsers      OperatorUser[]
+  routes             Route[]
+  trips              Trip[]
   recurringTemplates RecurringTripTemplate[]
-  payouts           Payout[]
+  payouts            Payout[]
 
   @@index([id])
 }
@@ -32,18 +32,18 @@ enum BusType {
 }
 
 model Bus {
-  id               String    @id @default(cuid())
-  operatorId       String
-  capacity         Int
-  licensePlate     String
-  busType          BusType
-  deactivatedAt    DateTime?
-  maintenanceStart DateTime?
-  maintenanceEnd   DateTime?
-  operator             Operator                @relation(fields: [operatorId], references: [id])
-  trips                Trip[]
-  maintenances         BusMaintenance[]
-  recurringTemplates   RecurringTripTemplate[]
+  id                 String                  @id @default(cuid())
+  operatorId         String
+  capacity           Int
+  licensePlate       String
+  busType            BusType
+  deactivatedAt      DateTime?
+  maintenanceStart   DateTime?
+  maintenanceEnd     DateTime?
+  operator           Operator                @relation(fields: [operatorId], references: [id])
+  trips              Trip[]
+  maintenances       BusMaintenance[]
+  recurringTemplates RecurringTripTemplate[]
 
   @@unique([operatorId, licensePlate])
 }
@@ -61,18 +61,18 @@ model BusMaintenance {
 }
 
 model Route {
-  id              String       @id @default(cuid())
-  origin          String
-  destination     String
-  operatorId      String
-  durationMinutes Int
-  deactivatedAt   DateTime?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  trips               Trip[]
-  operator            Operator                @relation(fields: [operatorId], references: [id], onDelete: Restrict)
-  pickupPoints        PickupPoint[]
-  recurringTemplates  RecurringTripTemplate[]
+  id                 String                  @id @default(cuid())
+  origin             String
+  destination        String
+  operatorId         String
+  durationMinutes    Int
+  deactivatedAt      DateTime?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  trips              Trip[]
+  operator           Operator                @relation(fields: [operatorId], references: [id], onDelete: Restrict)
+  pickupPoints       PickupPoint[]
+  recurringTemplates RecurringTripTemplate[]
 
   @@index([origin, destination])
   @@index([operatorId])
@@ -109,45 +109,45 @@ enum HoldStatus {
 }
 
 model Trip {
-  id                   String                    @id @default(cuid())
-  routeId              String
-  busId                String
-  operatorId           String
-  departureAt          DateTime
-  price                Int
-  status               TripStatus                @default(scheduled)
-  salesClosed          Boolean                   @default(false)
-  blockedSeats         Int                       @default(0)
-  cancelReason         String?
-  cancelledAt          DateTime?
+  id                  String                   @id @default(cuid())
+  routeId             String
+  busId               String
+  operatorId          String
+  departureAt         DateTime
+  price               Int
+  status              TripStatus               @default(scheduled)
+  salesClosed         Boolean                  @default(false)
+  blockedSeats        Int                      @default(0)
+  cancelReason        String?
+  cancelledAt         DateTime?
   /// Issue 014: timestamp when operator marked trip as departed
-  departedAt           DateTime?
+  departedAt          DateTime?
   /// Issue 014: timestamp when operator marked trip as completed
-  completedAt          DateTime?
+  completedAt         DateTime?
   /// FK to RecurringTripTemplate; null for one-off trips
-  recurringTemplateId  String?
+  recurringTemplateId String?
   /// Paired return trip id (self-referential)
-  pairedTripId         String?
-  updatedAt            DateTime                  @updatedAt
-  route                Route                     @relation(fields: [routeId], references: [id])
-  bus                  Bus                       @relation(fields: [busId], references: [id])
-  operator             Operator                  @relation(fields: [operatorId], references: [id])
-  recurringTemplate    RecurringTripTemplate?    @relation(fields: [recurringTemplateId], references: [id])
-  pairedTrip           Trip?                     @relation("TripPair", fields: [pairedTripId], references: [id])
-  pairedByTrip         Trip[]                    @relation("TripPair")
-  holds                Hold[]
-  bookings             Booking[]
-  generationLogs       RecurringGenerationLog[]
-  payouts              Payout[]
-  assignedStaff        OperatorUser[]            @relation("StaffAssignment")
+  pairedTripId        String?
+  updatedAt           DateTime                 @updatedAt
+  route               Route                    @relation(fields: [routeId], references: [id])
+  bus                 Bus                      @relation(fields: [busId], references: [id])
+  operator            Operator                 @relation(fields: [operatorId], references: [id])
+  recurringTemplate   RecurringTripTemplate?   @relation(fields: [recurringTemplateId], references: [id])
+  pairedTrip          Trip?                    @relation("TripPair", fields: [pairedTripId], references: [id])
+  pairedByTrip        Trip[]                   @relation("TripPair")
+  holds               Hold[]
+  bookings            Booking[]
+  generationLogs      RecurringGenerationLog[]
+  payouts             Payout[]
+  assignedStaff       OperatorUser[]           @relation("StaffAssignment")
+  // Partial unique index (recurringTemplateId, departureAt) WHERE recurringTemplateId IS NOT NULL
+  // is SQL-only in migration step2; Prisma DSL cannot express WHERE-clause partial unique indices.
 
   @@index([status, departureAt])
   @@index([routeId, departureAt])
   @@index([operatorId])
   @@index([recurringTemplateId])
   @@index([pairedTripId])
-  // Partial unique index (recurringTemplateId, departureAt) WHERE recurringTemplateId IS NOT NULL
-  // is SQL-only in migration step2; Prisma DSL cannot express WHERE-clause partial unique indices.
 }
 
 model Hold {
@@ -252,17 +252,17 @@ model Booking {
 }
 
 model PaymentEvent {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  bookingId   String   @db.Uuid
-  adapter     String
-  externalRef String
-  rawBody     String   @db.Text
-  resultCode  Int
-  receivedAt  DateTime @default(now())
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId     String   @db.Uuid
+  adapter       String
+  providerTxnId String
+  currency      String   @default("VND")
+  rawBody       String   @db.Text
+  receivedAt    DateTime @default(now())
 
   booking Booking @relation(fields: [bookingId], references: [id])
 
-  @@unique([adapter, externalRef])
+  @@unique([adapter, providerTxnId])
   @@index([bookingId])
 }
 
@@ -276,7 +276,7 @@ model NotificationLog {
   status       NotificationStatus  @default(pending)
   externalRef  String?
   sentAt       DateTime?
-  scheduledFor DateTime?           // S19 cron: payout_scheduled dispatch time (completedAt+3d)
+  scheduledFor DateTime? // S19 cron: payout_scheduled dispatch time (completedAt+3d)
   createdAt    DateTime            @default(now())
   booking      Booking?            @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
@@ -299,21 +299,21 @@ model JobRunLog {
 }
 
 model Customer {
-  id            String    @id @default(cuid())
+  id           String    @id @default(cuid())
   /// Nullable: set to NULL on soft-delete/anonymization; Postgres allows multiple NULLs on @unique
-  phone         String?   @unique
-  email         String?
-  passwordHash  String?
-  displayName   String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  lastLoginAt   DateTime?
+  phone        String?   @unique
+  email        String?
+  passwordHash String?
+  displayName  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  lastLoginAt  DateTime?
   /// Issue 008: soft-delete timestamp; non-null = account deleted
-  deletedAt     DateTime?
+  deletedAt    DateTime?
   /// Issue 008: anonymization timestamp; set together with deletedAt
-  anonymizedAt  DateTime?
-  sessions      Session[]
-  bookings      Booking[]
+  anonymizedAt DateTime?
+  sessions     Session[]
+  bookings     Booking[]
 }
 
 model OtpAttempt {
@@ -355,24 +355,24 @@ enum OperatorRole {
 }
 
 model OperatorUser {
-  id                     String       @id @default(cuid())
+  id                     String            @id @default(cuid())
   operatorId             String
-  phone                  String       @unique
+  phone                  String            @unique
   contactPhone           String
   notificationPhone      String
   passwordHash           String
-  requiresPasswordChange Boolean      @default(true)
+  requiresPasswordChange Boolean           @default(true)
   displayName            String
-  role                   OperatorRole @default(admin)
+  role                   OperatorRole      @default(admin)
   disabledAt             DateTime?
-  createdAt              DateTime     @default(now())
-  updatedAt              DateTime     @updatedAt
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
   /// Issue 014: badge — last time operator viewed the bookings queue
   lastBookingsViewedAt   DateTime?
   /// Issue 017: single trip a staff member is assigned to (V1 constraint); null for admins
   assignedTripId         String?
-  operator               Operator     @relation(fields: [operatorId], references: [id])
-  assignedTrip           Trip?        @relation("StaffAssignment", fields: [assignedTripId], references: [id])
+  operator               Operator          @relation(fields: [operatorId], references: [id])
+  assignedTrip           Trip?             @relation("StaffAssignment", fields: [assignedTripId], references: [id])
   sessions               OperatorSession[]
 
   @@index([createdAt])
@@ -447,25 +447,25 @@ model Payout {
 
 /// Recurring trip schedule template. Generates Trips daily via cron (14-day horizon).
 model RecurringTripTemplate {
-  id                  String    @id @default(cuid())
-  operatorId          String
-  routeId             String
-  busId               String
-  price               Int
+  id                 String                   @id @default(cuid())
+  operatorId         String
+  routeId            String
+  busId              String
+  price              Int
   /// HH:MM local time (Asia/Ho_Chi_Minh)
-  departureLocalTime  String
+  departureLocalTime String
   /// Bitmask: Mon=1, Tue=2, Wed=4, Thu=8, Fri=16, Sat=32, Sun=64 (range 1-127)
-  daysOfMask          Int
-  validFrom           DateTime  @db.Date
-  validUntil          DateTime  @db.Date
-  deactivatedAt       DateTime?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-  operator            Operator  @relation(fields: [operatorId], references: [id])
-  route               Route     @relation(fields: [routeId], references: [id])
-  bus                 Bus       @relation(fields: [busId], references: [id])
-  trips               Trip[]
-  generationLogs      RecurringGenerationLog[]
+  daysOfMask         Int
+  validFrom          DateTime                 @db.Date
+  validUntil         DateTime                 @db.Date
+  deactivatedAt      DateTime?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  operator           Operator                 @relation(fields: [operatorId], references: [id])
+  route              Route                    @relation(fields: [routeId], references: [id])
+  bus                Bus                      @relation(fields: [busId], references: [id])
+  trips              Trip[]
+  generationLogs     RecurringGenerationLog[]
 
   @@index([operatorId])
   @@index([routeId])
@@ -474,17 +474,17 @@ model RecurringTripTemplate {
 
 /// Log of each daily cron run's result per template per date.
 model RecurringGenerationLog {
-  id          String                @id @default(cuid())
-  templateId  String
-  tripId      String?
+  id         String                @id @default(cuid())
+  templateId String
+  tripId     String?
   /// Date being generated (YYYY-MM-DD key)
-  date        DateTime              @db.Date
+  date       DateTime              @db.Date
   /// 'generated' | 'skipped' | 'failed'
-  status      String                @default("generated")
-  skipReason  String?
-  createdAt   DateTime              @default(now())
-  template    RecurringTripTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  trip        Trip?                 @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  status     String                @default("generated")
+  skipReason String?
+  createdAt  DateTime              @default(now())
+  template   RecurringTripTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  trip       Trip?                 @relation(fields: [tripId], references: [id], onDelete: SetNull)
 
   @@index([templateId])
   @@index([date])
