@@ -59,3 +59,21 @@ export function requireCustomerAuth(): HOF {
     };
   };
 }
+
+/**
+ * getCustomerOptional — non-throwing optional-auth read for routes that work
+ * both signed-in and as guest (e.g. POST /api/bookings/initiate). Returns the
+ * verified Customer.id from the `Authorization: Bearer` header, or null when
+ * the header is absent/malformed or the token fails verification.
+ *
+ * Unlike requireCustomerAuth this never short-circuits the request — a missing
+ * or invalid token simply means "treat as guest". Used to stamp Booking.customerId
+ * at creation when the buyer is logged in (Issue 031), which both pre-fills the
+ * account link and removes the phone-match attach spoof vector.
+ */
+export async function getCustomerOptional(req: NextRequest): Promise<string | null> {
+  const token = extractBearer(req.headers.get('authorization'));
+  if (!token) return null;
+  const payload = await verifyAccess(token);
+  return payload ? payload.sub : null;
+}

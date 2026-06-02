@@ -88,3 +88,49 @@ describe('requireCustomerAuth', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 });
+
+describe('getCustomerOptional (Issue 031)', () => {
+  it('returns the customerId for a valid Bearer token', async () => {
+    const { signAccess } = await import('../jwt');
+    const { getCustomerOptional } = await import('../requireCustomerAuth');
+    const token = await signAccess({ sub: 'cust-opt', role: 'customer' });
+
+    const result = await getCustomerOptional(reqWithAuth(`Bearer ${token}`));
+    expect(result).toBe('cust-opt');
+  });
+
+  it('returns null when the Authorization header is absent (guest)', async () => {
+    const { getCustomerOptional } = await import('../requireCustomerAuth');
+    expect(await getCustomerOptional(reqWithAuth(null))).toBeNull();
+  });
+
+  it('returns null for a non-Bearer scheme', async () => {
+    const { getCustomerOptional } = await import('../requireCustomerAuth');
+    expect(await getCustomerOptional(reqWithAuth('Basic abc'))).toBeNull();
+  });
+
+  it('returns null for a tampered token (never throws)', async () => {
+    const { signAccess } = await import('../jwt');
+    const { getCustomerOptional } = await import('../requireCustomerAuth');
+    const token = await signAccess({ sub: 'cust-y', role: 'customer' });
+    const parts = token.split('.');
+    const chars = parts[1].split('');
+    chars[0] = chars[0] === 'A' ? 'B' : 'A';
+    parts[1] = chars.join('');
+
+    expect(await getCustomerOptional(reqWithAuth(`Bearer ${parts.join('.')}`))).toBeNull();
+  });
+
+  it('returns null for an operator-scoped token (cross-scope guard)', async () => {
+    const { signOperatorAccess } = await import('../jwt');
+    const { getCustomerOptional } = await import('../requireCustomerAuth');
+    const opToken = await signOperatorAccess({
+      sub: 'op-1',
+      scope: 'operator',
+      role: 'admin',
+      requiresPasswordChange: false,
+      operatorId: 'org-1',
+    });
+    expect(await getCustomerOptional(reqWithAuth(`Bearer ${opToken}`))).toBeNull();
+  });
+});
