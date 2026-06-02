@@ -42,6 +42,7 @@ model Operator {
   recurringTemplates RecurringTripTemplate[]
   payouts            Payout[]
   ledgerEntries      LedgerEntry[]
+  feeConfigs         FeeConfig[]
 
   @@index([id])
   @@index([status])
@@ -628,4 +629,33 @@ model LedgerEntry {
   @@index([operatorId])
   @@index([bookingId])
   @@index([payoutId])
+}
+
+/// FeeConfig (Issue 048) — effective-dated, change-audited platform-fee source.
+///
+/// The platform fee rate is stored as `ratePpm`, a parts-per-million INTEGER
+/// (60000 = 6%), so callers can compute `amount * ratePpm / 1_000_000` entirely
+/// in the BigInt domain with no float drift (Issue 016). Slice 049 cuts the
+/// hard-coded DEFAULT_PLATFORM_FEE_PCT over to read from here.
+///
+/// EFFECTIVE-DATED + APPEND-AUDITED: a rate change is a NEW row (optionally
+/// closing the prior row's effectiveTo), NEVER an in-place edit of an existing
+/// row's ratePpm. This preserves the full historical rate timeline for audit
+/// and lets payout math resolve the rate that was in force at any past instant.
+///
+/// SCOPING: operatorId NULL = global default rate; non-null = per-operator
+/// override. Resolution is override-then-global (see lib/ledger/feeConfig.ts).
+model FeeConfig {
+  id            String    @id @default(cuid())
+  operatorId    String? // NULL = global default; non-null = per-operator override
+  ratePpm       Int // fee rate in parts-per-million (60000 = 6%)
+  effectiveFrom DateTime
+  effectiveTo   DateTime? // NULL = open-ended (current)
+  createdBy     String? // admin/actor id; nullable for the seeded cutover row
+  createdAt     DateTime  @default(now())
+
+  operator Operator? @relation(fields: [operatorId], references: [id])
+
+  @@index([operatorId, effectiveFrom])
+  @@index([effectiveFrom])
 }
