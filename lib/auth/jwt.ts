@@ -54,6 +54,11 @@ const ADMIN_ACCESS_TTL_SECONDS = 600; // 10 minutes
 
 const ADMIN_ROLES = new Set<AdminAccessPayload['role']>(['SUPER_ADMIN', 'FINANCE', 'SUPPORT']);
 
+// Issue 055: step-up (re-auth) token — minted after a FRESH TOTP verify on an
+// already-authenticated admin session. Short-lived (300s) and single-purpose
+// (scope='admin_stepup'); guards high-sensitivity finance/approval actions.
+const ADMIN_STEPUP_TTL_SECONDS = 300; // 5 minutes
+
 /**
  * Sign an access token.
  * Returns a compact HS256 JWT with exp = now + 900 s.
@@ -163,6 +168,43 @@ export async function signAdminAccess(payload: AdminAccessPayload): Promise<stri
     .setIssuedAt()
     .setExpirationTime(`${ADMIN_ACCESS_TTL_SECONDS}s`)
     .sign(secret);
+}
+
+/**
+ * Issue 055: Sign an admin step-up (re-auth) token.
+ * Returns a compact HS256 JWT with exp = now + 300s, scope='admin_stepup',
+ * sub=adminId. This token is DISTINCT from the admin access token (scope guard):
+ * verifyAdminAccess rejects it and verifyAdminStepUp rejects an access token.
+ */
+export async function signAdminStepUp(adminId: string): Promise<string> {
+  const secret = getSecret();
+  return new SignJWT({ scope: 'admin_stepup' })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setSubject(adminId)
+    .setIssuedAt()
+    .setExpirationTime(`${ADMIN_STEPUP_TTL_SECONDS}s`)
+    .sign(secret);
+}
+
+/**
+ * Issue 055: Verify an admin step-up token.
+ * Returns { sub } on success, null on any failure. Requires scope==='admin_stepup'
+ * so a regular admin access token (scope==='admin') is rejected here — and the
+ * reverse holds because verifyAdminAccess requires scope==='admin'.
+ */
+export async function verifyAdminStepUp(token: string): Promise<{ sub: string } | null> {
+  try {
+    const secret = getSecret();
+    const { payload } = await jwtVerify(token, secret, {
+      algorithms: ['HS256'],
+    });
+    const sub = payload.sub;
+    const scope = payload['scope'];
+    if (typeof sub !== 'string' || scope !== 'admin_stepup') return null;
+    return { sub };
+  } catch {
+    return null;
+  }
 }
 
 /**

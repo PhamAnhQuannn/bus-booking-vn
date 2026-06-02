@@ -36,6 +36,10 @@
  * - buyerName                  — manual booking buyer name PII (Issue 015)
  * - buyerEmail                 — booking buyer email PII (Issue 042)
  * - *.recipient                — NotificationLog/Payout recipient phone (Issue 019)
+ * - totpSecret                 — top-level TOTP shared secret (Issue 055)
+ * - *.totpSecret               — nested TOTP shared secret — a logged secret = full 2FA compromise (Issue 055)
+ * - totpCode                   — top-level TOTP code (Issue 055)
+ *   (raw body `code` is already covered by the existing `*.code` path)
  */
 
 import pino, { type LoggerOptions } from 'pino';
@@ -81,6 +85,9 @@ export const loggerOptions: LoggerOptions = {
       'buyerEmail',
       '*.recipient',
       'newPhone',                // Issue 008: phone-change new phone (PII)
+      'totpSecret',              // Issue 055: top-level TOTP shared secret
+      '*.totpSecret',            // Issue 055: nested TOTP shared secret (2FA compromise)
+      'totpCode',                // Issue 055: top-level TOTP code (body.code covered by *.code)
     ],
     censor: '[REDACTED]',
   },

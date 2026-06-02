@@ -149,4 +149,38 @@ describe('jwt', () => {
       expect(await verifyAdminAccess(opToken)).toBeNull();
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Issue 055 — admin step-up (re-auth) token + cross-token guards
+  // ---------------------------------------------------------------------------
+
+  describe('admin step-up (Issue 055)', () => {
+    it('signAdminStepUp → verifyAdminStepUp roundtrip returns the sub', async () => {
+      const { signAdminStepUp, verifyAdminStepUp } = await import('../jwt');
+      const token = await signAdminStepUp('admin-7');
+      const payload = await verifyAdminStepUp(token);
+      expect(payload).not.toBeNull();
+      expect(payload!.sub).toBe('admin-7');
+    });
+
+    it('exp - iat === 300 seconds', async () => {
+      const { signAdminStepUp } = await import('../jwt');
+      const { decodeJwt } = await import('jose');
+      const token = await signAdminStepUp('admin-8');
+      const decoded = decodeJwt(token);
+      expect(decoded.exp! - decoded.iat!).toBe(300);
+    });
+
+    it('a regular admin access token → verifyAdminStepUp === null (wrong scope)', async () => {
+      const { signAdminAccess, verifyAdminStepUp } = await import('../jwt');
+      const accessToken = await signAdminAccess({ sub: 'admin-9', scope: 'admin', role: 'FINANCE', totpVerified: true });
+      expect(await verifyAdminStepUp(accessToken)).toBeNull();
+    });
+
+    it('a step-up token → verifyAdminAccess === null (cross-token guard)', async () => {
+      const { signAdminStepUp, verifyAdminAccess } = await import('../jwt');
+      const stepUpToken = await signAdminStepUp('admin-10');
+      expect(await verifyAdminAccess(stepUpToken)).toBeNull();
+    });
+  });
 });

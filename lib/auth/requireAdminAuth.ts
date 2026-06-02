@@ -27,6 +27,13 @@ export const ADMIN_ACCESS_COOKIE = 'bb_admin_access';
 export interface RequireAdminAuthOptions {
   /** Restrict the route to one or more admin roles. Omit to allow any ACTIVE admin. */
   role?: AdminRole | AdminRole[];
+  /**
+   * Issue 055: require the session to have cleared the TOTP step (ctx.totpVerified===true).
+   * When true and totpVerified !== true → 403 { error: 'TOTP_REQUIRED' }.
+   * Enroll/confirm/verify routes pass requireTotp:false (they RUN the TOTP flow);
+   * step-up + Wave-3 finance/approval routes pass requireTotp:true.
+   */
+  requireTotp?: boolean;
 }
 
 /** Context the HOF threads to the wrapped handler. */
@@ -76,6 +83,12 @@ export function requireAdminAuth(options: RequireAdminAuthOptions = {}): HOF {
       const role = admin.role as AdminRole;
       if (allowedRoles && !allowedRoles.has(role)) {
         return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 });
+      }
+
+      // TOTP gate (Issue 055) — a session that has not cleared the TOTP step
+      // (totpVerified from the JWT claim) is rejected on TOTP-required routes.
+      if (options.requireTotp === true && payload.totpVerified !== true) {
+        return NextResponse.json({ error: 'TOTP_REQUIRED' }, { status: 403 });
       }
 
       const ctx: AdminAuthContext = {
