@@ -77,11 +77,14 @@ async function main() {
 
   // ---- Operators ----
   // NOTE: Phone numbers use placeholder values — NEVER real VN mobile numbers
+  // Issue 045: seeded demo operators are APPROVED so their trips are searchable
+  // (default status is PENDING_REVIEW, which the Issue 046 search gate hides).
   const op1 = await prisma.operator.create({
     data: {
       legalName: 'Công ty TNHH Xe Khách Phương Bắc',
       contactPhone: '+8490xxxxxx1',
       contactEmail: 'lienhe@phuongbac.vn',
+      status: 'APPROVED',
     },
   });
 
@@ -90,6 +93,7 @@ async function main() {
       legalName: 'Công ty CP Vận Tải Miền Nam',
       contactPhone: '+8490xxxxxx2',
       contactEmail: 'hotro@mientam.vn',
+      status: 'APPROVED',
     },
   });
 
@@ -98,6 +102,7 @@ async function main() {
       legalName: 'Công ty TNHH Vận Tải Tây Nguyên',
       contactPhone: '+8490xxxxxx4',
       contactEmail: 'cskh@taynguyen.vn',
+      status: 'APPROVED',
     },
   });
 
