@@ -11,4 +11,5 @@ export {
 } from './ledgerRepo';
 
 // Issue 048: effective-dated platform-fee source (read helper + ppm math).
-export { getEffectiveFeeRate, applyFeePpm } from './feeConfig';
+// Issue 049: calcPlatformFeeMinor — half-even fee for the ledger write.
+export { getEffectiveFeeRate, applyFeePpm, calcPlatformFeeMinor } from './feeConfig';

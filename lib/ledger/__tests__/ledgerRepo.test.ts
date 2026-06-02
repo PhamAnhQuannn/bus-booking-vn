@@ -118,6 +118,35 @@ describe('appendLedgerEntry', () => {
     expect(create.mock.calls[0][0].data.currency).toBe('USD');
   });
 
+  it('uses an injected client (tx) for create AND the idempotent re-read', async () => {
+    // Issue 049: appendLedgerEntry takes an optional client so the webhook can
+    // write entries inside its $transaction. The P2002 re-read must use the SAME
+    // injected client, not the global prisma singleton.
+    const txCreate = vi.fn().mockRejectedValue(p2002());
+    const txFindUnique = vi.fn().mockResolvedValue({ id: 'tx-existing' });
+    const fakeTx = { ledgerEntry: { create: txCreate, findUnique: txFindUnique } };
+
+    const result = await appendLedgerEntry(
+      {
+        operatorId: 'op-1',
+        type: 'platform_fee',
+        amountMinor: BigInt(-12_000),
+        sourceEventId: 'platform_fee:tx',
+      },
+      fakeTx as never
+    );
+
+    expect(result).toEqual({ id: 'tx-existing', created: false });
+    expect(txCreate).toHaveBeenCalledTimes(1);
+    expect(txFindUnique).toHaveBeenCalledWith({
+      where: { sourceEventId: 'platform_fee:tx' },
+      select: { id: true },
+    });
+    // The global singleton must NOT be touched when a client is injected.
+    expect(create).not.toHaveBeenCalled();
+    expect(findUnique).not.toHaveBeenCalled();
+  });
+
   it('rethrows non-P2002 Prisma errors', async () => {
     const other = new Prisma.PrismaClientKnownRequestError('FK violation', {
       code: 'P2003',

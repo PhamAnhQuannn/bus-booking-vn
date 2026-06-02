@@ -12,7 +12,8 @@ import { describe, it, expect, vi } from 'vitest';
 // client, so the default is never exercised here — stub it to an empty object.
 vi.mock('@/lib/db/client', () => ({ prisma: {} }));
 
-import { getEffectiveFeeRate, applyFeePpm } from '../feeConfig';
+import { getEffectiveFeeRate, applyFeePpm, calcPlatformFeeMinor } from '../feeConfig';
+import { calcPayout } from '@/lib/payouts/calcPayout';
 
 interface Row {
   operatorId: string | null;
@@ -90,5 +91,44 @@ describe('applyFeePpm — exact BigInt fee math', () => {
 
   it('returns a bigint', () => {
     expect(typeof applyFeePpm(BigInt(1000), 60000)).toBe('bigint');
+  });
+});
+
+describe('calcPlatformFeeMinor — half-even BigInt fee math (Issue 049)', () => {
+  it('computes 6% of 250,000 = 15,000 (no float)', () => {
+    expect(calcPlatformFeeMinor(BigInt(250000), 60000)).toBe(BigInt(15000));
+  });
+
+  it('returns a bigint', () => {
+    expect(typeof calcPlatformFeeMinor(BigInt(1000), 60000)).toBe('bigint');
+  });
+
+  it('stays exact for a full-bus-scale VND value', () => {
+    // 99,999,999,999 * 60000 / 1_000_000 = 5,999,999,999.94 → half-even rounds the
+    // .94 fraction UP to 6,000,000,000 (NOT floored — that is applyFeePpm's job).
+    expect(calcPlatformFeeMinor(BigInt('99999999999'), 60000)).toBe(BigInt('6000000000'));
+  });
+
+  it('half-even rounds a .5 midpoint UP to the even integer (gross=25 → 1.5 → 2)', () => {
+    // 25 * 0.06 = 1.5 exactly. Floor would give 1; half-even rounds to even → 2.
+    expect(calcPlatformFeeMinor(BigInt(25), 60000)).toBe(BigInt(2));
+  });
+
+  it('half-even rounds a .5 midpoint DOWN to the even integer (gross=75 → 4.5 → 4)', () => {
+    // 75 * 0.06 = 4.5 exactly. 4 is even, so half-even keeps 4 (proves it is NOT
+    // a plain round-half-up, which would give 5).
+    expect(calcPlatformFeeMinor(BigInt(75), 60000)).toBe(BigInt(4));
+  });
+
+  it('parity: matches calcPayout.platformFee for a range of gross values (incl .5 midpoint)', () => {
+    // ppm 60000 / 1_000_000 == 0.06 == calcPayout's default fee pct, and both use
+    // the SAME half-even tie logic — so the two MUST agree bit-for-bit. 25 and 75
+    // are exact .5 midpoints (tie cases) that would diverge under any other mode.
+    const grosses = [0, 1, 25, 75, 100, 250000, 333333, 1234567, 99999999999];
+    for (const g of grosses) {
+      const ledgerFee = calcPlatformFeeMinor(BigInt(g), 60000);
+      const legacyFee = calcPayout({ grossPaidBookings: g }).platformFee;
+      expect(ledgerFee).toBe(BigInt(legacyFee));
+    }
   });
 });

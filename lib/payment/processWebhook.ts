@@ -41,6 +41,11 @@ import { logger } from '@/lib/logger';
 import { track, sessionIdForBooking } from '@/lib/analytics/track';
 import type { PaymentGateway } from './gateway';
 import { legalPredecessors } from '@/lib/booking/transitions';
+import {
+  appendLedgerEntry,
+  getEffectiveFeeRate,
+  calcPlatformFeeMinor,
+} from '@/lib/ledger';
 
 export interface ProcessPaymentWebhookInput {
   rawBody: string;
@@ -106,6 +111,7 @@ export async function processPaymentWebhook(
             select: {
               operator: {
                 select: {
+                  id: true,
                   legalName: true,
                   contactPhone: true,
                   notificationPhone: true,
@@ -198,6 +204,51 @@ export async function processPaymentWebhook(
           // claims via OTP-proven register backfill. The old phone-match attach
           // was spoofable (any typed phone matching an account would link).
           paidBookingId = booking.id; // funnel booking_paid fired post-commit
+
+          // ── Issue 049: ledger entries at booking-paid ───────────────────
+          // Two double-entry rows for this first-and-only paid transition:
+          //   booking_credit = +gross  (full fare credited to the operator)
+          //   platform_fee   = −fee    (the platform's cut, its OWN entry —
+          //                             NOT folded into the credit, per AC).
+          // Operator balance = SUM = gross − fee = net.
+          //
+          // Idempotency: this whole block runs ONLY when `updated > 0`, i.e. the
+          // FIRST time the booking flips to paid. A replayed paid IPN finds the
+          // row already advanced → guarded UPDATE matches 0 rows → updated=0 →
+          // this block is skipped → no duplicate entries. The unique
+          // sourceEventId on each entry is belt-and-suspenders on top of that.
+          //
+          // Written inside the SAME `tx` as the status update so a rolled-back
+          // payment transaction never leaves orphan ledger rows. Legacy
+          // Payout.platformFee coexists untouched (balance derivation migrates
+          // in slice 050) — this slice ONLY adds the two entries.
+          const operatorId = booking.trip.bus.operator.id;
+          const gross = BigInt(booking.totalVnd);
+          const feePpm = await getEffectiveFeeRate(operatorId, new Date(), tx);
+          const fee = calcPlatformFeeMinor(gross, feePpm);
+
+          await appendLedgerEntry(
+            {
+              operatorId,
+              bookingId: booking.id,
+              type: 'booking_credit',
+              amountMinor: gross,
+              currency: 'VND',
+              sourceEventId: `booking_credit:${booking.id}`,
+            },
+            tx
+          );
+          await appendLedgerEntry(
+            {
+              operatorId,
+              bookingId: booking.id,
+              type: 'platform_fee',
+              amountMinor: -fee,
+              currency: 'VND',
+              sourceEventId: `platform_fee:${booking.id}`,
+            },
+            tx
+          );
 
           const operator = booking.trip.bus.operator;
           const operatorRecipient = operator.notificationPhone ?? operator.contactPhone;

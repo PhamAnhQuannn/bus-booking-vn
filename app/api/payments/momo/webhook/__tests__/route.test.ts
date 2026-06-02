@@ -45,6 +45,19 @@ vi.mock('@/lib/notifications/esms', () => ({
   renderTemplate: vi.fn().mockReturnValue('stub sms body'),
 }));
 
+// Issue 049: the paid branch now appends two ledger entries inside the tx.
+// Mock the ledger barrel: getEffectiveFeeRate → 60000 (6%), calcPlatformFeeMinor
+// real (so the asserted −12000 = 6% of 200000 is the genuine half-even result),
+// appendLedgerEntry a spy we assert on.
+vi.mock('@/lib/ledger', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/ledger')>('@/lib/ledger');
+  return {
+    appendLedgerEntry: vi.fn().mockResolvedValue({ id: 'ledger-x', created: true }),
+    getEffectiveFeeRate: vi.fn().mockResolvedValue(60000),
+    calcPlatformFeeMinor: actual.calcPlatformFeeMinor,
+  };
+});
+
 vi.mock('@/lib/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
@@ -65,6 +78,7 @@ import { POST } from '../route';
 import { getMomoAdapter } from '@/lib/payment/momo';
 import { prisma } from '@/lib/db/client';
 import { createNotificationLog } from '@/lib/db/notificationLogRepo';
+import { appendLedgerEntry } from '@/lib/ledger';
 import { logger } from '@/lib/logger';
 import { Prisma } from '@prisma/client';
 import { NextRequest } from 'next/server';
@@ -92,6 +106,7 @@ const MOCK_BOOKING = {
     route: { origin: 'Hà Nội', destination: 'TP.HCM' },
     bus: {
       operator: {
+        id: 'op-test-001',
         legalName: 'Test Operator',
         contactPhone: '+8490xxxxxx2',
         notificationPhone: '+8490xxxxxx3',
@@ -205,6 +220,33 @@ describe('POST /api/payments/momo/webhook — paid IPN (resultCode=0)', () => {
     const calls = vi.mocked(createNotificationLog).mock.calls;
     const templates = calls.map((c) => c[0].template).sort();
     expect(templates).toEqual(['customerBookingPaid', 'operatorNewBooking']);
+
+    // Issue 049: exactly two ledger entries appended on the first paid transition.
+    expect(appendLedgerEntry).toHaveBeenCalledTimes(2);
+    const ledgerCalls = vi.mocked(appendLedgerEntry).mock.calls;
+
+    const credit = ledgerCalls.find((c) => c[0].type === 'booking_credit');
+    const fee = ledgerCalls.find((c) => c[0].type === 'platform_fee');
+    expect(credit).toBeDefined();
+    expect(fee).toBeDefined();
+
+    // booking_credit = +gross (full fare, positive).
+    expect(credit![0].operatorId).toBe('op-test-001');
+    expect(credit![0].bookingId).toBe(BOOKING_ID);
+    expect(credit![0].amountMinor).toBe(BigInt(200000));
+    expect(credit![0].currency).toBe('VND');
+    expect(credit![0].sourceEventId).toBe(`booking_credit:${BOOKING_ID}`);
+
+    // platform_fee = −fee (6% of 200000 = 12000, NEGATIVE — its own entry).
+    expect(fee![0].operatorId).toBe('op-test-001');
+    expect(fee![0].bookingId).toBe(BOOKING_ID);
+    expect(fee![0].amountMinor).toBe(BigInt(-12000));
+    expect(fee![0].currency).toBe('VND');
+    expect(fee![0].sourceEventId).toBe(`platform_fee:${BOOKING_ID}`);
+
+    // Each append is given the tx handle (2nd arg) so it writes inside the tx.
+    expect(credit![1]).toBeDefined();
+    expect(fee![1]).toBeDefined();
   });
 });
 
@@ -239,6 +281,8 @@ describe('POST /api/payments/momo/webhook — underpaid IPN (money-loss guard)',
     expect(paymentEventCreate).toHaveBeenCalledOnce(); // audit row recorded
     expect(executeRawMock).not.toHaveBeenCalled(); // no status UPDATE
     expect(createNotificationLog).not.toHaveBeenCalled();
+    // Issue 049: underpaid never reaches updated>0 → no ledger entries.
+    expect(appendLedgerEntry).not.toHaveBeenCalled();
   });
 
   it('marks booking paid when the IPN pays the exact amount (control)', async () => {
@@ -267,6 +311,8 @@ describe('POST /api/payments/momo/webhook — underpaid IPN (money-loss guard)',
     expect(res.status).toBe(200);
     expect(executeRawMock).toHaveBeenCalledOnce(); // paid transition ran
     expect(createNotificationLog).toHaveBeenCalledTimes(2);
+    // Issue 049: exact-amount paid transition appends the two ledger entries.
+    expect(appendLedgerEntry).toHaveBeenCalledTimes(2);
   });
 
   it('marks booking paid AND records the overpay delta when the IPN overpays (not silent)', async () => {
@@ -341,6 +387,8 @@ describe('POST /api/payments/momo/webhook — currency mismatch (non-VND success
     expect(paymentEventCreate).toHaveBeenCalledOnce(); // audit row recorded
     expect(executeRawMock).not.toHaveBeenCalled(); // no status UPDATE
     expect(createNotificationLog).not.toHaveBeenCalled();
+    // Issue 049: currency mismatch never reaches updated>0 → no ledger entries.
+    expect(appendLedgerEntry).not.toHaveBeenCalled();
 
     // A structured currency_mismatch warn carries the currency.
     const mismatchWarn = vi
@@ -411,6 +459,9 @@ describe('POST /api/payments/momo/webhook — monotonic transition guard (issue 
     expect(json.message).toBe('ok');
     expect(executeRawMock).toHaveBeenCalledOnce(); // guard ran
     expect(createNotificationLog).not.toHaveBeenCalled(); // no regress side effects
+    // Issue 049: updated=0 (already advanced) → the ledger block is skipped → no
+    // duplicate entries on a replayed paid IPN.
+    expect(appendLedgerEntry).not.toHaveBeenCalled();
   });
 });
 

@@ -66,18 +66,51 @@ function toBigIntMinor(amount: bigint | number): bigint {
 }
 
 /**
+ * Minimal Prisma surface this function needs — both the create (with select)
+ * and the idempotent re-read (findUnique). A `Prisma.TransactionClient` (the tx
+ * handle inside `$transaction`) satisfies this shape, so the webhook can append
+ * ledger entries INSIDE its existing transaction. The global `prisma` client
+ * satisfies it too — it is the default.
+ */
+export interface LedgerEntryWriter {
+  ledgerEntry: {
+    create: (args: {
+      data: {
+        operatorId: string;
+        bookingId?: string;
+        payoutId?: string;
+        type: LedgerEntryType;
+        amount: bigint;
+        currency: string;
+        sourceEventId: string;
+      };
+      select: { id: true };
+    }) => Promise<{ id: string }>;
+    findUnique: (args: {
+      where: { sourceEventId: string };
+      select: { id: true };
+    }) => Promise<{ id: string } | null>;
+  };
+}
+
+/**
  * Append one immutable ledger entry. Idempotent on `sourceEventId`:
  *   - first append for a sourceEventId inserts and returns { created: true }.
  *   - a duplicate sourceEventId (Prisma P2002) is a no-op — we re-read the
  *     existing row and return { created: false } with its id.
+ *
+ * `client` is injectable (defaults to the shared singleton). Pass a Prisma tx
+ * handle to write the entry inside an enclosing `$transaction` — the P2002
+ * re-read uses the SAME client so the idempotent path stays inside the tx.
  */
 export async function appendLedgerEntry(
-  input: AppendLedgerEntryInput
+  input: AppendLedgerEntryInput,
+  client: LedgerEntryWriter = prisma as unknown as LedgerEntryWriter
 ): Promise<AppendLedgerEntryResult> {
   const amount = toBigIntMinor(input.amountMinor);
 
   try {
-    const row = await prisma.ledgerEntry.create({
+    const row = await client.ledgerEntry.create({
       data: {
         operatorId: input.operatorId,
         bookingId: input.bookingId,
@@ -93,7 +126,8 @@ export async function appendLedgerEntry(
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
       // Idempotent re-append: the row already exists for this sourceEventId.
-      const existing = await prisma.ledgerEntry.findUnique({
+      // Re-read with the SAME client so an in-tx append stays in the tx.
+      const existing = await client.ledgerEntry.findUnique({
         where: { sourceEventId: input.sourceEventId },
         select: { id: true },
       });
