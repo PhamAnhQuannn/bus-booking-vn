@@ -461,6 +461,55 @@ model OperatorOtpAttempt {
 }
 
 // ---------------------------------------------------------------------------
+// Issue 054 — Admin auth (THIRD auth realm). Distinct table; NEVER reuse
+// Customer/Operator. Accounts are invite-only (issue 057) — no registration.
+// ---------------------------------------------------------------------------
+
+enum AdminRole {
+  SUPER_ADMIN
+  FINANCE
+  SUPPORT
+}
+
+enum AdminStatus {
+  ACTIVE
+  DISABLED
+}
+
+model AdminUser {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  passwordHash  String
+  role          AdminRole
+  totpSecret    String?
+  totpEnabledAt DateTime?
+  invitedBy     String?
+  status        AdminStatus    @default(ACTIVE)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  sessions      AdminSession[]
+
+  @@index([email])
+}
+
+// Parallel refresh-token store for the admin realm. OperatorSession is FK-bound
+// to OperatorUser, so admin refresh tokens live in their own minimal table
+// (same family-rotation/reuse-detection structure) FK-bound to AdminUser.
+model AdminSession {
+  id               String    @id @default(cuid())
+  adminUserId      String
+  refreshTokenHash String    @unique
+  tokenFamily      String
+  rotationCount    Int       @default(0)
+  expiresAt        DateTime
+  createdAt        DateTime  @default(now())
+  revokedAt        DateTime?
+  admin            AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([adminUserId])
+}
+
+// ---------------------------------------------------------------------------
 // Issue 016 — Operator revenue reporting + payout tracking
 // ---------------------------------------------------------------------------
 
