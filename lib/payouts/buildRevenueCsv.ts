@@ -63,7 +63,7 @@ export interface RevenueRow {
   grossRevenueVnd: number;
   platformFeeVnd: number;
   netPayoutVnd: number;
-  payoutStatus: 'pending' | 'processing' | 'settled' | 'failed' | null;
+  payoutStatus: 'requested' | 'processing' | 'paid' | 'failed' | null;
 }
 
 /**

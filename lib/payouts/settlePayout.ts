@@ -2,9 +2,9 @@
  * settlePayout — bank-settlement dispatch stub (Issue 019).
  *
  * V1 stub: performs no real network I/O. Returns ok by default so the payout
- * processor transitions pending → processing → settled. When the env flag
+ * processor transitions requested → processing → paid. When the env flag
  * PAYOUT_SETTLEMENT_FORCE_FAIL is "true" it returns a failure result, letting
- * the processor's failed-path AC (pending → processing → failed) be exercised
+ * the processor's failed-path AC (requested → processing → failed) be exercised
  * in tests.
  *
  * Discriminated result — never throws. When real bank HTTP lands, this is the

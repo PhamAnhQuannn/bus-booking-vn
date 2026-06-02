@@ -71,9 +71,9 @@ export function contactStatusDisplay(status: string | null | undefined): StatusD
 
 // Payout status — previously duplicated across RevenueClient + PayoutsClient.
 const PAYOUT_STATUS: Record<string, StatusDisplay> = {
-  pending: { variant: "pending", label: "Chờ xử lý" },
+  requested: { variant: "pending", label: "Chờ xử lý" },
   processing: { variant: "neutral", label: "Đang xử lý" },
-  settled: { variant: "success", label: "Đã thanh toán" },
+  paid: { variant: "success", label: "Đã thanh toán" },
   failed: { variant: "danger", label: "Thất bại" },
 }
 

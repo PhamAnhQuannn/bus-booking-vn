@@ -1,7 +1,12 @@
 /**
- * processPayouts — settle pending payouts whose T+3 scheduledAt has arrived
- * (Issue 019 AC5). Transitions each row pending → processing → settled (ok) or
+ * processPayouts — settle requested payouts whose scheduledAt has arrived
+ * (Issue 019 AC5). Transitions each row requested → processing → paid (ok) or
  * processing → failed (settlement failure).
+ *
+ * Issue 050 Part C: on the requested → paid transition we ALSO append a
+ * `payout_debit` LedgerEntry (amount = −net) in the SAME transaction, so the
+ * operator-balance SUM (lib/ledger/balance.ts) reflects the drain. Idempotent
+ * via the ledger's sourceEventId unique key (`payout_debit:<payoutId>`).
  *
  * Locks each due row (FOR UPDATE SKIP LOCKED) so concurrent invocations don't
  * double-settle. gross/platformFee/net were computed authoritatively at
@@ -34,11 +39,18 @@ export const processPayouts: JobCore = async (tx, opts) => {
     Prisma.sql`
       SELECT id, "operatorId", net
       FROM "Payout"
-      WHERE status = 'pending'::"PayoutStatus"
+      WHERE status = 'requested'::"PayoutStatus"
         AND "scheduledAt" <= NOW()
       FOR UPDATE SKIP LOCKED
     `
   );
+
+  // Lazy import keeps this core free of a module-level `@/lib/db/client` load:
+  // unit tests that import the cron route (which imports this core) must not
+  // trigger the eager `prisma` singleton (it throws without DATABASE_URL). We
+  // pass `tx` to appendLedgerEntry, so its default-client param is never used.
+  // Hoisted once (not per-iteration) before the loop.
+  const { appendLedgerEntry } = await import('@/lib/ledger/ledgerRepo');
 
   let processed = 0;
   for (const payout of due) {
@@ -56,8 +68,29 @@ export const processPayouts: JobCore = async (tx, opts) => {
     if (result.ok) {
       await tx.payout.update({
         where: { id: payout.id },
-        data: { status: 'settled', settledAt: now },
+        data: { status: 'paid', settledAt: now },
       });
+
+      // Issue 050 Part C: record the balance drain as an immutable ledger entry
+      // in the SAME transaction as the status flip. amount = −net (debit FROM the
+      // operator's balance; sign convention in lib/ledger/ledgerRepo.ts). The
+      // operator-balance SUM (lib/ledger/balance.ts) reads this to compute paidOut.
+      //
+      // Idempotent: sourceEventId `payout_debit:<payoutId>` is unique, so a re-run
+      // that re-selects the same row (it won't normally, since status is now 'paid'
+      // and the WHERE filters on 'requested') is a no-op — belt-and-suspenders
+      // alongside the status guard. amountMinor passed as a bigint to stay in the
+      // BigInt domain (Issue 016).
+      await appendLedgerEntry(
+        {
+          operatorId: payout.operatorId,
+          payoutId: payout.id,
+          type: 'payout_debit',
+          amountMinor: -BigInt(payout.net),
+          sourceEventId: `payout_debit:${payout.id}`,
+        },
+        tx
+      );
     } else {
       await tx.payout.update({
         where: { id: payout.id },

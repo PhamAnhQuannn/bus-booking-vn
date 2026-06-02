@@ -20,7 +20,7 @@ function makeRow(overrides: Partial<RevenueRow> = {}): RevenueRow {
     grossRevenueVnd: 1_500_000,
     platformFeeVnd: 90_000,
     netPayoutVnd: 1_410_000,
-    payoutStatus: 'settled',
+    payoutStatus: 'paid',
     ...overrides,
   };
 }
@@ -40,7 +40,7 @@ describe('buildRevenueCsv', () => {
   });
 
   it('single happy-path row produces correct output', () => {
-    const row = makeRow({ payoutStatus: 'settled' });
+    const row = makeRow({ payoutStatus: 'paid' });
     const csv = buildRevenueCsv([row]);
     const lines = csv.replace('﻿', '').split('\r\n');
     expect(lines).toHaveLength(2);
@@ -52,7 +52,7 @@ describe('buildRevenueCsv', () => {
     expect(dataFields[4]).toBe('1500000');
     expect(dataFields[5]).toBe('90000');
     expect(dataFields[6]).toBe('1410000');
-    expect(dataFields[7]).toBe('settled');
+    expect(dataFields[7]).toBe('paid');
   });
 
   it('uses CRLF line endings', () => {
@@ -80,7 +80,7 @@ describe('buildRevenueCsv', () => {
   });
 
   it('all four payoutStatus values render correctly', () => {
-    const statuses: Array<RevenueRow['payoutStatus']> = ['pending', 'processing', 'settled', 'failed'];
+    const statuses: Array<RevenueRow['payoutStatus']> = ['requested', 'processing', 'paid', 'failed'];
     for (const status of statuses) {
       const csv = buildRevenueCsv([makeRow({ payoutStatus: status })]);
       const lines = csv.replace('﻿', '').split('\r\n');

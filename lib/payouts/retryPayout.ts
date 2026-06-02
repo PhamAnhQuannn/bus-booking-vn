@@ -37,7 +37,7 @@ export async function retryPayout(input: {
       return { ok: false, error: 'wrong_operator' };
     }
 
-    // Only 'failed' payouts can be retried. All other statuses (pending, processing, settled)
+    // Only 'failed' payouts can be retried. All other statuses (requested, processing, paid)
     // are not eligible — use discriminated result, not a thrown sentinel (Issue 013 Mistake Log).
     if (rows[0].status !== 'failed') {
       return { ok: false, error: 'not_failed' };

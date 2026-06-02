@@ -8,7 +8,7 @@
  * - Happy path: failed payout → status becomes 'processing', failureReason cleared.
  * - not_found: non-existent payoutId → { ok: false, error: 'not_found' }.
  * - wrong_operator: payout belongs to operator A, called with operator B → { ok: false, error: 'wrong_operator' }.
- * - not_failed: settled payout → { ok: false, error: 'not_failed' }.
+ * - not_failed: paid payout → { ok: false, error: 'not_failed' }.
  * - Concurrent-write: two simultaneous retries on same failed payout — one transitions, one returns 'not_failed'.
  */
 
@@ -28,7 +28,7 @@ let tripId: string;
 
 /** Seed a Payout row and return its id. */
 async function seedPayout(
-  status: 'pending' | 'processing' | 'settled' | 'failed',
+  status: 'requested' | 'processing' | 'paid' | 'failed',
   overrideOperatorId?: string
 ): Promise<string> {
   const p = await prisma.payout.create({
@@ -154,8 +154,8 @@ describe('retryPayout', () => {
     await prisma.payout.delete({ where: { id: payoutId } });
   });
 
-  it('not_failed: settled payout → error', async () => {
-    const payoutId = await seedPayout('settled');
+  it('not_failed: paid payout → error', async () => {
+    const payoutId = await seedPayout('paid');
 
     const result = await retryPayout({ payoutId, operatorId: operatorAId });
     expect(result).toEqual({ ok: false, error: 'not_failed' });

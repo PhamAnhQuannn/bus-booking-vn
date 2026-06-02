@@ -8,7 +8,9 @@
  * - AC2 autoCloseSales     — scheduled trip past departure gets salesClosed=true
  * - AC3 autoCompleteTrips  — departed trip past duration → completed + Payout row
  * - AC4 sendReminders      — 24h reminder fires once (reminderSentAt guard)
- * - AC5 processPayouts     — pending→settled (ok) and pending→failed (forced fail)
+ * - AC5 processPayouts     — requested→paid (ok) and requested→failed (forced fail);
+ *                            Issue 050: paid transition writes ONE payout_debit
+ *                            ledger entry, idempotent across re-runs.
  * - AC6 withAdvisoryLock   — second invocation skipped_locked while lock held
  * - I43 generateTrips      — runJob('trip-generate') skips while locked; one
  *                            JobRunLog per run; per-row generation idempotent
@@ -311,14 +313,14 @@ describe('AC5 processPayouts', () => {
         gross: 150_000,
         platformFee: 9_000,
         net: 141_000,
-        status: 'pending',
+        status: 'requested',
         scheduledAt: new Date(Date.now() - 60_000), // due (past)
       },
     });
     return payout.id;
   }
 
-  it('happy path: pending → settled', async () => {
+  it('happy path: requested → paid', async () => {
     const payoutId = await createDuePayout();
 
     await prisma.$transaction((tx) => processPayouts(tx));
@@ -327,12 +329,12 @@ describe('AC5 processPayouts', () => {
       where: { id: payoutId },
       select: { status: true, settledAt: true, failureReason: true },
     });
-    expect(row?.status).toBe('settled');
+    expect(row?.status).toBe('paid');
     expect(row?.settledAt).not.toBeNull();
     expect(row?.failureReason).toBeNull();
   });
 
-  it('forced failure: pending → failed with failureReason', async () => {
+  it('forced failure: requested → failed with failureReason', async () => {
     const payoutId = await createDuePayout();
 
     process.env.PAYOUT_SETTLEMENT_FORCE_FAIL = 'true';
@@ -362,7 +364,7 @@ describe('AC5 processPayouts', () => {
         gross: 100_000,
         platformFee: 6_000,
         net: 94_000,
-        status: 'pending',
+        status: 'requested',
         scheduledAt: new Date(Date.now() + 3 * 86_400_000), // not due
       },
     });
@@ -370,7 +372,38 @@ describe('AC5 processPayouts', () => {
     await prisma.$transaction((tx) => processPayouts(tx));
 
     const row = await prisma.payout.findUnique({ where: { id: payout.id }, select: { status: true } });
-    expect(row?.status).toBe('pending');
+    expect(row?.status).toBe('requested');
+  });
+
+  // Issue 050 Part C: the requested → paid transition appends a payout_debit
+  // ledger entry (amount = −net) in the same tx. sourceEventId is unique per
+  // payout, so two sweeps must leave exactly ONE payout_debit row.
+  it('Issue 050: paid transition writes ONE payout_debit ledger entry (idempotent)', async () => {
+    const payoutId = await createDuePayout();
+    const payout = await prisma.payout.findUniqueOrThrow({
+      where: { id: payoutId },
+      select: { net: true, operatorId: true },
+    });
+
+    // Run the sweep twice. The first flips requested → paid + writes the debit;
+    // the second finds nothing 'requested' (no-op) — and even if it re-selected,
+    // the unique sourceEventId would make the ledger append a no-op.
+    await prisma.$transaction((tx) => processPayouts(tx));
+    await prisma.$transaction((tx) => processPayouts(tx));
+
+    const debits = await prisma.ledgerEntry.findMany({
+      where: { payoutId, type: 'payout_debit' },
+      select: { amount: true, operatorId: true, sourceEventId: true },
+    });
+    expect(debits).toHaveLength(1);
+    expect(debits[0].amount).toBe(-BigInt(payout.net));
+    expect(debits[0].operatorId).toBe(payout.operatorId);
+    expect(debits[0].sourceEventId).toBe(`payout_debit:${payoutId}`);
+
+    // And the operator's paidOut bucket reflects the debit magnitude.
+    const { getOperatorBalance } = await import('@/lib/ledger/balance');
+    const bal = await getOperatorBalance(payout.operatorId);
+    expect(bal.paidOut).toBeGreaterThanOrEqual(BigInt(payout.net));
   });
 });
 

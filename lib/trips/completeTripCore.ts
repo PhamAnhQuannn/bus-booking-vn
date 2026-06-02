@@ -9,7 +9,7 @@
  * trail), and the aggregate Payout row creation (Issue 019).
  *
  * Payout row: one per trip, gross = sum(totalVnd) of paid bookings, amounts via
- * calcPayout (authoritative at creation), status='pending', scheduledAt =
+ * calcPayout (authoritative at creation), status='requested', scheduledAt =
  * completedAt + 1d (T+1, S15#5). Idempotent — skipped if a Payout already exists for the trip.
  *
  * SPEC NOTE (Issue 019): the issue text says the payout *processor* runs
@@ -134,7 +134,7 @@ export async function completeTripCore(
         gross,
         platformFee,
         net,
-        status: 'pending',
+        status: 'requested',
         scheduledAt: scheduledFor,
       },
     });
