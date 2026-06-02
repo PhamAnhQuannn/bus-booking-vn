@@ -10,6 +10,8 @@
  * - AC4 sendReminders      — 24h reminder fires once (reminderSentAt guard)
  * - AC5 processPayouts     — pending→settled (ok) and pending→failed (forced fail)
  * - AC6 withAdvisoryLock   — second invocation skipped_locked while lock held
+ * - I43 generateTrips      — runJob('trip-generate') skips while locked; one
+ *                            JobRunLog per run; per-row generation idempotent
  *
  * Cores select GLOBALLY (no operator filter), so assertions check the specific
  * seeded row rather than the core's aggregate rowsAffected count.
@@ -24,6 +26,8 @@ import { autoCloseSales } from '../autoCloseSales';
 import { autoCompleteTrips } from '../autoCompleteTrips';
 import { sendReminders } from '../sendReminders';
 import { processPayouts } from '../processPayouts';
+import { generateTrips } from '../generateTrips';
+import { runJob } from '../runJob';
 import { withAdvisoryLock } from '../withAdvisoryLock';
 import type { JobCore } from '../types';
 
@@ -116,7 +120,12 @@ afterAll(async () => {
   await prisma.payout.deleteMany({ where: { operatorId } });
   await prisma.hold.deleteMany({ where: { trip: { operatorId } } });
   await prisma.booking.deleteMany({ where: { trip: { operatorId } } });
+  await prisma.recurringGenerationLog.deleteMany({
+    where: { template: { operatorId } },
+  });
   await prisma.trip.deleteMany({ where: { operatorId } });
+  await prisma.recurringTripTemplate.deleteMany({ where: { operatorId } });
+  await prisma.jobRunLog.deleteMany({ where: { jobName: 'trip-generate' } });
   await prisma.route.deleteMany({ where: { operatorId } });
   await prisma.bus.deleteMany({ where: { operatorId } });
   await prisma.operator.deleteMany({ where: { id: operatorId } });
@@ -416,5 +425,95 @@ describe('AC6 withAdvisoryLock', () => {
     expect(coreRan).toBe(true);
     expect(result.status).toBe('success');
     expect(result.rowsAffected).toBe(7);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// I43 — generate-trips hardening (advisory lock + JobRunLog + idempotency)
+//
+// generateTrips runs under runJob('trip-generate', ...) exactly like the other
+// five crons. These tests mirror AC6 (lock mutual exclusion) for this specific
+// job key, assert one JobRunLog row per runJob invocation, and confirm the
+// underlying generation logic is unchanged (idempotent across two runs).
+// ────────────────────────────────────────────────────────────────────────────
+
+describe('I43 generateTrips (trip-generate job)', () => {
+  // Seed a template that fires every day across the 14-day horizon, so trips
+  // generate regardless of the wall-clock day the test runs.
+  async function seedDailyTemplate(): Promise<string> {
+    const today = new Date();
+    const validFrom = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+    const validUntil = new Date(validFrom.getTime() + 30 * 86_400_000);
+    const t = await prisma.recurringTripTemplate.create({
+      data: {
+        operatorId,
+        routeId,
+        busId,
+        price: 120_000,
+        departureLocalTime: '08:30',
+        daysOfMask: 127, // all 7 days
+        validFrom,
+        validUntil,
+      },
+    });
+    return t.id;
+  }
+
+  it('writes exactly one JobRunLog row per runJob invocation and generates trips', async () => {
+    const templateId = await seedDailyTemplate();
+
+    const before = await prisma.jobRunLog.count({ where: { jobName: 'trip-generate' } });
+    const result = await runJob('trip-generate', generateTrips);
+    const after = await prisma.jobRunLog.count({ where: { jobName: 'trip-generate' } });
+
+    expect(result.status).toBe('success');
+    // 14-day horizon, every day fires → 14 trips on a fresh template.
+    expect(result.rowsAffected).toBeGreaterThan(0);
+    expect(after - before).toBe(1);
+
+    const trips = await prisma.trip.count({ where: { recurringTemplateId: templateId } });
+    expect(trips).toBe(result.rowsAffected);
+  });
+
+  it('is idempotent: a second run generates no new trips (per-row guard intact)', async () => {
+    const templateId = await seedDailyTemplate();
+
+    const first = await runJob('trip-generate', generateTrips);
+    const tripsAfterFirst = await prisma.trip.count({ where: { recurringTemplateId: templateId } });
+    expect(first.rowsAffected).toBeGreaterThan(0);
+
+    const second = await runJob('trip-generate', generateTrips);
+    const tripsAfterSecond = await prisma.trip.count({ where: { recurringTemplateId: templateId } });
+
+    // Second run regenerates nothing for this template; row count is stable.
+    expect(tripsAfterSecond).toBe(tripsAfterFirst);
+    // Two runJob invocations → two JobRunLog rows.
+    const logs = await prisma.jobRunLog.count({ where: { jobName: 'trip-generate' } });
+    expect(logs).toBeGreaterThanOrEqual(2);
+    expect(second.status).toBe('success');
+  });
+
+  it('a concurrent tick returns skipped_locked while the trip-generate key is held', async () => {
+    // Hold the real 'trip-generate' advisory key in an open tx, then fire the
+    // job through runJob → withAdvisoryLock and assert it skips without running.
+    let release!: () => void;
+    const held = new Promise<void>((r) => {
+      release = r;
+    });
+    const holding = prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'trip-generate'}))`;
+      await held;
+    });
+
+    // Let the holding tx acquire the lock first.
+    await new Promise((r) => setTimeout(r, 250));
+
+    const result = await runJob('trip-generate', generateTrips);
+
+    release();
+    await holding;
+
+    expect(result.status).toBe('skipped_locked');
+    expect(result.rowsAffected).toBe(0);
   });
 });

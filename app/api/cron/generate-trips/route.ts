@@ -5,15 +5,22 @@
  * Secures via CRON_SECRET header check (Vercel injects this automatically).
  *
  * Generates Trip rows for the next 14 days from all active RecurringTripTemplates.
- * Idempotent — already-existing trips are skipped and logged to RecurringGenerationLog.
+ * Runs under the advisory-lock + JobRunLog wrapper (Issue 019 machinery, adopted
+ * by Issue 043) so two overlapping ticks cannot race — a concurrent tick that
+ * finds the lock held returns { status: 'skipped_locked', rowsAffected: 0 }
+ * without re-running generation.
  *
- * Returns: { generated, skipped, failed } on success, 401 on auth failure.
+ * Per-row idempotency inside generateTripsFromTemplates (partial unique on
+ * recurringTemplateId, departureAt) is retained as defense-in-depth.
+ *
+ * Returns: { rowsAffected, status } on success, 401 on auth failure, 500 on error.
  */
 
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { generateTripsFromTemplates } from '@/lib/trips/generateFromTemplate';
+import { runJob } from '@/lib/jobs/runJob';
+import { generateTrips } from '@/lib/jobs/generateTrips';
 import { logger } from '@/lib/logger';
 
 export async function GET(req: NextRequest): Promise<Response> {
@@ -26,7 +33,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   }
 
   try {
-    const result = await generateTripsFromTemplates();
+    const result = await runJob('trip-generate', generateTrips);
     logger.info(result, 'generate-trips: cron run complete');
     return NextResponse.json(result);
   } catch (err) {
