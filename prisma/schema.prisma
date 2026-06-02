@@ -41,6 +41,7 @@ model Operator {
   trips              Trip[]
   recurringTemplates RecurringTripTemplate[]
   payouts            Payout[]
+  ledgerEntries      LedgerEntry[]
 
   @@index([id])
   @@index([status])
@@ -288,6 +289,7 @@ model Booking {
   pickupPoint        PickupPoint?      @relation(fields: [pickupPointId], references: [id], onDelete: SetNull)
   notifications      NotificationLog[]
   paymentEvents      PaymentEvent[]
+  ledgerEntries      LedgerEntry[]
 
   @@index([tripId, status])
   @@index([confirmationToken])
@@ -576,4 +578,54 @@ model FunnelEvent {
 
   @@index([step, createdAt])
   @@index([sessionId])
+}
+
+// ---------------------------------------------------------------------------
+// Issue 047 — Append-only double-entry ledger (money one-way door)
+// ---------------------------------------------------------------------------
+
+enum LedgerEntryType {
+  booking_credit
+  platform_fee
+  refund_debit
+  refund_out
+  payout_debit
+  payout_reversal
+  chargeback
+  adjustment
+}
+
+/// Issue 047: append-only, immutable money ledger. One row per money event.
+///
+/// IMMUTABILITY: enforced at the DB by a BEFORE UPDATE/DELETE trigger
+/// (`ledger_entry_immutable`) — NOT by a role REVOKE — so it holds regardless of
+/// the connecting DB role (e.g. Neon pooled role). The trigger is SQL-only; the
+/// Prisma DSL cannot model triggers, so it never appears here and is invisible to
+/// `prisma migrate diff` (schema↔DB parity caveat, like partial indices in Issue 007).
+///
+/// SIGN CONVENTION (documented in lib/ledger/ledgerRepo.ts; NOT DB-enforced in
+/// this slice): positive = credit TO operator balance, negative = debit FROM it.
+/// `amount` is signed minor units (VND, integer) stored as BIGINT.
+///
+/// `payoutId` is a plain column (NO FK) — kept decoupled from the Payout model in
+/// this slice; wiring + referential integrity land in slices 049/050.
+model LedgerEntry {
+  id            String          @id @default(cuid())
+  operatorId    String
+  bookingId     String?         @db.Uuid
+  payoutId      String?
+  type          LedgerEntryType
+  amount        BigInt // signed minor units (VND); sign convention in repo header
+  currency      String          @default("VND")
+  /// Idempotency key: unique per (type, source). Duplicate appends are no-ops.
+  sourceEventId String
+  createdAt     DateTime        @default(now())
+
+  operator Operator @relation(fields: [operatorId], references: [id])
+  booking  Booking? @relation(fields: [bookingId], references: [id])
+
+  @@unique([sourceEventId])
+  @@index([operatorId])
+  @@index([bookingId])
+  @@index([payoutId])
 }
