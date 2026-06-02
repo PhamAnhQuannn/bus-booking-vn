@@ -7,12 +7,32 @@ datasource db {
   provider = "postgresql"
 }
 
+/// Issue 045: operator approval lifecycle. `status` is the CANONICAL state.
+/// SUSPENDED is the canonical "frozen" state; the pre-existing `disabledAt`
+/// column is kept for back-compat and is now SYNCED to status by the transition
+/// service (SUSPENDED → disabledAt=now(); APPROVED → disabledAt cleared).
+enum OperatorStatus {
+  PENDING_REVIEW
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
 model Operator {
   id                 String                  @id @default(cuid())
   legalName          String
   contactPhone       String
   contactEmail       String
   notificationPhone  String?
+  /// Issue 045: canonical approval state. Defaults to PENDING_REVIEW for new
+  /// applicants. Only APPROVED operators are search-visible / bookable (S05).
+  status             OperatorStatus          @default(PENDING_REVIEW)
+  /// Issue 045: rejection reason set when status → REJECTED (shown on resubmit).
+  rejectionReason    String?
+  /// Issue 045: back-compat freeze flag, kept in sync with status by the
+  /// transition service. `status` is canonical; SUSPENDED is the canonical
+  /// suspend. disabledAt is NOT the source of truth — read `status`.
   disabledAt         DateTime?
   createdAt          DateTime                @default(now())
   buses              Bus[]
@@ -23,6 +43,7 @@ model Operator {
   payouts            Payout[]
 
   @@index([id])
+  @@index([status])
 }
 
 enum BusType {
