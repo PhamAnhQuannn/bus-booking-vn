@@ -53,6 +53,7 @@ const VALID_BODY = {
   ticketCount: 2,
   buyerName: 'Nguyen Van A',
   buyerPhone: '0912345678',
+  buyerEmail: 'buyer@example.com',
 };
 
 const MOCK_HOLD_RESULT = {
@@ -76,6 +77,32 @@ describe('POST /api/holds', () => {
     expect(res.status).toBe(200);
     expect(json.holdId).toBe('hold-uuid-1234');
     expect(json.expiresAt).toBe('2026-05-17T13:00:00.000Z');
+
+    // Issue 042: buyerEmail threads into createHold as customerEmail (normalized lowercase).
+    expect(createHold).toHaveBeenCalledWith(
+      expect.objectContaining({ customerEmail: 'buyer@example.com' })
+    );
+  });
+
+  it('returns 400 INVALID for invalid email', async () => {
+    const req = makeRequest({ ...VALID_BODY, buyerEmail: 'not-an-email' });
+    const res = await POST(req);
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error).toBe('INVALID');
+    expect(createHold).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 INVALID when email is missing', async () => {
+    const { buyerEmail: _omit, ...noEmail } = VALID_BODY;
+    const req = makeRequest(noEmail);
+    const res = await POST(req);
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error).toBe('INVALID');
+    expect(createHold).not.toHaveBeenCalled();
   });
 
   it('sets bb_hold Set-Cookie header on success', async () => {

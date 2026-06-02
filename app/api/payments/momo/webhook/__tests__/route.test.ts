@@ -84,6 +84,7 @@ const MOCK_BOOKING = {
   status: 'awaiting_payment',
   buyerName: 'Test Customer',
   buyerPhone: '+8490xxxxxx1',
+  buyerEmail: 'buyer@example.com',
   ticketCount: 2,
   totalVnd: 200000,
   trip: {

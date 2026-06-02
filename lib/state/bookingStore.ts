@@ -10,6 +10,7 @@
  *   expiresAt    — ISO timestamp when the hold expires
  *   buyerName    — entered in the customer form
  *   buyerPhone   — entered in the customer form
+ *   buyerEmail   — entered in the customer form (Issue 042)
  */
 
 import { create } from 'zustand';
@@ -21,6 +22,7 @@ export interface BookingState {
   expiresAt: string | null; // ISO timestamp
   buyerName: string | null;
   buyerPhone: string | null;
+  buyerEmail: string | null;
 
   /** Set trip + ticketCount when the user clicks "Book" on the search results. */
   setTrip: (tripId: string, ticketCount: number) => void;
@@ -29,7 +31,7 @@ export interface BookingState {
   setHold: (holdId: string, expiresAt: string) => void;
 
   /** Set buyer info after form submission. */
-  setBuyerInfo: (name: string, phone: string) => void;
+  setBuyerInfo: (name: string, phone: string, email: string) => void;
 
   /** Clear all booking state (on expiry or completion). */
   clearBooking: () => void;
@@ -42,13 +44,15 @@ export const useBookingStore = create<BookingState>((set) => ({
   expiresAt: null,
   buyerName: null,
   buyerPhone: null,
+  buyerEmail: null,
 
   setTrip: (tripId, ticketCount) =>
     set({ tripId, ticketCount, holdId: null, expiresAt: null }),
 
   setHold: (holdId, expiresAt) => set({ holdId, expiresAt }),
 
-  setBuyerInfo: (buyerName, buyerPhone) => set({ buyerName, buyerPhone }),
+  setBuyerInfo: (buyerName, buyerPhone, buyerEmail) =>
+    set({ buyerName, buyerPhone, buyerEmail }),
 
   clearBooking: () =>
     set({
@@ -58,5 +62,6 @@ export const useBookingStore = create<BookingState>((set) => ({
       expiresAt: null,
       buyerName: null,
       buyerPhone: null,
+      buyerEmail: null,
     }),
 }));

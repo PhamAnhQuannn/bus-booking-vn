@@ -65,6 +65,7 @@ const MOCK_HOLD = {
   expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 min from now
   customerName: 'Test Customer',
   customerPhone: '+8490xxxxxx1',
+  customerEmail: 'buyer@example.com',
   ticketCount: 2,
   trip: {
     id: 'tripid001',
@@ -82,6 +83,7 @@ const MOCK_BOOKING_ROW = {
   holdId: HOLD_ID,
   buyerName: MOCK_HOLD.customerName,
   buyerPhone: MOCK_HOLD.customerPhone,
+  buyerEmail: MOCK_HOLD.customerEmail,
   ticketCount: 2,
   totalVnd: TOTAL_VND,
   paymentMethod: 'momo' as const,
@@ -150,6 +152,12 @@ describe('initiateMomoBooking — happy path', () => {
     expect(result.bookingId).toBe(BOOKING_ID);
     expect(result.confirmationToken).toBe(CONFIRMATION_TOKEN);
     expect(result.payUrl).toContain('payment.momo.vn');
+
+    // Issue 042: buyerEmail snapshot threads from the hold into the booking insert.
+    expect(createOnlineBookingFromHold).toHaveBeenCalledWith(
+      expect.objectContaining({ buyerEmail: 'buyer@example.com' }),
+      'momo'
+    );
 
     // Verify gateway was called with correct params
     expect(gateway.calls.length).toBe(1);

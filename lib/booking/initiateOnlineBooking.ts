@@ -80,6 +80,7 @@ export async function initiateOnlineBooking(
       expiresAt: true,
       customerName: true,
       customerPhone: true,
+      customerEmail: true,
       ticketCount: true,
       trip: {
         select: {
@@ -116,6 +117,7 @@ export async function initiateOnlineBooking(
       holdId,
       buyerName: hold.customerName,
       buyerPhone: hold.customerPhone,
+      buyerEmail: hold.customerEmail,
       customerId,
     },
     method

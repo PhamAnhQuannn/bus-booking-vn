@@ -8,6 +8,7 @@
  * - req.headers.cookie         — contains bb_hold cookie value
  * - customerPhone              — buyer PII (Issue 002)
  * - customerName               — buyer PII (Issue 002)
+ * - customerEmail              — hold-level buyer email PII (Issue 042)
  * - bb_hold                    — signed cookie value (Issue 002)
  * - HOLD_SECRET                — HMAC signing key (Issue 002)
  * - phone                      — top-level phone PII (Issue 007)
@@ -33,6 +34,7 @@
  * - escalationNote             — operator escalation note (Issue 014)
  * - buyerPhone                 — manual booking buyer phone PII (Issue 015)
  * - buyerName                  — manual booking buyer name PII (Issue 015)
+ * - buyerEmail                 — booking buyer email PII (Issue 042)
  * - *.recipient                — NotificationLog/Payout recipient phone (Issue 019)
  */
 
@@ -48,6 +50,7 @@ export const loggerOptions: LoggerOptions = {
       'req.headers.cookie',
       'customerPhone',
       'customerName',
+      'customerEmail',
       'bb_hold',
       'HOLD_SECRET',
       'phone',
@@ -75,6 +78,7 @@ export const loggerOptions: LoggerOptions = {
       'escalationNote',
       'buyerPhone',
       'buyerName',
+      'buyerEmail',
       '*.recipient',
       'newPhone',                // Issue 008: phone-change new phone (PII)
     ],

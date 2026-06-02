@@ -33,6 +33,7 @@ function createBookingFromHold(input: {
   holdId: string;
   buyerName: string;
   buyerPhone: string;
+  buyerEmail?: string | null;
   customerId?: string | null;
 }) {
   return createOnlineBookingFromHold(input, 'momo');
@@ -121,6 +122,7 @@ async function activeHold(ticketCount = 1): Promise<string> {
     ticketCount,
     customerPhone: '+8490xxxxxx1',
     customerName: 'Hold Holder',
+    customerEmail: 'holder@example.com',
   });
   if (!h) throw new Error('hold setup failed');
   return h.holdId;
@@ -133,6 +135,7 @@ describe('createOnlineBookingFromHold (momo)', () => {
       holdId,
       buyerName: 'Buyer A',
       buyerPhone: '+8490xxxxxx5',
+      buyerEmail: 'buyera@example.com',
     });
     expect(r.ok).toBe(true);
     if (!r.ok) return;
@@ -142,6 +145,8 @@ describe('createOnlineBookingFromHold (momo)', () => {
     expect(r.booking.totalVnd).toBe(200000);
     expect(r.booking.status).toBe('awaiting_payment');
     expect(r.booking.paymentMethod).toBe('momo');
+    // Issue 042: buyerEmail persists through the insert + RETURNING.
+    expect(r.booking.buyerEmail).toBe('buyera@example.com');
     expect(r.booking.bookingRef).toMatch(/^BB-\d{4}-[0-9a-z]{4}-[0-9a-z]{4}$/);
     expect(r.booking.confirmationToken).toMatch(/^[A-Za-z0-9_-]{32}$/);
 

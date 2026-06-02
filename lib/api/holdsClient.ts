@@ -15,6 +15,8 @@ export interface HoldRequestBody {
   ticketCount: number;
   buyerName: string;
   buyerPhone: string;
+  /** Issue 042: buyer email for ticket delivery (required). */
+  buyerEmail: string;
 }
 
 export interface HoldSuccess {

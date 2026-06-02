@@ -57,7 +57,7 @@ async function handler(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: 'INVALID' }, { status: 400 });
   }
 
-  const { tripId, ticketCount, buyerName, buyerPhone } = parsed.data;
+  const { tripId, ticketCount, buyerName, buyerPhone, buyerEmail } = parsed.data;
 
   // ---- 3. Atomic hold insert ----
   const result = await createHold({
@@ -65,6 +65,7 @@ async function handler(req: NextRequest): Promise<Response> {
     ticketCount,
     customerPhone: buyerPhone,
     customerName: buyerName,
+    customerEmail: buyerEmail,
   });
 
   if (!result) {

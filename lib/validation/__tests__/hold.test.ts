@@ -9,6 +9,7 @@ describe('holdInputSchema', () => {
     ticketCount: 2,
     buyerName: 'Nguyen Van A',
     buyerPhone: '0912345678',
+    buyerEmail: 'buyer@example.com',
   };
 
   it('accepts a valid payload', () => {
@@ -115,6 +116,37 @@ describe('holdInputSchema', () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.buyerPhone).toBe('0912345678');
+      }
+    });
+  });
+
+  describe('buyerEmail (Issue 042)', () => {
+    it('accepts a valid email', () => {
+      expect(holdInputSchema.safeParse({ ...base, buyerEmail: 'a@b.com' }).success).toBe(true);
+    });
+
+    it('is required — rejects when missing', () => {
+      const { buyerEmail: _omit, ...noEmail } = base;
+      expect(holdInputSchema.safeParse(noEmail).success).toBe(false);
+    });
+
+    it('rejects empty string', () => {
+      expect(holdInputSchema.safeParse({ ...base, buyerEmail: '' }).success).toBe(false);
+    });
+
+    it('rejects a malformed email (no @)', () => {
+      expect(holdInputSchema.safeParse({ ...base, buyerEmail: 'not-an-email' }).success).toBe(false);
+    });
+
+    it('rejects a malformed email (no domain)', () => {
+      expect(holdInputSchema.safeParse({ ...base, buyerEmail: 'foo@' }).success).toBe(false);
+    });
+
+    it('trims and lowercases', () => {
+      const result = holdInputSchema.safeParse({ ...base, buyerEmail: '  Buyer@Example.COM  ' });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.buyerEmail).toBe('buyer@example.com');
       }
     });
   });

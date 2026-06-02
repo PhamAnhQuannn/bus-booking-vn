@@ -39,6 +39,8 @@ export interface CreateMomoBookingInput {
   holdId: string;
   buyerName: string;
   buyerPhone: string;
+  /** Issue 042: buyer email snapshot. Nullable — pre-042 holds carry no email. */
+  buyerEmail?: string | null;
   customerId?: string | null;
 }
 
@@ -48,6 +50,8 @@ export interface CreateOnlineBookingInput {
   holdId: string;
   buyerName: string;
   buyerPhone: string;
+  /** Issue 042: buyer email snapshot for ticket delivery. Nullable — pre-042 holds carry no email. */
+  buyerEmail?: string | null;
   /** Customer.id of the signed-in buyer, or null for a guest booking (Issue 031). */
   customerId?: string | null;
 }
@@ -64,6 +68,7 @@ export interface BookingRow {
   holdId: string | null;
   buyerName: string;
   buyerPhone: string;
+  buyerEmail: string | null;
   ticketCount: number;
   totalVnd: number;
   paymentMethod: 'cash' | 'momo' | 'zalopay' | 'card';
@@ -101,7 +106,7 @@ export async function createOnlineBookingFromHold(
   input: CreateOnlineBookingInput,
   method: OnlineBookingMethod
 ): Promise<CreateCashBookingResult> {
-  const { holdId, buyerName, buyerPhone, customerId = null } = input;
+  const { holdId, buyerName, buyerPhone, buyerEmail = null, customerId = null } = input;
 
   for (let attempt = 0; attempt < MAX_REF_ATTEMPTS; attempt++) {
     const bookingId = uuidv7();
@@ -132,7 +137,7 @@ export async function createOnlineBookingFromHold(
           Prisma.sql`
             INSERT INTO "Booking" (
               id, "bookingRef", "confirmationToken", "tripId", "holdId",
-              "customerId", "buyerName", "buyerPhone", "ticketCount", "totalVnd",
+              "customerId", "buyerName", "buyerPhone", "buyerEmail", "ticketCount", "totalVnd",
               "paymentMethod", status, "isManual", "createdAt"
             )
             SELECT
@@ -144,6 +149,7 @@ export async function createOnlineBookingFromHold(
               ${customerId}::text,
               ${buyerName},
               ${buyerPhone},
+              ${buyerEmail}::text,
               h."ticketCount",
               t.price * h."ticketCount",
               ${method}::"PaymentMethod",
@@ -161,7 +167,7 @@ export async function createOnlineBookingFromHold(
             ON CONFLICT ("holdId") DO NOTHING
             RETURNING
               id, "bookingRef", "confirmationToken", "tripId", "holdId",
-              "buyerName", "buyerPhone", "ticketCount", "totalVnd",
+              "buyerName", "buyerPhone", "buyerEmail", "ticketCount", "totalVnd",
               "paymentMethod", status, "isManual", "createdAt"
           `
         );

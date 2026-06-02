@@ -6,6 +6,7 @@ const VALID_BODY = {
   ticketCount: 2,
   buyerName: 'Nguyen Van A',
   buyerPhone: '0912345678',
+  buyerEmail: 'buyer@example.com',
 };
 
 function mockFetch(response: { status?: number; headers?: Record<string, string>; jsonBody?: unknown }): void {

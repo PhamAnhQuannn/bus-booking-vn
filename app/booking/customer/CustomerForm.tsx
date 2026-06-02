@@ -36,6 +36,13 @@ const clientSchema = z.object({
     .string()
     .trim()
     .regex(/^(0|\+84)[35789][0-9]{8}$/, 'Số điện thoại không hợp lệ'),
+  buyerEmail: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .min(1, 'Vui lòng nhập email để nhận vé')
+    .max(254, 'Email không được vượt quá 254 ký tự')
+    .email('Email không hợp lệ'),
 });
 
 type FormState =
@@ -50,6 +57,7 @@ type FormState =
 type FormData = {
   buyerName: string;
   buyerPhone: string;
+  buyerEmail: string;
 };
 
 export function CustomerForm() {
@@ -102,6 +110,7 @@ export function CustomerForm() {
         ticketCount,
         buyerName: parsed.data.buyerName,
         buyerPhone: parsed.data.buyerPhone,
+        buyerEmail: parsed.data.buyerEmail,
       });
 
       if (!result.ok) {
@@ -121,7 +130,7 @@ export function CustomerForm() {
       localStorage.setItem(LS_PHONE_KEY, parsed.data.buyerPhone);
 
       // Update stores
-      setBuyerInfo(parsed.data.buyerName, parsed.data.buyerPhone);
+      setBuyerInfo(parsed.data.buyerName, parsed.data.buyerPhone, parsed.data.buyerEmail);
       setHold(result.holdId, result.expiresAt);
       startTimer(result.expiresAt);
 
@@ -138,6 +147,7 @@ export function CustomerForm() {
     formAction({
       buyerName: (fd.get('buyerName') as string) ?? '',
       buyerPhone: (fd.get('buyerPhone') as string) ?? '',
+      buyerEmail: (fd.get('buyerEmail') as string) ?? '',
     });
   }
 
@@ -182,6 +192,25 @@ export function CustomerForm() {
         {fieldErrors.buyerPhone && (
           <p id="buyerPhone-error" className="text-destructive text-sm mt-1">
             {fieldErrors.buyerPhone}
+          </p>
+        )}
+      </div>
+
+      <div>
+        <Label htmlFor="buyerEmail" className="mb-1">
+          Email
+        </Label>
+        <Input
+          id="buyerEmail"
+          name="buyerEmail"
+          type="email"
+          required
+          disabled={isPending}
+          aria-describedby={fieldErrors.buyerEmail ? 'buyerEmail-error' : undefined}
+        />
+        {fieldErrors.buyerEmail && (
+          <p id="buyerEmail-error" className="text-destructive text-sm mt-1">
+            {fieldErrors.buyerEmail}
           </p>
         )}
       </div>

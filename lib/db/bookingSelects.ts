@@ -18,6 +18,7 @@ export const bookingDetailSelect = {
   bookingRef: true,
   buyerName: true,
   buyerPhone: true,
+  buyerEmail: true,
   ticketCount: true,
   totalVnd: true,
   paymentMethod: true,

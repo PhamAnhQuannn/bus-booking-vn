@@ -25,6 +25,8 @@ export interface CreateHoldInput {
   ticketCount: number;
   customerPhone: string;
   customerName: string;
+  /** Issue 042: buyer email captured at hold creation. Optional for back-compat callers. */
+  customerEmail?: string | null;
 }
 
 export interface HoldResult {
@@ -37,7 +39,7 @@ export interface HoldResult {
  * Returns HoldResult on success, null if the trip is sold out or unavailable.
  */
 export async function createHold(input: CreateHoldInput): Promise<HoldResult | null> {
-  const { tripId, ticketCount, customerPhone, customerName } = input;
+  const { tripId, ticketCount, customerPhone, customerName, customerEmail = null } = input;
 
   const holdId = randomUUID();
   const expiresAt = new Date(Date.now() + HOLD_TTL_MINUTES * 60 * 1000);
@@ -54,13 +56,14 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
     // 2. Conditional INSERT — only if available seats >= ticketCount
     const inserted = await tx.$queryRaw<InsertRow[]>(
       Prisma.sql`
-        INSERT INTO "Hold" (id, "tripId", "ticketCount", "customerPhone", "customerName", "expiresAt", status, "createdAt")
+        INSERT INTO "Hold" (id, "tripId", "ticketCount", "customerPhone", "customerName", "customerEmail", "expiresAt", status, "createdAt")
         SELECT
           ${holdId},
           ${tripId},
           ${ticketCount},
           ${customerPhone},
           ${customerName},
+          ${customerEmail},
           ${expiresAt},
           'active'::"HoldStatus",
           NOW()
