@@ -53,7 +53,11 @@ export function KpiTile({
           </span>
         ) : null}
         <span className="text-sm text-muted-foreground">{label}</span>
-        <span className="font-mono text-2xl font-bold tracking-tight">{value}</span>
+        {/* tabular-nums gives column-aligned digits without falling back to Geist
+            Mono — which has no Vietnamese glyph coverage and breaks "đ" / diacritic
+            currency marks. Keep Be Vietnam Pro so digits + đ/% match the rest of
+            the surface. */}
+        <span className="text-2xl font-bold tracking-tight tabular-nums">{value}</span>
         {delta !== undefined ? <DeltaBadge pct={delta} /> : null}
         {hint ? <span className="text-xs text-muted-foreground">{hint}</span> : null}
         {chart ? (

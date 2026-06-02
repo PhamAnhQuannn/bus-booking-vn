@@ -24,6 +24,7 @@ import { BookingSummaryRail } from '@/components/booking/BookingSummaryRail';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
+import { getAccessToken } from '@/app/auth/register/page';
 import { cn } from '@/lib/utils';
 
 export interface HoldDetails {
@@ -81,12 +82,19 @@ export function ReviewClient({ holdDetails }: ReviewClientProps) {
     setSubmitting(true);
     setError(null);
     try {
+      // Forward the in-memory access token when signed in (Issue 031) so the
+      // booking is stamped with the buyer's customerId at creation. Guests omit
+      // it and book anonymously. CSRF + bb_hold cookie travel as before.
+      const headers: Record<string, string> = {
+        'content-type': 'application/json',
+        'X-CSRF-Token': readCsrfToken(),
+      };
+      const accessToken = getAccessToken();
+      if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+
       const res = await fetch('/api/bookings/initiate', {
         method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'X-CSRF-Token': readCsrfToken(),
-        },
+        headers,
         credentials: 'include',
         body: JSON.stringify({ holdId, paymentMethod: method }),
       });

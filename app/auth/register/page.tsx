@@ -39,6 +39,13 @@ let _displayName: string | null = null;
 export function getDisplayName(): string | null { return _displayName; }
 export function setDisplayName(n: string | null): void { _displayName = n; }
 
+// Module-level account-phone store — pre-fills the checkout buyer-phone field
+// from the signed-in customer's registered phone (Issue 030). In-memory like
+// the access token; lost on hard reload (same as the session + displayName).
+let _customerPhone: string | null = null;
+export function getCustomerPhone(): string | null { return _customerPhone; }
+export function setCustomerPhone(p: string | null): void { _customerPhone = p; }
+
 const STEP_INDEX: Record<Step, number> = { phone: 0, otp: 1, details: 2 };
 const STEP_SUBTITLE: Record<Step, string> = {
   phone: 'Bước 1/3 · Số điện thoại',
@@ -189,7 +196,8 @@ function RegisterPageInner() {
         return;
       }
       setAccessToken(json.accessToken);
-      setDisplayName(displayName ?? null);
+      setDisplayName(json.customer?.displayName ?? displayName ?? null);
+      setCustomerPhone(json.customer?.phone ?? phone);
       router.push(returnTo);
     } catch {
       setError('Lỗi kết nối. Vui lòng thử lại.');

@@ -11,7 +11,7 @@ import { Logo } from '@/components/brand/Logo';
 
 const FOOTER_LINKS = {
   main: [
-    { href: '/search', label: 'Tìm chuyến xe' },
+    { href: '/lien-he-dat-xe', label: 'Liên hệ đặt xe' },
     { href: '/auth/login', label: 'Đăng nhập' },
     { href: '/account/bookings', label: 'Tài khoản' },
   ],

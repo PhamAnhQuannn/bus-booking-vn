@@ -46,14 +46,17 @@ export function ConsoleHeader({
       <div className="ml-auto flex shrink-0 items-center gap-2">
         <EnvBadge />
 
+        {/* Cmd+K trigger. `onOpenCommand` is registered by CommandPalette in an
+            effect → not present during SSR. Calling it via optional-chaining keeps
+            the rendered attribute set stable between server + client and avoids the
+            `disabled={true}` vs `disabled={null}` hydration mismatch React 19 flags. */}
         <button
           type="button"
           aria-label="Mở bảng lệnh"
           aria-keyshortcuts="Meta+K Control+K"
-          onClick={onOpenCommand}
-          disabled={!onOpenCommand}
+          onClick={() => onOpenCommand?.()}
           className={cn(
-            "hidden items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 sm:inline-flex"
+            "hidden items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 sm:inline-flex"
           )}
         >
           <SearchIcon aria-hidden="true" className="size-3.5" />

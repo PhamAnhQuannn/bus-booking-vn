@@ -8,14 +8,15 @@
  * AC-3: excludes cancelled / salesClosed / maintenance-bus trips.
  * AC-13: select whitelist via searchResultSelect.
  *
- * Issue 002: When SEARCH_USE_BLOCKED_SEATS=true, available seats are computed as:
- *   capacity - blockedSeats - SUM(active hold ticketCounts)
- * Default is false until Steps 7+9 ship to production.
+ * Availability is ALWAYS computed as:
+ *   capacity - blockedSeats - SUM(active hold ticketCounts) - SUM(paid/pending booking ticketCounts)
+ * never raw capacity. (P1 fix 2026-06-01: the prior SEARCH_USE_BLOCKED_SEATS flag defaulted false
+ * and shipped raw capacity in the default config — an oversell gap. Flag removed.)
  */
 
 import { prisma } from '@/lib/db/client';
 import { Prisma } from '@prisma/client';
-import { searchResultSelect, toTripResult } from '@/lib/db/selects';
+import { searchResultSelect } from '@/lib/db/selects';
 import { fromZonedTime } from 'date-fns-tz';
 import { startOfDay, endOfDay } from 'date-fns';
 
@@ -44,7 +45,6 @@ export interface TripResult {
 
 export async function searchTrips(input: TripSearchInput): Promise<TripResult[]> {
   const { origin, destination, date, ticketCount } = input;
-  const useBlockedSeats = process.env.SEARCH_USE_BLOCKED_SEATS === 'true';
 
   // Convert VN wall-clock date to UTC range
   const [year, month, day] = date.split('-').map(Number);
@@ -89,12 +89,8 @@ export async function searchTrips(input: TripSearchInput): Promise<TripResult[]>
     orderBy: { departureAt: 'asc' },
   });
 
-  if (!useBlockedSeats) {
-    return trips.map(toTripResult);
-  }
-
-  // When SEARCH_USE_BLOCKED_SEATS=true: compute available seats accounting for
-  // blockedSeats (denormalised) and live active-hold sums, then filter by ticketCount.
+  // Compute available seats accounting for blockedSeats (denormalised), live active-hold
+  // sums, and paid/pending booking sums, then filter by ticketCount.
   if (trips.length === 0) return [];
 
   const tripIds = trips.map((t) => t.id);

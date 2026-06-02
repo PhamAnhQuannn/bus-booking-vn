@@ -41,6 +41,12 @@ export interface InitiateOnlineBookingInput {
   /** Online payment method: momo | zalopay | card. */
   method: OnlineBookingMethod;
   /**
+   * Customer.id of the signed-in buyer, or null/undefined for a guest (Issue 031).
+   * Stamped on the Booking row at creation (before payment) so the booking is
+   * owned without a spoofable post-hoc phone-match attach at webhook time.
+   */
+  customerId?: string | null;
+  /**
    * Injectable payment gateway for testing. Defaults to
    * getGatewayFor(method, baseUrl) which reads env vars.
    */
@@ -63,7 +69,7 @@ export type InitiateOnlineBookingResult =
 export async function initiateOnlineBooking(
   input: InitiateOnlineBookingInput
 ): Promise<InitiateOnlineBookingResult> {
-  const { holdId, baseUrl, method } = input;
+  const { holdId, baseUrl, method, customerId = null } = input;
   const gateway = input.gateway ?? getGatewayFor(method, baseUrl);
 
   const hold = await prisma.hold.findUnique({
@@ -110,6 +116,7 @@ export async function initiateOnlineBooking(
       holdId,
       buyerName: hold.customerName,
       buyerPhone: hold.customerPhone,
+      customerId,
     },
     method
   );

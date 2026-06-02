@@ -155,7 +155,7 @@ export function ActivityFeed({
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-baseline justify-between gap-1">
                 <span className="font-medium text-foreground">{ev.title}</span>
-                <span className="font-mono text-[11px] text-muted-foreground">
+                <span className="text-[11px] tabular-nums text-muted-foreground">
                   {formatRelativeVi(ev.ts, now)}
                 </span>
               </div>

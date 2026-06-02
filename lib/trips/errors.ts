@@ -8,6 +8,7 @@ export type TripErrorCode =
   | 'block_exceeds_available'
   | 'capacity_too_small'
   | 'bus_deactivated'
+  | 'bus_overlap'
   | 'bus_overlap_with_outbound'
   | 'already_cancelled'
   | 'no_reverse_route'

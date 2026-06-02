@@ -133,6 +133,52 @@ describe('createCashBookingFromHold', () => {
     expect(hold?.status).toBe('converted');
   });
 
+  it('stamps customerId when provided and leaves it null when omitted (Issue 031)', async () => {
+    // Booking.customerId is a real FK → Customer.id, so the signed-in case needs
+    // a real customer row (onDelete: SetNull lets us drop it before the booking).
+    const customer = await prisma.customer.create({
+      data: { phone: '+8490xxxxxx7', displayName: 'Auth Buyer' },
+    });
+    try {
+      // Logged-in booking: customerId stamped at creation.
+      const holdAuth = await activeHold(1);
+      const rAuth = await createCashBookingFromHold({
+        holdId: holdAuth,
+        buyerName: 'Buyer Auth',
+        buyerPhone: '+8490xxxxxx5',
+        customerId: customer.id,
+      });
+      expect(rAuth.ok).toBe(true);
+      if (!rAuth.ok) return;
+      const rowAuth = await prisma.booking.findUnique({
+        where: { id: rAuth.booking.id },
+        select: { customerId: true },
+      });
+      expect(rowAuth?.customerId).toBe(customer.id);
+
+      // Guest booking: customerId omitted → stays null.
+      const holdGuest = await activeHold(1);
+      const rGuest = await createCashBookingFromHold({
+        holdId: holdGuest,
+        buyerName: 'Buyer Guest',
+        buyerPhone: '+8490xxxxxx5',
+      });
+      expect(rGuest.ok).toBe(true);
+      if (!rGuest.ok) return;
+      const rowGuest = await prisma.booking.findUnique({
+        where: { id: rGuest.booking.id },
+        select: { customerId: true },
+      });
+      expect(rowGuest?.customerId).toBeNull();
+    } finally {
+      await prisma.booking.updateMany({
+        where: { customerId: customer.id },
+        data: { customerId: null },
+      });
+      await prisma.customer.delete({ where: { id: customer.id } });
+    }
+  });
+
   it('second call with same holdId returns already_booked (idempotent)', async () => {
     const holdId = await activeHold(1);
     const r1 = await createCashBookingFromHold({

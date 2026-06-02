@@ -13,12 +13,16 @@
  * matches no customer and is skipped (no throw — the payment transition must
  * not fail because of an unparseable phone).
  *
- * SECURITY (accept-for-MVP, Issue 009 locked decision Q1): buyerPhone is
- * attacker-controllable — a guest could type a victim's phone at checkout and,
- * once that victim registers, the booking would attach to the victim's account.
- * Harm is low (the booking is the attacker's own paid trip; it only leaks the
- * victim's view of a trip they didn't book), so we accept this for MVP. A
- * future hardening would require phone ownership proof (OTP) before attaching.
+ * SECURITY (Issue 031 — RESOLVED): buyerPhone is attacker-controllable, so a
+ * phone-match attach is spoofable (a guest typing a victim's phone would link
+ * the booking to that victim once they exist). The Issue 009 accept-for-MVP
+ * stance has since been hardened: this function is NO LONGER called from any
+ * payment transition (MoMo webhook, cash collection, manual booking). Ownership
+ * now comes from exactly two proven sources — (1) a signed-in buyer whose
+ * Customer.id is stamped on the Booking at initiate (see getCustomerOptional),
+ * and (2) the OTP-proven register backfill below. This function is retained
+ * only as the building block a future *OTP-gated* attach flow could reuse; do
+ * not re-wire it into an unauthenticated transition.
  */
 
 import type { Prisma } from '@prisma/client';

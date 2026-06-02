@@ -31,7 +31,6 @@ import { Prisma } from '@prisma/client';
 import { uuidv7 } from 'uuidv7';
 import { generateBookingRef, BOOKING_REF_REGEX } from '@/lib/booking/bookingRef';
 import { generateConfirmationToken } from '@/lib/booking/confirmationToken';
-import { attachGuestBookingByPhone } from '@/lib/booking/attachGuestBookingByPhone';
 import { createNotificationLog } from '@/lib/db/notificationLogRepo';
 import { sendSms, renderTemplate } from '@/lib/notifications/esms';
 import { logger } from '@/lib/logger';
@@ -232,13 +231,10 @@ export async function createManualBooking(
           `
         );
 
-        // Issue 009: attach to a registered customer by phone. Only the 'paid'
-        // path lands at paid_operator_notified; 'cash' attaches later at
-        // recordCashCollected. customerId is NULL at insert, so this is the
-        // first attach attempt.
-        if (bookingStatus === 'paid_operator_notified') {
-          await attachGuestBookingByPhone(tx, inserted[0].id, inserted[0].buyerPhone);
-        }
+        // Issue 031: no phone-match attach. Operator-created bookings have no
+        // buyer session to prove phone ownership, so they stay unlinked
+        // (customerId NULL) and the customer claims them via OTP-proven register
+        // backfill. The old phone-match attach was spoofable.
 
         return {
           kind: 'ok' as const,

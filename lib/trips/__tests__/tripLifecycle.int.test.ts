@@ -6,7 +6,7 @@
  * Covers:
  * - markDeparted: sets departedAt + salesClosed=true (AC5), idempotency, tenant isolation
  * - markDeparted: blocks further holds/bookings via salesClosed (AC5)
- * - markCompleted: sets completedAt, inserts NotificationLog with scheduledFor=+3d (S19)
+ * - markCompleted: sets completedAt, inserts NotificationLog with scheduledFor=+1d (T+1, S15#5)
  * - markCompleted: idempotency + tenant isolation
  * - markCompleted: only eligible booking statuses get payout log entry
  */
@@ -275,10 +275,10 @@ describe('markCompleted', () => {
     expect(payoutLogs[0].scheduledFor).not.toBeNull();
     const scheduledFor = payoutLogs[0].scheduledFor!;
     const now = Date.now();
-    const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
-    // Allow ±60 seconds tolerance
-    expect(scheduledFor.getTime()).toBeGreaterThan(now + THREE_DAYS_MS - 60_000);
-    expect(scheduledFor.getTime()).toBeLessThan(now + THREE_DAYS_MS + 60_000);
+    const ONE_DAY_MS = 1 * 24 * 60 * 60 * 1000;
+    // Allow ±60 seconds tolerance (T+1, S15#5)
+    expect(scheduledFor.getTime()).toBeGreaterThan(now + ONE_DAY_MS - 60_000);
+    expect(scheduledFor.getTime()).toBeLessThan(now + ONE_DAY_MS + 60_000);
 
     // payload should have tripId and operatorId but NOT scheduledFor (no duplication)
     const payload = JSON.parse(payoutLogs[0].payload);

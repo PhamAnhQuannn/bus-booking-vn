@@ -22,9 +22,12 @@ export function SearchFormWrapper({ initialValues, places }: Props) {
   const setQuery = useSearchStore((s) => s.setQuery);
 
   useEffect(() => {
-    if (initialValues) {
-      setQuery(initialValues);
-    }
+    // Store uses skipHydration (SSR-safe). Rehydrate from localStorage AFTER mount
+    // so the first client render matches the server, then let URL values win.
+    void (async () => {
+      await useSearchStore.persist.rehydrate();
+      if (initialValues) setQuery(initialValues);
+    })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <SearchForm places={places} />;

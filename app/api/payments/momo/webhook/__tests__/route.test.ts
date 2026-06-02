@@ -44,6 +44,10 @@ vi.mock('@/lib/notifications/esms', () => ({
   renderTemplate: vi.fn().mockReturnValue('stub sms body'),
 }));
 
+vi.mock('@/lib/logger', () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}));
+
 vi.mock('next/server', async () => {
   const actual = await vi.importActual<typeof import('next/server')>('next/server');
   return {
@@ -60,6 +64,7 @@ import { POST } from '../route';
 import { getMomoAdapter } from '@/lib/payment/momo';
 import { prisma } from '@/lib/db/client';
 import { createNotificationLog } from '@/lib/db/notificationLogRepo';
+import { logger } from '@/lib/logger';
 import { Prisma } from '@prisma/client';
 import { NextRequest } from 'next/server';
 
@@ -194,6 +199,103 @@ describe('POST /api/payments/momo/webhook — paid IPN (resultCode=0)', () => {
     const calls = vi.mocked(createNotificationLog).mock.calls;
     const templates = calls.map((c) => c[0].template).sort();
     expect(templates).toEqual(['customerBookingPaid', 'operatorNewBooking']);
+  });
+});
+
+describe('POST /api/payments/momo/webhook — underpaid IPN (money-loss guard)', () => {
+  it('does NOT mark booking paid when a success IPN underpays; records the event, no notifications', async () => {
+    // MOCK_BOOKING.totalVnd = 200000; IPN claims success but pays only 1 VND.
+    vi.mocked(getMomoAdapter).mockReturnValue({
+      verifyWebhook: vi.fn().mockReturnValue(
+        fakeVerifyOk({ orderId: BOOKING_REF, transId: '7777001', resultCode: 0, amount: 1 })
+      ),
+      createPayment: vi.fn(),
+    });
+    vi.mocked(prisma.booking.findUnique).mockResolvedValue(MOCK_BOOKING as never);
+
+    const executeRawMock = vi.fn().mockResolvedValue(1);
+    const paymentEventCreate = vi.fn().mockResolvedValue({});
+    vi.mocked(prisma.$transaction).mockImplementationOnce(async (fn) => {
+      const fakeTx = {
+        paymentEvent: { create: paymentEventCreate },
+        $executeRaw: executeRawMock,
+      };
+      await fn(fakeTx as never);
+      return undefined;
+    });
+
+    const res = await POST(makeRequest(JSON.stringify({ signature: 'test', resultCode: 0 })));
+    const json = await res.json();
+
+    // Still ack the IPN (200), but no paid transition and no notifications.
+    expect(res.status).toBe(200);
+    expect(json.message).toBe('ok');
+    expect(paymentEventCreate).toHaveBeenCalledOnce(); // audit row recorded
+    expect(executeRawMock).not.toHaveBeenCalled(); // no status UPDATE
+    expect(createNotificationLog).not.toHaveBeenCalled();
+  });
+
+  it('marks booking paid when the IPN pays the exact amount (control)', async () => {
+    vi.mocked(getMomoAdapter).mockReturnValue({
+      verifyWebhook: vi.fn().mockReturnValue(
+        fakeVerifyOk({ orderId: BOOKING_REF, transId: '7777002', resultCode: 0, amount: 200000 })
+      ),
+      createPayment: vi.fn(),
+    });
+    vi.mocked(prisma.booking.findUnique).mockResolvedValue(MOCK_BOOKING as never);
+
+    const executeRawMock = vi.fn().mockResolvedValue(1);
+    vi.mocked(prisma.$transaction).mockImplementationOnce(async (fn) => {
+      const fakeTx = {
+        paymentEvent: { create: vi.fn().mockResolvedValue({}) },
+        $executeRaw: executeRawMock,
+      };
+      await fn(fakeTx as never);
+      return undefined;
+    });
+    vi.mocked(createNotificationLog)
+      .mockResolvedValueOnce({ id: 'notif-cust-002' } as never)
+      .mockResolvedValueOnce({ id: 'notif-op-002' } as never);
+
+    const res = await POST(makeRequest(JSON.stringify({ signature: 'test', resultCode: 0 })));
+    expect(res.status).toBe(200);
+    expect(executeRawMock).toHaveBeenCalledOnce(); // paid transition ran
+    expect(createNotificationLog).toHaveBeenCalledTimes(2);
+  });
+
+  it('marks booking paid AND records the overpay delta when the IPN overpays (not silent)', async () => {
+    // MOCK_BOOKING.totalVnd = 200000; IPN claims success but pays 300000 (overpay 100000).
+    vi.mocked(getMomoAdapter).mockReturnValue({
+      verifyWebhook: vi.fn().mockReturnValue(
+        fakeVerifyOk({ orderId: BOOKING_REF, transId: '7777003', resultCode: 0, amount: 300000 })
+      ),
+      createPayment: vi.fn(),
+    });
+    vi.mocked(prisma.booking.findUnique).mockResolvedValue(MOCK_BOOKING as never);
+
+    const executeRawMock = vi.fn().mockResolvedValue(1);
+    vi.mocked(prisma.$transaction).mockImplementationOnce(async (fn) => {
+      const fakeTx = {
+        paymentEvent: { create: vi.fn().mockResolvedValue({}) },
+        $executeRaw: executeRawMock,
+      };
+      await fn(fakeTx as never);
+      return undefined;
+    });
+    vi.mocked(createNotificationLog)
+      .mockResolvedValueOnce({ id: 'notif-cust-003' } as never)
+      .mockResolvedValueOnce({ id: 'notif-op-003' } as never);
+
+    const res = await POST(makeRequest(JSON.stringify({ signature: 'test', resultCode: 0 })));
+    expect(res.status).toBe(200);
+    expect(executeRawMock).toHaveBeenCalledOnce(); // overpay still transitions to paid
+
+    // Not silent: the overpay delta is recorded via a structured warn carrying the delta.
+    const overpayWarn = vi
+      .mocked(logger.warn)
+      .mock.calls.find(([obj]) => obj && typeof obj === 'object' && 'overpayVnd' in obj);
+    expect(overpayWarn).toBeDefined();
+    expect((overpayWarn![0] as { overpayVnd: number }).overpayVnd).toBe(100000);
   });
 });
 

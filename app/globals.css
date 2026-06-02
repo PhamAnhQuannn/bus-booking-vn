@@ -175,3 +175,56 @@
     @apply font-sans;
   }
 }
+
+/* Hero cover band — slow cinematic Ken-Burns drift. Applied via the arbitrary
+   `animate-[kenburns_…]` utility under a `motion-safe:` guard (no motion when the
+   user prefers reduced motion). Alternate 1→1.08 never shrinks below fit → no edge gap. */
+@keyframes kenburns {
+  from {
+    transform: scale(1) translateY(0);
+  }
+  to {
+    transform: scale(1.08) translateY(-1.2%);
+  }
+}
+
+/* Intro-banner floating glow blobs (motion-safe). */
+@keyframes blob {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(24px, -28px) scale(1.12);
+  }
+  66% {
+    transform: translate(-18px, 16px) scale(0.94);
+  }
+}
+
+/* Scroll-reveal: fade + rise as a section enters the viewport. Pure CSS scroll-driven
+   timeline — no JS, off the main thread. End-state = the visible state, so browsers
+   without scroll-timeline support (and reduced-motion users) render content normally
+   (progressive enhancement, no FOUC). Apply `.reveal` to a section/grid wrapper; for a
+   staggered feel set `style={{ '--i': index }}` on children. */
+@keyframes reveal-rise {
+  from {
+    opacity: 0;
+    transform: translateY(1.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: reveal-rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 35%;
+      animation-delay: calc(var(--i, 0) * 60ms);
+    }
+  }
+}

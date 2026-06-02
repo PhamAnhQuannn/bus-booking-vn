@@ -11,6 +11,7 @@
 
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, Armchair } from 'lucide-react';
 import { searchParamsSchema, searchFiltersSchema } from '@/lib/validation/search';
@@ -18,10 +19,12 @@ import { track } from '@/lib/analytics/track';
 import { searchTrips, type TripResult } from '@/lib/db/searchTrips';
 import { applyTripFilters, type TripFacets } from '@/lib/search/applyTripFilters';
 import { SearchFormWrapper } from '@/components/search/SearchFormWrapper';
+import { SearchForm } from '@/components/search/SearchForm';
 import { SearchStoreHydrator } from '@/components/search/SearchStoreHydrator';
 import { SearchFilterRail, SearchToolbar } from '@/components/search/SearchFilters';
 import { BookButton } from '@/components/search/BookButton';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { getSearchablePlaces } from '@/lib/db/getSearchablePlaces';
 
 const BUS_TYPE_LABEL: Record<'coach' | 'sleeper' | 'limousine', string> = {
@@ -182,7 +185,7 @@ function EmptyState({
       </p>
       <p className="text-sm text-muted-foreground">Thử ngày khác:</p>
       <div className="flex gap-3">
-        {showPrev && (
+        {showPrev ? (
           <Link
             href={buildUrl(prevDate)}
             className="inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-muted"
@@ -190,6 +193,14 @@ function EmptyState({
           >
             ← {formatVnDate(prevDate)}
           </Link>
+        ) : (
+          <span
+            className="inline-flex min-h-11 cursor-not-allowed items-center justify-center rounded-lg border border-border bg-muted/40 px-4 text-sm font-medium text-muted-foreground/40"
+            aria-disabled="true"
+            aria-label="Không thể chọn ngày trong quá khứ"
+          >
+            ← {formatVnDate(prevDate)}
+          </span>
         )}
         <Link
           href={buildUrl(nextDate)}
@@ -252,7 +263,13 @@ function ResultsList({
               ← Trước
             </Link>
           ) : (
-            <span className="min-h-11" />
+            <span
+              className="inline-flex min-h-11 cursor-not-allowed items-center justify-center rounded-md px-3 text-sm font-medium text-muted-foreground/40"
+              aria-disabled="true"
+              aria-label="Không thể chọn ngày trong quá khứ"
+            >
+              ← Trước
+            </span>
           )}
           <span className="flex-1 text-center text-sm font-semibold leading-[2.75rem]">
             {formatVnDate(date)}
@@ -320,6 +337,15 @@ export default async function SearchPage({ searchParams }: PageProps) {
 
   const { origin, destination, date, ticketCount } = parsed.data;
 
+  // Today in Asia/Ho_Chi_Minh (en-CA → YYYY-MM-DD; lexical order == chronological).
+  // Past dates aren't browsable: a stale URL/bookmark with date < today is
+  // redirected forward to today (origin/destination/ticketCount preserved).
+  const todayVN = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
+  if (date < todayVN) {
+    const p = new URLSearchParams({ origin, destination, date: todayVN, ticketCount: String(ticketCount) });
+    redirect(`/search?${p.toString()}`);
+  }
+
   const baseTrips = await searchTrips({ origin, destination, date, ticketCount });
 
   // Funnel top-step. The /search RSC calls searchTrips() in-process (never the
@@ -337,10 +363,13 @@ export default async function SearchPage({ searchParams }: PageProps) {
     filters.success ? filters.data : searchFiltersSchema.parse({})
   );
 
-  // AC-4: suppress prev-day chip when searched date == today (Asia/Ho_Chi_Minh).
-  // en-CA locale emits YYYY-MM-DD; pin timeZone to VN so DST/UTC drift cannot mis-render.
-  const todayVN = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
-  const showPrev = date !== todayVN;
+  // AC-4: suppress prev-day chip whenever the searched date is today or earlier
+  // (Asia/Ho_Chi_Minh) — past dates aren't browsable, so prev can never go back
+  // before today. `>` on YYYY-MM-DD strings is chronological.
+  const showPrev = date > todayVN;
+
+  // Places for the inline "edit search" form's origin/destination comboboxes.
+  const places = await getSearchablePlaces();
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6">
@@ -362,6 +391,13 @@ export default async function SearchPage({ searchParams }: PageProps) {
           {origin} → {destination}
         </h1>
       </div>
+
+      {/* Inline "edit search" — pre-filled from the seeded store; re-searches on submit. */}
+      <Card className="shadow-e1">
+        <CardContent className="py-3">
+          <SearchForm places={places} orientation="horizontal" />
+        </CardContent>
+      </Card>
 
       {totalBeforeFilters === 0 ? (
         <EmptyState

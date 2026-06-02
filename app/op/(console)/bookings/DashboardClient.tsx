@@ -19,6 +19,7 @@ import { listBookingsApi } from '@/lib/api/bookingsClient';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import {
   Select,
   SelectTrigger,
@@ -115,11 +116,11 @@ export default function DashboardClient({ initialRows, initialNextCursor }: Prop
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="filter-service-date">Ngày đi</Label>
-              <Input
+              <DatePicker
                 id="filter-service-date"
-                type="date"
                 value={serviceDate}
-                onChange={(e) => setServiceDate(e.target.value)}
+                onValueChange={setServiceDate}
+                placeholder="Mọi ngày"
                 data-testid="filter-service-date"
               />
             </div>

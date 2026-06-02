@@ -4,6 +4,18 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
+## Rebuild Plan — read this BEFORE working on product scope
+
+`rebuild-plan.md` (repo root) is the SECTION-INDEXED product source of truth.
+
+- On any scope/feature/verify task: open `rebuild-plan.md`, read its INDEX table, Grep the
+  matching section token (`[S02]`…`[S15]`), and read ONLY that section.
+- Then verify/implement using ONLY that section's `Verify:` code paths. Do NOT scan the whole
+  repo. Full-repo or full-file scans happen ONLY when the user explicitly asks.
+- Sections are independent: read more than one only when the task genuinely spans them.
+- The stories were authored without reading code — they are the TARGET. Reconcile against the
+  actual codebase during Verify and update each section's `Status:` (TODO/PARTIAL/DONE).
+
 ## Mistake Log
 
 - **2026-05-17 (Issue 001)** — Maintenance-window filter compared `new Date()` (wall-clock now) instead of `trip.departureAt`. Future trips on a bus with a future maintenance window were incorrectly included whenever maintenance wasn't active *right now*. Fix: window-vs-window overlap (`maintenanceStart ≤ endUtc AND maintenanceEnd ≥ startUtc`) — encoded as `OR: [maintenanceStart null, maintenanceEnd < startUtc, maintenanceStart > endUtc]` in `app/api/trips/search/route.ts` + `lib/db/searchTrips.ts`.

@@ -145,8 +145,43 @@ async function main() {
   // Dedicated route for e2e race-condition test (capacity-1 bus, AC-4)
   const rRace = await prisma.route.create({ data: { origin: 'E2E Race Origin', destination: 'E2E Race Destination', operatorId: op1.id, durationMinutes: 240 } });
 
+  // --- Popular landing-page routes (RouteDirectory + carousels) so those links
+  //     return real results. Names match the UI exactly (e.g. "Sài Gòn", not "TP.HCM").
+  //     Spread across operators — each has coach/sleeper/limousine buses for the dense generator. ---
+  const extraRouteDefs: Array<{ origin: string; destination: string; operatorId: string; durationMinutes: number }> = [
+    { origin: 'Hà Nội', destination: 'Sài Gòn', operatorId: op1.id, durationMinutes: 1740 },
+    { origin: 'Sài Gòn', destination: 'Hà Nội', operatorId: op2.id, durationMinutes: 1740 },
+    { origin: 'Thanh Hóa', destination: 'Sài Gòn', operatorId: op1.id, durationMinutes: 1500 },
+    { origin: 'Đà Lạt', destination: 'Sài Gòn', operatorId: op3.id, durationMinutes: 360 },
+    { origin: 'Sài Gòn', destination: 'Nha Trang', operatorId: op2.id, durationMinutes: 480 },
+    { origin: 'Sài Gòn', destination: 'Vũng Tàu', operatorId: op2.id, durationMinutes: 150 },
+    { origin: 'Sài Gòn', destination: 'Cần Thơ', operatorId: op2.id, durationMinutes: 210 },
+    { origin: 'Sài Gòn', destination: 'Đà Nẵng', operatorId: op2.id, durationMinutes: 960 },
+    { origin: 'Sài Gòn', destination: 'Bình Dương', operatorId: op2.id, durationMinutes: 60 },
+    { origin: 'Hà Nội', destination: 'Đà Nẵng', operatorId: op1.id, durationMinutes: 900 },
+    { origin: 'Hà Nội', destination: 'Thanh Hóa', operatorId: op1.id, durationMinutes: 180 },
+    { origin: 'Hà Nội', destination: 'Vinh', operatorId: op1.id, durationMinutes: 300 },
+  ];
+  const extraRoutes = await Promise.all(extraRouteDefs.map((d) => prisma.route.create({ data: d })));
+
+  // --- Bidirectional fill: every real route searchable both ways. Derive the reverse
+  //     of each real route; skip pairs already bidirectional (Đà Nẵng↔Huế, Sài Gòn↔Đà Lạt,
+  //     Hà Nội↔Sài Gòn) + the TP.HCM alias (r1) / e2e fixture (rRace). Reverse keeps the
+  //     same duration (symmetric) + operator. ---
+  const baseRealRoutes = [r2, r3, r4, r5, r6, r7, r8, r9, ...extraRoutes];
+  const existingKeys = new Set(baseRealRoutes.map((r) => `${r.origin}|${r.destination}`));
+  const seenReverse = new Set<string>();
+  const reverseDefs: Array<{ origin: string; destination: string; operatorId: string; durationMinutes: number }> = [];
+  for (const r of baseRealRoutes) {
+    const revKey = `${r.destination}|${r.origin}`;
+    if (existingKeys.has(revKey) || seenReverse.has(revKey)) continue;
+    seenReverse.add(revKey);
+    reverseDefs.push({ origin: r.destination, destination: r.origin, operatorId: r.operatorId, durationMinutes: r.durationMinutes });
+  }
+  const reverseRoutes = await Promise.all(reverseDefs.map((d) => prisma.route.create({ data: d })));
+
   // ---- Pickup points (light) so /trips/[id] detail shows a pickup section ----
-  const pickupRoutes = [r1, r2, r3, r4, r5, r6, r7, r8, r9];
+  const pickupRoutes = [r1, r2, r3, r4, r5, r6, r7, r8, r9, ...extraRoutes, ...reverseRoutes];
   await Promise.all(
     pickupRoutes.flatMap((r) => [
       prisma.pickupPoint.create({
@@ -314,7 +349,7 @@ async function main() {
       { id: buses[13].id, type: 'limousine' },
     ],
   };
-  const realRoutes = [r1, r2, r3, r4, r5, r6, r7, r8, r9];
+  const realRoutes = [r1, r2, r3, r4, r5, r6, r7, r8, r9, ...extraRoutes, ...reverseRoutes];
   const windows = [
     { h: 7, m: 0 },
     { h: 13, m: 30 },
@@ -373,8 +408,9 @@ async function main() {
   });
 
   console.log(
-    `Seeded: 3 operators, 14 buses (coach/sleeper/limousine), 10 routes (9 real + 1 e2e), ` +
-      `${tripData.length} trips (12 curated for AC-3/AC-4 + 9 routes × 14 days × 3 types dense demo grid). ` +
+    `Seeded: 3 operators, 14 buses (coach/sleeper/limousine), ${realRoutes.length + 1} routes ` +
+      `(${realRoutes.length} real incl. ${reverseRoutes.length} reverse + 1 e2e), ${tripData.length} trips ` +
+      `(12 curated for AC-3/AC-4 + ${realRoutes.length} routes × ${DAYS} days × 3 types dense demo grid). ` +
       `1 OperatorUser (Issue 010).`
   );
 }
