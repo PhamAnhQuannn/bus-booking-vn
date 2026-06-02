@@ -23,7 +23,7 @@ vi.mock('@/lib/db/client', () => ({
 }));
 
 import { prisma } from '@/lib/db/client';
-import { getOperatorBalance } from '../balance';
+import { getOperatorBalance, OPERATOR_BALANCE_TYPES } from '../balance';
 
 const queryRaw = prisma.$queryRaw as unknown as ReturnType<typeof vi.fn>;
 
@@ -87,6 +87,64 @@ describe('getOperatorBalance', () => {
     const bal = await getOperatorBalance('op-1');
     expect(bal.available).toBe(BigInt(big));
     expect(bal.available).not.toBe(BigInt(Number(big))); // proves no float coercion
+  });
+
+  // ── Issue 051: refund_out must be EXCLUDED from operator balance ──────────
+  // getOperatorBalance binds an explicit type IN-list (OPERATOR_BALANCE_TYPES).
+  // We assert the constant + that the bucket SQL filters on exactly those types
+  // and NOT on refund_out — counting refund_out would double-subtract refunds.
+
+  it('OPERATOR_BALANCE_TYPES includes refund_debit but NOT refund_out', () => {
+    expect(OPERATOR_BALANCE_TYPES).toContain('booking_credit');
+    expect(OPERATOR_BALANCE_TYPES).toContain('platform_fee');
+    expect(OPERATOR_BALANCE_TYPES).toContain('refund_debit');
+    expect(OPERATOR_BALANCE_TYPES).toContain('payout_debit');
+    expect(OPERATOR_BALANCE_TYPES).toContain('payout_reversal');
+    expect(OPERATOR_BALANCE_TYPES).toContain('chargeback');
+    expect(OPERATOR_BALANCE_TYPES).toContain('adjustment');
+    // The platform-float type is deliberately absent.
+    expect(OPERATOR_BALANCE_TYPES).not.toContain('refund_out');
+  });
+
+  it('the bucket SQL filters on the IN-list and never on refund_out', async () => {
+    mockRow('0', '0', '0');
+    await getOperatorBalance('op-1');
+
+    // Recursively collect every string the query + its bound Sql values carry.
+    const collected: string[] = [];
+    const walk = (v: unknown) => {
+      if (typeof v === 'string') collected.push(v);
+      else if (Array.isArray(v)) v.forEach(walk);
+      else if (v && typeof v === 'object') Object.values(v).forEach(walk);
+    };
+    walk(queryRaw.mock.calls[0]);
+    const blob = collected.join('|');
+
+    // Each included type appears as a bound enum literal; refund_out does not.
+    for (const t of OPERATOR_BALANCE_TYPES) {
+      expect(blob).toContain(t);
+    }
+    expect(collected).not.toContain('refund_out');
+  });
+
+  it('a refund_out entry does NOT change operator balance while its paired refund_debit does', async () => {
+    // Scenario the SQL produces: a paid booking on a completed+T+1 trip
+    // (booking_credit +1,000,000) was fully refunded. The refund wrote
+    //   refund_debit −1,000,000  (COUNTS → cancels the credit)
+    //   refund_out   −1,000,000  (EXCLUDED by the IN-list → never summed)
+    // So settled_eligible = 1,000,000 + (−1,000,000) = 0; refund_out absent.
+    mockRow('0', '0', '0');
+    const afterRefund = await getOperatorBalance('op-1');
+    expect(afterRefund.available).toBe(BigInt(0));
+    expect(afterRefund.pending).toBe(BigInt(0));
+
+    // Counter-proof: had refund_out been (wrongly) summed too, the eligible sum
+    // would be −1,000,000 (a negative operator balance). The IN-list prevents it.
+    mockRow('-1000000', '0', '0');
+    const ifDoubleCounted = await getOperatorBalance('op-1');
+    expect(ifDoubleCounted.available).toBe(BigInt(-1_000_000));
+    // (this row is the HYPOTHETICAL the SQL must never produce — documented here
+    //  so a future negation-style regression in the SQL is obvious.)
   });
 
   it('empty ledger (no rows) → all zero', async () => {

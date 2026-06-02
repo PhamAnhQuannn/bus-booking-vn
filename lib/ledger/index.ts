@@ -15,7 +15,21 @@ export {
 export { getEffectiveFeeRate, applyFeePpm, calcPlatformFeeMinor } from './feeConfig';
 
 // Issue 050: operator balance derived from SUM(LedgerEntry) — pending/available/paidOut.
-export { getOperatorBalance, type OperatorBalance } from './balance';
+// Issue 051: OPERATOR_BALANCE_TYPES — explicit balance-inclusion set (excludes refund_out).
+export {
+  getOperatorBalance,
+  OPERATOR_BALANCE_TYPES,
+  type OperatorBalance,
+} from './balance';
+
+// Issue 051: refund-out rail — refundOut writes refund_debit + refund_out (idempotent).
+export {
+  refundOut,
+  RefundOutError,
+  type RefundOutInput,
+  type RefundOutResult,
+  type RefundReason,
+} from './refund';
 
 // Issue 050: ledger-domain constants (withdrawal floor, settlement delay).
 export {

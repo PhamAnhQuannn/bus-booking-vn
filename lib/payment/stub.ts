@@ -98,6 +98,25 @@ export function buildStubIpn(input: {
   return payload;
 }
 
+/**
+ * Deterministic stub PSP refund (Issue 051). Under PAYMENTS_STUB the refund
+ * ALWAYS succeeds and the refund transaction id is a pure function of the
+ * idempotency key — `stub_refund_<idempotencyKey>` — so a replay with the same
+ * key produces the SAME refundTxnId and the caller's idempotent ledger writes
+ * collide deterministically. No network, no PSP credentials.
+ *
+ * `providerTxnId` (the original inbound payment txn) and `amountMinor` are
+ * accepted for signature-parity with the real adapter and for audit logging,
+ * but the stub does not need them to compute the deterministic result.
+ */
+export function refundPaymentStub(input: {
+  providerTxnId: string | null;
+  amountMinor: number;
+  idempotencyKey: string;
+}): { ok: true; refundTxnId: string } {
+  return { ok: true, refundTxnId: `stub_refund_${input.idempotencyKey}` };
+}
+
 export interface StubConfig {
   secretKey: string;
   baseUrl: string;

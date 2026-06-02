@@ -45,6 +45,7 @@ import {
   appendLedgerEntry,
   getEffectiveFeeRate,
   calcPlatformFeeMinor,
+  refundOut,
 } from '@/lib/ledger';
 
 export interface ProcessPaymentWebhookInput {
@@ -63,6 +64,13 @@ interface PendingDispatch {
   to: string;
   template: SmsTemplate;
   payload: Record<string, string | number>;
+}
+
+/** Issue 051: captured overpay info, refunded post-commit in after(). */
+interface OverpayRefund {
+  bookingId: string;
+  overpayVnd: number;
+  providerTxnId: string;
 }
 
 function formatDepartureForSms(d: Date): string {
@@ -132,6 +140,9 @@ export async function processPaymentWebhook(
 
   const pending: PendingDispatch[] = [];
   let paidBookingId: string | null = null;
+  // Issue 051: overpay refund-out captured here, executed AFTER the paid tx
+  // commits (refundOut opens its own tx + reads the committed paid state).
+  const overpayRefundBox: { value: OverpayRefund | null } = { value: null };
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -204,6 +215,18 @@ export async function processPaymentWebhook(
           // claims via OTP-proven register backfill. The old phone-match attach
           // was spoofable (any typed phone matching an account would link).
           paidBookingId = booking.id; // funnel booking_paid fired post-commit
+
+          // Issue 051: if this paid event OVERPAID, schedule a refund-out of the
+          // difference. Captured ONLY inside the updated>0 branch (the FIRST and
+          // only paid transition) so a replayed IPN never re-refunds. Executed
+          // post-commit in after() — best-effort + logged, NOT inside this tx.
+          if (amount > booking.totalVnd) {
+            overpayRefundBox.value = {
+              bookingId: booking.id,
+              overpayVnd: amount - booking.totalVnd,
+              providerTxnId,
+            };
+          }
 
           // ── Issue 049: ledger entries at booking-paid ───────────────────
           // Two double-entry rows for this first-and-only paid transition:
@@ -355,6 +378,31 @@ export async function processPaymentWebhook(
     void sessionIdForBooking(bid).then((sessionId) =>
       track('booking_paid', { sessionId, bookingId: bid, context: { adapter } })
     );
+  }
+
+  // Issue 051: refund the overpay difference AFTER the paid tx committed. In
+  // after() so it never blocks the 200 IPN ack and never runs inside the status
+  // tx (refundOut opens its own tx and reads the committed paid booking).
+  // Best-effort + logged: a refund failure must not fail the webhook (the paid
+  // transition already succeeded). Idempotency key is tied to the overpay event
+  // (`overpay:<bookingId>:<providerTxnId>`), distinct from the inbound payment.
+  if (overpayRefundBox.value) {
+    const ovr = overpayRefundBox.value;
+    after(async () => {
+      try {
+        await refundOut({
+          bookingId: ovr.bookingId,
+          amountMinor: ovr.overpayVnd,
+          reason: 'overpay_difference',
+          idempotencyKey: `overpay:${ovr.bookingId}:${ovr.providerTxnId}`,
+        });
+      } catch (refundErr) {
+        logger.error(
+          { err: refundErr, adapter, bookingRef, bookingId: ovr.bookingId },
+          'payment.webhook.overpay_refund.error — booking stays paid, refund needs retry'
+        );
+      }
+    });
   }
 
   // Schedule SMS dispatch after response (non-blocking)

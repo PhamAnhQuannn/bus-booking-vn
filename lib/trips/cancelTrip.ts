@@ -19,6 +19,8 @@ import { TripServiceError } from './errors';
 import type { TripDto } from './tripDto';
 import { toTripDto } from './toTripDto';
 import { randomUUID } from 'crypto';
+import { refundOut } from '@/lib/ledger';
+import { logger } from '@/lib/logger';
 
 export interface CancelTripResult {
   trip: TripDto;
@@ -34,7 +36,7 @@ export async function cancelTrip(
   cancelReason: string
 ): Promise<CancelTripResult> {
   try {
-    return await prisma.$transaction(async (tx) => {
+    const { result, paidBookings } = await prisma.$transaction(async (tx) => {
       // 1. SELECT FOR UPDATE to serialise concurrent cancel ops
       const locked = await tx.$queryRaw<{
         id: string;
@@ -73,12 +75,17 @@ export async function cancelTrip(
           },
         });
         // existingTrip is guaranteed non-null: we just locked it above
+        // Already-cancelled re-cancel is idempotent: no new refunds (the
+        // original cancel already issued them, keyed on cancel:<tripId>:<id>).
         return {
-          trip: toTripDto(existingTrip!),
-          alreadyCancelled: true,
-          cancelledBookings: 0,
-          cancelledHolds: 0,
-          notificationsEnqueued: 0,
+          result: {
+            trip: toTripDto(existingTrip!),
+            alreadyCancelled: true,
+            cancelledBookings: 0,
+            cancelledHolds: 0,
+            notificationsEnqueued: 0,
+          },
+          paidBookings: [] as { id: string; totalVnd: number }[],
         };
       }
 
@@ -126,6 +133,20 @@ export async function cancelTrip(
           buyerPhone: true,
           customerId: true,
         },
+      });
+
+      // Issue 051: capture the bookings that actually had money IN via the PSP
+      // (online-paid → paid_operator_notified / completed). These get a
+      // refund-out AFTER this cancel tx commits (refundOut opens its own tx and
+      // must see the committed trip_cancelled state). `pending_cash_payment` is
+      // excluded — cash was never collected through the platform, so there is
+      // nothing to refund out. Captured BEFORE the updateMany flips status.
+      const paidBookings = await tx.booking.findMany({
+        where: {
+          tripId,
+          status: { in: ['paid_operator_notified', 'completed'] },
+        },
+        select: { id: true, totalVnd: true },
       });
 
       // 4. Bulk-update affected bookings
@@ -179,13 +200,42 @@ export async function cancelTrip(
       }
 
       return {
-        trip: toTripDto(updatedTrip),
-        alreadyCancelled: false,
-        cancelledBookings: bookingResult.count,
-        cancelledHolds: holdResult.count,
-        notificationsEnqueued: affectedBookings.length,
+        result: {
+          trip: toTripDto(updatedTrip),
+          alreadyCancelled: false,
+          cancelledBookings: bookingResult.count,
+          cancelledHolds: holdResult.count,
+          notificationsEnqueued: affectedBookings.length,
+        },
+        paidBookings,
       };
     });
+
+    // ── Issue 051: refund-out per paid booking, AFTER the cancel tx commits ──
+    // refundOut opens its OWN transaction and reads the now-committed
+    // trip_cancelled booking state, so it must run post-commit (not inside the
+    // cancel tx). Idempotency key is tied to the cancel event
+    // (`cancel:<tripId>:<bookingId>`) so a re-cancel never double-refunds. Each
+    // refund is best-effort + logged: a single PSP/ledger failure must not undo
+    // the (already-committed) trip cancellation. Failed refunds are picked up by
+    // re-running cancel (idempotent) or a future reconciliation sweeper.
+    for (const b of paidBookings) {
+      try {
+        await refundOut({
+          bookingId: b.id,
+          amountMinor: b.totalVnd,
+          reason: 'operator_cancel',
+          idempotencyKey: `cancel:${tripId}:${b.id}`,
+        });
+      } catch (refundErr) {
+        logger.error(
+          { err: refundErr, tripId, bookingId: b.id },
+          'cancelTrip.refund_out.error — trip stays cancelled, refund needs retry'
+        );
+      }
+    }
+
+    return result;
   } catch (e) {
     const tagged = e as { _trip?: string };
     if (tagged._trip === 'not_found') throw new TripServiceError('not_found');

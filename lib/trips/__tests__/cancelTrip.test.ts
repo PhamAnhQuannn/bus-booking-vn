@@ -23,9 +23,15 @@ vi.mock('@/lib/db/client', () => {
   };
 });
 
+// Issue 051: cancelTrip now triggers refundOut per paid booking post-commit.
+vi.mock('@/lib/ledger', () => ({
+  refundOut: vi.fn().mockResolvedValue({ refunded: true, alreadyDone: false }),
+}));
+
 import { cancelTrip } from '../cancelTrip';
 import { TripServiceError } from '../errors';
 import { prisma } from '@/lib/db/client';
+import { refundOut } from '@/lib/ledger';
 
 const p = prisma as unknown as {
   $transaction: Mock;
@@ -102,11 +108,20 @@ const AFFECTED_BOOKINGS = [
   },
 ];
 
+const PAID_BOOKINGS = [
+  { id: '550e8400-e29b-41d4-a716-446655440000', totalVnd: 180000 },
+  { id: '550e8400-e29b-41d4-a716-446655440001', totalVnd: 90000 },
+];
+
 describe('cancelTrip', () => {
   it('cancels successfully and returns counts', async () => {
     p._txMock.$queryRaw.mockResolvedValue(LOCKED_SCHEDULED);
     p._txMock.trip.update.mockResolvedValue(UPDATED_TRIP_ROW);
-    p._txMock.booking.findMany.mockResolvedValue(AFFECTED_BOOKINGS);
+    // findMany is called twice: (1) affected bookings for notifications,
+    // (2) Issue 051 paid bookings for refund-out.
+    p._txMock.booking.findMany
+      .mockResolvedValueOnce(AFFECTED_BOOKINGS)
+      .mockResolvedValueOnce(PAID_BOOKINGS);
     p._txMock.booking.updateMany.mockResolvedValue({ count: 2 });
     p._txMock.hold.updateMany.mockResolvedValue({ count: 1 });
     p._txMock.route.findUnique.mockResolvedValue({ origin: 'HN', destination: 'HCM' });
@@ -120,6 +135,54 @@ describe('cancelTrip', () => {
     expect(result.notificationsEnqueued).toBe(2);
     expect(result.trip.id).toBe('trip-1');
     expect(result.trip.status).toBe('cancelled');
+  });
+
+  it('Issue 051: triggers refundOut per paid booking with cancel-scoped idempotency key', async () => {
+    p._txMock.$queryRaw.mockResolvedValue(LOCKED_SCHEDULED);
+    p._txMock.trip.update.mockResolvedValue(UPDATED_TRIP_ROW);
+    p._txMock.booking.findMany
+      .mockResolvedValueOnce(AFFECTED_BOOKINGS)
+      .mockResolvedValueOnce(PAID_BOOKINGS);
+    p._txMock.booking.updateMany.mockResolvedValue({ count: 2 });
+    p._txMock.hold.updateMany.mockResolvedValue({ count: 0 });
+    p._txMock.route.findUnique.mockResolvedValue({ origin: 'HN', destination: 'HCM' });
+    p._txMock.notificationLog.createMany.mockResolvedValue({ count: 2 });
+
+    await cancelTrip('op-1', 'trip-1', 'Equipment failure requiring repair');
+
+    expect(refundOut).toHaveBeenCalledTimes(2);
+    expect(refundOut).toHaveBeenCalledWith({
+      bookingId: PAID_BOOKINGS[0].id,
+      amountMinor: 180000,
+      reason: 'operator_cancel',
+      idempotencyKey: `cancel:trip-1:${PAID_BOOKINGS[0].id}`,
+    });
+    expect(refundOut).toHaveBeenCalledWith({
+      bookingId: PAID_BOOKINGS[1].id,
+      amountMinor: 90000,
+      reason: 'operator_cancel',
+      idempotencyKey: `cancel:trip-1:${PAID_BOOKINGS[1].id}`,
+    });
+  });
+
+  it('Issue 051: a single refundOut failure does not fail the cancel (best-effort)', async () => {
+    p._txMock.$queryRaw.mockResolvedValue(LOCKED_SCHEDULED);
+    p._txMock.trip.update.mockResolvedValue(UPDATED_TRIP_ROW);
+    p._txMock.booking.findMany
+      .mockResolvedValueOnce(AFFECTED_BOOKINGS)
+      .mockResolvedValueOnce(PAID_BOOKINGS);
+    p._txMock.booking.updateMany.mockResolvedValue({ count: 2 });
+    p._txMock.hold.updateMany.mockResolvedValue({ count: 0 });
+    p._txMock.route.findUnique.mockResolvedValue({ origin: 'HN', destination: 'HCM' });
+    p._txMock.notificationLog.createMany.mockResolvedValue({ count: 2 });
+    (refundOut as unknown as Mock).mockRejectedValueOnce(new Error('psp down'));
+
+    const result = await cancelTrip('op-1', 'trip-1', 'Equipment failure requiring repair');
+
+    // Cancel still reports success even though one refund threw.
+    expect(result.alreadyCancelled).toBe(false);
+    expect(result.cancelledBookings).toBe(2);
+    expect(refundOut).toHaveBeenCalledTimes(2);
   });
 
   it('throws not_found for cross-operator or missing trip', async () => {

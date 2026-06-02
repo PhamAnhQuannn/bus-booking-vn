@@ -123,6 +123,13 @@ export async function createOnlineBookingFromHold(
         // invariant, not recomputed here. This lock is defense-in-depth: it makes
         // racing conversions on one trip queue rather than interleave (Mistake
         // Log 011 FOR-UPDATE pattern). Locks only the Trip row (FOR UPDATE OF t).
+        //
+        // Issue 051 oversold-race remediation hook: there is NO current code path
+        // that produces an oversold booking (the hold invariant above prevents it
+        // structurally), so no refund is wired here. IF a future change can detect
+        // an oversold paid booking, remediate it by calling
+        // `refundOut({ bookingId, amountMinor, reason: 'oversold_race', idempotencyKey: \`oversold:<bookingId>\` })`
+        // from lib/ledger — do NOT manufacture a detection path that doesn't exist.
         await tx.$executeRaw(
           Prisma.sql`
             SELECT t.id

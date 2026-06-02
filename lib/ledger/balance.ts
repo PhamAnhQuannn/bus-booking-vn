@@ -19,15 +19,41 @@
  *               are stored negative (debit FROM balance); we report the magnitude
  *               (a positive paid-out total).
  *
+ * ── TYPE → OPERATOR-BALANCE INCLUSION (Issue 051, MONEY-CRITICAL) ────────────
+ * Operator balance is NOT every ledger row for the operatorId. Some rows are
+ * operatorId-scoped purely for TRACEABILITY but represent PLATFORM-FLOAT cash,
+ * not operator-owed money. The explicit inclusion map:
+ *
+ *   booking_credit    COUNTS   (operator earns the fare)
+ *   platform_fee      COUNTS   (platform's cut, a negative entry)
+ *   refund_debit      COUNTS   (clawback of the operator's credit on a refund)
+ *   payout_debit      COUNTS   (drains balance — but bucketed separately as paidOut)
+ *   payout_reversal   COUNTS   (a failed payout restored to balance)
+ *   chargeback        COUNTS   (bank-initiated reversal of operator revenue)
+ *   adjustment        COUNTS   (manual correction, either direction)
+ *   ───────────────────────────────────────────────────────────────────────────
+ *   refund_out        EXCLUDED (PLATFORM-FLOAT: cash physically paid back to the
+ *                              customer. It is paired with a refund_debit that
+ *                              ALREADY claws the credit from the operator balance.
+ *                              Counting refund_out too would DOUBLE-subtract.)
+ *
+ * `OPERATOR_BALANCE_TYPES` below is the single source of that inclusion set and
+ * is injected into the bucket SQL as an explicit IN-list. This MUST be an
+ * IN-list, NOT a `type <> 'payout_debit'` negation — a negation would silently
+ * sweep `refund_out` (a non-payout type) into the operator balance and
+ * double-subtract every refund. Add a NEW platform-float type → add it here.
+ *
  * ── BUCKET SQL (documented) ─────────────────────────────────────────────────
  * A single aggregate joins LedgerEntry → Booking → Trip (LEFT joins so entries
  * with no booking/trip still aggregate) and classifies each row with a CASE on
- * the entry type and the trip's completion + T+1 window:
+ * the entry type and the trip's completion + T+1 window. Only rows whose type is
+ * in OPERATOR_BALANCE_TYPES participate at all:
  *
  *   • payout_debit rows          → paid_out bucket (negated to positive total)
- *   • every OTHER (non-payout)   → settlement-eligible IF the linked trip is
- *     row                          completed AND `completedAt + interval '1 day'
- *                                  <= NOW()`; ELSE pending.
+ *   • every OTHER operator-balance→ settlement-eligible IF the linked trip is
+ *     type (credit/fee/refund_debit/  completed AND `completedAt + interval '1 day'
+ *     reversal/chargeback/adjustment)  <= NOW()`; ELSE pending.
+ *   • refund_out                 → NOT in the IN-list → excluded entirely.
  *
  *   available = settledEligibleSum − paidOut
  *
@@ -42,8 +68,26 @@
  * 016 — no float drift in money math). All three returned values are bigint.
  */
 
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db/client';
 import { SETTLEMENT_DELAY_SQL_INTERVAL } from './constants';
+
+/**
+ * The EXPLICIT set of LedgerEntry types that count toward the OPERATOR balance
+ * (Issue 051). `refund_out` is deliberately absent — it is platform-float cash,
+ * already accounted for on the operator side by its paired `refund_debit`.
+ * Injected into the bucket SQL as an IN-list (never a `<> payout_debit`
+ * negation, which would leak refund_out in and double-subtract refunds).
+ */
+export const OPERATOR_BALANCE_TYPES = [
+  'booking_credit',
+  'platform_fee',
+  'refund_debit',
+  'payout_debit',
+  'payout_reversal',
+  'chargeback',
+  'adjustment',
+] as const;
 
 export interface OperatorBalance {
   /** Earned but not yet settlement-eligible (trip not completed, or within T+1). */
@@ -69,6 +113,11 @@ interface BalanceRow {
  * '1 day' constant binds cleanly as `('1 day')::interval`.
  */
 export async function getOperatorBalance(operatorId: string): Promise<OperatorBalance> {
+  // Explicit operator-balance type IN-list (Issue 051): refund_out is EXCLUDED.
+  // Built as cast enum literals bound through Prisma.join — no string splice.
+  const balanceTypes = Prisma.join(
+    OPERATOR_BALANCE_TYPES.map((t) => Prisma.sql`${t}::"LedgerEntryType"`)
+  );
   // Interval is a server-controlled constant ('1 day'); operatorId is bound.
   const rows = await prisma.$queryRaw<BalanceRow[]>`
     SELECT
@@ -108,6 +157,9 @@ export async function getOperatorBalance(operatorId: string): Promise<OperatorBa
     LEFT JOIN "Booking" b ON b.id = le."bookingId"
     LEFT JOIN "Trip" t ON t.id = b."tripId"
     WHERE le."operatorId" = ${operatorId}
+      -- Operator balance counts ONLY these types; refund_out (platform float)
+      -- is intentionally excluded so the paired refund_debit isn't double-counted.
+      AND le."type" IN (${balanceTypes})
   `;
 
   const row = rows[0];
