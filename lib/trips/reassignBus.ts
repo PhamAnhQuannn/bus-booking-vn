@@ -17,6 +17,7 @@ import { prisma } from '@/lib/db/client';
 import { TripServiceError } from './errors';
 import type { TripDto } from './tripDto';
 import { toTripDto } from './toTripDto';
+import { busHasOverlappingTrip, tripWindowEnd } from './busOverlap';
 
 export async function reassignBus(
   operatorId: string,
@@ -27,17 +28,20 @@ export async function reassignBus(
 
   try {
     result = await prisma.$transaction(async (tx) => {
-      // I1: Lock the Trip row
-      const locked = await tx.$queryRaw<{ id: string; busId: string; departureAt: Date; blockedSeats: number }[]>`
-        SELECT id, "busId", "departureAt", "blockedSeats"
-        FROM "Trip"
-        WHERE id = ${tripId} AND "operatorId" = ${operatorId}
-        FOR UPDATE
+      // I1: Lock the Trip row (join Route for the duration that defines its overlap window)
+      const locked = await tx.$queryRaw<
+        { id: string; busId: string; departureAt: Date; blockedSeats: number; durationMinutes: number }[]
+      >`
+        SELECT t.id, t."busId", t."departureAt", t."blockedSeats", r."durationMinutes"
+        FROM "Trip" t
+        JOIN "Route" r ON r.id = t."routeId"
+        WHERE t.id = ${tripId} AND t."operatorId" = ${operatorId}
+        FOR UPDATE OF t
       `;
       if (locked.length === 0) {
         throw Object.assign(new Error('not_found'), { _trip: 'not_found' });
       }
-      const { departureAt, blockedSeats } = locked[0];
+      const { departureAt, blockedSeats, durationMinutes } = locked[0];
 
       // Validate new bus ownership + state
       const bus = await tx.bus.findFirst({
@@ -83,16 +87,15 @@ export async function reassignBus(
         });
       }
 
-      // Check bus overlap: new bus cannot be on another trip at same departureAt
-      // (same operator — different operator buses not visible)
-      const overlap = await tx.trip.findFirst({
-        where: {
-          busId: newBusId,
-          departureAt,
-          id: { not: tripId },
-          status: { in: ['scheduled', 'departed'] },
-        },
-        select: { id: true },
+      // Check bus overlap: the new bus cannot run a trip whose occupancy window
+      // overlaps this trip's window [departureAt, departureAt + routeDuration + buffer].
+      // (Prior bug: this used exact departureAt equality, so overlapping-but-not-equal
+      // trips slipped through.) Same operator — other operators' buses aren't visible.
+      const overlap = await busHasOverlappingTrip(tx, {
+        busId: newBusId,
+        candidateStart: departureAt,
+        candidateEnd: tripWindowEnd(departureAt, durationMinutes),
+        excludeTripId: tripId,
       });
       if (overlap) {
         throw Object.assign(new Error('bus_overlap_with_outbound'), { _trip: 'bus_overlap_with_outbound' });

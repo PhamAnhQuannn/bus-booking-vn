@@ -5,6 +5,7 @@
  * POST — create a one-off trip
  *        422 bus_in_maintenance (AC1)
  *        422 bus_deactivated
+ *        409 bus_overlap (bus already runs an overlapping trip — I3 overlap-conflict)
  *        404 not_found (cross-op bus or route)
  *
  * Both gated by requireOperatorAuth (I7: /op/trips/** NOT in allowlist → JWT claim
@@ -70,6 +71,10 @@ async function postHandler(req: NextRequest, ctx: OperatorAuthContext): Promise<
       }
       if (e.code === 'bus_deactivated') {
         return NextResponse.json({ error: 'bus_deactivated' }, { status: 422 });
+      }
+      if (e.code === 'bus_overlap') {
+        // Bus already runs an overlapping trip — conflict (I3: overlap-conflict = 409).
+        return NextResponse.json({ error: 'bus_overlap' }, { status: 409 });
       }
     }
     throw e;

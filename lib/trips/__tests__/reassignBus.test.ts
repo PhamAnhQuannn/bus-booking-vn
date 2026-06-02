@@ -43,6 +43,7 @@ const LOCKED_TRIP = [
     busId: 'bus-old',
     departureAt: new Date('2026-06-01T08:00:00Z'),
     blockedSeats: 0,
+    durationMinutes: 240,
   },
 ];
 
@@ -80,11 +81,13 @@ beforeEach(() => {
 
 describe('reassignBus', () => {
   it('reassigns successfully when all checks pass', async () => {
-    p._txMock.$queryRaw.mockResolvedValue(LOCKED_TRIP);
+    // 1st $queryRaw = trip lock; 2nd = overlap scan (busHasOverlappingTrip) → none
+    p._txMock.$queryRaw
+      .mockResolvedValueOnce(LOCKED_TRIP)
+      .mockResolvedValueOnce([]);
     p._txMock.bus.findFirst.mockResolvedValue(BASE_BUS);
     p._txMock.hold.aggregate.mockResolvedValue(EMPTY_AGG);
     p._txMock.booking.aggregate.mockResolvedValue(EMPTY_AGG);
-    p._txMock.trip.findFirst.mockResolvedValue(null); // no overlap
     p._txMock.trip.update.mockResolvedValue(UPDATED_TRIP);
 
     const dto = await reassignBus('op-1', 'trip-1', 'bus-new');
@@ -142,11 +145,13 @@ describe('reassignBus', () => {
   });
 
   it('throws bus_overlap_with_outbound when new bus has conflicting trip', async () => {
-    p._txMock.$queryRaw.mockResolvedValue(LOCKED_TRIP);
+    // 1st $queryRaw = trip lock; 2nd = overlap scan → conflicting trip found
+    p._txMock.$queryRaw
+      .mockResolvedValueOnce(LOCKED_TRIP)
+      .mockResolvedValueOnce([{ id: 'conflicting-trip' }]);
     p._txMock.bus.findFirst.mockResolvedValue(BASE_BUS);
     p._txMock.hold.aggregate.mockResolvedValue(EMPTY_AGG);
     p._txMock.booking.aggregate.mockResolvedValue(EMPTY_AGG);
-    p._txMock.trip.findFirst.mockResolvedValue({ id: 'conflicting-trip' }); // overlap found
 
     await expect(reassignBus('op-1', 'trip-1', 'bus-busy')).rejects.toMatchObject({
       code: 'bus_overlap_with_outbound',
