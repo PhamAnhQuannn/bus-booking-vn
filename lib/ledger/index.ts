@@ -1,5 +1,5 @@
 /**
- * Ledger repository barrel (Issue 047).
+ * Ledger domain barrel (Issues 047, 048).
  */
 
 export {
@@ -9,3 +9,6 @@ export {
   type AppendLedgerEntryResult,
   type LedgerEntryType,
 } from './ledgerRepo';
+
+// Issue 048: effective-dated platform-fee source (read helper + ppm math).
+export { getEffectiveFeeRate, applyFeePpm } from './feeConfig';

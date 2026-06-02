@@ -434,6 +434,26 @@ async function main() {
     },
   });
 
+  // Issue 048: global 6% platform-fee cutover row (ratePpm 60000 = 6%),
+  // effective from far in the past so it covers every existing date. Mirrors the
+  // row seeded inside migration 20260602030000_fee_config. Idempotent: only
+  // insert when no global (operatorId NULL) row already exists, so re-running
+  // db:seed on a migrated DB does not duplicate the cutover row.
+  const existingGlobalFee = await prisma.feeConfig.findFirst({
+    where: { operatorId: null },
+    select: { id: true },
+  });
+  if (!existingGlobalFee) {
+    await prisma.feeConfig.create({
+      data: {
+        operatorId: null,
+        ratePpm: 60000,
+        effectiveFrom: new Date('2020-01-01T00:00:00Z'),
+        createdBy: 'system:cutover',
+      },
+    });
+  }
+
   console.log(
     `Seeded: 3 operators, 14 buses (coach/sleeper/limousine), ${realRoutes.length + 1} routes ` +
       `(${realRoutes.length} real incl. ${reverseRoutes.length} reverse + 1 e2e), ${tripData.length} trips ` +
