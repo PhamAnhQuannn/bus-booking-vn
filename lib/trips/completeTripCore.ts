@@ -10,7 +10,7 @@
  *
  * Payout row: one per trip, gross = sum(totalVnd) of paid bookings, amounts via
  * calcPayout (authoritative at creation), status='pending', scheduledAt =
- * completedAt + 3d. Idempotent — skipped if a Payout already exists for the trip.
+ * completedAt + 1d (T+1, S15#5). Idempotent — skipped if a Payout already exists for the trip.
  *
  * SPEC NOTE (Issue 019): the issue text says the payout *processor* runs
  * calcPayout; we compute amounts here at row-creation instead so the Payout row
@@ -25,7 +25,10 @@ import { randomUUID } from 'crypto';
 
 const PAYOUT_ELIGIBLE_STATUSES = ['paid_operator_notified', 'completed'] as const;
 
-const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+// Settlement delay = T+1 (S15#5, ratified 2026-06-01). The 1-day buffer is the
+// dispute/chargeback window. TODO(ledger, issues 048-050): promote to a FeeConfig-style
+// platform setting when the ledger lands.
+const ONE_DAY_MS = 1 * 24 * 60 * 60 * 1000;
 
 const tripInclude = {
   bus: { select: { capacity: true } },
@@ -86,7 +89,7 @@ export async function completeTripCore(
     return { alreadyCompleted: true, trip: existing!, paidBookingCount: 0, payoutCreated: false };
   }
 
-  const scheduledFor = new Date(now.getTime() + THREE_DAYS_MS);
+  const scheduledFor = new Date(now.getTime() + ONE_DAY_MS);
 
   const updated = await tx.trip.update({
     where: { id: tripId },

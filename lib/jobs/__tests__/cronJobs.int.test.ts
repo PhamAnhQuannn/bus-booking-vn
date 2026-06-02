@@ -217,9 +217,9 @@ describe('AC3 autoCompleteTrips', () => {
     expect(payout.platformFee + payout.net).toBe(payout.gross);
     expect(payout.status).toBe('pending');
 
-    // scheduledAt ≈ completedAt + 3 days (±60s).
-    const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
-    const expected = trip!.completedAt!.getTime() + THREE_DAYS_MS;
+    // scheduledAt ≈ completedAt + 1 day (T+1, S15#5) (±60s).
+    const ONE_DAY_MS = 1 * 24 * 60 * 60 * 1000;
+    const expected = trip!.completedAt!.getTime() + ONE_DAY_MS;
     expect(Math.abs(payout.scheduledAt.getTime() - expected)).toBeLessThan(60_000);
   });
 
