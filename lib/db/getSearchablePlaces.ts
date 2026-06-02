@@ -1,20 +1,13 @@
 /**
- * Distinct, bookable place names (origins + destinations of active routes) for
- * the search-form typeahead suggestions. Diacritic-ordered, deduped across both
- * columns. Cheap query — feeds a native <datalist> on the origin/destination inputs.
+ * Distinct, bookable place names for the search-form typeahead suggestions.
+ *
+ * Issue 044: now sourced from the canonical Place registry (canonicalName ∪
+ * aliases) via lib/places, NOT the raw Route origin/destination columns. The
+ * exported name + signature are unchanged so existing callers don't change.
  */
 
-import { prisma } from '@/lib/db/client';
-import { Prisma } from '@prisma/client';
+import { listSearchablePlaces } from '@/lib/places';
 
 export async function getSearchablePlaces(): Promise<string[]> {
-  const rows = await prisma.$queryRaw<{ place: string }[]>(
-    Prisma.sql`
-      SELECT origin AS place FROM "Route" WHERE "deactivatedAt" IS NULL
-      UNION
-      SELECT destination AS place FROM "Route" WHERE "deactivatedAt" IS NULL
-      ORDER BY place ASC
-    `
-  );
-  return rows.map((r) => r.place);
+  return listSearchablePlaces();
 }

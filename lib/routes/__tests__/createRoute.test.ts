@@ -4,12 +4,17 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockRouteCreate } = vi.hoisted(() => ({
+const { mockRouteCreate, mockResolveOrCreatePlace } = vi.hoisted(() => ({
   mockRouteCreate: vi.fn(),
+  mockResolveOrCreatePlace: vi.fn(),
 }));
 
 vi.mock('@/lib/db/client', () => ({
   prisma: { route: { create: mockRouteCreate } },
+}));
+
+vi.mock('@/lib/places', () => ({
+  resolveOrCreatePlace: mockResolveOrCreatePlace,
 }));
 
 import { createRoute } from '../createRoute';
@@ -20,6 +25,8 @@ const BASE = {
   origin: 'Hà Nội',
   destination: 'TP.HCM',
   durationMinutes: 900,
+  originPlaceId: 'place-origin',
+  destPlaceId: 'place-dest',
   deactivatedAt: null,
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -28,6 +35,9 @@ const BASE = {
 beforeEach(() => {
   vi.clearAllMocks();
   mockRouteCreate.mockResolvedValue(BASE);
+  mockResolveOrCreatePlace.mockImplementation((name: string) =>
+    Promise.resolve({ id: `place-${name}`, canonicalName: name })
+  );
 });
 
 describe('createRoute', () => {
@@ -55,5 +65,22 @@ describe('createRoute', () => {
       data: { origin: 'A', destination: 'B', durationMinutes: 60 },
     });
     expect(result).toEqual(BASE);
+  });
+
+  it('resolves Place FKs for origin + destination and writes them (Issue 044)', async () => {
+    await createRoute({
+      operatorId: 'op1',
+      data: { origin: 'Hà Nội', destination: 'TP.HCM', durationMinutes: 900 },
+    });
+    expect(mockResolveOrCreatePlace).toHaveBeenCalledWith('Hà Nội');
+    expect(mockResolveOrCreatePlace).toHaveBeenCalledWith('TP.HCM');
+    expect(mockRouteCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          originPlaceId: 'place-Hà Nội',
+          destPlaceId: 'place-TP.HCM',
+        }),
+      })
+    );
   });
 });

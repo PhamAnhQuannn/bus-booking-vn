@@ -180,6 +180,28 @@ async function main() {
   }
   const reverseRoutes = await Promise.all(reverseDefs.map((d) => prisma.route.create({ data: d })));
 
+  // ---- Places (Issue 044) ----
+  // Canonical Place per distinct trimmed origin/destination, then link route FKs.
+  // Mirrors the place_entity migration backfill so a fresh seed is place-linked.
+  await prisma.$executeRawUnsafe(`
+    INSERT INTO "Place" ("id", "canonicalName", "aliases", "createdAt")
+    SELECT gen_random_uuid()::text, n, ARRAY[]::text[], CURRENT_TIMESTAMP
+    FROM (
+      SELECT DISTINCT btrim(origin) AS n FROM "Route" WHERE btrim(origin) <> ''
+      UNION
+      SELECT DISTINCT btrim(destination) AS n FROM "Route" WHERE btrim(destination) <> ''
+    ) AS names
+    WHERE NOT EXISTS (
+      SELECT 1 FROM "Place" p WHERE lower(p."canonicalName") = lower(n)
+    );
+  `);
+  await prisma.$executeRawUnsafe(
+    `UPDATE "Route" r SET "originPlaceId" = p."id" FROM "Place" p WHERE p."canonicalName" = btrim(r.origin);`
+  );
+  await prisma.$executeRawUnsafe(
+    `UPDATE "Route" r SET "destPlaceId" = p."id" FROM "Place" p WHERE p."canonicalName" = btrim(r.destination);`
+  );
+
   // ---- Pickup points (light) so /trips/[id] detail shows a pickup section ----
   const pickupRoutes = [r1, r2, r3, r4, r5, r6, r7, r8, r9, ...extraRoutes, ...reverseRoutes];
   await Promise.all(

@@ -4,9 +4,10 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockRouteFindFirst, mockRouteUpdate } = vi.hoisted(() => ({
+const { mockRouteFindFirst, mockRouteUpdate, mockResolveOrCreatePlace } = vi.hoisted(() => ({
   mockRouteFindFirst: vi.fn(),
   mockRouteUpdate: vi.fn(),
+  mockResolveOrCreatePlace: vi.fn(),
 }));
 
 vi.mock('@/lib/db/client', () => ({
@@ -16,6 +17,10 @@ vi.mock('@/lib/db/client', () => ({
       update: mockRouteUpdate,
     },
   },
+}));
+
+vi.mock('@/lib/places', () => ({
+  resolveOrCreatePlace: mockResolveOrCreatePlace,
 }));
 
 import { updateRoute, RouteServiceError } from '../updateRoute';
@@ -28,6 +33,8 @@ const UPDATED = {
   origin: 'Hà Nội Updated',
   destination: 'TP.HCM',
   durationMinutes: 900,
+  originPlaceId: 'place-origin',
+  destPlaceId: 'place-dest',
   deactivatedAt: null,
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -36,6 +43,9 @@ const UPDATED = {
 beforeEach(() => {
   vi.clearAllMocks();
   mockRouteUpdate.mockResolvedValue(UPDATED);
+  mockResolveOrCreatePlace.mockImplementation((name: string) =>
+    Promise.resolve({ id: `place-${name}`, canonicalName: name })
+  );
 });
 
 describe('updateRoute', () => {
@@ -84,5 +94,23 @@ describe('updateRoute', () => {
     expect(call.data).toHaveProperty('durationMinutes', 120);
     expect(call.data).not.toHaveProperty('origin');
     expect(call.data).not.toHaveProperty('destination');
+    // No text change → no Place re-resolve, no FK write (Issue 044).
+    expect(mockResolveOrCreatePlace).not.toHaveBeenCalled();
+    expect(call.data).not.toHaveProperty('originPlaceId');
+    expect(call.data).not.toHaveProperty('destPlaceId');
+  });
+
+  it('re-resolves the Place FK when origin text changes (Issue 044)', async () => {
+    mockRouteFindFirst.mockResolvedValue(ACTIVE_ROUTE);
+    await updateRoute({
+      operatorId: 'op1',
+      routeId: 'r1',
+      data: { origin: 'Hà Nội Updated' },
+    });
+    expect(mockResolveOrCreatePlace).toHaveBeenCalledWith('Hà Nội Updated');
+    const call = mockRouteUpdate.mock.calls[0][0];
+    expect(call.data).toHaveProperty('originPlaceId', 'place-Hà Nội Updated');
+    // destination untouched → no dest FK write.
+    expect(call.data).not.toHaveProperty('destPlaceId');
   });
 });

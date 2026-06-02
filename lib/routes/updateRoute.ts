@@ -7,6 +7,7 @@
  */
 
 import { prisma } from '@/lib/db/client';
+import { resolveOrCreatePlace } from '@/lib/places';
 import type { RoutePatchInput } from '@/lib/validation/route';
 
 export class RouteServiceError extends Error {
@@ -37,12 +38,21 @@ export async function updateRoute({
     throw new RouteServiceError('reactivation_not_supported');
   }
 
+  // Issue 044: when origin/destination text changes, re-resolve the canonical
+  // Place and update the FK alongside the text column.
+  const [originPlace, destPlace] = await Promise.all([
+    data.origin !== undefined ? resolveOrCreatePlace(data.origin) : null,
+    data.destination !== undefined ? resolveOrCreatePlace(data.destination) : null,
+  ]);
+
   return prisma.route.update({
     where: { id: routeId },
     data: {
       ...(data.origin !== undefined ? { origin: data.origin } : {}),
       ...(data.destination !== undefined ? { destination: data.destination } : {}),
       ...(data.durationMinutes !== undefined ? { durationMinutes: data.durationMinutes } : {}),
+      ...(originPlace ? { originPlaceId: originPlace.id } : {}),
+      ...(destPlace ? { destPlaceId: destPlace.id } : {}),
     },
     select: {
       id: true,
@@ -50,6 +60,8 @@ export async function updateRoute({
       origin: true,
       destination: true,
       durationMinutes: true,
+      originPlaceId: true,
+      destPlaceId: true,
       deactivatedAt: true,
       createdAt: true,
       updatedAt: true,
