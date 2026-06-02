@@ -69,13 +69,36 @@ model Route {
   deactivatedAt      DateTime?
   createdAt          DateTime                @default(now())
   updatedAt          DateTime                @updatedAt
+  /// Issue 044: canonical Place FK (nullable). The free-text origin/destination
+  /// columns above stay AS-IS as a back-compat shim; this link is additive.
+  originPlaceId      String?
+  destPlaceId        String?
   trips              Trip[]
   operator           Operator                @relation(fields: [operatorId], references: [id], onDelete: Restrict)
+  originPlace        Place?                  @relation("RouteOrigin", fields: [originPlaceId], references: [id], onDelete: SetNull)
+  destPlace          Place?                  @relation("RouteDest", fields: [destPlaceId], references: [id], onDelete: SetNull)
   pickupPoints       PickupPoint[]
   recurringTemplates RecurringTripTemplate[]
 
   @@index([origin, destination])
   @@index([operatorId])
+  @@index([originPlaceId, destPlaceId])
+}
+
+/// Issue 044: canonical Place entity — a single global registry of bookable
+/// place names with alias merging. GLOBAL (not operator-owned). Routes link to
+/// Places via originPlaceId/destPlaceId; free-text Route.origin/destination stay
+/// as a back-compat shim.
+model Place {
+  id            String   @id @default(cuid())
+  canonicalName String
+  aliases       String[]
+  slug          String?  @unique
+  createdAt     DateTime @default(now())
+  originRoutes  Route[]  @relation("RouteOrigin")
+  destRoutes    Route[]  @relation("RouteDest")
+
+  @@index([canonicalName])
 }
 
 model PickupPoint {
