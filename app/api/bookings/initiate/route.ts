@@ -99,6 +99,11 @@ async function handler(req: NextRequest): Promise<Response> {
       return NextResponse.json({ error: 'HOLD_EXPIRED' }, { status: 409 });
     case 'trip_departed':
       return NextResponse.json({ error: 'TRIP_DEPARTED' }, { status: 409 });
+    case 'operator_not_bookable':
+      // Issue 046: operator suspended/rejected/unapproved between search and
+      // initiate. 409 Conflict — the trip's bookability changed under the buyer
+      // (same race-state family as TRIP_DEPARTED / HOLD_EXPIRED above).
+      return NextResponse.json({ error: 'OPERATOR_NOT_BOOKABLE' }, { status: 409 });
     case 'ref_collision':
       return NextResponse.json({ error: 'UNAVAILABLE' }, { status: 503 });
     case 'gateway_error':

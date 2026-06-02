@@ -28,6 +28,7 @@ import {
 } from '@/lib/db/bookingRepo';
 import { getGatewayFor } from '@/lib/payment/select';
 import { attachGuestBooking } from './attachGuestBooking';
+import { isBookable } from '@/lib/onboarding';
 import type { PaymentGateway } from '@/lib/payment/gateway';
 import { logger } from '@/lib/logger';
 
@@ -61,6 +62,7 @@ export type InitiateOnlineBookingResult =
         | 'hold_not_found'
         | 'hold_expired'
         | 'trip_departed'
+        | 'operator_not_bookable'
         | 'ref_collision'
         | 'gateway_error';
       gatewayMessage?: string;
@@ -88,12 +90,22 @@ export async function initiateOnlineBooking(
           departureAt: true,
           price: true,
           route: { select: { origin: true, destination: true } },
+          // Issue 046: pull operator status for the bookable re-check below
+          // (closes the suspend-after-search race).
+          operator: { select: { status: true } },
         },
       },
     },
   });
 
   if (!hold) return { ok: false, error: 'hold_not_found' };
+
+  // Issue 046 defense-in-depth: re-verify the trip's operator is still bookable
+  // (APPROVED) at initiate time. A search result could have been clicked after
+  // the operator was suspended/rejected. Derived from the Issue 045 helper.
+  if (!isBookable(hold.trip.operator.status)) {
+    return { ok: false, error: 'operator_not_bookable' };
+  }
 
   // Idempotency check — if booking already exists, return it
   const alreadyExisting = await getBookingByHoldId(holdId);

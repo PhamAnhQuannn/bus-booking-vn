@@ -39,6 +39,8 @@ beforeAll(async () => {
       contactPhone: '+8490xxxxxx3',
       contactEmail: 'test@searchtrips.test',
       notificationPhone: '+8490xxxxxx4',
+      // Issue 046: operator must be APPROVED to be search-visible.
+      status: 'APPROVED',
     },
   });
   operatorId = operator.id;

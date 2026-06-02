@@ -268,6 +268,21 @@ describe('POST /api/bookings/initiate — orchestrator error mapping', () => {
     expect(json.error).toBe('TRIP_DEPARTED');
   });
 
+  it('returns 409 OPERATOR_NOT_BOOKABLE on operator_not_bookable (Issue 046)', async () => {
+    allowRatelimit();
+    matchCookie();
+    vi.mocked(initiateOnlineBooking).mockResolvedValueOnce({
+      ok: false,
+      error: 'operator_not_bookable',
+    });
+
+    const res = await POST(makeRequest({ cookie: `bb_hold=x` }));
+    const json = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(json.error).toBe('OPERATOR_NOT_BOOKABLE');
+  });
+
   it('returns 503 UNAVAILABLE on ref_collision', async () => {
     allowRatelimit();
     matchCookie();

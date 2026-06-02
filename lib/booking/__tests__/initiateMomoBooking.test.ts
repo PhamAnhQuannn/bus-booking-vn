@@ -72,6 +72,8 @@ const MOCK_HOLD = {
     departureAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // tomorrow
     price: 100000,
     route: { origin: 'Hà Nội', destination: 'TP.HCM' },
+    // Issue 046: operator must be APPROVED for the bookable re-check to pass.
+    operator: { status: 'APPROVED' as const },
   },
 };
 

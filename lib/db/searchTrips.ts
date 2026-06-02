@@ -21,6 +21,7 @@
 import { prisma } from '@/lib/db/client';
 import { Prisma } from '@prisma/client';
 import { searchResultSelect } from '@/lib/db/selects';
+import { SEARCH_VISIBLE_STATUSES } from '@/lib/onboarding';
 import { fromZonedTime } from 'date-fns-tz';
 import { startOfDay, endOfDay } from 'date-fns';
 
@@ -79,6 +80,11 @@ export async function searchTrips(input: TripSearchInput): Promise<TripResult[]>
       departureAt: { gte: startUtc, lte: endUtc },
       status: 'scheduled',
       salesClosed: false,
+      // Issue 046: approval gate — only show trips of search-visible operators
+      // (today exactly APPROVED). Set is derived from the Issue 045 capability
+      // helper (SEARCH_VISIBLE_STATUSES) so there is no duplicated status literal.
+      // disabledAt IS NULL kept belt-and-suspenders (status is canonical).
+      operator: { status: { in: SEARCH_VISIBLE_STATUSES }, disabledAt: null },
       bus: {
         capacity: { gte: ticketCount },
         // AC-3: maintenance window must not overlap trip day [startUtc, endUtc]

@@ -8,6 +8,7 @@
  */
 
 import { prisma } from '@/lib/db/client';
+import { isSearchVisible } from '@/lib/onboarding';
 
 export interface TripDetails {
   tripId: string;
@@ -37,7 +38,9 @@ export async function getTripDetails(id: string): Promise<TripDetails | null> {
         select: {
           capacity: true,
           busType: true,
-          operator: { select: { legalName: true, contactPhone: true } },
+          // Issue 046: pull operator status so a direct link to a non-approved
+          // operator's trip resolves to not-found (gate below).
+          operator: { select: { legalName: true, contactPhone: true, status: true } },
         },
       },
       route: {
@@ -56,6 +59,10 @@ export async function getTripDetails(id: string): Promise<TripDetails | null> {
   });
 
   if (!trip) return null;
+  // Issue 046: approval gate — a direct link to a non-search-visible operator's
+  // trip (pending / under-review / rejected / suspended) returns not-found.
+  // Derived from the Issue 045 capability helper — no status literal here.
+  if (!isSearchVisible(trip.bus.operator.status)) return null;
   // Not bookable → treat as missing.
   if (trip.status !== 'scheduled' || trip.salesClosed) return null;
   if (trip.departureAt <= new Date()) return null;

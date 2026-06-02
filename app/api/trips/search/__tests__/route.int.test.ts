@@ -76,6 +76,8 @@ beforeAll(async () => {
       contactPhone: '+8490xxxxxx5',
       contactEmail: 'ac3@route-int.test',
       notificationPhone: '+8490xxxxxx6',
+      // Issue 046: operator must be APPROVED to be search-visible.
+      status: 'APPROVED',
     },
   });
   ac3OperatorId = op.id;
