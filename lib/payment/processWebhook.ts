@@ -40,6 +40,7 @@ import { sendSms, renderTemplate, type SmsTemplate } from '@/lib/notifications/e
 import { logger } from '@/lib/logger';
 import { track, sessionIdForBooking } from '@/lib/analytics/track';
 import type { PaymentGateway } from './gateway';
+import { legalPredecessors } from '@/lib/booking/transitions';
 
 export interface ProcessPaymentWebhookInput {
   rawBody: string;
@@ -175,13 +176,20 @@ export async function processPaymentWebhook(
             'payment.webhook.overpaid — marked paid, overpay delta flagged for refund-out'
           );
         }
-        // Success: guarded status transition
+        // Success: monotonic guarded transition. The legal predecessor set is
+        // derived from the single-source transition map (issue 034), never from
+        // re-typed `status = 'awaiting_payment'` literals.
+        const paidPredecessors = Prisma.join(
+          legalPredecessors('paid_operator_notified').map(
+            (s) => Prisma.sql`${s}::"BookingStatus"`
+          )
+        );
         const updated = await tx.$executeRaw(Prisma.sql`
           UPDATE "Booking"
           SET status = 'paid_operator_notified'::"BookingStatus",
               "paymentExternalRef" = ${providerTxnId}
           WHERE id = ${booking.id}::uuid
-            AND status = 'awaiting_payment'::"BookingStatus"
+            AND status IN (${paidPredecessors})
         `);
 
         if ((updated as number) > 0) {
@@ -247,14 +255,27 @@ export async function processPaymentWebhook(
             }
           );
         }
-        // If updated === 0, already transitioned (replay/duplicate) — no-op
+        if ((updated as number) === 0) {
+          // Current row is not a legal predecessor of paid (replay or already
+          // advanced). Illegal/duplicate move logged, NOT thrown — webhook still
+          // returns 200 (issue 034 AC4); the monotonic guard prevents any regress.
+          logger.info(
+            { adapter, bookingRef, currentStatus: booking.status, target: 'paid_operator_notified' },
+            'payment.webhook.transition_skipped — not a legal predecessor, no-op'
+          );
+        }
       } else if (status === 'failed') {
-        // Failure: guarded status transition (only from awaiting_payment)
+        // Failure: monotonic guarded transition; predecessors from the same map.
+        const failedPredecessors = Prisma.join(
+          legalPredecessors('payment_failed_expired').map(
+            (s) => Prisma.sql`${s}::"BookingStatus"`
+          )
+        );
         await tx.$executeRaw(Prisma.sql`
           UPDATE "Booking"
           SET status = 'payment_failed_expired'::"BookingStatus"
           WHERE id = ${booking.id}::uuid
-            AND status = 'awaiting_payment'::"BookingStatus"
+            AND status IN (${failedPredecessors})
         `);
       } else if (status === 'pending') {
         logger.info(

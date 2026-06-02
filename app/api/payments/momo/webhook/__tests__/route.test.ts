@@ -380,6 +380,39 @@ describe('POST /api/payments/momo/webhook — failed IPN (resultCode=1001)', () 
   });
 });
 
+describe('POST /api/payments/momo/webhook — monotonic transition guard (issue 034)', () => {
+  it('does NOT regress an already-paid booking: UPDATE matches 0 rows → 200, no notifications', async () => {
+    // Replayed success IPN on a row that already left awaiting_payment. The
+    // map-derived WHERE (legalPredecessors = [awaiting_payment]) matches 0 rows,
+    // so no transition, no notifications — webhook still acks 200 (AC1/AC4).
+    vi.mocked(getMomoAdapter).mockReturnValue({
+      verifyWebhook: vi.fn().mockReturnValue(
+        fakeVerifyOk({ orderId: BOOKING_REF, transId: '8888001', resultCode: 0, amount: 200000 })
+      ),
+      createPayment: vi.fn(),
+    });
+    vi.mocked(prisma.booking.findUnique).mockResolvedValue(MOCK_BOOKING as never);
+
+    const executeRawMock = vi.fn().mockResolvedValue(0); // already advanced → 0 rows
+    vi.mocked(prisma.$transaction).mockImplementationOnce(async (fn) => {
+      const fakeTx = {
+        paymentEvent: { create: vi.fn().mockResolvedValue({}) },
+        $executeRaw: executeRawMock,
+      };
+      await fn(fakeTx as never);
+      return undefined;
+    });
+
+    const res = await POST(makeRequest(JSON.stringify({ signature: 'test', resultCode: 0 })));
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.message).toBe('ok');
+    expect(executeRawMock).toHaveBeenCalledOnce(); // guard ran
+    expect(createNotificationLog).not.toHaveBeenCalled(); // no regress side effects
+  });
+});
+
 describe('POST /api/payments/momo/webhook — replay (idempotent)', () => {
   it('returns 200 without error when PaymentEvent unique constraint fires (P2002)', async () => {
     vi.mocked(getMomoAdapter).mockReturnValue({
