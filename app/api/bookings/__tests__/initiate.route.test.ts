@@ -1,25 +1,23 @@
 /**
- * Unit tests for POST /api/bookings/initiate (cash + MoMo paths).
+ * Unit tests for POST /api/bookings/initiate (online-only: momo | zalopay | card).
  *
- * Mocks: initiateCashBooking, initiateMomoBooking orchestrators,
- *        extractHoldCookie, ratelimit.
+ * Online-only (Issue 039): the cash rail was removed. A `paymentMethod: 'cash'`
+ * body is now rejected at the zod-enum layer (400 INVALID).
+ *
+ * Mocks: initiateOnlineBooking orchestrator, extractHoldCookie, ratelimit.
  *
  * Covers status mapping:
- *   200  ok           — orchestrator success (cash or momo)
- *   400  INVALID      — non-JSON body, missing fields, unknown paymentMethod
+ *   200  ok           — orchestrator success (payUrl)
+ *   400  INVALID      — non-JSON body, missing fields, unknown paymentMethod, cash
  *   403  FORBIDDEN    — no cookie OR cookie holdId ≠ body holdId
  *   404  NOT_FOUND    — orchestrator returns hold_not_found
  *   409  CONFLICT     — orchestrator returns hold_expired OR trip_departed
  *   429  TOO_MANY     — rate limiter denies
- *   502  GATEWAY_ERR  — momo orchestrator returns gateway_error
+ *   502  GATEWAY_ERR  — orchestrator returns gateway_error
  *   503  UNAVAILABLE  — orchestrator returns ref_collision
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-
-vi.mock('@/lib/booking/initiateBooking', () => ({
-  initiateCashBooking: vi.fn(),
-}));
 
 vi.mock('@/lib/booking/initiateOnlineBooking', () => ({
   initiateOnlineBooking: vi.fn(),
@@ -44,7 +42,6 @@ vi.mock('@/lib/analytics/track', () => ({
 }));
 
 import { POST } from '../initiate/route';
-import { initiateCashBooking } from '@/lib/booking/initiateBooking';
 import { initiateOnlineBooking } from '@/lib/booking/initiateOnlineBooking';
 import { extractHoldCookie } from '@/lib/security/holdCookie';
 import { ratelimit } from '@/lib/ratelimit';
@@ -53,6 +50,7 @@ import { NextRequest } from 'next/server';
 const HOLD_ID = 'ckabcdefghijklmnopqrstuvwx';
 const BOOKING_ID = '01975f3b-3f4a-7c2a-8b1c-deadbeefcafe';
 const CONFIRMATION_TOKEN = 'A'.repeat(32);
+const PAY_URL = 'https://payment.momo.vn/pay/app?orderId=BB-2026-test-0001';
 
 interface RequestOpts {
   body?: unknown;
@@ -74,7 +72,7 @@ function makeRequest(opts: RequestOpts = {}): NextRequest {
   return new NextRequest('https://example.test/api/bookings/initiate', {
     method: 'POST',
     headers,
-    body: opts.raw ?? JSON.stringify(opts.body ?? { holdId: HOLD_ID, paymentMethod: 'cash' }),
+    body: opts.raw ?? JSON.stringify(opts.body ?? { holdId: HOLD_ID, paymentMethod: 'momo' }),
   });
 }
 
@@ -101,43 +99,45 @@ function matchCookie(holdId = HOLD_ID) {
   });
 }
 
+function mockOnlineOk() {
+  vi.mocked(initiateOnlineBooking).mockResolvedValueOnce({
+    ok: true,
+    bookingId: BOOKING_ID,
+    confirmationToken: CONFIRMATION_TOKEN,
+    payUrl: PAY_URL,
+  });
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
 describe('POST /api/bookings/initiate — happy path', () => {
-  it('returns 200 with bookingId + confirmationToken on orchestrator success', async () => {
+  it('returns 200 with bookingId + payUrl on orchestrator success', async () => {
     allowRatelimit();
     matchCookie();
-    vi.mocked(initiateCashBooking).mockResolvedValueOnce({
-      ok: true,
-      bookingId: BOOKING_ID,
-      confirmationToken: CONFIRMATION_TOKEN,
-    });
+    mockOnlineOk();
 
     const res = await POST(makeRequest({ cookie: `bb_hold=signedvalue` }));
     const json = await res.json();
 
     expect(res.status).toBe(200);
     expect(json.bookingId).toBe(BOOKING_ID);
-    expect(json.confirmationToken).toBe(CONFIRMATION_TOKEN);
+    expect(json.payUrl).toBe(PAY_URL);
     expect(res.headers.get('Cache-Control')).toContain('no-store');
   });
 
   it('passes baseUrl derived from x-forwarded-proto + host to orchestrator', async () => {
     allowRatelimit();
     matchCookie();
-    vi.mocked(initiateCashBooking).mockResolvedValueOnce({
-      ok: true,
-      bookingId: BOOKING_ID,
-      confirmationToken: CONFIRMATION_TOKEN,
-    });
+    mockOnlineOk();
 
     await POST(makeRequest({ cookie: `bb_hold=signedvalue` }));
 
-    const call = vi.mocked(initiateCashBooking).mock.calls[0]?.[0];
+    const call = vi.mocked(initiateOnlineBooking).mock.calls[0]?.[0];
     expect(call?.holdId).toBe(HOLD_ID);
     expect(call?.baseUrl).toBe('https://example.test');
+    expect(call?.method).toBe('momo');
   });
 });
 
@@ -151,7 +151,7 @@ describe('POST /api/bookings/initiate — auth', () => {
 
     expect(res.status).toBe(403);
     expect(json.error).toBe('FORBIDDEN');
-    expect(initiateCashBooking).not.toHaveBeenCalled();
+    expect(initiateOnlineBooking).not.toHaveBeenCalled();
   });
 
   it('returns 403 when cookie holdId does not match body holdId', async () => {
@@ -163,7 +163,7 @@ describe('POST /api/bookings/initiate — auth', () => {
 
     expect(res.status).toBe(403);
     expect(json.error).toBe('FORBIDDEN');
-    expect(initiateCashBooking).not.toHaveBeenCalled();
+    expect(initiateOnlineBooking).not.toHaveBeenCalled();
   });
 });
 
@@ -182,7 +182,7 @@ describe('POST /api/bookings/initiate — input validation', () => {
   it('returns 400 INVALID when holdId missing', async () => {
     allowRatelimit();
 
-    const res = await POST(makeRequest({ body: { paymentMethod: 'cash' }, cookie: `bb_hold=x` }));
+    const res = await POST(makeRequest({ body: { paymentMethod: 'momo' }, cookie: `bb_hold=x` }));
     const json = await res.json();
 
     expect(res.status).toBe(400);
@@ -199,6 +199,20 @@ describe('POST /api/bookings/initiate — input validation', () => {
 
     expect(res.status).toBe(400);
     expect(json.error).toBe('INVALID');
+  });
+
+  it('rejects the removed cash rail with 400 INVALID (Issue 039)', async () => {
+    allowRatelimit();
+
+    const res = await POST(
+      makeRequest({ body: { holdId: HOLD_ID, paymentMethod: 'cash' }, cookie: `bb_hold=x` })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error).toBe('INVALID');
+    // The online orchestrator must never be reached for a cash body.
+    expect(initiateOnlineBooking).not.toHaveBeenCalled();
   });
 
   it('does not echo raw input back in 400 body (enumeration guard)', async () => {
@@ -221,7 +235,7 @@ describe('POST /api/bookings/initiate — orchestrator error mapping', () => {
   it('returns 404 NOT_FOUND on hold_not_found', async () => {
     allowRatelimit();
     matchCookie();
-    vi.mocked(initiateCashBooking).mockResolvedValueOnce({ ok: false, error: 'hold_not_found' });
+    vi.mocked(initiateOnlineBooking).mockResolvedValueOnce({ ok: false, error: 'hold_not_found' });
 
     const res = await POST(makeRequest({ cookie: `bb_hold=x` }));
     const json = await res.json();
@@ -233,7 +247,7 @@ describe('POST /api/bookings/initiate — orchestrator error mapping', () => {
   it('returns 409 HOLD_EXPIRED on hold_expired', async () => {
     allowRatelimit();
     matchCookie();
-    vi.mocked(initiateCashBooking).mockResolvedValueOnce({ ok: false, error: 'hold_expired' });
+    vi.mocked(initiateOnlineBooking).mockResolvedValueOnce({ ok: false, error: 'hold_expired' });
 
     const res = await POST(makeRequest({ cookie: `bb_hold=x` }));
     const json = await res.json();
@@ -245,7 +259,7 @@ describe('POST /api/bookings/initiate — orchestrator error mapping', () => {
   it('returns 409 TRIP_DEPARTED on trip_departed', async () => {
     allowRatelimit();
     matchCookie();
-    vi.mocked(initiateCashBooking).mockResolvedValueOnce({ ok: false, error: 'trip_departed' });
+    vi.mocked(initiateOnlineBooking).mockResolvedValueOnce({ ok: false, error: 'trip_departed' });
 
     const res = await POST(makeRequest({ cookie: `bb_hold=x` }));
     const json = await res.json();
@@ -257,13 +271,29 @@ describe('POST /api/bookings/initiate — orchestrator error mapping', () => {
   it('returns 503 UNAVAILABLE on ref_collision', async () => {
     allowRatelimit();
     matchCookie();
-    vi.mocked(initiateCashBooking).mockResolvedValueOnce({ ok: false, error: 'ref_collision' });
+    vi.mocked(initiateOnlineBooking).mockResolvedValueOnce({ ok: false, error: 'ref_collision' });
 
     const res = await POST(makeRequest({ cookie: `bb_hold=x` }));
     const json = await res.json();
 
     expect(res.status).toBe(503);
     expect(json.error).toBe('UNAVAILABLE');
+  });
+
+  it('returns 502 GATEWAY_ERROR when the gateway fails', async () => {
+    allowRatelimit();
+    matchCookie();
+    vi.mocked(initiateOnlineBooking).mockResolvedValueOnce({
+      ok: false,
+      error: 'gateway_error',
+      gatewayMessage: 'network_timeout',
+    });
+
+    const res = await POST(makeRequest({ cookie: `bb_hold=signedvalue` }));
+    const json = await res.json();
+
+    expect(res.status).toBe(502);
+    expect(json.error).toBe('GATEWAY_ERROR');
   });
 });
 
@@ -278,134 +308,33 @@ describe('POST /api/bookings/initiate — rate limit', () => {
     expect(json.error).toBe('TOO_MANY_REQUESTS');
     expect(res.headers.get('Retry-After')).toBe('45');
     expect(extractHoldCookie).not.toHaveBeenCalled();
-    expect(initiateCashBooking).not.toHaveBeenCalled();
+    expect(initiateOnlineBooking).not.toHaveBeenCalled();
   });
 });
 
 describe('POST /api/bookings/initiate — customerId stamping (Issue 031)', () => {
-  it('threads the signed-in customerId to the cash orchestrator when a Bearer token is present', async () => {
-    const { signAccess } = await import('@/lib/auth/jwt');
-    const token = await signAccess({ sub: 'cust-initiate', role: 'customer' });
-
-    allowRatelimit();
-    matchCookie();
-    vi.mocked(initiateCashBooking).mockResolvedValueOnce({
-      ok: true,
-      bookingId: BOOKING_ID,
-      confirmationToken: CONFIRMATION_TOKEN,
-    });
-
-    await POST(makeRequest({ cookie: 'bb_hold=signedvalue', auth: `Bearer ${token}` }));
-
-    const call = vi.mocked(initiateCashBooking).mock.calls[0]?.[0];
-    expect(call?.customerId).toBe('cust-initiate');
-  });
-
-  it('passes customerId=null for a guest booking (no Authorization header)', async () => {
-    allowRatelimit();
-    matchCookie();
-    vi.mocked(initiateCashBooking).mockResolvedValueOnce({
-      ok: true,
-      bookingId: BOOKING_ID,
-      confirmationToken: CONFIRMATION_TOKEN,
-    });
-
-    await POST(makeRequest({ cookie: 'bb_hold=signedvalue' }));
-
-    const call = vi.mocked(initiateCashBooking).mock.calls[0]?.[0];
-    expect(call?.customerId).toBeNull();
-  });
-
-  it('threads customerId to the online orchestrator too', async () => {
+  it('threads the signed-in customerId to the online orchestrator when a Bearer token is present', async () => {
     const { signAccess } = await import('@/lib/auth/jwt');
     const token = await signAccess({ sub: 'cust-online', role: 'customer' });
 
     allowRatelimit();
     matchCookie();
-    vi.mocked(initiateOnlineBooking).mockResolvedValueOnce({
-      ok: true,
-      bookingId: BOOKING_ID,
-      confirmationToken: CONFIRMATION_TOKEN,
-      payUrl: 'https://payment.momo.vn/pay/app?orderId=BB-2026-test-0001',
-    });
+    mockOnlineOk();
 
-    await POST(
-      makeRequest({
-        body: { holdId: HOLD_ID, paymentMethod: 'momo' },
-        cookie: 'bb_hold=signedvalue',
-        auth: `Bearer ${token}`,
-      })
-    );
+    await POST(makeRequest({ cookie: 'bb_hold=signedvalue', auth: `Bearer ${token}` }));
 
     const call = vi.mocked(initiateOnlineBooking).mock.calls[0]?.[0];
     expect(call?.customerId).toBe('cust-online');
   });
-});
 
-describe('POST /api/bookings/initiate — MoMo path', () => {
-  it('returns 200 with bookingId + payUrl on successful MoMo initiation', async () => {
+  it('passes customerId=null for a guest booking (no Authorization header)', async () => {
     allowRatelimit();
     matchCookie();
-    vi.mocked(initiateOnlineBooking).mockResolvedValueOnce({
-      ok: true,
-      bookingId: BOOKING_ID,
-      confirmationToken: CONFIRMATION_TOKEN,
-      payUrl: 'https://payment.momo.vn/pay/app?orderId=BB-2026-test-0001',
-    });
+    mockOnlineOk();
 
-    const res = await POST(
-      makeRequest({
-        body: { holdId: HOLD_ID, paymentMethod: 'momo' },
-        cookie: `bb_hold=signedvalue`,
-      })
-    );
-    const json = await res.json();
+    await POST(makeRequest({ cookie: 'bb_hold=signedvalue' }));
 
-    expect(res.status).toBe(200);
-    expect(json.bookingId).toBe(BOOKING_ID);
-    expect(json.payUrl).toBe('https://payment.momo.vn/pay/app?orderId=BB-2026-test-0001');
-    expect(res.headers.get('Cache-Control')).toContain('no-store');
-    expect(initiateCashBooking).not.toHaveBeenCalled();
-  });
-
-  it('returns 502 GATEWAY_ERROR when MoMo gateway fails', async () => {
-    allowRatelimit();
-    matchCookie();
-    vi.mocked(initiateOnlineBooking).mockResolvedValueOnce({
-      ok: false,
-      error: 'gateway_error',
-      gatewayMessage: 'network_timeout',
-    });
-
-    const res = await POST(
-      makeRequest({
-        body: { holdId: HOLD_ID, paymentMethod: 'momo' },
-        cookie: `bb_hold=signedvalue`,
-      })
-    );
-    const json = await res.json();
-
-    expect(res.status).toBe(502);
-    expect(json.error).toBe('GATEWAY_ERROR');
-  });
-
-  it('returns 409 HOLD_EXPIRED for momo path when hold is expired', async () => {
-    allowRatelimit();
-    matchCookie();
-    vi.mocked(initiateOnlineBooking).mockResolvedValueOnce({
-      ok: false,
-      error: 'hold_expired',
-    });
-
-    const res = await POST(
-      makeRequest({
-        body: { holdId: HOLD_ID, paymentMethod: 'momo' },
-        cookie: `bb_hold=signedvalue`,
-      })
-    );
-    const json = await res.json();
-
-    expect(res.status).toBe(409);
-    expect(json.error).toBe('HOLD_EXPIRED');
+    const call = vi.mocked(initiateOnlineBooking).mock.calls[0]?.[0];
+    expect(call?.customerId).toBeNull();
   });
 });

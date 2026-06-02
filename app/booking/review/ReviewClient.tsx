@@ -8,15 +8,14 @@
  * Includes HoldTimer + HoldExpiryModal.
  *
  * On "Xác nhận thanh toán" click, POSTs to /api/bookings/initiate with
- * { holdId, paymentMethod }. Cash → 200 { confirmationToken } → router.push
- * to the confirmation page. Online (momo|zalopay|card) → 200 { payUrl } →
- * window.location to the gateway (real MoMo sandbox or local stub-pay). The
- * bb_hold cookie travels automatically via same-origin credentials.
+ * { holdId, paymentMethod }. Online-only (Issue 039): momo|zalopay|card → 200
+ * { payUrl } → window.location to the gateway (real MoMo sandbox or local
+ * stub-pay). The bb_hold cookie travels automatically via same-origin
+ * credentials.
  */
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Wallet, Smartphone, CreditCard, Banknote } from 'lucide-react';
+import { Wallet, Smartphone, CreditCard } from 'lucide-react';
 import { useHoldTimerStore } from '@/lib/state/holdTimerStore';
 import { HoldExpiryModal } from '@/components/HoldExpiryModal';
 import { BookingSteps } from '@/components/booking/BookingSteps';
@@ -55,21 +54,19 @@ const ERROR_LABEL: Record<string, string> = {
   GATEWAY_ERROR: 'Cổng thanh toán gặp lỗi. Vui lòng thử lại.',
 };
 
-type PaymentMethod = 'cash' | 'momo' | 'zalopay' | 'card';
+type PaymentMethod = 'momo' | 'zalopay' | 'card';
 
 const PAYMENT_METHODS: ReadonlyArray<{ value: PaymentMethod; label: string; icon: typeof Wallet }> = [
-  { value: 'cash', label: 'Tiền mặt', icon: Banknote },
   { value: 'momo', label: 'MoMo', icon: Wallet },
   { value: 'zalopay', label: 'ZaloPay', icon: Smartphone },
   { value: 'card', label: 'Thẻ', icon: CreditCard },
 ];
 
 export function ReviewClient({ holdDetails }: ReviewClientProps) {
-  const router = useRouter();
   const { holdId, expiresAt } = holdDetails;
   const { startTimer } = useHoldTimerStore();
 
-  const [method, setMethod] = useState<PaymentMethod>('cash');
+  const [method, setMethod] = useState<PaymentMethod>('momo');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -99,11 +96,7 @@ export function ReviewClient({ holdDetails }: ReviewClientProps) {
         body: JSON.stringify({ holdId, paymentMethod: method }),
       });
       const data = await res.json().catch(() => null);
-      if (res.ok && method === 'cash' && data?.confirmationToken) {
-        router.push(`/booking/confirmation/${data.confirmationToken}`);
-        return;
-      }
-      if (res.ok && method !== 'cash' && data?.payUrl) {
+      if (res.ok && data?.payUrl) {
         window.location.href = data.payUrl;
         return;
       }

@@ -26,7 +26,6 @@ import {
   completeTripApi,
 } from '@/lib/api/tripsClient';
 import { assignServiceApi } from '@/lib/api/staffClient';
-import { manualBookingApi } from '@/lib/api/bookingsClient';
 import { tripStatusDisplay } from '@/lib/op/statusLabels';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -93,12 +92,6 @@ export default function TripDetailClient({ trip: initialTrip, staff: initialStaf
   // Paired return
   const [returnDep, setReturnDep] = useState('');
   const [returnPrice, setReturnPrice] = useState<number>(trip.price ?? 0);
-
-  // Manual booking — story 48
-  const [manualBuyerName, setManualBuyerName] = useState('');
-  const [manualBuyerPhone, setManualBuyerPhone] = useState('');
-  const [manualTicketCount, setManualTicketCount] = useState<number>(1);
-  const [manualPaymentMethod, setManualPaymentMethod] = useState<'paid' | 'cash'>('paid');
 
   function ok(text: string) {
     setMessage(text);
@@ -261,36 +254,6 @@ export default function TripDetailClient({ trip: initialTrip, staff: initialStaf
     }
   }
 
-  async function handleManualBooking() {
-    if (!manualBuyerName.trim() || !manualBuyerPhone.trim()) {
-      setMessage('Nhập tên và số điện thoại hành khách.');
-      setIsError(true);
-      return;
-    }
-    setBusy(true);
-    setMessage('');
-    try {
-      const res = await manualBookingApi(trip.id, {
-        buyerName: manualBuyerName.trim(),
-        buyerPhone: manualBuyerPhone.trim(),
-        ticketCount: manualTicketCount,
-        paymentMethod: manualPaymentMethod,
-      });
-      setTrip((prev) => ({
-        ...prev,
-        availableSeats: Math.max(0, prev.availableSeats - res.booking.ticketCount),
-      }));
-      setManualBuyerName('');
-      setManualBuyerPhone('');
-      setManualTicketCount(1);
-      ok(`Đã tạo đặt vé ${res.booking.bookingRef} (${res.booking.ticketCount} vé).`);
-    } catch (err) {
-      fail(err);
-    } finally {
-      setBusy(false);
-    }
-  }
-
   const cancelled = trip.status === 'cancelled';
   const canDepart = trip.status === 'scheduled';
   const canComplete = trip.status === 'departed';
@@ -371,79 +334,6 @@ export default function TripDetailClient({ trip: initialTrip, staff: initialStaf
 
       {!cancelled && (
         <>
-          {/* Manual booking — story 48 (operator walk-in / phone-in) */}
-          <Card>
-            <CardHeader>
-              <CardTitle as="h2">Tạo đặt vé thủ công</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid max-w-sm gap-4">
-                <div className="grid gap-1.5">
-                  <Label htmlFor="manual-name-input">Tên hành khách</Label>
-                  <Input
-                    id="manual-name-input"
-                    type="text"
-                    value={manualBuyerName}
-                    onChange={(e) => setManualBuyerName(e.target.value)}
-                    maxLength={120}
-                    data-testid="manual-name-input"
-                  />
-                </div>
-                <div className="grid gap-1.5">
-                  <Label htmlFor="manual-phone-input">Số điện thoại</Label>
-                  <Input
-                    id="manual-phone-input"
-                    type="tel"
-                    value={manualBuyerPhone}
-                    onChange={(e) => setManualBuyerPhone(e.target.value)}
-                    placeholder="09xxxxxxxx"
-                    data-testid="manual-phone-input"
-                  />
-                </div>
-                <div className="grid gap-1.5">
-                  <Label htmlFor="manual-tickets-input">Số vé</Label>
-                  <Input
-                    id="manual-tickets-input"
-                    type="number"
-                    value={manualTicketCount}
-                    onChange={(e) => setManualTicketCount(parseInt(e.target.value, 10) || 1)}
-                    min={1}
-                    data-testid="manual-tickets-input"
-                    className="w-28"
-                  />
-                </div>
-                <div className="grid gap-1.5">
-                  <Label>Thanh toán</Label>
-                  {/* base-ui Select: onValueChange, NOT onChange. */}
-                  <Select
-                    value={manualPaymentMethod}
-                    onValueChange={(value: string | null) =>
-                      setManualPaymentMethod((value as 'paid' | 'cash') ?? 'paid')
-                    }
-                  >
-                    <SelectTrigger data-testid="manual-payment-select" className="min-w-48">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="paid">Đã thanh toán</SelectItem>
-                      <SelectItem value="cash">Thu tiền mặt khi lên xe</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Button
-                    type="button"
-                    onClick={handleManualBooking}
-                    disabled={busy}
-                    data-testid="manual-booking-submit"
-                  >
-                    Tạo đặt vé
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Block seats */}
           <Card>
             <CardHeader>

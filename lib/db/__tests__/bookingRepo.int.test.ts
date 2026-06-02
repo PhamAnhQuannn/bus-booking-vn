@@ -1,6 +1,10 @@
 /**
- * Integration tests for bookingRepo.createCashBookingFromHold() +
+ * Integration tests for bookingRepo.createOnlineBookingFromHold() +
  * getBookingByConfirmationToken().
+ *
+ * Online-only (Issue 039): createCashBookingFromHold was removed; these tests
+ * now exercise the online repo path (momo) for the shared insert/idempotency/
+ * capacity behaviour.
  *
  * Requires a real PostgreSQL database with the schema applied.
  * Run with: pnpm test:integration
@@ -20,10 +24,19 @@ import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { prisma } from '@/lib/db/client';
 import { createHold } from '../holdRepo';
 import {
-  createCashBookingFromHold,
   createOnlineBookingFromHold,
   getBookingByConfirmationToken,
 } from '../bookingRepo';
+
+// Online-only: all shared-behaviour tests exercise the momo rail.
+function createBookingFromHold(input: {
+  holdId: string;
+  buyerName: string;
+  buyerPhone: string;
+  customerId?: string | null;
+}) {
+  return createOnlineBookingFromHold(input, 'momo');
+}
 
 let operatorId: string;
 let routeId: string;
@@ -113,10 +126,10 @@ async function activeHold(ticketCount = 1): Promise<string> {
   return h.holdId;
 }
 
-describe('createCashBookingFromHold', () => {
+describe('createOnlineBookingFromHold (momo)', () => {
   it('succeeds when hold is active and unexpired', async () => {
     const holdId = await activeHold(2);
-    const r = await createCashBookingFromHold({
+    const r = await createBookingFromHold({
       holdId,
       buyerName: 'Buyer A',
       buyerPhone: '+8490xxxxxx5',
@@ -127,8 +140,8 @@ describe('createCashBookingFromHold', () => {
     expect(r.booking.holdId).toBe(holdId);
     expect(r.booking.ticketCount).toBe(2);
     expect(r.booking.totalVnd).toBe(200000);
-    expect(r.booking.status).toBe('pending_cash_payment');
-    expect(r.booking.paymentMethod).toBe('cash');
+    expect(r.booking.status).toBe('awaiting_payment');
+    expect(r.booking.paymentMethod).toBe('momo');
     expect(r.booking.bookingRef).toMatch(/^BB-\d{4}-[0-9a-z]{4}-[0-9a-z]{4}$/);
     expect(r.booking.confirmationToken).toMatch(/^[A-Za-z0-9_-]{32}$/);
 
@@ -146,7 +159,7 @@ describe('createCashBookingFromHold', () => {
     try {
       // Logged-in booking: customerId stamped at creation.
       const holdAuth = await activeHold(1);
-      const rAuth = await createCashBookingFromHold({
+      const rAuth = await createBookingFromHold({
         holdId: holdAuth,
         buyerName: 'Buyer Auth',
         buyerPhone: '+8490xxxxxx5',
@@ -162,7 +175,7 @@ describe('createCashBookingFromHold', () => {
 
       // Guest booking: customerId omitted → stays null.
       const holdGuest = await activeHold(1);
-      const rGuest = await createCashBookingFromHold({
+      const rGuest = await createBookingFromHold({
         holdId: holdGuest,
         buyerName: 'Buyer Guest',
         buyerPhone: '+8490xxxxxx5',
@@ -185,14 +198,14 @@ describe('createCashBookingFromHold', () => {
 
   it('second call with same holdId returns already_booked (idempotent)', async () => {
     const holdId = await activeHold(1);
-    const r1 = await createCashBookingFromHold({
+    const r1 = await createBookingFromHold({
       holdId,
       buyerName: 'Buyer B',
       buyerPhone: '+8490xxxxxx5',
     });
     expect(r1.ok).toBe(true);
 
-    const r2 = await createCashBookingFromHold({
+    const r2 = await createBookingFromHold({
       holdId,
       buyerName: 'Buyer B',
       buyerPhone: '+8490xxxxxx5',
@@ -213,7 +226,7 @@ describe('createCashBookingFromHold', () => {
       data: { expiresAt: new Date(Date.now() - 60_000) },
     });
 
-    const r = await createCashBookingFromHold({
+    const r = await createBookingFromHold({
       holdId,
       buyerName: 'Buyer C',
       buyerPhone: '+8490xxxxxx5',
@@ -229,7 +242,7 @@ describe('createCashBookingFromHold', () => {
       where: { id: holdId },
       data: { status: 'converted' },
     });
-    const r = await createCashBookingFromHold({
+    const r = await createBookingFromHold({
       holdId,
       buyerName: 'Buyer D',
       buyerPhone: '+8490xxxxxx5',
@@ -243,7 +256,7 @@ describe('createCashBookingFromHold', () => {
     const holdId = await activeHold(1);
     const results = await Promise.all(
       Array.from({ length: 10 }, () =>
-        createCashBookingFromHold({
+        createBookingFromHold({
           holdId,
           buyerName: 'Race Buyer',
           buyerPhone: '+8490xxxxxx5',
@@ -270,7 +283,7 @@ describe('capacity correctness — bookings subtract from holdRepo availability'
       customerName: 'First',
     });
     expect(firstHold).not.toBeNull();
-    const r = await createCashBookingFromHold({
+    const r = await createBookingFromHold({
       holdId: firstHold!.holdId,
       buyerName: 'Buyer',
       buyerPhone: '+8490xxxxxx5',
@@ -322,7 +335,7 @@ describe('createOnlineBookingFromHold — concurrent sell (issue 036)', () => {
 describe('getBookingByConfirmationToken', () => {
   it('returns the booking with full trip/route/operator details', async () => {
     const holdId = await activeHold(1);
-    const r = await createCashBookingFromHold({
+    const r = await createBookingFromHold({
       holdId,
       buyerName: 'Buyer E',
       buyerPhone: '+8490xxxxxx5',
