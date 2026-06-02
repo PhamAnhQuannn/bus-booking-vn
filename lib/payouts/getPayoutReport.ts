@@ -12,10 +12,13 @@ import type { PayoutStatus } from '@prisma/client';
 export { type PayoutStatus };
 
 export interface PayoutReportRow {
-  payoutId: string;
-  tripId: string;
+  /** null for on-demand WITHDRAWAL payouts (Issue 053) — they have no owning trip. */
+  tripId: string | null;
+  /** For a withdrawal (null trip) this is a fixed label rather than a route. */
   routeName: string;
-  departureAt: Date;
+  /** null for a withdrawal payout (no trip ⇒ no departure). */
+  departureAt: Date | null;
+  payoutId: string;
   gross: number;
   platformFee: number;
   net: number;
@@ -49,8 +52,11 @@ export async function getPayoutReport(input: GetPayoutReportInput): Promise<Payo
   return payouts.map((p) => ({
     payoutId: p.id,
     tripId: p.tripId,
-    routeName: `${p.trip.route.origin} → ${p.trip.route.destination}`,
-    departureAt: p.trip.departureAt,
+    // Issue 053: a withdrawal payout has tripId = null and `trip` is null on the
+    // LEFT-joined include — optional-chain it. Withdrawals render a fixed label
+    // and a null departure instead of a route + departure time.
+    routeName: p.trip ? `${p.trip.route.origin} → ${p.trip.route.destination}` : 'Rút tiền (Withdrawal)',
+    departureAt: p.trip?.departureAt ?? null,
     gross: p.gross,
     platformFee: p.platformFee,
     net: p.net,

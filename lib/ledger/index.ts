@@ -38,6 +38,14 @@ export {
   SETTLEMENT_DELAY_SQL_INTERVAL,
 } from './constants';
 
+// Issue 053: on-demand operator withdrawal — creates a (requested) non-trip-scoped
+// Payout + sweep-aligned payout_debit; FOR-UPDATE-serialised, replay-idempotent.
+export {
+  requestWithdrawal,
+  type RequestWithdrawalInput,
+  type RequestWithdrawalResult,
+} from './withdrawal';
+
 // Issue 052: chargeback + payout_reversal — bank-dispute reversal (post-payout
 // capable), operator liability + platform bad-debt backstop (S15#7). Idempotent.
 export {

@@ -114,7 +114,14 @@ export async function getRevenueReport(input: GetRevenueReportInput): Promise<Re
 
   const payoutByTripId = new Map<string, string>();
   for (const p of payouts) {
-    payoutByTripId.set(p.tripId, p.status);
+    // Issue 053: Payout.tripId is now nullable (withdrawal payouts carry null).
+    // The query above filters `tripId: { in: tripIds }`, so withdrawal rows (null)
+    // never match here — but Prisma still types tripId as `string | null`.
+    // Skip the null defensively (this is a per-trip revenue report; a withdrawal
+    // is NOT trip revenue and has no place in this grouping).
+    if (p.tripId !== null) {
+      payoutByTripId.set(p.tripId, p.status);
+    }
   }
 
   // Build result rows sorted by departureAt ascending.
