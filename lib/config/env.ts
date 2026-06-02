@@ -24,15 +24,6 @@ const envSchema = z.object({
    */
   HOLD_SWEEPER_MODE: z.enum(['count', 'update']).default('count'),
 
-  /**
-   * When "true", searchTrips() subtracts blockedSeats + active-hold sum from capacity.
-   * Flip after Steps 7+9 ship.
-   */
-  SEARCH_USE_BLOCKED_SEATS: z
-    .string()
-    .default('false')
-    .transform((v) => v === 'true'),
-
   // ---------------------------------------------------------------------------
   // MoMo payment gateway (Issue 004)
   // Defaults to MoMo sandbox credentials (vendor-published, public).
