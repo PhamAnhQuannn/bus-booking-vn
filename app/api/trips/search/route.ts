@@ -10,8 +10,8 @@
  * Wrapped in withErrorHandler — 500 scrubbed (AC-11)
  * Node runtime (NOT Edge) — required for pg driver
  *
- * Issue 002: searchTrips() subtracts active holds from availableSeats when
- * SEARCH_USE_BLOCKED_SEATS=true (default false until canary).
+ * searchTrips() always subtracts blockedSeats + active holds + paid/pending bookings
+ * from capacity (never raw capacity).
  */
 
 export const runtime = 'nodejs';
@@ -61,7 +61,7 @@ async function handler(request: NextRequest): Promise<Response> {
     });
   }
 
-  // ---- 3. Search trips (holds-aware when SEARCH_USE_BLOCKED_SEATS=true) ----
+  // ---- 3. Search trips (always holds-aware; availability never raw capacity) ----
   const results = await searchTrips({ origin, destination, date, ticketCount });
 
   // Funnel: search_performed (fire-and-forget, never blocks the response)
