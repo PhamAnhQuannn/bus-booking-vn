@@ -156,6 +156,8 @@ model Hold {
   ticketCount   Int
   customerPhone String
   customerName  String
+  /// Issue 042: buyer email captured at hold creation (S03/S04 guest snapshot = name+phone+email). Nullable for pre-042 rows.
+  customerEmail String?
   expiresAt     DateTime
   status        HoldStatus @default(active)
   createdAt     DateTime   @default(now())
@@ -211,6 +213,8 @@ model Booking {
   customerId         String?
   buyerName          String
   buyerPhone         String
+  /// Issue 042: buyer email for ticket delivery (S03/S04 guest snapshot = name+phone+email). Nullable — pre-042 rows have no email.
+  buyerEmail         String?
   ticketCount        Int
   totalVnd           Int
   paymentMethod      PaymentMethod
