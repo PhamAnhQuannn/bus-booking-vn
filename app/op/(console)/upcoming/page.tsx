@@ -9,7 +9,7 @@ import { redirect } from 'next/navigation';
 import type { TripStatus } from '@prisma/client';
 import { getOperatorSession } from '@/lib/op/getOperatorSession';
 import { listUpcomingForOperator } from '@/lib/trips/listUpcomingForOperator';
-import { listRoutes } from '@/lib/routes/listRoutes';
+import { listRoutes } from '@/lib/catalog/listRoutes';
 import type { TripDto } from '@/lib/trips/tripDto';
 import { tripStatusDisplay } from '@/lib/op/statusLabels';
 import { Card } from '@/components/ui/card';

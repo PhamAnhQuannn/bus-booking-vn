@@ -14,8 +14,8 @@
 
 import { redirect } from 'next/navigation';
 import { getOperatorSession } from '@/lib/op/getOperatorSession';
-import { listRoutes } from '@/lib/routes/listRoutes';
-import { listOperatorBuses } from '@/lib/buses/listOperatorBuses';
+import { listRoutes } from '@/lib/catalog/listRoutes';
+import { listOperatorBuses } from '@/lib/catalog/listOperatorBuses';
 import { PageHeader } from '@/components/op/PageHeader';
 import NewTripClient from './NewTripClient';
 

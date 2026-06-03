@@ -9,7 +9,7 @@
 
 import { prisma } from '@/lib/db/client';
 import { getOperatorBooking } from './getOperatorBooking';
-import { listPickupPoints } from '@/lib/pickupPoints/listPickupPoints';
+import { listPickupPoints } from '@/lib/catalog/listPickupPoints';
 import type { BookingDto } from './bookingDto';
 
 export interface PickupPointOption {

@@ -32,17 +32,17 @@ vi.mock('@/lib/auth/jwt', () => ({
 vi.mock('@/lib/db/client', () => ({
   prisma: { operatorUser: { findUnique: mockOperatorFindUnique } },
 }));
-vi.mock('@/lib/pickupPoints/listPickupPoints', () => ({ listPickupPoints: mockListPickupPoints }));
-vi.mock('@/lib/pickupPoints/createPickupPoint', async (importActual) => {
-  const actual = await importActual<typeof import('@/lib/pickupPoints/createPickupPoint')>();
+vi.mock('@/lib/catalog/listPickupPoints', () => ({ listPickupPoints: mockListPickupPoints }));
+vi.mock('@/lib/catalog/createPickupPoint', async (importActual) => {
+  const actual = await importActual<typeof import('@/lib/catalog/createPickupPoint')>();
   return { ...actual, createPickupPoint: mockCreatePickupPoint };
 });
-vi.mock('@/lib/pickupPoints/bulkReorder', () => ({ bulkReorder: mockBulkReorder }));
+vi.mock('@/lib/catalog/bulkReorder', () => ({ bulkReorder: mockBulkReorder }));
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => mockCookieStore) }));
 
 import { GET, POST, PATCH } from '../route';
 import { NextRequest } from 'next/server';
-import { PickupPointServiceError } from '@/lib/pickupPoints/createPickupPoint';
+import { PickupPointServiceError } from '@/lib/catalog/createPickupPoint';
 
 const OP_USER = {
   id: 'ou1',

@@ -11,7 +11,7 @@
 
 import { redirect } from 'next/navigation';
 import { getOperatorSession } from '@/lib/op/getOperatorSession';
-import { listRoutes } from '@/lib/routes/listRoutes';
+import { listRoutes } from '@/lib/catalog/listRoutes';
 import { PageHeader } from '@/components/op/PageHeader';
 import RoutesClient from './RoutesClient';
 

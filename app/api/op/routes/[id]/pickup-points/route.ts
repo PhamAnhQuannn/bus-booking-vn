@@ -16,9 +16,9 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth/requireOperatorAuth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { listPickupPoints } from '@/lib/pickupPoints/listPickupPoints';
-import { createPickupPoint, PickupPointServiceError } from '@/lib/pickupPoints/createPickupPoint';
-import { bulkReorder } from '@/lib/pickupPoints/bulkReorder';
+import { listPickupPoints } from '@/lib/catalog/listPickupPoints';
+import { createPickupPoint, PickupPointServiceError } from '@/lib/catalog/createPickupPoint';
+import { bulkReorder } from '@/lib/catalog/bulkReorder';
 import { pickupPointCreateSchema, bulkReorderSchema } from '@/lib/validation/route';
 
 type RouteContext = { params: Promise<{ id: string }> };

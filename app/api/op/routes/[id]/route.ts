@@ -14,8 +14,8 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth/requireOperatorAuth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { getRouteById } from '@/lib/routes/getRouteById';
-import { updateRoute, RouteServiceError } from '@/lib/routes/updateRoute';
+import { getRouteById } from '@/lib/catalog/getRouteById';
+import { updateRoute, RouteServiceError } from '@/lib/catalog/updateRoute';
 import { routePatchSchema } from '@/lib/validation/route';
 
 type RouteContext = { params: Promise<{ id: string }> };

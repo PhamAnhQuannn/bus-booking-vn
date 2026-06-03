@@ -26,7 +26,7 @@ import { CreateMaintenanceSchema } from '@/lib/validation/bus';
 import {
   findMaintenanceOverlaps,
   findTripOverlaps,
-} from '@/lib/buses/getMaintenanceConflicts';
+} from '@/lib/catalog/getMaintenanceConflicts';
 
 type RouteContext = { params: Promise<{ id: string }> };
 

@@ -29,16 +29,16 @@ vi.mock('@/lib/auth/jwt', () => ({
 vi.mock('@/lib/db/client', () => ({
   prisma: { operatorUser: { findUnique: mockOperatorFindUnique } },
 }));
-vi.mock('@/lib/routes/getRouteById', () => ({ getRouteById: mockGetRouteById }));
-vi.mock('@/lib/routes/updateRoute', async (importActual) => {
-  const actual = await importActual<typeof import('@/lib/routes/updateRoute')>();
+vi.mock('@/lib/catalog/getRouteById', () => ({ getRouteById: mockGetRouteById }));
+vi.mock('@/lib/catalog/updateRoute', async (importActual) => {
+  const actual = await importActual<typeof import('@/lib/catalog/updateRoute')>();
   return { ...actual, updateRoute: mockUpdateRoute };
 });
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => mockCookieStore) }));
 
 import { GET, PATCH } from '../route';
 import { NextRequest } from 'next/server';
-import { RouteServiceError } from '@/lib/routes/updateRoute';
+import { RouteServiceError } from '@/lib/catalog/updateRoute';
 
 const OP_USER = {
   id: 'ou1',
