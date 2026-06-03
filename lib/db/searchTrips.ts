@@ -54,7 +54,7 @@ import { searchResultSelect } from '@/lib/db/selects';
 import { SEARCH_VISIBLE_STATUSES } from '@/lib/onboarding';
 import { fromZonedTime } from 'date-fns-tz';
 import { startOfDay, endOfDay } from 'date-fns';
-import { encodeCursor, decodeCursor, type SeekCursor } from '@/lib/db/searchCursor';
+import { encodeCursor, decodeCursor } from '@/lib/db/searchCursor';
 export { encodeCursor, decodeCursor } from '@/lib/db/searchCursor';
 
 const TZ = 'Asia/Ho_Chi_Minh';
