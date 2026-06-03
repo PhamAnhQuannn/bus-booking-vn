@@ -16,7 +16,7 @@ import Link from 'next/link';
 import { ArrowRight, Armchair } from 'lucide-react';
 import { searchParamsSchema, searchFiltersSchema } from '@/lib/validation/search';
 import { track } from '@/lib/analytics/track';
-import { searchTrips, type TripResult } from '@/lib/db/searchTrips';
+import { searchTrips, SEARCH_PAGE_LIMIT, type TripResult } from '@/lib/db/searchTrips';
 import { applyTripFilters, type TripFacets } from '@/lib/search/applyTripFilters';
 import { SearchFormWrapper } from '@/components/search/SearchFormWrapper';
 import { SearchForm } from '@/components/search/SearchForm';
@@ -223,6 +223,8 @@ function ResultsList({
   date,
   ticketCount,
   showPrev,
+  nextCursor,
+  allParams,
 }: {
   trips: TripResult[];
   facets: TripFacets;
@@ -232,6 +234,10 @@ function ResultsList({
   date: string;
   ticketCount: number;
   showPrev: boolean;
+  /** Issue 097: opaque seek cursor for the next page, or null on the last page. */
+  nextCursor: string | null;
+  /** All current URL params (origin/dest/date/filters/sort) to preserve when paging. */
+  allParams: Record<string, string | string[] | undefined>;
 }) {
   const prevDate = shiftDate(date, -1);
   const nextDate = shiftDate(date, 1);
@@ -243,6 +249,21 @@ function ResultsList({
       date: newDate,
       ticketCount: String(ticketCount),
     });
+    return `/search?${p.toString()}`;
+  }
+
+  // Issue 097: next-page link preserves EVERY current query param (origin/dest/
+  // date/ticketCount + active filters + sort) and swaps in the new cursor. A
+  // fresh date-chip navigation drops the cursor by rebuilding from scratch above,
+  // so changing the date resets paging to page 1 (correct — a new result set).
+  function buildPageUrl(cursor: string): string {
+    const p = new URLSearchParams();
+    for (const [k, v] of Object.entries(allParams)) {
+      if (k === 'cursor') continue; // replaced below
+      if (typeof v === 'string') p.set(k, v);
+      else if (Array.isArray(v) && v[0] !== undefined) p.set(k, v[0]);
+    }
+    p.set('cursor', cursor);
     return `/search?${p.toString()}`;
   }
 
@@ -306,6 +327,21 @@ function ResultsList({
             ))}
           </ul>
         )}
+
+        {/* Issue 097: seek-pagination next-page control. Present only when the
+            base set has more rows past this page. Links to the same URL with the
+            opaque cursor appended (share/refresh-safe). */}
+        {nextCursor ? (
+          <div className="flex justify-center pt-2">
+            <Link
+              href={buildPageUrl(nextCursor)}
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-background px-6 text-sm font-medium transition-colors hover:bg-muted"
+              aria-label="Xem thêm chuyến xe (trang sau)"
+            >
+              Xem thêm chuyến →
+            </Link>
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -346,7 +382,22 @@ export default async function SearchPage({ searchParams }: PageProps) {
     redirect(`/search?${p.toString()}`);
   }
 
-  const baseTrips = await searchTrips({ origin, destination, date, ticketCount });
+  // Issue 097: cursor/seek pagination. The cursor rides the URL (source of truth)
+  // so share/refresh preserves position. `searchTrips` materialises the FULL
+  // availability-resolved base set for facets (page-independent) — pass a very
+  // large limit so the base call is never truncated — then a SECOND bounded call
+  // returns just this page's rows via the (departureAt, id) seek cursor.
+  const cursor = typeof params.cursor === 'string' ? params.cursor : null;
+
+  const [base, page] = await Promise.all([
+    // Facet base: full set, no cursor. (The allowed bounded full scan — see
+    // searchTrips DESIGN note. Facets MUST reflect ALL matching trips, not a page.)
+    searchTrips({ origin, destination, date, ticketCount, limit: Number.MAX_SAFE_INTEGER }),
+    // Page rows: bounded seek window from the URL cursor.
+    searchTrips({ origin, destination, date, ticketCount, cursor, limit: SEARCH_PAGE_LIMIT }),
+  ]);
+  const baseTrips = base.trips;
+  const nextCursor = page.nextCursor;
 
   // Funnel top-step. The /search RSC calls searchTrips() in-process (never the
   // JSON API route), so search_performed must be fired here — fire-and-forget,
@@ -355,13 +406,13 @@ export default async function SearchPage({ searchParams }: PageProps) {
   const sessionId = (await cookies()).get('bb_sid')?.value ?? null;
   void track('search_performed', { sessionId, context: { resultCount: baseTrips.length } });
 
-  // Layer optional filters/sort over the base set. Schema has defaults + is fully
-  // optional, so this parse always succeeds; fall back to defaults on the off chance.
-  const filters = searchFiltersSchema.safeParse(params);
-  const { trips, facets, totalBeforeFilters } = applyTripFilters(
-    baseTrips,
-    filters.success ? filters.data : searchFiltersSchema.parse({})
-  );
+  // Layer optional filters/sort. Facets are derived from the UNFILTERED FULL base
+  // set (page-independent); the displayed trips are this page's seek window, with
+  // the same filters/sort applied for display.
+  const filterParams = searchFiltersSchema.safeParse(params);
+  const activeFilters = filterParams.success ? filterParams.data : searchFiltersSchema.parse({});
+  const { facets, totalBeforeFilters } = applyTripFilters(baseTrips, activeFilters);
+  const { trips } = applyTripFilters(page.trips, activeFilters);
 
   // AC-4: suppress prev-day chip whenever the searched date is today or earlier
   // (Asia/Ho_Chi_Minh) — past dates aren't browsable, so prev can never go back
@@ -417,6 +468,8 @@ export default async function SearchPage({ searchParams }: PageProps) {
           date={date}
           ticketCount={ticketCount}
           showPrev={showPrev}
+          nextCursor={nextCursor}
+          allParams={params}
         />
       )}
     </main>

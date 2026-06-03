@@ -45,6 +45,9 @@ async function handler(request: NextRequest): Promise<Response> {
 
   const { origin, destination, date, ticketCount } = parsed.data;
 
+  // Issue 097: optional opaque seek cursor for the next page. Absent → first page.
+  const cursor = searchParams.get('cursor');
+
   // ---- 2. Rate limit by IP ----
   const ip =
     request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1';
@@ -62,18 +65,21 @@ async function handler(request: NextRequest): Promise<Response> {
   }
 
   // ---- 3. Search trips (always holds-aware; availability never raw capacity) ----
-  const results = await searchTrips({ origin, destination, date, ticketCount });
+  // Issue 097: returns one seek-paginated page. The JSON body stays a plain
+  // TripResult[] (unchanged contract); the next-page cursor rides an X-Next-Cursor
+  // header so existing array-shape consumers keep working.
+  const { trips, nextCursor } = await searchTrips({ origin, destination, date, ticketCount, cursor });
 
   // Funnel: search_performed (fire-and-forget, never blocks the response)
   void track('search_performed', {
     sessionId: sessionIdFromRequest(request),
-    context: { origin, destination, date, ticketCount, results: results.length },
+    context: { origin, destination, date, ticketCount, results: trips.length },
   });
 
-  return NextResponse.json(results, {
-    status: 200,
-    headers: { 'Cache-Control': 'no-store' },
-  });
+  const headers: Record<string, string> = { 'Cache-Control': 'no-store' };
+  if (nextCursor) headers['X-Next-Cursor'] = nextCursor;
+
+  return NextResponse.json(trips, { status: 200, headers });
 }
 
 export const GET = withErrorHandler(handler);

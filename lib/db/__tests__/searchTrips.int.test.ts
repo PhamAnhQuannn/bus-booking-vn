@@ -102,8 +102,18 @@ async function seedPaidBooking(ticketCount: number): Promise<void> {
   });
 }
 
-function search(ticketCount: number) {
-  return searchTrips({ origin: ORIGIN, destination: DEST, date: vnDate, ticketCount });
+// Issue 097: searchTrips now returns a paginated page ({ trips, nextCursor }).
+// These availability tests only care about the rows, so unwrap to the trips array.
+// A large limit ensures the single seeded trip is never truncated by paging.
+async function search(ticketCount: number) {
+  const { trips } = await searchTrips({
+    origin: ORIGIN,
+    destination: DEST,
+    date: vnDate,
+    ticketCount,
+    limit: Number.MAX_SAFE_INTEGER,
+  });
+  return trips;
 }
 
 describe('searchTrips availability (holds + bookings aware, never raw capacity)', () => {
