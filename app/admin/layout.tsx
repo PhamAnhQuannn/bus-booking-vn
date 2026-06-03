@@ -1,20 +1,15 @@
 /**
- * Admin segment shell layout (Issue 056).
+ * /admin segment root layout (Issue 056 → Issue 064).
  *
- * Minimal server-component wrapper for the THIRD auth realm (/admin). Deliberately
- * does NOT import the public site chrome (header/footer/nav) — the admin console is
- * a separate surface, reachable only via the middleware-guarded /admin login boundary.
- * Full admin pages (dashboard, finance, support tooling) land in Wave 3; this shell
- * exists now so the segment + middleware guard can be wired and tested.
+ * Intentionally MINIMAL — a transparent pass-through. The authenticated console
+ * chrome (sidebar + 7-tab nav) lives in the `(console)` route group's layout
+ * (app/admin/(console)/layout.tsx); /admin/login sits OUTSIDE that group and so
+ * renders bare (no console chrome), reachable via the middleware-guarded boundary.
+ *
+ * Deliberately does NOT import the public site chrome — the admin console is the
+ * separate THIRD auth realm surface.
  */
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="min-h-screen bg-background text-foreground">
-      <main className="mx-auto max-w-5xl px-4 py-8">
-        <h1 className="text-xl font-semibold">Admin</h1>
-        {children}
-      </main>
-    </div>
-  );
+  return <div className="min-h-screen bg-background text-foreground">{children}</div>;
 }
