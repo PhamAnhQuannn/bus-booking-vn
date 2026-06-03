@@ -14,11 +14,12 @@
  */
 
 import { notFound } from 'next/navigation';
-import { CheckCircle2, Phone, Clock, Bus, MapPin, Wallet, CalendarPlus } from 'lucide-react';
+import { CheckCircle2, Phone, Wallet, CalendarPlus } from 'lucide-react';
 import { getBookingByConfirmationToken } from '@/lib/db/bookingRepo';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { TripDetailCard } from '@/components/ticket/TripDetailCard';
 
 interface ConfirmationPageProps {
   params: Promise<{ token: string }>;
@@ -32,14 +33,6 @@ function formatVND(amount: number): string {
       maximumFractionDigits: 0,
     }).format(amount) + 'đ'
   );
-}
-
-function formatDeparture(d: Date): string {
-  return d.toLocaleString('vi-VN', {
-    timeZone: 'Asia/Ho_Chi_Minh',
-    dateStyle: 'full',
-    timeStyle: 'short',
-  });
 }
 
 /** UTC timestamp in iCalendar basic format (YYYYMMDDTHHMMSSZ). */
@@ -89,18 +82,6 @@ const STATUS_VARIANT: Record<string, 'success' | 'pending' | 'danger' | 'neutral
   payment_failed_expired: 'danger',
 };
 
-function Row({ icon: Icon, label, children }: { icon: typeof Phone; label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-4 text-sm">
-      <dt className="inline-flex items-center gap-2 text-muted-foreground">
-        <Icon className="size-4" aria-hidden="true" />
-        {label}
-      </dt>
-      <dd className="text-right">{children}</dd>
-    </div>
-  );
-}
-
 export default async function ConfirmationPage({ params }: ConfirmationPageProps) {
   const { token } = await params;
 
@@ -144,26 +125,26 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
         </a>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle as="h2">Chi tiết chuyến đi</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <dl className="flex flex-col gap-2.5">
-            <Row icon={MapPin} label="Tuyến">
-              {trip.route.origin} → {trip.route.destination}
-            </Row>
-            <Row icon={Clock} label="Khởi hành">{formatDeparture(trip.departureAt)}</Row>
-            <Row icon={Bus} label="Xe"><span className="font-mono">{trip.bus.licensePlate}</span></Row>
-            <Row icon={Bus} label="Nhà xe">{trip.bus.operator.legalName}</Row>
-            <Row icon={Phone} label="Hotline nhà xe">
-              <a href={`tel:${trip.bus.operator.contactPhone}`} className="font-mono text-primary hover:underline">
-                {trip.bus.operator.contactPhone}
-              </a>
-            </Row>
-          </dl>
-        </CardContent>
-      </Card>
+      {/* AC5: trip-fact presentation is shared with the /verify boarding page. */}
+      <TripDetailCard
+        origin={trip.route.origin}
+        destination={trip.route.destination}
+        departureAt={trip.departureAt}
+        busPlate={trip.bus.licensePlate}
+        operatorName={trip.bus.operator.legalName}
+      >
+        <div className="flex items-center justify-between gap-4 text-sm">
+          <dt className="inline-flex items-center gap-2 text-muted-foreground">
+            <Phone className="size-4" aria-hidden="true" />
+            Hotline nhà xe
+          </dt>
+          <dd className="text-right">
+            <a href={`tel:${trip.bus.operator.contactPhone}`} className="font-mono text-primary hover:underline">
+              {trip.bus.operator.contactPhone}
+            </a>
+          </dd>
+        </div>
+      </TripDetailCard>
 
       <Card>
         <CardHeader>
