@@ -372,6 +372,10 @@ model Customer {
   deletedAt    DateTime?
   /// Issue 008: anonymization timestamp; set together with deletedAt
   anonymizedAt DateTime?
+  /// Issue 066: admin suspension timestamp; non-null = suspended. A suspended
+  /// customer fails requireCustomerAuth and all their sessions are revoked at
+  /// suspend time. Reinstate clears this (sessions are NOT restored — fresh login).
+  suspendedAt  DateTime?
   sessions     Session[]
   bookings     Booking[]
 }
