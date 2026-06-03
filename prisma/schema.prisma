@@ -336,6 +336,12 @@ model Booking {
   ticketPdfKey         String?
   /// Issue 074: instant the ticket PDF was generated + stored. Paired with ticketPdfKey (set together).
   ticketPdfGeneratedAt DateTime?
+  /// Issue 090: instant the guest PII snapshot (buyerName/buyerPhone/buyerEmail) was
+  /// scrubbed to masked placeholders. NULL = snapshot still intact. Non-null = scrubbed
+  /// (by the on-delete anonymize path OR the retention sweeper). This is the sweep
+  /// PREDICATE + idempotency marker (Issue 014 top-level indexed column) — money/audit
+  /// columns (totalVnd/status/ticketCount/ledger) are RETAINED through the scrub (S04).
+  snapshotAnonymizedAt DateTime?
   trip                 Trip              @relation(fields: [tripId], references: [id])
   hold                 Hold?             @relation(fields: [holdId], references: [id], onDelete: Restrict)
   customer             Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
@@ -354,6 +360,9 @@ model Booking {
   @@index([status, reminderSentAt])
   /// Issue 009: register-time guest-booking backfill scan (match buyerPhone → Customer.phone)
   @@index([buyerPhone])
+  /// Issue 090: retention sweeper predicate — claims guest bookings WHERE
+  /// snapshotAnonymizedAt IS NULL (then joins Trip for the departure window).
+  @@index([snapshotAnonymizedAt])
 }
 
 /// Issue 089: checkout consent capture. One row per consent the buyer accepted at
@@ -751,15 +760,22 @@ model StoredObject {
 /// operator uploads via a signed PUT (no server byte-proxy); the admin views via
 /// a fresh signed GET (audited). `type` is a documented union.
 model KybDocument {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   operatorId String
   type       String // 'business_license' | 'identity' | 'payout_account' (documented union)
   storageKey String // S3 key (lib/storage); DB stores the KEY, never bytes
-  status     String   @default("submitted") // 'submitted' | 'accepted' | 'rejected'
-  uploadedAt DateTime @default(now())
-  operator   Operator @relation(fields: [operatorId], references: [id], onDelete: Restrict)
+  status     String    @default("submitted") // 'submitted' | 'accepted' | 'rejected'
+  uploadedAt DateTime  @default(now())
+  /// Issue 090: instant the backing storage object was purged by the retention
+  /// sweeper (90d after the operator was REJECTED/SUSPENDED). NULL = object still
+  /// stored. Non-null = storage object removed (the pointer row is RETAINED as an
+  /// audit trail). This is the sweep PREDICATE + idempotency marker (Issue 014).
+  purgedAt   DateTime?
+  operator   Operator  @relation(fields: [operatorId], references: [id], onDelete: Restrict)
 
   @@index([operatorId])
+  /// Issue 090: retention sweeper predicate — claims docs WHERE purgedAt IS NULL.
+  @@index([purgedAt])
 }
 
 /// Issue 078: the operator's single payout destination bank account. The platform
