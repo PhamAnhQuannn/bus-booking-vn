@@ -43,10 +43,10 @@ vi.mock('@/lib/db/client', () => ({
 const sendSmsBodyMock = vi.fn();
 const sendEmailMock = vi.fn();
 
-vi.mock('@/lib/notifications/esms', () => ({
+vi.mock('@/lib/notification/esms', () => ({
   sendSmsBody: (args: unknown) => sendSmsBodyMock(args),
 }));
-vi.mock('@/lib/notifications/email', () => ({
+vi.mock('@/lib/notification/email', () => ({
   sendEmail: (args: unknown) => sendEmailMock(args),
 }));
 

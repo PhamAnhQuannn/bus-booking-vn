@@ -19,7 +19,7 @@ import type { JobCore } from './types';
 
 export const dispatchNotifications: JobCore = async (tx, opts) => {
   const { dispatchNotifications: core } = await import(
-    '@/lib/notifications/dispatchNotifications'
+    '@/lib/notification/dispatchNotifications'
   );
   return core(tx, opts);
 };

@@ -38,7 +38,7 @@ vi.mock('@/lib/ratelimit', () => ({
   createRatelimit: vi.fn(() => mockRatelimit),
 }));
 
-vi.mock('@/lib/notifications/esms', () => ({
+vi.mock('@/lib/notification/esms', () => ({
   sendSms: mockSendSms,
 }));
 

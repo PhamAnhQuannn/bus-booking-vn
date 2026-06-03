@@ -33,8 +33,8 @@
 
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db/client';
-import { sendSmsBody } from '@/lib/notifications/esms';
-import { sendEmail } from '@/lib/notifications/email';
+import { sendSmsBody } from '@/lib/notification/esms';
+import { sendEmail } from '@/lib/notification/email';
 import { logger } from '@/lib/logger';
 import { captureException } from '@/lib/observability';
 import type { JobCore, JobOpts } from '@/lib/jobs/types';

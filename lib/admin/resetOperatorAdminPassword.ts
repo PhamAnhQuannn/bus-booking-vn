@@ -19,7 +19,7 @@
 import type { PrismaClient } from '@prisma/client';
 import { hash } from '@/lib/auth/password';
 import { genTempPassword } from '@/lib/staff/genTempPassword';
-import { sendSms } from '@/lib/notifications/esms';
+import { sendSms } from '@/lib/notification/esms';
 import { writeAdminAuditLog } from '@/lib/audit/adminAuditLog';
 import { redactPhone } from '@/lib/audit/redactPhone';
 import { AdminServiceError } from './errors';

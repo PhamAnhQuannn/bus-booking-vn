@@ -20,7 +20,7 @@ vi.mock('@/lib/ratelimit', () => ({
   createRatelimit: vi.fn(() => mockRatelimit),
   InMemoryRatelimit: vi.fn(),
 }));
-vi.mock('@/lib/notifications/esms', () => ({ sendSms: mockSendSms }));
+vi.mock('@/lib/notification/esms', () => ({ sendSms: mockSendSms }));
 
 import { sendOtp } from '../sendOtp';
 

@@ -36,7 +36,7 @@ import { after } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db/client';
 import { createNotificationLog } from '@/lib/db/notificationLogRepo';
-import { renderTemplate } from '@/lib/notifications/esms';
+import { renderTemplate } from '@/lib/notification/esms';
 import { logger } from '@/lib/logger';
 import { captureException } from '@/lib/observability';
 import { track, sessionIdForBooking } from '@/lib/analytics/track';

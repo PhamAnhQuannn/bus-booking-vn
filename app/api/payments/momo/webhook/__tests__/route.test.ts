@@ -44,7 +44,7 @@ vi.mock('@/lib/db/notificationLogRepo', () => ({
 // pending NotificationLog rows and the dispatch-notifications cron delivers
 // them. renderTemplate is still used to render the stored payload body at
 // enqueue. sendSms/sendSmsBody must NOT be called by the webhook path anymore.
-vi.mock('@/lib/notifications/esms', () => ({
+vi.mock('@/lib/notification/esms', () => ({
   sendSms: vi.fn(),
   sendSmsBody: vi.fn(),
   renderTemplate: vi.fn().mockReturnValue('stub sms body'),
@@ -83,7 +83,7 @@ import { POST } from '../route';
 import { getMomoAdapter } from '@/lib/payment/momo';
 import { prisma } from '@/lib/db/client';
 import { createNotificationLog } from '@/lib/db/notificationLogRepo';
-import { sendSms, sendSmsBody } from '@/lib/notifications/esms';
+import { sendSms, sendSmsBody } from '@/lib/notification/esms';
 import { appendLedgerEntry } from '@/lib/ledger';
 import { logger } from '@/lib/logger';
 import { Prisma } from '@prisma/client';

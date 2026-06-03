@@ -15,7 +15,7 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { getTestOtp } from '@/lib/notifications/esms';
+import { getTestOtp } from '@/lib/notification/esms';
 
 export function GET(req: NextRequest): Response {
   // Dual guard: non-production NODE_ENV AND explicit opt-in env var required.

@@ -39,7 +39,7 @@ import path from 'path';
 import { prisma } from '@/lib/db/client';
 import { normalizePhone } from '@/lib/auth/phoneNormalize';
 import { verify } from '@/lib/auth/password';
-import * as esms from '@/lib/notifications/esms';
+import * as esms from '@/lib/notification/esms';
 import { createOperator } from '../createOperator';
 import { disableOperator } from '../disableOperator';
 import { resetOperatorAdminPassword } from '../resetOperatorAdminPassword';

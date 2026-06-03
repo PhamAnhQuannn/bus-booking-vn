@@ -20,7 +20,7 @@ import {
 } from '../customerOtp';
 
 // Mock sendSms to avoid real SMS in tests
-vi.mock('@/lib/notifications/esms', () => ({
+vi.mock('@/lib/notification/esms', () => ({
   sendSms: vi.fn().mockResolvedValue({ ok: true }),
 }));
 
