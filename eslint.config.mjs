@@ -2,10 +2,13 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 
-// SYS20 import-boundary lint (Issue 038, scaffold wave — severity 'warn'; Wave 8 flips to 'error').
+// SYS20 import-boundary lint (Issue 038 scaffolded at 'warn'; Issue 092 / Wave 8 flips to 'error').
 // Domain folders under lib/ — a sibling-domain import from lib/core is a rule-4 violation.
-// Excludes core primitives that currently live at lib/ root (db, logger, config) — those are
-// NOT domains, so lib/core may re-export them.
+// Reconciled to the real post-091 tree (Issue 092): dropped renamed/moved names
+// (buses, manifest, notifications, payments, payouts, pickupPoints, routes, validation),
+// added post-091 domains (flags, jobs, observability, places).
+// Exempt core primitives (NOT domains, lib/core may re-export): db (lib/core/db), logger
+// (lib/logger.ts), config (lib/config/env — re-exported by lib/core/config).
 const LIB_DOMAINS = [
   "account",
   "admin",
@@ -14,22 +17,19 @@ const LIB_DOMAINS = [
   "audit",
   "auth",
   "booking",
-  "buses",
   "catalog",
   "charter",
+  "flags",
+  "jobs",
   "ledger",
-  "manifest",
   "notification",
-  "notifications",
+  "observability",
   "onboarding",
   "op",
   "payment",
-  "payments",
-  "payouts",
-  "pickupPoints",
+  "places",
   "ratelimit",
   "reports",
-  "routes",
   "search",
   "security",
   "staff",
@@ -39,7 +39,6 @@ const LIB_DOMAINS = [
   "ticketing",
   "trips",
   "utils",
-  "validation",
 ];
 
 const eslintConfig = defineConfig([
@@ -52,7 +51,7 @@ const eslintConfig = defineConfig([
     ignores: ["lib/stores/**"],
     rules: {
       "no-restricted-imports": [
-        "warn",
+        "error",
         {
           patterns: [
             {
@@ -72,7 +71,7 @@ const eslintConfig = defineConfig([
     files: ["lib/core/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [
-        "warn",
+        "error",
         {
           patterns: [
             {
