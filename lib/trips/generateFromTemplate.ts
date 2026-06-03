@@ -293,8 +293,11 @@ export async function patchTemplate(
   });
   if (!existing) return null;
 
+  // Scope the mutating UPDATE to { id, operatorId } too (not just id) so the
+  // write is tenant-bound atomically — closes the TOCTOU between the ownership
+  // check above and this update (issue 092b, rule-5 tenant scope).
   const updated = await prisma.recurringTripTemplate.update({
-    where: { id: templateId },
+    where: { id: templateId, operatorId },
     data: {
       ...(patch.price !== undefined ? { price: patch.price } : {}),
       ...(patch.departureLocalTime !== undefined ? { departureLocalTime: patch.departureLocalTime } : {}),

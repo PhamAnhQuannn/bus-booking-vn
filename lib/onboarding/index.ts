@@ -34,3 +34,42 @@ export {
 } from './registerOperator';
 
 export { generateApplicationRef, APPLICATION_REF_REGEX } from './applicationRef';
+
+export {
+  KYB_DOC_TYPES,
+  isKybDocType,
+  KybError,
+  requestKybUploadUrl,
+  listOperatorKybDocs,
+  submitForReview,
+  type KybDocType,
+  type KybErrorCode,
+  type KybDocumentRow,
+  type RequestKybUploadUrlInput,
+  type RequestKybUploadUrlResult,
+  type SubmitForReviewInput,
+} from './kyb';
+
+export {
+  maskAccountNumber,
+  setPayoutAccount,
+  getPayoutAccount,
+  isPayoutAccountVerified,
+  type SetPayoutAccountInput,
+  type MaskedPayoutAccount,
+  type UnmaskedPayoutAccount,
+} from './payoutAccount';
+
+export {
+  nameMatchScore,
+  confirmPayoutAccountOwnership,
+  initiateMicroDeposit,
+  NAME_MATCH_VERIFY_THRESHOLD,
+  PayoutVerifyError,
+  type NameMatchResult,
+  type PayoutVerifyMethod,
+  type PayoutVerifyErrorCode,
+  type ConfirmPayoutAccountOwnershipInput,
+} from './payoutVerify';
+
+export { requestOperatorInfo, type RequestOperatorInfoInput } from './requestOperatorInfo';
