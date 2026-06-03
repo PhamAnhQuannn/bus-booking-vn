@@ -22,6 +22,10 @@ export interface ManifestRow {
   paymentStatus: string;
   pickedUpAt: string | null; // ISO 8601
   escalatedAt: string | null; // ISO 8601
+  /** Issue 073: boarding check-in timestamp (ISO 8601); null = not boarded. */
+  checkedInAt: string | null;
+  /** Issue 073: no-show timestamp (ISO 8601); null = not marked no-show. */
+  noShowAt: string | null;
   /** true when isManual=true */
   manualFlag: boolean;
   /** true when paymentMethod='cash' */
@@ -70,6 +74,8 @@ export async function getManifest(
       isManual: true,
       pickedUpAt: true,
       escalatedAt: true,
+      checkedInAt: true,
+      noShowAt: true,
       pickupPoint: { select: { name: true } },
     },
     orderBy: { createdAt: 'asc' },
@@ -86,6 +92,8 @@ export async function getManifest(
     paymentStatus: b.status,
     pickedUpAt: b.pickedUpAt ? b.pickedUpAt.toISOString() : null,
     escalatedAt: b.escalatedAt ? b.escalatedAt.toISOString() : null,
+    checkedInAt: b.checkedInAt ? b.checkedInAt.toISOString() : null,
+    noShowAt: b.noShowAt ? b.noShowAt.toISOString() : null,
     manualFlag: b.isManual,
     cashFlag: b.paymentMethod === 'cash',
     // AC6: no seatNumber field

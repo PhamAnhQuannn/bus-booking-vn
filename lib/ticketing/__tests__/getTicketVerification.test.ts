@@ -38,6 +38,8 @@ function rawBooking(overrides: Record<string, unknown> = {}) {
     status: 'paid_operator_notified',
     ticketCount: 2,
     paymentExternalRef: 'momo-txn-998877',
+    checkedInAt: null,
+    noShowAt: null,
     trip: {
       departureAt: new Date('2026-06-10T22:00:00Z'),
       route: { origin: 'Hanoi', destination: 'Hue' },
@@ -76,7 +78,20 @@ describe('getTicketVerification', () => {
       departureAt: '2026-06-10T22:00:00.000Z',
       busPlate: '29B-12345',
       busType: 'sleeper',
-      checkIn: null,
+      checkIn: { checkedInAt: null, noShowAt: null },
+    });
+  });
+
+  it('checked-in booking → checkIn.checkedInAt populated (Issue 073)', async () => {
+    verify.mockResolvedValue({ ref: REF, ct: CT });
+    findUnique.mockResolvedValue(
+      rawBooking({ checkedInAt: new Date('2026-06-10T22:05:00Z') }),
+    );
+
+    const result = await getTicketVerification('t');
+    expect(result?.checkIn).toEqual({
+      checkedInAt: '2026-06-10T22:05:00.000Z',
+      noShowAt: null,
     });
   });
 

@@ -11,6 +11,11 @@
  * buttons were removed along with their mutation routes. The manifest is now a
  * read-only roster.
  *
+ * Issue 073: boarding state surfaced — a "Lên xe" (boarding) badge column shows
+ * checked-in / no-show / not-boarded, and a token-entry scan box plus per-row
+ * Check-in / No-show buttons drive POST /api/op/scan, /check-in, /no-show. Full
+ * camera-QR scanning is DEFERRED; manual token entry satisfies the endpoint AC.
+ *
  * Design-system surface: Table list, Badge contact/payment status, Alert on
  * load failure, Button refresh. Every data-testid is preserved.
  */
@@ -19,9 +24,11 @@ import { useState } from 'react';
 import type { ManifestRow } from '@/lib/manifest/getManifest';
 import type { BookingStatus } from '@prisma/client';
 import { bookingStatusDisplay, contactStatusDisplay } from '@/lib/op/statusLabels';
+import { readCsrfToken } from '@/lib/auth/csrfClient';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Table,
@@ -43,6 +50,10 @@ export default function ManifestRefresh({ tripId, initialGeneratedAt, initialRow
   const [generatedAt, setGeneratedAt] = useState(initialGeneratedAt);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [scanToken, setScanToken] = useState('');
+  const [scanMsg, setScanMsg] = useState('');
+  const [scanError, setScanError] = useState('');
+  const [busyBookingId, setBusyBookingId] = useState<string | null>(null);
 
   async function handleRefresh() {
     setLoading(true);
@@ -58,6 +69,86 @@ export default function ManifestRefresh({ tripId, initialGeneratedAt, initialRow
       setGeneratedAt(json.generatedAt ?? new Date().toISOString());
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Issue 073: resolve a scanned/pasted ticket token to a booking, then check in.
+  async function handleScan() {
+    const token = scanToken.trim();
+    if (!token) return;
+    setScanMsg('');
+    setScanError('');
+    setBusyBookingId('scan');
+    try {
+      const res = await fetch('/api/op/scan', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json', 'X-CSRF-Token': readCsrfToken() },
+        body: JSON.stringify({ token }),
+      });
+      if (res.status === 404) {
+        setScanError('Vé không hợp lệ hoặc không thuộc chuyến của bạn.');
+        return;
+      }
+      if (res.status === 422) {
+        setScanError('Vé chưa thanh toán — không thể lên xe.');
+        return;
+      }
+      if (!res.ok) {
+        setScanError('Lỗi quét vé. Vui lòng thử lại.');
+        return;
+      }
+      const { booking } = await res.json();
+      setScanMsg(`Tìm thấy vé ${booking.bookingRef} (${booking.buyerName}). Đang lên xe…`);
+      await handleCheckIn(booking.id);
+      setScanToken('');
+    } finally {
+      setBusyBookingId(null);
+    }
+  }
+
+  async function handleCheckIn(bookingId: string) {
+    setScanError('');
+    setBusyBookingId(bookingId);
+    try {
+      const res = await fetch(`/api/op/bookings/${bookingId}/check-in`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'X-CSRF-Token': readCsrfToken() },
+      });
+      if (!res.ok) {
+        setScanError('Không thể xác nhận lên xe.');
+        return;
+      }
+      const json = await res.json();
+      setScanMsg(json.alreadyCheckedIn ? 'Hành khách đã lên xe trước đó.' : 'Đã xác nhận lên xe.');
+      await handleRefresh();
+    } finally {
+      setBusyBookingId(null);
+    }
+  }
+
+  async function handleNoShow(bookingId: string) {
+    setScanError('');
+    setBusyBookingId(bookingId);
+    try {
+      const res = await fetch(`/api/op/bookings/${bookingId}/no-show`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'X-CSRF-Token': readCsrfToken() },
+      });
+      if (res.status === 422) {
+        setScanError('Hành khách đã lên xe — không thể đánh dấu vắng mặt.');
+        return;
+      }
+      if (!res.ok) {
+        setScanError('Không thể đánh dấu vắng mặt.');
+        return;
+      }
+      setScanMsg('Đã đánh dấu vắng mặt.');
+      await handleRefresh();
+    } finally {
+      setBusyBookingId(null);
     }
   }
 
@@ -77,6 +168,39 @@ export default function ManifestRefresh({ tripId, initialGeneratedAt, initialRow
           Cập nhật lần cuối: {new Date(generatedAt).toLocaleString('vi-VN')}
         </span>
       </div>
+
+      {/* Issue 073: token-entry scan box → resolve + check-in. Camera QR deferred. */}
+      <Card className="space-y-2 p-4">
+        <label htmlFor="scan-token" className="text-sm font-medium">
+          Quét vé (dán mã token)
+        </label>
+        <div className="flex flex-wrap gap-2">
+          <Input
+            id="scan-token"
+            value={scanToken}
+            onChange={(e) => setScanToken(e.target.value)}
+            placeholder="Dán mã vé đã quét…"
+            data-testid="scan-token-input"
+            className="max-w-md flex-1"
+          />
+          <Button
+            type="button"
+            onClick={handleScan}
+            disabled={busyBookingId !== null || scanToken.trim().length === 0}
+            data-testid="scan-submit-btn"
+          >
+            Lên xe
+          </Button>
+        </div>
+        {scanMsg && (
+          <p className="text-sm text-success" data-testid="scan-message">{scanMsg}</p>
+        )}
+        {scanError && (
+          <Alert variant="error" data-testid="scan-error">
+            <AlertDescription>{scanError}</AlertDescription>
+          </Alert>
+        )}
+      </Card>
 
       {error && (
         <Alert variant="error" data-testid="manifest-error">
@@ -104,6 +228,7 @@ export default function ManifestRefresh({ tripId, initialGeneratedAt, initialRow
                 <TableHead>Liên lạc</TableHead>
                 <TableHead>TT thanh toán</TableHead>
                 <TableHead>Lên xe</TableHead>
+                <TableHead>Boarding</TableHead>
                 <TableHead>Cờ</TableHead>
               </TableRow>
             </TableHeader>
@@ -129,6 +254,36 @@ export default function ManifestRefresh({ tripId, initialGeneratedAt, initialRow
                       <Badge variant={payment.variant}>{payment.label}</Badge>
                     </TableCell>
                     <TableCell className="text-center">{row.pickedUpAt ? '✓' : '—'}</TableCell>
+                    <TableCell data-testid={`manifest-boarding-${row.bookingId}`}>
+                      {row.checkedInAt ? (
+                        <Badge variant="success">Đã lên xe</Badge>
+                      ) : row.noShowAt ? (
+                        <Badge variant="danger">Vắng mặt</Badge>
+                      ) : (
+                        <span className="flex gap-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={busyBookingId !== null}
+                            onClick={() => handleCheckIn(row.bookingId)}
+                            data-testid={`manifest-checkin-${row.bookingId}`}
+                          >
+                            Lên xe
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            disabled={busyBookingId !== null}
+                            onClick={() => handleNoShow(row.bookingId)}
+                            data-testid={`manifest-noshow-${row.bookingId}`}
+                          >
+                            Vắng
+                          </Button>
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <span className="flex gap-1">
                         {row.manualFlag && <span aria-label="Thủ công" title="Thủ công">✏</span>}

@@ -35,6 +35,15 @@ interface VerifyPageProps {
   params: Promise<{ token: string }>;
 }
 
+/** Format a DB-sourced ISO instant as HH:MM in Asia/Ho_Chi_Minh (pure given input). */
+function formatBoardingTime(iso: string): string {
+  return new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(iso));
+}
+
 export default async function VerifyPage({ params }: VerifyPageProps) {
   const { token } = await params;
 
@@ -113,8 +122,16 @@ export default async function VerifyPage({ params }: VerifyPageProps) {
                 <UserCheck className="size-4" aria-hidden="true" />
                 Trạng thái lên xe
               </dt>
-              {/* Issue 073 wires the real check-in state; placeholder for now. */}
-              <dd className="text-right text-muted-foreground">Chưa lên xe</dd>
+              {/* Issue 073: live boarding state from the operator scan/check-in. */}
+              {view.checkIn.checkedInAt ? (
+                <dd className="text-right font-medium text-success">
+                  Đã lên xe lúc {formatBoardingTime(view.checkIn.checkedInAt)}
+                </dd>
+              ) : view.checkIn.noShowAt ? (
+                <dd className="text-right font-medium text-warning-foreground">Vắng mặt</dd>
+              ) : (
+                <dd className="text-right text-muted-foreground">Chưa lên xe</dd>
+              )}
             </div>
           </dl>
         </CardContent>

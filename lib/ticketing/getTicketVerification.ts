@@ -53,10 +53,15 @@ export interface TicketVerification {
   busPlate: string;
   busType: string;
   /**
-   * Boarding check-in state. Issue 073 wires the real value; until then this is
-   * always null (page renders a "not boarded yet" placeholder).
+   * Boarding check-in state (Issue 073). `checkedInAt` is the boarding timestamp
+   * (ISO 8601) once the operator scanned + checked the passenger in; `noShowAt`
+   * is set if they were marked no-show. Both null = not boarded yet. Timestamps
+   * are non-PII (no name/phone) — safe on this PUBLIC page.
    */
-  checkIn: null;
+  checkIn: {
+    checkedInAt: string | null;
+    noShowAt: string | null;
+  };
 }
 
 /**
@@ -77,6 +82,9 @@ export async function getTicketVerification(
       status: true,
       ticketCount: true,
       paymentExternalRef: true,
+      // Issue 073: boarding state — timestamps only, no PII.
+      checkedInAt: true,
+      noShowAt: true,
       // NO buyerName / buyerPhone / buyerEmail — PUBLIC page, PII-free by design.
       trip: {
         select: {
@@ -114,6 +122,9 @@ export async function getTicketVerification(
     departureAt: booking.trip.departureAt.toISOString(),
     busPlate: booking.trip.bus.licensePlate,
     busType: booking.trip.bus.busType,
-    checkIn: null, // Issue 073 wires the real check-in state.
+    checkIn: {
+      checkedInAt: booking.checkedInAt ? booking.checkedInAt.toISOString() : null,
+      noShowAt: booking.noShowAt ? booking.noShowAt.toISOString() : null,
+    },
   };
 }
