@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { getAccessToken } from '@/app/auth/register/page';
+import { getAccessToken } from '@/app/(customer)/auth/register/page';
 import { STATUS_LABEL, STATUS_VARIANT } from '../bookingStatus';
 import type { CustomerBookingDetail } from '@/lib/booking/getCustomerBookingDetail';
 import { Button, buttonVariants } from '@/components/ui/button';

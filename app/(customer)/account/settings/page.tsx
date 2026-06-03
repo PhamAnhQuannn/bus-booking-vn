@@ -17,7 +17,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getAccessToken, setAccessToken, setDisplayName } from '@/app/auth/register/page';
+import { getAccessToken, setAccessToken, setDisplayName } from '@/app/(customer)/auth/register/page';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

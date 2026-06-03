@@ -8,7 +8,7 @@
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { setAccessToken, setDisplayName, setCustomerPhone } from '@/app/auth/register/page';
+import { setAccessToken, setDisplayName, setCustomerPhone } from '@/app/(customer)/auth/register/page';
 import { safeReturnTo } from '@/lib/auth/safeReturnTo';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
 import { Button } from '@/components/ui/button';

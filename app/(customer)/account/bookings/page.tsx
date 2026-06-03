@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { getAccessToken } from '@/app/auth/register/page';
+import { getAccessToken } from '@/app/(customer)/auth/register/page';
 import { STATUS_LABEL, STATUS_VARIANT } from './bookingStatus';
 import type { CustomerBookingRow } from '@/lib/booking/listCustomerBookings';
 import { Ticket, ArrowRight } from 'lucide-react';

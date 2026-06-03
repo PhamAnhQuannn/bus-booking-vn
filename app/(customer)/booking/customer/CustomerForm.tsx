@@ -18,7 +18,7 @@ import { z } from 'zod';
 import { useBookingStore } from '@/lib/state/bookingStore';
 import { useHoldTimerStore } from '@/lib/state/holdTimerStore';
 import { createHoldRequest } from '@/lib/api/holdsClient';
-import { getDisplayName, getCustomerPhone } from '@/app/auth/register/page';
+import { getDisplayName, getCustomerPhone } from '@/app/(customer)/auth/register/page';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
