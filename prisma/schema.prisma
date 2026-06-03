@@ -260,52 +260,58 @@ enum NotificationStatus {
 }
 
 model Booking {
-  id                 String            @id @db.Uuid
-  bookingRef         String            @unique
-  confirmationToken  String            @unique
-  tripId             String
-  holdId             String?           @unique
-  customerId         String?
-  buyerName          String
-  buyerPhone         String
+  id                   String            @id @db.Uuid
+  bookingRef           String            @unique
+  confirmationToken    String            @unique
+  tripId               String
+  holdId               String?           @unique
+  customerId           String?
+  buyerName            String
+  buyerPhone           String
   /// Issue 042: buyer email for ticket delivery (S03/S04 guest snapshot = name+phone+email). Nullable — pre-042 rows have no email.
-  buyerEmail         String?
-  ticketCount        Int
-  totalVnd           Int
-  paymentMethod      PaymentMethod
-  paymentExternalRef String?
-  status             BookingStatus     @default(awaiting_payment)
-  isManual           Boolean           @default(false)
-  createdAt          DateTime          @default(now())
+  buyerEmail           String?
+  ticketCount          Int
+  totalVnd             Int
+  paymentMethod        PaymentMethod
+  paymentExternalRef   String?
+  status               BookingStatus     @default(awaiting_payment)
+  isManual             Boolean           @default(false)
+  createdAt            DateTime          @default(now())
   /// Issue 014: operator call-queue contact tracking
-  contactStatus      ContactStatus     @default(pending)
+  contactStatus        ContactStatus     @default(pending)
   /// Pickup point assigned during call-outcome (FK → PickupPoint; null = use route default)
-  pickupPointId      String?
+  pickupPointId        String?
   /// Free-text pickup note when no configured pickup points exist
-  pickupNote         String?
+  pickupNote           String?
   /// Timestamp when boarding was marked (SET-TRUE-ONLY per SPEC NOTE)
-  pickedUpAt         DateTime?
+  pickedUpAt           DateTime?
   /// Timestamp when cash was collected by operator
-  cashCollectedAt    DateTime?
+  cashCollectedAt      DateTime?
   /// Escalation note set by operator
-  escalationNote     String?
+  escalationNote       String?
   /// Timestamp of escalation
-  escalatedAt        DateTime?
+  escalatedAt          DateTime?
   /// Issue 019: timestamp the 24h SMS reminder was sent (null = not yet sent; sweeper predicate)
-  reminderSentAt     DateTime?
+  reminderSentAt       DateTime?
   /// Issue 073: single-use boarding check-in. SET-ONCE — the atomic conditional UPDATE
   /// (WHERE "checkedInAt" IS NULL) is the single-use guard; a second concurrent scan is idempotent.
-  checkedInAt        DateTime?
+  checkedInAt          DateTime?
   /// Issue 073: no-show marker, paired with status='no_show' (Issue 014 verb-At+status rule).
   /// Mutually exclusive with checkedInAt — a checked-in passenger can't be no-showed.
-  noShowAt           DateTime?
-  trip               Trip              @relation(fields: [tripId], references: [id])
-  hold               Hold?             @relation(fields: [holdId], references: [id], onDelete: Restrict)
-  customer           Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  pickupPoint        PickupPoint?      @relation(fields: [pickupPointId], references: [id], onDelete: SetNull)
-  notifications      NotificationLog[]
-  paymentEvents      PaymentEvent[]
-  ledgerEntries      LedgerEntry[]
+  noShowAt             DateTime?
+  /// Issue 074: object-storage KEY of the generated ticket PDF (lib/storage). NULL = not yet
+  /// generated. The generate-once cron claims rows WHERE ticketPdfKey IS NULL, renders + uploads
+  /// via putObject, then sets the key. A re-run skips already-keyed rows (render-once idempotency).
+  ticketPdfKey         String?
+  /// Issue 074: instant the ticket PDF was generated + stored. Paired with ticketPdfKey (set together).
+  ticketPdfGeneratedAt DateTime?
+  trip                 Trip              @relation(fields: [tripId], references: [id])
+  hold                 Hold?             @relation(fields: [holdId], references: [id], onDelete: Restrict)
+  customer             Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  pickupPoint          PickupPoint?      @relation(fields: [pickupPointId], references: [id], onDelete: SetNull)
+  notifications        NotificationLog[]
+  paymentEvents        PaymentEvent[]
+  ledgerEntries        LedgerEntry[]
 
   @@index([tripId, status])
   @@index([confirmationToken])
