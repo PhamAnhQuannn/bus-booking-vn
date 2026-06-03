@@ -184,7 +184,7 @@ enum TripStatus {
 
 enum HoldStatus {
   active
-  converted
+  consumed
   expired
   cancelled_trip
 }
@@ -256,7 +256,7 @@ model Hold {
 enum BookingStatus {
   awaiting_payment
   pending_cash_payment
-  paid_operator_notified
+  paid
   completed
   cancelled
   trip_cancelled
