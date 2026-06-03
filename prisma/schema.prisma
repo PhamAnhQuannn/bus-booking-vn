@@ -90,6 +90,10 @@ model Route {
   operatorId         String
   durationMinutes    Int
   deactivatedAt      DateTime?
+  /// Issue 069: admin moderation kill switch. Non-null = admin-disabled (hidden
+  /// from search + direct links). DISTINCT from operator-owned deactivatedAt —
+  /// admins moderate (disable), never edit catalog fields.
+  moderatedAt        DateTime?
   createdAt          DateTime                @default(now())
   updatedAt          DateTime                @updatedAt
   /// Issue 044: canonical Place FK (nullable). The free-text origin/destination
@@ -166,6 +170,10 @@ model Trip {
   blockedSeats        Int                      @default(0)
   cancelReason        String?
   cancelledAt         DateTime?
+  /// Issue 069: admin moderation kill switch. Non-null = admin-disabled (hidden
+  /// from search + direct links). DISTINCT from operator-owned salesClosed —
+  /// admins moderate (disable), never edit catalog fields.
+  moderatedAt         DateTime?
   /// Issue 014: timestamp when operator marked trip as departed
   departedAt          DateTime?
   /// Issue 014: timestamp when operator marked trip as completed
@@ -625,6 +633,28 @@ model AdminAuditLog {
 
   @@index([timestamp])
   @@index([action, timestamp])
+}
+
+// ---------------------------------------------------------------------------
+// Content moderation (Issue 069 — admins disable, never edit)
+// ---------------------------------------------------------------------------
+
+/// A user/system-filed report against a trip, route, or operator. The admin
+/// Moderation tab triages OPEN reports and either resolves them or disables the
+/// reported item (Trip.moderatedAt / Route.moderatedAt). Minimal by design:
+/// moderation is "disable, never edit" — there is no edit-catalog path (AC4).
+model ContentReport {
+  id         String    @id @default(cuid())
+  targetType String // 'trip'|'route'|'operator'
+  targetId   String
+  reason     String
+  reportedBy String?
+  status     String    @default("open") // 'open'|'resolved'
+  resolvedBy String?
+  resolvedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([status, createdAt])
 }
 
 // ---------------------------------------------------------------------------
