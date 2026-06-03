@@ -16,7 +16,7 @@ import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth/requir
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { getRouteById } from '@/lib/catalog/getRouteById';
 import { updateRoute, RouteServiceError } from '@/lib/catalog/updateRoute';
-import { routePatchSchema } from '@/lib/validation/route';
+import { routePatchSchema } from '@/lib/core/validation/route';
 
 type RouteContext = { params: Promise<{ id: string }> };
 

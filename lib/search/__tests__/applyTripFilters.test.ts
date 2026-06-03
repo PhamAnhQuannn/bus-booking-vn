@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { applyTripFilters, vnHour, windowOf } from '@/lib/search/applyTripFilters';
-import { searchFiltersSchema } from '@/lib/validation/search';
+import { searchFiltersSchema } from '@/lib/core/validation/search';
 import type { TripResult } from '@/lib/db/searchTrips';
 
 /** Build a TripResult with sensible defaults. departureAt given as a VN wall-clock

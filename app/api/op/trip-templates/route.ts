@@ -11,7 +11,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth/requireOperatorAuth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { createTemplate, listTemplates } from '@/lib/trips/generateFromTemplate';
-import { CreateRecurringTemplateSchema } from '@/lib/validation/trip';
+import { CreateRecurringTemplateSchema } from '@/lib/core/validation/trip';
 
 async function getHandler(_req: NextRequest, ctx: OperatorAuthContext): Promise<Response> {
   const templates = await listTemplates(ctx.operatorId);

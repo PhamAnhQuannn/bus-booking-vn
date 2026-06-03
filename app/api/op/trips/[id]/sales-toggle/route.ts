@@ -11,7 +11,7 @@ import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth/requir
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { salesToggle } from '@/lib/trips/salesToggle';
 import { TripServiceError } from '@/lib/trips/errors';
-import { SalesToggleSchema } from '@/lib/validation/trip';
+import { SalesToggleSchema } from '@/lib/core/validation/trip';
 
 type RouteContext = { params: Promise<{ id: string }> };
 

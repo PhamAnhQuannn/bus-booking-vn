@@ -10,7 +10,7 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { otpVerifyInput } from '@/lib/validation/auth';
+import { otpVerifyInput } from '@/lib/core/validation/auth';
 import { verifyOtp } from '@/lib/auth/authService';
 import { normalizePhone } from '@/lib/auth/phoneNormalize';
 import { withErrorHandler } from '@/lib/withErrorHandler';

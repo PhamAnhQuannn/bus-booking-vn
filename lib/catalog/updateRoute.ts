@@ -8,7 +8,7 @@
 
 import { prisma } from '@/lib/db/client';
 import { resolveOrCreatePlace } from '@/lib/places';
-import type { RoutePatchInput } from '@/lib/validation/route';
+import type { RoutePatchInput } from '@/lib/core/validation/route';
 
 export class RouteServiceError extends Error {
   constructor(public code: 'not_found' | 'reactivation_not_supported' | 'already_deactivated') {

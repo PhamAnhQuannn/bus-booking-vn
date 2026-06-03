@@ -20,7 +20,7 @@ import { withErrorHandler } from '@/lib/withErrorHandler';
 import { createTrip } from '@/lib/trips/createTrip';
 import { listTrips } from '@/lib/trips/getTrip';
 import { TripServiceError } from '@/lib/trips/errors';
-import { CreateTripSchema } from '@/lib/validation/trip';
+import { CreateTripSchema } from '@/lib/core/validation/trip';
 
 async function getHandler(req: NextRequest, ctx: OperatorAuthContext): Promise<Response> {
   const url = new URL(req.url);

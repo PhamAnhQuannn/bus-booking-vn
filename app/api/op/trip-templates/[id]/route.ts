@@ -14,7 +14,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth/requireOperatorAuth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { getTemplate, patchTemplate } from '@/lib/trips/generateFromTemplate';
-import { PatchRecurringTemplateSchema } from '@/lib/validation/trip';
+import { PatchRecurringTemplateSchema } from '@/lib/core/validation/trip';
 
 type RouteContext = { params: Promise<{ id: string }> };
 

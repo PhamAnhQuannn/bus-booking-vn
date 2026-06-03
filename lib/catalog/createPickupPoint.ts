@@ -7,7 +7,7 @@
  */
 
 import { prisma } from '@/lib/db/client';
-import type { PickupPointCreateInput } from '@/lib/validation/route';
+import type { PickupPointCreateInput } from '@/lib/core/validation/route';
 
 export class PickupPointServiceError extends Error {
   constructor(

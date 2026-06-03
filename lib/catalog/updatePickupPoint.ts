@@ -7,7 +7,7 @@
 
 import { prisma } from '@/lib/db/client';
 import { PickupPointServiceError } from './createPickupPoint';
-import type { PickupPointPatchInput } from '@/lib/validation/route';
+import type { PickupPointPatchInput } from '@/lib/core/validation/route';
 
 export async function updatePickupPoint({
   operatorId,

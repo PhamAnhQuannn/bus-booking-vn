@@ -17,7 +17,7 @@ import { withErrorHandler } from '@/lib/withErrorHandler';
 import { listStaff } from '@/lib/staff/listStaff';
 import { createStaff } from '@/lib/staff/createStaff';
 import { StaffServiceError } from '@/lib/staff/errors';
-import { CreateStaffSchema } from '@/lib/validation/staff';
+import { CreateStaffSchema } from '@/lib/core/validation/staff';
 
 async function getHandler(_req: NextRequest, ctx: OperatorAuthContext): Promise<Response> {
   const staff = await listStaff(ctx.operatorId);

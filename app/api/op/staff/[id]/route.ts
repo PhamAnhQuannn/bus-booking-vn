@@ -12,7 +12,7 @@ import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth/requir
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { updateStaff } from '@/lib/staff/updateStaff';
 import { StaffServiceError } from '@/lib/staff/errors';
-import { UpdateStaffSchema } from '@/lib/validation/staff';
+import { UpdateStaffSchema } from '@/lib/core/validation/staff';
 
 type RouteContext = { params: Promise<{ id: string }> };
 

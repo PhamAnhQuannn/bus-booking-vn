@@ -11,7 +11,7 @@
  */
 
 import type { TripResult } from '@/lib/db/searchTrips';
-import type { SearchFilters, BusType, TimeWindow } from '@/lib/validation/search';
+import type { SearchFilters, BusType, TimeWindow } from '@/lib/core/validation/search';
 
 const TZ = 'Asia/Ho_Chi_Minh';
 

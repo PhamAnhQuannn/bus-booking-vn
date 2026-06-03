@@ -9,7 +9,7 @@
 
 import { prisma } from '@/lib/db/client';
 import { resolveOrCreatePlace } from '@/lib/places';
-import type { RouteCreateInput } from '@/lib/validation/route';
+import type { RouteCreateInput } from '@/lib/core/validation/route';
 
 export interface CreatedRoute {
   id: string;

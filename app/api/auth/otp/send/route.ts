@@ -7,7 +7,7 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { otpSendInput } from '@/lib/validation/auth';
+import { otpSendInput } from '@/lib/core/validation/auth';
 import { sendOtp } from '@/lib/auth/sendOtp';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 

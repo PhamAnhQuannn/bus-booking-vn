@@ -16,7 +16,7 @@ import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth/requir
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { reassignBus } from '@/lib/trips/reassignBus';
 import { TripServiceError } from '@/lib/trips/errors';
-import { ReassignBusSchema } from '@/lib/validation/trip';
+import { ReassignBusSchema } from '@/lib/core/validation/trip';
 
 type RouteContext = { params: Promise<{ id: string }> };
 

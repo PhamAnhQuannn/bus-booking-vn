@@ -14,7 +14,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, Armchair } from 'lucide-react';
-import { searchParamsSchema, searchFiltersSchema } from '@/lib/validation/search';
+import { searchParamsSchema, searchFiltersSchema } from '@/lib/core/validation/search';
 import { track } from '@/lib/analytics/track';
 import { searchTrips, SEARCH_PAGE_LIMIT, type TripResult } from '@/lib/db/searchTrips';
 import { applyTripFilters, type TripFacets } from '@/lib/search/applyTripFilters';

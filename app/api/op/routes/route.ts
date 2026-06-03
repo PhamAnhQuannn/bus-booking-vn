@@ -18,7 +18,7 @@ import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth/requir
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { listRoutes } from '@/lib/catalog/listRoutes';
 import { createRoute } from '@/lib/catalog/createRoute';
-import { routeCreateSchema } from '@/lib/validation/route';
+import { routeCreateSchema } from '@/lib/core/validation/route';
 
 async function getHandler(_req: NextRequest, ctx: OperatorAuthContext): Promise<Response> {
   const routes = await listRoutes({ operatorId: ctx.operatorId });

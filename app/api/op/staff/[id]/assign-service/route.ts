@@ -17,7 +17,7 @@ import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth/requir
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { assignService } from '@/lib/staff/assignService';
 import { StaffServiceError } from '@/lib/staff/errors';
-import { AssignServiceSchema } from '@/lib/validation/staff';
+import { AssignServiceSchema } from '@/lib/core/validation/staff';
 
 type RouteContext = { params: Promise<{ id: string }> };
 

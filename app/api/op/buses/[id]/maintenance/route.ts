@@ -22,7 +22,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth/requireOperatorAuth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { prisma } from '@/lib/db/client';
-import { CreateMaintenanceSchema } from '@/lib/validation/bus';
+import { CreateMaintenanceSchema } from '@/lib/core/validation/bus';
 import {
   findMaintenanceOverlaps,
   findTripOverlaps,

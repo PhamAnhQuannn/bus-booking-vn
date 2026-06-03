@@ -17,7 +17,7 @@ import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth/requir
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { listOperatorBuses } from '@/lib/catalog/listOperatorBuses';
 import { createBus, BusServiceError } from '@/lib/catalog/createBus';
-import { CreateBusSchema } from '@/lib/validation/bus';
+import { CreateBusSchema } from '@/lib/core/validation/bus';
 
 async function getHandler(req: NextRequest, ctx: OperatorAuthContext): Promise<Response> {
   const url = new URL(req.url);

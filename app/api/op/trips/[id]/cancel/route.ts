@@ -13,7 +13,7 @@ import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth/requir
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { cancelTrip } from '@/lib/trips/cancelTrip';
 import { TripServiceError } from '@/lib/trips/errors';
-import { CancelTripSchema } from '@/lib/validation/trip';
+import { CancelTripSchema } from '@/lib/core/validation/trip';
 
 type RouteContext = { params: Promise<{ id: string }> };
 

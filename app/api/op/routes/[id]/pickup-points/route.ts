@@ -19,7 +19,7 @@ import { withErrorHandler } from '@/lib/withErrorHandler';
 import { listPickupPoints } from '@/lib/catalog/listPickupPoints';
 import { createPickupPoint, PickupPointServiceError } from '@/lib/catalog/createPickupPoint';
 import { bulkReorder } from '@/lib/catalog/bulkReorder';
-import { pickupPointCreateSchema, bulkReorderSchema } from '@/lib/validation/route';
+import { pickupPointCreateSchema, bulkReorderSchema } from '@/lib/core/validation/route';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
