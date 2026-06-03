@@ -102,6 +102,8 @@ describe('LEGAL_CHARTER_TRANSITIONS map', () => {
     expect(isLegalCharterTransition('ADMIN_REVIEW', 'REJECTED')).toBe(true);
     expect(isLegalCharterTransition('ASSIGNED_DIRECT', 'ACCEPTED')).toBe(true);
     expect(isLegalCharterTransition('ASSIGNED_DIRECT', 'DECLINED')).toBe(true);
+    // Issue 086: direct-assign no-response timeout edge
+    expect(isLegalCharterTransition('ASSIGNED_DIRECT', 'ADMIN_REVIEW')).toBe(true);
     expect(isLegalCharterTransition('PUBLISHED', 'ACCEPTED')).toBe(true);
     expect(isLegalCharterTransition('PUBLISHED', 'EXPIRED')).toBe(true);
     expect(isLegalCharterTransition('DECLINED', 'ADMIN_REVIEW')).toBe(true);
@@ -144,6 +146,8 @@ describe('transitionCharterRequest — every legal edge succeeds', () => {
     ['ADMIN_REVIEW', 'REJECTED'],
     ['ASSIGNED_DIRECT', 'ACCEPTED'],
     ['ASSIGNED_DIRECT', 'DECLINED'],
+    // Issue 086: direct-assign timeout edge
+    ['ASSIGNED_DIRECT', 'ADMIN_REVIEW'],
     ['PUBLISHED', 'ACCEPTED'],
     ['PUBLISHED', 'EXPIRED'],
     ['DECLINED', 'ADMIN_REVIEW'],
@@ -241,11 +245,26 @@ describe('transitionCharterRequest — side-effect fields per target', () => {
     expect(data.assigneeOperatorId).toBeNull();
   });
 
-  it('→ ADMIN_REVIEW writes status only (no side-effect columns)', async () => {
+  it('→ ADMIN_REVIEW clears assignee + both deadlines (Issue 086 re-route)', async () => {
     lockStatus('SUBMITTED');
     await transition({ charterId: CHARTER_ID, to: 'ADMIN_REVIEW' });
     const data = mockTx.charterRequest.update.mock.calls[0][0].data;
-    expect(Object.keys(data)).toEqual(['status']);
+    expect(data.status).toBe('ADMIN_REVIEW');
+    expect(data.assigneeOperatorId).toBeNull();
+    expect(data.acceptByAt).toBeNull();
+    expect(data.claimByAt).toBeNull();
+  });
+
+  it('→ ADMIN_REVIEW from ASSIGNED_DIRECT (timeout) frees the operator + clears acceptByAt', async () => {
+    // Issue 086 direct-assign timeout edge: the sweeper returns an unanswered
+    // direct assignment to admin; the assignee + stale deadline are cleared so the
+    // row no longer matches the sweeper's claim predicate.
+    lockStatus('ASSIGNED_DIRECT');
+    await transition({ charterId: CHARTER_ID, to: 'ADMIN_REVIEW' });
+    const data = mockTx.charterRequest.update.mock.calls[0][0].data;
+    expect(data.status).toBe('ADMIN_REVIEW');
+    expect(data.assigneeOperatorId).toBeNull();
+    expect(data.acceptByAt).toBeNull();
   });
 });
 

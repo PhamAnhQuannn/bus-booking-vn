@@ -39,7 +39,12 @@ export type EmailTemplate =
   //   charterClaimWon  — this operator's claim won the pool item (→ ACCEPTED).
   //   charterClaimLost — (optional) another operator claimed it first.
   | 'charterClaimWon'
-  | 'charterClaimLost';
+  | 'charterClaimLost'
+  // Issue 086: charter-expiry sweeper auto-return. When a direct-assign accept
+  // deadline (acceptByAt) or a public-pool claim deadline (claimByAt) elapses
+  // with no operator response, the cron returns the lead to ADMIN_REVIEW and
+  // notifies the customer it is still being matched (no action needed from them).
+  | 'charterReturnedToReview';
 
 export interface SendEmailInput {
   to: string;
@@ -85,6 +90,8 @@ const SUBJECTS: Record<string, string> = {
   // Issue 084: public-pool claim outcome (operator-facing).
   charterClaimWon: 'BBVN — Bạn đã nhận được yêu cầu thuê xe',
   charterClaimLost: 'BBVN — Yêu cầu thuê xe đã được nhà xe khác nhận',
+  // Issue 086: auto-return to admin review (no operator responded in time).
+  charterReturnedToReview: 'BBVN — Chúng tôi vẫn đang tìm nhà xe cho bạn',
 };
 
 /** Resolve a subject line for the template; falls back to a generic subject. */

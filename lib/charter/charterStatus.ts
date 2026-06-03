@@ -16,12 +16,21 @@
  * Legal edges:
  *   SUBMITTED        → ADMIN_REVIEW | CANCELLED
  *   ADMIN_REVIEW     → ASSIGNED_DIRECT | PUBLISHED | REJECTED | CANCELLED
- *   ASSIGNED_DIRECT  → ACCEPTED | DECLINED | CANCELLED
+ *   ASSIGNED_DIRECT  → ACCEPTED | DECLINED | ADMIN_REVIEW | CANCELLED
  *   PUBLISHED        → ACCEPTED | EXPIRED | CANCELLED
  *   DECLINED         → ADMIN_REVIEW           (re-route the freed lead)
  *   EXPIRED          → ADMIN_REVIEW           (re-route the expired lead)
  *   ACCEPTED         → COMPLETED | CANCELLED
  *   REJECTED / COMPLETED / CANCELLED → []     (terminal)
+ *
+ * Issue 086: ASSIGNED_DIRECT → ADMIN_REVIEW is the direct-assign TIMEOUT edge.
+ * When the directly-assigned operator does not accept/decline before acceptByAt,
+ * the charter-expiry sweeper (lib/jobs/charterExpirySweeper.ts) returns the lead
+ * to admin for re-routing. The ADMIN_REVIEW side-effect CLEARS assigneeOperatorId
+ * (the timeout frees the operator), mirroring how DECLINED / EXPIRED free the lead.
+ * The publish-expiry timeout uses the existing two-step PUBLISHED → EXPIRED →
+ * ADMIN_REVIEW path (EXPIRED already clears the assignee; ADMIN_REVIEW is a no-op
+ * clear there since EXPIRED nulled it first).
  *
  * Issue 082: the CANCELLED targets on SUBMITTED / ADMIN_REVIEW / ASSIGNED_DIRECT /
  * PUBLISHED are the customer cancel-before-accept edges (AC4) — a customer may
@@ -54,7 +63,8 @@ export const LEGAL_CHARTER_TRANSITIONS: Record<CharterStatus, CharterStatus[]> =
   // Issue 082: CANCELLED added to every pre-ACCEPT state for customer cancel (AC4).
   SUBMITTED: ['ADMIN_REVIEW', 'CANCELLED'],
   ADMIN_REVIEW: ['ASSIGNED_DIRECT', 'PUBLISHED', 'REJECTED', 'CANCELLED'],
-  ASSIGNED_DIRECT: ['ACCEPTED', 'DECLINED', 'CANCELLED'],
+  // Issue 086: ADMIN_REVIEW is the direct-assign no-response TIMEOUT target.
+  ASSIGNED_DIRECT: ['ACCEPTED', 'DECLINED', 'ADMIN_REVIEW', 'CANCELLED'],
   PUBLISHED: ['ACCEPTED', 'EXPIRED', 'CANCELLED'],
   DECLINED: ['ADMIN_REVIEW'],
   EXPIRED: ['ADMIN_REVIEW'],
@@ -223,8 +233,21 @@ export async function transitionCharterRequest(
         // assignee so the next ADMIN_REVIEW re-route starts from a clean slate.
         data.assigneeOperatorId = null;
         break;
+      case 'ADMIN_REVIEW':
+        // Issue 086: returning a lead to admin review (re-route) clears the
+        // assignee AND both stale deadlines. This matters for the direct-assign
+        // TIMEOUT edge (ASSIGNED_DIRECT → ADMIN_REVIEW): the sweeper found
+        // acceptByAt elapsed, so the operator is freed and the now-meaningless
+        // acceptByAt / claimByAt are nulled out — otherwise a stale acceptByAt in
+        // the past would keep the row matching the sweeper's claim predicate.
+        // For DECLINED/EXPIRED → ADMIN_REVIEW the assignee is already null (those
+        // edges nulled it), so the clear is an idempotent no-op there.
+        data.assigneeOperatorId = null;
+        data.acceptByAt = null;
+        data.claimByAt = null;
+        break;
       default:
-        // ADMIN_REVIEW / ACCEPTED / COMPLETED / CANCELLED: status only.
+        // ACCEPTED / COMPLETED / CANCELLED: status only.
         break;
     }
 
