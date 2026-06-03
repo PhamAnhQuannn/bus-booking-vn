@@ -255,7 +255,6 @@ model Hold {
 
 enum BookingStatus {
   awaiting_payment
-  pending_cash_payment
   paid
   completed
   cancelled
@@ -275,7 +274,6 @@ enum ContactStatus {
 }
 
 enum PaymentMethod {
-  cash
   momo
   zalopay
   card
@@ -318,8 +316,6 @@ model Booking {
   pickupNote           String?
   /// Timestamp when boarding was marked (SET-TRUE-ONLY per SPEC NOTE)
   pickedUpAt           DateTime?
-  /// Timestamp when cash was collected by operator
-  cashCollectedAt      DateTime?
   /// Escalation note set by operator
   escalationNote       String?
   /// Timestamp of escalation
