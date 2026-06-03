@@ -19,6 +19,26 @@ enum OperatorStatus {
   SUSPENDED
 }
 
+/// Issue 081: charter (group / private-hire) request lifecycle. `status` is the
+/// CANONICAL state; the single-source transition map lives in
+/// lib/charter/charterStatus.ts (mirrors the Issue 045 operator pattern).
+/// Edges: SUBMITTED → ADMIN_REVIEW → {ASSIGNED_DIRECT, PUBLISHED, REJECTED};
+/// ASSIGNED_DIRECT → {ACCEPTED, DECLINED}; PUBLISHED → {ACCEPTED, EXPIRED};
+/// DECLINED/EXPIRED → ADMIN_REVIEW (re-route); ACCEPTED → {COMPLETED, CANCELLED};
+/// REJECTED, COMPLETED, CANCELLED are terminal.
+enum CharterStatus {
+  SUBMITTED
+  ADMIN_REVIEW
+  ASSIGNED_DIRECT
+  PUBLISHED
+  ACCEPTED
+  DECLINED
+  REJECTED
+  EXPIRED
+  COMPLETED
+  CANCELLED
+}
+
 model Operator {
   id                 String                  @id @default(cuid())
   legalName          String
@@ -49,6 +69,8 @@ model Operator {
   feeConfigs         FeeConfig[]
   kybDocuments       KybDocument[]
   payoutAccount      PayoutAccount?
+  /// Issue 081: charter requests directly assigned to or claimed by this operator.
+  charterAssignments CharterRequest[]
 
   @@index([id])
   @@index([status])
@@ -123,13 +145,16 @@ model Route {
 /// Places via originPlaceId/destPlaceId; free-text Route.origin/destination stay
 /// as a back-compat shim.
 model Place {
-  id            String   @id @default(cuid())
-  canonicalName String
-  aliases       String[]
-  slug          String?  @unique
-  createdAt     DateTime @default(now())
-  originRoutes  Route[]  @relation("RouteOrigin")
-  destRoutes    Route[]  @relation("RouteDest")
+  id             String           @id @default(cuid())
+  canonicalName  String
+  aliases        String[]
+  slug           String?          @unique
+  createdAt      DateTime         @default(now())
+  originRoutes   Route[]          @relation("RouteOrigin")
+  destRoutes     Route[]          @relation("RouteDest")
+  /// Issue 081: charter requests whose origin is this Place. Distinct relation
+  /// name ("CharterOrigin") so it never collides with RouteOrigin/RouteDest.
+  charterOrigins CharterRequest[] @relation("CharterOrigin")
 
   @@index([canonicalName])
 }
@@ -385,25 +410,28 @@ model JobRunLog {
 }
 
 model Customer {
-  id           String    @id @default(cuid())
+  id              String           @id @default(cuid())
   /// Nullable: set to NULL on soft-delete/anonymization; Postgres allows multiple NULLs on @unique
-  phone        String?   @unique
-  email        String?
-  passwordHash String?
-  displayName  String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  lastLoginAt  DateTime?
+  phone           String?          @unique
+  email           String?
+  passwordHash    String?
+  displayName     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  lastLoginAt     DateTime?
   /// Issue 008: soft-delete timestamp; non-null = account deleted
-  deletedAt    DateTime?
+  deletedAt       DateTime?
   /// Issue 008: anonymization timestamp; set together with deletedAt
-  anonymizedAt DateTime?
+  anonymizedAt    DateTime?
   /// Issue 066: admin suspension timestamp; non-null = suspended. A suspended
   /// customer fails requireCustomerAuth and all their sessions are revoked at
   /// suspend time. Reinstate clears this (sessions are NOT restored — fresh login).
-  suspendedAt  DateTime?
-  sessions     Session[]
-  bookings     Booking[]
+  suspendedAt     DateTime?
+  sessions        Session[]
+  bookings        Booking[]
+  /// Issue 081: charter requests submitted by this (logged-in) customer. Guest
+  /// charter requests have a null customerId.
+  charterRequests CharterRequest[]
 }
 
 model OtpAttempt {
@@ -852,4 +880,66 @@ model FeatureFlag {
   value     String? // optional structured value (JSON string) for non-boolean flags
   updatedBy String? // actor id of the last setter
   updatedAt DateTime @updatedAt
+}
+
+/// CharterRequest (Issue 081) — a customer's group / private-hire charter request
+/// and its lifecycle. This is a LEAD-GEN model: there is intentionally NO charter
+/// payment rail here. Per S15#9 the charter flow is lead generation only — the
+/// platform routes the request to an operator (direct assign or public pool) and
+/// the operator settles the deal off-platform; no Hold / Booking / PaymentEvent /
+/// Payout rows are created from a charter. (If a paid charter rail is ever added,
+/// it is a separate future issue, not this model.)
+///
+/// `status` is the CANONICAL lifecycle state; the single-source legal-transition
+/// map + the transition service live in lib/charter/charterStatus.ts (mirrors the
+/// Issue 045 operator pattern). `customerId` is nullable — guest charter requests
+/// are allowed (contact{Name,Phone,Email} carry the lead). `destinations` is JSON:
+/// an array of place descriptors `{ placeId?: string, name: string }` (free-text
+/// name always present; placeId set when matched to a Place — documented shape,
+/// not FK-enforced because a multi-stop charter has N destinations).
+/// `vehicleType` is a free-text string from the documented set
+/// 'coach' | 'sleeper' | 'limousine' (kept as String, not an enum, so the
+/// customer-facing form can evolve without a migration).
+model CharterRequest {
+  id                 String        @id @default(cuid())
+  /// Charter-scoped human ref CH-YYYY-XXXXXX (lib/charter/charterRef.ts). Unique.
+  ref                String        @unique
+  /// Nullable: guest charter requests have no Customer row.
+  customerId         String?
+  contactName        String
+  contactPhone       String
+  contactEmail       String
+  originPlaceId      String?
+  /// JSON array of destination descriptors `{ placeId?, name }` (see model doc).
+  destinations       Json
+  startDate          DateTime
+  endDate            DateTime?
+  durationDays       Int?
+  passengers         Int
+  /// Free-text vehicle class: 'coach' | 'sleeper' | 'limousine' (documented set).
+  vehicleType        String
+  budgetVnd          Int?
+  notes              String?
+  status             CharterStatus @default(SUBMITTED)
+  /// Set when status → ASSIGNED_DIRECT (direct assign) or → ACCEPTED from the
+  /// public pool. Cleared (set null) on DECLINED / EXPIRED so the lead frees up.
+  assigneeOperatorId String?
+  /// Set to now() when status → PUBLISHED (entered the public pool, Issue 084).
+  publishedAt        DateTime?
+  /// Public-pool claim deadline (Issue 084); set alongside publishedAt.
+  claimByAt          DateTime?
+  /// Direct-assign accept deadline (Issue 083); set alongside assigneeOperatorId
+  /// on → ASSIGNED_DIRECT.
+  acceptByAt         DateTime?
+  /// Set when status → REJECTED (admin declines to route the request).
+  rejectionReason    String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  customer         Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  originPlace      Place?    @relation("CharterOrigin", fields: [originPlaceId], references: [id], onDelete: SetNull)
+  assigneeOperator Operator? @relation(fields: [assigneeOperatorId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([assigneeOperatorId])
 }
