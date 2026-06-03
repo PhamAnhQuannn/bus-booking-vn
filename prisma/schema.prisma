@@ -47,6 +47,7 @@ model Operator {
   payouts            Payout[]
   ledgerEntries      LedgerEntry[]
   feeConfigs         FeeConfig[]
+  kybDocuments       KybDocument[]
 
   @@index([id])
   @@index([status])
@@ -693,6 +694,23 @@ model StoredObject {
   createdAt   DateTime @default(now())
 
   @@index([purpose])
+}
+
+/// Issue 077: operator KYB (Know-Your-Business) document submission. One row per
+/// uploaded evidence doc. `storageKey` points at the StoredObject key in the
+/// storage layer (lib/storage) — the DB stores the KEY, never the bytes. The
+/// operator uploads via a signed PUT (no server byte-proxy); the admin views via
+/// a fresh signed GET (audited). `type` is a documented union.
+model KybDocument {
+  id         String   @id @default(cuid())
+  operatorId String
+  type       String // 'business_license' | 'identity' | 'payout_account' (documented union)
+  storageKey String // S3 key (lib/storage); DB stores the KEY, never bytes
+  status     String   @default("submitted") // 'submitted' | 'accepted' | 'rejected'
+  uploadedAt DateTime @default(now())
+  operator   Operator @relation(fields: [operatorId], references: [id], onDelete: Restrict)
+
+  @@index([operatorId])
 }
 
 // ---------------------------------------------------------------------------
