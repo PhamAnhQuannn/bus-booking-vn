@@ -17,6 +17,8 @@
     "admin:disable-operator": "tsx --env-file=.env.production scripts/admin/disableOperator.ts",
     "admin:reset-operator-admin-password": "tsx --env-file=.env.production scripts/admin/resetOperatorAdminPassword.ts",
     "admin:list-operators": "tsx --env-file=.env.production scripts/admin/listOperators.ts",
+    "admin:bootstrap-super-admin": "tsx --env-file=.env.production scripts/admin/bootstrapSuperAdmin.ts",
+    "admin:reset-admin-totp": "tsx --env-file=.env.production scripts/admin/resetAdminTotpBreakGlass.ts",
     "prepare": "husky"
   },
   "dependencies": {

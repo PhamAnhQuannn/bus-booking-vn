@@ -8,7 +8,12 @@ export type AdminErrorCode =
   | 'phone_in_use'
   | 'operator_not_found'
   | 'operator_user_not_found'
-  | 'already_disabled';
+  | 'already_disabled'
+  // Issue 057 — super-admin bootstrap / invite / lost-TOTP recovery
+  | 'email_in_use'
+  | 'forbidden'
+  | 'no_self_reset'
+  | 'admin_not_found';
 
 export class AdminServiceError extends Error {
   constructor(public readonly code: AdminErrorCode) {
