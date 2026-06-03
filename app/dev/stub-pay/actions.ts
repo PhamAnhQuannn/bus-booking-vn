@@ -16,7 +16,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getEnv } from '@/lib/config/env';
 import { getGatewayFor, type OnlinePaymentMethod } from '@/lib/payment/select';
-import { buildStubIpn, type StubOutcome } from '@/lib/payment/stub';
+import { buildStubIpn, type StubOutcome } from '@/lib/payment/adapters/stub';
 import { processPaymentWebhook } from '@/lib/payment/processWebhook';
 
 const STUB_ADAPTERS = new Set<OnlinePaymentMethod>(['momo', 'zalopay', 'card']);

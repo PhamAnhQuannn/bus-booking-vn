@@ -23,7 +23,7 @@
  */
 
 import { test, expect, type APIRequestContext } from '@playwright/test';
-import { buildStubIpn, type StubOutcome } from '../lib/payment/stub';
+import { buildStubIpn, type StubOutcome } from '../lib/payment/adapters/stub';
 import { primeCsrf } from './helpers/csrf';
 
 const STUB_SECRET =

@@ -16,7 +16,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Module-level mocks
 // ---------------------------------------------------------------------------
 
-vi.mock('@/lib/payment/momo', () => ({
+vi.mock('@/lib/payment/adapters/momo', () => ({
   getMomoAdapter: vi.fn(),
 }));
 
@@ -80,7 +80,7 @@ vi.mock('next/server', async () => {
 // ---------------------------------------------------------------------------
 
 import { POST } from '../route';
-import { getMomoAdapter } from '@/lib/payment/momo';
+import { getMomoAdapter } from '@/lib/payment/adapters/momo';
 import { prisma } from '@/lib/db/client';
 import { createNotificationLog } from '@/lib/db/notificationLogRepo';
 import { sendSms, sendSmsBody } from '@/lib/notification/esms';

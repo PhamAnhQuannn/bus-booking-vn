@@ -185,7 +185,7 @@ describe('stub PSP refund determinism', () => {
   it('refundPaymentStub returns stub_refund_<key> deterministically', async () => {
     // Import the stub directly (not the flag-branching wrapper) to assert the
     // deterministic shape.
-    const { refundPaymentStub } = await import('@/lib/payment/stub');
+    const { refundPaymentStub } = await import('@/lib/payment/adapters/stub');
     const a = refundPaymentStub({
       providerTxnId: 'txn-1',
       amountMinor: 5000,

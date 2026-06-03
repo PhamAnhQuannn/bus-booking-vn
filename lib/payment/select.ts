@@ -10,8 +10,8 @@
  */
 
 import { getEnv } from '@/lib/config/env';
-import { getMomoAdapter } from './momo';
-import { getStubAdapter } from './stub';
+import { getMomoAdapter } from './adapters/momo';
+import { getStubAdapter } from './adapters/stub';
 import type { PaymentGateway } from './gateway';
 
 export type OnlinePaymentMethod = 'momo' | 'zalopay' | 'card';

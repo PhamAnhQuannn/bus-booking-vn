@@ -16,7 +16,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { createStubAdapter, buildStubIpn } from '../stub';
+import { createStubAdapter, buildStubIpn } from '../adapters/stub';
 
 const SECRET = 'dev-stub-secret-0123456789abcdef';
 const BASE_URL = 'https://example.com';

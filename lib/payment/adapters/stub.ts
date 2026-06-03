@@ -31,7 +31,7 @@ import type {
   CreatePaymentResult,
   VerifyWebhookResult,
   CanonicalPaymentStatus,
-} from './gateway';
+} from '../gateway';
 
 /** Result codes the stub emits. 0 = paid, 99 = failed. */
 export const STUB_SUCCESS_CODE = 0;

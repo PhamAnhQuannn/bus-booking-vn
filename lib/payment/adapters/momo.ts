@@ -28,7 +28,7 @@ import type {
   CreatePaymentResult,
   VerifyWebhookResult,
   CanonicalPaymentStatus,
-} from './gateway';
+} from '../gateway';
 
 export interface MomoConfig {
   partnerCode: string;

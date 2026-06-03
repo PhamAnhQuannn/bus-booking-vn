@@ -19,7 +19,7 @@
  */
 
 import { getEnv } from '@/lib/config/env';
-import { refundPaymentStub } from './stub';
+import { refundPaymentStub } from './adapters/stub';
 
 export interface RefundPaymentInput {
   /** The original inbound payment provider txn id (Booking.paymentExternalRef). */

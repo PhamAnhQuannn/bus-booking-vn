@@ -14,7 +14,7 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest } from 'next/server';
-import { getMomoAdapter } from '@/lib/payment/momo';
+import { getMomoAdapter } from '@/lib/payment/adapters/momo';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { processPaymentWebhook } from '@/lib/payment/processWebhook';
 

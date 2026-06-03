@@ -14,7 +14,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { createMomoAdapter } from '../momo';
+import { createMomoAdapter } from '../adapters/momo';
 import sampleIpn from './fixtures/momo-ipn-sample.json';
 
 const SANDBOX_CONFIG = {
