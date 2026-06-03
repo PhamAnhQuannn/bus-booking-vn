@@ -25,7 +25,7 @@ import { SearchFilterRail, SearchToolbar } from '@/components/search/SearchFilte
 import { BookButton } from '@/components/search/BookButton';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { getSearchablePlaces } from '@/lib/core/db/getSearchablePlaces';
+import { getSearchablePlaces } from '@/lib/places/getSearchablePlaces';
 
 const BUS_TYPE_LABEL: Record<'coach' | 'sleeper' | 'limousine', string> = {
   coach: 'Ghế ngồi',

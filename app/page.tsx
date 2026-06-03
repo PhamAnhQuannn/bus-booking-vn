@@ -8,7 +8,7 @@ import { ContractCarRental } from '@/components/home/ContractCarRental';
 import { IntroBanner } from '@/components/home/IntroBanner';
 import { RouteDirectory } from '@/components/home/RouteDirectory';
 import { Card, CardContent } from '@/components/ui/card';
-import { getSearchablePlaces } from '@/lib/core/db/getSearchablePlaces';
+import { getSearchablePlaces } from '@/lib/places/getSearchablePlaces';
 
 export const metadata: Metadata = {
   title: 'Đặt vé xe khách | BBVN',

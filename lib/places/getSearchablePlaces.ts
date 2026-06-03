@@ -6,7 +6,7 @@
  * exported name + signature are unchanged so existing callers don't change.
  */
 
-import { listSearchablePlaces } from '@/lib/places';
+import { listSearchablePlaces } from './placeRepo';
 
 export async function getSearchablePlaces(): Promise<string[]> {
   return listSearchablePlaces();
