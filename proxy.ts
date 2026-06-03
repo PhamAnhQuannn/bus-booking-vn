@@ -1,7 +1,7 @@
 /**
  * Next.js 16 Proxy (formerly Middleware).
  *
- * Two enforcement layers:
+ * Three enforcement layers:
  *
  * 1. Operator forced-redirect guard (AC1 — Gap 3):
  *    For /op/* paths (except /op/login, /op/first-login, /api/op/auth/*):
@@ -11,12 +11,26 @@
  *    Uses the requiresPasswordChange JWT claim (no DB call needed — token is
  *    rotated on password-change, so stale-claim window = 15-min access TTL).
  *
+ * 1.5. Admin forced-redirect guard (Issue 056):
+ *    For /admin PAGE routes (/admin and /admin/*, EXCEPT /admin/login):
+ *    - No bb_admin_access cookie → redirect /admin/login
+ *    - Invalid/expired/cross-realm token → redirect /admin/login
+ *    - totpVerified=false in JWT → redirect /admin/login (must clear the TOTP step)
+ *    Uses an EXACT-MATCH Set allowlist (Issue 010 rule) — NOT startsWith — so a
+ *    sneaky path like /admin/login-bypass is NOT treated as auth-free.
+ *    /api/admin/* routes are NOT guarded here; they enforce via requireAdminAuth
+ *    in-handler (DB-aware) — this layer only covers the page-redirect UX.
+ *    Reads scope/totpVerified from the JWT (no DB call), mirroring Layer 1.
+ *
  * 2. CSRF double-submit enforcement for all state-changing /api/* routes:
  *    Exempt:
  *      - GET / HEAD / OPTIONS (safe methods)
  *      - /api/payments/{momo,zalopay,card}/webhook (HMAC body verification used instead)
  *      - /api/op/auth/forgot-password* (pre-auth; no session cookie available)
  *      - /api/op/auth/refresh (uses HttpOnly refresh cookie; no JS-readable CSRF token)
+ *      - /api/admin/auth/refresh (Issue 056 — HttpOnly refresh cookie; no JS-readable CSRF token)
+ *    Admin login + TOTP POSTs are NOT exempt — they ride the bb_csrf double-submit
+ *    like operator login (the /admin/login GET issues bb_csrf via this layer).
  *    On first GET: issues bb_csrf cookie (non-HttpOnly, SameSite=Lax) if absent.
  *    State-changing requests: reads X-CSRF-Token header and bb_csrf cookie,
  *      compares constant-time — rejects 403 if mismatch or missing.
@@ -29,6 +43,7 @@ import { generateToken, compareTokens } from '@/lib/auth/csrf';
 const CSRF_COOKIE = 'bb_csrf';
 const CSRF_HEADER = 'X-CSRF-Token';
 const OP_ACCESS_COOKIE = 'bb_op_access';
+const ADMIN_ACCESS_COOKIE = 'bb_admin_access';
 const SID_COOKIE = 'bb_sid'; // anonymous funnel session id (no PII)
 const SID_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
 
@@ -43,6 +58,7 @@ const CSRF_EXEMPT = new Set([
 const CSRF_EXEMPT_PREFIXES = [
   '/api/op/auth/forgot-password',
   '/api/op/auth/refresh',
+  '/api/admin/auth/refresh',     // Issue 056: admin refresh (HttpOnly refresh cookie, no JS-readable CSRF)
   '/api/auth/forgot-password',   // Issue 008: customer forgot-password (pre-auth)
   '/api/auth/reset-password',    // Issue 008: customer reset-password (pre-auth, proof-protected)
 ];
@@ -51,6 +67,10 @@ const CSRF_EXEMPT_PREFIXES = [
 const OP_AUTH_FREE_PATHS = new Set(['/op/login', '/op/first-login']);
 // /op/* path prefixes that are auth-API routes (exempted from page redirect)
 const OP_API_AUTH_PREFIX = '/api/op/auth/';
+
+// /admin/* PAGE paths that do NOT require a valid admin session.
+// Exact-match (Issue 010) — NOT startsWith, prevents /admin/login-bypass sneak-throughs.
+const ADMIN_AUTH_FREE_PATHS = new Set(['/admin/login']);
 
 /** Decode the JWT payload without hitting the DB — used for forced-redirect guard.
  *  Issue 011: operatorId claim is mandatory. Tokens without it are stale (pre-Issue-011
@@ -79,6 +99,33 @@ async function decodeOperatorJwt(
   }
 }
 
+/** Decode the admin JWT payload without hitting the DB — used for the admin
+ *  forced-redirect guard (Issue 056). Cross-realm guard: requires scope==='admin'
+ *  so an operator/customer token in bb_admin_access is rejected. role must be a
+ *  string; totpVerified is read strictly as === true. */
+async function decodeAdminJwt(
+  token: string
+): Promise<{ sub: string; role: string; totpVerified: boolean } | null> {
+  try {
+    const raw =
+      process.env.JWT_SECRET ??
+      (process.env.NODE_ENV === 'test' ? 'a'.repeat(32) : null);
+    if (!raw) return null;
+    const secret = new TextEncoder().encode(raw);
+    const { payload } = await jwtVerify(token, secret, { algorithms: ['HS256'] });
+    if (payload['scope'] !== 'admin' || typeof payload.sub !== 'string') return null;
+    const role = payload['role'];
+    if (typeof role !== 'string') return null;
+    return {
+      sub: payload.sub,
+      role,
+      totpVerified: payload['totpVerified'] === true,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function proxy(request: NextRequest): Promise<NextResponse> {
   const { pathname } = new URL(request.url) as unknown as { pathname: string };
   const requestMethod = request.method;
@@ -99,6 +146,27 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
       }
       if (decoded.requiresPasswordChange) {
         return NextResponse.redirect(new URL('/op/first-login', request.url));
+      }
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Layer 1.5 — Admin forced-redirect guard (Issue 056)
+  // Guards /admin PAGE routes only. /api/admin/* is handled by requireAdminAuth.
+  // -------------------------------------------------------------------------
+  if (pathname === '/admin' || pathname.startsWith('/admin/')) {
+    // Exact-match allowlist (Issue 010) — NOT startsWith.
+    if (!ADMIN_AUTH_FREE_PATHS.has(pathname)) {
+      const adminToken = request.cookies.get(ADMIN_ACCESS_COOKIE)?.value;
+      if (!adminToken) {
+        return NextResponse.redirect(new URL('/admin/login', request.url));
+      }
+      const decoded = await decodeAdminJwt(adminToken);
+      if (!decoded) {
+        return NextResponse.redirect(new URL('/admin/login', request.url));
+      }
+      if (!decoded.totpVerified) {
+        return NextResponse.redirect(new URL('/admin/login', request.url));
       }
     }
   }
