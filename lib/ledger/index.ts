@@ -14,6 +14,16 @@ export {
 // Issue 049: calcPlatformFeeMinor — half-even fee for the ledger write.
 export { getEffectiveFeeRate, applyFeePpm, calcPlatformFeeMinor } from './feeConfig';
 
+// Issue 067: per-operator fee override — inserts a NEW effective-dated FeeConfig
+// row (never edits in place), closes the prior open override, writes an audit row.
+export {
+  setOperatorFeeOverride,
+  FeeOverrideError,
+  MAX_FEE_OVERRIDE_PPM,
+  type SetOperatorFeeOverrideInput,
+  type SetOperatorFeeOverrideResult,
+} from './setOperatorFeeOverride';
+
 // Issue 050: operator balance derived from SUM(LedgerEntry) — pending/available/paidOut.
 // Issue 051: OPERATOR_BALANCE_TYPES — explicit balance-inclusion set (excludes refund_out).
 export {
