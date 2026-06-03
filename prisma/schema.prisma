@@ -48,6 +48,7 @@ model Operator {
   ledgerEntries      LedgerEntry[]
   feeConfigs         FeeConfig[]
   kybDocuments       KybDocument[]
+  payoutAccount      PayoutAccount?
 
   @@index([id])
   @@index([status])
@@ -711,6 +712,29 @@ model KybDocument {
   operator   Operator @relation(fields: [operatorId], references: [id], onDelete: Restrict)
 
   @@index([operatorId])
+}
+
+/// Issue 078: the operator's single payout destination bank account. The platform
+/// SENDS money TO this account (it never reads the operator's bank). One account
+/// per operator (operatorId @unique). `accountNumber` is sensitive PII — masked to
+/// the last 4 on every display path and redacted in structured logs (lib/logger).
+///
+/// VERIFICATION: `verifiedAt` is set by confirmPayoutAccountOwnership (name-match or
+/// micro-deposit). Editing ANY account field RESETS verification (verifiedAt/
+/// verifyMethod → null) — an attacker who swaps the destination MUST re-trigger
+/// verification before the payout rail will send there (lib/onboarding/payoutAccount).
+/// The payout rail (withdrawal / sweep) only sends to a row with verifiedAt != null.
+model PayoutAccount {
+  id                String    @id @default(cuid())
+  operatorId        String    @unique // one payout account per operator
+  bankName          String
+  accountNumber     String // the platform SENDS here; never reads the operator's bank
+  accountHolderName String
+  verifiedAt        DateTime? // set on verify; reset to null on any account edit
+  verifyMethod      String? // 'name_match' | 'micro_deposit'
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  operator          Operator  @relation(fields: [operatorId], references: [id])
 }
 
 // ---------------------------------------------------------------------------
