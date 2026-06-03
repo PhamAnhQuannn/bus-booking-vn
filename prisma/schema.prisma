@@ -34,6 +34,10 @@ model Operator {
   /// transition service. `status` is canonical; SUSPENDED is the canonical
   /// suspend. disabledAt is NOT the source of truth — read `status`.
   disabledAt         DateTime?
+  /// Issue 076: human-friendly application reference (e.g. OP-2026-AB12CD) shown
+  /// on the self-serve registration confirmation page + the pending email. Unique;
+  /// null for operators provisioned via the admin CLI (which has no application).
+  applicationRef     String?                 @unique
   createdAt          DateTime                @default(now())
   buses              Bus[]
   operatorUsers      OperatorUser[]
