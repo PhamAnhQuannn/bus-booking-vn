@@ -13,7 +13,11 @@ export type AdminErrorCode =
   | 'email_in_use'
   | 'forbidden'
   | 'no_self_reset'
-  | 'admin_not_found';
+  | 'admin_not_found'
+  // Issue 070 — System tab admin-account management
+  | 'no_self_revoke'
+  | 'no_self_role_change'
+  | 'invalid_role';
 
 export class AdminServiceError extends Error {
   constructor(public readonly code: AdminErrorCode) {
