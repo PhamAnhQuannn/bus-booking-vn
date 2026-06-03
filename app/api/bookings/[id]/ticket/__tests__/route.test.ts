@@ -17,6 +17,12 @@ vi.mock('@/lib/booking/getCustomerBookingDetail', () => ({
   getCustomerBookingDetail: mockGetDetail,
 }));
 vi.mock('@/lib/booking/ticketPdf', () => ({ renderTicketPdf: mockRenderPdf }));
+// requireCustomerAuth now re-reads the Customer row for the Issue 066 suspension
+// gate — mock the prisma singleton so importing the route doesn't construct the
+// real client (no DATABASE_URL in unit env). Default: a non-suspended customer.
+vi.mock('@/lib/db/client', () => ({
+  prisma: { customer: { findUnique: vi.fn(async (a: { where: { id: string } }) => ({ id: a.where.id, suspendedAt: null })) } },
+}));
 
 import { GET } from '../route';
 import { NextRequest } from 'next/server';

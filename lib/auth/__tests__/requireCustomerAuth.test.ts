@@ -1,13 +1,26 @@
 /**
  * Unit tests for lib/auth/requireCustomerAuth.ts
- * No DB — verifyAccess uses the 'a'.repeat(32) test-secret fallback.
+ * verifyAccess uses the 'a'.repeat(32) test-secret fallback. The prisma client is
+ * mocked: requireCustomerAuth re-reads the Customer row for the Issue 066 suspension
+ * gate, so each test controls what customer.findUnique resolves to.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { NextRequest } from 'next/server';
 
+// Mock the prisma singleton so the real client (needs DATABASE_URL) is never built.
+// findUnique default: returns a non-suspended row for whatever id is queried.
+const findUnique = vi.fn();
+vi.mock('@/lib/db/client', () => ({ prisma: { customer: { findUnique: (...a: unknown[]) => findUnique(...a) } } }));
+
 beforeEach(() => {
   delete process.env.JWT_SECRET;
+  // Default: an existing, non-suspended customer matching the queried id.
+  findUnique.mockReset();
+  findUnique.mockImplementation(async (args: { where: { id: string } }) => ({
+    id: args.where.id,
+    suspendedAt: null,
+  }));
 });
 afterEach(() => {
   delete process.env.JWT_SECRET;
@@ -84,6 +97,33 @@ describe('requireCustomerAuth', () => {
     const handler = vi.fn();
     const wrapped = requireCustomerAuth()(handler);
     const res = await wrapped(reqWithAuth(`Bearer ${opToken}`));
+    expect(res.status).toBe(401);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 ACCOUNT_SUSPENDED when the customer is admin-suspended (Issue 066)', async () => {
+    const { signAccess } = await import('../jwt');
+    const { requireCustomerAuth } = await import('../requireCustomerAuth');
+    const token = await signAccess({ sub: 'cust-susp', role: 'customer' });
+    findUnique.mockResolvedValueOnce({ id: 'cust-susp', suspendedAt: new Date() });
+
+    const handler = vi.fn();
+    const wrapped = requireCustomerAuth()(handler);
+    const res = await wrapped(reqWithAuth(`Bearer ${token}`));
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: 'ACCOUNT_SUSPENDED' });
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 when the customer row no longer exists (deleted id)', async () => {
+    const { signAccess } = await import('../jwt');
+    const { requireCustomerAuth } = await import('../requireCustomerAuth');
+    const token = await signAccess({ sub: 'cust-gone', role: 'customer' });
+    findUnique.mockResolvedValueOnce(null);
+
+    const handler = vi.fn();
+    const wrapped = requireCustomerAuth()(handler);
+    const res = await wrapped(reqWithAuth(`Bearer ${token}`));
     expect(res.status).toBe(401);
     expect(handler).not.toHaveBeenCalled();
   });
