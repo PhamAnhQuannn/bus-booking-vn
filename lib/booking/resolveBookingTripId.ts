@@ -8,7 +8,7 @@
  * not learn that other operators'/trips' bookings exist).
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 
 export async function resolveBookingTripId(
   operatorId: string,

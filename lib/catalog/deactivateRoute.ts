@@ -6,7 +6,7 @@
  *   - 'already_deactivated' — route is already deactivated
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { RouteServiceError } from './updateRoute';
 
 export async function deactivateRoute({

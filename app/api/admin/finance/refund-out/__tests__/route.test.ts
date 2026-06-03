@@ -27,7 +27,7 @@ vi.mock('@/lib/ledger/refund', () => ({
   },
 }));
 vi.mock('@/lib/audit/adminAuditLog', () => ({ writeAdminAuditLog: mockAudit }));
-vi.mock('@/lib/db/client', () => ({ prisma: {} }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: {} }));
 vi.mock('@/lib/auth/requireAdminAuth', () => ({
   requireAdminAuth: (opts: unknown) => {
     authOptions.value = opts;

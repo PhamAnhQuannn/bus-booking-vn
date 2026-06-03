@@ -5,7 +5,7 @@
  * Returns null on miss or cross-tenant access (both mapped to 404 at route layer).
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { toBookingDto, type BookingDtoRow } from './toBookingDto';
 import type { BookingDto } from './bookingDto';
 

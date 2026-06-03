@@ -14,7 +14,7 @@ import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth/requir
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { getTrip } from '@/lib/trips/getTrip';
 import { PatchTripSchema } from '@/lib/core/validation/trip';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import { toTripDto } from '@/lib/trips/toTripDto';
 

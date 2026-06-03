@@ -11,7 +11,7 @@
  *   Mon=1, Tue=2, Wed=4, Thu=8, Fri=16, Sat=32, Sun=64
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { fromZonedTime } from 'date-fns-tz';
 import { addDays, parseISO, format } from 'date-fns';
 import { randomUUID } from 'crypto';

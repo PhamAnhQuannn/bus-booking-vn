@@ -9,7 +9,7 @@
  * to /admin/operators/<id> (Issue 067, not yet built), so there is no operator branch.
  */
 
-import { prisma as defaultPrisma } from '@/lib/db/client';
+import { prisma as defaultPrisma } from '@/lib/core/db/client';
 import { redactPhone } from '@/lib/audit/redactPhone';
 import type { UserStatus } from './searchUsers';
 

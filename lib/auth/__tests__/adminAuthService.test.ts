@@ -13,7 +13,7 @@ const { mockAdminFindUnique, mockVerifyPassword } = vi.hoisted(() => ({
   mockVerifyPassword: vi.fn(),
 }));
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     adminUser: { findUnique: mockAdminFindUnique },
   },

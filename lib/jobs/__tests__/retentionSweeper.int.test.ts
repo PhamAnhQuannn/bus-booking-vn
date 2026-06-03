@@ -14,7 +14,7 @@
 
 import crypto from 'crypto';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { _resetEnvCache } from '@/lib/config/env';
 import { putObject, type StorageClient } from '@/lib/storage';
 import { getStubBlob } from '@/lib/storage/stubStore';

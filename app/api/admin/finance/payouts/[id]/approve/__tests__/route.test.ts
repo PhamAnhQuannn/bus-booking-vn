@@ -20,7 +20,7 @@ const { mockAudit, mockTx, mockQueryRaw, mockUpdate, stepUpComposed, authOptions
 );
 
 vi.mock('@/lib/audit/adminAuditLog', () => ({ writeAdminAuditLog: mockAudit }));
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     $transaction: (fn: (tx: any) => Promise<unknown>) =>

@@ -7,7 +7,7 @@
 
 export const runtime = 'nodejs';
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { resolveReport } from '@/lib/admin/moderation';
 import {
   idFromUrl,

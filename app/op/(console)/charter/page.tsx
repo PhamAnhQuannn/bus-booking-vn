@@ -20,7 +20,7 @@
 import { redirect } from 'next/navigation';
 
 import { getOperatorSession } from '@/lib/op/getOperatorSession';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { isOperatorApproved } from '@/lib/charter/assertOperatorApproved';
 import {
   getAssignedCharters,

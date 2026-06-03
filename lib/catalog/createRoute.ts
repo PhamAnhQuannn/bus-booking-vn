@@ -7,7 +7,7 @@
  * strings) is unchanged.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { resolveOrCreatePlace } from '@/lib/places';
 import type { RouteCreateInput } from '@/lib/core/validation/route';
 

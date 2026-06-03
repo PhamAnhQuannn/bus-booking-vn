@@ -26,7 +26,7 @@ vi.mock('@/lib/auth/jwt', () => ({
   verifyAccess: vi.fn(),
   verifyOperatorAccess: mockVerifyOperatorAccess,
 }));
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: { operatorUser: { findUnique: mockOperatorFindUnique } },
 }));
 vi.mock('@/lib/catalog/getRouteById', () => ({ getRouteById: mockGetRouteById }));

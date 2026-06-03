@@ -6,7 +6,7 @@
  * I7-exempt: operator-side reporting endpoint.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import type { PayoutStatus } from '@prisma/client';
 
 export { type PayoutStatus };

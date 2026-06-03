@@ -54,7 +54,7 @@ export const processPayouts: JobCore = async (tx, opts) => {
     `
   );
 
-  // Lazy import keeps this core free of a module-level `@/lib/db/client` load:
+  // Lazy import keeps this core free of a module-level `@/lib/core/db/client` load:
   // unit tests that import the cron route (which imports this core) must not
   // trigger the eager `prisma` singleton (it throws without DATABASE_URL). We
   // pass `tx` to appendLedgerEntry, so its default-client param is never used.

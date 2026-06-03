@@ -8,7 +8,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const queryRawMock = vi.fn();
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: { $queryRaw: (...a: unknown[]) => queryRawMock(...a) },
 }));
 

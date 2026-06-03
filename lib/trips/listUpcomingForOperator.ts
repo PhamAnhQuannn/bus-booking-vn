@@ -7,7 +7,7 @@
  */
 
 import { z } from 'zod';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { toTripDto } from './toTripDto';
 import type { TripDto } from './tripDto';
 

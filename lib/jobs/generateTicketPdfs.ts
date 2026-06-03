@@ -51,11 +51,11 @@ interface ClaimedRow {
 export const generateTicketPdfs: JobCore = async (_tx, opts?: JobOpts) => {
   const now = opts?.now ?? new Date();
 
-  const { prisma } = await import('@/lib/db/client');
+  const { prisma } = await import('@/lib/core/db/client');
   const { Prisma } = await import('@prisma/client');
   const { renderTicketPdf } = await import('@/lib/booking/ticketPdf');
   const { putObject } = await import('@/lib/storage');
-  const { createNotificationLog } = await import('@/lib/db/notificationLogRepo');
+  const { createNotificationLog } = await import('@/lib/core/db/notificationLogRepo');
 
   // 1. Claim a batch of paid, un-keyed bookings (SKIP LOCKED so two concurrent
   //    ticks never grab the same row). The rows stay PAID; the stamp happens
@@ -133,7 +133,7 @@ async function mintToken(bookingRef: string, confirmationToken: string): Promise
  * CustomerBookingDetail shape renderTicketPdf consumes.
  */
 async function loadBookingDetail(
-  prisma: (typeof import('@/lib/db/client'))['prisma'],
+  prisma: (typeof import('@/lib/core/db/client'))['prisma'],
   bookingId: string
 ): Promise<CustomerBookingDetail | null> {
   const { customerBookingDetailSelect } = await import('@/lib/booking/getCustomerBookingDetail');

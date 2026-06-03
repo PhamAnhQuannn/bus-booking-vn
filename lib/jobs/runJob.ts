@@ -13,7 +13,7 @@
  * produces 'failed' — 'failed' is runner-only.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { withAdvisoryLock } from './withAdvisoryLock';
 import type { JobCore, JobResult } from './types';
 

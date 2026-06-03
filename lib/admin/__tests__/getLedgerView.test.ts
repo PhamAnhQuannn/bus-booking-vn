@@ -10,7 +10,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 
-vi.mock('@/lib/db/client', () => ({ prisma: {} }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: {} }));
 
 import { getLedgerView } from '../getLedgerView';
 

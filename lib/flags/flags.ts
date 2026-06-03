@@ -32,7 +32,7 @@
  * in-process).
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { writeAdminAuditLog } from '@/lib/audit/adminAuditLog';
 
 /** In-process cache TTL. Multi-instance deploys see up to this much staleness. */

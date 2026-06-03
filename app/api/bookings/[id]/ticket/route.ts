@@ -25,7 +25,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { requireCustomerAuth, type CustomerAuthContext } from '@/lib/auth/requireCustomerAuth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { getCustomerBookingDetail } from '@/lib/booking/getCustomerBookingDetail';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { createSignedDownloadUrl } from '@/lib/storage';
 import type { BookingPaymentStatus } from '@/lib/booking/bookingDto';
 import { logger } from '@/lib/logger';

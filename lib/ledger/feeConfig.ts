@@ -20,7 +20,7 @@
  * mode; this helper is the raw, exact integer-division primitive.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 
 /**
  * One part-per-million denominator. ES2017 target ⇒ no `n` BigInt literals

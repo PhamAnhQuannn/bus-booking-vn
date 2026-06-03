@@ -10,7 +10,7 @@ const { mockSendOtp, mockOperatorFindUnique } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/auth/operatorOtp', () => ({ sendOperatorPasswordResetOtp: mockSendOtp }));
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: { operatorUser: { findUnique: mockOperatorFindUnique } },
 }));
 

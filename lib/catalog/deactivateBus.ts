@@ -11,7 +11,7 @@
  *   caller's operator. Route handler maps to 404.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 
 export type DeactivateResult =
   | { ok: true; deactivatedAt: Date }

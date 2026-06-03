@@ -29,7 +29,7 @@ vi.mock('@/lib/auth/requireAdminAuth', () => ({
       (req: unknown) => handler(req, { adminId: 'sup-1', role: 'SUPPORT', totpVerified: true });
   },
 }));
-vi.mock('@/lib/db/client', () => ({ prisma: {} }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: {} }));
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';

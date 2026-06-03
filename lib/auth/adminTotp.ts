@@ -18,7 +18,7 @@
  *    secret internally and never return it. `totpSecret` is in the logger redact list.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { generateTotpSecret, totpAuthUri, verifyTotp } from './totp';
 
 export interface BeginEnrollmentResult {

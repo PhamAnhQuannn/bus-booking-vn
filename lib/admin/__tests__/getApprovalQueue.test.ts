@@ -7,7 +7,7 @@ import { describe, it, expect, vi } from 'vitest';
 // getApprovalQueue imports the prisma singleton at module load; stub it so the
 // real client (which needs DATABASE_URL) is never constructed. Each test injects
 // its own prisma-like stub anyway.
-vi.mock('@/lib/db/client', () => ({ prisma: { operator: { findMany: vi.fn() } } }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: { operator: { findMany: vi.fn() } } }));
 
 import { getApprovalQueue } from '../getApprovalQueue';
 

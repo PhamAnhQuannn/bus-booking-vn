@@ -19,7 +19,7 @@
  * logger redact list (lib/logger.ts).
  */
 
-import { prisma as defaultPrisma } from '@/lib/db/client';
+import { prisma as defaultPrisma } from '@/lib/core/db/client';
 
 /** Minimal prisma surface — lets unit tests inject a payoutAccount stub. */
 type PrismaLike = Pick<typeof defaultPrisma, 'payoutAccount'>;

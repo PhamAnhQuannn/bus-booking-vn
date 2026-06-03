@@ -31,7 +31,7 @@
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { verifyAccess } from './jwt';
 
 /** Context the HOF threads to the wrapped handler. */

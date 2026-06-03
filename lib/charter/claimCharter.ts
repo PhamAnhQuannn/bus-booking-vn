@@ -43,7 +43,7 @@
  */
 
 import { Prisma, type PrismaClient } from '@prisma/client';
-import { createNotificationLog } from '@/lib/db/notificationLogRepo';
+import { createNotificationLog } from '@/lib/core/db/notificationLogRepo';
 
 export type ClaimCharterReason = 'already_claimed' | 'not_found';
 

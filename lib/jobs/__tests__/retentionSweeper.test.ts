@@ -22,7 +22,7 @@ const { mockPrisma, mockDeleteObject } = vi.hoisted(() => ({
   mockDeleteObject: vi.fn(),
 }));
 
-vi.mock('@/lib/db/client', () => ({ prisma: mockPrisma }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: mockPrisma }));
 vi.mock('@/lib/storage', () => ({ deleteObject: mockDeleteObject }));
 vi.mock('@/lib/account/retentionPolicy', () => ({
   GUEST_PII_RETENTION_DAYS: 365,

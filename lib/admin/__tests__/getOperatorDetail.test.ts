@@ -13,7 +13,7 @@ const { mockBalance, mockFeeRate } = vi.hoisted(() => ({
   mockFeeRate: vi.fn(),
 }));
 
-vi.mock('@/lib/db/client', () => ({ prisma: {} }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: {} }));
 vi.mock('@/lib/ledger/balance', () => ({ getOperatorBalance: mockBalance }));
 vi.mock('@/lib/ledger/feeConfig', () => ({ getEffectiveFeeRate: mockFeeRate }));
 

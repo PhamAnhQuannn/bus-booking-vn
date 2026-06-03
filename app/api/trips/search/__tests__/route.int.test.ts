@@ -20,7 +20,7 @@ import { addDays, startOfDay } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { GET } from '../route';
 import { ratelimit } from '@/lib/ratelimit';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 
 const TZ = 'Asia/Ho_Chi_Minh';
 

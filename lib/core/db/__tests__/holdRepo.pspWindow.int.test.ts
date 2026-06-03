@@ -14,7 +14,7 @@
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { randomUUID } from 'node:crypto';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { createHold, PSP_WINDOW_MINUTES } from '../holdRepo';
 
 const CAPACITY = 1; // single-seat bus makes oversell assertions unambiguous

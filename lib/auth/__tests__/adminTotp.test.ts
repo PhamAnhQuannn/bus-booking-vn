@@ -12,7 +12,7 @@ const { mockFindUnique, mockUpdate, mockVerifyTotp } = vi.hoisted(() => ({
   mockVerifyTotp: vi.fn(),
 }));
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: { adminUser: { findUnique: mockFindUnique, update: mockUpdate } },
 }));
 

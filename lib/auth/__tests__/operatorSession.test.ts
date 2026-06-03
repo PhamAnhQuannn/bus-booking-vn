@@ -32,7 +32,7 @@ const mockPrisma = vi.hoisted(() => {
   };
 });
 
-vi.mock('@/lib/db/client', () => ({ prisma: mockPrisma }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: mockPrisma }));
 
 // ---------------------------------------------------------------------------
 // Imports (after mocks)

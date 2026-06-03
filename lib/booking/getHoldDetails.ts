@@ -9,7 +9,7 @@
  * client-supplied amount.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 
 export interface HoldDetails {
   tripId: string;

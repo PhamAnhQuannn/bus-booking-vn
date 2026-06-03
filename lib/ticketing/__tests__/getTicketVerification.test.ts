@@ -12,7 +12,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     booking: { findUnique: vi.fn() },
   },
@@ -22,7 +22,7 @@ vi.mock('@/lib/ticketing/ticketToken', () => ({
   verifyTicketToken: vi.fn(),
 }));
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { verifyTicketToken } from '@/lib/ticketing/ticketToken';
 import { getTicketVerification } from '../getTicketVerification';
 

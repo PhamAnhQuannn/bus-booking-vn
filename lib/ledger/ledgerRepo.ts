@@ -31,7 +31,7 @@
  * literals (`0n`) are a parser error — use the BigInt() constructor everywhere.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { Prisma, type LedgerEntryType } from '@prisma/client';
 
 export type { LedgerEntryType };

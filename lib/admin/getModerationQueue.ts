@@ -10,7 +10,7 @@
  *                      human label (route origin→dest + departureAt) for the UI.
  */
 
-import { prisma as defaultPrisma } from '@/lib/db/client';
+import { prisma as defaultPrisma } from '@/lib/core/db/client';
 
 export interface OpenReport {
   id: string;

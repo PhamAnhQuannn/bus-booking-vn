@@ -27,7 +27,7 @@ const mockGenerateSalt = vi.hoisted(() => vi.fn(() => 'testsalt'));
 const mockHashCode = vi.hoisted(() => vi.fn());
 const mockNormalizePhone = vi.hoisted(() => vi.fn((p: string) => p));
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     $queryRaw: mockQueryRaw,
     $executeRaw: mockExecuteRaw,

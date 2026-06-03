@@ -16,7 +16,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth/requireOperatorAuth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { deactivateBus } from '@/lib/catalog/deactivateBus';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 
 type RouteContext = { params: Promise<{ id: string }> };
 

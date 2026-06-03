@@ -24,7 +24,7 @@
  *   - ledger: LedgerEntry.createdAt (the platform_fee entry instant).
  */
 
-import { prisma as defaultPrisma } from '@/lib/db/client';
+import { prisma as defaultPrisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import { getFunnel, type FunnelStepResult } from './getFunnel';
 

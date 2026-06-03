@@ -13,7 +13,7 @@
  * I7-exempt: operator-side reporting endpoint; operator is the price authority.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { calcPayout } from './calcPayout';
 import type { RevenueRow } from './buildRevenueCsv';
 

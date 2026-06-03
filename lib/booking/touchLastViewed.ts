@@ -5,7 +5,7 @@
  * to this timestamp on next load.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 
 export async function touchLastViewed(operatorUserId: string): Promise<void> {
   await prisma.operatorUser.update({

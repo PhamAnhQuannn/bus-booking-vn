@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Mock } from 'vitest';
 
-vi.mock('@/lib/db/client', () => {
+vi.mock('@/lib/core/db/client', () => {
   const txMock = {
     $queryRaw: vi.fn(),
     bus: { findFirst: vi.fn() },
@@ -25,7 +25,7 @@ vi.mock('@/lib/db/client', () => {
 
 import { reassignBus } from '../reassignBus';
 import { TripServiceError } from '../errors';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 
 const p = prisma as unknown as {
   $transaction: Mock;

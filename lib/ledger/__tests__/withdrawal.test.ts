@@ -26,7 +26,7 @@ const txMock = {
   payoutAccount: { findUnique: vi.fn() },
 };
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     ledgerEntry: { findUnique: vi.fn() },
     $transaction: vi.fn((fn: (tx: typeof txMock) => Promise<unknown>) => fn(txMock)),
@@ -41,7 +41,7 @@ vi.mock('@/lib/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { appendLedgerEntry } from '../ledgerRepo';
 import { requestWithdrawal } from '../withdrawal';
 

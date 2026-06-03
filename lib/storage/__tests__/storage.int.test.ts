@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { _resetEnvCache } from '@/lib/config/env';
 import { createSignedUploadUrl, createSignedDownloadUrl, type StorageClient } from '..';
 

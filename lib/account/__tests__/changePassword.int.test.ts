@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { hash as hashPassword } from '@/lib/auth/password';
 import { changePassword, ChangePasswordError } from '../changePassword';
 

@@ -17,7 +17,7 @@ const { mockTransition, mockCreateNotificationLog } = vi.hoisted(() => ({
 }));
 
 vi.mock('../charterStatus', () => ({ transitionCharterRequest: mockTransition }));
-vi.mock('@/lib/db/notificationLogRepo', () => ({ createNotificationLog: mockCreateNotificationLog }));
+vi.mock('@/lib/core/db/notificationLogRepo', () => ({ createNotificationLog: mockCreateNotificationLog }));
 
 import { declineCharter } from '../declineCharter';
 

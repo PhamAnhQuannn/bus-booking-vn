@@ -10,7 +10,7 @@ import { describe, it, expect, vi } from 'vitest';
 // feeConfig.ts imports the shared prisma client at module load (which would
 // construct a real PG Pool needing DATABASE_URL). The helper takes an injectable
 // client, so the default is never exercised here — stub it to an empty object.
-vi.mock('@/lib/db/client', () => ({ prisma: {} }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: {} }));
 
 import { getEffectiveFeeRate, applyFeePpm, calcPlatformFeeMinor } from '../feeConfig';
 import { calcPayout } from '@/lib/ledger/calcPayout';

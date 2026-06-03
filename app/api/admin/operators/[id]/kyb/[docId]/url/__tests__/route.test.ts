@@ -22,7 +22,7 @@ vi.mock('@/lib/auth/requireAdminAuth', () => ({
     () => (handler: (req: unknown, ctx: unknown) => Promise<Response>) => (req: unknown) =>
       handler(req, { adminId: 'super-1', role: 'SUPER_ADMIN', totpVerified: true }),
 }));
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: { kybDocument: { findUnique: mockFindUnique } },
 }));
 vi.mock('@/lib/storage', async () => {

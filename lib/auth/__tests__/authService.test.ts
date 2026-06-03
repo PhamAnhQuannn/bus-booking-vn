@@ -34,7 +34,7 @@ const { mockPrisma, mockSession, mockConsume, mockHashPassword, mockVerifyPasswo
   return { mockPrisma, mockSession, mockConsume, mockHashPassword, mockVerifyPassword, mockDummyVerify, mockVerifyRefreshToken, mockRotateRefresh, mockRevokeSession };
 });
 
-vi.mock('@/lib/db/client', () => ({ prisma: mockPrisma }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: mockPrisma }));
 vi.mock('../session', () => ({
   createSession: mockSession.createSession,
   rotateRefresh: mockRotateRefresh,

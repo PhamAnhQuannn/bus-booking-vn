@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: { customer: { findUnique: vi.fn() }, booking: { count: vi.fn() } },
 }));
 

@@ -19,7 +19,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyOperatorAccess } from './jwt';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 
 const ACCESS_COOKIE = 'bb_op_access';
 

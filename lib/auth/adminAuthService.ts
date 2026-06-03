@@ -12,7 +12,7 @@
  * There is NO registration function — admin accounts are invite-only (issue 057).
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { verify as verifyPassword } from './password';
 import type { AdminAccessPayload } from './jwt';
 

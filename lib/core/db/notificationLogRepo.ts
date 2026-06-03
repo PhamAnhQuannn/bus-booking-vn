@@ -6,7 +6,7 @@
  * is the source of truth; NotificationLog is for ops debugging.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import type { NotificationStatus, NotificationChannel } from '@prisma/client';
 
 export interface CreateNotificationLogInput {

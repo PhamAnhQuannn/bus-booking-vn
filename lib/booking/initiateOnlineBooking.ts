@@ -19,13 +19,13 @@
  * defaults to getGatewayFor(method, baseUrl).
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import {
   createOnlineBookingFromHold,
   getBookingByHoldId,
   type OnlineBookingMethod,
-} from '@/lib/db/bookingRepo';
+} from '@/lib/core/db/bookingRepo';
 import { getGatewayFor } from '@/lib/payment/select';
 import { attachGuestBooking } from './attachGuestBooking';
 import { isBookable } from '@/lib/onboarding';

@@ -13,7 +13,7 @@
  * unfiltered orderings.
  */
 
-import { prisma as defaultPrisma } from '@/lib/db/client';
+import { prisma as defaultPrisma } from '@/lib/core/db/client';
 
 export interface AuditLogRow {
   id: string;

@@ -8,7 +8,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: { customer: { findMany: vi.fn() }, operator: { findMany: vi.fn() } },
 }));
 

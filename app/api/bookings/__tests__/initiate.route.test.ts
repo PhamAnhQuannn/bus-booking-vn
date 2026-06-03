@@ -44,7 +44,7 @@ vi.mock('@/lib/analytics/track', () => ({
 // The route imports getCustomerOptional from requireCustomerAuth, which (Issue 066)
 // statically imports the prisma singleton for its suspension gate. Mock the client
 // so the import doesn't construct the real Pool (no DATABASE_URL in unit env).
-vi.mock('@/lib/db/client', () => ({ prisma: { customer: { findUnique: vi.fn() } } }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: { customer: { findUnique: vi.fn() } } }));
 
 import { POST } from '../initiate/route';
 import { initiateOnlineBooking } from '@/lib/booking/initiateOnlineBooking';

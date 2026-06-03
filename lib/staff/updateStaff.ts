@@ -6,7 +6,7 @@
  * a silent edit of another operator's staff.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { StaffServiceError } from './errors';
 import { toStaffDto, type StaffDto } from './toStaffDto';
 

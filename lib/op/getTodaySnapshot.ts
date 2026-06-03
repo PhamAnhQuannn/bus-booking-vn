@@ -13,7 +13,7 @@
  */
 
 import { BookingStatus } from "@prisma/client"
-import { prisma } from "@/lib/db/client"
+import { prisma } from "@/lib/core/db/client"
 
 export interface TodaySnapshot {
   tripsToday: number

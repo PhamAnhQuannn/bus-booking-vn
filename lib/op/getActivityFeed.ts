@@ -11,7 +11,7 @@
  */
 
 import type { ActivityEvent } from "@/lib/op/activityTypes"
-import { prisma } from "@/lib/db/client"
+import { prisma } from "@/lib/core/db/client"
 
 interface GetActivityFeedInput {
   operatorId: string

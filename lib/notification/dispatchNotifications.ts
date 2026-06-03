@@ -32,7 +32,7 @@
  */
 
 import { Prisma } from '@prisma/client';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { sendSmsBody } from '@/lib/notification/esms';
 import { sendEmail } from '@/lib/notification/email';
 import { logger } from '@/lib/logger';

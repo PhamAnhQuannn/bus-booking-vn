@@ -10,7 +10,7 @@ const { mockRegisterOperator, mockLimit } = vi.hoisted(() => ({
   mockLimit: vi.fn(),
 }));
 
-vi.mock('@/lib/db/client', () => ({ prisma: {} }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: {} }));
 vi.mock('@/lib/onboarding/registerOperator', async () => {
   const actual = await vi.importActual<typeof import('@/lib/onboarding/registerOperator')>(
     '@/lib/onboarding/registerOperator'

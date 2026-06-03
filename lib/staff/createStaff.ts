@@ -12,12 +12,12 @@
  * P2002 (unique phone collision) maps to StaffServiceError('phone_in_use') → 409.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import { hash } from '@/lib/auth/password';
 import { normalizePhone } from '@/lib/auth/phoneNormalize';
 import { sendSms } from '@/lib/notification/esms';
-import { createNotificationLog } from '@/lib/db/notificationLogRepo';
+import { createNotificationLog } from '@/lib/core/db/notificationLogRepo';
 import { genTempPassword } from './genTempPassword';
 import { StaffServiceError } from './errors';
 import { toStaffDto, type StaffDto } from './toStaffDto';

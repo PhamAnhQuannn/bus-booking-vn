@@ -6,7 +6,7 @@
  * analytics must not break a booking.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { logger } from '@/lib/logger';
 
 export const FUNNEL_STEPS = [

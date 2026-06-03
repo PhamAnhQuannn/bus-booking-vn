@@ -13,7 +13,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { ForgotPasswordSchema } from '@/lib/auth/types';
 import { sendOperatorPasswordResetOtp } from '@/lib/auth/operatorOtp';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { normalizePhone } from '@/lib/auth/phoneNormalize';
 
 async function handler(req: NextRequest): Promise<Response> {

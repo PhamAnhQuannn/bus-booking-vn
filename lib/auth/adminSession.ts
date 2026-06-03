@@ -15,7 +15,7 @@
  */
 
 import crypto from 'crypto';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { signAdminAccess, type AdminAccessPayload } from './jwt';
 
 type AdminRole = AdminAccessPayload['role'];

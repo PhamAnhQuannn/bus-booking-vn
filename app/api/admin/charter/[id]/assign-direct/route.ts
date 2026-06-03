@@ -24,7 +24,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth/requireAdminAuth';
 import { transitionCharterRequest, CharterError } from '@/lib/charter';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { charterIdFromUrl, mapCharterError } from '../_shared';
 

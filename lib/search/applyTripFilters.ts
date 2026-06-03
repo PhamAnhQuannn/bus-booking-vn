@@ -10,7 +10,7 @@
  * No DB access — unit-testable in isolation.
  */
 
-import type { TripResult } from '@/lib/db/searchTrips';
+import type { TripResult } from '@/lib/core/db/searchTrips';
 import type { SearchFilters, BusType, TimeWindow } from '@/lib/core/validation/search';
 
 const TZ = 'Asia/Ho_Chi_Minh';

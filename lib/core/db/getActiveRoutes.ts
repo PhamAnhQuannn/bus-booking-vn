@@ -6,7 +6,7 @@
  * no such trip are omitted so the browse page never links to a dead search.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 
 export interface ActiveRoute {

@@ -17,7 +17,7 @@ const { mockSetFlag, stepUpComposed, authOptions } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/flags/flags', () => ({ setFlag: mockSetFlag }));
-vi.mock('@/lib/db/client', () => ({ prisma: {} }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: {} }));
 vi.mock('@/lib/auth/requireAdminAuth', () => ({
   requireAdminAuth: (opts: unknown) => {
     authOptions.value = opts;

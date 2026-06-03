@@ -16,8 +16,8 @@ export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { holdInputSchema } from '@/lib/core/validation/hold';
-import { createHold } from '@/lib/db/holdRepo';
-import { HoldCapExceededError } from '@/lib/db/holdErrors';
+import { createHold } from '@/lib/core/db/holdRepo';
+import { HoldCapExceededError } from '@/lib/core/db/holdErrors';
 import { buildSetCookieHeader } from '@/lib/security/holdCookie';
 import { ratelimit } from '@/lib/ratelimit';
 import { withErrorHandler } from '@/lib/withErrorHandler';

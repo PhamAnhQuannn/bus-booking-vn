@@ -32,10 +32,10 @@ const { mockPrisma, mockTransition, mockCreateNotificationLog, CharterErrorMock 
   };
 });
 
-vi.mock('@/lib/db/client', () => ({ prisma: mockPrisma }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: mockPrisma }));
 vi.mock('@/lib/charter/charterStatus', () => ({ transitionCharterRequest: mockTransition }));
 vi.mock('@/lib/charter/errors', () => ({ CharterError: CharterErrorMock }));
-vi.mock('@/lib/db/notificationLogRepo', () => ({ createNotificationLog: mockCreateNotificationLog }));
+vi.mock('@/lib/core/db/notificationLogRepo', () => ({ createNotificationLog: mockCreateNotificationLog }));
 // Prisma.sql is used to build the tagged query; a passthrough is enough for the
 // stub tx, which ignores the SQL and returns staged rows by call order.
 vi.mock('@prisma/client', () => ({

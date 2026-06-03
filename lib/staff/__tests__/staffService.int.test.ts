@@ -21,7 +21,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { normalizePhone } from '@/lib/auth/phoneNormalize';
 import { createStaff } from '../createStaff';
 import { disableStaff } from '../disableStaff';

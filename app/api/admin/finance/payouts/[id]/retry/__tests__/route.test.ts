@@ -19,7 +19,7 @@ const { mockRetry, mockAudit, mockFindUnique, stepUpComposed, authOptions } = vi
 
 vi.mock('@/lib/ledger/retryPayout', () => ({ retryPayout: mockRetry }));
 vi.mock('@/lib/audit/adminAuditLog', () => ({ writeAdminAuditLog: mockAudit }));
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: { payout: { findUnique: mockFindUnique } },
 }));
 vi.mock('@/lib/auth/requireAdminAuth', () => ({

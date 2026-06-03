@@ -16,7 +16,7 @@
  */
 
 import type { PayoutStatus } from '@prisma/client';
-import { prisma as defaultPrisma } from '@/lib/db/client';
+import { prisma as defaultPrisma } from '@/lib/core/db/client';
 
 export interface PayoutQueueRow {
   id: string;

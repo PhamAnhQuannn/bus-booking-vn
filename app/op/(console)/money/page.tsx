@@ -25,7 +25,7 @@ import { getOperatorBalance } from '@/lib/ledger/balance';
 import { getLedgerView } from '@/lib/admin/getLedgerView';
 import { getPayoutReport } from '@/lib/ledger/getPayoutReport';
 import { MIN_WITHDRAW_THRESHOLD_VND } from '@/lib/ledger/constants';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 
 import { PageHeader } from '@/components/op/PageHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';

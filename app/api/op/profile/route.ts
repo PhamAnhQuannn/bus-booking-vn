@@ -13,7 +13,7 @@ export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { verifyOperatorAccess } from '@/lib/auth/jwt';
 import { PatchOperatorProfileSchema } from '@/lib/auth/types';
 import { withErrorHandler } from '@/lib/withErrorHandler';

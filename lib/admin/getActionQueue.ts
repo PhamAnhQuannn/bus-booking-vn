@@ -26,7 +26,7 @@
  * dispute to triage; a richer dispute model (resolved/open lifecycle) lands later.
  */
 
-import { prisma as defaultPrisma } from '@/lib/db/client';
+import { prisma as defaultPrisma } from '@/lib/core/db/client';
 
 /** Operator statuses that represent an approval still owed a decision. */
 const PENDING_OPERATOR_STATUSES = ['PENDING_REVIEW', 'UNDER_REVIEW'] as const;

@@ -39,7 +39,7 @@
 import type { PrismaClient } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { resolveOrCreatePlace } from '@/lib/places/placeRepo';
-import { createNotificationLog } from '@/lib/db/notificationLogRepo';
+import { createNotificationLog } from '@/lib/core/db/notificationLogRepo';
 import { generateCharterRef } from './charterRef';
 
 /** Max attempts to mint a collision-free ref (mirrors registerOperator). */

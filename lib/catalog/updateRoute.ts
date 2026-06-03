@@ -6,7 +6,7 @@
  *   - 'reactivation_not_supported' — route is deactivated; updates not allowed
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { resolveOrCreatePlace } from '@/lib/places';
 import type { RoutePatchInput } from '@/lib/core/validation/route';
 

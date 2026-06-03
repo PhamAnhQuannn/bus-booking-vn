@@ -31,7 +31,7 @@
  * non-integer → GlobalFeeError('invalid_rate') which the route maps to 422.
  */
 
-import { prisma as defaultPrisma } from '@/lib/db/client';
+import { prisma as defaultPrisma } from '@/lib/core/db/client';
 import { writeAdminAuditLog } from '@/lib/audit/adminAuditLog';
 
 /** Upper bound for the global fee: 200000 ppm = 20% (mirrors MAX_FEE_OVERRIDE_PPM). */

@@ -19,7 +19,7 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth/requireAdminAuth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { createSignedDownloadUrl } from '@/lib/storage';
 
 /** Parse /api/admin/operators/<id>/kyb/<docId>/url → { operatorId, docId }. */

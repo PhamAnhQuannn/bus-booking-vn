@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { ArrowRight, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { ActiveRoute } from '@/lib/db/getActiveRoutes';
+import type { ActiveRoute } from '@/lib/core/db/getActiveRoutes';
 
 function formatPrice(v: number): string {
   return v.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });

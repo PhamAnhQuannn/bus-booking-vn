@@ -11,7 +11,7 @@
  * Scoped by (id, operatorId, role=staff) → cross-operator/admin id is not_found.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { StaffServiceError } from './errors';
 import { toStaffDto, type StaffDto } from './toStaffDto';
 

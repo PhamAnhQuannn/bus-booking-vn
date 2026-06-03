@@ -28,7 +28,7 @@ vi.mock('@/lib/audit/adminAuditLog', () => ({
   writeAdminAuditLog: mockWriteAdminAuditLog,
 }));
 
-vi.mock('@/lib/db/notificationLogRepo', () => ({
+vi.mock('@/lib/core/db/notificationLogRepo', () => ({
   createNotificationLog: mockCreateNotificationLog,
 }));
 

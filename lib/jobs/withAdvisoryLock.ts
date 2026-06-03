@@ -21,7 +21,7 @@
  * reminderSentAt/'processing' claim first, then call the network outside the tx.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import type { JobCore, JobResult } from './types';
 

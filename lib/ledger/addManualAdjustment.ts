@@ -34,7 +34,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { prisma as defaultPrisma } from '@/lib/db/client';
+import { prisma as defaultPrisma } from '@/lib/core/db/client';
 import { appendLedgerEntry } from './ledgerRepo';
 import { writeAdminAuditLog } from '@/lib/audit/adminAuditLog';
 

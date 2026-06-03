@@ -21,7 +21,7 @@ const { mockTx, mockPrisma, mockHash, mockCreateNotificationLog } = vi.hoisted((
 });
 
 vi.mock('@/lib/auth/password', () => ({ hash: mockHash }));
-vi.mock('@/lib/db/notificationLogRepo', () => ({
+vi.mock('@/lib/core/db/notificationLogRepo', () => ({
   createNotificationLog: mockCreateNotificationLog,
 }));
 

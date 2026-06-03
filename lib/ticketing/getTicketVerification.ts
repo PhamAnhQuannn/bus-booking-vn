@@ -29,7 +29,7 @@
  * leak even by accident.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { verifyTicketToken } from '@/lib/ticketing/ticketToken';
 
 /** Booking statuses that mean money has been received (paid or beyond). */

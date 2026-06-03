@@ -11,7 +11,7 @@
  * P2002 unique constraint → generic PHONE_TAKEN (non-enumerating per design decision #4).
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import { normalizePhone } from '@/lib/auth/phoneNormalize';
 

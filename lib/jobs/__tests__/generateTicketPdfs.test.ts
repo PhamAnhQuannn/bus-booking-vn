@@ -36,7 +36,7 @@ const {
   mockMintToken: vi.fn(),
 }));
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     $transaction: mockTransaction,
     booking: { updateMany: mockUpdateMany, findUnique: mockFindUnique },
@@ -51,7 +51,7 @@ vi.mock('@prisma/client', () => ({
 }));
 vi.mock('@/lib/booking/ticketPdf', () => ({ renderTicketPdf: mockRenderPdf }));
 vi.mock('@/lib/storage', () => ({ putObject: mockPutObject }));
-vi.mock('@/lib/db/notificationLogRepo', () => ({
+vi.mock('@/lib/core/db/notificationLogRepo', () => ({
   createNotificationLog: mockCreateNotificationLog,
 }));
 vi.mock('@/lib/ticketing/ticketToken', () => ({ mintTicketToken: mockMintToken }));

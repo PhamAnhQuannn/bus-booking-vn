@@ -23,7 +23,7 @@ vi.mock('@/lib/auth/jwt', () => ({
   verifyAccess: vi.fn(),
   verifyOperatorAccess: mockVerifyOperatorAccess,
 }));
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: { operatorUser: { findUnique: mockOperatorFindUnique } },
 }));
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => mockCookieStore) }));

@@ -18,7 +18,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyAdminAccess, type AdminAccessPayload } from './jwt';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 
 type AdminRole = AdminAccessPayload['role'];
 

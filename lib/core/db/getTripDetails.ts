@@ -7,7 +7,7 @@
  * as searchTrips (Issue 002; Issue 040 removed the blocked-seats term).
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { isSearchVisible } from '@/lib/onboarding';
 
 export interface TripDetails {

@@ -7,7 +7,7 @@
  *   - 'already_deactivated' — already soft-deleted
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { PickupPointServiceError } from './createPickupPoint';
 
 export async function deactivatePickupPoint({

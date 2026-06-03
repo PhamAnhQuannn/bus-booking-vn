@@ -12,7 +12,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     $queryRaw: vi.fn(),
     customer: { count: vi.fn() },
@@ -24,7 +24,7 @@ vi.mock('../getFunnel', () => ({
   getFunnel: vi.fn(),
 }));
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { getFunnel } from '../getFunnel';
 import { getAdminMetrics } from '../getAdminMetrics';
 

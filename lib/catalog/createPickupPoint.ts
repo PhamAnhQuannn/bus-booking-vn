@@ -6,7 +6,7 @@
  *   - 'too_many_pickup_points'  — route already has 50 active pickup points
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import type { PickupPointCreateInput } from '@/lib/core/validation/route';
 
 export class PickupPointServiceError extends Error {

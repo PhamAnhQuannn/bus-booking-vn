@@ -6,13 +6,13 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     booking: { findMany: vi.fn() },
   },
 }));
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { listCustomerBookings } from '../listCustomerBookings';
 
 const findMany = prisma.booking.findMany as unknown as ReturnType<typeof vi.fn>;

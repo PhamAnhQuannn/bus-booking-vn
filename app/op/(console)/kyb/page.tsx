@@ -14,7 +14,7 @@
 import { redirect } from 'next/navigation';
 import { getOperatorSession } from '@/lib/op/getOperatorSession';
 import { listOperatorKybDocs } from '@/lib/onboarding/kyb';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { PageHeader } from '@/components/op/PageHeader';
 import KybUpload from './KybUpload';
 

@@ -21,7 +21,7 @@
  * HOLD_TTL_MINUTES: 10-minute hold window (leaves 2-min buffer inside the 12-min cookie).
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { CONCURRENT_HOLD_CAP, HoldCapExceededError } from './holdErrors';

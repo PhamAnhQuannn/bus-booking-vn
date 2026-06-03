@@ -12,7 +12,7 @@
  */
 
 import crypto from 'crypto';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 
 // ---------------------------------------------------------------------------

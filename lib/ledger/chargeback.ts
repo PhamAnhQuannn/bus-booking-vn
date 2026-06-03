@@ -86,7 +86,7 @@
  * never the `n` literal suffix (parser error). `2 × amount` is `amount * BigInt(2)`.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { appendLedgerEntry } from './ledgerRepo';
 import { getOperatorBalance } from './balance';
 import { logger } from '@/lib/logger';

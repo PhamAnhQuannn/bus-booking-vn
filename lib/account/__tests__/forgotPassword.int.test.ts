@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { hash as hashPassword } from '@/lib/auth/password';
 
 // Mock sendSms to avoid real SMS in tests

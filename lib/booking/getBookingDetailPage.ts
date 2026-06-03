@@ -7,7 +7,7 @@
  * server component (never self-fetch own API — Issue 002/003 hardened rule).
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { getOperatorBooking } from './getOperatorBooking';
 import { listPickupPoints } from '@/lib/catalog/listPickupPoints';
 import type { BookingDto } from './bookingDto';

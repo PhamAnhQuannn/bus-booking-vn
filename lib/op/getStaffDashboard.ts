@@ -13,7 +13,7 @@
 
 import { cookies } from 'next/headers';
 import { verifyOperatorAccess } from '@/lib/auth/jwt';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { listOperatorBookings } from '@/lib/booking/listOperatorBookings';
 import { getManifest } from '@/lib/booking/getManifest';
 import { getTrip } from '@/lib/trips/getTrip';

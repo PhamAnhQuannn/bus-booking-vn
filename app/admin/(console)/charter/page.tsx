@@ -22,7 +22,7 @@
  */
 
 import { requireAdminPage } from '@/lib/auth/requireAdminPage';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import {
   getCharterDispatchQueue,
   getApprovedOperatorsForAssign,

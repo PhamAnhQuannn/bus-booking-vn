@@ -11,7 +11,7 @@ const { mockCreate, mockLimit, mockGetCustomerOptional } = vi.hoisted(() => ({
   mockGetCustomerOptional: vi.fn(),
 }));
 
-vi.mock('@/lib/db/client', () => ({ prisma: {} }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: {} }));
 vi.mock('@/lib/charter', () => ({ createCharterRequest: mockCreate }));
 vi.mock('@/lib/ratelimit', () => ({ charterRatelimit: { limit: mockLimit } }));
 vi.mock('@/lib/auth/requireCustomerAuth', () => ({ getCustomerOptional: mockGetCustomerOptional }));

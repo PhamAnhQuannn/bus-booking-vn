@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // --- Mock modules before importing route ---
-vi.mock('@/lib/db/holdRepo', () => ({
+vi.mock('@/lib/core/db/holdRepo', () => ({
   createHold: vi.fn(),
 }));
 
@@ -32,9 +32,9 @@ vi.mock('@/lib/analytics/track', () => ({
 }));
 
 import { POST } from '../route';
-import { createHold } from '@/lib/db/holdRepo';
+import { createHold } from '@/lib/core/db/holdRepo';
 import { ratelimit } from '@/lib/ratelimit';
-import { HoldCapExceededError } from '@/lib/db/holdErrors';
+import { HoldCapExceededError } from '@/lib/core/db/holdErrors';
 import { NextRequest } from 'next/server';
 
 // Helper to build a NextRequest with JSON body

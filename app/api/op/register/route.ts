@@ -20,7 +20,7 @@ export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { registerOperator } from '@/lib/onboarding/registerOperator';
 import { RegisterError } from '@/lib/onboarding/errors';
 import { PhoneNormalizeError } from '@/lib/auth/phoneNormalize';

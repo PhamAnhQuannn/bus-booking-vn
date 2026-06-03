@@ -2,7 +2,7 @@
  * getTrip — fetch a single trip belonging to operator (I2: cross-op → null).
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import type { TripDto } from './tripDto';
 import { toTripDto } from './toTripDto';
 

@@ -18,11 +18,11 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: { $queryRaw: vi.fn() },
 }));
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { getOperatorBalance, OPERATOR_BALANCE_TYPES } from '../balance';
 
 const queryRaw = prisma.$queryRaw as unknown as ReturnType<typeof vi.fn>;

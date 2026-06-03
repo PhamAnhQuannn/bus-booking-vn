@@ -17,7 +17,7 @@ const { mockRevoke, stepUpComposed, authOptions } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/admin/revokeAdmin', () => ({ revokeAdmin: mockRevoke }));
-vi.mock('@/lib/db/client', () => ({ prisma: {} }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: {} }));
 vi.mock('@/lib/auth/requireAdminAuth', () => ({
   requireAdminAuth: (opts: unknown) => {
     authOptions.value = opts;

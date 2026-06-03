@@ -32,7 +32,7 @@ const txTransactionMock = vi.fn();
 // prisma.$transaction(cb) → invoke cb with a tx exposing $queryRaw (the claim).
 // prisma.notificationLog.update → updateMock. There is NO booking model exposed
 // here — proving the dispatcher performs no Booking writes (AC5 decoupling).
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     $transaction: (cb: (tx: unknown) => unknown) =>
       txTransactionMock(cb),

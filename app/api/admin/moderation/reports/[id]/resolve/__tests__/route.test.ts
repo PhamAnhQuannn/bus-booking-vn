@@ -27,7 +27,7 @@ vi.mock('@/lib/auth/requireAdminAuth', () => ({
       (req: unknown) => handler(req, { adminId: 'sa-1', role: 'SUPER_ADMIN', totpVerified: true });
   },
 }));
-vi.mock('@/lib/db/client', () => ({ prisma: {} }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: {} }));
 
 import { POST } from '../route';
 import { NextRequest } from 'next/server';

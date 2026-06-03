@@ -13,7 +13,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/lib/db/client', () => ({ prisma: {} }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: {} }));
 
 const { mockAppend } = vi.hoisted(() => ({ mockAppend: vi.fn() }));
 vi.mock('../ledgerRepo', () => ({ appendLedgerEntry: mockAppend }));

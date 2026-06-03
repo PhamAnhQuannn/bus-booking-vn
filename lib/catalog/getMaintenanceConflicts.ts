@@ -15,7 +15,7 @@
  * — and then negated via NOT to fetch only overlapping rows.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 
 export interface FindConflictsInput {
   busId: string;

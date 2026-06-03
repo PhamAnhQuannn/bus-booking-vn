@@ -21,7 +21,7 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth/requireOperatorAuth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { transitionCharterRequest } from '@/lib/charter/charterStatus';
 import { CharterError } from '@/lib/charter/errors';
 import { assertOperatorApproved, CharterNotApprovedError } from '@/lib/charter/assertOperatorApproved';

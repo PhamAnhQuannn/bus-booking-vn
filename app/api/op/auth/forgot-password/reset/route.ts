@@ -15,7 +15,7 @@ import { ForgotPasswordResetSchema } from '@/lib/auth/types';
 import { verifyOtpProof } from '@/lib/auth/otpProof';
 import { hash as hashPassword } from '@/lib/auth/password';
 import { revokeAllOperatorSessions } from '@/lib/auth/operatorSession';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 async function handler(req: NextRequest): Promise<Response> {

@@ -13,7 +13,7 @@
  * @throws OperatorStatusError('operator_not_found') if no such operator exists.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { writeAdminAuditLog } from '@/lib/audit/adminAuditLog';
 import { OperatorStatusError } from './errors';
 

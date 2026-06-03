@@ -25,7 +25,7 @@ vi.mock('@/lib/auth/operatorSession', () => ({
   rotateOperatorRefresh: mockRotateOperatorRefresh,
 }));
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     operatorUser: { findUnique: mockOperatorFindUnique },
   },

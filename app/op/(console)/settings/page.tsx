@@ -18,7 +18,7 @@ import { UserCircle, Users, ShieldCheck, KeyRound } from 'lucide-react';
 
 import { getOperatorSession } from '@/lib/op/getOperatorSession';
 import { getPayoutAccount } from '@/lib/onboarding/payoutAccount';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 
 import { PageHeader } from '@/components/op/PageHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';

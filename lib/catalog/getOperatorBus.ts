@@ -5,7 +5,7 @@
  * Maintenance windows ordered by startAt ASC.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 
 export interface MaintenanceWindow {
   id: string;

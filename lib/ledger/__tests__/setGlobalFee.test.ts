@@ -12,7 +12,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/lib/db/client', () => ({ prisma: {} }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: {} }));
 
 import { setGlobalFee, GlobalFeeError, MAX_GLOBAL_FEE_PPM } from '../setGlobalFee';
 

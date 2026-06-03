@@ -9,7 +9,7 @@ const { mockQueryRaw, mockPlaceCreate } = vi.hoisted(() => ({
   mockPlaceCreate: vi.fn(),
 }));
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     $queryRaw: mockQueryRaw,
     place: { create: mockPlaceCreate },

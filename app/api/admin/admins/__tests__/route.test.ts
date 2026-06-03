@@ -13,7 +13,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const { mockInviteAdmin } = vi.hoisted(() => ({ mockInviteAdmin: vi.fn() }));
 
 vi.mock('@/lib/admin/inviteAdmin', () => ({ inviteAdmin: mockInviteAdmin }));
-vi.mock('@/lib/db/client', () => ({ prisma: {} }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: {} }));
 
 // requireAdminAuth + requireStepUp passthroughs: invoke the handler with a fixed
 // authed super-admin ctx (the real gates are unit-tested in their own modules).

@@ -6,7 +6,7 @@
  *   translate into HTTP 422 plate_in_use.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 
 export interface CreateBusInput {

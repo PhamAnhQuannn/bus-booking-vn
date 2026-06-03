@@ -16,7 +16,7 @@ import { redirect } from "next/navigation"
 
 import { getOperatorSession } from "@/lib/op/getOperatorSession"
 import { getUnviewedPaidCount } from "@/lib/booking/getUnviewedPaidCount"
-import { prisma } from "@/lib/db/client"
+import { prisma } from "@/lib/core/db/client"
 import { ApprovalBanner } from "@/components/op/ApprovalBanner"
 import { CommandPalette } from "@/components/op/CommandPalette"
 import { ConsoleHeader } from "@/components/op/ConsoleHeader"

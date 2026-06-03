@@ -14,7 +14,7 @@ const { mockSuspend, mockRequireAdminAuth } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/admin/suspendCustomer', () => ({ suspendCustomer: mockSuspend, reinstateCustomer: vi.fn() }));
-vi.mock('@/lib/db/client', () => ({ prisma: {} }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: {} }));
 vi.mock('@/lib/auth/requireAdminAuth', () => ({
   requireAdminAuth: (opts: unknown) => {
     mockRequireAdminAuth(opts);

@@ -41,7 +41,7 @@
  * `$transaction` so a partial write can never leave one leg without the other.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { appendLedgerEntry } from './ledgerRepo';
 import { refundPayment } from '@/lib/payment/refund';
 import { logger } from '@/lib/logger';

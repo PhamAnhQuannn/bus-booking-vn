@@ -20,7 +20,7 @@ vi.mock('@/lib/payment/adapters/momo', () => ({
   getMomoAdapter: vi.fn(),
 }));
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     booking: {
       findUnique: vi.fn(),
@@ -36,7 +36,7 @@ vi.mock('@/lib/db/client', () => ({
   },
 }));
 
-vi.mock('@/lib/db/notificationLogRepo', () => ({
+vi.mock('@/lib/core/db/notificationLogRepo', () => ({
   createNotificationLog: vi.fn(),
 }));
 
@@ -81,8 +81,8 @@ vi.mock('next/server', async () => {
 
 import { POST } from '../route';
 import { getMomoAdapter } from '@/lib/payment/adapters/momo';
-import { prisma } from '@/lib/db/client';
-import { createNotificationLog } from '@/lib/db/notificationLogRepo';
+import { prisma } from '@/lib/core/db/client';
+import { createNotificationLog } from '@/lib/core/db/notificationLogRepo';
 import { sendSms, sendSmsBody } from '@/lib/notification/esms';
 import { appendLedgerEntry } from '@/lib/ledger';
 import { logger } from '@/lib/logger';

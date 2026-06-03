@@ -5,7 +5,7 @@
  * Throws PickupPointServiceError('not_found') if not found or cross-operator.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { PickupPointServiceError } from './createPickupPoint';
 import type { PickupPointPatchInput } from '@/lib/core/validation/route';
 

@@ -30,7 +30,7 @@
  * first.
  */
 
-import { prisma as defaultPrisma } from '@/lib/db/client';
+import { prisma as defaultPrisma } from '@/lib/core/db/client';
 import { writeAdminAuditLog } from '@/lib/audit/adminAuditLog';
 
 /** Upper bound for a per-operator override: 200000 ppm = 20%. */

@@ -25,7 +25,7 @@
  */
 
 import type { CharterStatus, Prisma } from '@prisma/client';
-import { prisma as defaultPrisma } from '@/lib/db/client';
+import { prisma as defaultPrisma } from '@/lib/core/db/client';
 
 export interface CharterDispatchItem {
   id: string;

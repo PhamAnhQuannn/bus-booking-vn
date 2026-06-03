@@ -25,7 +25,7 @@ const { mockTransition, mockRequireAdminAuth, authOptions } = vi.hoisted(() => {
   };
 });
 
-vi.mock('@/lib/db/client', () => ({ prisma: {} }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: {} }));
 vi.mock('@/lib/charter', async () => {
   const actual = await vi.importActual<typeof import('@/lib/charter')>('@/lib/charter');
   return { ...actual, transitionCharterRequest: mockTransition };

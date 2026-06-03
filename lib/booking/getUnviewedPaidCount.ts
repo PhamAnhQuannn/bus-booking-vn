@@ -4,7 +4,7 @@
  * Returns 0 if lastBookingsViewedAt is null (first visit — will be set by touchLastViewed).
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 
 const PAID_STATUSES = [
   'paid',

@@ -17,7 +17,7 @@ const {
 }));
 
 vi.mock('@/lib/auth/jwt', () => ({ verifyOperatorAccess: mockVerifyOperatorAccess }));
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     operatorUser: {
       findUnique: mockOperatorFindUnique,

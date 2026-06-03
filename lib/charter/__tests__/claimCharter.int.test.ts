@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterEach, afterAll } from 'vitest';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { claimCharter } from '../claimCharter';
 import { generateCharterRef } from '../charterRef';
 

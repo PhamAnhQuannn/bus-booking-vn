@@ -14,7 +14,7 @@
  * since each represents seats currently committed to a passenger.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { BookingStatus } from '@prisma/client';
 import type { TripOccupancy } from './capacityGuard';
 

@@ -21,7 +21,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
-import { getBookingByConfirmationToken } from '@/lib/db/bookingRepo';
+import { getBookingByConfirmationToken } from '@/lib/core/db/bookingRepo';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 

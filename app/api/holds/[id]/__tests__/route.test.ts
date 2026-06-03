@@ -5,7 +5,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     hold: {
       findUnique: vi.fn(),
@@ -20,7 +20,7 @@ vi.mock('@/lib/security/holdCookie', () => ({
 }));
 
 import { GET } from '../route';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { extractHoldCookie } from '@/lib/security/holdCookie';
 import { NextRequest } from 'next/server';
 

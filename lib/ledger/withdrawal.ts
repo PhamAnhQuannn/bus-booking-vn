@@ -53,7 +53,7 @@
  */
 
 import { Prisma } from '@prisma/client';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { appendLedgerEntry } from './ledgerRepo';
 import { OPERATOR_BALANCE_TYPES } from './balance';
 import { MIN_WITHDRAW_THRESHOLD_VND, SETTLEMENT_DELAY_SQL_INTERVAL } from './constants';

@@ -20,7 +20,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import type { AdminAuthContext } from '@/lib/auth/requireAdminAuth';
 import { retryPayout } from '@/lib/ledger/retryPayout';
 import { writeAdminAuditLog } from '@/lib/audit/adminAuditLog';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { financeRoute, payoutIdFromUrl } from '../../../_shared';
 
 async function handler(req: NextRequest, ctx: AdminAuthContext): Promise<Response> {

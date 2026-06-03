@@ -4,7 +4,7 @@
  * Returns all routes (active + deactivated), ordered by createdAt desc.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 
 export async function listRoutes({ operatorId }: { operatorId: string }) {
   return prisma.route.findMany({

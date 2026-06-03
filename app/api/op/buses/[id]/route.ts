@@ -21,7 +21,7 @@ import { updateBus, type UpdateBusInput } from '@/lib/catalog/updateBus';
 import { BusServiceError } from '@/lib/catalog/createBus';
 import { canReduceCapacity } from '@/lib/catalog/capacityGuard';
 import { UpdateBusSchema } from '@/lib/core/validation/bus';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { BookingStatus } from '@prisma/client';
 
 const PAID_STATUSES: BookingStatus[] = [

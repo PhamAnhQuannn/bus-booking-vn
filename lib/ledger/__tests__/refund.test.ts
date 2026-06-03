@@ -13,7 +13,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Mock } from 'vitest';
 
-vi.mock('@/lib/db/client', () => {
+vi.mock('@/lib/core/db/client', () => {
   const txMock = { ledgerEntry: {} };
   return {
     prisma: {
@@ -36,7 +36,7 @@ vi.mock('@/lib/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { appendLedgerEntry } from '../ledgerRepo';
 import { refundPayment } from '@/lib/payment/refund';
 import { refundOut, RefundOutError } from '../refund';

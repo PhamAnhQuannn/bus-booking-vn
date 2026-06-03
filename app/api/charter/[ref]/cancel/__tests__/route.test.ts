@@ -10,7 +10,7 @@ const { mockGetByRef, mockTransition } = vi.hoisted(() => ({
   mockTransition: vi.fn(),
 }));
 
-vi.mock('@/lib/db/client', () => ({ prisma: {} }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: {} }));
 vi.mock('@/lib/charter', async () => {
   const actual = await vi.importActual<typeof import('@/lib/charter')>('@/lib/charter');
   return {

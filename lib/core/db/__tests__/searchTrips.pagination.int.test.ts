@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { searchTrips, decodeCursor } from '../searchTrips';
 
 const ORIGIN = 'ZZ Pagination Origin';

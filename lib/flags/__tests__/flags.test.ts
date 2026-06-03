@@ -18,7 +18,7 @@ const { mockWriteAudit } = vi.hoisted(() => ({ mockWriteAudit: vi.fn() }));
 vi.mock('@/lib/audit/adminAuditLog', () => ({ writeAdminAuditLog: mockWriteAudit }));
 // Stub the db singleton so importing flags.ts doesn't construct a real
 // PrismaClient (needs DATABASE_URL). Every test injects its own client anyway.
-vi.mock('@/lib/db/client', () => ({ prisma: {} }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: {} }));
 
 import { getFlag, getFlagValue, setFlag, envKey, __clearFlagCache } from '../flags';
 import { FLAG_KEYS } from '../keys';

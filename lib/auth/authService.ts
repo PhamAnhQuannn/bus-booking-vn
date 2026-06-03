@@ -5,7 +5,7 @@
  * Error enum strings are safe to log; never disclose phone/email existence to callers.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import { normalizePhone } from './phoneNormalize';
 import { consume } from './otp';

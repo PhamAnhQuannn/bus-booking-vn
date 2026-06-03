@@ -24,7 +24,7 @@ vi.mock('@/lib/booking/getCustomerBookingDetail', () => ({
 vi.mock('@/lib/storage', () => ({ createSignedDownloadUrl: mockSignedDownload }));
 // requireCustomerAuth re-reads the Customer row for the Issue 066 suspension gate,
 // AND the route reads booking.ticketPdfKey — mock the prisma singleton for both.
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     customer: {
       findUnique: vi.fn(async (a: { where: { id: string } }) => ({

@@ -9,7 +9,7 @@ const { mockRouteFindFirst, mockRouteUpdate } = vi.hoisted(() => ({
   mockRouteUpdate: vi.fn(),
 }));
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     route: {
       findFirst: mockRouteFindFirst,

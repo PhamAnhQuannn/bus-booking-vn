@@ -10,7 +10,7 @@
  *   - 'incomplete_reorder'     — not all active pickup points included in orderedIds
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { PickupPointServiceError } from './createPickupPoint';
 
 export async function bulkReorder({

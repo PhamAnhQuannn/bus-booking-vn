@@ -9,7 +9,7 @@
  * The caller (POST /api/auth/forgot-password) always 200s.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { normalizePhone } from '@/lib/auth/phoneNormalize';
 import { sendCustomerAccountOtp } from './customerOtp';
 

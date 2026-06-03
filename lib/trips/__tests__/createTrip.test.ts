@@ -10,7 +10,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Mock } from 'vitest';
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     route: { findFirst: vi.fn() },
     $transaction: vi.fn(),
@@ -19,7 +19,7 @@ vi.mock('@/lib/db/client', () => ({
 
 import { createTrip } from '../createTrip';
 import { TripServiceError } from '../errors';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 
 const mockRouteFindFirst = prisma.route.findFirst as Mock;
 const mockTransaction = prisma.$transaction as Mock;

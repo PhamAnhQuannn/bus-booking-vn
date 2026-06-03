@@ -8,7 +8,7 @@
  * I7-exempt: operator-only mutation; no client-originated amount.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import type { Payout } from '@prisma/client';
 
 export type RetryPayoutResult =

@@ -48,14 +48,14 @@
  * Cursor encoding: opaque `${departureAtISO}_${id}` (see encode/decodeCursor).
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
-import { searchResultSelect } from '@/lib/db/selects';
+import { searchResultSelect } from '@/lib/core/db/selects';
 import { SEARCH_VISIBLE_STATUSES } from '@/lib/onboarding';
 import { fromZonedTime } from 'date-fns-tz';
 import { startOfDay, endOfDay } from 'date-fns';
-import { encodeCursor, decodeCursor } from '@/lib/db/searchCursor';
-export { encodeCursor, decodeCursor } from '@/lib/db/searchCursor';
+import { encodeCursor, decodeCursor } from '@/lib/core/db/searchCursor';
+export { encodeCursor, decodeCursor } from '@/lib/core/db/searchCursor';
 
 const TZ = 'Asia/Ho_Chi_Minh';
 

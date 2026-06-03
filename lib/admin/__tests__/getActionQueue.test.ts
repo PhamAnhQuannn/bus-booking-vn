@@ -12,7 +12,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // getActionQueue imports the real prisma client for its DEFAULT param; stub the
 // module so importing it doesn't try to open a DB connection at load time. Every
 // test injects its own prismaStub, so the default is never exercised.
-vi.mock('@/lib/db/client', () => ({ prisma: {} }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: {} }));
 
 import { getActionQueue } from '../getActionQueue';
 

@@ -9,7 +9,7 @@
  * Includes paid bookings.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 
 export interface ManifestRow {
   bookingId: string;

@@ -10,7 +10,7 @@
  */
 
 import { z } from 'zod';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { toBookingQueueRow, type BookingQueueRow } from './toBookingQueueRow';
 
 export const ListOperatorBookingsParamsSchema = z.object({

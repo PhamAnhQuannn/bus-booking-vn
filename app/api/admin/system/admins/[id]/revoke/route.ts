@@ -15,7 +15,7 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth/requireAdminAuth';
 import { requireStepUp } from '@/lib/auth/requireStepUp';
 import { revokeAdmin } from '@/lib/admin/revokeAdmin';

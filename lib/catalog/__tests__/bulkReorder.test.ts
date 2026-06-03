@@ -30,7 +30,7 @@ function makeTx(lockRows: { id: string }[] = [{ id: 'r1' }], activePoints: { id:
   };
 }
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     $transaction: mockTransaction,
   },

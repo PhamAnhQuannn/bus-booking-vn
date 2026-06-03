@@ -5,13 +5,13 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     booking: { findFirst: vi.fn() },
   },
 }));
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { getCustomerBookingDetail } from '../getCustomerBookingDetail';
 
 const findFirst = prisma.booking.findFirst as unknown as ReturnType<typeof vi.fn>;

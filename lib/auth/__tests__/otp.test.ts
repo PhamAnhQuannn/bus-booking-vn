@@ -5,8 +5,8 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// ---- Mock @/lib/db/client before importing otp ----
-vi.mock('@/lib/db/client', () => {
+// ---- Mock @/lib/core/db/client before importing otp ----
+vi.mock('@/lib/core/db/client', () => {
   const mockPrisma = {
     $executeRaw: vi.fn(),
     $queryRaw: vi.fn(),
@@ -15,7 +15,7 @@ vi.mock('@/lib/db/client', () => {
 });
 
 import { generateCode, hashCode, generateSalt, consume } from '../otp';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 
 const TEST_PHONE = '+8490xxxxxx12';
 

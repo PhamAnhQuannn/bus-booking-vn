@@ -11,7 +11,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, Clock, Armchair, MapPin, Phone, Timer } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { getTripDetails } from '@/lib/db/getTripDetails';
+import { getTripDetails } from '@/lib/core/db/getTripDetails';
 import { TripBooking } from './TripBooking';
 
 export const dynamic = 'force-dynamic';

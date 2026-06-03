@@ -9,7 +9,7 @@
  * Discriminated result { ok, alreadyCompleted, trip }.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { completeTripCore } from './completeTripCore';
 import { toTripDto } from './toTripDto';
 import type { TripDto } from './tripDto';

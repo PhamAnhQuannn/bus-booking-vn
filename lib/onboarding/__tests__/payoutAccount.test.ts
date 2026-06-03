@@ -13,7 +13,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // The module imports the prisma singleton at load; stub it so the real client
 // (needs DATABASE_URL) is never constructed. Each test injects its own stub.
-vi.mock('@/lib/db/client', () => ({ prisma: { payoutAccount: {} } }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: { payoutAccount: {} } }));
 
 import {
   maskAccountNumber,

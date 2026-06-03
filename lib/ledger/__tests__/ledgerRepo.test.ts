@@ -11,7 +11,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Prisma } from '@prisma/client';
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     ledgerEntry: {
       create: vi.fn(),
@@ -20,7 +20,7 @@ vi.mock('@/lib/db/client', () => ({
   },
 }));
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { appendLedgerEntry } from '../ledgerRepo';
 
 const create = prisma.ledgerEntry.create as unknown as ReturnType<typeof vi.fn>;

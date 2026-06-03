@@ -60,10 +60,10 @@ export const charterExpirySweeper: JobCore = async (tx, opts) => {
   // cron route's unit tests mock runJob and never invoke this core, so the
   // dynamic import keeps the route's static import graph free of the DB client —
   // exactly how generateTrips / dispatchNotifications avoid the import-time break.
-  const { prisma } = await import('@/lib/db/client');
+  const { prisma } = await import('@/lib/core/db/client');
   const { transitionCharterRequest } = await import('@/lib/charter/charterStatus');
   const { CharterError } = await import('@/lib/charter/errors');
-  const { createNotificationLog } = await import('@/lib/db/notificationLogRepo');
+  const { createNotificationLog } = await import('@/lib/core/db/notificationLogRepo');
   const { Prisma } = await import('@prisma/client');
 
   const now = opts?.now ?? new Date();

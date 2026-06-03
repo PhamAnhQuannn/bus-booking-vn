@@ -25,7 +25,7 @@ import { notFound } from 'next/navigation';
 import { CalendarDays, MapPin, Phone, Users } from 'lucide-react';
 import type { CharterStatus } from '@prisma/client';
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { getCharterByRef, CUSTOMER_CANCELLABLE_STATUSES } from '@/lib/charter';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

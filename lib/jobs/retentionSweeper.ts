@@ -56,7 +56,7 @@ export const retentionSweeper: JobCore = async (tx, opts) => {
   // of the DB client (mirrors charterExpirySweeper / generateTrips).
   const { Prisma } = await import('@prisma/client');
   const { deleteObject } = await import('@/lib/storage');
-  const { prisma } = await import('@/lib/db/client');
+  const { prisma } = await import('@/lib/core/db/client');
   const { GUEST_PII_RETENTION_DAYS, KYB_DOC_RETENTION_DAYS } = await import(
     '@/lib/account/retentionPolicy'
   );

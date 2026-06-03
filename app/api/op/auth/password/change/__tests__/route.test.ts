@@ -31,7 +31,7 @@ vi.mock('@/lib/auth/password', () => ({
   verify: mockVerifyPassword,
   hash: mockHashPassword,
 }));
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     operatorUser: {
       findUnique: mockOperatorFindUnique,

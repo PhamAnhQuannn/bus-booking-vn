@@ -4,7 +4,7 @@
  * Returns null if route doesn't exist or belongs to another operator.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 
 export async function getRouteById({
   operatorId,

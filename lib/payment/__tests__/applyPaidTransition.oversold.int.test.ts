@@ -22,7 +22,7 @@
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { randomUUID } from 'node:crypto';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { applyPaidStatusTransition } from '../applyPaidTransition';
 
 const CAPACITY = 1; // single-seat forces oversell on the second payment

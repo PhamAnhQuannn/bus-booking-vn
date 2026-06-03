@@ -11,7 +11,7 @@ import type { NextRequest } from 'next/server';
 // Mock the prisma singleton so the real client (needs DATABASE_URL) is never built.
 // findUnique default: returns a non-suspended row for whatever id is queried.
 const findUnique = vi.fn();
-vi.mock('@/lib/db/client', () => ({ prisma: { customer: { findUnique: (...a: unknown[]) => findUnique(...a) } } }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: { customer: { findUnique: (...a: unknown[]) => findUnique(...a) } } }));
 
 beforeEach(() => {
   delete process.env.JWT_SECRET;

@@ -15,7 +15,7 @@ const { mockResolvePlace, mockCreateNotificationLog } = vi.hoisted(() => ({
 vi.mock('@/lib/places/placeRepo', () => ({
   resolveOrCreatePlace: mockResolvePlace,
 }));
-vi.mock('@/lib/db/notificationLogRepo', () => ({
+vi.mock('@/lib/core/db/notificationLogRepo', () => ({
   createNotificationLog: mockCreateNotificationLog,
 }));
 

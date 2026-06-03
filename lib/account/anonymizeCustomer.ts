@@ -20,7 +20,7 @@
  * Does NOT throw on second call — per plan rule "idempotent ops whose AC specifies 200+discriminator".
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 
 /**
  * Masked PII placeholders for the on-delete booking-snapshot scrub. The phone

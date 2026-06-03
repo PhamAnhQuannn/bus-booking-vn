@@ -27,13 +27,13 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import { uuidv7 } from 'uuidv7';
 import { generateBookingRef } from '@/lib/booking/bookingRef';
 import { generateConfirmationToken } from '@/lib/booking/confirmationToken';
 import { CONSENT_TYPES } from '@/lib/booking/consent';
-import { bookingDetailSelect, type BookingFullDetails } from '@/lib/db/bookingSelects';
+import { bookingDetailSelect, type BookingFullDetails } from '@/lib/core/db/bookingSelects';
 
 export { bookingDetailSelect, type BookingFullDetails };
 

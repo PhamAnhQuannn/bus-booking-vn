@@ -18,7 +18,7 @@ export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { searchParamsSchema } from '@/lib/core/validation/search';
-import { searchTrips } from '@/lib/db/searchTrips';
+import { searchTrips } from '@/lib/core/db/searchTrips';
 import { ratelimit } from '@/lib/ratelimit';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { track, sessionIdFromRequest } from '@/lib/analytics/track';

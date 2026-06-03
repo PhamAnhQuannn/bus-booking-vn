@@ -22,7 +22,7 @@
  */
 
 import { transitionCharterRequest, type CharterTransitionClient } from './charterStatus';
-import { createNotificationLog } from '@/lib/db/notificationLogRepo';
+import { createNotificationLog } from '@/lib/core/db/notificationLogRepo';
 
 export interface DeclineCharterInput {
   charterId: string;

@@ -8,7 +8,7 @@
  *   column is added. Stable for list-view consumers.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { withOperatorScope } from '@/lib/core/db';
 
 export interface OperatorBusListItem {

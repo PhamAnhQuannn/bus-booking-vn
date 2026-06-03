@@ -15,7 +15,7 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { runJob } from '@/lib/jobs/runJob';
 import { expireHolds } from '@/lib/jobs/expireHolds';
 import { logger } from '@/lib/logger';

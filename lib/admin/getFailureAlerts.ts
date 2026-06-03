@@ -14,7 +14,7 @@
  * the System tab (070) owns the deep failure dashboards.
  */
 
-import { prisma as defaultPrisma } from '@/lib/db/client';
+import { prisma as defaultPrisma } from '@/lib/core/db/client';
 
 export interface FailureAlertItem {
   id: string;

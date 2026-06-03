@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Mock } from 'vitest';
 
-vi.mock('@/lib/db/client', () => {
+vi.mock('@/lib/core/db/client', () => {
   const txMock = {
     $queryRaw: vi.fn(),
     trip: { update: vi.fn(), findUnique: vi.fn() },
@@ -30,7 +30,7 @@ vi.mock('@/lib/ledger', () => ({
 
 import { cancelTrip } from '../cancelTrip';
 import { TripServiceError } from '../errors';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { refundOut } from '@/lib/ledger';
 
 const p = prisma as unknown as {

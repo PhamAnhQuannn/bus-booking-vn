@@ -23,8 +23,8 @@ const { mockTx, mockPrisma, mockCreateNotificationLog, mockWriteAdminAuditLog } 
   return { mockTx, mockPrisma, mockCreateNotificationLog, mockWriteAdminAuditLog };
 });
 
-vi.mock('@/lib/db/client', () => ({ prisma: mockPrisma }));
-vi.mock('@/lib/db/notificationLogRepo', () => ({
+vi.mock('@/lib/core/db/client', () => ({ prisma: mockPrisma }));
+vi.mock('@/lib/core/db/notificationLogRepo', () => ({
   createNotificationLog: mockCreateNotificationLog,
 }));
 vi.mock('@/lib/audit/adminAuditLog', () => ({

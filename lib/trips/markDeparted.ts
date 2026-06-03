@@ -16,7 +16,7 @@
  * excludes it and new holds cannot be created.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import { TripServiceError } from './errors';
 import { toTripDto } from './toTripDto';

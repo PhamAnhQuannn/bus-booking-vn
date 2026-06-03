@@ -13,7 +13,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // The service imports the shared prisma client at module load; it takes an
 // injectable client so the default is never exercised — stub to an empty object.
-vi.mock('@/lib/db/client', () => ({ prisma: {} }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: {} }));
 
 import {
   setOperatorFeeOverride,

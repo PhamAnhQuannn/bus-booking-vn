@@ -16,7 +16,7 @@
 
 import { z } from 'zod';
 import type { Prisma } from '@prisma/client';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import type { BookingPaymentStatus } from './bookingDto';
 
 export const ListCustomerBookingsParamsSchema = z.object({

@@ -6,7 +6,7 @@
  */
 
 import type { Metadata } from 'next';
-import { getActiveRoutes } from '@/lib/db/getActiveRoutes';
+import { getActiveRoutes } from '@/lib/core/db/getActiveRoutes';
 import { RoutesBrowser } from './RoutesBrowser';
 
 export const metadata: Metadata = {

@@ -21,7 +21,7 @@
  */
 
 import type { OperatorStatus, PayoutStatus } from '@prisma/client';
-import { prisma as defaultPrisma } from '@/lib/db/client';
+import { prisma as defaultPrisma } from '@/lib/core/db/client';
 import { redactPhone } from '@/lib/audit/redactPhone';
 import { getOperatorBalance, type OperatorBalance } from '@/lib/ledger/balance';
 import { getEffectiveFeeRate } from '@/lib/ledger/feeConfig';

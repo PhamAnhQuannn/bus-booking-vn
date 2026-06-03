@@ -27,7 +27,7 @@ const { mockTransition, mockFindUnique, mockRequireAdminAuth, authOptions } = vi
   };
 });
 
-vi.mock('@/lib/db/client', () => ({ prisma: { operator: { findUnique: mockFindUnique } } }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: { operator: { findUnique: mockFindUnique } } }));
 vi.mock('@/lib/charter', async () => {
   const actual = await vi.importActual<typeof import('@/lib/charter')>('@/lib/charter');
   return { ...actual, transitionCharterRequest: mockTransition };

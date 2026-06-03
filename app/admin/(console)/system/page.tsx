@@ -20,7 +20,7 @@
  */
 
 import { requireAdminPage } from '@/lib/auth/requireAdminPage';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { getFlag } from '@/lib/flags/flags';
 import { FLAG_KEYS } from '@/lib/flags/keys';
 import { listAdmins, type AdminRow } from '@/lib/admin/listAdmins';

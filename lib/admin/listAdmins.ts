@@ -10,7 +10,7 @@
  */
 
 import type { AdminRole, AdminStatus } from '@prisma/client';
-import { prisma as defaultPrisma } from '@/lib/db/client';
+import { prisma as defaultPrisma } from '@/lib/core/db/client';
 
 export interface AdminRow {
   id: string;

@@ -17,7 +17,7 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth/requireOperatorAuth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { markNoShow } from '@/lib/booking/checkIn';
 import { resolveBookingTripId } from '@/lib/booking/resolveBookingTripId';
 

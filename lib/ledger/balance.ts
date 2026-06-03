@@ -69,7 +69,7 @@
  */
 
 import { Prisma } from '@prisma/client';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { SETTLEMENT_DELAY_SQL_INTERVAL } from './constants';
 
 /**

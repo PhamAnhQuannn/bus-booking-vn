@@ -5,7 +5,7 @@
  * staff roster). Ordered newest-first.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { toStaffDto, type StaffDto } from './toStaffDto';
 
 export async function listStaff(operatorId: string): Promise<StaffDto[]> {

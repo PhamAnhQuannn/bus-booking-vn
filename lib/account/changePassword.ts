@@ -6,7 +6,7 @@
  * On success: hashes new password, revokes ALL sessions (updateMany revokedAt).
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { verify as verifyPassword, hash as hashPassword } from '@/lib/auth/password';
 
 export type ChangePasswordErrorCode =
