@@ -743,3 +743,21 @@ model FeeConfig {
   @@index([operatorId, effectiveFrom])
   @@index([effectiveFrom])
 }
+
+/// FeatureFlag (Issue 060) — DB-backed runtime feature gate / payment-rail
+/// toggle / kill-switch store. Read through lib/flags (getFlag) which resolves
+/// env-override → cached DB row → caller default. `key` is the natural PK
+/// (e.g. 'rail.momo.enabled', 'killswitch.booking'); see lib/flags/keys.ts for
+/// the documented known-key set.
+///
+/// SCOPE: FeatureFlags are runtime feature gates only. Env `*_STUB` infra
+/// toggles (PAYMENTS_STUB / NOTIFY_STUB / STORAGE_STUB) stay in lib/config/env.ts
+/// and are NOT FeatureFlags; FeeConfig (Issue 048) is effective-dated config,
+/// NOT a flag.
+model FeatureFlag {
+  key       String   @id // flag key, e.g. 'rail.momo.enabled', 'killswitch.booking'
+  enabled   Boolean  @default(false)
+  value     String? // optional structured value (JSON string) for non-boolean flags
+  updatedBy String? // actor id of the last setter
+  updatedAt DateTime @updatedAt
+}
