@@ -71,11 +71,11 @@ export interface RefundOutResult {
  * Booking statuses for which a refund-out is valid: the booking WAS paid. Note
  * that the operator-cancel trigger flips paid bookings to `trip_cancelled`
  * BEFORE refundOut runs (cancelTrip commits first), so `trip_cancelled` must be
- * accepted here. `paid_operator_notified` / `completed` cover the overpay and
+ * accepted here. `paid` / `completed` cover the overpay and
  * oversold paths where the booking is still in a live paid state.
  */
 const REFUNDABLE_STATUSES = new Set([
-  'paid_operator_notified',
+  'paid',
   'completed',
   'trip_cancelled',
   'no_show',

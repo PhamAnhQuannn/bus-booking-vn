@@ -12,7 +12,7 @@
  *      Zero NotificationLog rows seeded here (notifications come after IPN)
  *   5. Call gateway.createPayment AFTER booking row exists
  *   6. On gateway failure: compensating $transaction — DELETE booking row +
- *      revert hold from 'converted' → 'active' preserving expiresAt
+ *      revert hold from 'consumed' → 'active' preserving expiresAt
  *   7. On success: return { ok: true, bookingId, payUrl, confirmationToken }
  *
  * Gateway is injected (PaymentGateway interface) so tests can use a fake;
@@ -199,7 +199,7 @@ export async function initiateOnlineBooking(
           Prisma.sql`
             UPDATE "Hold"
             SET status = 'active'::"HoldStatus"
-            WHERE id = ${holdId} AND status = 'converted'::"HoldStatus"
+            WHERE id = ${holdId} AND status = 'consumed'::"HoldStatus"
           `
         ),
       ]);

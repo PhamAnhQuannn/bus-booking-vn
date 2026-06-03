@@ -49,7 +49,7 @@ import { busHasOverlappingTrip, tripWindowEnd } from './busOverlap';
  */
 const PAID_TICKET_STATUSES = [
   'pending_cash_payment',
-  'paid_operator_notified',
+  'paid',
   'completed',
   'no_show',
 ] as const;
@@ -123,7 +123,7 @@ export async function reassignBus(
         tx.booking.aggregate({
           where: {
             tripId,
-            status: { in: ['pending_cash_payment', 'paid_operator_notified', 'completed'] },
+            status: { in: ['pending_cash_payment', 'paid', 'completed'] },
           },
           _sum: { ticketCount: true },
         }),
@@ -165,7 +165,7 @@ export async function reassignBus(
               holds: { where: { status: 'active' } },
               bookings: {
                 where: {
-                  status: { in: ['pending_cash_payment', 'paid_operator_notified', 'completed'] },
+                  status: { in: ['pending_cash_payment', 'paid', 'completed'] },
                 },
               },
             },
@@ -271,7 +271,7 @@ async function _updatedTrip(_id: string) {
         select: {
           holds: { where: { status: 'active' } },
           bookings: {
-            where: { status: { in: ['pending_cash_payment', 'paid_operator_notified', 'completed'] } },
+            where: { status: { in: ['pending_cash_payment', 'paid', 'completed'] } },
           },
         },
       },

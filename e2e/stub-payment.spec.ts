@@ -9,7 +9,7 @@
  *       carries orderId (=bookingRef) + redirectUrl (=/booking/result/<token>).
  *   POST a STUB_PAYMENT_SECRET-signed IPN to /api/payments/<adapter>/webhook
  *     → 200 { message: 'ok' } and the booking transitions:
- *         resultCode 0  → paid_operator_notified  (result page: "Thanh toán thành công")
+ *         resultCode 0  → paid  (result page: "Thanh toán thành công")
  *         resultCode 99 → payment_failed_expired   (result page: "Thanh toán thất bại")
  *   Replaying the same success IPN → 200 (idempotent no-op via PaymentEvent unique).
  *   Bad signature → 400.

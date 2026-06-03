@@ -10,7 +10,7 @@
  *   - bookings with status in (cancelled, trip_cancelled, no_show, payment_failed_expired)
  *
  * Paid statuses counted: awaiting_payment is NOT counted as paid; we count
- * `pending_cash_payment`, `paid_operator_notified`, and `completed` as paid-seats
+ * `pending_cash_payment`, `paid`, and `completed` as paid-seats
  * since each represents seats currently committed to a passenger.
  */
 
@@ -20,7 +20,7 @@ import type { TripOccupancy } from './capacityGuard';
 
 const PAID_STATUSES: BookingStatus[] = [
   BookingStatus.pending_cash_payment,
-  BookingStatus.paid_operator_notified,
+  BookingStatus.paid,
   BookingStatus.completed,
 ];
 

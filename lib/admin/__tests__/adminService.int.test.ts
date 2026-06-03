@@ -216,7 +216,7 @@ describe('disableOperator', () => {
         ticketCount: 1,
         totalVnd: 100_000,
         paymentMethod: 'cash',
-        status: 'paid_operator_notified',
+        status: 'paid',
       },
     });
     paidBookingId = booking.id;
@@ -281,7 +281,7 @@ describe('disableOperator', () => {
       where: { id: paidBookingId },
       select: { status: true },
     });
-    expect(booking.status).toBe('paid_operator_notified');
+    expect(booking.status).toBe('paid');
 
     // AC5: exactly one disable audit row.
     const audit = await prisma.adminAuditLog.findMany({

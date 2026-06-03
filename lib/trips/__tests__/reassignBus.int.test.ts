@@ -84,7 +84,7 @@ beforeAll(async () => {
       ticketCount: 1,
       totalVnd: 100_000,
       paymentMethod: 'momo',
-      status: 'paid_operator_notified',
+      status: 'paid',
       isManual: false,
       contactStatus: 'pending',
       ticketPdfKey: 'ticket_pdf/BB-2026-r075-aaa1.pdf',

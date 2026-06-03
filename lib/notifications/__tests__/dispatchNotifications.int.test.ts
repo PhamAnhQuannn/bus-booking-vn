@@ -41,7 +41,7 @@ async function createBooking(ref: string): Promise<string> {
       ticketCount: 1,
       totalVnd: 150_000,
       paymentMethod: 'cash',
-      status: 'paid_operator_notified',
+      status: 'paid',
       isManual: false,
       contactStatus: 'pending',
     },

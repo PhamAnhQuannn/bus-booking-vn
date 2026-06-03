@@ -47,7 +47,7 @@ interface PrepareCtx {
 
 /**
  * Seeds the DB with:
- *   - Op A (SEED_PHONE) — one trip in the future, two bookings (paid_operator_notified + pending_cash_payment)
+ *   - Op A (SEED_PHONE) — one trip in the future, two bookings (paid + pending_cash_payment)
  *   - Op B (OP_B_PHONE) — one trip + one booking (tenant isolation)
  */
 async function prepareQueue(): Promise<PrepareCtx> {
@@ -114,11 +114,11 @@ async function prepareQueue(): Promise<PrepareCtx> {
     await client.query(`DELETE FROM "NotificationLog" WHERE "bookingId" IN (SELECT id FROM "Booking" WHERE "tripId" = $1 OR "bookingRef" = ANY($2))`, [tripId, leftoverRefs]);
     await client.query(`DELETE FROM "Booking" WHERE "tripId" = $1 OR "bookingRef" = ANY($2)`, [tripId, leftoverRefs]);
 
-    // Paid booking (paid_operator_notified)
+    // Paid booking (paid)
     const paidId = randomUUID();
     await client.query(
       `INSERT INTO "Booking" ("id","bookingRef","confirmationToken","tripId","buyerName","buyerPhone","ticketCount","totalVnd","paymentMethod","status","isManual","contactStatus","createdAt")
-       VALUES ($1, 'BB-2026-eq01-aa11', 'tok-eq01-aa11', $2, 'E2E Queue Buyer', '+8490xxxxxx2', 2, 200000, 'momo', 'paid_operator_notified', false, 'pending', NOW())`,
+       VALUES ($1, 'BB-2026-eq01-aa11', 'tok-eq01-aa11', $2, 'E2E Queue Buyer', '+8490xxxxxx2', 2, 200000, 'momo', 'paid', false, 'pending', NOW())`,
       [paidId, tripId]
     );
 
@@ -191,7 +191,7 @@ async function prepareQueue(): Promise<PrepareCtx> {
     const opBBookingId = randomUUID();
     await client.query(
       `INSERT INTO "Booking" ("id","bookingRef","confirmationToken","tripId","buyerName","buyerPhone","ticketCount","totalVnd","paymentMethod","status","isManual","contactStatus","createdAt")
-       VALUES ($1, 'BB-2026-eqb1-cc33', 'tok-eqb1-cc33', $2, 'Op B Buyer', '+8490xxxxxx4', 1, 80000, 'momo', 'paid_operator_notified', false, 'pending', NOW())`,
+       VALUES ($1, 'BB-2026-eqb1-cc33', 'tok-eqb1-cc33', $2, 'Op B Buyer', '+8490xxxxxx4', 1, 80000, 'momo', 'paid', false, 'pending', NOW())`,
       [opBBookingId, opBTripId]
     );
 

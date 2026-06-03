@@ -48,7 +48,7 @@ const psp = refundPayment as unknown as Mock;
 
 const PAID_BOOKING = {
   id: 'bk-1',
-  status: 'paid_operator_notified',
+  status: 'paid',
   paymentExternalRef: 'stub_BB-2026-abcd-ef01_success',
   trip: { bus: { operatorId: 'op-1' } },
 };

@@ -84,7 +84,7 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
                  WHERE "tripId" = t.id
                    AND status IN (
                      'pending_cash_payment'::"BookingStatus",
-                     'paid_operator_notified'::"BookingStatus",
+                     'paid'::"BookingStatus",
                      'completed'::"BookingStatus"
                    )),
                 0

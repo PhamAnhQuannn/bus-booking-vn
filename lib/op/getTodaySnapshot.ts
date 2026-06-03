@@ -23,7 +23,7 @@ export interface TodaySnapshot {
 
 const PAID_STATUSES: BookingStatus[] = [
   BookingStatus.pending_cash_payment,
-  BookingStatus.paid_operator_notified,
+  BookingStatus.paid,
   BookingStatus.completed,
 ]
 

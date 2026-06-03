@@ -91,7 +91,7 @@ describe('POST /api/op/scan', () => {
   it('ok → 200 with booking', async () => {
     mockScanTicket.mockResolvedValue({
       ok: true,
-      booking: { id: 'b1', bookingRef: 'BB-x', ticketCount: 1, buyerName: 'A', checkedInAt: null, noShowAt: null, status: 'paid_operator_notified', tripId: 't1' },
+      booking: { id: 'b1', bookingRef: 'BB-x', ticketCount: 1, buyerName: 'A', checkedInAt: null, noShowAt: null, status: 'paid', tripId: 't1' },
     });
     const res = await POST(makePost());
     expect(res.status).toBe(200);
@@ -104,7 +104,7 @@ describe('POST /api/op/scan', () => {
     mockOperatorFindUnique.mockResolvedValue({ ...ADMIN_USER, role: 'staff', assignedTripId: 't-assigned' });
     mockScanTicket.mockResolvedValue({
       ok: true,
-      booking: { id: 'b1', bookingRef: 'BB-x', ticketCount: 1, buyerName: 'A', checkedInAt: null, noShowAt: null, status: 'paid_operator_notified', tripId: 't-other' },
+      booking: { id: 'b1', bookingRef: 'BB-x', ticketCount: 1, buyerName: 'A', checkedInAt: null, noShowAt: null, status: 'paid', tripId: 't-other' },
     });
     const res = await POST(makePost());
     expect(res.status).toBe(404);
@@ -114,7 +114,7 @@ describe('POST /api/op/scan', () => {
     mockOperatorFindUnique.mockResolvedValue({ ...ADMIN_USER, role: 'staff', assignedTripId: 't-assigned' });
     mockScanTicket.mockResolvedValue({
       ok: true,
-      booking: { id: 'b1', bookingRef: 'BB-x', ticketCount: 1, buyerName: 'A', checkedInAt: null, noShowAt: null, status: 'paid_operator_notified', tripId: 't-assigned' },
+      booking: { id: 'b1', bookingRef: 'BB-x', ticketCount: 1, buyerName: 'A', checkedInAt: null, noShowAt: null, status: 'paid', tripId: 't-assigned' },
     });
     const res = await POST(makePost());
     expect(res.status).toBe(200);

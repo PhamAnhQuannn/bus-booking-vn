@@ -33,7 +33,7 @@ import { Prisma, type PrismaClient } from '@prisma/client';
 import { verifyTicketToken } from '@/lib/ticketing/ticketToken';
 
 /** Booking statuses that mean the seat is paid and the passenger may board. */
-export const BOARDABLE_STATUSES = ['paid_operator_notified', 'completed'] as const;
+export const BOARDABLE_STATUSES = ['paid', 'completed'] as const;
 
 /** A minimal client surface — accepts the full PrismaClient or a tx handle. */
 type Db = PrismaClient;
@@ -195,7 +195,7 @@ export async function markNoShow(
         "noShowAt" = NOW()
     WHERE id = ${bookingId}::uuid
       AND "checkedInAt" IS NULL
-      AND status IN ('paid_operator_notified'::"BookingStatus", 'completed'::"BookingStatus")
+      AND status IN ('paid'::"BookingStatus", 'completed'::"BookingStatus")
       AND "tripId" IN (SELECT id FROM "Trip" WHERE "operatorId" = ${operatorId})
   `);
 

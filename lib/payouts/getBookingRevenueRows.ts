@@ -13,7 +13,7 @@
  * the UI presents to users — Asia/Ho_Chi_Minh.)
  *
  * "Paid" booking statuses (same whitelist as getRevenueReport.ts):
- *   pending_cash_payment, paid_operator_notified, completed
+ *   pending_cash_payment, paid, completed
  * Excluded: awaiting_payment, cancelled, trip_cancelled, no_show, payment_failed_expired.
  *
  * I7-exempt: operator-side reporting endpoint; operator is the price authority.
@@ -21,7 +21,7 @@
 
 import { prisma } from '@/lib/db/client';
 
-const PAID_STATUSES = ['pending_cash_payment', 'paid_operator_notified', 'completed'] as const;
+const PAID_STATUSES = ['pending_cash_payment', 'paid', 'completed'] as const;
 
 export interface BookingRevenueRow {
   bookingRef: string;

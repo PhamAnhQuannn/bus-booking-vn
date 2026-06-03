@@ -32,7 +32,7 @@ import { logger } from '@/lib/logger';
 
 const TICKETABLE_STATUSES: ReadonlySet<BookingPaymentStatus> = new Set([
   'pending_cash_payment',
-  'paid_operator_notified',
+  'paid',
   'completed',
   'no_show',
 ]);

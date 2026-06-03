@@ -37,7 +37,7 @@ export const BATCH_SIZE = 25;
  */
 const PAID_STATUSES = [
   'pending_cash_payment',
-  'paid_operator_notified',
+  'paid',
   'completed',
   'no_show',
 ] as const;

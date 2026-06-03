@@ -33,7 +33,7 @@ import { prisma } from '@/lib/db/client';
 import { verifyTicketToken } from '@/lib/ticketing/ticketToken';
 
 /** Booking statuses that mean money has been received (paid or beyond). */
-const PAID_STATUSES = new Set(['paid_operator_notified', 'completed']);
+const PAID_STATUSES = new Set(['paid', 'completed']);
 
 /**
  * The PUBLIC boarding view. Intentionally PII-free — no buyer name/phone/email.
@@ -41,7 +41,7 @@ const PAID_STATUSES = new Set(['paid_operator_notified', 'completed']);
 export interface TicketVerification {
   bookingRef: string;
   status: string;
-  /** True once the booking has reached paid_operator_notified or beyond. */
+  /** True once the booking has reached paid or beyond. */
   isPaid: boolean;
   ticketCount: number;
   /** Gateway provider transaction id (Booking.paymentExternalRef). Null pre-payment. */

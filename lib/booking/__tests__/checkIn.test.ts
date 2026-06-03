@@ -51,7 +51,7 @@ function bookingRow(overrides: Record<string, unknown> = {}) {
     buyerName: 'Nguyen Van A',
     checkedInAt: null,
     noShowAt: null,
-    status: 'paid_operator_notified',
+    status: 'paid',
     tripId: TRIP_ID,
     trip: { operatorId: OPERATOR_ID },
     ...overrides,
@@ -129,7 +129,7 @@ describe('scanTicket', () => {
         buyerName: 'Nguyen Van A',
         checkedInAt: '2026-06-10T22:05:00.000Z',
         noShowAt: null,
-        status: 'paid_operator_notified',
+        status: 'paid',
         tripId: TRIP_ID,
       },
     });

@@ -11,7 +11,7 @@
  *   2. The WHERE clause inside the SELECT subquery validates the hold is
  *      still active + unexpired AND the trip is still scheduled + open.
  *      If either is false the INSERT is suppressed via WHERE EXISTS.
- *   3. After insert, mark the hold as 'converted' (best-effort — the booking
+ *   3. After insert, mark the hold as 'consumed' (best-effort — the booking
  *      row is the source of truth).
  *
  *   Returns:
@@ -75,7 +75,7 @@ export interface BookingRow {
   status:
     | 'awaiting_payment'
     | 'pending_cash_payment'
-    | 'paid_operator_notified'
+    | 'paid'
     | 'completed'
     | 'cancelled'
     | 'trip_cancelled'
@@ -193,7 +193,7 @@ export async function createOnlineBookingFromHold(
         await tx.$executeRaw(
           Prisma.sql`
             UPDATE "Hold"
-            SET status = 'converted'::"HoldStatus"
+            SET status = 'consumed'::"HoldStatus"
             WHERE id = ${holdId} AND status = 'active'::"HoldStatus"
           `
         );

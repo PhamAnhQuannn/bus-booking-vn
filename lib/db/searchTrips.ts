@@ -139,7 +139,7 @@ export async function searchTrips(input: TripSearchInput): Promise<TripResult[]>
       WHERE "tripId" = ANY(${tripIds}::text[])
         AND status IN (
           'pending_cash_payment'::"BookingStatus",
-          'paid_operator_notified'::"BookingStatus",
+          'paid'::"BookingStatus",
           'completed'::"BookingStatus"
         )
       GROUP BY "tripId"

@@ -16,8 +16,9 @@
  * out means the webhook's derived WHERE stays exactly `awaiting_payment` and
  * never touches historical cash rows.
  *
- * NOTE: enum value `paid_operator_notified` is "paid" until the Wave-7 rename
- * (`paid_operator_notified → paid` split). Do not rename here.
+ * NOTE: the booking money state is `paid` (renamed from the combined
+ * `paid_operator_notified` flag in Issue 087 — money truth is now decoupled
+ * from notification delivery, which lives in NotificationLog per Issue 058).
  */
 
 import type { BookingStatus } from '@prisma/client';
@@ -28,11 +29,11 @@ import type { BookingStatus } from '@prisma/client';
  * editing THIS map — the only place the rule lives.
  */
 export const LEGAL_BOOKING_TRANSITIONS: Record<BookingStatus, readonly BookingStatus[]> = {
-  awaiting_payment: ['paid_operator_notified', 'payment_failed_expired'],
+  awaiting_payment: ['paid', 'payment_failed_expired'],
   // Dead legacy enum value (cash paths removed in Issue 039; enum dropped in
   // Phase B). No forward moves — historical rows are terminal here.
   pending_cash_payment: [],
-  paid_operator_notified: ['completed', 'trip_cancelled', 'no_show'],
+  paid: ['completed', 'trip_cancelled', 'no_show'],
   completed: [],
   cancelled: [],
   trip_cancelled: [],

@@ -3,7 +3,7 @@
  *
  * Filters: busId, serviceDate (YYYY-MM-DD), routeId, contactStatus
  * Sorts: trip.departureAt ASC (soonest first)
- * Paid statuses only: paid, paid_operator_notified, pending_cash_payment
+ * Paid statuses only: paid, pending_cash_payment
  * Tenant-isolated: only trips belonging to operator's operatorId.
  *
  * Pagination: cursor-based (cursor = last booking id in previous page).
@@ -31,7 +31,7 @@ export interface ListOperatorBookingsResult {
 }
 
 const PAID_STATUSES = [
-  'paid_operator_notified',
+  'paid',
   'pending_cash_payment',
   // 'completed' is also included for the manifest/queue — operators need to see it
   'completed',

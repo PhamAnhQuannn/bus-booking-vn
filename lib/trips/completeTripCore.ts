@@ -23,7 +23,7 @@ import { calcPayout } from '@/lib/payouts/calcPayout';
 import { TripServiceError } from './errors';
 import { randomUUID } from 'crypto';
 
-const PAYOUT_ELIGIBLE_STATUSES = ['paid_operator_notified', 'completed'] as const;
+const PAYOUT_ELIGIBLE_STATUSES = ['paid', 'completed'] as const;
 
 // Settlement delay = T+1 (S15#5, ratified 2026-06-01). The 1-day buffer is the
 // dispute/chargeback window. TODO(ledger, issues 048-050): promote to a FeeConfig-style
@@ -37,7 +37,7 @@ const tripInclude = {
       holds: { where: { status: 'active' } },
       bookings: {
         where: {
-          status: { in: ['pending_cash_payment', 'paid_operator_notified', 'completed'] },
+          status: { in: ['pending_cash_payment', 'paid', 'completed'] },
         },
       },
     },

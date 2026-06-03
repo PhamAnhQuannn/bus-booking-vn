@@ -25,7 +25,7 @@ function rawRow(id: string) {
     ticketCount: 2,
     totalVnd: 300000,
     paymentMethod: 'momo',
-    status: 'paid_operator_notified',
+    status: 'paid',
     createdAt: new Date('2026-05-01T00:00:00Z'),
     trip: {
       departureAt: new Date('2026-06-01T03:00:00Z'),
@@ -47,7 +47,7 @@ describe('listCustomerBookings', () => {
     expect(arg.where.status.in).toEqual([
       'awaiting_payment',
       'pending_cash_payment',
-      'paid_operator_notified',
+      'paid',
     ]);
     expect(arg.where.trip.departureAt.gte).toBeInstanceOf(Date);
     expect(arg.orderBy).toEqual([{ trip: { departureAt: 'asc' } }, { id: 'asc' }]);
@@ -110,7 +110,7 @@ describe('listCustomerBookings', () => {
       ticketCount: 2,
       totalVnd: 300000,
       paymentMethod: 'momo',
-      status: 'paid_operator_notified',
+      status: 'paid',
       createdAt: '2026-05-01T00:00:00.000Z',
       route: { origin: 'Hanoi', destination: 'Sapa' },
       departureAt: '2026-06-01T03:00:00.000Z',

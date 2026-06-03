@@ -31,7 +31,7 @@ export type ListCustomerBookingsParams = z.input<typeof ListCustomerBookingsPara
 const ACTIVE_STATUSES = [
   'awaiting_payment',
   'pending_cash_payment',
-  'paid_operator_notified',
+  'paid',
 ] as const;
 
 /** Terminal statuses — a booking here is always "past" regardless of date. */

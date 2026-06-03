@@ -125,7 +125,7 @@ beforeAll(async () => {
       ticketCount: 5,
       totalVnd: 500_000,
       paymentMethod: 'cash',
-      status: 'paid_operator_notified',
+      status: 'paid',
     },
   });
   // Cancelled booking on A — must be excluded
@@ -156,7 +156,7 @@ beforeAll(async () => {
       ticketCount: 2,
       totalVnd: 200_000,
       paymentMethod: 'cash',
-      status: 'paid_operator_notified',
+      status: 'paid',
     },
   });
 });
@@ -226,7 +226,7 @@ describe('transactional capacity-guard (Gap 3)', () => {
               select: { ticketCount: true },
             },
             bookings: {
-              where: { status: { in: ['pending_cash_payment', 'paid_operator_notified', 'completed'] } },
+              where: { status: { in: ['pending_cash_payment', 'paid', 'completed'] } },
               select: { ticketCount: true },
             },
           },
@@ -262,7 +262,7 @@ describe('transactional capacity-guard (Gap 3)', () => {
               select: { ticketCount: true },
             },
             bookings: {
-              where: { status: { in: ['pending_cash_payment', 'paid_operator_notified', 'completed'] } },
+              where: { status: { in: ['pending_cash_payment', 'paid', 'completed'] } },
               select: { ticketCount: true },
             },
           },

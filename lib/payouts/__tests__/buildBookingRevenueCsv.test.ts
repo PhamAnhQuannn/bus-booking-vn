@@ -27,7 +27,7 @@ function makeRow(overrides: Partial<BookingRevenueRow> = {}): BookingRevenueRow 
     ticketCount: 2,
     totalVnd: 300_000,
     paymentMethod: 'momo',
-    status: 'paid_operator_notified',
+    status: 'paid',
     ...overrides,
   };
 }
@@ -72,7 +72,7 @@ describe('buildBookingRevenueCsv', () => {
     expect(lines[1]).toContain('2');        // ticketCount
     expect(lines[1]).toContain('300000');   // total
     expect(lines[1]).toContain('momo');
-    expect(lines[1]).toContain('paid_operator_notified');
+    expect(lines[1]).toContain('paid');
   });
 
   // ── Test 3: Phone wrapping ─────────────────────────────────────────────────

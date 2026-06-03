@@ -18,7 +18,7 @@
  *        do NOT transition (audit row stays, booking stays awaiting_payment).
  *      - Amount verify (money-loss guard): if amount < booking.totalVnd, REJECT —
  *        log amount_mismatch, leave booking awaiting_payment, no paid transition.
- *      - Else guarded UPDATE Booking status → paid_operator_notified
+ *      - Else guarded UPDATE Booking status → paid
  *        (WHERE status='awaiting_payment' — safe for replays)
  *      - If update count > 0: INSERT 2 NotificationLog
  *   3. If status === 'failed': status → payment_failed_expired
@@ -190,13 +190,13 @@ export async function processPaymentWebhook(
         // derived from the single-source transition map (issue 034), never from
         // re-typed `status = 'awaiting_payment'` literals.
         const paidPredecessors = Prisma.join(
-          legalPredecessors('paid_operator_notified').map(
+          legalPredecessors('paid').map(
             (s) => Prisma.sql`${s}::"BookingStatus"`
           )
         );
         const updated = await tx.$executeRaw(Prisma.sql`
           UPDATE "Booking"
-          SET status = 'paid_operator_notified'::"BookingStatus",
+          SET status = 'paid'::"BookingStatus",
               "paymentExternalRef" = ${providerTxnId}
           WHERE id = ${booking.id}::uuid
             AND status IN (${paidPredecessors})
@@ -316,7 +316,7 @@ export async function processPaymentWebhook(
           // advanced). Illegal/duplicate move logged, NOT thrown — webhook still
           // returns 200 (issue 034 AC4); the monotonic guard prevents any regress.
           logger.info(
-            { adapter, bookingRef, currentStatus: booking.status, target: 'paid_operator_notified' },
+            { adapter, bookingRef, currentStatus: booking.status, target: 'paid' },
             'payment.webhook.transition_skipped — not a legal predecessor, no-op'
           );
         }

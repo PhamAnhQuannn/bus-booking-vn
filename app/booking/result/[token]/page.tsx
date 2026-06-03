@@ -4,7 +4,7 @@
  * Status-based rendering:
  *   awaiting_payment       → "Đang chờ thanh toán" + auto-refresh every 5s
  *                            (capped at 24 refreshes ≈ 2 min via ?r= counter)
- *   paid_operator_notified → Success banner + link to /booking/confirmation/[token]
+ *   paid → Success banner + link to /booking/confirmation/[token]
  *   payment_failed_expired → Failure banner + retry CTA to /search
  *   other statuses         → Fallback (e.g. booking cancelled)
  *
@@ -60,7 +60,7 @@ export default async function ResultPage({ params, searchParams }: ResultPagePro
   const refreshCount = Math.min(parseInt(sp.r ?? '0', 10) || 0, MAX_AUTO_REFRESH);
 
   const isPending = booking.status === 'awaiting_payment';
-  const isPaid = booking.status === 'paid_operator_notified' || booking.status === 'completed';
+  const isPaid = booking.status === 'paid' || booking.status === 'completed';
   const isFailed = booking.status === 'payment_failed_expired';
   const gatewayLabel = GATEWAY_LABEL[booking.paymentMethod] ?? 'trực tuyến';
 

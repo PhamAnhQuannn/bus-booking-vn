@@ -38,7 +38,7 @@ export interface GetBusPerformanceInput {
   dateTo: string
 }
 
-const PAID_SQL = Prisma.sql`b.status IN ('pending_cash_payment'::"BookingStatus",'paid_operator_notified'::"BookingStatus",'completed'::"BookingStatus")`
+const PAID_SQL = Prisma.sql`b.status IN ('pending_cash_payment'::"BookingStatus",'paid'::"BookingStatus",'completed'::"BookingStatus")`
 
 export async function getBusPerformance(
   input: GetBusPerformanceInput

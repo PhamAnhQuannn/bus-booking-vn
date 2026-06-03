@@ -83,7 +83,7 @@ beforeAll(async () => {
       paymentMethod: 'momo',
       paymentExternalRef: 'stub_inbound_txn_051',
       // Already PAID — the refund clawback path requires a paid booking.
-      status: 'paid_operator_notified',
+      status: 'paid',
     },
   });
 

@@ -12,7 +12,7 @@ type BadgeVariant = NonNullable<VariantProps<typeof badgeVariants>['variant']>;
 export const STATUS_LABEL: Record<BookingPaymentStatus, string> = {
   awaiting_payment: 'Chờ thanh toán',
   pending_cash_payment: 'Chờ thu tiền mặt',
-  paid_operator_notified: 'Đã thanh toán',
+  paid: 'Đã thanh toán',
   completed: 'Hoàn thành',
   cancelled: 'Đã huỷ',
   trip_cancelled: 'Chuyến bị huỷ',
@@ -24,7 +24,7 @@ export const STATUS_LABEL: Record<BookingPaymentStatus, string> = {
 export const STATUS_VARIANT: Record<BookingPaymentStatus, BadgeVariant> = {
   awaiting_payment: 'pending',
   pending_cash_payment: 'pending',
-  paid_operator_notified: 'success',
+  paid: 'success',
   completed: 'success',
   cancelled: 'neutral',
   trip_cancelled: 'danger',

@@ -192,7 +192,7 @@ async function prepareReports(): Promise<PrepareCtx> {
          ("id","bookingRef","confirmationToken","tripId","buyerName","buyerPhone",
           "ticketCount","totalVnd","paymentMethod","status","isManual","contactStatus")
        VALUES ($1, $2, $3, $4, 'Reports Tester', '+8490xxxxxx3',
-               1, $5, 'momo', 'paid_operator_notified', false, 'pending')`,
+               1, $5, 'momo', 'paid', false, 'pending')`,
       [bookingId, `BB-2026-rpt1-rr01`, `tok-rpt-${tripId}`, tripId, GROSS_VND]
     );
 

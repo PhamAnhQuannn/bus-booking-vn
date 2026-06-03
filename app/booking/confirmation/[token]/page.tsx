@@ -63,7 +63,7 @@ function buildCalendarHref(opts: { ref: string; origin: string; destination: str
 const STATUS_LABEL: Record<string, string> = {
   awaiting_payment: 'Chờ thanh toán',
   pending_cash_payment: 'Chờ thanh toán tiền mặt',
-  paid_operator_notified: 'Đã thanh toán',
+  paid: 'Đã thanh toán',
   completed: 'Hoàn tất',
   cancelled: 'Đã hủy',
   trip_cancelled: 'Chuyến đã hủy',
@@ -74,7 +74,7 @@ const STATUS_LABEL: Record<string, string> = {
 const STATUS_VARIANT: Record<string, 'success' | 'pending' | 'danger' | 'neutral'> = {
   awaiting_payment: 'pending',
   pending_cash_payment: 'pending',
-  paid_operator_notified: 'success',
+  paid: 'success',
   completed: 'success',
   cancelled: 'neutral',
   trip_cancelled: 'danger',

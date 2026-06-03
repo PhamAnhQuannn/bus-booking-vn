@@ -17,7 +17,7 @@ export interface StatusDisplay {
 const BOOKING_STATUS: Record<BookingStatus, StatusDisplay> = {
   awaiting_payment: { variant: "pending", label: "Chờ thanh toán" },
   pending_cash_payment: { variant: "pending", label: "Chờ thu tiền mặt" },
-  paid_operator_notified: { variant: "success", label: "Đã thanh toán" },
+  paid: { variant: "success", label: "Đã thanh toán" },
   completed: { variant: "success", label: "Hoàn tất" },
   cancelled: { variant: "danger", label: "Đã hủy" },
   trip_cancelled: { variant: "danger", label: "Chuyến đã hủy" },

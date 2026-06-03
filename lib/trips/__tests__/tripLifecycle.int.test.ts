@@ -65,7 +65,7 @@ async function createBooking(tripIdParam: string, ref: string, status: string, p
       ticketCount: 1,
       totalVnd: 150_000,
       paymentMethod: paymentMethod as 'momo' | 'cash' | 'zalopay' | 'card',
-      status: status as 'paid_operator_notified' | 'pending_cash_payment' | 'completed' | 'cancelled',
+      status: status as 'paid' | 'pending_cash_payment' | 'completed' | 'cancelled',
       isManual: false,
       contactStatus: 'pending',
     },
@@ -131,7 +131,7 @@ beforeAll(async () => {
   paidBookingId = await createBooking(
     completeTripId,
     'BB-2026-lif1-aaa1',
-    'paid_operator_notified',
+    'paid',
     'momo'
   );
   cashBookingId = await createBooking(
@@ -263,7 +263,7 @@ describe('markCompleted', () => {
       select: { bookingId: true, template: true, payload: true, status: true, scheduledFor: true },
     });
 
-    // Only paidBookingId (paid_operator_notified) is eligible
+    // Only paidBookingId (paid) is eligible
     // cashBookingId (pending_cash_payment) is NOT in PAYOUT_ELIGIBLE_STATUSES
     // cancelledBookingId (cancelled) is NOT eligible
     const payoutLogs = logs.filter((l) => l.template === 'payout_scheduled');

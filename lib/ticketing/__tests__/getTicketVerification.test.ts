@@ -35,7 +35,7 @@ const CT = 'conf_tok_0123456789abcdef';
 function rawBooking(overrides: Record<string, unknown> = {}) {
   return {
     bookingRef: REF,
-    status: 'paid_operator_notified',
+    status: 'paid',
     ticketCount: 2,
     paymentExternalRef: 'momo-txn-998877',
     checkedInAt: null,
@@ -69,7 +69,7 @@ describe('getTicketVerification', () => {
     );
     expect(result).toEqual({
       bookingRef: REF,
-      status: 'paid_operator_notified',
+      status: 'paid',
       isPaid: true,
       ticketCount: 2,
       providerTxnId: 'momo-txn-998877',

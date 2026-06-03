@@ -26,7 +26,7 @@ async function makeBooking(
   tripIdParam: string,
   ref: string,
   ct: string,
-  status = 'paid_operator_notified',
+  status = 'paid',
 ): Promise<string> {
   const id = randomUUID();
   await prisma.booking.create({
@@ -40,7 +40,7 @@ async function makeBooking(
       ticketCount: 2,
       totalVnd: 200_000,
       paymentMethod: 'momo',
-      status: status as 'paid_operator_notified',
+      status: status as 'paid',
     },
   });
   return id;
@@ -140,7 +140,7 @@ describe('markNoShow', () => {
     expect(res).toEqual({ ok: false, reason: 'already_checked_in' });
 
     const row = await prisma.booking.findUnique({ where: { id: bookingId }, select: { status: true, noShowAt: true } });
-    expect(row?.status).toBe('paid_operator_notified');
+    expect(row?.status).toBe('paid');
     expect(row?.noShowAt).toBeNull();
   });
 });

@@ -9,7 +9,7 @@
  *   - fleet:   bus.count
  *   - trips:   trip.count (+ upcoming count: scheduled trips departing in the future)
  *   - volume:  GMV — SUM(totalVnd) of this operator's PAID bookings (raw SQL join
- *              Booking → Trip WHERE trip.operatorId = $ AND status = paid_operator_notified)
+ *              Booking → Trip WHERE trip.operatorId = $ AND status = paid)
  *   - balance: getOperatorBalance (Issue 050) → pending/available/paidOut (bigint)
  *   - currentFeePpm: getEffectiveFeeRate(operatorId, now) (Issue 048)
  *   - payoutHistory: last N Payout rows desc
@@ -100,7 +100,7 @@ export async function getOperatorDetail(
         FROM "Booking" b
         JOIN "Trip" t ON t.id = b."tripId"
         WHERE t."operatorId" = ${operatorId}
-          AND b.status = 'paid_operator_notified'::"BookingStatus"
+          AND b.status = 'paid'::"BookingStatus"
       `,
       getOperatorBalance(operatorId),
       getEffectiveFeeRate(operatorId, now),

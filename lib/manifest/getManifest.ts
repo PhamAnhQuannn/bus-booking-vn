@@ -40,7 +40,7 @@ export interface GetManifestResult {
 }
 
 const MANIFEST_PAYMENT_STATUSES = [
-  'paid_operator_notified',
+  'paid',
   'pending_cash_payment',
   'completed',
 ] as const;

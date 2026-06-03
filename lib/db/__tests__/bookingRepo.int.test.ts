@@ -14,7 +14,7 @@
  *  2. Idempotent: 2 calls with the same holdId → both succeed; second returns
  *     already_booked (race-safe via ON CONFLICT (holdId) DO NOTHING).
  *  3. Hold expired → hold_expired.
- *  4. Hold already converted → hold_expired (treated as ineligible).
+ *  4. Hold already consumed → hold_expired (treated as ineligible).
  *  5. getBookingByConfirmationToken returns the full payload.
  *  6. getBookingByConfirmationToken returns null for unknown token.
  *  7. 10 parallel inserts with the same holdId → exactly 1 ok, 9 already_booked.
@@ -150,9 +150,9 @@ describe('createOnlineBookingFromHold (momo)', () => {
     expect(r.booking.bookingRef).toMatch(/^BB-\d{4}-[0-9a-z]{4}-[0-9a-z]{4}$/);
     expect(r.booking.confirmationToken).toMatch(/^[A-Za-z0-9_-]{32}$/);
 
-    // Hold should be flipped to converted
+    // Hold should be flipped to consumed
     const hold = await prisma.hold.findUnique({ where: { id: holdId } });
-    expect(hold?.status).toBe('converted');
+    expect(hold?.status).toBe('consumed');
   });
 
   it('stamps customerId when provided and leaves it null when omitted (Issue 031)', async () => {
@@ -241,11 +241,11 @@ describe('createOnlineBookingFromHold (momo)', () => {
     expect(r.reason).toBe('hold_expired');
   });
 
-  it('returns hold_expired when hold is already converted', async () => {
+  it('returns hold_expired when hold is already consumed', async () => {
     const holdId = await activeHold(1);
     await prisma.hold.update({
       where: { id: holdId },
-      data: { status: 'converted' },
+      data: { status: 'consumed' },
     });
     const r = await createBookingFromHold({
       holdId,
@@ -333,7 +333,7 @@ describe('createOnlineBookingFromHold — concurrent sell (issue 036)', () => {
     expect(bookings[0].paymentMethod).toBe('momo');
 
     const hold = await prisma.hold.findUnique({ where: { id: holdId } });
-    expect(hold?.status).toBe('converted');
+    expect(hold?.status).toBe('consumed');
   });
 });
 

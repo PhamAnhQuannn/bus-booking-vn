@@ -57,7 +57,7 @@ function makeUuidBooking(ref: string, tripIdParam: string, opts: {
       ticketCount: 2,
       totalVnd: 200_000,
       paymentMethod: (opts.paymentMethod ?? 'momo') as 'momo' | 'cash' | 'zalopay' | 'card',
-      status: (opts.status ?? 'paid_operator_notified') as 'paid_operator_notified' | 'pending_cash_payment' | 'completed' | 'awaiting_payment' | 'cancelled' | 'trip_cancelled' | 'no_show' | 'payment_failed_expired',
+      status: (opts.status ?? 'paid') as 'paid' | 'pending_cash_payment' | 'completed' | 'awaiting_payment' | 'cancelled' | 'trip_cancelled' | 'no_show' | 'payment_failed_expired',
       isManual: opts.isManual ?? false,
       contactStatus: (opts.contactStatus ?? 'pending') as 'pending' | 'reached' | 'no_answer' | 'callback',
     },
@@ -150,9 +150,9 @@ beforeAll(async () => {
   });
   otherTripId = otherTrip.id;
 
-  // Paid booking (momo, paid_operator_notified)
+  // Paid booking (momo, paid)
   paidBookingId = await makeUuidBooking('BB-2026-qut1-aaa1', tripId, {
-    status: 'paid_operator_notified',
+    status: 'paid',
     paymentMethod: 'momo',
   });
 
@@ -170,7 +170,7 @@ beforeAll(async () => {
 
   // Booking on Op B's trip (for tenant isolation)
   await makeUuidBooking('BB-2026-qut2-ddd4', otherTripId, {
-    status: 'paid_operator_notified',
+    status: 'paid',
     paymentMethod: 'momo',
   });
 });
@@ -262,7 +262,7 @@ describe('listOperatorBookings', () => {
     });
 
     const crossBookingId = await makeUuidBooking('BB-2026-tz01-aaa1', vnMidnightCrossTrip.id, {
-      status: 'paid_operator_notified',
+      status: 'paid',
       paymentMethod: 'momo',
     });
 
@@ -368,7 +368,7 @@ describe('getUnviewedPaidCount', () => {
   it('returns correct count for new bookings after last viewed', async () => {
     // Create a new booking after touch
     const newId = await makeUuidBooking('BB-2026-qut1-hhh8', tripId, {
-      status: 'paid_operator_notified',
+      status: 'paid',
       paymentMethod: 'momo',
     });
     const count = await getUnviewedPaidCount(operatorUserId, operatorId);

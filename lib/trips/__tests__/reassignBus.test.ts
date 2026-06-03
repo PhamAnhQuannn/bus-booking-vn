@@ -125,7 +125,7 @@ describe('reassignBus', () => {
     expect(p._txMock.booking.updateMany).toHaveBeenCalledWith({
       where: {
         tripId: 'trip-1',
-        status: { in: ['pending_cash_payment', 'paid_operator_notified', 'completed', 'no_show'] },
+        status: { in: ['pending_cash_payment', 'paid', 'completed', 'no_show'] },
         ticketPdfKey: { not: null },
       },
       data: { ticketPdfKey: null, ticketPdfGeneratedAt: null },

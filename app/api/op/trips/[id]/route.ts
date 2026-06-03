@@ -66,7 +66,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<Respon
         // blockedSeats) stay allowed regardless.
         if (parsed.data.price !== undefined) {
           const paidCount = await tx.booking.count({
-            where: { tripId: id, status: { in: ['paid_operator_notified', 'completed'] } },
+            where: { tripId: id, status: { in: ['paid', 'completed'] } },
           });
           if (paidCount > 0) return { kind: 'price_locked' as const };
         }
@@ -85,7 +85,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<Respon
                 holds: { where: { status: 'active' } },
                 bookings: {
                   where: {
-                    status: { in: ['pending_cash_payment', 'paid_operator_notified', 'completed'] },
+                    status: { in: ['pending_cash_payment', 'paid', 'completed'] },
                   },
                 },
               },

@@ -3,7 +3,7 @@
  * by matching the booking's buyerPhone to a Customer.phone (Issue 009).
  *
  * Called inside the transaction that transitions a booking to
- * paid_operator_notified (MoMo webhook, cash collection, manual paid booking).
+ * paid (MoMo webhook, cash collection, manual paid booking).
  * Idempotent: only claims a booking whose customerId IS NULL, so re-running a
  * transition (or a backfill scan) never re-points an already-attached row.
  *

@@ -29,11 +29,11 @@ import { Prisma } from '@prisma/client';
 import { getFunnel, type FunnelStepResult } from './getFunnel';
 
 /**
- * Paid booking status. Currently the single "paid" enum value
- * (`paid_operator_notified`) until the Wave-7 `paid` rename/split. Sourced from
- * the BookingStatus enum, not a re-typed literal scattered elsewhere.
+ * Paid booking status — the `paid` money-truth enum value (renamed from
+ * `paid_operator_notified` in Issue 087). Sourced from the BookingStatus enum,
+ * not a re-typed literal scattered elsewhere.
  */
-const PAID_BOOKING_STATUS = 'paid_operator_notified' as const;
+const PAID_BOOKING_STATUS = 'paid' as const;
 
 /** Approved-operator status (OperatorStatus enum). */
 const APPROVED_OPERATOR_STATUS = 'APPROVED' as const;

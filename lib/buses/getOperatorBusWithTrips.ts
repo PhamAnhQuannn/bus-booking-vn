@@ -9,7 +9,7 @@
  * "Currently selling" = status='scheduled' AND salesClosed=false AND departureAt >= now.
  * (departed/completed/cancelled excluded — those have their own surfaces.)
  *
- * Seat counts: PAID statuses only (pending_cash_payment / paid_operator_notified /
+ * Seat counts: PAID statuses only (pending_cash_payment / paid /
  * completed). Active holds NOT counted — same definition as getTripOccupancy.ts.
  *
  * Returns null if bus does not exist or belongs to a different operator (route
@@ -49,7 +49,7 @@ export interface BusWithActiveTrips {
 
 const PAID_STATUSES: BookingStatus[] = [
   BookingStatus.pending_cash_payment,
-  BookingStatus.paid_operator_notified,
+  BookingStatus.paid,
   BookingStatus.completed,
 ]
 

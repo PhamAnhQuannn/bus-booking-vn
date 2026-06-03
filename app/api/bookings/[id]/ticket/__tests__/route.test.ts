@@ -80,7 +80,7 @@ describe('GET /api/bookings/:id/ticket', () => {
   });
 
   it('scopes the lookup by the verified customerId and route id', async () => {
-    mockGetDetail.mockResolvedValue(detail('paid_operator_notified'));
+    mockGetDetail.mockResolvedValue(detail('paid'));
     mockFindUnique.mockResolvedValue({ ticketPdfKey: null });
     await GET(makeRequest(), routeCtx);
     expect(mockGetDetail).toHaveBeenCalledWith('cust-1', 'bk-1');
@@ -104,7 +104,7 @@ describe('GET /api/bookings/:id/ticket', () => {
     }
   );
 
-  it.each(['pending_cash_payment', 'paid_operator_notified', 'completed', 'no_show'])(
+  it.each(['pending_cash_payment', 'paid', 'completed', 'no_show'])(
     'returns 202 pending when the PDF is not yet generated for ticketable status %s',
     async (status) => {
       mockGetDetail.mockResolvedValue(detail(status));
@@ -120,7 +120,7 @@ describe('GET /api/bookings/:id/ticket', () => {
   );
 
   it('302-redirects to a fresh signed URL when the PDF is keyed', async () => {
-    mockGetDetail.mockResolvedValue(detail('paid_operator_notified'));
+    mockGetDetail.mockResolvedValue(detail('paid'));
     mockFindUnique.mockResolvedValue({ ticketPdfKey: 'ticket_pdf/BB-2026-abcd-efgh.pdf' });
     mockSignedDownload.mockResolvedValue({
       downloadUrl: 'http://localhost:3001/dev/stub-storage/ticket_pdf/BB-2026-abcd-efgh.pdf?exp=1&sig=ab',
@@ -137,7 +137,7 @@ describe('GET /api/bookings/:id/ticket', () => {
   });
 
   it('returns 500 when signed-URL minting throws', async () => {
-    mockGetDetail.mockResolvedValue(detail('paid_operator_notified'));
+    mockGetDetail.mockResolvedValue(detail('paid'));
     mockFindUnique.mockResolvedValue({ ticketPdfKey: 'ticket_pdf/x.pdf' });
     mockSignedDownload.mockRejectedValue(new Error('boom'));
     const res = await GET(makeRequest(), routeCtx);

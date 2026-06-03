@@ -3,8 +3,8 @@
  *
  * Covers (Issue 004 acceptance criteria):
  *   - POST /api/bookings/initiate with paymentMethod=momo → 200 + payUrl
- *   - POST valid MoMo IPN webhook → 200 + booking transitions to paid_operator_notified
- *   - GET /booking/result/[token] → shows paid_operator_notified status
+ *   - POST valid MoMo IPN webhook → 200 + booking transitions to paid
+ *   - GET /booking/result/[token] → shows paid status
  *   - GET /booking/result/[token]?r=0 with awaiting_payment → shows polling banner
  *   - Unknown confirmation token → 404
  *
@@ -161,7 +161,7 @@ test.describe('MoMo booking — initiate + webhook IPN', () => {
 });
 
 test.describe('MoMo booking — webhook IPN processing', () => {
-  test('valid paid IPN transitions booking to paid_operator_notified (200 response)', async ({
+  test('valid paid IPN transitions booking to paid (200 response)', async ({
     request,
   }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL ?? 'http://localhost:3000';
@@ -203,7 +203,7 @@ test.describe('MoMo booking — webhook IPN processing', () => {
 
     // Build a valid MoMo IPN for this booking. The booking starts as
     // awaiting_payment, so a successful IPN transitions it to
-    // paid_operator_notified and the webhook returns 200.
+    // paid and the webhook returns 200.
     const ipnPayload = buildMomoIpn(
       bookingRef,
       String(Date.now()),

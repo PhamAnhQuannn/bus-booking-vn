@@ -80,7 +80,7 @@ async function createBooking(
       ticketCount: 1,
       totalVnd,
       paymentMethod: 'cash',
-      status: status as 'paid_operator_notified' | 'pending_cash_payment' | 'completed' | 'cancelled',
+      status: status as 'paid' | 'pending_cash_payment' | 'completed' | 'cancelled',
       isManual: false,
       contactStatus: 'pending',
     },
@@ -225,7 +225,7 @@ describe('AC3 autoCompleteTrips', () => {
     // durationMinutes=90; departed 100 min ago → departureAt + 90m is in the past.
     const departureAt = new Date(Date.now() - 100 * 60_000);
     const tripId = await createTrip(departureAt, 'departed', true, { departedAt: departureAt });
-    await createBooking(tripId, 'BB-2026-cron-ac31', 'paid_operator_notified', 150_000);
+    await createBooking(tripId, 'BB-2026-cron-ac31', 'paid', 150_000);
 
     await prisma.$transaction((tx) => autoCompleteTrips(tx));
 
@@ -271,7 +271,7 @@ describe('AC4 sendReminders', () => {
   it('sends the 24h reminder exactly once per booking', async () => {
     // Departure 24h out → inside the 23–25h window.
     const tripId = await createTrip(new Date(Date.now() + 24 * 3_600_000), 'scheduled', false);
-    const bookingId = await createBooking(tripId, 'BB-2026-cron-ac41', 'paid_operator_notified');
+    const bookingId = await createBooking(tripId, 'BB-2026-cron-ac41', 'paid');
 
     await prisma.$transaction((tx) => sendReminders(tx));
 
@@ -298,7 +298,7 @@ describe('AC4 sendReminders', () => {
 
   it('does not remind a booking outside the 23–25h window', async () => {
     const tripId = await createTrip(new Date(Date.now() + 48 * 3_600_000), 'scheduled', false);
-    const bookingId = await createBooking(tripId, 'BB-2026-cron-ac42', 'paid_operator_notified');
+    const bookingId = await createBooking(tripId, 'BB-2026-cron-ac42', 'paid');
 
     await prisma.$transaction((tx) => sendReminders(tx));
 

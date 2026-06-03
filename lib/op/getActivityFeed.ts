@@ -38,7 +38,7 @@ export async function getActivityFeed(
       where: {
         createdAt: { gte: since },
         status: {
-          in: ["pending_cash_payment", "paid_operator_notified", "completed"],
+          in: ["pending_cash_payment", "paid", "completed"],
         },
         trip: { operatorId: input.operatorId },
       },
@@ -106,7 +106,7 @@ export async function getActivityFeed(
                 status: {
                   in: [
                     "pending_cash_payment",
-                    "paid_operator_notified",
+                    "paid",
                     "completed",
                   ],
                 },

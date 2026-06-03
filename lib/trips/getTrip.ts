@@ -19,7 +19,7 @@ export async function getTrip(
           holds: { where: { status: 'active' } },
           bookings: {
             where: {
-              status: { in: ['pending_cash_payment', 'paid_operator_notified', 'completed'] },
+              status: { in: ['pending_cash_payment', 'paid', 'completed'] },
             },
           },
         },
@@ -56,7 +56,7 @@ export async function listTrips(
           holds: { where: { status: 'active' } },
           bookings: {
             where: {
-              status: { in: ['pending_cash_payment', 'paid_operator_notified', 'completed'] },
+              status: { in: ['pending_cash_payment', 'paid', 'completed'] },
             },
           },
         },

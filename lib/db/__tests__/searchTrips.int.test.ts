@@ -97,7 +97,7 @@ async function seedPaidBooking(ticketCount: number): Promise<void> {
       ticketCount,
       totalVnd: ticketCount * 100000,
       paymentMethod: 'momo',
-      status: 'paid_operator_notified',
+      status: 'paid',
     },
   });
 }

@@ -26,7 +26,7 @@ function rawDetail() {
     ticketCount: 3,
     totalVnd: 450000,
     paymentMethod: 'cash',
-    status: 'paid_operator_notified',
+    status: 'paid',
     createdAt: new Date('2026-05-02T01:00:00Z'),
     trip: {
       departureAt: new Date('2026-06-10T22:00:00Z'),
@@ -67,7 +67,7 @@ describe('getCustomerBookingDetail', () => {
       ticketCount: 3,
       totalVnd: 450000,
       paymentMethod: 'cash',
-      status: 'paid_operator_notified',
+      status: 'paid',
       createdAt: '2026-05-02T01:00:00.000Z',
       route: { origin: 'Hanoi', destination: 'Hue' },
       departureAt: '2026-06-10T22:00:00.000Z',

@@ -14,43 +14,43 @@ import {
 } from '../transitions';
 
 describe('booking transition guard — legal forward moves', () => {
-  it('allows awaiting_payment → paid_operator_notified (webhook success)', () => {
-    expect(isLegalTransition('awaiting_payment', 'paid_operator_notified')).toBe(true);
+  it('allows awaiting_payment → paid (webhook success)', () => {
+    expect(isLegalTransition('awaiting_payment', 'paid')).toBe(true);
   });
 
   it('allows awaiting_payment → payment_failed_expired (webhook failure)', () => {
     expect(isLegalTransition('awaiting_payment', 'payment_failed_expired')).toBe(true);
   });
 
-  it('allows paid_operator_notified → completed (trip completes)', () => {
-    expect(isLegalTransition('paid_operator_notified', 'completed')).toBe(true);
+  it('allows paid → completed (trip completes)', () => {
+    expect(isLegalTransition('paid', 'completed')).toBe(true);
   });
 
-  it('allows paid_operator_notified → trip_cancelled (operator cancels trip)', () => {
-    expect(isLegalTransition('paid_operator_notified', 'trip_cancelled')).toBe(true);
+  it('allows paid → trip_cancelled (operator cancels trip)', () => {
+    expect(isLegalTransition('paid', 'trip_cancelled')).toBe(true);
   });
 });
 
 describe('booking transition guard — illegal / backward moves rejected', () => {
-  it('rejects paid_operator_notified → awaiting_payment (regress)', () => {
-    expect(isLegalTransition('paid_operator_notified', 'awaiting_payment')).toBe(false);
+  it('rejects paid → awaiting_payment (regress)', () => {
+    expect(isLegalTransition('paid', 'awaiting_payment')).toBe(false);
   });
 
-  it('rejects completed → paid_operator_notified (regress)', () => {
-    expect(isLegalTransition('completed', 'paid_operator_notified')).toBe(false);
+  it('rejects completed → paid (regress)', () => {
+    expect(isLegalTransition('completed', 'paid')).toBe(false);
   });
 
   it('rejects a terminal state moving anywhere', () => {
-    expect(isLegalTransition('payment_failed_expired', 'paid_operator_notified')).toBe(false);
+    expect(isLegalTransition('payment_failed_expired', 'paid')).toBe(false);
     expect(isLegalTransition('trip_cancelled', 'completed')).toBe(false);
   });
 });
 
 describe('legalPredecessors — derives the webhook UPDATE guard', () => {
-  it('paid_operator_notified has exactly one legal predecessor: awaiting_payment', () => {
+  it('paid has exactly one legal predecessor: awaiting_payment', () => {
     // The webhook WHERE clause is built from this — it must NOT widen to
     // pending_cash_payment (that path is recordCashCollected, not the webhook).
-    expect(legalPredecessors('paid_operator_notified')).toEqual(['awaiting_payment']);
+    expect(legalPredecessors('paid')).toEqual(['awaiting_payment']);
   });
 
   it('payment_failed_expired has exactly one legal predecessor: awaiting_payment', () => {
@@ -71,7 +71,7 @@ describe('LEGAL_BOOKING_TRANSITIONS — single source of truth', () => {
         'cancelled',
         'completed',
         'no_show',
-        'paid_operator_notified',
+        'paid',
         'payment_failed_expired',
         'pending_cash_payment',
         'trip_cancelled',

@@ -8,7 +8,7 @@
 export type BookingPaymentStatus =
   | 'awaiting_payment'
   | 'pending_cash_payment'
-  | 'paid_operator_notified'
+  | 'paid'
   | 'completed'
   | 'cancelled'
   | 'trip_cancelled'
