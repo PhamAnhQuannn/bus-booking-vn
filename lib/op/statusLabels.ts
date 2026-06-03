@@ -23,6 +23,8 @@ const BOOKING_STATUS: Record<BookingStatus, StatusDisplay> = {
   trip_cancelled: { variant: "danger", label: "Chuyến đã hủy" },
   no_show: { variant: "danger", label: "Vắng mặt" },
   payment_failed_expired: { variant: "danger", label: "Thanh toán thất bại" },
+  // Issue 100: oversold-race — booking was paid but seat gone; refund-out issued automatically.
+  refunded: { variant: "danger", label: "Đã hoàn tiền (hết chỗ)" },
 }
 
 const TRIP_STATUS: Record<TripStatus, StatusDisplay> = {

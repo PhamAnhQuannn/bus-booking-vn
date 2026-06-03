@@ -68,17 +68,19 @@ export interface RefundOutResult {
 }
 
 /**
- * Booking statuses for which a refund-out is valid: the booking WAS paid. Note
- * that the operator-cancel trigger flips paid bookings to `trip_cancelled`
- * BEFORE refundOut runs (cancelTrip commits first), so `trip_cancelled` must be
- * accepted here. `paid` / `completed` cover the overpay and
- * oversold paths where the booking is still in a live paid state.
+ * Booking statuses for which a refund-out is valid: the booking WAS paid.
+ * - `trip_cancelled`: operator cancel flips paid→trip_cancelled BEFORE refundOut.
+ * - `paid` / `completed`: overpay-difference and direct refunds while still live.
+ * - `refunded`: Issue 100 oversold-race — the booking was paid then immediately
+ *   flipped to refunded INSIDE the same tx; refundOut runs post-commit to write
+ *   the ledger entries against the already-committed refunded row.
  */
 const REFUNDABLE_STATUSES = new Set([
   'paid',
   'completed',
   'trip_cancelled',
   'no_show',
+  'refunded', // Issue 100: oversold-race — paid→refunded in same tx, ledger written post-commit
 ]);
 
 export class RefundOutError extends Error {

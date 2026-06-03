@@ -44,6 +44,8 @@ vi.mock('@prisma/client', () => ({
     join: (parts: unknown[]) => ({ parts }),
   },
 }));
+vi.mock('next/server', () => ({ after: vi.fn() }));
+vi.mock('@/lib/ledger/refund', () => ({ refundOut: vi.fn() }));
 
 import { reconcilePayments, matchDegraded } from '../reconcilePayments';
 
@@ -105,7 +107,7 @@ function makeTx(candidates: unknown[], eventsByCall: unknown[][], expireRows = 1
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockApplyPaid.mockResolvedValue(1);
+  mockApplyPaid.mockResolvedValue({ updated: 1, refundTriggered: false });
   mockAppendLedger.mockResolvedValue(undefined);
   mockRenderTemplate.mockReturnValue('stub body');
   mockLegalPredecessors.mockReturnValue(['awaiting_payment']);
@@ -203,7 +205,7 @@ describe('reconcilePayments (c) underpaid success → NOT paid, expired when unp
 
 describe('reconcilePayments (d) monotonic guard — already-paid never regressed', () => {
   it('applyPaidStatusTransition rowcount 0 → no ledger, no notices, count 0', async () => {
-    mockApplyPaid.mockResolvedValueOnce(0); // row already advanced
+    mockApplyPaid.mockResolvedValueOnce({ updated: 0, refundTriggered: false }); // row already advanced
     const tx = makeTx([baseBooking()], [[eventRow()]]);
     const res = await reconcilePayments(tx as never, { now: NOW });
 

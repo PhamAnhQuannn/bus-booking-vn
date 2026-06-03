@@ -185,12 +185,14 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
   // never invoke this core, so dynamic import keeps the route's static graph free
   // of the DB client (mirrors charterExpirySweeper / generateTrips).
   const { Prisma } = await import('@prisma/client');
+  const { after } = await import('next/server');
   const { renderTemplate } = await import('@/lib/notifications/esms');
   const { logger } = await import('@/lib/logger');
   const { legalPredecessors } = await import('@/lib/booking/transitions');
   const { applyPaidStatusTransition, appendBookingPaidLedger } = await import(
     '@/lib/payment/applyPaidTransition'
   );
+  const { refundOut } = await import('@/lib/ledger/refund');
 
   const now = opts?.now ?? new Date();
   const thresholdAt = new Date(now.getTime() - RECONCILE_THRESHOLD_MINUTES * 60_000);
@@ -280,12 +282,43 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
 
     if (confirming) {
       // (a) Resolve to paid through the SHARED guarded monotonic path + ledger.
-      const updated = await applyPaidStatusTransition(
+      const { updated, refundTriggered } = await applyPaidStatusTransition(
         tx,
         booking.id,
         confirming.providerTxnId
       );
       if (updated > 0) {
+        // Issue 100: for an oversold booking discovered during reconciliation,
+        // the booking is already `refunded` in the DB. Schedule the ledger
+        // refund entries post-commit via after() (same pattern as processWebhook).
+        if (refundTriggered) {
+          const bid = booking.id;
+          const totalVnd = booking.totalVnd;
+          const providerTxnId = confirming.providerTxnId;
+          after(async () => {
+            try {
+              await refundOut({
+                bookingId: bid,
+                amountMinor: totalVnd,
+                reason: 'oversold_race',
+                idempotencyKey: `oversold:${bid}:${providerTxnId}`,
+              });
+            } catch (refundErr) {
+              logger.error(
+                { err: refundErr, bookingRef: booking.bookingRef, bookingId: bid },
+                'reconcile.oversold_refund.error — booking refunded, ledger entries need retry'
+              );
+            }
+          });
+          // Skip paid ledger + notifications — booking is refunded, not paid.
+          paidCount += 1;
+          logger.info(
+            { bookingRef: booking.bookingRef, providerTxnId: confirming.providerTxnId, oversold: true },
+            'reconcile.booking_paid_then_refunded_oversold'
+          );
+          continue;
+        }
+
         await appendBookingPaidLedger(tx, {
           operatorId: booking.operatorId,
           bookingId: booking.id,

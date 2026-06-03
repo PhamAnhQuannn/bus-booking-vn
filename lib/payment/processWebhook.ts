@@ -66,6 +66,13 @@ interface OverpayRefund {
   providerTxnId: string;
 }
 
+/** Issue 100: oversold booking — paid then immediately refunded inside the tx. */
+interface OversoldRefund {
+  bookingId: string;
+  totalVnd: number;
+  providerTxnId: string;
+}
+
 function formatDepartureForSms(d: Date): string {
   return d.toLocaleString('vi-VN', {
     timeZone: 'Asia/Ho_Chi_Minh',
@@ -135,6 +142,9 @@ export async function processPaymentWebhook(
   // Issue 051: overpay refund-out captured here, executed AFTER the paid tx
   // commits (refundOut opens its own tx + reads the committed paid state).
   const overpayRefundBox: { value: OverpayRefund | null } = { value: null };
+  // Issue 100: oversold refund-out captured here, executed AFTER the paid tx
+  // commits. The booking is already in `refunded` state at that point.
+  const oversoldRefundBox: { value: OversoldRefund | null } = { value: null };
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -190,20 +200,27 @@ export async function processPaymentWebhook(
         // re-typed `status = 'awaiting_payment'` literals. Shared with the
         // reconciliation sweeper via applyPaidStatusTransition (issue 095) so the
         // two paid paths can never drift.
-        const updated = await applyPaidStatusTransition(tx, booking.id, providerTxnId);
+        const { updated, refundTriggered } = await applyPaidStatusTransition(tx, booking.id, providerTxnId);
 
         if (updated > 0) {
           // Issue 031: no phone-match attach here. A signed-in buyer already has
           // Booking.customerId stamped at initiate; a guest stays unlinked and
           // claims via OTP-proven register backfill. The old phone-match attach
           // was spoofable (any typed phone matching an account would link).
-          paidBookingId = booking.id; // funnel booking_paid fired post-commit
+          //
+          // Issue 100: don't fire booking_paid when the booking was immediately
+          // refunded due to oversell — its final state is `refunded`, not `paid`.
+          if (!refundTriggered) {
+            paidBookingId = booking.id; // funnel booking_paid fired post-commit
+          }
 
           // Issue 051: if this paid event OVERPAID, schedule a refund-out of the
           // difference. Captured ONLY inside the updated>0 branch (the FIRST and
           // only paid transition) so a replayed IPN never re-refunds. Executed
           // post-commit in after() — best-effort + logged, NOT inside this tx.
-          if (amount > booking.totalVnd) {
+          // Issue 100: skip overpay handling for an oversold booking (the entire
+          // amount is refunded via the oversoldRefundBox path below).
+          if (amount > booking.totalVnd && !refundTriggered) {
             overpayRefundBox.value = {
               bookingId: booking.id,
               overpayVnd: amount - booking.totalVnd,
@@ -237,50 +254,61 @@ export async function processPaymentWebhook(
             now: new Date(),
           });
 
-          const operator = booking.trip.bus.operator;
-          const operatorRecipient = operator.notificationPhone ?? operator.contactPhone;
-          const routeLabel = `${booking.trip.route.origin} - ${booking.trip.route.destination}`;
-          const departureLabel = formatDepartureForSms(booking.trip.departureAt);
-          const baseUrl = host ? `${proto}://${host}` : '';
-          const confirmationUrl = baseUrl
-            ? `${baseUrl}/booking/confirmation/${booking.confirmationToken}`
-            : booking.confirmationToken;
-
-          const customerPayload: Record<string, string | number> = {
-            ticketCount: booking.ticketCount,
-            route: routeLabel,
-            departureAt: departureLabel,
-            bookingRef: booking.bookingRef,
-            confirmationUrl,
-          };
-          const operatorPayload: Record<string, string | number> = {
-            ticketCount: booking.ticketCount,
-            route: routeLabel,
-            departureAt: departureLabel,
-            bookingRef: booking.bookingRef,
-            buyerPhone: booking.buyerPhone,
-          };
-
-          // Issue 058: enqueue ONLY (status='pending'). No in-process send —
-          // the dispatch-notifications cron delivers these with retry/backoff.
-          // The pre-rendered body is stored in `payload` so the dispatcher
-          // re-presents it without re-rendering.
-          await Promise.all([
-            createNotificationLog({
+          // Issue 100: for an oversold booking, the booking is already `refunded`
+          // in the DB. Capture the refund details for the post-commit after().
+          // Skip paid notifications — the booking was never durably paid.
+          if (refundTriggered) {
+            oversoldRefundBox.value = {
               bookingId: booking.id,
-              template: 'customerBookingPaid',
-              recipient: booking.buyerPhone,
-              payload: renderTemplate('customerBookingPaid', customerPayload),
-              status: 'pending',
-            }),
-            createNotificationLog({
-              bookingId: booking.id,
-              template: 'operatorNewBooking',
-              recipient: operatorRecipient,
-              payload: renderTemplate('operatorNewBooking', operatorPayload),
-              status: 'pending',
-            }),
-          ]);
+              totalVnd: booking.totalVnd,
+              providerTxnId,
+            };
+          } else {
+            const operator = booking.trip.bus.operator;
+            const operatorRecipient = operator.notificationPhone ?? operator.contactPhone;
+            const routeLabel = `${booking.trip.route.origin} - ${booking.trip.route.destination}`;
+            const departureLabel = formatDepartureForSms(booking.trip.departureAt);
+            const baseUrl = host ? `${proto}://${host}` : '';
+            const confirmationUrl = baseUrl
+              ? `${baseUrl}/booking/confirmation/${booking.confirmationToken}`
+              : booking.confirmationToken;
+
+            const customerPayload: Record<string, string | number> = {
+              ticketCount: booking.ticketCount,
+              route: routeLabel,
+              departureAt: departureLabel,
+              bookingRef: booking.bookingRef,
+              confirmationUrl,
+            };
+            const operatorPayload: Record<string, string | number> = {
+              ticketCount: booking.ticketCount,
+              route: routeLabel,
+              departureAt: departureLabel,
+              bookingRef: booking.bookingRef,
+              buyerPhone: booking.buyerPhone,
+            };
+
+            // Issue 058: enqueue ONLY (status='pending'). No in-process send —
+            // the dispatch-notifications cron delivers these with retry/backoff.
+            // The pre-rendered body is stored in `payload` so the dispatcher
+            // re-presents it without re-rendering.
+            await Promise.all([
+              createNotificationLog({
+                bookingId: booking.id,
+                template: 'customerBookingPaid',
+                recipient: booking.buyerPhone,
+                payload: renderTemplate('customerBookingPaid', customerPayload),
+                status: 'pending',
+              }),
+              createNotificationLog({
+                bookingId: booking.id,
+                template: 'operatorNewBooking',
+                recipient: operatorRecipient,
+                payload: renderTemplate('operatorNewBooking', operatorPayload),
+                status: 'pending',
+              }),
+            ]);
+          }
         }
         if ((updated as number) === 0) {
           // Current row is not a legal predecessor of paid (replay or already
@@ -364,6 +392,29 @@ export async function processPaymentWebhook(
         logger.error(
           { err: refundErr, adapter, bookingRef, bookingId: ovr.bookingId },
           'payment.webhook.overpay_refund.error — booking stays paid, refund needs retry'
+        );
+      }
+    });
+  }
+
+  // Issue 100: refund the full fare AFTER the paid tx committed for oversold
+  // bookings. The booking is already in `refunded` state in the DB. Best-effort
+  // + logged: a ledger failure must not fail the webhook IPN ack.
+  // Idempotency key: `oversold:<bookingId>:<providerTxnId>`.
+  if (oversoldRefundBox.value) {
+    const ovs = oversoldRefundBox.value;
+    after(async () => {
+      try {
+        await refundOut({
+          bookingId: ovs.bookingId,
+          amountMinor: ovs.totalVnd,
+          reason: 'oversold_race',
+          idempotencyKey: `oversold:${ovs.bookingId}:${ovs.providerTxnId}`,
+        });
+      } catch (refundErr) {
+        logger.error(
+          { err: refundErr, adapter, bookingRef, bookingId: ovs.bookingId },
+          'payment.webhook.oversold_refund.error — booking refunded, ledger entries need retry'
         );
       }
     });

@@ -28,6 +28,14 @@ import { CONCURRENT_HOLD_CAP, HoldCapExceededError } from './holdErrors';
 export { CONCURRENT_HOLD_CAP, HoldCapExceededError } from './holdErrors';
 
 export const HOLD_TTL_MINUTES = 10;
+/**
+ * Issue 100: PSP payment-confirmation window. A booking in awaiting_payment that was
+ * created within this window occupies its seat in the capacity check (the PSP may still
+ * confirm and seat the passenger). After the window elapses, the awaiting_payment booking
+ * no longer blocks capacity (PSP-abandon self-releases). Must exceed HOLD_TTL_MINUTES so
+ * there is no gap between hold expiry and awaiting_payment capacity protection.
+ */
+export const PSP_WINDOW_MINUTES = 20;
 
 export interface CreateHoldInput {
   tripId: string;
@@ -108,10 +116,20 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
                 (SELECT SUM("ticketCount")
                  FROM "Booking"
                  WHERE "tripId" = t.id
-                   AND status IN (
-                     'pending_cash_payment'::"BookingStatus",
-                     'paid'::"BookingStatus",
-                     'completed'::"BookingStatus"
+                   AND (
+                     -- Definitive bookings: always counted.
+                     status IN (
+                       'pending_cash_payment'::"BookingStatus",
+                       'paid'::"BookingStatus",
+                       'completed'::"BookingStatus"
+                     )
+                     OR (
+                       -- Issue 100: awaiting_payment bookings within the PSP window
+                       -- protect the seat during the payment confirmation window.
+                       -- After PSP_WINDOW_MINUTES, an abandoned payment self-releases.
+                       status = 'awaiting_payment'::"BookingStatus"
+                       AND "createdAt" > NOW() - (${PSP_WINDOW_MINUTES} * INTERVAL '1 minute')
+                     )
                    )),
                 0
               )

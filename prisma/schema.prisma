@@ -262,6 +262,8 @@ enum BookingStatus {
   trip_cancelled
   no_show
   payment_failed_expired
+  /// Issue 100: terminal state for oversold-race — booking was paid but seat gone; refund-out issued.
+  refunded
 }
 
 /// Contact status for operator call-queue management (Issue 014).
@@ -342,6 +344,9 @@ model Booking {
   /// PREDICATE + idempotency marker (Issue 014 top-level indexed column) — money/audit
   /// columns (totalVnd/status/ticketCount/ledger) are RETAINED through the scrub (S04).
   snapshotAnonymizedAt DateTime?
+  /// Issue 100: instant of oversold-race refund. NULL = not refunded via oversold path.
+  /// Paired with status='refunded' (Issue 014 verb-At+status rule — both written in same tx).
+  refundedAt           DateTime?  @db.Timestamptz
   trip                 Trip              @relation(fields: [tripId], references: [id])
   hold                 Hold?             @relation(fields: [holdId], references: [id], onDelete: Restrict)
   customer             Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
@@ -363,6 +368,8 @@ model Booking {
   /// Issue 090: retention sweeper predicate — claims guest bookings WHERE
   /// snapshotAnonymizedAt IS NULL (then joins Trip for the departure window).
   @@index([snapshotAnonymizedAt])
+  /// Issue 100: oversold-refund reporting — status+refundedAt composite (supports cron/reporting).
+  @@index([status, refundedAt])
 }
 
 /// Issue 089: checkout consent capture. One row per consent the buyer accepted at

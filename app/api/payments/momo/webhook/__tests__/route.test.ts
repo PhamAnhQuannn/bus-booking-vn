@@ -204,7 +204,8 @@ describe('POST /api/payments/momo/webhook — paid IPN (resultCode=0)', () => {
       // Execute with a fake tx that has the same mocked methods
       const fakeTx = {
         paymentEvent: { create: vi.fn().mockResolvedValue({}) },
-        $executeRaw: vi.fn().mockResolvedValue(1), // 1 row updated
+        $executeRaw: vi.fn().mockResolvedValue(1), // paid UPDATE + Trip FOR UPDATE lock
+        $queryRaw: vi.fn().mockResolvedValue([{ oversold: false }]), // capacity check
       };
       await fn(fakeTx as never);
       return undefined;
@@ -312,7 +313,8 @@ describe('POST /api/payments/momo/webhook — underpaid IPN (money-loss guard)',
     vi.mocked(prisma.$transaction).mockImplementationOnce(async (fn) => {
       const fakeTx = {
         paymentEvent: { create: vi.fn().mockResolvedValue({}) },
-        $executeRaw: executeRawMock,
+        $executeRaw: executeRawMock, // paid UPDATE + Trip FOR UPDATE lock
+        $queryRaw: vi.fn().mockResolvedValue([{ oversold: false }]), // capacity check
       };
       await fn(fakeTx as never);
       return undefined;
@@ -323,7 +325,7 @@ describe('POST /api/payments/momo/webhook — underpaid IPN (money-loss guard)',
 
     const res = await POST(makeRequest(JSON.stringify({ signature: 'test', resultCode: 0 })));
     expect(res.status).toBe(200);
-    expect(executeRawMock).toHaveBeenCalledOnce(); // paid transition ran
+    expect(executeRawMock).toHaveBeenCalled(); // paid transition + Trip lock ran
     expect(createNotificationLog).toHaveBeenCalledTimes(2);
     // Issue 049: exact-amount paid transition appends the two ledger entries.
     expect(appendLedgerEntry).toHaveBeenCalledTimes(2);
@@ -343,7 +345,8 @@ describe('POST /api/payments/momo/webhook — underpaid IPN (money-loss guard)',
     vi.mocked(prisma.$transaction).mockImplementationOnce(async (fn) => {
       const fakeTx = {
         paymentEvent: { create: vi.fn().mockResolvedValue({}) },
-        $executeRaw: executeRawMock,
+        $executeRaw: executeRawMock, // paid UPDATE + Trip FOR UPDATE lock
+        $queryRaw: vi.fn().mockResolvedValue([{ oversold: false }]), // capacity check
       };
       await fn(fakeTx as never);
       return undefined;
@@ -354,7 +357,7 @@ describe('POST /api/payments/momo/webhook — underpaid IPN (money-loss guard)',
 
     const res = await POST(makeRequest(JSON.stringify({ signature: 'test', resultCode: 0 })));
     expect(res.status).toBe(200);
-    expect(executeRawMock).toHaveBeenCalledOnce(); // overpay still transitions to paid
+    expect(executeRawMock).toHaveBeenCalled(); // overpay still transitions to paid (UPDATE + lock)
 
     // Not silent: the overpay delta is recorded via a structured warn carrying the delta.
     const overpayWarn = vi

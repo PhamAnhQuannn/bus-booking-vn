@@ -27,6 +27,7 @@ export interface BookingDtoRow {
   cashCollectedAt: Date | null;
   escalationNote: string | null;
   escalatedAt: Date | null;
+  refundedAt: Date | null;
   trip: {
     id: string;
     departureAt: Date;
@@ -63,6 +64,7 @@ export function toBookingDto(row: BookingDtoRow): BookingDto {
     cashCollectedAt: row.cashCollectedAt ? row.cashCollectedAt.toISOString() : null,
     escalationNote: row.escalationNote,
     escalatedAt: row.escalatedAt ? row.escalatedAt.toISOString() : null,
+    refundedAt: row.refundedAt ? row.refundedAt.toISOString() : null,
     trip: {
       id: row.trip.id,
       departureAt: row.trip.departureAt.toISOString(),

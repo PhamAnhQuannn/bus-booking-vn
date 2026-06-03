@@ -33,12 +33,17 @@ export const LEGAL_BOOKING_TRANSITIONS: Record<BookingStatus, readonly BookingSt
   // Dead legacy enum value (cash paths removed in Issue 039; enum dropped in
   // Phase B). No forward moves — historical rows are terminal here.
   pending_cash_payment: [],
-  paid: ['completed', 'trip_cancelled', 'no_show'],
+  // Issue 100: paid → refunded is the oversold-race path (seat gone at webhook time).
+  // The booking first transitions to 'paid' (money received), then is immediately
+  // refunded within the same tx — the customer is made whole via refund-out.
+  paid: ['completed', 'trip_cancelled', 'no_show', 'refunded'],
   completed: [],
   cancelled: [],
   trip_cancelled: [],
   no_show: [],
   payment_failed_expired: [],
+  // Issue 100: terminal — no further transitions from refunded.
+  refunded: [],
 };
 
 /** True when `from → to` is a declared legal forward transition. */

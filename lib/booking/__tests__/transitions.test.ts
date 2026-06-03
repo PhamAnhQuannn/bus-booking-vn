@@ -74,6 +74,7 @@ describe('LEGAL_BOOKING_TRANSITIONS — single source of truth', () => {
         'paid',
         'payment_failed_expired',
         'pending_cash_payment',
+        'refunded', // Issue 100: oversold-race terminal
         'trip_cancelled',
       ].sort()
     );
