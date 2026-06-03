@@ -42,12 +42,11 @@ import { captureException } from '@/lib/observability';
 import { track, sessionIdForBooking } from '@/lib/analytics/track';
 import type { PaymentGateway } from './gateway';
 import { legalPredecessors } from '@/lib/booking/transitions';
+import { refundOut } from '@/lib/ledger';
 import {
-  appendLedgerEntry,
-  getEffectiveFeeRate,
-  calcPlatformFeeMinor,
-  refundOut,
-} from '@/lib/ledger';
+  applyPaidStatusTransition,
+  appendBookingPaidLedger,
+} from './applyPaidTransition';
 
 export interface ProcessPaymentWebhookInput {
   rawBody: string;
@@ -188,21 +187,12 @@ export async function processPaymentWebhook(
         }
         // Success: monotonic guarded transition. The legal predecessor set is
         // derived from the single-source transition map (issue 034), never from
-        // re-typed `status = 'awaiting_payment'` literals.
-        const paidPredecessors = Prisma.join(
-          legalPredecessors('paid').map(
-            (s) => Prisma.sql`${s}::"BookingStatus"`
-          )
-        );
-        const updated = await tx.$executeRaw(Prisma.sql`
-          UPDATE "Booking"
-          SET status = 'paid'::"BookingStatus",
-              "paymentExternalRef" = ${providerTxnId}
-          WHERE id = ${booking.id}::uuid
-            AND status IN (${paidPredecessors})
-        `);
+        // re-typed `status = 'awaiting_payment'` literals. Shared with the
+        // reconciliation sweeper via applyPaidStatusTransition (issue 095) so the
+        // two paid paths can never drift.
+        const updated = await applyPaidStatusTransition(tx, booking.id, providerTxnId);
 
-        if ((updated as number) > 0) {
+        if (updated > 0) {
           // Issue 031: no phone-match attach here. A signed-in buyer already has
           // Booking.customerId stamped at initiate; a guest stays unlinked and
           // claims via OTP-proven register backfill. The old phone-match attach
@@ -237,34 +227,15 @@ export async function processPaymentWebhook(
           // Written inside the SAME `tx` as the status update so a rolled-back
           // payment transaction never leaves orphan ledger rows. Legacy
           // Payout.platformFee coexists untouched (balance derivation migrates
-          // in slice 050) — this slice ONLY adds the two entries.
+          // in slice 050) — this slice ONLY adds the two entries. Shared with the
+          // reconciliation sweeper via appendBookingPaidLedger (issue 095).
           const operatorId = booking.trip.bus.operator.id;
-          const gross = BigInt(booking.totalVnd);
-          const feePpm = await getEffectiveFeeRate(operatorId, new Date(), tx);
-          const fee = calcPlatformFeeMinor(gross, feePpm);
-
-          await appendLedgerEntry(
-            {
-              operatorId,
-              bookingId: booking.id,
-              type: 'booking_credit',
-              amountMinor: gross,
-              currency: 'VND',
-              sourceEventId: `booking_credit:${booking.id}`,
-            },
-            tx
-          );
-          await appendLedgerEntry(
-            {
-              operatorId,
-              bookingId: booking.id,
-              type: 'platform_fee',
-              amountMinor: -fee,
-              currency: 'VND',
-              sourceEventId: `platform_fee:${booking.id}`,
-            },
-            tx
-          );
+          await appendBookingPaidLedger(tx, {
+            operatorId,
+            bookingId: booking.id,
+            grossVnd: booking.totalVnd,
+            now: new Date(),
+          });
 
           const operator = booking.trip.bus.operator;
           const operatorRecipient = operator.notificationPhone ?? operator.contactPhone;

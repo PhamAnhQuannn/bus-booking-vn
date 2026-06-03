@@ -15,6 +15,7 @@ export type SmsTemplate =
   | 'bookingPendingCash'
   | 'operatorNewBooking'
   | 'customerBookingPaid'
+  | 'customerBookingExpired'
   | 'otpCode'
   | 'manualBookingPaid'
   | 'manualBookingCash'
@@ -70,6 +71,13 @@ export function renderTemplate(template: SmsTemplate, payload: Record<string, st
         `BusBookVN: Thanh toan MoMo thanh cong. ${payload.ticketCount} ve, chuyen ` +
         `${payload.route} ${payload.departureAt}. Ma: ${payload.bookingRef}. ` +
         `Xac nhan: ${payload.confirmationUrl}`
+      );
+    case 'customerBookingExpired':
+      // Issue 095: reconciliation sweeper expiry notice — the hold lapsed with no
+      // confirmed payment, so the booking is released.
+      return (
+        `BusBookVN: Dat cho ${payload.bookingRef} (chuyen ${payload.route} ` +
+        `${payload.departureAt}) da het han do chua thanh toan. Vui long dat lai neu can.`
       );
     case 'otpCode':
       return `BusBookVN: Ma xac thuc cua ban la ${payload.code}. Het han sau ${payload.expiryMinutes} phut. Khong chia se ma nay.`;
