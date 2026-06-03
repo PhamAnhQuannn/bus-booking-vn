@@ -15,7 +15,7 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { prisma } from '@/lib/core/db/client';
-import { createHold } from '../holdRepo';
+import { createHold } from '@/lib/core/db/holdRepo';
 import { searchTrips } from '../searchTrips';
 
 const ORIGIN = 'ZZ SearchTrips Origin';

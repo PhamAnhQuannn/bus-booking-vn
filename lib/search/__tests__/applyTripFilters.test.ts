@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { applyTripFilters, vnHour, windowOf } from '@/lib/search/applyTripFilters';
 import { searchFiltersSchema } from '@/lib/core/validation/search';
-import type { TripResult } from '@/lib/core/db/searchTrips';
+import type { TripResult } from '@/lib/trips/searchTrips';
 
 /** Build a TripResult with sensible defaults. departureAt given as a VN wall-clock
  * hour, converted to the matching UTC instant (VN = UTC+7) on a fixed date. */
