@@ -121,6 +121,59 @@ export default async function AdminApprovalsPage() {
                       }))}
                     />
 
+                    {/* Payout account (078): masked number + name-match signal vs legalName. */}
+                    <div data-testid={`payout-account-${op.id}`} className="rounded-md border p-3 text-sm">
+                      <p className="mb-1 font-medium">Payout account</p>
+                      {op.payoutAccount ? (
+                        <dl className="grid gap-0.5 text-muted-foreground">
+                          <div className="flex gap-2">
+                            <dt className="font-medium">Bank:</dt>
+                            <dd>{op.payoutAccount.bankName}</dd>
+                          </div>
+                          <div className="flex gap-2">
+                            <dt className="font-medium">Number:</dt>
+                            <dd className="font-mono">{op.payoutAccount.accountNumberMasked}</dd>
+                          </div>
+                          <div className="flex gap-2">
+                            <dt className="font-medium">Holder:</dt>
+                            <dd>{op.payoutAccount.accountHolderName}</dd>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <dt className="font-medium">Name match:</dt>
+                            <dd>
+                              {Math.round(op.payoutAccount.nameMatchScore * 100)}%
+                              {op.payoutAccount.suggestVerified ? (
+                                <Badge variant="success" className="ml-2">
+                                  Match — suggest verify
+                                </Badge>
+                              ) : (
+                                <Badge variant="neutral" className="ml-2">
+                                  Low match — review
+                                </Badge>
+                              )}
+                            </dd>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <dt className="font-medium">Verified:</dt>
+                            <dd>
+                              {op.payoutAccount.verifiedAt ? (
+                                <Badge variant="success">
+                                  {formatDate(op.payoutAccount.verifiedAt)}
+                                  {op.payoutAccount.verifyMethod
+                                    ? ` (${op.payoutAccount.verifyMethod})`
+                                    : ''}
+                                </Badge>
+                              ) : (
+                                <Badge variant="pending">Not verified</Badge>
+                              )}
+                            </dd>
+                          </div>
+                        </dl>
+                      ) : (
+                        <p className="text-muted-foreground">No payout account registered.</p>
+                      )}
+                    </div>
+
                     <ApprovalActions operatorId={op.id} status={op.status} />
                   </CardContent>
                 </Card>

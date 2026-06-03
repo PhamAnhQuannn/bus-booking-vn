@@ -14,13 +14,20 @@
  * short-lived URLs minted eagerly + a PII-audit row per doc on every queue
  * render). Instead each doc carries its id + type + status + uploadedAt, and the
  * admin Approvals UI renders a "View" link that hits a per-doc signed-GET endpoint
- * on demand (which audits the access then). The payout account (Issue 078) is a
- * separate concern and not surfaced here.
+ * on demand (which audits the access then).
+ *
+ * Issue 078: each operator's registered PayoutAccount is surfaced (bankName, MASKED
+ * accountNumber, accountHolderName, verifiedAt) PLUS a nameMatchScore signal of the
+ * holder name vs the operator's legalName, so the admin sees the ownership signal
+ * before confirming. The account number is masked here — the admin never needs the
+ * full number to confirm ownership.
  */
 
 import type { OperatorStatus } from '@prisma/client';
 import { prisma as defaultPrisma } from '@/lib/db/client';
 import { redactPhone } from '@/lib/audit/redactPhone';
+import { maskAccountNumber } from '@/lib/onboarding/payoutAccount';
+import { nameMatchScore } from '@/lib/onboarding/payoutVerify';
 
 /** Operator statuses that still owe an admin decision. */
 const PENDING_OPERATOR_STATUSES: OperatorStatus[] = ['PENDING_REVIEW', 'UNDER_REVIEW'];
@@ -35,6 +42,20 @@ export interface ApprovalQueueDoc {
   uploadedAt: Date;
 }
 
+/** Issue 078: the operator's payout account surfaced for admin review (number masked). */
+export interface ApprovalQueuePayoutAccount {
+  bankName: string;
+  /** Last-4 only — the admin never needs the full number. */
+  accountNumberMasked: string;
+  accountHolderName: string;
+  verifiedAt: Date | null;
+  verifyMethod: string | null;
+  /** Name-match signal: holderName vs operator legalName, 0..1. */
+  nameMatchScore: number;
+  /** True when nameMatchScore >= the suggest-verified threshold. */
+  suggestVerified: boolean;
+}
+
 export interface ApprovalQueueOperator {
   id: string;
   legalName: string;
@@ -46,6 +67,8 @@ export interface ApprovalQueueOperator {
   rejectionReason: string | null;
   /** Issue 077: the operator's submitted KYB documents (no signed URLs here). */
   docs: ApprovalQueueDoc[];
+  /** Issue 078: registered payout account + name-match signal, or null if none. */
+  payoutAccount: ApprovalQueuePayoutAccount | null;
 }
 
 /** Minimal prisma surface — lets unit tests inject a findMany stub. */
@@ -70,23 +93,54 @@ export async function getApprovalQueue(
         select: { id: true, type: true, status: true, uploadedAt: true },
         orderBy: { uploadedAt: 'asc' },
       },
+      // Issue 078: surface the operator's payout account for the verify-at-approval
+      // flow. accountNumber is selected only to MASK it below — it is never returned
+      // in full from this read.
+      payoutAccount: {
+        select: {
+          bankName: true,
+          accountNumber: true,
+          accountHolderName: true,
+          verifiedAt: true,
+          verifyMethod: true,
+        },
+      },
     },
     orderBy: { createdAt: 'asc' },
   });
 
-  return rows.map((row) => ({
-    id: row.id,
-    legalName: row.legalName,
-    contactEmail: row.contactEmail,
-    contactPhone: redactPhone(row.contactPhone),
-    status: row.status,
-    createdAt: row.createdAt,
-    rejectionReason: row.rejectionReason,
-    docs: row.kybDocuments.map((doc) => ({
-      id: doc.id,
-      type: doc.type,
-      status: doc.status,
-      uploadedAt: doc.uploadedAt,
-    })),
-  }));
+  return rows.map((row) => {
+    const pa = row.payoutAccount;
+    const payoutAccount: ApprovalQueuePayoutAccount | null = pa
+      ? (() => {
+          const match = nameMatchScore(pa.accountHolderName, row.legalName);
+          return {
+            bankName: pa.bankName,
+            accountNumberMasked: maskAccountNumber(pa.accountNumber),
+            accountHolderName: pa.accountHolderName,
+            verifiedAt: pa.verifiedAt,
+            verifyMethod: pa.verifyMethod,
+            nameMatchScore: match.score,
+            suggestVerified: match.suggestVerified,
+          };
+        })()
+      : null;
+
+    return {
+      id: row.id,
+      legalName: row.legalName,
+      contactEmail: row.contactEmail,
+      contactPhone: redactPhone(row.contactPhone),
+      status: row.status,
+      createdAt: row.createdAt,
+      rejectionReason: row.rejectionReason,
+      docs: row.kybDocuments.map((doc) => ({
+        id: doc.id,
+        type: doc.type,
+        status: doc.status,
+        uploadedAt: doc.uploadedAt,
+      })),
+      payoutAccount,
+    };
+  });
 }

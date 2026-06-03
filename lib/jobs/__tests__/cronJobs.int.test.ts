@@ -98,6 +98,20 @@ beforeAll(async () => {
   });
   operatorId = op.id;
 
+  // Issue 078: the sweep only settles payouts for a VERIFIED payout account.
+  // Seed one for the test operator so the AC5 happy-path/forced-fail/debit tests
+  // (which create payouts under this operatorId) are actually processed.
+  await prisma.payoutAccount.create({
+    data: {
+      operatorId,
+      bankName: 'Cron Test Bank',
+      accountNumber: '0123456789',
+      accountHolderName: 'Cron Test Op',
+      verifiedAt: new Date(),
+      verifyMethod: 'name_match',
+    },
+  });
+
   const bus = await prisma.bus.create({
     data: { operatorId, capacity: 40, licensePlate: 'CRON-001', busType: 'coach' },
   });
@@ -120,6 +134,7 @@ afterAll(async () => {
     where: { booking: { trip: { operatorId } } },
   });
   await prisma.payout.deleteMany({ where: { operatorId } });
+  await prisma.payoutAccount.deleteMany({ where: { operatorId } });
   await prisma.hold.deleteMany({ where: { trip: { operatorId } } });
   await prisma.booking.deleteMany({ where: { trip: { operatorId } } });
   await prisma.recurringGenerationLog.deleteMany({
@@ -353,6 +368,69 @@ describe('AC5 processPayouts', () => {
     expect(row?.status).toBe('failed');
     expect(row?.failureReason).toBe('settlement_forced_fail');
     expect(row?.settledAt).toBeNull();
+  });
+
+  // Issue 078: a due payout for an operator WITHOUT a verified payout account is
+  // SKIPPED — left `requested` (not paid, no debit) for a later sweep.
+  it('Issue 078: skips a due payout when the operator has no verified payout account', async () => {
+    const unverifiedOp = await prisma.operator.create({
+      data: {
+        legalName: 'Unverified Payout Op',
+        contactPhone: '+8490xxxxxx7',
+        contactEmail: 'unverified@test.dev',
+      },
+    });
+    const bus = await prisma.bus.create({
+      data: { operatorId: unverifiedOp.id, capacity: 20, licensePlate: 'CRON-UNV', busType: 'coach' },
+    });
+    const route = await prisma.route.create({
+      data: { origin: 'A', destination: 'B', operatorId: unverifiedOp.id, durationMinutes: 60 },
+    });
+    const trip = await prisma.trip.create({
+      data: {
+        operatorId: unverifiedOp.id,
+        busId: bus.id,
+        routeId: route.id,
+        departureAt: new Date(Date.now() - 5 * 86_400_000),
+        price: 100_000,
+        status: 'completed',
+        salesClosed: true,
+        completedAt: new Date(Date.now() - 4 * 86_400_000),
+      },
+    });
+    const payout = await prisma.payout.create({
+      data: {
+        tripId: trip.id,
+        operatorId: unverifiedOp.id,
+        gross: 100_000,
+        platformFee: 6_000,
+        net: 94_000,
+        status: 'requested',
+        scheduledAt: new Date(Date.now() - 60_000), // due
+      },
+    });
+
+    try {
+      await prisma.$transaction((tx) => processPayouts(tx));
+
+      const row = await prisma.payout.findUnique({
+        where: { id: payout.id },
+        select: { status: true, settledAt: true },
+      });
+      // Skipped — still requested, never settled, no debit written.
+      expect(row?.status).toBe('requested');
+      expect(row?.settledAt).toBeNull();
+      const debits = await prisma.ledgerEntry.findMany({ where: { payoutId: payout.id } });
+      expect(debits).toHaveLength(0);
+    } finally {
+      // Cleanup in reverse-FK order.
+      await prisma.ledgerEntry.deleteMany({ where: { operatorId: unverifiedOp.id } });
+      await prisma.payout.deleteMany({ where: { operatorId: unverifiedOp.id } });
+      await prisma.trip.deleteMany({ where: { operatorId: unverifiedOp.id } });
+      await prisma.route.deleteMany({ where: { operatorId: unverifiedOp.id } });
+      await prisma.bus.deleteMany({ where: { operatorId: unverifiedOp.id } });
+      await prisma.operator.deleteMany({ where: { id: unverifiedOp.id } });
+    }
   });
 
   it('does not process a payout scheduled in the future', async () => {

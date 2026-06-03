@@ -13,6 +13,13 @@
  * Payout-row creation (completeTripCore, AC3) — this core only transitions
  * status and stamps settledAt / failureReason.
  *
+ * Issue 078: the payout rail only sends to a VERIFIED payout account. Before
+ * settling a due row we check the operator's PayoutAccount is registered AND
+ * verified (verifiedAt != null). If not, we SKIP the row — leave it `requested`
+ * (do NOT mark it paid, do NOT write a payout_debit), so it is retried on a later
+ * sweep once the operator verifies. A skip is not a failure: the money is still
+ * owed, just not yet sendable.
+ *
  * SPEC NOTE (Issue 019): the issue says the processor runs calcPayout; we
  * compute amounts at row-creation instead so the row carries them from birth.
  * The processor is status-only.
@@ -25,6 +32,7 @@
 import { Prisma } from '@prisma/client';
 import { settlePayout } from '@/lib/payouts/settlePayout';
 import { captureException } from '@/lib/observability';
+import { logger } from '@/lib/logger';
 import type { JobCore } from './types';
 
 interface DuePayout {
@@ -52,9 +60,20 @@ export const processPayouts: JobCore = async (tx, opts) => {
   // pass `tx` to appendLedgerEntry, so its default-client param is never used.
   // Hoisted once (not per-iteration) before the loop.
   const { appendLedgerEntry } = await import('@/lib/ledger/ledgerRepo');
+  // Issue 078: verified-account guard. Same lazy-import discipline so importing
+  // this core in a unit test never eagerly loads the prisma singleton.
+  const { isPayoutAccountVerified } = await import('@/lib/onboarding/payoutAccount');
 
   let processed = 0;
+  let skipped = 0;
   for (const payout of due) {
+    // Issue 078: only send to a verified payout account. Unverified → skip,
+    // leaving the row `requested` for a later sweep (no status change, no debit).
+    if (!(await isPayoutAccountVerified(tx, payout.operatorId))) {
+      skipped += 1;
+      continue;
+    }
+
     await tx.payout.update({
       where: { id: payout.id },
       data: { status: 'processing' },
@@ -107,6 +126,13 @@ export const processPayouts: JobCore = async (tx, opts) => {
     }
 
     processed += 1;
+  }
+
+  // Issue 078: a skipped (unverified-account) payout is left `requested` for retry —
+  // surface the count so an operator stuck unverified is observable, but it does not
+  // count toward rowsAffected (nothing was settled for those).
+  if (skipped > 0) {
+    logger.info({ skipped, processed }, 'processPayouts.skipped_unverified_payout_account');
   }
 
   return { rowsAffected: processed, status: 'success' };

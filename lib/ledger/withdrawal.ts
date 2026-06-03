@@ -57,6 +57,7 @@ import { prisma } from '@/lib/db/client';
 import { appendLedgerEntry } from './ledgerRepo';
 import { OPERATOR_BALANCE_TYPES } from './balance';
 import { MIN_WITHDRAW_THRESHOLD_VND, SETTLEMENT_DELAY_SQL_INTERVAL } from './constants';
+import { isPayoutAccountVerified } from '@/lib/onboarding/payoutAccount';
 import { logger } from '@/lib/logger';
 import type { LedgerEntryType } from '@prisma/client';
 
@@ -74,7 +75,17 @@ export interface RequestWithdrawalInput {
 
 export type RequestWithdrawalResult =
   | { ok: true; payoutId: string }
-  | { ok: false; reason: 'below_min' | 'insufficient_available' | 'invalid_amount' };
+  | {
+      ok: false;
+      reason:
+        | 'below_min'
+        | 'insufficient_available'
+        | 'invalid_amount'
+        // Issue 078: the payout rail only sends to a VERIFIED payout account. A
+        // missing or unverified PayoutAccount blocks the withdrawal — the operator
+        // must register + verify ownership before pulling funds.
+        | 'payout_account_unverified';
+    };
 
 /** Marker sourceEventId for request-level (idempotencyKey) replay short-circuit. */
 function withdrawMarkerKey(idempotencyKey: string): string {
@@ -185,6 +196,15 @@ export async function requestWithdrawal(
     });
     if (lockedMarker?.payoutId) {
       return { ok: true as const, payoutId: lockedMarker.payoutId };
+    }
+
+    // Issue 078: the payout rail only sends to a VERIFIED payout account. Block the
+    // withdrawal when the operator has no registered PayoutAccount or it is not yet
+    // verified (verifiedAt is null — e.g. after an account edit re-armed
+    // verification). Checked UNDER the lock with the tx handle so it is consistent
+    // with the rest of the gated writes. No Payout, no ledger entries on this path.
+    if (!(await isPayoutAccountVerified(tx, operatorId))) {
+      return { ok: false as const, reason: 'payout_account_unverified' as const };
     }
 
     // Recompute available UNDER the lock with the tx handle — same definition as

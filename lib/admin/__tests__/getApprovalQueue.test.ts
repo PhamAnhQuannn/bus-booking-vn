@@ -85,6 +85,68 @@ describe('getApprovalQueue', () => {
     ]);
   });
 
+  it('surfaces the payout account (number masked) + name-match signal (Issue 078)', async () => {
+    const { prisma, findMany } = makePrisma([
+      {
+        id: 'op_4',
+        legalName: 'Acme Buses',
+        contactEmail: 'a@acme.test',
+        contactPhone: '+84901112222',
+        status: 'UNDER_REVIEW',
+        createdAt: new Date('2026-04-20T00:00:00.000Z'),
+        rejectionReason: null,
+        kybDocuments: [],
+        payoutAccount: {
+          bankName: 'Test Bank',
+          accountNumber: '0123456789',
+          accountHolderName: 'Acme Buses',
+          verifiedAt: null,
+          verifyMethod: null,
+        },
+      },
+    ]);
+
+    const queue = await getApprovalQueue(prisma);
+    // The query selects the related payout account.
+    const arg = findMany.mock.calls[0][0];
+    expect(arg.select.payoutAccount).toEqual({
+      select: {
+        bankName: true,
+        accountNumber: true,
+        accountHolderName: true,
+        verifiedAt: true,
+        verifyMethod: true,
+      },
+    });
+    const pa = queue[0].payoutAccount!;
+    expect(pa.bankName).toBe('Test Bank');
+    expect(pa.accountNumberMasked).toBe('••••6789');
+    // raw number never leaks
+    expect(JSON.stringify(queue[0])).not.toContain('0123456789');
+    // holder == legalName → name-match score 1, suggests verify
+    expect(pa.nameMatchScore).toBe(1);
+    expect(pa.suggestVerified).toBe(true);
+    expect(pa.verifiedAt).toBeNull();
+  });
+
+  it('payoutAccount is null when the operator has not registered one (Issue 078)', async () => {
+    const { prisma } = makePrisma([
+      {
+        id: 'op_5',
+        legalName: 'No Account Co',
+        contactEmail: 'n@noacc.test',
+        contactPhone: '+84903334444',
+        status: 'PENDING_REVIEW',
+        createdAt: new Date('2026-04-21T00:00:00.000Z'),
+        rejectionReason: null,
+        kybDocuments: [],
+        payoutAccount: null,
+      },
+    ]);
+    const queue = await getApprovalQueue(prisma);
+    expect(queue[0].payoutAccount).toBeNull();
+  });
+
   it('passes through a prior rejection reason for resubmitted (UNDER_REVIEW) operators', async () => {
     const { prisma } = makePrisma([
       {

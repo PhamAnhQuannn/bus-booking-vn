@@ -40,6 +40,9 @@
  * - *.totpSecret               — nested TOTP shared secret — a logged secret = full 2FA compromise (Issue 055)
  * - totpCode                   — top-level TOTP code (Issue 055)
  *   (raw body `code` is already covered by the existing `*.code` path)
+ * - accountNumber              — payout-account bank number — sensitive PII (Issue 078)
+ * - *.accountNumber            — nested payout-account number; a leaked bank account
+ *   number is a real, direct harm (Issue 078)
  */
 
 import pino, { type LoggerOptions } from 'pino';
@@ -88,6 +91,8 @@ export const loggerOptions: LoggerOptions = {
       'totpSecret',              // Issue 055: top-level TOTP shared secret
       '*.totpSecret',            // Issue 055: nested TOTP shared secret (2FA compromise)
       'totpCode',                // Issue 055: top-level TOTP code (body.code covered by *.code)
+      'accountNumber',           // Issue 078: payout-account bank number (sensitive PII)
+      '*.accountNumber',         // Issue 078: nested payout-account number (real harm if leaked)
     ],
     censor: '[REDACTED]',
   },
