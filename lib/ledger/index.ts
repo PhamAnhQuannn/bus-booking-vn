@@ -24,6 +24,26 @@ export {
   type SetOperatorFeeOverrideResult,
 } from './setOperatorFeeOverride';
 
+// Issue 068: global platform-fee default — inserts a NEW effective-dated FeeConfig
+// row with operatorId=null (never edits in place), closes the prior open global row,
+// writes an audit row. Global-scope sibling of setOperatorFeeOverride (067).
+export {
+  setGlobalFee,
+  GlobalFeeError,
+  MAX_GLOBAL_FEE_PPM,
+  type SetGlobalFeeInput,
+  type SetGlobalFeeResult,
+} from './setGlobalFee';
+
+// Issue 068: manual operator-balance adjustment — a single signed `adjustment`
+// ledger entry with a unique sourceEventId per action, reason required + audited.
+export {
+  addManualAdjustment,
+  ManualAdjustmentError,
+  type AddManualAdjustmentInput,
+  type AddManualAdjustmentResult,
+} from './addManualAdjustment';
+
 // Issue 050: operator balance derived from SUM(LedgerEntry) — pending/available/paidOut.
 // Issue 051: OPERATOR_BALANCE_TYPES — explicit balance-inclusion set (excludes refund_out).
 export {
