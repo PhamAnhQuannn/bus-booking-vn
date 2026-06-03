@@ -22,7 +22,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { prisma } from '@/lib/core/db/client';
-import { normalizePhone } from '@/lib/auth/phoneNormalize';
+import { normalizePhone } from '@/lib/core/validation/phone';
 import { createStaff } from '../createStaff';
 import { disableStaff } from '../disableStaff';
 import { assignService } from '../assignService';

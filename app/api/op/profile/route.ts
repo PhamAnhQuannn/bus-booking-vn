@@ -17,8 +17,8 @@ import { prisma } from '@/lib/core/db/client';
 import { verifyOperatorAccess } from '@/lib/auth/jwt';
 import { PatchOperatorProfileSchema } from '@/lib/auth/types';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { normalizePhone } from '@/lib/auth/phoneNormalize';
-import { PhoneNormalizeError } from '@/lib/auth/phoneNormalize';
+import { normalizePhone } from '@/lib/core/validation/phone';
+import { PhoneNormalizeError } from '@/lib/core/validation/phone';
 import { Prisma } from '@prisma/client';
 
 const ACCESS_COOKIE = 'bb_op_access';

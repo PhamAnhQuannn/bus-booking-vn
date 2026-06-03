@@ -11,7 +11,7 @@
 
 import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
-import { normalizePhone } from './phoneNormalize';
+import { normalizePhone } from '@/lib/core/validation/phone';
 import { generateCode, generateSalt, hashCode } from './otp';
 import { sendSms } from '@/lib/notification/esms';
 import { createRatelimit } from '@/lib/ratelimit';

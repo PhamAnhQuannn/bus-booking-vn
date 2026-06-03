@@ -14,7 +14,7 @@ import { ForgotPasswordSchema } from '@/lib/auth/types';
 import { sendOperatorPasswordResetOtp } from '@/lib/auth/operatorOtp';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { prisma } from '@/lib/core/db/client';
-import { normalizePhone } from '@/lib/auth/phoneNormalize';
+import { normalizePhone } from '@/lib/core/validation/phone';
 
 async function handler(req: NextRequest): Promise<Response> {
   let body: unknown;

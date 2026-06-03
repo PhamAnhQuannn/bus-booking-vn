@@ -48,7 +48,7 @@ vi.mock('../otp', () => ({
   hashCode: mockHashCode,
 }));
 
-vi.mock('../phoneNormalize', () => ({
+vi.mock('@/lib/core/validation/phone', () => ({
   normalizePhone: mockNormalizePhone,
 }));
 

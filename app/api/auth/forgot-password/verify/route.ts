@@ -22,7 +22,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { ForgotPasswordVerifySchema } from '@/lib/auth/types';
 import { verifyCustomerAccountOtp } from '@/lib/account/customerOtp';
 import { issueOtpProof } from '@/lib/auth/otpProof';
-import { normalizePhone } from '@/lib/auth/phoneNormalize';
+import { normalizePhone } from '@/lib/core/validation/phone';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 async function handler(req: NextRequest): Promise<Response> {

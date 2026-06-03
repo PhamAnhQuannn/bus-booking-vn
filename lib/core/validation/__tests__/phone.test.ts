@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizePhone, PhoneNormalizeError } from '../phoneNormalize';
+import { normalizePhone, PhoneNormalizeError } from '../phone';
 
 // PII placeholder phones use literal-x masks to avoid gitleaks regex \+84[35789]\d{8}
 // Phones like 0912345678 are safe since gitleaks targets +84[35789]\d{8}

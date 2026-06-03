@@ -17,7 +17,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { registerInput } from '@/lib/core/validation/auth';
 import { register, AuthServiceError } from '@/lib/auth/authService';
-import { normalizePhone } from '@/lib/auth/phoneNormalize';
+import { normalizePhone } from '@/lib/core/validation/phone';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { jwtVerify } from 'jose';
 import { z } from 'zod';

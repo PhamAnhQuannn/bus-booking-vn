@@ -10,7 +10,7 @@
  */
 
 import { prisma } from '@/lib/core/db/client';
-import { normalizePhone } from '@/lib/auth/phoneNormalize';
+import { normalizePhone } from '@/lib/core/validation/phone';
 import { sendCustomerAccountOtp } from './customerOtp';
 
 const DUMMY_DELAY_MS = 200; // approximate timing of SMS send — prevents enumeration

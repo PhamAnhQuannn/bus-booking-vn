@@ -7,7 +7,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SignJWT } from 'jose';
-import { normalizePhone } from '@/lib/auth/phoneNormalize';
+import { normalizePhone } from '@/lib/core/validation/phone';
 
 const { mockRegister, mockCookieStore, AuthServiceError } = vi.hoisted(() => {
   class AuthServiceError extends Error {

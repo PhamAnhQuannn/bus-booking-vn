@@ -20,7 +20,7 @@ import { test, expect } from '@playwright/test';
 import { Client } from 'pg';
 import { primeCsrf } from './helpers/csrf';
 import { hash } from '../lib/auth/password';
-import { normalizePhone } from '../lib/auth/phoneNormalize';
+import { normalizePhone } from '../lib/core/validation/phone';
 import * as fs from 'fs';
 
 const SANDBOX_ENABLED = process.env.E2E_OP_REPORTS_ENABLED === 'true';

@@ -23,7 +23,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/core/db/client';
 import { registerOperator } from '@/lib/onboarding/registerOperator';
 import { RegisterError } from '@/lib/onboarding/errors';
-import { PhoneNormalizeError } from '@/lib/auth/phoneNormalize';
+import { PhoneNormalizeError } from '@/lib/core/validation/phone';
 import { opRegisterRatelimit } from '@/lib/ratelimit';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 

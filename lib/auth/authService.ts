@@ -7,7 +7,7 @@
 
 import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
-import { normalizePhone } from './phoneNormalize';
+import { normalizePhone } from '@/lib/core/validation/phone';
 import { consume } from './otp';
 import { hash as hashPassword, verify as verifyPassword, dummyVerify } from './password';
 import { createSession, rotateRefresh, revokeSession } from './session';

@@ -26,7 +26,7 @@
  */
 
 import type { Prisma } from '@prisma/client';
-import { normalizePhone, PhoneNormalizeError } from '@/lib/auth/phoneNormalize';
+import { normalizePhone, PhoneNormalizeError } from '@/lib/core/validation/phone';
 import { logger } from '@/lib/logger';
 
 export async function attachGuestBookingByPhone(

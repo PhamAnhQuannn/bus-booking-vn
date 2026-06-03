@@ -13,7 +13,7 @@
 
 import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
-import { normalizePhone } from '@/lib/auth/phoneNormalize';
+import { normalizePhone } from '@/lib/core/validation/phone';
 
 export type ChangePhoneErrorCode = 'PHONE_TAKEN' | 'CUSTOMER_NOT_FOUND';
 

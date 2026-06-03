@@ -4,7 +4,7 @@ import { Pool } from 'pg';
 import { addDays, startOfDay, set } from 'date-fns';
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import { hash as hashPassword } from '../lib/auth/password';
-import { normalizePhone } from '../lib/auth/phoneNormalize';
+import { normalizePhone } from '../lib/core/validation/phone';
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {

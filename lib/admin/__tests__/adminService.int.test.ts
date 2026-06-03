@@ -37,7 +37,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { prisma } from '@/lib/core/db/client';
-import { normalizePhone } from '@/lib/auth/phoneNormalize';
+import { normalizePhone } from '@/lib/core/validation/phone';
 import { verify } from '@/lib/auth/password';
 import * as esms from '@/lib/notification/esms';
 import { createOperator } from '../createOperator';

@@ -10,7 +10,7 @@
  */
 
 import { z } from 'zod';
-import { normalizePhone } from '@/lib/auth/phoneNormalize';
+import { normalizePhone } from '@/lib/core/validation/phone';
 
 const DISPLAY_NAME = z.string().trim().min(1).max(120);
 
