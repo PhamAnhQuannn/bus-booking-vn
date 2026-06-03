@@ -162,6 +162,28 @@ const envSchema = z.object({
 
   /** Sentry DSN. Unset → events go to the structured logger fallback sink. */
   SENTRY_DSN: z.string().optional(),
+
+  // ---------------------------------------------------------------------------
+  // Ticket QR signing (Issue 071).
+  // DEDICATED ticketing key — separate from JWT_SECRET so that compromise of one
+  // realm's signing key does NOT forge the other. This key signs the
+  // tamper-evident ticket lookup token embedded in the boarding QR code
+  // (lib/ticketing/ticketToken.ts). The token carries ONLY lookup keys
+  // (bookingRef + confirmationToken), no PII — the verify page does a fresh DB
+  // read for trip/status, so the token is a tamper-evident pointer, not a bearer
+  // credential.
+  //
+  // Test fallback: ticketToken.ts's getTicketSecret() falls back to
+  // 't'.repeat(32) when NODE_ENV === 'test' (mirrors the JWT_SECRET getter in
+  // lib/auth/jwt.ts), so unit tests run without this var set. In production this
+  // var IS required — min 16 chars.
+  // ---------------------------------------------------------------------------
+
+  /** HS256 signing secret for ticket QR lookup tokens (Issue 071). */
+  TICKET_SECRET: z
+    .string()
+    .min(16, 'TICKET_SECRET must be at least 16 characters')
+    .optional(),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;
