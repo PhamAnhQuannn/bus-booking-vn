@@ -10,9 +10,9 @@
  * defense-in-depth + UX — we don't leak applicant PII to non-approver roles). If a
  * dedicated approver role is introduced later, widen the check here and on the routes.
  *
- * KYB docs (Issue 077) + payout account (Issue 078) are Wave 5 — getApprovalQueue
- * returns `docs: []` until that linkage exists; the UI renders a "KYB submission
- * pending (Wave 5)" placeholder per row.
+ * KYB docs (Issue 077): getApprovalQueue populates each row's `docs` from the
+ * operator's KybDocument rows (no signed URLs). The KybDocLinks island renders a
+ * "View" affordance per doc that mints a fresh signed GET URL on demand (audited).
  */
 
 import { requireAdminPage } from '@/lib/auth/requireAdminPage';
@@ -21,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ApprovalActions } from './ApprovalActions';
+import { KybDocLinks } from './KybDocLinks';
 
 const STATUS_BADGE: Record<ApprovalQueueOperator['status'], { variant: 'pending' | 'neutral'; label: string }> = {
   PENDING_REVIEW: { variant: 'neutral', label: 'Pending review' },
@@ -109,27 +110,16 @@ export default async function AdminApprovalsPage() {
                     <Badge variant={badge.variant}>{badge.label}</Badge>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {/* KYB docs (077) + payout account (078) — Wave 5. */}
-                    {op.docs.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">
-                        KYB submission pending (Wave 5)
-                      </p>
-                    ) : (
-                      <ul className="flex flex-wrap gap-2 text-sm">
-                        {op.docs.map((doc) => (
-                          <li key={doc.id}>
-                            <a
-                              href={doc.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="underline underline-offset-4"
-                            >
-                              {doc.label}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                    {/* KYB docs (077): View link mints a fresh signed GET on demand. */}
+                    <KybDocLinks
+                      operatorId={op.id}
+                      docs={op.docs.map((doc) => ({
+                        id: doc.id,
+                        type: doc.type,
+                        status: doc.status,
+                        uploadedAt: doc.uploadedAt.toISOString(),
+                      }))}
+                    />
 
                     <ApprovalActions operatorId={op.id} status={op.status} />
                   </CardContent>

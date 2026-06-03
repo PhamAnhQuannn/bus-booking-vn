@@ -9,10 +9,13 @@
  * glanceable contact, not the raw PII (the audit/contact path uses the unmasked
  * value elsewhere). Email is shown in full (admins contact applicants by email).
  *
- * KYB documents (Issue 077) and the payout account (Issue 078) are NOT built yet,
- * so each row carries an empty `docs: []` placeholder. When the StoredObject ↔
- * Operator linkage lands in Wave 5, wire signed GET URLs via
- * createSignedDownloadUrl here and populate `docs`.
+ * KYB documents (Issue 077) are populated from the operator's KybDocument rows.
+ * The list query does NOT mint signed GET URLs (N operators × M docs = too many
+ * short-lived URLs minted eagerly + a PII-audit row per doc on every queue
+ * render). Instead each doc carries its id + type + status + uploadedAt, and the
+ * admin Approvals UI renders a "View" link that hits a per-doc signed-GET endpoint
+ * on demand (which audits the access then). The payout account (Issue 078) is a
+ * separate concern and not surfaced here.
  */
 
 import type { OperatorStatus } from '@prisma/client';
@@ -23,11 +26,13 @@ import { redactPhone } from '@/lib/audit/redactPhone';
 const PENDING_OPERATOR_STATUSES: OperatorStatus[] = ['PENDING_REVIEW', 'UNDER_REVIEW'];
 
 export interface ApprovalQueueDoc {
-  /** StoredObject key / id (Wave 5 — 077). */
+  /** KybDocument row id — used to build the per-doc signed-GET endpoint URL. */
   id: string;
-  label: string;
-  /** Signed, time-boxed GET URL (Wave 5 — 078). */
-  url: string;
+  /** Documented type union: 'business_license' | 'identity' | 'payout_account'. */
+  type: string;
+  /** 'submitted' | 'accepted' | 'rejected'. */
+  status: string;
+  uploadedAt: Date;
 }
 
 export interface ApprovalQueueOperator {
@@ -39,7 +44,7 @@ export interface ApprovalQueueOperator {
   status: OperatorStatus;
   createdAt: Date;
   rejectionReason: string | null;
-  /** Wave 5 (077/078): KYB docs + payout account. Empty until the linkage exists. */
+  /** Issue 077: the operator's submitted KYB documents (no signed URLs here). */
   docs: ApprovalQueueDoc[];
 }
 
@@ -59,6 +64,12 @@ export async function getApprovalQueue(
       status: true,
       createdAt: true,
       rejectionReason: true,
+      // Issue 077: include the operator's KYB docs (no signed URLs — minted on
+      // demand by the per-doc signed-GET endpoint when the admin clicks "View").
+      kybDocuments: {
+        select: { id: true, type: true, status: true, uploadedAt: true },
+        orderBy: { uploadedAt: 'asc' },
+      },
     },
     orderBy: { createdAt: 'asc' },
   });
@@ -71,7 +82,11 @@ export async function getApprovalQueue(
     status: row.status,
     createdAt: row.createdAt,
     rejectionReason: row.rejectionReason,
-    // Wave 5 (077/078): KYB submission + payout account not yet linked to Operator.
-    docs: [],
+    docs: row.kybDocuments.map((doc) => ({
+      id: doc.id,
+      type: doc.type,
+      status: doc.status,
+      uploadedAt: doc.uploadedAt,
+    })),
   }));
 }

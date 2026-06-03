@@ -27,7 +27,7 @@ describe('getApprovalQueue', () => {
     expect(arg.orderBy).toEqual({ createdAt: 'asc' });
   });
 
-  it('masks the contact phone and includes an empty docs placeholder (Wave 5)', async () => {
+  it('masks the contact phone and maps an empty kybDocuments list to docs', async () => {
     const createdAt = new Date('2026-05-01T00:00:00.000Z');
     const { prisma } = makePrisma([
       {
@@ -38,6 +38,7 @@ describe('getApprovalQueue', () => {
         status: 'PENDING_REVIEW',
         createdAt,
         rejectionReason: null,
+        kybDocuments: [],
       },
     ]);
 
@@ -55,6 +56,35 @@ describe('getApprovalQueue', () => {
     expect(op.docs).toEqual([]);
   });
 
+  it('selects kybDocuments (oldest first) and maps them into docs (Issue 077)', async () => {
+    const uploadedAt = new Date('2026-05-02T00:00:00.000Z');
+    const { prisma, findMany } = makePrisma([
+      {
+        id: 'op_3',
+        legalName: 'Gamma Coaches',
+        contactEmail: 'g@gamma.test',
+        contactPhone: '+84905555555',
+        status: 'UNDER_REVIEW',
+        createdAt: new Date('2026-04-15T00:00:00.000Z'),
+        rejectionReason: null,
+        kybDocuments: [
+          { id: 'kyb_1', type: 'business_license', status: 'submitted', uploadedAt },
+        ],
+      },
+    ]);
+
+    const queue = await getApprovalQueue(prisma);
+    // The query selects the related KYB docs, oldest first.
+    const arg = findMany.mock.calls[0][0];
+    expect(arg.select.kybDocuments).toEqual({
+      select: { id: true, type: true, status: true, uploadedAt: true },
+      orderBy: { uploadedAt: 'asc' },
+    });
+    expect(queue[0].docs).toEqual([
+      { id: 'kyb_1', type: 'business_license', status: 'submitted', uploadedAt },
+    ]);
+  });
+
   it('passes through a prior rejection reason for resubmitted (UNDER_REVIEW) operators', async () => {
     const { prisma } = makePrisma([
       {
@@ -65,6 +95,7 @@ describe('getApprovalQueue', () => {
         status: 'UNDER_REVIEW',
         createdAt: new Date('2026-04-01T00:00:00.000Z'),
         rejectionReason: 'missing license',
+        kybDocuments: [],
       },
     ]);
 

@@ -16,6 +16,7 @@ import {
   Bus,
   CalendarClock,
   CopyPlus,
+  FileCheck,
   Gauge,
   LayoutDashboard,
   Route,
@@ -127,6 +128,14 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Users,
     adminOnly: true,
     keywords: ["staff", "nhan vien"],
+  },
+  {
+    id: "kyb",
+    label: "Hồ sơ KYB",
+    href: "/op/kyb",
+    icon: FileCheck,
+    adminOnly: true,
+    keywords: ["kyb", "ho so doanh nghiep", "giay to", "documents", "verification"],
   },
   {
     id: "profile",
