@@ -242,6 +242,7 @@ enum PaymentMethod {
 
 enum NotificationChannel {
   sms
+  email
 }
 
 enum NotificationStatus {
@@ -318,21 +319,29 @@ model PaymentEvent {
 }
 
 model NotificationLog {
-  id           String              @id @default(cuid())
-  bookingId    String?             @db.Uuid
-  channel      NotificationChannel @default(sms)
-  template     String
-  recipient    String
-  payload      String
-  status       NotificationStatus  @default(pending)
-  externalRef  String?
-  sentAt       DateTime?
-  scheduledFor DateTime? // S19 cron: payout_scheduled dispatch time (completedAt+3d)
-  createdAt    DateTime            @default(now())
-  booking      Booking?            @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  id            String              @id @default(cuid())
+  bookingId     String?             @db.Uuid
+  channel       NotificationChannel @default(sms)
+  template      String
+  recipient     String
+  payload       String
+  status        NotificationStatus  @default(pending)
+  externalRef   String?
+  sentAt        DateTime?
+  scheduledFor  DateTime? // S19 cron: payout_scheduled dispatch time (completedAt+3d)
+  /// Issue 058: dispatcher retry/backoff state.
+  attemptCount  Int                 @default(0)
+  /// Next eligible dispatch instant after a failed attempt (exponential backoff). NULL = due now.
+  nextAttemptAt DateTime?
+  /// Last delivery error message (truncated) — ops debugging only.
+  lastError     String?
+  createdAt     DateTime            @default(now())
+  booking       Booking?            @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
+  @@unique([bookingId, template])
   @@index([bookingId])
   @@index([template, scheduledFor])
+  @@index([status, nextAttemptAt])
 }
 
 /// Issue 019: one row per cron-job invocation. status ∈ success|failed|skipped_locked.
