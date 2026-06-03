@@ -5,6 +5,20 @@ wave: 7
 spec: [S03, S07, S06, S15-1]
 ---
 
+> ✅ **DONE 2026-06-03 (cash-only descope).** Dropped the cash rail residue:
+> `PaymentMethod='cash'`, `BookingStatus='pending_cash_payment'`, `Booking.cashCollectedAt`,
+> the derived `cashFlag` UI/DTO, cash display labels, and every dead `pending_cash_payment`
+> "paid-status" filter member (~40 files). Migration `20260603040000_drop_cash_residue`
+> (recreate-enum dance). `tsc` clean, lint clean, 1408 unit tests green. Migration apply +
+> integration/e2e pending DB availability.
+>
+> ⚠️ **DESCOPED — NOT done (the rest of this issue's original scope):** `ContactStatus`,
+> `Booking.pickedUpAt`/`escalationNote`/`escalatedAt`, and `Trip.blockedSeats` were **kept**.
+> They are NOT cash — research found them load-bearing for LIVE features:
+> `blockedSeats` is still written by trip-create and read by the bus-reassign capacity guard
+> (`lib/trips/reassignBus.ts`); the contact/escalation fields power the live op booking-queue
+> (Issue 014). File separate follow-up issues to retire those features before dropping them.
+
 ## Parent PRD
 
 `issues/prd.md` · spec `rebuild-plan.md` [S03] / [S07] / [S06] (S15 item 1, Phase B)
