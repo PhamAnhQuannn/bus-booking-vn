@@ -20,7 +20,11 @@ const mockPrisma = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 } as any;
 
-import { getAssignedCharters, getAcceptedCharters } from '../getOperatorCharters';
+import {
+  getAssignedCharters,
+  getAcceptedCharters,
+  getPublicPoolCharters,
+} from '../getOperatorCharters';
 
 const OPERATOR_ID = 'op-org-A';
 
@@ -123,5 +127,63 @@ describe('getAcceptedCharters', () => {
     findMany.mockResolvedValue([]);
     await getAcceptedCharters(mockPrisma, 'op-org-B');
     expect(findMany.mock.calls[0][0].where.assigneeOperatorId).toBe('op-org-B');
+  });
+});
+
+describe('getPublicPoolCharters', () => {
+  const POOL_ROW = {
+    ...BASE_ROW,
+    claimByAt: new Date('2026-06-15T00:00:00Z'),
+  };
+
+  it('filters PUBLISHED + unclaimed + not-expired, newest-first', async () => {
+    findMany.mockResolvedValue([POOL_ROW]);
+    await getPublicPoolCharters(mockPrisma, {});
+
+    const args = findMany.mock.calls[0][0];
+    expect(args.where.status).toBe('PUBLISHED');
+    expect(args.where.assigneeOperatorId).toBeNull();
+    // claimByAt: null OR claimByAt > now (expired pool items excluded).
+    expect(args.where.OR).toHaveLength(2);
+    expect(args.where.OR[0]).toEqual({ claimByAt: null });
+    expect(args.where.OR[1].claimByAt.gt).toBeInstanceOf(Date);
+    expect(args.orderBy).toEqual({ createdAt: 'desc' });
+  });
+
+  it('does NOT select or expose any customer contact (pre-claim privacy)', async () => {
+    findMany.mockResolvedValue([POOL_ROW]);
+    const result = await getPublicPoolCharters(mockPrisma, {});
+
+    const select = findMany.mock.calls[0][0].select;
+    expect(select.contactName).toBeUndefined();
+    expect(select.contactPhone).toBeUndefined();
+    expect(select.contactEmail).toBeUndefined();
+
+    const item = result[0] as unknown as Record<string, unknown>;
+    expect('contactName' in item).toBe(false);
+    expect('contactPhone' in item).toBe(false);
+    expect('contactEmail' in item).toBe(false);
+    // The summary + claimByAt deadline ARE exposed.
+    expect(item.originName).toBe('TP. Hồ Chí Minh');
+    expect(item.claimByAt).toEqual(POOL_ROW.claimByAt);
+  });
+
+  it('honors limit + cursor pagination', async () => {
+    findMany.mockResolvedValue([]);
+    await getPublicPoolCharters(mockPrisma, { limit: 10, cursor: 'ch_last' });
+
+    const args = findMany.mock.calls[0][0];
+    expect(args.take).toBe(10);
+    expect(args.cursor).toEqual({ id: 'ch_last' });
+    expect(args.skip).toBe(1);
+  });
+
+  it('defaults to limit 50 and no cursor', async () => {
+    findMany.mockResolvedValue([]);
+    await getPublicPoolCharters(mockPrisma, {});
+    const args = findMany.mock.calls[0][0];
+    expect(args.take).toBe(50);
+    expect(args.cursor).toBeUndefined();
+    expect(args.skip).toBeUndefined();
   });
 });

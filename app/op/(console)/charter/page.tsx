@@ -25,14 +25,17 @@ import { isOperatorApproved } from '@/lib/charter/assertOperatorApproved';
 import {
   getAssignedCharters,
   getAcceptedCharters,
+  getPublicPoolCharters,
   type AssignedCharter,
   type AcceptedCharter,
+  type PublicPoolCharter,
 } from '@/lib/charter/getOperatorCharters';
 import { PageHeader } from '@/components/op/PageHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { CharterAssignmentActions } from './CharterAssignmentActions';
+import { ClaimButton } from './ClaimButton';
 
 const DATE_FMT = new Intl.DateTimeFormat('vi-VN', {
   day: '2-digit',
@@ -62,8 +65,25 @@ function formatVnd(v: number | null): string {
   return v === null ? 'Thỏa thuận' : `${v.toLocaleString('vi-VN')}₫`;
 }
 
+/**
+ * The summary fields shared by assigned leads, accepted contracts, AND public-pool
+ * items — RequestSummary renders only these (never any deadline / contact field).
+ */
+type CharterSummary = Pick<
+  AssignedCharter,
+  | 'originName'
+  | 'destinations'
+  | 'startDate'
+  | 'endDate'
+  | 'passengers'
+  | 'vehicleType'
+  | 'budgetVnd'
+  | 'durationDays'
+  | 'notes'
+>;
+
 /** Shared request-summary rows (route, dates, passengers, vehicle, budget, notes). */
-function RequestSummary({ charter }: { charter: AssignedCharter }) {
+function RequestSummary({ charter }: { charter: CharterSummary }) {
   return (
     <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
       <SummaryRow label="Điểm đi" value={charter.originName ?? '—'} />
@@ -121,9 +141,10 @@ export default async function OpCharterPage() {
     );
   }
 
-  const [assigned, accepted] = await Promise.all([
+  const [assigned, accepted, pool] = await Promise.all([
     getAssignedCharters(prisma, session.operatorId),
     getAcceptedCharters(prisma, session.operatorId),
+    getPublicPoolCharters(prisma, {}),
   ]);
 
   return (
@@ -170,7 +191,48 @@ export default async function OpCharterPage() {
         )}
       </section>
 
-      {/* ── Section 2: accepted contracts (WITH customer contact) ── */}
+      {/* ── Section 2: public pool — PUBLISHED, unclaimed (NO customer contact) ── */}
+      <section className="mb-10" aria-labelledby="charter-pool-heading">
+        <div className="mb-1 flex items-center gap-2">
+          <h2 id="charter-pool-heading" className="text-lg font-semibold">
+            Pool công khai
+          </h2>
+          <Badge variant="pending">{pool.length}</Badge>
+        </div>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Yêu cầu mở cho mọi nhà xe. Nhà xe nhận đầu tiên sẽ được giao (và xem thông
+          tin liên hệ khách hàng).
+        </p>
+
+        {pool.length === 0 ? (
+          <p className="text-sm text-muted-foreground" data-testid="charter-pool-empty">
+            Hiện chưa có yêu cầu công khai nào.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {pool.map((charter: PublicPoolCharter) => (
+              <Card key={charter.id} data-testid={`charter-pool-${charter.id}`}>
+                <CardHeader>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <CardTitle as="h3" className="font-mono text-base">
+                      {charter.ref}
+                    </CardTitle>
+                    <span className="text-xs text-muted-foreground">
+                      Hạn nhận: {formatDateTime(charter.claimByAt)}
+                    </span>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <RequestSummary charter={charter} />
+                  <ClaimButton charterId={charter.id} />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* ── Section 3: accepted contracts (WITH customer contact) ── */}
       <section aria-labelledby="charter-accepted-heading">
         <div className="mb-4 flex items-center gap-2">
           <h2 id="charter-accepted-heading" className="text-lg font-semibold">

@@ -34,7 +34,12 @@ export type EmailTemplate =
   //   charterSubmitted — request received confirmation (sent at create time).
   //   charterMatched   — an operator accepted the lead (→ ACCEPTED, Issues 083/084).
   | 'charterSubmitted'
-  | 'charterMatched';
+  | 'charterMatched'
+  // Issue 084: public-pool first-accept-wins claim outcome emails to the operator.
+  //   charterClaimWon  — this operator's claim won the pool item (→ ACCEPTED).
+  //   charterClaimLost — (optional) another operator claimed it first.
+  | 'charterClaimWon'
+  | 'charterClaimLost';
 
 export interface SendEmailInput {
   to: string;
@@ -77,6 +82,9 @@ const SUBJECTS: Record<string, string> = {
   // Issue 082: charter lead-gen lifecycle.
   charterSubmitted: 'BBVN — Đã nhận yêu cầu thuê xe',
   charterMatched: 'BBVN — Đã tìm được nhà xe cho yêu cầu của bạn',
+  // Issue 084: public-pool claim outcome (operator-facing).
+  charterClaimWon: 'BBVN — Bạn đã nhận được yêu cầu thuê xe',
+  charterClaimLost: 'BBVN — Yêu cầu thuê xe đã được nhà xe khác nhận',
 };
 
 /** Resolve a subject line for the template; falls back to a generic subject. */
