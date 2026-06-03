@@ -108,6 +108,44 @@ const envSchema = z.object({
     .string()
     .min(16, 'STUB_PAYMENT_SECRET must be at least 16 characters')
     .default('dev-stub-payment-secret-local-only-change-me'),
+
+  // ---------------------------------------------------------------------------
+  // Object storage (Issue 059 — signed PUT/GET, keys in DB).
+  // The contract (server mints signed URLs, never proxies bytes; DB stores the
+  // object KEY, never the blob) runs fully in STUB mode locally + in tests.
+  // Real S3/@aws-sdk is a Wave-9 concern and is deferred behind STORAGE_STUB
+  // exactly like PAYMENTS_STUB defers the real PSP. The STORAGE_* connection
+  // vars are OPTIONAL — they're only consulted on the (not-yet-implemented)
+  // real branch when STORAGE_STUB=false; stub mode needs none of them.
+  // ---------------------------------------------------------------------------
+
+  /** Route all object storage through the local stub URL-signer. Default on. */
+  STORAGE_STUB: z
+    .string()
+    .default('true')
+    .transform((v) => v === 'true'),
+
+  /** S3 bucket name (real branch only). */
+  STORAGE_BUCKET: z.string().optional(),
+  /** S3 region (real branch only). */
+  STORAGE_REGION: z.string().optional(),
+  /** S3-compatible endpoint URL (real branch only; e.g. for R2/MinIO). */
+  STORAGE_ENDPOINT: z.string().optional(),
+  /** S3 access key id (real branch only). */
+  STORAGE_ACCESS_KEY: z.string().optional(),
+  /** S3 secret access key (real branch only). NEVER log this value. */
+  STORAGE_SECRET_KEY: z.string().optional(),
+
+  /**
+   * HMAC-SHA256 key the storage stub uses to sign + verify its own stub
+   * PUT/GET URLs so they're tamper-evident (mirrors STUB_PAYMENT_SECRET).
+   * Dev-only — never used by real S3. MUST be overridden (or unused) in
+   * production where STORAGE_STUB is false.
+   */
+  STORAGE_STUB_SECRET: z
+    .string()
+    .min(16, 'STORAGE_STUB_SECRET must be at least 16 characters')
+    .default('dev-stub-storage-secret-local-only-change-me'),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;
