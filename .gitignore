@@ -46,10 +46,11 @@ dev-server*.log
 *.tsbuildinfo
 next-env.d.ts
 
-# taste-skill (local-only frontend design skills, installed via `npx skills add`)
+# taste-skill + Claude Code workspace (local-only; .claude/skills is a junction to a
+# shared skills library OUTSIDE the repo — Turbopack/Tailwind v4 source-crawl must not
+# follow it, else it escapes the filesystem root and panics on globals.css).
 .agents/
-.claude/skills/design-taste-frontend
-.claude/skills/redesign-existing-projects
+.claude/
 
 # dev throwaway artifacts (verification screenshots, raw diff dumps, scratch scripts)
 gitdiff.txt
