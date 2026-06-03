@@ -293,6 +293,12 @@ model Booking {
   escalatedAt        DateTime?
   /// Issue 019: timestamp the 24h SMS reminder was sent (null = not yet sent; sweeper predicate)
   reminderSentAt     DateTime?
+  /// Issue 073: single-use boarding check-in. SET-ONCE — the atomic conditional UPDATE
+  /// (WHERE "checkedInAt" IS NULL) is the single-use guard; a second concurrent scan is idempotent.
+  checkedInAt        DateTime?
+  /// Issue 073: no-show marker, paired with status='no_show' (Issue 014 verb-At+status rule).
+  /// Mutually exclusive with checkedInAt — a checked-in passenger can't be no-showed.
+  noShowAt           DateTime?
   trip               Trip              @relation(fields: [tripId], references: [id])
   hold               Hold?             @relation(fields: [holdId], references: [id], onDelete: Restrict)
   customer           Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
