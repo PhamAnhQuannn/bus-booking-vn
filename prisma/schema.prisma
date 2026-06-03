@@ -343,6 +343,8 @@ model Booking {
   notifications        NotificationLog[]
   paymentEvents        PaymentEvent[]
   ledgerEntries        LedgerEntry[]
+  /// Issue 089: checkout consent capture (no-refund + PII-storage). Append-only.
+  consents             ConsentRecord[]
 
   @@index([tripId, status])
   @@index([confirmationToken])
@@ -352,6 +354,24 @@ model Booking {
   @@index([status, reminderSentAt])
   /// Issue 009: register-time guest-booking backfill scan (match buyerPhone → Customer.phone)
   @@index([buyerPhone])
+}
+
+/// Issue 089: checkout consent capture. One row per consent the buyer accepted at
+/// initiate time (no_refund + pii_storage). APPEND-ONLY / immutable for compliance —
+/// no update/delete is ever exposed (mirrors AdminAuditLog/LedgerEntry). A DB
+/// immutability trigger is enforced in the migration (BEFORE UPDATE/DELETE RAISE).
+model ConsentRecord {
+  id          String   @id @default(cuid())
+  bookingId   String   @db.Uuid
+  /// Documented union: 'no_refund' | 'pii_storage'
+  consentType String
+  /// Consent text version the buyer accepted, e.g. '2026-06-01' (lib/booking/consent.ts CONSENT_VERSION)
+  version     String
+  consentedAt DateTime @default(now())
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([consentType, version])
 }
 
 model PaymentEvent {
