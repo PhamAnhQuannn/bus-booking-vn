@@ -34,7 +34,7 @@ const dateFmt = new Intl.DateTimeFormat('vi-VN', {
   minute: '2-digit',
 });
 
-const TICKETABLE = new Set(['pending_cash_payment', 'paid', 'completed', 'no_show']);
+const TICKETABLE = new Set(['paid', 'completed', 'no_show']);
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (

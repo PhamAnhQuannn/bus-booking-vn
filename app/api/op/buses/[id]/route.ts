@@ -25,7 +25,6 @@ import { prisma } from '@/lib/db/client';
 import { BookingStatus } from '@prisma/client';
 
 const PAID_STATUSES: BookingStatus[] = [
-  BookingStatus.pending_cash_payment,
   BookingStatus.paid,
   BookingStatus.completed,
 ];

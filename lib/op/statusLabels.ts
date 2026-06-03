@@ -16,7 +16,6 @@ export interface StatusDisplay {
 
 const BOOKING_STATUS: Record<BookingStatus, StatusDisplay> = {
   awaiting_payment: { variant: "pending", label: "Chờ thanh toán" },
-  pending_cash_payment: { variant: "pending", label: "Chờ thu tiền mặt" },
   paid: { variant: "success", label: "Đã thanh toán" },
   completed: { variant: "success", label: "Hoàn tất" },
   cancelled: { variant: "danger", label: "Đã hủy" },
@@ -105,11 +104,10 @@ export function busTypeWithCapacity(busType: string, capacity: number): string {
   return `${busTypeLabel(busType)} ${capacity} chỗ`
 }
 
-// Booking flag glyphs — manual / cash / escalated. Variant maps to Badge variant.
+// Booking flag glyphs — manual / escalated. Variant maps to Badge variant.
 // Glyph is decorative (aria-hidden); the label is the SR-accessible name.
 export const FLAG_GLYPHS = {
   manual: { glyph: "✏", label: "Gắn cờ thủ công", variant: "neutral" as const },
-  cash: { glyph: "₫", label: "Thanh toán tiền mặt", variant: "pending" as const },
   escalated: { glyph: "⚠", label: "Đã chuyển cấp", variant: "danger" as const },
 } as const
 

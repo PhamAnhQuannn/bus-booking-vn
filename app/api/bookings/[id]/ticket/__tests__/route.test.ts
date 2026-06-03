@@ -56,7 +56,7 @@ function detail(status: string) {
     buyerPhone: '0901234567',
     ticketCount: 2,
     totalVnd: 300000,
-    paymentMethod: 'cash',
+    paymentMethod: 'momo',
     status,
     createdAt: '2026-05-02T01:00:00.000Z',
     route: { origin: 'Hanoi', destination: 'Hue' },
@@ -104,7 +104,7 @@ describe('GET /api/bookings/:id/ticket', () => {
     }
   );
 
-  it.each(['pending_cash_payment', 'paid', 'completed', 'no_show'])(
+  it.each(['paid', 'completed', 'no_show'])(
     'returns 202 pending when the PDF is not yet generated for ticketable status %s',
     async (status) => {
       mockGetDetail.mockResolvedValue(detail(status));

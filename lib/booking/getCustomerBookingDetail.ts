@@ -53,7 +53,7 @@ export interface CustomerBookingDetail {
   buyerPhone: string;
   ticketCount: number;
   totalVnd: number;
-  paymentMethod: 'cash' | 'momo' | 'zalopay' | 'card';
+  paymentMethod: 'momo' | 'zalopay' | 'card';
   status: BookingPaymentStatus;
   createdAt: string; // ISO 8601
   route: { origin: string; destination: string };

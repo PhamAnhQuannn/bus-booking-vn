@@ -36,7 +36,7 @@ let otherTripId: string;
 
 // Bookings
 let paidBookingId: string;
-let cashBookingId: string;
+let manualBookingId: string;
 let cancelledBookingId: string;
 
 function makeUuidBooking(ref: string, tripIdParam: string, opts: {
@@ -56,8 +56,8 @@ function makeUuidBooking(ref: string, tripIdParam: string, opts: {
       buyerPhone: '+8490xxxxxx1',
       ticketCount: 2,
       totalVnd: 200_000,
-      paymentMethod: (opts.paymentMethod ?? 'momo') as 'momo' | 'cash' | 'zalopay' | 'card',
-      status: (opts.status ?? 'paid') as 'paid' | 'pending_cash_payment' | 'completed' | 'awaiting_payment' | 'cancelled' | 'trip_cancelled' | 'no_show' | 'payment_failed_expired',
+      paymentMethod: (opts.paymentMethod ?? 'momo') as 'momo' | 'zalopay' | 'card',
+      status: (opts.status ?? 'paid') as 'paid' | 'completed' | 'awaiting_payment' | 'cancelled' | 'trip_cancelled' | 'no_show' | 'payment_failed_expired',
       isManual: opts.isManual ?? false,
       contactStatus: (opts.contactStatus ?? 'pending') as 'pending' | 'reached' | 'no_answer' | 'callback',
     },
@@ -156,10 +156,11 @@ beforeAll(async () => {
     paymentMethod: 'momo',
   });
 
-  // Cash booking (pending_cash_payment)
-  cashBookingId = await makeUuidBooking('BB-2026-qut1-bbb2', tripId, {
-    status: 'pending_cash_payment',
-    paymentMethod: 'cash',
+  // Manual booking (paid, operator-flagged)
+  manualBookingId = await makeUuidBooking('BB-2026-qut1-bbb2', tripId, {
+    status: 'paid',
+    paymentMethod: 'momo',
+    isManual: true,
   });
 
   // Cancelled booking (should NOT appear in queue)
@@ -196,7 +197,7 @@ describe('listOperatorBookings', () => {
     const ids = result.rows.map((r) => r.id);
 
     expect(ids).toContain(paidBookingId);
-    expect(ids).toContain(cashBookingId);
+    expect(ids).toContain(manualBookingId);
     // cancelled booking excluded
     expect(ids).not.toContain(cancelledBookingId);
   });
@@ -331,14 +332,14 @@ describe('getManifest', () => {
     expect(result).toBeNull();
   });
 
-  it('includes manualFlag and cashFlag', async () => {
+  it('includes manualFlag', async () => {
     const manifest = await getManifest(operatorId, tripId);
-    // paidBookingId uses momo — cashFlag false
-    const momoRow = manifest?.rows.find((r) => r.cashFlag === false);
-    expect(momoRow).toBeDefined();
-    // Historical cash row (pending_cash_payment) still renders with cashFlag=true.
-    const cashRow = manifest?.rows.find((r) => r.cashFlag === true);
-    expect(cashRow).toBeDefined();
+    // paidBookingId is a non-manual online booking — manualFlag false
+    const onlineRow = manifest?.rows.find((r) => r.manualFlag === false);
+    expect(onlineRow).toBeDefined();
+    // manualBookingId is operator-flagged — manualFlag true
+    const manualRow = manifest?.rows.find((r) => r.manualFlag === true);
+    expect(manualRow).toBeDefined();
   });
 });
 

@@ -215,7 +215,7 @@ describe('disableOperator', () => {
         buyerPhone: '+8490xxxxxx5',
         ticketCount: 1,
         totalVnd: 100_000,
-        paymentMethod: 'cash',
+        paymentMethod: 'momo',
         status: 'paid',
       },
     });

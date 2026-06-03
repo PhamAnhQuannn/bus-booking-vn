@@ -8,7 +8,6 @@ import { prisma } from '@/lib/db/client';
 
 const PAID_STATUSES = [
   'paid',
-  'pending_cash_payment',
   'completed',
 ] as const;
 

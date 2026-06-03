@@ -41,13 +41,13 @@ interface PrepareCtx {
   tripId: string;
   opBTripId: string;
   paidBookingId: string;
-  cashBookingId: string;
+  secondBookingId: string;
   opBBookingId: string;
 }
 
 /**
  * Seeds the DB with:
- *   - Op A (SEED_PHONE) — one trip in the future, two bookings (paid + pending_cash_payment)
+ *   - Op A (SEED_PHONE) — one trip in the future, two paid bookings (momo)
  *   - Op B (OP_B_PHONE) — one trip + one booking (tenant isolation)
  */
 async function prepareQueue(): Promise<PrepareCtx> {
@@ -122,12 +122,12 @@ async function prepareQueue(): Promise<PrepareCtx> {
       [paidId, tripId]
     );
 
-    // Cash booking (pending_cash_payment)
-    const cashId = randomUUID();
+    // Second paid booking (momo)
+    const secondId = randomUUID();
     await client.query(
       `INSERT INTO "Booking" ("id","bookingRef","confirmationToken","tripId","buyerName","buyerPhone","ticketCount","totalVnd","paymentMethod","status","isManual","contactStatus","createdAt")
-       VALUES ($1, 'BB-2026-eq01-bb22', 'tok-eq01-bb22', $2, 'E2E Cash Buyer', '+8490xxxxxx3', 1, 100000, 'cash', 'pending_cash_payment', false, 'pending', NOW())`,
-      [cashId, tripId]
+       VALUES ($1, 'BB-2026-eq01-bb22', 'tok-eq01-bb22', $2, 'E2E Queue Buyer 2', '+8490xxxxxx3', 1, 100000, 'momo', 'paid', false, 'pending', NOW())`,
+      [secondId, tripId]
     );
 
     // ── Op B setup ──────────────────────────────────────────────────────────
@@ -195,7 +195,7 @@ async function prepareQueue(): Promise<PrepareCtx> {
       [opBBookingId, opBTripId]
     );
 
-    return { opAId, opBId, tripId, opBTripId, paidBookingId: paidId, cashBookingId: cashId, opBBookingId };
+    return { opAId, opBId, tripId, opBTripId, paidBookingId: paidId, secondBookingId: secondId, opBBookingId };
   } finally {
     await client.end();
   }
@@ -228,7 +228,7 @@ test.describe('Operator booking queue + manifest (Issue 014)', () => {
 
     const ids: string[] = json.rows.map((r: { id: string }) => r.id);
     expect(ids).toContain(ctx.paidBookingId);
-    expect(ids).toContain(ctx.cashBookingId);
+    expect(ids).toContain(ctx.secondBookingId);
     // Op B booking must NOT appear
     expect(ids).not.toContain(ctx.opBBookingId);
   });
@@ -250,7 +250,7 @@ test.describe('Operator booking queue + manifest (Issue 014)', () => {
     const pendingJson = await pending.json();
     const pendingIds: string[] = pendingJson.rows.map((r: { id: string }) => r.id);
     expect(pendingIds).toContain(ctx.paidBookingId);
-    expect(pendingIds).toContain(ctx.cashBookingId);
+    expect(pendingIds).toContain(ctx.secondBookingId);
 
     const reached = await request.get('/api/op/bookings?contactStatus=reached');
     expect(reached.status()).toBe(200);

@@ -208,7 +208,6 @@ export async function searchTrips(input: TripSearchInput): Promise<TripSearchPag
       FROM "Booking"
       WHERE "tripId" = ANY(${tripIds}::text[])
         AND status IN (
-          'pending_cash_payment'::"BookingStatus",
           'paid'::"BookingStatus",
           'completed'::"BookingStatus"
         )

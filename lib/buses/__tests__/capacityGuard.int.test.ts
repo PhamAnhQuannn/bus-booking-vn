@@ -124,7 +124,7 @@ beforeAll(async () => {
       buyerPhone: '+849011111111',
       ticketCount: 5,
       totalVnd: 500_000,
-      paymentMethod: 'cash',
+      paymentMethod: 'momo',
       status: 'paid',
     },
   });
@@ -139,7 +139,7 @@ beforeAll(async () => {
       buyerPhone: '+849011111111',
       ticketCount: 4,
       totalVnd: 400_000,
-      paymentMethod: 'cash',
+      paymentMethod: 'momo',
       status: 'cancelled',
     },
   });
@@ -155,7 +155,7 @@ beforeAll(async () => {
       buyerPhone: '+849011111111',
       ticketCount: 2,
       totalVnd: 200_000,
-      paymentMethod: 'cash',
+      paymentMethod: 'momo',
       status: 'paid',
     },
   });
@@ -226,7 +226,7 @@ describe('transactional capacity-guard (Gap 3)', () => {
               select: { ticketCount: true },
             },
             bookings: {
-              where: { status: { in: ['pending_cash_payment', 'paid', 'completed'] } },
+              where: { status: { in: ['paid', 'completed'] } },
               select: { ticketCount: true },
             },
           },
@@ -262,7 +262,7 @@ describe('transactional capacity-guard (Gap 3)', () => {
               select: { ticketCount: true },
             },
             bookings: {
-              where: { status: { in: ['pending_cash_payment', 'paid', 'completed'] } },
+              where: { status: { in: ['paid', 'completed'] } },
               select: { ticketCount: true },
             },
           },

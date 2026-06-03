@@ -31,7 +31,7 @@ export interface OperatorKpis {
   revenueDeltaPct: number | null;
 }
 
-const PAID_SQL = Prisma.sql`b.status IN ('pending_cash_payment'::"BookingStatus",'paid'::"BookingStatus",'completed'::"BookingStatus")`;
+const PAID_SQL = Prisma.sql`b.status IN ('paid'::"BookingStatus",'completed'::"BookingStatus")`;
 
 /** Enumerate YYYY-MM-DD strings from dateFrom..dateTo inclusive. */
 function dateRange(dateFrom: string, dateTo: string): string[] {
@@ -51,7 +51,7 @@ export interface GetOperatorKpisInput {
   dateTo: string;
 }
 
-const PAID_STATUSES = ['pending_cash_payment', 'paid', 'completed'];
+const PAID_STATUSES = ['paid', 'completed'];
 
 export async function getOperatorKpis(input: GetOperatorKpisInput): Promise<OperatorKpis> {
   const { operatorId, dateFrom, dateTo } = input;

@@ -234,11 +234,6 @@ export default function DashboardClient({
                             ✏
                           </Badge>
                         )}
-                        {row.cashFlag && (
-                          <Badge variant="pending" aria-label="Tiền mặt" title="Tiền mặt">
-                            💵
-                          </Badge>
-                        )}
                         {row.escalatedAt && (
                           <Badge variant="danger" aria-label="Cần xử lý" title="Cần xử lý">
                             ⚠

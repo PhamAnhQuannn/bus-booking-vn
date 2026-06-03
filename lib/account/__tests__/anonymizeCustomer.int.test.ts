@@ -84,7 +84,7 @@ describe('deleteAccount', () => {
         buyerEmail: 'booker@real.dev',
         ticketCount: 2,
         totalVnd: 200000,
-        paymentMethod: 'cash',
+        paymentMethod: 'momo',
       },
     });
 

@@ -48,8 +48,8 @@ describe('booking transition guard — illegal / backward moves rejected', () =>
 
 describe('legalPredecessors — derives the webhook UPDATE guard', () => {
   it('paid has exactly one legal predecessor: awaiting_payment', () => {
-    // The webhook WHERE clause is built from this — it must NOT widen to
-    // pending_cash_payment (that path is recordCashCollected, not the webhook).
+    // The webhook WHERE clause is built from this — paid is reachable only
+    // from awaiting_payment, never from any other state.
     expect(legalPredecessors('paid')).toEqual(['awaiting_payment']);
   });
 
@@ -73,7 +73,6 @@ describe('LEGAL_BOOKING_TRANSITIONS — single source of truth', () => {
         'no_show',
         'paid',
         'payment_failed_expired',
-        'pending_cash_payment',
         'refunded', // Issue 100: oversold-race terminal
         'trip_cancelled',
       ].sort()

@@ -34,7 +34,7 @@ let otherTripId: string;
 
 // Paid booking on completeTripId for payout log verification
 let paidBookingId: string;
-let cashBookingId: string;  // pending_cash_payment — NOT eligible for payout
+let noShowBookingId: string;  // no_show — NOT eligible for payout
 let cancelledBookingId: string;  // cancelled — NOT eligible
 
 async function createTrip(operatorIdParam: string, busIdParam: string, routeIdParam: string): Promise<string> {
@@ -64,8 +64,8 @@ async function createBooking(tripIdParam: string, ref: string, status: string, p
       buyerPhone: '+8490xxxxxx1',
       ticketCount: 1,
       totalVnd: 150_000,
-      paymentMethod: paymentMethod as 'momo' | 'cash' | 'zalopay' | 'card',
-      status: status as 'paid' | 'pending_cash_payment' | 'completed' | 'cancelled',
+      paymentMethod: paymentMethod as 'momo' | 'zalopay' | 'card',
+      status: status as 'paid' | 'no_show' | 'completed' | 'cancelled',
       isManual: false,
       contactStatus: 'pending',
     },
@@ -134,11 +134,11 @@ beforeAll(async () => {
     'paid',
     'momo'
   );
-  cashBookingId = await createBooking(
+  noShowBookingId = await createBooking(
     completeTripId,
     'BB-2026-lif1-bbb2',
-    'pending_cash_payment',
-    'cash'
+    'no_show',
+    'momo'
   );
   cancelledBookingId = await createBooking(
     completeTripId,
@@ -264,7 +264,7 @@ describe('markCompleted', () => {
     });
 
     // Only paidBookingId (paid) is eligible
-    // cashBookingId (pending_cash_payment) is NOT in PAYOUT_ELIGIBLE_STATUSES
+    // noShowBookingId (no_show) is NOT in PAYOUT_ELIGIBLE_STATUSES
     // cancelledBookingId (cancelled) is NOT eligible
     const payoutLogs = logs.filter((l) => l.template === 'payout_scheduled');
     expect(payoutLogs.length).toBe(1);

@@ -46,7 +46,6 @@ describe('listCustomerBookings', () => {
     expect(arg.where.customerId).toBe('cust-1');
     expect(arg.where.status.in).toEqual([
       'awaiting_payment',
-      'pending_cash_payment',
       'paid',
     ]);
     expect(arg.where.trip.departureAt.gte).toBeInstanceOf(Date);

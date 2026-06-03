@@ -24,7 +24,6 @@ export interface BookingDtoRow {
   pickupPointId: string | null;
   pickupNote: string | null;
   pickedUpAt: Date | null;
-  cashCollectedAt: Date | null;
   escalationNote: string | null;
   escalatedAt: Date | null;
   refundedAt: Date | null;
@@ -61,7 +60,6 @@ export function toBookingDto(row: BookingDtoRow): BookingDto {
     pickupPointName: row.pickupPoint?.name ?? null,
     pickupNote: row.pickupNote,
     pickedUpAt: row.pickedUpAt ? row.pickedUpAt.toISOString() : null,
-    cashCollectedAt: row.cashCollectedAt ? row.cashCollectedAt.toISOString() : null,
     escalationNote: row.escalationNote,
     escalatedAt: row.escalatedAt ? row.escalatedAt.toISOString() : null,
     refundedAt: row.refundedAt ? row.refundedAt.toISOString() : null,

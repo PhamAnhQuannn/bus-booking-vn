@@ -119,7 +119,6 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
                    AND (
                      -- Definitive bookings: always counted.
                      status IN (
-                       'pending_cash_payment'::"BookingStatus",
                        'paid'::"BookingStatus",
                        'completed'::"BookingStatus"
                      )

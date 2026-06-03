@@ -81,10 +81,9 @@ export interface BookingRow {
   buyerEmail: string | null;
   ticketCount: number;
   totalVnd: number;
-  paymentMethod: 'cash' | 'momo' | 'zalopay' | 'card';
+  paymentMethod: 'momo' | 'zalopay' | 'card';
   status:
     | 'awaiting_payment'
-    | 'pending_cash_payment'
     | 'paid'
     | 'completed'
     | 'cancelled'

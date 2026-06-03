@@ -28,7 +28,6 @@ const bookingFullSelect = {
   pickupPointId: true,
   pickupNote: true,
   pickedUpAt: true,
-  cashCollectedAt: true,
   escalationNote: true,
   escalatedAt: true,
   trip: {

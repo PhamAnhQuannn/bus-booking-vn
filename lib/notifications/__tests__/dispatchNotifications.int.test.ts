@@ -40,7 +40,7 @@ async function createBooking(ref: string): Promise<string> {
       buyerPhone: '+8490xxxxxx1',
       ticketCount: 1,
       totalVnd: 150_000,
-      paymentMethod: 'cash',
+      paymentMethod: 'momo',
       status: 'paid',
       isManual: false,
       contactStatus: 'pending',

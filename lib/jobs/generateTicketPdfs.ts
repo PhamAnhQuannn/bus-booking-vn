@@ -36,7 +36,6 @@ export const BATCH_SIZE = 25;
  * and was not cancelled.
  */
 const PAID_STATUSES = [
-  'pending_cash_payment',
   'paid',
   'completed',
   'no_show',

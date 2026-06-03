@@ -112,7 +112,7 @@ export async function createTrip(input: CreateTripInput): Promise<TripDto> {
           _count: {
             select: {
               holds: { where: { status: 'active' } },
-              bookings: { where: { status: { in: ['pending_cash_payment', 'paid', 'completed'] } } },
+              bookings: { where: { status: { in: ['paid', 'completed'] } } },
             },
           },
         },

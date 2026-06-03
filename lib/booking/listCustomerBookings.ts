@@ -30,7 +30,6 @@ export type ListCustomerBookingsParams = z.input<typeof ListCustomerBookingsPara
 /** Statuses for a booking that is still live (not yet terminal). */
 const ACTIVE_STATUSES = [
   'awaiting_payment',
-  'pending_cash_payment',
   'paid',
 ] as const;
 
@@ -67,7 +66,7 @@ export interface CustomerBookingRow {
   bookingRef: string;
   ticketCount: number;
   totalVnd: number;
-  paymentMethod: 'cash' | 'momo' | 'zalopay' | 'card';
+  paymentMethod: 'momo' | 'zalopay' | 'card';
   status: BookingPaymentStatus;
   createdAt: string; // ISO 8601
   route: { origin: string; destination: string };

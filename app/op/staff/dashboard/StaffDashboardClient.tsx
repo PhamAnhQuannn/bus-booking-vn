@@ -58,14 +58,12 @@ function contactDisplay(status: string): { label: string; variant: BadgeVariant 
   return CONTACT_DISPLAY[status] ?? { label: status, variant: 'neutral' };
 }
 
-/** Flag icons (manual / cash / escalated) with accessible labels. */
+/** Flag icons (manual / escalated) with accessible labels. */
 function FlagIcons({
   manualFlag,
-  cashFlag,
   escalatedAt,
 }: {
   manualFlag?: boolean;
-  cashFlag?: boolean;
   escalatedAt?: Date | string | null;
 }) {
   return (
@@ -73,11 +71,6 @@ function FlagIcons({
       {manualFlag && (
         <span role="img" aria-label="Thủ công" title="Thủ công">
           ✏
-        </span>
-      )}
-      {cashFlag && (
-        <span role="img" aria-label="Tiền mặt" title="Tiền mặt">
-          💵
         </span>
       )}
       {escalatedAt && (
@@ -283,7 +276,6 @@ export default function StaffDashboardClient({
                         <TableCell>
                           <FlagIcons
                             manualFlag={row.manualFlag}
-                            cashFlag={row.cashFlag}
                             escalatedAt={row.escalatedAt}
                           />
                         </TableCell>
@@ -361,7 +353,6 @@ export default function StaffDashboardClient({
                         <TableCell>
                           <FlagIcons
                             manualFlag={row.manualFlag}
-                            cashFlag={row.cashFlag}
                             escalatedAt={row.escalatedAt}
                           />
                         </TableCell>

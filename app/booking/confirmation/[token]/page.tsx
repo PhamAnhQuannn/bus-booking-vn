@@ -14,7 +14,7 @@
  */
 
 import { notFound } from 'next/navigation';
-import { CheckCircle2, Phone, Wallet, CalendarPlus } from 'lucide-react';
+import { CheckCircle2, Phone, CalendarPlus } from 'lucide-react';
 import { getBookingByConfirmationToken } from '@/lib/db/bookingRepo';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -62,7 +62,6 @@ function buildCalendarHref(opts: { ref: string; origin: string; destination: str
 
 const STATUS_LABEL: Record<string, string> = {
   awaiting_payment: 'Chờ thanh toán',
-  pending_cash_payment: 'Chờ thanh toán tiền mặt',
   paid: 'Đã thanh toán',
   completed: 'Hoàn tất',
   cancelled: 'Đã hủy',
@@ -73,7 +72,6 @@ const STATUS_LABEL: Record<string, string> = {
 
 const STATUS_VARIANT: Record<string, 'success' | 'pending' | 'danger' | 'neutral'> = {
   awaiting_payment: 'pending',
-  pending_cash_payment: 'pending',
   paid: 'success',
   completed: 'success',
   cancelled: 'neutral',
@@ -91,7 +89,6 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
   }
 
   const { trip } = booking;
-  const isCashPending = booking.status === 'pending_cash_payment';
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-8">
@@ -172,18 +169,6 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
         </CardContent>
       </Card>
 
-      {isCashPending && (
-        <div className="flex flex-col gap-2 rounded-xl border border-warning-border bg-warning p-4">
-          <h2 className="inline-flex items-center gap-2 text-base font-semibold text-warning-foreground">
-            <Wallet className="size-4" aria-hidden="true" />
-            Thanh toán tiền mặt khi lên xe
-          </h2>
-          <p className="text-sm text-warning-foreground">
-            Vui lòng thanh toán trực tiếp cho nhà xe khi lên xe. Hãy đến điểm đón trước giờ khởi
-            hành ít nhất 15 phút. Tin nhắn xác nhận đã được gửi tới số điện thoại của bạn.
-          </p>
-        </div>
-      )}
     </main>
   );
 }

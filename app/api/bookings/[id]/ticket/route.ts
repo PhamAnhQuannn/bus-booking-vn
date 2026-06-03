@@ -31,7 +31,6 @@ import type { BookingPaymentStatus } from '@/lib/booking/bookingDto';
 import { logger } from '@/lib/logger';
 
 const TICKETABLE_STATUSES: ReadonlySet<BookingPaymentStatus> = new Set([
-  'pending_cash_payment',
   'paid',
   'completed',
   'no_show',

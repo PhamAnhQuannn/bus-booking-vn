@@ -11,7 +11,6 @@ type BadgeVariant = NonNullable<VariantProps<typeof badgeVariants>['variant']>;
 
 export const STATUS_LABEL: Record<BookingPaymentStatus, string> = {
   awaiting_payment: 'Chờ thanh toán',
-  pending_cash_payment: 'Chờ thu tiền mặt',
   paid: 'Đã thanh toán',
   completed: 'Hoàn thành',
   cancelled: 'Đã huỷ',
@@ -25,7 +24,6 @@ export const STATUS_LABEL: Record<BookingPaymentStatus, string> = {
 /** Maps each payment status to a semantic Badge variant (design-system tokens). */
 export const STATUS_VARIANT: Record<BookingPaymentStatus, BadgeVariant> = {
   awaiting_payment: 'pending',
-  pending_cash_payment: 'pending',
   paid: 'success',
   completed: 'success',
   cancelled: 'neutral',

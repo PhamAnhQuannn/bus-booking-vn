@@ -9,12 +9,9 @@
  * allow `paid → pending`. The payment webhook now derives its UPDATE predecessors
  * from `legalPredecessors(target)` — never from re-typed literals.
  *
- * SCOPE: this models the ONLINE-PAYMENT lifecycle the webhook governs.
- * `pending_cash_payment` is a dead legacy enum value (the cash creation +
- * collection paths were removed in Issue 039; the enum itself is dropped in
- * Phase B / Wave 7). It is intentionally NOT a forward edge here — keeping it
- * out means the webhook's derived WHERE stays exactly `awaiting_payment` and
- * never touches historical cash rows.
+ * SCOPE: this models the ONLINE-PAYMENT lifecycle the webhook governs. The cash
+ * rail (creation + collection + its dedicated booking status) was fully removed —
+ * Issue 039 deleted the paths, Issue 088 dropped the enum value.
  *
  * NOTE: the booking money state is `paid` (renamed from the combined
  * `paid_operator_notified` flag in Issue 087 — money truth is now decoupled
@@ -30,9 +27,6 @@ import type { BookingStatus } from '@prisma/client';
  */
 export const LEGAL_BOOKING_TRANSITIONS: Record<BookingStatus, readonly BookingStatus[]> = {
   awaiting_payment: ['paid', 'payment_failed_expired'],
-  // Dead legacy enum value (cash paths removed in Issue 039; enum dropped in
-  // Phase B). No forward moves — historical rows are terminal here.
-  pending_cash_payment: [],
   // Issue 100: paid → refunded is the oversold-race path (seat gone at webhook time).
   // The booking first transitions to 'paid' (money received), then is immediately
   // refunded within the same tx — the customer is made whole via refund-out.

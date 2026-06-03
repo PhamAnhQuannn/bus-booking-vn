@@ -7,7 +7,6 @@
 
 export type BookingPaymentStatus =
   | 'awaiting_payment'
-  | 'pending_cash_payment'
   | 'paid'
   | 'completed'
   | 'cancelled'
@@ -29,7 +28,7 @@ export interface BookingDto {
   buyerPhone: string;
   ticketCount: number;
   totalVnd: number;
-  paymentMethod: 'cash' | 'momo' | 'zalopay' | 'card';
+  paymentMethod: 'momo' | 'zalopay' | 'card';
   paymentExternalRef: string | null;
   status: BookingPaymentStatus;
   isManual: boolean;
@@ -40,7 +39,6 @@ export interface BookingDto {
   pickupPointName: string | null;
   pickupNote: string | null;
   pickedUpAt: string | null; // ISO 8601
-  cashCollectedAt: string | null; // ISO 8601
   escalationNote: string | null;
   escalatedAt: string | null; // ISO 8601
   // Issue 100: instant of oversold-race refund; null when not refunded via that path.

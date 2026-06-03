@@ -25,7 +25,7 @@ function rawDetail() {
     buyerPhone: '0901234567',
     ticketCount: 3,
     totalVnd: 450000,
-    paymentMethod: 'cash',
+    paymentMethod: 'momo',
     status: 'paid',
     createdAt: new Date('2026-05-02T01:00:00Z'),
     trip: {
@@ -66,7 +66,7 @@ describe('getCustomerBookingDetail', () => {
       buyerPhone: '0901234567',
       ticketCount: 3,
       totalVnd: 450000,
-      paymentMethod: 'cash',
+      paymentMethod: 'momo',
       status: 'paid',
       createdAt: '2026-05-02T01:00:00.000Z',
       route: { origin: 'Hanoi', destination: 'Hue' },

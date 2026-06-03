@@ -310,7 +310,7 @@ describe('capacity correctness — bookings subtract from holdRepo availability'
     expect(r.ok).toBe(true);
 
     // Step 2: try to place a new hold — should fail because the booking
-    // (status=pending_cash_payment) now occupies the seat.
+    // (status=awaiting_payment) now occupies the seat.
     const secondHold = await createHold({
       tripId: tripId_cap1,
       ticketCount: 1,

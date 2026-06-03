@@ -2,8 +2,7 @@
  * toBookingQueueRow — lean queue row shape for the operator booking list (Issue 014).
  *
  * AC6: NO seat-number column.
- * manualFlag = isManual (manual/cash bookings flagged in list)
- * cashFlag = paymentMethod === 'cash' || paymentMethod from pending_cash_payment bookings
+ * manualFlag = isManual (manual bookings flagged in list)
  */
 
 import type { BookingContactStatus, BookingPaymentStatus } from './bookingDto';
@@ -21,8 +20,6 @@ export interface BookingQueueRow {
   escalatedAt: string | null; // ISO 8601
   /** true when isManual=true */
   manualFlag: boolean;
-  /** true when paymentMethod='cash' */
-  cashFlag: boolean;
 }
 
 export interface BookingQueueRawRow {
@@ -53,6 +50,5 @@ export function toBookingQueueRow(row: BookingQueueRawRow): BookingQueueRow {
     departureAt: row.trip.departureAt.toISOString(),
     escalatedAt: row.escalatedAt ? row.escalatedAt.toISOString() : null,
     manualFlag: row.isManual,
-    cashFlag: row.paymentMethod === 'cash',
   };
 }

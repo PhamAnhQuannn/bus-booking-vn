@@ -2,11 +2,11 @@
  * getManifest — boarding manifest for a trip (Issue 014 AC6).
  *
  * Returns rows: { name, phone, ticketCount, pickupPointName, contactStatus,
- *                 paymentStatus, manualFlag, cashFlag }.
+ *                 paymentStatus, manualFlag }.
  * AC6: NO seatNumber field in output.
  *
  * Tenant-isolated via Trip.operatorId join.
- * Includes paid + pending_cash_payment bookings.
+ * Includes paid bookings.
  */
 
 import { prisma } from '@/lib/db/client';
@@ -28,8 +28,6 @@ export interface ManifestRow {
   noShowAt: string | null;
   /** true when isManual=true */
   manualFlag: boolean;
-  /** true when paymentMethod='cash' */
-  cashFlag: boolean;
   // AC6: NO seatNumber field
 }
 
@@ -41,7 +39,6 @@ export interface GetManifestResult {
 
 const MANIFEST_PAYMENT_STATUSES = [
   'paid',
-  'pending_cash_payment',
   'completed',
 ] as const;
 
@@ -69,7 +66,6 @@ export async function getManifest(
       buyerPhone: true,
       ticketCount: true,
       contactStatus: true,
-      paymentMethod: true,
       status: true,
       isManual: true,
       pickedUpAt: true,
@@ -95,7 +91,6 @@ export async function getManifest(
     checkedInAt: b.checkedInAt ? b.checkedInAt.toISOString() : null,
     noShowAt: b.noShowAt ? b.noShowAt.toISOString() : null,
     manualFlag: b.isManual,
-    cashFlag: b.paymentMethod === 'cash',
     // AC6: no seatNumber field
   }));
 

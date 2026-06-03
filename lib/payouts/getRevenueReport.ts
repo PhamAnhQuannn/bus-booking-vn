@@ -7,7 +7,7 @@
  * Asia/Ho_Chi_Minh timezone (UTC+7): from T00:00:00+07:00 to T23:59:59+07:00.
  *
  * "Paid" booking statuses (mirrors getTripOccupancy.ts and markCompleted.ts convention):
- *   pending_cash_payment, paid, completed
+ *   paid, completed
  * Excluded: awaiting_payment, cancelled, trip_cancelled, no_show, payment_failed_expired.
  *
  * I7-exempt: operator-side reporting endpoint; operator is the price authority.
@@ -20,7 +20,7 @@ import type { RevenueRow } from './buildRevenueCsv';
 // Re-export RevenueRow for use by route handlers.
 export type { RevenueRow };
 
-const PAID_STATUSES = ['pending_cash_payment', 'paid', 'completed'] as const;
+const PAID_STATUSES = ['paid', 'completed'] as const;
 
 export interface GetRevenueReportInput {
   operatorId: string;

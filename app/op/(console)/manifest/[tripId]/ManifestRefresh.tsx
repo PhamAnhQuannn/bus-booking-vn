@@ -287,7 +287,6 @@ export default function ManifestRefresh({ tripId, initialGeneratedAt, initialRow
                     <TableCell>
                       <span className="flex gap-1">
                         {row.manualFlag && <span aria-label="Thủ công" title="Thủ công">✏</span>}
-                        {row.cashFlag && <span aria-label="Tiền mặt" title="Tiền mặt">💵</span>}
                         {row.escalatedAt && (
                           <span aria-label="Cần xử lý" title="Cần xử lý">⚠</span>
                         )}

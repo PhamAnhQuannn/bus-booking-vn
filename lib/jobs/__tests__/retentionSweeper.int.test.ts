@@ -99,7 +99,7 @@ beforeAll(async () => {
       buyerEmail: 'oldguest@real.dev',
       ticketCount: 2,
       totalVnd: 200000,
-      paymentMethod: 'cash',
+      paymentMethod: 'momo',
     },
   });
   await prisma.booking.create({
@@ -114,7 +114,7 @@ beforeAll(async () => {
       buyerEmail: 'recentguest@real.dev',
       ticketCount: 1,
       totalVnd: 100000,
-      paymentMethod: 'cash',
+      paymentMethod: 'momo',
     },
   });
 

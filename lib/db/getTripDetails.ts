@@ -84,7 +84,7 @@ export async function getTripDetails(id: string): Promise<TripDetails | null> {
       _sum: { ticketCount: true },
       where: {
         tripId: id,
-        status: { in: ['pending_cash_payment', 'paid', 'completed'] },
+        status: { in: ['paid', 'completed'] },
       },
     }),
   ]);

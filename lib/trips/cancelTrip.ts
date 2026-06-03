@@ -5,8 +5,7 @@
  *   1. SELECT FOR UPDATE Trip → if status=cancelled return early with alreadyCancelled:true (AC3 idempotent)
  *   2. UPDATE Trip status='cancelled', cancelledAt=now, cancelReason
  *   3. UPDATE Booking status='trip_cancelled' WHERE status IN ('confirmed','pending_payment')
- *      Note: schema BookingStatus uses 'pending_cash_payment' not 'pending_payment'
- *      and 'paid' for confirmed. Mapping below.
+ *      Note: schema BookingStatus uses 'paid' for confirmed. Mapping below.
  *   4. UPDATE Hold status='cancelled_trip' WHERE status='active'
  *   5. INSERT NotificationLog (pending, kind='trip_cancelled') per affected Booking
  *
@@ -67,7 +66,7 @@ export async function cancelTrip(
                 holds: { where: { status: 'active' } },
                 bookings: {
                   where: {
-                    status: { in: ['pending_cash_payment', 'paid', 'completed'] },
+                    status: { in: ['paid', 'completed'] },
                   },
                 },
               },
@@ -106,7 +105,7 @@ export async function cancelTrip(
               holds: { where: { status: 'active' } },
               bookings: {
                 where: {
-                  status: { in: ['pending_cash_payment', 'paid', 'completed'] },
+                  status: { in: ['paid', 'completed'] },
                 },
               },
             },
@@ -121,7 +120,6 @@ export async function cancelTrip(
           status: {
             in: [
               'awaiting_payment',
-              'pending_cash_payment',
               'paid',
               'completed',
             ],
@@ -138,9 +136,9 @@ export async function cancelTrip(
       // Issue 051: capture the bookings that actually had money IN via the PSP
       // (online-paid → paid / completed). These get a
       // refund-out AFTER this cancel tx commits (refundOut opens its own tx and
-      // must see the committed trip_cancelled state). `pending_cash_payment` is
-      // excluded — cash was never collected through the platform, so there is
-      // nothing to refund out. Captured BEFORE the updateMany flips status.
+      // must see the committed trip_cancelled state). Cash bookings are excluded —
+      // cash was never collected through the platform, so there is nothing to
+      // refund out. Captured BEFORE the updateMany flips status.
       const paidBookings = await tx.booking.findMany({
         where: {
           tripId,
@@ -156,7 +154,6 @@ export async function cancelTrip(
           status: {
             in: [
               'awaiting_payment',
-              'pending_cash_payment',
               'paid',
               'completed',
             ],

@@ -85,7 +85,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<Respon
                 holds: { where: { status: 'active' } },
                 bookings: {
                   where: {
-                    status: { in: ['pending_cash_payment', 'paid', 'completed'] },
+                    status: { in: ['paid', 'completed'] },
                   },
                 },
               },

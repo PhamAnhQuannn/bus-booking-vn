@@ -48,7 +48,6 @@ import { busHasOverlappingTrip, tripWindowEnd } from './busOverlap';
  * and the re-render claim set stay in lockstep.
  */
 const PAID_TICKET_STATUSES = [
-  'pending_cash_payment',
   'paid',
   'completed',
   'no_show',
@@ -123,7 +122,7 @@ export async function reassignBus(
         tx.booking.aggregate({
           where: {
             tripId,
-            status: { in: ['pending_cash_payment', 'paid', 'completed'] },
+            status: { in: ['paid', 'completed'] },
           },
           _sum: { ticketCount: true },
         }),
@@ -165,7 +164,7 @@ export async function reassignBus(
               holds: { where: { status: 'active' } },
               bookings: {
                 where: {
-                  status: { in: ['pending_cash_payment', 'paid', 'completed'] },
+                  status: { in: ['paid', 'completed'] },
                 },
               },
             },
@@ -271,7 +270,7 @@ async function _updatedTrip(_id: string) {
         select: {
           holds: { where: { status: 'active' } },
           bookings: {
-            where: { status: { in: ['pending_cash_payment', 'paid', 'completed'] } },
+            where: { status: { in: ['paid', 'completed'] } },
           },
         },
       },
