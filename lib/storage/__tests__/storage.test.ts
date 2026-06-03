@@ -16,15 +16,21 @@ vi.mock('@/lib/config/env', () => ({ getEnv: vi.fn() }));
 import {
   createSignedUploadUrl,
   createSignedDownloadUrl,
+  putObject,
   verifyStubSignature,
   type StorageClient,
   type StoredObjectRow,
 } from '..';
+import { getStubBlob } from '../stubStore';
 import { getEnv } from '@/lib/config/env';
 
 const STUB_SECRET = 'unit-test-storage-secret-0123456789';
 
 function makePrisma(seed?: StoredObjectRow | null) {
+  // In-memory row store so an upsert is visible to a subsequent findUnique
+  // (exercises the putObject → signed-download round-trip on the row side).
+  const rows = new Map<string, StoredObjectRow>();
+  if (seed) rows.set(seed.key, seed);
   const storedObject = {
     create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({
       id: 'so_1',
@@ -32,7 +38,26 @@ function makePrisma(seed?: StoredObjectRow | null) {
       uploadedBy: null,
       ...data,
     })),
-    findUnique: vi.fn(async () => seed ?? null),
+    findUnique: vi.fn(async ({ where }: { where: { key: string } }) => rows.get(where.key) ?? null),
+    upsert: vi.fn(
+      async ({
+        where,
+        create,
+      }: {
+        where: { key: string };
+        create: Record<string, unknown>;
+        update: Record<string, unknown>;
+      }) => {
+        const row = {
+          id: 'so_up',
+          createdAt: new Date(),
+          uploadedBy: null,
+          ...create,
+        } as unknown as StoredObjectRow;
+        rows.set(where.key, row);
+        return row;
+      }
+    ),
   };
   const adminAuditLog = {
     create: vi.fn(async (_args: { data: Record<string, unknown> }) => ({})),
@@ -245,5 +270,57 @@ describe('verifyStubSignature', () => {
     const sig = url.searchParams.get('sig') as string;
     // now is AFTER exp → expired.
     expect(verifyStubSignature(key, 'PUT', exp, sig, exp + 1)).toBe(false);
+  });
+});
+
+describe('putObject (server-side upload, Issue 074)', () => {
+  it('round-trips: putObject stores bytes + a row; signed-download then mints a URL', async () => {
+    const prisma = makePrisma();
+    const key = 'ticket_pdf/BB-2026-abcd-efgh.pdf';
+    const bytes = Buffer.from('%PDF-1.4 fake ticket bytes');
+
+    await putObject(prisma, key, 'application/pdf', bytes);
+
+    // Pointer row upserted (so the download/audit path finds it).
+    expect(prisma.storedObject.upsert).toHaveBeenCalledTimes(1);
+    expect(prisma.storedObject.upsert.mock.calls[0][0]).toMatchObject({
+      where: { key },
+      create: { key, contentType: 'application/pdf', purpose: 'ticket_pdf' },
+    });
+
+    // Bytes landed in the SHARED stub store (same Map the GET route reads).
+    const blob = getStubBlob(key);
+    expect(blob?.bytes.equals(bytes)).toBe(true);
+    expect(blob?.contentType).toBe('application/pdf');
+
+    // A signed download URL can now be minted for the putObject-created key.
+    const { downloadUrl } = await createSignedDownloadUrl(prisma, key, {
+      actor: 'customer:c1',
+      baseUrl: 'http://localhost:3001',
+    });
+    expect(downloadUrl).toContain('/dev/stub-storage/ticket_pdf/');
+    expect(downloadUrl).toMatch(/[?&]sig=[0-9a-f]{64}/);
+  });
+
+  it('accepts a Uint8Array and derives sizeBytes from the buffer length', async () => {
+    const prisma = makePrisma();
+    const key = 'ticket_pdf/BB-2026-wxyz-1234.pdf';
+    const bytes = new Uint8Array([1, 2, 3, 4, 5]);
+
+    await putObject(prisma, key, 'application/pdf', bytes);
+
+    expect(prisma.storedObject.upsert.mock.calls[0][0].create).toMatchObject({
+      sizeBytes: 5,
+    });
+    expect(getStubBlob(key)?.bytes.length).toBe(5);
+  });
+
+  it('throws s3_not_implemented in real mode (after upserting the row)', async () => {
+    setStub(false);
+    const prisma = makePrisma();
+    await expect(
+      putObject(prisma, 'ticket_pdf/real.pdf', 'application/pdf', Buffer.from('x'))
+    ).rejects.toMatchObject({ code: 's3_not_implemented' });
+    expect(prisma.storedObject.upsert).toHaveBeenCalledTimes(1);
   });
 });

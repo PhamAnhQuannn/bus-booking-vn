@@ -15,9 +15,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getEnv } from '@/lib/config/env';
 import { verifyStubSignature } from '@/lib/storage';
-
-/** Process-local byte store. Dev-only, non-persistent. */
-const STUB_BLOBS = new Map<string, { contentType: string; bytes: Buffer }>();
+// Issue 074: the byte store is shared (lib/storage/stubStore) so the server-side
+// putObject() upload path writes into the SAME Map this GET route reads from.
+import { STUB_BLOBS } from '@/lib/storage/stubStore';
 
 interface RouteContext {
   params: Promise<{ key: string[] }>;

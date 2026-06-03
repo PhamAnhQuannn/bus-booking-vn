@@ -66,6 +66,17 @@ export interface StorageClient extends AdminAuditLogClient {
       };
     }) => Promise<StoredObjectRow>;
     findUnique: (args: { where: { key: string } }) => Promise<StoredObjectRow | null>;
+    upsert: (args: {
+      where: { key: string };
+      create: {
+        key: string;
+        contentType: string;
+        sizeBytes: number;
+        purpose: string;
+        uploadedBy?: string | null;
+      };
+      update: { contentType: string; sizeBytes: number };
+    }) => Promise<StoredObjectRow>;
   };
 }
 
@@ -222,6 +233,57 @@ export async function createSignedUploadUrl(
   const uploadUrl = buildStubUrl(resolveBaseUrl(baseUrl), key, 'PUT', expiresAt.getTime());
 
   return { key, uploadUrl, expiresAt };
+}
+
+/** Derive the storage purpose from a key's leading path segment (the buildKey scheme). */
+function purposeFromKey(key: string): string {
+  return key.split('/')[0] ?? '';
+}
+
+/**
+ * Server-side object upload (Issue 074) — write bytes directly to storage WITHOUT
+ * the signed-URL round-trip. This is the path the generate-once ticket-PDF job
+ * takes: it renders the PDF in-process and uploads it here, so the job never
+ * HTTP-PUTs to its own dev route (Mistake-Log 002/003: a server module must not
+ * self-fetch its own API).
+ *
+ * Under STORAGE_STUB the bytes go into the SHARED in-memory store (stubStore)
+ * that the dev stub-storage GET route + createSignedDownloadUrl read from, so the
+ * subsequent signed-download serves exactly these bytes. The StoredObject pointer
+ * row is UPSERTed (keyed on the unique `key`) so the audit/download path is
+ * consistent and a re-upload of the same key is idempotent.
+ *
+ * STORAGE_STUB=false → throws StorageError('s3_not_implemented') (real S3
+ * PutObject deferred to Wave 9, @aws-sdk not installed) so a non-stub deploy
+ * fails LOUDLY rather than silently dropping the bytes.
+ */
+export async function putObject(
+  prisma: StorageClient,
+  key: string,
+  contentType: string,
+  bytes: Buffer | Uint8Array
+): Promise<void> {
+  const buf = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
+  const purpose = purposeFromKey(key);
+
+  // Upsert the pointer row first so the download/audit path always finds a row
+  // for a putObject-created key (parity with createSignedUploadUrl's create).
+  await prisma.storedObject.upsert({
+    where: { key },
+    create: { key, contentType, sizeBytes: buf.length, purpose, uploadedBy: null },
+    update: { contentType, sizeBytes: buf.length },
+  });
+
+  const env = getEnv();
+  if (!env.STORAGE_STUB) {
+    // TODO(wave9): real S3 adapter — `s3.send(new PutObjectCommand({
+    //   Bucket: env.STORAGE_BUCKET, Key: key, Body: buf, ContentType: contentType }))`.
+    // @aws-sdk/client-s3 is not installed; deferred to the Wave-9 storage issue.
+    throw new StorageError('s3_not_implemented', 'real S3 putObject deferred to wave 9');
+  }
+
+  const { putStubBlob } = await import('./stubStore');
+  putStubBlob(key, contentType, buf);
 }
 
 /**
