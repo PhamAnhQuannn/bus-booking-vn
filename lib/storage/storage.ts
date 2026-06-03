@@ -77,6 +77,7 @@ export interface StorageClient extends AdminAuditLogClient {
       };
       update: { contentType: string; sizeBytes: number };
     }) => Promise<StoredObjectRow>;
+    deleteMany: (args: { where: { key: string } }) => Promise<{ count: number }>;
   };
 }
 
@@ -284,6 +285,36 @@ export async function putObject(
 
   const { putStubBlob } = await import('./stubStore');
   putStubBlob(key, contentType, buf);
+}
+
+/**
+ * Delete a stored object by key (Issue 090 retention purge). Removes the blob
+ * AND the StoredObject pointer row.
+ *
+ * Under STORAGE_STUB the blob is removed from the SHARED in-memory store
+ * (stubStore) so a subsequent createSignedDownloadUrl / GET no longer finds it.
+ * The StoredObject pointer row is deleted too (deleteMany — idempotent, no throw
+ * if the row is already gone), so a re-run of the sweeper over an
+ * already-purged key is a no-op rather than an error.
+ *
+ * STORAGE_STUB=false → throws StorageError('s3_not_implemented') (real S3
+ * DeleteObject deferred to Wave 9, @aws-sdk not installed) so a non-stub deploy
+ * fails LOUDLY rather than silently leaving the object in the bucket.
+ */
+export async function deleteObject(prisma: StorageClient, key: string): Promise<void> {
+  const env = getEnv();
+  if (!env.STORAGE_STUB) {
+    // TODO(wave9): real S3 adapter — `s3.send(new DeleteObjectCommand({
+    //   Bucket: env.STORAGE_BUCKET, Key: key }))`. @aws-sdk/client-s3 not installed.
+    throw new StorageError('s3_not_implemented', 'real S3 deleteObject deferred to wave 9');
+  }
+
+  const { removeStubBlob } = await import('./stubStore');
+  removeStubBlob(key);
+
+  // Remove the pointer row too (deleteMany so an absent key is a silent no-op,
+  // keeping the purge idempotent under a sweeper re-run).
+  await prisma.storedObject.deleteMany({ where: { key } });
 }
 
 /**

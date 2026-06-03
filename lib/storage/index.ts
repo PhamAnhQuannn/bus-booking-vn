@@ -8,6 +8,7 @@ export {
   createSignedUploadUrl,
   createSignedDownloadUrl,
   putObject,
+  deleteObject,
   verifyStubSignature,
   type StorageClient,
   type StoredObjectRow,

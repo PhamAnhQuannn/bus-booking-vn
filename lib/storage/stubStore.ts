@@ -39,3 +39,12 @@ export function putStubBlob(key: string, contentType: string, bytes: Buffer): vo
 export function getStubBlob(key: string): StubBlob | undefined {
   return STUB_BLOBS.get(key);
 }
+
+/**
+ * Remove a blob from the shared stub store (Issue 090 retention purge). Returns
+ * true if a blob was present and deleted, false if the key was already absent
+ * (idempotent — a re-run of the retention sweeper must not error on a missing key).
+ */
+export function removeStubBlob(key: string): boolean {
+  return STUB_BLOBS.delete(key);
+}

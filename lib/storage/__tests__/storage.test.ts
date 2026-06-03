@@ -17,6 +17,7 @@ import {
   createSignedUploadUrl,
   createSignedDownloadUrl,
   putObject,
+  deleteObject,
   verifyStubSignature,
   type StorageClient,
   type StoredObjectRow,
@@ -58,6 +59,10 @@ function makePrisma(seed?: StoredObjectRow | null) {
         return row;
       }
     ),
+    deleteMany: vi.fn(async ({ where }: { where: { key: string } }) => {
+      const had = rows.delete(where.key);
+      return { count: had ? 1 : 0 };
+    }),
   };
   const adminAuditLog = {
     create: vi.fn(async (_args: { data: Record<string, unknown> }) => ({})),
@@ -322,5 +327,42 @@ describe('putObject (server-side upload, Issue 074)', () => {
       putObject(prisma, 'ticket_pdf/real.pdf', 'application/pdf', Buffer.from('x'))
     ).rejects.toMatchObject({ code: 's3_not_implemented' });
     expect(prisma.storedObject.upsert).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('deleteObject (retention purge, Issue 090)', () => {
+  it('removes the blob from the shared store + the pointer row; download then 404s', async () => {
+    const prisma = makePrisma();
+    const key = 'kyb_doc/del/license.pdf';
+    const bytes = Buffer.from('%PDF-1.4 doomed kyb doc');
+
+    await putObject(prisma, key, 'application/pdf', bytes);
+    expect(getStubBlob(key)?.bytes.equals(bytes)).toBe(true);
+
+    await deleteObject(prisma, key);
+
+    // Blob gone from the shared stub store.
+    expect(getStubBlob(key)).toBeUndefined();
+    // Pointer row deleted.
+    expect(prisma.storedObject.deleteMany).toHaveBeenCalledWith({ where: { key } });
+    // A subsequent signed-download no longer finds the object.
+    await expect(
+      createSignedDownloadUrl(prisma, key, { actor: 'cron:retention-sweep' })
+    ).rejects.toMatchObject({ code: 'not_found' });
+  });
+
+  it('is idempotent on an absent key (no throw, deleteMany count 0)', async () => {
+    const prisma = makePrisma();
+    await expect(deleteObject(prisma, 'kyb_doc/never/existed')).resolves.toBeUndefined();
+    expect(prisma.storedObject.deleteMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws s3_not_implemented in real mode (no row deleted)', async () => {
+    setStub(false);
+    const prisma = makePrisma();
+    await expect(deleteObject(prisma, 'kyb_doc/x/y.pdf')).rejects.toMatchObject({
+      code: 's3_not_implemented',
+    });
+    expect(prisma.storedObject.deleteMany).not.toHaveBeenCalled();
   });
 });
