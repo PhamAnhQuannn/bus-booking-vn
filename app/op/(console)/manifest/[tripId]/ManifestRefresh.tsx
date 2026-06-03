@@ -21,7 +21,7 @@
  */
 
 import { useState } from 'react';
-import type { ManifestRow } from '@/lib/manifest/getManifest';
+import type { ManifestRow } from '@/lib/booking/getManifest';
 import type { BookingStatus } from '@prisma/client';
 import { bookingStatusDisplay, contactStatusDisplay } from '@/lib/op/statusLabels';
 import { readCsrfToken } from '@/lib/auth/csrfClient';

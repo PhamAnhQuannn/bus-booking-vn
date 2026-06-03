@@ -15,10 +15,10 @@ import { cookies } from 'next/headers';
 import { verifyOperatorAccess } from '@/lib/auth/jwt';
 import { prisma } from '@/lib/db/client';
 import { listOperatorBookings } from '@/lib/booking/listOperatorBookings';
-import { getManifest } from '@/lib/manifest/getManifest';
+import { getManifest } from '@/lib/booking/getManifest';
 import { getTrip } from '@/lib/trips/getTrip';
 import type { BookingQueueRow } from '@/lib/booking/toBookingQueueRow';
-import type { ManifestRow } from '@/lib/manifest/getManifest';
+import type { ManifestRow } from '@/lib/booking/getManifest';
 import type { TripDto } from '@/lib/trips/tripDto';
 
 export interface StaffDashboardView {

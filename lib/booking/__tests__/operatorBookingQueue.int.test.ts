@@ -20,7 +20,7 @@ import { randomUUID } from 'crypto';
 import { listOperatorBookings } from '../listOperatorBookings';
 import { getOperatorBooking } from '../getOperatorBooking';
 import { getUnviewedPaidCount } from '../getUnviewedPaidCount';
-import { getManifest } from '@/lib/manifest/getManifest';
+import { getManifest } from '@/lib/booking/getManifest';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Fixtures
