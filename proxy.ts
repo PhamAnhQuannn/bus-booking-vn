@@ -22,13 +22,30 @@
  *    in-handler (DB-aware) — this layer only covers the page-redirect UX.
  *    Reads scope/totpVerified from the JWT (no DB call), mirroring Layer 1.
  *
- * 2. CSRF double-submit enforcement for all state-changing /api/* routes:
- *    Exempt:
+ * 2. Rate-limit + CSRF double-submit enforcement for all state-changing /api/* routes:
+ *    Both gates cover every non-safe-method (POST/PUT/PATCH/DELETE) /api/* request —
+ *    customer + operator + admin (Issue 096, spec [S14]).
+ *
+ *    Rate-limit (Issue 096): runs FIRST (cheap reject before CSRF token work).
+ *      Keyed on the client IP (x-forwarded-for first hop, parity with the per-route
+ *      limiters in app/api/holds, /bookings/initiate, /charter, /op/register). On breach
+ *      returns 429 + Retry-After, body { error: 'TOO_MANY_REQUESTS' } — same shape the
+ *      per-route limiters emit so clients see consistent 429s. Uses lib/ratelimit
+ *      (`ratelimit.limit(ip)`), Edge-safe: InMemoryRatelimit in dev/CI (no Redis), lazy
+ *      Upstash import only when UPSTASH_REDIS_REST_URL is set.
+ *      NOTE: this covers the /api/* edge only. The /search RSC path is NOT /api/* and
+ *      keeps its per-route protection (Issue 001) — untouched here.
+ *
+ *    CSRF Exempt:
  *      - GET / HEAD / OPTIONS (safe methods)
  *      - /api/payments/{momo,zalopay,card}/webhook (HMAC body verification used instead)
  *      - /api/op/auth/forgot-password* (pre-auth; no session cookie available)
  *      - /api/op/auth/refresh (uses HttpOnly refresh cookie; no JS-readable CSRF token)
  *      - /api/admin/auth/refresh (Issue 056 — HttpOnly refresh cookie; no JS-readable CSRF token)
+ *    Webhooks (the CSRF_EXEMPT exact-match Set) are exempt from BOTH gates — they
+ *    authenticate via HMAC and must not be rate-limited at the edge (Issue 096 reuses
+ *    that SAME Set, no second exempt list). The CSRF prefix-exempt pre-auth routes are
+ *    only CSRF-exempt; they are STILL rate-limited.
  *    Admin login + TOTP POSTs are NOT exempt — they ride the bb_csrf double-submit
  *    like operator login (the /admin/login GET issues bb_csrf via this layer).
  *    On first GET: issues bb_csrf cookie (non-HttpOnly, SameSite=Lax) if absent.
@@ -39,6 +56,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 import { generateToken, compareTokens } from '@/lib/auth/csrf';
+import { ratelimit } from '@/lib/ratelimit';
 import { REQUEST_ID_HEADER, getOrCreateRequestId } from '@/lib/observability/requestId';
 
 const CSRF_COOKIE = 'bb_csrf';
@@ -205,7 +223,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   }
 
   // -------------------------------------------------------------------------
-  // Layer 2 — CSRF double-submit enforcement
+  // Layer 2 — Rate-limit (Issue 096) + CSRF double-submit enforcement
   // -------------------------------------------------------------------------
 
   // Issue CSRF + anonymous-session cookies on any safe method request missing them
@@ -238,18 +256,47 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     return nextWithRid();
   }
 
-  // Exempt HMAC-verified webhook (exact match)
+  // Exempt HMAC-verified webhook (exact match). This SAME exact-match Set gates
+  // BOTH the CSRF exemption AND the rate-limit exemption (Issue 096) — webhooks
+  // authenticate via HMAC and must not be edge-rate-limited. No second exempt list.
   if (CSRF_EXEMPT.has(pathname)) {
     return nextWithRid();
   }
 
-  // Exempt pre-auth operator routes (prefix match)
-  if (CSRF_EXEMPT_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+  // Both rate-limit and CSRF only apply to /api/* state-changing routes.
+  // Non-/api/* non-safe requests (e.g. server actions on app pages) pass through.
+  // NOTE: the /search RSC path is NOT /api/* — Issue 096 covers the /api/* edge
+  // only; /search keeps its per-route protection (Issue 001).
+  if (!pathname.startsWith('/api/')) {
     return nextWithRid();
   }
 
-  // Only enforce CSRF on /api/* state-changing routes
-  if (!pathname.startsWith('/api/')) {
+  // ---- Rate-limit FIRST (cheap reject before CSRF token work) — Issue 096 ----
+  // Derive the client IP the same way the per-route limiters do (x-forwarded-for
+  // first hop). Applies to ALL non-safe /api/* (customer + operator + admin),
+  // including the CSRF prefix-exempt pre-auth routes below — those are only
+  // CSRF-exempt, never rate-limit-exempt.
+  const ip =
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1';
+  const rl = await ratelimit.limit(ip);
+  if (!rl.allowed) {
+    // Match the per-route 429 shape so clients see consistent responses.
+    return withRid(
+      NextResponse.json(
+        { error: 'TOO_MANY_REQUESTS' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(rl.retryAfter),
+            'X-RateLimit-Remaining': '0',
+          },
+        }
+      )
+    );
+  }
+
+  // Exempt pre-auth operator routes from CSRF (prefix match) — still rate-limited above.
+  if (CSRF_EXEMPT_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
     return nextWithRid();
   }
 
