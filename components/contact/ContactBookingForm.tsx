@@ -2,60 +2,112 @@
 
 /**
  * ContactBookingForm — tourism / charter ("thuê xe hợp đồng") booking inquiry.
- * Gathers customer contact + trip details. NOTE: submission is a client-side
- * placeholder (shows a success state) — there is no backend/notification wired
- * yet. TODO: POST to an inquiry API (validate + store/notify) when available.
+ *
+ * Issue 082: wired to POST /api/charter. On a 201 we redirect to the confirmation
+ * page with the returned ref. CSRF: echoes the bb_csrf cookie in X-CSRF-Token
+ * (readCsrfToken) — the /lien-he-dat-xe GET issued the cookie via proxy.ts. A
+ * hidden `company` honeypot field guards against bots (server drops a filled one).
  */
 
 import { useState } from 'react';
-import Link from 'next/link';
-import { CheckCircle2, Send } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Send } from 'lucide-react';
 
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DatePicker } from '@/components/ui/date-picker';
 import { cn } from '@/lib/utils';
+import { readCsrfToken } from '@/lib/auth/csrfClient';
 
 export function ContactBookingForm() {
-  const [submitted, setSubmitted] = useState(false);
+  const router = useRouter();
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   // Earliest selectable departure = today (Asia/Ho_Chi_Minh); computed once for SSR stability.
   const [todayVN] = useState(() =>
     new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date())
   );
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    // Placeholder: no backend yet. Show the success state.
-    setSubmitted(true);
-  }
+    if (submitting) return;
+    setError(null);
 
-  if (submitted) {
-    return (
-      <div className="flex flex-col items-center gap-4 rounded-2xl border border-border bg-card p-8 text-center shadow-e2">
-        <span className="flex size-14 items-center justify-center rounded-full bg-success text-success-foreground">
-          <CheckCircle2 className="size-8" aria-hidden="true" />
-        </span>
-        <div className="flex flex-col gap-1">
-          <h2 className="text-xl font-bold">Đã nhận yêu cầu!</h2>
-          <p className="text-sm text-muted-foreground">
-            Cảm ơn bạn. Tổng đài BBVN sẽ liên hệ lại trong vòng 15 phút để tư vấn và báo giá.
-          </p>
-        </div>
-        <div className="flex flex-wrap justify-center gap-2">
-          <Button type="button" variant="outline" onClick={() => setSubmitted(false)}>
-            Gửi yêu cầu khác
-          </Button>
-          <Link href="/" className={buttonVariants({})}>
-            Về trang chủ
-          </Link>
-        </div>
-      </div>
-    );
+    const form = e.currentTarget;
+    const data = new FormData(form);
+
+    const str = (k: string) => String(data.get(k) ?? '').trim();
+    const num = (k: string): number | null => {
+      const v = str(k);
+      if (!v) return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
+
+    const destination = str('destination');
+    const passengers = num('people');
+    if (passengers === null) {
+      setError('Vui lòng nhập số người.');
+      return;
+    }
+
+    const payload = {
+      contactName: str('name'),
+      contactPhone: str('phone'),
+      contactEmail: str('email'),
+      originName: str('origin'),
+      destinationNames: destination ? [destination] : [],
+      startDate: str('departureDate'),
+      durationDays: num('days'),
+      passengers,
+      vehicleType: str('vehicle') || 'coach',
+      notes: str('notes') || null,
+      // Honeypot — hidden field, must stay empty.
+      company: str('company'),
+    };
+
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/charter', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': readCsrfToken(),
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.status === 201) {
+        const { ref } = (await res.json()) as { ref: string };
+        router.push(`/lien-he-dat-xe/confirmation?ref=${encodeURIComponent(ref)}`);
+        return;
+      }
+      // Honeypot drop returns 200 (no ref) — treat as success without a ref.
+      if (res.status === 200) {
+        router.push('/lien-he-dat-xe/confirmation');
+        return;
+      }
+      if (res.status === 429) {
+        setError('Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau.');
+      } else {
+        setError('Gửi yêu cầu thất bại. Vui lòng kiểm tra lại thông tin.');
+      }
+    } catch {
+      setError('Có lỗi kết nối. Vui lòng thử lại.');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5" aria-label="Liên hệ đặt xe">
+      {/* Honeypot: visually hidden, off the tab order, never read by humans. */}
+      <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
+        <label htmlFor="company">Công ty</label>
+        <input id="company" name="company" type="text" tabIndex={-1} autoComplete="off" />
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="name">Họ và tên</Label>
@@ -66,8 +118,12 @@ export function ContactBookingForm() {
           <Input id="phone" name="phone" type="tel" required placeholder="0901234567" autoComplete="tel" />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="email">Email (tuỳ chọn)</Label>
-          <Input id="email" name="email" type="email" placeholder="ban@email.com" autoComplete="email" />
+          <Label htmlFor="email">Email</Label>
+          <Input id="email" name="email" type="email" required placeholder="ban@email.com" autoComplete="email" />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="origin">Điểm đón</Label>
+          <Input id="origin" name="origin" required placeholder="vd: Thanh Hoá" />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="destination">Điểm đến</Label>
@@ -104,9 +160,20 @@ export function ContactBookingForm() {
         />
       </div>
 
-      <Button type="submit" size="lg" className="w-full gap-2 sm:w-auto sm:self-start">
+      {error && (
+        <p role="alert" className="text-sm font-medium text-destructive">
+          {error}
+        </p>
+      )}
+
+      <Button
+        type="submit"
+        size="lg"
+        disabled={submitting}
+        className="w-full gap-2 sm:w-auto sm:self-start"
+      >
         <Send className="size-4" aria-hidden="true" />
-        Gửi yêu cầu
+        {submitting ? 'Đang gửi…' : 'Gửi yêu cầu'}
       </Button>
     </form>
   );

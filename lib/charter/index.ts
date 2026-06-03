@@ -4,6 +4,7 @@
 
 export {
   LEGAL_CHARTER_TRANSITIONS,
+  CUSTOMER_CANCELLABLE_STATUSES,
   isLegalCharterTransition,
   transitionCharterRequest,
   type CharterTransitionClient,
@@ -13,5 +14,13 @@ export {
 } from './charterStatus';
 
 export { generateCharterRef, CHARTER_REF_REGEX } from './charterRef';
+
+export {
+  createCharterRequest,
+  type CreateCharterRequestInput,
+  type CreateCharterRequestResult,
+} from './createCharterRequest';
+
+export { getCharterByRef, type CharterByRef } from './getCharterByRef';
 
 export { CharterError, type CharterErrorCode } from './errors';

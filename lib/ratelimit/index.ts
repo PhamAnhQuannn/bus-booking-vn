@@ -135,6 +135,11 @@ export const opForgotPasswordRatelimit = createRatelimit({ limit: 3, windowMs: 1
  *  on the public, unauthenticated /api/op/register POST. Keyed `op-register:<ip>`. */
 export const opRegisterRatelimit = createRatelimit({ limit: 5, windowMs: 60 * 60_000 });
 
+/** Public charter (thuê xe hợp đồng) request submit: 5 per hour per IP (Issue 082)
+ *  — abuse guard on the public, unauthenticated /api/charter POST. Keyed
+ *  `charter:<ip>`. (Honeypot is the first-line spam guard; this caps volume.) */
+export const charterRatelimit = createRatelimit({ limit: 5, windowMs: 60 * 60_000 });
+
 /**
  * Admin TOTP verify attempt throttle: 10 per minute per admin (Issue 055).
  * General request-rate guard on the verify/step-up surface, keyed `admin-totp:<adminId>`.

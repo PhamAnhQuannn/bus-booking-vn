@@ -29,7 +29,12 @@ export type EmailTemplate =
   | 'operatorRejected'
   | 'operatorSuspended'
   | 'operatorUnderReview'
-  | 'operatorResubmit';
+  | 'operatorResubmit'
+  // Issue 082: charter (thuê xe hợp đồng) lead-gen lifecycle emails.
+  //   charterSubmitted — request received confirmation (sent at create time).
+  //   charterMatched   — an operator accepted the lead (→ ACCEPTED, Issues 083/084).
+  | 'charterSubmitted'
+  | 'charterMatched';
 
 export interface SendEmailInput {
   to: string;
@@ -69,6 +74,9 @@ const SUBJECTS: Record<string, string> = {
   operatorSuspended: 'Tài khoản nhà xe đã bị tạm ngưng',
   operatorUnderReview: 'Hồ sơ nhà xe đang được xem xét',
   operatorResubmit: 'Đã nhận lại hồ sơ nhà xe',
+  // Issue 082: charter lead-gen lifecycle.
+  charterSubmitted: 'BBVN — Đã nhận yêu cầu thuê xe',
+  charterMatched: 'BBVN — Đã tìm được nhà xe cho yêu cầu của bạn',
 };
 
 /** Resolve a subject line for the template; falls back to a generic subject. */

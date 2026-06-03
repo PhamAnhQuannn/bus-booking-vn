@@ -14,14 +14,25 @@
  * CharterRequest's own columns (assignee, deadlines, publishedAt, reason).
  *
  * Legal edges:
- *   SUBMITTED        → ADMIN_REVIEW
- *   ADMIN_REVIEW     → ASSIGNED_DIRECT | PUBLISHED | REJECTED
- *   ASSIGNED_DIRECT  → ACCEPTED | DECLINED
- *   PUBLISHED        → ACCEPTED | EXPIRED
+ *   SUBMITTED        → ADMIN_REVIEW | CANCELLED
+ *   ADMIN_REVIEW     → ASSIGNED_DIRECT | PUBLISHED | REJECTED | CANCELLED
+ *   ASSIGNED_DIRECT  → ACCEPTED | DECLINED | CANCELLED
+ *   PUBLISHED        → ACCEPTED | EXPIRED | CANCELLED
  *   DECLINED         → ADMIN_REVIEW           (re-route the freed lead)
  *   EXPIRED          → ADMIN_REVIEW           (re-route the expired lead)
  *   ACCEPTED         → COMPLETED | CANCELLED
  *   REJECTED / COMPLETED / CANCELLED → []     (terminal)
+ *
+ * Issue 082: the CANCELLED targets on SUBMITTED / ADMIN_REVIEW / ASSIGNED_DIRECT /
+ * PUBLISHED are the customer cancel-before-accept edges (AC4) — a customer may
+ * withdraw their request at any pre-match stage via the public ref-keyed status
+ * page. A customer CANNOT cancel once an operator has ACCEPTED (the ACCEPTED →
+ * CANCELLED edge already existed from 081 and is reserved for admin/operator
+ * teardown, not the customer cancel route, which gates on pre-ACCEPT status).
+ *
+ * Issue 082: the → ACCEPTED transition (driven by Issues 083 direct-assign accept
+ * and 084 public-pool claim) enqueues a customer "match" notification — see
+ * transitionCharterRequest's post-commit side-effect.
  *
  * Issue 013: transitionCharterRequest returns a DISCRIMINATED result
  * `{ ok: true, from, to, … }` for every NORMAL outcome — it throws ONLY for the
@@ -31,6 +42,7 @@
 
 import type { CharterStatus } from '@prisma/client';
 import { writeAdminAuditLog, type AdminAuditLogClient } from '@/lib/audit/adminAuditLog';
+import { createNotificationLog } from '@/lib/db/notificationLogRepo';
 import { CharterError } from './errors';
 
 /**
@@ -39,10 +51,11 @@ import { CharterError } from './errors';
  * edge rule lives.
  */
 export const LEGAL_CHARTER_TRANSITIONS: Record<CharterStatus, CharterStatus[]> = {
-  SUBMITTED: ['ADMIN_REVIEW'],
-  ADMIN_REVIEW: ['ASSIGNED_DIRECT', 'PUBLISHED', 'REJECTED'],
-  ASSIGNED_DIRECT: ['ACCEPTED', 'DECLINED'],
-  PUBLISHED: ['ACCEPTED', 'EXPIRED'],
+  // Issue 082: CANCELLED added to every pre-ACCEPT state for customer cancel (AC4).
+  SUBMITTED: ['ADMIN_REVIEW', 'CANCELLED'],
+  ADMIN_REVIEW: ['ASSIGNED_DIRECT', 'PUBLISHED', 'REJECTED', 'CANCELLED'],
+  ASSIGNED_DIRECT: ['ACCEPTED', 'DECLINED', 'CANCELLED'],
+  PUBLISHED: ['ACCEPTED', 'EXPIRED', 'CANCELLED'],
   DECLINED: ['ADMIN_REVIEW'],
   EXPIRED: ['ADMIN_REVIEW'],
   ACCEPTED: ['COMPLETED', 'CANCELLED'],
@@ -50,6 +63,20 @@ export const LEGAL_CHARTER_TRANSITIONS: Record<CharterStatus, CharterStatus[]> =
   COMPLETED: [],
   CANCELLED: [],
 };
+
+/**
+ * Issue 082: pre-ACCEPT states from which a CUSTOMER may cancel their own request
+ * (AC4). The public cancel route (app/api/charter/[ref]/cancel) gates on this set
+ * — a request already ACCEPTED (or terminal) is NOT customer-cancellable, so the
+ * route returns 422 before even calling transitionCharterRequest. (ACCEPTED →
+ * CANCELLED stays a legal edge for admin/operator teardown, just not this route.)
+ */
+export const CUSTOMER_CANCELLABLE_STATUSES: ReadonlySet<CharterStatus> = new Set<CharterStatus>([
+  'SUBMITTED',
+  'ADMIN_REVIEW',
+  'ASSIGNED_DIRECT',
+  'PUBLISHED',
+]);
 
 /** True when `from → to` is a declared legal charter-status transition. */
 export function isLegalCharterTransition(from: CharterStatus, to: CharterStatus): boolean {
@@ -65,6 +92,19 @@ export interface CharterTransitionClient extends AdminAuditLogClient {
   $transaction: <T>(fn: (tx: CharterTransitionTx) => Promise<T>) => Promise<T>;
 }
 
+/**
+ * The charter contact + ref fields the → ACCEPTED match notification (Issue 082)
+ * needs. Read off the updated row so the post-commit enqueue has everything it
+ * needs without a second round-trip.
+ */
+interface CharterUpdateRow {
+  status: CharterStatus;
+  assigneeOperatorId: string | null;
+  ref: string;
+  contactPhone: string;
+  contactEmail: string;
+}
+
 /** The tx handle surface used inside the transaction callback. */
 export interface CharterTransitionTx extends AdminAuditLogClient {
   $queryRaw: <T = unknown>(query: TemplateStringsArray, ...values: unknown[]) => Promise<T>;
@@ -73,7 +113,13 @@ export interface CharterTransitionTx extends AdminAuditLogClient {
       where: { id: string };
       data: Record<string, unknown>;
       select?: Record<string, boolean>;
-    }) => Promise<{ status: CharterStatus; assigneeOperatorId: string | null }>;
+    }) => Promise<CharterUpdateRow>;
+  };
+  operator: {
+    findUnique: (args: {
+      where: { id: string };
+      select: { legalName: true };
+    }) => Promise<{ legalName: string } | null>;
   };
 }
 
@@ -126,7 +172,14 @@ export async function transitionCharterRequest(
   const { charterId, to, assigneeOperatorId, acceptByAt, claimByAt, rejectionReason, actor } =
     input;
 
-  return prisma.$transaction(async (tx) => {
+  // Carried out of the transaction so the → ACCEPTED match notification (Issue
+  // 082) is enqueued AFTER commit — a NotificationLog write failure must never
+  // roll back the status flip (mirrors registerOperator / createOperator). Null
+  // unless the transition landed on ACCEPTED.
+  let matchNotify: { ref: string; contactPhone: string; contactEmail: string; operatorName: string | null } | null =
+    null;
+
+  const result = await prisma.$transaction(async (tx) => {
     // Lock the charter row so concurrent transitions serialise on the edge check
     // (the Issue 084 claim race depends on this).
     const locked = await tx.$queryRaw<{ status: CharterStatus }[]>`
@@ -178,8 +231,36 @@ export async function transitionCharterRequest(
     const updated = await tx.charterRequest.update({
       where: { id: charterId },
       data,
-      select: { status: true, assigneeOperatorId: true },
+      select: {
+        status: true,
+        assigneeOperatorId: true,
+        ref: true,
+        contactPhone: true,
+        contactEmail: true,
+      },
     });
+
+    // Issue 082: on → ACCEPTED, capture the match-notification payload. The
+    // operator name is resolved from the (already-set) assigneeOperatorId inside
+    // the same tx; the enqueue itself happens post-commit (see matchNotify use).
+    // Triggered by Issue 083 (direct-assign accept) and Issue 084 (public-pool
+    // claim), both of which drive this → ACCEPTED edge.
+    if (to === 'ACCEPTED') {
+      let operatorName: string | null = null;
+      if (updated.assigneeOperatorId) {
+        const op = await tx.operator.findUnique({
+          where: { id: updated.assigneeOperatorId },
+          select: { legalName: true },
+        });
+        operatorName = op?.legalName ?? null;
+      }
+      matchNotify = {
+        ref: updated.ref,
+        contactPhone: updated.contactPhone,
+        contactEmail: updated.contactEmail,
+        operatorName,
+      };
+    }
 
     // Optional admin audit, written off the SAME tx so it commits with the update.
     if (actor) {
@@ -204,4 +285,29 @@ export async function transitionCharterRequest(
       assigneeOperatorId: updated.assigneeOperatorId,
     };
   });
+
+  // Issue 082: enqueue the customer match notification AFTER commit (sms + email),
+  // best-effort — a NotificationLog failure must not roll back the ACCEPTED flip.
+  // The Issue 058 dispatcher (NOTIFY_STUB-gated) delivers the queued rows.
+  if (matchNotify) {
+    const m: { ref: string; contactPhone: string; contactEmail: string; operatorName: string | null } =
+      matchNotify;
+    const payload = JSON.stringify({ ref: m.ref, operatorName: m.operatorName });
+    await createNotificationLog({
+      channel: 'sms',
+      template: 'charterMatched',
+      recipient: m.contactPhone,
+      payload,
+      status: 'pending',
+    });
+    await createNotificationLog({
+      channel: 'email',
+      template: 'charterMatched',
+      recipient: m.contactEmail,
+      payload,
+      status: 'pending',
+    });
+  }
+
+  return result;
 }

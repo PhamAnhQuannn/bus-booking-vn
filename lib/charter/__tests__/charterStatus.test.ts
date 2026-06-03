@@ -7,10 +7,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { CharterStatus } from '@prisma/client';
 
 // ---- hoisted mocks ----
-const { mockTx, mockPrisma, mockWriteAdminAuditLog } = vi.hoisted(() => {
+const { mockTx, mockPrisma, mockWriteAdminAuditLog, mockCreateNotificationLog } = vi.hoisted(() => {
   const mockTx = {
     $queryRaw: vi.fn(),
     charterRequest: { update: vi.fn() },
+    operator: { findUnique: vi.fn() },
     adminAuditLog: { create: vi.fn() },
   };
   const mockPrisma = {
@@ -19,17 +20,23 @@ const { mockTx, mockPrisma, mockWriteAdminAuditLog } = vi.hoisted(() => {
     adminAuditLog: { create: vi.fn() },
   };
   const mockWriteAdminAuditLog = vi.fn();
-  return { mockTx, mockPrisma, mockWriteAdminAuditLog };
+  const mockCreateNotificationLog = vi.fn();
+  return { mockTx, mockPrisma, mockWriteAdminAuditLog, mockCreateNotificationLog };
 });
 
 vi.mock('@/lib/audit/adminAuditLog', () => ({
   writeAdminAuditLog: mockWriteAdminAuditLog,
 }));
 
+vi.mock('@/lib/db/notificationLogRepo', () => ({
+  createNotificationLog: mockCreateNotificationLog,
+}));
+
 import {
   transitionCharterRequest,
   isLegalCharterTransition,
   LEGAL_CHARTER_TRANSITIONS,
+  CUSTOMER_CANCELLABLE_STATUSES,
 } from '../charterStatus';
 import { CharterError } from '../errors';
 
@@ -49,12 +56,18 @@ function transition(input: Parameters<typeof transitionCharterRequest>[1]) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // default: update echoes back a representative row
+  // default: update echoes back a representative row (now incl. the contact fields
+  // the → ACCEPTED match notification reads, Issue 082).
   mockTx.charterRequest.update.mockResolvedValue({
     status: 'ADMIN_REVIEW',
     assigneeOperatorId: null,
+    ref: 'CH-2026-ABC123',
+    contactPhone: '0901234567',
+    contactEmail: 'guest@example.com',
   });
+  mockTx.operator.findUnique.mockResolvedValue({ legalName: 'Nhà xe Demo' });
   mockWriteAdminAuditLog.mockResolvedValue(undefined);
+  mockCreateNotificationLog.mockResolvedValue(undefined);
 });
 
 describe('LEGAL_CHARTER_TRANSITIONS map', () => {
@@ -95,10 +108,31 @@ describe('LEGAL_CHARTER_TRANSITIONS map', () => {
     expect(isLegalCharterTransition('EXPIRED', 'ADMIN_REVIEW')).toBe(true);
     expect(isLegalCharterTransition('ACCEPTED', 'COMPLETED')).toBe(true);
     expect(isLegalCharterTransition('ACCEPTED', 'CANCELLED')).toBe(true);
+    // Issue 082: customer cancel-before-accept edges
+    expect(isLegalCharterTransition('SUBMITTED', 'CANCELLED')).toBe(true);
+    expect(isLegalCharterTransition('ADMIN_REVIEW', 'CANCELLED')).toBe(true);
+    expect(isLegalCharterTransition('ASSIGNED_DIRECT', 'CANCELLED')).toBe(true);
+    expect(isLegalCharterTransition('PUBLISHED', 'CANCELLED')).toBe(true);
     // illegal samples
     expect(isLegalCharterTransition('SUBMITTED', 'ACCEPTED')).toBe(false);
     expect(isLegalCharterTransition('REJECTED', 'ADMIN_REVIEW')).toBe(false);
     expect(isLegalCharterTransition('COMPLETED', 'ACCEPTED')).toBe(false);
+    // terminal states cannot leave (incl. CANCELLED itself)
+    expect(isLegalCharterTransition('CANCELLED', 'ADMIN_REVIEW')).toBe(false);
+  });
+});
+
+describe('CUSTOMER_CANCELLABLE_STATUSES (Issue 082)', () => {
+  it('is exactly the pre-ACCEPT routing states', () => {
+    expect([...CUSTOMER_CANCELLABLE_STATUSES].sort()).toEqual(
+      ['ADMIN_REVIEW', 'ASSIGNED_DIRECT', 'PUBLISHED', 'SUBMITTED'].sort()
+    );
+  });
+
+  it('excludes ACCEPTED and all terminal states', () => {
+    for (const s of ['ACCEPTED', 'COMPLETED', 'CANCELLED', 'REJECTED', 'EXPIRED', 'DECLINED'] as const) {
+      expect(CUSTOMER_CANCELLABLE_STATUSES.has(s)).toBe(false);
+    }
   });
 });
 
@@ -116,6 +150,11 @@ describe('transitionCharterRequest — every legal edge succeeds', () => {
     ['EXPIRED', 'ADMIN_REVIEW'],
     ['ACCEPTED', 'COMPLETED'],
     ['ACCEPTED', 'CANCELLED'],
+    // Issue 082: customer cancel-before-accept edges
+    ['SUBMITTED', 'CANCELLED'],
+    ['ADMIN_REVIEW', 'CANCELLED'],
+    ['ASSIGNED_DIRECT', 'CANCELLED'],
+    ['PUBLISHED', 'CANCELLED'],
   ];
 
   for (const [from, to] of legalEdges) {
@@ -207,6 +246,62 @@ describe('transitionCharterRequest — side-effect fields per target', () => {
     await transition({ charterId: CHARTER_ID, to: 'ADMIN_REVIEW' });
     const data = mockTx.charterRequest.update.mock.calls[0][0].data;
     expect(Object.keys(data)).toEqual(['status']);
+  });
+});
+
+describe('transitionCharterRequest — → ACCEPTED match notification (Issue 082)', () => {
+  it('enqueues sms + email charterMatched with { ref, operatorName } after an ACCEPTED flip', async () => {
+    lockStatus('PUBLISHED');
+    mockTx.charterRequest.update.mockResolvedValue({
+      status: 'ACCEPTED',
+      assigneeOperatorId: 'op_7',
+      ref: 'CH-2026-XYZ789',
+      contactPhone: '0907654321',
+      contactEmail: 'cust@example.com',
+    });
+    mockTx.operator.findUnique.mockResolvedValue({ legalName: 'Nhà xe Phương Trang' });
+
+    await transition({ charterId: CHARTER_ID, to: 'ACCEPTED' });
+
+    expect(mockTx.operator.findUnique).toHaveBeenCalledWith({
+      where: { id: 'op_7' },
+      select: { legalName: true },
+    });
+    expect(mockCreateNotificationLog).toHaveBeenCalledTimes(2);
+    const channels = mockCreateNotificationLog.mock.calls.map((c) => c[0].channel).sort();
+    expect(channels).toEqual(['email', 'sms']);
+    for (const call of mockCreateNotificationLog.mock.calls) {
+      const arg = call[0];
+      expect(arg.template).toBe('charterMatched');
+      expect(arg.status).toBe('pending');
+      expect(JSON.parse(arg.payload)).toEqual({ ref: 'CH-2026-XYZ789', operatorName: 'Nhà xe Phương Trang' });
+    }
+    // recipients are the contact phone (sms) and contact email (email)
+    const recipients = mockCreateNotificationLog.mock.calls.map((c) => c[0].recipient).sort();
+    expect(recipients).toEqual(['0907654321', 'cust@example.com'].sort());
+  });
+
+  it('does NOT enqueue a match notification for a non-ACCEPTED transition', async () => {
+    lockStatus('SUBMITTED');
+    await transition({ charterId: CHARTER_ID, to: 'CANCELLED' });
+    expect(mockCreateNotificationLog).not.toHaveBeenCalled();
+  });
+
+  it('tolerates a missing assignee (operatorName null) on ACCEPTED', async () => {
+    lockStatus('PUBLISHED');
+    mockTx.charterRequest.update.mockResolvedValue({
+      status: 'ACCEPTED',
+      assigneeOperatorId: null,
+      ref: 'CH-2026-NULLOP',
+      contactPhone: '0900000000',
+      contactEmail: 'x@example.com',
+    });
+
+    await transition({ charterId: CHARTER_ID, to: 'ACCEPTED' });
+
+    expect(mockTx.operator.findUnique).not.toHaveBeenCalled();
+    expect(mockCreateNotificationLog).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(mockCreateNotificationLog.mock.calls[0][0].payload).operatorName).toBeNull();
   });
 });
 
