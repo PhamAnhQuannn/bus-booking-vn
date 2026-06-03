@@ -32,6 +32,7 @@
 
 import {
   Bus,
+  CalendarCheck,
   LayoutDashboard,
   Settings,
   Ticket,
@@ -104,6 +105,18 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Wallet,
     match: "/op/money",
     keywords: ["money", "tai chinh", "balance", "so du", "payout", "rut tien", "withdraw", "ledger", "statements", "sao ke"],
+  },
+  // Issue 083: Charter tab — directly-assigned charter leads + accept/decline.
+  // A 7th top-level group (documented exception to the S09 6-group restructure):
+  // charter is a distinct lead-gen surface, not foldable under any of the six.
+  // APPROVED-only (the page itself shows an approval notice for non-APPROVED ops).
+  {
+    id: "charter",
+    label: "Thuê xe",
+    href: "/op/charter",
+    icon: CalendarCheck,
+    match: "/op/charter",
+    keywords: ["charter", "thue xe", "thue chuyen", "lead", "yeu cau thue", "hop dong"],
   },
   {
     id: "settings",

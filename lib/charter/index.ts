@@ -23,4 +23,20 @@ export {
 
 export { getCharterByRef, type CharterByRef } from './getCharterByRef';
 
+export {
+  getAssignedCharters,
+  getAcceptedCharters,
+  type AssignedCharter,
+  type AcceptedCharter,
+} from './getOperatorCharters';
+
+export { declineCharter, type DeclineCharterInput, type DeclineCharterResult } from './declineCharter';
+
+export {
+  assertOperatorApproved,
+  isOperatorApproved,
+  isCharterEnabled,
+  CharterNotApprovedError,
+} from './assertOperatorApproved';
+
 export { CharterError, type CharterErrorCode } from './errors';
