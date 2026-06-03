@@ -18,6 +18,13 @@ vi.mock('@/lib/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+// Issue 061: the failure path now alerts via captureException. Mock it so the
+// test stays a pure unit (no env validation / real logger emit) — additive,
+// the row-update assertions are unchanged.
+vi.mock('@/lib/observability', () => ({
+  captureException: vi.fn(),
+}));
+
 const updateMock = vi.fn();
 const queryRawMock = vi.fn();
 const txTransactionMock = vi.fn();

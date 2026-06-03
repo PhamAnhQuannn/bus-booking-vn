@@ -39,6 +39,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 import { generateToken, compareTokens } from '@/lib/auth/csrf';
+import { REQUEST_ID_HEADER, getOrCreateRequestId } from '@/lib/observability/requestId';
 
 const CSRF_COOKIE = 'bb_csrf';
 const CSRF_HEADER = 'X-CSRF-Token';
@@ -131,6 +132,31 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   const requestMethod = request.method;
 
   // -------------------------------------------------------------------------
+  // Request-id propagation (Issue 061, AC2/AC3)
+  // Read-or-mint a correlation id, forward it to downstream handlers on the
+  // request headers, and echo it on every response. crypto.randomUUID() is
+  // Edge-safe. This is threaded into the guard/CSRF responses below WITHOUT
+  // altering their control flow — every NextResponse this function returns gets
+  // the header stamped, and NextResponse.next() forwards the request header set.
+  // -------------------------------------------------------------------------
+  const rid = getOrCreateRequestId(request.headers);
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set(REQUEST_ID_HEADER, rid);
+  const forwarded = { request: { headers: requestHeaders } };
+
+  /** NextResponse.next() that forwards the rid request header + echoes it on the response. */
+  const nextWithRid = (): NextResponse => {
+    const res = NextResponse.next(forwarded);
+    res.headers.set(REQUEST_ID_HEADER, rid);
+    return res;
+  };
+  /** Stamp the rid on an already-built response (redirect / json) and return it. */
+  const withRid = (res: NextResponse): NextResponse => {
+    res.headers.set(REQUEST_ID_HEADER, rid);
+    return res;
+  };
+
+  // -------------------------------------------------------------------------
   // Layer 1 — Operator forced-redirect guard
   // -------------------------------------------------------------------------
   if (pathname.startsWith('/op/') && !pathname.startsWith(OP_API_AUTH_PREFIX)) {
@@ -138,14 +164,14 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     if (!OP_AUTH_FREE_PATHS.has(pathname)) {
       const opToken = request.cookies.get(OP_ACCESS_COOKIE)?.value;
       if (!opToken) {
-        return NextResponse.redirect(new URL('/op/login', request.url));
+        return withRid(NextResponse.redirect(new URL('/op/login', request.url)));
       }
       const decoded = await decodeOperatorJwt(opToken);
       if (!decoded) {
-        return NextResponse.redirect(new URL('/op/login', request.url));
+        return withRid(NextResponse.redirect(new URL('/op/login', request.url)));
       }
       if (decoded.requiresPasswordChange) {
-        return NextResponse.redirect(new URL('/op/first-login', request.url));
+        return withRid(NextResponse.redirect(new URL('/op/first-login', request.url)));
       }
     }
   }
@@ -159,14 +185,14 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     if (!ADMIN_AUTH_FREE_PATHS.has(pathname)) {
       const adminToken = request.cookies.get(ADMIN_ACCESS_COOKIE)?.value;
       if (!adminToken) {
-        return NextResponse.redirect(new URL('/admin/login', request.url));
+        return withRid(NextResponse.redirect(new URL('/admin/login', request.url)));
       }
       const decoded = await decodeAdminJwt(adminToken);
       if (!decoded) {
-        return NextResponse.redirect(new URL('/admin/login', request.url));
+        return withRid(NextResponse.redirect(new URL('/admin/login', request.url)));
       }
       if (!decoded.totpVerified) {
-        return NextResponse.redirect(new URL('/admin/login', request.url));
+        return withRid(NextResponse.redirect(new URL('/admin/login', request.url)));
       }
     }
   }
@@ -180,7 +206,8 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     const hasCsrf = request.cookies.get(CSRF_COOKIE)?.value;
     const hasSid = request.cookies.get(SID_COOKIE)?.value;
     if (!hasCsrf || !hasSid) {
-      const response = NextResponse.next();
+      const response = NextResponse.next(forwarded);
+      response.headers.set(REQUEST_ID_HEADER, rid);
       const secure = process.env.NODE_ENV === 'production';
       if (!hasCsrf) {
         response.cookies.set(CSRF_COOKIE, generateToken(), {
@@ -201,32 +228,32 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
       }
       return response;
     }
-    return NextResponse.next();
+    return nextWithRid();
   }
 
   // Exempt HMAC-verified webhook (exact match)
   if (CSRF_EXEMPT.has(pathname)) {
-    return NextResponse.next();
+    return nextWithRid();
   }
 
   // Exempt pre-auth operator routes (prefix match)
   if (CSRF_EXEMPT_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
-    return NextResponse.next();
+    return nextWithRid();
   }
 
   // Only enforce CSRF on /api/* state-changing routes
   if (!pathname.startsWith('/api/')) {
-    return NextResponse.next();
+    return nextWithRid();
   }
 
   const cookieToken = request.cookies.get(CSRF_COOKIE)?.value ?? '';
   const headerToken = request.headers.get(CSRF_HEADER) ?? '';
 
   if (!cookieToken || !headerToken || !compareTokens(cookieToken, headerToken)) {
-    return NextResponse.json({ error: 'csrf_invalid' }, { status: 403 });
+    return withRid(NextResponse.json({ error: 'csrf_invalid' }, { status: 403 }));
   }
 
-  return NextResponse.next();
+  return nextWithRid();
 }
 
 export const config = {

@@ -38,6 +38,7 @@ import { prisma } from '@/lib/db/client';
 import { createNotificationLog } from '@/lib/db/notificationLogRepo';
 import { renderTemplate } from '@/lib/notifications/esms';
 import { logger } from '@/lib/logger';
+import { captureException } from '@/lib/observability';
 import { track, sessionIdForBooking } from '@/lib/analytics/track';
 import type { PaymentGateway } from './gateway';
 import { legalPredecessors } from '@/lib/booking/transitions';
@@ -349,6 +350,9 @@ export async function processPaymentWebhook(
       logger.info({ adapter, bookingRef, providerTxnId }, 'payment.webhook.duplicate_ipn — 200 idempotent');
       return NextResponse.json({ message: 'ok' }, { status: 200 });
     }
+    // Issue 061 (AC5): alert on a non-idempotent webhook failure before rethrow.
+    // Additive + non-throwing; the rethrow + status write are unchanged.
+    captureException(err, { adapter, bookingRef, area: 'payment.webhook' });
     throw err;
   }
 

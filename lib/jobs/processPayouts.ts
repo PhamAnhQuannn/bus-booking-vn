@@ -24,6 +24,7 @@
 
 import { Prisma } from '@prisma/client';
 import { settlePayout } from '@/lib/payouts/settlePayout';
+import { captureException } from '@/lib/observability';
 import type { JobCore } from './types';
 
 interface DuePayout {
@@ -95,6 +96,13 @@ export const processPayouts: JobCore = async (tx, opts) => {
       await tx.payout.update({
         where: { id: payout.id },
         data: { status: 'failed', failureReason: result.reason },
+      });
+      // Issue 061 (AC5): alert on a failed payout settlement. Additive +
+      // non-throwing; the status='failed' write + loop flow are unchanged.
+      captureException(new Error(`payout_settlement_failed: ${result.reason}`), {
+        area: 'payout',
+        payoutId: payout.id,
+        reason: result.reason,
       });
     }
 

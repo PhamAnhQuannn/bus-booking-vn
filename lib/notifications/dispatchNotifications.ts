@@ -36,6 +36,7 @@ import { prisma } from '@/lib/db/client';
 import { sendSmsBody } from '@/lib/notifications/esms';
 import { sendEmail } from '@/lib/notifications/email';
 import { logger } from '@/lib/logger';
+import { captureException } from '@/lib/observability';
 import type { JobCore, JobOpts } from '@/lib/jobs/types';
 
 /** Max delivery attempts before a row is left permanently failed (not reclaimed). */
@@ -151,6 +152,14 @@ export const dispatchNotifications: JobCore = async (_tx, opts?: JobOpts) => {
         { logId: row.id, channel: row.channel, template: row.template, attempt: nextAttempt },
         'notify.dispatch.failed'
       );
+      // Issue 061 (AC5): alert on a dispatch failure. Additive + non-throwing;
+      // the status='failed' write + backoff above are unchanged. `recipient` is
+      // NOT included (PII) — area/notificationId/channel only.
+      captureException(new Error(result.error ?? 'dispatch_failed'), {
+        area: 'notification',
+        notificationId: row.id,
+        channel: row.channel,
+      });
     }
   }
 

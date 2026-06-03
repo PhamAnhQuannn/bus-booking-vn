@@ -146,6 +146,22 @@ const envSchema = z.object({
     .string()
     .min(16, 'STORAGE_STUB_SECRET must be at least 16 characters')
     .default('dev-stub-storage-secret-local-only-change-me'),
+
+  // ---------------------------------------------------------------------------
+  // Observability — Sentry (Issue 061).
+  // The error-reporting SEAM (lib/observability/sentry.ts) ships now; the real
+  // @sentry/nextjs SDK is DEFERRED (not installed — offline/dep-conscious), the
+  // same "defer real, ship the seam" pattern as the refund PSP / S3 storage stubs.
+  //
+  // UNSET (default) → captureException/captureMessage route every event to the
+  // structured pino logger (PII-scrubbed). This is the dev/test behaviour and
+  // stays the behaviour until Stage-1 wires the real SDK in instrumentation.ts.
+  // SET → the seam will (once Stage-1 lands) forward to the real Sentry client;
+  // the PII-scrubbing beforeSend equivalent already runs in the seam regardless.
+  // ---------------------------------------------------------------------------
+
+  /** Sentry DSN. Unset → events go to the structured logger fallback sink. */
+  SENTRY_DSN: z.string().optional(),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;
