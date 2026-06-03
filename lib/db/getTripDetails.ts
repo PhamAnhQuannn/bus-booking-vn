@@ -34,6 +34,8 @@ export async function getTripDetails(id: string): Promise<TripDetails | null> {
       price: true,
       status: true,
       salesClosed: true,
+      // Issue 069: admin moderation flag — a disabled trip resolves to not-found.
+      moderatedAt: true,
       bus: {
         select: {
           capacity: true,
@@ -48,6 +50,8 @@ export async function getTripDetails(id: string): Promise<TripDetails | null> {
           origin: true,
           destination: true,
           durationMinutes: true,
+          // Issue 069: admin moderation flag on the parent route.
+          moderatedAt: true,
           pickupPoints: {
             where: { deactivatedAt: null },
             orderBy: { displayOrder: 'asc' },
@@ -63,6 +67,9 @@ export async function getTripDetails(id: string): Promise<TripDetails | null> {
   // trip (pending / under-review / rejected / suspended) returns not-found.
   // Derived from the Issue 045 capability helper — no status literal here.
   if (!isSearchVisible(trip.bus.operator.status)) return null;
+  // Issue 069: admin moderation gate — a disabled trip (or a trip on a disabled
+  // route) is not bookable; a direct link resolves to not-found.
+  if (trip.moderatedAt !== null || trip.route.moderatedAt !== null) return null;
   // Not bookable → treat as missing.
   if (trip.status !== 'scheduled' || trip.salesClosed) return null;
   if (trip.departureAt <= new Date()) return null;

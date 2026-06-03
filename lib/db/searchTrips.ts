@@ -67,6 +67,8 @@ export async function searchTrips(input: TripSearchInput): Promise<TripResult[]>
       WHERE unaccent_immutable(lower(origin)) ILIKE '%' || ${normalizedOrigin} || '%'
         AND unaccent_immutable(lower(destination)) ILIKE '%' || ${normalizedDest} || '%'
         AND "deactivatedAt" IS NULL
+        -- Issue 069: admin-disabled routes are hidden from search (moderate = disable).
+        AND "moderatedAt" IS NULL
     `
   );
 
@@ -80,6 +82,9 @@ export async function searchTrips(input: TripSearchInput): Promise<TripResult[]>
       departureAt: { gte: startUtc, lte: endUtc },
       status: 'scheduled',
       salesClosed: false,
+      // Issue 069: admin-disabled trips are hidden from search (moderate = disable).
+      // The route-level gate above also excludes trips on an admin-disabled route.
+      moderatedAt: null,
       // Issue 046: approval gate — only show trips of search-visible operators
       // (today exactly APPROVED). Set is derived from the Issue 045 capability
       // helper (SEARCH_VISIBLE_STATUSES) so there is no duplicated status literal.

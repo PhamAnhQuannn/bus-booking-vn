@@ -154,3 +154,26 @@ describe('searchTrips availability (holds + bookings aware, never raw capacity)'
     expect(okRow?.availableSeats).toBe(2);
   });
 });
+
+describe('searchTrips admin moderation gate (Issue 069 — disabled items hidden)', () => {
+  afterEach(async () => {
+    // Restore moderation flags so the next test sees a visible trip/route.
+    await prisma.trip.update({ where: { id: tripId }, data: { moderatedAt: null } });
+    await prisma.route.update({ where: { id: routeId }, data: { moderatedAt: null } });
+  });
+
+  it('EXCLUDES a trip whose moderatedAt is set (admin-disabled trip)', async () => {
+    // Sanity: visible before moderation.
+    expect((await search(1)).find((r) => r.tripId === tripId)).toBeDefined();
+
+    await prisma.trip.update({ where: { id: tripId }, data: { moderatedAt: new Date() } });
+
+    expect((await search(1)).find((r) => r.tripId === tripId)).toBeUndefined();
+  });
+
+  it('EXCLUDES every trip on a route whose moderatedAt is set (admin-disabled route)', async () => {
+    await prisma.route.update({ where: { id: routeId }, data: { moderatedAt: new Date() } });
+
+    expect((await search(1)).find((r) => r.tripId === tripId)).toBeUndefined();
+  });
+});
