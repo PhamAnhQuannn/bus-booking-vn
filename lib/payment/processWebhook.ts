@@ -360,8 +360,16 @@ export async function processPaymentWebhook(
   // cookie, so the session is resolved from the earlier payment_initiated event.
   if (paidBookingId) {
     const bid = paidBookingId;
+    // Issue 063: enrich the booking_paid event context with the gross amount so
+    // GMV is ALSO derivable from the event stream, not only the Booking table.
+    // Fire-and-forget — mirrors the existing track() call, adds no awaited DB work.
+    const gmvVnd = booking.totalVnd;
     void sessionIdForBooking(bid).then((sessionId) =>
-      track('booking_paid', { sessionId, bookingId: bid, context: { adapter } })
+      track('booking_paid', {
+        sessionId,
+        bookingId: bid,
+        context: { adapter, amount: gmvVnd, gmvVnd },
+      })
     );
   }
 
