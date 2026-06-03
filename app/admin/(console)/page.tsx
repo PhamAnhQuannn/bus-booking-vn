@@ -137,7 +137,7 @@ export default async function AdminOverviewPage() {
         <h2 id="queue-heading" className="text-sm font-medium text-muted-foreground">
           Action queue
         </h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Link href="/admin/approvals" className="outline-none focus-visible:ring-3 focus-visible:ring-ring rounded-xl">
             <Card className="transition-colors hover:bg-accent/40">
               <CardHeader>
@@ -147,6 +147,25 @@ export default async function AdminOverviewPage() {
                   {actionQueue.pendingApprovals > 0 ? (
                     <Badge variant="pending" className="ml-2 align-middle">
                       review
+                    </Badge>
+                  ) : null}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+          </Link>
+
+          {/* Charter dispatch queue (085): visible to all roles — SUPER_ADMIN +
+              SUPPORT dispatch; not finance-sensitive. This count IS the admin
+              "new charter request" notification surface (AC4). */}
+          <Link href="/admin/charter" className="outline-none focus-visible:ring-3 focus-visible:ring-ring rounded-xl">
+            <Card className="transition-colors hover:bg-accent/40">
+              <CardHeader>
+                <CardDescription>Charter dispatch</CardDescription>
+                <CardTitle as="h3" className="text-2xl">
+                  {actionQueue.pendingCharters}
+                  {actionQueue.pendingCharters > 0 ? (
+                    <Badge variant="pending" className="ml-2 align-middle">
+                      dispatch
                     </Badge>
                   ) : null}
                 </CardTitle>

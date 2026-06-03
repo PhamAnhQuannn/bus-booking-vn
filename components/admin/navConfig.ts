@@ -11,6 +11,7 @@
 import {
   LayoutDashboard,
   ClipboardCheck,
+  Bus,
   Users,
   Building2,
   Wallet,
@@ -29,6 +30,7 @@ export interface AdminNavItem {
 export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { id: 'overview', label: 'Overview', href: '/admin', icon: LayoutDashboard },
   { id: 'approvals', label: 'Approvals', href: '/admin/approvals', icon: ClipboardCheck },
+  { id: 'charter', label: 'Charter', href: '/admin/charter', icon: Bus },
   { id: 'users', label: 'Users', href: '/admin/users', icon: Users },
   { id: 'operators', label: 'Operators', href: '/admin/operators', icon: Building2 },
   { id: 'finance', label: 'Finance', href: '/admin/finance', icon: Wallet },
