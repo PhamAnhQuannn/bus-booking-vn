@@ -624,6 +624,28 @@ model AdminAuditLog {
 }
 
 // ---------------------------------------------------------------------------
+// Object storage (Issue 059 — signed PUT/GET, keys in DB)
+// ---------------------------------------------------------------------------
+
+/// A pointer to an object in S3-compatible storage. The DB stores the object
+/// KEY (and metadata), NEVER the bytes — the server mints signed PUT/GET URLs
+/// and the client transfers bytes directly to/from storage. `purpose` is a
+/// documented string union ('kyb_doc' | 'ticket_pdf') kept as String for
+/// extensibility. `uploadedBy` is the actor id (operator/admin), nullable for
+/// system-generated uploads (e.g. ticket PDFs).
+model StoredObject {
+  id          String   @id @default(cuid())
+  key         String   @unique // S3 object key; DB stores the KEY, never bytes
+  contentType String
+  sizeBytes   Int
+  purpose     String // 'kyb_doc' | 'ticket_pdf' (documented union; String for extensibility)
+  uploadedBy  String? // actor id (operator/admin) — nullable for system uploads
+  createdAt   DateTime @default(now())
+
+  @@index([purpose])
+}
+
+// ---------------------------------------------------------------------------
 // Conversion-funnel instrumentation
 // ---------------------------------------------------------------------------
 
