@@ -22,7 +22,14 @@ export type EmailTemplate =
   | 'bookingReminder24h'
   | 'payout_scheduled'
   | 'trip_cancelled'
-  | 'operatorPending';
+  | 'operatorPending'
+  // Issue 079: operator approval-state decision emails. Template names match the
+  // 045 TEMPLATE_BY_TARGET map so the dispatcher renders a subject for each.
+  | 'operatorApproved'
+  | 'operatorRejected'
+  | 'operatorSuspended'
+  | 'operatorUnderReview'
+  | 'operatorResubmit';
 
 export interface SendEmailInput {
   to: string;
@@ -55,6 +62,13 @@ const SUBJECTS: Record<string, string> = {
   payout_scheduled: 'BusBookVN — Lich chi tra',
   trip_cancelled: 'BusBookVN — Chuyen di bi huy',
   operatorPending: 'BusBookVN — Ho so dang ky dang duoc xem xet',
+  // Issue 079: operator approval-state decision emails (both decision directions
+  // + the under-review / resubmit states). Subjects kept minimal.
+  operatorApproved: 'Tài khoản nhà xe đã được duyệt — go live',
+  operatorRejected: 'Đơn đăng ký cần bổ sung',
+  operatorSuspended: 'Tài khoản nhà xe đã bị tạm ngưng',
+  operatorUnderReview: 'Hồ sơ nhà xe đang được xem xét',
+  operatorResubmit: 'Đã nhận lại hồ sơ nhà xe',
 };
 
 /** Resolve a subject line for the template; falls back to a generic subject. */

@@ -18,6 +18,7 @@ import {
   CopyPlus,
   FileCheck,
   Gauge,
+  ShieldCheck,
   LayoutDashboard,
   Route,
   Ticket,
@@ -128,6 +129,14 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Users,
     adminOnly: true,
     keywords: ["staff", "nhan vien"],
+  },
+  {
+    id: "status",
+    label: "Trạng thái đăng ký",
+    href: "/op/status",
+    icon: ShieldCheck,
+    match: "/op/status",
+    keywords: ["status", "trang thai", "application", "duyet", "approval"],
   },
   {
     id: "kyb",

@@ -53,6 +53,7 @@ beforeEach(() => {
     disabledAt: null,
     notificationPhone: '+8490xxxxxx7',
     contactPhone: '+8490xxxxxx8',
+    contactEmail: 'ops@example.com',
   });
   mockCreateNotificationLog.mockResolvedValue({ id: 'notif_1' });
   mockWriteAdminAuditLog.mockResolvedValue(undefined);
@@ -91,18 +92,77 @@ describe('transitionOperatorStatus — legal edges', () => {
   ];
 
   for (const [from, to] of legalEdges) {
-    it(`${from} → ${to} succeeds and enqueues exactly one NotificationLog`, async () => {
+    it(`${from} → ${to} succeeds and enqueues BOTH an sms AND an email NotificationLog`, async () => {
       lockStatus(from);
       const res = await transitionOperatorStatus({ operatorId: OPERATOR_ID, to });
       expect(res.from).toBe(from);
       expect(res.to).toBe(to);
       expect(mockTx.operator.update).toHaveBeenCalledTimes(1);
-      expect(mockCreateNotificationLog).toHaveBeenCalledTimes(1);
-      expect(mockCreateNotificationLog.mock.calls[0][0]).toMatchObject({
-        status: 'pending',
-      });
+      // Issue 079: every transition now enqueues two rows — one per channel.
+      expect(mockCreateNotificationLog).toHaveBeenCalledTimes(2);
+
+      const calls = mockCreateNotificationLog.mock.calls.map((c) => c[0]);
+      const sms = calls.find((c) => c.channel === 'sms');
+      const email = calls.find((c) => c.channel === 'email');
+
+      // SMS row (Issue 045) — pending, phone recipient.
+      expect(sms).toMatchObject({ channel: 'sms', status: 'pending' });
+      expect(sms.recipient).toBe('+8490xxxxxx7'); // notificationPhone preferred
+
+      // Email row (Issue 079) — pending, recipient = contactEmail, same template.
+      expect(email).toMatchObject({ channel: 'email', status: 'pending' });
+      expect(email.recipient).toBe('ops@example.com');
+      expect(email.template).toBe(sms.template);
     });
   }
+});
+
+describe('transitionOperatorStatus — Issue 079 decision email', () => {
+  it('decision states (REJECTED) carry the reason in BOTH the sms and email payload', async () => {
+    lockStatus('UNDER_REVIEW');
+    await transitionOperatorStatus({
+      operatorId: OPERATOR_ID,
+      to: 'REJECTED',
+      reason: 'missing payout docs',
+    });
+
+    const calls = mockCreateNotificationLog.mock.calls.map((c) => c[0]);
+    const email = calls.find((c) => c.channel === 'email');
+    const sms = calls.find((c) => c.channel === 'sms');
+    expect(email.template).toBe('operatorRejected');
+    expect(JSON.parse(email.payload)).toMatchObject({ to: 'REJECTED', reason: 'missing payout docs' });
+    expect(JSON.parse(sms.payload)).toMatchObject({ to: 'REJECTED', reason: 'missing payout docs' });
+  });
+
+  it('APPROVED decision enqueues an operatorApproved email to contactEmail', async () => {
+    lockStatus('UNDER_REVIEW');
+    await transitionOperatorStatus({ operatorId: OPERATOR_ID, to: 'APPROVED' });
+    const email = mockCreateNotificationLog.mock.calls
+      .map((c) => c[0])
+      .find((c) => c.channel === 'email');
+    expect(email).toMatchObject({
+      channel: 'email',
+      template: 'operatorApproved',
+      recipient: 'ops@example.com',
+      bookingId: null,
+      status: 'pending',
+    });
+  });
+
+  it('skips the email row (only the sms is enqueued) when contactEmail is empty', async () => {
+    mockTx.operator.update.mockResolvedValueOnce({
+      rejectionReason: null,
+      disabledAt: null,
+      notificationPhone: '+8490xxxxxx7',
+      contactPhone: '+8490xxxxxx8',
+      contactEmail: '',
+    });
+    lockStatus('PENDING_REVIEW');
+    await transitionOperatorStatus({ operatorId: OPERATOR_ID, to: 'UNDER_REVIEW' });
+    const calls = mockCreateNotificationLog.mock.calls.map((c) => c[0]);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].channel).toBe('sms');
+  });
 });
 
 describe('transitionOperatorStatus — disabledAt sync', () => {

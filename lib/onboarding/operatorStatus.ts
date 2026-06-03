@@ -132,7 +132,15 @@ export async function transitionOperatorStatus(
     const updated = await tx.operator.update({
       where: { id: operatorId },
       data,
-      select: { rejectionReason: true, disabledAt: true, notificationPhone: true, contactPhone: true },
+      select: {
+        rejectionReason: true,
+        disabledAt: true,
+        notificationPhone: true,
+        contactPhone: true,
+        // Issue 079: read the operator's contact email so the SAME transition can
+        // enqueue a decision/state email alongside the SMS.
+        contactEmail: true,
+      },
     });
 
     // Issue 065: when an admin actor is supplied, record the transition in the
@@ -151,15 +159,50 @@ export async function transitionOperatorStatus(
     return { from, updated };
   });
 
-  // One notification per transition (enqueue only; dispatcher is Wave 2).
+  // Shared payload for both channels — carries the rejection reason on REJECTED
+  // so the dispatcher can render "reason + resubmit" into the decision email body.
+  const payload = JSON.stringify({
+    operatorId,
+    to,
+    ...(to === 'REJECTED' ? { reason: reason ?? null } : {}),
+  });
+
+  // Issue 045 SMS row (enqueue only; the Issue 058 dispatcher delivers).
   await createNotificationLog({
     bookingId: null,
     channel: 'sms',
     template: TEMPLATE_BY_TARGET[to],
     recipient: result.updated.notificationPhone ?? result.updated.contactPhone,
-    payload: JSON.stringify({ operatorId, to, ...(to === 'REJECTED' ? { reason: reason ?? null } : {}) }),
+    payload,
     status: 'pending',
   });
+
+  // Issue 079: a SECOND row on the EMAIL channel for EVERY transition, so each
+  // state change notifies BOTH SMS and email ("every state change notifies",
+  // "decision email both ways"). The Issue 058 dispatcher delivers it
+  // (NOTIFY_STUB-gated). Guard: only enqueue when contactEmail is non-empty.
+  // Operators always have a contactEmail from self-serve registration (Issue 076),
+  // so the null/empty skip is purely defensive (e.g. CLI-provisioned operators) —
+  // it never fires on the normal application path.
+  //
+  // Unique-constraint reasoning (@@unique([bookingId, template]) on NotificationLog):
+  // both rows share the SAME template (TEMPLATE_BY_TARGET[to]) and differ only by
+  // `channel` — which is NOT part of the unique key. They DO NOT collide because
+  // bookingId is NULL for operator notifications, and Postgres treats NULLs as
+  // DISTINCT in unique indexes, so two NULL-bookingId rows are always allowed even
+  // with an identical template. (The constraint only guards one-row-per-template
+  // for a given non-null booking.) Verified against schema.prisma:367.
+  const contactEmail = result.updated.contactEmail;
+  if (contactEmail && contactEmail.length > 0) {
+    await createNotificationLog({
+      bookingId: null,
+      channel: 'email',
+      template: TEMPLATE_BY_TARGET[to],
+      recipient: contactEmail,
+      payload,
+      status: 'pending',
+    });
+  }
 
   return {
     operatorId,
