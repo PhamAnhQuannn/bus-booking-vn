@@ -84,6 +84,21 @@ const envSchema = z.object({
     .default('false')
     .transform((v) => v === 'true'),
 
+  // ---------------------------------------------------------------------------
+  // Local notification stub (Issue 058). When NOTIFY_STUB="true", the SMS/email
+  // channel adapters record + log the dispatch instead of hitting a real
+  // provider. Real eSMS/email HTTP integration is deferred (project memory:
+  // payment-deferral-strategy) — until then the channel adapters always behave
+  // as stubs, and this flag exists so the dispatcher's wiring matches the
+  // PAYMENTS_STUB shape and the cutover to real providers is a one-line flip.
+  // ---------------------------------------------------------------------------
+
+  /** Route all notification channels (sms/email) through the local no-network stub. */
+  NOTIFY_STUB: z
+    .string()
+    .default('false')
+    .transform((v) => v === 'true'),
+
   /**
    * HMAC key the fake gateway uses to sign + verify its own stub IPNs.
    * Dev-only — never used by a real PSP. MUST be overridden (or unused) in

@@ -40,8 +40,13 @@ vi.mock('@/lib/db/notificationLogRepo', () => ({
   createNotificationLog: vi.fn(),
 }));
 
+// Issue 058: processWebhook no longer dispatches SMS in-process — it enqueues
+// pending NotificationLog rows and the dispatch-notifications cron delivers
+// them. renderTemplate is still used to render the stored payload body at
+// enqueue. sendSms/sendSmsBody must NOT be called by the webhook path anymore.
 vi.mock('@/lib/notifications/esms', () => ({
   sendSms: vi.fn(),
+  sendSmsBody: vi.fn(),
   renderTemplate: vi.fn().mockReturnValue('stub sms body'),
 }));
 
@@ -78,6 +83,7 @@ import { POST } from '../route';
 import { getMomoAdapter } from '@/lib/payment/momo';
 import { prisma } from '@/lib/db/client';
 import { createNotificationLog } from '@/lib/db/notificationLogRepo';
+import { sendSms, sendSmsBody } from '@/lib/notifications/esms';
 import { appendLedgerEntry } from '@/lib/ledger';
 import { logger } from '@/lib/logger';
 import { Prisma } from '@prisma/client';
@@ -181,7 +187,7 @@ describe('POST /api/payments/momo/webhook — signature verification', () => {
 });
 
 describe('POST /api/payments/momo/webhook — paid IPN (resultCode=0)', () => {
-  it('returns 200, transitions booking, seeds 2 NotificationLog rows', async () => {
+  it('returns 200, transitions booking, ENQUEUES 2 pending NotificationLog rows WITHOUT in-process send (Issue 058)', async () => {
     const parsedIpn = fakeVerifyOk({
       orderId: BOOKING_REF,
       transId: '3456789',
@@ -220,6 +226,14 @@ describe('POST /api/payments/momo/webhook — paid IPN (resultCode=0)', () => {
     const calls = vi.mocked(createNotificationLog).mock.calls;
     const templates = calls.map((c) => c[0].template).sort();
     expect(templates).toEqual(['customerBookingPaid', 'operatorNewBooking']);
+
+    // Issue 058: both rows are enqueued status='pending' — the cron dispatcher
+    // delivers them later. The webhook itself must NOT send anything in-process
+    // and must NOT flip the rows to sent.
+    expect(calls.every((c) => c[0].status === 'pending')).toBe(true);
+    expect(sendSms).not.toHaveBeenCalled();
+    expect(sendSmsBody).not.toHaveBeenCalled();
+    expect(prisma.notificationLog.update).not.toHaveBeenCalled();
 
     // Issue 049: exactly two ledger entries appended on the first paid transition.
     expect(appendLedgerEntry).toHaveBeenCalledTimes(2);

@@ -36,7 +36,7 @@ import { after } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db/client';
 import { createNotificationLog } from '@/lib/db/notificationLogRepo';
-import { sendSms, renderTemplate, type SmsTemplate } from '@/lib/notifications/esms';
+import { renderTemplate } from '@/lib/notifications/esms';
 import { logger } from '@/lib/logger';
 import { track, sessionIdForBooking } from '@/lib/analytics/track';
 import type { PaymentGateway } from './gateway';
@@ -57,13 +57,6 @@ export interface ProcessPaymentWebhookInput {
   proto: string;
   /** host header (for building the confirmation URL in SMS). */
   host: string;
-}
-
-interface PendingDispatch {
-  logId: string;
-  to: string;
-  template: SmsTemplate;
-  payload: Record<string, string | number>;
 }
 
 /** Issue 051: captured overpay info, refunded post-commit in after(). */
@@ -138,7 +131,6 @@ export async function processPaymentWebhook(
     return NextResponse.json({ message: 'ok' }, { status: 200 });
   }
 
-  const pending: PendingDispatch[] = [];
   let paidBookingId: string | null = null;
   // Issue 051: overpay refund-out captured here, executed AFTER the paid tx
   // commits (refundOut opens its own tx + reads the committed paid state).
@@ -297,7 +289,11 @@ export async function processPaymentWebhook(
             buyerPhone: booking.buyerPhone,
           };
 
-          const [custLog, opLog] = await Promise.all([
+          // Issue 058: enqueue ONLY (status='pending'). No in-process send —
+          // the dispatch-notifications cron delivers these with retry/backoff.
+          // The pre-rendered body is stored in `payload` so the dispatcher
+          // re-presents it without re-rendering.
+          await Promise.all([
             createNotificationLog({
               bookingId: booking.id,
               template: 'customerBookingPaid',
@@ -313,21 +309,6 @@ export async function processPaymentWebhook(
               status: 'pending',
             }),
           ]);
-
-          pending.push(
-            {
-              logId: custLog.id,
-              to: booking.buyerPhone,
-              template: 'customerBookingPaid',
-              payload: customerPayload,
-            },
-            {
-              logId: opLog.id,
-              to: operatorRecipient,
-              template: 'operatorNewBooking',
-              payload: operatorPayload,
-            }
-          );
         }
         if ((updated as number) === 0) {
           // Current row is not a legal predecessor of paid (replay or already
@@ -405,36 +386,12 @@ export async function processPaymentWebhook(
     });
   }
 
-  // Schedule SMS dispatch after response (non-blocking)
-  if (pending.length > 0) {
-    after(async () => {
-      for (const job of pending) {
-        try {
-          const result = await sendSms({
-            to: job.to,
-            template: job.template,
-            payload: job.payload,
-          });
-          await prisma.notificationLog.update({
-            where: { id: job.logId },
-            data: {
-              status: result.ok ? 'sent' : 'failed',
-              externalRef: result.externalRef ?? null,
-              sentAt: result.ok ? new Date() : null,
-            },
-          });
-        } catch (smsErr) {
-          logger.error(
-            { err: smsErr, adapter, bookingRef, template: job.template, logId: job.logId },
-            'payment.webhook.notification.dispatch.error'
-          );
-          await prisma.notificationLog
-            .update({ where: { id: job.logId }, data: { status: 'failed' } })
-            .catch(() => {});
-        }
-      }
-    });
-  }
+  // Issue 058: notifications are NOT dispatched in-process here anymore. The two
+  // NotificationLog rows above are enqueued status='pending'; the
+  // /api/cron/dispatch-notifications cron (lib/notifications/dispatchNotifications)
+  // is the single delivery path, with retry + exponential backoff. Decoupling
+  // the send from the webhook means a delivery failure never affects the paid
+  // booking — it only updates the NotificationLog row (AC5).
 
   return NextResponse.json({ message: 'ok' }, { status: 200 });
 }

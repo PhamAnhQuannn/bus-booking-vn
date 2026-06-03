@@ -108,6 +108,34 @@ export function renderTemplate(template: SmsTemplate, payload: Record<string, st
   }
 }
 
+/**
+ * Issue 058: send an ALREADY-RENDERED SMS body (no template re-render).
+ *
+ * The notification dispatcher stores the rendered body string in
+ * NotificationLog.payload at enqueue time, then re-presents it here at delivery
+ * time. Re-rendering from a structured payload at dispatch is impossible — the
+ * dispatcher only has the stored string, and not every stored template (e.g.
+ * 'payout_scheduled', 'trip_cancelled') is a member of the SmsTemplate union.
+ *
+ * Like sendSms, never throws: a provider failure surfaces as ok:false so a
+ * delivery failure only ever touches NotificationLog, never the booking (AC5).
+ */
+export async function sendSmsBody(input: {
+  to: string;
+  template: string;
+  body: string;
+}): Promise<SendSmsResult> {
+  const { to, template, body } = input;
+  const externalRef = `${STUB_PROVIDER_REF_PREFIX}${Date.now().toString(36)}`;
+
+  logger.info(
+    { template, externalRef, bodyLen: body.length, recipientLen: to.length },
+    'sms.stub.dispatch'
+  );
+
+  return { ok: true, externalRef };
+}
+
 export async function sendSms(input: SendSmsInput): Promise<SendSmsResult> {
   const { to, template, payload } = input;
   const body = renderTemplate(template, payload);
