@@ -59,7 +59,7 @@ export function Breadcrumbs({ className }: { className?: string }) {
         {/* Home anchor — link to dashboard. */}
         <li>
           <Link href="/op/dashboard" className="hover:text-foreground hover:underline">
-            {findNavItem("dashboard")?.label ?? "Bảng điều khiển"}
+            {findNavItem("overview")?.label ?? "Tổng quan"}
           </Link>
         </li>
         {crumbs.map((c, idx) => (

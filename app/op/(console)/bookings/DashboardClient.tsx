@@ -45,6 +45,8 @@ interface Props {
   initialRows: BookingQueueRow[];
   initialNextCursor: string | null;
   operatorId: string;
+  /** Default service-date filter (VN-local YYYY-MM-DD) the server pre-filtered on. */
+  initialServiceDate?: string;
 }
 
 const CONTACT_STATUS_OPTIONS = [
@@ -56,11 +58,17 @@ const CONTACT_STATUS_OPTIONS = [
 
 const ALL = '__all__';
 
-export default function DashboardClient({ initialRows, initialNextCursor }: Props) {
+export default function DashboardClient({
+  initialRows,
+  initialNextCursor,
+  initialServiceDate = '',
+}: Props) {
   const [rows, setRows] = useState<BookingQueueRow[]>(initialRows);
   const [nextCursor, setNextCursor] = useState<string | null>(initialNextCursor);
   const [busId, setBusId] = useState('');
-  const [serviceDate, setServiceDate] = useState('');
+  // Seed from the server's default (today VN-tz) so the visible filter chip matches
+  // the pre-filtered rows. Clearing it and re-filtering returns all-time results.
+  const [serviceDate, setServiceDate] = useState(initialServiceDate);
   const [routeId, setRouteId] = useState('');
   const [contactStatus, setContactStatus] = useState('');
   const [loading, setLoading] = useState(false);

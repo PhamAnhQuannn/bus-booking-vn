@@ -16,6 +16,8 @@ import { redirect } from "next/navigation"
 
 import { getOperatorSession } from "@/lib/op/getOperatorSession"
 import { getUnviewedPaidCount } from "@/lib/booking/getUnviewedPaidCount"
+import { prisma } from "@/lib/db/client"
+import { ApprovalBanner } from "@/components/op/ApprovalBanner"
 import { CommandPalette } from "@/components/op/CommandPalette"
 import { ConsoleHeader } from "@/components/op/ConsoleHeader"
 import { OperatorBottomNav } from "@/components/op/OperatorBottomNav"
@@ -37,10 +39,16 @@ export default async function OperatorConsoleLayout({
     redirect("/op/first-login")
   }
 
-  const unviewedCount = await getUnviewedPaidCount(
-    session.operatorUserId,
-    session.operatorId
-  )
+  const [unviewedCount, operator] = await Promise.all([
+    getUnviewedPaidCount(session.operatorUserId, session.operatorId),
+    // In-process read of the approval state for the banner (no self-fetch —
+    // AGENTS.md 002/003). The banner only INFORMS; the actual sell/publish block
+    // is enforced upstream (Issue 045/046 + approval gate).
+    prisma.operator.findUnique({
+      where: { id: session.operatorId },
+      select: { status: true, rejectionReason: true },
+    }),
+  ])
 
   return (
     <OperatorNavProvider>
@@ -59,6 +67,12 @@ export default async function OperatorConsoleLayout({
               role={session.role}
               unreadCount={unviewedCount}
             />
+            {operator && operator.status !== "APPROVED" ? (
+              <ApprovalBanner
+                status={operator.status}
+                rejectionReason={operator.rejectionReason}
+              />
+            ) : null}
             <main id="main" className="flex-1 pb-16 md:pb-0">
               {children}
             </main>

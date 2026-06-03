@@ -15,7 +15,7 @@
 
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import { ArrowRightIcon } from "lucide-react"
+import { ArrowRightIcon, BusIcon, CalendarIcon, BellIcon, WalletIcon } from "lucide-react"
 
 import { getOperatorSession } from "@/lib/op/getOperatorSession"
 import { getUnviewedPaidCount } from "@/lib/booking/getUnviewedPaidCount"
@@ -24,9 +24,12 @@ import { listUpcomingForOperator } from "@/lib/trips/listUpcomingForOperator"
 import { getActivityFeed } from "@/lib/op/getActivityFeed"
 import { getTodaySnapshot } from "@/lib/op/getTodaySnapshot"
 import { listRoutesForTripIds } from "@/lib/op/listRoutesForTripIds"
+import { getOperatorBalance } from "@/lib/ledger/balance"
+import { prisma } from "@/lib/db/client"
 import { serverNow } from "@/lib/op/dateRanges"
 
 import { PageHeader } from "@/components/op/PageHeader"
+import { Card, CardContent } from "@/components/ui/card"
 import { TodayTripsStrip } from "@/components/op/TodayTripsStrip"
 import { InboxStream } from "@/components/op/InboxStream"
 import type { TripMiniCardRow } from "@/components/op/TripMiniCard"
@@ -49,10 +52,16 @@ export default async function OperatorDashboardPage() {
   const now = serverNow()
   const horizonMs = 24 * 3600 * 1000
 
-  const [snapshot, upcoming, activity] = await Promise.all([
+  const [snapshot, upcoming, activity, balance, busTotal, busActive] = await Promise.all([
     getTodaySnapshot(session.operatorId),
     listUpcomingForOperator(session.operatorId, { limit: 24 }),
     getActivityFeed({ operatorId: session.operatorId, limit: 30 }),
+    // Money box (S09 Overview): available balance + Withdraw shortcut.
+    getOperatorBalance(session.operatorId),
+    prisma.bus.count({ where: { operatorId: session.operatorId } }),
+    prisma.bus.count({
+      where: { operatorId: session.operatorId, deactivatedAt: null },
+    }),
   ])
 
   // Today's trips: filter to next 24h, enrich with route labels.
@@ -84,6 +93,11 @@ export default async function OperatorDashboardPage() {
     snapshot.newPaidBookings24h > 0 ||
     snapshot.revenueTodayVnd > 0
 
+  // Alerts box (S09 Overview): count attention-worthy activity events.
+  const alertsCount = activity.filter(
+    (e) => e.severity === "warning" || e.severity === "danger"
+  ).length
+
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-6 md:px-6 lg:py-8">
       <PageHeader
@@ -114,6 +128,65 @@ export default async function OperatorDashboardPage() {
           ) : undefined
         }
       />
+
+      {/* S09 Overview 4-box summary: Today · Fleet · Money · Alerts */}
+      <section
+        aria-label="Tổng quan nhanh"
+        className="mb-8 grid grid-cols-2 gap-3 lg:grid-cols-4"
+      >
+        <Card data-testid="overview-box-today">
+          <CardContent className="flex flex-col gap-1 p-4">
+            <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <CalendarIcon aria-hidden="true" className="size-3.5" /> Hôm nay
+            </span>
+            <span className="text-xl font-bold tabular-nums">
+              {snapshot.tripsToday} chuyến
+            </span>
+            <span className="text-xs text-muted-foreground tabular-nums">
+              {snapshot.newPaidBookings24h} đặt vé mới
+            </span>
+          </CardContent>
+        </Card>
+
+        <Card data-testid="overview-box-fleet">
+          <CardContent className="flex flex-col gap-1 p-4">
+            <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <BusIcon aria-hidden="true" className="size-3.5" /> Đội xe
+            </span>
+            <span className="text-xl font-bold tabular-nums">{busTotal} xe</span>
+            <Link
+              href="/op/buses"
+              className="text-xs text-primary hover:underline tabular-nums"
+            >
+              {busActive} đang hoạt động
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card data-testid="overview-box-money">
+          <CardContent className="flex flex-col gap-1 p-4">
+            <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <WalletIcon aria-hidden="true" className="size-3.5" /> Khả dụng
+            </span>
+            <span className="text-xl font-bold tabular-nums text-primary">
+              {formatVnd(Number(balance.available))}
+            </span>
+            <Link href="/op/money" className="text-xs text-primary hover:underline">
+              Rút tiền
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card data-testid="overview-box-alerts">
+          <CardContent className="flex flex-col gap-1 p-4">
+            <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <BellIcon aria-hidden="true" className="size-3.5" /> Cảnh báo
+            </span>
+            <span className="text-xl font-bold tabular-nums">{alertsCount}</span>
+            <span className="text-xs text-muted-foreground">cần chú ý</span>
+          </CardContent>
+        </Card>
+      </section>
 
       <div className="flex flex-col gap-8">
         <TodayTripsStrip trips={todayTrips} now={now} />

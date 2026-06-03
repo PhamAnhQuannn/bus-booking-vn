@@ -13,6 +13,7 @@ import { getOperatorSession } from '@/lib/op/getOperatorSession';
 import { listOperatorBookings } from '@/lib/booking/listOperatorBookings';
 import { getUnviewedPaidCount } from '@/lib/booking/getUnviewedPaidCount';
 import { touchLastViewed } from '@/lib/booking/touchLastViewed';
+import { getDefaultTodayRange } from '@/lib/op/dateRanges';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/op/PageHeader';
 import DashboardClient from './DashboardClient';
@@ -35,8 +36,13 @@ export default async function OpBookingsPage() {
   );
   await touchLastViewed(session.operatorUserId);
 
-  // Load initial booking queue (no filters, default limit).
-  const initial = await listOperatorBookings(session.operatorId, {});
+  // Default the queue to TODAY (VN-tz), not all-time (Issue 080 / Issue 016 VN-tz
+  // default). getDefaultTodayRange() is a module-scope helper (no Date.now() in the
+  // RSC render body — Issue 016) returning the Asia/Ho_Chi_Minh local date string.
+  const today = getDefaultTodayRange().from;
+
+  // Load initial booking queue filtered to today (VN-local day window).
+  const initial = await listOperatorBookings(session.operatorId, { serviceDate: today });
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 md:px-6">
@@ -55,6 +61,7 @@ export default async function OpBookingsPage() {
         initialRows={initial.rows}
         initialNextCursor={initial.nextCursor}
         operatorId={session.operatorId}
+        initialServiceDate={today}
       />
     </div>
   );
