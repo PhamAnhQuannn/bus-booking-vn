@@ -64,8 +64,15 @@ const CSRF_EXEMPT_PREFIXES = [
   '/api/auth/reset-password',    // Issue 008: customer reset-password (pre-auth, proof-protected)
 ];
 
-// /op/* paths that do NOT require a valid operator session
-const OP_AUTH_FREE_PATHS = new Set(['/op/login', '/op/first-login']);
+// /op/* paths that do NOT require a valid operator session.
+// Exact-match Set (Issue 010) — NOT startsWith, so /op/register-bypass is NOT
+// treated as auth-free. Issue 076 adds the public self-serve registration pages.
+const OP_AUTH_FREE_PATHS = new Set([
+  '/op/login',
+  '/op/first-login',
+  '/op/register',
+  '/op/register/confirmation',
+]);
 // /op/* path prefixes that are auth-API routes (exempted from page redirect)
 const OP_API_AUTH_PREFIX = '/api/op/auth/';
 

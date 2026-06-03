@@ -19,4 +19,18 @@ export {
   type TransitionOperatorStatusResult,
 } from './operatorStatus';
 
-export { OperatorStatusError, type OperatorStatusErrorCode } from './errors';
+export {
+  OperatorStatusError,
+  type OperatorStatusErrorCode,
+  RegisterError,
+  type RegisterErrorCode,
+} from './errors';
+
+export {
+  registerOperator,
+  REGISTER_SLA_RANGE,
+  type RegisterOperatorInput,
+  type RegisterOperatorResult,
+} from './registerOperator';
+
+export { generateApplicationRef, APPLICATION_REF_REGEX } from './applicationRef';

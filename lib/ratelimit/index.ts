@@ -131,6 +131,10 @@ export const ratelimit = createRatelimit({ limit: 60, windowMs: 60_000 });
 /** Operator forgot-password OTP send: 3 per 15 min per phone (Issue 010) */
 export const opForgotPasswordRatelimit = createRatelimit({ limit: 3, windowMs: 15 * 60_000 });
 
+/** Self-serve operator registration: 5 per hour per IP (Issue 076) — abuse guard
+ *  on the public, unauthenticated /api/op/register POST. Keyed `op-register:<ip>`. */
+export const opRegisterRatelimit = createRatelimit({ limit: 5, windowMs: 60 * 60_000 });
+
 /**
  * Admin TOTP verify attempt throttle: 10 per minute per admin (Issue 055).
  * General request-rate guard on the verify/step-up surface, keyed `admin-totp:<adminId>`.

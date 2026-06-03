@@ -21,7 +21,8 @@ export type EmailTemplate =
   | 'operatorNewBooking'
   | 'bookingReminder24h'
   | 'payout_scheduled'
-  | 'trip_cancelled';
+  | 'trip_cancelled'
+  | 'operatorPending';
 
 export interface SendEmailInput {
   to: string;
@@ -53,6 +54,7 @@ const SUBJECTS: Record<string, string> = {
   bookingReminder24h: 'BusBookVN — Nhac nho chuyen di',
   payout_scheduled: 'BusBookVN — Lich chi tra',
   trip_cancelled: 'BusBookVN — Chuyen di bi huy',
+  operatorPending: 'BusBookVN — Ho so dang ky dang duoc xem xet',
 };
 
 /** Resolve a subject line for the template; falls back to a generic subject. */
