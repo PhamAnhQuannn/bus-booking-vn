@@ -5,6 +5,12 @@ wave: 8
 spec: [SYS20]
 ---
 
+> ✅ **DONE 2026-06-03.** 7 atomic moves (commit-per-move, tsc-green each): manifest→booking,
+> {buses,routes,pickupPoints}→catalog, payouts→ledger, notifications→notification, validation→core/validation,
+> payment adapters→payment/adapters/{momo,stub}, db→core/db (343 import sites). ~450 import sites rewritten.
+> `lib/stores` kept; `lib/api` assessed → kept (client fetch helpers). tsc 0, lint 0, 1408 unit pass,
+> integration = pre-existing baseline (no new failures). Pure restructure, zero behavior change.
+
 ## Parent PRD
 
 `issues/prd.md` · spec `rebuild-plan.md` [SYS20] (final sweep — run last)
