@@ -22,6 +22,7 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { initiateOnlineBooking } from '@/lib/booking/initiateOnlineBooking';
+import { CONSENT_VERSION } from '@/lib/booking/consent';
 import { extractHoldCookie } from '@/lib/security/holdCookie';
 import { getCustomerOptional } from '@/lib/auth/requireCustomerAuth';
 import { ratelimit } from '@/lib/ratelimit';
@@ -31,6 +32,14 @@ import { track, sessionIdFromRequest } from '@/lib/analytics/track';
 const initiateInputSchema = z.object({
   holdId: z.string().min(1).max(128),
   paymentMethod: z.enum(['momo', 'zalopay', 'card']),
+  // Issue 089: checkout consent block. Shape-validated here; the value gate
+  // (both true + matching version) is enforced below so the failure surfaces as
+  // 422 consent_required, not a generic 400 INVALID.
+  consents: z.object({
+    noRefund: z.boolean(),
+    piiStorage: z.boolean(),
+    version: z.string().min(1).max(32),
+  }),
 });
 
 async function handler(req: NextRequest): Promise<Response> {
@@ -57,7 +66,19 @@ async function handler(req: NextRequest): Promise<Response> {
   if (!parsed.success) {
     return NextResponse.json({ error: 'INVALID' }, { status: 400 });
   }
-  const { holdId, paymentMethod } = parsed.data;
+  const { holdId, paymentMethod, consents } = parsed.data;
+
+  // Issue 089 consent gate (AC1/AC5): block initiate until BOTH consents are
+  // accepted AND the client echoed the current consent text version. A stale
+  // client showing old copy is rejected so we never record consent against text
+  // the buyer didn't actually see.
+  if (
+    consents.noRefund !== true ||
+    consents.piiStorage !== true ||
+    consents.version !== CONSENT_VERSION
+  ) {
+    return NextResponse.json({ error: 'consent_required' }, { status: 422 });
+  }
 
   const verified = extractHoldCookie(req.headers.get('cookie'));
   if (!verified || verified.holdId !== holdId) {
@@ -78,7 +99,13 @@ async function handler(req: NextRequest): Promise<Response> {
   // ---------------------------------------------------------------------------
   // Online path (momo | zalopay | card) — stub gateway locally, real in Phase 2
   // ---------------------------------------------------------------------------
-  const result = await initiateOnlineBooking({ holdId, baseUrl, method: paymentMethod, customerId });
+  const result = await initiateOnlineBooking({
+    holdId,
+    baseUrl,
+    method: paymentMethod,
+    customerId,
+    consentVersion: consents.version,
+  });
 
   if (result.ok) {
     void track('payment_initiated', {

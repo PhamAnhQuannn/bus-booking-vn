@@ -29,14 +29,20 @@ import {
 } from '../bookingRepo';
 
 // Online-only: all shared-behaviour tests exercise the momo rail.
+// Issue 089: consentVersion is required by createOnlineBookingFromHold; default it
+// here so the existing test bodies don't all have to thread it.
 function createBookingFromHold(input: {
   holdId: string;
   buyerName: string;
   buyerPhone: string;
   buyerEmail?: string | null;
   customerId?: string | null;
+  consentVersion?: string;
 }) {
-  return createOnlineBookingFromHold(input, 'momo');
+  return createOnlineBookingFromHold(
+    { ...input, consentVersion: input.consentVersion ?? '2026-06-01' },
+    'momo'
+  );
 }
 
 let operatorId: string;
@@ -153,6 +159,14 @@ describe('createOnlineBookingFromHold (momo)', () => {
     // Hold should be flipped to consumed
     const hold = await prisma.hold.findUnique({ where: { id: holdId } });
     expect(hold?.status).toBe('consumed');
+
+    // Issue 089: two ConsentRecord rows written in the same tx (no_refund + pii_storage)
+    const consents = await prisma.consentRecord.findMany({
+      where: { bookingId: r.booking.id },
+      orderBy: { consentType: 'asc' },
+    });
+    expect(consents.map((c) => c.consentType)).toEqual(['no_refund', 'pii_storage']);
+    expect(consents.every((c) => c.version === '2026-06-01')).toBe(true);
   });
 
   it('stamps customerId when provided and leaves it null when omitted (Issue 031)', async () => {
@@ -317,7 +331,7 @@ describe('createOnlineBookingFromHold — concurrent sell (issue 036)', () => {
     const results = await Promise.all(
       Array.from({ length: 10 }, () =>
         createOnlineBookingFromHold(
-          { holdId, buyerName: 'Race Buyer', buyerPhone: '+8490xxxxxx5' },
+          { holdId, buyerName: 'Race Buyer', buyerPhone: '+8490xxxxxx5', consentVersion: '2026-06-01' },
           'momo'
         )
       )

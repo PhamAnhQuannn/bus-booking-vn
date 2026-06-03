@@ -26,11 +26,13 @@
  * Uses Prisma.$queryRaw (template-tag, parameterised) — never $queryRawUnsafe.
  */
 
+import { randomUUID } from 'node:crypto';
 import { prisma } from '@/lib/db/client';
 import { Prisma } from '@prisma/client';
 import { uuidv7 } from 'uuidv7';
 import { generateBookingRef } from '@/lib/booking/bookingRef';
 import { generateConfirmationToken } from '@/lib/booking/confirmationToken';
+import { CONSENT_TYPES } from '@/lib/booking/consent';
 import { bookingDetailSelect, type BookingFullDetails } from '@/lib/db/bookingSelects';
 
 export { bookingDetailSelect, type BookingFullDetails };
@@ -42,6 +44,8 @@ export interface CreateMomoBookingInput {
   /** Issue 042: buyer email snapshot. Nullable — pre-042 holds carry no email. */
   buyerEmail?: string | null;
   customerId?: string | null;
+  /** Issue 089: consent text version the buyer accepted at checkout. */
+  consentVersion: string;
 }
 
 export type OnlineBookingMethod = 'momo' | 'zalopay' | 'card';
@@ -54,6 +58,12 @@ export interface CreateOnlineBookingInput {
   buyerEmail?: string | null;
   /** Customer.id of the signed-in buyer, or null for a guest booking (Issue 031). */
   customerId?: string | null;
+  /**
+   * Issue 089: consent text version (CONSENT_VERSION) the buyer accepted at
+   * checkout. Two ConsentRecord rows (no_refund + pii_storage) are written with
+   * this version inside the booking-creation $transaction.
+   */
+  consentVersion: string;
 }
 
 export type CreateCashBookingResult =
@@ -106,7 +116,14 @@ export async function createOnlineBookingFromHold(
   input: CreateOnlineBookingInput,
   method: OnlineBookingMethod
 ): Promise<CreateCashBookingResult> {
-  const { holdId, buyerName, buyerPhone, buyerEmail = null, customerId = null } = input;
+  const {
+    holdId,
+    buyerName,
+    buyerPhone,
+    buyerEmail = null,
+    customerId = null,
+    consentVersion,
+  } = input;
 
   for (let attempt = 0; attempt < MAX_REF_ATTEMPTS; attempt++) {
     const bookingId = uuidv7();
@@ -188,6 +205,21 @@ export async function createOnlineBookingFromHold(
           }
           return { kind: 'hold_expired' as const };
         }
+
+        // Issue 089: persist the checkout consents (no_refund + pii_storage) as
+        // two ConsentRecord rows in THIS transaction, linked to the booking that
+        // was just inserted. consentedAt defaults to NOW(); the version is the
+        // gated CONSENT_VERSION threaded from the route. cuid-compatible ids are
+        // generated here because the raw INSERT bypasses the model's @default(cuid()).
+        const bookingRowId = inserted[0].id;
+        await tx.$executeRaw(
+          Prisma.sql`
+            INSERT INTO "ConsentRecord" ("id", "bookingId", "consentType", "version", "consentedAt")
+            VALUES
+              (${randomUUID().replace(/-/g, '').slice(0, 25)}, ${bookingRowId}::uuid, ${CONSENT_TYPES.noRefund}, ${consentVersion}, NOW()),
+              (${randomUUID().replace(/-/g, '').slice(0, 25)}, ${bookingRowId}::uuid, ${CONSENT_TYPES.piiStorage}, ${consentVersion}, NOW())
+          `
+        );
 
         // Convert the hold so it no longer counts toward capacity.
         await tx.$executeRaw(

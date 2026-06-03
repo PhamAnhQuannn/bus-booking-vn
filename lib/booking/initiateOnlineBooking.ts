@@ -48,6 +48,12 @@ export interface InitiateOnlineBookingInput {
    */
   customerId?: string | null;
   /**
+   * Issue 089: consent text version the buyer accepted at checkout (gated to the
+   * current CONSENT_VERSION by the route). Persisted on the no_refund + pii_storage
+   * ConsentRecord rows created in the same tx as the Booking.
+   */
+  consentVersion: string;
+  /**
    * Injectable payment gateway for testing. Defaults to
    * getGatewayFor(method, baseUrl) which reads env vars.
    */
@@ -71,7 +77,7 @@ export type InitiateOnlineBookingResult =
 export async function initiateOnlineBooking(
   input: InitiateOnlineBookingInput
 ): Promise<InitiateOnlineBookingResult> {
-  const { holdId, baseUrl, method, customerId = null } = input;
+  const { holdId, baseUrl, method, customerId = null, consentVersion } = input;
   const gateway = input.gateway ?? getGatewayFor(method, baseUrl);
 
   const hold = await prisma.hold.findUnique({
@@ -131,6 +137,9 @@ export async function initiateOnlineBooking(
       buyerPhone: hold.customerPhone,
       buyerEmail: hold.customerEmail,
       customerId,
+      // Issue 089: persisted as no_refund + pii_storage ConsentRecord rows inside
+      // the booking-creation $transaction.
+      consentVersion,
     },
     method
   );

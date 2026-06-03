@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
 import { getAccessToken } from '@/app/auth/register/page';
+import { CONSENT_TEXT, CONSENT_VERSION } from '@/lib/booking/consent';
 import { cn } from '@/lib/utils';
 
 export interface HoldDetails {
@@ -52,6 +53,7 @@ const ERROR_LABEL: Record<string, string> = {
   TOO_MANY_REQUESTS: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.',
   UNAVAILABLE: 'Hệ thống tạm thời bận. Vui lòng thử lại.',
   GATEWAY_ERROR: 'Cổng thanh toán gặp lỗi. Vui lòng thử lại.',
+  consent_required: 'Vui lòng đồng ý cả hai điều khoản trước khi thanh toán.',
 };
 
 type PaymentMethod = 'momo' | 'zalopay' | 'card';
@@ -69,13 +71,17 @@ export function ReviewClient({ holdDetails }: ReviewClientProps) {
   const [method, setMethod] = useState<PaymentMethod>('momo');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Issue 089: both consents must be accepted before initiate is enabled.
+  const [noRefund, setNoRefund] = useState(false);
+  const [piiStorage, setPiiStorage] = useState(false);
+  const consented = noRefund && piiStorage;
 
   useEffect(() => {
     startTimer(expiresAt);
   }, [expiresAt, startTimer]);
 
   async function handleSubmit() {
-    if (submitting) return;
+    if (submitting || !consented) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -93,7 +99,11 @@ export function ReviewClient({ holdDetails }: ReviewClientProps) {
         method: 'POST',
         headers,
         credentials: 'include',
-        body: JSON.stringify({ holdId, paymentMethod: method }),
+        body: JSON.stringify({
+          holdId,
+          paymentMethod: method,
+          consents: { noRefund, piiStorage, version: CONSENT_VERSION },
+        }),
       });
       const data = await res.json().catch(() => null);
       if (res.ok && data?.payUrl) {
@@ -155,6 +165,40 @@ export function ReviewClient({ holdDetails }: ReviewClientProps) {
           </CardContent>
         </Card>
 
+        {/* Issue 089: required consent block — both must be checked to enable pay */}
+        <Card>
+          <CardHeader>
+            <CardTitle as="h2">Điều khoản đặt vé</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <fieldset className="flex flex-col gap-3">
+              <legend className="sr-only">Điều khoản đặt vé bắt buộc</legend>
+              <label className="flex cursor-pointer items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="consent-no-refund"
+                  checked={noRefund}
+                  onChange={(e) => setNoRefund(e.target.checked)}
+                  disabled={submitting}
+                  className="mt-0.5 size-4 shrink-0 accent-primary"
+                />
+                <span>{CONSENT_TEXT.noRefund}</span>
+              </label>
+              <label className="flex cursor-pointer items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="consent-pii-storage"
+                  checked={piiStorage}
+                  onChange={(e) => setPiiStorage(e.target.checked)}
+                  disabled={submitting}
+                  className="mt-0.5 size-4 shrink-0 accent-primary"
+                />
+                <span>{CONSENT_TEXT.piiStorage}</span>
+              </label>
+            </fieldset>
+          </CardContent>
+        </Card>
+
         {error && (
           <div
             role="alert"
@@ -164,7 +208,13 @@ export function ReviewClient({ holdDetails }: ReviewClientProps) {
           </div>
         )}
 
-        <Button type="button" size="lg" className="w-full" onClick={handleSubmit} disabled={submitting}>
+        <Button
+          type="button"
+          size="lg"
+          className="w-full"
+          onClick={handleSubmit}
+          disabled={submitting || !consented}
+        >
           {submitting ? 'Đang xử lý...' : 'Xác nhận thanh toán'}
         </Button>
       </div>

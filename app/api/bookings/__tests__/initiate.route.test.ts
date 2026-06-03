@@ -50,9 +50,13 @@ import { POST } from '../initiate/route';
 import { initiateOnlineBooking } from '@/lib/booking/initiateOnlineBooking';
 import { extractHoldCookie } from '@/lib/security/holdCookie';
 import { ratelimit } from '@/lib/ratelimit';
+import { CONSENT_VERSION } from '@/lib/booking/consent';
 import { NextRequest } from 'next/server';
 
 const HOLD_ID = 'ckabcdefghijklmnopqrstuvwx';
+// Issue 089: a valid consent block — both true + current version. Threaded into
+// the default request body so the consent gate passes for non-consent tests.
+const VALID_CONSENTS = { noRefund: true, piiStorage: true, version: CONSENT_VERSION };
 const BOOKING_ID = '01975f3b-3f4a-7c2a-8b1c-deadbeefcafe';
 const CONFIRMATION_TOKEN = 'A'.repeat(32);
 const PAY_URL = 'https://payment.momo.vn/pay/app?orderId=BB-2026-test-0001';
@@ -77,7 +81,11 @@ function makeRequest(opts: RequestOpts = {}): NextRequest {
   return new NextRequest('https://example.test/api/bookings/initiate', {
     method: 'POST',
     headers,
-    body: opts.raw ?? JSON.stringify(opts.body ?? { holdId: HOLD_ID, paymentMethod: 'momo' }),
+    body:
+      opts.raw ??
+      JSON.stringify(
+        opts.body ?? { holdId: HOLD_ID, paymentMethod: 'momo', consents: VALID_CONSENTS }
+      ),
   });
 }
 
@@ -143,6 +151,101 @@ describe('POST /api/bookings/initiate — happy path', () => {
     expect(call?.holdId).toBe(HOLD_ID);
     expect(call?.baseUrl).toBe('https://example.test');
     expect(call?.method).toBe('momo');
+  });
+
+  it('threads the accepted consent version to the orchestrator (Issue 089)', async () => {
+    allowRatelimit();
+    matchCookie();
+    mockOnlineOk();
+
+    await POST(makeRequest({ cookie: `bb_hold=signedvalue` }));
+
+    const call = vi.mocked(initiateOnlineBooking).mock.calls[0]?.[0];
+    expect(call?.consentVersion).toBe(CONSENT_VERSION);
+  });
+});
+
+describe('POST /api/bookings/initiate — consent gate (Issue 089)', () => {
+  // The consent gate runs AFTER rate-limit + body parse but BEFORE the cookie
+  // check, so these tests do not prime extractHoldCookie (priming a mockReturnValueOnce
+  // that is never consumed would leak into a later test — vi.clearAllMocks does not
+  // drain queued one-time return values).
+  it('returns 422 consent_required when noRefund is false', async () => {
+    allowRatelimit();
+
+    const res = await POST(
+      makeRequest({
+        body: {
+          holdId: HOLD_ID,
+          paymentMethod: 'momo',
+          consents: { noRefund: false, piiStorage: true, version: CONSENT_VERSION },
+        },
+        cookie: `bb_hold=signedvalue`,
+      })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(422);
+    expect(json.error).toBe('consent_required');
+    // No booking is created when consent is missing.
+    expect(initiateOnlineBooking).not.toHaveBeenCalled();
+  });
+
+  it('returns 422 consent_required when piiStorage is false', async () => {
+    allowRatelimit();
+
+    const res = await POST(
+      makeRequest({
+        body: {
+          holdId: HOLD_ID,
+          paymentMethod: 'momo',
+          consents: { noRefund: true, piiStorage: false, version: CONSENT_VERSION },
+        },
+        cookie: `bb_hold=signedvalue`,
+      })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(422);
+    expect(json.error).toBe('consent_required');
+    expect(initiateOnlineBooking).not.toHaveBeenCalled();
+  });
+
+  it('returns 422 consent_required when the consent version is stale', async () => {
+    allowRatelimit();
+
+    const res = await POST(
+      makeRequest({
+        body: {
+          holdId: HOLD_ID,
+          paymentMethod: 'momo',
+          consents: { noRefund: true, piiStorage: true, version: '1999-01-01' },
+        },
+        cookie: `bb_hold=signedvalue`,
+      })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(422);
+    expect(json.error).toBe('consent_required');
+    expect(initiateOnlineBooking).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 INVALID when the consents block is missing entirely', async () => {
+    allowRatelimit();
+
+    const res = await POST(
+      makeRequest({
+        body: { holdId: HOLD_ID, paymentMethod: 'momo' },
+        cookie: `bb_hold=signedvalue`,
+      })
+    );
+    const json = await res.json();
+
+    // Missing block fails zod shape → generic 400, not the value-gate 422.
+    expect(res.status).toBe(400);
+    expect(json.error).toBe('INVALID');
+    expect(initiateOnlineBooking).not.toHaveBeenCalled();
   });
 });
 
