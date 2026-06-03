@@ -942,4 +942,9 @@ model CharterRequest {
 
   @@index([status, createdAt])
   @@index([assigneeOperatorId])
+  // Issue 086: predicate indices for the charter-expiry sweeper's claim queries.
+  //   ASSIGNED_DIRECT + acceptByAt <= now  → direct-assign timeout reroute.
+  //   PUBLISHED       + claimByAt  <= now  → public-pool expiry reroute.
+  @@index([status, acceptByAt])
+  @@index([status, claimByAt])
 }
