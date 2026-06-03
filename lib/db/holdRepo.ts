@@ -2,6 +2,11 @@
  * Hold repository — atomic seat-reservation via advisory lock + conditional INSERT.
  *
  * createHold():
+ *   0. Acquires pg_advisory_xact_lock(hashtext('hold-phone:' || customerPhone)) —
+ *      serialises concurrent attempts from the same phone across ALL trips so that
+ *      the per-phone CONCURRENT_HOLD_CAP count is race-safe (Issue 098).
+ *   0a. Counts active holds for the phone INSIDE the phone lock; throws
+ *       HoldCapExceededError when count >= CONCURRENT_HOLD_CAP.
  *   1. Acquires pg_advisory_xact_lock(hashtext('hold:' || tripId)) — serialises
  *      concurrent attempts for the same trip inside a single DB transaction.
  *   2. Conditionally INSERTs a new Hold only if
@@ -10,6 +15,8 @@
  *      Trip.blockedSeats column is dropped in a later wave; until then, not read.)
  *   3. Returns { holdId, expiresAt } on success, null when sold-out.
  *
+ * Lock ordering: phone lock ALWAYS acquired before trip lock to prevent deadlocks.
+ *
  * Uses Prisma.$queryRaw (template-tag, parameterised) — never $queryRawUnsafe.
  * HOLD_TTL_MINUTES: 10-minute hold window (leaves 2-min buffer inside the 12-min cookie).
  */
@@ -17,6 +24,8 @@
 import { prisma } from '@/lib/db/client';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
+import { CONCURRENT_HOLD_CAP, HoldCapExceededError } from './holdErrors';
+export { CONCURRENT_HOLD_CAP, HoldCapExceededError } from './holdErrors';
 
 export const HOLD_TTL_MINUTES = 10;
 
@@ -47,6 +56,23 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
   type InsertRow = { id: string; expiresAt: Date };
 
   const rows = await prisma.$transaction(async (tx) => {
+    // 0. Phone-level advisory lock — serialises all hold attempts from this phone
+    // across every trip, making the cap count check race-safe (Issue 098).
+    // Must be acquired BEFORE the trip lock to maintain a consistent lock order.
+    await tx.$executeRaw(
+      Prisma.sql`SELECT pg_advisory_xact_lock(hashtext('hold-phone:' || ${customerPhone}))`
+    );
+
+    // 0a. Concurrent-hold cap: count ACTIVE non-expired holds for this phone.
+    // Running inside the phone lock ensures no concurrent hold can slip in between
+    // the count and the INSERT for the same phone.
+    const activeCount = await tx.hold.count({
+      where: { customerPhone, status: 'active', expiresAt: { gt: new Date() } },
+    });
+    if (activeCount >= CONCURRENT_HOLD_CAP) {
+      throw new HoldCapExceededError();
+    }
+
     // 1. Acquire advisory lock for this trip (serialises concurrent requests).
     // pg_advisory_xact_lock returns void — use $executeRaw (returns affected row count).
     await tx.$executeRaw(

@@ -34,6 +34,7 @@ vi.mock('@/lib/analytics/track', () => ({
 import { POST } from '../route';
 import { createHold } from '@/lib/db/holdRepo';
 import { ratelimit } from '@/lib/ratelimit';
+import { HoldCapExceededError } from '@/lib/db/holdErrors';
 import { NextRequest } from 'next/server';
 
 // Helper to build a NextRequest with JSON body
@@ -180,6 +181,17 @@ describe('POST /api/holds', () => {
 
     expect(res.status).toBe(400);
     expect(json.error).toBe('INVALID');
+  });
+
+  it('returns 429 HOLD_CAP_EXCEEDED when concurrent-hold cap is reached (Issue 098)', async () => {
+    vi.mocked(createHold).mockRejectedValueOnce(new HoldCapExceededError());
+
+    const req = makeRequest(VALID_BODY);
+    const res = await POST(req);
+    const json = await res.json();
+
+    expect(res.status).toBe(429);
+    expect(json.error).toBe('HOLD_CAP_EXCEEDED');
   });
 
   it('returns 429 TOO_MANY_REQUESTS when rate limited', async () => {

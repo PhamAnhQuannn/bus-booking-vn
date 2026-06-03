@@ -17,6 +17,7 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { holdInputSchema } from '@/lib/validation/hold';
 import { createHold } from '@/lib/db/holdRepo';
+import { HoldCapExceededError } from '@/lib/db/holdErrors';
 import { buildSetCookieHeader } from '@/lib/security/holdCookie';
 import { ratelimit } from '@/lib/ratelimit';
 import { withErrorHandler } from '@/lib/withErrorHandler';
@@ -60,13 +61,22 @@ async function handler(req: NextRequest): Promise<Response> {
   const { tripId, ticketCount, buyerName, buyerPhone, buyerEmail } = parsed.data;
 
   // ---- 3. Atomic hold insert ----
-  const result = await createHold({
-    tripId,
-    ticketCount,
-    customerPhone: buyerPhone,
-    customerName: buyerName,
-    customerEmail: buyerEmail,
-  });
+  let result: Awaited<ReturnType<typeof createHold>>;
+  try {
+    result = await createHold({
+      tripId,
+      ticketCount,
+      customerPhone: buyerPhone,
+      customerName: buyerName,
+      customerEmail: buyerEmail,
+    });
+  } catch (e) {
+    if (e instanceof HoldCapExceededError) {
+      logger.warn({ tripId }, 'Hold cap exceeded for phone');
+      return NextResponse.json({ error: 'HOLD_CAP_EXCEEDED' }, { status: 429 });
+    }
+    throw e;
+  }
 
   if (!result) {
     logger.info({ tripId, ticketCount }, 'Hold creation failed: sold out or trip unavailable');
