@@ -25,6 +25,7 @@
 import type { OperatorStatus } from '@prisma/client';
 import { prisma } from '@/lib/db/client';
 import { createNotificationLog } from '@/lib/db/notificationLogRepo';
+import { writeAdminAuditLog } from '@/lib/audit/adminAuditLog';
 import { OperatorStatusError } from './errors';
 
 /**
@@ -59,6 +60,13 @@ export interface TransitionOperatorStatusInput {
   to: OperatorStatus;
   /** Set on REJECTED; ignored otherwise. */
   reason?: string;
+  /**
+   * Issue 065: identifies the admin who triggered the transition (e.g.
+   * `admin:<adminId>`). When present, an AdminAuditLog row is written INSIDE the
+   * same $transaction as the status update. Absent for CLI / system callers
+   * (Issue 045 behaviour is unchanged — no audit row is written when omitted).
+   */
+  actor?: string;
 }
 
 export interface TransitionOperatorStatusResult {
@@ -80,7 +88,7 @@ export interface TransitionOperatorStatusResult {
 export async function transitionOperatorStatus(
   input: TransitionOperatorStatusInput
 ): Promise<TransitionOperatorStatusResult> {
-  const { operatorId, to, reason } = input;
+  const { operatorId, to, reason, actor } = input;
 
   const result = await prisma.$transaction(async (tx) => {
     // Lock the operator row so concurrent transitions serialise on the edge check.
@@ -126,6 +134,19 @@ export async function transitionOperatorStatus(
       data,
       select: { rejectionReason: true, disabledAt: true, notificationPhone: true, contactPhone: true },
     });
+
+    // Issue 065: when an admin actor is supplied, record the transition in the
+    // append-only AdminAuditLog INSIDE the same transaction as the status write —
+    // the audit row and the state change commit or roll back together. CLI/system
+    // callers (no actor) leave this untouched, preserving Issue 045 behaviour.
+    if (actor) {
+      await writeAdminAuditLog(tx, {
+        actor,
+        action: 'operator-status:' + to,
+        target: operatorId,
+        argsRedacted: JSON.stringify({ from, to, ...(to === 'REJECTED' ? { reason } : {}) }),
+      });
+    }
 
     return { from, updated };
   });

@@ -7,22 +7,28 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { OperatorStatus } from '@prisma/client';
 
 // ---- hoisted mocks ----
-const { mockTx, mockPrisma, mockCreateNotificationLog } = vi.hoisted(() => {
+const { mockTx, mockPrisma, mockCreateNotificationLog, mockWriteAdminAuditLog } = vi.hoisted(() => {
   const mockTx = {
     $queryRaw: vi.fn(),
     operator: { update: vi.fn() },
+    // Issue 065: the audit row is written off the tx inside the transaction.
+    adminAuditLog: { create: vi.fn() },
   };
   const mockPrisma = {
     // callback form: invoke the callback with the mock tx
     $transaction: vi.fn(async (cb: (tx: typeof mockTx) => unknown) => cb(mockTx)),
   };
   const mockCreateNotificationLog = vi.fn();
-  return { mockTx, mockPrisma, mockCreateNotificationLog };
+  const mockWriteAdminAuditLog = vi.fn();
+  return { mockTx, mockPrisma, mockCreateNotificationLog, mockWriteAdminAuditLog };
 });
 
 vi.mock('@/lib/db/client', () => ({ prisma: mockPrisma }));
 vi.mock('@/lib/db/notificationLogRepo', () => ({
   createNotificationLog: mockCreateNotificationLog,
+}));
+vi.mock('@/lib/audit/adminAuditLog', () => ({
+  writeAdminAuditLog: mockWriteAdminAuditLog,
 }));
 
 import {
@@ -49,6 +55,7 @@ beforeEach(() => {
     contactPhone: '+8490xxxxxx8',
   });
   mockCreateNotificationLog.mockResolvedValue({ id: 'notif_1' });
+  mockWriteAdminAuditLog.mockResolvedValue(undefined);
 });
 
 describe('LEGAL_OPERATOR_TRANSITIONS map', () => {
@@ -160,5 +167,51 @@ describe('transitionOperatorStatus — illegal edges & missing operator', () => 
     await expect(
       transitionOperatorStatus({ operatorId: 'nope', to: 'UNDER_REVIEW' })
     ).rejects.toMatchObject({ code: 'operator_not_found' });
+  });
+});
+
+describe('transitionOperatorStatus — audit (Issue 065)', () => {
+  it('writes an AdminAuditLog row INSIDE the transaction when actor is present', async () => {
+    lockStatus('UNDER_REVIEW');
+    await transitionOperatorStatus({
+      operatorId: OPERATOR_ID,
+      to: 'APPROVED',
+      actor: 'admin:super-1',
+    });
+
+    expect(mockWriteAdminAuditLog).toHaveBeenCalledTimes(1);
+    // Called with the tx handle (not the singleton) so it commits with the update.
+    expect(mockWriteAdminAuditLog).toHaveBeenCalledWith(
+      mockTx,
+      expect.objectContaining({
+        actor: 'admin:super-1',
+        action: 'operator-status:APPROVED',
+        target: OPERATOR_ID,
+      })
+    );
+    const args = mockWriteAdminAuditLog.mock.calls[0][1];
+    expect(JSON.parse(args.argsRedacted)).toMatchObject({ from: 'UNDER_REVIEW', to: 'APPROVED' });
+  });
+
+  it('includes the reason in the audit args for a REJECTED transition', async () => {
+    lockStatus('UNDER_REVIEW');
+    await transitionOperatorStatus({
+      operatorId: OPERATOR_ID,
+      to: 'REJECTED',
+      reason: 'missing payout docs',
+      actor: 'admin:super-1',
+    });
+    const args = mockWriteAdminAuditLog.mock.calls[0][1];
+    expect(JSON.parse(args.argsRedacted)).toMatchObject({
+      from: 'UNDER_REVIEW',
+      to: 'REJECTED',
+      reason: 'missing payout docs',
+    });
+  });
+
+  it('does NOT write an audit row when actor is absent (CLI/system caller)', async () => {
+    lockStatus('PENDING_REVIEW');
+    await transitionOperatorStatus({ operatorId: OPERATOR_ID, to: 'UNDER_REVIEW' });
+    expect(mockWriteAdminAuditLog).not.toHaveBeenCalled();
   });
 });
