@@ -13,7 +13,7 @@ import { describe, it, expect, vi } from 'vitest';
 vi.mock('@/lib/db/client', () => ({ prisma: {} }));
 
 import { getEffectiveFeeRate, applyFeePpm, calcPlatformFeeMinor } from '../feeConfig';
-import { calcPayout } from '@/lib/payouts/calcPayout';
+import { calcPayout } from '@/lib/ledger/calcPayout';
 
 interface Row {
   operatorId: string | null;

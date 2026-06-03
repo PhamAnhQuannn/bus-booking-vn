@@ -11,7 +11,7 @@
 
 import { redirect } from 'next/navigation';
 import { getOperatorSession } from '@/lib/op/getOperatorSession';
-import { getRevenueReport } from '@/lib/payouts/getRevenueReport';
+import { getRevenueReport } from '@/lib/ledger/getRevenueReport';
 import { getDefaultDateRange } from '@/lib/op/dateRanges';
 import { PageHeader } from '@/components/op/PageHeader';
 import RevenueClient from './RevenueClient';

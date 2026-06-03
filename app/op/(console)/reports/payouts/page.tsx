@@ -9,7 +9,7 @@
 
 import { redirect } from 'next/navigation';
 import { getOperatorSession } from '@/lib/op/getOperatorSession';
-import { getPayoutReport } from '@/lib/payouts/getPayoutReport';
+import { getPayoutReport } from '@/lib/ledger/getPayoutReport';
 import { PageHeader } from '@/components/op/PageHeader';
 import PayoutsClient from './PayoutsClient';
 

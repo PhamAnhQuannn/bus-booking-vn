@@ -30,7 +30,7 @@
  */
 
 import { Prisma } from '@prisma/client';
-import { settlePayout } from '@/lib/payouts/settlePayout';
+import { settlePayout } from '@/lib/ledger/settlePayout';
 import { captureException } from '@/lib/observability';
 import { logger } from '@/lib/logger';
 import type { JobCore } from './types';

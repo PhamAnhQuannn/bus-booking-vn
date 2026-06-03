@@ -12,7 +12,7 @@
 
 import { prisma } from '@/lib/db/client';
 import { Prisma } from '@prisma/client';
-import { getRevenueReport } from '@/lib/payouts/getRevenueReport';
+import { getRevenueReport } from '@/lib/ledger/getRevenueReport';
 
 export interface OperatorKpis {
   periodTrips: number;
