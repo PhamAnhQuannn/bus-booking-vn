@@ -25,7 +25,7 @@ import {
   createOnlineBookingFromHold,
   getBookingByHoldId,
   type OnlineBookingMethod,
-} from '@/lib/core/db/bookingRepo';
+} from '@/lib/booking/bookingRepo';
 import { getGatewayFor } from '@/lib/payment/select';
 import { attachGuestBooking } from './attachGuestBooking';
 import { isBookable } from '@/lib/onboarding';

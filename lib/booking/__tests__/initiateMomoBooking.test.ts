@@ -18,7 +18,7 @@ import type { PaymentGateway, CreatePaymentInput } from '@/lib/payment/gateway';
 // Module-level mocks
 // ---------------------------------------------------------------------------
 
-vi.mock('@/lib/core/db/bookingRepo', () => ({
+vi.mock('@/lib/booking/bookingRepo', () => ({
   createOnlineBookingFromHold: vi.fn(),
   getBookingByHoldId: vi.fn(),
 }));
@@ -45,7 +45,7 @@ vi.mock('@/lib/booking/attachGuestBooking', () => ({
 // ---------------------------------------------------------------------------
 
 import { initiateMomoBooking } from '../initiateMomoBooking';
-import { createOnlineBookingFromHold, getBookingByHoldId } from '@/lib/core/db/bookingRepo';
+import { createOnlineBookingFromHold, getBookingByHoldId } from '@/lib/booking/bookingRepo';
 import { prisma } from '@/lib/core/db/client';
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { bookingDetailSelect } from '@/lib/core/db/bookingSelects';
+import { bookingDetailSelect } from '@/lib/booking/bookingSelects';
 
 describe('bookingDetailSelect', () => {
   it('includes operator.contactPhone (UI contract)', () => {
