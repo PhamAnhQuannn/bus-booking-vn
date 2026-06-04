@@ -5,6 +5,30 @@ wave: 8
 spec: [SYS20]
 ---
 
+> ✅ **DONE 2026-06-03.** Landed in staged batches (security item first, then
+> measure → batched sweep → enforce):
+> - **Stage 0 (security):** `withOperatorScope` wired into 33 operator-owned
+>   queries + 14 join-path/charter rationale comments; `patchTemplate` TOCTOU
+>   fixed (`update` scoped to `{id, operatorId}`). [`db3cb51`, `ba6d213`]
+> - **Stage 1 (measure):** installed `eslint-plugin-boundaries` +
+>   `eslint-plugin-import-x` + ts resolver; both rules at **warn** → measured
+>   446 reach-ins, 0 cycles. [`5fa4eac`]
+> - **Stage 2 (sweep):** ~968 cross-domain reach-ins converted to barrels in
+>   tsc-green batches by target domain (auth, then 11 small domains, then
+>   account/api/state/stores, staff/charter/payment, ledger/jobs,
+>   catalog/onboarding, trips/admin, booking/op, reports) → reach-ins to **0**.
+> - **Stage 3 (enforce):** flipped both rules to **error**; CI (`pnpm lint`) +
+>   pre-commit now gate them. [`4053804`]
+>
+> **Verify:** `pnpm tsc --noEmit` 0 · `pnpm lint` 0 errors · `pnpm test` 1408/1408.
+> **Enablers / landmines (see Mistake Log 2026-06-03):** barrel imports defeat
+> deep-path `vi.mock`; widened barrel graphs hit partial `@prisma/client` /
+> `@/lib/ratelimit` mocks + the module-load `DATABASE_URL` throw. Fixes: codemod
+> rewrites only `from`/`import()` (never `.mock()` args); `importOriginal`-spread
+> for partial mocks; a unit-env `DATABASE_URL` in `vitest.setup.ts`; repoint
+> deep mocks to the barrel where source was barrel-converted. `core`/`utils` and
+> `app/dev/**` stay deep (AC-exempt).
+
 ## Parent PRD
 
 `issues/prd.md` · spec `rebuild-plan.md` [SYS20] (final sweep — split out of 092)
