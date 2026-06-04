@@ -43,7 +43,7 @@
 
 import { prisma } from '@/lib/core/db/client';
 import { appendLedgerEntry } from './ledgerRepo';
-import { refundPayment } from '@/lib/payment/refund';
+import { refundPayment } from '@/lib/payment';
 import { logger } from '@/lib/logger';
 
 export type RefundReason =

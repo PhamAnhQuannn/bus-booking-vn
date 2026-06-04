@@ -190,7 +190,7 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
   const { logger } = await import('@/lib/logger');
   const { legalPredecessors } = await import('@/lib/booking/transitions');
   const { applyPaidStatusTransition, appendBookingPaidLedger } = await import(
-    '@/lib/payment/applyPaidTransition'
+    '@/lib/payment'
   );
   const { refundOut } = await import('@/lib/ledger/refund');
 

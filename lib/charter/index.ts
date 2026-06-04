@@ -26,9 +26,13 @@ export { getCharterByRef, type CharterByRef } from './getCharterByRef';
 export {
   getAssignedCharters,
   getAcceptedCharters,
+  getPublicPoolCharters,
   type AssignedCharter,
   type AcceptedCharter,
+  type PublicPoolCharter,
 } from './getOperatorCharters';
+
+export { claimCharter } from './claimCharter';
 
 export { declineCharter, type DeclineCharterInput, type DeclineCharterResult } from './declineCharter';
 

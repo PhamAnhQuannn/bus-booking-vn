@@ -9,7 +9,7 @@ import {
   type InitiateOnlineBookingResult,
 } from './initiateOnlineBooking';
 import { CONSENT_VERSION } from './consent';
-import type { PaymentGateway } from '@/lib/payment/gateway';
+import type { PaymentGateway } from '@/lib/payment';
 
 export interface InitiateMomoBookingInput {
   holdId: string;

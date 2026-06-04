@@ -14,7 +14,7 @@
 
 import { useState } from 'react';
 import type { TripDto } from '@/lib/trips/tripDto';
-import type { StaffDto } from '@/lib/staff/toStaffDto';
+import type { StaffDto } from '@/lib/staff';
 import type { TripStatus } from '@prisma/client';
 import {
   reassignBusApi,

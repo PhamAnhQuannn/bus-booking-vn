@@ -14,9 +14,9 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest } from 'next/server';
-import { getGatewayFor } from '@/lib/payment/select';
+import { getGatewayFor } from '@/lib/payment';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { processPaymentWebhook } from '@/lib/payment/processWebhook';
+import { processPaymentWebhook } from '@/lib/payment';
 
 async function handler(req: NextRequest): Promise<Response> {
   const rawBody = await req.text();

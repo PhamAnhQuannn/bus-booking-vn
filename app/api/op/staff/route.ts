@@ -14,9 +14,9 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { listStaff } from '@/lib/staff/listStaff';
-import { createStaff } from '@/lib/staff/createStaff';
-import { StaffServiceError } from '@/lib/staff/errors';
+import { listStaff } from '@/lib/staff';
+import { createStaff } from '@/lib/staff';
+import { StaffServiceError } from '@/lib/staff';
 import { CreateStaffSchema } from '@/lib/core/validation/staff';
 
 async function getHandler(_req: NextRequest, ctx: OperatorAuthContext): Promise<Response> {

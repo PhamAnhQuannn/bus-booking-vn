@@ -21,7 +21,7 @@ import { redirect } from 'next/navigation';
 
 import { getOperatorSession } from '@/lib/op/getOperatorSession';
 import { prisma } from '@/lib/core/db/client';
-import { isOperatorApproved } from '@/lib/charter/assertOperatorApproved';
+import { isOperatorApproved } from '@/lib/charter';
 import {
   getAssignedCharters,
   getAcceptedCharters,
@@ -29,7 +29,7 @@ import {
   type AssignedCharter,
   type AcceptedCharter,
   type PublicPoolCharter,
-} from '@/lib/charter/getOperatorCharters';
+} from '@/lib/charter';
 import { PageHeader } from '@/components/op/PageHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

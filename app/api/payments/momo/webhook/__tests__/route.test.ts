@@ -80,7 +80,7 @@ vi.mock('next/server', async () => {
 // ---------------------------------------------------------------------------
 
 import { POST } from '../route';
-import { getMomoAdapter } from '@/lib/payment/adapters/momo';
+import { getMomoAdapter } from '@/lib/payment';
 import { prisma } from '@/lib/core/db/client';
 import { createNotificationLog } from '@/lib/core/db/notificationLogRepo';
 import { sendSms, sendSmsBody } from '@/lib/notification';

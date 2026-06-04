@@ -41,7 +41,7 @@ vi.mock('@/lib/charter/charterStatus', () => ({ transitionCharterRequest: mockTr
 
 import { POST } from '../route';
 import { NextRequest } from 'next/server';
-import { CharterError } from '@/lib/charter/errors';
+import { CharterError } from '@/lib/charter';
 
 const CHARTER_ID = 'ch_1';
 const OPERATOR_ID = 'op-org-A';

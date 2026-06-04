@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { PaymentGateway, CreatePaymentInput } from '@/lib/payment/gateway';
+import type { PaymentGateway, CreatePaymentInput } from '@/lib/payment';
 
 // ---------------------------------------------------------------------------
 // Module-level mocks

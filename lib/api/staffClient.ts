@@ -6,7 +6,7 @@
  */
 
 import { readCsrfToken } from '@/lib/auth';
-import type { StaffDto } from '@/lib/staff/toStaffDto';
+import type { StaffDto } from '@/lib/staff';
 
 export async function listStaffApi(): Promise<{ staff: StaffDto[] }> {
   const res = await fetch('/api/op/staff', { credentials: 'same-origin' });

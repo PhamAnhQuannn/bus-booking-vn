@@ -29,7 +29,7 @@ const {
   mockLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock('@/lib/payment/applyPaidTransition', () => ({
+vi.mock('@/lib/payment', () => ({
   applyPaidStatusTransition: mockApplyPaid,
   appendBookingPaidLedger: mockAppendLedger,
 }));

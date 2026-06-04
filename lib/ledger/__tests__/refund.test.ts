@@ -38,7 +38,7 @@ vi.mock('@/lib/logger', () => ({
 
 import { prisma } from '@/lib/core/db/client';
 import { appendLedgerEntry } from '../ledgerRepo';
-import { refundPayment } from '@/lib/payment/refund';
+import { refundPayment } from '@/lib/payment';
 import { refundOut, RefundOutError } from '../refund';
 
 const bookingFind = prisma.booking.findUnique as unknown as Mock;
@@ -185,7 +185,7 @@ describe('stub PSP refund determinism', () => {
   it('refundPaymentStub returns stub_refund_<key> deterministically', async () => {
     // Import the stub directly (not the flag-branching wrapper) to assert the
     // deterministic shape.
-    const { refundPaymentStub } = await import('@/lib/payment/adapters/stub');
+    const { refundPaymentStub } = await import('@/lib/payment');
     const a = refundPaymentStub({
       providerTxnId: 'txn-1',
       amountMinor: 5000,

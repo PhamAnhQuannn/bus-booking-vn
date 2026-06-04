@@ -61,8 +61,8 @@ export const charterExpirySweeper: JobCore = async (tx, opts) => {
   // dynamic import keeps the route's static import graph free of the DB client —
   // exactly how generateTrips / dispatchNotifications avoid the import-time break.
   const { prisma } = await import('@/lib/core/db/client');
-  const { transitionCharterRequest } = await import('@/lib/charter/charterStatus');
-  const { CharterError } = await import('@/lib/charter/errors');
+  const { transitionCharterRequest } = await import('@/lib/charter');
+  const { CharterError } = await import('@/lib/charter');
   const { createNotificationLog } = await import('@/lib/core/db/notificationLogRepo');
   const { Prisma } = await import('@prisma/client');
 

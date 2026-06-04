@@ -21,8 +21,8 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { prisma } from '@/lib/core/db/client';
-import { claimCharter } from '@/lib/charter/claimCharter';
-import { assertOperatorApproved, CharterNotApprovedError } from '@/lib/charter/assertOperatorApproved';
+import { claimCharter } from '@/lib/charter';
+import { assertOperatorApproved, CharterNotApprovedError } from '@/lib/charter';
 
 type RouteContext = { params: Promise<{ id: string }> };
 

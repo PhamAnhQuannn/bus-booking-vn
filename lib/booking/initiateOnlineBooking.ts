@@ -26,10 +26,10 @@ import {
   getBookingByHoldId,
   type OnlineBookingMethod,
 } from '@/lib/booking/bookingRepo';
-import { getGatewayFor } from '@/lib/payment/select';
+import { getGatewayFor } from '@/lib/payment';
 import { attachGuestBooking } from './attachGuestBooking';
 import { isBookable } from '@/lib/onboarding';
-import type { PaymentGateway } from '@/lib/payment/gateway';
+import type { PaymentGateway } from '@/lib/payment';
 import { logger } from '@/lib/logger';
 
 export interface InitiateOnlineBookingInput {
