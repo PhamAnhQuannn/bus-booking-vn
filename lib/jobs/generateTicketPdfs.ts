@@ -25,7 +25,7 @@
  */
 
 import type { JobCore, JobOpts } from './types';
-import type { CustomerBookingDetail } from '@/lib/booking/getCustomerBookingDetail';
+import type { CustomerBookingDetail } from '@/lib/booking';
 
 /** How many un-keyed bookings to render+upload per cron tick. */
 export const BATCH_SIZE = 25;
@@ -53,7 +53,7 @@ export const generateTicketPdfs: JobCore = async (_tx, opts?: JobOpts) => {
 
   const { prisma } = await import('@/lib/core/db/client');
   const { Prisma } = await import('@prisma/client');
-  const { renderTicketPdf } = await import('@/lib/booking/ticketPdf');
+  const { renderTicketPdf } = await import('@/lib/booking');
   const { putObject } = await import('@/lib/storage');
   const { createNotificationLog } = await import('@/lib/core/db/notificationLogRepo');
 
@@ -136,7 +136,7 @@ async function loadBookingDetail(
   prisma: (typeof import('@/lib/core/db/client'))['prisma'],
   bookingId: string
 ): Promise<CustomerBookingDetail | null> {
-  const { customerBookingDetailSelect } = await import('@/lib/booking/getCustomerBookingDetail');
+  const { customerBookingDetailSelect } = await import('@/lib/booking');
   const row = await prisma.booking.findUnique({
     where: { id: bookingId },
     select: customerBookingDetailSelect,

@@ -14,7 +14,7 @@ import { withErrorHandler } from '@/lib/withErrorHandler';
 import {
   listCustomerBookings,
   ListCustomerBookingsParamsSchema,
-} from '@/lib/booking/listCustomerBookings';
+} from '@/lib/booking';
 
 export const GET = withErrorHandler(
   requireCustomerAuth()(async (req: NextRequest, ctx: CustomerAuthContext) => {

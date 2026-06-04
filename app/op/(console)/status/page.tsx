@@ -18,7 +18,7 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import type { OperatorStatus } from '@prisma/client';
-import { getOperatorSession } from '@/lib/op/getOperatorSession';
+import { getOperatorSession } from '@/lib/op';
 import { prisma } from '@/lib/core/db/client';
 import { PageHeader } from '@/components/op/PageHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';

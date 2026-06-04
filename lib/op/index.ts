@@ -2,6 +2,8 @@
 
 export { getDefaultDateRange, getDefaultTodayRange, serverNow } from './dateRanges';
 export { getActivityFeed } from './getActivityFeed';
+export type { ActivityEvent, ActivityEventType, Severity } from './activityTypes';
+export { formatRelativeVi } from './formatRelativeVi';
 export { getOperatorFleet } from './getOperatorFleet';
 export { getOperatorProfile } from './getOperatorProfile';
 export type { OperatorProfile } from './getOperatorProfile';

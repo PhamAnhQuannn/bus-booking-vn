@@ -15,7 +15,7 @@
 
 import { notFound } from 'next/navigation';
 import { CheckCircle2, Phone, CalendarPlus } from 'lucide-react';
-import { getBookingByConfirmationToken } from '@/lib/booking/bookingRepo';
+import { getBookingByConfirmationToken } from '@/lib/booking';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

@@ -10,9 +10,9 @@
  */
 
 import { redirect } from 'next/navigation';
-import { getOperatorSession } from '@/lib/op/getOperatorSession';
+import { getOperatorSession } from '@/lib/op';
 import { getRevenueReport } from '@/lib/ledger';
-import { getDefaultDateRange } from '@/lib/op/dateRanges';
+import { getDefaultDateRange } from '@/lib/op';
 import { PageHeader } from '@/components/op/PageHeader';
 import RevenueClient from './RevenueClient';
 

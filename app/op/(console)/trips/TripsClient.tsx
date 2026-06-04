@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation';
 import type { TripDto } from '@/lib/trips';
 import type { TripStatus } from '@prisma/client';
 import { cancelTripApi, salesToggleApi, listTripsApi } from '@/lib/api';
-import { tripStatusDisplay } from '@/lib/op/statusLabels';
+import { tripStatusDisplay } from '@/lib/op';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

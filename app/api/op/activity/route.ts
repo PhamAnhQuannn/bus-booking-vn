@@ -13,7 +13,7 @@ import {
   type OperatorAuthContext,
 } from "@/lib/auth"
 import { withErrorHandler } from "@/lib/withErrorHandler"
-import { getActivityFeed } from "@/lib/op/getActivityFeed"
+import { getActivityFeed } from "@/lib/op"
 
 export async function GET(req: NextRequest): Promise<Response> {
   return withErrorHandler(

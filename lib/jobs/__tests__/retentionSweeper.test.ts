@@ -30,9 +30,13 @@ vi.mock('@/lib/account/retentionPolicy', () => ({
 }));
 // Prisma.sql passthrough — the stub tx ignores the SQL and returns staged values
 // by call order.
-vi.mock('@prisma/client', () => ({
-  Prisma: { sql: (strings: TemplateStringsArray, ...vals: unknown[]) => ({ strings, vals }) },
-}));
+vi.mock('@prisma/client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@prisma/client')>();
+  return {
+    ...actual,
+    Prisma: { ...actual.Prisma, sql: (strings: TemplateStringsArray, ...vals: unknown[]) => ({ strings, vals }) },
+  };
+});
 
 import { retentionSweeper } from '../retentionSweeper';
 

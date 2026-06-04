@@ -188,7 +188,7 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
   const { after } = await import('next/server');
   const { renderTemplate } = await import('@/lib/notification');
   const { logger } = await import('@/lib/logger');
-  const { legalPredecessors } = await import('@/lib/booking/transitions');
+  const { legalPredecessors } = await import('@/lib/booking');
   const { applyPaidStatusTransition, appendBookingPaidLedger } = await import(
     '@/lib/payment'
   );

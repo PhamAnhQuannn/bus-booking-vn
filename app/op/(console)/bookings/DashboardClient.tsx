@@ -14,7 +14,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import type { BookingQueueRow } from '@/lib/booking/toBookingQueueRow';
+import type { BookingQueueRow } from '@/lib/booking';
 import { listBookingsApi } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -38,7 +38,7 @@ import {
   TableHead,
   TableCell,
 } from '@/components/ui/table';
-import { bookingStatusDisplay, contactStatusDisplay } from '@/lib/op/statusLabels';
+import { bookingStatusDisplay, contactStatusDisplay } from '@/lib/op';
 import type { BookingStatus } from '@prisma/client';
 
 interface Props {

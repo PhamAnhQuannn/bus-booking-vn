@@ -9,7 +9,7 @@
  */
 
 import { redirect } from 'next/navigation';
-import { getOperatorSession } from '@/lib/op/getOperatorSession';
+import { getOperatorSession } from '@/lib/op';
 import { listTemplates } from '@/lib/trips';
 import { PageHeader } from '@/components/op/PageHeader';
 import TemplatesClient from './TemplatesClient';

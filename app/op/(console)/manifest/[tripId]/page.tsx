@@ -9,8 +9,8 @@
 
 import { redirect } from 'next/navigation';
 import { Bus } from 'lucide-react';
-import { getOperatorSession } from '@/lib/op/getOperatorSession';
-import { getManifest } from '@/lib/booking/getManifest';
+import { getOperatorSession } from '@/lib/op';
+import { getManifest } from '@/lib/booking';
 import { PageHeader } from '@/components/op/PageHeader';
 import { EmptyState } from '@/components/op/EmptyState';
 import ManifestRefresh from './ManifestRefresh';

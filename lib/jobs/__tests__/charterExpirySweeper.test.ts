@@ -38,9 +38,13 @@ vi.mock('@/lib/charter/errors', () => ({ CharterError: CharterErrorMock }));
 vi.mock('@/lib/core/db/notificationLogRepo', () => ({ createNotificationLog: mockCreateNotificationLog }));
 // Prisma.sql is used to build the tagged query; a passthrough is enough for the
 // stub tx, which ignores the SQL and returns staged rows by call order.
-vi.mock('@prisma/client', () => ({
-  Prisma: { sql: (strings: TemplateStringsArray, ...vals: unknown[]) => ({ strings, vals }) },
-}));
+vi.mock('@prisma/client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@prisma/client')>();
+  return {
+    ...actual,
+    Prisma: { ...actual.Prisma, sql: (strings: TemplateStringsArray, ...vals: unknown[]) => ({ strings, vals }) },
+  };
+});
 
 import { charterExpirySweeper } from '../charterExpirySweeper';
 

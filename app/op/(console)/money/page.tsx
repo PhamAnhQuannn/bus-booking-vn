@@ -20,7 +20,7 @@
 import { redirect } from 'next/navigation';
 import type { LedgerEntryType, PayoutStatus } from '@prisma/client';
 
-import { getOperatorSession } from '@/lib/op/getOperatorSession';
+import { getOperatorSession } from '@/lib/op';
 import { getOperatorBalance } from '@/lib/ledger';
 import { getLedgerView } from '@/lib/admin';
 import { getPayoutReport } from '@/lib/ledger';

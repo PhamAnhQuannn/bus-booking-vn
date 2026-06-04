@@ -48,10 +48,10 @@ vi.mock('@/lib/analytics/track', () => ({
 vi.mock('@/lib/core/db/client', () => ({ prisma: { customer: { findUnique: vi.fn() } } }));
 
 import { POST } from '../initiate/route';
-import { initiateOnlineBooking } from '@/lib/booking/initiateOnlineBooking';
+import { initiateOnlineBooking } from '@/lib/booking';
 import { extractHoldCookie } from '@/lib/security';
 import { ratelimit } from '@/lib/ratelimit';
-import { CONSENT_VERSION } from '@/lib/booking/consent';
+import { CONSENT_VERSION } from '@/lib/booking';
 import { NextRequest } from 'next/server';
 
 const HOLD_ID = 'ckabcdefghijklmnopqrstuvwx';

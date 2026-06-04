@@ -22,7 +22,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { prisma } from '@/lib/core/db/client';
-import { scanTicket } from '@/lib/booking/checkIn';
+import { scanTicket } from '@/lib/booking';
 
 export const POST = withErrorHandler(
   requireOperatorAuth({})(async (req: NextRequest, ctx: OperatorAuthContext) => {

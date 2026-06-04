@@ -12,7 +12,7 @@ import { consume } from './otp';
 import { hash as hashPassword, verify as verifyPassword, dummyVerify } from './password';
 import { createSession, rotateRefresh, revokeSession } from './session';
 import { verify as verifyRefreshToken } from './refreshToken';
-import { backfillGuestBookingsForCustomer } from '@/lib/booking/attachGuestBookingByPhone';
+import { backfillGuestBookingsForCustomer } from '@/lib/booking';
 
 // ---------------------------------------------------------------------------
 // Types

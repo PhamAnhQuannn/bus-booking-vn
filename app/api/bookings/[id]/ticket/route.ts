@@ -24,10 +24,10 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { requireCustomerAuth, type CustomerAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { getCustomerBookingDetail } from '@/lib/booking/getCustomerBookingDetail';
+import { getCustomerBookingDetail } from '@/lib/booking';
 import { prisma } from '@/lib/core/db/client';
 import { createSignedDownloadUrl } from '@/lib/storage';
-import type { BookingPaymentStatus } from '@/lib/booking/bookingDto';
+import type { BookingPaymentStatus } from '@/lib/booking';
 import { logger } from '@/lib/logger';
 
 const TICKETABLE_STATUSES: ReadonlySet<BookingPaymentStatus> = new Set([

@@ -11,7 +11,7 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { listOperatorBookings, ListOperatorBookingsParamsSchema } from '@/lib/booking/listOperatorBookings';
+import { listOperatorBookings, ListOperatorBookingsParamsSchema } from '@/lib/booking';
 
 export const GET = withErrorHandler(
   requireOperatorAuth({})(async (req: NextRequest, ctx: OperatorAuthContext) => {

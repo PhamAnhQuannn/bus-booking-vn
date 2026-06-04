@@ -3,7 +3,7 @@
  * status enum (Issue 009, PRD story 15). Shared by the list and detail pages.
  */
 
-import type { BookingPaymentStatus } from '@/lib/booking/bookingDto';
+import type { BookingPaymentStatus } from '@/lib/booking';
 import type { badgeVariants } from '@/components/ui/badge';
 import type { VariantProps } from 'class-variance-authority';
 

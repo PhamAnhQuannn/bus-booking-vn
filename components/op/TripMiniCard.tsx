@@ -2,8 +2,8 @@ import Link from "next/link"
 import { ArrowRightIcon, ClockIcon } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
-import { tripStatusDisplay } from "@/lib/op/statusLabels"
-import { formatRelativeVi } from "@/lib/op/formatRelativeVi"
+import { tripStatusDisplay } from "@/lib/op"
+import { formatRelativeVi } from "@/lib/op"
 import { cn } from "@/lib/utils"
 import type { TripStatus } from "@prisma/client"
 

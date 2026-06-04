@@ -24,7 +24,7 @@ import {
   completeTripApi,
 } from '@/lib/api';
 import { assignServiceApi } from '@/lib/api';
-import { tripStatusDisplay } from '@/lib/op/statusLabels';
+import { tripStatusDisplay } from '@/lib/op';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

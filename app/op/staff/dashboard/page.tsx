@@ -16,7 +16,7 @@
  */
 
 import { redirect } from 'next/navigation';
-import { getStaffDashboard } from '@/lib/op/getStaffDashboard';
+import { getStaffDashboard } from '@/lib/op';
 import { PageHeader } from '@/components/op/PageHeader';
 import StaffDashboardClient from './StaffDashboardClient';
 

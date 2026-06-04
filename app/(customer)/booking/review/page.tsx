@@ -10,7 +10,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { verifyCookieValue } from '@/lib/security';
-import { getHoldDetails } from '@/lib/booking/getHoldDetails';
+import { getHoldDetails } from '@/lib/booking';
 import { ReviewClient } from './ReviewClient';
 
 interface ReviewPageProps {

@@ -13,7 +13,7 @@
  */
 
 import { redirect } from 'next/navigation';
-import { getOperatorSession } from '@/lib/op/getOperatorSession';
+import { getOperatorSession } from '@/lib/op';
 import { listRoutes } from '@/lib/catalog';
 import { listOperatorBuses } from '@/lib/catalog';
 import { PageHeader } from '@/components/op/PageHeader';

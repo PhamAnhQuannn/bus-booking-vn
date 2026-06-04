@@ -10,7 +10,7 @@
  * Used by the operator dashboard (app/op/(console)/dashboard/**).
  */
 
-import type { BookingQueueRow } from '@/lib/booking/toBookingQueueRow';
+import type { BookingQueueRow } from '@/lib/booking';
 
 export interface ListBookingsParams {
   busId?: string;

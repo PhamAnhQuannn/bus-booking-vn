@@ -21,8 +21,8 @@ export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { initiateOnlineBooking } from '@/lib/booking/initiateOnlineBooking';
-import { CONSENT_VERSION } from '@/lib/booking/consent';
+import { initiateOnlineBooking } from '@/lib/booking';
+import { CONSENT_VERSION } from '@/lib/booking';
 import { extractHoldCookie } from '@/lib/security';
 import { getCustomerOptional } from '@/lib/auth';
 import { ratelimit } from '@/lib/ratelimit';

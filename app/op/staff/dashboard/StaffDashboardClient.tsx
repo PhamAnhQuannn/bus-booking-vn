@@ -18,10 +18,10 @@
 
 import { useState } from 'react';
 import { departTripApi, completeTripApi } from '@/lib/api';
-import { bookingStatusDisplay, tripStatusDisplay } from '@/lib/op/statusLabels';
+import { bookingStatusDisplay, tripStatusDisplay } from '@/lib/op';
 import type { BookingStatus, TripStatus } from '@prisma/client';
-import type { BookingQueueRow } from '@/lib/booking/toBookingQueueRow';
-import type { ManifestRow } from '@/lib/booking/getManifest';
+import type { BookingQueueRow } from '@/lib/booking';
+import type { ManifestRow } from '@/lib/booking';
 import type { TripDto } from '@/lib/trips';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

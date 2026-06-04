@@ -19,7 +19,7 @@
 
 import { redirect } from 'next/navigation';
 
-import { getOperatorSession } from '@/lib/op/getOperatorSession';
+import { getOperatorSession } from '@/lib/op';
 import { prisma } from '@/lib/core/db/client';
 import { isOperatorApproved } from '@/lib/charter';
 import {

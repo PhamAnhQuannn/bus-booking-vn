@@ -1,6 +1,8 @@
 // booking domain public API barrel (SYS20 rule 3).
 
 export { backfillGuestBookingsForCustomer } from './attachGuestBookingByPhone';
+export { renderTicketPdf } from './ticketPdf';
+export { customerBookingDetailSelect } from './getCustomerBookingDetail';
 export { type BookingDto, type BookingPaymentStatus } from './bookingDto';
 export { getBookingByConfirmationToken } from './bookingRepo';
 export { checkInBooking, markNoShow, scanTicket } from './checkIn';

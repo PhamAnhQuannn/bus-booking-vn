@@ -30,7 +30,7 @@ import { requireAdminPage } from '@/lib/auth';
 import { getAdminMetrics } from '@/lib/analytics';
 import { getActionQueue } from '@/lib/admin';
 import { getFailureAlerts } from '@/lib/admin';
-import { getDefaultDateRange } from '@/lib/op/dateRanges';
+import { getDefaultDateRange } from '@/lib/op';
 import {
   Card,
   CardContent,

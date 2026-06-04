@@ -18,8 +18,8 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { prisma } from '@/lib/core/db/client';
-import { markNoShow } from '@/lib/booking/checkIn';
-import { resolveBookingTripId } from '@/lib/booking/resolveBookingTripId';
+import { markNoShow } from '@/lib/booking';
+import { resolveBookingTripId } from '@/lib/booking';
 
 type RouteContext = { params: Promise<{ id: string }> };
 

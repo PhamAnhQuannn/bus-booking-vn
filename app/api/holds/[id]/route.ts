@@ -16,7 +16,7 @@ export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { extractHoldCookie } from '@/lib/security';
-import { getHoldDetails } from '@/lib/booking/getHoldDetails';
+import { getHoldDetails } from '@/lib/booking';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 type RouteContext = { params: Promise<{ id: string }> };

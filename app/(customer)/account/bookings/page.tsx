@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getAccessToken } from '@/app/(customer)/auth/register/page';
 import { STATUS_LABEL, STATUS_VARIANT } from './bookingStatus';
-import type { CustomerBookingRow } from '@/lib/booking/listCustomerBookings';
+import type { CustomerBookingRow } from '@/lib/booking';
 import { Ticket, ArrowRight } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

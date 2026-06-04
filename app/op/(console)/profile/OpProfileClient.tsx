@@ -6,7 +6,7 @@
  */
 
 import { useState } from 'react';
-import type { OperatorProfile } from '@/lib/op/getOperatorProfile';
+import type { OperatorProfile } from '@/lib/op';
 import { readCsrfToken } from '@/lib/auth';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

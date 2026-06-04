@@ -16,7 +16,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { getAccessToken } from '@/app/(customer)/auth/register/page';
 import { STATUS_LABEL, STATUS_VARIANT } from '../bookingStatus';
-import type { CustomerBookingDetail } from '@/lib/booking/getCustomerBookingDetail';
+import type { CustomerBookingDetail } from '@/lib/booking';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';

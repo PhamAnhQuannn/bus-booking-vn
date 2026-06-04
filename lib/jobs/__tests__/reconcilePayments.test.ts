@@ -35,7 +35,7 @@ vi.mock('@/lib/payment', () => ({
 }));
 vi.mock('@/lib/notification', () => ({ renderTemplate: mockRenderTemplate }));
 vi.mock('@/lib/logger', () => ({ logger: mockLogger }));
-vi.mock('@/lib/booking/transitions', () => ({ legalPredecessors: mockLegalPredecessors }));
+vi.mock('@/lib/booking', () => ({ legalPredecessors: mockLegalPredecessors }));
 // Prisma.sql / Prisma.join are passthroughs — the stub tx ignores the SQL and
 // returns staged rows by call order.
 vi.mock('@prisma/client', () => ({

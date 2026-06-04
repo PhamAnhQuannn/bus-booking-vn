@@ -14,7 +14,7 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { getManifest } from '@/lib/booking/getManifest';
+import { getManifest } from '@/lib/booking';
 
 type RouteContext = { params: Promise<{ tripId: string }> };
 

@@ -43,12 +43,17 @@ vi.mock('@/lib/core/db/client', () => ({
   },
 }));
 // Prisma.sql / Prisma.join are template helpers — stub to no-op tagged values.
-vi.mock('@prisma/client', () => ({
-  Prisma: {
-    sql: (strings: TemplateStringsArray, ...vals: unknown[]) => ({ strings, vals }),
-    join: (vals: unknown[]) => ({ join: vals }),
-  },
-}));
+vi.mock('@prisma/client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@prisma/client')>();
+  return {
+    ...actual,
+    Prisma: {
+      ...actual.Prisma,
+      sql: (strings: TemplateStringsArray, ...vals: unknown[]) => ({ strings, vals }),
+      join: (vals: unknown[]) => ({ join: vals }),
+    },
+  };
+});
 vi.mock('@/lib/booking/ticketPdf', () => ({ renderTicketPdf: mockRenderPdf }));
 vi.mock('@/lib/storage', () => ({ putObject: mockPutObject }));
 vi.mock('@/lib/core/db/notificationLogRepo', () => ({

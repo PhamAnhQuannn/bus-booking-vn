@@ -10,7 +10,7 @@
  */
 
 import { redirect, notFound } from 'next/navigation';
-import { getOperatorStaff } from '@/lib/op/getOperatorStaff';
+import { getOperatorStaff } from '@/lib/op';
 import { getTrip } from '@/lib/trips';
 import { PageHeader } from '@/components/op/PageHeader';
 import TripDetailClient from './TripDetailClient';

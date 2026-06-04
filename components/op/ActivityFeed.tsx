@@ -10,8 +10,8 @@ import {
   type LucideIcon,
 } from "lucide-react"
 
-import type { ActivityEvent, Severity } from "@/lib/op/activityTypes"
-import { formatRelativeVi } from "@/lib/op/formatRelativeVi"
+import type { ActivityEvent, Severity } from "@/lib/op"
+import { formatRelativeVi } from "@/lib/op"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { EmptyState } from "@/components/op/EmptyState"
 import { cn } from "@/lib/utils"

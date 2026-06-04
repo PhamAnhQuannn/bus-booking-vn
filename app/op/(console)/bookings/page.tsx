@@ -9,11 +9,11 @@
  */
 
 import { redirect } from 'next/navigation';
-import { getOperatorSession } from '@/lib/op/getOperatorSession';
-import { listOperatorBookings } from '@/lib/booking/listOperatorBookings';
-import { getUnviewedPaidCount } from '@/lib/booking/getUnviewedPaidCount';
-import { touchLastViewed } from '@/lib/booking/touchLastViewed';
-import { getDefaultTodayRange } from '@/lib/op/dateRanges';
+import { getOperatorSession } from '@/lib/op';
+import { listOperatorBookings } from '@/lib/booking';
+import { getUnviewedPaidCount } from '@/lib/booking';
+import { touchLastViewed } from '@/lib/booking';
+import { getDefaultTodayRange } from '@/lib/op';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/op/PageHeader';
 import DashboardClient from './DashboardClient';
