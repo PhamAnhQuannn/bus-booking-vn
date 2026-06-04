@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { HoldTimer } from '../HoldTimer';
-import { useHoldTimerStore } from '@/lib/state/holdTimerStore';
+import { useHoldTimerStore } from '@/lib/state';
 
 describe('HoldTimer', () => {
   beforeEach(() => {

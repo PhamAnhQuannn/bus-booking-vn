@@ -12,7 +12,7 @@
 
 import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useBookingStore } from '@/lib/state/bookingStore';
+import { useBookingStore } from '@/lib/state';
 
 const TOKEN_LANDING_PREFIXES = ['/booking/confirmation', '/booking/result'];
 

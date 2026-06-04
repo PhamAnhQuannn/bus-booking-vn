@@ -14,7 +14,7 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { requireCustomerAuth } from '@/lib/auth';
-import { sendCustomerAccountOtp } from '@/lib/account/customerOtp';
+import { sendCustomerAccountOtp } from '@/lib/account';
 import { z } from 'zod';
 import { phoneSchema } from '@/lib/auth';
 

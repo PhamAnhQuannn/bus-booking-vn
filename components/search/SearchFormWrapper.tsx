@@ -9,8 +9,8 @@
 
 import { useEffect } from 'react';
 import { SearchForm } from './SearchForm';
-import { useSearchStore } from '@/lib/stores/searchStore';
-import type { SearchQuery } from '@/lib/stores/searchStore';
+import { useSearchStore } from '@/lib/stores';
+import type { SearchQuery } from '@/lib/stores';
 
 interface Props {
   initialValues?: Partial<SearchQuery>;

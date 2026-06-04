@@ -15,7 +15,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import type { BookingQueueRow } from '@/lib/booking/toBookingQueueRow';
-import { listBookingsApi } from '@/lib/api/bookingsClient';
+import { listBookingsApi } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';

@@ -18,8 +18,8 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { requireCustomerAuth } from '@/lib/auth';
-import { verifyCustomerAccountOtp } from '@/lib/account/customerOtp';
-import { changePhone, ChangePhoneError } from '@/lib/account/changePhone';
+import { verifyCustomerAccountOtp } from '@/lib/account';
+import { changePhone, ChangePhoneError } from '@/lib/account';
 import { z } from 'zod';
 import { phoneSchema } from '@/lib/auth';
 

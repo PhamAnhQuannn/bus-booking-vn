@@ -17,7 +17,7 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { requireCustomerAuth } from '@/lib/auth';
-import { changePassword, ChangePasswordError } from '@/lib/account/changePassword';
+import { changePassword, ChangePasswordError } from '@/lib/account';
 import { z } from 'zod';
 import { passwordSchema } from '@/lib/auth';
 

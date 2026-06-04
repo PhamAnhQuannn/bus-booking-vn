@@ -10,8 +10,8 @@
  */
 
 import { useEffect } from 'react';
-import { useSearchStore } from '@/lib/stores/searchStore';
-import type { SearchQuery } from '@/lib/stores/searchStore';
+import { useSearchStore } from '@/lib/stores';
+import type { SearchQuery } from '@/lib/stores';
 
 export function SearchStoreHydrator({ query }: { query: SearchQuery }) {
   const setQuery = useSearchStore((s) => s.setQuery);

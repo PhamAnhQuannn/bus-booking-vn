@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { useBookingStore } from '@/lib/state/bookingStore';
+import { useBookingStore } from '@/lib/state';
 
 interface BookButtonProps {
   tripId: string;

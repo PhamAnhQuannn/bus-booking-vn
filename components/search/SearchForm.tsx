@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { PlaceCombobox } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
-import { useSearchStore } from '@/lib/stores/searchStore';
+import { useSearchStore } from '@/lib/stores';
 
 export function SearchForm({
   places = [],

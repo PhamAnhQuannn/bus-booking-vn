@@ -14,7 +14,7 @@
 
 import { useState } from 'react';
 import type { TemplateDto } from '@/lib/trips/tripDto';
-import { createTemplateApi, patchTemplateApi } from '@/lib/api/tripsClient';
+import { createTemplateApi, patchTemplateApi } from '@/lib/api';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

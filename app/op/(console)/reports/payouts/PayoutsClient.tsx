@@ -16,7 +16,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { retryPayoutApi } from '@/lib/api/reportsClient';
+import { retryPayoutApi } from '@/lib/api';
 import type { PayoutReportRow } from '@/lib/ledger/getPayoutReport';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

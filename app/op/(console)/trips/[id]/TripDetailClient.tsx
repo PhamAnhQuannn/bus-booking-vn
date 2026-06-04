@@ -22,8 +22,8 @@ import {
   salesToggleApi,
   departTripApi,
   completeTripApi,
-} from '@/lib/api/tripsClient';
-import { assignServiceApi } from '@/lib/api/staffClient';
+} from '@/lib/api';
+import { assignServiceApi } from '@/lib/api';
 import { tripStatusDisplay } from '@/lib/op/statusLabels';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

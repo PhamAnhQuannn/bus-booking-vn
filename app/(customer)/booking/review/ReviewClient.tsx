@@ -16,7 +16,7 @@
 
 import { useEffect, useState } from 'react';
 import { Wallet, Smartphone, CreditCard } from 'lucide-react';
-import { useHoldTimerStore } from '@/lib/state/holdTimerStore';
+import { useHoldTimerStore } from '@/lib/state';
 import { HoldExpiryModal } from '@/components/HoldExpiryModal';
 import { BookingSteps } from '@/components/booking/BookingSteps';
 import { BookingSummaryRail } from '@/components/booking/BookingSummaryRail';

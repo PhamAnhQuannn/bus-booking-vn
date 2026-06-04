@@ -17,7 +17,7 @@
  */
 
 import { useState } from 'react';
-import { departTripApi, completeTripApi } from '@/lib/api/tripsClient';
+import { departTripApi, completeTripApi } from '@/lib/api';
 import { bookingStatusDisplay, tripStatusDisplay } from '@/lib/op/statusLabels';
 import type { BookingStatus, TripStatus } from '@prisma/client';
 import type { BookingQueueRow } from '@/lib/booking/toBookingQueueRow';

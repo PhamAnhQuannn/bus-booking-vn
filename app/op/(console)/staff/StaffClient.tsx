@@ -26,7 +26,7 @@ import {
   createStaffApi,
   renameStaffApi,
   disableStaffApi,
-} from '@/lib/api/staffClient';
+} from '@/lib/api';
 import type { StaffDto } from '@/lib/staff/toStaffDto';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

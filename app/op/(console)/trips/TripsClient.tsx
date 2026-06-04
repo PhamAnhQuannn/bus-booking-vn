@@ -13,7 +13,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { TripDto } from '@/lib/trips/tripDto';
 import type { TripStatus } from '@prisma/client';
-import { cancelTripApi, salesToggleApi, listTripsApi } from '@/lib/api/tripsClient';
+import { cancelTripApi, salesToggleApi, listTripsApi } from '@/lib/api';
 import { tripStatusDisplay } from '@/lib/op/statusLabels';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

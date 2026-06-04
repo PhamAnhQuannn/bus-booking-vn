@@ -9,8 +9,8 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useHoldTimerStore } from '@/lib/state/holdTimerStore';
-import { useBookingStore } from '@/lib/state/bookingStore';
+import { useHoldTimerStore } from '@/lib/state';
+import { useBookingStore } from '@/lib/state';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,

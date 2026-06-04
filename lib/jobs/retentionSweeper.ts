@@ -58,7 +58,7 @@ export const retentionSweeper: JobCore = async (tx, opts) => {
   const { deleteObject } = await import('@/lib/storage');
   const { prisma } = await import('@/lib/core/db/client');
   const { GUEST_PII_RETENTION_DAYS, KYB_DOC_RETENTION_DAYS } = await import(
-    '@/lib/account/retentionPolicy'
+    '@/lib/account'
   );
 
   const now = opts?.now ?? new Date();

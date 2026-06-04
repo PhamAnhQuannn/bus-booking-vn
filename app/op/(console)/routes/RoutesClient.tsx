@@ -17,7 +17,7 @@ import {
   createRouteApi,
   patchRouteApi,
   deactivateRouteApi,
-} from '@/lib/api/routesClient';
+} from '@/lib/api';
 import { routeActiveDisplay } from '@/lib/op/statusLabels';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

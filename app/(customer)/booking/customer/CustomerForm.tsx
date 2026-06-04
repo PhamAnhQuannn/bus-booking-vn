@@ -15,9 +15,9 @@
 import { useActionState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
-import { useBookingStore } from '@/lib/state/bookingStore';
-import { useHoldTimerStore } from '@/lib/state/holdTimerStore';
-import { createHoldRequest } from '@/lib/api/holdsClient';
+import { useBookingStore } from '@/lib/state';
+import { useHoldTimerStore } from '@/lib/state';
+import { createHoldRequest } from '@/lib/api';
 import { getDisplayName, getCustomerPhone } from '@/app/(customer)/auth/register/page';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

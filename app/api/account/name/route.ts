@@ -15,7 +15,7 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { requireCustomerAuth } from '@/lib/auth';
-import { updateName, UpdateNameError } from '@/lib/account/updateName';
+import { updateName, UpdateNameError } from '@/lib/account';
 import { z } from 'zod';
 
 const schema = z.object({
