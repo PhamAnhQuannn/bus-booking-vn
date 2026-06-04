@@ -1,6 +1,8 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import boundaries from "eslint-plugin-boundaries";
+import importX from "eslint-plugin-import-x";
 
 // SYS20 import-boundary lint (Issue 038 scaffolded at 'warn'; Issue 092 / Wave 8 flips to 'error').
 // Domain folders under lib/ — a sibling-domain import from lib/core is a rule-4 violation.
@@ -86,6 +88,44 @@ const eslintConfig = defineConfig([
           ],
         },
       ],
+    },
+  },
+  // SYS20 rule 3 (barrel) + no-cycle — issue 092b Stage 1: wired at 'warn' to MEASURE
+  // the cross-domain reach-in + cycle surface. Stage 3 flips both to 'error' + CI once
+  // the sweep brings the warn count to zero.
+  {
+    files: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}", "lib/**/*.{ts,tsx}"],
+    ignores: ["**/__tests__/**", "**/*.test.{ts,tsx}"],
+    plugins: { boundaries, "import-x": importX },
+    settings: {
+      // First match wins: lib-core before the generic lib-domain capture.
+      "boundaries/elements": [
+        { type: "lib-core", pattern: "lib/core", mode: "folder" },
+        { type: "lib-domain", pattern: "lib/*", mode: "folder", capture: ["domain"] },
+        { type: "app", pattern: "app", mode: "folder" },
+        { type: "components", pattern: "components", mode: "folder" },
+      ],
+      "boundaries/ignore": ["**/__tests__/**", "**/*.test.{ts,tsx}"],
+      "import-x/resolver": {
+        typescript: { project: "./tsconfig.json" },
+        node: true,
+      },
+    },
+    rules: {
+      // Cross-domain imports may only enter a lib-<domain> through its index barrel.
+      // Intra-domain deep imports (same captured domain) are allowed.
+      "boundaries/entry-point": [
+        "warn",
+        {
+          default: "disallow",
+          rules: [
+            { target: ["lib-domain"], allow: "index.{ts,tsx}" },
+            { target: ["lib-core"], allow: "**" },
+            { target: ["app", "components"], allow: "**" },
+          ],
+        },
+      ],
+      "import-x/no-cycle": ["warn", { maxDepth: Infinity, ignoreExternal: true }],
     },
   },
   // Override default ignores of eslint-config-next.
