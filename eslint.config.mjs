@@ -90,9 +90,12 @@ const eslintConfig = defineConfig([
       ],
     },
   },
-  // SYS20 rule 3 (barrel) + no-cycle — issue 092b Stage 1: wired at 'warn' to MEASURE
-  // the cross-domain reach-in + cycle surface. Stage 3 flips both to 'error' + CI once
-  // the sweep brings the warn count to zero.
+  // SYS20 rule 3 (barrel) + no-cycle — issue 092b: ENFORCED at 'error' (Stage 3).
+  // The Stage-2 sweep brought cross-domain reach-ins + cycles to zero; both rules
+  // are now hard gates (run in CI via `pnpm lint`).
+  // TODO(092b follow-up): boundaries/entry-point is deprecated in v6 — migrate to
+  // boundaries/dependencies (object selectors) at a convenient point. It functions
+  // correctly here; the migration is cosmetic (removes the deprecation notice).
   {
     files: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}", "lib/**/*.{ts,tsx}"],
     // app/dev/** is local-only stub scaffolding (stub-pay, stub-storage); it may
@@ -117,7 +120,7 @@ const eslintConfig = defineConfig([
       // Cross-domain imports may only enter a lib-<domain> through its index barrel.
       // Intra-domain deep imports (same captured domain) are allowed.
       "boundaries/entry-point": [
-        "warn",
+        "error",
         {
           default: "disallow",
           rules: [
@@ -127,7 +130,7 @@ const eslintConfig = defineConfig([
           ],
         },
       ],
-      "import-x/no-cycle": ["warn", { maxDepth: Infinity, ignoreExternal: true }],
+      "import-x/no-cycle": ["error", { maxDepth: Infinity, ignoreExternal: true }],
     },
   },
   // Override default ignores of eslint-config-next.
