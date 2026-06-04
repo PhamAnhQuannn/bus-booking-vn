@@ -28,7 +28,7 @@ import { prisma } from '@/lib/core/db/client';
 import { appendLedgerEntry } from '../ledgerRepo';
 import { getOperatorBalance } from '../balance';
 import { requestWithdrawal } from '../withdrawal';
-import { processPayouts } from '@/lib/jobs/processPayouts';
+import { processPayouts } from '@/lib/jobs';
 
 let operatorId: string;
 let routeId: string;

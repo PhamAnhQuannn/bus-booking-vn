@@ -18,7 +18,7 @@ export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import type { AdminAuthContext } from '@/lib/auth';
-import { retryPayout } from '@/lib/ledger/retryPayout';
+import { retryPayout } from '@/lib/ledger';
 import { writeAdminAuditLog } from '@/lib/audit';
 import { prisma } from '@/lib/core/db/client';
 import { financeRoute, payoutIdFromUrl } from '../../../_shared';

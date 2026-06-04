@@ -40,7 +40,7 @@ import { randomUUID } from 'crypto';
 import { z } from 'zod';
 import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { requestWithdrawal } from '@/lib/ledger/withdrawal';
+import { requestWithdrawal } from '@/lib/ledger';
 
 const WithdrawSchema = z.object({
   amountMinor: z.number().int().positive(),

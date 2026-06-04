@@ -19,7 +19,7 @@
  */
 
 import { Prisma } from '@prisma/client';
-import { calcPayout } from '@/lib/ledger/calcPayout';
+import { calcPayout } from '@/lib/ledger';
 import { TripServiceError } from './errors';
 import { randomUUID } from 'crypto';
 

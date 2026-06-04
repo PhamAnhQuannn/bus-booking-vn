@@ -30,7 +30,7 @@
  */
 
 import { Prisma } from '@prisma/client';
-import { settlePayout } from '@/lib/ledger/settlePayout';
+import { settlePayout } from '@/lib/ledger';
 import { captureException } from '@/lib/observability';
 import { logger } from '@/lib/logger';
 import type { JobCore } from './types';
@@ -59,7 +59,7 @@ export const processPayouts: JobCore = async (tx, opts) => {
   // trigger the eager `prisma` singleton (it throws without DATABASE_URL). We
   // pass `tx` to appendLedgerEntry, so its default-client param is never used.
   // Hoisted once (not per-iteration) before the loop.
-  const { appendLedgerEntry } = await import('@/lib/ledger/ledgerRepo');
+  const { appendLedgerEntry } = await import('@/lib/ledger');
   // Issue 078: verified-account guard. Same lazy-import discipline so importing
   // this core in a unit test never eagerly loads the prisma singleton.
   const { isPayoutAccountVerified } = await import('@/lib/onboarding/payoutAccount');

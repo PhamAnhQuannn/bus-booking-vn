@@ -37,7 +37,7 @@ import { sendSmsBody } from '@/lib/notification/esms';
 import { sendEmail } from '@/lib/notification/email';
 import { logger } from '@/lib/logger';
 import { captureException } from '@/lib/observability';
-import type { JobCore, JobOpts } from '@/lib/jobs/types';
+import type { JobCore, JobOpts } from '@/lib/jobs';
 
 /** Max delivery attempts before a row is left permanently failed (not reclaimed). */
 export const MAX_ATTEMPTS = 5;

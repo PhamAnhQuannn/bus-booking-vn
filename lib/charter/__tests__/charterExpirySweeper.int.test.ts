@@ -18,7 +18,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { prisma } from '@/lib/core/db/client';
-import { charterExpirySweeper } from '@/lib/jobs/charterExpirySweeper';
+import { charterExpirySweeper } from '@/lib/jobs';
 import { generateCharterRef } from '../charterRef';
 
 let opId: string;

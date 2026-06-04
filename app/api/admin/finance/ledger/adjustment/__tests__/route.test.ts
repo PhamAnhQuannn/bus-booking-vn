@@ -40,7 +40,7 @@ vi.mock('@/lib/auth/requireStepUp', () => ({
 
 import { POST } from '../route';
 import { NextRequest } from 'next/server';
-import { ManualAdjustmentError } from '@/lib/ledger/addManualAdjustment';
+import { ManualAdjustmentError } from '@/lib/ledger';
 
 function makeRequest(body: unknown): NextRequest {
   return new NextRequest('http://localhost/api/admin/finance/ledger/adjustment', {

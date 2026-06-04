@@ -12,7 +12,7 @@ export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth';
-import { getPayoutReport } from '@/lib/ledger/getPayoutReport';
+import { getPayoutReport } from '@/lib/ledger';
 
 async function getHandler(_req: NextRequest, ctx: OperatorAuthContext): Promise<Response> {
   const rows = await getPayoutReport({ operatorId: ctx.operatorId });

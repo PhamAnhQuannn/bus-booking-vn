@@ -24,7 +24,7 @@ import { listUpcomingForOperator } from "@/lib/trips/listUpcomingForOperator"
 import { getActivityFeed } from "@/lib/op/getActivityFeed"
 import { getTodaySnapshot } from "@/lib/op/getTodaySnapshot"
 import { listRoutesForTripIds } from "@/lib/op/listRoutesForTripIds"
-import { getOperatorBalance } from "@/lib/ledger/balance"
+import { getOperatorBalance } from "@/lib/ledger"
 import { prisma } from "@/lib/core/db/client"
 import { serverNow } from "@/lib/op/dateRanges"
 

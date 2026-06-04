@@ -19,8 +19,8 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { runJob } from '@/lib/jobs/runJob';
-import { generateTrips } from '@/lib/jobs/generateTrips';
+import { runJob } from '@/lib/jobs';
+import { generateTrips } from '@/lib/jobs';
 import { logger } from '@/lib/logger';
 
 export async function GET(req: NextRequest): Promise<Response> {

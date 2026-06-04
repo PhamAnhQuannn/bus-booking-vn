@@ -10,7 +10,7 @@
  */
 
 import { readCsrfToken } from '@/lib/auth';
-import type { PayoutReportRow } from '@/lib/ledger/getPayoutReport';
+import type { PayoutReportRow } from '@/lib/ledger';
 
 export async function listPayoutsApi(): Promise<{ rows: PayoutReportRow[] }> {
   const res = await fetch('/api/op/reports/payouts', { credentials: 'same-origin' });

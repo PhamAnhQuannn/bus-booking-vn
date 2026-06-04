@@ -45,7 +45,7 @@ vi.mock('@prisma/client', () => ({
   },
 }));
 vi.mock('next/server', () => ({ after: vi.fn() }));
-vi.mock('@/lib/ledger/refund', () => ({ refundOut: vi.fn() }));
+vi.mock('@/lib/ledger', () => ({ refundOut: vi.fn() }));
 
 import { reconcilePayments, matchDegraded } from '../reconcilePayments';
 

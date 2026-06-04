@@ -20,7 +20,7 @@
 
 import type { LedgerEntryType } from '@prisma/client';
 import { prisma as defaultPrisma } from '@/lib/core/db/client';
-import { getOperatorBalance, type OperatorBalance } from '@/lib/ledger/balance';
+import { getOperatorBalance, type OperatorBalance } from '@/lib/ledger';
 
 export interface LedgerEntryRow {
   id: string;

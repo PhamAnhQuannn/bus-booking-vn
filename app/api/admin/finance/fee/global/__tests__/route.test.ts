@@ -39,7 +39,7 @@ vi.mock('@/lib/auth/requireStepUp', () => ({
 
 import { POST } from '../route';
 import { NextRequest } from 'next/server';
-import { GlobalFeeError } from '@/lib/ledger/setGlobalFee';
+import { GlobalFeeError } from '@/lib/ledger';
 
 function makeRequest(body: unknown): NextRequest {
   return new NextRequest('http://localhost/api/admin/finance/fee/global', {

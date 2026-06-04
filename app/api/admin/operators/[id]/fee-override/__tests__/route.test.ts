@@ -45,7 +45,7 @@ vi.mock('@/lib/auth/requireStepUp', () => ({
 
 import { POST } from '../route';
 import { NextRequest } from 'next/server';
-import { FeeOverrideError } from '@/lib/ledger/setOperatorFeeOverride';
+import { FeeOverrideError } from '@/lib/ledger';
 
 function makeRequest(body: unknown): NextRequest {
   return new NextRequest('http://localhost/api/admin/operators/op_1/fee-override', {

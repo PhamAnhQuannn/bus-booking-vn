@@ -86,3 +86,17 @@ export {
   type RecordChargebackResult,
   type DisputeEntry,
 } from './chargeback';
+
+// Reporting + payout helpers (reached cross-domain by reports / op pages / jobs).
+export { getRevenueReport, type GetRevenueReportInput, type RevenueRow } from './getRevenueReport';
+export { buildRevenueCsv } from './buildRevenueCsv';
+export { getPayoutReport, type PayoutReportRow, type GetPayoutReportInput } from './getPayoutReport';
+export {
+  getBookingRevenueRows,
+  type BookingRevenueRow,
+  type GetBookingRevenueRowsInput,
+} from './getBookingRevenueRows';
+export { settlePayout, type SettlePayoutInput, type SettlePayoutResult } from './settlePayout';
+export { calcPayout, halfEvenRound, type CalcPayoutInput, type CalcPayoutResult } from './calcPayout';
+export { retryPayout } from './retryPayout';
+export { buildBookingRevenueCsv } from './buildBookingRevenueCsv';

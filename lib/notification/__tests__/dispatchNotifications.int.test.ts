@@ -17,7 +17,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { randomUUID } from 'crypto';
 import { prisma } from '@/lib/core/db/client';
 import { dispatchNotifications } from '../dispatchNotifications';
-import { runJob } from '@/lib/jobs/runJob';
+import { runJob } from '@/lib/jobs';
 
 let operatorId: string;
 let routeId: string;

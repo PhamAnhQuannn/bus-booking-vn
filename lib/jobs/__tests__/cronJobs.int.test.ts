@@ -479,7 +479,7 @@ describe('AC5 processPayouts', () => {
     expect(debits[0].sourceEventId).toBe(`payout_debit:${payoutId}`);
 
     // And the operator's paidOut bucket reflects the debit magnitude.
-    const { getOperatorBalance } = await import('@/lib/ledger/balance');
+    const { getOperatorBalance } = await import('@/lib/ledger');
     const bal = await getOperatorBalance(payout.operatorId);
     expect(bal.paidOut).toBeGreaterThanOrEqual(BigInt(payout.net));
   });

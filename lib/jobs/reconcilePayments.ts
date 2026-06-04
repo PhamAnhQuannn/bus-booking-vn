@@ -192,7 +192,7 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
   const { applyPaidStatusTransition, appendBookingPaidLedger } = await import(
     '@/lib/payment'
   );
-  const { refundOut } = await import('@/lib/ledger/refund');
+  const { refundOut } = await import('@/lib/ledger');
 
   const now = opts?.now ?? new Date();
   const thresholdAt = new Date(now.getTime() - RECONCILE_THRESHOLD_MINUTES * 60_000);

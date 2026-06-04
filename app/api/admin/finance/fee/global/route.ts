@@ -17,7 +17,7 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import type { AdminAuthContext } from '@/lib/auth';
-import { setGlobalFee, GlobalFeeError } from '@/lib/ledger/setGlobalFee';
+import { setGlobalFee, GlobalFeeError } from '@/lib/ledger';
 import { financeRoute, readJsonBody } from '../../_shared';
 
 const bodySchema = z.object({ ratePpm: z.number().int() });

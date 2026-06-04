@@ -23,8 +23,8 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { runJob } from '@/lib/jobs/runJob';
-import { retentionSweeper } from '@/lib/jobs/retentionSweeper';
+import { runJob } from '@/lib/jobs';
+import { retentionSweeper } from '@/lib/jobs';
 import { logger } from '@/lib/logger';
 
 export async function GET(req: NextRequest): Promise<Response> {

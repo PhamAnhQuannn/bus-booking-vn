@@ -15,7 +15,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth';
 import { requireStepUp } from '@/lib/auth';
-import { setOperatorFeeOverride, FeeOverrideError } from '@/lib/ledger/setOperatorFeeOverride';
+import { setOperatorFeeOverride, FeeOverrideError } from '@/lib/ledger';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { operatorIdFromUrl } from '../_shared';
 
