@@ -11,7 +11,7 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth/requireOperatorAuth';
+import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth';
 import { getPayoutReport } from '@/lib/ledger/getPayoutReport';
 
 async function getHandler(_req: NextRequest, ctx: OperatorAuthContext): Promise<Response> {

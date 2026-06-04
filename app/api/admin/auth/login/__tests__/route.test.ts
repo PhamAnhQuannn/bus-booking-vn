@@ -17,7 +17,7 @@ const { mockAdminLogin, mockIssueAdminSession, mockRatelimit, mockCookieStore } 
 
 vi.mock('@/lib/auth/adminAuthService', () => ({ adminLogin: mockAdminLogin }));
 vi.mock('@/lib/auth/adminSession', () => ({ issueAdminSession: mockIssueAdminSession }));
-vi.mock('@/lib/ratelimit', () => ({ ratelimit: mockRatelimit }));
+vi.mock('@/lib/ratelimit', async (importOriginal) => ({ ...(await importOriginal()), ratelimit: mockRatelimit }));
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => mockCookieStore) }));
 
 import { POST } from '../route';

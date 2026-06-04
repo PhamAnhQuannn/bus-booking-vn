@@ -7,7 +7,7 @@
  */
 
 import { prisma } from '@/lib/core/db/client';
-import { verify as verifyPassword, hash as hashPassword } from '@/lib/auth/password';
+import { verify as verifyPassword, hash as hashPassword } from '@/lib/auth';
 
 export type ChangePasswordErrorCode =
   | 'CURRENT_PASSWORD_WRONG'

@@ -10,7 +10,19 @@ export {
 export { beginEnrollment, confirmEnrollment, verifyLoginTotp } from './adminTotp';
 export { login, logout, refresh, register, verifyOtp, AuthServiceError } from './authService';
 export { readCsrfToken } from './csrfClient';
-export { signAdminStepUp, verifyOperatorAccess } from './jwt';
+export {
+  signAccess,
+  verifyAccess,
+  signOperatorAccess,
+  verifyOperatorAccess,
+  signAdminAccess,
+  signAdminStepUp,
+  verifyAdminStepUp,
+  verifyAdminAccess,
+  type AccessPayload,
+  type OperatorAccessPayload,
+  type AdminAccessPayload,
+} from './jwt';
 export { operatorLogin } from './operatorAuthService';
 export { sendOperatorPasswordResetOtp, verifyOperatorOtp } from './operatorOtp';
 export {

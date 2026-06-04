@@ -12,7 +12,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { readCsrfToken } from '@/lib/auth/csrfClient';
+import { readCsrfToken } from '@/lib/auth';
 
 type Step = 'credentials' | 'totp';
 

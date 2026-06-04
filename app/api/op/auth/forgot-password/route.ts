@@ -10,8 +10,8 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { ForgotPasswordSchema } from '@/lib/auth/types';
-import { sendOperatorPasswordResetOtp } from '@/lib/auth/operatorOtp';
+import { ForgotPasswordSchema } from '@/lib/auth';
+import { sendOperatorPasswordResetOtp } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { prisma } from '@/lib/core/db/client';
 import { normalizePhone } from '@/lib/core/validation/phone';

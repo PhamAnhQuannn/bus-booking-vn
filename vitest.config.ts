@@ -11,7 +11,7 @@ export default defineConfig({
     // Integration tests (*.int.test.ts) require a live DB — run via `pnpm vitest:int`
     // or `pnpm test:all` (unit + int). Issue 007 AC4 race test lives in otp.int.test.ts.
     exclude: ['node_modules', '.next', 'e2e', '**/*.int.test.ts'],
-    setupFiles: [],
+    setupFiles: ['./vitest.setup.ts'],
     reporters: ['default'],
     coverage: {
       provider: 'v8',

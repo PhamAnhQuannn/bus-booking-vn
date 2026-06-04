@@ -15,7 +15,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import type { PayoutStatus } from '@prisma/client';
 
-import { requireAdminPage } from '@/lib/auth/requireAdminPage';
+import { requireAdminPage } from '@/lib/auth';
 import { getOperatorDetail } from '@/lib/admin/getOperatorDetail';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

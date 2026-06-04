@@ -11,8 +11,8 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth/requireAdminAuth';
-import { requireStepUp } from '@/lib/auth/requireStepUp';
+import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth';
+import { requireStepUp } from '@/lib/auth';
 import { transitionOperatorStatus } from '@/lib/onboarding/operatorStatus';
 import { OperatorStatusError } from '@/lib/onboarding/errors';
 import { withErrorHandler } from '@/lib/withErrorHandler';

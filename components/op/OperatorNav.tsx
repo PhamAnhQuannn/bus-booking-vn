@@ -22,7 +22,7 @@ import {
 import { useOperatorNav } from "@/components/op/OperatorNavContext"
 import { Badge } from "@/components/ui/badge"
 import { Logo } from "@/components/brand/Logo"
-import { readCsrfToken } from "@/lib/auth/csrfClient"
+import { readCsrfToken } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 
 export interface OperatorNavProps {

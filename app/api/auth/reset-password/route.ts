@@ -17,7 +17,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { resetPassword, ResetPasswordError } from '@/lib/account/resetPassword';
 import { z } from 'zod';
-import { passwordSchema } from '@/lib/auth/types';
+import { passwordSchema } from '@/lib/auth';
 
 const schema = z.object({
   otpProof: z.string().min(1),

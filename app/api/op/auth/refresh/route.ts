@@ -13,7 +13,7 @@ export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { rotateOperatorRefresh, verifyOpRefreshToken } from '@/lib/auth/operatorSession';
+import { rotateOperatorRefresh, verifyOpRefreshToken } from '@/lib/auth';
 import { prisma } from '@/lib/core/db/client';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 

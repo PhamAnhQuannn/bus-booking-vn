@@ -21,7 +21,7 @@
  * "new charter request" notification (there is no admin push-recipient to email).
  */
 
-import { requireAdminPage } from '@/lib/auth/requireAdminPage';
+import { requireAdminPage } from '@/lib/auth';
 import { prisma } from '@/lib/core/db/client';
 import {
   getCharterDispatchQueue,

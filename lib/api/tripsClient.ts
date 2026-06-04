@@ -7,7 +7,7 @@
  * Used by operator UI pages (app/op/trips/**, app/op/trip-templates/**).
  */
 
-import { readCsrfToken } from '@/lib/auth/csrfClient';
+import { readCsrfToken } from '@/lib/auth';
 import type { TripDto, TemplateDto } from '@/lib/trips/tripDto';
 
 // ---------------------------------------------------------------------------

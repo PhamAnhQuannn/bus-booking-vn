@@ -19,7 +19,7 @@
  * body — timestamps come from each row's own value, rendered via a pure formatter.
  */
 
-import { requireAdminPage } from '@/lib/auth/requireAdminPage';
+import { requireAdminPage } from '@/lib/auth';
 import { prisma } from '@/lib/core/db/client';
 import { getFlag } from '@/lib/flags/flags';
 import { FLAG_KEYS } from '@/lib/flags/keys';

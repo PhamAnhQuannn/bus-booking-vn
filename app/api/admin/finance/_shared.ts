@@ -13,8 +13,8 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth/requireAdminAuth';
-import { requireStepUp } from '@/lib/auth/requireStepUp';
+import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth';
+import { requireStepUp } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 type FinanceHandler = (req: NextRequest, ctx: AdminAuthContext) => Promise<Response>;

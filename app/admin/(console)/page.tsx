@@ -26,7 +26,7 @@
 
 import Link from 'next/link';
 
-import { requireAdminPage } from '@/lib/auth/requireAdminPage';
+import { requireAdminPage } from '@/lib/auth';
 import { getAdminMetrics } from '@/lib/analytics/getAdminMetrics';
 import { getActionQueue } from '@/lib/admin/getActionQueue';
 import { getFailureAlerts } from '@/lib/admin/getFailureAlerts';

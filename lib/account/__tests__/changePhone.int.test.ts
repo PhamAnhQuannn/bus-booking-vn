@@ -10,7 +10,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { prisma } from '@/lib/core/db/client';
-import { hash as hashPassword } from '@/lib/auth/password';
+import { hash as hashPassword } from '@/lib/auth';
 import { changePhone, ChangePhoneError } from '../changePhone';
 
 const vnPhone = (n: number) => '+84' + '90000000' + String(n);

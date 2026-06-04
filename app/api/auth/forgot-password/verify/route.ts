@@ -19,9 +19,9 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { ForgotPasswordVerifySchema } from '@/lib/auth/types';
+import { ForgotPasswordVerifySchema } from '@/lib/auth';
 import { verifyCustomerAccountOtp } from '@/lib/account/customerOtp';
-import { issueOtpProof } from '@/lib/auth/otpProof';
+import { issueOtpProof } from '@/lib/auth';
 import { normalizePhone } from '@/lib/core/validation/phone';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 

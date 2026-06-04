@@ -15,9 +15,9 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { cookies } from 'next/headers';
-import { confirmEnrollment } from '@/lib/auth/adminTotp';
-import { issueAdminSession } from '@/lib/auth/adminSession';
-import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth/requireAdminAuth';
+import { confirmEnrollment } from '@/lib/auth';
+import { issueAdminSession } from '@/lib/auth';
+import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 const ACCESS_COOKIE_MAX_AGE = 10 * 60; // 600s — matches ADMIN_ACCESS_TTL_SECONDS

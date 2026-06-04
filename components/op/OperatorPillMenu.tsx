@@ -7,7 +7,7 @@ import { Menu } from "@base-ui/react/menu"
 import { ChevronDownIcon, LogOutIcon, UserCircleIcon } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
-import { readCsrfToken } from "@/lib/auth/csrfClient"
+import { readCsrfToken } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 
 interface OperatorPillMenuProps {

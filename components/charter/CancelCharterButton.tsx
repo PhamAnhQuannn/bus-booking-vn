@@ -15,7 +15,7 @@ import { useRouter } from 'next/navigation';
 import { XCircle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { readCsrfToken } from '@/lib/auth/csrfClient';
+import { readCsrfToken } from '@/lib/auth';
 
 export function CancelCharterButton({ charterRef }: { charterRef: string }) {
   const router = useRouter();

@@ -15,8 +15,8 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { cookies } from 'next/headers';
-import { adminLogin } from '@/lib/auth/adminAuthService';
-import { issueAdminSession } from '@/lib/auth/adminSession';
+import { adminLogin } from '@/lib/auth';
+import { issueAdminSession } from '@/lib/auth';
 import { ratelimit } from '@/lib/ratelimit';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 

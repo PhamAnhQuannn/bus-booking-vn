@@ -27,7 +27,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/core/db/client';
 import { createCharterRequest } from '@/lib/charter';
-import { getCustomerOptional } from '@/lib/auth/requireCustomerAuth';
+import { getCustomerOptional } from '@/lib/auth';
 import { charterRatelimit } from '@/lib/ratelimit';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 

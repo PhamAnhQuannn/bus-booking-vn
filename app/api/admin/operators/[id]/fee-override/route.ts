@@ -13,8 +13,8 @@ export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth/requireAdminAuth';
-import { requireStepUp } from '@/lib/auth/requireStepUp';
+import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth';
+import { requireStepUp } from '@/lib/auth';
 import { setOperatorFeeOverride, FeeOverrideError } from '@/lib/ledger/setOperatorFeeOverride';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { operatorIdFromUrl } from '../_shared';

@@ -13,7 +13,7 @@ const { mockCreate, mockLimit, mockGetCustomerOptional } = vi.hoisted(() => ({
 
 vi.mock('@/lib/core/db/client', () => ({ prisma: {} }));
 vi.mock('@/lib/charter', () => ({ createCharterRequest: mockCreate }));
-vi.mock('@/lib/ratelimit', () => ({ charterRatelimit: { limit: mockLimit } }));
+vi.mock('@/lib/ratelimit', async (importOriginal) => ({ ...(await importOriginal()), charterRatelimit: { limit: mockLimit } }));
 vi.mock('@/lib/auth/requireCustomerAuth', () => ({ getCustomerOptional: mockGetCustomerOptional }));
 
 import { POST } from '../route';

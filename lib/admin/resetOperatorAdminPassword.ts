@@ -17,7 +17,7 @@
  */
 
 import type { PrismaClient } from '@prisma/client';
-import { hash } from '@/lib/auth/password';
+import { hash } from '@/lib/auth';
 import { genTempPassword } from '@/lib/staff/genTempPassword';
 import { sendSms } from '@/lib/notification/esms';
 import { writeAdminAuditLog } from '@/lib/audit/adminAuditLog';

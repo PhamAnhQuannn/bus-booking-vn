@@ -9,7 +9,7 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { requireCustomerAuth, type CustomerAuthContext } from '@/lib/auth/requireCustomerAuth';
+import { requireCustomerAuth, type CustomerAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import {
   listCustomerBookings,

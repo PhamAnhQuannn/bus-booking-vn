@@ -11,10 +11,10 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { ForgotPasswordResetSchema } from '@/lib/auth/types';
-import { verifyOtpProof } from '@/lib/auth/otpProof';
-import { hash as hashPassword } from '@/lib/auth/password';
-import { revokeAllOperatorSessions } from '@/lib/auth/operatorSession';
+import { ForgotPasswordResetSchema } from '@/lib/auth';
+import { verifyOtpProof } from '@/lib/auth';
+import { hash as hashPassword } from '@/lib/auth';
+import { revokeAllOperatorSessions } from '@/lib/auth';
 import { prisma } from '@/lib/core/db/client';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 

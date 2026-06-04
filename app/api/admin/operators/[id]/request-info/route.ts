@@ -13,7 +13,7 @@ export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth/requireAdminAuth';
+import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth';
 import { requestOperatorInfo } from '@/lib/onboarding/requestOperatorInfo';
 import { OperatorStatusError } from '@/lib/onboarding/errors';
 import { withErrorHandler } from '@/lib/withErrorHandler';

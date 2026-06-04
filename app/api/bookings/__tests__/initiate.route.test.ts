@@ -28,7 +28,8 @@ vi.mock('@/lib/security/holdCookie', () => ({
   COOKIE_NAME: 'bb_hold',
 }));
 
-vi.mock('@/lib/ratelimit', () => ({
+vi.mock('@/lib/ratelimit', async (importOriginal) => ({
+  ...(await importOriginal()),
   ratelimit: {
     limit: vi.fn(),
   },
@@ -437,7 +438,7 @@ describe('POST /api/bookings/initiate — rate limit', () => {
 
 describe('POST /api/bookings/initiate — customerId stamping (Issue 031)', () => {
   it('threads the signed-in customerId to the online orchestrator when a Bearer token is present', async () => {
-    const { signAccess } = await import('@/lib/auth/jwt');
+    const { signAccess } = await import('@/lib/auth');
     const token = await signAccess({ sub: 'cust-online', role: 'customer' });
 
     allowRatelimit();

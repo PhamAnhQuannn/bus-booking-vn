@@ -19,7 +19,7 @@ import crypto from 'crypto';
 import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import { normalizePhone } from '@/lib/core/validation/phone';
-import { generateCode, generateSalt, hashCode } from '@/lib/auth/otp';
+import { generateCode, generateSalt, hashCode } from '@/lib/auth';
 import { sendSms } from '@/lib/notification/esms';
 import { createRatelimit } from '@/lib/ratelimit';
 

@@ -17,7 +17,7 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth/requireAdminAuth';
+import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { prisma } from '@/lib/core/db/client';
 import { createSignedDownloadUrl } from '@/lib/storage';

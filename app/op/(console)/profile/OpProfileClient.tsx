@@ -7,7 +7,7 @@
 
 import { useState } from 'react';
 import type { OperatorProfile } from '@/lib/op/getOperatorProfile';
-import { readCsrfToken } from '@/lib/auth/csrfClient';
+import { readCsrfToken } from '@/lib/auth';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';

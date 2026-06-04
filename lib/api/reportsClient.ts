@@ -9,7 +9,7 @@
  * Used by operator UI (app/op/(console)/reports/payouts/**).
  */
 
-import { readCsrfToken } from '@/lib/auth/csrfClient';
+import { readCsrfToken } from '@/lib/auth';
 import type { PayoutReportRow } from '@/lib/ledger/getPayoutReport';
 
 export async function listPayoutsApi(): Promise<{ rows: PayoutReportRow[] }> {

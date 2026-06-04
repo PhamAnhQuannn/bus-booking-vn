@@ -15,7 +15,7 @@
  * "View" affordance per doc that mints a fresh signed GET URL on demand (audited).
  */
 
-import { requireAdminPage } from '@/lib/auth/requireAdminPage';
+import { requireAdminPage } from '@/lib/auth';
 import { getApprovalQueue, type ApprovalQueueOperator } from '@/lib/admin/getApprovalQueue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

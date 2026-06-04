@@ -7,7 +7,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { prisma } from '@/lib/core/db/client';
-import { hash as hashPassword } from '@/lib/auth/password';
+import { hash as hashPassword } from '@/lib/auth';
 import { changePassword, ChangePasswordError } from '../changePassword';
 
 const TEST_PHONE = '+8490xxxxxx3';

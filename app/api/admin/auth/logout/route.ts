@@ -10,7 +10,7 @@ export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { verifyAdminRefreshToken, revokeAdminSession } from '@/lib/auth/adminSession';
+import { verifyAdminRefreshToken, revokeAdminSession } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 async function handler(_req: NextRequest): Promise<Response> {

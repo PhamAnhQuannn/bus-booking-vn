@@ -13,7 +13,7 @@ export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import type { AdminAuthContext } from '@/lib/auth/requireAdminAuth';
+import type { AdminAuthContext } from '@/lib/auth';
 import { addManualAdjustment, ManualAdjustmentError } from '@/lib/ledger/addManualAdjustment';
 import { financeRoute, readJsonBody } from '../../_shared';
 

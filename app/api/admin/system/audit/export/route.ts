@@ -18,7 +18,7 @@ export const runtime = 'nodejs';
 
 import type { NextRequest } from 'next/server';
 import { prisma } from '@/lib/core/db/client';
-import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth/requireAdminAuth';
+import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { getAuditLog, auditLogToCsv } from '@/lib/admin/getAuditLog';
 

@@ -20,9 +20,9 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { cookies } from 'next/headers';
-import { verifyLoginTotp } from '@/lib/auth/adminTotp';
-import { issueAdminSession } from '@/lib/auth/adminSession';
-import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth/requireAdminAuth';
+import { verifyLoginTotp } from '@/lib/auth';
+import { issueAdminSession } from '@/lib/auth';
+import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth';
 import { adminTotpRatelimit, adminTotpLockout } from '@/lib/ratelimit';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 

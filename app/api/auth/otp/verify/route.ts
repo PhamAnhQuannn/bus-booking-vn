@@ -11,10 +11,10 @@ export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { otpVerifyInput } from '@/lib/core/validation/auth';
-import { verifyOtp } from '@/lib/auth/authService';
+import { verifyOtp } from '@/lib/auth';
 import { normalizePhone } from '@/lib/core/validation/phone';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { issueOtpProof } from '@/lib/auth/otpProof';
+import { issueOtpProof } from '@/lib/auth';
 
 async function handler(req: NextRequest): Promise<Response> {
   let body: unknown;

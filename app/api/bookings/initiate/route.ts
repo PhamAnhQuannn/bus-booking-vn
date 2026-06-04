@@ -24,7 +24,7 @@ import { z } from 'zod';
 import { initiateOnlineBooking } from '@/lib/booking/initiateOnlineBooking';
 import { CONSENT_VERSION } from '@/lib/booking/consent';
 import { extractHoldCookie } from '@/lib/security/holdCookie';
-import { getCustomerOptional } from '@/lib/auth/requireCustomerAuth';
+import { getCustomerOptional } from '@/lib/auth';
 import { ratelimit } from '@/lib/ratelimit';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { track, sessionIdFromRequest } from '@/lib/analytics/track';

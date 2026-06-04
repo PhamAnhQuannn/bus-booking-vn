@@ -17,7 +17,8 @@ vi.mock('@/lib/onboarding/registerOperator', async () => {
   );
   return { ...actual, registerOperator: mockRegisterOperator };
 });
-vi.mock('@/lib/ratelimit', () => ({
+vi.mock('@/lib/ratelimit', async (importOriginal) => ({
+  ...(await importOriginal()),
   opRegisterRatelimit: { limit: mockLimit },
 }));
 

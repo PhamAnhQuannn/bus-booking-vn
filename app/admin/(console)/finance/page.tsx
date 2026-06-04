@@ -23,7 +23,7 @@
 import Link from 'next/link';
 import type { PayoutStatus } from '@prisma/client';
 
-import { requireAdminPage } from '@/lib/auth/requireAdminPage';
+import { requireAdminPage } from '@/lib/auth';
 import { getPayoutQueue, type PayoutQueueRow } from '@/lib/admin/getPayoutQueue';
 import { getLedgerView } from '@/lib/admin/getLedgerView';
 import { getEffectiveFeeRate } from '@/lib/ledger/feeConfig';

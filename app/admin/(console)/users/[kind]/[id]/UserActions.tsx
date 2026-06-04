@@ -17,7 +17,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { readCsrfToken } from '@/lib/auth/csrfClient';
+import { readCsrfToken } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 

@@ -18,7 +18,7 @@
 
 import type { PrismaClient } from '@prisma/client';
 import { Prisma } from '@prisma/client';
-import { hash } from '@/lib/auth/password';
+import { hash } from '@/lib/auth';
 import { writeAdminAuditLog } from '@/lib/audit/adminAuditLog';
 import { AdminServiceError } from './errors';
 

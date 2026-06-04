@@ -9,7 +9,7 @@
  */
 
 import { cookies } from 'next/headers';
-import { verifyOperatorAccess } from '@/lib/auth/jwt';
+import { verifyOperatorAccess } from '@/lib/auth';
 import { prisma } from '@/lib/core/db/client';
 
 export interface OperatorProfile {

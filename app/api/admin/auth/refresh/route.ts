@@ -13,7 +13,7 @@ export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { rotateAdminRefresh, verifyAdminRefreshToken } from '@/lib/auth/adminSession';
+import { rotateAdminRefresh, verifyAdminRefreshToken } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 const ACCESS_COOKIE_MAX_AGE = 10 * 60; // 600s
@@ -72,7 +72,7 @@ async function handler(_req: NextRequest): Promise<Response> {
   });
 
   // Decode the role from the freshly-minted access token to echo it back.
-  const { verifyAdminAccess } = await import('@/lib/auth/jwt');
+  const { verifyAdminAccess } = await import('@/lib/auth');
   const payload = await verifyAdminAccess(result.accessToken);
   return NextResponse.json({ role: payload?.role ?? null });
 }

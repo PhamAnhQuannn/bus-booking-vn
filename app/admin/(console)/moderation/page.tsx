@@ -14,7 +14,7 @@
  * rendered from DB columns via toLocaleString only.
  */
 
-import { requireAdminPage } from '@/lib/auth/requireAdminPage';
+import { requireAdminPage } from '@/lib/auth';
 import { getOpenReports, getModeratedItems } from '@/lib/admin/getModerationQueue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

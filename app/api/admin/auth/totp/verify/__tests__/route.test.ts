@@ -25,7 +25,8 @@ const {
 
 vi.mock('@/lib/auth/adminTotp', () => ({ verifyLoginTotp: mockVerifyLoginTotp }));
 vi.mock('@/lib/auth/adminSession', () => ({ issueAdminSession: mockIssueAdminSession }));
-vi.mock('@/lib/ratelimit', () => ({
+vi.mock('@/lib/ratelimit', async (importOriginal) => ({
+  ...(await importOriginal()),
   adminTotpRatelimit: mockThrottle,
   adminTotpLockout: mockLockout,
 }));

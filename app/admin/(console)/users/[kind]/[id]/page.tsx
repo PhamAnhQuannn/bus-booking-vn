@@ -13,7 +13,7 @@
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 
-import { requireAdminPage } from '@/lib/auth/requireAdminPage';
+import { requireAdminPage } from '@/lib/auth';
 import { getCustomerDetail } from '@/lib/admin/getUserDetail';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

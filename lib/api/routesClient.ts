@@ -11,7 +11,7 @@
  * Used by app/op/(console)/routes/RoutesClient.tsx + PickupPointsPanel.tsx.
  */
 
-import { readCsrfToken } from '@/lib/auth/csrfClient';
+import { readCsrfToken } from '@/lib/auth';
 
 export interface RouteItem {
   id: string;

@@ -36,7 +36,7 @@
 
 import type { PrismaClient } from '@prisma/client';
 import { Prisma } from '@prisma/client';
-import { hash } from '@/lib/auth/password';
+import { hash } from '@/lib/auth';
 import { normalizePhone } from '@/lib/core/validation/phone';
 import { createNotificationLog } from '@/lib/core/db/notificationLogRepo';
 import { generateApplicationRef } from './applicationRef';

@@ -16,7 +16,7 @@
 
 import Link from 'next/link';
 
-import { requireAdminPage } from '@/lib/auth/requireAdminPage';
+import { requireAdminPage } from '@/lib/auth';
 import { searchUsers, type UserKind, type UserStatus } from '@/lib/admin/searchUsers';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

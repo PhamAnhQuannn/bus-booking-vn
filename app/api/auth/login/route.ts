@@ -19,8 +19,8 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { loginInput } from '@/lib/core/validation/auth';
-import { login, AuthServiceError } from '@/lib/auth/authService';
-import { operatorLogin } from '@/lib/auth/operatorAuthService';
+import { login, AuthServiceError } from '@/lib/auth';
+import { operatorLogin } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 const REFRESH_COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days in seconds

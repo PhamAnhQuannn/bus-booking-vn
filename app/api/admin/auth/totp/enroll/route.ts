@@ -14,8 +14,8 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { beginEnrollment } from '@/lib/auth/adminTotp';
-import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth/requireAdminAuth';
+import { beginEnrollment } from '@/lib/auth';
+import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 async function handler(_req: NextRequest, ctx: AdminAuthContext): Promise<Response> {

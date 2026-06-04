@@ -11,7 +11,7 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth/requireOperatorAuth';
+import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { getTemplate, patchTemplate } from '@/lib/trips/generateFromTemplate';
 import { PatchRecurringTemplateSchema } from '@/lib/core/validation/trip';
