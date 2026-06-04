@@ -38,7 +38,7 @@
 
 import type { PrismaClient } from '@prisma/client';
 import { Prisma } from '@prisma/client';
-import { resolveOrCreatePlace } from '@/lib/places/placeRepo';
+import { resolveOrCreatePlace } from '@/lib/places';
 import { createNotificationLog } from '@/lib/core/db/notificationLogRepo';
 import { generateCharterRef } from './charterRef';
 

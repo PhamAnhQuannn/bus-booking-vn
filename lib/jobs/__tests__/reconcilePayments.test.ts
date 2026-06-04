@@ -33,7 +33,7 @@ vi.mock('@/lib/payment/applyPaidTransition', () => ({
   applyPaidStatusTransition: mockApplyPaid,
   appendBookingPaidLedger: mockAppendLedger,
 }));
-vi.mock('@/lib/notification/esms', () => ({ renderTemplate: mockRenderTemplate }));
+vi.mock('@/lib/notification', () => ({ renderTemplate: mockRenderTemplate }));
 vi.mock('@/lib/logger', () => ({ logger: mockLogger }));
 vi.mock('@/lib/booking/transitions', () => ({ legalPredecessors: mockLegalPredecessors }));
 // Prisma.sql / Prisma.join are passthroughs — the stub tx ignores the SQL and

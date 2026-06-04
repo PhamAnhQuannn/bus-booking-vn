@@ -83,7 +83,7 @@ import { POST } from '../route';
 import { getMomoAdapter } from '@/lib/payment/adapters/momo';
 import { prisma } from '@/lib/core/db/client';
 import { createNotificationLog } from '@/lib/core/db/notificationLogRepo';
-import { sendSms, sendSmsBody } from '@/lib/notification/esms';
+import { sendSms, sendSmsBody } from '@/lib/notification';
 import { appendLedgerEntry } from '@/lib/ledger';
 import { logger } from '@/lib/logger';
 import { Prisma } from '@prisma/client';

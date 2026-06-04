@@ -28,8 +28,8 @@ import {
   renderToBuffer,
 } from '@react-pdf/renderer';
 import type { ReactElement } from 'react';
-import { ticketQrMatrix } from '@/lib/ticketing/qr';
-import { mintTicketToken } from '@/lib/ticketing/ticketToken';
+import { ticketQrMatrix } from '@/lib/ticketing';
+import { mintTicketToken } from '@/lib/ticketing';
 import type { CustomerBookingDetail } from './getCustomerBookingDetail';
 
 const styles = StyleSheet.create({

@@ -118,7 +118,7 @@ describe('POST /api/holds', () => {
     // buildSetCookieHeader mock returns: `bb_hold=<holdId>.<expiresAt>.fakesig; HttpOnly`
     // Since the route constructs `new Response(..., {headers: {'Set-Cookie': setCookieHeader}})`,
     // verify by checking the mock was called with the right holdId.
-    const { buildSetCookieHeader } = await import('@/lib/security/holdCookie');
+    const { buildSetCookieHeader } = await import('@/lib/security');
     expect(buildSetCookieHeader).toHaveBeenCalledWith(
       MOCK_HOLD_RESULT.holdId,
       MOCK_HOLD_RESULT.expiresAt.toISOString()

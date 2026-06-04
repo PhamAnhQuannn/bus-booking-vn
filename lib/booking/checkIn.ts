@@ -30,7 +30,7 @@
  */
 
 import { Prisma, type PrismaClient } from '@prisma/client';
-import { verifyTicketToken } from '@/lib/ticketing/ticketToken';
+import { verifyTicketToken } from '@/lib/ticketing';
 
 /** Booking statuses that mean the seat is paid and the passenger may board. */
 export const BOARDABLE_STATUSES = ['paid', 'completed'] as const;

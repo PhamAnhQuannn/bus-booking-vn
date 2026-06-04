@@ -15,9 +15,9 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, Armchair } from 'lucide-react';
 import { searchParamsSchema, searchFiltersSchema } from '@/lib/core/validation/search';
-import { track } from '@/lib/analytics/track';
+import { track } from '@/lib/analytics';
 import { searchTrips, SEARCH_PAGE_LIMIT, type TripResult } from '@/lib/trips/searchTrips';
-import { applyTripFilters, type TripFacets } from '@/lib/search/applyTripFilters';
+import { applyTripFilters, type TripFacets } from '@/lib/search';
 import { SearchFormWrapper } from '@/components/search/SearchFormWrapper';
 import { SearchForm } from '@/components/search/SearchForm';
 import { SearchStoreHydrator } from '@/components/search/SearchStoreHydrator';
@@ -25,7 +25,7 @@ import { SearchFilterRail, SearchToolbar } from '@/components/search/SearchFilte
 import { BookButton } from '@/components/search/BookButton';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { getSearchablePlaces } from '@/lib/places/getSearchablePlaces';
+import { getSearchablePlaces } from '@/lib/places';
 
 const BUS_TYPE_LABEL: Record<'coach' | 'sleeper' | 'limousine', string> = {
   coach: 'Ghế ngồi',

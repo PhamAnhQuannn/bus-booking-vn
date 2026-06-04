@@ -20,7 +20,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import type { AdminAuthContext } from '@/lib/auth';
 import { recordChargeback, ChargebackError } from '@/lib/ledger/chargeback';
-import { writeAdminAuditLog } from '@/lib/audit/adminAuditLog';
+import { writeAdminAuditLog } from '@/lib/audit';
 import { prisma } from '@/lib/core/db/client';
 import { financeRoute, readJsonBody } from '../_shared';
 

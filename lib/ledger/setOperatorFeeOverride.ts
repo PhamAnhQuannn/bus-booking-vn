@@ -32,7 +32,7 @@
 
 import { prisma as defaultPrisma } from '@/lib/core/db/client';
 import { withOperatorScope } from '@/lib/core/db';
-import { writeAdminAuditLog } from '@/lib/audit/adminAuditLog';
+import { writeAdminAuditLog } from '@/lib/audit';
 
 /** Upper bound for a per-operator override: 200000 ppm = 20%. */
 export const MAX_FEE_OVERRIDE_PPM = 200_000;

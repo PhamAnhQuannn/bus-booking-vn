@@ -15,7 +15,7 @@
  */
 
 import type { PrismaClient } from '@prisma/client';
-import { writeAdminAuditLog, type AdminAuditLogClient } from '@/lib/audit/adminAuditLog';
+import { writeAdminAuditLog, type AdminAuditLogClient } from '@/lib/audit';
 
 /** Result of the pure name-match scorer. */
 export interface NameMatchResult {

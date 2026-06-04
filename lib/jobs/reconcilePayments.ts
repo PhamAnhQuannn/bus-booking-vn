@@ -186,7 +186,7 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
   // of the DB client (mirrors charterExpirySweeper / generateTrips).
   const { Prisma } = await import('@prisma/client');
   const { after } = await import('next/server');
-  const { renderTemplate } = await import('@/lib/notification/esms');
+  const { renderTemplate } = await import('@/lib/notification');
   const { logger } = await import('@/lib/logger');
   const { legalPredecessors } = await import('@/lib/booking/transitions');
   const { applyPaidStatusTransition, appendBookingPaidLedger } = await import(

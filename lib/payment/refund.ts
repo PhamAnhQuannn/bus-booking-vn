@@ -18,7 +18,7 @@
  * is the side-effecting PSP call that the ledger layer guards against replaying.
  */
 
-import { getEnv } from '@/lib/config/env';
+import { getEnv } from '@/lib/config';
 import { refundPaymentStub } from './adapters/stub';
 
 export interface RefundPaymentInput {

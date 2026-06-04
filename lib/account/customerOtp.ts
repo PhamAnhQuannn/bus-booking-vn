@@ -20,7 +20,7 @@ import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import { normalizePhone } from '@/lib/core/validation/phone';
 import { generateCode, generateSalt, hashCode } from '@/lib/auth';
-import { sendSms } from '@/lib/notification/esms';
+import { sendSms } from '@/lib/notification';
 import { createRatelimit } from '@/lib/ratelimit';
 
 const OTP_TTL_SECONDS = 5 * 60;    // 5 minutes

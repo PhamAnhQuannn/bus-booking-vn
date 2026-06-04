@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import type { TripFacets } from '@/lib/search/applyTripFilters';
+import type { TripFacets } from '@/lib/search';
 import { SORT_OPTIONS, type BusType, type TimeWindow } from '@/lib/core/validation/search';
 
 const SORT_LABEL: Record<(typeof SORT_OPTIONS)[number], string> = {

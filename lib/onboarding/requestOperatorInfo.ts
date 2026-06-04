@@ -14,7 +14,7 @@
  */
 
 import { prisma } from '@/lib/core/db/client';
-import { writeAdminAuditLog } from '@/lib/audit/adminAuditLog';
+import { writeAdminAuditLog } from '@/lib/audit';
 import { OperatorStatusError } from './errors';
 
 export interface RequestOperatorInfoInput {

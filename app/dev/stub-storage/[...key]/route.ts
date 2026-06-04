@@ -13,7 +13,7 @@
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { getEnv } from '@/lib/config/env';
+import { getEnv } from '@/lib/config';
 import { verifyStubSignature } from '@/lib/storage';
 // Issue 074: the byte store is shared (lib/storage/stubStore) so the server-side
 // putObject() upload path writes into the SAME Map this GET route reads from.

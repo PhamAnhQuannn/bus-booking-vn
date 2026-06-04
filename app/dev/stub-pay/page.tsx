@@ -11,7 +11,7 @@
  */
 
 import { notFound } from 'next/navigation';
-import { getEnv } from '@/lib/config/env';
+import { getEnv } from '@/lib/config';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { submitStubPayment } from './actions';

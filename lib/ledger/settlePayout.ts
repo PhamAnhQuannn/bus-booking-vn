@@ -12,7 +12,7 @@
  * see lib/jobs/withAdvisoryLock.ts V1 note).
  */
 
-import { getEnv } from '@/lib/config/env';
+import { getEnv } from '@/lib/config';
 
 export interface SettlePayoutInput {
   payoutId: string;

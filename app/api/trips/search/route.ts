@@ -21,7 +21,7 @@ import { searchParamsSchema } from '@/lib/core/validation/search';
 import { searchTrips } from '@/lib/trips/searchTrips';
 import { ratelimit } from '@/lib/ratelimit';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { track, sessionIdFromRequest } from '@/lib/analytics/track';
+import { track, sessionIdFromRequest } from '@/lib/analytics';
 
 async function handler(request: NextRequest): Promise<Response> {
   // ---- 1. Parse and validate query params ----

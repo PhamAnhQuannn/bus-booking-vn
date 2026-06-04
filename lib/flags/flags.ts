@@ -33,7 +33,7 @@
  */
 
 import { prisma } from '@/lib/core/db/client';
-import { writeAdminAuditLog } from '@/lib/audit/adminAuditLog';
+import { writeAdminAuditLog } from '@/lib/audit';
 
 /** In-process cache TTL. Multi-instance deploys see up to this much staleness. */
 export const FLAG_CACHE_TTL_MS = 30_000;

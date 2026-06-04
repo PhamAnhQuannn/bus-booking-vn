@@ -15,7 +15,7 @@ vi.mock('@/lib/ticketing/ticketToken', () => ({
   verifyTicketToken: vi.fn(),
 }));
 
-import { verifyTicketToken } from '@/lib/ticketing/ticketToken';
+import { verifyTicketToken } from '@/lib/ticketing';
 import {
   scanTicket,
   checkInBooking,

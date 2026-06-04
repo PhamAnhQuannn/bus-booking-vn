@@ -16,7 +16,7 @@
  */
 
 import { Prisma } from '@prisma/client';
-import { sendSms, renderTemplate } from '@/lib/notification/esms';
+import { sendSms, renderTemplate } from '@/lib/notification';
 import type { JobCore } from './types';
 
 interface ReminderRow {

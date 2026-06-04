@@ -6,4 +6,4 @@
  * file does NOT move in this scaffold wave). Config is a core primitive, not a domain.
  */
 
-export * from '@/lib/config/env';
+export * from '@/lib/config';

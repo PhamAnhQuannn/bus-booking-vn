@@ -16,7 +16,7 @@ import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import { hash } from '@/lib/auth';
 import { normalizePhone } from '@/lib/core/validation/phone';
-import { sendSms } from '@/lib/notification/esms';
+import { sendSms } from '@/lib/notification';
 import { createNotificationLog } from '@/lib/core/db/notificationLogRepo';
 import { genTempPassword } from './genTempPassword';
 import { StaffServiceError } from './errors';

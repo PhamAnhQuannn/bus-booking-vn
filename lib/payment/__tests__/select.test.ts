@@ -25,7 +25,7 @@ vi.mock('../adapters/stub', () => ({
 }));
 
 import { getGatewayFor } from '../select';
-import { getEnv } from '@/lib/config/env';
+import { getEnv } from '@/lib/config';
 import { getMomoAdapter } from '../adapters/momo';
 import { getStubAdapter } from '../adapters/stub';
 

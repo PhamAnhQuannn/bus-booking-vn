@@ -25,7 +25,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import type { AdminAuthContext } from '@/lib/auth';
 import { refundOut, RefundOutError } from '@/lib/ledger/refund';
-import { writeAdminAuditLog } from '@/lib/audit/adminAuditLog';
+import { writeAdminAuditLog } from '@/lib/audit';
 import { prisma } from '@/lib/core/db/client';
 import { financeRoute, readJsonBody } from '../_shared';
 

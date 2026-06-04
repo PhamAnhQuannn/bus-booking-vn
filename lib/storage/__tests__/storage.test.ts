@@ -23,7 +23,7 @@ import {
   type StoredObjectRow,
 } from '..';
 import { getStubBlob } from '../stubStore';
-import { getEnv } from '@/lib/config/env';
+import { getEnv } from '@/lib/config';
 
 const STUB_SECRET = 'unit-test-storage-secret-0123456789';
 

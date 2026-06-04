@@ -32,7 +32,7 @@
  */
 
 import { prisma as defaultPrisma } from '@/lib/core/db/client';
-import { writeAdminAuditLog } from '@/lib/audit/adminAuditLog';
+import { writeAdminAuditLog } from '@/lib/audit';
 
 /** Upper bound for the global fee: 200000 ppm = 20% (mirrors MAX_FEE_OVERRIDE_PPM). */
 export const MAX_GLOBAL_FEE_PPM = 200_000;

@@ -9,7 +9,7 @@
 
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { verifyCookieValue } from '@/lib/security/holdCookie';
+import { verifyCookieValue } from '@/lib/security';
 import { getHoldDetails } from '@/lib/booking/getHoldDetails';
 import { ReviewClient } from './ReviewClient';
 

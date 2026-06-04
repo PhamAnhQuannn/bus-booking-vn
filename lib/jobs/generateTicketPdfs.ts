@@ -123,7 +123,7 @@ export const generateTicketPdfs: JobCore = async (_tx, opts?: JobOpts) => {
 
 /** Mint the public verify-page token for the email link (same token the QR carries). */
 async function mintToken(bookingRef: string, confirmationToken: string): Promise<string> {
-  const { mintTicketToken } = await import('@/lib/ticketing/ticketToken');
+  const { mintTicketToken } = await import('@/lib/ticketing');
   return mintTicketToken({ bookingRef, confirmationToken });
 }
 

@@ -15,7 +15,7 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { extractHoldCookie } from '@/lib/security/holdCookie';
+import { extractHoldCookie } from '@/lib/security';
 import { getHoldDetails } from '@/lib/booking/getHoldDetails';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 

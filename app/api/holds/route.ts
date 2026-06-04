@@ -18,11 +18,11 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { holdInputSchema } from '@/lib/core/validation/hold';
 import { createHold } from '@/lib/core/db/holdRepo';
 import { HoldCapExceededError } from '@/lib/core/db/holdErrors';
-import { buildSetCookieHeader } from '@/lib/security/holdCookie';
+import { buildSetCookieHeader } from '@/lib/security';
 import { ratelimit } from '@/lib/ratelimit';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { logger } from '@/lib/logger';
-import { track, sessionIdFromRequest } from '@/lib/analytics/track';
+import { track, sessionIdFromRequest } from '@/lib/analytics';
 
 async function handler(req: NextRequest): Promise<Response> {
   // ---- 1. Rate limit by IP ----

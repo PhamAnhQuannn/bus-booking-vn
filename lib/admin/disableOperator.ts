@@ -18,7 +18,7 @@
 
 import type { PrismaClient } from '@prisma/client';
 import { withOperatorScope } from '@/lib/core/db';
-import { writeAdminAuditLog } from '@/lib/audit/adminAuditLog';
+import { writeAdminAuditLog } from '@/lib/audit';
 import { AdminServiceError } from './errors';
 
 export interface DisableOperatorInput {

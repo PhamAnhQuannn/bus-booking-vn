@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, Bus } from 'lucide-react';
 
-import { searchHref } from '@/lib/search/searchHref';
+import { searchHref } from '@/lib/search';
 
 /**
  * RouteDirectory — popular intercity routes grouped by departure hub (text links). Each

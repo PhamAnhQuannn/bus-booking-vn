@@ -22,7 +22,7 @@
  */
 
 import { logger } from '@/lib/logger';
-import { getEnv } from '@/lib/config/env';
+import { getEnv } from '@/lib/config';
 
 /**
  * Sensitive key names mirrored from the pino redact list (lib/logger.ts).

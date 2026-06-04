@@ -36,7 +36,7 @@
 import { randomUUID } from 'node:crypto';
 import { prisma as defaultPrisma } from '@/lib/core/db/client';
 import { appendLedgerEntry } from './ledgerRepo';
-import { writeAdminAuditLog } from '@/lib/audit/adminAuditLog';
+import { writeAdminAuditLog } from '@/lib/audit';
 
 export class ManualAdjustmentError extends Error {
   constructor(public readonly code: 'invalid_amount' | 'missing_reason') {

@@ -21,8 +21,8 @@
 
 import { requireAdminPage } from '@/lib/auth';
 import { prisma } from '@/lib/core/db/client';
-import { getFlag } from '@/lib/flags/flags';
-import { FLAG_KEYS } from '@/lib/flags/keys';
+import { getFlag } from '@/lib/flags';
+import { FLAG_KEYS } from '@/lib/flags';
 import { listAdmins, type AdminRow } from '@/lib/admin/listAdmins';
 import { getAuditLog, type AuditLogRow } from '@/lib/admin/getAuditLog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

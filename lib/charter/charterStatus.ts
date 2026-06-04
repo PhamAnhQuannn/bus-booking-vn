@@ -50,7 +50,7 @@
  */
 
 import type { CharterStatus } from '@prisma/client';
-import { writeAdminAuditLog, type AdminAuditLogClient } from '@/lib/audit/adminAuditLog';
+import { writeAdminAuditLog, type AdminAuditLogClient } from '@/lib/audit';
 import { createNotificationLog } from '@/lib/core/db/notificationLogRepo';
 import { CharterError } from './errors';
 

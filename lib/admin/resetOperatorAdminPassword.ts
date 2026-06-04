@@ -19,9 +19,9 @@
 import type { PrismaClient } from '@prisma/client';
 import { hash } from '@/lib/auth';
 import { genTempPassword } from '@/lib/staff/genTempPassword';
-import { sendSms } from '@/lib/notification/esms';
-import { writeAdminAuditLog } from '@/lib/audit/adminAuditLog';
-import { redactPhone } from '@/lib/audit/redactPhone';
+import { sendSms } from '@/lib/notification';
+import { writeAdminAuditLog } from '@/lib/audit';
+import { redactPhone } from '@/lib/audit';
 import { AdminServiceError } from './errors';
 
 export interface ResetOperatorAdminPasswordInput {

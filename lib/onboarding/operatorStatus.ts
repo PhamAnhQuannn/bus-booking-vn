@@ -25,7 +25,7 @@
 import type { OperatorStatus } from '@prisma/client';
 import { prisma } from '@/lib/core/db/client';
 import { createNotificationLog } from '@/lib/core/db/notificationLogRepo';
-import { writeAdminAuditLog } from '@/lib/audit/adminAuditLog';
+import { writeAdminAuditLog } from '@/lib/audit';
 import { OperatorStatusError } from './errors';
 
 /**

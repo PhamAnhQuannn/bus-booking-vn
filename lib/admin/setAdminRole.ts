@@ -18,7 +18,7 @@
  */
 
 import type { PrismaClient, AdminRole } from '@prisma/client';
-import { writeAdminAuditLog } from '@/lib/audit/adminAuditLog';
+import { writeAdminAuditLog } from '@/lib/audit';
 import { AdminServiceError } from './errors';
 
 /** The valid AdminRole values — guards against an arbitrary string slipping in. */

@@ -13,7 +13,7 @@ import { useRef } from 'react';
 import Link from 'next/link';
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 
-import { searchHref } from '@/lib/search/searchHref';
+import { searchHref } from '@/lib/search';
 
 interface PopularRoute {
   origin: string;

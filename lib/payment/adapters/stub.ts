@@ -24,7 +24,7 @@
  */
 
 import crypto from 'crypto';
-import { getEnv } from '@/lib/config/env';
+import { getEnv } from '@/lib/config';
 import type {
   PaymentGateway,
   CreatePaymentInput,

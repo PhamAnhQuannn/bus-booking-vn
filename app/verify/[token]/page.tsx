@@ -24,7 +24,7 @@
 
 import { notFound } from 'next/navigation';
 import { CheckCircle2, XCircle, Ticket, Receipt, UserCheck } from 'lucide-react';
-import { getTicketVerification } from '@/lib/ticketing/getTicketVerification';
+import { getTicketVerification } from '@/lib/ticketing';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TripDetailCard } from '@/components/ticket/TripDetailCard';

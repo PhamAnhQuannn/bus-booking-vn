@@ -25,7 +25,7 @@
 
 import type { OperatorStatus } from '@prisma/client';
 import { prisma as defaultPrisma } from '@/lib/core/db/client';
-import { redactPhone } from '@/lib/audit/redactPhone';
+import { redactPhone } from '@/lib/audit';
 import { maskAccountNumber } from '@/lib/onboarding/payoutAccount';
 import { nameMatchScore } from '@/lib/onboarding/payoutVerify';
 

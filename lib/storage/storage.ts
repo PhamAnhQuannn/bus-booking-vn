@@ -20,8 +20,8 @@
  */
 
 import crypto from 'crypto';
-import { getEnv } from '@/lib/config/env';
-import { writeAdminAuditLog, type AdminAuditLogClient } from '@/lib/audit/adminAuditLog';
+import { getEnv } from '@/lib/config';
+import { writeAdminAuditLog, type AdminAuditLogClient } from '@/lib/audit';
 import { StorageError } from './errors';
 import {
   STORAGE_POLICIES,

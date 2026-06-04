@@ -14,7 +14,7 @@
 
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { getEnv } from '@/lib/config/env';
+import { getEnv } from '@/lib/config';
 import { getGatewayFor, type OnlinePaymentMethod } from '@/lib/payment/select';
 import { buildStubIpn, type StubOutcome } from '@/lib/payment/adapters/stub';
 import { processPaymentWebhook } from '@/lib/payment/processWebhook';

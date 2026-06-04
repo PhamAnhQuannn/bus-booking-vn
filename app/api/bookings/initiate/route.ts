@@ -23,11 +23,11 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { initiateOnlineBooking } from '@/lib/booking/initiateOnlineBooking';
 import { CONSENT_VERSION } from '@/lib/booking/consent';
-import { extractHoldCookie } from '@/lib/security/holdCookie';
+import { extractHoldCookie } from '@/lib/security';
 import { getCustomerOptional } from '@/lib/auth';
 import { ratelimit } from '@/lib/ratelimit';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { track, sessionIdFromRequest } from '@/lib/analytics/track';
+import { track, sessionIdFromRequest } from '@/lib/analytics';
 
 const initiateInputSchema = z.object({
   holdId: z.string().min(1).max(128),

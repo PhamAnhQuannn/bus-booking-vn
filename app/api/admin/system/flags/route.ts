@@ -20,8 +20,8 @@ import { prisma } from '@/lib/core/db/client';
 import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth';
 import { requireStepUp } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { setFlag } from '@/lib/flags/flags';
-import { FLAG_KEYS } from '@/lib/flags/keys';
+import { setFlag } from '@/lib/flags';
+import { FLAG_KEYS } from '@/lib/flags';
 
 const KNOWN_KEYS = new Set<string>(Object.values(FLAG_KEYS));
 

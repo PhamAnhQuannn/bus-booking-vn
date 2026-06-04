@@ -15,7 +15,7 @@
  */
 
 import type { PrismaClient } from '@prisma/client';
-import { writeAdminAuditLog } from '@/lib/audit/adminAuditLog';
+import { writeAdminAuditLog } from '@/lib/audit';
 
 export interface SetTripModerationInput {
   tripId: string;

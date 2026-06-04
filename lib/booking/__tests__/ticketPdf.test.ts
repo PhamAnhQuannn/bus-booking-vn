@@ -10,7 +10,7 @@
 import { describe, it, expect } from 'vitest';
 import { renderTicketPdf } from '../ticketPdf';
 import type { CustomerBookingDetail } from '../getCustomerBookingDetail';
-import { ticketQrMatrix } from '@/lib/ticketing/qr';
+import { ticketQrMatrix } from '@/lib/ticketing';
 
 const sampleBooking: CustomerBookingDetail = {
   id: 'bk-1',

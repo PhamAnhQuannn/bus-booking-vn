@@ -7,3 +7,5 @@ export {
   listSearchablePlaces,
   type ResolvedPlace,
 } from './placeRepo';
+
+export { getSearchablePlaces } from './getSearchablePlaces';

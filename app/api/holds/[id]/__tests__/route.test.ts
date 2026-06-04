@@ -21,7 +21,7 @@ vi.mock('@/lib/security/holdCookie', () => ({
 
 import { GET } from '../route';
 import { prisma } from '@/lib/core/db/client';
-import { extractHoldCookie } from '@/lib/security/holdCookie';
+import { extractHoldCookie } from '@/lib/security';
 import { NextRequest } from 'next/server';
 
 const HOLD_ID = 'hold-uuid-1234';

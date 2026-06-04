@@ -10,7 +10,7 @@
  */
 
 import { prisma as defaultPrisma } from '@/lib/core/db/client';
-import { redactPhone } from '@/lib/audit/redactPhone';
+import { redactPhone } from '@/lib/audit';
 import type { UserStatus } from './searchUsers';
 
 export interface CustomerDetail {
