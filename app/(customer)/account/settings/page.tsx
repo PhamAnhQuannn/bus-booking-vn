@@ -15,10 +15,11 @@
  * No server-component self-fetch — purely client-side.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getAccessToken, setAccessToken, setDisplayName } from '@/app/(customer)/auth/register/page';
-import { readCsrfToken } from '@/lib/auth';
+import { readCsrfToken } from '@/lib/auth/csrfClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -399,8 +400,34 @@ function DeleteAccountForm() {
 // ---- page ------------------------------------------------------------------
 
 export default function AccountSettingsPage() {
+  const router = useRouter();
+  // Access token lives in client memory (lost on reload); a missing token
+  // redirects to login with returnTo — mirrors /account/bookings. Without this
+  // a logged-out visitor sees forms that all 401 on submit.
+  const [authed, setAuthed] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (getAccessToken()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setAuthed(true);
+    } else {
+      router.replace('/auth/login?returnTo=/account/settings');
+    }
+  }, [router]);
+
+  if (!authed) return null;
+
   return (
     <main className="mx-auto flex w-full max-w-xl flex-col gap-6 px-4 py-10">
+      <nav aria-label="breadcrumb" className="text-sm text-muted-foreground">
+        <ol className="flex items-center gap-1.5">
+          <li><Link href="/" className="underline-offset-4 hover:text-foreground hover:underline">Trang chủ</Link></li>
+          <li aria-hidden="true">/</li>
+          <li><Link href="/account/bookings" className="underline-offset-4 hover:text-foreground hover:underline">Lịch sử đặt vé</Link></li>
+          <li aria-hidden="true">/</li>
+          <li aria-current="page" className="font-medium text-foreground">Cài đặt</li>
+        </ol>
+      </nav>
       <h1 className="text-2xl font-bold">Cài đặt tài khoản</h1>
       <ChangeNameForm />
       <ChangePasswordForm />

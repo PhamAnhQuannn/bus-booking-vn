@@ -5,7 +5,7 @@
  * admits them through the CSRF double-submit gate.
  */
 
-import { readCsrfToken } from '@/lib/auth';
+import { readCsrfToken } from '@/lib/auth/csrfClient';
 import type { StaffDto } from '@/lib/staff';
 
 export async function listStaffApi(): Promise<{ staff: StaffDto[] }> {

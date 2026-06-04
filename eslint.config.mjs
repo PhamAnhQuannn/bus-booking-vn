@@ -124,7 +124,23 @@ const eslintConfig = defineConfig([
         {
           default: "disallow",
           rules: [
-            { target: ["lib-domain"], allow: "index.{ts,tsx}" },
+            // Cross-domain imports normally enter a lib-<domain> ONLY through its
+            // index barrel. EXCEPTION: the leaves below are client-safe (pure
+            // constants / browser-only DOM / pure functions — no server-only, pg,
+            // prisma, or next/server siblings) and MUST be deep-imported by
+            // 'use client' components. Importing them via the barrel pulls the
+            // whole domain's server graph into the browser bundle → HTTP 500 +
+            // dev wedge (traveler-smoke 2026-06-04 P1; AGENTS.md Issue 092b
+            // barrel-leak class). Keep this allowlist minimal and client-safe-only.
+            {
+              target: ["lib-domain"],
+              allow: [
+                "index.{ts,tsx}",
+                "csrfClient.{ts,tsx}", // lib/auth — browser cookie reader
+                "safeReturnTo.{ts,tsx}", // lib/auth — pure redirect sanitizer
+                "consent.{ts,tsx}", // lib/booking — checkout consent constants
+              ],
+            },
             { target: ["lib-core"], allow: "**" },
             { target: ["app", "components"], allow: "**" },
           ],

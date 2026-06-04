@@ -20,7 +20,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { OperatorStatus } from '@prisma/client';
 
-import { readCsrfToken } from '@/lib/auth';
+import { readCsrfToken } from '@/lib/auth/csrfClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';

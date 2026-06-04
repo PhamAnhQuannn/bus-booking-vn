@@ -12,7 +12,7 @@
  * Used by app/op/(console)/buses/BusesClient.tsx.
  */
 
-import { readCsrfToken } from '@/lib/auth';
+import { readCsrfToken } from '@/lib/auth/csrfClient';
 import type { OperatorBusListItem } from '@/lib/catalog';
 
 type BusType = 'coach' | 'sleeper' | 'limousine';

@@ -31,8 +31,8 @@
  * adapter (lib/payment/{momo,stub}.ts) — never inferred here.
  */
 
-import { NextResponse } from 'next/server';
-import { after } from 'next/server';
+import 'server-only';
+import { NextResponse, after } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/core/db/client';
 import { createNotificationLog } from '@/lib/core/db/notificationLogRepo';

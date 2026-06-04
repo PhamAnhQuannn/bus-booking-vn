@@ -15,7 +15,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { readCsrfToken } from '@/lib/auth';
+import { readCsrfToken } from '@/lib/auth/csrfClient';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

@@ -135,7 +135,15 @@ export default function BookingsHistoryPage() {
           <li aria-current="page" className="font-medium text-foreground">Lịch sử đặt vé</li>
         </ol>
       </nav>
-      <h1 className="text-2xl font-bold">Lịch sử đặt vé</h1>
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold">Lịch sử đặt vé</h1>
+        <Link
+          href="/account/settings"
+          className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        >
+          Cài đặt tài khoản
+        </Link>
+      </div>
 
       <div className="flex gap-2 border-b border-border" role="tablist">
         {(['upcoming', 'past'] as const).map((t) => (

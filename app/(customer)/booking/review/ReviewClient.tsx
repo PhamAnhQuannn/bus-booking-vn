@@ -22,9 +22,9 @@ import { BookingSteps } from '@/components/booking/BookingSteps';
 import { BookingSummaryRail } from '@/components/booking/BookingSummaryRail';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { readCsrfToken } from '@/lib/auth';
+import { readCsrfToken } from '@/lib/auth/csrfClient';
 import { getAccessToken } from '@/app/(customer)/auth/register/page';
-import { CONSENT_TEXT, CONSENT_VERSION } from '@/lib/booking';
+import { CONSENT_TEXT, CONSENT_VERSION } from '@/lib/booking/consent';
 import { cn } from '@/lib/utils';
 
 export interface HoldDetails {

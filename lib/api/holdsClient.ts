@@ -8,7 +8,7 @@
  * On 409 SOLD_OUT: the caller shows an error and calls router.refresh() to invalidate the App Router cache (see CustomerForm.tsx).
  */
 
-import { readCsrfToken } from '@/lib/auth';
+import { readCsrfToken } from '@/lib/auth/csrfClient';
 
 export interface HoldRequestBody {
   tripId: string;
