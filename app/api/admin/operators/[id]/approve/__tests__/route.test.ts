@@ -34,7 +34,7 @@ vi.mock('@/lib/auth/requireStepUp', () => ({
 
 import { POST } from '../route';
 import { NextRequest } from 'next/server';
-import { OperatorStatusError } from '@/lib/onboarding/errors';
+import { OperatorStatusError } from '@/lib/onboarding';
 
 function makeRequest(): NextRequest {
   return new NextRequest('http://localhost/api/admin/operators/op_1/approve', {

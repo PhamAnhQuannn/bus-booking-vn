@@ -12,7 +12,7 @@ const { mockRegisterOperator, mockLimit } = vi.hoisted(() => ({
 
 vi.mock('@/lib/core/db/client', () => ({ prisma: {} }));
 vi.mock('@/lib/onboarding/registerOperator', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/onboarding/registerOperator')>(
+  const actual = await vi.importActual<typeof import('@/lib/onboarding')>(
     '@/lib/onboarding/registerOperator'
   );
   return { ...actual, registerOperator: mockRegisterOperator };
@@ -23,7 +23,7 @@ vi.mock('@/lib/ratelimit', async (importOriginal) => ({
 }));
 
 import { POST } from '../route';
-import { RegisterError } from '@/lib/onboarding/errors';
+import { RegisterError } from '@/lib/onboarding';
 import { NextRequest } from 'next/server';
 
 function makeRequest(body: unknown): NextRequest {

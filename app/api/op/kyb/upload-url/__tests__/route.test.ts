@@ -32,7 +32,7 @@ vi.mock('@/lib/core/db/client', () => ({
 }));
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => mockCookieStore) }));
 vi.mock('@/lib/onboarding/kyb', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/onboarding/kyb')>(
+  const actual = await vi.importActual<typeof import('@/lib/onboarding')>(
     '@/lib/onboarding/kyb'
   );
   return { ...actual, requestKybUploadUrl: mockRequestKybUploadUrl };
@@ -40,7 +40,7 @@ vi.mock('@/lib/onboarding/kyb', async () => {
 
 import { POST } from '../route';
 import { NextRequest } from 'next/server';
-import { KybError } from '@/lib/onboarding/kyb';
+import { KybError } from '@/lib/onboarding';
 import { StorageError } from '@/lib/storage';
 
 const OPERATOR_USER = {

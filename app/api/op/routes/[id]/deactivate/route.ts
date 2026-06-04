@@ -12,8 +12,8 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { deactivateRoute } from '@/lib/catalog/deactivateRoute';
-import { RouteServiceError } from '@/lib/catalog/updateRoute';
+import { deactivateRoute } from '@/lib/catalog';
+import { RouteServiceError } from '@/lib/catalog';
 
 type RouteContext = { params: Promise<{ id: string }> };
 

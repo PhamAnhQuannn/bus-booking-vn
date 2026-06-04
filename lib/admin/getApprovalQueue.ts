@@ -26,8 +26,8 @@
 import type { OperatorStatus } from '@prisma/client';
 import { prisma as defaultPrisma } from '@/lib/core/db/client';
 import { redactPhone } from '@/lib/audit';
-import { maskAccountNumber } from '@/lib/onboarding/payoutAccount';
-import { nameMatchScore } from '@/lib/onboarding/payoutVerify';
+import { maskAccountNumber } from '@/lib/onboarding';
+import { nameMatchScore } from '@/lib/onboarding';
 
 /** Operator statuses that still owe an admin decision. */
 const PENDING_OPERATOR_STATUSES: OperatorStatus[] = ['PENDING_REVIEW', 'UNDER_REVIEW'];

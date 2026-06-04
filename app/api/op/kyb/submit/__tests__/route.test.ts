@@ -28,7 +28,7 @@ vi.mock('@/lib/core/db/client', () => ({
 }));
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => mockCookieStore) }));
 vi.mock('@/lib/onboarding/kyb', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/onboarding/kyb')>(
+  const actual = await vi.importActual<typeof import('@/lib/onboarding')>(
     '@/lib/onboarding/kyb'
   );
   return { ...actual, submitForReview: mockSubmitForReview };
@@ -36,7 +36,7 @@ vi.mock('@/lib/onboarding/kyb', async () => {
 
 import { POST } from '../route';
 import { NextRequest } from 'next/server';
-import { OperatorStatusError } from '@/lib/onboarding/errors';
+import { OperatorStatusError } from '@/lib/onboarding';
 
 const OPERATOR_USER = {
   id: 'op-user-1',

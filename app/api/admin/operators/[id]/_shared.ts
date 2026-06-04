@@ -4,7 +4,7 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { OperatorStatusError } from '@/lib/onboarding/errors';
+import { OperatorStatusError } from '@/lib/onboarding';
 
 /** Pull the [id] segment out of /api/admin/operators/<id>/<action>. */
 export function operatorIdFromUrl(req: NextRequest): string | null {

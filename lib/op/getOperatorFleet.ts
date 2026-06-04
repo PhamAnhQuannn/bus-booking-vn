@@ -16,7 +16,7 @@ import { prisma } from '@/lib/core/db/client';
 import {
   listOperatorBuses,
   type OperatorBusListItem,
-} from '@/lib/catalog/listOperatorBuses';
+} from '@/lib/catalog';
 
 export interface OperatorFleet {
   operatorId: string;

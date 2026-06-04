@@ -34,7 +34,7 @@ vi.mock('@/lib/onboarding/operatorStatus', () => ({
 
 import { POST } from '../route';
 import { NextRequest } from 'next/server';
-import { OperatorStatusError } from '@/lib/onboarding/errors';
+import { OperatorStatusError } from '@/lib/onboarding';
 
 const OPERATOR_USER = {
   id: 'op-user-1',

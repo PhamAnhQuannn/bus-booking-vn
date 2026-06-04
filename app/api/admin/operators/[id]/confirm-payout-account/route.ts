@@ -24,7 +24,7 @@ import { prisma } from '@/lib/core/db/client';
 import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth';
 import { requireStepUp } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { confirmPayoutAccountOwnership, PayoutVerifyError } from '@/lib/onboarding/payoutVerify';
+import { confirmPayoutAccountOwnership, PayoutVerifyError } from '@/lib/onboarding';
 import { operatorIdFromUrl } from '../_shared';
 
 const ConfirmSchema = z.object({

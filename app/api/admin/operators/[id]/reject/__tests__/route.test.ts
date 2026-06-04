@@ -20,7 +20,7 @@ vi.mock('@/lib/auth/requireAdminAuth', () => ({
 
 import { POST } from '../route';
 import { NextRequest } from 'next/server';
-import { OperatorStatusError } from '@/lib/onboarding/errors';
+import { OperatorStatusError } from '@/lib/onboarding';
 
 function makeRequest(body: unknown): NextRequest {
   return new NextRequest('http://localhost/api/admin/operators/op_1/reject', {

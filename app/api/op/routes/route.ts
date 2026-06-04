@@ -16,8 +16,8 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { listRoutes } from '@/lib/catalog/listRoutes';
-import { createRoute } from '@/lib/catalog/createRoute';
+import { listRoutes } from '@/lib/catalog';
+import { createRoute } from '@/lib/catalog';
 import { routeCreateSchema } from '@/lib/core/validation/route';
 
 async function getHandler(_req: NextRequest, ctx: OperatorAuthContext): Promise<Response> {

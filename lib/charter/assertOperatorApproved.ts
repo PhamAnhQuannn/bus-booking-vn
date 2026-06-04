@@ -16,7 +16,7 @@
  */
 
 import type { OperatorStatus } from '@prisma/client';
-import { getOperatorCapabilities } from '@/lib/onboarding/operatorCapabilities';
+import { getOperatorCapabilities } from '@/lib/onboarding';
 
 /** Minimal Prisma surface this helper needs (operator status read). */
 export interface OperatorStatusClient {

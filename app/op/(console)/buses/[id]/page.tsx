@@ -17,7 +17,7 @@ import { getOperatorSession } from "@/lib/op/getOperatorSession"
 import {
   getOperatorBusWithTrips,
   type BusActiveTrip,
-} from "@/lib/catalog/getOperatorBusWithTrips"
+} from "@/lib/catalog"
 import { busTypeLabel, busTypeWithCapacity } from "@/lib/op/statusLabels"
 import { serverNow } from "@/lib/op/dateRanges"
 import { PageHeader } from "@/components/op/PageHeader"

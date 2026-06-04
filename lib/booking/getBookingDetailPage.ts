@@ -10,7 +10,7 @@
 import { prisma } from '@/lib/core/db/client';
 import { withOperatorScope } from '@/lib/core/db';
 import { getOperatorBooking } from './getOperatorBooking';
-import { listPickupPoints } from '@/lib/catalog/listPickupPoints';
+import { listPickupPoints } from '@/lib/catalog';
 import type { BookingDto } from './bookingDto';
 
 export interface PickupPointOption {

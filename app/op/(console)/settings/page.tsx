@@ -17,7 +17,7 @@ import Link from 'next/link';
 import { UserCircle, Users, ShieldCheck, KeyRound } from 'lucide-react';
 
 import { getOperatorSession } from '@/lib/op/getOperatorSession';
-import { getPayoutAccount } from '@/lib/onboarding/payoutAccount';
+import { getPayoutAccount } from '@/lib/onboarding';
 import { prisma } from '@/lib/core/db/client';
 
 import { PageHeader } from '@/components/op/PageHeader';

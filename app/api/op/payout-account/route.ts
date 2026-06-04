@@ -24,7 +24,7 @@ import { z } from 'zod';
 import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { prisma } from '@/lib/core/db/client';
-import { setPayoutAccount, getPayoutAccount } from '@/lib/onboarding/payoutAccount';
+import { setPayoutAccount, getPayoutAccount } from '@/lib/onboarding';
 
 const PayoutAccountSchema = z.object({
   bankName: z.string().trim().min(1).max(120),

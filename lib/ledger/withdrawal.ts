@@ -57,7 +57,7 @@ import { prisma } from '@/lib/core/db/client';
 import { appendLedgerEntry } from './ledgerRepo';
 import { OPERATOR_BALANCE_TYPES } from './balance';
 import { MIN_WITHDRAW_THRESHOLD_VND, SETTLEMENT_DELAY_SQL_INTERVAL } from './constants';
-import { isPayoutAccountVerified } from '@/lib/onboarding/payoutAccount';
+import { isPayoutAccountVerified } from '@/lib/onboarding';
 import { logger } from '@/lib/logger';
 import type { LedgerEntryType } from '@prisma/client';
 

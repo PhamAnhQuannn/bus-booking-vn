@@ -34,7 +34,7 @@ vi.mock('@/lib/core/db/client', () => ({
 }));
 vi.mock('@/lib/catalog/listPickupPoints', () => ({ listPickupPoints: mockListPickupPoints }));
 vi.mock('@/lib/catalog/createPickupPoint', async (importActual) => {
-  const actual = await importActual<typeof import('@/lib/catalog/createPickupPoint')>();
+  const actual = await importActual<typeof import('@/lib/catalog')>();
   return { ...actual, createPickupPoint: mockCreatePickupPoint };
 });
 vi.mock('@/lib/catalog/bulkReorder', () => ({ bulkReorder: mockBulkReorder }));
@@ -42,7 +42,7 @@ vi.mock('next/headers', () => ({ cookies: vi.fn(async () => mockCookieStore) }))
 
 import { GET, POST, PATCH } from '../route';
 import { NextRequest } from 'next/server';
-import { PickupPointServiceError } from '@/lib/catalog/createPickupPoint';
+import { PickupPointServiceError } from '@/lib/catalog';
 
 const OP_USER = {
   id: 'ou1',

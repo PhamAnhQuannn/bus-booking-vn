@@ -62,7 +62,7 @@ export const processPayouts: JobCore = async (tx, opts) => {
   const { appendLedgerEntry } = await import('@/lib/ledger');
   // Issue 078: verified-account guard. Same lazy-import discipline so importing
   // this core in a unit test never eagerly loads the prisma singleton.
-  const { isPayoutAccountVerified } = await import('@/lib/onboarding/payoutAccount');
+  const { isPayoutAccountVerified } = await import('@/lib/onboarding');
 
   let processed = 0;
   let skipped = 0;
