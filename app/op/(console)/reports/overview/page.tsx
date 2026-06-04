@@ -16,7 +16,7 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 
 import { getOperatorSession } from "@/lib/op"
-import { getBusPerformance } from "@/lib/reports/getBusPerformance"
+import { getBusPerformance } from "@/lib/reports"
 import { getDefaultDateRange } from "@/lib/op"
 import { busTypeLabel } from "@/lib/op"
 import { Bus } from "lucide-react"

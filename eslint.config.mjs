@@ -95,7 +95,9 @@ const eslintConfig = defineConfig([
   // the sweep brings the warn count to zero.
   {
     files: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}", "lib/**/*.{ts,tsx}"],
-    ignores: ["**/__tests__/**", "**/*.test.{ts,tsx}"],
+    // app/dev/** is local-only stub scaffolding (stub-pay, stub-storage); it may
+    // reach into stub internals (e.g. lib/storage/stubStore) and is exempt.
+    ignores: ["**/__tests__/**", "**/*.test.{ts,tsx}", "app/dev/**"],
     plugins: { boundaries, "import-x": importX },
     settings: {
       // First match wins: lib-core before the generic lib-domain capture.
@@ -105,7 +107,7 @@ const eslintConfig = defineConfig([
         { type: "app", pattern: "app", mode: "folder" },
         { type: "components", pattern: "components", mode: "folder" },
       ],
-      "boundaries/ignore": ["**/__tests__/**", "**/*.test.{ts,tsx}"],
+      "boundaries/ignore": ["**/__tests__/**", "**/*.test.{ts,tsx}", "app/dev/**"],
       "import-x/resolver": {
         typescript: { project: "./tsconfig.json" },
         node: true,
