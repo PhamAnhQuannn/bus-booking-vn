@@ -17,8 +17,8 @@ import { z } from 'zod';
 import { prisma } from '@/lib/core/db/client';
 import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth';
 import { requireStepUp } from '@/lib/auth';
-import { inviteAdmin } from '@/lib/admin/inviteAdmin';
-import { AdminServiceError } from '@/lib/admin/errors';
+import { inviteAdmin } from '@/lib/admin';
+import { AdminServiceError } from '@/lib/admin';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 const bodySchema = z.object({

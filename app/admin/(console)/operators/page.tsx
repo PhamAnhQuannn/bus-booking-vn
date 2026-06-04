@@ -18,7 +18,7 @@ import Link from 'next/link';
 import type { OperatorStatus } from '@prisma/client';
 
 import { requireAdminPage } from '@/lib/auth';
-import { listAllOperators } from '@/lib/admin/listAllOperators';
+import { listAllOperators } from '@/lib/admin';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';

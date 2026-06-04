@@ -23,7 +23,7 @@ import { randomUUID } from 'crypto';
 import { prisma } from '@/lib/core/db/client';
 import { appendLedgerEntry } from '../ledgerRepo';
 import { getOperatorBalance } from '../balance';
-import { cancelTrip } from '@/lib/trips/cancelTrip';
+import { cancelTrip } from '@/lib/trips';
 
 let operatorId: string;
 let routeId: string;

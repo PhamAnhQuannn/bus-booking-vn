@@ -22,7 +22,7 @@ import type { LedgerEntryType, PayoutStatus } from '@prisma/client';
 
 import { getOperatorSession } from '@/lib/op/getOperatorSession';
 import { getOperatorBalance } from '@/lib/ledger';
-import { getLedgerView } from '@/lib/admin/getLedgerView';
+import { getLedgerView } from '@/lib/admin';
 import { getPayoutReport } from '@/lib/ledger';
 import { MIN_WITHDRAW_THRESHOLD_VND } from '@/lib/ledger';
 import { prisma } from '@/lib/core/db/client';

@@ -28,8 +28,8 @@ import Link from 'next/link';
 
 import { requireAdminPage } from '@/lib/auth';
 import { getAdminMetrics } from '@/lib/analytics';
-import { getActionQueue } from '@/lib/admin/getActionQueue';
-import { getFailureAlerts } from '@/lib/admin/getFailureAlerts';
+import { getActionQueue } from '@/lib/admin';
+import { getFailureAlerts } from '@/lib/admin';
 import { getDefaultDateRange } from '@/lib/op/dateRanges';
 import {
   Card,

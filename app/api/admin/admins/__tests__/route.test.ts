@@ -27,7 +27,7 @@ vi.mock('@/lib/auth/requireStepUp', () => ({
 
 import { POST } from '../route';
 import { NextRequest } from 'next/server';
-import { AdminServiceError } from '@/lib/admin/errors';
+import { AdminServiceError } from '@/lib/admin';
 
 function makeRequest(body: unknown): NextRequest {
   return new NextRequest('http://localhost/api/admin/admins', {

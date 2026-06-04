@@ -17,7 +17,7 @@
 
 import { redirect } from 'next/navigation';
 import { getOperatorSession } from '@/lib/op/getOperatorSession';
-import { listUpcomingForOperator } from '@/lib/trips/listUpcomingForOperator';
+import { listUpcomingForOperator } from '@/lib/trips';
 
 export default async function ManifestIndexPage() {
   const session = await getOperatorSession();

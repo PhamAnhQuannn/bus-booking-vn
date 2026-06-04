@@ -20,7 +20,7 @@ import { ArrowRightIcon, BusIcon, CalendarIcon, BellIcon, WalletIcon } from "luc
 import { getOperatorSession } from "@/lib/op/getOperatorSession"
 import { getUnviewedPaidCount } from "@/lib/booking/getUnviewedPaidCount"
 import { touchLastViewed } from "@/lib/booking/touchLastViewed"
-import { listUpcomingForOperator } from "@/lib/trips/listUpcomingForOperator"
+import { listUpcomingForOperator } from "@/lib/trips"
 import { getActivityFeed } from "@/lib/op/getActivityFeed"
 import { getTodaySnapshot } from "@/lib/op/getTodaySnapshot"
 import { listRoutesForTripIds } from "@/lib/op/listRoutesForTripIds"

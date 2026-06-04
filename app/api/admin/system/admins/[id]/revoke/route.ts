@@ -18,8 +18,8 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/core/db/client';
 import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth';
 import { requireStepUp } from '@/lib/auth';
-import { revokeAdmin } from '@/lib/admin/revokeAdmin';
-import { AdminServiceError } from '@/lib/admin/errors';
+import { revokeAdmin } from '@/lib/admin';
+import { AdminServiceError } from '@/lib/admin';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 /** Pull the [id] segment out of /api/admin/system/admins/<id>/revoke. */

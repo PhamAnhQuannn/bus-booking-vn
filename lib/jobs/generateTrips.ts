@@ -29,7 +29,7 @@ export const generateTrips: JobCore = async () => {
   // generator import dynamic keeps the route's static import graph free of the
   // DB client — mirroring how the other job cores (autoCloseSales, …) avoid
   // pulling lib/db/client into the route's import boundary.
-  const { generateTripsFromTemplates } = await import('@/lib/trips/generateFromTemplate');
+  const { generateTripsFromTemplates } = await import('@/lib/trips');
   const result = await generateTripsFromTemplates();
   return { rowsAffected: result.generated, status: 'success' };
 };

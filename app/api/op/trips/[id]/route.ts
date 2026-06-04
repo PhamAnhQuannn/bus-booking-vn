@@ -12,11 +12,11 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { getTrip } from '@/lib/trips/getTrip';
+import { getTrip } from '@/lib/trips';
 import { PatchTripSchema } from '@/lib/core/validation/trip';
 import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
-import { toTripDto } from '@/lib/trips/toTripDto';
+import { toTripDto } from '@/lib/trips';
 
 type RouteContext = { params: Promise<{ id: string }> };
 

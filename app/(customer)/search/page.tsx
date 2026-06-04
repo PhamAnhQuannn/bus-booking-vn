@@ -16,7 +16,7 @@ import Link from 'next/link';
 import { ArrowRight, Armchair } from 'lucide-react';
 import { searchParamsSchema, searchFiltersSchema } from '@/lib/core/validation/search';
 import { track } from '@/lib/analytics';
-import { searchTrips, SEARCH_PAGE_LIMIT, type TripResult } from '@/lib/trips/searchTrips';
+import { searchTrips, SEARCH_PAGE_LIMIT, type TripResult } from '@/lib/trips';
 import { applyTripFilters, type TripFacets } from '@/lib/search';
 import { SearchFormWrapper } from '@/components/search/SearchFormWrapper';
 import { SearchForm } from '@/components/search/SearchForm';

@@ -11,7 +11,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { TripDto } from '@/lib/trips/tripDto';
+import type { TripDto } from '@/lib/trips';
 import type { TripStatus } from '@prisma/client';
 import { cancelTripApi, salesToggleApi, listTripsApi } from '@/lib/api';
 import { tripStatusDisplay } from '@/lib/op/statusLabels';

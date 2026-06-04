@@ -16,10 +16,10 @@ import { verifyOperatorAccess } from '@/lib/auth';
 import { prisma } from '@/lib/core/db/client';
 import { listOperatorBookings } from '@/lib/booking/listOperatorBookings';
 import { getManifest } from '@/lib/booking/getManifest';
-import { getTrip } from '@/lib/trips/getTrip';
+import { getTrip } from '@/lib/trips';
 import type { BookingQueueRow } from '@/lib/booking/toBookingQueueRow';
 import type { ManifestRow } from '@/lib/booking/getManifest';
-import type { TripDto } from '@/lib/trips/tripDto';
+import type { TripDto } from '@/lib/trips';
 
 export interface StaffDashboardView {
   operatorId: string;

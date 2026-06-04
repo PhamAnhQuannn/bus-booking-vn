@@ -16,7 +16,7 @@
  */
 
 import { requireAdminPage } from '@/lib/auth';
-import { getApprovalQueue, type ApprovalQueueOperator } from '@/lib/admin/getApprovalQueue';
+import { getApprovalQueue, type ApprovalQueueOperator } from '@/lib/admin';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';

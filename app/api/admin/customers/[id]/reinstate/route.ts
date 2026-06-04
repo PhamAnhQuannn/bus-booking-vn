@@ -13,7 +13,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { prisma } from '@/lib/core/db/client';
-import { reinstateCustomer } from '@/lib/admin/suspendCustomer';
+import { reinstateCustomer } from '@/lib/admin';
 import { customerIdFromUrl } from '../_shared';
 
 async function handler(req: NextRequest, ctx: AdminAuthContext): Promise<Response> {

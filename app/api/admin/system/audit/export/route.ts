@@ -20,7 +20,7 @@ import type { NextRequest } from 'next/server';
 import { prisma } from '@/lib/core/db/client';
 import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { getAuditLog, auditLogToCsv } from '@/lib/admin/getAuditLog';
+import { getAuditLog, auditLogToCsv } from '@/lib/admin';
 
 async function handler(req: NextRequest, _ctx: AdminAuthContext): Promise<Response> {
   const action = req.nextUrl.searchParams.get('action')?.trim() || undefined;

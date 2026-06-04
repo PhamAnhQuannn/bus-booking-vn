@@ -24,8 +24,8 @@ import Link from 'next/link';
 import type { PayoutStatus } from '@prisma/client';
 
 import { requireAdminPage } from '@/lib/auth';
-import { getPayoutQueue, type PayoutQueueRow } from '@/lib/admin/getPayoutQueue';
-import { getLedgerView } from '@/lib/admin/getLedgerView';
+import { getPayoutQueue, type PayoutQueueRow } from '@/lib/admin';
+import { getLedgerView } from '@/lib/admin';
 import { getEffectiveFeeRate } from '@/lib/ledger';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

@@ -8,7 +8,7 @@
 export const runtime = 'nodejs';
 
 import { prisma } from '@/lib/core/db/client';
-import { setRouteModeration } from '@/lib/admin/moderation';
+import { setRouteModeration } from '@/lib/admin';
 import {
   idFromUrl,
   readReason,

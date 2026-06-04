@@ -22,7 +22,7 @@ import { bookingStatusDisplay, tripStatusDisplay } from '@/lib/op/statusLabels';
 import type { BookingStatus, TripStatus } from '@prisma/client';
 import type { BookingQueueRow } from '@/lib/booking/toBookingQueueRow';
 import type { ManifestRow } from '@/lib/booking/getManifest';
-import type { TripDto } from '@/lib/trips/tripDto';
+import type { TripDto } from '@/lib/trips';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

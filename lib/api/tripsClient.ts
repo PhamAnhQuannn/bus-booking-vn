@@ -8,7 +8,7 @@
  */
 
 import { readCsrfToken } from '@/lib/auth';
-import type { TripDto, TemplateDto } from '@/lib/trips/tripDto';
+import type { TripDto, TemplateDto } from '@/lib/trips';
 
 // ---------------------------------------------------------------------------
 // Trips

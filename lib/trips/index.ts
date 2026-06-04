@@ -1,5 +1,8 @@
 // trips domain public API barrel (SYS20 rule 3).
 
+// generateFromTemplate.ts (cron worker entrypoint)
+export { generateTripsFromTemplates } from './generateFromTemplate';
+
 // cancelTrip.ts
 export { cancelTrip } from './cancelTrip';
 

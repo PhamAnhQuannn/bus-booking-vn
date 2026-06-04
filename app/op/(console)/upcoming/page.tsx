@@ -8,9 +8,9 @@
 import { redirect } from 'next/navigation';
 import type { TripStatus } from '@prisma/client';
 import { getOperatorSession } from '@/lib/op/getOperatorSession';
-import { listUpcomingForOperator } from '@/lib/trips/listUpcomingForOperator';
+import { listUpcomingForOperator } from '@/lib/trips';
 import { listRoutes } from '@/lib/catalog';
-import type { TripDto } from '@/lib/trips/tripDto';
+import type { TripDto } from '@/lib/trips';
 import { tripStatusDisplay } from '@/lib/op/statusLabels';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

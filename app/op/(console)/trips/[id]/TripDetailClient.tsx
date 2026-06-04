@@ -13,7 +13,7 @@
  */
 
 import { useState } from 'react';
-import type { TripDto } from '@/lib/trips/tripDto';
+import type { TripDto } from '@/lib/trips';
 import type { StaffDto } from '@/lib/staff';
 import type { TripStatus } from '@prisma/client';
 import {

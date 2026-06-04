@@ -13,7 +13,7 @@
  */
 
 import { Prisma } from '@prisma/client';
-import { completeTripCore } from '@/lib/trips/completeTripCore';
+import { completeTripCore } from '@/lib/trips';
 import type { JobCore } from './types';
 
 export const autoCompleteTrips: JobCore = async (tx, opts) => {

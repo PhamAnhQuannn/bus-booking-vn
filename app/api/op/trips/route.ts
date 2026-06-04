@@ -17,9 +17,9 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { createTrip } from '@/lib/trips/createTrip';
-import { listTrips } from '@/lib/trips/getTrip';
-import { TripServiceError } from '@/lib/trips/errors';
+import { createTrip } from '@/lib/trips';
+import { listTrips } from '@/lib/trips';
+import { TripServiceError } from '@/lib/trips';
 import { CreateTripSchema } from '@/lib/core/validation/trip';
 
 async function getHandler(req: NextRequest, ctx: OperatorAuthContext): Promise<Response> {
