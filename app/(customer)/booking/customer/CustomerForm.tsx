@@ -12,7 +12,7 @@
  * - Uses useActionState from 'react' (Next 16 / React 19).
  */
 
-import { useActionState, useEffect, useRef } from 'react';
+import { useActionState, useEffect, useRef, startTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { useBookingStore } from '@/lib/state';
@@ -144,10 +144,15 @@ export function CustomerForm() {
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    formAction({
-      buyerName: (fd.get('buyerName') as string) ?? '',
-      buyerPhone: (fd.get('buyerPhone') as string) ?? '',
-      buyerEmail: (fd.get('buyerEmail') as string) ?? '',
+    // useActionState dispatch must run inside a transition (React 19) — calling
+    // formAction directly from the onSubmit handler logs "An async function with
+    // useActionState was called outside of a transition".
+    startTransition(() => {
+      formAction({
+        buyerName: (fd.get('buyerName') as string) ?? '',
+        buyerPhone: (fd.get('buyerPhone') as string) ?? '',
+        buyerEmail: (fd.get('buyerEmail') as string) ?? '',
+      });
     });
   }
 
