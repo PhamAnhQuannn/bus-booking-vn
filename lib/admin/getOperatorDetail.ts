@@ -22,6 +22,7 @@
 
 import type { OperatorStatus, PayoutStatus } from '@prisma/client';
 import { prisma as defaultPrisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 import { redactPhone } from '@/lib/audit/redactPhone';
 import { getOperatorBalance, type OperatorBalance } from '@/lib/ledger/balance';
 import { getEffectiveFeeRate } from '@/lib/ledger/feeConfig';
@@ -87,10 +88,10 @@ export async function getOperatorDetail(
 
   const [fleetCount, tripCount, upcomingTripCount, gmvRows, balance, currentFeePpm, payouts] =
     await Promise.all([
-      prisma.bus.count({ where: { operatorId } }),
-      prisma.trip.count({ where: { operatorId } }),
+      prisma.bus.count({ where: withOperatorScope(operatorId).where }),
+      prisma.trip.count({ where: withOperatorScope(operatorId).where }),
       prisma.trip.count({
-        where: { operatorId, status: 'scheduled', departureAt: { gt: now } },
+        where: { ...withOperatorScope(operatorId).where, status: 'scheduled', departureAt: { gt: now } },
       }),
       // GMV: SUM(totalVnd) of paid bookings on this operator's trips. COALESCE to 0,
       // cast ::text and parse with BigInt so the value never round-trips through a JS
@@ -105,7 +106,7 @@ export async function getOperatorDetail(
       getOperatorBalance(operatorId),
       getEffectiveFeeRate(operatorId, now),
       prisma.payout.findMany({
-        where: { operatorId },
+        where: withOperatorScope(operatorId).where,
         select: { id: true, net: true, status: true, scheduledAt: true, settledAt: true },
         orderBy: [{ scheduledAt: 'desc' }, { id: 'desc' }],
         take: PAYOUT_HISTORY_LIMIT,

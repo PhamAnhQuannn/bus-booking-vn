@@ -12,6 +12,7 @@
  */
 
 import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 
 export type DeactivateResult =
   | { ok: true; deactivatedAt: Date }
@@ -22,7 +23,7 @@ export async function deactivateBus(
   busId: string
 ): Promise<DeactivateResult> {
   const existing = await prisma.bus.findFirst({
-    where: { id: busId, operatorId },
+    ...withOperatorScope(operatorId, { where: { id: busId } }),
     select: { id: true, deactivatedAt: true },
   });
   if (!existing) return { ok: false, reason: 'not_found' };

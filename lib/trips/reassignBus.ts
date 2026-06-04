@@ -37,6 +37,7 @@
  */
 
 import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 import { TripServiceError } from './errors';
 import type { TripDto } from './tripDto';
 import { toTripDto } from './toTripDto';
@@ -90,7 +91,7 @@ export async function reassignBus(
       // Validate new bus ownership + state. licensePlate + busType are also read
       // here for the Issue 075 reassign-notification payload (the NEW plate).
       const bus = await tx.bus.findFirst({
-        where: { id: newBusId, operatorId },
+        ...withOperatorScope(operatorId, { where: { id: newBusId } }),
         select: {
           id: true,
           capacity: true,

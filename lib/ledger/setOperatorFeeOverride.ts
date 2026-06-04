@@ -31,6 +31,7 @@
  */
 
 import { prisma as defaultPrisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 import { writeAdminAuditLog } from '@/lib/audit/adminAuditLog';
 
 /** Upper bound for a per-operator override: 200000 ppm = 20%. */
@@ -91,7 +92,7 @@ export async function setOperatorFeeOverride(
     // so the effective windows stay non-overlapping. OPTIONAL for correctness
     // (the resolver picks latest effectiveFrom), but keeps one open override.
     await tx.feeConfig.updateMany({
-      where: { operatorId, effectiveTo: null },
+      ...withOperatorScope(operatorId, { where: { effectiveTo: null } }),
       data: { effectiveTo: effectiveFrom },
     });
 

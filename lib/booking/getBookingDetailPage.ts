@@ -8,6 +8,7 @@
  */
 
 import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 import { getOperatorBooking } from './getOperatorBooking';
 import { listPickupPoints } from '@/lib/catalog/listPickupPoints';
 import type { BookingDto } from './bookingDto';
@@ -30,7 +31,7 @@ export async function getBookingDetailPage(
   if (!booking) return null;
 
   const trip = await prisma.trip.findFirst({
-    where: { id: booking.tripId, operatorId },
+    ...withOperatorScope(operatorId, { where: { id: booking.tripId } }),
     select: { routeId: true },
   });
 

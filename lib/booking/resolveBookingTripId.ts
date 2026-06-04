@@ -14,6 +14,7 @@ export async function resolveBookingTripId(
   operatorId: string,
   bookingId: string,
 ): Promise<string | null> {
+  // tenant-scoped via trip.operatorId join (model has no top-level operatorId)
   const booking = await prisma.booking.findFirst({
     where: { id: bookingId, trip: { operatorId } },
     select: { tripId: true },

@@ -92,6 +92,7 @@ export async function getAssignedCharters(
   prisma: PrismaClient,
   operatorId: string
 ): Promise<AssignedCharter[]> {
+  // tenant-scoped via assigneeOperatorId (CharterRequest has no operatorId column) — withOperatorScope injects the wrong key
   const rows = await prisma.charterRequest.findMany({
     where: { status: 'ASSIGNED_DIRECT', assigneeOperatorId: operatorId },
     orderBy: { createdAt: 'desc' },
@@ -140,6 +141,7 @@ export async function getAcceptedCharters(
   prisma: PrismaClient,
   operatorId: string
 ): Promise<AcceptedCharter[]> {
+  // tenant-scoped via assigneeOperatorId (CharterRequest has no operatorId column) — withOperatorScope injects the wrong key
   const rows = await prisma.charterRequest.findMany({
     where: { status: 'ACCEPTED', assigneeOperatorId: operatorId },
     orderBy: { createdAt: 'desc' },

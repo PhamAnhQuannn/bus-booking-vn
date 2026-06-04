@@ -14,6 +14,7 @@
 
 import { BookingStatus } from "@prisma/client"
 import { prisma } from "@/lib/core/db/client"
+import { withOperatorScope } from "@/lib/core/db"
 
 export interface TodaySnapshot {
   tripsToday: number
@@ -34,11 +35,12 @@ export async function getTodaySnapshot(operatorId: string): Promise<TodaySnapsho
   const [tripsToday, paidAgg] = await Promise.all([
     prisma.trip.count({
       where: {
-        operatorId,
+        ...withOperatorScope(operatorId).where,
         status: "scheduled",
         departureAt: { gte: now, lte: horizon24h },
       },
     }),
+    // tenant-scoped via trip.operatorId join (model has no top-level operatorId)
     prisma.booking.aggregate({
       _count: { _all: true },
       _sum: { totalVnd: true },

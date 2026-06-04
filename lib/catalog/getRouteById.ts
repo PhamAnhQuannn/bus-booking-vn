@@ -5,6 +5,7 @@
  */
 
 import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 
 export async function getRouteById({
   operatorId,
@@ -14,7 +15,7 @@ export async function getRouteById({
   routeId: string;
 }) {
   return prisma.route.findFirst({
-    where: { id: routeId, operatorId },
+    ...withOperatorScope(operatorId, { where: { id: routeId } }),
     include: {
       pickupPoints: {
         orderBy: { displayOrder: 'asc' },

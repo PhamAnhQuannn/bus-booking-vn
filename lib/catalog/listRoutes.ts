@@ -5,10 +5,11 @@
  */
 
 import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 
 export async function listRoutes({ operatorId }: { operatorId: string }) {
   return prisma.route.findMany({
-    where: { operatorId },
+    ...withOperatorScope(operatorId),
     orderBy: { createdAt: 'desc' },
     select: {
       id: true,

@@ -26,6 +26,7 @@ export async function getUnviewedPaidCount(
 
   if (!since) {
     // Never viewed — count all paid bookings for this operator
+    // tenant-scoped via trip.operatorId join (model has no top-level operatorId)
     return prisma.booking.count({
       where: {
         status: { in: [...PAID_STATUSES] },
@@ -34,6 +35,7 @@ export async function getUnviewedPaidCount(
     });
   }
 
+  // tenant-scoped via trip.operatorId join (model has no top-level operatorId)
   return prisma.booking.count({
     where: {
       status: { in: [...PAID_STATUSES] },

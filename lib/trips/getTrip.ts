@@ -3,6 +3,7 @@
  */
 
 import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 import type { TripDto } from './tripDto';
 import { toTripDto } from './toTripDto';
 
@@ -11,7 +12,7 @@ export async function getTrip(
   tripId: string
 ): Promise<TripDto | null> {
   const trip = await prisma.trip.findFirst({
-    where: { id: tripId, operatorId },
+    ...withOperatorScope(operatorId, { where: { id: tripId } }),
     include: {
       bus: { select: { capacity: true } },
       _count: {
@@ -37,7 +38,7 @@ export async function listTrips(
 ): Promise<TripDto[]> {
   const trips = await prisma.trip.findMany({
     where: {
-      operatorId,
+      ...withOperatorScope(operatorId).where,
       ...(opts?.routeId ? { routeId: opts.routeId } : {}),
       ...(opts?.fromDate || opts?.toDate
         ? {

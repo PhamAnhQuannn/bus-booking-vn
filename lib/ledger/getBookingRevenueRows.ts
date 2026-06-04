@@ -51,6 +51,7 @@ export async function getBookingRevenueRows(
   const windowStart = new Date(`${dateFrom}T00:00:00+07:00`);
   const windowEnd = new Date(`${dateTo}T23:59:59+07:00`);
 
+  // tenant-scoped via trip.operatorId join (model has no top-level operatorId)
   const bookings = await prisma.booking.findMany({
     where: {
       status: { in: [...PAID_STATUSES] },

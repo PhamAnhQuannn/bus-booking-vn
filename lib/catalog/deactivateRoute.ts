@@ -7,6 +7,7 @@
  */
 
 import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 import { RouteServiceError } from './updateRoute';
 
 export async function deactivateRoute({
@@ -17,7 +18,7 @@ export async function deactivateRoute({
   routeId: string;
 }) {
   const existing = await prisma.route.findFirst({
-    where: { id: routeId, operatorId },
+    ...withOperatorScope(operatorId, { where: { id: routeId } }),
     select: { id: true, deactivatedAt: true },
   });
 

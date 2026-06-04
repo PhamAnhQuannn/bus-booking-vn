@@ -6,6 +6,7 @@
  */
 
 import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 
 export async function listPickupPoints({
   operatorId,
@@ -16,7 +17,7 @@ export async function listPickupPoints({
 }) {
   // Verify route ownership first
   const route = await prisma.route.findFirst({
-    where: { id: routeId, operatorId },
+    ...withOperatorScope(operatorId, { where: { id: routeId } }),
     select: { id: true },
   });
 

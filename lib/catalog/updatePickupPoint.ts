@@ -20,6 +20,7 @@ export async function updatePickupPoint({
   ppId: string;
   data: PickupPointPatchInput;
 }) {
+  // tenant-scoped via route.operatorId join (model has no top-level operatorId)
   const existing = await prisma.pickupPoint.findFirst({
     where: { id: ppId, routeId, route: { operatorId } },
     select: { id: true },

@@ -17,6 +17,7 @@
  */
 
 import type { PrismaClient } from '@prisma/client';
+import { withOperatorScope } from '@/lib/core/db';
 import { writeAdminAuditLog } from '@/lib/audit/adminAuditLog';
 import { AdminServiceError } from './errors';
 
@@ -57,13 +58,13 @@ export async function disableOperator(
     });
 
     const users = await tx.operatorUser.findMany({
-      where: { operatorId: input.operatorId },
+      ...withOperatorScope(input.operatorId),
       select: { id: true },
     });
     const userIds = users.map((u) => u.id);
 
     const usersDisabled = await tx.operatorUser.updateMany({
-      where: { operatorId: input.operatorId, disabledAt: null },
+      ...withOperatorScope(input.operatorId, { where: { disabledAt: null } }),
       data: { disabledAt: now },
     });
 
@@ -76,7 +77,7 @@ export async function disableOperator(
           });
 
     const tripsClosed = await tx.trip.updateMany({
-      where: { operatorId: input.operatorId, status: 'scheduled', salesClosed: false },
+      where: { ...withOperatorScope(input.operatorId).where, status: 'scheduled', salesClosed: false },
       data: { salesClosed: true },
     });
 

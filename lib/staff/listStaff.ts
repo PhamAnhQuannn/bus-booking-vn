@@ -6,11 +6,12 @@
  */
 
 import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 import { toStaffDto, type StaffDto } from './toStaffDto';
 
 export async function listStaff(operatorId: string): Promise<StaffDto[]> {
   const rows = await prisma.operatorUser.findMany({
-    where: { operatorId, role: 'staff' },
+    where: { ...withOperatorScope(operatorId).where, role: 'staff' },
     orderBy: { createdAt: 'desc' },
     select: {
       id: true,

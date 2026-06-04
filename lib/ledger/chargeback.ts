@@ -87,6 +87,7 @@
  */
 
 import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 import { appendLedgerEntry } from './ledgerRepo';
 import { getOperatorBalance } from './balance';
 import { logger } from '@/lib/logger';
@@ -194,7 +195,7 @@ export async function recordChargeback(
     ).map((p) => p.id);
     if (tripPayoutIds.length > 0) {
       const debit = await prisma.ledgerEntry.findFirst({
-        where: { operatorId, type: 'payout_debit', payoutId: { in: tripPayoutIds } },
+        where: { ...withOperatorScope(operatorId).where, type: 'payout_debit', payoutId: { in: tripPayoutIds } },
         select: { id: true },
       });
       postPayout = debit !== null;

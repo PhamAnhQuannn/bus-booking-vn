@@ -50,6 +50,7 @@ export async function getOperatorBooking(
   operatorId: string,
   bookingId: string
 ): Promise<BookingDto | null> {
+  // tenant-scoped via trip.operatorId join (model has no top-level operatorId)
   const row = await prisma.booking.findFirst({
     where: {
       id: bookingId,

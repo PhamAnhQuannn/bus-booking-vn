@@ -8,6 +8,7 @@
  */
 
 import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 import { Prisma } from '@prisma/client';
 import { BusServiceError } from './createBus';
 
@@ -32,7 +33,7 @@ export async function updateBus(
 ): Promise<UpdatedBus | null> {
   // First confirm the bus belongs to this operator — avoids cross-op writes.
   const existing = await prisma.bus.findFirst({
-    where: { id: busId, operatorId },
+    ...withOperatorScope(operatorId, { where: { id: busId } }),
     select: { id: true },
   });
   if (!existing) return null;

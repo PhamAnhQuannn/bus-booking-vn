@@ -6,6 +6,7 @@
  */
 
 import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 
 export interface MaintenanceWindow {
   id: string;
@@ -29,7 +30,7 @@ export async function getOperatorBus(
   busId: string
 ): Promise<OperatorBusDetail | null> {
   const row = await prisma.bus.findFirst({
-    where: { id: busId, operatorId },
+    ...withOperatorScope(operatorId, { where: { id: busId } }),
     select: {
       id: true,
       operatorId: true,

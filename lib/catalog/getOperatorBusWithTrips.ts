@@ -18,6 +18,7 @@
 
 import { BookingStatus } from "@prisma/client"
 import { prisma } from "@/lib/core/db/client"
+import { withOperatorScope } from "@/lib/core/db"
 
 export interface BusActiveTrip {
   id: string
@@ -59,7 +60,7 @@ export async function getOperatorBusWithTrips(
   const now = new Date()
 
   const bus = await prisma.bus.findFirst({
-    where: { id: busId, operatorId },
+    ...withOperatorScope(operatorId, { where: { id: busId } }),
     select: {
       id: true,
       licensePlate: true,

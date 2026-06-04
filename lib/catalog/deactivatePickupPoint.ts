@@ -19,6 +19,7 @@ export async function deactivatePickupPoint({
   routeId: string;
   ppId: string;
 }) {
+  // tenant-scoped via route.operatorId join (model has no top-level operatorId)
   const existing = await prisma.pickupPoint.findFirst({
     where: { id: ppId, routeId, route: { operatorId } },
     select: { id: true, deactivatedAt: true },

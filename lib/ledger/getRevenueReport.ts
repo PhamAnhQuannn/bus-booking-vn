@@ -14,6 +14,7 @@
  */
 
 import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 import { calcPayout } from './calcPayout';
 import type { RevenueRow } from './buildRevenueCsv';
 
@@ -39,6 +40,7 @@ export async function getRevenueReport(input: GetRevenueReportInput): Promise<Re
   const windowEnd = new Date(`${dateTo}T23:59:59+07:00`);
 
   // Fetch all paid bookings for the operator's trips in the date window.
+  // tenant-scoped via trip.operatorId join (model has no top-level operatorId)
   const bookings = await prisma.booking.findMany({
     where: {
       status: { in: [...PAID_STATUSES] },
@@ -107,7 +109,7 @@ export async function getRevenueReport(input: GetRevenueReportInput): Promise<Re
   const payouts =
     tripIds.length > 0
       ? await prisma.payout.findMany({
-          where: { tripId: { in: tripIds }, operatorId },
+          ...withOperatorScope(operatorId, { where: { tripId: { in: tripIds } } }),
           select: { tripId: true, status: true },
         })
       : [];

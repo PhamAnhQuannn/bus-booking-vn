@@ -7,6 +7,7 @@
  */
 
 import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 import { resolveOrCreatePlace } from '@/lib/places';
 import type { RoutePatchInput } from '@/lib/core/validation/route';
 
@@ -27,7 +28,7 @@ export async function updateRoute({
   data: RoutePatchInput;
 }) {
   const existing = await prisma.route.findFirst({
-    where: { id: routeId, operatorId },
+    ...withOperatorScope(operatorId, { where: { id: routeId } }),
     select: { id: true, deactivatedAt: true },
   });
 

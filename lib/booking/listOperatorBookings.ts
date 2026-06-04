@@ -79,6 +79,7 @@ export async function listOperatorBookings(
     dateFilter = { gte: startUtc, lte: endUtc };
   }
 
+  // tenant-scoped via trip.operatorId join (model has no top-level operatorId)
   const rows = await prisma.booking.findMany({
     where: {
       status: { in: [...PAID_STATUSES] },

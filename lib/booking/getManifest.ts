@@ -10,6 +10,7 @@
  */
 
 import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 
 export interface ManifestRow {
   bookingId: string;
@@ -48,7 +49,7 @@ export async function getManifest(
 ): Promise<GetManifestResult | null> {
   // Verify trip exists and belongs to operator
   const trip = await prisma.trip.findFirst({
-    where: { id: tripId, operatorId },
+    ...withOperatorScope(operatorId, { where: { id: tripId } }),
     select: { id: true },
   });
 

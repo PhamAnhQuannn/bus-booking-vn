@@ -7,6 +7,7 @@
  */
 
 import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 import type { PickupPointCreateInput } from '@/lib/core/validation/route';
 
 export class PickupPointServiceError extends Error {
@@ -36,7 +37,7 @@ export async function createPickupPoint({
 }) {
   // Verify route belongs to operator
   const route = await prisma.route.findFirst({
-    where: { id: routeId, operatorId },
+    ...withOperatorScope(operatorId, { where: { id: routeId } }),
     select: { id: true },
   });
 

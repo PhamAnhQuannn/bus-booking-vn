@@ -7,6 +7,7 @@
  */
 
 import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 import type { PayoutStatus } from '@prisma/client';
 
 export { type PayoutStatus };
@@ -36,7 +37,7 @@ export async function getPayoutReport(input: GetPayoutReportInput): Promise<Payo
   const { operatorId } = input;
 
   const payouts = await prisma.payout.findMany({
-    where: { operatorId },
+    ...withOperatorScope(operatorId),
     include: {
       trip: {
         include: {

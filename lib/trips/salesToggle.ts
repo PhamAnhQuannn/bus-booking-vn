@@ -6,6 +6,7 @@
  */
 
 import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 import { TripServiceError } from './errors';
 import type { TripDto } from './tripDto';
 import { toTripDto } from './toTripDto';
@@ -22,7 +23,7 @@ export async function salesToggle(
 
     // Cross-op guard via ownership check
     const existing = await tx.trip.findFirst({
-      where: { id: tripId, operatorId },
+      ...withOperatorScope(operatorId, { where: { id: tripId } }),
       select: { id: true },
     });
 
