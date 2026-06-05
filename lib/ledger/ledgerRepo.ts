@@ -99,9 +99,17 @@ export interface LedgerEntryWriter {
  *   - a duplicate sourceEventId (Prisma P2002) is a no-op — we re-read the
  *     existing row and return { created: false } with its id.
  *
- * `client` is injectable (defaults to the shared singleton). Pass a Prisma tx
- * handle to write the entry inside an enclosing `$transaction` — the P2002
- * re-read uses the SAME client so the idempotent path stays inside the tx.
+ * `client` is injectable (defaults to the shared singleton).
+ *
+ * ⚠️ IN-TRANSACTION IDEMPOTENCY CAVEAT: the P2002 catch-and-re-read is only safe
+ * at the TOP LEVEL. Inside an enclosing `$transaction`, a unique-constraint
+ * violation aborts the ENTIRE Postgres transaction (25P02) — the catch block's
+ * `findUnique` then also fails ("current transaction is aborted") and the whole
+ * tx rolls back. Postgres has no per-statement savepoint here. So if a caller
+ * passes a `tx` handle AND the sourceEventId may already exist, it MUST check for
+ * existence BEFORE calling this (see processPayouts.ts check-then-append for the
+ * withdrawal `payout_debit` case). This function's idempotency is reliable only
+ * when the duplicate cannot pre-exist within the same tx.
  */
 export async function appendLedgerEntry(
   input: AppendLedgerEntryInput,

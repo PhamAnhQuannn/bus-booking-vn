@@ -96,21 +96,33 @@ export const processPayouts: JobCore = async (tx, opts) => {
       // operator's balance; sign convention in lib/ledger/ledgerRepo.ts). The
       // operator-balance SUM (lib/ledger/balance.ts) reads this to compute paidOut.
       //
-      // Idempotent: sourceEventId `payout_debit:<payoutId>` is unique, so a re-run
-      // that re-selects the same row (it won't normally, since status is now 'paid'
-      // and the WHERE filters on 'requested') is a no-op — belt-and-suspenders
-      // alongside the status guard. amountMinor passed as a bigint to stay in the
-      // BigInt domain (Issue 016).
-      await appendLedgerEntry(
-        {
-          operatorId: payout.operatorId,
-          payoutId: payout.id,
-          type: 'payout_debit',
-          amountMinor: -BigInt(payout.net),
-          sourceEventId: `payout_debit:${payout.id}`,
-        },
-        tx
-      );
+      // CHECK-THEN-APPEND (Issue 053 fix): on-demand withdrawals pre-write
+      // `payout_debit:<payoutId>` at request time to drain `available` immediately.
+      // Blindly re-appending the same sourceEventId here would raise a unique
+      // violation — and because we are INSIDE this enclosing $transaction, Postgres
+      // aborts the WHOLE transaction (25P02) and appendLedgerEntry's P2002 re-read
+      // cannot run in an aborted tx, so the settlement rolls back and the payout is
+      // stranded `requested` forever. The job holds a run-lock (advisory lock) and
+      // the withdrawal's debit was committed before this sweep, so a serial
+      // check-then-append is race-free: write the debit only if it does not yet
+      // exist. amountMinor passed as a bigint to stay in the BigInt domain (Issue 016).
+      const debitKey = `payout_debit:${payout.id}`;
+      const existingDebit = await tx.ledgerEntry.findUnique({
+        where: { sourceEventId: debitKey },
+        select: { id: true },
+      });
+      if (!existingDebit) {
+        await appendLedgerEntry(
+          {
+            operatorId: payout.operatorId,
+            payoutId: payout.id,
+            type: 'payout_debit',
+            amountMinor: -BigInt(payout.net),
+            sourceEventId: debitKey,
+          },
+          tx
+        );
+      }
     } else {
       await tx.payout.update({
         where: { id: payout.id },
