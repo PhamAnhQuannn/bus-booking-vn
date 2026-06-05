@@ -70,9 +70,17 @@ export type OperatorProfile = z.infer<typeof OperatorProfileSchema>;
 // PATCH /api/op/profile body
 // ---------------------------------------------------------------------------
 
+// Blank string from an untouched form field means "no change" — coerce '' →
+// undefined BEFORE the phone-format check so leaving a phone empty doesn't 400
+// the whole PATCH. Scoped here only; the shared phoneSchema (login) stays strict.
+const optionalPhoneSchema = z.preprocess(
+  (v) => (v === '' ? undefined : v),
+  phoneSchema.optional()
+);
+
 export const PatchOperatorProfileSchema = z.object({
-  contactPhone: phoneSchema.optional(),
-  notificationPhone: phoneSchema.optional(),
+  contactPhone: optionalPhoneSchema,
+  notificationPhone: optionalPhoneSchema,
   displayName: z.string().trim().min(2).max(100).optional(),
 });
 
