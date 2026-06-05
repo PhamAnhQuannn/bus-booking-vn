@@ -139,6 +139,8 @@ const eslintConfig = defineConfig([
                 "csrfClient.{ts,tsx}", // lib/auth — browser cookie reader
                 "safeReturnTo.{ts,tsx}", // lib/auth — pure redirect sanitizer
                 "consent.{ts,tsx}", // lib/booking — checkout consent constants
+                "statusLabels.{ts,tsx}", // lib/op — pure status/label display maps
+                "formatRelativeVi.{ts,tsx}", // lib/op — pure relative-time formatter
               ],
             },
             { target: ["lib-core"], allow: "**" },

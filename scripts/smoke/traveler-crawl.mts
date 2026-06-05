@@ -64,6 +64,11 @@ async function shoot(page: Page, name: string): Promise<string> {
 let CURRENT_VP = 'desktop';
 let CURRENT_CTX = 'startup';
 
+// Routes we deliberately probe with bad input — their 4xx is the asserted behaviour,
+// not a regression. Mirrors the /api/auth/otp/test-peek allowlist on the response listener.
+const EXPECTED_NEG_PATH = /\/charter\/status\/INVALID-REF-TEST|\/verify\/invalid-token-test/;
+let EXPECT_LOGIN_401 = false; // toggled around the deliberate wrong-password submit
+
 function safePath(u: string): string {
   try {
     const x = new URL(u);
@@ -80,6 +85,9 @@ function instrument(page: Page) {
     if (msg.type() !== 'error') return;
     const text = msg.text();
     if (/favicon|Download the React DevTools|\[Fast Refresh\]|hydrat/i.test(text)) return;
+    const cp = safePath(page.url());
+    if (EXPECTED_NEG_PATH.test(cp)) return;                   // expected 404-page resource noise
+    if (EXPECT_LOGIN_401 && /\/auth\/login/.test(cp)) return; // expected 401 fetch noise
     const key = `${CURRENT_VP}|${safePath(page.url())}|${text.slice(0, 80)}`;
     if (seenConsole.has(key)) return;
     seenConsole.add(key);
@@ -99,6 +107,8 @@ function instrument(page: Page) {
     if (st < 400) return;
     const p = safePath(u);
     if (p.startsWith('/api/auth/otp/test-peek')) return; // 404 until a code exists — expected
+    if (st === 404 && EXPECTED_NEG_PATH.test(p)) return;                   // deliberate invalid-ref/token probe
+    if (st === 401 && p === '/api/auth/login' && EXPECT_LOGIN_401) return; // deliberate wrong-password probe
     const key = `http|${CURRENT_VP}|${p}|${st}|${CURRENT_CTX}`;
     if (seenConsole.has(key)) return;
     seenConsole.add(key);
@@ -171,6 +181,13 @@ async function peekOtp(page: Page, phone: string): Promise<string | null> {
   return null;
 }
 
+/** First visible error/alert text on the page (for diagnosing failed flows). */
+async function alertText(page: Page): Promise<string> {
+  const a = page.locator('p[role="alert"], .text-destructive');
+  if (await a.count()) return ((await a.first().textContent()) ?? '').trim().replace(/\s+/g, ' ').slice(0, 120) || '(empty)';
+  return '(no alert)';
+}
+
 let phoneSeq = 0;
 function freshPhone(): string {
   // E.164, gitleaks-safe (built at runtime), matches /^\+84[35789]\d{8}$/.
@@ -230,7 +247,7 @@ async function phaseStaticCrawl(page: Page) {
 
 // ---- Phase B: guest booking funnel -----------------------------------------
 
-async function gotoReview(page: Page, phase: string): Promise<boolean> {
+async function gotoReview(page: Page, phase: string, buyerPhone = '0901234567'): Promise<boolean> {
   CURRENT_CTX = 'booking: search';
   await visit(page, `/search?${SEARCH_QS}`, phase);
   const bookBtn = page.getByRole('button', { name: /đặt vé|book/i });
@@ -250,7 +267,7 @@ async function gotoReview(page: Page, phase: string): Promise<boolean> {
   }
   CURRENT_CTX = 'booking: customer form';
   await page.getByLabel(/họ và tên|name/i).first().fill('Nguyen Van Test');
-  await page.getByLabel(/số điện thoại|phone/i).first().fill('0901234567');
+  await page.getByLabel(/số điện thoại|phone/i).first().fill(buyerPhone);
   const email = page.getByLabel(/email/i);
   if (await email.count()) await email.first().fill('test@example.com').catch(() => {});
   await page.getByRole('button', { name: /tiếp tục|continue|xác nhận/i }).first().click();
@@ -345,8 +362,7 @@ async function phaseBooking(page: Page, withFail: boolean) {
 
 // ---- Phase C: register (OTP from backend) ----------------------------------
 
-async function registerViaUi(page: Page, phase: string): Promise<string | null> {
-  const phone = freshPhone();
+async function registerViaUi(page: Page, phase: string, phone: string = freshPhone()): Promise<string | null> {
   CURRENT_CTX = `register ${phone}`;
   await visit(page, '/auth/register', phase);
   await page.locator('#phone').waitFor({ state: 'visible', timeout: 12000 });
@@ -417,8 +433,12 @@ async function phaseForgotPassword(page: Page) {
   await page.locator('#confirmPassword').fill('Password2New');
   await page.getByRole('button', { name: /đặt lại mật khẩu/i }).click();
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+  // verify→reset is a two-fetch chain; the done screen renders after both settle.
+  await page.getByText(/đã được cập nhật/i).first().waitFor({ state: 'visible', timeout: 9000 }).catch(() => {});
   const done = await page.getByText(/đã được cập nhật/i).count();
-  rec({ phase: 'C-forgot', route: '/auth/forgot-password', action: 'verify OTP + reset password', status: done ? 'PASS' : 'WARN', detail: done ? 'password reset OK (done screen)' : `no done screen at ${safePath(page.url())}`, shot: await shoot(page, 'forgot-done') });
+  const fErr = done ? '' : await alertText(page);
+  const fStatus: Sev = done ? 'PASS' : fErr && fErr !== '(no alert)' ? 'BROKEN' : 'WARN';
+  rec({ phase: 'C-forgot', route: '/auth/forgot-password', action: 'verify OTP + reset password', status: fStatus, detail: done ? 'password reset OK (done screen)' : `no done screen — alert: ${fErr} @ ${safePath(page.url())}`, shot: await shoot(page, 'forgot-done') });
 }
 
 // ---- Phase C3: reset-password direct (OTP from backend) --------------------
@@ -446,8 +466,11 @@ async function phaseResetPassword(page: Page) {
   await page.locator('#confirmPassword').fill('Password3Rst');
   await page.getByRole('button', { name: /đặt lại mật khẩu/i }).click();
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+  await page.getByText(/đã được cập nhật|thành công/i).first().waitFor({ state: 'visible', timeout: 9000 }).catch(() => {});
   const done = await page.getByText(/đã được cập nhật|thành công/i).count();
-  rec({ phase: 'C-reset', route: '/auth/reset-password', action: 'verify OTP + reset password', status: done ? 'PASS' : 'WARN', detail: done ? 'password reset OK (done screen)' : `no done screen at ${safePath(page.url())}`, shot: await shoot(page, 'reset-done') });
+  const rErr = done ? '' : await alertText(page);
+  const rStatus: Sev = done ? 'PASS' : rErr && rErr !== '(no alert)' ? 'BROKEN' : 'WARN';
+  rec({ phase: 'C-reset', route: '/auth/reset-password', action: 'verify OTP + reset password', status: rStatus, detail: done ? 'password reset OK (done screen)' : `no done screen — alert: ${rErr} @ ${safePath(page.url())}`, shot: await shoot(page, 'reset-done') });
 }
 
 // ---- Phase D: account area (SPA-continuous right after register) ------------
@@ -499,39 +522,11 @@ async function phaseAccount(page: Page) {
   rec({ phase: 'D-account', route: '/account/bookings', action: 'link to /account/settings', status: (await settingsLink.count()) ? 'PASS' : 'BROKEN', detail: (await settingsLink.count()) ? 'settings link present' : 'NO in-app link to /account/settings (orphan route)' });
 
   // Auth-guard: a hard load of /account/settings has no in-memory token → must
-  // redirect to login (parity with /account/bookings). Verify the guard; the form
-  // fields then won't exist (we're on the login page) and the checks below skip.
+  // redirect to login (parity with /account/bookings). The authed settings
+  // mutations themselves are exercised in phaseSettingsMutations (SPA continuity).
   CURRENT_CTX = 'account: settings (hard load)';
   await visit(page, '/account/settings', 'D-account');
   rec({ phase: 'D-account', route: '/account/settings', action: 'auth-guard on hard load', status: /\/auth\/login/.test(page.url()) ? 'PASS' : 'WARN', detail: /\/auth\/login/.test(page.url()) ? 'redirected to login (guard works)' : `no redirect — at ${safePath(page.url())}` });
-  // change name
-  if (await page.locator('#displayName').count()) {
-    await page.locator('#displayName').fill('Renamed Tester');
-    await page.getByRole('button', { name: /lưu tên/i }).click();
-    await page.waitForTimeout(1200);
-    const ok = await page.getByText(/đã cập nhật tên hiển thị/i).count();
-    const lost = await page.getByText(/phiên đăng nhập hết hạn/i).count();
-    rec({ phase: 'D-account', route: '/account/settings', action: 'change name submit', status: ok ? 'PASS' : 'WARN', detail: ok ? 'name updated' : lost ? 'session lost on reload (in-memory token) — settings unusable after hard nav' : 'no visible result', shot: await shoot(page, 'settings-name') });
-  }
-  // change phone — click "Gửi mã OTP" (will 401 unauth; record)
-  const phoneOtpBtn = page.getByRole('button', { name: /gửi mã otp/i });
-  if (await phoneOtpBtn.count()) {
-    await page.locator('#newPhone').fill('0901239999').catch(() => {});
-    await phoneOtpBtn.first().click().catch(() => {});
-    await page.waitForTimeout(1000);
-    rec({ phase: 'D-account', route: '/account/settings', action: 'phone-change send OTP', status: 'INFO', detail: 'clicked (authed submit needs live session; orphan+in-memory-token blocks UI test)' });
-  }
-  // delete account — click through confirm (will 401 unauth on hard load)
-  const delBtn = page.getByRole('button', { name: /^xóa tài khoản$/i });
-  if (await delBtn.count()) {
-    await delBtn.first().click().catch(() => {});
-    const confirm = page.getByRole('button', { name: /xác nhận xóa/i });
-    if (await confirm.count()) {
-      await confirm.first().click().catch(() => {});
-      await page.waitForTimeout(1200);
-      rec({ phase: 'D-account', route: '/account/settings', action: 'delete account', status: 'INFO', detail: `clicked confirm; at ${safePath(page.url())} (authed delete not exercisable via UI — orphan+in-memory token)`, shot: await shoot(page, 'settings-delete') });
-    }
-  }
 }
 
 // ---- Phase E: charter -------------------------------------------------------
@@ -605,6 +600,261 @@ async function phaseCharter(page: Page) {
   }
 }
 
+// ---- Phase F: search interactions (sort / filter / date-nav) ----------------
+
+async function phaseSearchInteractions(page: Page) {
+  CURRENT_CTX = 'search interactions';
+  await visit(page, `/search?${SEARCH_QS}`, 'F-search');
+
+  // Sort: open the base-ui Select and pick "Giá thấp → cao" (price_asc).
+  const sortTrigger = page.locator('#sort-select');
+  if (await sortTrigger.count()) {
+    await sortTrigger.first().click().catch(() => {});
+    const opt = page.getByRole('option', { name: /giá thấp/i });
+    await opt.first().waitFor({ state: 'visible', timeout: 4000 }).catch(() => {});
+    if (await opt.count()) {
+      await opt.first().click().catch(() => {});
+      await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+      await page.waitForTimeout(1500); // let the client router.replace commit the URL
+      const ok = /sort=price_asc/.test(page.url());
+      rec({ phase: 'F-search', route: '/search', action: 'sort → Giá thấp→cao', status: ok ? 'PASS' : 'WARN', detail: ok ? 'URL has sort=price_asc' : `no sort param: ${safePath(page.url())}` });
+    } else {
+      rec({ phase: 'F-search', route: '/search', action: 'sort dropdown', status: 'WARN', detail: 'no "Giá thấp" option after open' });
+    }
+  } else {
+    rec({ phase: 'F-search', route: '/search', action: 'sort dropdown', status: 'WARN', detail: 'no #sort-select trigger' });
+  }
+
+  // Filter: toggle a bus-type chip (desktop rail / mobile sheet button).
+  const chip = page.getByRole('button', { name: /giường nằm/i });
+  if (await chip.count()) {
+    await chip.first().click().catch(() => {});
+    await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+    await page.waitForTimeout(1500); // let the client router.replace commit the URL
+    const ok = /busType=/.test(page.url());
+    rec({ phase: 'F-search', route: '/search', action: 'filter chip "Giường nằm"', status: ok ? 'PASS' : 'WARN', detail: ok ? `URL has busType: ${safePath(page.url())}` : `no busType param: ${safePath(page.url())}` });
+  } else {
+    rec({ phase: 'F-search', route: '/search', action: 'filter chip', status: 'INFO', detail: 'no bus-type chip visible (single-facet or mobile sheet collapsed)' });
+  }
+
+  // Date nav: click "Sau →" (next day) — assert the date query param advances.
+  const dateBefore = (() => { try { return new URL(page.url()).searchParams.get('date'); } catch { return null; } })();
+  const next = page.getByRole('link', { name: /ngày sau|tìm ngày sau|sau →/i });
+  if (await next.count()) {
+    await next.first().click().catch(() => {});
+    await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+    await page.waitForTimeout(1200);
+    const dateAfter = (() => { try { return new URL(page.url()).searchParams.get('date'); } catch { return null; } })();
+    const ok = !!dateAfter && dateAfter !== dateBefore;
+    rec({ phase: 'F-search', route: '/search', action: 'date-nav next day', status: ok ? 'PASS' : 'WARN', detail: ok ? `${dateBefore} → ${dateAfter}` : `date unchanged (${dateAfter})` });
+  } else {
+    rec({ phase: 'F-search', route: '/search', action: 'date-nav next day', status: 'WARN', detail: 'no next-day nav link' });
+  }
+}
+
+// ---- Phase G: trip-detail funnel (stepper + book) ---------------------------
+
+async function phaseTripDetail(page: Page) {
+  CURRENT_CTX = 'trip detail';
+  await visit(page, `/search?${SEARCH_QS}`, 'G-trip');
+  const detail = page.locator('a[href^="/trips/"]');
+  if ((await detail.count()) === 0) {
+    rec({ phase: 'G-trip', route: '/search', action: 'find "Xem chi tiết" link', status: 'BROKEN', detail: 'no trip-detail link on results' });
+    return;
+  }
+  await detail.first().click();
+  try {
+    await page.waitForURL('**/trips/**', { timeout: 12000 });
+    rec({ phase: 'G-trip', route: '/search→/trips/[id]', action: 'Xem chi tiết', status: 'PASS', detail: `at ${safePath(page.url())}` });
+  } catch {
+    rec({ phase: 'G-trip', route: '/search→/trips/[id]', action: 'Xem chi tiết', status: 'BROKEN', detail: `stuck at ${safePath(page.url())}`, shot: await shoot(page, 'trip-detail-stuck') });
+    return;
+  }
+  // ticket-count stepper
+  const plus = page.getByRole('button', { name: /tăng số vé/i });
+  const minus = page.getByRole('button', { name: /giảm số vé/i });
+  if (await plus.count()) {
+    await plus.first().click().catch(() => {});
+    await plus.first().click().catch(() => {});
+    if (await minus.count()) await minus.first().click().catch(() => {});
+    rec({ phase: 'G-trip', route: '/trips/[id]', action: 'ticket stepper +/-', status: 'PASS', detail: 'stepper clicked (2× tăng, 1× giảm)', shot: await shoot(page, 'trip-stepper') });
+  } else {
+    rec({ phase: 'G-trip', route: '/trips/[id]', action: 'ticket stepper', status: 'WARN', detail: 'no stepper buttons' });
+  }
+  const book = page.getByRole('button', { name: /đặt vé/i });
+  if (await book.count()) {
+    await book.first().click().catch(() => {});
+    try {
+      await page.waitForURL('**/booking/customer', { timeout: 12000 });
+      rec({ phase: 'G-trip', route: '/trips/[id]→/booking/customer', action: 'Đặt vé', status: 'PASS', detail: 'reached customer form' });
+    } catch {
+      rec({ phase: 'G-trip', route: '/trips/[id]→/booking/customer', action: 'Đặt vé', status: 'BROKEN', detail: `stuck at ${safePath(page.url())}`, shot: await shoot(page, 'trip-book-stuck') });
+    }
+  } else {
+    rec({ phase: 'G-trip', route: '/trips/[id]', action: 'book button', status: 'WARN', detail: 'no Đặt vé button on detail page' });
+  }
+}
+
+// ---- Phase H: login with password (S04) ------------------------------------
+
+async function phaseLogin(page: Page) {
+  const phone = await registerViaUi(page, 'H-login(setup)');
+  if (!phone) {
+    rec({ phase: 'H-login', route: '/auth/login', action: 'setup register', status: 'BROKEN', detail: 'could not create an account to log in with' });
+    return;
+  }
+  // wrong password → error message
+  CURRENT_CTX = `login wrong ${phone}`;
+  await visit(page, '/auth/login?returnTo=/account/bookings', 'H-login');
+  await page.locator('#phone').fill(phone);
+  await page.locator('#password').fill('WrongPass999');
+  EXPECT_LOGIN_401 = true;
+  await page.getByRole('button', { name: /^đăng nhập$/i }).click();
+  // wait for the error to render AND the button to return to idle before re-submitting
+  await page.getByText(/không đúng/i).first().waitFor({ state: 'visible', timeout: 8000 }).catch(() => {});
+  EXPECT_LOGIN_401 = false;
+  const wrongErr = await page.getByText(/không đúng/i).count();
+  rec({ phase: 'H-login', route: '/auth/login', action: 'wrong password → error', status: wrongErr ? 'PASS' : 'WARN', detail: wrongErr ? 'shows "không đúng"' : 'no error shown for wrong password', shot: await shoot(page, 'login-wrong') });
+  // correct password → authed landing on returnTo. Capture the login response so a
+  // slow-but-successful POST isn't misread as broken (the button label flips to
+  // "Đang đăng nhập..." while loading, so we wait on the response, not the label).
+  CURRENT_CTX = `login ok ${phone}`;
+  await page.locator('#password').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+  await page.locator('#phone').fill(phone);
+  await page.locator('#password').fill('Password1Test');
+  const loginResp = page.waitForResponse((r) => r.url().includes('/api/auth/login'), { timeout: 20000 });
+  await page.getByRole('button', { name: /^đăng nhập$/i }).click();
+  const lr = await loginResp.catch(() => null);
+  const lstatus = lr?.status() ?? 0;
+  if (lstatus === 200) await page.waitForURL('**/account/bookings', { timeout: 15000 }).catch(() => {});
+  const authed = /\/account\/bookings/.test(page.url());
+  rec({
+    phase: 'H-login',
+    route: '/auth/login→/account/bookings',
+    action: 'login (POST /api/auth/login)',
+    status: authed ? 'PASS' : lstatus === 200 ? 'WARN' : 'BROKEN',
+    detail: authed ? `HTTP 200, reached bookings authed` : `login HTTP ${lstatus || 'no-response'}; at ${safePath(page.url())}`,
+    shot: await shoot(page, 'login-ok'),
+  });
+}
+
+// ---- Phase I: account settings mutations (SPA continuity) -------------------
+
+/** From post-register '/', reach settings WITHOUT a hard reload (in-memory token). */
+async function gotoSettingsSpa(page: Page, phase: string): Promise<boolean> {
+  const acct = page.getByRole('link', { name: /tài khoản/i });
+  if (!(await acct.count())) {
+    rec({ phase, route: 'header', action: 'find Tài khoản link', status: 'BROKEN', detail: 'no account nav link' });
+    return false;
+  }
+  await acct.first().click().catch(() => {});
+  await page.waitForURL('**/account/**', { timeout: 12000 }).catch(() => {});
+  if (/\/auth\/login/.test(page.url())) {
+    rec({ phase, route: '/account/bookings', action: 'reach account (SPA)', status: 'BROKEN', detail: 'bounced to login (token lost)' });
+    return false;
+  }
+  const settings = page.locator('a[href="/account/settings"]');
+  if (!(await settings.count())) {
+    rec({ phase, route: '/account/bookings', action: 'find settings link', status: 'BROKEN', detail: 'no in-app settings link' });
+    return false;
+  }
+  await settings.first().click().catch(() => {});
+  await page.waitForURL('**/account/settings', { timeout: 12000 }).catch(() => {});
+  const onSettings = /\/account\/settings/.test(page.url());
+  rec({ phase, route: '/account/settings', action: 'reach settings (SPA, token alive)', status: onSettings ? 'PASS' : 'BROKEN', detail: onSettings ? 'on settings page authed' : `at ${safePath(page.url())}` });
+  return onSettings;
+}
+
+async function phaseSettingsMutations(page: Page) {
+  // Account A — change name + change phone (both session-preserving).
+  if (await registerViaUi(page, 'I-settings-A(setup)')) {
+    if (await gotoSettingsSpa(page, 'I-settings')) {
+      await page.locator('#displayName').fill('Renamed Tester');
+      await page.getByRole('button', { name: /lưu tên/i }).click();
+      await page.waitForTimeout(1200);
+      const nameOk = await page.getByText(/đã cập nhật tên hiển thị/i).count();
+      rec({ phase: 'I-settings', route: '/account/settings', action: 'change displayName (PATCH /api/account/name)', status: nameOk ? 'PASS' : 'BROKEN', detail: nameOk ? 'name updated' : `no success — alert: ${await alertText(page)}`, shot: await shoot(page, 'settings-name') });
+
+      const newPhone = freshPhone();
+      await page.locator('#newPhone').fill(newPhone);
+      await page.getByRole('button', { name: /gửi mã otp/i }).click();
+      const otpField = page.locator('#phone-otp');
+      const advanced = await otpField.waitFor({ state: 'visible', timeout: 8000 }).then(() => true).catch(() => false);
+      if (advanced) {
+        const code = await peekOtp(page, newPhone);
+        if (code) {
+          await otpField.fill(code);
+          await page.getByRole('button', { name: /^xác nhận$/i }).click();
+          await page.waitForTimeout(1500);
+          const phoneOk = await page.getByText(/đã đổi số điện thoại thành công/i).count();
+          rec({ phase: 'I-settings', route: '/account/settings', action: 'change phone (OTP from backend)', status: phoneOk ? 'PASS' : 'BROKEN', detail: phoneOk ? 'phone changed' : `no success — alert: ${await alertText(page)}`, shot: await shoot(page, 'settings-phone') });
+        } else {
+          rec({ phase: 'I-settings', route: '/account/settings', action: 'change phone OTP peek', status: 'BROKEN', detail: 'no code from backend sink' });
+        }
+      } else {
+        rec({ phase: 'I-settings', route: '/account/settings', action: 'change phone init (POST /api/account/phone/init)', status: 'BROKEN', detail: `did not advance to OTP — alert: ${await alertText(page)}` });
+      }
+    }
+  }
+
+  // Account B — change password (invalidates the session by design).
+  if (await registerViaUi(page, 'I-password(setup)')) {
+    if (await gotoSettingsSpa(page, 'I-password')) {
+      await page.locator('#currentPassword').fill('Password1Test');
+      await page.locator('#newPassword').fill('Password9New');
+      await page.locator('#confirmPassword').fill('Password9New');
+      await page.getByRole('button', { name: /đổi mật khẩu/i }).click();
+      await page.waitForTimeout(1500);
+      const ok = await page.getByText(/đã đổi mật khẩu/i).count();
+      rec({ phase: 'I-password', route: '/account/settings', action: 'change password (POST /api/account/password)', status: ok ? 'PASS' : 'BROKEN', detail: ok ? 'password changed' : `no success — alert: ${await alertText(page)}`, shot: await shoot(page, 'settings-password') });
+    }
+  }
+
+  // Account C — delete account.
+  if (await registerViaUi(page, 'I-delete(setup)')) {
+    if (await gotoSettingsSpa(page, 'I-delete')) {
+      await page.getByRole('button', { name: /^xóa tài khoản$/i }).click().catch(() => {});
+      const confirm = page.getByRole('button', { name: /xác nhận xóa/i });
+      if (await confirm.count()) {
+        await confirm.first().click().catch(() => {});
+        await page.waitForURL((u) => u.pathname === '/', { timeout: 12000 }).catch(() => {});
+        const deleted = (() => { try { return new URL(page.url()).pathname === '/'; } catch { return false; } })();
+        rec({ phase: 'I-delete', route: '/account/settings', action: 'delete account (DELETE /api/account/delete)', status: deleted ? 'PASS' : 'BROKEN', detail: deleted ? 'account deleted, redirected home' : `at ${safePath(page.url())} — alert: ${await alertText(page)}`, shot: await shoot(page, 'settings-delete') });
+      } else {
+        rec({ phase: 'I-delete', route: '/account/settings', action: 'delete confirm', status: 'BROKEN', detail: 'no "Xác nhận xóa" button after first click' });
+      }
+    }
+  }
+}
+
+// ---- Phase J: guest → account link (shared phone, S04) ----------------------
+
+async function phaseGuestLink(page: Page) {
+  const shared = freshPhone();
+  CURRENT_CTX = `guest-link ${shared}`;
+  // 1) guest booking with the shared phone (funnel to review; pay skipped)
+  const reached = await gotoReview(page, 'J-link', shared);
+  rec({ phase: 'J-link', route: '/booking/review', action: 'guest booking w/ shared phone', status: reached ? 'PASS' : 'WARN', detail: reached ? `hold created for ${shared}` : 'did not reach review' });
+  // 2) register with the SAME phone → guest-link mechanism runs on register
+  const registered = await registerViaUi(page, 'J-link', shared);
+  if (!registered) {
+    rec({ phase: 'J-link', route: '/auth/register', action: 'register w/ shared phone', status: 'BROKEN', detail: 'could not register the shared phone' });
+    return;
+  }
+  // 3) view bookings authed; record outcome (+ skip-pay caveat)
+  const acct = page.getByRole('link', { name: /tài khoản/i });
+  if (await acct.count()) {
+    await acct.first().click().catch(() => {});
+    await page.waitForURL('**/account/**', { timeout: 12000 }).catch(() => {});
+    const authed = !/\/auth\/login/.test(page.url());
+    await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+    const rows = await page.locator('a[href*="/account/bookings/"]').count();
+    rec({ phase: 'J-link', route: '/account/bookings', action: 'guest→account link result', status: authed ? 'PASS' : 'BROKEN', detail: authed ? `bookings list authed; ${rows} attached row(s) — skip-pay: held(unpaid) booking is NOT attached (only paid bookings link), so 0 rows is expected this pass` : 'bounced to login', shot: await shoot(page, 'guest-link') });
+  } else {
+    rec({ phase: 'J-link', route: 'header', action: 'find Tài khoản link', status: 'BROKEN', detail: 'no account nav link after register' });
+  }
+}
+
 // ---- driver ----------------------------------------------------------------
 
 async function step(name: string, fn: () => Promise<void>) {
@@ -625,10 +875,15 @@ async function runViewport(browser: Browser, vp: 'desktop' | 'mobile', full: boo
   rec({ phase: 'meta', route: '-', action: 'start viewport', status: 'INFO', detail: `${vp} @ ${BASE}` });
 
   await step('static-crawl', () => phaseStaticCrawl(page));
+  await step('search-interactions', () => phaseSearchInteractions(page));
+  await step('trip-detail', () => phaseTripDetail(page));
   await step('guest-booking', () => phaseBooking(page, full));
   await step('charter', () => phaseCharter(page));
   await step('account', () => phaseAccount(page));
   if (full) {
+    await step('login', () => phaseLogin(page));
+    await step('settings-mutations', () => phaseSettingsMutations(page));
+    await step('guest-link', () => phaseGuestLink(page));
     await step('forgot-password', () => phaseForgotPassword(page));
     await step('reset-password', () => phaseResetPassword(page));
   }
@@ -661,6 +916,32 @@ async function main() {
 
 // ---- report -----------------------------------------------------------------
 
+// Maps each restated traveler story to the phase that exercises it. The Result
+// column is derived from the worst finding under that phase prefix at run time.
+const STORIES: { group: string; text: string; phase: string; mode: 'covered' | 'skip-pay' }[] = [
+  { group: 'S02 Search', text: 'Search trips (origin/dest/date/qty) → results load', phase: 'A-static', mode: 'covered' },
+  { group: 'S02 Search', text: 'Filter (bus-type) / sort (price) / next-prev-day nav', phase: 'F-search', mode: 'covered' },
+  { group: 'S02 Search', text: 'Trip detail page + ticket-count stepper', phase: 'G-trip', mode: 'covered' },
+  { group: 'S03 Buy', text: 'Guest checkout: buyer form → seat hold + countdown → review', phase: 'B-booking', mode: 'covered' },
+  { group: 'S03 Buy', text: 'Pay rail → result → confirmation → ticket PDF → /verify page', phase: '__skip__', mode: 'skip-pay' },
+  { group: 'S04 Account', text: 'Register via phone + OTP (+ password)', phase: 'D-account', mode: 'covered' },
+  { group: 'S04 Account', text: 'Login via phone + password (+ wrong-password path)', phase: 'H-login', mode: 'covered' },
+  { group: 'S04 Account', text: 'Bookings list (upcoming/past tabs) + detail', phase: 'D-account', mode: 'covered' },
+  { group: 'S04 Account', text: 'Settings: change name / phone (OTP) / password / delete', phase: 'I-', mode: 'covered' },
+  { group: 'S04 Account', text: 'Guest → account auto-link by shared phone', phase: 'J-link', mode: 'covered' },
+  { group: 'S04 Account', text: 'Forgot password (OTP from backend)', phase: 'C-forgot', mode: 'covered' },
+  { group: 'S04 Account', text: 'Reset password (OTP from backend)', phase: 'C-reset', mode: 'covered' },
+  { group: 'S16 Charter', text: 'Charter request → confirmation ref → status → cancel', phase: 'E-charter', mode: 'covered' },
+];
+
+function storyResult(phase: string): string {
+  const hits = findings.filter((f) => f.phase.startsWith(phase));
+  if (!hits.length) return '⬜ not exercised';
+  if (hits.some((f) => f.status === 'BROKEN')) return '🟥 BROKEN';
+  if (hits.some((f) => f.status === 'WARN')) return '🟧 WARN';
+  return '🟩 PASS';
+}
+
 function writeReport() {
   const broken = findings.filter((f) => f.status === 'BROKEN');
   const warn = findings.filter((f) => f.status === 'WARN');
@@ -683,6 +964,12 @@ Mode: full mutating flows. OTP for every otp-gated flow pulled directly from the
 | Total checks | ${findings.length} |
 
 `;
+  md += `## Story coverage matrix\n\nEach restated traveler story → the phase that exercises it → result.\n\n| Story | Coverage | Result |\n|---|---|---|\n`;
+  for (const s of STORIES) {
+    const result = s.mode === 'skip-pay' ? '⏭ skip-pay (payment step intentionally skipped)' : storyResult(s.phase);
+    md += `| **${s.group}** — ${esc(s.text)} | \`${s.phase === '__skip__' ? '—' : s.phase}\` | ${result} |\n`;
+  }
+  md += '\n';
   md += `## 🟥 Broken transitions / functions\n\n`;
   md += broken.length === 0 ? `_None detected._\n\n` : `| Sev | VP | Phase | Route | Action | Detail |\n|---|---|---|---|---|---|\n${broken.map(row).join('\n')}\n\n`;
   md += `## 🟧 Warnings (degraded / needs human eyes)\n\n`;

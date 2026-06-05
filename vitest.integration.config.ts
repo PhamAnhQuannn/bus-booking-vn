@@ -52,6 +52,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, '.'),
+      // `server-only`/`client-only` are Next compiler markers, not resolvable
+      // node packages — stub them so barrel-widened module graphs load under vitest.
+      'server-only': resolve(__dirname, 'test/stubs/server-only.ts'),
+      'client-only': resolve(__dirname, 'test/stubs/server-only.ts'),
     },
   },
 });
