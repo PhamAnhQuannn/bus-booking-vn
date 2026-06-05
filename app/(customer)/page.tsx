@@ -38,16 +38,24 @@ export default async function HomePage() {
             ≤767px → 1280 (light); ≥768px → 2560 (sharp on big/retina). bg-cover fits any viewport. */}
         <div
           aria-hidden="true"
-          className="absolute inset-0 bg-cover bg-center brightness-105 will-change-transform motion-safe:animate-[kenburns_28s_ease-in-out_infinite_alternate] md:hidden"
+          className="absolute inset-0 bg-cover bg-center brightness-95 will-change-transform motion-safe:animate-[kenburns_28s_ease-in-out_infinite_alternate] md:hidden"
           style={{ backgroundImage: "url('/hero/landing-1280.jpg')" }}
         />
         <div
           aria-hidden="true"
-          className="absolute inset-0 hidden bg-cover bg-center brightness-105 will-change-transform motion-safe:animate-[kenburns_28s_ease-in-out_infinite_alternate] md:block"
+          className="absolute inset-0 hidden bg-cover bg-center brightness-95 will-change-transform motion-safe:animate-[kenburns_28s_ease-in-out_infinite_alternate] md:block"
           style={{ backgroundImage: "url('/hero/landing-2560.jpg')" }}
         />
+        {/* Warm-orange brand wash — injects brand presence + warms/deepens the bright cover
+            (multiply), diagonal so the band reads with depth, not a flat single gradient
+            (mood-board: full-bleed warm-orange brand surface behind the search). */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-gradient-to-tr from-primary/30 via-primary/10 to-transparent mix-blend-multiply"
+        />
         {/* Scrim: darken under the white headline, then blend into the warm page bg at the
-            bottom so the trust row flows (no hard dark slab — design-language §1). */}
+            bottom so the trust row flows (no hard dark slab — design-language §5). The
+            via-transparent middle lets the warm wash above show through. */}
         <div
           aria-hidden="true"
           className="absolute inset-0 bg-gradient-to-b from-black/55 via-transparent to-black/25"

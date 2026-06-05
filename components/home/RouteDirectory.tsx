@@ -57,7 +57,7 @@ export function RouteDirectory() {
   const groups = groupByHub(ROUTES);
 
   return (
-    <section className="mx-auto w-full max-w-7xl px-4 py-12">
+    <section className="mx-auto w-full max-w-5xl px-4 py-12">
       <div className="mb-6 flex flex-col gap-1">
         <h2 className="flex items-center gap-2 text-2xl font-bold tracking-tight sm:text-3xl">
           <Bus className="size-6 text-primary" aria-hidden="true" />

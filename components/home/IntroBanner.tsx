@@ -11,13 +11,24 @@ import { buttonVariants } from '@/components/ui/button';
  */
 export function IntroBanner() {
   return (
-    <section className="relative w-full overflow-hidden bg-primary text-primary-foreground">
-      {/* Off-axis brand glow: one organic (non-circular) light pool drifting from the
-          top-left, plus a fixed warm radial wash anchored bottom-right. Two sources, not
-          three symmetric orbs — keeps the orange identity without the AI-blob silhouette. */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-24 -top-16 size-80 rounded-[42%_58%_56%_44%/48%_42%_58%_52%] bg-white/25 blur-3xl will-change-transform motion-safe:animate-[blob_22s_ease-in-out_infinite]" />
-        <div className="absolute inset-0 bg-[radial-gradient(60%_55%_at_85%_110%,rgba(252,211,77,0.35),transparent_70%)]" />
+    <section id="intro-banner" className="relative w-full overflow-hidden bg-primary text-primary-foreground">
+      {/* Color field, desaturated as a GROUP so the orange reads as a calm terracotta brand
+          band, not loud neon — primary base + burnt 2-tone + gold glow all mute together.
+          The white content below is a sibling OUTSIDE this wrapper, so text/buttons keep full
+          contrast. saturate/brightness tuned for "muted orange". */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-primary [filter:saturate(0.7)_brightness(0.97)]"
+      >
+        {/* Two-tone warm field: bright orange top-left deepening to a burnt orange (orange-900,
+            mood-board "deeper orange") bottom-right — light→deep axis, dimension not flat tone. */}
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,transparent_0%,rgba(124,45,18,0.18)_45%,rgba(124,45,18,0.55)_100%)]" />
+        {/* Off-axis brand glow: one organic light pool drifting from top-left + a fixed warm
+            radial wash bottom-right. Two sources, not three symmetric orbs (no AI-blob look). */}
+        <div className="absolute -left-24 -top-16 size-96 rounded-[42%_58%_56%_44%/48%_42%_58%_52%] bg-white/30 blur-3xl will-change-transform motion-safe:animate-[blob_22s_ease-in-out_infinite]" />
+        <div className="absolute inset-0 bg-[radial-gradient(58%_55%_at_85%_112%,rgba(252,211,77,0.45),transparent_70%)]" />
+        {/* Grounding vignette — subtle bottom darken for depth + headline-shadow support. */}
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/12" />
       </div>
       {/* Grain */}
       <div
