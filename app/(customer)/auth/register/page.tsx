@@ -163,7 +163,14 @@ function RegisterPageInner() {
       });
       const json = await res.json();
       if (!res.ok) {
-        setError(json.error === 'expired' ? 'Mã OTP đã hết hạn.' : 'Mã OTP không đúng.');
+        if (json.error === 'attempt_cap') {
+          // 5 wrong codes — the OTP is now dead; only a new code works. Clear the
+          // resend cooldown so "Gửi lại mã" is immediately usable.
+          setResendIn(0);
+          setError('Bạn đã nhập sai quá nhiều lần. Vui lòng bấm "Gửi lại mã" để nhận mã mới.');
+        } else {
+          setError(json.error === 'expired' ? 'Mã OTP đã hết hạn.' : 'Mã OTP không đúng.');
+        }
         return;
       }
       setOtpProof(json.otpProof);

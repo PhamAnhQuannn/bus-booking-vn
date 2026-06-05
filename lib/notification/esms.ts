@@ -40,8 +40,16 @@ const STUB_PROVIDER_REF_PREFIX = 'stub_';
 // ---------------------------------------------------------------------------
 // Test-only OTP sink — in-memory map keyed by recipient phone (E.164).
 // Populated only when NODE_ENV !== 'production'. Never written to logs.
+//
+// globalThis singleton (same pattern as lib/core/db/client.ts): Next.js bundles
+// each API route separately, so a plain module-level Map is duplicated per route
+// bundle. Without this, an OTP written from /api/auth/forgot-password lands in a
+// different Map instance than /api/auth/otp/test-peek reads, and the test sink
+// appears empty for any flow whose send route differs from the peek route.
 // ---------------------------------------------------------------------------
-const _testOtpSink = new Map<string, string>();
+const globalForOtpSink = globalThis as unknown as { otpTestSink: Map<string, string> | undefined };
+const _testOtpSink: Map<string, string> = globalForOtpSink.otpTestSink ?? new Map<string, string>();
+globalForOtpSink.otpTestSink = _testOtpSink;
 
 /** Return the last OTP code sent to `phone` in this process. Test-only. */
 export function getTestOtp(phone: string): string | undefined {
