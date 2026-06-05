@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation';
 import type { TripDto } from '@/lib/trips';
 import type { TripStatus } from '@prisma/client';
 import { cancelTripApi, salesToggleApi, listTripsApi } from '@/lib/api';
-import { tripStatusDisplay } from '@/lib/op';
+import { tripStatusDisplay } from '@/lib/op/statusLabels';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -40,7 +40,7 @@ function translateError(code: string): string {
     case 'bus_in_maintenance':
       return 'Xe đang bảo trì';
     case 'already_cancelled':
-      return 'Chuyến đã bị huỷ';
+      return 'Chuyến đã bị hủy';
     case 'not_found':
       return 'Không tìm thấy';
     case 'invalid_input':
@@ -94,7 +94,7 @@ export default function TripsClient({ initialTrips }: Props) {
     try {
       const result = await cancelTripApi(cancelTripId, reason);
       ok(
-        `Đã huỷ chuyến. Đặt vé bị huỷ: ${result.cancelledBookings}. Giữ chỗ bị huỷ: ${result.cancelledHolds}. SMS: ${result.notificationsEnqueued}.`
+        `Đã hủy chuyến. Đặt vé bị hủy: ${result.cancelledBookings}. Giữ chỗ bị hủy: ${result.cancelledHolds}. SMS: ${result.notificationsEnqueued}.`
       );
       setCancelTripId(null);
       await refreshTrips();
@@ -201,7 +201,7 @@ export default function TripsClient({ initialTrips }: Props) {
                             disabled={busy}
                             data-testid={`trip-cancel-${trip.id}`}
                           >
-                            Huỷ
+                            Hủy
                           </Button>
                         </div>
                       )}

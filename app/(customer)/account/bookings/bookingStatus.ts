@@ -13,8 +13,8 @@ export const STATUS_LABEL: Record<BookingPaymentStatus, string> = {
   awaiting_payment: 'Chờ thanh toán',
   paid: 'Đã thanh toán',
   completed: 'Hoàn thành',
-  cancelled: 'Đã huỷ',
-  trip_cancelled: 'Chuyến bị huỷ',
+  cancelled: 'Đã hủy',
+  trip_cancelled: 'Chuyến bị hủy',
   no_show: 'Không có mặt',
   payment_failed_expired: 'Thanh toán thất bại',
   // Issue 100: oversold-race refund — booking was paid but seat was gone

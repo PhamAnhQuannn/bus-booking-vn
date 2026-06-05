@@ -54,6 +54,7 @@ function translateError(code: string): string {
   switch (code) {
     case 'not_found': return 'Không tìm thấy';
     case 'invalid_input': return 'Dữ liệu không hợp lệ';
+    case 'validation_failed': return 'Dữ liệu không hợp lệ';
     default: return 'Đã xảy ra lỗi';
   }
 }

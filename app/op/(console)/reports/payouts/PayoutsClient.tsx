@@ -51,7 +51,7 @@ function formatDate(date: Date | string): string {
 }
 
 // Status display sourced from lib/op/statusLabels (single source of truth).
-import { payoutStatusDisplay as statusDisplay } from '@/lib/op';
+import { payoutStatusDisplay as statusDisplay } from '@/lib/op/statusLabels';
 
 export default function PayoutsClient({ initialRows }: Props) {
   const router = useRouter();

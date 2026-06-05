@@ -24,7 +24,7 @@ import {
   completeTripApi,
 } from '@/lib/api';
 import { assignServiceApi } from '@/lib/api';
-import { tripStatusDisplay } from '@/lib/op';
+import { tripStatusDisplay } from '@/lib/op/statusLabels';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -50,12 +50,12 @@ function translateError(code: string): string {
   switch (code) {
     case 'bus_deactivated': return 'Xe đã bị vô hiệu hoá';
     case 'bus_in_maintenance': return 'Xe đang bảo trì';
-    case 'already_cancelled': return 'Chuyến đã bị huỷ';
-    case 'trip_cancelled': return 'Chuyến đã bị huỷ';
+    case 'already_cancelled': return 'Chuyến đã bị hủy';
+    case 'trip_cancelled': return 'Chuyến đã bị hủy';
     case 'capacity_too_small': return 'Xe mới không đủ chỗ cho đặt vé hiện tại';
     case 'bus_overlap_with_outbound': return 'Xe bận chuyến khác cùng giờ';
     case 'trip_not_found': return 'Không tìm thấy chuyến';
-    case 'trip_not_assignable': return 'Chuyến không thể gán (đã huỷ/khởi hành/hoàn tất)';
+    case 'trip_not_assignable': return 'Chuyến không thể gán (đã hủy/khởi hành/hoàn tất)';
     case 'trip_not_bookable': return 'Chuyến không nhận đặt vé';
     case 'sold_out': return 'Hết chỗ';
     case 'feature_disabled': return 'Tính năng tạm tắt';
@@ -138,7 +138,7 @@ export default function TripDetailClient({ trip: initialTrip, staff: initialStaf
     try {
       const result = await cancelTripApi(trip.id, reason);
       ok(
-        `Đã huỷ chuyến. Đặt vé bị huỷ: ${result.cancelledBookings}. Giữ chỗ bị huỷ: ${result.cancelledHolds}. SMS: ${result.notificationsEnqueued}.`
+        `Đã hủy chuyến. Đặt vé bị hủy: ${result.cancelledBookings}. Giữ chỗ bị hủy: ${result.cancelledHolds}. SMS: ${result.notificationsEnqueued}.`
       );
       setTrip({ ...trip, status: 'cancelled' });
       setShowCancel(false);
@@ -389,7 +389,7 @@ export default function TripDetailClient({ trip: initialTrip, staff: initialStaf
           {/* Cancel */}
           <Card className="border-destructive/40">
             <CardHeader>
-              <CardTitle as="h2" className="text-destructive">Huỷ chuyến</CardTitle>
+              <CardTitle as="h2" className="text-destructive">Hủy chuyến</CardTitle>
             </CardHeader>
             <CardContent>
               <Button
@@ -399,7 +399,7 @@ export default function TripDetailClient({ trip: initialTrip, staff: initialStaf
                 disabled={busy}
                 data-testid="cancel-trip-btn"
               >
-                Huỷ chuyến
+                Hủy chuyến
               </Button>
             </CardContent>
           </Card>

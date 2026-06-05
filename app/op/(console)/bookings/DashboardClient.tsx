@@ -38,7 +38,7 @@ import {
   TableHead,
   TableCell,
 } from '@/components/ui/table';
-import { bookingStatusDisplay, contactStatusDisplay } from '@/lib/op';
+import { bookingStatusDisplay, contactStatusDisplay } from '@/lib/op/statusLabels';
 import type { BookingStatus } from '@prisma/client';
 
 interface Props {

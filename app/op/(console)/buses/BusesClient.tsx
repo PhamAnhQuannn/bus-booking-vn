@@ -48,7 +48,7 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import { ConfirmDialog } from '@/components/op/ConfirmDialog';
-import { busTypeLabel } from '@/lib/op';
+import { busTypeLabel } from '@/lib/op/statusLabels';
 import type { BusType } from '@prisma/client';
 
 interface Props {

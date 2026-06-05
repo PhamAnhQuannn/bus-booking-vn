@@ -15,7 +15,7 @@
 
 import type { BookingDto } from '@/lib/booking';
 import type { PickupPointOption } from '@/lib/booking';
-import { bookingStatusDisplay } from '@/lib/op';
+import { bookingStatusDisplay } from '@/lib/op/statusLabels';
 import type { BookingStatus } from '@prisma/client';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
