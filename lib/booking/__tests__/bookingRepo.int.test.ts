@@ -106,13 +106,18 @@ beforeAll(async () => {
 });
 
 afterEach(async () => {
-  await prisma.notificationLog.deleteMany({});
+  // Isolation: scope the NotificationLog wipe to THIS file's bookings — a global
+  // deleteMany({}) here nukes pending notification rows other files enqueued and
+  // are about to dispatch/assert on. NotificationLog.bookingId → Booking is
+  // onDelete:Cascade, so the booking delete below also clears these, but we delete
+  // explicitly first to avoid relying on cascade ordering.
+  await prisma.notificationLog.deleteMany({ where: { booking: { tripId: { in: [tripId, tripId_cap1] } } } });
   await prisma.booking.deleteMany({ where: { tripId: { in: [tripId, tripId_cap1] } } });
   await prisma.hold.deleteMany({ where: { tripId: { in: [tripId, tripId_cap1] } } });
 });
 
 afterAll(async () => {
-  await prisma.notificationLog.deleteMany({});
+  await prisma.notificationLog.deleteMany({ where: { booking: { tripId: { in: [tripId, tripId_cap1] } } } });
   await prisma.booking.deleteMany({ where: { tripId: { in: [tripId, tripId_cap1] } } });
   await prisma.hold.deleteMany({ where: { tripId: { in: [tripId, tripId_cap1] } } });
   await prisma.trip.deleteMany({ where: { routeId } });

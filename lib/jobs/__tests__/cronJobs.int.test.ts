@@ -72,8 +72,12 @@ async function createBooking(
   const b = await prisma.booking.create({
     data: {
       id,
-      bookingRef: ref,
-      confirmationToken: 'tok-' + ref,
+      // Unique-per-run: fixed literals collide on the bookingRef/confirmationToken
+      // unique indices with rows leaked by a prior crashed run (afterAll skipped),
+      // flaking this file with a P2002. `ref` is a readable hint; the UUID suffix
+      // guarantees uniqueness.
+      bookingRef: `${ref}-${id.slice(0, 8)}`,
+      confirmationToken: 'tok-' + id,
       tripId,
       buyerName: 'Cron Tester',
       buyerPhone: '+8490xxxxxx1',
@@ -89,6 +93,28 @@ async function createBooking(
 }
 
 beforeAll(async () => {
+  // Isolation: the AC5 processPayouts tests below settle EVERY due 'requested'
+  // Payout globally inside one $transaction. A stray 'requested' payout from a
+  // prior crashed run can abort that tx and roll back this file's own payout
+  // transition. No requested payout legitimately pre-exists here (files run
+  // sequentially, maxWorkers:1, and we haven't created our operator yet), so any
+  // present row is debris — drop its payout_debit ledger entries (append-only
+  // trigger) then the payout.
+  const strays = await prisma.payout.findMany({ where: { status: 'requested' }, select: { id: true } });
+  const strayIds = strays.map((p) => p.id);
+  if (strayIds.length) {
+    await prisma.$executeRawUnsafe('DROP TRIGGER IF EXISTS "ledger_entry_no_update" ON "LedgerEntry"');
+    await prisma.$executeRawUnsafe('DROP TRIGGER IF EXISTS "ledger_entry_no_delete" ON "LedgerEntry"');
+    await prisma.ledgerEntry.deleteMany({ where: { payoutId: { in: strayIds } } });
+    await prisma.$executeRawUnsafe(
+      'CREATE TRIGGER "ledger_entry_no_update" BEFORE UPDATE ON "LedgerEntry" FOR EACH ROW EXECUTE FUNCTION "ledger_entry_immutable"()'
+    );
+    await prisma.$executeRawUnsafe(
+      'CREATE TRIGGER "ledger_entry_no_delete" BEFORE DELETE ON "LedgerEntry" FOR EACH ROW EXECUTE FUNCTION "ledger_entry_immutable"()'
+    );
+    await prisma.payout.deleteMany({ where: { id: { in: strayIds } } });
+  }
+
   const op = await prisma.operator.create({
     data: {
       legalName: 'Cron Test Op',
@@ -133,6 +159,18 @@ afterAll(async () => {
   await prisma.notificationLog.deleteMany({
     where: { booking: { trip: { operatorId } } },
   });
+  // processPayouts writes payout_debit LedgerEntry rows (FK → operatorId). Ledger
+  // is append-only (immutability trigger) — drop/recreate to clean up this
+  // operator's rows before deleting the operator (else LedgerEntry_operatorId_fkey).
+  await prisma.$executeRawUnsafe('DROP TRIGGER IF EXISTS "ledger_entry_no_update" ON "LedgerEntry"');
+  await prisma.$executeRawUnsafe('DROP TRIGGER IF EXISTS "ledger_entry_no_delete" ON "LedgerEntry"');
+  await prisma.ledgerEntry.deleteMany({ where: { operatorId } });
+  await prisma.$executeRawUnsafe(
+    'CREATE TRIGGER "ledger_entry_no_update" BEFORE UPDATE ON "LedgerEntry" FOR EACH ROW EXECUTE FUNCTION "ledger_entry_immutable"()'
+  );
+  await prisma.$executeRawUnsafe(
+    'CREATE TRIGGER "ledger_entry_no_delete" BEFORE DELETE ON "LedgerEntry" FOR EACH ROW EXECUTE FUNCTION "ledger_entry_immutable"()'
+  );
   await prisma.payout.deleteMany({ where: { operatorId } });
   await prisma.payoutAccount.deleteMany({ where: { operatorId } });
   await prisma.hold.deleteMany({ where: { trip: { operatorId } } });
@@ -241,7 +279,9 @@ describe('AC3 autoCompleteTrips', () => {
     const payout = payouts[0];
     expect(payout.gross).toBe(150_000);
     expect(payout.platformFee + payout.net).toBe(payout.gross);
-    expect(payout.status).toBe('pending');
+    // completeTripCore creates the trip Payout in 'requested' (the sweep then
+    // transitions requested → processing → paid). 'pending' was a stale guess.
+    expect(payout.status).toBe('requested');
 
     // scheduledAt ≈ completedAt + 1 day (T+1, S15#5) (±60s).
     const ONE_DAY_MS = 1 * 24 * 60 * 60 * 1000;

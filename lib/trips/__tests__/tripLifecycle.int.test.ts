@@ -57,8 +57,12 @@ async function createBooking(tripIdParam: string, ref: string, status: string, p
   const b = await prisma.booking.create({
     data: {
       id,
-      bookingRef: ref,
-      confirmationToken: 'tok-' + ref,
+      // Unique-per-run: fixed literals collide on the bookingRef/confirmationToken
+      // unique indices with rows leaked by a prior crashed run (afterAll skipped),
+      // flaking this file with a P2002. `ref` is a readable hint; UUID suffix
+      // guarantees uniqueness.
+      bookingRef: `${ref}-${id.slice(0, 8)}`,
+      confirmationToken: 'tok-' + id,
       tripId: tripIdParam,
       buyerName: 'Lifecycle Tester',
       buyerPhone: '+8490xxxxxx1',

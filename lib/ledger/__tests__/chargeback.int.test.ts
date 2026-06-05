@@ -44,7 +44,15 @@ async function netBalance(operatorId: string): Promise<bigint> {
   return b.pending + b.available + b.paidOut;
 }
 
-async function seedOperator(tag: string, plateSuffix: string): Promise<Seed> {
+/**
+ * @param topUp when true, seed an extra +GROSS `adjustment` so the operator's
+ *   AVAILABLE balance (= NET from the credit/fee legs) comfortably exceeds a
+ *   GROSS clawback — the pre/post-payout cases assert "balance drops by total"
+ *   with NO platform backstop, which requires available ≥ clawback. The `short`
+ *   operator is seeded WITHOUT the top-up precisely so its clawback DOES exceed
+ *   available and exercises the backstop path.
+ */
+async function seedOperator(tag: string, plateSuffix: string, topUp = false): Promise<Seed> {
   const op = await prisma.operator.create({
     data: {
       legalName: `Ledger052 ${tag}`,
@@ -114,6 +122,19 @@ async function seedOperator(tag: string, plateSuffix: string): Promise<Seed> {
     sourceEventId: `platform_fee:${bookingId}`,
   });
 
+  if (topUp) {
+    // +GROSS settlement-eligible adjustment so available (= NET) → NET + GROSS,
+    // comfortably covering a GROSS clawback with no backstop. Tied to the same
+    // settled booking so it counts as available, not pending.
+    await appendLedgerEntry({
+      operatorId: op.id,
+      bookingId,
+      type: 'adjustment',
+      amountMinor: BigInt(GROSS),
+      sourceEventId: `topup:${bookingId}`,
+    });
+  }
+
   return {
     operatorId: op.id,
     routeId: route.id,
@@ -129,9 +150,9 @@ let short: Seed;
 let postPayoutId: string;
 
 beforeAll(async () => {
-  pre = await seedOperator('Pre', 'PRE');
-  post = await seedOperator('Post', 'PST');
-  short = await seedOperator('Short', 'SHT');
+  pre = await seedOperator('Pre', 'PRE', true);
+  post = await seedOperator('Post', 'PST', true);
+  short = await seedOperator('Short', 'SHT'); // no top-up → clawback exceeds available
 
   // POST operator: simulate a completed payout — a `paid` Payout row + the
   // payout_debit ledger drain (what processPayouts writes on requested→paid).
@@ -186,8 +207,8 @@ afterAll(async () => {
 
 describe('Issue 052 — pre-payout chargeback', () => {
   it('writes one chargeback −total entry, NO payout_reversal; balance drops by total', async () => {
-    const before = await netBalance(pre.operatorId); // GROSS − FEE
-    expect(before).toBe(BigInt(NET));
+    const before = await netBalance(pre.operatorId); // NET (credit−fee) + GROSS top-up
+    expect(before).toBe(BigInt(NET + GROSS));
 
     const res = await recordChargeback({
       bookingId: pre.bookingId,
@@ -278,6 +299,7 @@ describe('Issue 052 — insufficient-balance backstop (S15#7)', () => {
     const claw = NET + 100_000; // 335k > available 235k → shortfall 100k
     const before = await getOperatorBalance(short.operatorId);
     expect(before.available).toBe(BigInt(NET));
+    const beforeNet = await netBalance(short.operatorId); // == available == NET
 
     const res = await recordChargeback({
       bookingId: short.bookingId,
@@ -294,10 +316,13 @@ describe('Issue 052 — insufficient-balance backstop (S15#7)', () => {
     expect(adj!.type).toBe('adjustment');
     expect(adj!.amount).toBe(BigInt(100_000)); // +shortfall
 
-    // Net operator balance is floored at −available (= −NET): the platform ate
-    // the 100k shortfall. (pre-payout: chargeback −claw + backstop +shortfall.)
+    // The chargeback+backstop net DELTA is exactly −available (chargeback.ts:66-70):
+    //   −claw + shortfall = −claw + (claw − available) = −available.
+    // The platform ate the 100k it couldn't cover. The operator's B started at its
+    // available (NET) and the −available delta lands it at exactly 0 — the operator
+    // is floored at owing only what it could cover (NET), not the full clawback.
     const after = await netBalance(short.operatorId);
-    expect(after).toBe(BigInt(-NET));
+    expect(after).toBe(beforeNet - BigInt(NET)); // delta = −available = −NET → 0
   });
 });
 

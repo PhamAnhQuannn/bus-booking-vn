@@ -41,6 +41,29 @@ const FEE = 30_000; // 6% half-even
 const AVAILABLE = GROSS - FEE; // 470_000 — the settled net the operator may withdraw
 
 beforeAll(async () => {
+  // Isolation: the sweep test below calls processPayouts(tx), which settles EVERY
+  // due 'requested' Payout globally inside ONE $transaction. A stray 'requested'
+  // payout leaked by a prior crashed run (or another file's missed afterAll) gets
+  // processed in that same tx; if its settlement aborts the tx, THIS test's payout
+  // status flip rolls back and the assertion sees 'requested'. No requested payout
+  // legitimately pre-exists at this point (we haven't created our operator yet, and
+  // files run sequentially — maxWorkers:1), so any present row is debris. Drop their
+  // payout_debit ledger entries (append-only trigger) then the payouts.
+  const strays = await prisma.payout.findMany({ where: { status: 'requested' }, select: { id: true } });
+  const strayIds = strays.map((p) => p.id);
+  if (strayIds.length) {
+    await prisma.$executeRawUnsafe('DROP TRIGGER IF EXISTS "ledger_entry_no_update" ON "LedgerEntry"');
+    await prisma.$executeRawUnsafe('DROP TRIGGER IF EXISTS "ledger_entry_no_delete" ON "LedgerEntry"');
+    await prisma.ledgerEntry.deleteMany({ where: { payoutId: { in: strayIds } } });
+    await prisma.$executeRawUnsafe(
+      'CREATE TRIGGER "ledger_entry_no_update" BEFORE UPDATE ON "LedgerEntry" FOR EACH ROW EXECUTE FUNCTION "ledger_entry_immutable"()'
+    );
+    await prisma.$executeRawUnsafe(
+      'CREATE TRIGGER "ledger_entry_no_delete" BEFORE DELETE ON "LedgerEntry" FOR EACH ROW EXECUTE FUNCTION "ledger_entry_immutable"()'
+    );
+    await prisma.payout.deleteMany({ where: { id: { in: strayIds } } });
+  }
+
   const op = await prisma.operator.create({
     data: {
       legalName: 'Ledger053 Test Op',
@@ -49,6 +72,20 @@ beforeAll(async () => {
     },
   });
   operatorId = op.id;
+
+  // Issue 078: requestWithdrawal blocks unless the operator has a VERIFIED
+  // PayoutAccount (the payout rail only sends to a verified account). This test
+  // predates Issue 078 — seed a verified account so the gate passes.
+  await prisma.payoutAccount.create({
+    data: {
+      operatorId,
+      bankName: 'Test Bank',
+      accountNumber: '0123456789',
+      accountHolderName: 'Ledger053 Test Op',
+      verifiedAt: new Date(),
+      verifyMethod: 'name_match',
+    },
+  });
 
   const bus = await prisma.bus.create({
     data: { operatorId, capacity: 20, licensePlate: 'TEST-L53-001', busType: 'coach' },
@@ -124,6 +161,7 @@ afterAll(async () => {
   );
 
   await prisma.payout.deleteMany({ where: { operatorId } });
+  await prisma.payoutAccount.deleteMany({ where: { operatorId } });
   await prisma.booking.deleteMany({ where: { id: bookingId } });
   await prisma.trip.deleteMany({ where: { routeId } });
   await prisma.route.delete({ where: { id: routeId } });
@@ -246,6 +284,21 @@ describe('Issue 053 — on-demand withdrawal', () => {
       where: { payoutId: res.payoutId, type: 'payout_debit' },
     });
     expect(before).toBe(1); // written at request time, sweep-aligned key
+
+    // Determinism: requestWithdrawal stamps `scheduledAt = new Date()` from the
+    // JS/app clock, but processPayouts gates due rows on the Postgres server clock
+    // (`WHERE "scheduledAt" <= NOW()`). When the DB clock lags the app clock by a
+    // few hundred ms (observed in this dev env), a just-created withdrawal is NOT
+    // yet "due" by NOW()'s reckoning and the sweep skips it — so this test flaked
+    // intermittently with the payout stuck `requested`. In production the cron runs
+    // repeatedly and picks it up on the next tick; here we sweep exactly once, so we
+    // back-date scheduledAt a minute into the past to make due-ness unambiguous and
+    // clock-skew-independent. (This only adjusts the sweep timing, not the money
+    // math under test.)
+    await prisma.payout.update({
+      where: { id: res.payoutId },
+      data: { scheduledAt: new Date(Date.now() - 60_000) },
+    });
 
     // Run the sweep — it transitions requested → paid and tries to append
     // `payout_debit:<payoutId>`, which ALREADY exists → P2002 no-op.

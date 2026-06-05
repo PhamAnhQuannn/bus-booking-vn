@@ -49,7 +49,11 @@ function makeUuidBooking(ref: string, tripIdParam: string, opts: {
   return prisma.booking.create({
     data: {
       id,
-      bookingRef: ref,
+      // Unique-per-run ref: fixed literals (e.g. 'BB-2026-qut1-aaa1') collide on the
+      // bookingRef unique index with rows leaked by a prior crashed run (afterAll
+      // skipped), making the whole file flake with P2002. `ref` is now a readable
+      // hint only; the UUID suffix guarantees uniqueness.
+      bookingRef: `${ref}-${id.slice(0, 8)}`,
       confirmationToken: 'tok-' + randomUUID(),
       tripId: tripIdParam,
       buyerName: 'Test Buyer',
@@ -85,13 +89,18 @@ beforeAll(async () => {
   });
   otherOperatorId = opB.id;
 
-  // OperatorUser for badge tests
+  // OperatorUser for badge tests.
+  // Unique-per-run phones: the OperatorUser.phone unique index collides with a row
+  // leaked by a prior crashed run if we use a fixed literal. The 'xxxxxx' literal-x
+  // segment keeps the PII-detection regex (\+84[35789]\d{8}) from matching (it
+  // can't consume the x chars), and the trailing random digits make it unique.
+  const phoneTag = Math.floor(Math.random() * 1_000_000).toString().padStart(6, '0');
   const opUser = await prisma.operatorUser.create({
     data: {
       operatorId,
-      phone: '+8490xxxxxx5',
-      contactPhone: '+8490xxxxxx6',
-      notificationPhone: '+8490xxxxxx7',
+      phone: `+8490xxxxxx5${phoneTag}`,
+      contactPhone: `+8490xxxxxx6${phoneTag}`,
+      notificationPhone: `+8490xxxxxx7${phoneTag}`,
       passwordHash: 'a'.repeat(64),
       displayName: 'Queue Tester',
       requiresPasswordChange: false,

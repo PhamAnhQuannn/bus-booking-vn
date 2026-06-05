@@ -33,8 +33,13 @@ async function createBooking(ref: string): Promise<string> {
   await prisma.booking.create({
     data: {
       id,
-      bookingRef: ref,
-      confirmationToken: 'tok-' + ref,
+      // Unique-per-run ref + token: fixed literals (e.g. 'BB-NTF-0001') collide on
+      // the bookingRef / confirmationToken unique indices with rows leaked by a
+      // prior crashed run (afterAll never ran), which made this whole file flake
+      // with a P2002 on every subsequent run. The `ref` arg is now only a
+      // human-readable hint; uniqueness comes from the UUID id.
+      bookingRef: `${ref}-${id.slice(0, 8)}`,
+      confirmationToken: 'tok-' + id,
       tripId,
       buyerName: 'Notify Tester',
       buyerPhone: '+8490xxxxxx1',
@@ -96,8 +101,17 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  // The dispatcher claims EVERY due (pending|failed) NotificationLog row globally
+  // (FOR UPDATE SKIP LOCKED over the whole table), so leftover pending rows from
+  // OTHER test files' operators would be dispatched here and skew rowsAffected /
+  // the concurrent-claim count. The seed creates ZERO NotificationLog rows
+  // (prisma/seed.ts wipes the table), so any row present is test-created leftover —
+  // safe to clear ALL dispatchable rows so this file sees only its own enqueues.
+  await prisma.notificationLog.deleteMany({ where: { status: { in: ['pending', 'failed'] } } });
+  // Also clear this file's own already-sent rows + bookings from the previous test
+  // so the per-test enqueues start clean and the bookings don't accumulate.
   await prisma.notificationLog.deleteMany({ where: { booking: { trip: { operatorId } } } });
-  await prisma.notificationLog.deleteMany({ where: { bookingId: null, recipient: '+8490xxxxxx1' } });
+  await prisma.booking.deleteMany({ where: { trip: { operatorId } } });
 });
 
 afterAll(async () => {

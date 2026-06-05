@@ -74,9 +74,15 @@ afterAll(async () => {
   await prisma.trip.deleteMany({ where: { operatorId: { in: operatorIds } } });
   await prisma.route.deleteMany({ where: { operatorId: { in: operatorIds } } });
   await prisma.bus.deleteMany({ where: { operatorId: { in: operatorIds } } });
+  // AdminAuditLog is append-only (immutability trigger, Issue 062) — drop the
+  // DELETE trigger to clean up this test's own audit rows, then recreate it.
+  await prisma.$executeRawUnsafe('DROP TRIGGER IF EXISTS "admin_audit_log_no_delete" ON "AdminAuditLog"');
   await prisma.adminAuditLog.deleteMany({
     where: { target: { in: [...operatorIds, ...userIds] } },
   });
+  await prisma.$executeRawUnsafe(
+    'CREATE TRIGGER "admin_audit_log_no_delete" BEFORE DELETE ON "AdminAuditLog" FOR EACH ROW EXECUTE FUNCTION "admin_audit_log_immutable"()'
+  );
   await prisma.operator.deleteMany({ where: { id: { in: operatorIds } } });
   await prisma.$disconnect();
 });
