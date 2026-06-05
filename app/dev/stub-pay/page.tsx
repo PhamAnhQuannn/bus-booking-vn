@@ -79,18 +79,14 @@ export default async function StubPayPage({ searchParams }: StubPayPageProps) {
         <input type="hidden" name="redirectUrl" value={redirectUrl} />
         <button
           type="submit"
-          name="outcome"
-          value="success"
-          formAction={submitStubPayment}
+          formAction={submitStubPayment.bind(null, 'success')}
           className={buttonVariants({ variant: 'default', size: 'lg', className: 'flex-1' })}
         >
           Thanh toán
         </button>
         <button
           type="submit"
-          name="outcome"
-          value="fail"
-          formAction={submitStubPayment}
+          formAction={submitStubPayment.bind(null, 'fail')}
           className={buttonVariants({ variant: 'destructive', size: 'lg', className: 'flex-1' })}
         >
           Thất bại
