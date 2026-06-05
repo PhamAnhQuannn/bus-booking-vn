@@ -11,7 +11,8 @@
  * Scoped by (id, operatorId, role=staff) → cross-operator/admin id is not_found.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 import { StaffServiceError } from './errors';
 import { toStaffDto, type StaffDto } from './toStaffDto';
 
@@ -23,7 +24,7 @@ export interface DisableStaffInput {
 export async function disableStaff(input: DisableStaffInput): Promise<StaffDto> {
   return prisma.$transaction(async (tx) => {
     const existing = await tx.operatorUser.findFirst({
-      where: { id: input.staffId, operatorId: input.operatorId, role: 'staff' },
+      where: { ...withOperatorScope(input.operatorId).where, id: input.staffId, role: 'staff' },
       select: { id: true, disabledAt: true },
     });
     if (!existing) throw new StaffServiceError('not_found');

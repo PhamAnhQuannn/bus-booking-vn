@@ -10,7 +10,8 @@
  * Issue 025 — extracted from the dashboard RSC.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 
 export interface RouteEndpoints {
   id: string;
@@ -24,7 +25,7 @@ export async function listRoutesForTripIds(
 ): Promise<RouteEndpoints[]> {
   if (routeIds.length === 0) return [];
   return prisma.route.findMany({
-    where: { id: { in: routeIds }, operatorId },
+    ...withOperatorScope(operatorId, { where: { id: { in: routeIds } } }),
     select: { id: true, origin: true, destination: true },
   });
 }

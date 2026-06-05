@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { randomUUID } from 'crypto';
 import { markDeparted } from '../markDeparted';
 import { markCompleted } from '../markCompleted';
@@ -34,7 +34,7 @@ let otherTripId: string;
 
 // Paid booking on completeTripId for payout log verification
 let paidBookingId: string;
-let cashBookingId: string;  // pending_cash_payment — NOT eligible for payout
+let noShowBookingId: string;  // no_show — NOT eligible for payout
 let cancelledBookingId: string;  // cancelled — NOT eligible
 
 async function createTrip(operatorIdParam: string, busIdParam: string, routeIdParam: string): Promise<string> {
@@ -57,15 +57,19 @@ async function createBooking(tripIdParam: string, ref: string, status: string, p
   const b = await prisma.booking.create({
     data: {
       id,
-      bookingRef: ref,
-      confirmationToken: 'tok-' + ref,
+      // Unique-per-run: fixed literals collide on the bookingRef/confirmationToken
+      // unique indices with rows leaked by a prior crashed run (afterAll skipped),
+      // flaking this file with a P2002. `ref` is a readable hint; UUID suffix
+      // guarantees uniqueness.
+      bookingRef: `${ref}-${id.slice(0, 8)}`,
+      confirmationToken: 'tok-' + id,
       tripId: tripIdParam,
       buyerName: 'Lifecycle Tester',
       buyerPhone: '+8490xxxxxx1',
       ticketCount: 1,
       totalVnd: 150_000,
-      paymentMethod: paymentMethod as 'momo' | 'cash' | 'zalopay' | 'card',
-      status: status as 'paid_operator_notified' | 'pending_cash_payment' | 'completed' | 'cancelled',
+      paymentMethod: paymentMethod as 'momo' | 'zalopay' | 'card',
+      status: status as 'paid' | 'no_show' | 'completed' | 'cancelled',
       isManual: false,
       contactStatus: 'pending',
     },
@@ -131,14 +135,14 @@ beforeAll(async () => {
   paidBookingId = await createBooking(
     completeTripId,
     'BB-2026-lif1-aaa1',
-    'paid_operator_notified',
+    'paid',
     'momo'
   );
-  cashBookingId = await createBooking(
+  noShowBookingId = await createBooking(
     completeTripId,
     'BB-2026-lif1-bbb2',
-    'pending_cash_payment',
-    'cash'
+    'no_show',
+    'momo'
   );
   cancelledBookingId = await createBooking(
     completeTripId,
@@ -263,8 +267,8 @@ describe('markCompleted', () => {
       select: { bookingId: true, template: true, payload: true, status: true, scheduledFor: true },
     });
 
-    // Only paidBookingId (paid_operator_notified) is eligible
-    // cashBookingId (pending_cash_payment) is NOT in PAYOUT_ELIGIBLE_STATUSES
+    // Only paidBookingId (paid) is eligible
+    // noShowBookingId (no_show) is NOT in PAYOUT_ELIGIBLE_STATUSES
     // cancelledBookingId (cancelled) is NOT eligible
     const payoutLogs = logs.filter((l) => l.template === 'payout_scheduled');
     expect(payoutLogs.length).toBe(1);

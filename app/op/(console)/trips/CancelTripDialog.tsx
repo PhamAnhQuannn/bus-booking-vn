@@ -49,15 +49,15 @@ export default function CancelTripDialog({ onConfirm, onClose, disabled }: Props
     >
       <DialogContent data-testid="cancel-trip-dialog">
         <DialogHeader>
-          <DialogTitle>Huỷ chuyến</DialogTitle>
+          <DialogTitle>Hủy chuyến</DialogTitle>
           <DialogDescription>
-            Hành động không thể hoàn tác. Mọi đặt vé và giữ chỗ sẽ bị huỷ và hành khách được
+            Hành động không thể hoàn tác. Mọi đặt vé và giữ chỗ sẽ bị hủy và hành khách được
             thông báo.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4">
           <div className="grid gap-1.5">
-            <Label htmlFor="cancel-reason">Lý do huỷ (tối thiểu {MIN_REASON} ký tự)</Label>
+            <Label htmlFor="cancel-reason">Lý do hủy (tối thiểu {MIN_REASON} ký tự)</Label>
             <textarea
               id="cancel-reason"
               value={reason}
@@ -88,7 +88,7 @@ export default function CancelTripDialog({ onConfirm, onClose, disabled }: Props
               disabled={disabled || tooShort}
               data-testid="cancel-trip-confirm"
             >
-              {disabled ? 'Đang xử lý...' : 'Xác nhận huỷ'}
+              {disabled ? 'Đang xử lý...' : 'Xác nhận hủy'}
             </Button>
           </DialogFooter>
         </form>

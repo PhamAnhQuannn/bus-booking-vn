@@ -5,7 +5,7 @@ vi.mock('@/lib/jobs/runJob', () => ({
 }));
 
 import { GET } from '../route';
-import { runJob } from '@/lib/jobs/runJob';
+import { runJob } from '@/lib/jobs';
 import { NextRequest } from 'next/server';
 
 function makeRequest(headers?: Record<string, string>): NextRequest {

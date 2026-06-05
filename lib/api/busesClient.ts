@@ -13,7 +13,7 @@
  */
 
 import { readCsrfToken } from '@/lib/auth/csrfClient';
-import type { OperatorBusListItem } from '@/lib/buses/listOperatorBuses';
+import type { OperatorBusListItem } from '@/lib/catalog';
 
 type BusType = 'coach' | 'sleeper' | 'limousine';
 

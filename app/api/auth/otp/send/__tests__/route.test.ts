@@ -8,7 +8,11 @@ const { mockSendOtp } = vi.hoisted(() => ({
   mockSendOtp: vi.fn(),
 }));
 
-vi.mock('@/lib/auth/sendOtp', () => ({ sendOtp: mockSendOtp }));
+// Route imports `sendOtp` from the @/lib/auth barrel (post-092b sweep), so mock the
+// barrel — not the deep @/lib/auth/sendOtp path. A full barrel mock (no importOriginal)
+// also blocks the real barrel from loading authService → @/lib/booking → server-only,
+// which is unresolvable under vitest.
+vi.mock('@/lib/auth', () => ({ sendOtp: mockSendOtp }));
 
 import { POST } from '../route';
 import { NextRequest } from 'next/server';

@@ -3,6 +3,10 @@
  * and UpstashRatelimit (production, sliding window via @upstash/ratelimit).
  */
 
+// type-only import: erased at runtime, so the Upstash dep stays lazy-loaded inside
+// getClient() (never eagerly imported in CI/dev without the env vars).
+import type { Ratelimit as UpstashRatelimitClient } from '@upstash/ratelimit';
+
 export interface RatelimitResult {
   allowed: boolean;
   remaining: number;
@@ -71,8 +75,7 @@ export class InMemoryRatelimit implements Ratelimit {
 export class UpstashRatelimit implements Ratelimit {
   private readonly maxRequests: number;
   private readonly windowMs: number;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private rl: any = null;
+  private rl: UpstashRatelimitClient | null = null;
 
   constructor(options: InMemoryRatelimitOptions) {
     this.maxRequests = options.limit;
@@ -130,3 +133,28 @@ export const ratelimit = createRatelimit({ limit: 60, windowMs: 60_000 });
 
 /** Operator forgot-password OTP send: 3 per 15 min per phone (Issue 010) */
 export const opForgotPasswordRatelimit = createRatelimit({ limit: 3, windowMs: 15 * 60_000 });
+
+/** Self-serve operator registration: 5 per hour per IP (Issue 076) — abuse guard
+ *  on the public, unauthenticated /api/op/register POST. Keyed `op-register:<ip>`. */
+export const opRegisterRatelimit = createRatelimit({ limit: 5, windowMs: 60 * 60_000 });
+
+/** Public charter (thuê xe hợp đồng) request submit: 5 per hour per IP (Issue 082)
+ *  — abuse guard on the public, unauthenticated /api/charter POST. Keyed
+ *  `charter:<ip>`. (Honeypot is the first-line spam guard; this caps volume.) */
+export const charterRatelimit = createRatelimit({ limit: 5, windowMs: 60 * 60_000 });
+
+/**
+ * Admin TOTP verify attempt throttle: 10 per minute per admin (Issue 055).
+ * General request-rate guard on the verify/step-up surface, keyed `admin-totp:<adminId>`.
+ */
+export const adminTotpRatelimit = createRatelimit({ limit: 10, windowMs: 60_000 });
+
+/**
+ * Admin TOTP consecutive-failure lockout: 5 bad codes per 15 min per admin (Issue 055,
+ * mirrors the Issue 010 lockout idea). Keyed `admin-totp-fail:<adminId>` and consumed
+ * (`.limit`) ONLY on a bad code — once exhausted the verify/step-up routes return 429
+ * for the rest of the 15-min window. A successful verify does not reset the counter,
+ * but a correct code is accepted before the lockout limiter is consumed, so a legitimate
+ * admin is unaffected unless they've already burned 5 wrong codes.
+ */
+export const adminTotpLockout = createRatelimit({ limit: 5, windowMs: 15 * 60_000 });

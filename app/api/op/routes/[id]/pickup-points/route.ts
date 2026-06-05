@@ -14,12 +14,12 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth/requireOperatorAuth';
+import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { listPickupPoints } from '@/lib/pickupPoints/listPickupPoints';
-import { createPickupPoint, PickupPointServiceError } from '@/lib/pickupPoints/createPickupPoint';
-import { bulkReorder } from '@/lib/pickupPoints/bulkReorder';
-import { pickupPointCreateSchema, bulkReorderSchema } from '@/lib/validation/route';
+import { listPickupPoints } from '@/lib/catalog';
+import { createPickupPoint, PickupPointServiceError } from '@/lib/catalog';
+import { bulkReorder } from '@/lib/catalog';
+import { pickupPointCreateSchema, bulkReorderSchema } from '@/lib/core/validation/route';
 
 type RouteContext = { params: Promise<{ id: string }> };
 

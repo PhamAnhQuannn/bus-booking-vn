@@ -10,9 +10,9 @@
  * I7-exempt: operator-side reporting; operator is the price authority.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
-import { getRevenueReport } from '@/lib/payouts/getRevenueReport';
+import { getRevenueReport } from '@/lib/ledger';
 
 export interface OperatorKpis {
   periodTrips: number;
@@ -31,7 +31,7 @@ export interface OperatorKpis {
   revenueDeltaPct: number | null;
 }
 
-const PAID_SQL = Prisma.sql`b.status IN ('pending_cash_payment'::"BookingStatus",'paid_operator_notified'::"BookingStatus",'completed'::"BookingStatus")`;
+const PAID_SQL = Prisma.sql`b.status IN ('paid'::"BookingStatus",'completed'::"BookingStatus")`;
 
 /** Enumerate YYYY-MM-DD strings from dateFrom..dateTo inclusive. */
 function dateRange(dateFrom: string, dateTo: string): string[] {
@@ -51,7 +51,7 @@ export interface GetOperatorKpisInput {
   dateTo: string;
 }
 
-const PAID_STATUSES = ['pending_cash_payment', 'paid_operator_notified', 'completed'];
+const PAID_STATUSES = ['paid', 'completed'];
 
 export async function getOperatorKpis(input: GetOperatorKpisInput): Promise<OperatorKpis> {
   const { operatorId, dateFrom, dateTo } = input;

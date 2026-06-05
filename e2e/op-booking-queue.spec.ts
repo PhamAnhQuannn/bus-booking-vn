@@ -4,12 +4,13 @@
  * Covers ACs:
  *   AC1  dashboard shows unviewed badge count          — GET /api/op/bookings (count)
  *   AC2  filter by contactStatus returns subset        — GET /api/op/bookings?contactStatus=
- *   AC3  call-outcome writes contactStatus             — POST /api/op/bookings/:id/call-outcome
- *   AC4  cash-collected transitions status             — POST /api/op/bookings/:id/cash-collected
  *   AC5  depart sets salesClosed=true (no new bookings) — POST /api/op/trips/:id/depart
  *   AC6  manifest rows have NO seatNumber              — GET /api/op/manifest/:tripId
  *   AC7  manifest has generatedAt timestamp            — GET /api/op/manifest/:tripId
  *   Cross-op tenant isolation for all endpoints
+ *
+ * Issue 039 (online-only): the AC3 call-outcome / AC4 cash-collected / escalation
+ * / picked-up mutation routes were deleted; their specs were removed with them.
  *
  * SANDBOX-GATED: set E2E_OP_BOOKING_QUEUE_ENABLED=true to run.
  *   - Requires running dev server with seeded DB
@@ -23,7 +24,7 @@ import { Client } from 'pg';
 import { primeCsrf } from './helpers/csrf';
 import { hash } from '../lib/auth/password';
 import { randomUUID } from 'crypto';
-import { normalizePhone } from '../lib/auth/phoneNormalize';
+import { normalizePhone } from '../lib/core/validation/phone';
 
 const SANDBOX_ENABLED = process.env.E2E_OP_BOOKING_QUEUE_ENABLED === 'true';
 const DB_URL =
@@ -40,13 +41,13 @@ interface PrepareCtx {
   tripId: string;
   opBTripId: string;
   paidBookingId: string;
-  cashBookingId: string;
+  secondBookingId: string;
   opBBookingId: string;
 }
 
 /**
  * Seeds the DB with:
- *   - Op A (SEED_PHONE) — one trip in the future, two bookings (paid_operator_notified + pending_cash_payment)
+ *   - Op A (SEED_PHONE) — one trip in the future, two paid bookings (momo)
  *   - Op B (OP_B_PHONE) — one trip + one booking (tenant isolation)
  */
 async function prepareQueue(): Promise<PrepareCtx> {
@@ -113,20 +114,20 @@ async function prepareQueue(): Promise<PrepareCtx> {
     await client.query(`DELETE FROM "NotificationLog" WHERE "bookingId" IN (SELECT id FROM "Booking" WHERE "tripId" = $1 OR "bookingRef" = ANY($2))`, [tripId, leftoverRefs]);
     await client.query(`DELETE FROM "Booking" WHERE "tripId" = $1 OR "bookingRef" = ANY($2)`, [tripId, leftoverRefs]);
 
-    // Paid booking (paid_operator_notified)
+    // Paid booking (paid)
     const paidId = randomUUID();
     await client.query(
       `INSERT INTO "Booking" ("id","bookingRef","confirmationToken","tripId","buyerName","buyerPhone","ticketCount","totalVnd","paymentMethod","status","isManual","contactStatus","createdAt")
-       VALUES ($1, 'BB-2026-eq01-aa11', 'tok-eq01-aa11', $2, 'E2E Queue Buyer', '+8490xxxxxx2', 2, 200000, 'momo', 'paid_operator_notified', false, 'pending', NOW())`,
+       VALUES ($1, 'BB-2026-eq01-aa11', 'tok-eq01-aa11', $2, 'E2E Queue Buyer', '+8490xxxxxx2', 2, 200000, 'momo', 'paid', false, 'pending', NOW())`,
       [paidId, tripId]
     );
 
-    // Cash booking (pending_cash_payment)
-    const cashId = randomUUID();
+    // Second paid booking (momo)
+    const secondId = randomUUID();
     await client.query(
       `INSERT INTO "Booking" ("id","bookingRef","confirmationToken","tripId","buyerName","buyerPhone","ticketCount","totalVnd","paymentMethod","status","isManual","contactStatus","createdAt")
-       VALUES ($1, 'BB-2026-eq01-bb22', 'tok-eq01-bb22', $2, 'E2E Cash Buyer', '+8490xxxxxx3', 1, 100000, 'cash', 'pending_cash_payment', false, 'pending', NOW())`,
-      [cashId, tripId]
+       VALUES ($1, 'BB-2026-eq01-bb22', 'tok-eq01-bb22', $2, 'E2E Queue Buyer 2', '+8490xxxxxx3', 1, 100000, 'momo', 'paid', false, 'pending', NOW())`,
+      [secondId, tripId]
     );
 
     // ── Op B setup ──────────────────────────────────────────────────────────
@@ -190,11 +191,11 @@ async function prepareQueue(): Promise<PrepareCtx> {
     const opBBookingId = randomUUID();
     await client.query(
       `INSERT INTO "Booking" ("id","bookingRef","confirmationToken","tripId","buyerName","buyerPhone","ticketCount","totalVnd","paymentMethod","status","isManual","contactStatus","createdAt")
-       VALUES ($1, 'BB-2026-eqb1-cc33', 'tok-eqb1-cc33', $2, 'Op B Buyer', '+8490xxxxxx4', 1, 80000, 'momo', 'paid_operator_notified', false, 'pending', NOW())`,
+       VALUES ($1, 'BB-2026-eqb1-cc33', 'tok-eqb1-cc33', $2, 'Op B Buyer', '+8490xxxxxx4', 1, 80000, 'momo', 'paid', false, 'pending', NOW())`,
       [opBBookingId, opBTripId]
     );
 
-    return { opAId, opBId, tripId, opBTripId, paidBookingId: paidId, cashBookingId: cashId, opBBookingId };
+    return { opAId, opBId, tripId, opBTripId, paidBookingId: paidId, secondBookingId: secondId, opBBookingId };
   } finally {
     await client.end();
   }
@@ -227,7 +228,7 @@ test.describe('Operator booking queue + manifest (Issue 014)', () => {
 
     const ids: string[] = json.rows.map((r: { id: string }) => r.id);
     expect(ids).toContain(ctx.paidBookingId);
-    expect(ids).toContain(ctx.cashBookingId);
+    expect(ids).toContain(ctx.secondBookingId);
     // Op B booking must NOT appear
     expect(ids).not.toContain(ctx.opBBookingId);
   });
@@ -241,24 +242,21 @@ test.describe('Operator booking queue + manifest (Issue 014)', () => {
       headers: { 'X-CSRF-Token': csrf },
     });
 
-    // First set paidBookingId to 'reached'
-    await request.post(`/api/op/bookings/${ctx.paidBookingId}/call-outcome`, {
-      data: { outcome: 'reached' },
-      headers: { 'X-CSRF-Token': csrf },
-    });
+    // Both seeded bookings start with contactStatus='pending' (the call-outcome
+    // mutation route was removed in Issue 039 — online-only). Filter the queue
+    // by the seeded contactStatus value.
+    const pending = await request.get('/api/op/bookings?contactStatus=pending');
+    expect(pending.status()).toBe(200);
+    const pendingJson = await pending.json();
+    const pendingIds: string[] = pendingJson.rows.map((r: { id: string }) => r.id);
+    expect(pendingIds).toContain(ctx.paidBookingId);
+    expect(pendingIds).toContain(ctx.secondBookingId);
 
     const reached = await request.get('/api/op/bookings?contactStatus=reached');
     expect(reached.status()).toBe(200);
     const reachedJson = await reached.json();
     const reachedIds: string[] = reachedJson.rows.map((r: { id: string }) => r.id);
-    expect(reachedIds).toContain(ctx.paidBookingId);
-
-    const pending = await request.get('/api/op/bookings?contactStatus=pending');
-    expect(pending.status()).toBe(200);
-    const pendingJson = await pending.json();
-    const pendingIds: string[] = pendingJson.rows.map((r: { id: string }) => r.id);
-    expect(pendingIds).not.toContain(ctx.paidBookingId);
-    expect(pendingIds).toContain(ctx.cashBookingId);
+    expect(reachedIds).not.toContain(ctx.paidBookingId);
   });
 
   // ── AC2: get single booking detail ────────────────────────────────────────
@@ -294,153 +292,9 @@ test.describe('Operator booking queue + manifest (Issue 014)', () => {
     expect(json.error).toBe('not_found');
   });
 
-  // ── AC3: call-outcome ─────────────────────────────────────────────────────
-
-  test('AC3: POST call-outcome saves contactStatus and pickupNote', async ({ request }) => {
-    const csrf = await primeCsrf(request);
-    await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
-      headers: { 'X-CSRF-Token': csrf },
-    });
-
-    const res = await request.post(`/api/op/bookings/${ctx.paidBookingId}/call-outcome`, {
-      data: { outcome: 'no_answer' },
-      headers: { 'X-CSRF-Token': csrf },
-    });
-    expect(res.status()).toBe(200);
-    const json = await res.json();
-    expect(json.booking.contactStatus).toBe('no_answer');
-  });
-
-  test('AC3: call-outcome with pickupNote saves note', async ({ request }) => {
-    const csrf = await primeCsrf(request);
-    await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
-      headers: { 'X-CSRF-Token': csrf },
-    });
-
-    const res = await request.post(`/api/op/bookings/${ctx.paidBookingId}/call-outcome`, {
-      data: { outcome: 'reached', pickupNote: 'Khách đứng trước trường' },
-      headers: { 'X-CSRF-Token': csrf },
-    });
-    expect(res.status()).toBe(200);
-    const json = await res.json();
-    expect(json.booking.contactStatus).toBe('reached');
-    expect(json.booking.pickupNote).toBe('Khách đứng trước trường');
-  });
-
-  test('AC3: call-outcome cross-op returns 404', async ({ request }) => {
-    const csrf = await primeCsrf(request);
-    await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
-      headers: { 'X-CSRF-Token': csrf },
-    });
-
-    const res = await request.post(`/api/op/bookings/${ctx.opBBookingId}/call-outcome`, {
-      data: { outcome: 'reached' },
-      headers: { 'X-CSRF-Token': csrf },
-    });
-    expect(res.status()).toBe(404);
-    const json = await res.json();
-    expect(json.error).toBe('not_found');
-  });
-
-  // ── Escalation ────────────────────────────────────────────────────────────
-
-  test('escalation: POST sets escalationNote and escalatedAt', async ({ request }) => {
-    const csrf = await primeCsrf(request);
-    await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
-      headers: { 'X-CSRF-Token': csrf },
-    });
-
-    const res = await request.post(`/api/op/bookings/${ctx.paidBookingId}/escalation`, {
-      data: { note: 'Khách khiếu nại về chỗ ngồi' },
-      headers: { 'X-CSRF-Token': csrf },
-    });
-    expect(res.status()).toBe(200);
-    const json = await res.json();
-    expect(json.booking.escalatedAt).not.toBeNull();
-    expect(json.booking.escalationNote).toBe('Khách khiếu nại về chỗ ngồi');
-  });
-
-  // ── picked-up ─────────────────────────────────────────────────────────────
-
-  test('picked-up: POST marks booking and returns ok=true (idempotent)', async ({ request }) => {
-    const csrf = await primeCsrf(request);
-    await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
-      headers: { 'X-CSRF-Token': csrf },
-    });
-
-    const first = await request.post(`/api/op/bookings/${ctx.paidBookingId}/picked-up`, {
-      headers: { 'X-CSRF-Token': csrf },
-    });
-    expect(first.status()).toBe(200);
-    const firstJson = await first.json();
-    expect(firstJson.ok).toBe(true);
-    expect(firstJson.alreadyPickedUp).toBe(false);
-    expect(firstJson.booking.pickedUpAt).not.toBeNull();
-
-    // Idempotent second call — still 200 per Issue 013 discriminated result rule
-    const second = await request.post(`/api/op/bookings/${ctx.paidBookingId}/picked-up`, {
-      headers: { 'X-CSRF-Token': csrf },
-    });
-    expect(second.status()).toBe(200);
-    const secondJson = await second.json();
-    expect(secondJson.ok).toBe(true);
-    expect(secondJson.alreadyPickedUp).toBe(true);
-  });
-
-  test('picked-up: pending_cash_payment returns 422 payment_required', async ({ request }) => {
-    const csrf = await primeCsrf(request);
-    await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
-      headers: { 'X-CSRF-Token': csrf },
-    });
-
-    const res = await request.post(`/api/op/bookings/${ctx.cashBookingId}/picked-up`, {
-      headers: { 'X-CSRF-Token': csrf },
-    });
-    expect(res.status()).toBe(422);
-    const json = await res.json();
-    expect(json.error).toBe('payment_required');
-  });
-
-  // ── AC4: cash-collected ───────────────────────────────────────────────────
-
-  test('AC4: POST cash-collected transitions pending_cash_payment → paid_operator_notified', async ({ request }) => {
-    const csrf = await primeCsrf(request);
-    await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
-      headers: { 'X-CSRF-Token': csrf },
-    });
-
-    const res = await request.post(`/api/op/bookings/${ctx.cashBookingId}/cash-collected`, {
-      headers: { 'X-CSRF-Token': csrf },
-    });
-    expect(res.status()).toBe(200);
-    const json = await res.json();
-    expect(json.booking.status).toBe('paid_operator_notified');
-    expect(json.booking.cashCollectedAt).not.toBeNull();
-    // I7: totalVnd comes from DB, should match seed
-    expect(json.booking.totalVnd).toBe(100_000);
-  });
-
-  test('AC4: cash-collected on already-paid booking returns 422 invalid_state', async ({ request }) => {
-    const csrf = await primeCsrf(request);
-    await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
-      headers: { 'X-CSRF-Token': csrf },
-    });
-
-    const res = await request.post(`/api/op/bookings/${ctx.paidBookingId}/cash-collected`, {
-      headers: { 'X-CSRF-Token': csrf },
-    });
-    expect(res.status()).toBe(422);
-    const json = await res.json();
-    expect(json.error).toBe('invalid_state');
-  });
+  // Issue 039: the call-outcome, escalation, picked-up, and cash-collected
+  // mutation routes were deleted (online-only). Their AC3/AC4 specs were removed
+  // with them. The booking-queue LIST + manifest READ tests below remain.
 
   // ── AC5: depart trip ──────────────────────────────────────────────────────
 

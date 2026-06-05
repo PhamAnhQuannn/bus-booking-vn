@@ -15,7 +15,7 @@ const { mockVerifyProof, mockHashPassword, mockOperatorFindUnique, mockOperatorU
 vi.mock('@/lib/auth/otpProof', () => ({ verifyOtpProof: mockVerifyProof }));
 vi.mock('@/lib/auth/password', () => ({ hash: mockHashPassword }));
 vi.mock('@/lib/auth/operatorSession', () => ({ revokeAllOperatorSessions: mockRevokeAll }));
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     operatorUser: {
       findUnique: mockOperatorFindUnique,

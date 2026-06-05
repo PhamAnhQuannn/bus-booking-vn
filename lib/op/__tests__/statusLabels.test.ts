@@ -26,7 +26,7 @@ describe("statusLabels", () => {
 
   it("uses pending variant for unpaid bookings, success for paid", () => {
     expect(bookingStatusDisplay("awaiting_payment").variant).toBe("pending")
-    expect(bookingStatusDisplay("paid_operator_notified").variant).toBe("success")
+    expect(bookingStatusDisplay("paid").variant).toBe("success")
     expect(bookingStatusDisplay("cancelled").variant).toBe("danger")
   })
 

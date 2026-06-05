@@ -7,7 +7,7 @@
  * Applies a warning class (text-destructive) when T-2 minutes or less remain.
  */
 
-import { useHoldTimerStore } from '@/lib/state/holdTimerStore';
+import { useHoldTimerStore } from '@/lib/state';
 
 function formatMs(ms: number): string {
   const totalSeconds = Math.ceil(ms / 1000);

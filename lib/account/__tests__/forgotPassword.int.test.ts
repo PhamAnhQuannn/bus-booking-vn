@@ -9,11 +9,11 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { prisma } from '@/lib/db/client';
-import { hash as hashPassword } from '@/lib/auth/password';
+import { prisma } from '@/lib/core/db/client';
+import { hash as hashPassword } from '@/lib/auth';
 
 // Mock sendSms to avoid real SMS in tests
-vi.mock('@/lib/notifications/esms', () => ({
+vi.mock('@/lib/notification/esms', () => ({
   sendSms: vi.fn().mockResolvedValue({ ok: true }),
 }));
 

@@ -21,7 +21,7 @@ const {
   mockTripFindMany: vi.fn(),
 }));
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     booking: { findMany: mockBookingFindMany },
     trip: { findMany: mockTripFindMany },

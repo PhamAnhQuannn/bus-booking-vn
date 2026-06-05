@@ -17,7 +17,8 @@ import {
   createRouteApi,
   patchRouteApi,
   deactivateRouteApi,
-} from '@/lib/api/routesClient';
+  type RouteItem,
+} from '@/lib/api';
 import { routeActiveDisplay } from '@/lib/op/statusLabels';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,16 +36,10 @@ import RouteEditDialog from './RouteEditDialog';
 import PickupPointsPanel from './PickupPointsPanel';
 import { ConfirmDialog } from '@/components/op/ConfirmDialog';
 
-export interface RouteItem {
-  id: string;
-  operatorId: string;
-  origin: string;
-  destination: string;
-  durationMinutes: number;
-  deactivatedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
+// Single source of truth for the route shape is the API client (handles the
+// Date|string wire vs server-Date duality). Re-exported so sibling components
+// (RouteEditDialog, page) keep importing RouteItem from here.
+export type { RouteItem };
 
 interface Props {
   initialRoutes: RouteItem[];
@@ -98,7 +93,7 @@ export default function RoutesClient({ initialRoutes }: Props) {
 
   async function refreshRoutes() {
     const { routes: next } = await listRoutesApi();
-    setRoutes(next as unknown as RouteItem[]);
+    setRoutes(next);
   }
 
   async function handleCreate(origin: string, destination: string, durationMinutes: number) {

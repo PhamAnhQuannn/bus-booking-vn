@@ -11,9 +11,9 @@ import { type NextRequest, NextResponse } from "next/server"
 import {
   requireOperatorAuth,
   type OperatorAuthContext,
-} from "@/lib/auth/requireOperatorAuth"
+} from "@/lib/auth"
 import { withErrorHandler } from "@/lib/withErrorHandler"
-import { getActivityFeed } from "@/lib/op/getActivityFeed"
+import { getActivityFeed } from "@/lib/op"
 
 export async function GET(req: NextRequest): Promise<Response> {
   return withErrorHandler(

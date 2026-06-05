@@ -20,7 +20,7 @@ import { addDays, startOfDay } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { GET } from '../route';
 import { ratelimit } from '@/lib/ratelimit';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 
 const TZ = 'Asia/Ho_Chi_Minh';
 
@@ -76,6 +76,8 @@ beforeAll(async () => {
       contactPhone: '+8490xxxxxx5',
       contactEmail: 'ac3@route-int.test',
       notificationPhone: '+8490xxxxxx6',
+      // Issue 046: operator must be APPROVED to be search-visible.
+      status: 'APPROVED',
     },
   });
   ac3OperatorId = op.id;

@@ -16,7 +16,7 @@
  */
 
 import { Prisma } from '@prisma/client';
-import { sendSms, renderTemplate } from '@/lib/notifications/esms';
+import { sendSms, renderTemplate } from '@/lib/notification';
 import type { JobCore } from './types';
 
 interface ReminderRow {
@@ -51,7 +51,7 @@ export const sendReminders: JobCore = async (tx) => {
       FROM "Booking" b
       JOIN "Trip" t ON t.id = b."tripId"
       JOIN "Route" r ON r.id = t."routeId"
-      WHERE b.status IN ('pending_cash_payment'::"BookingStatus", 'paid_operator_notified'::"BookingStatus")
+      WHERE b.status IN ('paid'::"BookingStatus")
         AND b."reminderSentAt" IS NULL
         AND t."departureAt" BETWEEN NOW() + INTERVAL '23 hours' AND NOW() + INTERVAL '25 hours'
       FOR UPDATE OF b SKIP LOCKED

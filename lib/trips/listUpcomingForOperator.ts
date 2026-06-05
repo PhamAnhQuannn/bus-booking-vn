@@ -7,7 +7,8 @@
  */
 
 import { z } from 'zod';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 import { toTripDto } from './toTripDto';
 import type { TripDto } from './tripDto';
 
@@ -33,8 +34,8 @@ export async function listUpcomingForOperator(
 
   const rows = await prisma.trip.findMany({
     where: {
-      operatorId,
-      status: { in: ['scheduled', 'departed'] },
+      ...withOperatorScope(operatorId).where,
+      status: { in: ['scheduled', 'departed'] as const },
       departureAt: { gte: new Date() },
       ...(routeId ? { routeId } : {}),
       ...(cursor ? { id: { gt: cursor } } : {}),
@@ -46,7 +47,7 @@ export async function listUpcomingForOperator(
           holds: { where: { status: 'active' } },
           bookings: {
             where: {
-              status: { in: ['pending_cash_payment', 'paid_operator_notified', 'completed'] },
+              status: { in: ['paid', 'completed'] },
             },
           },
         },

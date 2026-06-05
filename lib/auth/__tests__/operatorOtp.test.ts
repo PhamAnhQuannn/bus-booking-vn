@@ -27,7 +27,7 @@ const mockGenerateSalt = vi.hoisted(() => vi.fn(() => 'testsalt'));
 const mockHashCode = vi.hoisted(() => vi.fn());
 const mockNormalizePhone = vi.hoisted(() => vi.fn((p: string) => p));
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     $queryRaw: mockQueryRaw,
     $executeRaw: mockExecuteRaw,
@@ -38,7 +38,7 @@ vi.mock('@/lib/ratelimit', () => ({
   createRatelimit: vi.fn(() => mockRatelimit),
 }));
 
-vi.mock('@/lib/notifications/esms', () => ({
+vi.mock('@/lib/notification/esms', () => ({
   sendSms: mockSendSms,
 }));
 
@@ -48,7 +48,7 @@ vi.mock('../otp', () => ({
   hashCode: mockHashCode,
 }));
 
-vi.mock('../phoneNormalize', () => ({
+vi.mock('@/lib/core/validation/phone', () => ({
   normalizePhone: mockNormalizePhone,
 }));
 

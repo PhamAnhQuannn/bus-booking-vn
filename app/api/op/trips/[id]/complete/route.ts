@@ -11,10 +11,10 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth/requireOperatorAuth';
+import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { markCompleted } from '@/lib/trips/markCompleted';
-import { TripServiceError } from '@/lib/trips/errors';
+import { markCompleted } from '@/lib/trips';
+import { TripServiceError } from '@/lib/trips';
 
 type RouteContext = { params: Promise<{ id: string }> };
 

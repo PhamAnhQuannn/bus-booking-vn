@@ -17,11 +17,11 @@
  */
 
 import crypto from 'crypto';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
-import { normalizePhone } from './phoneNormalize';
+import { normalizePhone } from '@/lib/core/validation/phone';
 import { generateCode, generateSalt, hashCode } from './otp';
-import { sendSms } from '@/lib/notifications/esms';
+import { sendSms } from '@/lib/notification';
 import { createRatelimit } from '@/lib/ratelimit';
 
 const OTP_TTL_SECONDS = 5 * 60; // 5 minutes

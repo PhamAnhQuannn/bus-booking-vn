@@ -16,13 +16,14 @@ export interface StatusDisplay {
 
 const BOOKING_STATUS: Record<BookingStatus, StatusDisplay> = {
   awaiting_payment: { variant: "pending", label: "Chờ thanh toán" },
-  pending_cash_payment: { variant: "pending", label: "Chờ thu tiền mặt" },
-  paid_operator_notified: { variant: "success", label: "Đã thanh toán" },
+  paid: { variant: "success", label: "Đã thanh toán" },
   completed: { variant: "success", label: "Hoàn tất" },
   cancelled: { variant: "danger", label: "Đã hủy" },
   trip_cancelled: { variant: "danger", label: "Chuyến đã hủy" },
   no_show: { variant: "danger", label: "Vắng mặt" },
   payment_failed_expired: { variant: "danger", label: "Thanh toán thất bại" },
+  // Issue 100: oversold-race — booking was paid but seat gone; refund-out issued automatically.
+  refunded: { variant: "danger", label: "Đã hoàn tiền (hết chỗ)" },
 }
 
 const TRIP_STATUS: Record<TripStatus, StatusDisplay> = {
@@ -71,9 +72,9 @@ export function contactStatusDisplay(status: string | null | undefined): StatusD
 
 // Payout status — previously duplicated across RevenueClient + PayoutsClient.
 const PAYOUT_STATUS: Record<string, StatusDisplay> = {
-  pending: { variant: "pending", label: "Chờ xử lý" },
+  requested: { variant: "pending", label: "Chờ xử lý" },
   processing: { variant: "neutral", label: "Đang xử lý" },
-  settled: { variant: "success", label: "Đã thanh toán" },
+  paid: { variant: "success", label: "Đã thanh toán" },
   failed: { variant: "danger", label: "Thất bại" },
 }
 
@@ -103,11 +104,10 @@ export function busTypeWithCapacity(busType: string, capacity: number): string {
   return `${busTypeLabel(busType)} ${capacity} chỗ`
 }
 
-// Booking flag glyphs — manual / cash / escalated. Variant maps to Badge variant.
+// Booking flag glyphs — manual / escalated. Variant maps to Badge variant.
 // Glyph is decorative (aria-hidden); the label is the SR-accessible name.
 export const FLAG_GLYPHS = {
   manual: { glyph: "✏", label: "Gắn cờ thủ công", variant: "neutral" as const },
-  cash: { glyph: "₫", label: "Thanh toán tiền mặt", variant: "pending" as const },
   escalated: { glyph: "⚠", label: "Đã chuyển cấp", variant: "danger" as const },
 } as const
 

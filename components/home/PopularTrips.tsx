@@ -13,7 +13,7 @@ import { useRef } from 'react';
 import Link from 'next/link';
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 
-import { searchHref } from '@/lib/search/searchHref';
+import { searchHref } from '@/lib/search';
 
 interface PopularRoute {
   origin: string;
@@ -45,7 +45,7 @@ export function PopularTrips() {
   }
 
   return (
-    <section className="mx-auto w-full max-w-7xl px-4 py-10">
+    <section className="mx-auto w-full max-w-5xl px-4 py-10">
       <div className="mb-6 flex items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
           <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Tuyến phổ biến</h2>

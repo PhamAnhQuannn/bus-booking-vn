@@ -5,7 +5,8 @@
  * Bookings/Holds are NOT touched.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 import { TripServiceError } from './errors';
 import type { TripDto } from './tripDto';
 import { toTripDto } from './toTripDto';
@@ -22,7 +23,7 @@ export async function salesToggle(
 
     // Cross-op guard via ownership check
     const existing = await tx.trip.findFirst({
-      where: { id: tripId, operatorId },
+      ...withOperatorScope(operatorId, { where: { id: tripId } }),
       select: { id: true },
     });
 
@@ -40,7 +41,7 @@ export async function salesToggle(
             holds: { where: { status: 'active' } },
             bookings: {
               where: {
-                status: { in: ['pending_cash_payment', 'paid_operator_notified', 'completed'] },
+                status: { in: ['paid', 'completed'] },
               },
             },
           },

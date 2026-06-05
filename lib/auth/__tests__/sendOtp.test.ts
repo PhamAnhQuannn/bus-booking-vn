@@ -15,12 +15,12 @@ const { mockPrisma, mockRatelimit, mockSendSms } = vi.hoisted(() => {
   return { mockPrisma, mockRatelimit, mockSendSms };
 });
 
-vi.mock('@/lib/db/client', () => ({ prisma: mockPrisma }));
+vi.mock('@/lib/core/db/client', () => ({ prisma: mockPrisma }));
 vi.mock('@/lib/ratelimit', () => ({
   createRatelimit: vi.fn(() => mockRatelimit),
   InMemoryRatelimit: vi.fn(),
 }));
-vi.mock('@/lib/notifications/esms', () => ({ sendSms: mockSendSms }));
+vi.mock('@/lib/notification/esms', () => ({ sendSms: mockSendSms }));
 
 import { sendOtp } from '../sendOtp';
 

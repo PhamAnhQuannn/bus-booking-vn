@@ -1,8 +1,8 @@
 import Link from "next/link"
 import { ArrowRightIcon } from "lucide-react"
 
-import type { ActivityEvent, Severity } from "@/lib/op/activityTypes"
-import { formatRelativeVi } from "@/lib/op/formatRelativeVi"
+import type { ActivityEvent, Severity } from "@/lib/op"
+import { formatRelativeVi } from "@/lib/op"
 import { EmptyState } from "@/components/op/EmptyState"
 import { Inbox } from "lucide-react"
 import { cn } from "@/lib/utils"

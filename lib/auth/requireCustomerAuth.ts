@@ -18,13 +18,20 @@
  *
  * 401 UNAUTHORIZED when the header is missing/malformed or the token fails
  * verification (expired, tampered, or operator-scoped — verifyAccess rejects
- * scope='operator'). No DB lookup: the JWT sub IS the Customer.id, and every
- * guarded route scopes its own query by customerId, so a deleted/forged id
- * simply matches zero rows.
+ * scope='operator').
+ *
+ * SUSPENSION GATE (Issue 066): a single DB lookup on the Customer row after the
+ * token verifies — a customer with `suspendedAt !== null` (admin-suspended) is
+ * rejected with 403 ACCOUNT_SUSPENDED. Suspension also revokes all sessions at
+ * suspend time (lib/admin/suspendCustomer.ts) so the refresh-token path dies too;
+ * this gate is the access-token backstop for any short-lived access JWT still in
+ * flight at suspend time. A deleted/forged id matches zero rows → 401 (the row is
+ * absent, so we cannot confirm an active account).
  */
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/core/db/client';
 import { verifyAccess } from './jwt';
 
 /** Context the HOF threads to the wrapped handler. */
@@ -53,6 +60,20 @@ export function requireCustomerAuth(): HOF {
       const payload = await verifyAccess(token);
       if (!payload) {
         return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
+      }
+
+      // Suspension gate (Issue 066): re-read the Customer row to enforce admin
+      // suspension on any access token still live at suspend time. A missing row
+      // (deleted/forged id) → 401; a suspended row → 403 ACCOUNT_SUSPENDED.
+      const customer = await prisma.customer.findUnique({
+        where: { id: payload.sub },
+        select: { id: true, suspendedAt: true },
+      });
+      if (!customer) {
+        return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
+      }
+      if (customer.suspendedAt !== null) {
+        return NextResponse.json({ error: 'ACCOUNT_SUSPENDED' }, { status: 403 });
       }
 
       return handler(req, { customerId: payload.sub });

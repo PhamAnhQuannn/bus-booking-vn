@@ -16,18 +16,18 @@ vi.mock('@/lib/config/env', () => ({
   getEnv: vi.fn(),
 }));
 
-vi.mock('../momo', () => ({
+vi.mock('../adapters/momo', () => ({
   getMomoAdapter: vi.fn(),
 }));
 
-vi.mock('../stub', () => ({
+vi.mock('../adapters/stub', () => ({
   getStubAdapter: vi.fn(),
 }));
 
 import { getGatewayFor } from '../select';
-import { getEnv } from '@/lib/config/env';
-import { getMomoAdapter } from '../momo';
-import { getStubAdapter } from '../stub';
+import { getEnv } from '@/lib/config';
+import { getMomoAdapter } from '../adapters/momo';
+import { getStubAdapter } from '../adapters/stub';
 
 const BASE_URL = 'https://example.com';
 const MOMO_GW = { id: 'momo' } as never;

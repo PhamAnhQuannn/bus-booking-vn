@@ -12,11 +12,11 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth/requireOperatorAuth';
+import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { getRouteById } from '@/lib/routes/getRouteById';
-import { updateRoute, RouteServiceError } from '@/lib/routes/updateRoute';
-import { routePatchSchema } from '@/lib/validation/route';
+import { getRouteById } from '@/lib/catalog';
+import { updateRoute, RouteServiceError } from '@/lib/catalog';
+import { routePatchSchema } from '@/lib/core/validation/route';
 
 type RouteContext = { params: Promise<{ id: string }> };
 

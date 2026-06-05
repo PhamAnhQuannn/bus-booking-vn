@@ -11,7 +11,7 @@ export default defineConfig({
     // Integration tests (*.int.test.ts) require a live DB — run via `pnpm vitest:int`
     // or `pnpm test:all` (unit + int). Issue 007 AC4 race test lives in otp.int.test.ts.
     exclude: ['node_modules', '.next', 'e2e', '**/*.int.test.ts'],
-    setupFiles: [],
+    setupFiles: ['./vitest.setup.ts'],
     reporters: ['default'],
     coverage: {
       provider: 'v8',
@@ -21,6 +21,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, '.'),
+      // `server-only`/`client-only` are Next compiler markers, not resolvable
+      // node packages — stub them so barrel-widened module graphs load under vitest.
+      'server-only': resolve(__dirname, 'test/stubs/server-only.ts'),
+      'client-only': resolve(__dirname, 'test/stubs/server-only.ts'),
     },
   },
 });

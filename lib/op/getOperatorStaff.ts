@@ -12,10 +12,10 @@
  */
 
 import { cookies } from 'next/headers';
-import { verifyOperatorAccess } from '@/lib/auth/jwt';
-import { prisma } from '@/lib/db/client';
-import { listStaff } from '@/lib/staff/listStaff';
-import type { StaffDto } from '@/lib/staff/toStaffDto';
+import { verifyOperatorAccess } from '@/lib/auth';
+import { prisma } from '@/lib/core/db/client';
+import { listStaff } from '@/lib/staff';
+import type { StaffDto } from '@/lib/staff';
 
 export interface OperatorStaffView {
   operatorId: string;

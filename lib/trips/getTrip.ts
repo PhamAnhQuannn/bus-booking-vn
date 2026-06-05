@@ -2,7 +2,8 @@
  * getTrip — fetch a single trip belonging to operator (I2: cross-op → null).
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 import type { TripDto } from './tripDto';
 import { toTripDto } from './toTripDto';
 
@@ -11,7 +12,7 @@ export async function getTrip(
   tripId: string
 ): Promise<TripDto | null> {
   const trip = await prisma.trip.findFirst({
-    where: { id: tripId, operatorId },
+    ...withOperatorScope(operatorId, { where: { id: tripId } }),
     include: {
       bus: { select: { capacity: true } },
       _count: {
@@ -19,7 +20,7 @@ export async function getTrip(
           holds: { where: { status: 'active' } },
           bookings: {
             where: {
-              status: { in: ['pending_cash_payment', 'paid_operator_notified', 'completed'] },
+              status: { in: ['paid', 'completed'] },
             },
           },
         },
@@ -37,7 +38,7 @@ export async function listTrips(
 ): Promise<TripDto[]> {
   const trips = await prisma.trip.findMany({
     where: {
-      operatorId,
+      ...withOperatorScope(operatorId).where,
       ...(opts?.routeId ? { routeId: opts.routeId } : {}),
       ...(opts?.fromDate || opts?.toDate
         ? {
@@ -56,7 +57,7 @@ export async function listTrips(
           holds: { where: { status: 'active' } },
           bookings: {
             where: {
-              status: { in: ['pending_cash_payment', 'paid_operator_notified', 'completed'] },
+              status: { in: ['paid', 'completed'] },
             },
           },
         },

@@ -84,6 +84,21 @@ const envSchema = z.object({
     .default('false')
     .transform((v) => v === 'true'),
 
+  // ---------------------------------------------------------------------------
+  // Local notification stub (Issue 058). When NOTIFY_STUB="true", the SMS/email
+  // channel adapters record + log the dispatch instead of hitting a real
+  // provider. Real eSMS/email HTTP integration is deferred (project memory:
+  // payment-deferral-strategy) — until then the channel adapters always behave
+  // as stubs, and this flag exists so the dispatcher's wiring matches the
+  // PAYMENTS_STUB shape and the cutover to real providers is a one-line flip.
+  // ---------------------------------------------------------------------------
+
+  /** Route all notification channels (sms/email) through the local no-network stub. */
+  NOTIFY_STUB: z
+    .string()
+    .default('false')
+    .transform((v) => v === 'true'),
+
   /**
    * HMAC key the fake gateway uses to sign + verify its own stub IPNs.
    * Dev-only — never used by a real PSP. MUST be overridden (or unused) in
@@ -93,6 +108,82 @@ const envSchema = z.object({
     .string()
     .min(16, 'STUB_PAYMENT_SECRET must be at least 16 characters')
     .default('dev-stub-payment-secret-local-only-change-me'),
+
+  // ---------------------------------------------------------------------------
+  // Object storage (Issue 059 — signed PUT/GET, keys in DB).
+  // The contract (server mints signed URLs, never proxies bytes; DB stores the
+  // object KEY, never the blob) runs fully in STUB mode locally + in tests.
+  // Real S3/@aws-sdk is a Wave-9 concern and is deferred behind STORAGE_STUB
+  // exactly like PAYMENTS_STUB defers the real PSP. The STORAGE_* connection
+  // vars are OPTIONAL — they're only consulted on the (not-yet-implemented)
+  // real branch when STORAGE_STUB=false; stub mode needs none of them.
+  // ---------------------------------------------------------------------------
+
+  /** Route all object storage through the local stub URL-signer. Default on. */
+  STORAGE_STUB: z
+    .string()
+    .default('true')
+    .transform((v) => v === 'true'),
+
+  /** S3 bucket name (real branch only). */
+  STORAGE_BUCKET: z.string().optional(),
+  /** S3 region (real branch only). */
+  STORAGE_REGION: z.string().optional(),
+  /** S3-compatible endpoint URL (real branch only; e.g. for R2/MinIO). */
+  STORAGE_ENDPOINT: z.string().optional(),
+  /** S3 access key id (real branch only). */
+  STORAGE_ACCESS_KEY: z.string().optional(),
+  /** S3 secret access key (real branch only). NEVER log this value. */
+  STORAGE_SECRET_KEY: z.string().optional(),
+
+  /**
+   * HMAC-SHA256 key the storage stub uses to sign + verify its own stub
+   * PUT/GET URLs so they're tamper-evident (mirrors STUB_PAYMENT_SECRET).
+   * Dev-only — never used by real S3. MUST be overridden (or unused) in
+   * production where STORAGE_STUB is false.
+   */
+  STORAGE_STUB_SECRET: z
+    .string()
+    .min(16, 'STORAGE_STUB_SECRET must be at least 16 characters')
+    .default('dev-stub-storage-secret-local-only-change-me'),
+
+  // ---------------------------------------------------------------------------
+  // Observability — Sentry (Issue 061).
+  // The error-reporting SEAM (lib/observability/sentry.ts) ships now; the real
+  // @sentry/nextjs SDK is DEFERRED (not installed — offline/dep-conscious), the
+  // same "defer real, ship the seam" pattern as the refund PSP / S3 storage stubs.
+  //
+  // UNSET (default) → captureException/captureMessage route every event to the
+  // structured pino logger (PII-scrubbed). This is the dev/test behaviour and
+  // stays the behaviour until Stage-1 wires the real SDK in instrumentation.ts.
+  // SET → the seam will (once Stage-1 lands) forward to the real Sentry client;
+  // the PII-scrubbing beforeSend equivalent already runs in the seam regardless.
+  // ---------------------------------------------------------------------------
+
+  /** Sentry DSN. Unset → events go to the structured logger fallback sink. */
+  SENTRY_DSN: z.string().optional(),
+
+  // ---------------------------------------------------------------------------
+  // Ticket QR signing (Issue 071).
+  // DEDICATED ticketing key — separate from JWT_SECRET so that compromise of one
+  // realm's signing key does NOT forge the other. This key signs the
+  // tamper-evident ticket lookup token embedded in the boarding QR code
+  // (lib/ticketing/ticketToken.ts). The token carries ONLY lookup keys
+  // (bookingRef + confirmationToken), no PII — the verify page does a fresh DB
+  // read for trip/status, so the token is a tamper-evident pointer, not a bearer
+  // credential.
+  //
+  // Test fallback: ticketToken.ts's getTicketSecret() falls back to
+  // 't'.repeat(32) when NODE_ENV === 'test' (mirrors the JWT_SECRET getter in
+  // lib/auth/jwt.ts), so unit tests run without this var set. In production this
+  // var IS required — min 16 chars.
+  // ---------------------------------------------------------------------------
+
+  /** HS256 signing secret for ticket QR lookup tokens (Issue 071). */
+  TICKET_SECRET: z
+    .string()
+    .min(16, 'TICKET_SECRET must be at least 16 characters')
+    .optional(),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

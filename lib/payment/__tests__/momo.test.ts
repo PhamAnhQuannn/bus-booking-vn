@@ -14,7 +14,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { createMomoAdapter } from '../momo';
+import { createMomoAdapter } from '../adapters/momo';
 import sampleIpn from './fixtures/momo-ipn-sample.json';
 
 const SANDBOX_CONFIG = {
@@ -34,11 +34,11 @@ describe('MoMo adapter — verifyWebhook', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
-    expect(result.parsed.orderId).toBe('BB-2026-abcd-1234');
-    expect(result.parsed.transId).toBe(String(sampleIpn.transId));
-    expect(result.parsed.resultCode).toBe(0);
-    expect(result.parsed.amount).toBe(150000);
-    expect(result.parsed.partnerCode).toBe('MOMOBKUN20180529');
+    expect(result.event.orderRef).toBe('BB-2026-abcd-1234');
+    expect(result.event.providerTxnId).toBe(String(sampleIpn.transId));
+    expect(result.event.status).toBe('paid');
+    expect(result.event.amount).toBe(150000);
+    expect(result.event.currency).toBe('VND');
   });
 
   it('returns ok=false when amount is tampered', () => {

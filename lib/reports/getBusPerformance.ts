@@ -18,7 +18,7 @@
  */
 
 import { Prisma } from "@prisma/client"
-import { prisma } from "@/lib/db/client"
+import { prisma } from "@/lib/core/db/client"
 
 export interface BusPerformanceRow {
   busId: string
@@ -38,7 +38,7 @@ export interface GetBusPerformanceInput {
   dateTo: string
 }
 
-const PAID_SQL = Prisma.sql`b.status IN ('pending_cash_payment'::"BookingStatus",'paid_operator_notified'::"BookingStatus",'completed'::"BookingStatus")`
+const PAID_SQL = Prisma.sql`b.status IN ('paid'::"BookingStatus",'completed'::"BookingStatus")`
 
 export async function getBusPerformance(
   input: GetBusPerformanceInput

@@ -13,8 +13,8 @@
  */
 
 import { useState } from 'react';
-import type { TemplateDto } from '@/lib/trips/tripDto';
-import { createTemplateApi, patchTemplateApi } from '@/lib/api/tripsClient';
+import type { TemplateDto } from '@/lib/trips';
+import { createTemplateApi, patchTemplateApi } from '@/lib/api';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -54,6 +54,7 @@ function translateError(code: string): string {
   switch (code) {
     case 'not_found': return 'Không tìm thấy';
     case 'invalid_input': return 'Dữ liệu không hợp lệ';
+    case 'validation_failed': return 'Dữ liệu không hợp lệ';
     default: return 'Đã xảy ra lỗi';
   }
 }

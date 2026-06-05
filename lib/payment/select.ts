@@ -9,9 +9,9 @@
  * Phase 2 swaps real zalopay/card adapters in here with no caller change.
  */
 
-import { getEnv } from '@/lib/config/env';
-import { getMomoAdapter } from './momo';
-import { getStubAdapter } from './stub';
+import { getEnv } from '@/lib/config';
+import { getMomoAdapter } from './adapters/momo';
+import { getStubAdapter } from './adapters/stub';
 import type { PaymentGateway } from './gateway';
 
 export type OnlinePaymentMethod = 'momo' | 'zalopay' | 'card';

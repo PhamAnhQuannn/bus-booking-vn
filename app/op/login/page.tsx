@@ -95,6 +95,12 @@ export default function OpLoginPage() {
               Quên mật khẩu?
             </a>
           </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Chưa có tài khoản?{' '}
+            <a className="text-primary underline-offset-4 hover:underline" href="/op/register">
+              Đăng ký nhà xe
+            </a>
+          </p>
         </CardContent>
       </Card>
     </AuthSplitLayout>

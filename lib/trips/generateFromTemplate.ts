@@ -11,7 +11,8 @@
  *   Mon=1, Tue=2, Wed=4, Thu=8, Fri=16, Sat=32, Sun=64
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 import { fromZonedTime } from 'date-fns-tz';
 import { addDays, parseISO, format } from 'date-fns';
 import { randomUUID } from 'crypto';
@@ -260,7 +261,7 @@ export async function getTemplate(
   templateId: string
 ): Promise<TemplateDto | null> {
   const t = await prisma.recurringTripTemplate.findFirst({
-    where: { id: templateId, operatorId },
+    where: withOperatorScope(operatorId, { where: { id: templateId } }).where,
   });
   if (!t) return null;
   return toTemplateDto(t);
@@ -268,7 +269,7 @@ export async function getTemplate(
 
 export async function listTemplates(operatorId: string): Promise<TemplateDto[]> {
   const templates = await prisma.recurringTripTemplate.findMany({
-    where: { operatorId },
+    where: withOperatorScope(operatorId).where,
     orderBy: { createdAt: 'asc' },
   });
   return templates.map(toTemplateDto);
@@ -288,13 +289,16 @@ export async function patchTemplate(
   }
 ): Promise<TemplateDto | null> {
   const existing = await prisma.recurringTripTemplate.findFirst({
-    where: { id: templateId, operatorId },
+    where: withOperatorScope(operatorId, { where: { id: templateId } }).where,
     select: { id: true },
   });
   if (!existing) return null;
 
+  // Scope the mutating UPDATE to { id, operatorId } too (not just id) so the
+  // write is tenant-bound atomically — closes the TOCTOU between the ownership
+  // check above and this update (issue 092b, rule-5 tenant scope).
   const updated = await prisma.recurringTripTemplate.update({
-    where: { id: templateId },
+    where: { id: templateId, operatorId },
     data: {
       ...(patch.price !== undefined ? { price: patch.price } : {}),
       ...(patch.departureLocalTime !== undefined ? { departureLocalTime: patch.departureLocalTime } : {}),

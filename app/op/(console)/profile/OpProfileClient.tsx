@@ -6,7 +6,7 @@
  */
 
 import { useState } from 'react';
-import type { OperatorProfile } from '@/lib/op/getOperatorProfile';
+import type { OperatorProfile } from '@/lib/op';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -31,13 +31,33 @@ export default function OpProfileClient({ profile }: Props) {
     setMessage('');
     setLoading(true);
     try {
+      // Only send fields the user actually changed — a blank input means "no
+      // change", not "set to empty", and re-sending an unchanged pre-filled
+      // value round-trips the seed operator's masked phones (which fail
+      // server-side normalizePhone → 400). Dirty-track against the loaded profile.
+      const payload: Record<string, string> = {};
+      const nextName = displayName.trim();
+      const nextContact = contactPhone.trim();
+      const nextNotification = notificationPhone.trim();
+      if (nextName && nextName !== (profile.displayName ?? '')) payload.displayName = nextName;
+      if (nextContact && nextContact !== (profile.contactPhone ?? '')) payload.contactPhone = nextContact;
+      if (nextNotification && nextNotification !== (profile.notificationPhone ?? ''))
+        payload.notificationPhone = nextNotification;
+
+      // Nothing changed — skip the round-trip (empty body 400s server-side).
+      if (Object.keys(payload).length === 0) {
+        setIsError(false);
+        setMessage('Đã lưu hồ sơ.');
+        return;
+      }
+
       const res = await fetch('/api/op/profile', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           'X-CSRF-Token': readCsrfToken(),
         },
-        body: JSON.stringify({ displayName, contactPhone, notificationPhone }),
+        body: JSON.stringify(payload),
       });
 
       if (res.status === 204) {

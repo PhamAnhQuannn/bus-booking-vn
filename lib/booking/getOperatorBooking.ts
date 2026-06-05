@@ -5,7 +5,7 @@
  * Returns null on miss or cross-tenant access (both mapped to 404 at route layer).
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { toBookingDto, type BookingDtoRow } from './toBookingDto';
 import type { BookingDto } from './bookingDto';
 
@@ -28,7 +28,6 @@ const bookingFullSelect = {
   pickupPointId: true,
   pickupNote: true,
   pickedUpAt: true,
-  cashCollectedAt: true,
   escalationNote: true,
   escalatedAt: true,
   trip: {
@@ -51,6 +50,7 @@ export async function getOperatorBooking(
   operatorId: string,
   bookingId: string
 ): Promise<BookingDto | null> {
+  // tenant-scoped via trip.operatorId join (model has no top-level operatorId)
   const row = await prisma.booking.findFirst({
     where: {
       id: bookingId,

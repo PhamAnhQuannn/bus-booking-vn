@@ -14,14 +14,14 @@
 
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { getEnv } from '@/lib/config/env';
-import { getGatewayFor, type OnlinePaymentMethod } from '@/lib/payment/select';
-import { buildStubIpn, STUB_FAILURE_CODE, type StubOutcome } from '@/lib/payment/stub';
-import { processPaymentWebhook } from '@/lib/payment/processWebhook';
+import { getEnv } from '@/lib/config';
+import { getGatewayFor, type OnlinePaymentMethod } from '@/lib/payment';
+import { buildStubIpn, type StubOutcome } from '@/lib/payment';
+import { processPaymentWebhook } from '@/lib/payment';
 
 const STUB_ADAPTERS = new Set<OnlinePaymentMethod>(['momo', 'zalopay', 'card']);
 
-export async function submitStubPayment(formData: FormData): Promise<void> {
+export async function submitStubPayment(outcome: StubOutcome, formData: FormData): Promise<void> {
   const env = getEnv();
   if (!env.PAYMENTS_STUB) {
     throw new Error('stub-pay disabled: PAYMENTS_STUB is off');
@@ -31,7 +31,6 @@ export async function submitStubPayment(formData: FormData): Promise<void> {
   const orderId = String(formData.get('orderId') ?? '');
   const amount = Number(formData.get('amount') ?? 0);
   const redirectUrl = String(formData.get('redirectUrl') ?? '');
-  const outcome = String(formData.get('outcome') ?? '') as StubOutcome;
 
   if (!STUB_ADAPTERS.has(adapter as OnlinePaymentMethod)) {
     throw new Error(`stub-pay: unknown adapter ${adapter}`);
@@ -61,8 +60,6 @@ export async function submitStubPayment(formData: FormData): Promise<void> {
     adapter,
     proto,
     host,
-    failureResultCodes: new Set([STUB_FAILURE_CODE]),
-    pendingResultCodes: new Set(),
   });
 
   redirect(redirectUrl);

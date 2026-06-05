@@ -10,8 +10,8 @@
  */
 
 import { redirect, notFound } from 'next/navigation';
-import { getOperatorSession } from '@/lib/op/getOperatorSession';
-import { getBookingDetailPage } from '@/lib/booking/getBookingDetailPage';
+import { getOperatorSession } from '@/lib/op';
+import { getBookingDetailPage } from '@/lib/booking';
 import { PageHeader } from '@/components/op/PageHeader';
 import BookingDetailClient from './BookingDetailClient';
 

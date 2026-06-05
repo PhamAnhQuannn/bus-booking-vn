@@ -11,7 +11,8 @@
  */
 
 import type { ActivityEvent } from "@/lib/op/activityTypes"
-import { prisma } from "@/lib/db/client"
+import { prisma } from "@/lib/core/db/client"
+import { withOperatorScope } from "@/lib/core/db"
 
 interface GetActivityFeedInput {
   operatorId: string
@@ -34,11 +35,12 @@ export async function getActivityFeed(
   const [paid, escalated, lifecycle, lowCapTrips] = await Promise.all([
     // No `paidAt` column on Booking — use `createdAt` filtered by paid statuses.
     // Per plan risk #3 — pragmatic fallback.
+    // tenant-scoped via trip.operatorId join (model has no top-level operatorId)
     prisma.booking.findMany({
       where: {
         createdAt: { gte: since },
         status: {
-          in: ["pending_cash_payment", "paid_operator_notified", "completed"],
+          in: ["paid", "completed"],
         },
         trip: { operatorId: input.operatorId },
       },
@@ -52,6 +54,7 @@ export async function getActivityFeed(
         createdAt: true,
       },
     }),
+    // tenant-scoped via trip.operatorId join (model has no top-level operatorId)
     prisma.booking.findMany({
       where: {
         escalatedAt: { gte: since, not: null },
@@ -68,14 +71,15 @@ export async function getActivityFeed(
       },
     }),
     prisma.trip.findMany({
-      where: {
-        operatorId: input.operatorId,
-        OR: [
-          { departedAt: { gte: since, not: null } },
-          { completedAt: { gte: since, not: null } },
-          { cancelledAt: { gte: since, not: null } },
-        ],
-      },
+      ...withOperatorScope(input.operatorId, {
+        where: {
+          OR: [
+            { departedAt: { gte: since, not: null } },
+            { completedAt: { gte: since, not: null } },
+            { cancelledAt: { gte: since, not: null } },
+          ],
+        },
+      }),
       orderBy: { departureAt: "desc" },
       take: limit,
       select: {
@@ -89,7 +93,7 @@ export async function getActivityFeed(
     }),
     prisma.trip.findMany({
       where: {
-        operatorId: input.operatorId,
+        ...withOperatorScope(input.operatorId).where,
         status: "scheduled",
         departureAt: { gte: new Date(), lte: horizon24h },
       },
@@ -105,10 +109,9 @@ export async function getActivityFeed(
               where: {
                 status: {
                   in: [
-                    "pending_cash_payment",
-                    "paid_operator_notified",
+                    "paid",
                     "completed",
-                  ],
+                  ] as const,
                 },
               },
             },

@@ -96,6 +96,10 @@ jobs:
       SHADOW_DATABASE_URL: postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_shadow
       # Test-only secret (64 hex) — required by lib/config/env.ts (no default).
       HOLD_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      # Refund/payment PSP is a stub until go-live (#094); without this the refund
+      # rail throws PspRefundNotImplementedError. The Issue-051 refundOut integration
+      # test (via cancelTrip) needs the stub. The e2e job already sets this.
+      PAYMENTS_STUB: 'true'
 
     steps:
       - uses: actions/checkout@v4

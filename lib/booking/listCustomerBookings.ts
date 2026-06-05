@@ -16,7 +16,7 @@
 
 import { z } from 'zod';
 import type { Prisma } from '@prisma/client';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import type { BookingPaymentStatus } from './bookingDto';
 
 export const ListCustomerBookingsParamsSchema = z.object({
@@ -30,8 +30,7 @@ export type ListCustomerBookingsParams = z.input<typeof ListCustomerBookingsPara
 /** Statuses for a booking that is still live (not yet terminal). */
 const ACTIVE_STATUSES = [
   'awaiting_payment',
-  'pending_cash_payment',
-  'paid_operator_notified',
+  'paid',
 ] as const;
 
 /** Terminal statuses — a booking here is always "past" regardless of date. */
@@ -67,7 +66,7 @@ export interface CustomerBookingRow {
   bookingRef: string;
   ticketCount: number;
   totalVnd: number;
-  paymentMethod: 'cash' | 'momo' | 'zalopay' | 'card';
+  paymentMethod: 'momo' | 'zalopay' | 'card';
   status: BookingPaymentStatus;
   createdAt: string; // ISO 8601
   route: { origin: string; destination: string };

@@ -13,8 +13,8 @@ export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { rotateOperatorRefresh, verifyOpRefreshToken } from '@/lib/auth/operatorSession';
-import { prisma } from '@/lib/db/client';
+import { rotateOperatorRefresh, verifyOpRefreshToken } from '@/lib/auth';
+import { prisma } from '@/lib/core/db/client';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 const ACCESS_COOKIE_MAX_AGE = 15 * 60;          // 15 min

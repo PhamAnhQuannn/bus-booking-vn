@@ -16,8 +16,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { retryPayoutApi } from '@/lib/api/reportsClient';
-import type { PayoutReportRow } from '@/lib/payouts/getPayoutReport';
+import { retryPayoutApi } from '@/lib/api';
+import type { PayoutReportRow } from '@/lib/ledger';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -116,7 +116,9 @@ export default function PayoutsClient({ initialRows }: Props) {
                 return (
                   <TableRow key={row.payoutId}>
                     <TableCell>{row.routeName}</TableCell>
-                    <TableCell className="whitespace-nowrap">{formatDate(row.departureAt)}</TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {row.departureAt ? formatDate(row.departureAt) : '—'}
+                    </TableCell>
                     <TableCell className="tabular-nums">{formatVnd(row.gross)}</TableCell>
                     <TableCell className="tabular-nums">{formatVnd(row.platformFee)}</TableCell>
                     <TableCell className="tabular-nums">{formatVnd(row.net)}</TableCell>

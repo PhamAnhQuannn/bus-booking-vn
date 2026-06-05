@@ -12,23 +12,24 @@
  *      Zero NotificationLog rows seeded here (notifications come after IPN)
  *   5. Call gateway.createPayment AFTER booking row exists
  *   6. On gateway failure: compensating $transaction — DELETE booking row +
- *      revert hold from 'converted' → 'active' preserving expiresAt
+ *      revert hold from 'consumed' → 'active' preserving expiresAt
  *   7. On success: return { ok: true, bookingId, payUrl, confirmationToken }
  *
  * Gateway is injected (PaymentGateway interface) so tests can use a fake;
  * defaults to getGatewayFor(method, baseUrl).
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import {
   createOnlineBookingFromHold,
   getBookingByHoldId,
   type OnlineBookingMethod,
-} from '@/lib/db/bookingRepo';
-import { getGatewayFor } from '@/lib/payment/select';
+} from '@/lib/booking/bookingRepo';
+import { getGatewayFor } from '@/lib/payment';
 import { attachGuestBooking } from './attachGuestBooking';
-import type { PaymentGateway } from '@/lib/payment/gateway';
+import { isBookable } from '@/lib/onboarding';
+import type { PaymentGateway } from '@/lib/payment';
 import { logger } from '@/lib/logger';
 
 export interface InitiateOnlineBookingInput {
@@ -47,6 +48,12 @@ export interface InitiateOnlineBookingInput {
    */
   customerId?: string | null;
   /**
+   * Issue 089: consent text version the buyer accepted at checkout (gated to the
+   * current CONSENT_VERSION by the route). Persisted on the no_refund + pii_storage
+   * ConsentRecord rows created in the same tx as the Booking.
+   */
+  consentVersion: string;
+  /**
    * Injectable payment gateway for testing. Defaults to
    * getGatewayFor(method, baseUrl) which reads env vars.
    */
@@ -61,6 +68,7 @@ export type InitiateOnlineBookingResult =
         | 'hold_not_found'
         | 'hold_expired'
         | 'trip_departed'
+        | 'operator_not_bookable'
         | 'ref_collision'
         | 'gateway_error';
       gatewayMessage?: string;
@@ -69,7 +77,7 @@ export type InitiateOnlineBookingResult =
 export async function initiateOnlineBooking(
   input: InitiateOnlineBookingInput
 ): Promise<InitiateOnlineBookingResult> {
-  const { holdId, baseUrl, method, customerId = null } = input;
+  const { holdId, baseUrl, method, customerId = null, consentVersion } = input;
   const gateway = input.gateway ?? getGatewayFor(method, baseUrl);
 
   const hold = await prisma.hold.findUnique({
@@ -80,6 +88,7 @@ export async function initiateOnlineBooking(
       expiresAt: true,
       customerName: true,
       customerPhone: true,
+      customerEmail: true,
       ticketCount: true,
       trip: {
         select: {
@@ -87,12 +96,22 @@ export async function initiateOnlineBooking(
           departureAt: true,
           price: true,
           route: { select: { origin: true, destination: true } },
+          // Issue 046: pull operator status for the bookable re-check below
+          // (closes the suspend-after-search race).
+          operator: { select: { status: true } },
         },
       },
     },
   });
 
   if (!hold) return { ok: false, error: 'hold_not_found' };
+
+  // Issue 046 defense-in-depth: re-verify the trip's operator is still bookable
+  // (APPROVED) at initiate time. A search result could have been clicked after
+  // the operator was suspended/rejected. Derived from the Issue 045 helper.
+  if (!isBookable(hold.trip.operator.status)) {
+    return { ok: false, error: 'operator_not_bookable' };
+  }
 
   // Idempotency check — if booking already exists, return it
   const alreadyExisting = await getBookingByHoldId(holdId);
@@ -116,7 +135,11 @@ export async function initiateOnlineBooking(
       holdId,
       buyerName: hold.customerName,
       buyerPhone: hold.customerPhone,
+      buyerEmail: hold.customerEmail,
       customerId,
+      // Issue 089: persisted as no_refund + pii_storage ConsentRecord rows inside
+      // the booking-creation $transaction.
+      consentVersion,
     },
     method
   );
@@ -185,7 +208,7 @@ export async function initiateOnlineBooking(
           Prisma.sql`
             UPDATE "Hold"
             SET status = 'active'::"HoldStatus"
-            WHERE id = ${holdId} AND status = 'converted'::"HoldStatus"
+            WHERE id = ${holdId} AND status = 'consumed'::"HoldStatus"
           `
         ),
       ]);

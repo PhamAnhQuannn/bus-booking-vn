@@ -8,7 +8,7 @@
  */
 
 import { readCsrfToken } from '@/lib/auth/csrfClient';
-import type { TripDto, TemplateDto } from '@/lib/trips/tripDto';
+import type { TripDto, TemplateDto } from '@/lib/trips';
 
 // ---------------------------------------------------------------------------
 // Trips
@@ -79,26 +79,6 @@ export async function patchTripApi(
   return res.json();
 }
 
-export async function blockSeatsApi(
-  id: string,
-  blockedSeats: number
-): Promise<{ trip: TripDto }> {
-  const res = await fetch(`/api/op/trips/${id}/block-seats`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-CSRF-Token': readCsrfToken(),
-    },
-    credentials: 'same-origin',
-    body: JSON.stringify({ blockedSeats }),
-  });
-  if (!res.ok) {
-    const data = await res.json().catch(() => null);
-    throw Object.assign(new Error('blockSeats failed'), { status: res.status, data });
-  }
-  return res.json();
-}
-
 export async function reassignBusApi(
   id: string,
   busId: string
@@ -155,26 +135,6 @@ export async function salesToggleApi(
   if (!res.ok) {
     const data = await res.json().catch(() => null);
     throw Object.assign(new Error('salesToggle failed'), { status: res.status, data });
-  }
-  return res.json();
-}
-
-export async function pairedReturnApi(
-  id: string,
-  body: { returnDepartureAt: string; price?: number }
-): Promise<{ outboundTrip: TripDto; returnTrip: TripDto }> {
-  const res = await fetch(`/api/op/trips/${id}/paired-return`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-CSRF-Token': readCsrfToken(),
-    },
-    credentials: 'same-origin',
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const data = await res.json().catch(() => null);
-    throw Object.assign(new Error('pairedReturn failed'), { status: res.status, data });
   }
   return res.json();
 }

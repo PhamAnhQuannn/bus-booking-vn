@@ -8,11 +8,11 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth/requireOperatorAuth';
+import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { updateStaff } from '@/lib/staff/updateStaff';
-import { StaffServiceError } from '@/lib/staff/errors';
-import { UpdateStaffSchema } from '@/lib/validation/staff';
+import { updateStaff } from '@/lib/staff';
+import { StaffServiceError } from '@/lib/staff';
+import { UpdateStaffSchema } from '@/lib/core/validation/staff';
 
 type RouteContext = { params: Promise<{ id: string }> };
 

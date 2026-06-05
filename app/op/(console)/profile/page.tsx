@@ -10,7 +10,7 @@
  */
 
 import { redirect } from 'next/navigation';
-import { getOperatorProfile } from '@/lib/op/getOperatorProfile';
+import { getOperatorProfile } from '@/lib/op';
 import { PageHeader } from '@/components/op/PageHeader';
 import OpProfileClient from './OpProfileClient';
 

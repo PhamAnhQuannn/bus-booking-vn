@@ -7,7 +7,7 @@
  * so it reflects the whole marketplace, not a single operator's slice.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import { FUNNEL_STEPS, type FunnelStep } from './track';
 

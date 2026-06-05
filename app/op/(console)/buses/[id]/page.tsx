@@ -13,13 +13,13 @@ import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
 import { ArrowRightIcon, ClipboardListIcon, WrenchIcon } from "lucide-react"
 
-import { getOperatorSession } from "@/lib/op/getOperatorSession"
+import { getOperatorSession } from "@/lib/op"
 import {
   getOperatorBusWithTrips,
   type BusActiveTrip,
-} from "@/lib/buses/getOperatorBusWithTrips"
-import { busTypeLabel, busTypeWithCapacity } from "@/lib/op/statusLabels"
-import { serverNow } from "@/lib/op/dateRanges"
+} from "@/lib/catalog"
+import { busTypeLabel, busTypeWithCapacity } from "@/lib/op"
+import { serverNow } from "@/lib/op"
 import { PageHeader } from "@/components/op/PageHeader"
 import { EmptyState } from "@/components/op/EmptyState"
 import { Badge } from "@/components/ui/badge"

@@ -14,7 +14,7 @@ import { test, expect } from '@playwright/test';
 import { Client } from 'pg';
 import { primeCsrf } from './helpers/csrf';
 import { hash } from '../lib/auth/password';
-import { normalizePhone } from '../lib/auth/phoneNormalize';
+import { normalizePhone } from '../lib/core/validation/phone';
 
 const SANDBOX_ENABLED = process.env.E2E_OP_AUTH_ENABLED === 'true';
 const DB_URL = process.env.DATABASE_URL ?? 'postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_dev';

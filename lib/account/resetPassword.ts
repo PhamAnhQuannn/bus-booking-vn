@@ -6,9 +6,9 @@
  * hashes the new password, and revokes all sessions.
  */
 
-import { prisma } from '@/lib/db/client';
-import { verifyOtpProof } from '@/lib/auth/otpProof';
-import { verify as verifyPassword, hash as hashPassword } from '@/lib/auth/password';
+import { prisma } from '@/lib/core/db/client';
+import { verifyOtpProof } from '@/lib/auth';
+import { verify as verifyPassword, hash as hashPassword } from '@/lib/auth';
 
 export type ResetPasswordErrorCode =
   | 'INVALID_PROOF'

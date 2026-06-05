@@ -15,7 +15,8 @@
  * prior assignedTripId.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 import { StaffServiceError } from './errors';
 import { toStaffDto, type StaffDto } from './toStaffDto';
 
@@ -37,7 +38,7 @@ export async function assignService(input: AssignServiceInput): Promise<StaffDto
     if (locked.length === 0) throw new StaffServiceError('not_found');
 
     const trip = await tx.trip.findFirst({
-      where: { id: input.tripId, operatorId: input.operatorId },
+      ...withOperatorScope(input.operatorId, { where: { id: input.tripId } }),
       select: { id: true, status: true },
     });
     if (!trip) throw new StaffServiceError('trip_not_found');

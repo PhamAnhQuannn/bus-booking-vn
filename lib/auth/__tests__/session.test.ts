@@ -27,7 +27,7 @@ const { mockTx, mockPrisma } = vi.hoisted(() => {
   return { mockTx, mockPrisma };
 });
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: mockPrisma,
 }));
 

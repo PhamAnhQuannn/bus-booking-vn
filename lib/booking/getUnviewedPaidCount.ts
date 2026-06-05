@@ -4,11 +4,10 @@
  * Returns 0 if lastBookingsViewedAt is null (first visit — will be set by touchLastViewed).
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 
 const PAID_STATUSES = [
-  'paid_operator_notified',
-  'pending_cash_payment',
+  'paid',
   'completed',
 ] as const;
 
@@ -27,6 +26,7 @@ export async function getUnviewedPaidCount(
 
   if (!since) {
     // Never viewed — count all paid bookings for this operator
+    // tenant-scoped via trip.operatorId join (model has no top-level operatorId)
     return prisma.booking.count({
       where: {
         status: { in: [...PAID_STATUSES] },
@@ -35,6 +35,7 @@ export async function getUnviewedPaidCount(
     });
   }
 
+  // tenant-scoped via trip.operatorId join (model has no top-level operatorId)
   return prisma.booking.count({
     where: {
       status: { in: [...PAID_STATUSES] },

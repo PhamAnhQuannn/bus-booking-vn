@@ -14,7 +14,7 @@ import {
 
 import { NAV_ITEMS, visibleNavItems, type NavRole } from "@/components/op/navConfig"
 import { useOperatorNav } from "@/components/op/OperatorNavContext"
-import { normalizeVi } from "@/lib/text/normalize"
+import { normalizeVi } from "@/lib/text"
 import { readCsrfToken } from "@/lib/auth/csrfClient"
 import { cn } from "@/lib/utils"
 

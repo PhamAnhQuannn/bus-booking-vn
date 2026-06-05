@@ -16,7 +16,7 @@
  * excludes it and new holds cannot be created.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import { TripServiceError } from './errors';
 import { toTripDto } from './toTripDto';
@@ -69,7 +69,7 @@ export async function markDeparted(
               holds: { where: { status: 'active' } },
               bookings: {
                 where: {
-                  status: { in: ['pending_cash_payment', 'paid_operator_notified', 'completed'] },
+                  status: { in: ['paid', 'completed'] },
                 },
               },
             },
@@ -94,7 +94,7 @@ export async function markDeparted(
             holds: { where: { status: 'active' } },
             bookings: {
               where: {
-                status: { in: ['pending_cash_payment', 'paid_operator_notified', 'completed'] },
+                status: { in: ['paid', 'completed'] },
               },
             },
           },

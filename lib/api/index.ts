@@ -1,0 +1,45 @@
+// api domain public API barrel (SYS20 rule 3).
+
+export { listBookingsApi } from './bookingsClient';
+export {
+  listBusesApi,
+  getBusApi,
+  createBusApi,
+  deactivateBusApi,
+  patchCapacityApi,
+  addMaintenanceApi,
+  deleteMaintenanceApi,
+  type MaintenanceWindow,
+} from './busesClient';
+export { createHoldRequest } from './holdsClient';
+export { retryPayoutApi } from './reportsClient';
+export {
+  listRoutesApi,
+  createRouteApi,
+  patchRouteApi,
+  deactivateRouteApi,
+  listPickupPointsApi,
+  createPickupPointApi,
+  deactivatePickupPointApi,
+  reorderPickupPointsApi,
+  type RouteItem,
+  type PickupPoint,
+} from './routesClient';
+export {
+  listStaffApi,
+  createStaffApi,
+  renameStaffApi,
+  disableStaffApi,
+  assignServiceApi,
+} from './staffClient';
+export {
+  listTripsApi,
+  createTripApi,
+  cancelTripApi,
+  salesToggleApi,
+  departTripApi,
+  completeTripApi,
+  reassignBusApi,
+  createTemplateApi,
+  patchTemplateApi,
+} from './tripsClient';

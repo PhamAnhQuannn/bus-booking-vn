@@ -15,7 +15,7 @@
  */
 
 import crypto from 'crypto';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { signAccess } from './jwt';
 import { produce, generateFamily } from './refreshToken';
 import { generateToken as generateCsrf } from './csrf';

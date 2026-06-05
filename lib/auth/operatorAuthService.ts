@@ -7,8 +7,8 @@
  *   - Throws AuthServiceError('DISABLED') when disabledAt is set
  */
 
-import { prisma } from '@/lib/db/client';
-import { normalizePhone } from './phoneNormalize';
+import { prisma } from '@/lib/core/db/client';
+import { normalizePhone } from '@/lib/core/validation/phone';
 import { verify as verifyPassword, dummyVerify } from './password';
 import { issueOperatorSession } from './operatorSession';
 import { AuthServiceError } from './authService';

@@ -47,7 +47,7 @@ const CELLS = [
 
 export function ContractCarRental() {
   return (
-    <section className="mx-auto w-full max-w-7xl px-4 py-10">
+    <section className="mx-auto w-full max-w-5xl px-4 py-10">
       <div className="mb-6 flex items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
           <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Dịch vụ thuê xe hợp đồng</h2>

@@ -10,7 +10,7 @@
  */
 
 import { redirect } from 'next/navigation';
-import { getOperatorFleet } from '@/lib/op/getOperatorFleet';
+import { getOperatorFleet } from '@/lib/op';
 import { PageHeader } from '@/components/op/PageHeader';
 import BusesClient from './BusesClient';
 

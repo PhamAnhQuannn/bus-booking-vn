@@ -9,9 +9,9 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth/requireOperatorAuth';
+import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { listUpcomingForOperator, ListUpcomingParamsSchema } from '@/lib/trips/listUpcomingForOperator';
+import { listUpcomingForOperator, ListUpcomingParamsSchema } from '@/lib/trips';
 
 export const GET = withErrorHandler(
   requireOperatorAuth({})(async (req: NextRequest, ctx: OperatorAuthContext) => {

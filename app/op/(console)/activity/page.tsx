@@ -7,8 +7,8 @@
 
 import { redirect } from "next/navigation"
 
-import { getOperatorSession } from "@/lib/op/getOperatorSession"
-import { getActivityFeed } from "@/lib/op/getActivityFeed"
+import { getOperatorSession } from "@/lib/op"
+import { getActivityFeed } from "@/lib/op"
 import { PageHeader } from "@/components/op/PageHeader"
 import { ActivityFeed } from "@/components/op/ActivityFeed"
 

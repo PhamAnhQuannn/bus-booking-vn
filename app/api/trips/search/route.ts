@@ -10,18 +10,18 @@
  * Wrapped in withErrorHandler — 500 scrubbed (AC-11)
  * Node runtime (NOT Edge) — required for pg driver
  *
- * searchTrips() always subtracts blockedSeats + active holds + paid/pending bookings
- * from capacity (never raw capacity).
+ * searchTrips() always subtracts active holds + paid/pending bookings
+ * from capacity (never raw capacity). (Issue 040 removed the blockedSeats term.)
  */
 
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { searchParamsSchema } from '@/lib/validation/search';
-import { searchTrips } from '@/lib/db/searchTrips';
+import { searchParamsSchema } from '@/lib/core/validation/search';
+import { searchTrips } from '@/lib/trips';
 import { ratelimit } from '@/lib/ratelimit';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { track, sessionIdFromRequest } from '@/lib/analytics/track';
+import { track, sessionIdFromRequest } from '@/lib/analytics';
 
 async function handler(request: NextRequest): Promise<Response> {
   // ---- 1. Parse and validate query params ----
@@ -45,6 +45,9 @@ async function handler(request: NextRequest): Promise<Response> {
 
   const { origin, destination, date, ticketCount } = parsed.data;
 
+  // Issue 097: optional opaque seek cursor for the next page. Absent → first page.
+  const cursor = searchParams.get('cursor');
+
   // ---- 2. Rate limit by IP ----
   const ip =
     request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1';
@@ -62,18 +65,21 @@ async function handler(request: NextRequest): Promise<Response> {
   }
 
   // ---- 3. Search trips (always holds-aware; availability never raw capacity) ----
-  const results = await searchTrips({ origin, destination, date, ticketCount });
+  // Issue 097: returns one seek-paginated page. The JSON body stays a plain
+  // TripResult[] (unchanged contract); the next-page cursor rides an X-Next-Cursor
+  // header so existing array-shape consumers keep working.
+  const { trips, nextCursor } = await searchTrips({ origin, destination, date, ticketCount, cursor });
 
   // Funnel: search_performed (fire-and-forget, never blocks the response)
   void track('search_performed', {
     sessionId: sessionIdFromRequest(request),
-    context: { origin, destination, date, ticketCount, results: results.length },
+    context: { origin, destination, date, ticketCount, results: trips.length },
   });
 
-  return NextResponse.json(results, {
-    status: 200,
-    headers: { 'Cache-Control': 'no-store' },
-  });
+  const headers: Record<string, string> = { 'Cache-Control': 'no-store' };
+  if (nextCursor) headers['X-Next-Cursor'] = nextCursor;
+
+  return NextResponse.json(trips, { status: 200, headers });
 }
 
 export const GET = withErrorHandler(handler);

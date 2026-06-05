@@ -19,12 +19,12 @@ export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { prisma } from '@/lib/db/client';
-import { verifyOperatorAccess } from '@/lib/auth/jwt';
-import { verify as verifyPassword, hash as hashPassword } from '@/lib/auth/password';
-import { revokeAllOperatorSessions, issueOperatorSession, verifyOpRefreshToken } from '@/lib/auth/operatorSession';
+import { prisma } from '@/lib/core/db/client';
+import { verifyOperatorAccess } from '@/lib/auth';
+import { verify as verifyPassword, hash as hashPassword } from '@/lib/auth';
+import { revokeAllOperatorSessions, issueOperatorSession, verifyOpRefreshToken } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { ChangePasswordSchema } from '@/lib/auth/types';
+import { ChangePasswordSchema } from '@/lib/auth';
 
 const ACCESS_COOKIE = 'bb_op_access';
 const REFRESH_COOKIE = 'bb_op_refresh';

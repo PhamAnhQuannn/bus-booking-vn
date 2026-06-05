@@ -13,10 +13,10 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { ForgotPasswordVerifySchema } from '@/lib/auth/types';
-import { verifyOperatorOtp } from '@/lib/auth/operatorOtp';
-import { issueOtpProof } from '@/lib/auth/otpProof';
-import { normalizePhone } from '@/lib/auth/phoneNormalize';
+import { ForgotPasswordVerifySchema } from '@/lib/auth';
+import { verifyOperatorOtp } from '@/lib/auth';
+import { issueOtpProof } from '@/lib/auth';
+import { normalizePhone } from '@/lib/core/validation/phone';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 async function handler(req: NextRequest): Promise<Response> {

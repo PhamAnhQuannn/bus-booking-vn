@@ -14,19 +14,18 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth/requireOperatorAuth';
+import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { getOperatorBus } from '@/lib/buses/getOperatorBus';
-import { updateBus, type UpdateBusInput } from '@/lib/buses/updateBus';
-import { BusServiceError } from '@/lib/buses/createBus';
-import { canReduceCapacity } from '@/lib/buses/capacityGuard';
-import { UpdateBusSchema } from '@/lib/validation/bus';
-import { prisma } from '@/lib/db/client';
+import { getOperatorBus } from '@/lib/catalog';
+import { updateBus, type UpdateBusInput } from '@/lib/catalog';
+import { BusServiceError } from '@/lib/catalog';
+import { canReduceCapacity } from '@/lib/catalog';
+import { UpdateBusSchema } from '@/lib/core/validation/bus';
+import { prisma } from '@/lib/core/db/client';
 import { BookingStatus } from '@prisma/client';
 
 const PAID_STATUSES: BookingStatus[] = [
-  BookingStatus.pending_cash_payment,
-  BookingStatus.paid_operator_notified,
+  BookingStatus.paid,
   BookingStatus.completed,
 ];
 

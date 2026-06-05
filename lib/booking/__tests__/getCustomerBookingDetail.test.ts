@@ -5,13 +5,13 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     booking: { findFirst: vi.fn() },
   },
 }));
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { getCustomerBookingDetail } from '../getCustomerBookingDetail';
 
 const findFirst = prisma.booking.findFirst as unknown as ReturnType<typeof vi.fn>;
@@ -25,8 +25,8 @@ function rawDetail() {
     buyerPhone: '0901234567',
     ticketCount: 3,
     totalVnd: 450000,
-    paymentMethod: 'cash',
-    status: 'paid_operator_notified',
+    paymentMethod: 'momo',
+    status: 'paid',
     createdAt: new Date('2026-05-02T01:00:00Z'),
     trip: {
       departureAt: new Date('2026-06-10T22:00:00Z'),
@@ -66,8 +66,8 @@ describe('getCustomerBookingDetail', () => {
       buyerPhone: '0901234567',
       ticketCount: 3,
       totalVnd: 450000,
-      paymentMethod: 'cash',
-      status: 'paid_operator_notified',
+      paymentMethod: 'momo',
+      status: 'paid',
       createdAt: '2026-05-02T01:00:00.000Z',
       route: { origin: 'Hanoi', destination: 'Hue' },
       departureAt: '2026-06-10T22:00:00.000Z',

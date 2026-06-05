@@ -1,33 +1,41 @@
 {
-  "generated": "2026-06-01T00:00:00Z",
-  "scope": "PR #6 feat/ota-redesign HEAD @ 02e6eab5 — repo-wide invariant + drift audit",
-  "pinnedSha": "02e6eab53c46bac5e89782c81e0734f4161c84c1",
-  "prior_baseline": "PR #4 operator-console @ 55c043d6 (2026-05-28)",
+  "generated": "2026-06-05T00:00:00Z",
+  "scope": "PR #7 feat/rebuild-complete HEAD @ 3fc5afba — repo-wide invariant + drift audit",
+  "pinnedSha": "3fc5afba5e19888e8c28fe6d6afecc07b32d9ed8",
+  "prior_baseline": "PR #6 feat/ota-redesign @ 02e6eab5 (2026-06-01)",
   "layer_map": {
     "ui": ["app/**", "components/**"],
     "service": ["lib/**"],
-    "db": ["lib/db/**", "@prisma/client"]
+    "core": ["lib/core/**"],
+    "db": ["lib/core/db/**", "@prisma/client"]
+  },
+  "enforcement": {
+    "boundaries_entry_point": "error (cross-domain barrel-only; intra-domain deep allowed; lib/core+lib/utils exempt)",
+    "import_x_no_cycle": "error (maxDepth Infinity, ignoreExternal true)",
+    "note": "issue 092b Stage 3 flipped both warn->error; pnpm lint reports 0 errors per PR body"
   },
   "invariants_checked": [
-    {"name": "ui-not-import-db-runtime", "status": "clean", "note": "page.tsx->lib/db are RSC fetches; *Client.tsx prisma imports are type-only"},
-    {"name": "payment-crypto-webhook-only", "status": "clean", "note": "createHmac hits are auth session tokens, not payment"},
-    {"name": "no-ddl-in-app-code", "status": "clean"},
+    {"name": "ui-not-import-db-runtime", "status": "clean", "note": "no client-component @/lib/core/db imports; greppable guard returns zero"},
+    {"name": "use-client-no-server-barrel-leak", "status": "clean", "note": "greppable guard (use-client + @/lib/auth barrel) returns zero; the 2026-06-04 operator-smoke regression is fixed"},
+    {"name": "payment-crypto-in-adapters-only", "status": "clean", "note": "HMAC/verify lives in lib/payment/adapters/{momo,stub}.ts invoked by webhook route; other createHmac hits are auth/otp/holdCookie/storage-signing, not payment"},
+    {"name": "no-ddl-in-app-code", "status": "clean", "note": "no $executeRaw DDL in app/ or lib/"},
     {"name": "no-secrets-in-client", "status": "clean"},
-    {"name": "no-module-cycles", "status": "clean"}
+    {"name": "no-module-cycles", "status": "clean", "note": "lint-enforced at error"}
   ],
   "drift_vs_prior": [
-    {"change": "resolved", "was": "P1", "edge": "app/op/(console)/dashboard/page.tsx -> lib/db/client", "note": "UI->DB bypass removed by branch dashboard rework"},
-    {"change": "resolved", "was": "P2", "edge": "lib/op/statusLabels.ts -> components/ui/badge", "note": "lib->UI type reversal removed"}
+    {"change": "structural", "note": "db layer relocated lib/db/** -> lib/core/db/** (issue 091 consolidation); prior snapshot layer_map was stale — corrected here"},
+    {"change": "added", "note": "new domains since PR#6: admin realm, ledger, charter, onboarding/KYB, places, jobs, storage, notification — all under enforced barrel boundaries"},
+    {"change": "resolved", "was": "P2", "subject": "recharts adr-missing", "note": "recharts dep + orphan chart components deleted (issue 041); finding moot"}
   ],
   "findings": {
     "p1": 0,
-    "p2": 2,
-    "p3": 2,
+    "p2": 1,
+    "p3": 1,
     "detail": [
-      {"severity": "P2", "type": "parallel-dev-duplication", "subsystem": "operator-console", "files": 8, "conflict_root_cause": true},
-      {"severity": "P2", "type": "adr-missing", "subject": "recharts ^3.8.1", "note": "no docs/adr dir exists"}
+      {"severity": "P2", "type": "adr-coverage-gap", "note": "no docs/adr/ dir; architecturally-significant choices (custom JWT auth realms, Prisma/Postgres, MoMo payment adapter, custom FeatureFlag store, run-locked cron jobs, signed-URL storage) lack ADRs. rebuild-plan.md + docs/runbook partially substitute as design record."},
+      {"severity": "P3", "type": "god-module-watch", "subject": "@/lib/auth", "note": "imported ~169x (~30% of source files) — under the 70% god-module threshold but the most-imported barrel; monitor."}
     ]
   },
   "cycles": [],
-  "shape_notes": "No shallow/barrel piles. Branch op-console version is cleaner than master #4 baseline (removed 2 layer violations). Prefer branch side when resolving the 8-file conflict."
+  "shape_notes": "Boundaries + no-cycle enforced at error — structural integrity is lint-gated, not just convention. 32 lib-domain barrels. No shallow-pile or layer-violation findings at HEAD. Architecture is the strong dimension of this PR."
 }

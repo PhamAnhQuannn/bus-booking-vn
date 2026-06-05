@@ -8,8 +8,10 @@
  *   externalRef (the gateway's own order/transaction identifier).
  *
  * verifyWebhook(): verifies an inbound IPN/callback signature and returns
- *   the parsed payload on success. Callers never access raw IPN fields
- *   without first calling this.
+ *   a normalized CanonicalPaymentEvent on success. Each adapter maps its
+ *   own native IPN field names + result codes into this single canonical
+ *   shape — native gateway field names never leak past the adapter boundary.
+ *   Callers never access raw IPN fields without first calling this.
  */
 
 export interface CreatePaymentInput {
@@ -31,23 +33,23 @@ export type CreatePaymentResult =
   | { ok: true; payUrl: string; externalRef: string }
   | { ok: false; error: string };
 
-export interface ParsedIpn {
-  orderId: string;
-  transId: string;
-  resultCode: number;
+export type CanonicalPaymentStatus = 'paid' | 'failed' | 'pending' | 'unknown';
+
+export interface CanonicalPaymentEvent {
+  /** Our booking reference (gateway orderId). */
+  orderRef: string;
+  /** Gateway transaction id — the one pinned dedup key everywhere. */
+  providerTxnId: string;
+  /** Amount in VND minor units (integer). */
   amount: number;
-  message: string;
-  partnerCode: string;
-  requestId: string;
-  orderInfo: string;
-  orderType: string;
-  payType: string;
-  responseTime: number;
-  extraData: string;
+  /** ISO-4217 currency. VND by construction. */
+  currency: string;
+  /** Normalized status; adapter maps its native result code into this. */
+  status: CanonicalPaymentStatus;
 }
 
 export type VerifyWebhookResult =
-  | { ok: true; parsed: ParsedIpn }
+  | { ok: true; event: CanonicalPaymentEvent }
   | { ok: false; reason: string };
 
 export interface PaymentGateway {

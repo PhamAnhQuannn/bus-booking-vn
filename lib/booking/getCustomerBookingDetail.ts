@@ -14,7 +14,7 @@
  */
 
 import type { Prisma } from '@prisma/client';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import type { BookingPaymentStatus } from './bookingDto';
 
 export const customerBookingDetailSelect = {
@@ -53,7 +53,7 @@ export interface CustomerBookingDetail {
   buyerPhone: string;
   ticketCount: number;
   totalVnd: number;
-  paymentMethod: 'cash' | 'momo' | 'zalopay' | 'card';
+  paymentMethod: 'momo' | 'zalopay' | 'card';
   status: BookingPaymentStatus;
   createdAt: string; // ISO 8601
   route: { origin: string; destination: string };

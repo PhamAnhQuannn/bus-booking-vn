@@ -6,7 +6,8 @@
  * a silent edit of another operator's staff.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 import { StaffServiceError } from './errors';
 import { toStaffDto, type StaffDto } from './toStaffDto';
 
@@ -18,7 +19,7 @@ export interface UpdateStaffInput {
 
 export async function updateStaff(input: UpdateStaffInput): Promise<StaffDto> {
   const existing = await prisma.operatorUser.findFirst({
-    where: { id: input.staffId, operatorId: input.operatorId, role: 'staff' },
+    where: { ...withOperatorScope(input.operatorId).where, id: input.staffId, role: 'staff' },
     select: { id: true },
   });
   if (!existing) throw new StaffServiceError('not_found');

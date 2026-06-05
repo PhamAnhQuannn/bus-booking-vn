@@ -18,8 +18,8 @@ export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth/requireOperatorAuth';
-import { getRevenueReport } from '@/lib/payouts/getRevenueReport';
+import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth';
+import { getRevenueReport } from '@/lib/ledger';
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 

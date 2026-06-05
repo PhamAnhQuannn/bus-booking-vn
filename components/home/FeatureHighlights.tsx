@@ -43,7 +43,7 @@ const FEATURES: Feature[] = [
 
 export function FeatureHighlights() {
   return (
-    <section className="mx-auto w-full max-w-7xl px-4 py-12">
+    <section className="mx-auto w-full max-w-5xl px-4 py-12">
       <div className="mb-8 flex flex-col items-center gap-2 text-center">
         <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Vì sao chọn BBVN?</h2>
         <p className="max-w-2xl text-base text-muted-foreground">

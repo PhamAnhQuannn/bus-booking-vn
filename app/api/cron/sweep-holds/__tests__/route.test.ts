@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     hold: {
       count: vi.fn(),
@@ -14,8 +14,8 @@ vi.mock('@/lib/jobs/runJob', () => ({
 }));
 
 import { GET } from '../route';
-import { prisma } from '@/lib/db/client';
-import { runJob } from '@/lib/jobs/runJob';
+import { prisma } from '@/lib/core/db/client';
+import { runJob } from '@/lib/jobs';
 import { NextRequest } from 'next/server';
 
 function makeRequest(headers?: Record<string, string>): NextRequest {

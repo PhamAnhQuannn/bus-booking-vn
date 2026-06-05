@@ -3,8 +3,8 @@
 /**
  * TripDetailClient — client island for single trip detail/actions (Issue 013).
  *
- * Actions: block seats, reassign bus, sales-toggle, cancel, paired-return,
- * assign staff (admin). All mutations use X-CSRF-Token via tripsClient.ts.
+ * Actions: reassign bus, sales-toggle, cancel, assign staff (admin),
+ * depart/complete lifecycle. All mutations use X-CSRF-Token via tripsClient.ts.
  *
  * Design-system surface: Card sections, Badge trip status (statusLabels),
  * Label/Input/Select/Button forms, Alert messages, Dialog-based cancel
@@ -13,20 +13,17 @@
  */
 
 import { useState } from 'react';
-import type { TripDto } from '@/lib/trips/tripDto';
-import type { StaffDto } from '@/lib/staff/toStaffDto';
+import type { TripDto } from '@/lib/trips';
+import type { StaffDto } from '@/lib/staff';
 import type { TripStatus } from '@prisma/client';
 import {
-  blockSeatsApi,
   reassignBusApi,
   cancelTripApi,
   salesToggleApi,
-  pairedReturnApi,
   departTripApi,
   completeTripApi,
-} from '@/lib/api/tripsClient';
-import { assignServiceApi } from '@/lib/api/staffClient';
-import { manualBookingApi } from '@/lib/api/bookingsClient';
+} from '@/lib/api';
+import { assignServiceApi } from '@/lib/api';
 import { tripStatusDisplay } from '@/lib/op/statusLabels';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -53,14 +50,12 @@ function translateError(code: string): string {
   switch (code) {
     case 'bus_deactivated': return 'Xe đã bị vô hiệu hoá';
     case 'bus_in_maintenance': return 'Xe đang bảo trì';
-    case 'already_cancelled': return 'Chuyến đã bị huỷ';
-    case 'trip_cancelled': return 'Chuyến đã bị huỷ';
-    case 'block_exceeds_available': return 'Số ghế chặn vượt số ghế còn';
+    case 'already_cancelled': return 'Chuyến đã bị hủy';
+    case 'trip_cancelled': return 'Chuyến đã bị hủy';
     case 'capacity_too_small': return 'Xe mới không đủ chỗ cho đặt vé hiện tại';
     case 'bus_overlap_with_outbound': return 'Xe bận chuyến khác cùng giờ';
-    case 'no_reverse_route': return 'Không tìm thấy tuyến ngược chiều';
     case 'trip_not_found': return 'Không tìm thấy chuyến';
-    case 'trip_not_assignable': return 'Chuyến không thể gán (đã huỷ/khởi hành/hoàn tất)';
+    case 'trip_not_assignable': return 'Chuyến không thể gán (đã hủy/khởi hành/hoàn tất)';
     case 'trip_not_bookable': return 'Chuyến không nhận đặt vé';
     case 'sold_out': return 'Hết chỗ';
     case 'feature_disabled': return 'Tính năng tạm tắt';
@@ -84,21 +79,8 @@ export default function TripDetailClient({ trip: initialTrip, staff: initialStaf
   // Assign staff to this trip
   const [assignStaffId, setAssignStaffId] = useState('');
 
-  // Block seats
-  const [blockCount, setBlockCount] = useState<number>(trip.blockedSeats);
-
   // Reassign bus
   const [newBusId, setNewBusId] = useState('');
-
-  // Paired return
-  const [returnDep, setReturnDep] = useState('');
-  const [returnPrice, setReturnPrice] = useState<number>(trip.price ?? 0);
-
-  // Manual booking — story 48
-  const [manualBuyerName, setManualBuyerName] = useState('');
-  const [manualBuyerPhone, setManualBuyerPhone] = useState('');
-  const [manualTicketCount, setManualTicketCount] = useState<number>(1);
-  const [manualPaymentMethod, setManualPaymentMethod] = useState<'paid' | 'cash'>('paid');
 
   function ok(text: string) {
     setMessage(text);
@@ -108,20 +90,6 @@ export default function TripDetailClient({ trip: initialTrip, staff: initialStaf
     const data = (err as { data?: { error?: string } }).data;
     setMessage(translateError(data?.error ?? ''));
     setIsError(true);
-  }
-
-  async function handleBlockSeats() {
-    setBusy(true);
-    setMessage('');
-    try {
-      const res = await blockSeatsApi(trip.id, blockCount);
-      setTrip(res.trip);
-      ok('Đã cập nhật ghế chặn.');
-    } catch (err) {
-      fail(err);
-    } finally {
-      setBusy(false);
-    }
   }
 
   async function handleReassignBus() {
@@ -170,31 +138,10 @@ export default function TripDetailClient({ trip: initialTrip, staff: initialStaf
     try {
       const result = await cancelTripApi(trip.id, reason);
       ok(
-        `Đã huỷ chuyến. Đặt vé bị huỷ: ${result.cancelledBookings}. Giữ chỗ bị huỷ: ${result.cancelledHolds}. SMS: ${result.notificationsEnqueued}.`
+        `Đã hủy chuyến. Đặt vé bị hủy: ${result.cancelledBookings}. Giữ chỗ bị hủy: ${result.cancelledHolds}. SMS: ${result.notificationsEnqueued}.`
       );
       setTrip({ ...trip, status: 'cancelled' });
       setShowCancel(false);
-    } catch (err) {
-      fail(err);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handlePairedReturn() {
-    if (!returnDep) {
-      setMessage('Chọn giờ khởi hành chuyến về.');
-      setIsError(true);
-      return;
-    }
-    setBusy(true);
-    setMessage('');
-    try {
-      const res = await pairedReturnApi(trip.id, {
-        returnDepartureAt: new Date(returnDep).toISOString(),
-        price: returnPrice || undefined,
-      });
-      ok(`Đã tạo chuyến về: ${res.returnTrip.id.slice(0, 8)}…`);
     } catch (err) {
       fail(err);
     } finally {
@@ -261,36 +208,6 @@ export default function TripDetailClient({ trip: initialTrip, staff: initialStaf
     }
   }
 
-  async function handleManualBooking() {
-    if (!manualBuyerName.trim() || !manualBuyerPhone.trim()) {
-      setMessage('Nhập tên và số điện thoại hành khách.');
-      setIsError(true);
-      return;
-    }
-    setBusy(true);
-    setMessage('');
-    try {
-      const res = await manualBookingApi(trip.id, {
-        buyerName: manualBuyerName.trim(),
-        buyerPhone: manualBuyerPhone.trim(),
-        ticketCount: manualTicketCount,
-        paymentMethod: manualPaymentMethod,
-      });
-      setTrip((prev) => ({
-        ...prev,
-        availableSeats: Math.max(0, prev.availableSeats - res.booking.ticketCount),
-      }));
-      setManualBuyerName('');
-      setManualBuyerPhone('');
-      setManualTicketCount(1);
-      ok(`Đã tạo đặt vé ${res.booking.bookingRef} (${res.booking.ticketCount} vé).`);
-    } catch (err) {
-      fail(err);
-    } finally {
-      setBusy(false);
-    }
-  }
-
   const cancelled = trip.status === 'cancelled';
   const canDepart = trip.status === 'scheduled';
   const canComplete = trip.status === 'departed';
@@ -330,8 +247,6 @@ export default function TripDetailClient({ trip: initialTrip, staff: initialStaf
             <dd>{trip.salesClosed ? 'Có' : 'Không'}</dd>
             <dt className="text-muted-foreground">Ghế còn</dt>
             <dd data-testid="trip-available" className="tabular-nums">{trip.availableSeats}</dd>
-            <dt className="text-muted-foreground">Ghế chặn</dt>
-            <dd className="tabular-nums">{trip.blockedSeats}</dd>
           </dl>
         </CardContent>
       </Card>
@@ -371,110 +286,6 @@ export default function TripDetailClient({ trip: initialTrip, staff: initialStaf
 
       {!cancelled && (
         <>
-          {/* Manual booking — story 48 (operator walk-in / phone-in) */}
-          <Card>
-            <CardHeader>
-              <CardTitle as="h2">Tạo đặt vé thủ công</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid max-w-sm gap-4">
-                <div className="grid gap-1.5">
-                  <Label htmlFor="manual-name-input">Tên hành khách</Label>
-                  <Input
-                    id="manual-name-input"
-                    type="text"
-                    value={manualBuyerName}
-                    onChange={(e) => setManualBuyerName(e.target.value)}
-                    maxLength={120}
-                    data-testid="manual-name-input"
-                  />
-                </div>
-                <div className="grid gap-1.5">
-                  <Label htmlFor="manual-phone-input">Số điện thoại</Label>
-                  <Input
-                    id="manual-phone-input"
-                    type="tel"
-                    value={manualBuyerPhone}
-                    onChange={(e) => setManualBuyerPhone(e.target.value)}
-                    placeholder="09xxxxxxxx"
-                    data-testid="manual-phone-input"
-                  />
-                </div>
-                <div className="grid gap-1.5">
-                  <Label htmlFor="manual-tickets-input">Số vé</Label>
-                  <Input
-                    id="manual-tickets-input"
-                    type="number"
-                    value={manualTicketCount}
-                    onChange={(e) => setManualTicketCount(parseInt(e.target.value, 10) || 1)}
-                    min={1}
-                    data-testid="manual-tickets-input"
-                    className="w-28"
-                  />
-                </div>
-                <div className="grid gap-1.5">
-                  <Label>Thanh toán</Label>
-                  {/* base-ui Select: onValueChange, NOT onChange. */}
-                  <Select
-                    value={manualPaymentMethod}
-                    onValueChange={(value: string | null) =>
-                      setManualPaymentMethod((value as 'paid' | 'cash') ?? 'paid')
-                    }
-                  >
-                    <SelectTrigger data-testid="manual-payment-select" className="min-w-48">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="paid">Đã thanh toán</SelectItem>
-                      <SelectItem value="cash">Thu tiền mặt khi lên xe</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Button
-                    type="button"
-                    onClick={handleManualBooking}
-                    disabled={busy}
-                    data-testid="manual-booking-submit"
-                  >
-                    Tạo đặt vé
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Block seats */}
-          <Card>
-            <CardHeader>
-              <CardTitle as="h2">Chặn ghế</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap items-end gap-3">
-                <div className="grid gap-1.5">
-                  <Label htmlFor="block-seats-input">Số ghế chặn</Label>
-                  <Input
-                    id="block-seats-input"
-                    type="number"
-                    value={blockCount}
-                    onChange={(e) => setBlockCount(parseInt(e.target.value, 10))}
-                    min={0}
-                    data-testid="block-seats-input"
-                    className="w-28"
-                  />
-                </div>
-                <Button
-                  type="button"
-                  onClick={handleBlockSeats}
-                  disabled={busy}
-                  data-testid="block-seats-submit"
-                >
-                  Cập nhật
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Reassign bus */}
           <Card>
             <CardHeader>
@@ -521,49 +332,6 @@ export default function TripDetailClient({ trip: initialTrip, staff: initialStaf
               >
                 {trip.salesClosed ? 'Mở bán vé' : 'Đóng bán vé'}
               </Button>
-            </CardContent>
-          </Card>
-
-          {/* Paired return */}
-          <Card>
-            <CardHeader>
-              <CardTitle as="h2">Tạo chuyến về</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid max-w-sm gap-4">
-                <div className="grid gap-1.5">
-                  <Label htmlFor="return-departure-input">Giờ khởi hành chuyến về</Label>
-                  <Input
-                    id="return-departure-input"
-                    type="datetime-local"
-                    value={returnDep}
-                    onChange={(e) => setReturnDep(e.target.value)}
-                    data-testid="return-departure-input"
-                  />
-                </div>
-                <div className="grid gap-1.5">
-                  <Label htmlFor="return-price-input">Giá (để trống = dùng giá chuyến đi)</Label>
-                  <Input
-                    id="return-price-input"
-                    type="number"
-                    value={returnPrice}
-                    onChange={(e) => setReturnPrice(parseInt(e.target.value, 10))}
-                    min={0}
-                    data-testid="return-price-input"
-                    className="w-40"
-                  />
-                </div>
-                <div>
-                  <Button
-                    type="button"
-                    onClick={handlePairedReturn}
-                    disabled={busy}
-                    data-testid="paired-return-submit"
-                  >
-                    Tạo chuyến về
-                  </Button>
-                </div>
-              </div>
             </CardContent>
           </Card>
 
@@ -621,7 +389,7 @@ export default function TripDetailClient({ trip: initialTrip, staff: initialStaf
           {/* Cancel */}
           <Card className="border-destructive/40">
             <CardHeader>
-              <CardTitle as="h2" className="text-destructive">Huỷ chuyến</CardTitle>
+              <CardTitle as="h2" className="text-destructive">Hủy chuyến</CardTitle>
             </CardHeader>
             <CardContent>
               <Button
@@ -631,7 +399,7 @@ export default function TripDetailClient({ trip: initialTrip, staff: initialStaf
                 disabled={busy}
                 data-testid="cancel-trip-btn"
               >
-                Huỷ chuyến
+                Hủy chuyến
               </Button>
             </CardContent>
           </Card>

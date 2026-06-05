@@ -17,7 +17,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { RevenueRow } from '@/lib/payouts/buildRevenueCsv';
+import type { RevenueRow } from '@/lib/ledger';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

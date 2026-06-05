@@ -10,9 +10,9 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { prisma } from '@/lib/db/client';
-import { hash as hashPassword } from '@/lib/auth/password';
-import { generateCode, generateSalt, hashCode } from '@/lib/auth/otp';
+import { prisma } from '@/lib/core/db/client';
+import { hash as hashPassword } from '@/lib/auth';
+import { generateCode, generateSalt, hashCode } from '@/lib/auth';
 import {
   verifyCustomerAccountOtp,
   findCustomerLockoutSentinel,
@@ -20,7 +20,7 @@ import {
 } from '../customerOtp';
 
 // Mock sendSms to avoid real SMS in tests
-vi.mock('@/lib/notifications/esms', () => ({
+vi.mock('@/lib/notification/esms', () => ({
   sendSms: vi.fn().mockResolvedValue({ ok: true }),
 }));
 

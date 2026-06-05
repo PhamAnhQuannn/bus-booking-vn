@@ -5,6 +5,21 @@ wave: 8
 spec: [SYS20]
 ---
 
+> ⚠️ **PARTIAL / SPLIT 2026-06-03.** Structural foundation DONE; enforcement sweep split to
+> [092b](092b-barrel-enforcement-reachins-nocycle-tenant.md).
+>
+> **Done (7 commits, tsc 0, eslint 0 errors, 1408 unit pass):**
+> - All **5 rule-4 inversions fixed** — domain repos moved out of `lib/core`: phoneNormalize→
+>   core/validation/phone, bookingRepo+bookingSelects→booking, searchTrips+getTripDetails→trips,
+>   getSearchablePlaces→places. `lib/core` now imports zero domains.
+> - **31 barrels** — all 22 missing `lib/<domain>/index.ts` authored (public API only) + 9 pre-existing → full coverage (AC1 ✅).
+> - **Rules 2 + 4 at ERROR**, green; `LIB_DOMAINS` reconciled to post-091 tree (config exempt).
+>
+> **Deferred to 092b (issue-sized — measured ~600 reach-in sites + 2 new lint plugins under a hard error gate):**
+> - AC2 cross-domain reach-in → barrel conversion (~500 app + ~137 lib) + rule-1/3 enforcement (`eslint-plugin-boundaries`).
+> - No-cycle (`eslint-plugin-import` + TS-alias resolver) (AC5).
+> - AC4 rule-5: `withOperatorScope` wiring across operator-owned repo queries (currently used by zero repos).
+
 ## Parent PRD
 
 `issues/prd.md` · spec `rebuild-plan.md` [SYS20] (final sweep)

@@ -24,8 +24,8 @@ import {
   addMaintenanceApi,
   deleteMaintenanceApi,
   type MaintenanceWindow,
-} from '@/lib/api/busesClient';
-import type { OperatorBusListItem } from '@/lib/buses/listOperatorBuses';
+} from '@/lib/api';
+import type { OperatorBusListItem } from '@/lib/catalog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';

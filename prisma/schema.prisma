@@ -7,22 +7,73 @@ datasource db {
   provider = "postgresql"
 }
 
+/// Issue 045: operator approval lifecycle. `status` is the CANONICAL state.
+/// SUSPENDED is the canonical "frozen" state; the pre-existing `disabledAt`
+/// column is kept for back-compat and is now SYNCED to status by the transition
+/// service (SUSPENDED → disabledAt=now(); APPROVED → disabledAt cleared).
+enum OperatorStatus {
+  PENDING_REVIEW
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+/// Issue 081: charter (group / private-hire) request lifecycle. `status` is the
+/// CANONICAL state; the single-source transition map lives in
+/// lib/charter/charterStatus.ts (mirrors the Issue 045 operator pattern).
+/// Edges: SUBMITTED → ADMIN_REVIEW → {ASSIGNED_DIRECT, PUBLISHED, REJECTED};
+/// ASSIGNED_DIRECT → {ACCEPTED, DECLINED}; PUBLISHED → {ACCEPTED, EXPIRED};
+/// DECLINED/EXPIRED → ADMIN_REVIEW (re-route); ACCEPTED → {COMPLETED, CANCELLED};
+/// REJECTED, COMPLETED, CANCELLED are terminal.
+enum CharterStatus {
+  SUBMITTED
+  ADMIN_REVIEW
+  ASSIGNED_DIRECT
+  PUBLISHED
+  ACCEPTED
+  DECLINED
+  REJECTED
+  EXPIRED
+  COMPLETED
+  CANCELLED
+}
+
 model Operator {
-  id                String    @id @default(cuid())
-  legalName         String
-  contactPhone      String
-  contactEmail      String
-  notificationPhone String?
-  disabledAt        DateTime?
-  createdAt         DateTime  @default(now())
-  buses             Bus[]
-  operatorUsers     OperatorUser[]
-  routes            Route[]
-  trips             Trip[]
+  id                 String                  @id @default(cuid())
+  legalName          String
+  contactPhone       String
+  contactEmail       String
+  notificationPhone  String?
+  /// Issue 045: canonical approval state. Defaults to PENDING_REVIEW for new
+  /// applicants. Only APPROVED operators are search-visible / bookable (S05).
+  status             OperatorStatus          @default(PENDING_REVIEW)
+  /// Issue 045: rejection reason set when status → REJECTED (shown on resubmit).
+  rejectionReason    String?
+  /// Issue 045: back-compat freeze flag, kept in sync with status by the
+  /// transition service. `status` is canonical; SUSPENDED is the canonical
+  /// suspend. disabledAt is NOT the source of truth — read `status`.
+  disabledAt         DateTime?
+  /// Issue 076: human-friendly application reference (e.g. OP-2026-AB12CD) shown
+  /// on the self-serve registration confirmation page + the pending email. Unique;
+  /// null for operators provisioned via the admin CLI (which has no application).
+  applicationRef     String?                 @unique
+  createdAt          DateTime                @default(now())
+  buses              Bus[]
+  operatorUsers      OperatorUser[]
+  routes             Route[]
+  trips              Trip[]
   recurringTemplates RecurringTripTemplate[]
-  payouts           Payout[]
+  payouts            Payout[]
+  ledgerEntries      LedgerEntry[]
+  feeConfigs         FeeConfig[]
+  kybDocuments       KybDocument[]
+  payoutAccount      PayoutAccount?
+  /// Issue 081: charter requests directly assigned to or claimed by this operator.
+  charterAssignments CharterRequest[]
 
   @@index([id])
+  @@index([status])
 }
 
 enum BusType {
@@ -32,18 +83,18 @@ enum BusType {
 }
 
 model Bus {
-  id               String    @id @default(cuid())
-  operatorId       String
-  capacity         Int
-  licensePlate     String
-  busType          BusType
-  deactivatedAt    DateTime?
-  maintenanceStart DateTime?
-  maintenanceEnd   DateTime?
-  operator             Operator                @relation(fields: [operatorId], references: [id])
-  trips                Trip[]
-  maintenances         BusMaintenance[]
-  recurringTemplates   RecurringTripTemplate[]
+  id                 String                  @id @default(cuid())
+  operatorId         String
+  capacity           Int
+  licensePlate       String
+  busType            BusType
+  deactivatedAt      DateTime?
+  maintenanceStart   DateTime?
+  maintenanceEnd     DateTime?
+  operator           Operator                @relation(fields: [operatorId], references: [id])
+  trips              Trip[]
+  maintenances       BusMaintenance[]
+  recurringTemplates RecurringTripTemplate[]
 
   @@unique([operatorId, licensePlate])
 }
@@ -61,21 +112,51 @@ model BusMaintenance {
 }
 
 model Route {
-  id              String       @id @default(cuid())
-  origin          String
-  destination     String
-  operatorId      String
-  durationMinutes Int
-  deactivatedAt   DateTime?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  trips               Trip[]
-  operator            Operator                @relation(fields: [operatorId], references: [id], onDelete: Restrict)
-  pickupPoints        PickupPoint[]
-  recurringTemplates  RecurringTripTemplate[]
+  id                 String                  @id @default(cuid())
+  origin             String
+  destination        String
+  operatorId         String
+  durationMinutes    Int
+  deactivatedAt      DateTime?
+  /// Issue 069: admin moderation kill switch. Non-null = admin-disabled (hidden
+  /// from search + direct links). DISTINCT from operator-owned deactivatedAt —
+  /// admins moderate (disable), never edit catalog fields.
+  moderatedAt        DateTime?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  /// Issue 044: canonical Place FK (nullable). The free-text origin/destination
+  /// columns above stay AS-IS as a back-compat shim; this link is additive.
+  originPlaceId      String?
+  destPlaceId        String?
+  trips              Trip[]
+  operator           Operator                @relation(fields: [operatorId], references: [id], onDelete: Restrict)
+  originPlace        Place?                  @relation("RouteOrigin", fields: [originPlaceId], references: [id], onDelete: SetNull)
+  destPlace          Place?                  @relation("RouteDest", fields: [destPlaceId], references: [id], onDelete: SetNull)
+  pickupPoints       PickupPoint[]
+  recurringTemplates RecurringTripTemplate[]
 
   @@index([origin, destination])
   @@index([operatorId])
+  @@index([originPlaceId, destPlaceId])
+}
+
+/// Issue 044: canonical Place entity — a single global registry of bookable
+/// place names with alias merging. GLOBAL (not operator-owned). Routes link to
+/// Places via originPlaceId/destPlaceId; free-text Route.origin/destination stay
+/// as a back-compat shim.
+model Place {
+  id             String           @id @default(cuid())
+  canonicalName  String
+  aliases        String[]
+  slug           String?          @unique
+  createdAt      DateTime         @default(now())
+  originRoutes   Route[]          @relation("RouteOrigin")
+  destRoutes     Route[]          @relation("RouteDest")
+  /// Issue 081: charter requests whose origin is this Place. Distinct relation
+  /// name ("CharterOrigin") so it never collides with RouteOrigin/RouteDest.
+  charterOrigins CharterRequest[] @relation("CharterOrigin")
+
+  @@index([canonicalName])
 }
 
 model PickupPoint {
@@ -103,51 +184,55 @@ enum TripStatus {
 
 enum HoldStatus {
   active
-  converted
+  consumed
   expired
   cancelled_trip
 }
 
 model Trip {
-  id                   String                    @id @default(cuid())
-  routeId              String
-  busId                String
-  operatorId           String
-  departureAt          DateTime
-  price                Int
-  status               TripStatus                @default(scheduled)
-  salesClosed          Boolean                   @default(false)
-  blockedSeats         Int                       @default(0)
-  cancelReason         String?
-  cancelledAt          DateTime?
+  id                  String                   @id @default(cuid())
+  routeId             String
+  busId               String
+  operatorId          String
+  departureAt         DateTime
+  price               Int
+  status              TripStatus               @default(scheduled)
+  salesClosed         Boolean                  @default(false)
+  blockedSeats        Int                      @default(0)
+  cancelReason        String?
+  cancelledAt         DateTime?
+  /// Issue 069: admin moderation kill switch. Non-null = admin-disabled (hidden
+  /// from search + direct links). DISTINCT from operator-owned salesClosed —
+  /// admins moderate (disable), never edit catalog fields.
+  moderatedAt         DateTime?
   /// Issue 014: timestamp when operator marked trip as departed
-  departedAt           DateTime?
+  departedAt          DateTime?
   /// Issue 014: timestamp when operator marked trip as completed
-  completedAt          DateTime?
+  completedAt         DateTime?
   /// FK to RecurringTripTemplate; null for one-off trips
-  recurringTemplateId  String?
+  recurringTemplateId String?
   /// Paired return trip id (self-referential)
-  pairedTripId         String?
-  updatedAt            DateTime                  @updatedAt
-  route                Route                     @relation(fields: [routeId], references: [id])
-  bus                  Bus                       @relation(fields: [busId], references: [id])
-  operator             Operator                  @relation(fields: [operatorId], references: [id])
-  recurringTemplate    RecurringTripTemplate?    @relation(fields: [recurringTemplateId], references: [id])
-  pairedTrip           Trip?                     @relation("TripPair", fields: [pairedTripId], references: [id])
-  pairedByTrip         Trip[]                    @relation("TripPair")
-  holds                Hold[]
-  bookings             Booking[]
-  generationLogs       RecurringGenerationLog[]
-  payouts              Payout[]
-  assignedStaff        OperatorUser[]            @relation("StaffAssignment")
+  pairedTripId        String?
+  updatedAt           DateTime                 @updatedAt
+  route               Route                    @relation(fields: [routeId], references: [id])
+  bus                 Bus                      @relation(fields: [busId], references: [id])
+  operator            Operator                 @relation(fields: [operatorId], references: [id])
+  recurringTemplate   RecurringTripTemplate?   @relation(fields: [recurringTemplateId], references: [id])
+  pairedTrip          Trip?                    @relation("TripPair", fields: [pairedTripId], references: [id])
+  pairedByTrip        Trip[]                   @relation("TripPair")
+  holds               Hold[]
+  bookings            Booking[]
+  generationLogs      RecurringGenerationLog[]
+  payouts             Payout[]
+  assignedStaff       OperatorUser[]           @relation("StaffAssignment")
+  // Partial unique index (recurringTemplateId, departureAt) WHERE recurringTemplateId IS NOT NULL
+  // is SQL-only in migration step2; Prisma DSL cannot express WHERE-clause partial unique indices.
 
   @@index([status, departureAt])
   @@index([routeId, departureAt])
   @@index([operatorId])
   @@index([recurringTemplateId])
   @@index([pairedTripId])
-  // Partial unique index (recurringTemplateId, departureAt) WHERE recurringTemplateId IS NOT NULL
-  // is SQL-only in migration step2; Prisma DSL cannot express WHERE-clause partial unique indices.
 }
 
 model Hold {
@@ -156,6 +241,8 @@ model Hold {
   ticketCount   Int
   customerPhone String
   customerName  String
+  /// Issue 042: buyer email captured at hold creation (S03/S04 guest snapshot = name+phone+email). Nullable for pre-042 rows.
+  customerEmail String?
   expiresAt     DateTime
   status        HoldStatus @default(active)
   createdAt     DateTime   @default(now())
@@ -168,13 +255,14 @@ model Hold {
 
 enum BookingStatus {
   awaiting_payment
-  pending_cash_payment
-  paid_operator_notified
+  paid
   completed
   cancelled
   trip_cancelled
   no_show
   payment_failed_expired
+  /// Issue 100: terminal state for oversold-race — booking was paid but seat gone; refund-out issued.
+  refunded
 }
 
 /// Contact status for operator call-queue management (Issue 014).
@@ -186,7 +274,6 @@ enum ContactStatus {
 }
 
 enum PaymentMethod {
-  cash
   momo
   zalopay
   card
@@ -194,6 +281,7 @@ enum PaymentMethod {
 
 enum NotificationChannel {
   sms
+  email
 }
 
 enum NotificationStatus {
@@ -203,43 +291,67 @@ enum NotificationStatus {
 }
 
 model Booking {
-  id                 String            @id @db.Uuid
-  bookingRef         String            @unique
-  confirmationToken  String            @unique
-  tripId             String
-  holdId             String?           @unique
-  customerId         String?
-  buyerName          String
-  buyerPhone         String
-  ticketCount        Int
-  totalVnd           Int
-  paymentMethod      PaymentMethod
-  paymentExternalRef String?
-  status             BookingStatus     @default(awaiting_payment)
-  isManual           Boolean           @default(false)
-  createdAt          DateTime          @default(now())
+  id                   String            @id @db.Uuid
+  bookingRef           String            @unique
+  confirmationToken    String            @unique
+  tripId               String
+  holdId               String?           @unique
+  customerId           String?
+  buyerName            String
+  buyerPhone           String
+  /// Issue 042: buyer email for ticket delivery (S03/S04 guest snapshot = name+phone+email). Nullable — pre-042 rows have no email.
+  buyerEmail           String?
+  ticketCount          Int
+  totalVnd             Int
+  paymentMethod        PaymentMethod
+  paymentExternalRef   String?
+  status               BookingStatus     @default(awaiting_payment)
+  isManual             Boolean           @default(false)
+  createdAt            DateTime          @default(now())
   /// Issue 014: operator call-queue contact tracking
-  contactStatus      ContactStatus     @default(pending)
+  contactStatus        ContactStatus     @default(pending)
   /// Pickup point assigned during call-outcome (FK → PickupPoint; null = use route default)
-  pickupPointId      String?
+  pickupPointId        String?
   /// Free-text pickup note when no configured pickup points exist
-  pickupNote         String?
+  pickupNote           String?
   /// Timestamp when boarding was marked (SET-TRUE-ONLY per SPEC NOTE)
-  pickedUpAt         DateTime?
-  /// Timestamp when cash was collected by operator
-  cashCollectedAt    DateTime?
+  pickedUpAt           DateTime?
   /// Escalation note set by operator
-  escalationNote     String?
+  escalationNote       String?
   /// Timestamp of escalation
-  escalatedAt        DateTime?
+  escalatedAt          DateTime?
   /// Issue 019: timestamp the 24h SMS reminder was sent (null = not yet sent; sweeper predicate)
-  reminderSentAt     DateTime?
-  trip               Trip              @relation(fields: [tripId], references: [id])
-  hold               Hold?             @relation(fields: [holdId], references: [id], onDelete: Restrict)
-  customer           Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  pickupPoint        PickupPoint?      @relation(fields: [pickupPointId], references: [id], onDelete: SetNull)
-  notifications      NotificationLog[]
-  paymentEvents      PaymentEvent[]
+  reminderSentAt       DateTime?
+  /// Issue 073: single-use boarding check-in. SET-ONCE — the atomic conditional UPDATE
+  /// (WHERE "checkedInAt" IS NULL) is the single-use guard; a second concurrent scan is idempotent.
+  checkedInAt          DateTime?
+  /// Issue 073: no-show marker, paired with status='no_show' (Issue 014 verb-At+status rule).
+  /// Mutually exclusive with checkedInAt — a checked-in passenger can't be no-showed.
+  noShowAt             DateTime?
+  /// Issue 074: object-storage KEY of the generated ticket PDF (lib/storage). NULL = not yet
+  /// generated. The generate-once cron claims rows WHERE ticketPdfKey IS NULL, renders + uploads
+  /// via putObject, then sets the key. A re-run skips already-keyed rows (render-once idempotency).
+  ticketPdfKey         String?
+  /// Issue 074: instant the ticket PDF was generated + stored. Paired with ticketPdfKey (set together).
+  ticketPdfGeneratedAt DateTime?
+  /// Issue 090: instant the guest PII snapshot (buyerName/buyerPhone/buyerEmail) was
+  /// scrubbed to masked placeholders. NULL = snapshot still intact. Non-null = scrubbed
+  /// (by the on-delete anonymize path OR the retention sweeper). This is the sweep
+  /// PREDICATE + idempotency marker (Issue 014 top-level indexed column) — money/audit
+  /// columns (totalVnd/status/ticketCount/ledger) are RETAINED through the scrub (S04).
+  snapshotAnonymizedAt DateTime?
+  /// Issue 100: instant of oversold-race refund. NULL = not refunded via oversold path.
+  /// Paired with status='refunded' (Issue 014 verb-At+status rule — both written in same tx).
+  refundedAt           DateTime?  @db.Timestamptz
+  trip                 Trip              @relation(fields: [tripId], references: [id])
+  hold                 Hold?             @relation(fields: [holdId], references: [id], onDelete: Restrict)
+  customer             Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  pickupPoint          PickupPoint?      @relation(fields: [pickupPointId], references: [id], onDelete: SetNull)
+  notifications        NotificationLog[]
+  paymentEvents        PaymentEvent[]
+  ledgerEntries        LedgerEntry[]
+  /// Issue 089: checkout consent capture (no-refund + PII-storage). Append-only.
+  consents             ConsentRecord[]
 
   @@index([tripId, status])
   @@index([confirmationToken])
@@ -249,39 +361,70 @@ model Booking {
   @@index([status, reminderSentAt])
   /// Issue 009: register-time guest-booking backfill scan (match buyerPhone → Customer.phone)
   @@index([buyerPhone])
+  /// Issue 090: retention sweeper predicate — claims guest bookings WHERE
+  /// snapshotAnonymizedAt IS NULL (then joins Trip for the departure window).
+  @@index([snapshotAnonymizedAt])
+  /// Issue 100: oversold-refund reporting — status+refundedAt composite (supports cron/reporting).
+  @@index([status, refundedAt])
+}
+
+/// Issue 089: checkout consent capture. One row per consent the buyer accepted at
+/// initiate time (no_refund + pii_storage). APPEND-ONLY / immutable for compliance —
+/// no update/delete is ever exposed (mirrors AdminAuditLog/LedgerEntry). A DB
+/// immutability trigger is enforced in the migration (BEFORE UPDATE/DELETE RAISE).
+model ConsentRecord {
+  id          String   @id @default(cuid())
+  bookingId   String   @db.Uuid
+  /// Documented union: 'no_refund' | 'pii_storage'
+  consentType String
+  /// Consent text version the buyer accepted, e.g. '2026-06-01' (lib/booking/consent.ts CONSENT_VERSION)
+  version     String
+  consentedAt DateTime @default(now())
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([consentType, version])
 }
 
 model PaymentEvent {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  bookingId   String   @db.Uuid
-  adapter     String
-  externalRef String
-  rawBody     String   @db.Text
-  resultCode  Int
-  receivedAt  DateTime @default(now())
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId     String   @db.Uuid
+  adapter       String
+  providerTxnId String
+  currency      String   @default("VND")
+  rawBody       String   @db.Text
+  receivedAt    DateTime @default(now())
 
   booking Booking @relation(fields: [bookingId], references: [id])
 
-  @@unique([adapter, externalRef])
+  @@unique([adapter, providerTxnId])
   @@index([bookingId])
 }
 
 model NotificationLog {
-  id           String              @id @default(cuid())
-  bookingId    String?             @db.Uuid
-  channel      NotificationChannel @default(sms)
-  template     String
-  recipient    String
-  payload      String
-  status       NotificationStatus  @default(pending)
-  externalRef  String?
-  sentAt       DateTime?
-  scheduledFor DateTime?           // S19 cron: payout_scheduled dispatch time (completedAt+3d)
-  createdAt    DateTime            @default(now())
-  booking      Booking?            @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  id            String              @id @default(cuid())
+  bookingId     String?             @db.Uuid
+  channel       NotificationChannel @default(sms)
+  template      String
+  recipient     String
+  payload       String
+  status        NotificationStatus  @default(pending)
+  externalRef   String?
+  sentAt        DateTime?
+  scheduledFor  DateTime? // S19 cron: payout_scheduled dispatch time (completedAt+3d)
+  /// Issue 058: dispatcher retry/backoff state.
+  attemptCount  Int                 @default(0)
+  /// Next eligible dispatch instant after a failed attempt (exponential backoff). NULL = due now.
+  nextAttemptAt DateTime?
+  /// Last delivery error message (truncated) — ops debugging only.
+  lastError     String?
+  createdAt     DateTime            @default(now())
+  booking       Booking?            @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
+  @@unique([bookingId, template])
   @@index([bookingId])
   @@index([template, scheduledFor])
+  @@index([status, nextAttemptAt])
 }
 
 /// Issue 019: one row per cron-job invocation. status ∈ success|failed|skipped_locked.
@@ -299,21 +442,28 @@ model JobRunLog {
 }
 
 model Customer {
-  id            String    @id @default(cuid())
+  id              String           @id @default(cuid())
   /// Nullable: set to NULL on soft-delete/anonymization; Postgres allows multiple NULLs on @unique
-  phone         String?   @unique
-  email         String?
-  passwordHash  String?
-  displayName   String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  lastLoginAt   DateTime?
+  phone           String?          @unique
+  email           String?
+  passwordHash    String?
+  displayName     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  lastLoginAt     DateTime?
   /// Issue 008: soft-delete timestamp; non-null = account deleted
-  deletedAt     DateTime?
+  deletedAt       DateTime?
   /// Issue 008: anonymization timestamp; set together with deletedAt
-  anonymizedAt  DateTime?
-  sessions      Session[]
-  bookings      Booking[]
+  anonymizedAt    DateTime?
+  /// Issue 066: admin suspension timestamp; non-null = suspended. A suspended
+  /// customer fails requireCustomerAuth and all their sessions are revoked at
+  /// suspend time. Reinstate clears this (sessions are NOT restored — fresh login).
+  suspendedAt     DateTime?
+  sessions        Session[]
+  bookings        Booking[]
+  /// Issue 081: charter requests submitted by this (logged-in) customer. Guest
+  /// charter requests have a null customerId.
+  charterRequests CharterRequest[]
 }
 
 model OtpAttempt {
@@ -355,24 +505,24 @@ enum OperatorRole {
 }
 
 model OperatorUser {
-  id                     String       @id @default(cuid())
+  id                     String            @id @default(cuid())
   operatorId             String
-  phone                  String       @unique
+  phone                  String            @unique
   contactPhone           String
   notificationPhone      String
   passwordHash           String
-  requiresPasswordChange Boolean      @default(true)
+  requiresPasswordChange Boolean           @default(true)
   displayName            String
-  role                   OperatorRole @default(admin)
+  role                   OperatorRole      @default(admin)
   disabledAt             DateTime?
-  createdAt              DateTime     @default(now())
-  updatedAt              DateTime     @updatedAt
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
   /// Issue 014: badge — last time operator viewed the bookings queue
   lastBookingsViewedAt   DateTime?
   /// Issue 017: single trip a staff member is assigned to (V1 constraint); null for admins
   assignedTripId         String?
-  operator               Operator     @relation(fields: [operatorId], references: [id])
-  assignedTrip           Trip?        @relation("StaffAssignment", fields: [assignedTripId], references: [id])
+  operator               Operator          @relation(fields: [operatorId], references: [id])
+  assignedTrip           Trip?             @relation("StaffAssignment", fields: [assignedTripId], references: [id])
   sessions               OperatorSession[]
 
   @@index([createdAt])
@@ -410,30 +560,83 @@ model OperatorOtpAttempt {
 }
 
 // ---------------------------------------------------------------------------
+// Issue 054 — Admin auth (THIRD auth realm). Distinct table; NEVER reuse
+// Customer/Operator. Accounts are invite-only (issue 057) — no registration.
+// ---------------------------------------------------------------------------
+
+enum AdminRole {
+  SUPER_ADMIN
+  FINANCE
+  SUPPORT
+}
+
+enum AdminStatus {
+  ACTIVE
+  DISABLED
+}
+
+model AdminUser {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  passwordHash  String
+  role          AdminRole
+  totpSecret    String?
+  totpEnabledAt DateTime?
+  invitedBy     String?
+  status        AdminStatus    @default(ACTIVE)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  sessions      AdminSession[]
+
+  @@index([email])
+}
+
+// Parallel refresh-token store for the admin realm. OperatorSession is FK-bound
+// to OperatorUser, so admin refresh tokens live in their own minimal table
+// (same family-rotation/reuse-detection structure) FK-bound to AdminUser.
+model AdminSession {
+  id               String    @id @default(cuid())
+  adminUserId      String
+  refreshTokenHash String    @unique
+  tokenFamily      String
+  rotationCount    Int       @default(0)
+  expiresAt        DateTime
+  createdAt        DateTime  @default(now())
+  revokedAt        DateTime?
+  admin            AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([adminUserId])
+}
+
+// ---------------------------------------------------------------------------
 // Issue 016 — Operator revenue reporting + payout tracking
 // ---------------------------------------------------------------------------
 
 enum PayoutStatus {
-  pending
+  requested
   processing
-  settled
+  paid
   failed
 }
 
 model Payout {
   id            String       @id @default(cuid())
-  tripId        String
+  // Issue 053: nullable — on-demand WITHDRAWAL payouts are NOT trip-scoped
+  // (the operator pulls their own available net balance, which spans many trips).
+  // Auto-sweep (per-completed-trip) payouts still set tripId. Per-trip revenue
+  // reports must tolerate / filter null-trip rows (see getPayoutReport.ts).
+  tripId        String?
   operatorId    String
   gross         Int
   platformFee   Int
   net           Int
-  status        PayoutStatus @default(pending)
+  status        PayoutStatus @default(requested)
   scheduledAt   DateTime
   settledAt     DateTime?
   failureReason String?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
-  trip          Trip         @relation(fields: [tripId], references: [id])
+  trip          Trip?        @relation(fields: [tripId], references: [id])
   operator      Operator     @relation(fields: [operatorId], references: [id])
 
   @@index([tripId])
@@ -447,25 +650,25 @@ model Payout {
 
 /// Recurring trip schedule template. Generates Trips daily via cron (14-day horizon).
 model RecurringTripTemplate {
-  id                  String    @id @default(cuid())
-  operatorId          String
-  routeId             String
-  busId               String
-  price               Int
+  id                 String                   @id @default(cuid())
+  operatorId         String
+  routeId            String
+  busId              String
+  price              Int
   /// HH:MM local time (Asia/Ho_Chi_Minh)
-  departureLocalTime  String
+  departureLocalTime String
   /// Bitmask: Mon=1, Tue=2, Wed=4, Thu=8, Fri=16, Sat=32, Sun=64 (range 1-127)
-  daysOfMask          Int
-  validFrom           DateTime  @db.Date
-  validUntil          DateTime  @db.Date
-  deactivatedAt       DateTime?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-  operator            Operator  @relation(fields: [operatorId], references: [id])
-  route               Route     @relation(fields: [routeId], references: [id])
-  bus                 Bus       @relation(fields: [busId], references: [id])
-  trips               Trip[]
-  generationLogs      RecurringGenerationLog[]
+  daysOfMask         Int
+  validFrom          DateTime                 @db.Date
+  validUntil         DateTime                 @db.Date
+  deactivatedAt      DateTime?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  operator           Operator                 @relation(fields: [operatorId], references: [id])
+  route              Route                    @relation(fields: [routeId], references: [id])
+  bus                Bus                      @relation(fields: [busId], references: [id])
+  trips              Trip[]
+  generationLogs     RecurringGenerationLog[]
 
   @@index([operatorId])
   @@index([routeId])
@@ -474,17 +677,17 @@ model RecurringTripTemplate {
 
 /// Log of each daily cron run's result per template per date.
 model RecurringGenerationLog {
-  id          String                @id @default(cuid())
-  templateId  String
-  tripId      String?
+  id         String                @id @default(cuid())
+  templateId String
+  tripId     String?
   /// Date being generated (YYYY-MM-DD key)
-  date        DateTime              @db.Date
+  date       DateTime              @db.Date
   /// 'generated' | 'skipped' | 'failed'
-  status      String                @default("generated")
-  skipReason  String?
-  createdAt   DateTime              @default(now())
-  template    RecurringTripTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  trip        Trip?                 @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  status     String                @default("generated")
+  skipReason String?
+  createdAt  DateTime              @default(now())
+  template   RecurringTripTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  trip       Trip?                 @relation(fields: [tripId], references: [id], onDelete: SetNull)
 
   @@index([templateId])
   @@index([date])
@@ -511,6 +714,97 @@ model AdminAuditLog {
 }
 
 // ---------------------------------------------------------------------------
+// Content moderation (Issue 069 — admins disable, never edit)
+// ---------------------------------------------------------------------------
+
+/// A user/system-filed report against a trip, route, or operator. The admin
+/// Moderation tab triages OPEN reports and either resolves them or disables the
+/// reported item (Trip.moderatedAt / Route.moderatedAt). Minimal by design:
+/// moderation is "disable, never edit" — there is no edit-catalog path (AC4).
+model ContentReport {
+  id         String    @id @default(cuid())
+  targetType String // 'trip'|'route'|'operator'
+  targetId   String
+  reason     String
+  reportedBy String?
+  status     String    @default("open") // 'open'|'resolved'
+  resolvedBy String?
+  resolvedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([status, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Object storage (Issue 059 — signed PUT/GET, keys in DB)
+// ---------------------------------------------------------------------------
+
+/// A pointer to an object in S3-compatible storage. The DB stores the object
+/// KEY (and metadata), NEVER the bytes — the server mints signed PUT/GET URLs
+/// and the client transfers bytes directly to/from storage. `purpose` is a
+/// documented string union ('kyb_doc' | 'ticket_pdf') kept as String for
+/// extensibility. `uploadedBy` is the actor id (operator/admin), nullable for
+/// system-generated uploads (e.g. ticket PDFs).
+model StoredObject {
+  id          String   @id @default(cuid())
+  key         String   @unique // S3 object key; DB stores the KEY, never bytes
+  contentType String
+  sizeBytes   Int
+  purpose     String // 'kyb_doc' | 'ticket_pdf' (documented union; String for extensibility)
+  uploadedBy  String? // actor id (operator/admin) — nullable for system uploads
+  createdAt   DateTime @default(now())
+
+  @@index([purpose])
+}
+
+/// Issue 077: operator KYB (Know-Your-Business) document submission. One row per
+/// uploaded evidence doc. `storageKey` points at the StoredObject key in the
+/// storage layer (lib/storage) — the DB stores the KEY, never the bytes. The
+/// operator uploads via a signed PUT (no server byte-proxy); the admin views via
+/// a fresh signed GET (audited). `type` is a documented union.
+model KybDocument {
+  id         String    @id @default(cuid())
+  operatorId String
+  type       String // 'business_license' | 'identity' | 'payout_account' (documented union)
+  storageKey String // S3 key (lib/storage); DB stores the KEY, never bytes
+  status     String    @default("submitted") // 'submitted' | 'accepted' | 'rejected'
+  uploadedAt DateTime  @default(now())
+  /// Issue 090: instant the backing storage object was purged by the retention
+  /// sweeper (90d after the operator was REJECTED/SUSPENDED). NULL = object still
+  /// stored. Non-null = storage object removed (the pointer row is RETAINED as an
+  /// audit trail). This is the sweep PREDICATE + idempotency marker (Issue 014).
+  purgedAt   DateTime?
+  operator   Operator  @relation(fields: [operatorId], references: [id], onDelete: Restrict)
+
+  @@index([operatorId])
+  /// Issue 090: retention sweeper predicate — claims docs WHERE purgedAt IS NULL.
+  @@index([purgedAt])
+}
+
+/// Issue 078: the operator's single payout destination bank account. The platform
+/// SENDS money TO this account (it never reads the operator's bank). One account
+/// per operator (operatorId @unique). `accountNumber` is sensitive PII — masked to
+/// the last 4 on every display path and redacted in structured logs (lib/logger).
+///
+/// VERIFICATION: `verifiedAt` is set by confirmPayoutAccountOwnership (name-match or
+/// micro-deposit). Editing ANY account field RESETS verification (verifiedAt/
+/// verifyMethod → null) — an attacker who swaps the destination MUST re-trigger
+/// verification before the payout rail will send there (lib/onboarding/payoutAccount).
+/// The payout rail (withdrawal / sweep) only sends to a row with verifiedAt != null.
+model PayoutAccount {
+  id                String    @id @default(cuid())
+  operatorId        String    @unique // one payout account per operator
+  bankName          String
+  accountNumber     String // the platform SENDS here; never reads the operator's bank
+  accountHolderName String
+  verifiedAt        DateTime? // set on verify; reset to null on any account edit
+  verifyMethod      String? // 'name_match' | 'micro_deposit'
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  operator          Operator  @relation(fields: [operatorId], references: [id])
+}
+
+// ---------------------------------------------------------------------------
 // Conversion-funnel instrumentation
 // ---------------------------------------------------------------------------
 
@@ -528,4 +822,168 @@ model FunnelEvent {
 
   @@index([step, createdAt])
   @@index([sessionId])
+}
+
+// ---------------------------------------------------------------------------
+// Issue 047 — Append-only double-entry ledger (money one-way door)
+// ---------------------------------------------------------------------------
+
+enum LedgerEntryType {
+  booking_credit
+  platform_fee
+  refund_debit
+  refund_out
+  payout_debit
+  payout_reversal
+  chargeback
+  adjustment
+}
+
+/// Issue 047: append-only, immutable money ledger. One row per money event.
+///
+/// IMMUTABILITY: enforced at the DB by a BEFORE UPDATE/DELETE trigger
+/// (`ledger_entry_immutable`) — NOT by a role REVOKE — so it holds regardless of
+/// the connecting DB role (e.g. Neon pooled role). The trigger is SQL-only; the
+/// Prisma DSL cannot model triggers, so it never appears here and is invisible to
+/// `prisma migrate diff` (schema↔DB parity caveat, like partial indices in Issue 007).
+///
+/// SIGN CONVENTION (documented in lib/ledger/ledgerRepo.ts; NOT DB-enforced in
+/// this slice): positive = credit TO operator balance, negative = debit FROM it.
+/// `amount` is signed minor units (VND, integer) stored as BIGINT.
+///
+/// `payoutId` is a plain column (NO FK) — kept decoupled from the Payout model in
+/// this slice; wiring + referential integrity land in slices 049/050.
+model LedgerEntry {
+  id            String          @id @default(cuid())
+  operatorId    String
+  bookingId     String?         @db.Uuid
+  payoutId      String?
+  type          LedgerEntryType
+  amount        BigInt // signed minor units (VND); sign convention in repo header
+  currency      String          @default("VND")
+  /// Idempotency key: unique per (type, source). Duplicate appends are no-ops.
+  sourceEventId String
+  createdAt     DateTime        @default(now())
+
+  operator Operator @relation(fields: [operatorId], references: [id])
+  booking  Booking? @relation(fields: [bookingId], references: [id])
+
+  @@unique([sourceEventId])
+  @@index([operatorId])
+  @@index([bookingId])
+  @@index([payoutId])
+}
+
+/// FeeConfig (Issue 048) — effective-dated, change-audited platform-fee source.
+///
+/// The platform fee rate is stored as `ratePpm`, a parts-per-million INTEGER
+/// (60000 = 6%), so callers can compute `amount * ratePpm / 1_000_000` entirely
+/// in the BigInt domain with no float drift (Issue 016). Slice 049 cuts the
+/// hard-coded DEFAULT_PLATFORM_FEE_PCT over to read from here.
+///
+/// EFFECTIVE-DATED + APPEND-AUDITED: a rate change is a NEW row (optionally
+/// closing the prior row's effectiveTo), NEVER an in-place edit of an existing
+/// row's ratePpm. This preserves the full historical rate timeline for audit
+/// and lets payout math resolve the rate that was in force at any past instant.
+///
+/// SCOPING: operatorId NULL = global default rate; non-null = per-operator
+/// override. Resolution is override-then-global (see lib/ledger/feeConfig.ts).
+model FeeConfig {
+  id            String    @id @default(cuid())
+  operatorId    String? // NULL = global default; non-null = per-operator override
+  ratePpm       Int // fee rate in parts-per-million (60000 = 6%)
+  effectiveFrom DateTime
+  effectiveTo   DateTime? // NULL = open-ended (current)
+  createdBy     String? // admin/actor id; nullable for the seeded cutover row
+  createdAt     DateTime  @default(now())
+
+  operator Operator? @relation(fields: [operatorId], references: [id])
+
+  @@index([operatorId, effectiveFrom])
+  @@index([effectiveFrom])
+}
+
+/// FeatureFlag (Issue 060) — DB-backed runtime feature gate / payment-rail
+/// toggle / kill-switch store. Read through lib/flags (getFlag) which resolves
+/// env-override → cached DB row → caller default. `key` is the natural PK
+/// (e.g. 'rail.momo.enabled', 'killswitch.booking'); see lib/flags/keys.ts for
+/// the documented known-key set.
+///
+/// SCOPE: FeatureFlags are runtime feature gates only. Env `*_STUB` infra
+/// toggles (PAYMENTS_STUB / NOTIFY_STUB / STORAGE_STUB) stay in lib/config/env.ts
+/// and are NOT FeatureFlags; FeeConfig (Issue 048) is effective-dated config,
+/// NOT a flag.
+model FeatureFlag {
+  key       String   @id // flag key, e.g. 'rail.momo.enabled', 'killswitch.booking'
+  enabled   Boolean  @default(false)
+  value     String? // optional structured value (JSON string) for non-boolean flags
+  updatedBy String? // actor id of the last setter
+  updatedAt DateTime @updatedAt
+}
+
+/// CharterRequest (Issue 081) — a customer's group / private-hire charter request
+/// and its lifecycle. This is a LEAD-GEN model: there is intentionally NO charter
+/// payment rail here. Per S15#9 the charter flow is lead generation only — the
+/// platform routes the request to an operator (direct assign or public pool) and
+/// the operator settles the deal off-platform; no Hold / Booking / PaymentEvent /
+/// Payout rows are created from a charter. (If a paid charter rail is ever added,
+/// it is a separate future issue, not this model.)
+///
+/// `status` is the CANONICAL lifecycle state; the single-source legal-transition
+/// map + the transition service live in lib/charter/charterStatus.ts (mirrors the
+/// Issue 045 operator pattern). `customerId` is nullable — guest charter requests
+/// are allowed (contact{Name,Phone,Email} carry the lead). `destinations` is JSON:
+/// an array of place descriptors `{ placeId?: string, name: string }` (free-text
+/// name always present; placeId set when matched to a Place — documented shape,
+/// not FK-enforced because a multi-stop charter has N destinations).
+/// `vehicleType` is a free-text string from the documented set
+/// 'coach' | 'sleeper' | 'limousine' (kept as String, not an enum, so the
+/// customer-facing form can evolve without a migration).
+model CharterRequest {
+  id                 String        @id @default(cuid())
+  /// Charter-scoped human ref CH-YYYY-XXXXXX (lib/charter/charterRef.ts). Unique.
+  ref                String        @unique
+  /// Nullable: guest charter requests have no Customer row.
+  customerId         String?
+  contactName        String
+  contactPhone       String
+  contactEmail       String
+  originPlaceId      String?
+  /// JSON array of destination descriptors `{ placeId?, name }` (see model doc).
+  destinations       Json
+  startDate          DateTime
+  endDate            DateTime?
+  durationDays       Int?
+  passengers         Int
+  /// Free-text vehicle class: 'coach' | 'sleeper' | 'limousine' (documented set).
+  vehicleType        String
+  budgetVnd          Int?
+  notes              String?
+  status             CharterStatus @default(SUBMITTED)
+  /// Set when status → ASSIGNED_DIRECT (direct assign) or → ACCEPTED from the
+  /// public pool. Cleared (set null) on DECLINED / EXPIRED so the lead frees up.
+  assigneeOperatorId String?
+  /// Set to now() when status → PUBLISHED (entered the public pool, Issue 084).
+  publishedAt        DateTime?
+  /// Public-pool claim deadline (Issue 084); set alongside publishedAt.
+  claimByAt          DateTime?
+  /// Direct-assign accept deadline (Issue 083); set alongside assigneeOperatorId
+  /// on → ASSIGNED_DIRECT.
+  acceptByAt         DateTime?
+  /// Set when status → REJECTED (admin declines to route the request).
+  rejectionReason    String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  customer         Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  originPlace      Place?    @relation("CharterOrigin", fields: [originPlaceId], references: [id], onDelete: SetNull)
+  assigneeOperator Operator? @relation(fields: [assigneeOperatorId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([assigneeOperatorId])
+  // Issue 086: predicate indices for the charter-expiry sweeper's claim queries.
+  //   ASSIGNED_DIRECT + acceptByAt <= now  → direct-assign timeout reroute.
+  //   PUBLISHED       + claimByAt  <= now  → public-pool expiry reroute.
+  @@index([status, acceptByAt])
+  @@index([status, claimByAt])
 }

@@ -1,13 +1,14 @@
 /**
- * POST /api/bookings/initiate — cash + online (momo | zalopay | card) initiation.
+ * POST /api/bookings/initiate — online (momo | zalopay | card) initiation.
+ *
+ * Online-only (Issue 039): the cash / pay-on-board rail was removed. A
+ * `paymentMethod: 'cash'` body is now rejected at the zod-enum layer (400 INVALID).
  *
  * Pipeline:
  *   1. Rate-limit by IP (429 + Retry-After)
- *   2. Parse + validate body — { holdId, paymentMethod: 'cash'|'momo'|'zalopay'|'card' } (400 INVALID)
+ *   2. Parse + validate body — { holdId, paymentMethod: 'momo'|'zalopay'|'card' } (400 INVALID)
  *   3. Verify bb_hold cookie matches body.holdId (403 FORBIDDEN)
- *   4. Dispatch to orchestrator by paymentMethod:
- *      - 'cash'                  → initiateCashBooking → { bookingId, confirmationToken }
- *      - 'momo'|'zalopay'|'card' → initiateOnlineBooking(method) → { bookingId, payUrl }
+ *   4. initiateOnlineBooking(method) → { bookingId, payUrl }
  *   5. Map orchestrator result to HTTP status
  *
  * baseUrl derived from incoming request headers (x-forwarded-proto + host) —
@@ -20,17 +21,25 @@ export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { initiateCashBooking } from '@/lib/booking/initiateBooking';
-import { initiateOnlineBooking } from '@/lib/booking/initiateOnlineBooking';
-import { extractHoldCookie } from '@/lib/security/holdCookie';
-import { getCustomerOptional } from '@/lib/auth/requireCustomerAuth';
+import { initiateOnlineBooking } from '@/lib/booking';
+import { CONSENT_VERSION } from '@/lib/booking';
+import { extractHoldCookie } from '@/lib/security';
+import { getCustomerOptional } from '@/lib/auth';
 import { ratelimit } from '@/lib/ratelimit';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { track, sessionIdFromRequest } from '@/lib/analytics/track';
+import { track, sessionIdFromRequest } from '@/lib/analytics';
 
 const initiateInputSchema = z.object({
   holdId: z.string().min(1).max(128),
-  paymentMethod: z.enum(['cash', 'momo', 'zalopay', 'card']),
+  paymentMethod: z.enum(['momo', 'zalopay', 'card']),
+  // Issue 089: checkout consent block. Shape-validated here; the value gate
+  // (both true + matching version) is enforced below so the failure surfaces as
+  // 422 consent_required, not a generic 400 INVALID.
+  consents: z.object({
+    noRefund: z.boolean(),
+    piiStorage: z.boolean(),
+    version: z.string().min(1).max(32),
+  }),
 });
 
 async function handler(req: NextRequest): Promise<Response> {
@@ -57,7 +66,19 @@ async function handler(req: NextRequest): Promise<Response> {
   if (!parsed.success) {
     return NextResponse.json({ error: 'INVALID' }, { status: 400 });
   }
-  const { holdId, paymentMethod } = parsed.data;
+  const { holdId, paymentMethod, consents } = parsed.data;
+
+  // Issue 089 consent gate (AC1/AC5): block initiate until BOTH consents are
+  // accepted AND the client echoed the current consent text version. A stale
+  // client showing old copy is rejected so we never record consent against text
+  // the buyer didn't actually see.
+  if (
+    consents.noRefund !== true ||
+    consents.piiStorage !== true ||
+    consents.version !== CONSENT_VERSION
+  ) {
+    return NextResponse.json({ error: 'consent_required' }, { status: 422 });
+  }
 
   const verified = extractHoldCookie(req.headers.get('cookie'));
   if (!verified || verified.holdId !== holdId) {
@@ -76,39 +97,15 @@ async function handler(req: NextRequest): Promise<Response> {
   const baseUrl = `${proto}://${host}`;
 
   // ---------------------------------------------------------------------------
-  // Cash path (unchanged)
-  // ---------------------------------------------------------------------------
-  if (paymentMethod === 'cash') {
-    const result = await initiateCashBooking({ holdId, baseUrl, customerId });
-
-    if (result.ok) {
-      void track('payment_initiated', {
-        sessionId: sessionIdFromRequest(req),
-        bookingId: result.bookingId,
-        context: { paymentMethod },
-      });
-      return NextResponse.json(
-        { bookingId: result.bookingId, confirmationToken: result.confirmationToken },
-        { status: 200, headers: { 'Cache-Control': 'no-store' } }
-      );
-    }
-
-    switch (result.error) {
-      case 'hold_not_found':
-        return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 });
-      case 'hold_expired':
-        return NextResponse.json({ error: 'HOLD_EXPIRED' }, { status: 409 });
-      case 'trip_departed':
-        return NextResponse.json({ error: 'TRIP_DEPARTED' }, { status: 409 });
-      case 'ref_collision':
-        return NextResponse.json({ error: 'UNAVAILABLE' }, { status: 503 });
-    }
-  }
-
-  // ---------------------------------------------------------------------------
   // Online path (momo | zalopay | card) — stub gateway locally, real in Phase 2
   // ---------------------------------------------------------------------------
-  const result = await initiateOnlineBooking({ holdId, baseUrl, method: paymentMethod, customerId });
+  const result = await initiateOnlineBooking({
+    holdId,
+    baseUrl,
+    method: paymentMethod,
+    customerId,
+    consentVersion: consents.version,
+  });
 
   if (result.ok) {
     void track('payment_initiated', {
@@ -129,6 +126,11 @@ async function handler(req: NextRequest): Promise<Response> {
       return NextResponse.json({ error: 'HOLD_EXPIRED' }, { status: 409 });
     case 'trip_departed':
       return NextResponse.json({ error: 'TRIP_DEPARTED' }, { status: 409 });
+    case 'operator_not_bookable':
+      // Issue 046: operator suspended/rejected/unapproved between search and
+      // initiate. 409 Conflict — the trip's bookability changed under the buyer
+      // (same race-state family as TRIP_DEPARTED / HOLD_EXPIRED above).
+      return NextResponse.json({ error: 'OPERATOR_NOT_BOOKABLE' }, { status: 409 });
     case 'ref_collision':
       return NextResponse.json({ error: 'UNAVAILABLE' }, { status: 503 });
     case 'gateway_error':

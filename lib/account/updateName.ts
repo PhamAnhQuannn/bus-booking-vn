@@ -4,7 +4,7 @@
  * Validates 4–100 Unicode graphemes, then upserts the displayName column.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { validateDisplayName } from './validateDisplayName';
 
 export type UpdateNameErrorCode = 'DISPLAY_NAME_TOO_SHORT' | 'DISPLAY_NAME_TOO_LONG' | 'CUSTOMER_NOT_FOUND';

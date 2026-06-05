@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
 import { generateCode, generateSalt, hashCode, consume } from '../otp';
 
 // Unique phone per test run to avoid cross-test pollution.

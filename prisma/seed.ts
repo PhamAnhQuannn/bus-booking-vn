@@ -4,7 +4,7 @@ import { Pool } from 'pg';
 import { addDays, startOfDay, set } from 'date-fns';
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import { hash as hashPassword } from '../lib/auth/password';
-import { normalizePhone } from '../lib/auth/phoneNormalize';
+import { normalizePhone } from '../lib/core/validation/phone';
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -77,11 +77,14 @@ async function main() {
 
   // ---- Operators ----
   // NOTE: Phone numbers use placeholder values — NEVER real VN mobile numbers
+  // Issue 045: seeded demo operators are APPROVED so their trips are searchable
+  // (default status is PENDING_REVIEW, which the Issue 046 search gate hides).
   const op1 = await prisma.operator.create({
     data: {
       legalName: 'Công ty TNHH Xe Khách Phương Bắc',
       contactPhone: '+8490xxxxxx1',
       contactEmail: 'lienhe@phuongbac.vn',
+      status: 'APPROVED',
     },
   });
 
@@ -90,6 +93,7 @@ async function main() {
       legalName: 'Công ty CP Vận Tải Miền Nam',
       contactPhone: '+8490xxxxxx2',
       contactEmail: 'hotro@mientam.vn',
+      status: 'APPROVED',
     },
   });
 
@@ -98,6 +102,7 @@ async function main() {
       legalName: 'Công ty TNHH Vận Tải Tây Nguyên',
       contactPhone: '+8490xxxxxx4',
       contactEmail: 'cskh@taynguyen.vn',
+      status: 'APPROVED',
     },
   });
 
@@ -179,6 +184,28 @@ async function main() {
     reverseDefs.push({ origin: r.destination, destination: r.origin, operatorId: r.operatorId, durationMinutes: r.durationMinutes });
   }
   const reverseRoutes = await Promise.all(reverseDefs.map((d) => prisma.route.create({ data: d })));
+
+  // ---- Places (Issue 044) ----
+  // Canonical Place per distinct trimmed origin/destination, then link route FKs.
+  // Mirrors the place_entity migration backfill so a fresh seed is place-linked.
+  await prisma.$executeRawUnsafe(`
+    INSERT INTO "Place" ("id", "canonicalName", "aliases", "createdAt")
+    SELECT gen_random_uuid()::text, n, ARRAY[]::text[], CURRENT_TIMESTAMP
+    FROM (
+      SELECT DISTINCT btrim(origin) AS n FROM "Route" WHERE btrim(origin) <> ''
+      UNION
+      SELECT DISTINCT btrim(destination) AS n FROM "Route" WHERE btrim(destination) <> ''
+    ) AS names
+    WHERE NOT EXISTS (
+      SELECT 1 FROM "Place" p WHERE lower(p."canonicalName") = lower(n)
+    );
+  `);
+  await prisma.$executeRawUnsafe(
+    `UPDATE "Route" r SET "originPlaceId" = p."id" FROM "Place" p WHERE p."canonicalName" = btrim(r.origin);`
+  );
+  await prisma.$executeRawUnsafe(
+    `UPDATE "Route" r SET "destPlaceId" = p."id" FROM "Place" p WHERE p."canonicalName" = btrim(r.destination);`
+  );
 
   // ---- Pickup points (light) so /trips/[id] detail shows a pickup section ----
   const pickupRoutes = [r1, r2, r3, r4, r5, r6, r7, r8, r9, ...extraRoutes, ...reverseRoutes];
@@ -406,6 +433,26 @@ async function main() {
       role: 'admin',
     },
   });
+
+  // Issue 048: global 6% platform-fee cutover row (ratePpm 60000 = 6%),
+  // effective from far in the past so it covers every existing date. Mirrors the
+  // row seeded inside migration 20260602030000_fee_config. Idempotent: only
+  // insert when no global (operatorId NULL) row already exists, so re-running
+  // db:seed on a migrated DB does not duplicate the cutover row.
+  const existingGlobalFee = await prisma.feeConfig.findFirst({
+    where: { operatorId: null },
+    select: { id: true },
+  });
+  if (!existingGlobalFee) {
+    await prisma.feeConfig.create({
+      data: {
+        operatorId: null,
+        ratePpm: 60000,
+        effectiveFrom: new Date('2020-01-01T00:00:00Z'),
+        createdBy: 'system:cutover',
+      },
+    });
+  }
 
   console.log(
     `Seeded: 3 operators, 14 buses (coach/sleeper/limousine), ${realRoutes.length + 1} routes ` +

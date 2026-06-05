@@ -11,13 +11,48 @@
  *
  * Uses $transaction + SELECT FOR UPDATE on Trip (I1 TOCTOU rule, Issue 011).
  * Cross-op = 404 not_found (I2).
+ *
+ * Issue 075 — reassign invalidates + regenerates the ticket PDF and notifies the
+ * new plate. After the busId UPDATE (same tx, same FOR-UPDATE lock so the writes
+ * commit atomically with the reassign):
+ *   1. NULL out `ticketPdfKey`/`ticketPdfGeneratedAt` for affected PAID bookings.
+ *      The 074 generate-ticket-pdfs cron claims rows WHERE ticketPdfKey IS NULL
+ *      and re-renders with the NEW plate (generate-once-again). We match that
+ *      cron's PAID_STATUSES claim set exactly so we only invalidate ticketable rows.
+ *   2. Upsert a `busReassigned` NotificationLog per affected paid booking, keyed on
+ *      the `@@unique([bookingId, template])` compound (Prisma name
+ *      `bookingId_template`, Issue 058). Upsert (not create) because a trip can be
+ *      reassigned repeatedly — a plain create would collide on the 2nd reassign.
+ *      On every reassign we reset the row to status='pending', attemptCount=0,
+ *      nextAttemptAt=null and refresh the payload (NEW plate), so the 058 dispatcher
+ *      re-delivers the latest plate.
+ *
+ * Both writes are LIGHT (row writes only — no render, no network) so reassign
+ * returns as fast as before. The actual PDF regenerate (074 cron) and SMS delivery
+ * (058 dispatcher) happen asynchronously off the request path.
+ *
+ * Idempotency: re-running reassign (or reassigning back to a prior bus) re-NULLs
+ * the keys (no-op for already-NULL rows) and re-upserts the busReassigned row in
+ * place — no duplicate NotificationLog rows, no unique-constraint crash.
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 import { TripServiceError } from './errors';
 import type { TripDto } from './tripDto';
 import { toTripDto } from './toTripDto';
 import { busHasOverlappingTrip, tripWindowEnd } from './busOverlap';
+
+/**
+ * Paid booking states that carry a ticket worth invalidating + re-notifying on a
+ * reassign. Mirrors generateTicketPdfs' PAID_STATUSES (074) so the invalidation set
+ * and the re-render claim set stay in lockstep.
+ */
+const PAID_TICKET_STATUSES = [
+  'paid',
+  'completed',
+  'no_show',
+] as const;
 
 export async function reassignBus(
   operatorId: string,
@@ -28,11 +63,21 @@ export async function reassignBus(
 
   try {
     result = await prisma.$transaction(async (tx) => {
-      // I1: Lock the Trip row (join Route for the duration that defines its overlap window)
+      // I1: Lock the Trip row (join Route for the duration that defines its overlap
+      // window + origin/destination for the reassign notification payload).
       const locked = await tx.$queryRaw<
-        { id: string; busId: string; departureAt: Date; blockedSeats: number; durationMinutes: number }[]
+        {
+          id: string;
+          busId: string;
+          departureAt: Date;
+          blockedSeats: number;
+          durationMinutes: number;
+          origin: string;
+          destination: string;
+        }[]
       >`
-        SELECT t.id, t."busId", t."departureAt", t."blockedSeats", r."durationMinutes"
+        SELECT t.id, t."busId", t."departureAt", t."blockedSeats",
+               r."durationMinutes", r.origin, r.destination
         FROM "Trip" t
         JOIN "Route" r ON r.id = t."routeId"
         WHERE t.id = ${tripId} AND t."operatorId" = ${operatorId}
@@ -41,12 +86,21 @@ export async function reassignBus(
       if (locked.length === 0) {
         throw Object.assign(new Error('not_found'), { _trip: 'not_found' });
       }
-      const { departureAt, blockedSeats, durationMinutes } = locked[0];
+      const { departureAt, blockedSeats, durationMinutes, origin, destination } = locked[0];
 
-      // Validate new bus ownership + state
+      // Validate new bus ownership + state. licensePlate + busType are also read
+      // here for the Issue 075 reassign-notification payload (the NEW plate).
       const bus = await tx.bus.findFirst({
-        where: { id: newBusId, operatorId },
-        select: { id: true, capacity: true, deactivatedAt: true, maintenanceStart: true, maintenanceEnd: true },
+        ...withOperatorScope(operatorId, { where: { id: newBusId } }),
+        select: {
+          id: true,
+          capacity: true,
+          deactivatedAt: true,
+          maintenanceStart: true,
+          maintenanceEnd: true,
+          licensePlate: true,
+          busType: true,
+        },
       });
       if (!bus) {
         throw Object.assign(new Error('not_found'), { _trip: 'not_found' });
@@ -69,7 +123,7 @@ export async function reassignBus(
         tx.booking.aggregate({
           where: {
             tripId,
-            status: { in: ['pending_cash_payment', 'paid_operator_notified', 'completed'] },
+            status: { in: ['paid', 'completed'] },
           },
           _sum: { ticketCount: true },
         }),
@@ -101,7 +155,7 @@ export async function reassignBus(
         throw Object.assign(new Error('bus_overlap_with_outbound'), { _trip: 'bus_overlap_with_outbound' });
       }
 
-      return tx.trip.update({
+      const updated = await tx.trip.update({
         where: { id: tripId },
         data: { busId: newBusId },
         include: {
@@ -111,13 +165,81 @@ export async function reassignBus(
               holds: { where: { status: 'active' } },
               bookings: {
                 where: {
-                  status: { in: ['pending_cash_payment', 'paid_operator_notified', 'completed'] },
+                  status: { in: ['paid', 'completed'] },
                 },
               },
             },
           },
         },
       });
+
+      // ── Issue 075: invalidate stored ticket PDFs + enqueue new-plate notice ──
+      // Both happen in-tx (atomic with the reassign) but are row-writes only — no
+      // render, no network — so reassign stays fast. The actual regenerate (074
+      // cron) + SMS (058 dispatcher) run asynchronously off the request path.
+
+      // Fetch the affected PAID bookings once (id + buyerPhone for the SMS recipient).
+      const affected = await tx.booking.findMany({
+        where: {
+          tripId,
+          status: { in: [...PAID_TICKET_STATUSES] },
+        },
+        select: { id: true, bookingRef: true, buyerPhone: true },
+      });
+
+      // 1. Invalidate the stored PDF for affected paid bookings that HAVE a key.
+      //    Setting it NULL re-arms the 074 generate-once cron to re-render with the
+      //    NEW plate. Idempotent: already-NULL rows are not matched (no-op re-run).
+      await tx.booking.updateMany({
+        where: {
+          tripId,
+          status: { in: [...PAID_TICKET_STATUSES] },
+          ticketPdfKey: { not: null },
+        },
+        data: { ticketPdfKey: null, ticketPdfGeneratedAt: null },
+      });
+
+      // 2. Upsert a busReassigned notification per affected paid booking, keyed on
+      //    the (bookingId, template) compound unique (Issue 058). Upsert — not
+      //    create — so a repeat reassign updates the existing row in place rather
+      //    than colliding on the unique constraint. Every reassign resets the row
+      //    to a fresh pending attempt so the dispatcher re-delivers the LATEST plate.
+      const newPlatePayload = (bookingRef: string) =>
+        JSON.stringify({
+          bookingRef,
+          plate: bus.licensePlate,
+          busType: bus.busType,
+          route: `${origin} → ${destination}`,
+          departureAt: departureAt.toISOString(),
+        });
+
+      for (const b of affected) {
+        await tx.notificationLog.upsert({
+          where: { bookingId_template: { bookingId: b.id, template: 'busReassigned' } },
+          create: {
+            bookingId: b.id,
+            channel: 'sms',
+            template: 'busReassigned',
+            // I9: recipient column holds the phone — payload must NOT duplicate it.
+            recipient: b.buyerPhone,
+            payload: newPlatePayload(b.bookingRef),
+            status: 'pending',
+          },
+          update: {
+            // Re-arm the row for re-delivery of the NEW plate on every reassign.
+            recipient: b.buyerPhone,
+            payload: newPlatePayload(b.bookingRef),
+            status: 'pending',
+            attemptCount: 0,
+            nextAttemptAt: null,
+            lastError: null,
+            sentAt: null,
+            externalRef: null,
+          },
+        });
+      }
+
+      return updated;
     });
   } catch (e) {
     const tagged = e as { _trip?: string; required?: number; provided?: number };
@@ -149,7 +271,7 @@ async function _updatedTrip(_id: string) {
         select: {
           holds: { where: { status: 'active' } },
           bookings: {
-            where: { status: { in: ['pending_cash_payment', 'paid_operator_notified', 'completed'] } },
+            where: { status: { in: ['paid', 'completed'] } },
           },
         },
       },

@@ -7,9 +7,10 @@
  * server component (never self-fetch own API — Issue 002/003 hardened rule).
  */
 
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 import { getOperatorBooking } from './getOperatorBooking';
-import { listPickupPoints } from '@/lib/pickupPoints/listPickupPoints';
+import { listPickupPoints } from '@/lib/catalog';
 import type { BookingDto } from './bookingDto';
 
 export interface PickupPointOption {
@@ -30,7 +31,7 @@ export async function getBookingDetailPage(
   if (!booking) return null;
 
   const trip = await prisma.trip.findFirst({
-    where: { id: booking.tripId, operatorId },
+    ...withOperatorScope(operatorId, { where: { id: booking.tripId } }),
     select: { routeId: true },
   });
 

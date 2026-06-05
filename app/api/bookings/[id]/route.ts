@@ -10,9 +10,9 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { requireCustomerAuth, type CustomerAuthContext } from '@/lib/auth/requireCustomerAuth';
+import { requireCustomerAuth, type CustomerAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { getCustomerBookingDetail } from '@/lib/booking/getCustomerBookingDetail';
+import { getCustomerBookingDetail } from '@/lib/booking';
 
 type RouteContext = { params: Promise<{ id: string }> };
 

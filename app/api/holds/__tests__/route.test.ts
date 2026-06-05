@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // --- Mock modules before importing route ---
-vi.mock('@/lib/db/holdRepo', () => ({
+vi.mock('@/lib/core/db/holdRepo', () => ({
   createHold: vi.fn(),
 }));
 
@@ -32,8 +32,9 @@ vi.mock('@/lib/analytics/track', () => ({
 }));
 
 import { POST } from '../route';
-import { createHold } from '@/lib/db/holdRepo';
+import { createHold } from '@/lib/core/db/holdRepo';
 import { ratelimit } from '@/lib/ratelimit';
+import { HoldCapExceededError } from '@/lib/core/db/holdErrors';
 import { NextRequest } from 'next/server';
 
 // Helper to build a NextRequest with JSON body
@@ -53,6 +54,7 @@ const VALID_BODY = {
   ticketCount: 2,
   buyerName: 'Nguyen Van A',
   buyerPhone: '0912345678',
+  buyerEmail: 'buyer@example.com',
 };
 
 const MOCK_HOLD_RESULT = {
@@ -76,6 +78,32 @@ describe('POST /api/holds', () => {
     expect(res.status).toBe(200);
     expect(json.holdId).toBe('hold-uuid-1234');
     expect(json.expiresAt).toBe('2026-05-17T13:00:00.000Z');
+
+    // Issue 042: buyerEmail threads into createHold as customerEmail (normalized lowercase).
+    expect(createHold).toHaveBeenCalledWith(
+      expect.objectContaining({ customerEmail: 'buyer@example.com' })
+    );
+  });
+
+  it('returns 400 INVALID for invalid email', async () => {
+    const req = makeRequest({ ...VALID_BODY, buyerEmail: 'not-an-email' });
+    const res = await POST(req);
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error).toBe('INVALID');
+    expect(createHold).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 INVALID when email is missing', async () => {
+    const { buyerEmail: _omit, ...noEmail } = VALID_BODY;
+    const req = makeRequest(noEmail);
+    const res = await POST(req);
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error).toBe('INVALID');
+    expect(createHold).not.toHaveBeenCalled();
   });
 
   it('sets bb_hold Set-Cookie header on success', async () => {
@@ -90,7 +118,7 @@ describe('POST /api/holds', () => {
     // buildSetCookieHeader mock returns: `bb_hold=<holdId>.<expiresAt>.fakesig; HttpOnly`
     // Since the route constructs `new Response(..., {headers: {'Set-Cookie': setCookieHeader}})`,
     // verify by checking the mock was called with the right holdId.
-    const { buildSetCookieHeader } = await import('@/lib/security/holdCookie');
+    const { buildSetCookieHeader } = await import('@/lib/security');
     expect(buildSetCookieHeader).toHaveBeenCalledWith(
       MOCK_HOLD_RESULT.holdId,
       MOCK_HOLD_RESULT.expiresAt.toISOString()
@@ -153,6 +181,17 @@ describe('POST /api/holds', () => {
 
     expect(res.status).toBe(400);
     expect(json.error).toBe('INVALID');
+  });
+
+  it('returns 429 HOLD_CAP_EXCEEDED when concurrent-hold cap is reached (Issue 098)', async () => {
+    vi.mocked(createHold).mockRejectedValueOnce(new HoldCapExceededError());
+
+    const req = makeRequest(VALID_BODY);
+    const res = await POST(req);
+    const json = await res.json();
+
+    expect(res.status).toBe(429);
+    expect(json.error).toBe('HOLD_CAP_EXCEEDED');
   });
 
   it('returns 429 TOO_MANY_REQUESTS when rate limited', async () => {

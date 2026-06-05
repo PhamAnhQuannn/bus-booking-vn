@@ -10,8 +10,8 @@
  */
 
 import { redirect } from 'next/navigation';
-import { getOperatorSession } from '@/lib/op/getOperatorSession';
-import { listTrips } from '@/lib/trips/getTrip';
+import { getOperatorSession } from '@/lib/op';
+import { listTrips } from '@/lib/trips';
 import { PageHeader } from '@/components/op/PageHeader';
 import TripsClient from './TripsClient';
 

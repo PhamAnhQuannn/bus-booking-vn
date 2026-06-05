@@ -8,7 +8,8 @@ import {
   initiateOnlineBooking,
   type InitiateOnlineBookingResult,
 } from './initiateOnlineBooking';
-import type { PaymentGateway } from '@/lib/payment/gateway';
+import { CONSENT_VERSION } from './consent';
+import type { PaymentGateway } from '@/lib/payment';
 
 export interface InitiateMomoBookingInput {
   holdId: string;
@@ -17,6 +18,11 @@ export interface InitiateMomoBookingInput {
    * Used to build ipnUrl and redirectUrl passed to MoMo.
    */
   baseUrl: string;
+  /**
+   * Issue 089: consent text version the buyer accepted. Optional on this legacy
+   * wrapper — defaults to the current CONSENT_VERSION when omitted.
+   */
+  consentVersion?: string;
   /**
    * Injectable payment gateway for testing. Defaults (inside
    * initiateOnlineBooking) to getGatewayFor('momo', baseUrl).
@@ -29,5 +35,9 @@ export type InitiateMomoBookingResult = InitiateOnlineBookingResult;
 export async function initiateMomoBooking(
   input: InitiateMomoBookingInput
 ): Promise<InitiateMomoBookingResult> {
-  return initiateOnlineBooking({ ...input, method: 'momo' });
+  return initiateOnlineBooking({
+    ...input,
+    method: 'momo',
+    consentVersion: input.consentVersion ?? CONSENT_VERSION,
+  });
 }

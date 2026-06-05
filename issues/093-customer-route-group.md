@@ -5,6 +5,16 @@ wave: 8
 spec: [SYS20, SYS18]
 ---
 
+> ✅ **DONE 2026-06-03.** Customer realm moved into `app/(customer)` route group: home
+> `page.tsx`, `search/`, `trips/`, `booking/`, `account/`, `auth/`, `charter/`,
+> `lien-he-dat-xe/`, `routes/` (route-group `()` = filesystem-only, all URLs unchanged).
+> Public/legal (`privacy`, `terms`, `verify`) + `dev/` kept at root; `op/`/`admin/`/`api/`
+> are the other realms. Fixed 6 cross-page imports of `@/app/auth/register/page`. proxy.ts
+> matchers key on URLs (unchanged) → no matcher edits. **Validation:** tsc 0; `next build`
+> exit 0, 126/126 static pages, route manifest confirms zero `(customer)` URL leakage. (e2e
+> smoke not run — needs docker-pg + dev-server bringup; build SSG exercised every page's RSC
+> render.) Commit `b9ab47f`.
+
 ## Parent PRD
 
 `issues/prd.md` · spec `rebuild-plan.md` [SYS20] / [SYS18] (final sweep)

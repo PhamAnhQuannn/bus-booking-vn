@@ -10,8 +10,8 @@
  */
 
 import { redirect } from 'next/navigation';
-import { getOperatorSession } from '@/lib/op/getOperatorSession';
-import { getOperatorStaff } from '@/lib/op/getOperatorStaff';
+import { getOperatorSession } from '@/lib/op';
+import { getOperatorStaff } from '@/lib/op';
 import { PageHeader } from '@/components/op/PageHeader';
 import StaffClient from './StaffClient';
 

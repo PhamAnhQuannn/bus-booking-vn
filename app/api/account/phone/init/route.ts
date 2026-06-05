@@ -13,10 +13,10 @@ export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { requireCustomerAuth } from '@/lib/auth/requireCustomerAuth';
-import { sendCustomerAccountOtp } from '@/lib/account/customerOtp';
+import { requireCustomerAuth } from '@/lib/auth';
+import { sendCustomerAccountOtp } from '@/lib/account';
 import { z } from 'zod';
-import { phoneSchema } from '@/lib/auth/types';
+import { phoneSchema } from '@/lib/auth';
 
 const schema = z.object({
   newPhone: phoneSchema,

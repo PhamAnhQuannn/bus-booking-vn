@@ -16,12 +16,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import {
-  createStubAdapter,
-  buildStubIpn,
-  STUB_SUCCESS_CODE,
-  STUB_FAILURE_CODE,
-} from '../stub';
+import { createStubAdapter, buildStubIpn } from '../adapters/stub';
 
 const SECRET = 'dev-stub-secret-0123456789abcdef';
 const BASE_URL = 'https://example.com';
@@ -41,9 +36,11 @@ describe('stub adapter — verifyWebhook', () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.parsed.orderId).toBe('BB-2026-abcd-1234');
-    expect(result.parsed.resultCode).toBe(STUB_SUCCESS_CODE);
-    expect(result.parsed.amount).toBe(200000);
+    expect(result.event.orderRef).toBe('BB-2026-abcd-1234');
+    expect(result.event.providerTxnId).toBe('stub_BB-2026-abcd-1234_success');
+    expect(result.event.status).toBe('paid');
+    expect(result.event.amount).toBe(200000);
+    expect(result.event.currency).toBe('VND');
   });
 
   it('accepts a valid fail IPN and parses resultCode 99', () => {
@@ -58,7 +55,9 @@ describe('stub adapter — verifyWebhook', () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.parsed.resultCode).toBe(STUB_FAILURE_CODE);
+    expect(result.event.status).toBe('failed');
+    expect(result.event.currency).toBe('VND');
+    expect(result.event.providerTxnId).toBe('stub_BB-2026-ffff-9999_fail');
   });
 
   it('rejects a tampered amount', () => {
@@ -109,6 +108,36 @@ describe('stub adapter — verifyWebhook', () => {
   it('returns ok=false for invalid JSON without throwing', () => {
     expect(() => adapter.verifyWebhook('not json{')).not.toThrow();
     expect(adapter.verifyWebhook('not json{').ok).toBe(false);
+  });
+
+  it('canonical round-trip: buildStubIpn → verifyWebhook maps outcome to status', () => {
+    const success = adapter.verifyWebhook(
+      JSON.stringify(
+        buildStubIpn({
+          secretKey: SECRET,
+          adapter: 'zalopay',
+          orderId: 'BB-2026-rrrr-0001',
+          amount: 200000,
+          outcome: 'success',
+        })
+      )
+    );
+    expect(success.ok).toBe(true);
+    if (success.ok) expect(success.event.status).toBe('paid');
+
+    const fail = adapter.verifyWebhook(
+      JSON.stringify(
+        buildStubIpn({
+          secretKey: SECRET,
+          adapter: 'zalopay',
+          orderId: 'BB-2026-rrrr-0002',
+          amount: 200000,
+          outcome: 'fail',
+        })
+      )
+    );
+    expect(fail.ok).toBe(true);
+    if (fail.ok) expect(fail.event.status).toBe('failed');
   });
 });
 

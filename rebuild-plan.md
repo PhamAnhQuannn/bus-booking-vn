@@ -169,9 +169,10 @@ Status: TODO
 - Account bookings-list status badges read the **`paid`** money-state (+ NotificationLog for delivery), never a combined `paid_operator_notified` flag.
 
 Verify: `app/auth/**`, `app/api/auth/**`, `lib/auth/**`, `lib/booking/attachGuestBookingByPhone.ts`, `app/account/**`.
-Status: TODO
+Status: PARTIAL
 > RESOLVED (#27 anonymize-in-place erase, #12 status reads `paid`).
 > RATIFIED 2026-06-01 (S15): login = phone + **password** (OTP proves phone at register only); no OTP-every-login.
+> VERIFIED 2026-06-05: OTP register/reset/phone-change flows, attempt-cap (5) + lockout-sentinel (3/15min), rate-limit (3/15min), proof-JWT jti replay, guest-link backfill all implemented + tested. Only outstanding item: real eSMS HTTP provider (`lib/notification/esms.ts` is a contract-complete stub) — deferred to go-live. PARTIAL until SMS provider wired.
 
 ---
 
@@ -404,8 +405,9 @@ Status: TODO
 - **Timezone**: store UTC; business/service date = Asia/Ho_Chi_Minh. Test date derivation must match the filter's timezone (offset math or `Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Ho_Chi_Minh'})`).
 
 Verify: middleware/`proxy.ts`, `lib/notifications/**`, NotificationLog model, rate-limit + CSRF helpers.
-Status: TODO
+Status: PARTIAL
 > RESOLVED (#9 CSRF on all non-safe /api/* except HMAC webhooks).
+> VERIFIED 2026-06-05: OTP-verified identity, CSRF double-submit on all non-safe `/api/*` (HMAC webhooks exempt), rate-limiting, NotificationLog with top-level `scheduledFor` index all implemented + tested. Outstanding: real eSMS/email delivery provider (stubbed) — deferred to go-live. PARTIAL until providers wired.
 
 ---
 

@@ -13,7 +13,8 @@
  */
 
 import { Prisma } from '@prisma/client';
-import { prisma } from '@/lib/db/client';
+import { prisma } from '@/lib/core/db/client';
+import { withOperatorScope } from '@/lib/core/db';
 import { TripServiceError } from './errors';
 import type { TripDto } from './tripDto';
 import { toTripDto } from './toTripDto';
@@ -44,7 +45,7 @@ export async function createTrip(input: CreateTripInput): Promise<TripDto> {
 
   // Route must belong to the operator; its duration defines the trip's occupancy window.
   const route = await prisma.route.findFirst({
-    where: { id: routeId, operatorId },
+    ...withOperatorScope(operatorId, { where: { id: routeId } }),
     select: { durationMinutes: true },
   });
   if (!route) {
@@ -112,7 +113,7 @@ export async function createTrip(input: CreateTripInput): Promise<TripDto> {
           _count: {
             select: {
               holds: { where: { status: 'active' } },
-              bookings: { where: { status: { in: ['pending_cash_payment', 'paid_operator_notified', 'completed'] } } },
+              bookings: { where: { status: { in: ['paid', 'completed'] } } },
             },
           },
         },
