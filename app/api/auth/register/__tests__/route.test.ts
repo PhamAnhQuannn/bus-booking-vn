@@ -7,6 +7,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SignJWT } from 'jose';
+import crypto from 'crypto';
 import { normalizePhone } from '@/lib/core/validation/phone';
 
 const { mockRegister, mockCookieStore, AuthServiceError } = vi.hoisted(() => {
@@ -40,8 +41,15 @@ const TEST_JWT_SECRET = new TextEncoder().encode('a'.repeat(32));
 // Derived from normalizePhone so no static E.164 literal trips gitleaks \+84[35789]\d{8}
 const NORMALIZED_PHONE = normalizePhone('0901234567');
 
-async function makeOtpProof(phone = NORMALIZED_PHONE, expiresInSeconds = 300): Promise<string> {
-  return new SignJWT({ phone, purpose: 'otp_proof' })
+// jti is required: verifyOtpProof enforces one-shot consumption for 'otp_proof'.
+// Each proof carries a unique jti by default so independent tests don't collide
+// in the shared in-memory consumed-set; pass a fixed jti to test replay.
+async function makeOtpProof(
+  phone = NORMALIZED_PHONE,
+  expiresInSeconds = 300,
+  jti: string = crypto.randomUUID()
+): Promise<string> {
+  return new SignJWT({ phone, purpose: 'otp_proof', jti })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(`${expiresInSeconds}s`)
@@ -107,6 +115,18 @@ describe('POST /api/auth/register', () => {
     const res = await POST(makeRequest({ phone: '0901234567', otpProof: wrongPhoneProof, password: 'Password1' }));
     const json = await res.json();
     expect(res.status).toBe(400);
+    expect(json.error).toBe('otp_proof_invalid');
+  });
+
+  it('rejects a replayed otpProof (one-shot jti consume) — 2nd use returns 400', async () => {
+    // Same proof (same jti) used twice: first registration succeeds, replay is rejected.
+    const otpProof = await makeOtpProof(NORMALIZED_PHONE, 300, 'fixed-replay-jti');
+    const first = await POST(makeRequest({ phone: '0901234567', otpProof, password: 'Password1' }));
+    expect(first.status).toBe(200);
+
+    const second = await POST(makeRequest({ phone: '0901234567', otpProof, password: 'Password1' }));
+    const json = await second.json();
+    expect(second.status).toBe(400);
     expect(json.error).toBe('otp_proof_invalid');
   });
 

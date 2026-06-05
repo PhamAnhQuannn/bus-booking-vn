@@ -34,10 +34,10 @@ async function makeAwaitingPaymentBooking(createdAt: Date): Promise<string> {
        "buyerName", "buyerPhone", "ticketCount", "totalVnd",
        "paymentMethod", status, "createdAt")
     VALUES (
-      ${id}::uuid,
+      ${id},
       ${'PSPW-' + id.slice(0, 8)},
       ${randomUUID()},
-      ${tripId}::uuid,
+      ${tripId},
       'PSP Window Test',
       '+8490xxxxxx0',
       ${CAPACITY},
@@ -144,10 +144,10 @@ describe('PSP-window awaiting_payment capacity protection (Issue 100)', () => {
          "buyerName", "buyerPhone", "ticketCount", "totalVnd",
          "paymentMethod", status, "createdAt")
       VALUES (
-        ${paidBookingId}::uuid,
+        ${paidBookingId},
         ${'PSPW-PAID-' + paidBookingId.slice(0, 6)},
         ${randomUUID()},
-        ${tripId}::uuid,
+        ${tripId},
         'Paid Baseline',
         '+8490xxxxxx5',
         ${CAPACITY},

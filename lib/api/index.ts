@@ -22,6 +22,7 @@ export {
   createPickupPointApi,
   deactivatePickupPointApi,
   reorderPickupPointsApi,
+  type RouteItem,
   type PickupPoint,
 } from './routesClient';
 export {

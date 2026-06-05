@@ -9,8 +9,9 @@
  *     'phone_change'    — customer phone-change OTP flow (Issue 008).
  *
  * verifyOtpProof(token, purpose) — verify and return { phone, jti } or null.
- *   For 'reset_password' and 'phone_change' purposes, a Redis SETNX one-shot
- *   consume is enforced to prevent replay within the TTL window.
+ *   For 'otp_proof', 'reset_password' and 'phone_change' purposes, a Redis SETNX
+ *   one-shot consume is enforced to prevent replay within the TTL window
+ *   (Mistake Log Issue 007: register/login proof must be one-shot, replay-safe via jti).
  *   For 'op_pwd_reset', the proof is short-lived (5 min) and replay risk is
  *   acceptable within the TTL (reset is idempotent for the same hash).
  *
@@ -27,6 +28,7 @@ export type OtpProofPurpose = 'otp_proof' | 'op_pwd_reset' | 'reset_password' | 
 
 /** Purposes that require one-shot jti consumption via Redis SETNX */
 const JTI_REQUIRED_PURPOSES: Set<OtpProofPurpose> = new Set([
+  'otp_proof',
   'reset_password',
   'phone_change',
 ]);

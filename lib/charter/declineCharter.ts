@@ -23,6 +23,7 @@
 
 import { transitionCharterRequest, type CharterTransitionClient } from './charterStatus';
 import { createNotificationLog } from '@/lib/core/db/notificationLogRepo';
+import { logger } from '@/lib/logger';
 
 export interface DeclineCharterInput {
   charterId: string;
@@ -68,8 +69,13 @@ export async function declineCharter(
       payload: JSON.stringify({ charterId, actor, reason: reason ?? null }),
       status: 'pending',
     });
-  } catch {
-    // swallow — the state change is the source of truth.
+  } catch (err) {
+    // Best-effort: the state change is the source of truth, so a notification-enqueue
+    // failure must not fail the decline — but log it so ops can see dropped enqueues.
+    logger.warn(
+      { err: err instanceof Error ? { message: err.message, name: err.name } : { raw: typeof err }, charterId },
+      'charterDeclined notification enqueue failed (best-effort, ignored)'
+    );
   }
 
   return { ok: true, charterId, to: 'ADMIN_REVIEW' };

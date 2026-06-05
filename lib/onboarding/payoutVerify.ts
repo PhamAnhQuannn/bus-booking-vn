@@ -113,12 +113,20 @@ export interface ConfirmPayoutAccountOwnershipInput {
   actor: string;
 }
 
-/** Minimal prisma surface for the confirm write — findUnique + update + audit. */
+/** Transaction handle surface used inside the confirm write — update + audit. */
+type ConfirmTx = AdminAuditLogClient & {
+  payoutAccount: {
+    update: PrismaClient['payoutAccount']['update'];
+  };
+};
+
+/** Minimal prisma surface for the confirm write — findUnique + update + audit + tx. */
 type ConfirmPrismaLike = AdminAuditLogClient & {
   payoutAccount: {
     findUnique: PrismaClient['payoutAccount']['findUnique'];
     update: PrismaClient['payoutAccount']['update'];
   };
+  $transaction: <T>(fn: (tx: ConfirmTx) => Promise<T>) => Promise<T>;
 };
 
 /**
@@ -142,17 +150,21 @@ export async function confirmPayoutAccountOwnership(
     throw new PayoutVerifyError('payout_account_not_found');
   }
 
-  await prisma.payoutAccount.update({
-    where: { operatorId },
-    data: { verifiedAt: new Date(), verifyMethod: method },
-  });
+  // Atomic: the verified-flag write and its audit row must commit together — if the
+  // audit write fails, the account must NOT be left marked verified (Issue 062/065).
+  await prisma.$transaction(async (tx) => {
+    await tx.payoutAccount.update({
+      where: { operatorId },
+      data: { verifiedAt: new Date(), verifyMethod: method },
+    });
 
-  await writeAdminAuditLog(prisma, {
-    actor,
-    action: 'verify-payout-account',
-    target: operatorId,
-    // method only — the account number is NEVER written to the audit args (PII).
-    argsRedacted: JSON.stringify({ method }),
+    await writeAdminAuditLog(tx, {
+      actor,
+      action: 'verify-payout-account',
+      target: operatorId,
+      // method only — the account number is NEVER written to the audit args (PII).
+      argsRedacted: JSON.stringify({ method }),
+    });
   });
 }
 

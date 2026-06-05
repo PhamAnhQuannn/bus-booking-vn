@@ -69,14 +69,20 @@ describe('confirmPayoutAccountOwnership', () => {
     const findUnique = vi.fn().mockResolvedValue(account);
     const update = vi.fn().mockResolvedValue(undefined);
     const create = vi.fn().mockResolvedValue(undefined);
+    // $transaction runs the callback with a tx exposing the same update/create spies,
+    // so the update+audit writes happen inside the transaction (atomicity fix).
+    const tx = { payoutAccount: { update }, adminAuditLog: { create } };
+    const $transaction = vi.fn(async (fn: (t: typeof tx) => Promise<unknown>) => fn(tx));
     return {
       prisma: {
         payoutAccount: { findUnique, update },
         adminAuditLog: { create },
+        $transaction,
       } as never,
       findUnique,
       update,
       auditCreate: create,
+      $transaction,
     };
   }
 

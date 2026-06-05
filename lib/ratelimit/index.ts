@@ -3,6 +3,10 @@
  * and UpstashRatelimit (production, sliding window via @upstash/ratelimit).
  */
 
+// type-only import: erased at runtime, so the Upstash dep stays lazy-loaded inside
+// getClient() (never eagerly imported in CI/dev without the env vars).
+import type { Ratelimit as UpstashRatelimitClient } from '@upstash/ratelimit';
+
 export interface RatelimitResult {
   allowed: boolean;
   remaining: number;
@@ -71,8 +75,7 @@ export class InMemoryRatelimit implements Ratelimit {
 export class UpstashRatelimit implements Ratelimit {
   private readonly maxRequests: number;
   private readonly windowMs: number;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private rl: any = null;
+  private rl: UpstashRatelimitClient | null = null;
 
   constructor(options: InMemoryRatelimitOptions) {
     this.maxRequests = options.limit;
