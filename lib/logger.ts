@@ -93,6 +93,8 @@ export const loggerOptions: LoggerOptions = {
       'totpCode',                // Issue 055: top-level TOTP code (body.code covered by *.code)
       'accountNumber',           // Issue 078: payout-account bank number (sensitive PII)
       '*.accountNumber',         // Issue 078: nested payout-account number (real harm if leaked)
+      'ESMS_API_KEY',            // SMS-OTP: eSMS provider credential
+      'ESMS_SECRET_KEY',         // SMS-OTP: eSMS provider credential (never log)
     ],
     censor: '[REDACTED]',
   },

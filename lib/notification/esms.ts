@@ -10,6 +10,8 @@
  */
 
 import { logger } from '@/lib/logger';
+import { getEnv } from '@/lib/config';
+import { postEsms } from './esmsClient';
 
 export type SmsTemplate =
   | 'bookingPendingCash'
@@ -36,6 +38,16 @@ export interface SendSmsResult {
 }
 
 const STUB_PROVIDER_REF_PREFIX = 'stub_';
+
+/**
+ * Stub unless NOTIFY_STUB is explicitly "false". Read straight from process.env
+ * (not getEnv()) so the no-network stub path never triggers a full env-schema
+ * parse — unit tests run without HOLD_SECRET etc. The real branch calls getEnv()
+ * itself, where the superRefine validates the ESMS_* credentials.
+ */
+function notifyStubbed(): boolean {
+  return process.env.NOTIFY_STUB !== 'false';
+}
 
 // ---------------------------------------------------------------------------
 // Test-only OTP sink — in-memory map keyed by recipient phone (E.164).
@@ -125,6 +137,31 @@ export function renderTemplate(template: SmsTemplate, payload: Record<string, st
 }
 
 /**
+ * No-network stub dispatch (NOTIFY_STUB=true). Logs the dispatch and, for OTP
+ * codes in non-production, stashes the plain code in the test sink so e2e /
+ * dev can read it via /api/auth/otp/test-peek. The code itself is never logged.
+ */
+function stubDispatch(
+  to: string,
+  template: string,
+  body: string,
+  otpCode?: string
+): SendSmsResult {
+  const externalRef = `${STUB_PROVIDER_REF_PREFIX}${Date.now().toString(36)}`;
+
+  logger.info(
+    { template, externalRef, bodyLen: body.length, recipientLen: to.length },
+    'sms.stub.dispatch'
+  );
+
+  if (process.env.NODE_ENV !== 'production' && template === 'otpCode' && typeof otpCode === 'string') {
+    _testOtpSink.set(to, otpCode);
+  }
+
+  return { ok: true, externalRef };
+}
+
+/**
  * Issue 058: send an ALREADY-RENDERED SMS body (no template re-render).
  *
  * The notification dispatcher stores the rendered body string in
@@ -133,6 +170,9 @@ export function renderTemplate(template: SmsTemplate, payload: Record<string, st
  * dispatcher only has the stored string, and not every stored template (e.g.
  * 'payout_scheduled', 'trip_cancelled') is a member of the SmsTemplate union.
  *
+ * `requestId` (the NotificationLog row id) is forwarded to eSMS as the
+ * idempotency key so a cron re-run can't double-send the same row.
+ *
  * Like sendSms, never throws: a provider failure surfaces as ok:false so a
  * delivery failure only ever touches NotificationLog, never the booking (AC5).
  */
@@ -140,33 +180,38 @@ export async function sendSmsBody(input: {
   to: string;
   template: string;
   body: string;
+  requestId?: string;
 }): Promise<SendSmsResult> {
-  const { to, template, body } = input;
-  const externalRef = `${STUB_PROVIDER_REF_PREFIX}${Date.now().toString(36)}`;
+  const { to, template, body, requestId } = input;
 
-  logger.info(
-    { template, externalRef, bodyLen: body.length, recipientLen: to.length },
-    'sms.stub.dispatch'
-  );
+  if (notifyStubbed()) {
+    return stubDispatch(to, template, body);
+  }
 
-  return { ok: true, externalRef };
+  // Real eSMS: booking/operator templates use the CSKH brandname type "2".
+  return postEsms({
+    phone: to,
+    content: body,
+    smsType: '2',
+    requestId: requestId ?? crypto.randomUUID(),
+  });
 }
 
 export async function sendSms(input: SendSmsInput): Promise<SendSmsResult> {
   const { to, template, payload } = input;
   const body = renderTemplate(template, payload);
-  const externalRef = `${STUB_PROVIDER_REF_PREFIX}${Date.now().toString(36)}`;
 
-  logger.info(
-    { template, externalRef, bodyLen: body.length, recipientLen: to.length },
-    'sms.stub.dispatch'
-  );
-
-  // Populate test sink for OTP codes in non-production environments only.
-  // The plain code is stored in `payload.code`; never log it.
-  if (process.env.NODE_ENV !== 'production' && template === 'otpCode' && typeof payload.code === 'string') {
-    _testOtpSink.set(to, payload.code);
+  if (notifyStubbed()) {
+    const otpCode = template === 'otpCode' && typeof payload.code === 'string' ? payload.code : undefined;
+    return stubDispatch(to, template, body, otpCode);
   }
 
-  return { ok: true, externalRef };
+  // Real eSMS. OTP uses the configured OTP SmsType; everything else CSKH "2".
+  // No booking row here (synchronous send), so a fresh UUID is the idempotency key.
+  return postEsms({
+    phone: to,
+    content: body,
+    smsType: template === 'otpCode' ? getEnv().ESMS_OTP_SMSTYPE : '2',
+    requestId: crypto.randomUUID(),
+  });
 }
