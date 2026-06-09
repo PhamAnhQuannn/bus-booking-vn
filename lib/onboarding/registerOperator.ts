@@ -40,6 +40,9 @@ export interface RegisterOperatorInput {
   contactEmail: string;
   address: string;
   routesSummary: string;
+  /** Issue 105: operator base province (GSO code + name from lib/geo). Optional. */
+  provinceCode?: string;
+  provinceName?: string;
   /** Origin for any links in the pending email (derived from request headers). */
   baseUrl: string;
 }
@@ -68,6 +71,8 @@ export async function registerOperator(
           contactName: input.contactName,
           address: input.address,
           routesSummary: input.routesSummary,
+          provinceCode: input.provinceCode ?? null,
+          provinceName: input.provinceName ?? null,
           contactEmail: input.contactEmail,
           contactPhone,
           notificationPhone: contactPhone,

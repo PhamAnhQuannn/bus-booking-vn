@@ -3,6 +3,13 @@
 export { canReduceCapacity } from './capacityGuard';
 export { createBus, BusServiceError } from './createBus';
 export { createRoute } from './createRoute';
+export {
+  createOperatorPickupArea,
+  PickupAreaServiceError,
+  type OperatorPickupAreaDto,
+} from './createOperatorPickupArea';
+export { listOperatorPickupAreas } from './listOperatorPickupAreas';
+export { deactivateOperatorPickupArea } from './deactivateOperatorPickupArea';
 export { deactivateBus } from './deactivateBus';
 export { deactivateRoute } from './deactivateRoute';
 export { findMaintenanceOverlaps, findTripOverlaps } from './getMaintenanceConflicts';

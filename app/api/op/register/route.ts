@@ -36,6 +36,9 @@ const registerSchema = z.object({
   contactEmail: z.string().email(),
   address: z.string().trim().min(1).max(300),
   routesSummary: z.string().trim().min(1).max(500),
+  // Issue 105: operator base province (GSO code + name from lib/geo). Optional.
+  provinceCode: z.string().trim().min(1).max(10).optional(),
+  provinceName: z.string().trim().min(1).max(120).optional(),
 });
 
 async function handler(req: NextRequest): Promise<Response> {
@@ -83,6 +86,8 @@ async function handler(req: NextRequest): Promise<Response> {
       contactEmail: parsed.data.contactEmail,
       address: parsed.data.address,
       routesSummary: parsed.data.routesSummary,
+      provinceCode: parsed.data.provinceCode,
+      provinceName: parsed.data.provinceName,
       baseUrl,
     });
     return NextResponse.json({ applicationRef }, { status: 201 });
