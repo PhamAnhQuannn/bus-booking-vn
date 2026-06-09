@@ -124,6 +124,14 @@ export async function searchTrips(input: TripSearchInput): Promise<TripSearchPag
   const startUtc = fromZonedTime(startOfDay(vnDate), TZ);
   const endUtc = fromZonedTime(endOfDay(vnDate), TZ);
 
+  // Floor the lower bound at "now" so an already-departed same-day trip is never
+  // returned. Without this, searching today surfaced trips earlier today that had
+  // already left — they were unbookable AND getTripDetails (departureAt <= now →
+  // null) 404'd them on click (frontend-problems-2026-06-07 #6). For any future
+  // date startUtc > now, so this is a no-op there.
+  const nowUtc = new Date();
+  const effectiveStartUtc = startUtc > nowUtc ? startUtc : nowUtc;
+
   // Parameterized unaccent ILIKE fragments (AC-2, never string concat — AC-13)
   const normalizedOrigin = Prisma.sql`unaccent_immutable(lower(${origin}))`;
   const normalizedDest = Prisma.sql`unaccent_immutable(lower(${destination}))`;
@@ -146,7 +154,7 @@ export async function searchTrips(input: TripSearchInput): Promise<TripSearchPag
   const trips = await prisma.trip.findMany({
     where: {
       routeId: { in: routeIds },
-      departureAt: { gte: startUtc, lte: endUtc },
+      departureAt: { gte: effectiveStartUtc, lte: endUtc },
       status: 'scheduled',
       salesClosed: false,
       // Issue 069: admin-disabled trips are hidden from search (moderate = disable).

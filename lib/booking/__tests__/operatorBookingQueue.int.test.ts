@@ -98,6 +98,7 @@ beforeAll(async () => {
   const opUser = await prisma.operatorUser.create({
     data: {
       operatorId,
+      username: `QT-${phoneTag}`,
       phone: `+8490xxxxxx5${phoneTag}`,
       contactPhone: `+8490xxxxxx6${phoneTag}`,
       notificationPhone: `+8490xxxxxx7${phoneTag}`,
