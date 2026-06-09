@@ -52,9 +52,9 @@ async function main() {
   await prisma.operatorUser.updateMany({ data: { assignedTripId: null } });
   await prisma.trip.deleteMany();
 
-  // Route children (PickupPoint Cascade, RecurringTripTemplate no cascade) and
-  // Bus children (BusMaintenance Cascade) precede their parents.
-  await prisma.pickupPoint.deleteMany();
+  // Route children (RecurringTripTemplate no cascade) and Bus children
+  // (BusMaintenance Cascade) precede their parents. (TripPickupArea cascades from
+  // Trip; OperatorPickupArea cascades from Operator — handled below.)
   await prisma.recurringTripTemplate.deleteMany();
   await prisma.route.deleteMany();
   await prisma.busMaintenance.deleteMany();
@@ -219,18 +219,9 @@ async function main() {
     `UPDATE "Route" r SET "destPlaceId" = p."id" FROM "Place" p WHERE p."canonicalName" = btrim(r.destination);`
   );
 
-  // ---- Pickup points (light) so /trips/[id] detail shows a pickup section ----
-  const pickupRoutes = [r1, r2, r3, r4, r5, r6, r7, r8, r9, ...extraRoutes, ...reverseRoutes];
-  await Promise.all(
-    pickupRoutes.flatMap((r) => [
-      prisma.pickupPoint.create({
-        data: { routeId: r.id, name: `Bến xe ${r.origin}`, address: `Quầy vé, Bến xe ${r.origin}`, displayOrder: 0 },
-      }),
-      prisma.pickupPoint.create({
-        data: { routeId: r.id, name: `Văn phòng ${r.origin}`, address: `VP trung tâm, ${r.origin}`, displayOrder: 1 },
-      }),
-    ])
-  );
+  // Pickup areas (OperatorPickupArea + per-trip TripPickupArea) are seeded by the
+  // pickup-feature slices (issues 105/106); the legacy route-scoped PickupPoint seed
+  // was removed in issue 104.
 
   // ---- Trips ----
   // today in VN time

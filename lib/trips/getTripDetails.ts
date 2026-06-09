@@ -22,7 +22,8 @@ export interface TripDetails {
   routeDestination: string;
   operatorLegalName: string;
   operatorContactPhone: string;
-  pickupPoints: { name: string; address: string }[];
+  /// Issue 104/106: this trip's enabled pickup areas (huyện/xã labels). Empty = station-only.
+  pickupAreas: { label: string }[];
 }
 
 export async function getTripDetails(id: string): Promise<TripDetails | null> {
@@ -36,6 +37,11 @@ export async function getTripDetails(id: string): Promise<TripDetails | null> {
       salesClosed: true,
       // Issue 069: admin moderation flag — a disabled trip resolves to not-found.
       moderatedAt: true,
+      // Issue 104/106: per-trip pickup areas the traveler can choose.
+      pickupAreas: {
+        orderBy: { displayOrder: 'asc' },
+        select: { label: true },
+      },
       bus: {
         select: {
           capacity: true,
@@ -52,11 +58,6 @@ export async function getTripDetails(id: string): Promise<TripDetails | null> {
           durationMinutes: true,
           // Issue 069: admin moderation flag on the parent route.
           moderatedAt: true,
-          pickupPoints: {
-            where: { deactivatedAt: null },
-            orderBy: { displayOrder: 'asc' },
-            select: { name: true, address: true },
-          },
         },
       },
     },
@@ -105,6 +106,6 @@ export async function getTripDetails(id: string): Promise<TripDetails | null> {
     routeDestination: trip.route.destination,
     operatorLegalName: trip.bus.operator.legalName,
     operatorContactPhone: trip.bus.operator.contactPhone,
-    pickupPoints: trip.route.pickupPoints,
+    pickupAreas: trip.pickupAreas,
   };
 }

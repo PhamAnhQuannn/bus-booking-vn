@@ -25,8 +25,9 @@ const bookingFullSelect = {
   isManual: true,
   createdAt: true,
   contactStatus: true,
-  pickupPointId: true,
-  pickupNote: true,
+  pickupKind: true,
+  pickupAreaLabel: true,
+  pickupDetail: true,
   pickedUpAt: true,
   escalationNote: true,
   escalatedAt: true,
@@ -40,9 +41,6 @@ const bookingFullSelect = {
       route: { select: { origin: true, destination: true } },
       bus: { select: { licensePlate: true } },
     },
-  },
-  pickupPoint: {
-    select: { name: true },
   },
 } as const;
 

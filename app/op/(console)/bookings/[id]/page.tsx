@@ -44,7 +44,7 @@ export default async function OpBookingDetailPage({ params }: PageProps) {
         title="Chi tiết đặt vé"
         backHref="/op/bookings"
       />
-      <BookingDetailClient booking={data.booking} pickupPoints={data.pickupPoints} />
+      <BookingDetailClient booking={data.booking} />
     </div>
   );
 }

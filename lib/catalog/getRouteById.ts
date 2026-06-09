@@ -1,5 +1,6 @@
 /**
- * getRouteById — fetch a single route with its active pickup points (Issue 012).
+ * getRouteById — fetch a single route (Issue 012). Pickup points removed in
+ * issue 104 (route-scoped PickupPoint replaced by per-trip OperatorPickupArea).
  *
  * Returns null if route doesn't exist or belongs to another operator.
  */
@@ -15,11 +16,6 @@ export async function getRouteById({
   routeId: string;
 }) {
   return prisma.route.findFirst({
-    ...withOperatorScope(operatorId, { where: { id: routeId } }),
-    include: {
-      pickupPoints: {
-        orderBy: { displayOrder: 'asc' },
-      },
-    },
+    where: withOperatorScope(operatorId, { where: { id: routeId } }).where,
   });
 }

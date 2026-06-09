@@ -14,7 +14,7 @@ export interface BookingQueueRow {
   buyerPhone: string;
   ticketCount: number;
   contactStatus: BookingContactStatus;
-  pickupPointName: string | null;
+  pickupAreaLabel: string | null;
   paymentStatus: BookingPaymentStatus;
   departureAt: string; // ISO 8601
   escalatedAt: string | null; // ISO 8601
@@ -34,7 +34,7 @@ export interface BookingQueueRawRow {
   isManual: boolean;
   escalatedAt: Date | null;
   trip: { departureAt: Date };
-  pickupPoint: { name: string } | null;
+  pickupAreaLabel: string | null;
 }
 
 export function toBookingQueueRow(row: BookingQueueRawRow): BookingQueueRow {
@@ -45,7 +45,7 @@ export function toBookingQueueRow(row: BookingQueueRawRow): BookingQueueRow {
     buyerPhone: row.buyerPhone,
     ticketCount: row.ticketCount,
     contactStatus: row.contactStatus as BookingContactStatus,
-    pickupPointName: row.pickupPoint?.name ?? null,
+    pickupAreaLabel: row.pickupAreaLabel,
     paymentStatus: row.status as BookingPaymentStatus,
     departureAt: row.trip.departureAt.toISOString(),
     escalatedAt: row.escalatedAt ? row.escalatedAt.toISOString() : null,

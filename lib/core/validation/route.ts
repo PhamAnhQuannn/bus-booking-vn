@@ -1,5 +1,6 @@
 /**
- * Zod schemas for operator route + pickup point management (Issue 012).
+ * Zod schemas for operator route management (Issue 012). Pickup-point schemas
+ * removed in issue 104 (legacy route-scoped PickupPoint replaced by OperatorPickupArea).
  */
 
 import { z } from 'zod';
@@ -23,33 +24,3 @@ export const routePatchSchema = z.object({
 });
 
 export type RoutePatchInput = z.infer<typeof routePatchSchema>;
-
-// ---------------------------------------------------------------------------
-// PickupPoint schemas
-// ---------------------------------------------------------------------------
-
-export const pickupPointCreateSchema = z.object({
-  name: z.string().trim().min(1).max(120),
-  address: z.string().trim().min(1).max(500),
-  displayOrder: z.number().int().min(1).optional(),
-});
-
-export type PickupPointCreateInput = z.infer<typeof pickupPointCreateSchema>;
-
-export const pickupPointPatchSchema = z.object({
-  name: z.string().trim().min(1).max(120).optional(),
-  address: z.string().trim().min(1).max(500).optional(),
-  displayOrder: z.number().int().min(1).optional(),
-});
-
-export type PickupPointPatchInput = z.infer<typeof pickupPointPatchSchema>;
-
-// ---------------------------------------------------------------------------
-// Bulk reorder schema
-// ---------------------------------------------------------------------------
-
-export const bulkReorderSchema = z.object({
-  orderedIds: z.array(z.string().cuid()).min(1).max(50),
-});
-
-export type BulkReorderInput = z.infer<typeof bulkReorderSchema>;

@@ -43,9 +43,6 @@ const CASES: Case[] = [
   { name: 'createRouteApi', invoke: () => routes.createRouteApi({ origin: 'Hà Nội', destination: 'Sa Pa', durationMinutes: 300 }) },
   { name: 'patchRouteApi', invoke: () => routes.patchRouteApi('route-1', { durationMinutes: 320 }) },
   { name: 'deactivateRouteApi', invoke: () => routes.deactivateRouteApi('route-1') },
-  { name: 'createPickupPointApi', invoke: () => routes.createPickupPointApi('route-1', { name: 'Bến xe Mỹ Đình', address: '20 Phạm Hùng' }) },
-  { name: 'reorderPickupPointsApi', invoke: () => routes.reorderPickupPointsApi('route-1', ['pp-2', 'pp-1']) },
-  { name: 'deactivatePickupPointApi', invoke: () => routes.deactivatePickupPointApi('route-1', 'pp-1') },
 
   // staffClient
   { name: 'createStaffApi', invoke: () => staff.createStaffApi({ name: 'Nguyễn Văn A', phone: '0912000111' }) },

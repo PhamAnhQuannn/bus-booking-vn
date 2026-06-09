@@ -148,23 +148,20 @@ export default async function TripDetailPage({
         </CardContent>
       </Card>
 
-      {/* Pickup points */}
-      {trip.pickupPoints.length > 0 && (
+      {/* Pickup areas (Issue 106): huyện/xã this trip serves for personal pickup */}
+      {trip.pickupAreas.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle as="h2" className="text-base">
-              Điểm đón
+              Khu vực đón
             </CardTitle>
           </CardHeader>
           <CardContent>
             <ul className="flex flex-col gap-3">
-              {trip.pickupPoints.map((p) => (
-                <li key={`${p.name}-${p.address}`} className="flex items-start gap-2 text-sm">
+              {trip.pickupAreas.map((a) => (
+                <li key={a.label} className="flex items-start gap-2 text-sm">
                   <MapPin className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-                  <div>
-                    <div className="font-medium">{p.name}</div>
-                    <div className="text-muted-foreground">{p.address}</div>
-                  </div>
+                  <div className="font-medium">{a.label}</div>
                 </li>
               ))}
             </ul>
