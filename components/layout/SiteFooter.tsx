@@ -9,11 +9,14 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Logo } from '@/components/brand/Logo';
 
+// 2026-06-06: customer accounts paused (guest-only). "Tài khoản" removed; "Đăng nhập"
+// now points at the operator login (/op/login) — only operators log in. "Trở thành
+// đối tác" routes operators to the application form.
 const FOOTER_LINKS = {
   main: [
     { href: '/lien-he-dat-xe', label: 'Liên hệ đặt xe' },
-    { href: '/auth/login', label: 'Đăng nhập' },
-    { href: '/account/bookings', label: 'Tài khoản' },
+    { href: '/op/register', label: 'Trở thành đối tác' },
+    { href: '/op/login', label: 'Đăng nhập' },
   ],
   legal: [
     { href: '/terms', label: 'Điều khoản dịch vụ' },
@@ -37,6 +40,10 @@ export function SiteFooter() {
         <div className="flex max-w-xs flex-col gap-2">
           <Logo variant="combo" />
           <p>Đặt vé xe khách liên tỉnh trên toàn quốc.</p>
+          {/* Global support entry point (no public hotline yet → contact page). */}
+          <Link href="/lien-he-dat-xe" className={linkClass + ' font-medium text-foreground'}>
+            Hỗ trợ 24/7
+          </Link>
         </div>
         <div className="flex flex-wrap gap-x-12 gap-y-6">
           <nav className="flex flex-col gap-2" aria-label="Liên kết">

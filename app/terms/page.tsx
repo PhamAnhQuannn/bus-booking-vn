@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Điều khoản dịch vụ | BBVN',
+  description: 'Điều khoản sử dụng dịch vụ đặt vé xe khách BBVN.',
 };
 
 export default function TermsPage() {

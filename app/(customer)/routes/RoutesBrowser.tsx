@@ -11,10 +11,7 @@ import { ArrowRight, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { ActiveRoute } from '@/lib/core/db/getActiveRoutes';
-
-function formatPrice(v: number): string {
-  return v.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
-}
+import { formatVnd } from '@/lib/format';
 
 function formatDuration(mins: number): string {
   const h = Math.floor(mins / 60);
@@ -96,7 +93,7 @@ export function RoutesBrowser({ routes, today }: { routes: ActiveRoute[]; today:
                 </div>
                 <div className="mt-auto flex items-baseline gap-1 border-t border-border/60 pt-2 text-sm">
                   <span className="text-muted-foreground">Từ</span>
-                  <span className="font-mono font-bold text-primary">{formatPrice(r.minPrice)}</span>
+                  <span className="font-mono font-bold text-primary">{formatVnd(r.minPrice)}</span>
                 </div>
               </Link>
             </li>

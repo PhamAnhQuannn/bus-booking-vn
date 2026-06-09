@@ -3,6 +3,7 @@ import { Be_Vietnam_Pro, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
+import { SITE_URL } from "@/lib/seo";
 
 const beVietnam = Be_Vietnam_Pro({
   variable: "--font-be-vietnam",
@@ -16,9 +17,29 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const SITE_TITLE = "Đặt vé xe khách | BBVN";
+const SITE_DESC = "Tìm và đặt vé xe khách liên tỉnh trên toàn quốc.";
+
 export const metadata: Metadata = {
-  title: "Đặt vé xe khách | BBVN",
-  description: "Tìm và đặt vé xe khách liên tỉnh trên toàn quốc.",
+  // Absolute base for canonical + OG/Twitter image resolution (app/opengraph-image).
+  metadataBase: new URL(SITE_URL),
+  // Per-page titles already carry the "| BBVN" suffix, so no title.template here
+  // (a template would double the suffix). Pages set their own full title string.
+  title: SITE_TITLE,
+  description: SITE_DESC,
+  openGraph: {
+    type: "website",
+    locale: "vi_VN",
+    siteName: "BBVN",
+    url: "/",
+    title: SITE_TITLE,
+    description: SITE_DESC,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE,
+    description: SITE_DESC,
+  },
 };
 
 export default function RootLayout({
