@@ -21,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { OperatorActions } from './OperatorActions';
+import { CreateAccountAction } from './CreateAccountAction';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -110,12 +111,28 @@ export default async function AdminOperatorDetailPage({ params }: PageProps) {
         <CardContent>
           <dl className="grid gap-2 text-sm sm:grid-cols-2">
             <div>
+              <dt className="font-medium text-muted-foreground">Brand name</dt>
+              <dd>{detail.brandName ?? '—'}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-muted-foreground">Contact person</dt>
+              <dd>{detail.contactName ?? '—'}</dd>
+            </div>
+            <div>
               <dt className="font-medium text-muted-foreground">Contact email</dt>
               <dd>{detail.contactEmail}</dd>
             </div>
             <div>
               <dt className="font-medium text-muted-foreground">Contact phone</dt>
               <dd className="font-mono">{detail.contactPhoneMasked}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-muted-foreground">Address</dt>
+              <dd>{detail.address ?? '—'}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-muted-foreground">Routes</dt>
+              <dd>{detail.routesSummary ?? '—'}</dd>
             </div>
             <div>
               <dt className="font-medium text-muted-foreground">Joined</dt>
@@ -178,6 +195,29 @@ export default async function AdminOperatorDetailPage({ params }: PageProps) {
               <dd data-testid="balance-paidout">{formatVnd(detail.balance.paidOut)}</dd>
             </div>
           </dl>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle as="h2" className="text-lg">
+            Operator account
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {detail.hasLoginAccount ? (
+            <p className="text-sm text-muted-foreground" data-testid="account-provisioned">
+              A login account has been provisioned for this operator.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                No login account yet. Creating one generates a username + temporary password and
+                emails the credentials to the operator (approves the operator).
+              </p>
+              <CreateAccountAction operatorId={detail.id} />
+            </div>
+          )}
         </CardContent>
       </Card>
 

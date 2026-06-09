@@ -38,12 +38,19 @@ export interface OperatorPayoutHistoryItem {
 export interface OperatorDetail {
   id: string;
   legalName: string;
+  /** 2026-06-06 application fields (null on pre-rework rows). */
+  brandName: string | null;
+  contactName: string | null;
+  address: string | null;
+  routesSummary: string | null;
   contactEmail: string;
   /** Masked contact phone (redactPhone). */
   contactPhoneMasked: string;
   status: OperatorStatus;
   createdAt: Date;
   rejectionReason: string | null;
+  /** True once a login account (OperatorUser) has been provisioned for this operator. */
+  hasLoginAccount: boolean;
   fleetCount: number;
   tripCount: number;
   upcomingTripCount: number;
@@ -59,7 +66,10 @@ export interface OperatorDetail {
 const PAYOUT_HISTORY_LIMIT = 10;
 
 /** Minimal prisma surface — lets unit tests inject stubs. */
-type PrismaLike = Pick<typeof defaultPrisma, 'operator' | 'bus' | 'trip' | 'payout'> & {
+type PrismaLike = Pick<
+  typeof defaultPrisma,
+  'operator' | 'operatorUser' | 'bus' | 'trip' | 'payout'
+> & {
   $queryRaw: typeof defaultPrisma.$queryRaw;
 };
 
@@ -77,6 +87,10 @@ export async function getOperatorDetail(
     select: {
       id: true,
       legalName: true,
+      brandName: true,
+      contactName: true,
+      address: true,
+      routesSummary: true,
       contactEmail: true,
       contactPhone: true,
       status: true,
@@ -86,7 +100,7 @@ export async function getOperatorDetail(
   });
   if (!operator) return null;
 
-  const [fleetCount, tripCount, upcomingTripCount, gmvRows, balance, currentFeePpm, payouts] =
+  const [fleetCount, tripCount, upcomingTripCount, gmvRows, balance, currentFeePpm, payouts, accountCount] =
     await Promise.all([
       prisma.bus.count({ where: withOperatorScope(operatorId).where }),
       prisma.trip.count({ where: withOperatorScope(operatorId).where }),
@@ -111,6 +125,7 @@ export async function getOperatorDetail(
         orderBy: [{ scheduledAt: 'desc' }, { id: 'desc' }],
         take: PAYOUT_HISTORY_LIMIT,
       }),
+      prisma.operatorUser.count({ where: { operatorId } }),
     ]);
 
   const gmvVnd = BigInt(gmvRows[0]?.gmv ?? '0');
@@ -118,11 +133,16 @@ export async function getOperatorDetail(
   return {
     id: operator.id,
     legalName: operator.legalName,
+    brandName: operator.brandName,
+    contactName: operator.contactName,
+    address: operator.address,
+    routesSummary: operator.routesSummary,
     contactEmail: operator.contactEmail,
     contactPhoneMasked: redactPhone(operator.contactPhone),
     status: operator.status,
     createdAt: operator.createdAt,
     rejectionReason: operator.rejectionReason,
+    hasLoginAccount: accountCount > 0,
     fleetCount,
     tripCount,
     upcomingTripCount,

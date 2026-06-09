@@ -1,42 +1,41 @@
 /**
- * Issue 076: unit tests for the self-serve operator registration service.
- * prisma client, password hash, and the notificationLog repo are mocked.
+ * Unit tests for the operator APPLICATION service (Issue 076; reworked 2026-06-06).
+ * Application-only: creates the Operator row + enqueues the pending email. It does
+ * NOT create an OperatorUser and accepts NO password — the admin provisions the
+ * login account later (see lib/admin/createOperatorAccount). prisma + the
+ * notificationLog repo are mocked.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Prisma } from '@prisma/client';
 
 // ---- hoisted mocks ----
-const { mockTx, mockPrisma, mockHash, mockCreateNotificationLog } = vi.hoisted(() => {
-  const mockTx = {
-    operator: { create: vi.fn() },
-    operatorUser: { create: vi.fn() },
-  };
+const { mockPrisma, mockCreateNotificationLog } = vi.hoisted(() => {
   const mockPrisma = {
-    $transaction: vi.fn(async (cb: (tx: typeof mockTx) => unknown) => cb(mockTx)),
+    operator: { create: vi.fn() },
   };
-  const mockHash = vi.fn();
   const mockCreateNotificationLog = vi.fn();
-  return { mockTx, mockPrisma, mockHash, mockCreateNotificationLog };
+  return { mockPrisma, mockCreateNotificationLog };
 });
 
-vi.mock('@/lib/auth/password', () => ({ hash: mockHash }));
 vi.mock('@/lib/core/db/notificationLogRepo', () => ({
   createNotificationLog: mockCreateNotificationLog,
 }));
 
 import { registerOperator, REGISTER_SLA_RANGE } from '../registerOperator';
-import { RegisterError } from '../errors';
 import { APPLICATION_REF_REGEX } from '../applicationRef';
 import type { PrismaClient } from '@prisma/client';
 
 const prisma = mockPrisma as unknown as PrismaClient;
 
 const INPUT = {
+  brandName: 'Nha Xe ABC',
   legalName: 'Cong ty Van tai ABC',
-  contactEmail: 'lienhe@abc.vn',
+  contactName: 'Nguyen Van A',
   contactPhone: '0901234567',
-  password: 'super-secret-pw',
+  contactEmail: 'lienhe@abc.vn',
+  address: 'Ha Noi',
+  routesSummary: 'Ha Noi - Sai Gon',
   baseUrl: 'http://localhost:3001',
 };
 
@@ -50,39 +49,32 @@ function p2002(target?: string | string[]): Prisma.PrismaClientKnownRequestError
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockHash.mockResolvedValue('hashed-pw');
-  mockTx.operator.create.mockResolvedValue({ id: 'op_1' });
-  mockTx.operatorUser.create.mockResolvedValue({ id: 'opu_1' });
+  mockPrisma.operator.create.mockResolvedValue({ id: 'op_1' });
   mockCreateNotificationLog.mockResolvedValue({ id: 'notif_1' });
 });
 
-describe('registerOperator', () => {
-  it('creates a PENDING_REVIEW operator + bootstrap OperatorUser with both phones + applicationRef', async () => {
+describe('registerOperator (application-only)', () => {
+  it('creates a PENDING_REVIEW operator with the application fields + applicationRef, NO OperatorUser', async () => {
     const result = await registerOperator(prisma, INPUT);
 
     expect(result.operatorId).toBe('op_1');
-    expect(result.operatorUserId).toBe('opu_1');
     expect(result.applicationRef).toMatch(APPLICATION_REF_REGEX);
+    // No password account is created by the application path.
+    expect(result).not.toHaveProperty('operatorUserId');
 
-    // Operator: PENDING_REVIEW, normalized phone in BOTH contact + notification.
-    const opData = mockTx.operator.create.mock.calls[0][0].data;
+    const opData = mockPrisma.operator.create.mock.calls[0][0].data;
     expect(opData.status).toBe('PENDING_REVIEW');
+    expect(opData.brandName).toBe(INPUT.brandName);
     expect(opData.legalName).toBe(INPUT.legalName);
+    expect(opData.contactName).toBe(INPUT.contactName);
+    expect(opData.address).toBe(INPUT.address);
+    expect(opData.routesSummary).toBe(INPUT.routesSummary);
     expect(opData.contactEmail).toBe(INPUT.contactEmail);
     expect(opData.contactPhone).toBe('+84901234567');
     expect(opData.notificationPhone).toBe('+84901234567');
     expect(opData.applicationRef).toMatch(APPLICATION_REF_REGEX);
-
-    // OperatorUser: Issue 012 NOT-NULL columns all set, role admin, no forced change.
-    const opuData = mockTx.operatorUser.create.mock.calls[0][0].data;
-    expect(opuData.operatorId).toBe('op_1');
-    expect(opuData.phone).toBe('+84901234567');
-    expect(opuData.contactPhone).toBe('+84901234567');
-    expect(opuData.notificationPhone).toBe('+84901234567');
-    expect(opuData.passwordHash).toBe('hashed-pw');
-    expect(opuData.displayName).toBe(INPUT.legalName);
-    expect(opuData.role).toBe('admin');
-    expect(opuData.requiresPasswordChange).toBe(false);
+    // No password field is ever set on the operator.
+    expect(opData).not.toHaveProperty('passwordHash');
   });
 
   it('enqueues a pending operatorPending email with the SLA range + applicationRef', async () => {
@@ -98,44 +90,31 @@ describe('registerOperator', () => {
     const payload = JSON.parse(log.payload);
     expect(payload.applicationRef).toBe(result.applicationRef);
     expect(payload.legalName).toBe(INPUT.legalName);
-    // AC3: a RANGE string ("within 2 business days"), not an exact second/minute
-    // countdown — no time-unit countdown tokens (e.g. "in 47 seconds").
+    // AC3: a RANGE string ("within 2 business days"), not an exact countdown.
     expect(payload.slaRange).toBe(REGISTER_SLA_RANGE);
     expect(REGISTER_SLA_RANGE).toBe('within 2 business days');
     expect(payload.slaRange).not.toMatch(/\b\d+\s*(second|minute|hour)/i);
   });
 
-  it('throws RegisterError(phone_in_use) on a non-applicationRef unique collision', async () => {
-    mockTx.operator.create.mockRejectedValueOnce(p2002(['contactPhone']));
-
-    await expect(registerOperator(prisma, INPUT)).rejects.toMatchObject({
-      name: 'RegisterError',
-      code: 'phone_in_use',
-    });
-    expect(mockCreateNotificationLog).not.toHaveBeenCalled();
-  });
-
   it('retries with a fresh applicationRef on an applicationRef collision then succeeds', async () => {
-    // First attempt collides on applicationRef; second succeeds.
-    mockTx.operator.create
+    mockPrisma.operator.create
       .mockRejectedValueOnce(p2002(['applicationRef']))
       .mockResolvedValueOnce({ id: 'op_2' });
 
     const result = await registerOperator(prisma, INPUT);
 
     expect(result.operatorId).toBe('op_2');
-    expect(mockTx.operator.create).toHaveBeenCalledTimes(2);
-    // The two attempts used different refs.
-    const ref1 = mockTx.operator.create.mock.calls[0][0].data.applicationRef;
-    const ref2 = mockTx.operator.create.mock.calls[1][0].data.applicationRef;
+    expect(mockPrisma.operator.create).toHaveBeenCalledTimes(2);
+    const ref1 = mockPrisma.operator.create.mock.calls[0][0].data.applicationRef;
+    const ref2 = mockPrisma.operator.create.mock.calls[1][0].data.applicationRef;
     expect(ref1).not.toBe(ref2);
     expect(result.applicationRef).toBe(ref2);
     expect(mockCreateNotificationLog).toHaveBeenCalledTimes(1);
   });
-});
 
-it('throws RegisterError(phone_in_use) raised from the OperatorUser insert', async () => {
-  mockTx.operatorUser.create.mockRejectedValueOnce(p2002('OperatorUser_phone_key'));
-
-  await expect(registerOperator(prisma, INPUT)).rejects.toBeInstanceOf(RegisterError);
+  it('rethrows a non-applicationRef error (no phone uniqueness on the application path)', async () => {
+    mockPrisma.operator.create.mockRejectedValueOnce(new Error('db down'));
+    await expect(registerOperator(prisma, INPUT)).rejects.toThrow('db down');
+    expect(mockCreateNotificationLog).not.toHaveBeenCalled();
+  });
 });

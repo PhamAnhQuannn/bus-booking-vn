@@ -1,12 +1,16 @@
 'use client';
 
 /**
- * /op/register — Self-serve operator registration (Issue 076).
+ * /op/register — public operator APPLICATION form (Issue 076; reworked 2026-06-06).
  *
- * Public, pre-account page. POSTs { legalName, contactEmail, contactPhone,
- * password } to /api/op/register with the X-CSRF-Token header (the bb_csrf
- * cookie is issued by proxy.ts on this GET; readCsrfToken reads it). On success
- * → redirect to /op/register/confirmation?ref=<applicationRef>.
+ * Public, pre-account page. POSTs the application profile (brandName, legalName,
+ * contactName, contactPhone, contactEmail, address, routesSummary) to
+ * /api/op/register with the X-CSRF-Token header (the bb_csrf cookie is issued by
+ * proxy.ts on this GET; readCsrfToken reads it). On success → redirect to
+ * /op/register/confirmation?ref=<applicationRef>.
+ *
+ * 2026-06-06: NO password field. This only files an application — a platform admin
+ * reviews it and provisions the login account (username + temp password, emailed).
  *
  * Shell-exempt: lives directly under app/op/ (NOT the (console) route group), so
  * it renders WITHOUT the operator sidebar — mirrors /op/login. It is also listed
@@ -33,10 +37,15 @@ export default function OpRegisterPage() {
     setError('');
     setLoading(true);
     const fd = new FormData(e.currentTarget);
-    const legalName = fd.get('legalName') as string;
-    const contactEmail = fd.get('contactEmail') as string;
-    const contactPhone = fd.get('contactPhone') as string;
-    const password = fd.get('password') as string;
+    const payload = {
+      brandName: fd.get('brandName') as string,
+      legalName: fd.get('legalName') as string,
+      contactName: fd.get('contactName') as string,
+      contactPhone: fd.get('contactPhone') as string,
+      contactEmail: fd.get('contactEmail') as string,
+      address: fd.get('address') as string,
+      routesSummary: fd.get('routesSummary') as string,
+    };
 
     try {
       const res = await fetch('/api/op/register', {
@@ -45,7 +54,7 @@ export default function OpRegisterPage() {
           'Content-Type': 'application/json',
           'X-CSRF-Token': readCsrfToken(),
         },
-        body: JSON.stringify({ legalName, contactEmail, contactPhone, password }),
+        body: JSON.stringify(payload),
       });
 
       if (res.status === 201) {
@@ -54,12 +63,10 @@ export default function OpRegisterPage() {
         return;
       }
 
-      if (res.status === 409) {
-        setError('Số điện thoại này đã được đăng ký. Vui lòng đăng nhập hoặc dùng số khác.');
-      } else if (res.status === 429) {
+      if (res.status === 429) {
         setError('Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau.');
       } else if (res.status === 400) {
-        setError('Thông tin chưa hợp lệ. Kiểm tra email, số điện thoại và mật khẩu (tối thiểu 8 ký tự).');
+        setError('Thông tin chưa hợp lệ. Vui lòng kiểm tra lại các trường, đặc biệt là email và số điện thoại.');
       } else {
         setError('Đã xảy ra lỗi. Vui lòng thử lại.');
       }
@@ -73,12 +80,22 @@ export default function OpRegisterPage() {
   return (
     <AuthSplitLayout
       audience="operator"
-      title="Đăng ký nhà xe"
-      subtitle="Tạo tài khoản nhà xe đối tác. Hồ sơ của bạn sẽ được xem xét trước khi vận hành."
+      title="Trở thành đối tác"
+      subtitle="Gửi hồ sơ đăng ký nhà xe. Sau khi xét duyệt, chúng tôi sẽ tạo tài khoản và gửi thông tin đăng nhập qua email của bạn."
     >
       <Card className="shadow-e3">
         <CardContent>
           <form onSubmit={handleSubmit} className="grid gap-4">
+            <div className="grid gap-1.5">
+              <Label htmlFor="op-reg-brand">Tên thương hiệu</Label>
+              <Input
+                id="op-reg-brand"
+                type="text"
+                name="brandName"
+                required
+                placeholder="VD: Phương Trang"
+              />
+            </div>
             <div className="grid gap-1.5">
               <Label htmlFor="op-reg-name">Tên doanh nghiệp</Label>
               <Input
@@ -90,13 +107,13 @@ export default function OpRegisterPage() {
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="op-reg-email">Email liên hệ</Label>
+              <Label htmlFor="op-reg-contact">Người liên hệ</Label>
               <Input
-                id="op-reg-email"
-                type="email"
-                name="contactEmail"
+                id="op-reg-contact"
+                type="text"
+                name="contactName"
                 required
-                placeholder="lienhe@nhaxe.vn"
+                placeholder="Họ và tên người liên hệ"
               />
             </div>
             <div className="grid gap-1.5">
@@ -110,13 +127,33 @@ export default function OpRegisterPage() {
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="op-reg-password">Mật khẩu</Label>
+              <Label htmlFor="op-reg-email">Email liên hệ</Label>
               <Input
-                id="op-reg-password"
-                type="password"
-                name="password"
+                id="op-reg-email"
+                type="email"
+                name="contactEmail"
                 required
-                minLength={8}
+                placeholder="lienhe@nhaxe.vn"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="op-reg-address">Địa chỉ</Label>
+              <Input
+                id="op-reg-address"
+                type="text"
+                name="address"
+                required
+                placeholder="Số nhà, đường, quận/huyện, tỉnh/thành"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="op-reg-routes">Tuyến khai thác</Label>
+              <Input
+                id="op-reg-routes"
+                type="text"
+                name="routesSummary"
+                required
+                placeholder="VD: Hà Nội – Sài Gòn, Đà Nẵng – Huế"
               />
             </div>
             {error && (
@@ -125,7 +162,7 @@ export default function OpRegisterPage() {
               </Alert>
             )}
             <Button type="submit" disabled={loading} aria-busy={loading} className="w-full">
-              {loading ? 'Đang gửi...' : 'Đăng ký'}
+              {loading ? 'Đang gửi...' : 'Gửi hồ sơ'}
             </Button>
           </form>
           <p className="mt-4 text-sm">

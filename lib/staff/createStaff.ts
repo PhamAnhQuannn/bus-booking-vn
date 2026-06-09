@@ -19,6 +19,7 @@ import { normalizePhone } from '@/lib/core/validation/phone';
 import { sendSms } from '@/lib/notification';
 import { createNotificationLog } from '@/lib/core/db/notificationLogRepo';
 import { genTempPassword } from './genTempPassword';
+import { buildUsername, ensureUniqueUsername } from '@/lib/auth';
 import { StaffServiceError } from './errors';
 import { toStaffDto, type StaffDto } from './toStaffDto';
 
@@ -34,11 +35,22 @@ export async function createStaff(input: CreateStaffInput): Promise<StaffDto> {
   const tempPassword = genTempPassword();
   const passwordHash = await hash(tempPassword);
 
+  // 2026-06-06: staff log in by generated username (BRAND_ACRONYM-last4phone), not phone.
+  const operator = await prisma.operator.findUnique({
+    where: { id: input.operatorId },
+    select: { brandName: true, legalName: true },
+  });
+  if (!operator) throw new StaffServiceError('not_found');
+  const usernameBase = buildUsername(operator.brandName ?? operator.legalName, phone);
+
   let row;
   try {
-    row = await prisma.operatorUser.create({
+    row = await prisma.$transaction(async (tx) => {
+      const username = await ensureUniqueUsername(tx, usernameBase);
+      return tx.operatorUser.create({
       data: {
         operatorId: input.operatorId,
+        username,
         phone,
         contactPhone: phone,
         notificationPhone: phone,
@@ -57,6 +69,7 @@ export async function createStaff(input: CreateStaffInput): Promise<StaffDto> {
         assignedTripId: true,
         createdAt: true,
       },
+      });
     });
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {

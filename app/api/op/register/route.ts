@@ -1,17 +1,19 @@
 /**
- * POST /api/op/register — self-serve operator registration (Issue 076).
+ * POST /api/op/register — public operator APPLICATION (Issue 076; reworked 2026-06-06).
  *
  * PUBLIC: no auth (the applicant has no account yet). The proxy.ts CSRF
  * double-submit gate STILL applies (this is a non-safe /api/* POST) — the
  * /op/register GET page issues the bb_csrf cookie, the client echoes it in
  * X-CSRF-Token. We deliberately do NOT exempt this route from CSRF.
  *
+ * 2026-06-06: application-only. NO password is accepted and NO login account is
+ * created here — a platform admin provisions the account later.
+ *
  * Pipeline:
  *   1. Rate-limit per-IP (5/hour → 429 on breach) — abuse guard on a public POST.
  *   2. Parse + zod-validate the body (400 on breach).
- *   3. registerOperator() → creates PENDING_REVIEW Operator + bootstrap admin
- *      OperatorUser + enqueues the pending email.
- *   4. 201 { applicationRef }. phone_in_use → 409. Bad phone format → 400.
+ *   3. registerOperator() → creates PENDING_REVIEW Operator + enqueues pending email.
+ *   4. 201 { applicationRef }. Bad phone format → 400.
  *
  * Wrapped in withErrorHandler — 500s are scrubbed.
  */
@@ -22,16 +24,18 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/core/db/client';
 import { registerOperator } from '@/lib/onboarding';
-import { RegisterError } from '@/lib/onboarding';
 import { PhoneNormalizeError } from '@/lib/core/validation/phone';
 import { opRegisterRatelimit } from '@/lib/ratelimit';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 const registerSchema = z.object({
-  legalName: z.string().min(1),
-  contactEmail: z.string().email(),
+  brandName: z.string().trim().min(1).max(120),
+  legalName: z.string().trim().min(1).max(200),
+  contactName: z.string().trim().min(1).max(120),
   contactPhone: z.string().min(1),
-  password: z.string().min(8),
+  contactEmail: z.string().email(),
+  address: z.string().trim().min(1).max(300),
+  routesSummary: z.string().trim().min(1).max(500),
 });
 
 async function handler(req: NextRequest): Promise<Response> {
@@ -69,20 +73,20 @@ async function handler(req: NextRequest): Promise<Response> {
   const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? 'localhost:3001';
   const baseUrl = `${proto}://${host}`;
 
-  // ---- 4. Register ----
+  // ---- 4. Create application ----
   try {
     const { applicationRef } = await registerOperator(prisma, {
+      brandName: parsed.data.brandName,
       legalName: parsed.data.legalName,
-      contactEmail: parsed.data.contactEmail,
+      contactName: parsed.data.contactName,
       contactPhone: parsed.data.contactPhone,
-      password: parsed.data.password,
+      contactEmail: parsed.data.contactEmail,
+      address: parsed.data.address,
+      routesSummary: parsed.data.routesSummary,
       baseUrl,
     });
     return NextResponse.json({ applicationRef }, { status: 201 });
   } catch (e) {
-    if (e instanceof RegisterError && e.code === 'phone_in_use') {
-      return NextResponse.json({ error: 'PHONE_IN_USE' }, { status: 409 });
-    }
     // Invalid phone format reaches here as PhoneNormalizeError (zod only checks
     // non-empty) — treat as a 400 validation failure.
     if (e instanceof PhoneNormalizeError) {
