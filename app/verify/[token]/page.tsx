@@ -22,6 +22,7 @@
  * leak about whether the booking exists).
  */
 
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { CheckCircle2, XCircle, Ticket, Receipt, UserCheck } from 'lucide-react';
 import { getTicketVerification } from '@/lib/ticketing';
@@ -30,6 +31,12 @@ import { Badge } from '@/components/ui/badge';
 import { TripDetailCard } from '@/components/ticket/TripDetailCard';
 
 export const runtime = 'nodejs';
+
+// Per-ticket boarding page reachable only via the signed token QR — never indexed.
+export const metadata: Metadata = {
+  title: 'Xác thực vé | BBVN',
+  robots: { index: false, follow: false },
+};
 
 interface VerifyPageProps {
   params: Promise<{ token: string }>;

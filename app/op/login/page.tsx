@@ -2,7 +2,9 @@
 
 /**
  * /op/login — Operator login page.
- * POSTs { scope: 'operator', phone, password } to /api/auth/login.
+ * POSTs { scope: 'operator', username, password } to /api/auth/login.
+ * 2026-06-06: login key is the system-generated username (BRAND_ACRONYM-last4phone)
+ * provided by the platform admin, NOT phone.
  * On requiresPasswordChange → redirects to /op/first-login.
  * Otherwise → redirects to /op/dashboard.
  *
@@ -30,7 +32,7 @@ export default function OpLoginPage() {
     setError('');
     setLoading(true);
     const fd = new FormData(e.currentTarget);
-    const phone = fd.get('phone') as string;
+    const username = fd.get('username') as string;
     const password = fd.get('password') as string;
 
     try {
@@ -40,11 +42,11 @@ export default function OpLoginPage() {
           'Content-Type': 'application/json',
           'X-CSRF-Token': readCsrfToken(),
         },
-        body: JSON.stringify({ scope: 'operator', phone, password }),
+        body: JSON.stringify({ scope: 'operator', username, password }),
       });
 
       if (!res.ok) {
-        setError('Số điện thoại hoặc mật khẩu không đúng.');
+        setError('Tên đăng nhập hoặc mật khẩu không đúng.');
         return;
       }
 
@@ -68,13 +70,15 @@ export default function OpLoginPage() {
         <CardContent>
           <form onSubmit={handleLogin} className="grid gap-4">
             <div className="grid gap-1.5">
-              <Label htmlFor="op-login-phone">Số điện thoại</Label>
+              <Label htmlFor="op-login-username">Tên đăng nhập</Label>
               <Input
-                id="op-login-phone"
-                type="tel"
-                name="phone"
+                id="op-login-username"
+                type="text"
+                name="username"
+                autoCapitalize="characters"
+                autoComplete="username"
                 required
-                placeholder="0901234567"
+                placeholder="VD: PB-0001"
               />
             </div>
             <div className="grid gap-1.5">
@@ -98,7 +102,7 @@ export default function OpLoginPage() {
           <p className="mt-2 text-sm text-muted-foreground">
             Chưa có tài khoản?{' '}
             <a className="text-primary underline-offset-4 hover:underline" href="/op/register">
-              Đăng ký nhà xe
+              Trở thành đối tác
             </a>
           </p>
         </CardContent>

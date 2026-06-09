@@ -29,6 +29,12 @@ export const loginInput = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+// 2026-06-06: operators log in by generated username (BRAND_ACRONYM-last4phone), not phone.
+export const operatorLoginInput = z.object({
+  username: z.string().trim().min(1, 'Username is required').max(64),
+  password: z.string().min(1, 'Password is required'),
+});
+
 export const otpSendInput = z.object({
   phone: phoneSchema,
 });
@@ -43,5 +49,6 @@ export const otpVerifyInput = z.object({
 
 export type RegisterInput = z.infer<typeof registerInput>;
 export type LoginInput = z.infer<typeof loginInput>;
+export type OperatorLoginInput = z.infer<typeof operatorLoginInput>;
 export type OtpSendInput = z.infer<typeof otpSendInput>;
 export type OtpVerifyInput = z.infer<typeof otpVerifyInput>;

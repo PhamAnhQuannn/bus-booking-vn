@@ -13,7 +13,7 @@ export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { rotateAdminRefresh, verifyAdminRefreshToken } from '@/lib/auth';
+import { rotateAdminRefresh, verifyAdminRefreshToken, isAdminTotpDisabled } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 const ACCESS_COOKIE_MAX_AGE = 10 * 60; // 600s
@@ -41,7 +41,9 @@ async function handler(_req: NextRequest): Promise<Response> {
 
   let result;
   try {
-    result = await rotateAdminRefresh(verified.hash);
+    // TEMP (dev/test): keep totpVerified=true across rotation while the bypass flag
+    // is on, else the 10-min refresh would re-gate the admin. Off in production.
+    result = await rotateAdminRefresh(verified.hash, undefined, isAdminTotpDisabled());
   } catch {
     // SESSION_NOT_FOUND / ADMIN_USER_NOT_FOUND / DB error
     clearCookies(cookieStore);

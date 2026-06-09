@@ -1,11 +1,12 @@
 /**
- * Unit tests for POST /api/auth/login
- * Covers both customer (no scope / scope:'customer') and operator (scope:'operator') paths.
+ * Unit tests for POST /api/auth/login.
+ * 2026-06-06: customer accounts PAUSED — any non-operator scope returns 410. The
+ * operator path logs in by username (not phone).
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockLogin, mockOperatorLogin, mockCookieStore, AuthServiceError } = vi.hoisted(() => {
+const { mockOperatorLogin, mockCookieStore, AuthServiceError } = vi.hoisted(() => {
   class AuthServiceError extends Error {
     code: string;
     constructor(code: string) {
@@ -16,15 +17,16 @@ const { mockLogin, mockOperatorLogin, mockCookieStore, AuthServiceError } = vi.h
   }
   const mockCookieStore = { set: vi.fn(), get: vi.fn(), has: vi.fn(), delete: vi.fn() };
   return {
-    mockLogin: vi.fn(),
     mockOperatorLogin: vi.fn(),
     mockCookieStore,
     AuthServiceError,
   };
 });
 
-vi.mock('@/lib/auth/authService', () => ({ login: mockLogin, AuthServiceError }));
 vi.mock('@/lib/auth/operatorAuthService', () => ({ operatorLogin: mockOperatorLogin, AuthServiceError }));
+// The route imports AuthServiceError via the @/lib/auth barrel (→ authService); mock it
+// with the SAME hoisted class so `instanceof AuthServiceError` matches the thrown error.
+vi.mock('@/lib/auth/authService', () => ({ AuthServiceError }));
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => mockCookieStore) }));
 
 import { POST } from '../route';
@@ -38,21 +40,13 @@ function makeRequest(body: unknown): NextRequest {
   });
 }
 
-const AUTH_RESULT = {
-  accessToken: 'access-token',
-  refreshToken: 'refresh-token',
-  refreshHash: 'hash',
-  csrf: 'csrf',
-  customer: { id: 'cust-1', phone: '0901234567', displayName: 'Test User' }, // local format — avoids gitleaks \+84[35789]\d{8}
-};
-
 const OP_AUTH_RESULT = {
   accessToken: 'op-access-token',
   refreshToken: 'op-refresh-token',
   refreshHash: 'op-hash',
   operator: {
     id: 'op-1',
-    phone: '0901234567',
+    username: 'PB-0001',
     displayName: 'Op Admin',
     requiresPasswordChange: false,
   },
@@ -61,81 +55,59 @@ const OP_AUTH_RESULT = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockLogin.mockResolvedValue(AUTH_RESULT);
   mockOperatorLogin.mockResolvedValue(OP_AUTH_RESULT);
 });
 
 describe('POST /api/auth/login', () => {
-  // Customer scope (no scope field / scope: 'customer')
-  describe('customer scope', () => {
-    it('returns 200 with accessToken on valid credentials (no scope)', async () => {
-      const res = await POST(makeRequest({ phone: '0901234567', password: 'Password1' }));
+  describe('customer scope (paused)', () => {
+    it('returns 410 with no scope', async () => {
+      const res = await POST(makeRequest({ username: 'x', password: 'Password1' }));
       const json = await res.json();
-      expect(res.status).toBe(200);
-      expect(json.accessToken).toBe('access-token');
+      expect(res.status).toBe(410);
+      expect(json.error).toBe('customer_login_disabled');
     });
 
-    it('returns 200 with accessToken on valid credentials (scope: customer)', async () => {
-      const res = await POST(makeRequest({ phone: '0901234567', password: 'Password1', scope: 'customer' }));
-      const json = await res.json();
-      expect(res.status).toBe(200);
-      expect(json.accessToken).toBe('access-token');
+    it('returns 410 with scope: customer', async () => {
+      const res = await POST(makeRequest({ username: 'x', password: 'Password1', scope: 'customer' }));
+      expect(res.status).toBe(410);
     });
 
-    it('sets bb_rt cookie on success', async () => {
-      await POST(makeRequest({ phone: '0901234567', password: 'Password1' }));
-      expect(mockCookieStore.set).toHaveBeenCalledWith(
-        'bb_rt',
-        'refresh-token',
-        expect.objectContaining({ httpOnly: true })
-      );
-    });
-
-    it('returns 401 with generic error for wrong credentials', async () => {
-      mockLogin.mockRejectedValue(new AuthServiceError('INVALID_CREDENTIALS'));
-      const res = await POST(makeRequest({ phone: '0901234567', password: 'wrong' }));
-      const json = await res.json();
-      expect(res.status).toBe(401);
-      expect(json.error).toBe('invalid_credentials');
-    });
-
-    it('returns 401 with same generic error for nonexistent phone (no enumeration)', async () => {
-      mockLogin.mockRejectedValue(new AuthServiceError('INVALID_CREDENTIALS'));
-      const res = await POST(makeRequest({ phone: '0987654321', password: 'anything' }));
-      expect(res.status).toBe(401);
-    });
-
-    it('returns 400 for missing password field', async () => {
-      const res = await POST(makeRequest({ phone: '0901234567' }));
-      expect(res.status).toBe(400);
+    it('does not invoke operatorLogin for a customer scope', async () => {
+      await POST(makeRequest({ username: 'x', password: 'Password1', scope: 'customer' }));
+      expect(mockOperatorLogin).not.toHaveBeenCalled();
     });
   });
 
-  // Operator scope
   describe('operator scope', () => {
     it('returns 200 with operator accessToken on valid credentials', async () => {
-      const res = await POST(makeRequest({ phone: '0901234567', password: 'OpPass1', scope: 'operator' }));
+      const res = await POST(makeRequest({ username: 'PB-0001', password: 'OpPass1', scope: 'operator' }));
       const json = await res.json();
       expect(res.status).toBe(200);
       expect(json.accessToken).toBe('op-access-token');
       expect(json.operator).toBeDefined();
+      expect(mockOperatorLogin).toHaveBeenCalledWith({ username: 'PB-0001', password: 'OpPass1' });
     });
 
     it('sets bb_op_access and bb_op_refresh cookies on operator login', async () => {
-      await POST(makeRequest({ phone: '0901234567', password: 'OpPass1', scope: 'operator' }));
+      await POST(makeRequest({ username: 'PB-0001', password: 'OpPass1', scope: 'operator' }));
       const calls = mockCookieStore.set.mock.calls.map((c: string[]) => c[0]);
       expect(calls).toContain('bb_op_access');
       expect(calls).toContain('bb_op_refresh');
     });
 
+    it('returns 400 for a missing username', async () => {
+      const res = await POST(makeRequest({ password: 'OpPass1', scope: 'operator' }));
+      expect(res.status).toBe(400);
+    });
+
     it('returns 401 for invalid operator credentials', async () => {
       mockOperatorLogin.mockRejectedValue(new AuthServiceError('INVALID_CREDENTIALS'));
-      const res = await POST(makeRequest({ phone: '0901234567', password: 'wrong', scope: 'operator' }));
+      const res = await POST(makeRequest({ username: 'PB-0001', password: 'wrong', scope: 'operator' }));
       expect(res.status).toBe(401);
     });
 
     it('does NOT set customer cookie on operator login', async () => {
-      await POST(makeRequest({ phone: '0901234567', password: 'OpPass1', scope: 'operator' }));
+      await POST(makeRequest({ username: 'PB-0001', password: 'OpPass1', scope: 'operator' }));
       const calls = mockCookieStore.set.mock.calls.map((c: string[]) => c[0]);
       expect(calls).not.toContain('bb_rt');
     });
