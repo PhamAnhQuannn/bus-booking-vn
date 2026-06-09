@@ -246,7 +246,11 @@ export default function ManifestRefresh({ tripId, initialGeneratedAt, initialRow
                     <TableCell>{row.name}</TableCell>
                     <TableCell className="tabular-nums">{row.phone}</TableCell>
                     <TableCell className="tabular-nums">{row.ticketCount}</TableCell>
-                    <TableCell>{row.pickupAreaLabel ?? '—'}</TableCell>
+                    <TableCell>
+                      {row.pickupKind === 'area'
+                        ? [row.pickupAreaLabel, row.pickupDetail].filter(Boolean).join(' — ') || '—'
+                        : 'Tại bến'}
+                    </TableCell>
                     <TableCell>
                       <Badge variant={contact.variant}>{contact.label}</Badge>
                     </TableCell>
