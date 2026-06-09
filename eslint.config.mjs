@@ -23,6 +23,7 @@ const LIB_DOMAINS = [
   "charter",
   "flags",
   "format",
+  "geo",
   "home",
   "jobs",
   "ledger",
