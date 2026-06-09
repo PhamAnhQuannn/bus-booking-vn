@@ -22,6 +22,8 @@ const LIB_DOMAINS = [
   "catalog",
   "charter",
   "flags",
+  "format",
+  "home",
   "jobs",
   "ledger",
   "notification",

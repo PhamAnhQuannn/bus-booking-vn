@@ -60,3 +60,4 @@ scripts/dev/
 # QA smoke/crawl screenshots — large throwaway binaries (~100MB/run). The markdown
 # reports in docs/qa/*.md stand alone; the PNGs they link are local-only verification.
 docs/qa/**/*-shots/
+dev3001.log
