@@ -16,6 +16,7 @@ import { redirect } from 'next/navigation';
 import { getOperatorSession } from '@/lib/op';
 import { listRoutes } from '@/lib/catalog';
 import { listOperatorBuses } from '@/lib/catalog';
+import { listOperatorPickupAreas } from '@/lib/catalog';
 import { PageHeader } from '@/components/op/PageHeader';
 import NewTripClient from './NewTripClient';
 
@@ -30,9 +31,10 @@ export default async function OpNewTripPage() {
     redirect('/op/first-login');
   }
 
-  const [routes, buses] = await Promise.all([
+  const [routes, buses, areas] = await Promise.all([
     listRoutes({ operatorId: session.operatorId }),
     listOperatorBuses(session.operatorId, { activeOnly: true }),
+    listOperatorPickupAreas({ operatorId: session.operatorId }),
   ]);
 
   const activeRoutes = routes
@@ -43,6 +45,9 @@ export default async function OpNewTripPage() {
     licensePlate: b.licensePlate,
     capacity: b.capacity,
   }));
+  const activeAreas = areas
+    .filter((a) => a.isActive)
+    .map((a) => ({ id: a.id, label: a.label }));
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 md:px-6">
@@ -54,7 +59,7 @@ export default async function OpNewTripPage() {
         title="Tạo chuyến xe mới"
         backHref="/op/trips"
       />
-      <NewTripClient routes={activeRoutes} buses={activeBuses} />
+      <NewTripClient routes={activeRoutes} buses={activeBuses} pickupAreas={activeAreas} />
     </div>
   );
 }

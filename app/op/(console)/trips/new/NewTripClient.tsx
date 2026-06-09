@@ -39,9 +39,15 @@ interface BusOption {
   capacity: number;
 }
 
+interface PickupAreaOption {
+  id: string;
+  label: string;
+}
+
 interface Props {
   routes: RouteOption[];
   buses: BusOption[];
+  pickupAreas: PickupAreaOption[];
 }
 
 interface ApiError {
@@ -60,12 +66,13 @@ function translateError(code: string): string {
   }
 }
 
-export default function NewTripClient({ routes, buses }: Props) {
+export default function NewTripClient({ routes, buses, pickupAreas }: Props) {
   const router = useRouter();
   const [routeId, setRouteId] = useState('');
   const [busId, setBusId] = useState('');
   const [departureLocal, setDepartureLocal] = useState('');
   const [price, setPrice] = useState<number>(0);
+  const [selectedAreaIds, setSelectedAreaIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [isError, setIsError] = useState(false);
@@ -84,6 +91,7 @@ export default function NewTripClient({ routes, buses }: Props) {
         // datetime-local has no timezone — interpret as local, send full ISO-8601.
         departureAt: new Date(departureLocal).toISOString(),
         price,
+        pickupAreaIds: selectedAreaIds.length > 0 ? selectedAreaIds : undefined,
       });
       router.push(`/op/trips/${trip.id}`);
     } catch (err) {
@@ -181,6 +189,32 @@ export default function NewTripClient({ routes, buses }: Props) {
               data-testid="new-trip-price"
             />
           </div>
+
+          {pickupAreas.length > 0 && (
+            <div className="grid gap-1.5">
+              <Label>Khu vực đón khách (tuỳ chọn)</Label>
+              <p className="text-sm text-muted-foreground">
+                Khách có thể chọn một trong các khu vực này để được đón tận nơi.
+              </p>
+              <div className="flex flex-col gap-2 rounded-md border border-input p-3">
+                {pickupAreas.map((a) => (
+                  <label key={a.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={selectedAreaIds.includes(a.id)}
+                      onChange={(e) =>
+                        setSelectedAreaIds((prev) =>
+                          e.target.checked ? [...prev, a.id] : prev.filter((id) => id !== a.id)
+                        )
+                      }
+                      data-testid={`new-trip-area-${a.id}`}
+                    />
+                    {a.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div>
             <Button
