@@ -12,12 +12,14 @@
  * - Uses useActionState from 'react' (Next 16 / React 19).
  */
 
-import { useActionState, useEffect, useRef, startTransition } from 'react';
+import { useActionState, useEffect, useRef, useState, startTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { useBookingStore } from '@/lib/state';
 import { useHoldTimerStore } from '@/lib/state';
 import { createHoldRequest } from '@/lib/api';
+// Deep client-safe import (pure validator; barrel would pull the server graph — Issue 092b).
+import { validatePickupSelection, PICKUP_DETAIL_MIN } from '@/lib/booking/pickupSelection';
 import { getDisplayName, getCustomerPhone } from '@/app/(customer)/auth/register/page';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,6 +69,26 @@ export function CustomerForm() {
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const buyerNameRef = useRef<HTMLInputElement>(null);
 
+  // Issue 107: pickup selection. Areas fetched for this trip; default = station.
+  const [areas, setAreas] = useState<{ areaId: string; label: string }[]>([]);
+  const [pickupKind, setPickupKind] = useState<'station' | 'area'>('station');
+  const [pickupAreaId, setPickupAreaId] = useState('');
+  const [pickupDetail, setPickupDetail] = useState('');
+
+  useEffect(() => {
+    if (!tripId) return;
+    let active = true;
+    fetch(`/api/trips/${tripId}/pickup-areas`)
+      .then((r) => (r.ok ? r.json() : { areas: [] }))
+      .then((d) => {
+        if (active) setAreas(d.areas ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [tripId]);
+
   // Pre-fill phone: a signed-in customer's registered account phone wins
   // (Issue 030); otherwise fall back to the last-typed phone from localStorage
   // (guest convenience). Field stays editable — this only seeds the value.
@@ -105,12 +127,28 @@ export function CustomerForm() {
         return { status: 'error', message: 'Thông tin chuyến xe bị thiếu. Vui lòng chọn lại.' };
       }
 
+      // Issue 107: pickup is required — validate the selection before holding.
+      const pickupCheck = validatePickupSelection(
+        areas.map((a) => a.areaId),
+        { kind: pickupKind, areaId: pickupAreaId, detail: pickupDetail }
+      );
+      if (!pickupCheck.ok) {
+        const msg =
+          pickupCheck.code === 'pickup_detail_required'
+            ? `Vui lòng nhập chi tiết điểm đón (ít nhất ${PICKUP_DETAIL_MIN} ký tự).`
+            : 'Vui lòng chọn điểm đón hợp lệ.';
+        return { status: 'field_errors', errors: { pickup: msg } };
+      }
+
       const result = await createHoldRequest({
         tripId,
         ticketCount,
         buyerName: parsed.data.buyerName,
         buyerPhone: parsed.data.buyerPhone,
         buyerEmail: parsed.data.buyerEmail,
+        pickupKind: pickupCheck.pickupKind,
+        pickupAreaId: pickupCheck.pickupKind === 'area' ? pickupCheck.pickupAreaId : undefined,
+        pickupDetail: pickupCheck.pickupKind === 'area' ? pickupCheck.pickupDetail : undefined,
       });
 
       if (!result.ok) {
@@ -122,6 +160,9 @@ export function CustomerForm() {
         }
         if (result.code === 'TOO_MANY_REQUESTS') {
           return { status: 'rate_limited', retryAfter: result.retryAfter ?? 60 };
+        }
+        if (result.code === 'PICKUP_INVALID') {
+          return { status: 'field_errors', errors: { pickup: 'Điểm đón không hợp lệ. Vui lòng chọn lại.' } };
         }
         return { status: 'error', message: 'Có lỗi xảy ra. Vui lòng thử lại.' };
       }
@@ -219,6 +260,61 @@ export function CustomerForm() {
           </p>
         )}
       </div>
+
+      {/* Issue 107: pickup selection (required) */}
+      <fieldset className="space-y-2" disabled={isPending}>
+        <legend className="mb-1 text-sm font-medium">Điểm đón</legend>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="radio"
+            name="pickup"
+            checked={pickupKind === 'station'}
+            onChange={() => {
+              setPickupKind('station');
+              setPickupAreaId('');
+            }}
+            data-testid="pickup-station"
+          />
+          Tại bến xe
+        </label>
+        {areas.map((a) => (
+          <label key={a.areaId} className="flex items-center gap-2 text-sm">
+            <input
+              type="radio"
+              name="pickup"
+              checked={pickupKind === 'area' && pickupAreaId === a.areaId}
+              onChange={() => {
+                setPickupKind('area');
+                setPickupAreaId(a.areaId);
+              }}
+              data-testid={`pickup-area-${a.areaId}`}
+            />
+            {a.label}
+          </label>
+        ))}
+
+        {pickupKind === 'area' && (
+          <div className="pt-1">
+            <Label htmlFor="pickupDetail" className="mb-1">
+              Chi tiết điểm đón (số nhà, đường, thôn/xóm)
+            </Label>
+            <Input
+              id="pickupDetail"
+              type="text"
+              value={pickupDetail}
+              onChange={(e) => setPickupDetail(e.target.value)}
+              placeholder="VD: 12 đường Lê Lợi, thôn Đông"
+              data-testid="pickup-detail"
+              aria-describedby={fieldErrors.pickup ? 'pickup-error' : undefined}
+            />
+          </div>
+        )}
+        {fieldErrors.pickup && (
+          <p id="pickup-error" className="text-destructive text-sm mt-1">
+            {fieldErrors.pickup}
+          </p>
+        )}
+      </fieldset>
 
       {state.status === 'sold_out' && (
         <div role="alert" className="bg-destructive/10 border border-destructive/30 rounded p-3 text-destructive">

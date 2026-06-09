@@ -44,6 +44,11 @@ export interface CreateHoldInput {
   customerName: string;
   /** Issue 042: buyer email captured at hold creation. Optional for back-compat callers. */
   customerEmail?: string | null;
+  /** Issue 107: traveler pickup selection (already validated + resolved by the caller). */
+  pickupKind?: 'station' | 'area';
+  pickupAreaId?: string | null;
+  pickupAreaLabel?: string | null;
+  pickupDetail?: string | null;
 }
 
 export interface HoldResult {
@@ -56,7 +61,17 @@ export interface HoldResult {
  * Returns HoldResult on success, null if the trip is sold out or unavailable.
  */
 export async function createHold(input: CreateHoldInput): Promise<HoldResult | null> {
-  const { tripId, ticketCount, customerPhone, customerName, customerEmail = null } = input;
+  const {
+    tripId,
+    ticketCount,
+    customerPhone,
+    customerName,
+    customerEmail = null,
+    pickupKind = 'station',
+    pickupAreaId = null,
+    pickupAreaLabel = null,
+    pickupDetail = null,
+  } = input;
 
   const holdId = randomUUID();
   const expiresAt = new Date(Date.now() + HOLD_TTL_MINUTES * 60 * 1000);
@@ -90,7 +105,7 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
     // 2. Conditional INSERT — only if available seats >= ticketCount
     const inserted = await tx.$queryRaw<InsertRow[]>(
       Prisma.sql`
-        INSERT INTO "Hold" (id, "tripId", "ticketCount", "customerPhone", "customerName", "customerEmail", "expiresAt", status, "createdAt")
+        INSERT INTO "Hold" (id, "tripId", "ticketCount", "customerPhone", "customerName", "customerEmail", "expiresAt", status, "createdAt", "pickupKind", "pickupAreaId", "pickupAreaLabel", "pickupDetail")
         SELECT
           ${holdId},
           ${tripId},
@@ -100,7 +115,11 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
           ${customerEmail},
           ${expiresAt},
           'active'::"HoldStatus",
-          NOW()
+          NOW(),
+          ${pickupKind}::"PickupKind",
+          ${pickupAreaId},
+          ${pickupAreaLabel},
+          ${pickupDetail}
         WHERE (
           SELECT
             b.capacity

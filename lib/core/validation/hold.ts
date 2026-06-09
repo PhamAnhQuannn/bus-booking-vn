@@ -25,6 +25,11 @@ export const holdInputSchema = z.object({
     .toLowerCase()
     .max(254)
     .email(),
+  // Issue 107: traveler pickup selection. Optional for back-compat (absent = station);
+  // the area/detail constraints are enforced server-side against the trip's areas.
+  pickupKind: z.enum(['station', 'area']).optional().default('station'),
+  pickupAreaId: z.string().optional(),
+  pickupDetail: z.string().trim().max(300).optional(),
 });
 
 export type HoldInput = z.infer<typeof holdInputSchema>;
