@@ -48,10 +48,12 @@ const SEED_PASSWORD = 'BBOp2026!';
 // Staff assigned to the scheduled trip.
 const ASSIGNED_LOCAL = '0901240001';
 const ASSIGNED_PASSWORD = 'BBStaff2026!';
+const ASSIGNED_USERNAME = 'STAFFC-A'; // 2026-06-06: staff log in by username, not phone
 
 // Staff with no trip assignment (assignedTripId=null) → empty state.
 const UNASSIGNED_LOCAL = '0901240002';
 const UNASSIGNED_PASSWORD = 'BBStaff2026!';
+const UNASSIGNED_USERNAME = 'STAFFC-U'; // 2026-06-06: staff log in by username, not phone
 
 interface Fixtures {
   opAId: string;
@@ -135,15 +137,15 @@ async function prepareFixtures(): Promise<Fixtures> {
     // Seed assigned staff (assignedTripId set) + unassigned staff (null).
     const assigned = await client.query(
       `INSERT INTO "OperatorUser"
-         ("id","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName","assignedTripId","updatedAt")
-       VALUES (gen_random_uuid()::text, $1, $4, $5, $2, $3, 'staff', false, 'E2E StaffClient Assigned', $6, NOW())
+         ("id","username","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName","assignedTripId","updatedAt")
+       VALUES (gen_random_uuid()::text, '${ASSIGNED_USERNAME}', $1, $4, $5, $2, $3, 'staff', false, 'E2E StaffClient Assigned', $6, NOW())
        RETURNING id`,
       [assignedPhone, assignedHash, opAId, '+8490xxxxxx7', '+8490xxxxxx6', assignedTripId]
     );
     const unassigned = await client.query(
       `INSERT INTO "OperatorUser"
-         ("id","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName","assignedTripId","updatedAt")
-       VALUES (gen_random_uuid()::text, $1, $4, $5, $2, $3, 'staff', false, 'E2E StaffClient Unassigned', NULL, NOW())
+         ("id","username","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName","assignedTripId","updatedAt")
+       VALUES (gen_random_uuid()::text, '${UNASSIGNED_USERNAME}', $1, $4, $5, $2, $3, 'staff', false, 'E2E StaffClient Unassigned', NULL, NOW())
        RETURNING id`,
       [unassignedPhone, unassignedHash, opAId, '+8490xxxxxx5', '+8490xxxxxx4']
     );
@@ -175,12 +177,12 @@ async function reassignStaff(staffId: string, tripId: string | null): Promise<vo
 
 async function loginStaff(
   request: import('@playwright/test').APIRequestContext,
-  localPhone: string,
+  username: string,
   password: string
 ): Promise<string> {
   const csrf = await primeCsrf(request);
   const res = await request.post('/api/auth/login', {
-    data: { scope: 'operator', phone: localPhone, password },
+    data: { scope: 'operator', username, password },
     headers: { 'X-CSRF-Token': csrf },
   });
   expect(res.status()).toBe(200);
@@ -200,7 +202,7 @@ test.describe('Operator staff-scoped client (Issue 018)', () => {
     // Auth via page.request so the session cookie lands in the page's context
     // jar — the standalone `request` fixture has a separate cookie jar that the
     // browser navigation can't see.
-    await loginStaff(page.request, ASSIGNED_LOCAL, ASSIGNED_PASSWORD);
+    await loginStaff(page.request, ASSIGNED_USERNAME, ASSIGNED_PASSWORD);
     await page.goto('/op/staff/dashboard');
     // Single-trip view: queue + manifest tabs render; no admin nav.
     await expect(page.getByTestId('tab-queue')).toBeVisible();
@@ -211,7 +213,7 @@ test.describe('Operator staff-scoped client (Issue 018)', () => {
   test('staff GET /api/op/bookings (no filter) returns only the assigned trip', async ({
     request,
   }) => {
-    await loginStaff(request, ASSIGNED_LOCAL, ASSIGNED_PASSWORD);
+    await loginStaff(request, ASSIGNED_USERNAME, ASSIGNED_PASSWORD);
     const res = await request.get('/api/op/bookings');
     expect(res.status()).toBe(200);
     const rows: Array<{ tripId?: string }> = (await res.json()).rows ?? [];
@@ -225,33 +227,33 @@ test.describe('Operator staff-scoped client (Issue 018)', () => {
   });
 
   test('staff GET /api/op/bookings?tripId=<assigned> is allowed', async ({ request }) => {
-    await loginStaff(request, ASSIGNED_LOCAL, ASSIGNED_PASSWORD);
+    await loginStaff(request, ASSIGNED_USERNAME, ASSIGNED_PASSWORD);
     const res = await request.get(`/api/op/bookings?tripId=${fx.assignedTripId}`);
     expect(res.status()).toBe(200);
   });
 
   test('staff GET /api/op/bookings?tripId=<other> returns 404 not_found', async ({ request }) => {
-    await loginStaff(request, ASSIGNED_LOCAL, ASSIGNED_PASSWORD);
+    await loginStaff(request, ASSIGNED_USERNAME, ASSIGNED_PASSWORD);
     const res = await request.get(`/api/op/bookings?tripId=${fx.otherTripId}`);
     expect(res.status()).toBe(404);
     expect((await res.json()).error).toBe('not_found');
   });
 
   test('staff GET /api/op/manifest/<other> returns 404 not_found', async ({ request }) => {
-    await loginStaff(request, ASSIGNED_LOCAL, ASSIGNED_PASSWORD);
+    await loginStaff(request, ASSIGNED_USERNAME, ASSIGNED_PASSWORD);
     const res = await request.get(`/api/op/manifest/${fx.otherTripId}`);
     expect(res.status()).toBe(404);
     expect((await res.json()).error).toBe('not_found');
   });
 
   test('staff GET /api/op/manifest/<assigned> is allowed', async ({ request }) => {
-    await loginStaff(request, ASSIGNED_LOCAL, ASSIGNED_PASSWORD);
+    await loginStaff(request, ASSIGNED_USERNAME, ASSIGNED_PASSWORD);
     const res = await request.get(`/api/op/manifest/${fx.assignedTripId}`);
     expect(res.status()).toBe(200);
   });
 
   test('staff can depart then complete the assigned trip', async ({ request }) => {
-    const csrf = await loginStaff(request, ASSIGNED_LOCAL, ASSIGNED_PASSWORD);
+    const csrf = await loginStaff(request, ASSIGNED_USERNAME, ASSIGNED_PASSWORD);
 
     const depart = await request.post(`/api/op/trips/${fx.assignedTripId}/depart`, {
       headers: { 'X-CSRF-Token': csrf },
@@ -267,7 +269,7 @@ test.describe('Operator staff-scoped client (Issue 018)', () => {
   });
 
   test('staff POST depart on a different trip returns 404 not_found', async ({ request }) => {
-    const csrf = await loginStaff(request, ASSIGNED_LOCAL, ASSIGNED_PASSWORD);
+    const csrf = await loginStaff(request, ASSIGNED_USERNAME, ASSIGNED_PASSWORD);
     const res = await request.post(`/api/op/trips/${fx.otherTripId}/depart`, {
       headers: { 'X-CSRF-Token': csrf },
     });
@@ -279,7 +281,7 @@ test.describe('Operator staff-scoped client (Issue 018)', () => {
     page,
   }) => {
     // Auth + API reads via page.request so both share the page's cookie jar.
-    await loginStaff(page.request, UNASSIGNED_LOCAL, UNASSIGNED_PASSWORD);
+    await loginStaff(page.request, UNASSIGNED_USERNAME, UNASSIGNED_PASSWORD);
 
     await page.goto('/op/staff/dashboard');
     await expect(page.getByTestId('staff-empty-state')).toBeVisible();
@@ -291,7 +293,7 @@ test.describe('Operator staff-scoped client (Issue 018)', () => {
   });
 
   test('re-assignment switches scope on the next request', async ({ request }) => {
-    await loginStaff(request, ASSIGNED_LOCAL, ASSIGNED_PASSWORD);
+    await loginStaff(request, ASSIGNED_USERNAME, ASSIGNED_PASSWORD);
 
     // Initially assigned to assignedTripId → otherTrip is a 404.
     const before = await request.get(`/api/op/manifest/${fx.otherTripId}`);

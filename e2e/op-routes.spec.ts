@@ -32,6 +32,7 @@ const DB_URL =
 
 const SEED_PHONE = normalizePhone('0901230001');
 const SEED_PASSWORD = 'BBOp2026!';
+const SEED_USERNAME = 'PB-0001'; // 2026-06-06: seed operator logs in by username, not phone
 
 const OP_B_PHONE = '+8490xxxxxx9';
 const OP_B_PASSWORD = 'BBOp2026!';
@@ -89,8 +90,8 @@ async function prepareOperators(): Promise<{
     );
     if (opBUser.rows.length === 0) {
       await client.query(
-        `INSERT INTO "OperatorUser" ("id","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName","updatedAt")
-         VALUES (gen_random_uuid()::text, $1, $4, $5, $2, $3, 'admin', false, 'Op B Admin', NOW())`,
+        `INSERT INTO "OperatorUser" ("id","username","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName","updatedAt")
+         VALUES (gen_random_uuid()::text, 'OPB-ADMIN', $1, $4, $5, $2, $3, 'admin', false, 'Op B Admin', NOW())`,
         [OP_B_PHONE, await hash(OP_B_PASSWORD), opBId, '+8490xxxxxx9', '+8490xxxxxx8']
       );
     }
@@ -125,7 +126,7 @@ test.describe('Operator route management (Issue 012)', () => {
   test('AC1 + AC6: list returns only op A routes, not op B', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -146,7 +147,7 @@ test.describe('Operator route management (Issue 012)', () => {
   test('AC2 + AC3: create then PATCH route', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -169,7 +170,7 @@ test.describe('Operator route management (Issue 012)', () => {
   test('AC4 + AC5: deactivate then re-deactivate → 422; PATCH deactivated → 422', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -201,7 +202,7 @@ test.describe('Operator route management (Issue 012)', () => {
   test('AC6: cross-op GET /api/op/routes/[id] returns 404', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -213,7 +214,7 @@ test.describe('Operator route management (Issue 012)', () => {
   test('AC7 + AC8 + AC9: add pickup points, reorder, deactivate one', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -265,7 +266,7 @@ test.describe('Operator route management (Issue 012)', () => {
   test('AC10: cross-op GET /pickup-points returns 404', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 

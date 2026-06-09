@@ -31,8 +31,10 @@ const DB_URL =
 // The DB phone column and operatorLogin both use the normalized (+84…) form.
 const OP_A_PHONE = normalizePhone('0901230003');
 const OP_A_PASSWORD = 'BBOp2026!';
+const OP_A_USERNAME = 'RPT-A'; // 2026-06-06: login by username, not phone
 const OP_B_PHONE = normalizePhone('0901230004'); // used only for IDOR test — operator user, not customer
 const OP_B_PASSWORD = 'BBOp2026!';
+const OP_B_USERNAME = 'RPT-B'; // 2026-06-06: login by username, not phone
 
 // Gross amount for the seeded booking
 const GROSS_VND = 1_500_000;
@@ -78,8 +80,8 @@ async function prepareReports(): Promise<PrepareCtx> {
     // Upsert OperatorUser for Op A
     await client.query(
       `INSERT INTO "OperatorUser"
-         ("id","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName","updatedAt")
-       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, 'admin', false, 'Reports Op A Admin', NOW())
+         ("id","username","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName","updatedAt")
+       VALUES (gen_random_uuid()::text, '${OP_A_USERNAME}', $1, $2, $3, $4, $5, 'admin', false, 'Reports Op A Admin', NOW())
        ON CONFLICT (phone) DO UPDATE
          SET "passwordHash" = $4, "requiresPasswordChange" = false`,
       [OP_A_PHONE, '+8490xxxxxx3', '+8490xxxxxx3', passwordHashA, opAId]
@@ -112,8 +114,8 @@ async function prepareReports(): Promise<PrepareCtx> {
 
     await client.query(
       `INSERT INTO "OperatorUser"
-         ("id","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName","updatedAt")
-       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, 'admin', false, 'Reports Op B Admin', NOW())
+         ("id","username","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName","updatedAt")
+       VALUES (gen_random_uuid()::text, '${OP_B_USERNAME}', $1, $2, $3, $4, $5, 'admin', false, 'Reports Op B Admin', NOW())
        ON CONFLICT (phone) DO UPDATE
          SET "passwordHash" = $4, "requiresPasswordChange" = false`,
       [OP_B_PHONE, '+8490xxxxxx4', '+8490xxxxxx4', passwordHashB, opBId]
@@ -236,7 +238,7 @@ test.describe('Operator revenue + payout reports (Issue 016)', () => {
     // Log in as Op A
     const csrf = await primeCsrf(page.request);
     await page.request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: OP_A_PHONE, password: OP_A_PASSWORD },
+      data: { scope: 'operator', username: OP_A_USERNAME, password: OP_A_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -254,7 +256,7 @@ test.describe('Operator revenue + payout reports (Issue 016)', () => {
   test('Case 2: CSV download starts with UTF-8 BOM, has correct English headers, and contains the seeded booking row (AC2)', async ({ page }) => {
     const csrf = await primeCsrf(page.request);
     await page.request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: OP_A_PHONE, password: OP_A_PASSWORD },
+      data: { scope: 'operator', username: OP_A_USERNAME, password: OP_A_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -297,7 +299,7 @@ test.describe('Operator revenue + payout reports (Issue 016)', () => {
   test('Case 3: payouts report page renders the failed payout row', async ({ page }) => {
     const csrf = await primeCsrf(page.request);
     await page.request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: OP_A_PHONE, password: OP_A_PASSWORD },
+      data: { scope: 'operator', username: OP_A_USERNAME, password: OP_A_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -313,7 +315,7 @@ test.describe('Operator revenue + payout reports (Issue 016)', () => {
   test('Case 4: retry button transitions payout to processing', async ({ page }) => {
     const csrf = await primeCsrf(page.request);
     await page.request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: OP_A_PHONE, password: OP_A_PASSWORD },
+      data: { scope: 'operator', username: OP_A_USERNAME, password: OP_A_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -336,7 +338,7 @@ test.describe('Operator revenue + payout reports (Issue 016)', () => {
     // Log in as Op B
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: OP_B_PHONE, password: OP_B_PASSWORD },
+      data: { scope: 'operator', username: OP_B_USERNAME, password: OP_B_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 

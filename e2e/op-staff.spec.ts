@@ -40,6 +40,7 @@ const DB_URL =
 
 const SEED_PHONE = normalizePhone('0901230001');
 const SEED_PASSWORD = 'BBOp2026!';
+const SEED_USERNAME = 'PB-0001'; // 2026-06-06: login by username, not phone
 
 // Op B fixture — second operator org used to verify cross-op trip rejection.
 const OP_B_PHONE = '+8490xxxxxx9';
@@ -49,6 +50,7 @@ const OP_B_PHONE = '+8490xxxxxx9';
 // computed at runtime so no +84 literal appears in this source file.
 const STAFF_LOCAL = '0901239901';
 const STAFF_PASSWORD = 'BBStaff2026!';
+const STAFF_USERNAME = 'STAFF-NA'; // 2026-06-06: staff log in by username, not phone
 
 interface Fixtures {
   opAId: string;
@@ -89,8 +91,8 @@ async function prepareFixtures(): Promise<Fixtures> {
     // ready staff token; the admin-only API gate must 403 it regardless of role state).
     await client.query(
       `INSERT INTO "OperatorUser"
-         ("id","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName","updatedAt")
-       VALUES (gen_random_uuid()::text, $1, $4, $5, $2, $3, 'staff', false, 'E2E Staff NonAdmin', NOW())`,
+         ("id","username","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName","updatedAt")
+       VALUES (gen_random_uuid()::text, '${STAFF_USERNAME}', $1, $4, $5, $2, $3, 'staff', false, 'E2E Staff NonAdmin', NOW())`,
       [staffPhone, staffHash, opAId, '+8490xxxxxx7', '+8490xxxxxx6']
     );
 
@@ -167,7 +169,7 @@ async function prepareFixtures(): Promise<Fixtures> {
 async function loginAdmin(request: import('@playwright/test').APIRequestContext): Promise<string> {
   const csrf = await primeCsrf(request);
   await request.post('/api/auth/login', {
-    data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+    data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
     headers: { 'X-CSRF-Token': csrf },
   });
   return csrf;
@@ -304,7 +306,7 @@ test.describe('Operator staff management (Issue 017)', () => {
   test('non-admin (role=staff) caller is rejected with 403 on every staff route', async ({ request }) => {
     const csrf = await primeCsrf(request);
     const login = await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: STAFF_LOCAL, password: STAFF_PASSWORD },
+      data: { scope: 'operator', username: STAFF_USERNAME, password: STAFF_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
     expect(login.status()).toBe(200);

@@ -32,6 +32,7 @@ const DB_URL =
 
 const SEED_PHONE = normalizePhone('0901230001');
 const SEED_PASSWORD = 'BBOp2026!';
+const SEED_USERNAME = 'PB-0001'; // 2026-06-06: seed operator logs in by username, not phone
 const OP_B_PHONE = '+8490xxxxxx9';
 const OP_B_PASSWORD = 'BBOp2026!';
 
@@ -146,8 +147,8 @@ async function prepareQueue(): Promise<PrepareCtx> {
       );
       opBId = ins.rows[0].id;
       await client.query(
-        `INSERT INTO "OperatorUser" ("id","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName","updatedAt")
-         VALUES (gen_random_uuid()::text, $1, $4, $5, $2, $3, 'admin', false, 'Op B Queue Admin', NOW())`,
+        `INSERT INTO "OperatorUser" ("id","username","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName","updatedAt")
+         VALUES (gen_random_uuid()::text, 'OPB-ADMIN', $1, $4, $5, $2, $3, 'admin', false, 'Op B Queue Admin', NOW())`,
         [OP_B_PHONE, await hash(OP_B_PASSWORD), opBId, '+8490xxxxxx9', '+8490xxxxxx8']
       );
     } else {
@@ -217,7 +218,7 @@ test.describe('Operator booking queue + manifest (Issue 014)', () => {
   test('AC1: GET /api/op/bookings returns paid bookings for operator', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -238,7 +239,7 @@ test.describe('Operator booking queue + manifest (Issue 014)', () => {
   test('AC2: contactStatus filter returns only matching bookings', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -264,7 +265,7 @@ test.describe('Operator booking queue + manifest (Issue 014)', () => {
   test('AC2: GET /api/op/bookings/:id returns full booking DTO', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -282,7 +283,7 @@ test.describe('Operator booking queue + manifest (Issue 014)', () => {
   test('AC2: cross-op GET booking returns 404', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -301,7 +302,7 @@ test.describe('Operator booking queue + manifest (Issue 014)', () => {
   test('AC5: POST /api/op/trips/:id/depart sets salesClosed=true', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -318,7 +319,7 @@ test.describe('Operator booking queue + manifest (Issue 014)', () => {
   test('AC5: depart is idempotent — second call returns 200 alreadyDeparted=true', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -337,7 +338,7 @@ test.describe('Operator booking queue + manifest (Issue 014)', () => {
   test('AC5: depart cross-op returns 404', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -354,7 +355,7 @@ test.describe('Operator booking queue + manifest (Issue 014)', () => {
   test('complete trip: POST /api/op/trips/:id/complete returns 200', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -373,7 +374,7 @@ test.describe('Operator booking queue + manifest (Issue 014)', () => {
   test('GET /api/op/trips/upcoming returns upcoming trips', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -391,7 +392,7 @@ test.describe('Operator booking queue + manifest (Issue 014)', () => {
   test('AC6: GET /api/op/manifest/:tripId rows have NO seatNumber field', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -414,7 +415,7 @@ test.describe('Operator booking queue + manifest (Issue 014)', () => {
   test('AC7: manifest response has generatedAt timestamp', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -429,7 +430,7 @@ test.describe('Operator booking queue + manifest (Issue 014)', () => {
   test('AC6+AC7: manifest cross-op returns 404', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 

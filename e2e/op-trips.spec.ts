@@ -30,6 +30,7 @@ const DB_URL =
 
 const SEED_PHONE = normalizePhone('0901230001');
 const SEED_PASSWORD = 'BBOp2026!';
+const SEED_USERNAME = 'PB-0001'; // 2026-06-06: seed operator logs in by username, not phone
 const OP_B_PHONE = '+8490xxxxxx9';
 const OP_B_PASSWORD = 'BBOp2026!';
 
@@ -153,8 +154,8 @@ async function prepareTrips(): Promise<PrepareCtx> {
       );
       opBId = ins.rows[0].id;
       await client.query(
-        `INSERT INTO "OperatorUser" ("id","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName","updatedAt")
-         VALUES (gen_random_uuid()::text, $1, $4, $5, $2, $3, 'admin', false, 'Op B Trips Admin', NOW())`,
+        `INSERT INTO "OperatorUser" ("id","username","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName","updatedAt")
+         VALUES (gen_random_uuid()::text, 'OPB-ADMIN', $1, $4, $5, $2, $3, 'admin', false, 'Op B Trips Admin', NOW())`,
         [OP_B_PHONE, await hash(OP_B_PASSWORD), opBId, '+8490xxxxxx9', '+8490xxxxxx8']
       );
     } else {
@@ -214,7 +215,7 @@ test.describe('Operator trip lifecycle (Issue 013)', () => {
   test('AC1: create trip — POST /api/op/trips returns 201 with TripDto', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -234,7 +235,7 @@ test.describe('Operator trip lifecycle (Issue 013)', () => {
   test('AC2: cross-op isolation — op A cannot GET trip owned by op B', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -247,7 +248,7 @@ test.describe('Operator trip lifecycle (Issue 013)', () => {
   test('AC4: cancel trip → 200 ok; second cancel → 200 already_cancelled (AC3 idempotent)', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -281,7 +282,7 @@ test.describe('Operator trip lifecycle (Issue 013)', () => {
   test('AC5: create recurring template → list shows it', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -309,7 +310,7 @@ test.describe('Operator trip lifecycle (Issue 013)', () => {
   test('AC7: sales-toggle flips salesClosed', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
