@@ -33,11 +33,11 @@ export interface BookingDto {
   status: BookingPaymentStatus;
   isManual: boolean;
   createdAt: string; // ISO 8601
-  // Issue 014 contact / pickup fields
+  // Issue 014 contact + Issue 104/107 pickup (read-only; traveler self-selected)
   contactStatus: BookingContactStatus;
-  pickupPointId: string | null;
-  pickupPointName: string | null;
-  pickupNote: string | null;
+  pickupKind: 'station' | 'area';
+  pickupAreaLabel: string | null;
+  pickupDetail: string | null;
   pickedUpAt: string | null; // ISO 8601
   escalationNote: string | null;
   escalatedAt: string | null; // ISO 8601

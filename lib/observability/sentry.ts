@@ -55,7 +55,7 @@ const REDACT_KEYS = new Set(
     'notificationPhone',
     'address',
     'pickupAddress',
-    'pickupNote',
+    'pickupDetail',
     'escalationNote',
     'buyerPhone',
     'buyerName',

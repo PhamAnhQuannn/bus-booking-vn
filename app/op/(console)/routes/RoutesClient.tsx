@@ -5,13 +5,12 @@
  *
  * Mutations go through lib/api/routesClient.ts (CSRF double-submit:
  * X-CSRF-Token on every non-GET; GET list sends none). Design-system surface:
- * Card list + Table, Badge active-state, Alert messages, Dialog create/edit,
- * inline PickupPointsPanel expander row.
+ * Card list + Table, Badge active-state, Alert messages, Dialog create/edit.
  *
  * Every data-testid is preserved (sandbox-gated e2e keys off them).
  */
 
-import { Fragment, useState } from 'react';
+import { useState } from 'react';
 import {
   listRoutesApi,
   createRouteApi,
@@ -33,7 +32,6 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import RouteEditDialog from './RouteEditDialog';
-import PickupPointsPanel from './PickupPointsPanel';
 import { ConfirmDialog } from '@/components/op/ConfirmDialog';
 
 // Single source of truth for the route shape is the API client (handles the
@@ -78,7 +76,6 @@ export default function RoutesClient({ initialRoutes }: Props) {
   const [isError, setIsError] = useState(false);
   const [editingRoute, setEditingRoute] = useState<RouteItem | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [expandedRouteId, setExpandedRouteId] = useState<string | null>(null);
   // PR 4: ConfirmDialog replaces window.confirm for deactivation.
   const [pendingDeactivate, setPendingDeactivate] = useState<string | null>(null);
 
@@ -208,8 +205,7 @@ export default function RoutesClient({ initialRoutes }: Props) {
                 const active = !route.deactivatedAt;
                 const status = routeActiveDisplay(active);
                 return (
-                  <Fragment key={route.id}>
-                    <TableRow data-testid={`route-row-${route.id}`}>
+                    <TableRow key={route.id} data-testid={`route-row-${route.id}`}>
                       <TableCell data-testid={`route-origin-${route.id}`}>{route.origin}</TableCell>
                       <TableCell data-testid={`route-destination-${route.id}`}>
                         {route.destination}
@@ -233,19 +229,6 @@ export default function RoutesClient({ initialRoutes }: Props) {
                             </Button>
                             <Button
                               type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                setExpandedRouteId(
-                                  expandedRouteId === route.id ? null : route.id
-                                )
-                              }
-                              data-testid={`route-pickup-toggle-${route.id}`}
-                            >
-                              {expandedRouteId === route.id ? 'Đóng điểm đón' : 'Điểm đón'}
-                            </Button>
-                            <Button
-                              type="button"
                               variant="destructive"
                               size="sm"
                               onClick={() => setPendingDeactivate(route.id)}
@@ -258,14 +241,6 @@ export default function RoutesClient({ initialRoutes }: Props) {
                         )}
                       </TableCell>
                     </TableRow>
-                    {expandedRouteId === route.id && (
-                      <TableRow>
-                        <TableCell colSpan={5} className="bg-muted/40">
-                          <PickupPointsPanel routeId={route.id} />
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </Fragment>
                 );
               })}
             </TableBody>

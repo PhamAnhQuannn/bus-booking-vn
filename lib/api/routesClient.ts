@@ -8,7 +8,8 @@
  * On failure: throw Object.assign(new Error(label), { status, data }) so the
  * caller can map data.error → a localized message.
  *
- * Used by app/op/(console)/routes/RoutesClient.tsx + PickupPointsPanel.tsx.
+ * Used by app/op/(console)/routes/RoutesClient.tsx. Pickup-point client fns
+ * removed in issue 104 (route-scoped PickupPoint replaced by OperatorPickupArea).
  */
 
 import { readCsrfToken } from '@/lib/auth/csrfClient';
@@ -22,14 +23,6 @@ export interface RouteItem {
   deactivatedAt: Date | string | null;
   createdAt: Date | string;
   updatedAt: Date | string;
-}
-
-export interface PickupPoint {
-  id: string;
-  name: string;
-  address: string;
-  displayOrder: number;
-  deactivatedAt: string | null;
 }
 
 function jsonHeaders(): HeadersInit {
@@ -87,51 +80,4 @@ export async function deactivateRouteApi(id: string): Promise<{ route: RouteItem
     credentials: 'same-origin',
   });
   return unwrap(res, 'deactivateRoute');
-}
-
-export async function listPickupPointsApi(
-  routeId: string
-): Promise<{ pickupPoints: PickupPoint[] }> {
-  const res = await fetch(`/api/op/routes/${routeId}/pickup-points`, {
-    credentials: 'same-origin',
-  });
-  return unwrap(res, 'listPickupPoints');
-}
-
-export async function createPickupPointApi(
-  routeId: string,
-  body: { name: string; address: string }
-): Promise<{ pickupPoint: PickupPoint }> {
-  const res = await fetch(`/api/op/routes/${routeId}/pickup-points`, {
-    method: 'POST',
-    headers: jsonHeaders(),
-    credentials: 'same-origin',
-    body: JSON.stringify(body),
-  });
-  return unwrap(res, 'createPickupPoint');
-}
-
-export async function reorderPickupPointsApi(
-  routeId: string,
-  orderedIds: string[]
-): Promise<{ pickupPoints: PickupPoint[] }> {
-  const res = await fetch(`/api/op/routes/${routeId}/pickup-points`, {
-    method: 'PATCH',
-    headers: jsonHeaders(),
-    credentials: 'same-origin',
-    body: JSON.stringify({ orderedIds }),
-  });
-  return unwrap(res, 'reorderPickupPoints');
-}
-
-export async function deactivatePickupPointApi(
-  routeId: string,
-  ppId: string
-): Promise<{ pickupPoint: PickupPoint }> {
-  const res = await fetch(`/api/op/routes/${routeId}/pickup-points/${ppId}/deactivate`, {
-    method: 'POST',
-    headers: csrfHeaders(),
-    credentials: 'same-origin',
-  });
-  return unwrap(res, 'deactivatePickupPoint');
 }

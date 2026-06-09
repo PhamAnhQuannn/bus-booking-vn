@@ -18,12 +18,7 @@ export {
   createRouteApi,
   patchRouteApi,
   deactivateRouteApi,
-  listPickupPointsApi,
-  createPickupPointApi,
-  deactivatePickupPointApi,
-  reorderPickupPointsApi,
   type RouteItem,
-  type PickupPoint,
 } from './routesClient';
 export {
   listStaffApi,

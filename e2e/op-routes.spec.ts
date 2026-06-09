@@ -211,68 +211,8 @@ test.describe('Operator route management (Issue 012)', () => {
     expect((await res.json()).error).toBe('not_found');
   });
 
-  test('AC7 + AC8 + AC9: add pickup points, reorder, deactivate one', async ({ request }) => {
-    const csrf = await primeCsrf(request);
-    await request.post('/api/auth/login', {
-      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
-      headers: { 'X-CSRF-Token': csrf },
-    });
-
-    const created = await request.post('/api/op/routes', {
-      data: { origin: 'E2E-PP-Origin', destination: 'E2E-PP-Dest', durationMinutes: 120 },
-      headers: { 'X-CSRF-Token': csrf },
-    });
-    const routeId: string = (await created.json()).route.id;
-
-    // AC7: add two pickup points
-    const pp1Res = await request.post(`/api/op/routes/${routeId}/pickup-points`, {
-      data: { name: 'Điểm A', address: 'Địa chỉ A' },
-      headers: { 'X-CSRF-Token': csrf },
-    });
-    expect(pp1Res.status()).toBe(201);
-    const pp1Id: string = (await pp1Res.json()).pickupPoint.id;
-
-    const pp2Res = await request.post(`/api/op/routes/${routeId}/pickup-points`, {
-      data: { name: 'Điểm B', address: 'Địa chỉ B' },
-      headers: { 'X-CSRF-Token': csrf },
-    });
-    expect(pp2Res.status()).toBe(201);
-    const pp2Id: string = (await pp2Res.json()).pickupPoint.id;
-
-    // AC8: reorder B before A
-    const reorder = await request.patch(`/api/op/routes/${routeId}/pickup-points`, {
-      data: { orderedIds: [pp2Id, pp1Id] },
-      headers: { 'X-CSRF-Token': csrf },
-    });
-    expect(reorder.status()).toBe(200);
-    const rJson = await reorder.json();
-    expect(rJson.pickupPoints[0].id).toBe(pp2Id);
-    expect(rJson.pickupPoints[1].id).toBe(pp1Id);
-
-    // AC9: deactivate pp1
-    const deact = await request.post(`/api/op/routes/${routeId}/pickup-points/${pp1Id}/deactivate`, {
-      headers: { 'X-CSRF-Token': csrf },
-    });
-    expect(deact.status()).toBe(200);
-
-    // Re-deactivate pp1 → 422
-    const reDeact = await request.post(`/api/op/routes/${routeId}/pickup-points/${pp1Id}/deactivate`, {
-      headers: { 'X-CSRF-Token': csrf },
-    });
-    expect(reDeact.status()).toBe(422);
-    expect((await reDeact.json()).error).toBe('already_deactivated');
-  });
-
-  test('AC10: cross-op GET /pickup-points returns 404', async ({ request }) => {
-    const csrf = await primeCsrf(request);
-    await request.post('/api/auth/login', {
-      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
-      headers: { 'X-CSRF-Token': csrf },
-    });
-
-    const res = await request.get(`/api/op/routes/${opBRouteId}/pickup-points`);
-    expect(res.status()).toBe(404);
-  });
+  // Pickup-point tests (AC7–AC10) removed in issue 104 — the route-scoped
+  // PickupPoint model + its endpoints were replaced by OperatorPickupArea.
 
   test('AC8-unauthenticated: GET /api/op/routes returns 401', async ({ request }) => {
     const res = await request.get('/api/op/routes');

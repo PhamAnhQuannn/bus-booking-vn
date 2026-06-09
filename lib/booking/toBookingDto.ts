@@ -21,8 +21,9 @@ export interface BookingDtoRow {
   isManual: boolean;
   createdAt: Date;
   contactStatus: string;
-  pickupPointId: string | null;
-  pickupNote: string | null;
+  pickupKind: string;
+  pickupAreaLabel: string | null;
+  pickupDetail: string | null;
   pickedUpAt: Date | null;
   escalationNote: string | null;
   escalatedAt: Date | null;
@@ -36,7 +37,6 @@ export interface BookingDtoRow {
     route: { origin: string; destination: string };
     bus: { licensePlate: string };
   };
-  pickupPoint: { name: string } | null;
 }
 
 export function toBookingDto(row: BookingDtoRow): BookingDto {
@@ -56,9 +56,9 @@ export function toBookingDto(row: BookingDtoRow): BookingDto {
     isManual: row.isManual,
     createdAt: row.createdAt.toISOString(),
     contactStatus: row.contactStatus as BookingDto['contactStatus'],
-    pickupPointId: row.pickupPointId,
-    pickupPointName: row.pickupPoint?.name ?? null,
-    pickupNote: row.pickupNote,
+    pickupKind: row.pickupKind as BookingDto['pickupKind'],
+    pickupAreaLabel: row.pickupAreaLabel,
+    pickupDetail: row.pickupDetail,
     pickedUpAt: row.pickedUpAt ? row.pickedUpAt.toISOString() : null,
     escalationNote: row.escalationNote,
     escalatedAt: row.escalatedAt ? row.escalatedAt.toISOString() : null,

@@ -56,7 +56,6 @@ const ROUTE = {
   destination: 'TP.HCM',
   durationMinutes: 900,
   deactivatedAt: null,
-  pickupPoints: [],
   createdAt: new Date(),
   updatedAt: new Date(),
 };
