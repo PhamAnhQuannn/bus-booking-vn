@@ -21,6 +21,12 @@ export {
   type RouteItem,
 } from './routesClient';
 export {
+  listPickupAreasApi,
+  createPickupAreaApi,
+  deactivatePickupAreaApi,
+  type PickupAreaItem,
+} from './pickupAreasClient';
+export {
   listStaffApi,
   createStaffApi,
   renameStaffApi,
