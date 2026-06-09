@@ -342,7 +342,11 @@ export default function StaffDashboardClient({
                         <TableCell>{row.name}</TableCell>
                         <TableCell>{row.phone}</TableCell>
                         <TableCell className="tabular-nums">{row.ticketCount}</TableCell>
-                        <TableCell>{row.pickupAreaLabel ?? '—'}</TableCell>
+                        <TableCell>
+                          {row.pickupKind === 'area'
+                            ? [row.pickupAreaLabel, row.pickupDetail].filter(Boolean).join(' — ') || '—'
+                            : 'Tại bến'}
+                        </TableCell>
                         <TableCell>
                           <Badge variant={contact.variant}>{contact.label}</Badge>
                         </TableCell>
