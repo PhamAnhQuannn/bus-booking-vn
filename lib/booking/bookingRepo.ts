@@ -161,7 +161,8 @@ export async function createOnlineBookingFromHold(
             INSERT INTO "Booking" (
               id, "bookingRef", "confirmationToken", "tripId", "holdId",
               "customerId", "buyerName", "buyerPhone", "buyerEmail", "ticketCount", "totalVnd",
-              "paymentMethod", status, "isManual", "createdAt"
+              "paymentMethod", status, "isManual", "createdAt",
+              "pickupKind", "pickupAreaId", "pickupAreaLabel", "pickupDetail"
             )
             SELECT
               ${bookingId}::uuid,
@@ -178,7 +179,11 @@ export async function createOnlineBookingFromHold(
               ${method}::"PaymentMethod",
               'awaiting_payment'::"BookingStatus",
               false,
-              NOW()
+              NOW(),
+              h."pickupKind",
+              h."pickupAreaId",
+              h."pickupAreaLabel",
+              h."pickupDetail"
             FROM "Hold" h
             JOIN "Trip" t ON t.id = h."tripId"
             WHERE h.id = ${holdId}
