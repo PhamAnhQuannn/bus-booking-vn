@@ -59,6 +59,7 @@ async function postHandler(req: NextRequest, ctx: OperatorAuthContext): Promise<
       departureAt: parsed.data.departureAt,
       price: parsed.data.price,
       blockedSeats: parsed.data.blockedSeats,
+      pickupAreaIds: parsed.data.pickupAreaIds,
     });
     return NextResponse.json({ trip }, { status: 201 });
   } catch (e) {
@@ -75,6 +76,9 @@ async function postHandler(req: NextRequest, ctx: OperatorAuthContext): Promise<
       if (e.code === 'bus_overlap') {
         // Bus already runs an overlapping trip — conflict (I3: overlap-conflict = 409).
         return NextResponse.json({ error: 'bus_overlap' }, { status: 409 });
+      }
+      if (e.code === 'invalid_pickup_area') {
+        return NextResponse.json({ error: 'invalid_pickup_area' }, { status: 422 });
       }
     }
     throw e;

@@ -10,7 +10,7 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
-import { createTemplate, listTemplates } from '@/lib/trips';
+import { createTemplate, listTemplates, TripServiceError } from '@/lib/trips';
 import { CreateRecurringTemplateSchema } from '@/lib/core/validation/trip';
 
 async function getHandler(_req: NextRequest, ctx: OperatorAuthContext): Promise<Response> {
@@ -31,8 +31,15 @@ async function postHandler(req: NextRequest, ctx: OperatorAuthContext): Promise<
     return NextResponse.json({ error: 'validation_failed', issues: parsed.error.issues }, { status: 422 });
   }
 
-  const template = await createTemplate(ctx.operatorId, parsed.data);
-  return NextResponse.json({ template }, { status: 201 });
+  try {
+    const template = await createTemplate(ctx.operatorId, parsed.data);
+    return NextResponse.json({ template }, { status: 201 });
+  } catch (e) {
+    if (e instanceof TripServiceError && e.code === 'invalid_pickup_area') {
+      return NextResponse.json({ error: 'invalid_pickup_area' }, { status: 422 });
+    }
+    throw e;
+  }
 }
 
 export const GET = withErrorHandler(requireOperatorAuth({})(getHandler));

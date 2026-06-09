@@ -16,6 +16,7 @@ import { withOperatorScope } from '@/lib/core/db';
 import { fromZonedTime } from 'date-fns-tz';
 import { addDays, parseISO, format } from 'date-fns';
 import { randomUUID } from 'crypto';
+import { TripServiceError } from './errors';
 
 const TZ = 'Asia/Ho_Chi_Minh';
 const HORIZON_DAYS = 14;
@@ -59,6 +60,10 @@ export async function generateTripsFromTemplates(
           maintenanceStart: true,
           maintenanceEnd: true,
         },
+      },
+      // Issue 106: pickup-area subset copied into each generated trip.
+      pickupAreas: {
+        select: { operatorPickupAreaId: true, label: true, displayOrder: true },
       },
     },
   });
@@ -164,6 +169,18 @@ export async function generateTripsFromTemplates(
             },
           });
 
+          // Issue 106: copy the template's pickup-area subset into this trip.
+          if (template.pickupAreas?.length) {
+            await tx.tripPickupArea.createMany({
+              data: template.pickupAreas.map((a) => ({
+                tripId: trip.id,
+                operatorPickupAreaId: a.operatorPickupAreaId,
+                label: a.label,
+                displayOrder: a.displayOrder,
+              })),
+            });
+          }
+
           await tx.recurringGenerationLog.create({
             data: {
               id: randomUUID().replace(/-/g, '').slice(0, 25),
@@ -239,19 +256,45 @@ export async function createTemplate(
     daysOfMask: number;
     validFrom: string;
     validUntil: string;
+    /** Issue 106: OperatorPickupArea ids enabled for this template's trips. */
+    pickupAreaIds?: string[];
   }
 ): Promise<TemplateDto> {
-  const template = await prisma.recurringTripTemplate.create({
-    data: {
-      operatorId,
-      routeId: input.routeId,
-      busId: input.busId,
-      price: input.price,
-      departureLocalTime: input.departureLocalTime,
-      daysOfMask: input.daysOfMask,
-      validFrom: new Date(input.validFrom),
-      validUntil: new Date(input.validUntil),
-    },
+  const template = await prisma.$transaction(async (tx) => {
+    const created = await tx.recurringTripTemplate.create({
+      data: {
+        operatorId,
+        routeId: input.routeId,
+        busId: input.busId,
+        price: input.price,
+        departureLocalTime: input.departureLocalTime,
+        daysOfMask: input.daysOfMask,
+        validFrom: new Date(input.validFrom),
+        validUntil: new Date(input.validUntil),
+      },
+    });
+
+    // Issue 106: snapshot the operator's chosen areas onto the template. Validate
+    // ownership + active (cross-op / inactive / unknown → reject).
+    if (input.pickupAreaIds && input.pickupAreaIds.length > 0) {
+      const owned = await tx.operatorPickupArea.findMany({
+        where: { id: { in: input.pickupAreaIds }, operatorId, isActive: true },
+        select: { id: true, label: true },
+      });
+      if (owned.length !== new Set(input.pickupAreaIds).size) {
+        throw new TripServiceError('invalid_pickup_area');
+      }
+      await tx.templatePickupArea.createMany({
+        data: owned.map((a, i) => ({
+          recurringTemplateId: created.id,
+          operatorPickupAreaId: a.id,
+          label: a.label,
+          displayOrder: i,
+        })),
+      });
+    }
+
+    return created;
   });
   return toTemplateDto(template);
 }

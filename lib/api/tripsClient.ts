@@ -36,6 +36,7 @@ export async function createTripApi(body: {
   busId: string;
   departureAt: string;
   price: number;
+  pickupAreaIds?: string[];
 }): Promise<{ trip: TripDto }> {
   const res = await fetch('/api/op/trips', {
     method: 'POST',
@@ -187,6 +188,7 @@ export async function createTemplateApi(body: {
   daysOfMask: number;
   validFrom: string;
   validUntil: string;
+  pickupAreaIds?: string[];
 }): Promise<{ template: TemplateDto }> {
   const res = await fetch('/api/op/trip-templates', {
     method: 'POST',

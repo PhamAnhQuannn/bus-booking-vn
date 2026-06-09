@@ -11,6 +11,7 @@ export type TripErrorCode =
   | 'bus_overlap_with_outbound'
   | 'already_cancelled'
   | 'trip_cancelled'
+  | 'invalid_pickup_area'
   | 'not_found';
 
 export interface TripServiceErrorMeta {
