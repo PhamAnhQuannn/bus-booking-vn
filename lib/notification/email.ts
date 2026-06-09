@@ -30,6 +30,8 @@ export type EmailTemplate =
   | 'operatorSuspended'
   | 'operatorUnderReview'
   | 'operatorResubmit'
+  // 2026-06-06: admin-provisioned operator login credentials (username + temp password).
+  | 'operatorAccountCreated'
   // Issue 082: charter (thuê xe hợp đồng) lead-gen lifecycle emails.
   //   charterSubmitted — request received confirmation (sent at create time).
   //   charterMatched   — an operator accepted the lead (→ ACCEPTED, Issues 083/084).
@@ -84,6 +86,8 @@ const SUBJECTS: Record<string, string> = {
   operatorSuspended: 'Tài khoản nhà xe đã bị tạm ngưng',
   operatorUnderReview: 'Hồ sơ nhà xe đang được xem xét',
   operatorResubmit: 'Đã nhận lại hồ sơ nhà xe',
+  // 2026-06-06: operator account credentials.
+  operatorAccountCreated: 'Tài khoản nhà xe của bạn đã sẵn sàng',
   // Issue 082: charter lead-gen lifecycle.
   charterSubmitted: 'BBVN — Đã nhận yêu cầu thuê xe',
   charterMatched: 'BBVN — Đã tìm được nhà xe cho yêu cầu của bạn',
