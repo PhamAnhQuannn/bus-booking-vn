@@ -15,13 +15,15 @@
  *   4. Create the bootstrap OperatorUser (role=admin, requiresPasswordChange=true).
  *   5. Flip Operator.status → APPROVED.
  *   6. Write the AdminAuditLog row.
- * After commit, enqueue the credentials email (operatorAccountCreated) as a pending
- * NotificationLog row; the dispatch cron delivers it (email sender is a stub today).
+ * After commit, enqueue the account-created email (operatorAccountCreated) as a
+ * pending NotificationLog row; the dispatch cron delivers it (email sender is a stub
+ * today).
  *
- * SECURITY: the temp password is NOT persisted on OperatorUser (only its bcrypt
- * hash). It is returned ONCE to the caller for on-screen display, and it appears in
- * the NotificationLog email body — same exposure the existing SMS provisioning has.
- * Short-lived (force-changed on first login). Harden email payloads in a follow-up.
+ * SECURITY: the temp password is NOT persisted anywhere — not on OperatorUser (only
+ * its bcrypt hash) and NOT in the NotificationLog email body. It is returned ONCE to
+ * the admin caller for on-screen relay only. The email carries just the username + a
+ * self-serve set-password link (the OTP-backed /op/forgot-password flow), so no
+ * cleartext credential is ever written to the NotificationLog table.
  */
 
 import type { PrismaClient } from '@prisma/client';
@@ -41,19 +43,22 @@ export interface CreateOperatorAccountInput {
 export interface CreateOperatorAccountResult {
   operatorUserId: string;
   username: string;
-  /** Plaintext temp password — shown ONCE to the admin; never persisted. */
+  /** Plaintext temp password — returned ONCE to the admin for on-screen relay; never
+   *  persisted and never emailed (the email links to the OTP set-password flow). */
   tempPassword: string;
 }
 
-function renderCredentialsBody(username: string, tempPassword: string, loginUrl: string): string {
+function renderAccountCreatedBody(username: string, loginUrl: string, setupUrl: string): string {
   return [
     'Tài khoản nhà xe của bạn trên BusBookVN đã được tạo.',
     '',
     `Tên đăng nhập: ${username}`,
-    `Mật khẩu tạm thời: ${tempPassword}`,
-    `Đăng nhập: ${loginUrl}`,
     '',
-    'Vì lý do bảo mật, bạn sẽ được yêu cầu đổi mật khẩu trong lần đăng nhập đầu tiên.',
+    'Để đặt mật khẩu, hãy dùng liên kết bên dưới (xác thực bằng mã OTP gửi tới số',
+    'điện thoại đã đăng ký):',
+    setupUrl,
+    '',
+    `Sau đó đăng nhập tại: ${loginUrl}`,
   ].join('\n');
 }
 
@@ -120,9 +125,11 @@ export async function createOperatorAccount(
     return { operatorUserId: operatorUser.id, username, contactEmail: operator.contactEmail };
   });
 
-  // Credentials email enqueued AFTER commit so a delivery row never rolls back the
-  // account. The dispatch cron delivers it (email sender is a stub today).
-  const loginUrl = `${input.baseUrl}/op/first-login`;
+  // Account-created email enqueued AFTER commit so a delivery row never rolls back the
+  // account. The dispatch cron delivers it (email sender is a stub today). The body
+  // carries NO password — only the username + the OTP-backed set-password link.
+  const loginUrl = `${input.baseUrl}/op/login`;
+  const setupUrl = `${input.baseUrl}/op/forgot-password`;
   if (result.contactEmail) {
     await prisma.notificationLog.create({
       data: {
@@ -131,7 +138,7 @@ export async function createOperatorAccount(
         template: 'operatorAccountCreated',
         recipient: result.contactEmail,
         // Pre-rendered body — the dispatcher passes payload straight to sendEmail.
-        payload: renderCredentialsBody(result.username, tempPassword, loginUrl),
+        payload: renderAccountCreatedBody(result.username, loginUrl, setupUrl),
         status: 'pending',
       },
     });

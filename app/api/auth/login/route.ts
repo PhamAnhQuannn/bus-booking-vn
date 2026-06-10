@@ -21,10 +21,17 @@ import { cookies } from 'next/headers';
 import { operatorLoginInput } from '@/lib/core/validation/auth';
 import { AuthServiceError } from '@/lib/auth';
 import { operatorLogin } from '@/lib/auth';
+import { opLoginRatelimit, opLoginLockout } from '@/lib/ratelimit';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 const REFRESH_COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days in seconds
 const ACCESS_COOKIE_MAX_AGE = 15 * 60; // 15 minutes in seconds
+
+function clientIp(req: NextRequest): string {
+  const fwd = req.headers.get('x-forwarded-for');
+  if (fwd) return fwd.split(',')[0].trim();
+  return req.headers.get('x-real-ip') ?? 'unknown';
+}
 
 async function handler(req: NextRequest): Promise<Response> {
   let body: unknown;
@@ -47,16 +54,37 @@ async function handler(req: NextRequest): Promise<Response> {
     // -----------------------------------------------------------------------
     // Operator branch (username + password)
     // -----------------------------------------------------------------------
+    // Per-IP throttle on the login surface (tighter than the generic edge limit).
+    const ipRl = await opLoginRatelimit.limit(`op-login:${clientIp(req)}`);
+    if (!ipRl.allowed) {
+      return NextResponse.json(
+        { error: 'RATE_LIMITED' },
+        { status: 429, headers: { 'Retry-After': String(ipRl.retryAfter) } }
+      );
+    }
+
     const parsed = operatorLoginInput.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: 'INVALID' }, { status: 400 });
     }
+
+    // Account-level lockout key — usernames are publicly enumerable, so the
+    // brake is keyed on the (case-normalized) username, not just the IP.
+    const lockoutKey = `op-login-fail:${parsed.data.username.trim().toLowerCase()}`;
 
     let result;
     try {
       result = await operatorLogin(parsed.data);
     } catch (err) {
       if (err instanceof AuthServiceError && err.code === 'INVALID_CREDENTIALS') {
+        // Bad credentials — consume the consecutive-failure lockout counter.
+        const lk = await opLoginLockout.limit(lockoutKey);
+        if (!lk.allowed) {
+          return NextResponse.json(
+            { error: 'LOCKED_OUT' },
+            { status: 429, headers: { 'Retry-After': String(lk.retryAfter) } }
+          );
+        }
         return NextResponse.json({ error: 'invalid_credentials' }, { status: 401 });
       }
       throw err;

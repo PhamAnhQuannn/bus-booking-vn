@@ -36,6 +36,7 @@ const LIB_DOMAINS = [
   "reports",
   "search",
   "security",
+  "seo",
   "staff",
   "state",
   "storage",

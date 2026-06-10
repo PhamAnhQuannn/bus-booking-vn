@@ -99,7 +99,7 @@ describe('createOperatorAccount', () => {
     );
   });
 
-  it('enqueues the operatorAccountCreated email with the credentials body', async () => {
+  it('enqueues the operatorAccountCreated email WITHOUT the temp password (set-password link only)', async () => {
     await createOperatorAccount(prisma, INPUT);
 
     expect(mockPrisma.notificationLog.create).toHaveBeenCalledTimes(1);
@@ -109,8 +109,10 @@ describe('createOperatorAccount', () => {
     expect(data.recipient).toBe('lienhe@abc.vn');
     expect(data.status).toBe('pending');
     expect(data.payload).toContain('PB-0001');
-    expect(data.payload).toContain('Temp-Pass-123');
-    expect(data.payload).toContain('/op/first-login');
+    // The cleartext temp password must NEVER be written to NotificationLog.
+    expect(data.payload).not.toContain('Temp-Pass-123');
+    // Instead the body carries the OTP-backed self-serve set-password link.
+    expect(data.payload).toContain('/op/forgot-password');
   });
 
   it('throws operator_not_found when the application is missing', async () => {

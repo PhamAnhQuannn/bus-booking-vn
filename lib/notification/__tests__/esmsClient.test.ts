@@ -53,6 +53,14 @@ describe('postEsms', () => {
     expect(body.ApiKey).toBe('test-api-key');
   });
 
+  it('sets IsUnicode "1" when the body contains non-ASCII (e.g. Vietnamese custom pickup)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ json: async () => ({ CodeResult: '100', SMSID: 's' }) });
+    vi.stubGlobal('fetch', fetchMock);
+    await postEsms({ phone: '+84901234567', content: 'Diem don rieng: 12 Đường Láng', smsType: '2', requestId: 'r' });
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.IsUnicode).toBe('1');
+  });
+
   it('non-100 CodeResult → ok:false with an error string', async () => {
     vi.stubGlobal(
       'fetch',

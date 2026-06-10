@@ -5,7 +5,7 @@
  * Format: `${BRAND_ACRONYM}-${last4(phone)}` — uppercase, Vietnamese diacritics
  * stripped, non-alphanumerics removed. Collisions resolved with a `-N` suffix.
  *
- *   buildUsername('Phương Bắc',     '+84901230001') -> 'PB-0001'
+ *   buildUsername('Phương Bắc',     '+8490xxxx0001') -> 'PB-0001'
  *   buildUsername('Mai Linh Express','0987654321')   -> 'MLE-4321'
  *   buildUsername('Futa',           '0901112222')    -> 'FUT-2222'
  *

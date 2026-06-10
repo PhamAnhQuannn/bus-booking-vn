@@ -9,6 +9,7 @@
  * the booking transaction is unaffected by SMS provider downtime.
  */
 
+import { randomUUID } from 'node:crypto';
 import { logger } from '@/lib/logger';
 import { getEnv } from '@/lib/config';
 import { postEsms } from './esmsClient';
@@ -193,7 +194,7 @@ export async function sendSmsBody(input: {
     phone: to,
     content: body,
     smsType: '2',
-    requestId: requestId ?? crypto.randomUUID(),
+    requestId: requestId ?? randomUUID(),
   });
 }
 
@@ -212,6 +213,6 @@ export async function sendSms(input: SendSmsInput): Promise<SendSmsResult> {
     phone: to,
     content: body,
     smsType: template === 'otpCode' ? getEnv().ESMS_OTP_SMSTYPE : '2',
-    requestId: crypto.randomUUID(),
+    requestId: randomUUID(),
   });
 }

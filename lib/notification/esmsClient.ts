@@ -46,7 +46,10 @@ export async function postEsms(input: {
     Phone: toEsmsPhone(input.phone),
     Content: input.content,
     SmsType: input.smsType,
-    IsUnicode: '0', // bodies are ASCII (renderTemplate emits no diacritics)
+    // Most templated bodies are ASCII, but user-supplied fields (e.g. the custom
+    // pickup detail folded into operatorNewBooking) can carry Vietnamese diacritics.
+    // Send as Unicode whenever the body has any non-ASCII char so it isn't garbled.
+    IsUnicode: /[^\x00-\x7F]/.test(input.content) ? '1' : '0',
     RequestId: input.requestId.slice(0, 50), // eSMS idempotency key, max 50 chars / 24h
     Sandbox: env.ESMS_SANDBOX ? '1' : '0',
   };
