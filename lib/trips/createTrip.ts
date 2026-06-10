@@ -129,7 +129,7 @@ export async function createTrip(input: CreateTripInput): Promise<TripDto> {
       if (pickupAreaIds && pickupAreaIds.length > 0) {
         const owned = await tx.operatorPickupArea.findMany({
           where: { id: { in: pickupAreaIds }, operatorId, isActive: true },
-          select: { id: true, name: true, addressLine: true },
+          select: { id: true, name: true, addressLine: true, kind: true },
         });
         if (owned.length !== new Set(pickupAreaIds).size) {
           throw Object.assign(new Error('invalid_pickup_area'), { _trip: 'invalid_pickup_area' });
@@ -139,6 +139,7 @@ export async function createTrip(input: CreateTripInput): Promise<TripDto> {
             tripId: created.id,
             operatorPickupAreaId: a.id,
             label: composePickupLabel(a),
+            kind: a.kind, // Issue 110: snapshot kind alongside label.
             displayOrder: i,
           })),
         });

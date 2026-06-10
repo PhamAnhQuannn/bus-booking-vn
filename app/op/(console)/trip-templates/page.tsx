@@ -32,7 +32,7 @@ export default async function OpTripTemplatesPage() {
   ]);
   const activeAreas = areas
     .filter((a) => a.isActive)
-    .map((a) => ({ id: a.id, label: composePickupLabel(a) }));
+    .map((a) => ({ id: a.id, label: composePickupLabel(a), kind: a.kind }));
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 md:px-6">

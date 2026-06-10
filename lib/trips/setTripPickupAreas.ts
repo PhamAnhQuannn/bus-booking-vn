@@ -36,11 +36,16 @@ export async function setTripPickupAreas({
     });
     if (!trip) throw new TripServiceError('not_found');
 
-    let owned: { id: string; name: string; addressLine: string | null }[] = [];
+    let owned: {
+      id: string;
+      name: string;
+      addressLine: string | null;
+      kind: 'station' | 'pickup';
+    }[] = [];
     if (uniqueIds.length > 0) {
       owned = await tx.operatorPickupArea.findMany({
         where: { id: { in: uniqueIds }, operatorId, isActive: true },
-        select: { id: true, name: true, addressLine: true },
+        select: { id: true, name: true, addressLine: true, kind: true },
       });
       if (owned.length !== uniqueIds.length) {
         throw new TripServiceError('invalid_pickup_area');
@@ -55,6 +60,7 @@ export async function setTripPickupAreas({
           tripId,
           operatorPickupAreaId: a.id,
           label: composePickupLabel(a),
+          kind: a.kind, // Issue 110: snapshot kind alongside label.
           displayOrder: i,
         })),
       });

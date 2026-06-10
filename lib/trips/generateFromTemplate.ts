@@ -63,8 +63,9 @@ export async function generateTripsFromTemplates(
         },
       },
       // Issue 106: pickup-area subset copied into each generated trip.
+      // Issue 110: carry `kind` from the template snapshot (NOT a fresh place select).
       pickupAreas: {
-        select: { operatorPickupAreaId: true, label: true, displayOrder: true },
+        select: { operatorPickupAreaId: true, label: true, kind: true, displayOrder: true },
       },
     },
   });
@@ -177,6 +178,7 @@ export async function generateTripsFromTemplates(
                 tripId: trip.id,
                 operatorPickupAreaId: a.operatorPickupAreaId,
                 label: a.label,
+                kind: a.kind, // Issue 110: propagate kind from the template snapshot.
                 displayOrder: a.displayOrder,
               })),
             });
@@ -280,7 +282,7 @@ export async function createTemplate(
     if (input.pickupAreaIds && input.pickupAreaIds.length > 0) {
       const owned = await tx.operatorPickupArea.findMany({
         where: { id: { in: input.pickupAreaIds }, operatorId, isActive: true },
-        select: { id: true, name: true, addressLine: true },
+        select: { id: true, name: true, addressLine: true, kind: true },
       });
       if (owned.length !== new Set(input.pickupAreaIds).size) {
         throw new TripServiceError('invalid_pickup_area');
@@ -290,6 +292,7 @@ export async function createTemplate(
           recurringTemplateId: created.id,
           operatorPickupAreaId: a.id,
           label: composePickupLabel(a),
+          kind: a.kind, // Issue 110: snapshot kind alongside label.
           displayOrder: i,
         })),
       });

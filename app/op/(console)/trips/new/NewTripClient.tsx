@@ -42,7 +42,14 @@ interface BusOption {
 interface PickupAreaOption {
   id: string;
   label: string;
+  kind: 'station' | 'pickup';
 }
+
+/** Issue 110: picker grouping — Bến xe (station) first, then Đón tận nơi (pickup). */
+const PICKUP_KIND_GROUPS: { kind: 'station' | 'pickup'; label: string }[] = [
+  { kind: 'station', label: 'Bến xe' },
+  { kind: 'pickup', label: 'Đón tận nơi' },
+];
 
 interface Props {
   routes: RouteOption[];
@@ -196,22 +203,35 @@ export default function NewTripClient({ routes, buses, pickupAreas }: Props) {
               <p className="text-sm text-muted-foreground">
                 Khách có thể chọn một trong các khu vực này để được đón tận nơi.
               </p>
-              <div className="flex flex-col gap-2 rounded-md border border-input p-3">
-                {pickupAreas.map((a) => (
-                  <label key={a.id} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={selectedAreaIds.includes(a.id)}
-                      onChange={(e) =>
-                        setSelectedAreaIds((prev) =>
-                          e.target.checked ? [...prev, a.id] : prev.filter((id) => id !== a.id)
-                        )
-                      }
-                      data-testid={`new-trip-area-${a.id}`}
-                    />
-                    {a.label}
-                  </label>
-                ))}
+              <div className="flex flex-col gap-4 rounded-md border border-input p-3">
+                {PICKUP_KIND_GROUPS.map((group) => {
+                  const items = pickupAreas.filter((a) => a.kind === group.kind);
+                  if (items.length === 0) return null;
+                  return (
+                    <div key={group.kind} className="flex flex-col gap-2">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        {group.label}
+                      </div>
+                      {items.map((a) => (
+                        <label key={a.id} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={selectedAreaIds.includes(a.id)}
+                            onChange={(e) =>
+                              setSelectedAreaIds((prev) =>
+                                e.target.checked
+                                  ? [...prev, a.id]
+                                  : prev.filter((id) => id !== a.id)
+                              )
+                            }
+                            data-testid={`new-trip-area-${a.id}`}
+                          />
+                          {a.label}
+                        </label>
+                      ))}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

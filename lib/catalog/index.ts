@@ -10,6 +10,7 @@ export {
   type OperatorPickupAreaDto,
 } from './createOperatorPickupArea';
 export { listOperatorPickupAreas } from './listOperatorPickupAreas';
+export { pickupPlaceKindToPickupKind } from './pickupPlaceKind';
 export { deactivateOperatorPickupArea } from './deactivateOperatorPickupArea';
 export { updateOperatorPickupArea } from './updateOperatorPickupArea';
 export { deactivateBus } from './deactivateBus';

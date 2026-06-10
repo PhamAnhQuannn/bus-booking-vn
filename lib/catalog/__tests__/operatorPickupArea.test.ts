@@ -41,7 +41,7 @@ describe('createOperatorPickupArea', () => {
   it('resolves names + label from codes and creates with next displayOrder', async () => {
     await createOperatorPickupArea({
       operatorId: 'op1',
-      data: { provinceCode: '1', districtCode: '1', wardCode: '1', name: 'Bến xe Phúc Xá', addressLine: '12 Lê Lợi' },
+      data: { provinceCode: '1', districtCode: '1', wardCode: '1', name: 'Bến xe Phúc Xá', addressLine: '12 Lê Lợi', kind: 'station' },
     });
     expect(mockCreate).toHaveBeenCalledTimes(1);
     const arg = mockCreate.mock.calls[0][0].data;
@@ -51,6 +51,7 @@ describe('createOperatorPickupArea', () => {
     expect(arg.name).toBe('Bến xe Phúc Xá');
     expect(arg.addressLine).toBe('12 Lê Lợi');
     expect(arg.label).toBe('Phường Phúc Xá, Quận Ba Đình, Thành phố Hà Nội');
+    expect(arg.kind).toBe('station'); // Issue 110: kind persisted from input
     expect(arg.displayOrder).toBe(3); // max 2 + 1
   });
 
@@ -58,7 +59,7 @@ describe('createOperatorPickupArea', () => {
     await expect(
       createOperatorPickupArea({
         operatorId: 'op1',
-        data: { provinceCode: '1', districtCode: '1', wardCode: '999999', name: 'X' },
+        data: { provinceCode: '1', districtCode: '1', wardCode: '999999', name: 'X', kind: 'station' },
       })
     ).rejects.toMatchObject({ code: 'invalid_area' });
     expect(mockCreate).not.toHaveBeenCalled();
@@ -69,7 +70,7 @@ describe('createOperatorPickupArea', () => {
     await expect(
       createOperatorPickupArea({
         operatorId: 'op1',
-        data: { provinceCode: '1', districtCode: '1', wardCode: '1', name: 'Bến xe Phúc Xá' },
+        data: { provinceCode: '1', districtCode: '1', wardCode: '1', name: 'Bến xe Phúc Xá', kind: 'station' },
       })
     ).rejects.toMatchObject({ code: 'duplicate_area' });
     expect(mockCreate).not.toHaveBeenCalled();

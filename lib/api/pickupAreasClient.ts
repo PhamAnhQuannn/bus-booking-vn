@@ -17,6 +17,8 @@ export interface PickupAreaItem {
   name: string;
   addressLine: string | null;
   label: string;
+  /** Issue 110: station (Bến xe) vs pickup (Đón tận nơi). */
+  kind: 'station' | 'pickup';
   isActive: boolean;
   displayOrder: number;
 }
@@ -44,6 +46,7 @@ export async function createPickupAreaApi(body: {
   wardCode: string;
   name: string;
   addressLine?: string;
+  kind: 'station' | 'pickup';
 }): Promise<{ area: PickupAreaItem }> {
   const res = await fetch('/api/op/pickup-areas', {
     method: 'POST',
@@ -56,7 +59,7 @@ export async function createPickupAreaApi(body: {
 
 export async function updatePickupAreaApi(
   id: string,
-  body: { name: string; addressLine?: string }
+  body: { name: string; addressLine?: string; kind: 'station' | 'pickup' }
 ): Promise<{ area: PickupAreaItem }> {
   const res = await fetch(`/api/op/pickup-areas/${id}`, {
     method: 'PATCH',
