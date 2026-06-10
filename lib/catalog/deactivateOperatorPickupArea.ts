@@ -9,7 +9,7 @@
 
 import { prisma } from '@/lib/core/db/client';
 import { withOperatorScope } from '@/lib/core/db';
-import { PickupAreaServiceError, type OperatorPickupAreaDto } from './createOperatorPickupArea';
+import { PickupAreaServiceError, areaSelect, type OperatorPickupAreaDto } from './createOperatorPickupArea';
 
 export async function deactivateOperatorPickupArea({
   operatorId,
@@ -29,16 +29,6 @@ export async function deactivateOperatorPickupArea({
   return prisma.operatorPickupArea.update({
     where: { id: areaId, operatorId },
     data: { isActive: false },
-    select: {
-      id: true,
-      provinceCode: true,
-      districtCode: true,
-      districtName: true,
-      wardCode: true,
-      wardName: true,
-      label: true,
-      isActive: true,
-      displayOrder: true,
-    },
+    select: areaSelect,
   });
 }

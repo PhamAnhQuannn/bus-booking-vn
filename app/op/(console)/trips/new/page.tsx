@@ -16,7 +16,7 @@ import { redirect } from 'next/navigation';
 import { getOperatorSession } from '@/lib/op';
 import { listRoutes } from '@/lib/catalog';
 import { listOperatorBuses } from '@/lib/catalog';
-import { listOperatorPickupAreas } from '@/lib/catalog';
+import { listOperatorPickupAreas, composePickupLabel } from '@/lib/catalog';
 import { PageHeader } from '@/components/op/PageHeader';
 import NewTripClient from './NewTripClient';
 
@@ -47,7 +47,7 @@ export default async function OpNewTripPage() {
   }));
   const activeAreas = areas
     .filter((a) => a.isActive)
-    .map((a) => ({ id: a.id, label: a.label }));
+    .map((a) => ({ id: a.id, label: composePickupLabel(a) }));
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 md:px-6">

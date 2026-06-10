@@ -19,11 +19,18 @@ import { useBookingStore } from '@/lib/state';
 import { useHoldTimerStore } from '@/lib/state';
 import { createHoldRequest } from '@/lib/api';
 // Deep client-safe import (pure validator; barrel would pull the server graph — Issue 092b).
-import { validatePickupSelection, PICKUP_DETAIL_MIN } from '@/lib/booking/pickupSelection';
+import { validatePickupSelection } from '@/lib/booking/pickupSelection';
 import { getDisplayName, getCustomerPhone } from '@/app/(customer)/auth/register/page';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 const LS_PHONE_KEY = 'busbooking_last_phone';
 
@@ -127,17 +134,14 @@ export function CustomerForm() {
         return { status: 'error', message: 'Thông tin chuyến xe bị thiếu. Vui lòng chọn lại.' };
       }
 
-      // Issue 107: pickup is required — validate the selection before holding.
+      // Issue 107: validate the pickup selection before holding. The named point is the
+      // location; the detail note is optional.
       const pickupCheck = validatePickupSelection(
         areas.map((a) => a.areaId),
         { kind: pickupKind, areaId: pickupAreaId, detail: pickupDetail }
       );
       if (!pickupCheck.ok) {
-        const msg =
-          pickupCheck.code === 'pickup_detail_required'
-            ? `Vui lòng nhập chi tiết điểm đón (ít nhất ${PICKUP_DETAIL_MIN} ký tự).`
-            : 'Vui lòng chọn điểm đón hợp lệ.';
-        return { status: 'field_errors', errors: { pickup: msg } };
+        return { status: 'field_errors', errors: { pickup: 'Vui lòng chọn điểm đón hợp lệ.' } };
       }
 
       const result = await createHoldRequest({
@@ -148,7 +152,8 @@ export function CustomerForm() {
         buyerEmail: parsed.data.buyerEmail,
         pickupKind: pickupCheck.pickupKind,
         pickupAreaId: pickupCheck.pickupKind === 'area' ? pickupCheck.pickupAreaId : undefined,
-        pickupDetail: pickupCheck.pickupKind === 'area' ? pickupCheck.pickupDetail : undefined,
+        pickupDetail:
+          pickupCheck.pickupKind === 'area' ? (pickupCheck.pickupDetail ?? undefined) : undefined,
       });
 
       if (!result.ok) {
@@ -264,46 +269,43 @@ export function CustomerForm() {
       {/* Issue 107: pickup selection (required) */}
       <fieldset className="space-y-2" disabled={isPending}>
         <legend className="mb-1 text-sm font-medium">Điểm đón</legend>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="radio"
-            name="pickup"
-            checked={pickupKind === 'station'}
-            onChange={() => {
+        <Select
+          value={pickupKind === 'station' ? 'station' : pickupAreaId}
+          onValueChange={(v: string | null) => {
+            if (!v || v === 'station') {
               setPickupKind('station');
               setPickupAreaId('');
-            }}
-            data-testid="pickup-station"
-          />
-          Tại bến xe
-        </label>
-        {areas.map((a) => (
-          <label key={a.areaId} className="flex items-center gap-2 text-sm">
-            <input
-              type="radio"
-              name="pickup"
-              checked={pickupKind === 'area' && pickupAreaId === a.areaId}
-              onChange={() => {
-                setPickupKind('area');
-                setPickupAreaId(a.areaId);
-              }}
-              data-testid={`pickup-area-${a.areaId}`}
-            />
-            {a.label}
-          </label>
-        ))}
+            } else {
+              setPickupKind('area');
+              setPickupAreaId(v);
+            }
+          }}
+          disabled={isPending}
+        >
+          <SelectTrigger data-testid="pickup-select" aria-label="Điểm đón">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="station">Tại bến xe</SelectItem>
+            {areas.map((a) => (
+              <SelectItem key={a.areaId} value={a.areaId}>
+                {a.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         {pickupKind === 'area' && (
           <div className="pt-1">
             <Label htmlFor="pickupDetail" className="mb-1">
-              Chi tiết điểm đón (số nhà, đường, thôn/xóm)
+              Ghi chú điểm đón (tuỳ chọn)
             </Label>
             <Input
               id="pickupDetail"
               type="text"
               value={pickupDetail}
               onChange={(e) => setPickupDetail(e.target.value)}
-              placeholder="VD: 12 đường Lê Lợi, thôn Đông"
+              placeholder="VD: đứng trước cổng, gọi trước khi đến"
               data-testid="pickup-detail"
               aria-describedby={fieldErrors.pickup ? 'pickup-error' : undefined}
             />

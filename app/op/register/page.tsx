@@ -20,8 +20,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
-import { getProvince } from '@/lib/geo';
-import { AdminUnitPicker, type AdminUnitValue } from '@/components/geo/AdminUnitPicker';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,7 +31,6 @@ export default function OpRegisterPage() {
   const router = useRouter();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [province, setProvince] = useState<AdminUnitValue>({});
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -48,8 +45,6 @@ export default function OpRegisterPage() {
       contactEmail: fd.get('contactEmail') as string,
       address: fd.get('address') as string,
       routesSummary: fd.get('routesSummary') as string,
-      provinceCode: province.provinceCode,
-      provinceName: province.provinceCode ? getProvince(province.provinceCode)?.name : undefined,
     };
 
     try {
@@ -149,15 +144,6 @@ export default function OpRegisterPage() {
                 name="address"
                 required
                 placeholder="Số nhà, đường, quận/huyện, tỉnh/thành"
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label>Tỉnh / Thành phố hoạt động</Label>
-              <AdminUnitPicker
-                value={province}
-                onChange={(v) => setProvince(v)}
-                level="province"
-                idPrefix="op-reg-province"
               />
             </div>
             <div className="grid gap-1.5">

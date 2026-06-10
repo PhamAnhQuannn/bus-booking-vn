@@ -7,7 +7,7 @@
 
 import { prisma } from '@/lib/core/db/client';
 import { withOperatorScope } from '@/lib/core/db';
-import type { OperatorPickupAreaDto } from './createOperatorPickupArea';
+import { areaSelect, type OperatorPickupAreaDto } from './createOperatorPickupArea';
 
 export async function listOperatorPickupAreas({
   operatorId,
@@ -17,16 +17,6 @@ export async function listOperatorPickupAreas({
   return prisma.operatorPickupArea.findMany({
     ...withOperatorScope(operatorId),
     orderBy: { displayOrder: 'asc' },
-    select: {
-      id: true,
-      provinceCode: true,
-      districtCode: true,
-      districtName: true,
-      wardCode: true,
-      wardName: true,
-      label: true,
-      isActive: true,
-      displayOrder: true,
-    },
+    select: areaSelect,
   });
 }

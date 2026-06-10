@@ -13,10 +13,19 @@ describe('validatePickupSelection', () => {
     });
   });
 
-  it('accepts an in-set area with ≥5-char detail (trimmed)', () => {
+  it('accepts an in-set area with a trimmed detail note', () => {
     expect(
       validatePickupSelection(TRIP_AREAS, { kind: 'area', areaId: 'area-1', detail: '  12 Lê Lợi  ' })
     ).toEqual({ ok: true, pickupKind: 'area', pickupAreaId: 'area-1', pickupDetail: '12 Lê Lợi' });
+  });
+
+  it('accepts an in-set area with no detail (named point — detail optional)', () => {
+    expect(
+      validatePickupSelection(TRIP_AREAS, { kind: 'area', areaId: 'area-1' })
+    ).toEqual({ ok: true, pickupKind: 'area', pickupAreaId: 'area-1', pickupDetail: null });
+    expect(
+      validatePickupSelection(TRIP_AREAS, { kind: 'area', areaId: 'area-1', detail: '   ' })
+    ).toEqual({ ok: true, pickupKind: 'area', pickupAreaId: 'area-1', pickupDetail: null });
   });
 
   it('rejects an area not in the trip set', () => {
@@ -29,14 +38,5 @@ describe('validatePickupSelection', () => {
     expect(
       validatePickupSelection(TRIP_AREAS, { kind: 'area', detail: 'somewhere' })
     ).toMatchObject({ ok: false, code: 'pickup_area_invalid' });
-  });
-
-  it('rejects short/empty detail when an area is chosen', () => {
-    expect(
-      validatePickupSelection(TRIP_AREAS, { kind: 'area', areaId: 'area-1', detail: 'abc' })
-    ).toMatchObject({ ok: false, code: 'pickup_detail_required' });
-    expect(
-      validatePickupSelection(TRIP_AREAS, { kind: 'area', areaId: 'area-1', detail: '   ' })
-    ).toMatchObject({ ok: false, code: 'pickup_detail_required' });
   });
 });

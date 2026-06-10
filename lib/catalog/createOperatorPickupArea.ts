@@ -26,22 +26,39 @@ export interface OperatorPickupAreaDto {
   districtName: string;
   wardCode: string;
   wardName: string;
+  /** Named-point stop name (e.g. "Bến xe Mỹ Đình"). */
+  name: string;
+  /** Optional street / landmark line. */
+  addressLine: string | null;
+  /** Ward address "Phường X, Quận Y, Tỉnh Z" — region context for the operator menu. */
   label: string;
   isActive: boolean;
   displayOrder: number;
 }
 
-const areaSelect = {
+export const areaSelect = {
   id: true,
   provinceCode: true,
   districtCode: true,
   districtName: true,
   wardCode: true,
   wardName: true,
+  name: true,
+  addressLine: true,
   label: true,
   isActive: true,
   displayOrder: true,
 } as const;
+
+/**
+ * The customer-facing display for a pickup point — snapshotted into TripPickupArea /
+ * TemplatePickupArea / Hold / Booking. The named point IS the location, so we show the
+ * stop name plus its optional address line (not the ward `label`, which is region context).
+ */
+export function composePickupLabel(p: { name: string; addressLine?: string | null }): string {
+  const addr = p.addressLine?.trim();
+  return addr ? `${p.name} — ${addr}` : p.name;
+}
 
 export async function createOperatorPickupArea({
   operatorId,
@@ -62,9 +79,15 @@ export async function createOperatorPickupArea({
   const ward = getWard(sel.wardCode)!;
   const label = resolveLabel(sel)!;
 
-  // Dedupe against an existing ACTIVE area on the same ward for this operator.
+  // Dedupe against an existing ACTIVE point with the same name in the same ward.
+  // Named points allow multiple stops per ward, so the key is (ward, name).
   const dup = await prisma.operatorPickupArea.findFirst({
-    where: { operatorId, wardCode: sel.wardCode, isActive: true },
+    where: {
+      operatorId,
+      wardCode: sel.wardCode,
+      name: { equals: data.name, mode: 'insensitive' },
+      isActive: true,
+    },
     select: { id: true },
   });
   if (dup) throw new PickupAreaServiceError('duplicate_area');
@@ -83,6 +106,8 @@ export async function createOperatorPickupArea({
       districtName: district.name,
       wardCode: ward.code,
       wardName: ward.name,
+      name: data.name,
+      addressLine: data.addressLine ?? null,
       label,
       displayOrder,
     },

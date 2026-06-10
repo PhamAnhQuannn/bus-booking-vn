@@ -15,6 +15,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/core/db/client';
 import { withOperatorScope } from '@/lib/core/db';
+import { composePickupLabel } from '@/lib/catalog';
 import { TripServiceError } from './errors';
 import type { TripDto } from './tripDto';
 import { toTripDto } from './toTripDto';
@@ -128,7 +129,7 @@ export async function createTrip(input: CreateTripInput): Promise<TripDto> {
       if (pickupAreaIds && pickupAreaIds.length > 0) {
         const owned = await tx.operatorPickupArea.findMany({
           where: { id: { in: pickupAreaIds }, operatorId, isActive: true },
-          select: { id: true, label: true },
+          select: { id: true, name: true, addressLine: true },
         });
         if (owned.length !== new Set(pickupAreaIds).size) {
           throw Object.assign(new Error('invalid_pickup_area'), { _trip: 'invalid_pickup_area' });
@@ -137,7 +138,7 @@ export async function createTrip(input: CreateTripInput): Promise<TripDto> {
           data: owned.map((a, i) => ({
             tripId: created.id,
             operatorPickupAreaId: a.id,
-            label: a.label,
+            label: composePickupLabel(a),
             displayOrder: i,
           })),
         });
