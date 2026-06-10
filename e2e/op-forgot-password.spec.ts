@@ -119,7 +119,7 @@ test.describe('Operator forgot-password OTP flow', () => {
     const csrfToken = await primeCsrf(request);
 
     const loginRes = await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: RAW_PHONE, password: NEW_PASSWORD },
+      data: { scope: 'operator', username: 'PB-0001', password: NEW_PASSWORD },
       headers: { 'X-CSRF-Token': csrfToken },
     });
     expect(loginRes.status()).toBe(200);

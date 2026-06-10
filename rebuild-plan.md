@@ -150,6 +150,15 @@ Status: TODO
 
 ## [S04] Customer — Account & Guest Linking
 
+> CURRENT TARGET (2026-06-06) — CUSTOMER ACCOUNTS PAUSED (guest-only).
+> Customer register/login/account-history + ALL OTP flows are soft-disabled (code retained, doors
+> hidden). The stories/design below are the FUTURE re-enable target, not the shipped state.
+> Shipped state right now:
+> - As a visitor, I book a trip as a GUEST (name/phone/email), no account, no OTP. (already works)
+> - As a guest, my buyer info is saved on the booking so the operator can serve me + I keep the ref.
+> - No "my bookings" account view; the booking reference returned at checkout is the retrieval handle.
+> Re-enable = restore nav links + drop the redirect/short-circuit guards (Part A of the work plan).
+
 **Stories**
 - As returning customer, want to **register via phone + OTP**, so my account is secure.
 - As returning customer, want to **log in via phone + OTP**, so I reach my bookings.
@@ -169,7 +178,7 @@ Status: TODO
 - Account bookings-list status badges read the **`paid`** money-state (+ NotificationLog for delivery), never a combined `paid_operator_notified` flag.
 
 Verify: `app/auth/**`, `app/api/auth/**`, `lib/auth/**`, `lib/booking/attachGuestBookingByPhone.ts`, `app/account/**`.
-Status: PARTIAL
+Status: PAUSED (guest-only; accounts soft-disabled 2026-06-06)
 > RESOLVED (#27 anonymize-in-place erase, #12 status reads `paid`).
 > RATIFIED 2026-06-01 (S15): login = phone + **password** (OTP proves phone at register only); no OTP-every-login.
 > VERIFIED 2026-06-05: OTP register/reset/phone-change flows, attempt-cap (5) + lockout-sentinel (3/15min), rate-limit (3/15min), proof-JWT jti replay, guest-link backfill all implemented + tested. Only outstanding item: real eSMS HTTP provider (`lib/notification/esms.ts` is a contract-complete stub) — deferred to go-live. PARTIAL until SMS provider wired.
@@ -179,16 +188,21 @@ Status: PARTIAL
 ## [S05] Operator — Onboarding & Approval
 
 **Stories**
-- As new operator, want to **register + submit business / identity / payout-account docs**, so I can apply to sell.
-- As operator, after submitting, want a **confirmation page** (ref number + next steps), so I know it went through.
-- As operator, want a **pending email** stating the **review SLA range** + my ref, so I know when to expect a decision.
-- As operator, want to **check my application status** anytime (pending / under review / approved / rejected), so I'm not guessing.
-- As operator, want a **decision email** both ways (approved → go live / rejected → reason + resubmit), so I know the outcome.
-- As pending operator, want to **set up buses, routes, draft trips while waiting**, so I'm ready on approval.
-- As operator, want my trips **hidden from customers until approved**, so I never sell before clearance.
-- As suspended operator, want listings pulled + a reason, so I know to resolve it.
+- As a prospective operator, want a **public application form** (brand name, legal name, contact person, phone, email, address, routes I run) — NO password, NO instant account — so I request to join.
+- As an applicant, after submitting, want a **confirmation page** (application ref + next steps), so I know it went through.
+- As an applicant, want a **pending email** stating the review SLA range + my ref, so I know when to expect a decision.
+- As an applicant, want to **check my application status** (pending / under review / approved / rejected), so I'm not guessing.
+- As the **platform admin**, want to review an application and **create the operator's account in one step** (system-generated username + temp password, standard ruleset for every operator), so onboarding is controlled and consistent — operators never self-provision.
+- As a newly-created operator, want my **credentials auto-emailed** (username + temp password + login link) from the platform, so I can sign in.
+- As a newly-created operator, want to **log in by username** and be **forced to change the temp password on first login**, so my account is secured.
+- As an operator, want a **decision/status notification** (approved → credentials / rejected → reason) via platform email + in-app feed, so I know the outcome.
+- As a suspended operator, want listings pulled + a reason, so I know to resolve it.
 
 **Design**
+- **No self-serve account creation.** `/op/register` is an APPLICATION form only → creates an `Operator` (PENDING_REVIEW) with profile fields (brandName, legalName, contactName, contactPhone, contactEmail, address, routesSummary) + applicationRef. It does NOT create an `OperatorUser`.
+- **Admin-provisioned login.** Admin "Create account" (step-up gated) mints the bootstrap `OperatorUser`: `username` = `${BRAND_ACRONYM}-${last4(phone)}` (uppercase, diacritics stripped, collision suffix `-N`), 12-char crypto temp password (reuse `lib/staff/genTempPassword.ts`), `requiresPasswordChange=true`, `role=admin`; flips Operator → APPROVED in the same tx; audit-logged.
+- **Login key = username** (was phone). `OperatorUser.username @unique` is the login id; phone is contact-only. First login forces password change (`/op/first-login`).
+- **Credential delivery = platform email** (`operatorAccountCreated` template), via the existing NotificationLog outbox + dispatch cron. Email sender is a stub today (real provider deferred to go-live); wiring is complete and stub-safe. Temp password also shown ONCE in the admin UI as fallback.
 - State machine: `PENDING_REVIEW → UNDER_REVIEW → APPROVED | REJECTED`; `REJECTED → PENDING_REVIEW` (resubmit); `APPROVED ↔ SUSPENDED`. (4 statuses match the story's "pending / under review / approved / rejected".)
 - Per-state caps: pending/under-review = login + draft setup, NO sell/search-visibility/payout. Approved = full. Rejected = resubmit (re-enters PENDING_REVIEW). Suspended = read + frozen payout, listings hidden.
 - KYB/payout-account-ownership verify method: micro-deposit or name-match against the registered payout account (admin confirms at approval — SYS12).
@@ -197,8 +211,11 @@ Status: PARTIAL
 - Approval gate enforced in search query + re-checked at booking (S14).
 
 Verify: operator register routes, operator status field/enum, search exclusion of non-approved operators.
-Status: TODO
+Status: IN-PROGRESS (2026-06-06: application-only form + admin-provisioned username accounts)
 > RESOLVED (#8 UNDER_REVIEW + resubmit edge; KYB verify method specified).
+> CHANGED 2026-06-06: self-serve account creation removed. Application form only; admin provisions the
+> login account (generated username `BRANDACRONYM-last4phone` + temp password, emailed). Login key
+> moved phone → `OperatorUser.username`. See work plan in repo plan file.
 
 ---
 
@@ -331,7 +348,7 @@ Status: TODO
 **Nav (7):** `Overview · Approvals · Users · Operators · Finance(step-up) · Moderation · System`.
 
 - **Overview** — action queue (pending approvals, open disputes, failed payouts) + business metrics (total customers/operators, GMV, bookings, revenue) + failure alerts (payment webhook / payout / SMS-email). Infra health (uptime/latency/errors) **links out to Sentry/Datadog — NOT rebuilt here.**
-- **Approvals** — review queue of pending operators + submitted docs, verify payout-account ownership, approve / reject (reason) / request-more-info. Audit-logged.
+- **Approvals** — review queue of pending operators + submitted docs, verify payout-account ownership, approve / reject (reason) / request-more-info, AND **create operator account** (step-up gated): generates username + temp password, flips operator to APPROVED, auto-emails credentials. Audit-logged.
 - **Users** — search customers + operators (both kinds = "total users"), user detail, suspend/reinstate.
 - **Operators** — all operators + status, operator detail (fleet/trips/volume/balance/payout history), suspend/reinstate, per-operator fee override.
 - **Finance** (step-up auth) — payout oversight (queue/approve/retry), ledger view (any operator) + manual adjustments (immutable entry, reason required), **refund-out execution** (operator-cancel/oversold/overpay) + **chargeback/dispute flow** (`chargeback` + `payout_reversal`, liability per S15#7), **FeeConfig** (global rate + per-operator override, effective-dated, change-audited).
@@ -601,6 +618,10 @@ Status: TODO
 ## [SYS02] Identity & Access (3 realms)
 Implements: S04, S05, S10
 Purpose: Authenticate + authorize three distinct populations with isolation and least privilege.
+
+> NOTE 2026-06-06: customer realm PAUSED (guest-only, no customer login/OTP). Operator login key
+> migrated `OperatorUser.phone` → `OperatorUser.username` (generated `BRANDACRONYM-last4phone`); phone
+> is now contact-only. Admin realm unchanged.
 
 Scale target:
 - NOW: JWT + Redis/DB sessions; trivial volume.

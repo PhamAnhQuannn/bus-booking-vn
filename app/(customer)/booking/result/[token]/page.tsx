@@ -18,12 +18,19 @@
  * (Next.js does not support meta http-equiv via generateMetadata).
  */
 
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { getBookingByConfirmationToken } from '@/lib/booking';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
+
+// Private, per-booking payment-result page reachable only via the token link.
+export const metadata: Metadata = {
+  title: 'Kết quả thanh toán | BBVN',
+  robots: { index: false, follow: false },
+};
 
 interface ResultPageProps {
   params: Promise<{ token: string }>;
@@ -114,13 +121,21 @@ export default async function ResultPage({ params, searchParams }: ResultPagePro
               Vui lòng hoàn tất thanh toán {gatewayLabel}. Trang này tự động cập nhật sau 5 giây.
             </p>
             {refreshCount >= MAX_AUTO_REFRESH && (
-              <p className="text-sm font-medium text-warning-foreground">
-                Trang đã dừng tự động làm mới.{' '}
-                <a href={`/booking/result/${token}`} className="underline">
-                  Tải lại trang
-                </a>{' '}
-                để kiểm tra trạng thái.
-              </p>
+              <div className="flex flex-col gap-2">
+                <p className="text-sm font-medium text-warning-foreground">
+                  Trang đã dừng tự động làm mới.{' '}
+                  <a href={`/booking/result/${token}`} className="underline">
+                    Tải lại trang
+                  </a>{' '}
+                  để kiểm tra trạng thái.
+                </p>
+                <Link
+                  href="/lien-he-dat-xe"
+                  className={buttonVariants({ variant: 'outline', size: 'sm' }) + ' self-start'}
+                >
+                  Liên hệ hỗ trợ
+                </Link>
+              </div>
             )}
           </div>
         )}
@@ -154,10 +169,16 @@ export default async function ResultPage({ params, searchParams }: ResultPagePro
 
         {/* Generic fallback for unexpected statuses */}
         {!isPending && !isPaid && !isFailed && (
-          <div className="rounded-xl border border-border bg-muted p-4">
+          <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted p-4">
             <p className="text-sm text-muted-foreground">
               Đặt vé của bạn đang được xử lý. Vui lòng liên hệ hỗ trợ nếu cần trợ giúp.
             </p>
+            <Link
+              href="/lien-he-dat-xe"
+              className={buttonVariants({ variant: 'outline', size: 'default' }) + ' self-start'}
+            >
+              Liên hệ hỗ trợ
+            </Link>
           </div>
         )}
 

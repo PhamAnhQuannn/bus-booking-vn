@@ -26,6 +26,8 @@ import { BookButton } from '@/components/search/BookButton';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { getSearchablePlaces } from '@/lib/places';
+import { formatVnd } from '@/lib/format';
+import { breadcrumbLd, SITE_URL } from '@/lib/seo';
 
 const BUS_TYPE_LABEL: Record<'coach' | 'sleeper' | 'limousine', string> = {
   coach: 'Ghế ngồi',
@@ -66,11 +68,6 @@ function shiftDate(dateStr: string, days: number): string {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${dd}`;
-}
-
-/** Format price in Vietnamese dong */
-function formatPrice(price: number): string {
-  return price.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
 }
 
 /** Format ISO time to VN HH:MM */
@@ -141,7 +138,7 @@ function TripCard({ trip, ticketCount }: { trip: TripResult; ticketCount: number
       <div className="mt-1 flex items-center justify-between gap-3 border-t border-border/60 pt-3">
         <div className="flex flex-col">
           <span className="text-xs text-muted-foreground">Giá vé</span>
-          <span className="font-mono text-xl font-bold text-primary">{formatPrice(trip.price)}</span>
+          <span className="font-mono text-xl font-bold text-primary">{formatVnd(trip.price)}</span>
         </div>
         <div className="flex items-center gap-2">
           <Link
@@ -210,6 +207,13 @@ function EmptyState({
           {formatVnDate(nextDate)} →
         </Link>
       </div>
+      {/* Discovery CTA — escape the dead-end when no trip matches. */}
+      <Link
+        href="/routes"
+        className="inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-muted"
+      >
+        Xem tất cả tuyến
+      </Link>
     </div>
   );
 }
@@ -424,6 +428,18 @@ export default async function SearchPage({ searchParams }: PageProps) {
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6">
+      {/* SEO: breadcrumb structured data. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(
+            breadcrumbLd([
+              { name: 'Trang chủ', url: `${SITE_URL}/` },
+              { name: 'Tìm chuyến', url: `${SITE_URL}/search` },
+            ]),
+          ),
+        }}
+      />
       {/* Seed searchStore so back-nav to "/" restores the form (AC-5) */}
       <SearchStoreHydrator
         query={{ origin, destination, date, ticketCount: String(ticketCount) }}

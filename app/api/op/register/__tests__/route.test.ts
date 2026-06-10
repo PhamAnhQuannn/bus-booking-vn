@@ -1,6 +1,7 @@
 /**
- * Issue 076: unit tests for POST /api/op/register (self-serve registration).
- * The registration service + rate limiter are mocked.
+ * Unit tests for POST /api/op/register (Issue 076; reworked 2026-06-06).
+ * Application-only: no password, no account. The registration service + rate
+ * limiter are mocked.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -23,7 +24,6 @@ vi.mock('@/lib/ratelimit', async (importOriginal) => ({
 }));
 
 import { POST } from '../route';
-import { RegisterError } from '@/lib/onboarding';
 import { NextRequest } from 'next/server';
 
 function makeRequest(body: unknown): NextRequest {
@@ -35,10 +35,13 @@ function makeRequest(body: unknown): NextRequest {
 }
 
 const VALID = {
+  brandName: 'Nha Xe ABC',
   legalName: 'Cong ty Van tai ABC',
-  contactEmail: 'lienhe@abc.vn',
+  contactName: 'Nguyen Van A',
   contactPhone: '0901234567',
-  password: 'super-secret-pw',
+  contactEmail: 'lienhe@abc.vn',
+  address: 'Ha Noi',
+  routesSummary: 'Ha Noi - Sai Gon',
 };
 
 beforeEach(() => {
@@ -46,7 +49,6 @@ beforeEach(() => {
   mockLimit.mockResolvedValue({ allowed: true, remaining: 4, retryAfter: 0 });
   mockRegisterOperator.mockResolvedValue({
     operatorId: 'op_1',
-    operatorUserId: 'opu_1',
     applicationRef: 'OP-2026-AB12CD',
   });
 });
@@ -58,6 +60,8 @@ describe('POST /api/op/register', () => {
     const json = await res.json();
     expect(json.applicationRef).toBe('OP-2026-AB12CD');
     expect(mockRegisterOperator).toHaveBeenCalledTimes(1);
+    // No password is ever forwarded to the service.
+    expect(mockRegisterOperator.mock.calls[0][1]).not.toHaveProperty('password');
   });
 
   it('returns 429 when rate limited', async () => {
@@ -68,22 +72,16 @@ describe('POST /api/op/register', () => {
     expect(mockRegisterOperator).not.toHaveBeenCalled();
   });
 
-  it('returns 409 PHONE_IN_USE when the phone is already registered', async () => {
-    mockRegisterOperator.mockRejectedValue(new RegisterError('phone_in_use'));
-    const res = await POST(makeRequest(VALID));
-    expect(res.status).toBe(409);
-    const json = await res.json();
-    expect(json.error).toBe('PHONE_IN_USE');
-  });
-
   it('returns 400 for a bad body (missing fields)', async () => {
-    const res = await POST(makeRequest({ legalName: '', contactEmail: 'nope', contactPhone: '', password: 'short' }));
+    const res = await POST(makeRequest({ brandName: '', contactEmail: 'nope' }));
     expect(res.status).toBe(400);
     expect(mockRegisterOperator).not.toHaveBeenCalled();
   });
 
-  it('returns 400 for a too-short password', async () => {
-    const res = await POST(makeRequest({ ...VALID, password: '1234567' }));
+  it('returns 400 when an application field is missing', async () => {
+    const { routesSummary: _omit, ...missing } = VALID;
+    const res = await POST(makeRequest(missing));
     expect(res.status).toBe(400);
+    expect(mockRegisterOperator).not.toHaveBeenCalled();
   });
 });

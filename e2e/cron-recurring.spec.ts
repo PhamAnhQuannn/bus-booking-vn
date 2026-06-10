@@ -25,6 +25,7 @@ const CRON_SECRET = process.env.CRON_SECRET ?? '';
 
 const SEED_PHONE = normalizePhone('0901230001');
 const SEED_PASSWORD = 'BBOp2026!';
+const SEED_USERNAME = 'PB-0001'; // 2026-06-06: seed operator logs in by username, not phone
 
 interface PrepareResult {
   templateId: string;
@@ -168,7 +169,7 @@ test.describe('Recurring trip generation cron (Issue 013)', () => {
   test('AC5: operator can see generated trip via GET /api/op/trips', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 

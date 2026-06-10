@@ -43,6 +43,13 @@ export default function AdminLoginPage() {
         setError('Email hoặc mật khẩu không đúng.');
         return;
       }
+      // TEMP (dev/test): when admin TOTP is disabled, the session is already
+      // totpVerified=true — skip the code screen and go straight to the console.
+      const data = (await res.json().catch(() => ({}))) as { totpDisabled?: boolean };
+      if (data.totpDisabled) {
+        router.replace('/admin');
+        return;
+      }
       setStep('totp');
     } finally {
       setBusy(false);

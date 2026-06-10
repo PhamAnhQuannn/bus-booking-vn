@@ -82,6 +82,10 @@ async function main() {
   const op1 = await prisma.operator.create({
     data: {
       legalName: 'Công ty TNHH Xe Khách Phương Bắc',
+      brandName: 'Phương Bắc',
+      contactName: 'Nguyễn Văn A',
+      address: 'Hà Nội',
+      routesSummary: 'Hà Nội – Sài Gòn',
       contactPhone: '+8490xxxxxx1',
       contactEmail: 'lienhe@phuongbac.vn',
       status: 'APPROVED',
@@ -91,6 +95,10 @@ async function main() {
   const op2 = await prisma.operator.create({
     data: {
       legalName: 'Công ty CP Vận Tải Miền Nam',
+      brandName: 'Miền Nam',
+      contactName: 'Trần Thị B',
+      address: 'TP. Hồ Chí Minh',
+      routesSummary: 'Sài Gòn – Đà Lạt',
       contactPhone: '+8490xxxxxx2',
       contactEmail: 'hotro@mientam.vn',
       status: 'APPROVED',
@@ -100,6 +108,10 @@ async function main() {
   const op3 = await prisma.operator.create({
     data: {
       legalName: 'Công ty TNHH Vận Tải Tây Nguyên',
+      brandName: 'Tây Nguyên',
+      contactName: 'Lê Văn C',
+      address: 'Đắk Lắk',
+      routesSummary: 'Buôn Ma Thuột – Sài Gòn',
       contactPhone: '+8490xxxxxx4',
       contactEmail: 'cskh@taynguyen.vn',
       status: 'APPROVED',
@@ -136,7 +148,7 @@ async function main() {
   ]);
 
   // ---- Routes ----
-  const r1 = await prisma.route.create({ data: { origin: 'Hà Nội', destination: 'TP.HCM', operatorId: op1.id, durationMinutes: 960 } });
+  const r1 = await prisma.route.create({ data: { origin: 'Hà Nội', destination: 'Sài Gòn', operatorId: op1.id, durationMinutes: 960 } });
   const r2 = await prisma.route.create({ data: { origin: 'Đà Nẵng', destination: 'Huế', operatorId: op1.id, durationMinutes: 120 } });
   const r3 = await prisma.route.create({ data: { origin: 'Cần Thơ', destination: 'Đà Lạt', operatorId: op2.id, durationMinutes: 300 } });
   // --- Additional real routes for the new /routes + search-filter surfaces ---
@@ -151,7 +163,7 @@ async function main() {
   const rRace = await prisma.route.create({ data: { origin: 'E2E Race Origin', destination: 'E2E Race Destination', operatorId: op1.id, durationMinutes: 240 } });
 
   // --- Popular landing-page routes (RouteDirectory + carousels) so those links
-  //     return real results. Names match the UI exactly (e.g. "Sài Gòn", not "TP.HCM").
+  //     return real results. Names match the UI exactly — canonical "Sài Gòn" (no "TP.HCM" split).
   //     Spread across operators — each has coach/sleeper/limousine buses for the dense generator. ---
   const extraRouteDefs: Array<{ origin: string; destination: string; operatorId: string; durationMinutes: number }> = [
     { origin: 'Hà Nội', destination: 'Sài Gòn', operatorId: op1.id, durationMinutes: 1740 },
@@ -171,7 +183,7 @@ async function main() {
 
   // --- Bidirectional fill: every real route searchable both ways. Derive the reverse
   //     of each real route; skip pairs already bidirectional (Đà Nẵng↔Huế, Sài Gòn↔Đà Lạt,
-  //     Hà Nội↔Sài Gòn) + the TP.HCM alias (r1) / e2e fixture (rRace). Reverse keeps the
+  //     Hà Nội↔Sài Gòn) + r1 (now Hà Nội→Sài Gòn, already covered) / e2e fixture (rRace). Reverse keeps the
   //     same duration (symmetric) + operator. ---
   const baseRealRoutes = [r2, r3, r4, r5, r6, r7, r8, r9, ...extraRoutes];
   const existingKeys = new Set(baseRealRoutes.map((r) => `${r.origin}|${r.destination}`));
@@ -234,7 +246,7 @@ async function main() {
     status: TripStatus;
     salesClosed: boolean;
   }> = [
-    // Route 1: Hà Nội → TP.HCM (scheduled, various prices)
+    // Route 1: Hà Nội → Sài Gòn (scheduled, various prices)
     {
       routeId: r1.id,
       busId: buses[0].id,
@@ -424,6 +436,8 @@ async function main() {
   await prisma.operatorUser.create({
     data: {
       operatorId: op1.id,
+      // 2026-06-06: login key is username (BRAND_ACRONYM-last4phone), not phone.
+      username: 'PB-0001',
       phone: normalizePhone('0901230001'),
       contactPhone: '+8490xxxxxx2',
       notificationPhone: '+8490xxxxxx3',

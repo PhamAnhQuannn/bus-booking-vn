@@ -158,3 +158,21 @@ export const adminTotpRatelimit = createRatelimit({ limit: 10, windowMs: 60_000 
  * admin is unaffected unless they've already burned 5 wrong codes.
  */
 export const adminTotpLockout = createRatelimit({ limit: 5, windowMs: 15 * 60_000 });
+
+/**
+ * Operator login per-IP throttle: 10 attempts/min/IP — tighter than the generic
+ * 60/min edge limit. Keyed `op-login:<ip>`.
+ */
+export const opLoginRatelimit = createRatelimit({ limit: 10, windowMs: 60_000 });
+
+/**
+ * Operator login consecutive-failure lockout: 5 bad attempts per 15 min per
+ * username → 429 (mirrors adminTotpLockout). Keyed `op-login-fail:<username>`,
+ * consumed (`.limit`) ONLY on INVALID_CREDENTIALS. The operator username
+ * (BRAND_ACRONYM-last4phone) is publicly enumerable, so this account-level brake
+ * is the primary defense against distributed credential-stuffing — the generic
+ * 60/min/IP limit is meaningless across a botnet. A correct password is accepted
+ * before the lockout counter is consumed, so a legitimate operator is unaffected
+ * unless they have already burned 5 wrong attempts.
+ */
+export const opLoginLockout = createRatelimit({ limit: 5, windowMs: 15 * 60_000 });

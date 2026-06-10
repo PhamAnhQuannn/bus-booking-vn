@@ -85,19 +85,43 @@ const envSchema = z.object({
     .transform((v) => v === 'true'),
 
   // ---------------------------------------------------------------------------
-  // Local notification stub (Issue 058). When NOTIFY_STUB="true", the SMS/email
-  // channel adapters record + log the dispatch instead of hitting a real
-  // provider. Real eSMS/email HTTP integration is deferred (project memory:
-  // payment-deferral-strategy) — until then the channel adapters always behave
-  // as stubs, and this flag exists so the dispatcher's wiring matches the
-  // PAYMENTS_STUB shape and the cutover to real providers is a one-line flip.
+  // Notification stub vs real eSMS (Issue 058 + SMS-OTP cutover). When
+  // NOTIFY_STUB="true" (the DEFAULT — mirrors STORAGE_STUB) the SMS/email
+  // channel adapters record + log the dispatch with no network I/O. Flip to
+  // "false" to route SMS through the real eSMS.vn HTTP adapter; the superRefine
+  // below then REQUIRES the ESMS_* creds so a real-mode deploy fails fast at
+  // boot rather than at first OTP send. Email has no real provider yet, so a
+  // real-mode deploy still stubs email (see lib/notification/email.ts).
   // ---------------------------------------------------------------------------
 
-  /** Route all notification channels (sms/email) through the local no-network stub. */
+  /** Route all notification channels (sms/email) through the local no-network stub. Default on. */
   NOTIFY_STUB: z
     .string()
-    .default('false')
+    .default('true')
     .transform((v) => v === 'true'),
+
+  // ---------------------------------------------------------------------------
+  // eSMS.vn SMS provider (real OTP/notification delivery for Vietnam).
+  // OPTIONAL until NOTIFY_STUB=false — then the superRefine at the bottom of the
+  // schema requires the three creds. SmsType "2" = CSKH/OTP brandname channel;
+  // ESMS_SANDBOX="true" sends through eSMS test mode (no charge, no real SMS).
+  // ---------------------------------------------------------------------------
+
+  /** eSMS API key (real branch only). */
+  ESMS_API_KEY: z.string().optional(),
+  /** eSMS secret key (real branch only). NEVER log this value. */
+  ESMS_SECRET_KEY: z.string().optional(),
+  /** Registered eSMS Brandname (sender ID) — required for OTP/CSKH (real branch only). */
+  ESMS_BRANDNAME: z.string().optional(),
+  /** eSMS SmsType for OTP messages ("2" = CSKH/OTP brandname). */
+  ESMS_OTP_SMSTYPE: z.string().default('2'),
+  /** eSMS sandbox flag — true = test send (no charge / no real SMS). Default on. */
+  ESMS_SANDBOX: z
+    .string()
+    .default('true')
+    .transform((v) => v === 'true'),
+  /** eSMS REST base URL (override in tests to point at a mock server). */
+  ESMS_BASE_URL: z.string().url().default('https://rest.esms.vn'),
 
   /**
    * HMAC key the fake gateway uses to sign + verify its own stub IPNs.
@@ -184,6 +208,19 @@ const envSchema = z.object({
     .string()
     .min(16, 'TICKET_SECRET must be at least 16 characters')
     .optional(),
+}).superRefine((env, ctx) => {
+  // Real eSMS mode (NOTIFY_STUB=false) must carry credentials — fail fast at boot.
+  if (!env.NOTIFY_STUB) {
+    for (const key of ['ESMS_API_KEY', 'ESMS_SECRET_KEY', 'ESMS_BRANDNAME'] as const) {
+      if (!env[key]) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `${key} is required when NOTIFY_STUB=false (real eSMS mode)`,
+        });
+      }
+    }
+  }
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

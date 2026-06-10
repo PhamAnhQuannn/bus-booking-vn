@@ -19,7 +19,7 @@
  * driven (no form keystrokes) per AGENTS.md Mistake Log 2026-05-17.
  *
  * Prerequisites: running dev server + seeded DB with a trip on VN-tomorrow for
- * Hà Nội → TP.HCM.
+ * Hà Nội → Sài Gòn.
  */
 
 import { test, expect, type APIRequestContext } from '@playwright/test';
@@ -47,7 +47,7 @@ async function seedHold(request: APIRequestContext, baseURL: string) {
   const csrf = await primeCsrf(request);
 
   const searchRes = await request.get(`${baseURL}/api/trips/search`, {
-    params: { origin: 'Hà Nội', destination: 'TP.HCM', date: TOMORROW, ticketCount: '1' },
+    params: { origin: 'Hà Nội', destination: 'Sài Gòn', date: TOMORROW, ticketCount: '1' },
   });
   if (!searchRes.ok()) return null;
   const trips = (await searchRes.json()) as Array<{ tripId: string; price: number }>;

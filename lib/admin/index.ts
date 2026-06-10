@@ -1,6 +1,11 @@
 // admin domain public API barrel (SYS20 rule 3).
 
 export { AdminServiceError } from './errors';
+export {
+  createOperatorAccount,
+  type CreateOperatorAccountInput,
+  type CreateOperatorAccountResult,
+} from './createOperatorAccount';
 export { getActionQueue } from './getActionQueue';
 export { getApprovalQueue, type ApprovalQueueOperator } from './getApprovalQueue';
 export { getAuditLog, auditLogToCsv, type AuditLogRow } from './getAuditLog';

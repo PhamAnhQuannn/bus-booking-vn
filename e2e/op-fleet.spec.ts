@@ -29,6 +29,7 @@ const DB_URL =
 
 const SEED_PHONE = normalizePhone('0901230001');
 const SEED_PASSWORD = 'BBOp2026!';
+const SEED_USERNAME = 'PB-0001'; // 2026-06-06: seed operator logs in by username, not phone
 
 // Op B fixture — second operator org used to verify cross-op rejection (AC6).
 const OP_B_PHONE = '+8490xxxxxx9';
@@ -85,8 +86,8 @@ async function prepareOperators(): Promise<{ opAId: string; opBId: string; opBBu
     );
     if (opBUser.rows.length === 0) {
       await client.query(
-        `INSERT INTO "OperatorUser" ("id","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName","updatedAt")
-         VALUES (gen_random_uuid()::text, $1, $4, $5, $2, $3, 'admin', false, 'Op B Admin', NOW())`,
+        `INSERT INTO "OperatorUser" ("id","username","phone","contactPhone","notificationPhone","passwordHash","operatorId","role","requiresPasswordChange","displayName","updatedAt")
+         VALUES (gen_random_uuid()::text, 'OPB-ADMIN', $1, $4, $5, $2, $3, 'admin', false, 'Op B Admin', NOW())`,
         [OP_B_PHONE, await hash(OP_B_PASSWORD), opBId, '+8490xxxxxx9', '+8490xxxxxx8']
       );
     }
@@ -119,7 +120,7 @@ test.describe('Operator fleet management (Issue 011)', () => {
   test('AC1 + AC6: list returns only operator A buses, never op B', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -141,7 +142,7 @@ test.describe('Operator fleet management (Issue 011)', () => {
   test('AC2: duplicate licensePlate returns 422 plate_in_use', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -163,7 +164,7 @@ test.describe('Operator fleet management (Issue 011)', () => {
   test('AC6: cross-op GET returns 404', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -176,7 +177,7 @@ test.describe('Operator fleet management (Issue 011)', () => {
   test('AC6: cross-op DELETE maintenance returns 404', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -190,7 +191,7 @@ test.describe('Operator fleet management (Issue 011)', () => {
   test('AC4a: maintenance-vs-maintenance overlap → 409 maintenance_overlap', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -225,7 +226,7 @@ test.describe('Operator fleet management (Issue 011)', () => {
   test('AC10 + AC11: deactivate then PATCH → 422 reactivation_not_supported', async ({ request }) => {
     const csrf = await primeCsrf(request);
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 

@@ -92,6 +92,8 @@ describe('dispatchNotifications — success path', () => {
       to: '+8490xxxxxx1',
       template: 'customerBookingPaid',
       body: 'rendered body',
+      // row.id forwarded as the eSMS RequestId (idempotency key).
+      requestId: 'log-1',
     });
     expect(updateMock).toHaveBeenCalledWith({
       where: { id: 'log-1' },

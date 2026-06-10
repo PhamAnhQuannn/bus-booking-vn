@@ -17,7 +17,9 @@ export type AdminErrorCode =
   // Issue 070 — System tab admin-account management
   | 'no_self_revoke'
   | 'no_self_role_change'
-  | 'invalid_role';
+  | 'invalid_role'
+  // 2026-06-06 — admin-console operator account provisioning
+  | 'account_already_exists';
 
 export class AdminServiceError extends Error {
   constructor(public readonly code: AdminErrorCode) {

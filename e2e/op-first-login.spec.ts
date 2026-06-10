@@ -27,6 +27,7 @@ const DB_URL = process.env.DATABASE_URL ?? 'postgresql://bbvn:bbvn_dev_password@
 
 const SEED_PHONE = normalizePhone('0901230001');
 const SEED_PASSWORD = 'BBOp2026!';
+const SEED_USERNAME = 'PB-0001'; // 2026-06-06: seed operator logs in by username, not phone
 const NEW_PASSWORD = 'NewOpPass2026!';
 
 async function resetSeedOperator(): Promise<void> {
@@ -64,7 +65,7 @@ test.describe('Operator first-login forced password change', () => {
 
     // Step 1: login with seed operator
     const loginRes = await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
     expect(loginRes.status()).toBe(200);
@@ -112,7 +113,7 @@ test.describe('Operator first-login forced password change', () => {
     const csrf = await primeCsrf(request);
 
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -133,7 +134,7 @@ test.describe('Operator first-login forced password change', () => {
     // Log in via API to set cookies, then navigate with the browser
     const csrf = await primeCsrf(page.request);
     await page.request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -145,7 +146,7 @@ test.describe('Operator first-login forced password change', () => {
   test('AC1: requiresPasswordChange operator is redirected from unknown /op/* to /op/first-login', async ({ page }) => {
     const csrf = await primeCsrf(page.request);
     await page.request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: SEED_PASSWORD },
+      data: { scope: 'operator', username: SEED_USERNAME, password: SEED_PASSWORD },
       headers: { 'X-CSRF-Token': csrf },
     });
 

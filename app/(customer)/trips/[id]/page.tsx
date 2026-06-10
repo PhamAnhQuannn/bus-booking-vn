@@ -12,6 +12,8 @@ import Link from 'next/link';
 import { ArrowRight, Clock, Armchair, MapPin, Phone, Timer } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getTripDetails } from '@/lib/trips';
+import { formatVnd } from '@/lib/format';
+import { busTripLd, breadcrumbLd, SITE_URL } from '@/lib/seo';
 import { TripBooking } from './TripBooking';
 
 export const dynamic = 'force-dynamic';
@@ -21,10 +23,6 @@ const BUS_TYPE_LABEL: Record<'coach' | 'sleeper' | 'limousine', string> = {
   sleeper: 'Giường nằm',
   limousine: 'Limousine',
 };
-
-function formatPrice(v: number): string {
-  return v.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
-}
 
 function formatDuration(mins: number): string {
   const h = Math.floor(mins / 60);
@@ -66,8 +64,34 @@ export default async function TripDetailPage({
   const trip = await getTripDetails(id);
   if (!trip) notFound();
 
+  const tripUrl = `${SITE_URL}/trips/${trip.tripId}`;
+  const arrivalIso = new Date(
+    new Date(trip.departureAt).getTime() + trip.durationMinutes * 60000,
+  ).toISOString();
+  const jsonLd = [
+    busTripLd({
+      origin: trip.routeOrigin,
+      destination: trip.routeDestination,
+      departureTime: trip.departureAt,
+      arrivalTime: arrivalIso,
+      price: trip.price,
+      operatorName: trip.operatorLegalName,
+      url: tripUrl,
+    }),
+    breadcrumbLd([
+      { name: 'Trang chủ', url: `${SITE_URL}/` },
+      { name: 'Tìm chuyến', url: `${SITE_URL}/search` },
+      { name: `${trip.routeOrigin} → ${trip.routeDestination}`, url: tripUrl },
+    ]),
+  ];
+
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-8">
+      {/* SEO: BusTrip/Offer + breadcrumb structured data for rich results. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <nav aria-label="breadcrumb" className="text-sm text-muted-foreground">
         <ol className="flex flex-wrap items-center gap-1.5">
           <li><Link href="/" className="underline-offset-4 hover:text-foreground hover:underline">Trang chủ</Link></li>
@@ -163,7 +187,7 @@ export default async function TripDetailPage({
       <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 shadow-e3">
         <div className="flex flex-col">
           <span className="text-xs text-muted-foreground">Giá vé / người</span>
-          <span className="font-mono text-2xl font-bold text-primary">{formatPrice(trip.price)}</span>
+          <span className="font-mono text-2xl font-bold text-primary">{formatVnd(trip.price)}</span>
         </div>
         <TripBooking tripId={trip.tripId} availableSeats={trip.availableSeats} />
       </div>

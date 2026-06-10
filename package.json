@@ -19,6 +19,10 @@
     "admin:list-operators": "tsx --env-file=.env.production scripts/admin/listOperators.ts",
     "admin:bootstrap-super-admin": "tsx --env-file=.env.production scripts/admin/bootstrapSuperAdmin.ts",
     "admin:reset-admin-totp": "tsx --env-file=.env.production scripts/admin/resetAdminTotpBreakGlass.ts",
+    "seed:trips": "tsx --env-file=.env.local scripts/seed/seed-trips-range.ts",
+    "seed:operator": "tsx --env-file=.env.local scripts/seed/seed-operator.ts",
+    "seed:admin": "tsx --env-file=.env.local scripts/seed/seed-admin.ts",
+    "admin:code": "tsx --env-file=.env.local scripts/seed/admin-totp-code.ts",
     "prepare": "husky"
   },
   "dependencies": {

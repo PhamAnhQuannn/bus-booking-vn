@@ -26,11 +26,16 @@ let routeId: string;
 let busId: string;
 const tripIds: string[] = [];
 
-// Trip departs in 24h; derive the VN-local (UTC+7) date string the search filters on.
-const baseDeparture = new Date(Date.now() + 24 * 60 * 60 * 1000);
-const vnDate = new Date(baseDeparture.getTime() + 7 * 3600 * 1000)
+// Anchor all trips to a FIXED VN-morning hour TOMORROW so the 4h spread (5 trips,
+// 1h apart) never crosses VN midnight — the search filters by VN-local calendar date,
+// and a late-UTC run with a naive `now + 24h` base pushed the later trips into the next
+// VN day (Issue 014 UTC-vs-VN `.slice(0,10)` collision). 08:00 VN = 01:00 UTC; all 5
+// trips land 08:00–12:00 VN on the same date, and (being tomorrow) stay future-dated.
+const vnTomorrow = new Date(Date.now() + 7 * 3600 * 1000 + 24 * 3600 * 1000)
   .toISOString()
   .slice(0, 10);
+const vnDate = vnTomorrow;
+const baseDeparture = new Date(`${vnTomorrow}T08:00:00+07:00`);
 
 beforeAll(async () => {
   const operator = await prisma.operator.create({

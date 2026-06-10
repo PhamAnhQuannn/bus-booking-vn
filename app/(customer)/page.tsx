@@ -7,8 +7,13 @@ import { PopularTrips } from '@/components/home/PopularTrips';
 import { ContractCarRental } from '@/components/home/ContractCarRental';
 import { IntroBanner } from '@/components/home/IntroBanner';
 import { RouteDirectory } from '@/components/home/RouteDirectory';
+import { TrustStrip } from '@/components/home/TrustStrip';
+import { POPULAR_ROUTES, routeKey } from '@/components/home/popularRoutes';
 import { Card, CardContent } from '@/components/ui/card';
 import { getSearchablePlaces } from '@/lib/places';
+import { getActiveRoutes } from '@/lib/core/db/getActiveRoutes';
+import { getHomeMetrics } from '@/lib/home';
+import { organizationLd } from '@/lib/seo';
 
 export const metadata: Metadata = {
   title: 'Đặt vé xe khách | BBVN',
@@ -26,9 +31,29 @@ export default async function HomePage() {
   // media-gated so each device only fetches its own size.
   preload('/hero/landing-1280.jpg', { as: 'image', media: '(max-width: 767px)' });
   preload('/hero/landing-2560.jpg', { as: 'image', media: '(min-width: 768px)' });
-  const places = await getSearchablePlaces();
+  const [places, activeRoutes, metrics] = await Promise.all([
+    getSearchablePlaces(),
+    getActiveRoutes(),
+    getHomeMetrics(),
+  ]);
+
+  // Indicative "Từ" starting price per popular route, keyed by routeKey. Reuses the
+  // /routes browse aggregate (getActiveRoutes → minPrice per origin/dest). Only the
+  // pairs shown on the home carousel are mapped; routes with no upcoming trip are absent.
+  const popularKeys = new Set(POPULAR_ROUTES.map((r) => routeKey(r.origin, r.destination)));
+  const prices: Record<string, number | null> = {};
+  for (const r of activeRoutes) {
+    const key = routeKey(r.origin, r.destination);
+    if (popularKeys.has(key)) prices[key] = r.minPrice;
+  }
+
   return (
     <main className="flex flex-1 flex-col">
+      {/* SEO: Organization structured data for rich results. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationLd()) }}
+      />
       {/* Hero band — full-bleed cover image behind a floating search card (Vexere pattern). */}
       <section id="search" className="relative w-full scroll-mt-16 overflow-hidden">
         {/* Cover image. Swap in a real photo: change the url to '/hero/landing.jpg'.
@@ -103,20 +128,23 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* Early trust/scale strip — real counts, threshold-gated (OTA pattern) */}
+      <TrustStrip metrics={metrics} />
+
       {/* Why-choose-us feature highlights */}
       <FeatureHighlights />
 
-      {/* Popular routes carousel */}
-      <PopularTrips />
+      {/* Popular routes carousel (with indicative "Từ" starting price) */}
+      <PopularTrips prices={prices} />
 
       {/* Contract car-rental — Thanh Hóa tourism showcase */}
       <ContractCarRental />
 
-      {/* Big animated intro / closing CTA banner */}
-      <IntroBanner />
-
-      {/* Popular routes directory (text links) */}
+      {/* Popular routes directory (text links, SEO) */}
       <RouteDirectory />
+
+      {/* Big animated intro / closing CTA banner — final beat before footer */}
+      <IntroBanner />
     </main>
   );
 }

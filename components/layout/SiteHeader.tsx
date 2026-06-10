@@ -11,10 +11,12 @@ import { usePathname } from 'next/navigation';
 import { Logo } from '@/components/brand/Logo';
 import { cn } from '@/lib/utils';
 
+// 2026-06-06: customer accounts paused (guest-only) — "Tài khoản" link removed.
+// "Trở thành đối tác" routes operators to the public application form.
 const NAV = [
   { href: '/', label: 'Trang chủ' },
   { href: '/lien-he-dat-xe', label: 'Liên hệ đặt xe' },
-  { href: '/account/bookings', label: 'Tài khoản' },
+  { href: '/op/register', label: 'Trở thành đối tác' },
 ];
 
 export function SiteHeader() {
@@ -28,27 +30,36 @@ export function SiteHeader() {
         <Link href="/" className="rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
           <Logo variant="combo" />
         </Link>
-        <nav className="flex items-center gap-1 text-sm" aria-label="Điều hướng chính">
-          {NAV.map((item) => {
-            const active =
-              item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={active ? 'page' : undefined}
-                className={cn(
-                  'inline-flex min-h-11 items-center rounded-md px-3 font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
-                  active
-                    ? 'font-semibold text-primary'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
+        <div className="flex items-center gap-1">
+          <nav className="flex items-center gap-1 text-sm" aria-label="Điều hướng chính">
+            {NAV.map((item) => {
+              const active =
+                item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={active ? 'page' : undefined}
+                  className={cn(
+                    'inline-flex min-h-11 items-center rounded-md px-3 font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
+                    active
+                      ? 'font-semibold text-primary'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+          {/* 2026-06-06: only operators log in (admin has its own door). Sign-in → /op/login. */}
+          <Link
+            href="/op/login"
+            className="ml-1 inline-flex min-h-11 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            Đăng nhập
+          </Link>
+        </div>
       </div>
     </header>
   );

@@ -103,8 +103,9 @@ async function dispatchRow(row: DueRow): Promise<{ ok: boolean; externalRef?: st
   if (row.channel === 'email') {
     return sendEmail({ to: row.recipient, template: row.template, payload: row.payload });
   }
-  // channel === 'sms'
-  return sendSmsBody({ to: row.recipient, template: row.template, body: row.payload });
+  // channel === 'sms' — row.id is the eSMS RequestId (idempotency key) so a
+  // cron re-run of the same row cannot double-send.
+  return sendSmsBody({ to: row.recipient, template: row.template, body: row.payload, requestId: row.id });
 }
 
 export const dispatchNotifications: JobCore = async (_tx, opts?: JobOpts) => {

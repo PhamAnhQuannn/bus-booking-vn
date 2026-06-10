@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Chính sách bảo mật | BBVN',
+  description: 'Cách BBVN thu thập, sử dụng và bảo vệ thông tin cá nhân của khách hàng.',
 };
 
 export default function PrivacyPage() {

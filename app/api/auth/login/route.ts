@@ -1,30 +1,37 @@
 /**
  * POST /api/auth/login
- * Body: { phone, password, scope?: 'customer' | 'operator' }
+ * Body: { username, password, scope: 'operator' }
  *
- * Customer (no scope or scope='customer'):
- *   Response: { accessToken, customer } + Set-Cookie bb_rt
+ * 2026-06-06: customer accounts PAUSED (guest-only). Only the operator branch is live;
+ * any non-operator scope returns 410 customer_login_disabled. Re-enable = restore the
+ * customer branch (git history) + the customer auth UI (S04).
  *
  * Operator (scope='operator'):
  *   Response: { accessToken, operator, requiresPasswordChange }
  *   + Set-Cookie bb_op_access (15min, HttpOnly) + bb_op_refresh (30d, HttpOnly)
+ *   Login key is the generated username (BRAND_ACRONYM-last4phone), NOT phone.
  *
- * 401 INVALID_CREDENTIALS on wrong phone/password.
- * 403 SCOPE_MISMATCH not used here (scope is a discriminant for two separate flows,
- *     not a cross-flow guard — wrong-scope creds just return 401).
+ * 401 invalid_credentials on wrong username/password.
  */
 
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { loginInput } from '@/lib/core/validation/auth';
-import { login, AuthServiceError } from '@/lib/auth';
+import { operatorLoginInput } from '@/lib/core/validation/auth';
+import { AuthServiceError } from '@/lib/auth';
 import { operatorLogin } from '@/lib/auth';
+import { opLoginRatelimit, opLoginLockout } from '@/lib/ratelimit';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 const REFRESH_COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days in seconds
 const ACCESS_COOKIE_MAX_AGE = 15 * 60; // 15 minutes in seconds
+
+function clientIp(req: NextRequest): string {
+  const fwd = req.headers.get('x-forwarded-for');
+  if (fwd) return fwd.split(',')[0].trim();
+  return req.headers.get('x-real-ip') ?? 'unknown';
+}
 
 async function handler(req: NextRequest): Promise<Response> {
   let body: unknown;
@@ -38,20 +45,46 @@ async function handler(req: NextRequest): Promise<Response> {
   const rawScope = (body as Record<string, unknown>)?.scope;
   const scope = rawScope === 'operator' ? 'operator' : 'customer';
 
-  if (scope === 'operator') {
+  // 2026-06-06: customer accounts paused (guest-only). Only the operator branch is live.
+  if (scope !== 'operator') {
+    return NextResponse.json({ error: 'customer_login_disabled' }, { status: 410 });
+  }
+
+  {
     // -----------------------------------------------------------------------
-    // Operator branch
+    // Operator branch (username + password)
     // -----------------------------------------------------------------------
-    const parsed = loginInput.safeParse(body);
+    // Per-IP throttle on the login surface (tighter than the generic edge limit).
+    const ipRl = await opLoginRatelimit.limit(`op-login:${clientIp(req)}`);
+    if (!ipRl.allowed) {
+      return NextResponse.json(
+        { error: 'RATE_LIMITED' },
+        { status: 429, headers: { 'Retry-After': String(ipRl.retryAfter) } }
+      );
+    }
+
+    const parsed = operatorLoginInput.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: 'INVALID' }, { status: 400 });
     }
+
+    // Account-level lockout key — usernames are publicly enumerable, so the
+    // brake is keyed on the (case-normalized) username, not just the IP.
+    const lockoutKey = `op-login-fail:${parsed.data.username.trim().toLowerCase()}`;
 
     let result;
     try {
       result = await operatorLogin(parsed.data);
     } catch (err) {
       if (err instanceof AuthServiceError && err.code === 'INVALID_CREDENTIALS') {
+        // Bad credentials — consume the consecutive-failure lockout counter.
+        const lk = await opLoginLockout.limit(lockoutKey);
+        if (!lk.allowed) {
+          return NextResponse.json(
+            { error: 'LOCKED_OUT' },
+            { status: 429, headers: { 'Retry-After': String(lk.retryAfter) } }
+          );
+        }
         return NextResponse.json({ error: 'invalid_credentials' }, { status: 401 });
       }
       throw err;
@@ -83,38 +116,6 @@ async function handler(req: NextRequest): Promise<Response> {
       requiresPasswordChange: result.requiresPasswordChange,
     });
   }
-
-  // -------------------------------------------------------------------------
-  // Customer branch (default)
-  // -------------------------------------------------------------------------
-  const parsed = loginInput.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: 'INVALID' }, { status: 400 });
-  }
-
-  let result;
-  try {
-    result = await login(parsed.data);
-  } catch (err) {
-    if (err instanceof AuthServiceError && err.code === 'INVALID_CREDENTIALS') {
-      return NextResponse.json({ error: 'invalid_credentials' }, { status: 401 });
-    }
-    throw err;
-  }
-
-  const cookieStore = await cookies();
-  cookieStore.set('bb_rt', result.refreshToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: REFRESH_COOKIE_MAX_AGE,
-  });
-
-  return NextResponse.json({
-    accessToken: result.accessToken,
-    customer: result.customer,
-  });
 }
 
 export const POST = withErrorHandler(handler);

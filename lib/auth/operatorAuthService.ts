@@ -1,20 +1,21 @@
 /**
  * operatorAuthService — operator login.
  *
- * operatorLogin({ phone, password }) — authenticate an operator user.
+ * operatorLogin({ username, password }) — authenticate an operator user.
+ *   - 2026-06-06: login key is the generated username (BRAND_ACRONYM-last4phone),
+ *     NOT phone. Phone is contact-only.
  *   - Returns OperatorAuthResult on success
  *   - Throws AuthServiceError('INVALID_CREDENTIALS') on failure (no enumeration)
  *   - Throws AuthServiceError('DISABLED') when disabledAt is set
  */
 
 import { prisma } from '@/lib/core/db/client';
-import { normalizePhone } from '@/lib/core/validation/phone';
 import { verify as verifyPassword, dummyVerify } from './password';
 import { issueOperatorSession } from './operatorSession';
 import { AuthServiceError } from './authService';
 
 export interface OperatorLoginInput {
-  phone: string;
+  username: string;
   password: string;
 }
 
@@ -24,7 +25,7 @@ export interface OperatorAuthResult {
   refreshHash: string;
   operator: {
     id: string;
-    phone: string;
+    username: string;
     displayName: string;
     requiresPasswordChange: boolean;
   };
@@ -32,13 +33,13 @@ export interface OperatorAuthResult {
 }
 
 export async function operatorLogin(input: OperatorLoginInput): Promise<OperatorAuthResult> {
-  const phone = normalizePhone(input.phone);
+  const username = input.username.trim();
 
   const user = await prisma.operatorUser.findUnique({
-    where: { phone },
+    where: { username },
     select: {
       id: true,
-      phone: true,
+      username: true,
       displayName: true,
       passwordHash: true,
       requiresPasswordChange: true,
@@ -71,7 +72,7 @@ export async function operatorLogin(input: OperatorLoginInput): Promise<Operator
     refreshHash: session.refreshHash,
     operator: {
       id: user.id,
-      phone: user.phone,
+      username: user.username,
       displayName: user.displayName,
       requiresPasswordChange: user.requiresPasswordChange,
     },

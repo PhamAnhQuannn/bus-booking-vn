@@ -26,6 +26,7 @@ function fakePrisma(opts: {
   upcomingCount?: number;
   gmv?: string;
   payouts?: unknown[];
+  accountCount?: number;
 }) {
   // trip.count is called twice (total then upcoming) — return in sequence.
   const tripCount = vi
@@ -34,6 +35,7 @@ function fakePrisma(opts: {
     .mockResolvedValueOnce(opts.upcomingCount ?? 0);
   return {
     operator: { findUnique: vi.fn(async () => opts.operator) },
+    operatorUser: { count: vi.fn(async () => opts.accountCount ?? 0) },
     bus: { count: vi.fn(async () => opts.busCount ?? 0) },
     trip: { count: tripCount },
     payout: { findMany: vi.fn(async () => opts.payouts ?? []) },

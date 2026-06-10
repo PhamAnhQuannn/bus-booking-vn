@@ -13,11 +13,17 @@ import crypto from 'crypto';
 const CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
 const LENGTH = 12;
 
+// Largest multiple of CHARSET.length that fits in a byte; bytes >= this are
+// rejected so every charset glyph is equally probable (no modulo bias).
+const MAX_UNBIASED = 256 - (256 % CHARSET.length);
+
 export function genTempPassword(): string {
-  const bytes = crypto.randomBytes(LENGTH);
   let out = '';
-  for (let i = 0; i < LENGTH; i++) {
-    out += CHARSET[bytes[i] % CHARSET.length];
+  while (out.length < LENGTH) {
+    const bytes = crypto.randomBytes(LENGTH);
+    for (let i = 0; i < bytes.length && out.length < LENGTH; i++) {
+      if (bytes[i] < MAX_UNBIASED) out += CHARSET[bytes[i] % CHARSET.length];
+    }
   }
   return out;
 }

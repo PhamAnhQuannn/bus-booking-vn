@@ -13,6 +13,8 @@
  * the token does not match any booking row.
  */
 
+import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CheckCircle2, Phone, CalendarPlus } from 'lucide-react';
 import { getBookingByConfirmationToken } from '@/lib/booking';
@@ -20,6 +22,12 @@ import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TripDetailCard } from '@/components/ticket/TripDetailCard';
+
+// Private, per-booking page reachable only via the token link — never indexed.
+export const metadata: Metadata = {
+  title: 'Xác nhận đặt vé | BBVN',
+  robots: { index: false, follow: false },
+};
 
 interface ConfirmationPageProps {
   params: Promise<{ token: string }>;
@@ -169,6 +177,15 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
         </CardContent>
       </Card>
 
+      {/* Forward CTAs — no post-payment dead-end. */}
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Link href="/" className={buttonVariants({ variant: 'default', className: 'flex-1' })}>
+          Về trang chủ
+        </Link>
+        <Link href="/search" className={buttonVariants({ variant: 'outline', className: 'flex-1' })}>
+          Tìm chuyến khác
+        </Link>
+      </div>
     </main>
   );
 }

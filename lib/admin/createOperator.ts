@@ -24,6 +24,7 @@ import { genTempPassword } from '@/lib/staff';
 import { sendSms } from '@/lib/notification';
 import { writeAdminAuditLog } from '@/lib/audit';
 import { redactPhone } from '@/lib/audit';
+import { buildUsername, ensureUniqueUsername } from '@/lib/auth';
 import { AdminServiceError } from './errors';
 
 export interface CreateOperatorInput {
@@ -66,9 +67,14 @@ export async function createOperator(
         select: { id: true },
       });
 
+      // 2026-06-06: login key is username (BRAND_ACRONYM-last4phone). CLI path has no
+      // brandName, so derive the acronym from legalName.
+      const username = await ensureUniqueUsername(tx, buildUsername(input.legalName, loginPhone));
+
       const operatorUser = await tx.operatorUser.create({
         data: {
           operatorId: operator.id,
+          username,
           phone: loginPhone,
           contactPhone: loginPhone,
           notificationPhone,

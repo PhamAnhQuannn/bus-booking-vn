@@ -7,11 +7,18 @@
  * port-bump and add an HTTP hop for no reason. Call the lib function directly.
  */
 
+import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { verifyCookieValue } from '@/lib/security';
 import { getHoldDetails } from '@/lib/booking';
 import { ReviewClient } from './ReviewClient';
+
+// Transient checkout step gated by the bb_hold cookie — never indexed.
+export const metadata: Metadata = {
+  title: 'Xác nhận đơn | BBVN',
+  robots: { index: false, follow: false },
+};
 
 interface ReviewPageProps {
   searchParams: Promise<{ holdId?: string }>;

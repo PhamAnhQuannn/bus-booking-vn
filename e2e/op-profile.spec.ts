@@ -22,6 +22,7 @@ const DB_URL = process.env.DATABASE_URL ?? 'postgresql://bbvn:bbvn_dev_password@
 // After first-login e2e the seed operator's password will be NEW_PASSWORD.
 // Run these tests only after op-first-login flow OR reset requiresPasswordChange=false + restore password.
 const SEED_PHONE = normalizePhone('0901230001');
+const SEED_USERNAME = 'PB-0001'; // 2026-06-06: login by username
 
 async function prepareOperator(): Promise<void> {
   const passwordHash = await hash('BBOp2026!');
@@ -55,7 +56,7 @@ test.describe('Operator profile GET + PATCH', () => {
     const csrf = await primeCsrf(request);
 
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: 'BBOp2026!' },
+      data: { scope: 'operator', username: SEED_USERNAME, password: 'BBOp2026!' },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -71,7 +72,7 @@ test.describe('Operator profile GET + PATCH', () => {
     const csrf = await primeCsrf(request);
 
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: 'BBOp2026!' },
+      data: { scope: 'operator', username: SEED_USERNAME, password: 'BBOp2026!' },
       headers: { 'X-CSRF-Token': csrf },
     });
 
@@ -94,7 +95,7 @@ test.describe('Operator profile GET + PATCH', () => {
     const csrf = await primeCsrf(request);
 
     await request.post('/api/auth/login', {
-      data: { scope: 'operator', phone: SEED_PHONE, password: 'BBOp2026!' },
+      data: { scope: 'operator', username: SEED_USERNAME, password: 'BBOp2026!' },
       headers: { 'X-CSRF-Token': csrf },
     });
 

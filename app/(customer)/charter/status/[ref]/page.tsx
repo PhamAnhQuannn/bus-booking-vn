@@ -21,6 +21,7 @@
  */
 
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CalendarDays, MapPin, Phone, Users } from 'lucide-react';
 import type { CharterStatus } from '@prisma/client';
@@ -28,6 +29,7 @@ import type { CharterStatus } from '@prisma/client';
 import { prisma } from '@/lib/core/db/client';
 import { getCharterByRef, CUSTOMER_CANCELLABLE_STATUSES } from '@/lib/charter';
 import { Badge } from '@/components/ui/badge';
+import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CancelCharterButton } from '@/components/charter/CancelCharterButton';
 
@@ -167,12 +169,26 @@ export default async function CharterStatusPage({ params }: StatusPageProps) {
         </CardContent>
       </Card>
 
-      {cancellable && (
+      {cancellable ? (
         <div className="flex flex-col gap-2">
           <p className="text-sm text-muted-foreground">
             Bạn có thể hủy yêu cầu trong khi chúng tôi đang tìm nhà xe phù hợp.
           </p>
           <CancelCharterButton charterRef={charter.ref} />
+        </div>
+      ) : (
+        // Terminal / non-cancellable states (completed, cancelled, accepted…) —
+        // give a forward action instead of a dead-end.
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Link href="/" className={buttonVariants({ variant: 'default', className: 'flex-1' })}>
+            Về trang chủ
+          </Link>
+          <Link
+            href="/lien-he-dat-xe"
+            className={buttonVariants({ variant: 'outline', className: 'flex-1' })}
+          >
+            Đặt chuyến khác
+          </Link>
         </div>
       )}
     </main>

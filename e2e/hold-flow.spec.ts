@@ -9,7 +9,7 @@
  * 5. Hold expiry redirects to /search (HoldExpiryModal)
  *
  * Prerequisites: running dev server + seeded DB with at least one trip
- * on the next available date for route Hà Nội → TP.HCM.
+ * on the next available date for route Hà Nội → Sài Gòn.
  */
 
 import { test, expect, type Page } from '@playwright/test';
@@ -72,7 +72,7 @@ async function searchForTrips(page: Page) {
   // workers. Bypassing the form removes that flake from this spec.
   const params = new URLSearchParams({
     origin: 'Hà Nội',
-    destination: 'TP.HCM',
+    destination: 'Sài Gòn',
     date: TOMORROW,
     ticketCount: '1',
   });
