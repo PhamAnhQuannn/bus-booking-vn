@@ -17,6 +17,7 @@ import { getOperatorSession } from '@/lib/op';
 import { listRoutes } from '@/lib/catalog';
 import { listOperatorBuses } from '@/lib/catalog';
 import { listOperatorPickupAreas, composePickupLabel } from '@/lib/catalog';
+import { prisma } from '@/lib/core/db/client';
 import { PageHeader } from '@/components/op/PageHeader';
 import NewTripClient from './NewTripClient';
 
@@ -47,7 +48,29 @@ export default async function OpNewTripPage() {
   }));
   const activeAreas = areas
     .filter((a) => a.isActive)
-    .map((a) => ({ id: a.id, label: composePickupLabel(a), kind: a.kind }));
+    .map((a) => ({ id: a.id, label: composePickupLabel(a), kind: a.kind, provinceCode: a.provinceCode }));
+
+  // Issue 112 (per-route memory, operator P1.3): for each active route, surface the pickup-area set
+  // of the MOST RECENT prior trip so the client can offer "dùng lại điểm đón chuyến trước". One query
+  // per route (small N — an operator's route list), each ordered by departureAt desc. Only the active
+  // menu ids are kept so a since-deactivated area is not re-offered.
+  const activeAreaIds = new Set(activeAreas.map((a) => a.id));
+  const lastTrips = await Promise.all(
+    activeRoutes.map((r) =>
+      prisma.trip.findFirst({
+        where: { routeId: r.id, operatorId: session.operatorId },
+        orderBy: { departureAt: 'desc' },
+        select: { pickupAreas: { select: { operatorPickupAreaId: true } } },
+      })
+    )
+  );
+  const routePickupMemory: Record<string, string[]> = {};
+  activeRoutes.forEach((r, i) => {
+    const ids = (lastTrips[i]?.pickupAreas ?? [])
+      .map((p) => p.operatorPickupAreaId)
+      .filter((id) => activeAreaIds.has(id));
+    if (ids.length > 0) routePickupMemory[r.id] = ids;
+  });
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 md:px-6">
@@ -59,7 +82,12 @@ export default async function OpNewTripPage() {
         title="Tạo chuyến xe mới"
         backHref="/op/trips"
       />
-      <NewTripClient routes={activeRoutes} buses={activeBuses} pickupAreas={activeAreas} />
+      <NewTripClient
+        routes={activeRoutes}
+        buses={activeBuses}
+        pickupAreas={activeAreas}
+        routePickupMemory={routePickupMemory}
+      />
     </div>
   );
 }

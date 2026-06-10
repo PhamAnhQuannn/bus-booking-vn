@@ -93,6 +93,11 @@ async function handler(req: NextRequest): Promise<Response> {
       customPickupRequested: true,
     };
   } else if (pickupKind === 'point') {
+    // Issue 112 (deactivate-then-book, edge P2-4 — decided + documented): we validate ONLY against
+    // this trip's TripPickupArea enablement and intentionally do NOT join OperatorPickupArea.isActive.
+    // Per-trip enablement is an explicit operator choice and is honored for the life of the trip even
+    // if the parent area is later deactivated; deactivation only removes the area from the NEW-trip
+    // setup menu (see lib/catalog/deactivateOperatorPickupArea.ts). No isActive gate here by design.
     const tripAreas = await prisma.tripPickupArea.findMany({
       where: { tripId },
       select: { operatorPickupAreaId: true, label: true },

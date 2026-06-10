@@ -25,6 +25,8 @@ import {
   setTripPickupAreasApi,
 } from '@/lib/api';
 import { assignServiceApi } from '@/lib/api';
+// lib/geo is pure + client-safe (static JSON; no server-only/pg) — see lib/geo/index.ts.
+import { getProvince } from '@/lib/geo';
 import { tripStatusDisplay } from '@/lib/op/statusLabels';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -47,6 +49,7 @@ interface PickupMenuItem {
   addressLine: string | null;
   label: string;
   kind: 'station' | 'pickup';
+  provinceCode: string;
 }
 
 /** Issue 110: picker grouping — Bến xe (station) first, then Đón tận nơi (pickup). */
@@ -54,6 +57,19 @@ const PICKUP_KIND_GROUPS: { kind: 'station' | 'pickup'; label: string }[] = [
   { kind: 'station', label: 'Bến xe' },
   { kind: 'pickup', label: 'Đón tận nơi' },
 ];
+
+const PROVINCE_ALL = '__all__';
+
+/** Issue 112: distinct provinces in the menu, resolved to names for the filter dropdown. */
+function distinctProvinces(areas: PickupMenuItem[]): { code: string; name: string }[] {
+  const seen = new Map<string, string>();
+  for (const a of areas) {
+    if (!seen.has(a.provinceCode)) {
+      seen.set(a.provinceCode, getProvince(a.provinceCode)?.name ?? a.provinceCode);
+    }
+  }
+  return [...seen].map(([code, name]) => ({ code, name }));
+}
 
 interface Props {
   trip: TripDto;
@@ -101,6 +117,8 @@ export default function TripDetailClient({
 
   // Pickup-point subset for this trip.
   const [pickupIds, setPickupIds] = useState<string[]>(tripPickupAreaIds);
+  // Issue 112: province filter — display-only; checkbox state still writes the chosen ids.
+  const [provinceFilter, setProvinceFilter] = useState<string>(PROVINCE_ALL);
 
   // Assign staff to this trip
   const [assignStaffId, setAssignStaffId] = useState('');
@@ -248,6 +266,14 @@ export default function TripDetailClient({
     }
   }
 
+  // Issue 112: count-gate the province filter — only useful when the menu spans >1 province.
+  const provinces = distinctProvinces(pickupMenu);
+  const showProvinceFilter = provinces.length > 1;
+  const filteredMenu =
+    showProvinceFilter && provinceFilter !== PROVINCE_ALL
+      ? pickupMenu.filter((a) => a.provinceCode === provinceFilter)
+      : pickupMenu;
+
   const cancelled = trip.status === 'cancelled';
   const canDepart = trip.status === 'scheduled';
   const canComplete = trip.status === 'departed';
@@ -387,9 +413,27 @@ export default function TripDetailClient({
                 </p>
               ) : (
                 <div className="flex flex-col gap-3">
+                  {showProvinceFilter && (
+                    <Select
+                      value={provinceFilter}
+                      onValueChange={(v: string | null) => setProvinceFilter(v ?? PROVINCE_ALL)}
+                    >
+                      <SelectTrigger data-testid="trip-pickup-province-filter" className="max-w-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={PROVINCE_ALL}>Tất cả tỉnh/thành</SelectItem>
+                        {provinces.map((p) => (
+                          <SelectItem key={p.code} value={p.code}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                   <div className="flex flex-col gap-4 rounded-md border border-input p-3">
                     {PICKUP_KIND_GROUPS.map((group) => {
-                      const items = pickupMenu.filter((a) => a.kind === group.kind);
+                      const items = filteredMenu.filter((a) => a.kind === group.kind);
                       if (items.length === 0) return null;
                       return (
                         <div key={group.kind} className="flex flex-col gap-2">
