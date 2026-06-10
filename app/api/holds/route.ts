@@ -64,20 +64,22 @@ async function handler(req: NextRequest): Promise<Response> {
     parsed.data;
 
   // ---- 2b. Resolve + validate pickup against the trip's enabled areas (Issue 107/111) ----
-  // pickupKind is SERVER-DERIVED, never trusted from the client: custom → custom; a valid
-  // areaId → point; otherwise station. The client `pickupKind` only signals the custom intent.
+  // The client-supplied pickupKind selects the branch; the resulting fields are always
+  // SERVER-validated (custom detail length; point areaId ∈ this trip's enabled areas).
+  // areaId is only honored inside the 'point' branch — a 'station'/'custom' request never
+  // adopts a stray areaId. Anything not 'custom'/'point' falls through to station.
+  // NB: customPickupRequested is NOT tracked here — createHold (lib/core/db/holdRepo)
+  // derives it authoritatively in SQL as (pickupKind = 'custom'), the single source of truth.
   let pickup: {
     pickupKind: 'station' | 'point' | 'custom';
     pickupAreaId: string | null;
     pickupAreaLabel: string | null;
     pickupDetail: string | null;
-    customPickupRequested: boolean;
   } = {
     pickupKind: 'station',
     pickupAreaId: null,
     pickupAreaLabel: null,
     pickupDetail: null,
-    customPickupRequested: false,
   };
 
   if (pickupKind === 'custom') {
@@ -90,7 +92,6 @@ async function handler(req: NextRequest): Promise<Response> {
       pickupAreaId: null,
       pickupAreaLabel: null,
       pickupDetail: check.pickupDetail,
-      customPickupRequested: true,
     };
   } else if (pickupKind === 'point') {
     // Issue 112 (deactivate-then-book, edge P2-4 — decided + documented): we validate ONLY against
@@ -115,7 +116,6 @@ async function handler(req: NextRequest): Promise<Response> {
       pickupAreaId: check.pickupAreaId,
       pickupAreaLabel: label,
       pickupDetail: check.pickupDetail,
-      customPickupRequested: false,
     };
   }
 

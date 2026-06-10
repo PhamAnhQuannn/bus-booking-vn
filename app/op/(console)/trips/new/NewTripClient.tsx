@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { PICKUP_KIND_GROUPS } from '@/components/op/pickupKindGroups';
 
 interface RouteOption {
   id: string;
@@ -62,11 +63,6 @@ function distinctProvinces(areas: PickupAreaOption[]): { code: string; name: str
 const PROVINCE_ALL = '__all__';
 
 /** Issue 110: picker grouping — Bến xe (station) first, then Đón tận nơi (pickup). */
-const PICKUP_KIND_GROUPS: { kind: 'station' | 'pickup'; label: string }[] = [
-  { kind: 'station', label: 'Bến xe' },
-  { kind: 'pickup', label: 'Đón tận nơi' },
-];
-
 interface Props {
   routes: RouteOption[];
   buses: BusOption[];

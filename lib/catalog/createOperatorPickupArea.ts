@@ -5,7 +5,8 @@
  *
  * Rejects:
  *   - invalid_area    — the code triple is not a consistent province→huyện→xã path
- *   - duplicate_area  — an ACTIVE area with the same ward already exists for this operator
+ *   - duplicate_area  — an ACTIVE area with the same NAME in the same ward already exists
+ *                       for this operator (v2 allows multiple named points per ward)
  */
 
 import type { PickupPlaceKind } from '@prisma/client';

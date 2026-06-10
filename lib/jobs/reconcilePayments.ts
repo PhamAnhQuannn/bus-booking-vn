@@ -92,6 +92,9 @@ interface StuckBookingRow {
   /** Hold expiry — null when no hold (manual bookings); only expired holds expire. */
   holdExpiresAt: Date | null;
   holdCreatedAt: Date | null;
+  /** Issue 111 custom off-list pickup — folded into the operator SMS on paid. */
+  customPickupRequested: boolean;
+  pickupDetail: string | null;
 }
 
 /** Recovered view of a stored PaymentEvent (amount/success parsed from rawBody). */
@@ -216,7 +219,9 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
            r."destination"           AS "destination",
            t."departureAt"           AS "departureAt",
            h."expiresAt"             AS "holdExpiresAt",
-           h."createdAt"             AS "holdCreatedAt"
+           h."createdAt"             AS "holdCreatedAt",
+           b."customPickupRequested" AS "customPickupRequested",
+           b."pickupDetail"          AS "pickupDetail"
     FROM "Booking" b
     JOIN "Trip" t      ON t."id" = b."tripId"
     JOIN "Operator" op ON op."id" = t."operatorId"
@@ -350,17 +355,24 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
             confirmationUrl: booking.confirmationToken,
           }),
         });
+        const operatorPayload: Record<string, string | number> = {
+          ticketCount: booking.ticketCount,
+          route: routeLabel,
+          departureAt: departureLabel,
+          bookingRef: booking.bookingRef,
+          buyerPhone: booking.buyerPhone,
+        };
+        // Issue 111: fold the custom-pickup request into the SAME operator SMS, mirroring
+        // the webhook path (lib/payment/processWebhook.ts) so the reconcile recovery path
+        // doesn't silently drop the "Diem don rieng" line.
+        if (booking.customPickupRequested && booking.pickupDetail) {
+          operatorPayload.customPickup = booking.pickupDetail;
+        }
         await enqueuePendingNotification(tx, logger, {
           bookingId: booking.id,
           template: 'operatorNewBooking',
           recipient: operatorRecipient,
-          payload: renderTemplate('operatorNewBooking', {
-            ticketCount: booking.ticketCount,
-            route: routeLabel,
-            departureAt: departureLabel,
-            bookingRef: booking.bookingRef,
-            buyerPhone: booking.buyerPhone,
-          }),
+          payload: renderTemplate('operatorNewBooking', operatorPayload),
         });
 
         paidCount += 1;

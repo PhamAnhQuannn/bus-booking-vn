@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { PICKUP_KIND_GROUPS } from '@/components/op/pickupKindGroups';
 import {
   Table,
   TableHeader,
@@ -38,11 +39,6 @@ interface Props {
 }
 
 /** Issue 110: picker grouping — Bến xe (station) first, then Đón tận nơi (pickup). */
-const PICKUP_KIND_GROUPS: { kind: 'station' | 'pickup'; label: string }[] = [
-  { kind: 'station', label: 'Bến xe' },
-  { kind: 'pickup', label: 'Đón tận nơi' },
-];
-
 const DAY_LABELS: Array<{ label: string; bit: number }> = [
   { label: 'T2', bit: 1 },
   { label: 'T3', bit: 2 },

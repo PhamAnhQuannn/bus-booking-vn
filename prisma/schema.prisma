@@ -192,7 +192,9 @@ model OperatorPickupArea {
   /// Denormalized ward address "Phường X, Quận Y, Tỉnh Z" — region context for the operator menu.
   label         String
   /// Issue 109: station (Bến xe) vs pickup (Đón tận nơi). Same table, distinguished by kind.
-  kind          PickupPlaceKind      @default(pickup)
+  /// Default 'station' — most VN operator menu entries are bến xe (matches the Zod default
+  /// in lib/core/validation/pickupArea.ts + the Issue-110 backfill). Migration 20260610000000.
+  kind          PickupPlaceKind      @default(station)
   isActive      Boolean              @default(true)
   displayOrder  Int
   createdAt     DateTime             @default(now())
@@ -365,8 +367,8 @@ enum PickupPlaceKind {
 }
 
 /// Issue 104/109/111: how the traveler boards. `station` = at the bus station (no detail).
-/// `point` = personal pickup in a chosen OperatorPickupArea (requires pickupDetail).
-/// `custom` = free-text request not on the list (requires pickupDetail ≥5 chars; operator phones back).
+/// `point` = personal pickup in a chosen OperatorPickupArea (pickupDetail optional — a note).
+/// `custom` = free-text request not on the list (pickupDetail REQUIRED, ≥5 chars; operator phones back).
 enum PickupKind {
   station
   point
@@ -410,10 +412,13 @@ model Booking {
   pickupAreaId         String?
   /// Denormalized area label snapshot (survives OperatorPickupArea edit/deactivate).
   pickupAreaLabel      String?
-  /// Free-text street / thôn xóm detail (required when pickupKind=point). PII (location).
+  /// Free-text detail. PII (location). Optional note when pickupKind=point; REQUIRED
+  /// (≥5 trimmed chars) when pickupKind=custom; null for station. See the CHECK below.
   pickupDetail         String?
-  /// Issue 109/111: true ⇔ pickupKind=custom. Indexed inert flag (manifest filter + notification
-  /// trigger); written false by default — the custom path lands in Issue 111.
+  /// Issue 109/111: true ⇔ pickupKind=custom (free-text request). Indexed inert flag for
+  /// manifest filtering + notification trigger. Derived in SQL from pickupKind at INSERT.
+  /// SQL-only CHECK "Booking_custom_requires_detail" (migration 20260609040000): when this is
+  /// true, pickupDetail must be non-null with ≥5 trimmed chars. Prisma's DSL cannot model CHECK.
   customPickupRequested Boolean            @default(false)
   /// Timestamp when boarding was marked (SET-TRUE-ONLY per SPEC NOTE)
   pickedUpAt           DateTime?

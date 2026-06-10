@@ -34,6 +34,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { PICKUP_KIND_GROUPS } from '@/components/op/pickupKindGroups';
 import {
   Select,
   SelectTrigger,
@@ -53,11 +54,6 @@ interface PickupMenuItem {
 }
 
 /** Issue 110: picker grouping — Bến xe (station) first, then Đón tận nơi (pickup). */
-const PICKUP_KIND_GROUPS: { kind: 'station' | 'pickup'; label: string }[] = [
-  { kind: 'station', label: 'Bến xe' },
-  { kind: 'pickup', label: 'Đón tận nơi' },
-];
-
 const PROVINCE_ALL = '__all__';
 
 /** Issue 112: distinct provinces in the menu, resolved to names for the filter dropdown. */
