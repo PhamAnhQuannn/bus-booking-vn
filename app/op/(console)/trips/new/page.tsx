@@ -47,7 +47,7 @@ export default async function OpNewTripPage() {
   }));
   const activeAreas = areas
     .filter((a) => a.isActive)
-    .map((a) => ({ id: a.id, label: composePickupLabel(a) }));
+    .map((a) => ({ id: a.id, label: composePickupLabel(a), kind: a.kind }));
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 md:px-6">

@@ -57,7 +57,7 @@ function wireTx(opts: {
   busLockRows: unknown[];
   overlapRows?: unknown[];
   createRow?: unknown;
-  ownedAreas?: { id: string; name: string; addressLine: string | null }[];
+  ownedAreas?: { id: string; name: string; addressLine: string | null; kind: 'station' | 'pickup' }[];
 }) {
   const tripCreate = vi.fn().mockResolvedValue(opts.createRow ?? BASE_TRIP_ROW);
   const queryRaw = vi
@@ -215,8 +215,8 @@ describe('createTrip', () => {
     const { areaCreateMany } = wireTx({
       busLockRows: [BASE_BUS_LOCK],
       ownedAreas: [
-        { id: 'a1', name: 'Bến A', addressLine: '12 Lê Lợi' },
-        { id: 'a2', name: 'Bến B', addressLine: null },
+        { id: 'a1', name: 'Bến A', addressLine: '12 Lê Lợi', kind: 'station' },
+        { id: 'a2', name: 'Bến B', addressLine: null, kind: 'pickup' },
       ],
     });
 
@@ -232,15 +232,16 @@ describe('createTrip', () => {
     expect(areaCreateMany).toHaveBeenCalledTimes(1);
     const data = areaCreateMany.mock.calls[0][0].data;
     expect(data).toHaveLength(2);
-    expect(data[0]).toMatchObject({ tripId: 'trip-1', operatorPickupAreaId: 'a1', label: 'Bến A — 12 Lê Lợi' });
-    expect(data[1]).toMatchObject({ operatorPickupAreaId: 'a2', label: 'Bến B' });
+    // Issue 110: kind is snapshotted alongside label.
+    expect(data[0]).toMatchObject({ tripId: 'trip-1', operatorPickupAreaId: 'a1', label: 'Bến A — 12 Lê Lợi', kind: 'station' });
+    expect(data[1]).toMatchObject({ operatorPickupAreaId: 'a2', label: 'Bến B', kind: 'pickup' });
   });
 
   it('throws invalid_pickup_area when an id is not one of the operator\'s active areas', async () => {
     mockRouteFindFirst.mockResolvedValue({ durationMinutes: 240 });
     const { areaCreateMany } = wireTx({
       busLockRows: [BASE_BUS_LOCK],
-      ownedAreas: [{ id: 'a1', name: 'Bến A', addressLine: null }], // only 1 of the 2 requested is owned
+      ownedAreas: [{ id: 'a1', name: 'Bến A', addressLine: null, kind: 'station' }], // only 1 of the 2 requested is owned
     });
 
     await expect(

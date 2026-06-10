@@ -12,6 +12,9 @@ import { z } from 'zod';
 const pointFields = {
   name: z.string().trim().min(2, 'Tên điểm đón quá ngắn').max(120),
   addressLine: z.string().trim().max(200).optional(),
+  // Issue 110: station (Bến xe) vs pickup (Đón tận nơi). Required-with-default —
+  // most VN menu entries are bến xe, so an omitted field falls back to 'station'.
+  kind: z.enum(['station', 'pickup']).default('station'),
 };
 
 export const operatorPickupAreaCreateSchema = z.object({

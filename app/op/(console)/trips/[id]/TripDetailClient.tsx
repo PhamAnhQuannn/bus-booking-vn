@@ -46,7 +46,14 @@ interface PickupMenuItem {
   name: string;
   addressLine: string | null;
   label: string;
+  kind: 'station' | 'pickup';
 }
+
+/** Issue 110: picker grouping — Bến xe (station) first, then Đón tận nơi (pickup). */
+const PICKUP_KIND_GROUPS: { kind: 'station' | 'pickup'; label: string }[] = [
+  { kind: 'station', label: 'Bến xe' },
+  { kind: 'pickup', label: 'Đón tận nơi' },
+];
 
 interface Props {
   trip: TripDto;
@@ -380,30 +387,43 @@ export default function TripDetailClient({
                 </p>
               ) : (
                 <div className="flex flex-col gap-3">
-                  <div className="flex flex-col gap-2 rounded-md border border-input p-3">
-                    {pickupMenu.map((a) => (
-                      <label key={a.id} className="flex items-start gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          className="mt-1"
-                          checked={pickupIds.includes(a.id)}
-                          onChange={(e) =>
-                            setPickupIds((prev) =>
-                              e.target.checked ? [...prev, a.id] : prev.filter((id) => id !== a.id)
-                            )
-                          }
-                          disabled={busy}
-                          data-testid={`trip-pickup-area-${a.id}`}
-                        />
-                        <span>
-                          <span className="font-medium">{a.name}</span>
-                          {a.addressLine && (
-                            <span className="text-muted-foreground"> — {a.addressLine}</span>
-                          )}
-                          <span className="block text-xs text-muted-foreground">{a.label}</span>
-                        </span>
-                      </label>
-                    ))}
+                  <div className="flex flex-col gap-4 rounded-md border border-input p-3">
+                    {PICKUP_KIND_GROUPS.map((group) => {
+                      const items = pickupMenu.filter((a) => a.kind === group.kind);
+                      if (items.length === 0) return null;
+                      return (
+                        <div key={group.kind} className="flex flex-col gap-2">
+                          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            {group.label}
+                          </div>
+                          {items.map((a) => (
+                            <label key={a.id} className="flex items-start gap-2 text-sm">
+                              <input
+                                type="checkbox"
+                                className="mt-1"
+                                checked={pickupIds.includes(a.id)}
+                                onChange={(e) =>
+                                  setPickupIds((prev) =>
+                                    e.target.checked
+                                      ? [...prev, a.id]
+                                      : prev.filter((id) => id !== a.id)
+                                  )
+                                }
+                                disabled={busy}
+                                data-testid={`trip-pickup-area-${a.id}`}
+                              />
+                              <span>
+                                <span className="font-medium">{a.name}</span>
+                                {a.addressLine && (
+                                  <span className="text-muted-foreground"> — {a.addressLine}</span>
+                                )}
+                                <span className="block text-xs text-muted-foreground">{a.label}</span>
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      );
+                    })}
                   </div>
                   <Button
                     type="button"

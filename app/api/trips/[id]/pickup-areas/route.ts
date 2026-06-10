@@ -1,9 +1,9 @@
 /**
  * GET /api/trips/[id]/pickup-areas — the trip's enabled pickup areas (Issue 107).
  *
- * PUBLIC (booking is pre-auth): returns only { areaId, label } for this trip's
- * TripPickupArea rows so the booking form can render the pickup radio. areaId is
- * the OperatorPickupArea id (matches Booking.pickupAreaId).
+ * PUBLIC (booking is pre-auth): returns { areaId, label, kind } for this trip's
+ * TripPickupArea rows so the booking form can render the pickup radio grouped by
+ * kind (Issue 110). areaId is the OperatorPickupArea id (matches Booking.pickupAreaId).
  */
 
 export const runtime = 'nodejs';
@@ -21,9 +21,9 @@ export async function GET(req: NextRequest, routeCtx: RouteContext): Promise<Res
     const rows = await prisma.tripPickupArea.findMany({
       where: { tripId: id },
       orderBy: { displayOrder: 'asc' },
-      select: { operatorPickupAreaId: true, label: true },
+      select: { operatorPickupAreaId: true, label: true, kind: true },
     });
-    const areas = rows.map((r) => ({ areaId: r.operatorPickupAreaId, label: r.label }));
+    const areas = rows.map((r) => ({ areaId: r.operatorPickupAreaId, label: r.label, kind: r.kind }));
     return NextResponse.json({ areas });
   })(req);
 }
