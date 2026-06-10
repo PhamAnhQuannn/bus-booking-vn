@@ -19,6 +19,8 @@ import {
   type PickupAreaItem,
 } from '@/lib/api';
 import { AdminUnitPicker, type AdminUnitValue } from '@/components/geo/AdminUnitPicker';
+// lib/geo is pure + client-safe (static JSON; no server-only/pg) — see lib/geo/index.ts.
+import { getProvince } from '@/lib/geo';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -59,6 +61,19 @@ function errorText(e: unknown): string {
   return (code && ERROR_MESSAGES[code]) || 'Có lỗi xảy ra. Vui lòng thử lại.';
 }
 
+const PROVINCE_ALL = '__all__';
+
+/** Issue 112: distinct provinces across the menu, resolved to names for the filter dropdown. */
+function distinctProvinces(areas: PickupAreaItem[]): { code: string; name: string }[] {
+  const seen = new Map<string, string>();
+  for (const a of areas) {
+    if (!seen.has(a.provinceCode)) {
+      seen.set(a.provinceCode, getProvince(a.provinceCode)?.name ?? a.provinceCode);
+    }
+  }
+  return [...seen].map(([code, name]) => ({ code, name }));
+}
+
 export default function PickupAreasClient({ initialAreas }: { initialAreas: PickupAreaItem[] }) {
   const router = useRouter();
   const [areas, setAreas] = useState<PickupAreaItem[]>(initialAreas);
@@ -69,6 +84,9 @@ export default function PickupAreasClient({ initialAreas }: { initialAreas: Pick
   const [kind, setKind] = useState<PickupKindValue>('station');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Issue 112: province filter for the list (display-only).
+  const [provinceFilter, setProvinceFilter] = useState<string>(PROVINCE_ALL);
 
   // Inline edit state.
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -155,6 +173,14 @@ export default function PickupAreasClient({ initialAreas }: { initialAreas: Pick
     }
   }
 
+  // Issue 112: count-gate the province filter — only useful when the menu spans >1 province.
+  const provinces = distinctProvinces(areas);
+  const showProvinceFilter = provinces.length > 1;
+  const visibleAreas =
+    showProvinceFilter && provinceFilter !== PROVINCE_ALL
+      ? areas.filter((a) => a.provinceCode === provinceFilter)
+      : areas;
+
   return (
     <div className="flex flex-col gap-6">
       {error && (
@@ -233,6 +259,31 @@ export default function PickupAreasClient({ initialAreas }: { initialAreas: Pick
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {showProvinceFilter && (
+            <div className="mb-4 grid gap-1.5">
+              <Label htmlFor="pickup-province-filter">Lọc theo tỉnh/thành</Label>
+              <Select
+                value={provinceFilter}
+                onValueChange={(v: string | null) => setProvinceFilter(v ?? PROVINCE_ALL)}
+              >
+                <SelectTrigger
+                  id="pickup-province-filter"
+                  data-testid="pickup-area-province-filter"
+                  className="max-w-xs"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={PROVINCE_ALL}>Tất cả tỉnh/thành</SelectItem>
+                  {provinces.map((p) => (
+                    <SelectItem key={p.code} value={p.code}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           {areas.length === 0 ? (
             <p className="text-sm text-muted-foreground">Chưa có điểm đón nào.</p>
           ) : (
@@ -246,7 +297,7 @@ export default function PickupAreasClient({ initialAreas }: { initialAreas: Pick
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {areas.map((a) => (
+                {visibleAreas.map((a) => (
                   <TableRow key={a.id} data-testid={`pickup-area-row-${a.id}`}>
                     <TableCell>
                       {editingId === a.id ? (
