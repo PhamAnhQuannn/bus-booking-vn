@@ -138,6 +138,9 @@ async function main() {
       const label =
         resolveLabel({ provinceCode: province.code, districtCode: district.code, wardCode: w.code }) ??
         `${w.name}, ${district.name}, ${province.name}`;
+      // Named point: a concrete stop inside the ward + an address line.
+      const name = `Văn phòng ${w.name}`;
+      const addressLine = `Số ${order} đường ${district.name}`;
       const row = await prisma.operatorPickupArea.create({
         data: {
           operatorId,
@@ -146,12 +149,15 @@ async function main() {
           districtName: district.name,
           wardCode: w.code,
           wardName: w.name,
+          name,
+          addressLine,
           label,
           displayOrder: order++,
         },
-        select: { id: true, label: true },
+        select: { id: true },
       });
-      created.push(row);
+      // The customer-facing snapshot is the point identity (name — address), not the ward label.
+      created.push({ id: row.id, label: `${name} — ${addressLine}` });
     }
     return created;
   }
@@ -493,7 +499,8 @@ async function main() {
       contactPhone: '+8490xxxxxx2',
       notificationPhone: '+8490xxxxxx3',
       passwordHash: seedOpHash,
-      requiresPasswordChange: true,
+      // Dev seed: ready-to-test account (no forced first-login password change).
+      requiresPasswordChange: false,
       displayName: 'Seed Operator Admin',
       role: 'admin',
     },

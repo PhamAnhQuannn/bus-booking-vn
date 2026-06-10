@@ -22,6 +22,7 @@ import {
   salesToggleApi,
   departTripApi,
   completeTripApi,
+  setTripPickupAreasApi,
 } from '@/lib/api';
 import { assignServiceApi } from '@/lib/api';
 import { tripStatusDisplay } from '@/lib/op/statusLabels';
@@ -40,10 +41,19 @@ import {
 } from '@/components/ui/select';
 import CancelTripDialog from '../CancelTripDialog';
 
+interface PickupMenuItem {
+  id: string;
+  name: string;
+  addressLine: string | null;
+  label: string;
+}
+
 interface Props {
   trip: TripDto;
   staff: StaffDto[];
   isAdmin: boolean;
+  pickupMenu: PickupMenuItem[];
+  tripPickupAreaIds: string[];
 }
 
 function translateError(code: string): string {
@@ -68,13 +78,22 @@ function translateError(code: string): string {
   }
 }
 
-export default function TripDetailClient({ trip: initialTrip, staff: initialStaff, isAdmin }: Props) {
+export default function TripDetailClient({
+  trip: initialTrip,
+  staff: initialStaff,
+  isAdmin,
+  pickupMenu,
+  tripPickupAreaIds,
+}: Props) {
   const [trip, setTrip] = useState<TripDto>(initialTrip);
   const [staff, setStaff] = useState<StaffDto[]>(initialStaff);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string>('');
   const [isError, setIsError] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
+
+  // Pickup-point subset for this trip.
+  const [pickupIds, setPickupIds] = useState<string[]>(tripPickupAreaIds);
 
   // Assign staff to this trip
   const [assignStaffId, setAssignStaffId] = useState('');
@@ -125,6 +144,20 @@ export default function TripDetailClient({ trip: initialTrip, staff: initialStaf
       const res = await salesToggleApi(trip.id, !trip.salesClosed);
       setTrip(res.trip);
       ok(res.trip.salesClosed ? 'Đã đóng bán vé.' : 'Đã mở bán vé.');
+    } catch (err) {
+      fail(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSavePickup() {
+    setBusy(true);
+    setMessage('');
+    try {
+      const { areas } = await setTripPickupAreasApi(trip.id, pickupIds);
+      setPickupIds(areas.map((a) => a.areaId));
+      ok(`Đã lưu điểm đón (${areas.length}).`);
     } catch (err) {
       fail(err);
     } finally {
@@ -332,6 +365,57 @@ export default function TripDetailClient({ trip: initialTrip, staff: initialStaf
               >
                 {trip.salesClosed ? 'Mở bán vé' : 'Đóng bán vé'}
               </Button>
+            </CardContent>
+          </Card>
+
+          {/* Pickup points enabled for this trip */}
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2">Điểm đón</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {pickupMenu.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Chưa có điểm đón nào trong danh sách. Thêm tại trang “Điểm đón”.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-2 rounded-md border border-input p-3">
+                    {pickupMenu.map((a) => (
+                      <label key={a.id} className="flex items-start gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          className="mt-1"
+                          checked={pickupIds.includes(a.id)}
+                          onChange={(e) =>
+                            setPickupIds((prev) =>
+                              e.target.checked ? [...prev, a.id] : prev.filter((id) => id !== a.id)
+                            )
+                          }
+                          disabled={busy}
+                          data-testid={`trip-pickup-area-${a.id}`}
+                        />
+                        <span>
+                          <span className="font-medium">{a.name}</span>
+                          {a.addressLine && (
+                            <span className="text-muted-foreground"> — {a.addressLine}</span>
+                          )}
+                          <span className="block text-xs text-muted-foreground">{a.label}</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={handleSavePickup}
+                    disabled={busy}
+                    className="self-start"
+                    data-testid="trip-pickup-save"
+                  >
+                    Lưu điểm đón
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 

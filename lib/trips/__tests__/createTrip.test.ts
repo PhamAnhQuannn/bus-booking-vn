@@ -57,7 +57,7 @@ function wireTx(opts: {
   busLockRows: unknown[];
   overlapRows?: unknown[];
   createRow?: unknown;
-  ownedAreas?: { id: string; label: string }[];
+  ownedAreas?: { id: string; name: string; addressLine: string | null }[];
 }) {
   const tripCreate = vi.fn().mockResolvedValue(opts.createRow ?? BASE_TRIP_ROW);
   const queryRaw = vi
@@ -210,13 +210,13 @@ describe('createTrip', () => {
   });
 
   // Issue 106: per-trip pickup-area subset
-  it('writes TripPickupArea rows (snapshotting label) for owned active areas', async () => {
+  it('writes TripPickupArea rows (snapshotting the named-point label) for owned active areas', async () => {
     mockRouteFindFirst.mockResolvedValue({ durationMinutes: 240 });
     const { areaCreateMany } = wireTx({
       busLockRows: [BASE_BUS_LOCK],
       ownedAreas: [
-        { id: 'a1', label: 'Phường A' },
-        { id: 'a2', label: 'Phường B' },
+        { id: 'a1', name: 'Bến A', addressLine: '12 Lê Lợi' },
+        { id: 'a2', name: 'Bến B', addressLine: null },
       ],
     });
 
@@ -232,14 +232,15 @@ describe('createTrip', () => {
     expect(areaCreateMany).toHaveBeenCalledTimes(1);
     const data = areaCreateMany.mock.calls[0][0].data;
     expect(data).toHaveLength(2);
-    expect(data[0]).toMatchObject({ tripId: 'trip-1', operatorPickupAreaId: 'a1', label: 'Phường A' });
+    expect(data[0]).toMatchObject({ tripId: 'trip-1', operatorPickupAreaId: 'a1', label: 'Bến A — 12 Lê Lợi' });
+    expect(data[1]).toMatchObject({ operatorPickupAreaId: 'a2', label: 'Bến B' });
   });
 
   it('throws invalid_pickup_area when an id is not one of the operator\'s active areas', async () => {
     mockRouteFindFirst.mockResolvedValue({ durationMinutes: 240 });
     const { areaCreateMany } = wireTx({
       busLockRows: [BASE_BUS_LOCK],
-      ownedAreas: [{ id: 'a1', label: 'Phường A' }], // only 1 of the 2 requested is owned
+      ownedAreas: [{ id: 'a1', name: 'Bến A', addressLine: null }], // only 1 of the 2 requested is owned
     });
 
     await expect(

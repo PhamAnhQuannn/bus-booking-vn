@@ -185,7 +185,11 @@ model OperatorPickupArea {
   districtName  String
   wardCode      String
   wardName      String
-  /// Denormalized "Phường X, Quận Y, Tỉnh Z" snapshot for display.
+  /// Named point: the stop name (e.g. "Bến xe Mỹ Đình", "Văn phòng Phúc Xá").
+  name          String
+  /// Optional street / landmark line for the point.
+  addressLine   String?
+  /// Denormalized ward address "Phường X, Quận Y, Tỉnh Z" — region context for the operator menu.
   label         String
   isActive      Boolean              @default(true)
   displayOrder  Int

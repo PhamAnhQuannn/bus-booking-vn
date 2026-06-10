@@ -11,7 +11,7 @@
 import { redirect } from 'next/navigation';
 import { getOperatorSession } from '@/lib/op';
 import { listTemplates } from '@/lib/trips';
-import { listOperatorPickupAreas } from '@/lib/catalog';
+import { listOperatorPickupAreas, composePickupLabel } from '@/lib/catalog';
 import { PageHeader } from '@/components/op/PageHeader';
 import TemplatesClient from './TemplatesClient';
 
@@ -30,7 +30,9 @@ export default async function OpTripTemplatesPage() {
     listTemplates(session.operatorId),
     listOperatorPickupAreas({ operatorId: session.operatorId }),
   ]);
-  const activeAreas = areas.filter((a) => a.isActive).map((a) => ({ id: a.id, label: a.label }));
+  const activeAreas = areas
+    .filter((a) => a.isActive)
+    .map((a) => ({ id: a.id, label: composePickupLabel(a) }));
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 md:px-6">

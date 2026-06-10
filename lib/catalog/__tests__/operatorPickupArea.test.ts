@@ -41,13 +41,15 @@ describe('createOperatorPickupArea', () => {
   it('resolves names + label from codes and creates with next displayOrder', async () => {
     await createOperatorPickupArea({
       operatorId: 'op1',
-      data: { provinceCode: '1', districtCode: '1', wardCode: '1' },
+      data: { provinceCode: '1', districtCode: '1', wardCode: '1', name: 'Bến xe Phúc Xá', addressLine: '12 Lê Lợi' },
     });
     expect(mockCreate).toHaveBeenCalledTimes(1);
     const arg = mockCreate.mock.calls[0][0].data;
     expect(arg.operatorId).toBe('op1');
     expect(arg.wardName).toBe('Phường Phúc Xá');
     expect(arg.districtName).toBe('Quận Ba Đình');
+    expect(arg.name).toBe('Bến xe Phúc Xá');
+    expect(arg.addressLine).toBe('12 Lê Lợi');
     expect(arg.label).toBe('Phường Phúc Xá, Quận Ba Đình, Thành phố Hà Nội');
     expect(arg.displayOrder).toBe(3); // max 2 + 1
   });
@@ -56,18 +58,18 @@ describe('createOperatorPickupArea', () => {
     await expect(
       createOperatorPickupArea({
         operatorId: 'op1',
-        data: { provinceCode: '1', districtCode: '1', wardCode: '999999' },
+        data: { provinceCode: '1', districtCode: '1', wardCode: '999999', name: 'X' },
       })
     ).rejects.toMatchObject({ code: 'invalid_area' });
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
-  it('rejects a duplicate active ward with duplicate_area', async () => {
+  it('rejects a duplicate active (ward, name) with duplicate_area', async () => {
     mockFindFirst.mockResolvedValueOnce({ id: 'existing' });
     await expect(
       createOperatorPickupArea({
         operatorId: 'op1',
-        data: { provinceCode: '1', districtCode: '1', wardCode: '1' },
+        data: { provinceCode: '1', districtCode: '1', wardCode: '1', name: 'Bến xe Phúc Xá' },
       })
     ).rejects.toMatchObject({ code: 'duplicate_area' });
     expect(mockCreate).not.toHaveBeenCalled();

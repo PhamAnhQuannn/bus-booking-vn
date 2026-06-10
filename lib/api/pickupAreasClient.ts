@@ -14,6 +14,8 @@ export interface PickupAreaItem {
   districtName: string;
   wardCode: string;
   wardName: string;
+  name: string;
+  addressLine: string | null;
   label: string;
   isActive: boolean;
   displayOrder: number;
@@ -40,6 +42,8 @@ export async function createPickupAreaApi(body: {
   provinceCode: string;
   districtCode: string;
   wardCode: string;
+  name: string;
+  addressLine?: string;
 }): Promise<{ area: PickupAreaItem }> {
   const res = await fetch('/api/op/pickup-areas', {
     method: 'POST',
@@ -48,6 +52,19 @@ export async function createPickupAreaApi(body: {
     body: JSON.stringify(body),
   });
   return unwrap(res, 'createPickupArea');
+}
+
+export async function updatePickupAreaApi(
+  id: string,
+  body: { name: string; addressLine?: string }
+): Promise<{ area: PickupAreaItem }> {
+  const res = await fetch(`/api/op/pickup-areas/${id}`, {
+    method: 'PATCH',
+    headers: jsonHeaders(),
+    credentials: 'same-origin',
+    body: JSON.stringify(body),
+  });
+  return unwrap(res, 'updatePickupArea');
 }
 
 export async function deactivatePickupAreaApi(id: string): Promise<{ area: PickupAreaItem }> {

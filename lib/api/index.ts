@@ -23,6 +23,7 @@ export {
 export {
   listPickupAreasApi,
   createPickupAreaApi,
+  updatePickupAreaApi,
   deactivatePickupAreaApi,
   type PickupAreaItem,
 } from './pickupAreasClient';
@@ -41,6 +42,7 @@ export {
   departTripApi,
   completeTripApi,
   reassignBusApi,
+  setTripPickupAreasApi,
   createTemplateApi,
   patchTemplateApi,
 } from './tripsClient';

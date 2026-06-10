@@ -12,6 +12,8 @@
 import { redirect, notFound } from 'next/navigation';
 import { getOperatorStaff } from '@/lib/op';
 import { getTrip } from '@/lib/trips';
+import { listOperatorPickupAreas } from '@/lib/catalog';
+import { prisma } from '@/lib/core/db/client';
 import { PageHeader } from '@/components/op/PageHeader';
 import TripDetailClient from './TripDetailClient';
 
@@ -34,6 +36,20 @@ export default async function OpTripDetailPage({ params }: PageProps) {
     notFound();
   }
 
+  // Pickup points: the operator's active menu + this trip's currently-enabled subset.
+  const [menu, enabledRows] = await Promise.all([
+    listOperatorPickupAreas({ operatorId: view.operatorId }),
+    prisma.tripPickupArea.findMany({
+      where: { tripId: id },
+      orderBy: { displayOrder: 'asc' },
+      select: { operatorPickupAreaId: true },
+    }),
+  ]);
+  const pickupMenu = menu
+    .filter((a) => a.isActive)
+    .map((a) => ({ id: a.id, name: a.name, addressLine: a.addressLine, label: a.label }));
+  const tripPickupAreaIds = enabledRows.map((r) => r.operatorPickupAreaId);
+
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 md:px-6">
       <PageHeader
@@ -44,7 +60,13 @@ export default async function OpTripDetailPage({ params }: PageProps) {
         title="Chi tiết chuyến xe"
         backHref="/op/trips"
       />
-      <TripDetailClient trip={trip} staff={view.staff} isAdmin={view.isAdmin} />
+      <TripDetailClient
+        trip={trip}
+        staff={view.staff}
+        isAdmin={view.isAdmin}
+        pickupMenu={pickupMenu}
+        tripPickupAreaIds={tripPickupAreaIds}
+      />
     </div>
   );
 }
