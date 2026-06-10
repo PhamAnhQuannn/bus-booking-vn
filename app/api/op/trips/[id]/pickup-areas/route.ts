@@ -1,8 +1,8 @@
 /**
- * /api/op/trips/[id]/pickup-areas — edit a trip's enabled pickup-point subset (operator).
+ * /api/op/trips/[id]/pickup-areas — edit a trip's enabled pickup-area subset (operator).
  *
  * PATCH { pickupAreaIds: string[] } → replaces the set. Cross-op / missing → 404;
- * an id that isn't one of the operator's active points → 422 invalid_pickup_area.
+ * an id that isn't one of the operator's active areas → 422 invalid_pickup_area.
  */
 
 export const runtime = 'nodejs';

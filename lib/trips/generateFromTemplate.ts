@@ -13,11 +13,10 @@
 
 import { prisma } from '@/lib/core/db/client';
 import { withOperatorScope } from '@/lib/core/db';
-import { composePickupLabel } from '@/lib/catalog';
 import { fromZonedTime } from 'date-fns-tz';
 import { addDays, parseISO, format } from 'date-fns';
 import { randomUUID } from 'crypto';
-import { TripServiceError } from './errors';
+import { resolveOwnedAreas, toPickupAreaRows } from './snapshotPickupAreas';
 
 const TZ = 'Asia/Ho_Chi_Minh';
 const HORIZON_DAYS = 14;
@@ -63,8 +62,9 @@ export async function generateTripsFromTemplates(
         },
       },
       // Issue 106: pickup-area subset copied into each generated trip.
+      // Issue 110: carry `kind` from the template snapshot (NOT a fresh place select).
       pickupAreas: {
-        select: { operatorPickupAreaId: true, label: true, displayOrder: true },
+        select: { operatorPickupAreaId: true, label: true, kind: true, displayOrder: true },
       },
     },
   });
@@ -177,6 +177,7 @@ export async function generateTripsFromTemplates(
                 tripId: trip.id,
                 operatorPickupAreaId: a.operatorPickupAreaId,
                 label: a.label,
+                kind: a.kind, // Issue 110: propagate kind from the template snapshot.
                 displayOrder: a.displayOrder,
               })),
             });
@@ -278,20 +279,9 @@ export async function createTemplate(
     // Issue 106: snapshot the operator's chosen areas onto the template. Validate
     // ownership + active (cross-op / inactive / unknown → reject).
     if (input.pickupAreaIds && input.pickupAreaIds.length > 0) {
-      const owned = await tx.operatorPickupArea.findMany({
-        where: { id: { in: input.pickupAreaIds }, operatorId, isActive: true },
-        select: { id: true, name: true, addressLine: true },
-      });
-      if (owned.length !== new Set(input.pickupAreaIds).size) {
-        throw new TripServiceError('invalid_pickup_area');
-      }
+      const owned = await resolveOwnedAreas(tx, operatorId, input.pickupAreaIds);
       await tx.templatePickupArea.createMany({
-        data: owned.map((a, i) => ({
-          recurringTemplateId: created.id,
-          operatorPickupAreaId: a.id,
-          label: composePickupLabel(a),
-          displayOrder: i,
-        })),
+        data: toPickupAreaRows(owned).map((r) => ({ recurringTemplateId: created.id, ...r })),
       });
     }
 

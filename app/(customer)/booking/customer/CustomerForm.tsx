@@ -27,6 +27,8 @@ import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
+  SelectGroup,
+  SelectGroupLabel,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -76,25 +78,53 @@ export function CustomerForm() {
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const buyerNameRef = useRef<HTMLInputElement>(null);
 
-  // Issue 107: pickup selection. Areas fetched for this trip; default = station.
-  const [areas, setAreas] = useState<{ areaId: string; label: string }[]>([]);
-  const [pickupKind, setPickupKind] = useState<'station' | 'area'>('station');
+  // Issue 107/111: pickup selection. Areas fetched for this trip; default = station.
+  const [areas, setAreas] = useState<{ areaId: string; label: string; kind: 'station' | 'pickup' }[]>(
+    []
+  );
+  // Issue 112: distinguish loading / loaded(-empty) / error so we never silently
+  // collapse "operator enabled zero areas" and "fetch failed" into a station-only picker.
+  const [areasState, setAreasState] = useState<'loading' | 'loaded' | 'error'>('loading');
+  // Issue 112: re-fetch trigger for the retry affordance.
+  const [reloadKey, setReloadKey] = useState(0);
+  const [pickupKind, setPickupKind] = useState<'station' | 'point' | 'custom'>('station');
   const [pickupAreaId, setPickupAreaId] = useState('');
   const [pickupDetail, setPickupDetail] = useState('');
+  // Issue 112: client-side typeahead filter (only shown when >6 areas).
+  const [areaQuery, setAreaQuery] = useState('');
+  const customDetailRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!tripId) return;
     let active = true;
+    // Note: 'loading' is the initial state and is re-asserted on retry via the catch/then below
+    // rather than synchronously here (react-hooks/set-state-in-effect forbids a sync setState in the
+    // effect body). A brief stale-state window on tripId change self-corrects when the fetch resolves.
     fetch(`/api/trips/${tripId}/pickup-areas`)
-      .then((r) => (r.ok ? r.json() : { areas: [] }))
-      .then((d) => {
-        if (active) setAreas(d.areas ?? []);
+      .then((r) => {
+        if (!r.ok) throw new Error(`pickup-areas ${r.status}`);
+        return r.json();
       })
-      .catch(() => {});
+      .then((d) => {
+        if (!active) return;
+        setAreas(d.areas ?? []);
+        setAreasState('loaded');
+      })
+      .catch(() => {
+        if (active) setAreasState('error');
+      });
     return () => {
       active = false;
     };
-  }, [tripId]);
+  }, [tripId, reloadKey]);
+
+  // Issue 112: typeahead filter over the grouped option labels (case-insensitive substring).
+  const normalizedQuery = areaQuery.trim().toLowerCase();
+  const showAreaFilter = areas.length > 6;
+  const visibleAreas =
+    showAreaFilter && normalizedQuery
+      ? areas.filter((a) => a.label.toLowerCase().includes(normalizedQuery))
+      : areas;
 
   // Pre-fill phone: a signed-in customer's registered account phone wins
   // (Issue 030); otherwise fall back to the last-typed phone from localStorage
@@ -134,14 +164,18 @@ export function CustomerForm() {
         return { status: 'error', message: 'Thông tin chuyến xe bị thiếu. Vui lòng chọn lại.' };
       }
 
-      // Issue 107: validate the pickup selection before holding. The named point is the
-      // location; the detail note is optional.
+      // Issue 107/111: validate the pickup selection before holding. point = named stop with an
+      // optional note; custom = off-list request with a REQUIRED ≥5-char location.
       const pickupCheck = validatePickupSelection(
         areas.map((a) => a.areaId),
         { kind: pickupKind, areaId: pickupAreaId, detail: pickupDetail }
       );
       if (!pickupCheck.ok) {
-        return { status: 'field_errors', errors: { pickup: 'Vui lòng chọn điểm đón hợp lệ.' } };
+        const msg =
+          pickupCheck.code === 'pickup_custom_detail_required'
+            ? 'Vui lòng ghi rõ địa chỉ đón (ít nhất 5 ký tự).'
+            : 'Vui lòng chọn điểm đón hợp lệ.';
+        return { status: 'field_errors', errors: { pickup: msg } };
       }
 
       const result = await createHoldRequest({
@@ -151,9 +185,13 @@ export function CustomerForm() {
         buyerPhone: parsed.data.buyerPhone,
         buyerEmail: parsed.data.buyerEmail,
         pickupKind: pickupCheck.pickupKind,
-        pickupAreaId: pickupCheck.pickupKind === 'area' ? pickupCheck.pickupAreaId : undefined,
+        pickupAreaId: pickupCheck.pickupKind === 'point' ? pickupCheck.pickupAreaId : undefined,
         pickupDetail:
-          pickupCheck.pickupKind === 'area' ? (pickupCheck.pickupDetail ?? undefined) : undefined,
+          pickupCheck.pickupKind === 'point'
+            ? (pickupCheck.pickupDetail ?? undefined)
+            : pickupCheck.pickupKind === 'custom'
+              ? pickupCheck.pickupDetail
+              : undefined,
       });
 
       if (!result.ok) {
@@ -266,18 +304,66 @@ export function CustomerForm() {
         )}
       </div>
 
-      {/* Issue 107: pickup selection (required) */}
+      {/* Issue 107/111: pickup selection (required) — station / grouped points / custom request */}
       <fieldset className="space-y-2" disabled={isPending}>
         <legend className="mb-1 text-sm font-medium">Điểm đón</legend>
+
+        {/* Issue 112: surface fetch failure with a retry instead of silently showing station-only. */}
+        {areasState === 'error' && (
+          <div
+            role="alert"
+            data-testid="pickup-fetch-error"
+            className="flex flex-wrap items-center justify-between gap-2 rounded border border-warning-border bg-warning p-2 text-sm text-warning-foreground"
+          >
+            <span>Không tải được danh sách điểm đón. Bạn vẫn có thể đón tại bến hoặc ghi rõ điểm đón khác.</span>
+            <button
+              type="button"
+              onClick={() => setReloadKey((k) => k + 1)}
+              className="font-medium underline underline-offset-2"
+              data-testid="pickup-fetch-retry"
+            >
+              Thử lại
+            </button>
+          </div>
+        )}
+
+        {/* Issue 112: genuine empty (operator enabled zero areas) — not the same as a fetch error. */}
+        {areasState === 'loaded' && areas.length === 0 && (
+          <p className="text-muted-foreground text-sm" data-testid="pickup-empty">
+            Chuyến này chỉ đón tại bến xe.
+          </p>
+        )}
+
+        {/* Issue 112: typeahead for long lists (>6 areas); usable at 360px (full-width input). */}
+        {showAreaFilter && (
+          <Input
+            type="text"
+            value={areaQuery}
+            onChange={(e) => setAreaQuery(e.target.value)}
+            placeholder="Tìm điểm đón..."
+            aria-label="Tìm điểm đón"
+            data-testid="pickup-filter"
+            className="w-full"
+          />
+        )}
+
         <Select
-          value={pickupKind === 'station' ? 'station' : pickupAreaId}
+          value={pickupKind === 'station' ? 'station' : pickupKind === 'custom' ? '__custom__' : pickupAreaId}
           onValueChange={(v: string | null) => {
             if (!v || v === 'station') {
               setPickupKind('station');
               setPickupAreaId('');
+              setPickupDetail('');
+            } else if (v === '__custom__') {
+              setPickupKind('custom');
+              setPickupAreaId('');
+              setPickupDetail('');
+              // a11y: move focus to the revealed required input.
+              requestAnimationFrame(() => customDetailRef.current?.focus());
             } else {
-              setPickupKind('area');
+              setPickupKind('point');
               setPickupAreaId(v);
+              setPickupDetail('');
             }
           }}
           disabled={isPending}
@@ -287,18 +373,38 @@ export function CustomerForm() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="station">Tại bến xe</SelectItem>
-            {areas.map((a) => (
-              <SelectItem key={a.areaId} value={a.areaId}>
-                {a.label}
-              </SelectItem>
-            ))}
+            {visibleAreas.some((a) => a.kind === 'station') && (
+              <SelectGroup>
+                <SelectGroupLabel>Bến xe</SelectGroupLabel>
+                {visibleAreas
+                  .filter((a) => a.kind === 'station')
+                  .map((a) => (
+                    <SelectItem key={a.areaId} value={a.areaId}>
+                      {a.label}
+                    </SelectItem>
+                  ))}
+              </SelectGroup>
+            )}
+            {visibleAreas.some((a) => a.kind === 'pickup') && (
+              <SelectGroup>
+                <SelectGroupLabel>Đón tận nơi</SelectGroupLabel>
+                {visibleAreas
+                  .filter((a) => a.kind === 'pickup')
+                  .map((a) => (
+                    <SelectItem key={a.areaId} value={a.areaId}>
+                      {a.label}
+                    </SelectItem>
+                  ))}
+              </SelectGroup>
+            )}
+            <SelectItem value="__custom__">Điểm đón khác (ghi rõ)</SelectItem>
           </SelectContent>
         </Select>
 
-        {pickupKind === 'area' && (
+        {pickupKind === 'point' && (
           <div className="pt-1">
             <Label htmlFor="pickupDetail" className="mb-1">
-              Ghi chú điểm đón (tuỳ chọn)
+              Ghi chú cho tài xế (số nhà, gọi trước...)
             </Label>
             <Input
               id="pickupDetail"
@@ -311,6 +417,31 @@ export function CustomerForm() {
             />
           </div>
         )}
+
+        {pickupKind === 'custom' && (
+          <div className="pt-1">
+            <Label htmlFor="pickupDetail" className="mb-1">
+              Địa chỉ đón mong muốn
+            </Label>
+            <Input
+              ref={customDetailRef}
+              id="pickupDetail"
+              type="text"
+              value={pickupDetail}
+              onChange={(e) => setPickupDetail(e.target.value)}
+              placeholder="VD: số 12 Lê Lợi, phường X (ít nhất 5 ký tự)"
+              data-testid="pickup-custom-detail"
+              required
+              aria-required="true"
+              aria-invalid={fieldErrors.pickup ? true : undefined}
+              aria-describedby={`pickup-custom-help${fieldErrors.pickup ? ' pickup-error' : ''}`}
+            />
+            <p id="pickup-custom-help" className="text-muted-foreground text-xs mt-1">
+              Điểm đón này chưa được nhà xe xác nhận. Nhà xe sẽ gọi xác nhận với bạn.
+            </p>
+          </div>
+        )}
+
         {fieldErrors.pickup && (
           <p id="pickup-error" className="text-destructive text-sm mt-1">
             {fieldErrors.pickup}

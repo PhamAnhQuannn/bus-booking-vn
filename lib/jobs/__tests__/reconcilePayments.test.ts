@@ -72,6 +72,8 @@ function baseBooking(overrides: Record<string, unknown> = {}) {
     departureAt: new Date(NOW.getTime() + 86_400_000),
     holdExpiresAt: null as Date | null,
     holdCreatedAt: CREATED_AT as Date | null,
+    customPickupRequested: false,
+    pickupDetail: null as string | null,
     ...overrides,
   };
 }
@@ -269,6 +271,29 @@ describe('reconcilePayments (e) degraded match', () => {
     ).toBeNull();
     // not a success
     expect(matchDegraded(booking as never, [{ ...ok, success: false }], used)).toBeNull();
+  });
+});
+
+describe('reconcilePayments (g) custom pickup folded into the operator SMS', () => {
+  it('includes customPickup in the operatorNewBooking payload on the paid recovery path', async () => {
+    const tx = makeTx(
+      [baseBooking({ customPickupRequested: true, pickupDetail: '12 Đường Láng, Đống Đa' })],
+      [[eventRow()]]
+    );
+    await reconcilePayments(tx as never, { now: NOW });
+
+    expect(mockRenderTemplate).toHaveBeenCalledWith(
+      'operatorNewBooking',
+      expect.objectContaining({ customPickup: '12 Đường Láng, Đống Đa' })
+    );
+  });
+
+  it('omits customPickup when none was requested', async () => {
+    const tx = makeTx([baseBooking()], [[eventRow()]]);
+    await reconcilePayments(tx as never, { now: NOW });
+
+    const opCall = mockRenderTemplate.mock.calls.find((c) => c[0] === 'operatorNewBooking');
+    expect(opCall?.[1]).not.toHaveProperty('customPickup');
   });
 });
 

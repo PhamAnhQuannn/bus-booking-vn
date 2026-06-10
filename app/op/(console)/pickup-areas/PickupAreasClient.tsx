@@ -19,6 +19,8 @@ import {
   type PickupAreaItem,
 } from '@/lib/api';
 import { AdminUnitPicker, type AdminUnitValue } from '@/components/geo/AdminUnitPicker';
+// lib/geo is pure + client-safe (static JSON; no server-only/pg) — see lib/geo/index.ts.
+import { getProvince } from '@/lib/geo';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -26,6 +28,25 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
+
+type PickupKindValue = 'station' | 'pickup';
+
+const KIND_LABELS: Record<PickupKindValue, string> = {
+  station: 'Bến xe',
+  pickup: 'Đón tận nơi',
+};
+
+const KIND_BADGE_VARIANT: Record<PickupKindValue, 'success' | 'pending'> = {
+  station: 'success',
+  pickup: 'pending',
+};
 
 const ERROR_MESSAGES: Record<string, string> = {
   invalid_area: 'Khu vực không hợp lệ. Vui lòng chọn lại.',
@@ -40,19 +61,38 @@ function errorText(e: unknown): string {
   return (code && ERROR_MESSAGES[code]) || 'Có lỗi xảy ra. Vui lòng thử lại.';
 }
 
+const PROVINCE_ALL = '__all__';
+
+/** Issue 112: distinct provinces across the menu, resolved to names for the filter dropdown. */
+function distinctProvinces(areas: PickupAreaItem[]): { code: string; name: string }[] {
+  const seen = new Map<string, string>();
+  for (const a of areas) {
+    if (!seen.has(a.provinceCode)) {
+      seen.set(a.provinceCode, getProvince(a.provinceCode)?.name ?? a.provinceCode);
+    }
+  }
+  return [...seen].map(([code, name]) => ({ code, name }));
+}
+
 export default function PickupAreasClient({ initialAreas }: { initialAreas: PickupAreaItem[] }) {
   const router = useRouter();
   const [areas, setAreas] = useState<PickupAreaItem[]>(initialAreas);
   const [sel, setSel] = useState<AdminUnitValue>({});
   const [name, setName] = useState('');
   const [addressLine, setAddressLine] = useState('');
+  // Issue 110: default to station — most VN menu entries are bến xe (QA P3.1).
+  const [kind, setKind] = useState<PickupKindValue>('station');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Issue 112: province filter for the list (display-only).
+  const [provinceFilter, setProvinceFilter] = useState<string>(PROVINCE_ALL);
 
   // Inline edit state.
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editAddress, setEditAddress] = useState('');
+  const [editKind, setEditKind] = useState<PickupKindValue>('station');
 
   async function refresh() {
     const { areas: fresh } = await listPickupAreasApi();
@@ -73,10 +113,12 @@ export default function PickupAreasClient({ initialAreas }: { initialAreas: Pick
         wardCode: sel.wardCode,
         name: name.trim(),
         addressLine: addressLine.trim() || undefined,
+        kind,
       });
       setSel({});
       setName('');
       setAddressLine('');
+      setKind('station');
       await refresh();
       router.refresh();
     } catch (e) {
@@ -90,6 +132,7 @@ export default function PickupAreasClient({ initialAreas }: { initialAreas: Pick
     setEditingId(a.id);
     setEditName(a.name);
     setEditAddress(a.addressLine ?? '');
+    setEditKind(a.kind);
     setError(null);
   }
 
@@ -104,6 +147,7 @@ export default function PickupAreasClient({ initialAreas }: { initialAreas: Pick
       const { area } = await updatePickupAreaApi(editingId, {
         name: editName.trim(),
         addressLine: editAddress.trim() || undefined,
+        kind: editKind,
       });
       setAreas((prev) => prev.map((a) => (a.id === area.id ? area : a)));
       setEditingId(null);
@@ -128,6 +172,14 @@ export default function PickupAreasClient({ initialAreas }: { initialAreas: Pick
       setBusy(false);
     }
   }
+
+  // Issue 112: count-gate the province filter — only useful when the menu spans >1 province.
+  const provinces = distinctProvinces(areas);
+  const showProvinceFilter = provinces.length > 1;
+  const visibleAreas =
+    showProvinceFilter && provinceFilter !== PROVINCE_ALL
+      ? areas.filter((a) => a.provinceCode === provinceFilter)
+      : areas;
 
   return (
     <div className="flex flex-col gap-6">
@@ -167,6 +219,24 @@ export default function PickupAreasClient({ initialAreas }: { initialAreas: Pick
             />
           </div>
           <div className="grid gap-1.5">
+            <Label htmlFor="pickup-kind">Loại điểm đón</Label>
+            <Select
+              value={kind}
+              onValueChange={(v: string | null) => setKind((v as PickupKindValue) ?? 'station')}
+            >
+              <SelectTrigger id="pickup-kind" data-testid="pickup-area-kind" className="max-w-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="station">Bến xe</SelectItem>
+                <SelectItem value="pickup">Đón tận nơi</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-muted-foreground">
+              Bến xe: khách tự ra bến. Đón tận nơi: xe ghé đón.
+            </p>
+          </div>
+          <div className="grid gap-1.5">
             <Label>Khu vực (tỉnh / huyện / xã)</Label>
             <AdminUnitPicker value={sel} onChange={(v) => setSel(v)} level="ward" disabled={busy} />
           </div>
@@ -189,6 +259,31 @@ export default function PickupAreasClient({ initialAreas }: { initialAreas: Pick
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {showProvinceFilter && (
+            <div className="mb-4 grid gap-1.5">
+              <Label htmlFor="pickup-province-filter">Lọc theo tỉnh/thành</Label>
+              <Select
+                value={provinceFilter}
+                onValueChange={(v: string | null) => setProvinceFilter(v ?? PROVINCE_ALL)}
+              >
+                <SelectTrigger
+                  id="pickup-province-filter"
+                  data-testid="pickup-area-province-filter"
+                  className="max-w-xs"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={PROVINCE_ALL}>Tất cả tỉnh/thành</SelectItem>
+                  {provinces.map((p) => (
+                    <SelectItem key={p.code} value={p.code}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           {areas.length === 0 ? (
             <p className="text-sm text-muted-foreground">Chưa có điểm đón nào.</p>
           ) : (
@@ -202,7 +297,7 @@ export default function PickupAreasClient({ initialAreas }: { initialAreas: Pick
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {areas.map((a) => (
+                {visibleAreas.map((a) => (
                   <TableRow key={a.id} data-testid={`pickup-area-row-${a.id}`}>
                     <TableCell>
                       {editingId === a.id ? (
@@ -220,10 +315,35 @@ export default function PickupAreasClient({ initialAreas }: { initialAreas: Pick
                             disabled={busy}
                             data-testid={`pickup-area-edit-address-${a.id}`}
                           />
+                          <Select
+                            value={editKind}
+                            onValueChange={(v: string | null) =>
+                              setEditKind((v as PickupKindValue) ?? 'station')
+                            }
+                          >
+                            <SelectTrigger
+                              data-testid={`pickup-area-edit-kind-${a.id}`}
+                              className="max-w-xs"
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="station">Bến xe</SelectItem>
+                              <SelectItem value="pickup">Đón tận nơi</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                       ) : (
                         <div>
-                          <div className="font-medium">{a.name}</div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{a.name}</span>
+                            <Badge
+                              variant={KIND_BADGE_VARIANT[a.kind]}
+                              data-testid={`pickup-area-kind-badge-${a.id}`}
+                            >
+                              {KIND_LABELS[a.kind]}
+                            </Badge>
+                          </div>
                           {a.addressLine && (
                             <div className="text-sm text-muted-foreground">{a.addressLine}</div>
                           )}

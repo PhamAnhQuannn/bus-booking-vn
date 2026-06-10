@@ -47,7 +47,14 @@ export default async function OpTripDetailPage({ params }: PageProps) {
   ]);
   const pickupMenu = menu
     .filter((a) => a.isActive)
-    .map((a) => ({ id: a.id, name: a.name, addressLine: a.addressLine, label: a.label }));
+    .map((a) => ({
+      id: a.id,
+      name: a.name,
+      addressLine: a.addressLine,
+      label: a.label,
+      kind: a.kind,
+      provinceCode: a.provinceCode,
+    }));
   const tripPickupAreaIds = enabledRows.map((r) => r.operatorPickupAreaId);
 
   return (

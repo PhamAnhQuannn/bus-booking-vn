@@ -5,9 +5,11 @@
  *
  * Rejects:
  *   - invalid_area    — the code triple is not a consistent province→huyện→xã path
- *   - duplicate_area  — an ACTIVE area with the same ward already exists for this operator
+ *   - duplicate_area  — an ACTIVE area with the same NAME in the same ward already exists
+ *                       for this operator (v2 allows multiple named points per ward)
  */
 
+import type { PickupPlaceKind } from '@prisma/client';
 import { prisma } from '@/lib/core/db/client';
 import { getProvince, getDistrict, getWard, isValidSelection, resolveLabel } from '@/lib/geo';
 import type { OperatorPickupAreaCreateInput } from '@/lib/core/validation/pickupArea';
@@ -32,6 +34,8 @@ export interface OperatorPickupAreaDto {
   addressLine: string | null;
   /** Ward address "Phường X, Quận Y, Tỉnh Z" — region context for the operator menu. */
   label: string;
+  /** Issue 110: station (Bến xe) vs pickup (Đón tận nơi) — display grouping. */
+  kind: PickupPlaceKind;
   isActive: boolean;
   displayOrder: number;
 }
@@ -46,6 +50,7 @@ export const areaSelect = {
   name: true,
   addressLine: true,
   label: true,
+  kind: true,
   isActive: true,
   displayOrder: true,
 } as const;
@@ -109,6 +114,7 @@ export async function createOperatorPickupArea({
       name: data.name,
       addressLine: data.addressLine ?? null,
       label,
+      kind: data.kind,
       displayOrder,
     },
     select: areaSelect,

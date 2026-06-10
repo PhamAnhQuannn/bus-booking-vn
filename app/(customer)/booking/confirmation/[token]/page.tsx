@@ -177,6 +177,24 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
         </CardContent>
       </Card>
 
+      {/* Issue 112: pickup is locked at hold; no self-serve edit. Point travelers to the operator. */}
+      <p className="text-center text-sm text-muted-foreground" data-testid="pickup-edit-hint">
+        Cần đổi điểm đón? Vui lòng liên hệ nhà xe
+        {trip.bus.operator.contactPhone ? (
+          <>
+            {': '}
+            <a
+              href={`tel:${trip.bus.operator.contactPhone}`}
+              className="font-medium text-primary hover:underline"
+            >
+              {trip.bus.operator.contactPhone}
+            </a>
+          </>
+        ) : (
+          '.'
+        )}
+      </p>
+
       {/* Forward CTAs — no post-payment dead-end. */}
       <div className="flex flex-col gap-2 sm:flex-row">
         <Link href="/" className={buttonVariants({ variant: 'default', className: 'flex-1' })}>
