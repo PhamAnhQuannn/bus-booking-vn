@@ -2,9 +2,14 @@
  * vnAdmin — pure loader over the vendored 3-tier VN administrative dataset
  * (Tỉnh/Thành phố → Quận/Huyện → Phường/Xã). See `lib/geo/data/PROVENANCE.md`.
  *
- * Deep module (SYS20): small, stable interface over the bundled JSON. No I/O
- * beyond the static import; safe to use in server components, route handlers,
- * and client components alike. Lookups are O(1) via indexes built once at module load.
+ * Deep module (SYS20): small, stable interface over the bundled JSON. Lookups are
+ * O(1) via indexes built once at module load.
+ *
+ * SERVER-SIDE ONLY: the static import pulls a ~690 KB dataset, so this must NOT be
+ * imported from 'use client' components (it would bloat the browser bundle). Client
+ * code reads the tiers on demand via GET /api/geo (see components/geo/AdminUnitPicker).
+ * Server components, route handlers, and server-side validation (createOperatorPickupArea)
+ * use it directly.
  */
 
 import tree from '@/lib/geo/data/vn-admin-tree.json';

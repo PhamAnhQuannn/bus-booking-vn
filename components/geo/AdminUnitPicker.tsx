@@ -2,16 +2,20 @@
 
 /**
  * AdminUnitPicker — cascading Tỉnh/Thành phố → Quận/Huyện → Phường/Xã selector
- * over the vendored VN admin dataset (`lib/geo/vnAdmin`). Controlled component.
+ * over the vendored VN admin dataset. Controlled component.
  *
  * Used by: operator registration (province-only), the console pickup-area menu
  * (full ward depth), and the customer booking pickup step.
  *
+ * The ~690 KB dataset stays SERVER-side (lib/geo/vnAdmin); this client component
+ * fetches each tier from GET /api/geo on demand so the tree never lands in the
+ * operator-console bundle. The full label is composed client-side from the
+ * fetched names (same order as the server's resolveLabel).
+ *
  * base-ui Select is controlled via `onValueChange`, NOT `onChange`.
  */
 
-import { useMemo } from 'react';
-import { listProvinces, listDistricts, listWards, resolveLabel } from '@/lib/geo';
+import { useEffect, useState } from 'react';
 import {
   Select,
   SelectTrigger,
@@ -20,6 +24,28 @@ import {
   SelectItem,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+
+interface Unit {
+  code: string;
+  name: string;
+}
+
+// query=null → resolves [] (a cleared tier) without a request, and crucially
+// keeps state updates async-only (no synchronous setState inside the effects).
+async function loadUnits(query: string | null): Promise<Unit[]> {
+  if (query === null) return [];
+  try {
+    const res = await fetch(`/api/geo${query}`);
+    if (!res.ok) return [];
+    const json = (await res.json()) as { items?: Unit[] };
+    return json.items ?? [];
+  } catch {
+    return [];
+  }
+}
+
+const nameOf = (list: Unit[], code?: string): string | undefined =>
+  code ? list.find((u) => u.code === code)?.name : undefined;
 
 export interface AdminUnitValue {
   provinceCode?: string;
@@ -46,28 +72,52 @@ export function AdminUnitPicker({
   disabled,
   idPrefix = 'admin-unit',
 }: AdminUnitPickerProps) {
-  const provinces = useMemo(() => listProvinces(), []);
-  const districts = useMemo(
-    () => (value.provinceCode ? listDistricts(value.provinceCode) : []),
-    [value.provinceCode]
-  );
-  const wards = useMemo(
-    () => (value.districtCode ? listWards(value.districtCode) : []),
-    [value.districtCode]
-  );
+  const [provinces, setProvinces] = useState<Unit[]>([]);
+  const [districts, setDistricts] = useState<Unit[]>([]);
+  const [wards, setWards] = useState<Unit[]>([]);
+
+  // Provinces load once on mount.
+  useEffect(() => {
+    let active = true;
+    loadUnits('').then((u) => active && setProvinces(u));
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Districts (re)load whenever the selected province changes (cleared when none).
+  useEffect(() => {
+    let active = true;
+    const q = value.provinceCode ? `?province=${encodeURIComponent(value.provinceCode)}` : null;
+    loadUnits(q).then((u) => active && setDistricts(u));
+    return () => {
+      active = false;
+    };
+  }, [value.provinceCode]);
+
+  // Wards (re)load whenever the selected district changes (cleared when none).
+  useEffect(() => {
+    let active = true;
+    const q = value.districtCode ? `?district=${encodeURIComponent(value.districtCode)}` : null;
+    loadUnits(q).then((u) => active && setWards(u));
+    return () => {
+      active = false;
+    };
+  }, [value.districtCode]);
 
   const wantsDistrict = level === 'district' || level === 'ward';
   const wantsWard = level === 'ward';
 
   function emit(next: AdminUnitValue) {
-    const label =
-      next.provinceCode && next.districtCode && next.wardCode
-        ? resolveLabel({
-            provinceCode: next.provinceCode,
-            districtCode: next.districtCode,
-            wardCode: next.wardCode,
-          })
-        : null;
+    // Compose the label from the fetched names (ward, district, province order —
+    // matches the server's resolveLabel). Null until the triple is complete.
+    let label: string | null = null;
+    if (next.provinceCode && next.districtCode && next.wardCode) {
+      const p = nameOf(provinces, next.provinceCode);
+      const d = nameOf(districts, next.districtCode);
+      const w = nameOf(wards, next.wardCode);
+      label = p && d && w ? `${w}, ${d}, ${p}` : null;
+    }
     onChange(next, label);
   }
 

@@ -1,6 +1,7 @@
 // geo domain public API barrel (SYS20 rule 3).
-// vnAdmin is pure + client-safe (static JSON + lookups; no server-only/pg/prisma),
-// so this barrel is safe to import from 'use client' components.
+// SERVER-SIDE ONLY: vnAdmin statically imports a ~690 KB dataset. Do NOT import this
+// barrel from 'use client' components — it would ship the whole tree into the browser
+// bundle. Client code uses GET /api/geo instead (components/geo/AdminUnitPicker).
 
 export {
   listProvinces,
