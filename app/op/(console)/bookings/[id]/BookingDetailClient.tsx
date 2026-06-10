@@ -68,9 +68,16 @@ export default function BookingDetailClient({ booking }: Props) {
             </dd>
             <dt className="text-muted-foreground">Điểm đón</dt>
             <dd>
-              {booking.pickupKind === 'point'
-                ? [booking.pickupAreaLabel, booking.pickupDetail].filter(Boolean).join(' — ') || '—'
-                : 'Tại bến xe'}
+              {booking.pickupKind === 'custom' ? (
+                <span>
+                  <span className="text-warning font-medium">Cần liên hệ: </span>
+                  {booking.pickupDetail || '—'}
+                </span>
+              ) : booking.pickupKind === 'point' ? (
+                [booking.pickupAreaLabel, booking.pickupDetail].filter(Boolean).join(' — ') || '—'
+              ) : (
+                'Tại bến xe'
+              )}
             </dd>
             {booking.escalatedAt && (
               <>

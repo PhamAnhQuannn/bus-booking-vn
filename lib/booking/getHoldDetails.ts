@@ -22,7 +22,7 @@ export interface HoldDetails {
   departureAt: string;
   operatorLegalName: string;
   /** Issue 107: traveler pickup selection for review display. */
-  pickupKind: 'station' | 'point';
+  pickupKind: 'station' | 'point' | 'custom';
   pickupAreaLabel: string | null;
   pickupDetail: string | null;
 }

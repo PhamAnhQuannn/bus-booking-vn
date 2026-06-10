@@ -162,7 +162,8 @@ export async function createOnlineBookingFromHold(
               id, "bookingRef", "confirmationToken", "tripId", "holdId",
               "customerId", "buyerName", "buyerPhone", "buyerEmail", "ticketCount", "totalVnd",
               "paymentMethod", status, "isManual", "createdAt",
-              "pickupKind", "pickupAreaId", "pickupAreaLabel", "pickupDetail"
+              "pickupKind", "pickupAreaId", "pickupAreaLabel", "pickupDetail",
+              "customPickupRequested"
             )
             SELECT
               ${bookingId}::uuid,
@@ -183,7 +184,8 @@ export async function createOnlineBookingFromHold(
               h."pickupKind",
               h."pickupAreaId",
               h."pickupAreaLabel",
-              h."pickupDetail"
+              h."pickupDetail",
+              (h."pickupKind" = 'custom'::"PickupKind")
             FROM "Hold" h
             JOIN "Trip" t ON t.id = h."tripId"
             WHERE h.id = ${holdId}

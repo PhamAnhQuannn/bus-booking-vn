@@ -85,7 +85,9 @@ export function renderTemplate(template: SmsTemplate, payload: Record<string, st
     case 'operatorNewBooking':
       return (
         `BusBookVN: ${payload.ticketCount} khach moi, chuyen ${payload.route} ` +
-        `${payload.departureAt}. SDT: ${payload.buyerPhone}. Ma: ${payload.bookingRef}.`
+        `${payload.departureAt}. SDT: ${payload.buyerPhone}. Ma: ${payload.bookingRef}.` +
+        // Issue 111: custom pickup request folded into the same SMS (no second message).
+        (payload.customPickup ? ` Diem don rieng: ${payload.customPickup}. Goi xac nhan.` : '')
       );
     case 'customerBookingPaid':
       return (

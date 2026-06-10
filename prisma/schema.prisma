@@ -319,7 +319,9 @@ model Hold {
   pickupAreaLabel String?
   pickupDetail    String?
   /// Issue 109/111: true ⇔ pickupKind=custom (free-text request). Indexed inert flag for manifest
-  /// filtering + notification trigger. Written false by default; the custom path lands in Issue 111.
+  /// filtering + notification trigger. Derived in SQL from pickupKind at INSERT (single-source).
+  /// SQL-only CHECK "Hold_custom_requires_detail" (migration 20260609040000): when this is true,
+  /// pickupDetail must be non-null with ≥5 trimmed chars. Prisma's DSL cannot model CHECK.
   customPickupRequested Boolean        @default(false)
   trip            Trip                @relation(fields: [tripId], references: [id])
   pickupArea      OperatorPickupArea? @relation(fields: [pickupAreaId], references: [id], onDelete: SetNull)
@@ -362,12 +364,13 @@ enum PickupPlaceKind {
   pickup
 }
 
-/// Issue 104/109: how the traveler boards. `station` = at the bus station (no detail).
+/// Issue 104/109/111: how the traveler boards. `station` = at the bus station (no detail).
 /// `point` = personal pickup in a chosen OperatorPickupArea (requires pickupDetail).
-/// (Issue 111 adds `custom` = free-text request not on the list.)
+/// `custom` = free-text request not on the list (requires pickupDetail ≥5 chars; operator phones back).
 enum PickupKind {
   station
   point
+  custom
 }
 
 enum NotificationChannel {

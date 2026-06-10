@@ -18,7 +18,7 @@ export interface HoldRequestBody {
   /** Issue 042: buyer email for ticket delivery (required). */
   buyerEmail: string;
   /** Issue 107: traveler pickup selection (absent = station). */
-  pickupKind?: 'station' | 'point';
+  pickupKind?: 'station' | 'point' | 'custom';
   pickupAreaId?: string;
   pickupDetail?: string;
 }

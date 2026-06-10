@@ -31,6 +31,7 @@
  * - *.address                  — pickup point street address (Issue 012)
  * - pickupAddress              — top-level pickup address shorthand (Issue 012)
  * - pickupDetail               — traveler free-text pickup detail / location PII (Issue 104)
+ * - customPickup               — custom pickup request location text in operator SMS payload (Issue 111)
  * - escalationNote             — operator escalation note (Issue 014)
  * - buyerPhone                 — manual booking buyer phone PII (Issue 015)
  * - buyerName                  — manual booking buyer name PII (Issue 015)
@@ -82,6 +83,7 @@ export const loggerOptions: LoggerOptions = {
       '*.address',
       'pickupAddress',
       'pickupDetail',
+      'customPickup',            // Issue 111: custom pickup request location text (PII)
       'escalationNote',
       'buyerPhone',
       'buyerName',
