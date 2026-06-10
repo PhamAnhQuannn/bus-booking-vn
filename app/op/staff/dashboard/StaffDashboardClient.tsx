@@ -343,7 +343,7 @@ export default function StaffDashboardClient({
                         <TableCell>{row.phone}</TableCell>
                         <TableCell className="tabular-nums">{row.ticketCount}</TableCell>
                         <TableCell>
-                          {row.pickupKind === 'area'
+                          {row.pickupKind === 'point'
                             ? [row.pickupAreaLabel, row.pickupDetail].filter(Boolean).join(' — ') || '—'
                             : 'Tại bến'}
                         </TableCell>

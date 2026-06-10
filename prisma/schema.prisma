@@ -191,6 +191,8 @@ model OperatorPickupArea {
   addressLine   String?
   /// Denormalized ward address "Phường X, Quận Y, Tỉnh Z" — region context for the operator menu.
   label         String
+  /// Issue 109: station (Bến xe) vs pickup (Đón tận nơi). Same table, distinguished by kind.
+  kind          PickupPlaceKind      @default(pickup)
   isActive      Boolean              @default(true)
   displayOrder  Int
   createdAt     DateTime             @default(now())
@@ -211,6 +213,8 @@ model TripPickupArea {
   tripId               String
   operatorPickupAreaId String
   label                String
+  /// Issue 109: snapshot of OperatorPickupArea.kind — lets the picker/manifest group station-vs-point without a join.
+  kind                 PickupPlaceKind    @default(pickup)
   displayOrder         Int
   trip                 Trip               @relation(fields: [tripId], references: [id], onDelete: Cascade)
   pickupArea           OperatorPickupArea @relation(fields: [operatorPickupAreaId], references: [id], onDelete: Cascade)
@@ -226,6 +230,8 @@ model TemplatePickupArea {
   recurringTemplateId  String
   operatorPickupAreaId String
   label                String
+  /// Issue 109: snapshot of OperatorPickupArea.kind, propagated into each generated trip's TripPickupArea.
+  kind                 PickupPlaceKind       @default(pickup)
   displayOrder         Int
   template             RecurringTripTemplate @relation(fields: [recurringTemplateId], references: [id], onDelete: Cascade)
   pickupArea           OperatorPickupArea    @relation(fields: [operatorPickupAreaId], references: [id], onDelete: Cascade)
@@ -312,6 +318,9 @@ model Hold {
   pickupAreaId    String?
   pickupAreaLabel String?
   pickupDetail    String?
+  /// Issue 109/111: true ⇔ pickupKind=custom (free-text request). Indexed inert flag for manifest
+  /// filtering + notification trigger. Written false by default; the custom path lands in Issue 111.
+  customPickupRequested Boolean        @default(false)
   trip            Trip                @relation(fields: [tripId], references: [id])
   pickupArea      OperatorPickupArea? @relation(fields: [pickupAreaId], references: [id], onDelete: SetNull)
   booking         Booking?
@@ -346,11 +355,19 @@ enum PaymentMethod {
   card
 }
 
-/// Issue 104: how the traveler boards. `station` = at the bus station (no detail).
-/// `area` = personal pickup in a chosen OperatorPickupArea (requires pickupDetail).
+/// Issue 109: classifies an OperatorPickupArea / trip-snapshot place.
+/// `station` = Bến xe (terminal/depot). `pickup` = Đón tận nơi (door-to-door).
+enum PickupPlaceKind {
+  station
+  pickup
+}
+
+/// Issue 104/109: how the traveler boards. `station` = at the bus station (no detail).
+/// `point` = personal pickup in a chosen OperatorPickupArea (requires pickupDetail).
+/// (Issue 111 adds `custom` = free-text request not on the list.)
 enum PickupKind {
   station
-  area
+  point
 }
 
 enum NotificationChannel {
@@ -385,13 +402,16 @@ model Booking {
   /// Issue 014: operator call-queue contact tracking
   contactStatus        ContactStatus       @default(pending)
   /// Issue 104/107: traveler pickup selection, snapshotted from the hold at booking.
-  /// station = board at the bus station; area = personal pickup in pickupAreaId.
+  /// station = board at the bus station; point = personal pickup in pickupAreaId.
   pickupKind           PickupKind          @default(station)
   pickupAreaId         String?
   /// Denormalized area label snapshot (survives OperatorPickupArea edit/deactivate).
   pickupAreaLabel      String?
-  /// Free-text street / thôn xóm detail (required when pickupKind=area). PII (location).
+  /// Free-text street / thôn xóm detail (required when pickupKind=point). PII (location).
   pickupDetail         String?
+  /// Issue 109/111: true ⇔ pickupKind=custom. Indexed inert flag (manifest filter + notification
+  /// trigger); written false by default — the custom path lands in Issue 111.
+  customPickupRequested Boolean            @default(false)
   /// Timestamp when boarding was marked (SET-TRUE-ONLY per SPEC NOTE)
   pickedUpAt           DateTime?
   /// Escalation note set by operator
@@ -436,6 +456,8 @@ model Booking {
   @@index([customerId])
   @@index([tripId, contactStatus])
   @@index([tripId, pickedUpAt])
+  /// Issue 109: cheap manifest filter for custom-pickup rows on a trip (the "Cần liên hệ" highlight).
+  @@index([tripId, customPickupRequested])
   @@index([status, reminderSentAt])
   /// Issue 009: register-time guest-booking backfill scan (match buyerPhone → Customer.phone)
   @@index([buyerPhone])

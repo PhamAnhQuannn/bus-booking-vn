@@ -78,7 +78,7 @@ export function CustomerForm() {
 
   // Issue 107: pickup selection. Areas fetched for this trip; default = station.
   const [areas, setAreas] = useState<{ areaId: string; label: string }[]>([]);
-  const [pickupKind, setPickupKind] = useState<'station' | 'area'>('station');
+  const [pickupKind, setPickupKind] = useState<'station' | 'point'>('station');
   const [pickupAreaId, setPickupAreaId] = useState('');
   const [pickupDetail, setPickupDetail] = useState('');
 
@@ -151,9 +151,9 @@ export function CustomerForm() {
         buyerPhone: parsed.data.buyerPhone,
         buyerEmail: parsed.data.buyerEmail,
         pickupKind: pickupCheck.pickupKind,
-        pickupAreaId: pickupCheck.pickupKind === 'area' ? pickupCheck.pickupAreaId : undefined,
+        pickupAreaId: pickupCheck.pickupKind === 'point' ? pickupCheck.pickupAreaId : undefined,
         pickupDetail:
-          pickupCheck.pickupKind === 'area' ? (pickupCheck.pickupDetail ?? undefined) : undefined,
+          pickupCheck.pickupKind === 'point' ? (pickupCheck.pickupDetail ?? undefined) : undefined,
       });
 
       if (!result.ok) {
@@ -276,7 +276,7 @@ export function CustomerForm() {
               setPickupKind('station');
               setPickupAreaId('');
             } else {
-              setPickupKind('area');
+              setPickupKind('point');
               setPickupAreaId(v);
             }
           }}
@@ -295,7 +295,7 @@ export function CustomerForm() {
           </SelectContent>
         </Select>
 
-        {pickupKind === 'area' && (
+        {pickupKind === 'point' && (
           <div className="pt-1">
             <Label htmlFor="pickupDetail" className="mb-1">
               Ghi chú điểm đón (tuỳ chọn)

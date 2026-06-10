@@ -68,7 +68,7 @@ export default function BookingDetailClient({ booking }: Props) {
             </dd>
             <dt className="text-muted-foreground">Điểm đón</dt>
             <dd>
-              {booking.pickupKind === 'area'
+              {booking.pickupKind === 'point'
                 ? [booking.pickupAreaLabel, booking.pickupDetail].filter(Boolean).join(' — ') || '—'
                 : 'Tại bến xe'}
             </dd>

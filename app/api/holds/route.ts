@@ -65,27 +65,27 @@ async function handler(req: NextRequest): Promise<Response> {
 
   // ---- 2b. Resolve + validate pickup against the trip's enabled areas (Issue 107) ----
   let pickup: {
-    pickupKind: 'station' | 'area';
+    pickupKind: 'station' | 'point';
     pickupAreaId: string | null;
     pickupAreaLabel: string | null;
     pickupDetail: string | null;
   } = { pickupKind: 'station', pickupAreaId: null, pickupAreaLabel: null, pickupDetail: null };
 
-  if (pickupKind === 'area') {
+  if (pickupKind === 'point') {
     const tripAreas = await prisma.tripPickupArea.findMany({
       where: { tripId },
       select: { operatorPickupAreaId: true, label: true },
     });
     const check = validatePickupSelection(
       tripAreas.map((a) => a.operatorPickupAreaId),
-      { kind: 'area', areaId: pickupAreaId, detail: pickupDetail }
+      { kind: 'point', areaId: pickupAreaId, detail: pickupDetail }
     );
     if (!check.ok) {
       return NextResponse.json({ error: check.code }, { status: 422 });
     }
     const label = tripAreas.find((a) => a.operatorPickupAreaId === check.pickupAreaId)?.label ?? null;
     pickup = {
-      pickupKind: 'area',
+      pickupKind: 'point',
       pickupAreaId: check.pickupAreaId,
       pickupAreaLabel: label,
       pickupDetail: check.pickupDetail,
