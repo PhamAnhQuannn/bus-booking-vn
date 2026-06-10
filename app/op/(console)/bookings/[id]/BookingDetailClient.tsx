@@ -14,7 +14,6 @@
  */
 
 import type { BookingDto } from '@/lib/booking';
-import type { PickupPointOption } from '@/lib/booking';
 import { bookingStatusDisplay } from '@/lib/op/statusLabels';
 import type { BookingStatus } from '@prisma/client';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -22,7 +21,6 @@ import { Badge } from '@/components/ui/badge';
 
 interface Props {
   booking: BookingDto;
-  pickupPoints: PickupPointOption[];
 }
 
 const CONTACT_STATUS_LABELS: Record<string, string> = {
@@ -32,7 +30,7 @@ const CONTACT_STATUS_LABELS: Record<string, string> = {
   callback: 'Gọi lại sau',
 };
 
-export default function BookingDetailClient({ booking, pickupPoints: _pickupPoints }: Props) {
+export default function BookingDetailClient({ booking }: Props) {
   const pay = bookingStatusDisplay(booking.status as BookingStatus);
 
   return (
@@ -69,7 +67,11 @@ export default function BookingDetailClient({ booking, pickupPoints: _pickupPoin
               {CONTACT_STATUS_LABELS[booking.contactStatus] ?? booking.contactStatus}
             </dd>
             <dt className="text-muted-foreground">Điểm đón</dt>
-            <dd>{booking.pickupPointName ?? booking.pickupNote ?? '—'}</dd>
+            <dd>
+              {booking.pickupKind === 'area'
+                ? [booking.pickupAreaLabel, booking.pickupDetail].filter(Boolean).join(' — ') || '—'
+                : 'Tại bến xe'}
+            </dd>
             {booking.escalatedAt && (
               <>
                 <dt className="text-muted-foreground">Cờ xử lý</dt>

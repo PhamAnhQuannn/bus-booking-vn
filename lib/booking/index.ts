@@ -7,7 +7,12 @@ export { type BookingDto, type BookingPaymentStatus } from './bookingDto';
 export { getBookingByConfirmationToken } from './bookingRepo';
 export { checkInBooking, markNoShow, scanTicket } from './checkIn';
 export { CONSENT_VERSION, CONSENT_TEXT } from './consent';
-export { getBookingDetailPage, type PickupPointOption } from './getBookingDetailPage';
+export {
+  validatePickupSelection,
+  type PickupSelection,
+  type PickupCheck,
+} from './pickupSelection';
+export { getBookingDetailPage } from './getBookingDetailPage';
 export { getCustomerBookingDetail, type CustomerBookingDetail } from './getCustomerBookingDetail';
 export { getHoldDetails } from './getHoldDetails';
 export { getManifest, type ManifestRow } from './getManifest';

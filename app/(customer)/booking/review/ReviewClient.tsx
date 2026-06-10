@@ -38,6 +38,9 @@ export interface HoldDetails {
   routeDestination: string;
   departureAt: string;
   operatorLegalName: string;
+  pickupKind: 'station' | 'area';
+  pickupAreaLabel: string | null;
+  pickupDetail: string | null;
 }
 
 interface ReviewClientProps {
@@ -162,6 +165,21 @@ export function ReviewClient({ holdDetails }: ReviewClientProps) {
                 );
               })}
             </fieldset>
+          </CardContent>
+        </Card>
+
+        {/* Issue 107: traveler pickup selection (read-only summary) */}
+        <Card>
+          <CardHeader>
+            <CardTitle as="h2">Điểm đón</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm" data-testid="review-pickup">
+              {holdDetails.pickupKind === 'area'
+                ? [holdDetails.pickupAreaLabel, holdDetails.pickupDetail].filter(Boolean).join(' — ') ||
+                  'Khu vực đón'
+                : 'Tại bến xe'}
+            </p>
           </CardContent>
         </Card>
 

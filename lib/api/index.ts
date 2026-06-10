@@ -18,13 +18,15 @@ export {
   createRouteApi,
   patchRouteApi,
   deactivateRouteApi,
-  listPickupPointsApi,
-  createPickupPointApi,
-  deactivatePickupPointApi,
-  reorderPickupPointsApi,
   type RouteItem,
-  type PickupPoint,
 } from './routesClient';
+export {
+  listPickupAreasApi,
+  createPickupAreaApi,
+  updatePickupAreaApi,
+  deactivatePickupAreaApi,
+  type PickupAreaItem,
+} from './pickupAreasClient';
 export {
   listStaffApi,
   createStaffApi,
@@ -40,6 +42,7 @@ export {
   departTripApi,
   completeTripApi,
   reassignBusApi,
+  setTripPickupAreasApi,
   createTemplateApi,
   patchTemplateApi,
 } from './tripsClient';

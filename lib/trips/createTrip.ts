@@ -15,6 +15,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/core/db/client';
 import { withOperatorScope } from '@/lib/core/db';
+import { composePickupLabel } from '@/lib/catalog';
 import { TripServiceError } from './errors';
 import type { TripDto } from './tripDto';
 import { toTripDto } from './toTripDto';
@@ -29,6 +30,8 @@ export interface CreateTripInput {
   blockedSeats?: number;
   recurringTemplateId?: string;
   pairedTripId?: string;
+  /** Issue 106: OperatorPickupArea ids enabled for this trip (must be owned + active). */
+  pickupAreaIds?: string[];
 }
 
 export async function createTrip(input: CreateTripInput): Promise<TripDto> {
@@ -39,6 +42,7 @@ export async function createTrip(input: CreateTripInput): Promise<TripDto> {
     departureAt,
     price,
     blockedSeats = 0,
+    pickupAreaIds,
     recurringTemplateId,
     pairedTripId,
   } = input;
@@ -95,7 +99,7 @@ export async function createTrip(input: CreateTripInput): Promise<TripDto> {
         throw Object.assign(new Error('bus_overlap'), { _trip: 'bus_overlap' });
       }
 
-      return tx.trip.create({
+      const created = await tx.trip.create({
         data: {
           routeId,
           busId,
@@ -118,6 +122,29 @@ export async function createTrip(input: CreateTripInput): Promise<TripDto> {
           },
         },
       });
+
+      // Issue 106: per-trip pickup-area subset. Validate every id is one of THIS
+      // operator's active menu areas (cross-op / inactive / unknown → reject), then
+      // snapshot the label into TripPickupArea.
+      if (pickupAreaIds && pickupAreaIds.length > 0) {
+        const owned = await tx.operatorPickupArea.findMany({
+          where: { id: { in: pickupAreaIds }, operatorId, isActive: true },
+          select: { id: true, name: true, addressLine: true },
+        });
+        if (owned.length !== new Set(pickupAreaIds).size) {
+          throw Object.assign(new Error('invalid_pickup_area'), { _trip: 'invalid_pickup_area' });
+        }
+        await tx.tripPickupArea.createMany({
+          data: owned.map((a, i) => ({
+            tripId: created.id,
+            operatorPickupAreaId: a.id,
+            label: composePickupLabel(a),
+            displayOrder: i,
+          })),
+        });
+      }
+
+      return created;
     });
 
     return toTripDto(trip);
@@ -126,6 +153,7 @@ export async function createTrip(input: CreateTripInput): Promise<TripDto> {
     if (tagged._trip === 'not_found') throw new TripServiceError('not_found');
     if (tagged._trip === 'bus_deactivated') throw new TripServiceError('bus_deactivated');
     if (tagged._trip === 'bus_in_maintenance') throw new TripServiceError('bus_in_maintenance');
+    if (tagged._trip === 'invalid_pickup_area') throw new TripServiceError('invalid_pickup_area');
     if (tagged._trip === 'bus_overlap') throw new TripServiceError('bus_overlap');
     throw e;
   }

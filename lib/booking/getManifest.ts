@@ -1,7 +1,7 @@
 /**
  * getManifest — boarding manifest for a trip (Issue 014 AC6).
  *
- * Returns rows: { name, phone, ticketCount, pickupPointName, contactStatus,
+ * Returns rows: { name, phone, ticketCount, pickupKind, pickupAreaLabel, pickupDetail, contactStatus,
  *                 paymentStatus, manualFlag }.
  * AC6: NO seatNumber field in output.
  *
@@ -18,7 +18,10 @@ export interface ManifestRow {
   name: string;
   phone: string;
   ticketCount: number;
-  pickupPointName: string | null;
+  /** Issue 104: traveler pickup. station = at the bus station; area = personal pickup. */
+  pickupKind: 'station' | 'area';
+  pickupAreaLabel: string | null;
+  pickupDetail: string | null;
   contactStatus: 'pending' | 'reached' | 'no_answer' | 'callback';
   paymentStatus: string;
   pickedUpAt: string | null; // ISO 8601
@@ -73,7 +76,9 @@ export async function getManifest(
       escalatedAt: true,
       checkedInAt: true,
       noShowAt: true,
-      pickupPoint: { select: { name: true } },
+      pickupKind: true,
+      pickupAreaLabel: true,
+      pickupDetail: true,
     },
     orderBy: { createdAt: 'asc' },
   });
@@ -84,7 +89,9 @@ export async function getManifest(
     name: b.buyerName,
     phone: b.buyerPhone,
     ticketCount: b.ticketCount,
-    pickupPointName: b.pickupPoint?.name ?? null,
+    pickupKind: b.pickupKind as ManifestRow['pickupKind'],
+    pickupAreaLabel: b.pickupAreaLabel,
+    pickupDetail: b.pickupDetail,
     contactStatus: b.contactStatus as ManifestRow['contactStatus'],
     paymentStatus: b.status,
     pickedUpAt: b.pickedUpAt ? b.pickedUpAt.toISOString() : null,

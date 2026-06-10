@@ -5,6 +5,7 @@ import { addDays, startOfDay, set } from 'date-fns';
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import { hash as hashPassword } from '../lib/auth/password';
 import { normalizePhone } from '../lib/core/validation/phone';
+import { listProvinces, listDistricts, listWards, resolveLabel } from '../lib/geo/vnAdmin';
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -52,9 +53,9 @@ async function main() {
   await prisma.operatorUser.updateMany({ data: { assignedTripId: null } });
   await prisma.trip.deleteMany();
 
-  // Route children (PickupPoint Cascade, RecurringTripTemplate no cascade) and
-  // Bus children (BusMaintenance Cascade) precede their parents.
-  await prisma.pickupPoint.deleteMany();
+  // Route children (RecurringTripTemplate no cascade) and Bus children
+  // (BusMaintenance Cascade) precede their parents. (TripPickupArea cascades from
+  // Trip; OperatorPickupArea cascades from Operator — handled below.)
   await prisma.recurringTripTemplate.deleteMany();
   await prisma.route.deleteMany();
   await prisma.busMaintenance.deleteMany();
@@ -117,6 +118,55 @@ async function main() {
       status: 'APPROVED',
     },
   });
+
+  // ---- Operator pickup areas (Issue 105/106) ----
+  // Seed each operator's reusable menu (a few real huyện/xã from the vnAdmin
+  // dataset) + set their base province, so trips can expose pickup destinations.
+  async function seedOperatorAreas(operatorId: string, provinceName: string) {
+    const province = listProvinces().find((p) => p.name.includes(provinceName));
+    if (!province) return [] as { id: string; label: string }[];
+    const district = listDistricts(province.code)[0];
+    if (!district) return [];
+    const wards = listWards(district.code).slice(0, 3);
+    await prisma.operator.update({
+      where: { id: operatorId },
+      data: { provinceCode: province.code, provinceName: province.name },
+    });
+    const created: { id: string; label: string }[] = [];
+    let order = 1;
+    for (const w of wards) {
+      const label =
+        resolveLabel({ provinceCode: province.code, districtCode: district.code, wardCode: w.code }) ??
+        `${w.name}, ${district.name}, ${province.name}`;
+      // Named point: a concrete stop inside the ward + an address line.
+      const name = `Văn phòng ${w.name}`;
+      const addressLine = `Số ${order} đường ${district.name}`;
+      const row = await prisma.operatorPickupArea.create({
+        data: {
+          operatorId,
+          provinceCode: province.code,
+          districtCode: district.code,
+          districtName: district.name,
+          wardCode: w.code,
+          wardName: w.name,
+          name,
+          addressLine,
+          label,
+          displayOrder: order++,
+        },
+        select: { id: true },
+      });
+      // The customer-facing snapshot is the point identity (name — address), not the ward label.
+      created.push({ id: row.id, label: `${name} — ${addressLine}` });
+    }
+    return created;
+  }
+
+  const areasByOperator: Record<string, { id: string; label: string }[]> = {
+    [op1.id]: await seedOperatorAreas(op1.id, 'Hà Nội'),
+    [op2.id]: await seedOperatorAreas(op2.id, 'Hồ Chí Minh'),
+    [op3.id]: await seedOperatorAreas(op3.id, 'Đắk Lắk'),
+  };
 
   // ---- Buses ----
   const buses = await Promise.all([
@@ -219,18 +269,9 @@ async function main() {
     `UPDATE "Route" r SET "destPlaceId" = p."id" FROM "Place" p WHERE p."canonicalName" = btrim(r.destination);`
   );
 
-  // ---- Pickup points (light) so /trips/[id] detail shows a pickup section ----
-  const pickupRoutes = [r1, r2, r3, r4, r5, r6, r7, r8, r9, ...extraRoutes, ...reverseRoutes];
-  await Promise.all(
-    pickupRoutes.flatMap((r) => [
-      prisma.pickupPoint.create({
-        data: { routeId: r.id, name: `Bến xe ${r.origin}`, address: `Quầy vé, Bến xe ${r.origin}`, displayOrder: 0 },
-      }),
-      prisma.pickupPoint.create({
-        data: { routeId: r.id, name: `Văn phòng ${r.origin}`, address: `VP trung tâm, ${r.origin}`, displayOrder: 1 },
-      }),
-    ])
-  );
+  // Pickup areas (OperatorPickupArea + per-trip TripPickupArea) are seeded by the
+  // pickup-feature slices (issues 105/106); the legacy route-scoped PickupPoint seed
+  // was removed in issue 104.
 
   // ---- Trips ----
   // today in VN time
@@ -426,6 +467,22 @@ async function main() {
 
   await prisma.trip.createMany({ data: tripData });
 
+  // ---- Per-trip pickup areas (Issue 106) ----
+  // Link every seeded trip to its operator's pickup-area menu (snapshot label),
+  // so the booking flow shows real huyện/xã pickup options.
+  const seededTrips = await prisma.trip.findMany({ select: { id: true, operatorId: true } });
+  const tripAreaData = seededTrips.flatMap((trip) =>
+    (areasByOperator[trip.operatorId] ?? []).map((a, i) => ({
+      tripId: trip.id,
+      operatorPickupAreaId: a.id,
+      label: a.label,
+      displayOrder: i,
+    }))
+  );
+  if (tripAreaData.length > 0) {
+    await prisma.tripPickupArea.createMany({ data: tripAreaData });
+  }
+
   // ---- OperatorUser (Issue 010) ----
   // NOTE: contact/notification phones use literal-x mask — NEVER real VN numbers
   // (AGENTS.md: PII placeholders must escape the gitleaks +84 regex). The LOGIN
@@ -442,7 +499,8 @@ async function main() {
       contactPhone: '+8490xxxxxx2',
       notificationPhone: '+8490xxxxxx3',
       passwordHash: seedOpHash,
-      requiresPasswordChange: true,
+      // Dev seed: ready-to-test account (no forced first-login password change).
+      requiresPasswordChange: false,
       displayName: 'Seed Operator Admin',
       role: 'admin',
     },

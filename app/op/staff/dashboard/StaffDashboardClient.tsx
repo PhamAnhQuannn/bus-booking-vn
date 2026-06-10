@@ -269,7 +269,7 @@ export default function StaffDashboardClient({
                         <TableCell>
                           <Badge variant={contact.variant}>{contact.label}</Badge>
                         </TableCell>
-                        <TableCell>{row.pickupPointName ?? '—'}</TableCell>
+                        <TableCell>{row.pickupAreaLabel ?? '—'}</TableCell>
                         <TableCell>
                           <Badge variant={payment.variant}>{payment.label}</Badge>
                         </TableCell>
@@ -342,7 +342,11 @@ export default function StaffDashboardClient({
                         <TableCell>{row.name}</TableCell>
                         <TableCell>{row.phone}</TableCell>
                         <TableCell className="tabular-nums">{row.ticketCount}</TableCell>
-                        <TableCell>{row.pickupPointName ?? '—'}</TableCell>
+                        <TableCell>
+                          {row.pickupKind === 'area'
+                            ? [row.pickupAreaLabel, row.pickupDetail].filter(Boolean).join(' — ') || '—'
+                            : 'Tại bến'}
+                        </TableCell>
                         <TableCell>
                           <Badge variant={contact.variant}>{contact.label}</Badge>
                         </TableCell>

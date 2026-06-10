@@ -23,6 +23,7 @@ const LIB_DOMAINS = [
   "charter",
   "flags",
   "format",
+  "geo",
   "home",
   "jobs",
   "ledger",
@@ -142,6 +143,7 @@ const eslintConfig = defineConfig([
                 "csrfClient.{ts,tsx}", // lib/auth — browser cookie reader
                 "safeReturnTo.{ts,tsx}", // lib/auth — pure redirect sanitizer
                 "consent.{ts,tsx}", // lib/booking — checkout consent constants
+              "pickupSelection.{ts,tsx}", // lib/booking — pure pickup validator (client + server)
                 "statusLabels.{ts,tsx}", // lib/op — pure status/label display maps
                 "formatRelativeVi.{ts,tsx}", // lib/op — pure relative-time formatter
               ],

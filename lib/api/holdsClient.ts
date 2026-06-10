@@ -17,6 +17,10 @@ export interface HoldRequestBody {
   buyerPhone: string;
   /** Issue 042: buyer email for ticket delivery (required). */
   buyerEmail: string;
+  /** Issue 107: traveler pickup selection (absent = station). */
+  pickupKind?: 'station' | 'area';
+  pickupAreaId?: string;
+  pickupDetail?: string;
 }
 
 export interface HoldSuccess {
@@ -27,7 +31,7 @@ export interface HoldSuccess {
 
 export interface HoldError {
   ok: false;
-  code: 'SOLD_OUT' | 'TOO_MANY_REQUESTS' | 'INVALID' | 'NETWORK_ERROR';
+  code: 'SOLD_OUT' | 'TOO_MANY_REQUESTS' | 'INVALID' | 'PICKUP_INVALID' | 'NETWORK_ERROR';
   retryAfter?: number; // seconds (for 429)
 }
 
@@ -61,6 +65,11 @@ export async function createHoldRequest(body: HoldRequestBody): Promise<HoldResu
   if (res.status === 429) {
     const retryAfter = Number(res.headers.get('Retry-After') ?? '60');
     return { ok: false, code: 'TOO_MANY_REQUESTS', retryAfter };
+  }
+
+  // Issue 107: server-side pickup validation failure.
+  if (res.status === 422) {
+    return { ok: false, code: 'PICKUP_INVALID' };
   }
 
   return { ok: false, code: 'INVALID' };

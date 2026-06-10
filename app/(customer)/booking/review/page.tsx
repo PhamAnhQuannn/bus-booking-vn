@@ -63,6 +63,9 @@ export default async function ReviewPage({ searchParams }: ReviewPageProps) {
           routeDestination: details.routeDestination,
           departureAt: details.departureAt,
           operatorLegalName: details.operatorLegalName,
+          pickupKind: details.pickupKind,
+          pickupAreaLabel: details.pickupAreaLabel,
+          pickupDetail: details.pickupDetail,
         }}
       />
     </main>

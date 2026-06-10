@@ -17,6 +17,8 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { holdInputSchema } from '@/lib/core/validation/hold';
 import { createHold } from '@/lib/core/db/holdRepo';
+import { prisma } from '@/lib/core/db/client';
+import { validatePickupSelection } from '@/lib/booking';
 import { HoldCapExceededError } from '@/lib/core/db/holdErrors';
 import { buildSetCookieHeader } from '@/lib/security';
 import { ratelimit } from '@/lib/ratelimit';
@@ -58,7 +60,37 @@ async function handler(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: 'INVALID' }, { status: 400 });
   }
 
-  const { tripId, ticketCount, buyerName, buyerPhone, buyerEmail } = parsed.data;
+  const { tripId, ticketCount, buyerName, buyerPhone, buyerEmail, pickupKind, pickupAreaId, pickupDetail } =
+    parsed.data;
+
+  // ---- 2b. Resolve + validate pickup against the trip's enabled areas (Issue 107) ----
+  let pickup: {
+    pickupKind: 'station' | 'area';
+    pickupAreaId: string | null;
+    pickupAreaLabel: string | null;
+    pickupDetail: string | null;
+  } = { pickupKind: 'station', pickupAreaId: null, pickupAreaLabel: null, pickupDetail: null };
+
+  if (pickupKind === 'area') {
+    const tripAreas = await prisma.tripPickupArea.findMany({
+      where: { tripId },
+      select: { operatorPickupAreaId: true, label: true },
+    });
+    const check = validatePickupSelection(
+      tripAreas.map((a) => a.operatorPickupAreaId),
+      { kind: 'area', areaId: pickupAreaId, detail: pickupDetail }
+    );
+    if (!check.ok) {
+      return NextResponse.json({ error: check.code }, { status: 422 });
+    }
+    const label = tripAreas.find((a) => a.operatorPickupAreaId === check.pickupAreaId)?.label ?? null;
+    pickup = {
+      pickupKind: 'area',
+      pickupAreaId: check.pickupAreaId,
+      pickupAreaLabel: label,
+      pickupDetail: check.pickupDetail,
+    };
+  }
 
   // ---- 3. Atomic hold insert ----
   let result: Awaited<ReturnType<typeof createHold>>;
@@ -69,6 +101,10 @@ async function handler(req: NextRequest): Promise<Response> {
       customerPhone: buyerPhone,
       customerName: buyerName,
       customerEmail: buyerEmail,
+      pickupKind: pickup.pickupKind,
+      pickupAreaId: pickup.pickupAreaId,
+      pickupAreaLabel: pickup.pickupAreaLabel,
+      pickupDetail: pickup.pickupDetail,
     });
   } catch (e) {
     if (e instanceof HoldCapExceededError) {
