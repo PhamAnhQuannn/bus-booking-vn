@@ -18,8 +18,8 @@ export interface ManifestRow {
   name: string;
   phone: string;
   ticketCount: number;
-  /** Issue 104: traveler pickup. station = at the bus station; area = personal pickup. */
-  pickupKind: 'station' | 'area';
+  /** Issue 104: traveler pickup. station = at the bus station; point = personal pickup. */
+  pickupKind: 'station' | 'point';
   pickupAreaLabel: string | null;
   pickupDetail: string | null;
   contactStatus: 'pending' | 'reached' | 'no_answer' | 'callback';

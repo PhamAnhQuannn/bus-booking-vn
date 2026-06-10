@@ -38,7 +38,7 @@ export interface HoldDetails {
   routeDestination: string;
   departureAt: string;
   operatorLegalName: string;
-  pickupKind: 'station' | 'area';
+  pickupKind: 'station' | 'point';
   pickupAreaLabel: string | null;
   pickupDetail: string | null;
 }
@@ -175,7 +175,7 @@ export function ReviewClient({ holdDetails }: ReviewClientProps) {
           </CardHeader>
           <CardContent>
             <p className="text-sm" data-testid="review-pickup">
-              {holdDetails.pickupKind === 'area'
+              {holdDetails.pickupKind === 'point'
                 ? [holdDetails.pickupAreaLabel, holdDetails.pickupDetail].filter(Boolean).join(' — ') ||
                   'Khu vực đón'
                 : 'Tại bến xe'}

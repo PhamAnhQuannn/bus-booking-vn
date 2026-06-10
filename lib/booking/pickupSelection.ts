@@ -6,19 +6,20 @@
  *
  * Rules:
  *   - station → always valid, no detail.
- *   - area    → areaId must be one of the trip's enabled areas. The point is a named stop,
+ *   - point   → areaId must be one of the trip's enabled areas. The point is a named stop,
  *               so the free-text detail is an OPTIONAL note (no minimum length).
+ *   (Issue 111 adds a third `custom` kind = free-text request not on the list.)
  */
 
 export interface PickupSelection {
-  kind: 'station' | 'area';
+  kind: 'station' | 'point';
   areaId?: string | null;
   detail?: string | null;
 }
 
 export type PickupCheck =
   | { ok: true; pickupKind: 'station'; pickupAreaId: null; pickupDetail: null }
-  | { ok: true; pickupKind: 'area'; pickupAreaId: string; pickupDetail: string | null }
+  | { ok: true; pickupKind: 'point'; pickupAreaId: string; pickupDetail: string | null }
   | { ok: false; code: 'pickup_area_invalid' };
 
 export function validatePickupSelection(
@@ -33,5 +34,5 @@ export function validatePickupSelection(
     return { ok: false, code: 'pickup_area_invalid' };
   }
   const detail = (sel.detail ?? '').trim();
-  return { ok: true, pickupKind: 'area', pickupAreaId: areaId, pickupDetail: detail || null };
+  return { ok: true, pickupKind: 'point', pickupAreaId: areaId, pickupDetail: detail || null };
 }

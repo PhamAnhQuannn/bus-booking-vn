@@ -8,11 +8,25 @@ labels: [pickup-areas, schema, migration]
 
 `issues/prd-pickup-areas.md` · design `docs/design/pickup-points-v2.md` §2 / §2.4
 
+## Build note (refined during implementation 2026-06-09)
+
+A Prisma enum `RENAME VALUE` is NOT type-safe-incremental: renaming `area`→`point` in `schema.prisma`
++ `prisma generate` instantly breaks tsc across every reader. And adding `custom` to the Prisma enum
+forces every consumer to handle 3 values (or keep an `as`-cast). Postgres also cannot DROP an enum value,
+so expand-contract would strand a dead `area` value — the design's in-place RENAME is correct, and this is
+a single-app local-stub deploy (no rolling pods), so the QA P2-2 hard-cutover risk is moot. Therefore the
+split is refined:
+
+- **109 (this issue)** absorbs the **`area`→`point` reader-sweep** (behavior-preserving: `point` ≡ old
+  `area`) so the rename + sweep land atomically. It does **NOT** add the `custom` value (that value is
+  coupled to its 3-way handling).
+- **111** adds `ADD VALUE 'custom'` + the CHECK constraint + the custom-request feature (consumers go 3-way there).
+
 ## What to build
 
 Schema + migration foundation for Pickup Points v2. Splits cleanly from the feature work (mirrors how
 v1 isolated the schema in issue 104) so 110 (station-as-kind) and 111 (custom-request) build on a
-landed, parity-checked migration. **No app behavior change in this issue** — columns + enum values only.
+landed, parity-checked migration. **Behavior-preserving** — `point` is a rename of `area`, columns default inert.
 
 - **`PickupPlaceKind` enum** `{ station, pickup }` + `OperatorPickupArea.kind PickupPlaceKind @default(pickup)`.
 - **Snapshot kind** on `TripPickupArea.kind` + `TemplatePickupArea.kind` (same enum, `@default(pickup)`).

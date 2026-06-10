@@ -45,7 +45,7 @@ export interface CreateHoldInput {
   /** Issue 042: buyer email captured at hold creation. Optional for back-compat callers. */
   customerEmail?: string | null;
   /** Issue 107: traveler pickup selection (already validated + resolved by the caller). */
-  pickupKind?: 'station' | 'area';
+  pickupKind?: 'station' | 'point';
   pickupAreaId?: string | null;
   pickupAreaLabel?: string | null;
   pickupDetail?: string | null;
