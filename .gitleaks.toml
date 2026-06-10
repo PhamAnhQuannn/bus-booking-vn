@@ -14,6 +14,11 @@ description = "Placeholder/fake VN phone numbers in seeds, tests, QA smoke artif
 regexes = [
   # Canonical fake doc-example number reused in docstrings (redactPhone, attachGuestBookingByPhone, …).
   '''\+84901234567''',
+  # Fabricated SEED operator phone — used verbatim by prisma/seed.ts, the operator/auth tests,
+  # the e2e specs, and the smoke crawl scripts (they log in with it, so it can't be x-masked).
+  # Already path-allowlisted in those locations; allowlisting the literal also covers the commit
+  # HISTORY that gitleaks-action scans (the value was introduced before its HEAD x-mask).
+  '''\+84901230001''',
 ]
 paths = [
   '''prisma/seed\.ts''',
