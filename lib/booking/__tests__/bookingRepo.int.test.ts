@@ -174,6 +174,55 @@ describe('createOnlineBookingFromHold (momo)', () => {
     expect(consents.every((c) => c.version === '2026-06-01')).toBe(true);
   });
 
+  it('Issue 111: a custom-pickup hold→booking carries pickupKind=custom + derived flag + detail', async () => {
+    // Custom hold: the CHECK constraint requires a ≥5-char detail, so a valid one is supplied.
+    const h = await createHold({
+      tripId,
+      ticketCount: 1,
+      customerPhone: '+8490xxxxxx1',
+      customerName: 'Custom Holder',
+      customerEmail: 'custom@example.com',
+      pickupKind: 'custom',
+      pickupAreaId: null,
+      pickupAreaLabel: null,
+      pickupDetail: '12 Lê Lợi, phường X',
+    });
+    expect(h).not.toBeNull();
+
+    // The flag is DERIVED IN SQL from pickupKind on the Hold itself.
+    const holdRow = await prisma.hold.findUnique({
+      where: { id: h!.holdId },
+      select: { pickupKind: true, customPickupRequested: true, pickupDetail: true },
+    });
+    expect(holdRow?.pickupKind).toBe('custom');
+    expect(holdRow?.customPickupRequested).toBe(true);
+    expect(holdRow?.pickupDetail).toBe('12 Lê Lợi, phường X');
+
+    const r = await createBookingFromHold({
+      holdId: h!.holdId,
+      buyerName: 'Custom Buyer',
+      buyerPhone: '+8490xxxxxx5',
+      buyerEmail: 'custombuyer@example.com',
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    // The booking snapshot derives customPickupRequested from the hold's pickupKind (not a copied column).
+    const bookingRow = await prisma.booking.findUnique({
+      where: { id: r.booking.id },
+      select: {
+        pickupKind: true,
+        customPickupRequested: true,
+        pickupAreaId: true,
+        pickupDetail: true,
+      },
+    });
+    expect(bookingRow?.pickupKind).toBe('custom');
+    expect(bookingRow?.customPickupRequested).toBe(true);
+    expect(bookingRow?.pickupAreaId).toBeNull();
+    expect(bookingRow?.pickupDetail).toBe('12 Lê Lợi, phường X');
+  });
+
   it('stamps customerId when provided and leaves it null when omitted (Issue 031)', async () => {
     // Booking.customerId is a real FK → Customer.id, so the signed-in case needs
     // a real customer row (onDelete: SetNull lets us drop it before the booking).

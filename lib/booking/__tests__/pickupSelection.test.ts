@@ -39,4 +39,27 @@ describe('validatePickupSelection', () => {
       validatePickupSelection(TRIP_AREAS, { kind: 'point', detail: 'somewhere' })
     ).toMatchObject({ ok: false, code: 'pickup_area_invalid' });
   });
+
+  it('accepts a custom request with a trimmed ≥5-char detail (no areaId)', () => {
+    expect(
+      validatePickupSelection(TRIP_AREAS, { kind: 'custom', detail: '  12 Lê Lợi, phường X  ' })
+    ).toEqual({
+      ok: true,
+      pickupKind: 'custom',
+      pickupAreaId: null,
+      pickupDetail: '12 Lê Lợi, phường X',
+    });
+  });
+
+  it('rejects a custom request whose detail is shorter than 5 trimmed chars', () => {
+    expect(
+      validatePickupSelection(TRIP_AREAS, { kind: 'custom', detail: 'Cầu' })
+    ).toMatchObject({ ok: false, code: 'pickup_custom_detail_required' });
+    expect(
+      validatePickupSelection(TRIP_AREAS, { kind: 'custom', detail: '     ' })
+    ).toMatchObject({ ok: false, code: 'pickup_custom_detail_required' });
+    expect(
+      validatePickupSelection(TRIP_AREAS, { kind: 'custom' })
+    ).toMatchObject({ ok: false, code: 'pickup_custom_detail_required' });
+  });
 });

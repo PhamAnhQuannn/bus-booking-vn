@@ -111,6 +111,8 @@ export async function processPaymentWebhook(
       buyerPhone: true,
       ticketCount: true,
       totalVnd: true,
+      customPickupRequested: true,
+      pickupDetail: true,
       trip: {
         select: {
           departureAt: true,
@@ -287,6 +289,11 @@ export async function processPaymentWebhook(
               bookingRef: booking.bookingRef,
               buyerPhone: booking.buyerPhone,
             };
+            // Issue 111: fold the custom-pickup request into the SAME operator SMS (no second
+            // message — avoids notification spam). The renderer appends a "Diem don rieng" line.
+            if (booking.customPickupRequested && booking.pickupDetail) {
+              operatorPayload.customPickup = booking.pickupDetail;
+            }
 
             // Issue 058: enqueue ONLY (status='pending'). No in-process send —
             // the dispatch-notifications cron delivers these with retry/backoff.

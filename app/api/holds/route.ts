@@ -63,15 +63,36 @@ async function handler(req: NextRequest): Promise<Response> {
   const { tripId, ticketCount, buyerName, buyerPhone, buyerEmail, pickupKind, pickupAreaId, pickupDetail } =
     parsed.data;
 
-  // ---- 2b. Resolve + validate pickup against the trip's enabled areas (Issue 107) ----
+  // ---- 2b. Resolve + validate pickup against the trip's enabled areas (Issue 107/111) ----
+  // pickupKind is SERVER-DERIVED, never trusted from the client: custom → custom; a valid
+  // areaId → point; otherwise station. The client `pickupKind` only signals the custom intent.
   let pickup: {
-    pickupKind: 'station' | 'point';
+    pickupKind: 'station' | 'point' | 'custom';
     pickupAreaId: string | null;
     pickupAreaLabel: string | null;
     pickupDetail: string | null;
-  } = { pickupKind: 'station', pickupAreaId: null, pickupAreaLabel: null, pickupDetail: null };
+    customPickupRequested: boolean;
+  } = {
+    pickupKind: 'station',
+    pickupAreaId: null,
+    pickupAreaLabel: null,
+    pickupDetail: null,
+    customPickupRequested: false,
+  };
 
-  if (pickupKind === 'point') {
+  if (pickupKind === 'custom') {
+    const check = validatePickupSelection([], { kind: 'custom', detail: pickupDetail });
+    if (!check.ok) {
+      return NextResponse.json({ error: check.code }, { status: 422 });
+    }
+    pickup = {
+      pickupKind: 'custom',
+      pickupAreaId: null,
+      pickupAreaLabel: null,
+      pickupDetail: check.pickupDetail,
+      customPickupRequested: true,
+    };
+  } else if (pickupKind === 'point') {
     const tripAreas = await prisma.tripPickupArea.findMany({
       where: { tripId },
       select: { operatorPickupAreaId: true, label: true },
@@ -89,6 +110,7 @@ async function handler(req: NextRequest): Promise<Response> {
       pickupAreaId: check.pickupAreaId,
       pickupAreaLabel: label,
       pickupDetail: check.pickupDetail,
+      customPickupRequested: false,
     };
   }
 

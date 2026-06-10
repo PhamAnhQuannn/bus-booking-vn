@@ -240,16 +240,28 @@ export default function ManifestRefresh({ tripId, initialGeneratedAt, initialRow
                   <TableRow
                     key={row.bookingId}
                     data-testid={`manifest-row-${row.bookingId}`}
-                    className={row.escalatedAt ? 'bg-warning/10' : undefined}
+                    className={
+                      row.escalatedAt ||
+                      (row.customPickupRequested && row.contactStatus === 'pending')
+                        ? 'bg-warning/10'
+                        : undefined
+                    }
                   >
                     <TableCell className="font-mono text-xs">{row.bookingRef}</TableCell>
                     <TableCell>{row.name}</TableCell>
                     <TableCell className="tabular-nums">{row.phone}</TableCell>
                     <TableCell className="tabular-nums">{row.ticketCount}</TableCell>
                     <TableCell>
-                      {row.pickupKind === 'point'
-                        ? [row.pickupAreaLabel, row.pickupDetail].filter(Boolean).join(' — ') || '—'
-                        : 'Tại bến'}
+                      {row.pickupKind === 'custom' ? (
+                        <span>
+                          <span className="text-warning font-medium">Cần liên hệ: </span>
+                          {row.pickupDetail || '—'}
+                        </span>
+                      ) : row.pickupKind === 'point' ? (
+                        [row.pickupAreaLabel, row.pickupDetail].filter(Boolean).join(' — ') || '—'
+                      ) : (
+                        'Tại bến'
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant={contact.variant}>{contact.label}</Badge>
