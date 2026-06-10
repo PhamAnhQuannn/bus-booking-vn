@@ -12,7 +12,7 @@
  * (per AGENTS.md Mistake Log 2026-05-17 — avoids @base-ui/react Input flake).
  *
  * Prerequisites: running dev server + seeded DB with at least one trip on
- * VN-tomorrow for Hà Nội → TP.HCM.
+ * VN-tomorrow for Hà Nội → Sài Gòn.
  *
  * NOTE: Online-only (Issue 039) — the cash rail was removed. The webhook spec
  * seeds an `awaiting_payment` booking via paymentMethod=momo, reads the
@@ -87,7 +87,7 @@ async function seedHoldViaUI(request: APIRequestContext, baseURL: string) {
   const searchRes = await request.get(`${baseURL}/api/trips/search`, {
     params: {
       origin: 'Hà Nội',
-      destination: 'TP.HCM',
+      destination: 'Sài Gòn',
       date: TOMORROW,
       ticketCount: '1',
     },

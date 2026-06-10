@@ -10,7 +10,7 @@
  * Requires:
  *   - Next.js dev server running on http://localhost:3000 (auto-started by playwright.config.ts locally)
  *   - DATABASE_URL pointing to a seeded database
- *   - Seed data: Hà Nội → TP.HCM trips on today+1 (TOMORROW)
+ *   - Seed data: Hà Nội → Sài Gòn trips on today+1 (TOMORROW)
  */
 
 import { test, expect, type Page } from '@playwright/test';
@@ -30,11 +30,11 @@ function vnDateStr(d: Date): string {
 
 const TOMORROW = vnDateStr(addDays(new Date(), 1));
 
-/** Build search URL with known seed data for Hà Nội → TP.HCM */
+/** Build search URL with known seed data for Hà Nội → Sài Gòn */
 function searchUrl(date = TOMORROW, ticketCount = '1') {
   const p = new URLSearchParams({
     origin: 'Hà Nội',
-    destination: 'TP.HCM',
+    destination: 'Sài Gòn',
     date,
     ticketCount,
   });
@@ -56,7 +56,7 @@ test.describe('AC-4: Search results display', () => {
 
     // Route origin → destination visible
     await expect(first.locator('text=Hà Nội')).toBeVisible();
-    await expect(first.locator('text=TP.HCM')).toBeVisible();
+    await expect(first.locator('text=Sài Gòn')).toBeVisible();
 
     // Operator name visible (seed: "Công ty TNHH Xe Khách Phương Bắc")
     await expect(first.getByText(/Công ty/)).toBeVisible();
@@ -118,7 +118,7 @@ test.describe('AC-5: Back navigation restores search form', () => {
 
     // Form should have origin pre-filled from store
     await expect(page.getByLabel(/Điểm xuất phát/i)).toHaveValue('Hà Nội');
-    await expect(page.getByLabel(/Điểm đến/i)).toHaveValue('TP.HCM');
+    await expect(page.getByLabel(/Điểm đến/i)).toHaveValue('Sài Gòn');
   });
 });
 
