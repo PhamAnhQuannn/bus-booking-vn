@@ -13,6 +13,7 @@
  */
 
 import { readCsrfToken } from '@/lib/auth/csrfClient';
+import type { PickupAreaItem } from './pickupAreasClient';
 
 export interface RouteItem {
   id: string;
@@ -80,4 +81,23 @@ export async function deactivateRouteApi(id: string): Promise<{ route: RouteItem
     credentials: 'same-origin',
   });
   return unwrap(res, 'deactivateRoute');
+}
+
+// Issue 113: route-scoped pickup areas. GET current assignments; PUT full-replace.
+export async function getRoutePickupAreasApi(id: string): Promise<{ areas: PickupAreaItem[] }> {
+  const res = await fetch(`/api/op/routes/${id}/pickup-areas`, { credentials: 'same-origin' });
+  return unwrap(res, 'getRoutePickupAreas');
+}
+
+export async function setRoutePickupAreasApi(
+  id: string,
+  areaIds: string[]
+): Promise<{ areas: PickupAreaItem[] }> {
+  const res = await fetch(`/api/op/routes/${id}/pickup-areas`, {
+    method: 'PUT',
+    headers: jsonHeaders(),
+    credentials: 'same-origin',
+    body: JSON.stringify({ areaIds }),
+  });
+  return unwrap(res, 'setRoutePickupAreas');
 }

@@ -127,8 +127,9 @@ export async function createTrip(input: CreateTripInput): Promise<TripDto> {
       // operator's active menu areas (cross-op / inactive / unknown → reject), then
       // snapshot the label into TripPickupArea. resolveOwnedAreas throws
       // TripServiceError('invalid_pickup_area') — re-thrown as-is by the catch below.
+      // Issue 113: route-scoped — area must also be assigned to THIS route.
       if (pickupAreaIds && pickupAreaIds.length > 0) {
-        const owned = await resolveOwnedAreas(tx, operatorId, pickupAreaIds);
+        const owned = await resolveOwnedAreas(tx, operatorId, pickupAreaIds, routeId);
         await tx.tripPickupArea.createMany({
           data: toPickupAreaRows(owned).map((r) => ({ tripId: created.id, ...r })),
         });

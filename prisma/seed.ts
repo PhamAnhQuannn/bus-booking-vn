@@ -247,6 +247,19 @@ async function main() {
   }
   const reverseRoutes = await Promise.all(reverseDefs.map((d) => prisma.route.create({ data: d })));
 
+  // ---- Route-scoped pickup areas (Issue 113) ----
+  // Pickup areas are route-scoped: assign each operator's full menu to every one of
+  // that operator's routes so a fresh seed has populated new-trip pickers per route.
+  const allRoutesForPickup = await prisma.route.findMany({ select: { id: true, operatorId: true } });
+  for (const r of allRoutesForPickup) {
+    const areas = areasByOperator[r.operatorId] ?? [];
+    if (areas.length === 0) continue;
+    await prisma.routePickupArea.createMany({
+      data: areas.map((a, i) => ({ routeId: r.id, operatorPickupAreaId: a.id, displayOrder: i })),
+      skipDuplicates: true,
+    });
+  }
+
   // ---- Places (Issue 044) ----
   // Canonical Place per distinct trimmed origin/destination, then link route FKs.
   // Mirrors the place_entity migration backfill so a fresh seed is place-linked.

@@ -18,6 +18,8 @@ export {
   createRouteApi,
   patchRouteApi,
   deactivateRouteApi,
+  getRoutePickupAreasApi,
+  setRoutePickupAreasApi,
   type RouteItem,
 } from './routesClient';
 export {

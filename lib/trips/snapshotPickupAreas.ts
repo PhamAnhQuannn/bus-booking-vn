@@ -29,12 +29,17 @@ export async function resolveOwnedAreas(
   tx: Prisma.TransactionClient,
   operatorId: string,
   areaIds: string[],
+  routeId?: string,
 ): Promise<OwnedPickupArea[]> {
   const uniqueIds = [...new Set(areaIds)];
   if (uniqueIds.length === 0) return [];
 
+  const where: Prisma.OperatorPickupAreaWhereInput = {
+    id: { in: uniqueIds }, operatorId, isActive: true,
+    ...(routeId ? { routeAreas: { some: { routeId } } } : {}),
+  };
   const owned = await tx.operatorPickupArea.findMany({
-    where: { id: { in: uniqueIds }, operatorId, isActive: true },
+    where,
     select: { id: true, name: true, addressLine: true, kind: true },
   });
   if (owned.length !== uniqueIds.length) {

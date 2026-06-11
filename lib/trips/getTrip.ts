@@ -14,7 +14,8 @@ export async function getTrip(
   const trip = await prisma.trip.findFirst({
     ...withOperatorScope(operatorId, { where: { id: tripId } }),
     include: {
-      bus: { select: { capacity: true } },
+      route: { select: { origin: true, destination: true } },
+      bus: { select: { capacity: true, licensePlate: true } },
       _count: {
         select: {
           holds: { where: { status: 'active' } },
