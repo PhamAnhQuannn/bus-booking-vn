@@ -15,6 +15,7 @@
  * "View" affordance per doc that mints a fresh signed GET URL on demand (audited).
  */
 
+import Link from 'next/link';
 import { requireAdminPage } from '@/lib/auth';
 import { getApprovalQueue, type ApprovalQueueOperator } from '@/lib/admin';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -84,7 +85,9 @@ export default async function AdminApprovalsPage() {
                   <CardHeader className="flex flex-row items-start justify-between gap-4">
                     <div className="min-w-0 space-y-1">
                       <CardTitle as="h2" className="text-lg">
-                        {op.legalName}
+                        <Link href={`/admin/operators/${op.id}`} className="hover:underline">
+                          {op.legalName}
+                        </Link>
                       </CardTitle>
                       <dl className="grid gap-0.5 text-sm text-muted-foreground">
                         <div className="flex gap-2">

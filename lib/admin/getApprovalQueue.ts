@@ -5,9 +5,7 @@
  * operator whose status is PENDING_REVIEW or UNDER_REVIEW, oldest first (FIFO —
  * the longest-waiting applicant surfaces at the top of the queue).
  *
- * Phone is masked via redactPhone() before leaving the DB — the admin needs a
- * glanceable contact, not the raw PII (the audit/contact path uses the unmasked
- * value elsewhere). Email is shown in full (admins contact applicants by email).
+ * Phone and email are shown in full — admins need to contact applicants during review.
  *
  * KYB documents (Issue 077) are populated from the operator's KybDocument rows.
  * The list query does NOT mint signed GET URLs (N operators × M docs = too many
@@ -25,7 +23,6 @@
 
 import type { OperatorStatus } from '@prisma/client';
 import { prisma as defaultPrisma } from '@/lib/core/db/client';
-import { redactPhone } from '@/lib/audit';
 import { maskAccountNumber } from '@/lib/onboarding';
 import { nameMatchScore } from '@/lib/onboarding';
 
@@ -60,7 +57,6 @@ export interface ApprovalQueueOperator {
   id: string;
   legalName: string;
   contactEmail: string;
-  /** Masked via redactPhone() — last 4 digits only. */
   contactPhone: string;
   status: OperatorStatus;
   createdAt: Date;
@@ -130,7 +126,7 @@ export async function getApprovalQueue(
       id: row.id,
       legalName: row.legalName,
       contactEmail: row.contactEmail,
-      contactPhone: redactPhone(row.contactPhone),
+      contactPhone: row.contactPhone,
       status: row.status,
       createdAt: row.createdAt,
       rejectionReason: row.rejectionReason,
