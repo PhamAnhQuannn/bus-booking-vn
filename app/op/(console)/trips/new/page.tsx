@@ -16,7 +16,7 @@ import { redirect } from 'next/navigation';
 import { getOperatorSession } from '@/lib/op';
 import { listRoutes } from '@/lib/catalog';
 import { listOperatorBuses } from '@/lib/catalog';
-import { listOperatorPickupAreas, composePickupLabel } from '@/lib/catalog';
+import { listOperatorPickupAreas, listRoutePickupAreas, composePickupLabel } from '@/lib/catalog';
 import { prisma } from '@/lib/core/db/client';
 import { PageHeader } from '@/components/op/PageHeader';
 import NewTripClient from './NewTripClient';
@@ -49,6 +49,24 @@ export default async function OpNewTripPage() {
   const activeAreas = areas
     .filter((a) => a.isActive)
     .map((a) => ({ id: a.id, label: composePickupLabel(a), kind: a.kind, provinceCode: a.provinceCode }));
+
+  // Issue 113: pickup areas are route-scoped — load the assigned subset per route so the
+  // picker offers only the areas relevant to the chosen route (not the whole operator menu).
+  const routeAreaEntries = await Promise.all(
+    activeRoutes.map(async (r) => {
+      const assigned = await listRoutePickupAreas({ operatorId: session.operatorId, routeId: r.id });
+      return [
+        r.id,
+        assigned.map((a) => ({
+          id: a.id,
+          label: composePickupLabel(a),
+          kind: a.kind,
+          provinceCode: a.provinceCode,
+        })),
+      ] as const;
+    })
+  );
+  const routePickupAreas: Record<string, typeof activeAreas> = Object.fromEntries(routeAreaEntries);
 
   // Issue 112 (per-route memory, operator P1.3): for each active route, surface the pickup-area set
   // of the MOST RECENT prior trip so the client can offer "dùng lại điểm đón chuyến trước". One query
@@ -85,7 +103,7 @@ export default async function OpNewTripPage() {
       <NewTripClient
         routes={activeRoutes}
         buses={activeBuses}
-        pickupAreas={activeAreas}
+        routePickupAreas={routePickupAreas}
         routePickupMemory={routePickupMemory}
       />
     </div>

@@ -18,7 +18,8 @@ interface TripRow {
   pairedTripId: string | null;
   cancelReason: string | null;
   cancelledAt: Date | null;
-  bus: { capacity: number };
+  bus: { capacity: number; licensePlate?: string };
+  route?: { origin: string; destination: string };
   _count: { holds: number; bookings: number };
 }
 
@@ -46,5 +47,8 @@ export function toTripDto(row: TripRow): TripDto {
     pairedTripId: row.pairedTripId,
     cancelReason: row.cancelReason,
     cancelledAt: row.cancelledAt ? row.cancelledAt.toISOString() : null,
+    routeOrigin: row.route?.origin,
+    routeDestination: row.route?.destination,
+    busLicensePlate: row.bus.licensePlate,
   };
 }

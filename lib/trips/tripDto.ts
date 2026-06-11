@@ -21,6 +21,10 @@ export interface TripDto {
   pairedTripId: string | null;
   cancelReason: string | null;
   cancelledAt: string | null; // ISO 8601 or null
+  // Optional display fields — only populated when the query loads the relations (getTrip).
+  routeOrigin?: string;
+  routeDestination?: string;
+  busLicensePlate?: string;
 }
 
 export interface TemplateDto {
