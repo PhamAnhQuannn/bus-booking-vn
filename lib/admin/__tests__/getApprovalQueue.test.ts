@@ -27,7 +27,7 @@ describe('getApprovalQueue', () => {
     expect(arg.orderBy).toEqual({ createdAt: 'asc' });
   });
 
-  it('masks the contact phone and maps an empty kybDocuments list to docs', async () => {
+  it('returns full contact phone and maps an empty kybDocuments list to docs', async () => {
     const createdAt = new Date('2026-05-01T00:00:00.000Z');
     const { prisma } = makePrisma([
       {
@@ -48,9 +48,7 @@ describe('getApprovalQueue', () => {
     expect(op.id).toBe('op_1');
     expect(op.legalName).toBe('Acme Buses');
     expect(op.contactEmail).toBe('ops@acme.test');
-    // redactPhone keeps the last 4 digits, masks the rest with literal 'x'.
-    expect(op.contactPhone).toBe('+xxxxxxx4567');
-    expect(op.contactPhone).not.toContain('90123');
+    expect(op.contactPhone).toBe('+84901234567');
     expect(op.status).toBe('PENDING_REVIEW');
     expect(op.createdAt).toEqual(createdAt);
     expect(op.docs).toEqual([]);
