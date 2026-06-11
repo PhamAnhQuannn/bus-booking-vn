@@ -42,11 +42,11 @@ function formatPct(ppm: number): string {
 }
 
 const STATUS_BADGE: Record<string, { variant: 'neutral' | 'pending' | 'success' | 'danger'; label: string }> = {
-  PENDING_REVIEW: { variant: 'pending', label: 'Pending review' },
-  UNDER_REVIEW: { variant: 'pending', label: 'Under review' },
-  APPROVED: { variant: 'success', label: 'Approved' },
-  REJECTED: { variant: 'neutral', label: 'Rejected' },
-  SUSPENDED: { variant: 'danger', label: 'Suspended' },
+  PENDING_REVIEW: { variant: 'pending', label: 'Chờ duyệt' },
+  UNDER_REVIEW: { variant: 'pending', label: 'Đang xem xét' },
+  APPROVED: { variant: 'success', label: 'Đã duyệt' },
+  REJECTED: { variant: 'neutral', label: 'Từ chối' },
+  SUSPENDED: { variant: 'danger', label: 'Tạm ngưng' },
 };
 
 const PAYOUT_STATUS_VARIANT: Record<PayoutStatus, 'neutral' | 'pending' | 'success' | 'danger'> = {
@@ -64,8 +64,8 @@ export default async function AdminOperatorDetailPage({ params }: PageProps) {
     return (
       <div className="mx-auto max-w-3xl space-y-6">
         <Alert variant="warning">
-          <AlertTitle>Insufficient role</AlertTitle>
-          <AlertDescription>Operator detail is restricted to SUPER_ADMIN and FINANCE.</AlertDescription>
+          <AlertTitle>Không đủ quyền</AlertTitle>
+          <AlertDescription>Chi tiết nhà xe chỉ dành cho vai trò SUPER_ADMIN và FINANCE.</AlertDescription>
         </Alert>
       </div>
     );
@@ -83,21 +83,21 @@ export default async function AdminOperatorDetailPage({ params }: PageProps) {
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
         <Link href="/admin/operators" className="text-sm text-muted-foreground hover:underline">
-          ← Back to operators
+          ← Quay lại nhà xe
         </Link>
       </div>
 
       <header className="flex items-start justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold">{detail.legalName}</h1>
-          <p className="text-sm text-muted-foreground">Operator</p>
+          <p className="text-sm text-muted-foreground">Nhà xe</p>
         </div>
         <Badge variant={badge.variant}>{badge.label}</Badge>
       </header>
 
       {detail.rejectionReason ? (
         <Alert variant="warning">
-          <AlertTitle>Rejection reason</AlertTitle>
+          <AlertTitle>Lý do từ chối</AlertTitle>
           <AlertDescription>{detail.rejectionReason}</AlertDescription>
         </Alert>
       ) : null}
@@ -105,41 +105,41 @@ export default async function AdminOperatorDetailPage({ params }: PageProps) {
       <Card>
         <CardHeader>
           <CardTitle as="h2" className="text-lg">
-            Profile
+            Hồ sơ
           </CardTitle>
         </CardHeader>
         <CardContent>
           <dl className="grid gap-2 text-sm sm:grid-cols-2">
             <div>
-              <dt className="font-medium text-muted-foreground">Brand name</dt>
+              <dt className="font-medium text-muted-foreground">Tên thương hiệu</dt>
               <dd>{detail.brandName ?? '—'}</dd>
             </div>
             <div>
-              <dt className="font-medium text-muted-foreground">Contact person</dt>
+              <dt className="font-medium text-muted-foreground">Người liên hệ</dt>
               <dd>{detail.contactName ?? '—'}</dd>
             </div>
             <div>
-              <dt className="font-medium text-muted-foreground">Contact email</dt>
+              <dt className="font-medium text-muted-foreground">Email liên hệ</dt>
               <dd>{detail.contactEmail}</dd>
             </div>
             <div>
-              <dt className="font-medium text-muted-foreground">Contact phone</dt>
+              <dt className="font-medium text-muted-foreground">Điện thoại liên hệ</dt>
               <dd className="font-mono">{detail.contactPhoneMasked}</dd>
             </div>
             <div>
-              <dt className="font-medium text-muted-foreground">Address</dt>
+              <dt className="font-medium text-muted-foreground">Địa chỉ</dt>
               <dd>{detail.address ?? '—'}</dd>
             </div>
             <div>
-              <dt className="font-medium text-muted-foreground">Routes</dt>
+              <dt className="font-medium text-muted-foreground">Tuyến</dt>
               <dd>{detail.routesSummary ?? '—'}</dd>
             </div>
             <div>
-              <dt className="font-medium text-muted-foreground">Joined</dt>
+              <dt className="font-medium text-muted-foreground">Ngày tham gia</dt>
               <dd>{formatDate(detail.createdAt)}</dd>
             </div>
             <div>
-              <dt className="font-medium text-muted-foreground">Current platform fee</dt>
+              <dt className="font-medium text-muted-foreground">Phí nền tảng hiện tại</dt>
               <dd data-testid="current-fee">{formatPct(detail.currentFeePpm)}</dd>
             </div>
           </dl>
@@ -149,25 +149,25 @@ export default async function AdminOperatorDetailPage({ params }: PageProps) {
       <Card>
         <CardHeader>
           <CardTitle as="h2" className="text-lg">
-            Activity
+            Hoạt động
           </CardTitle>
         </CardHeader>
         <CardContent>
           <dl className="grid gap-2 text-sm sm:grid-cols-2">
             <div>
-              <dt className="font-medium text-muted-foreground">Fleet (buses)</dt>
+              <dt className="font-medium text-muted-foreground">Đội xe</dt>
               <dd>{detail.fleetCount}</dd>
             </div>
             <div>
-              <dt className="font-medium text-muted-foreground">Trips (total)</dt>
+              <dt className="font-medium text-muted-foreground">Chuyến (tổng)</dt>
               <dd>{detail.tripCount}</dd>
             </div>
             <div>
-              <dt className="font-medium text-muted-foreground">Upcoming trips</dt>
+              <dt className="font-medium text-muted-foreground">Chuyến sắp tới</dt>
               <dd>{detail.upcomingTripCount}</dd>
             </div>
             <div>
-              <dt className="font-medium text-muted-foreground">GMV (paid)</dt>
+              <dt className="font-medium text-muted-foreground">GMV (đã thanh toán)</dt>
               <dd data-testid="operator-gmv">{formatVnd(detail.gmvVnd)}</dd>
             </div>
           </dl>
@@ -177,21 +177,21 @@ export default async function AdminOperatorDetailPage({ params }: PageProps) {
       <Card>
         <CardHeader>
           <CardTitle as="h2" className="text-lg">
-            Balance
+            Số dư
           </CardTitle>
         </CardHeader>
         <CardContent>
           <dl className="grid gap-2 text-sm sm:grid-cols-3">
             <div>
-              <dt className="font-medium text-muted-foreground">Pending</dt>
+              <dt className="font-medium text-muted-foreground">Chờ xử lý</dt>
               <dd data-testid="balance-pending">{formatVnd(detail.balance.pending)}</dd>
             </div>
             <div>
-              <dt className="font-medium text-muted-foreground">Available</dt>
+              <dt className="font-medium text-muted-foreground">Khả dụng</dt>
               <dd data-testid="balance-available">{formatVnd(detail.balance.available)}</dd>
             </div>
             <div>
-              <dt className="font-medium text-muted-foreground">Paid out</dt>
+              <dt className="font-medium text-muted-foreground">Đã chi trả</dt>
               <dd data-testid="balance-paidout">{formatVnd(detail.balance.paidOut)}</dd>
             </div>
           </dl>
@@ -201,19 +201,18 @@ export default async function AdminOperatorDetailPage({ params }: PageProps) {
       <Card>
         <CardHeader>
           <CardTitle as="h2" className="text-lg">
-            Operator account
+            Tài khoản nhà xe
           </CardTitle>
         </CardHeader>
         <CardContent>
           {detail.hasLoginAccount ? (
             <p className="text-sm text-muted-foreground" data-testid="account-provisioned">
-              A login account has been provisioned for this operator.
+              Tài khoản đăng nhập đã được tạo cho nhà xe này.
             </p>
           ) : (
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">
-                No login account yet. Creating one generates a username + temporary password and
-                emails the credentials to the operator (approves the operator).
+                Chưa có tài khoản đăng nhập. Tạo tài khoản sẽ sinh tên đăng nhập + mật khẩu tạm thời và gửi thông tin đăng nhập qua email cho nhà xe (đồng thời phê duyệt nhà xe).
               </p>
               <CreateAccountAction operatorId={detail.id} />
             </div>
@@ -224,7 +223,7 @@ export default async function AdminOperatorDetailPage({ params }: PageProps) {
       <Card>
         <CardHeader>
           <CardTitle as="h2" className="text-lg">
-            Actions
+            Thao tác
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -239,20 +238,20 @@ export default async function AdminOperatorDetailPage({ params }: PageProps) {
       <Card>
         <CardHeader>
           <CardTitle as="h2" className="text-lg">
-            Payout history
+            Lịch sử chi trả
           </CardTitle>
         </CardHeader>
         <CardContent>
           {detail.payoutHistory.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No payouts yet.</p>
+            <p className="text-sm text-muted-foreground">Chưa có chi trả.</p>
           ) : (
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-muted-foreground">
-                  <th className="py-1 font-medium">Net</th>
-                  <th className="py-1 font-medium">Status</th>
-                  <th className="py-1 font-medium">Scheduled</th>
-                  <th className="py-1 font-medium">Settled</th>
+                  <th className="py-1 font-medium">Số tiền</th>
+                  <th className="py-1 font-medium">Trạng thái</th>
+                  <th className="py-1 font-medium">Lên lịch</th>
+                  <th className="py-1 font-medium">Đã thanh toán</th>
                 </tr>
               </thead>
               <tbody>

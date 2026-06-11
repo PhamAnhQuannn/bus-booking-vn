@@ -73,7 +73,7 @@ export function CharterDispatchActions({ charterId, operators }: Props) {
       }
       router.refresh();
     } catch {
-      setError('Network error. Please retry.');
+      setError('Lỗi mạng. Vui lòng thử lại.');
     } finally {
       setBusy(false);
     }
@@ -173,14 +173,14 @@ async function describeError(res: Response): Promise<string> {
   const data = (await res.json().catch(() => ({}))) as { error?: string };
   switch (data.error) {
     case 'ILLEGAL_TRANSITION':
-      return 'That action is not allowed from the request’s current status.';
+      return 'Thao tác không được phép từ trạng thái hiện tại.';
     case 'CHARTER_NOT_FOUND':
-      return 'Charter request no longer exists.';
+      return 'Yêu cầu thuê xe không còn tồn tại.';
     case 'NOT_APPROVED':
-      return 'That operator is not approved.';
+      return 'Nhà xe đó chưa được phê duyệt.';
     case 'INVALID':
-      return 'Invalid input.';
+      return 'Dữ liệu không hợp lệ.';
     default:
-      return `Action failed (${res.status}).`;
+      return `Thao tác thất bại (${res.status}).`;
   }
 }

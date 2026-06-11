@@ -27,14 +27,14 @@ interface PageProps {
 }
 
 const STATUS_BADGE: Record<UserStatus, { variant: 'neutral' | 'pending' | 'success' | 'danger'; label: string }> = {
-  active: { variant: 'success', label: 'Active' },
-  suspended: { variant: 'danger', label: 'Suspended' },
-  deleted: { variant: 'neutral', label: 'Deleted' },
-  PENDING_REVIEW: { variant: 'pending', label: 'Pending review' },
-  UNDER_REVIEW: { variant: 'pending', label: 'Under review' },
-  APPROVED: { variant: 'success', label: 'Approved' },
-  REJECTED: { variant: 'neutral', label: 'Rejected' },
-  SUSPENDED: { variant: 'danger', label: 'Suspended' },
+  active: { variant: 'success', label: 'Hoạt động' },
+  suspended: { variant: 'danger', label: 'Tạm ngưng' },
+  deleted: { variant: 'neutral', label: 'Đã xóa' },
+  PENDING_REVIEW: { variant: 'pending', label: 'Chờ duyệt' },
+  UNDER_REVIEW: { variant: 'pending', label: 'Đang xem xét' },
+  APPROVED: { variant: 'success', label: 'Đã duyệt' },
+  REJECTED: { variant: 'neutral', label: 'Từ chối' },
+  SUSPENDED: { variant: 'danger', label: 'Tạm ngưng' },
 };
 
 function normalizeKind(raw: string | undefined): UserKind {
@@ -65,12 +65,12 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
     return (
       <div className="mx-auto max-w-5xl space-y-6">
         <header className="space-y-1">
-          <h1 className="text-2xl font-semibold">Users</h1>
+          <h1 className="text-2xl font-semibold">Người dùng</h1>
         </header>
         <Alert variant="warning">
-          <AlertTitle>Insufficient role</AlertTitle>
+          <AlertTitle>Không đủ quyền</AlertTitle>
           <AlertDescription>
-            The Users tab is restricted to SUPER_ADMIN and SUPPORT roles.
+            Tab Người dùng chỉ dành cho vai trò SUPER_ADMIN và SUPPORT.
           </AlertDescription>
         </Alert>
       </div>
@@ -85,9 +85,9 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold">Users</h1>
+        <h1 className="text-2xl font-semibold">Người dùng</h1>
         <p className="text-sm text-muted-foreground">
-          Search and moderate customers and operators.
+          Tìm kiếm và kiểm duyệt khách hàng và nhà xe.
         </p>
       </header>
 
@@ -98,14 +98,14 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
           className={`rounded-md border px-3 py-1.5 text-sm font-medium ${kind === 'customer' ? 'border-foreground bg-accent/40' : 'border-border'}`}
           aria-current={kind === 'customer' ? 'page' : undefined}
         >
-          Customers
+          Khách hàng
         </Link>
         <Link
           href={usersHref(q, 'operator')}
           className={`rounded-md border px-3 py-1.5 text-sm font-medium ${kind === 'operator' ? 'border-foreground bg-accent/40' : 'border-border'}`}
           aria-current={kind === 'operator' ? 'page' : undefined}
         >
-          Operators
+          Nhà xe
         </Link>
       </nav>
 
@@ -116,7 +116,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
           type="search"
           name="q"
           defaultValue={q ?? ''}
-          placeholder="Name, phone, or email"
+          placeholder="Tên, điện thoại, hoặc email"
           className="min-h-9 flex-1 rounded-md border border-border bg-background px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring"
           data-testid="users-search"
         />
@@ -124,14 +124,18 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
           type="submit"
           className="min-h-9 rounded-md border border-border px-3 text-sm font-medium hover:bg-accent/40"
         >
-          Search
+          Tìm kiếm
         </button>
       </form>
 
       {items.length === 0 ? (
         <Alert>
-          <AlertTitle>No matches</AlertTitle>
-          <AlertDescription>No {kind}s match your search.</AlertDescription>
+          <AlertTitle>Không có kết quả</AlertTitle>
+          <AlertDescription>
+            {kind === 'customer'
+              ? 'Không có khách hàng nào khớp tìm kiếm.'
+              : 'Không có nhà xe nào khớp tìm kiếm.'}
+          </AlertDescription>
         </Alert>
       ) : (
         <ul className="space-y-3">
@@ -168,7 +172,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
             className="min-h-9 rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-accent/40"
             data-testid="users-next-page"
           >
-            Next page
+            Trang tiếp
           </Link>
         </div>
       ) : null}

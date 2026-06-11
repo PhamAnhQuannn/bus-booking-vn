@@ -70,12 +70,12 @@ export default async function AdminFinancePage({ searchParams }: PageProps) {
     return (
       <div className="mx-auto max-w-5xl space-y-6">
         <header className="space-y-1">
-          <h1 className="text-2xl font-semibold">Finance</h1>
+          <h1 className="text-2xl font-semibold">Tài chính</h1>
         </header>
         <Alert variant="warning">
-          <AlertTitle>Insufficient role</AlertTitle>
+          <AlertTitle>Không đủ quyền</AlertTitle>
           <AlertDescription>
-            The Finance tab is restricted to SUPER_ADMIN and FINANCE roles.
+            Tab Tài chính chỉ dành cho vai trò SUPER_ADMIN và FINANCE.
           </AlertDescription>
         </Alert>
       </div>
@@ -99,10 +99,10 @@ export default async function AdminFinancePage({ searchParams }: PageProps) {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold">Finance</h1>
+        <h1 className="text-2xl font-semibold">Tài chính</h1>
         <p className="text-sm text-muted-foreground">
-          Payout queue, operator ledger, refunds, chargebacks, and the platform fee. Every
-          action requires re-authentication (step-up).
+          Hàng đợi chi trả, sổ cái nhà xe, hoàn tiền, chargeback, và phí nền tảng. Mọi
+          thao tác đều cần xác thực lại (step-up).
         </p>
       </header>
 
@@ -110,24 +110,24 @@ export default async function AdminFinancePage({ searchParams }: PageProps) {
       <Card>
         <CardHeader>
           <CardTitle as="h2" className="text-lg">
-            Payout queue
+            Hàng đợi chi trả
           </CardTitle>
         </CardHeader>
         <CardContent>
           {queueRows.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No requested or failed payouts.
+              Không có chi trả yêu cầu hoặc thất bại.
             </p>
           ) : (
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-muted-foreground">
-                  <th className="py-1 font-medium">Operator</th>
-                  <th className="py-1 font-medium">Net</th>
-                  <th className="py-1 font-medium">Status</th>
-                  <th className="py-1 font-medium">Scheduled</th>
-                  <th className="py-1 font-medium">Failure</th>
-                  <th className="py-1 font-medium">Actions</th>
+                  <th className="py-1 font-medium">Nhà xe</th>
+                  <th className="py-1 font-medium">Số tiền</th>
+                  <th className="py-1 font-medium">Trạng thái</th>
+                  <th className="py-1 font-medium">Lên lịch</th>
+                  <th className="py-1 font-medium">Lỗi</th>
+                  <th className="py-1 font-medium">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -159,14 +159,14 @@ export default async function AdminFinancePage({ searchParams }: PageProps) {
       <Card>
         <CardHeader>
           <CardTitle as="h2" className="text-lg">
-            Operator ledger
+            Sổ cái nhà xe
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <form method="get" className="flex items-end gap-2">
             <div className="flex flex-col gap-1">
               <label htmlFor="operatorId" className="text-sm font-medium text-muted-foreground">
-                Operator ID
+                Mã nhà xe
               </label>
               <input
                 id="operatorId"
@@ -181,7 +181,7 @@ export default async function AdminFinancePage({ searchParams }: PageProps) {
               type="submit"
               className="min-h-9 rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-accent/40"
             >
-              View ledger
+              Xem sổ cái
             </button>
           </form>
 
@@ -189,29 +189,29 @@ export default async function AdminFinancePage({ searchParams }: PageProps) {
             <>
               <dl className="grid gap-2 text-sm sm:grid-cols-3">
                 <div>
-                  <dt className="font-medium text-muted-foreground">Pending</dt>
+                  <dt className="font-medium text-muted-foreground">Chờ xử lý</dt>
                   <dd data-testid="ledger-balance-pending">{formatVnd(ledger.balance.pending)}</dd>
                 </div>
                 <div>
-                  <dt className="font-medium text-muted-foreground">Available</dt>
+                  <dt className="font-medium text-muted-foreground">Khả dụng</dt>
                   <dd data-testid="ledger-balance-available">{formatVnd(ledger.balance.available)}</dd>
                 </div>
                 <div>
-                  <dt className="font-medium text-muted-foreground">Paid out</dt>
+                  <dt className="font-medium text-muted-foreground">Đã chi trả</dt>
                   <dd data-testid="ledger-balance-paidout">{formatVnd(ledger.balance.paidOut)}</dd>
                 </div>
               </dl>
 
               {ledger.items.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No ledger entries for this operator.</p>
+                <p className="text-sm text-muted-foreground">Không có bút toán nào cho nhà xe này.</p>
               ) : (
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border text-left text-muted-foreground">
-                      <th className="py-1 font-medium">Type</th>
-                      <th className="py-1 font-medium">Amount</th>
-                      <th className="py-1 font-medium">Source</th>
-                      <th className="py-1 font-medium">Created</th>
+                      <th className="py-1 font-medium">Loại</th>
+                      <th className="py-1 font-medium">Số tiền</th>
+                      <th className="py-1 font-medium">Nguồn</th>
+                      <th className="py-1 font-medium">Tạo lúc</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -228,13 +228,13 @@ export default async function AdminFinancePage({ searchParams }: PageProps) {
               )}
 
               <div className="border-t border-border pt-4">
-                <h3 className="mb-2 text-sm font-semibold">Manual adjustment</h3>
+                <h3 className="mb-2 text-sm font-semibold">Điều chỉnh thủ công</h3>
                 <FinanceActions kind="adjustment" operatorId={operatorId} />
               </div>
             </>
           ) : (
             <p className="text-sm text-muted-foreground">
-              Enter an operator ID to view its ledger and post a manual adjustment.
+              Nhập mã nhà xe để xem sổ cái và thực hiện điều chỉnh thủ công.
             </p>
           )}
         </CardContent>
@@ -244,7 +244,7 @@ export default async function AdminFinancePage({ searchParams }: PageProps) {
       <Card>
         <CardHeader>
           <CardTitle as="h2" className="text-lg">
-            Refund out
+            Hoàn tiền
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -268,15 +268,14 @@ export default async function AdminFinancePage({ searchParams }: PageProps) {
       <Card>
         <CardHeader>
           <CardTitle as="h2" className="text-lg">
-            Platform fee (global)
+            Phí nền tảng (toàn cục)
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Current global default: <span data-testid="global-fee">{formatPct(globalFeePpm)}</span>. Per-operator
-            overrides are set on the{' '}
+            Mặc định toàn cục hiện tại: <span data-testid="global-fee">{formatPct(globalFeePpm)}</span>. Ghi đè theo nhà xe được thiết lập tại tab{' '}
             <Link href="/admin/operators" className="underline">
-              Operators tab
+              Nhà xe
             </Link>
             .
           </p>

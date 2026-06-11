@@ -95,36 +95,37 @@ export default async function AdminOverviewPage() {
     getFailureAlerts(5),
   ]);
 
-  const sentryUrl = process.env.SENTRY_DASHBOARD_URL ?? '#';
-  const datadogUrl = process.env.DATADOG_DASHBOARD_URL ?? '#';
+  const sentryUrl = process.env.SENTRY_DASHBOARD_URL;
+  const datadogUrl = process.env.DATADOG_DASHBOARD_URL;
+  const hasMonitoring = sentryUrl || datadogUrl;
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold">Overview</h1>
+        <h1 className="text-2xl font-semibold">Tổng quan</h1>
         <p className="text-sm text-muted-foreground">
-          Platform metrics for the last 30 days ({dateFrom} → {dateTo}).
+          Chỉ số nền tảng 30 ngày qua ({dateFrom} → {dateTo}).
         </p>
       </header>
 
       {/* Metrics cards */}
       <section aria-labelledby="metrics-heading" className="space-y-3">
         <h2 id="metrics-heading" className="text-sm font-medium text-muted-foreground">
-          Key metrics
+          Chỉ số chính
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <MetricCard label="Customers" value={vnd.format(metrics.customers)} />
+          <MetricCard label="Khách hàng" value={vnd.format(metrics.customers)} />
           <MetricCard
-            label="Operators"
+            label="Nhà xe"
             value={vnd.format(metrics.operators.total)}
-            hint={`${vnd.format(metrics.operators.approved)} approved`}
+            hint={`${vnd.format(metrics.operators.approved)} đã duyệt`}
           />
-          <MetricCard label="Bookings (paid)" value={vnd.format(metrics.bookings)} />
+          <MetricCard label="Đặt vé (đã thanh toán)" value={vnd.format(metrics.bookings)} />
           {canSeeFinance ? (
             <>
               <MetricCard label="GMV" value={formatVnd(metrics.gmvVnd)} />
               <MetricCard
-                label="Platform revenue"
+                label="Doanh thu nền tảng"
                 value={formatVnd(metrics.revenueVnd)}
               />
             </>
@@ -135,18 +136,18 @@ export default async function AdminOverviewPage() {
       {/* Action queue */}
       <section aria-labelledby="queue-heading" className="space-y-3">
         <h2 id="queue-heading" className="text-sm font-medium text-muted-foreground">
-          Action queue
+          Hàng đợi xử lý
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Link href="/admin/approvals" className="outline-none focus-visible:ring-3 focus-visible:ring-ring rounded-xl">
             <Card className="transition-colors hover:bg-accent/40">
               <CardHeader>
-                <CardDescription>Pending approvals</CardDescription>
+                <CardDescription>Chờ phê duyệt</CardDescription>
                 <CardTitle as="h3" className="text-2xl">
                   {actionQueue.pendingApprovals}
                   {actionQueue.pendingApprovals > 0 ? (
                     <Badge variant="pending" className="ml-2 align-middle">
-                      review
+                      xem xét
                     </Badge>
                   ) : null}
                 </CardTitle>
@@ -160,12 +161,12 @@ export default async function AdminOverviewPage() {
           <Link href="/admin/charter" className="outline-none focus-visible:ring-3 focus-visible:ring-ring rounded-xl">
             <Card className="transition-colors hover:bg-accent/40">
               <CardHeader>
-                <CardDescription>Charter dispatch</CardDescription>
+                <CardDescription>Điều phối thuê xe</CardDescription>
                 <CardTitle as="h3" className="text-2xl">
                   {actionQueue.pendingCharters}
                   {actionQueue.pendingCharters > 0 ? (
                     <Badge variant="pending" className="ml-2 align-middle">
-                      dispatch
+                      điều phối
                     </Badge>
                   ) : null}
                 </CardTitle>
@@ -178,12 +179,12 @@ export default async function AdminOverviewPage() {
               <Link href="/admin/finance" className="outline-none focus-visible:ring-3 focus-visible:ring-ring rounded-xl">
                 <Card className="transition-colors hover:bg-accent/40">
                   <CardHeader>
-                    <CardDescription>Open disputes</CardDescription>
+                    <CardDescription>Tranh chấp mở</CardDescription>
                     <CardTitle as="h3" className="text-2xl">
                       {actionQueue.openDisputes}
                       {actionQueue.openDisputes > 0 ? (
                         <Badge variant="danger" className="ml-2 align-middle">
-                          chargeback
+                          hoàn tiền
                         </Badge>
                       ) : null}
                     </CardTitle>
@@ -194,12 +195,12 @@ export default async function AdminOverviewPage() {
               <Link href="/admin/finance" className="outline-none focus-visible:ring-3 focus-visible:ring-ring rounded-xl">
                 <Card className="transition-colors hover:bg-accent/40">
                   <CardHeader>
-                    <CardDescription>Failed payouts</CardDescription>
+                    <CardDescription>Chi trả thất bại</CardDescription>
                     <CardTitle as="h3" className="text-2xl">
                       {actionQueue.failedPayouts}
                       {actionQueue.failedPayouts > 0 ? (
                         <Badge variant="danger" className="ml-2 align-middle">
-                          failed
+                          thất bại
                         </Badge>
                       ) : null}
                     </CardTitle>
@@ -214,18 +215,18 @@ export default async function AdminOverviewPage() {
       {/* Failure alerts */}
       <section aria-labelledby="failures-heading" className="space-y-3">
         <h2 id="failures-heading" className="text-sm font-medium text-muted-foreground">
-          Failure alerts
+          Cảnh báo lỗi
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <MetricCard
-            label="Failed notifications"
+            label="Thông báo thất bại"
             value={vnd.format(failures.failedNotifications)}
-            hint="SMS / email that never delivered"
+            hint="SMS / email không gửi được"
           />
           <MetricCard
-            label="Failed payouts"
+            label="Chi trả thất bại"
             value={vnd.format(failures.failedPayouts)}
-            hint="disbursements that errored"
+            hint="giải ngân bị lỗi"
           />
         </div>
 
@@ -233,7 +234,7 @@ export default async function AdminOverviewPage() {
           <Card>
             <CardHeader>
               <CardTitle as="h3" className="text-sm">
-                Recent failed notifications
+                Thông báo thất bại gần đây
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -260,47 +261,49 @@ export default async function AdminOverviewPage() {
           </Card>
         ) : (
           <Alert variant="success">
-            <AlertTitle>No recent delivery failures</AlertTitle>
-            <AlertDescription>All notifications and payouts are clear.</AlertDescription>
+            <AlertTitle>Không có lỗi gửi gần đây</AlertTitle>
+            <AlertDescription>Tất cả thông báo và chi trả đều ổn.</AlertDescription>
           </Alert>
         )}
       </section>
 
-      {/* Infra health — link-out only (AC4: do NOT rebuild the dashboard). */}
-      <section aria-labelledby="infra-heading" className="space-y-3">
-        <h2 id="infra-heading" className="text-sm font-medium text-muted-foreground">
-          Infrastructure health
-        </h2>
-        <Card>
-          <CardHeader>
-            <CardDescription>
-              Infra metrics live in the external observability stack. These open
-              Sentry / Datadog in a new tab; configure the URLs via
-              SENTRY_DASHBOARD_URL / DATADOG_DASHBOARD_URL.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-3">
-            <a
-              href={sentryUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex min-h-9 items-center rounded-md border border-border px-3 text-sm font-medium outline-none transition-colors hover:bg-accent/40 focus-visible:ring-3 focus-visible:ring-ring aria-disabled:pointer-events-none aria-disabled:opacity-50"
-              aria-disabled={sentryUrl === '#'}
-            >
-              Open Sentry
-            </a>
-            <a
-              href={datadogUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex min-h-9 items-center rounded-md border border-border px-3 text-sm font-medium outline-none transition-colors hover:bg-accent/40 focus-visible:ring-3 focus-visible:ring-ring aria-disabled:pointer-events-none aria-disabled:opacity-50"
-              aria-disabled={datadogUrl === '#'}
-            >
-              Open Datadog
-            </a>
-          </CardContent>
-        </Card>
-      </section>
+      {hasMonitoring && (
+        <section aria-labelledby="infra-heading" className="space-y-3">
+          <h2 id="infra-heading" className="text-sm font-medium text-muted-foreground">
+            Tình trạng hạ tầng
+          </h2>
+          <Card>
+            <CardHeader>
+              <CardDescription>
+                Chỉ số hạ tầng nằm trên hệ thống giám sát ngoài. Các liên kết dưới đây
+                mở Sentry / Datadog trong tab mới.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-3">
+              {sentryUrl && (
+                <a
+                  href={sentryUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex min-h-9 items-center rounded-md border border-border px-3 text-sm font-medium outline-none transition-colors hover:bg-accent/40 focus-visible:ring-3 focus-visible:ring-ring"
+                >
+                  Mở Sentry
+                </a>
+              )}
+              {datadogUrl && (
+                <a
+                  href={datadogUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex min-h-9 items-center rounded-md border border-border px-3 text-sm font-medium outline-none transition-colors hover:bg-accent/40 focus-visible:ring-3 focus-visible:ring-ring"
+                >
+                  Mở Datadog
+                </a>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      )}
     </div>
   );
 }

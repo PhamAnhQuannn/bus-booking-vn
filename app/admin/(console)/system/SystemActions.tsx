@@ -79,7 +79,7 @@ function useStepUpAction(onSuccess: (json: unknown) => void) {
       }
       onSuccess(await res.json().catch(() => ({})));
     } catch {
-      setError('Network error. Please retry.');
+      setError('Lỗi mạng. Vui lòng thử lại.');
     } finally {
       setBusy(false);
     }
@@ -99,7 +99,7 @@ function useStepUpAction(onSuccess: (json: unknown) => void) {
         body: JSON.stringify({ code: totpCode }),
       });
       if (!stepRes.ok) {
-        setError('Invalid or expired code. Please try again.');
+        setError('Mã không hợp lệ hoặc hết hạn. Vui lòng thử lại.');
         return;
       }
       const res = await rawPost(pending.path, pending.body);
@@ -111,7 +111,7 @@ function useStepUpAction(onSuccess: (json: unknown) => void) {
       setTotpCode('');
       onSuccess(await res.json().catch(() => ({})));
     } catch {
-      setError('Network error. Please retry.');
+      setError('Lỗi mạng. Vui lòng thử lại.');
     } finally {
       setBusy(false);
     }
@@ -151,7 +151,7 @@ function StepUpPrompt({
 }) {
   return (
     <div className="space-y-2 rounded-lg border border-border p-3" data-testid="system-stepup">
-      <Label htmlFor={`totp-${id}`}>Enter your TOTP code to continue</Label>
+      <Label htmlFor={`totp-${id}`}>Nhập mã TOTP để tiếp tục</Label>
       <div className="flex gap-2">
         <Input
           id={`totp-${id}`}
@@ -163,10 +163,10 @@ function StepUpPrompt({
           data-testid="system-stepup-code"
         />
         <Button type="button" onClick={onConfirm} disabled={busy || totpCode.length === 0}>
-          {busy ? 'Verifying…' : 'Confirm'}
+          {busy ? 'Đang xác minh…' : 'Xác nhận'}
         </Button>
         <Button type="button" variant="ghost" onClick={onCancel} disabled={busy}>
-          Cancel
+          Hủy
         </Button>
       </div>
     </div>
@@ -208,7 +208,7 @@ export function FlagToggle({ flagKey, enabled }: { flagKey: string; enabled: boo
           onClick={() => action.run('/api/admin/system/flags', { key: flagKey, enabled: !enabled })}
           data-testid={`flag-toggle-${flagKey}`}
         >
-          {action.busy ? 'Working…' : enabled ? 'Disable' : 'Enable'}
+          {action.busy ? 'Đang xử lý…' : enabled ? 'Tắt' : 'Bật'}
         </Button>
       )}
     </div>
@@ -237,7 +237,7 @@ export function InviteAdminForm() {
     e.preventDefault();
     setLocalError(null);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setLocalError('Enter a valid email address.');
+      setLocalError('Nhập địa chỉ email hợp lệ.');
       return;
     }
     action.run('/api/admin/admins', { email: email.trim(), role });
@@ -247,12 +247,12 @@ export function InviteAdminForm() {
     return (
       <Alert data-testid="invite-temp-password">
         <AlertDescription>
-          <p className="font-medium">Invite created. Temporary password (shown once):</p>
+          <p className="font-medium">Đã tạo lời mời. Mật khẩu tạm thời (chỉ hiển thị một lần):</p>
           <code className="mt-1 block rounded bg-muted px-2 py-1 font-mono text-sm">
             {tempPassword}
           </code>
           <p className="mt-2 text-xs text-muted-foreground">
-            Convey this to the invitee out-of-band. It will not be shown again.
+            Gửi mật khẩu này cho người được mời qua kênh khác. Sẽ không hiển thị lại.
           </p>
           <Button
             type="button"
@@ -260,7 +260,7 @@ export function InviteAdminForm() {
             className="mt-2"
             onClick={() => setTempPassword(null)}
           >
-            Done
+            Xong
           </Button>
         </AlertDescription>
       </Alert>
@@ -299,7 +299,7 @@ export function InviteAdminForm() {
             />
           </div>
           <div className="flex flex-col gap-1">
-            <Label htmlFor="invite-role">Role</Label>
+            <Label htmlFor="invite-role">Vai trò</Label>
             <select
               id="invite-role"
               value={role}
@@ -315,7 +315,7 @@ export function InviteAdminForm() {
             </select>
           </div>
           <Button type="submit" disabled={action.busy} data-testid="invite-submit">
-            {action.busy ? 'Working…' : 'Invite admin'}
+            {action.busy ? 'Đang xử lý…' : 'Mời quản trị viên'}
           </Button>
         </div>
       )}
@@ -349,7 +349,7 @@ export function RevokeAdminButton({ adminId }: { adminId: string }) {
           onClick={() => action.run(`/api/admin/system/admins/${adminId}/revoke`, undefined)}
           data-testid={`revoke-admin-${adminId}`}
         >
-          {action.busy ? 'Working…' : 'Revoke'}
+          {action.busy ? 'Đang xử lý…' : 'Thu hồi'}
         </Button>
       )}
     </div>
@@ -397,7 +397,7 @@ export function ChangeRoleControl({ adminId, currentRole }: { adminId: string; c
             onClick={() => action.run(`/api/admin/system/admins/${adminId}/role`, { role })}
             data-testid={`role-apply-${adminId}`}
           >
-            {action.busy ? 'Working…' : 'Apply'}
+            {action.busy ? 'Đang xử lý…' : 'Áp dụng'}
           </Button>
         </div>
       )}
@@ -411,24 +411,24 @@ async function describeError(res: Response): Promise<string> {
   const data = (await res.json().catch(() => ({}))) as { error?: string };
   switch (data.error) {
     case 'STEP_UP_REQUIRED':
-      return 'Re-authentication required.';
+      return 'Cần xác thực lại.';
     case 'UNKNOWN_FLAG':
-      return 'Unknown feature flag.';
+      return 'Cờ tính năng không xác định.';
     case 'EMAIL_IN_USE':
-      return 'An admin with that email already exists.';
+      return 'Quản trị viên với email này đã tồn tại.';
     case 'NO_SELF_REVOKE':
-      return 'You cannot revoke your own account.';
+      return 'Không thể thu hồi tài khoản của chính mình.';
     case 'NO_SELF_ROLE_CHANGE':
-      return 'You cannot change your own role.';
+      return 'Không thể thay đổi vai trò của chính mình.';
     case 'INVALID_ROLE':
-      return 'Invalid role.';
+      return 'Vai trò không hợp lệ.';
     case 'ADMIN_NOT_FOUND':
-      return 'That admin no longer exists.';
+      return 'Quản trị viên đó không còn tồn tại.';
     case 'FORBIDDEN':
-      return 'You do not have permission to perform this action.';
+      return 'Bạn không có quyền thực hiện thao tác này.';
     case 'INVALID':
-      return 'Invalid input.';
+      return 'Dữ liệu không hợp lệ.';
     default:
-      return `Action failed (${res.status}).`;
+      return `Thao tác thất bại (${res.status}).`;
   }
 }

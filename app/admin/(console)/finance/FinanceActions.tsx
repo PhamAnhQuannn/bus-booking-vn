@@ -80,7 +80,7 @@ export function FinanceActions(props: Props) {
       }
       router.refresh();
     } catch {
-      setError('Network error. Please retry.');
+      setError('Lỗi mạng. Vui lòng thử lại.');
     } finally {
       setBusy(false);
     }
@@ -101,7 +101,7 @@ export function FinanceActions(props: Props) {
         body: JSON.stringify({ code: totpCode }),
       });
       if (!stepRes.ok) {
-        setError('Invalid or expired code. Please try again.');
+        setError('Mã không hợp lệ hoặc hết hạn. Vui lòng thử lại.');
         return;
       }
       const res = await rawPost(pending.path, pending.body);
@@ -113,7 +113,7 @@ export function FinanceActions(props: Props) {
       setTotpCode('');
       router.refresh();
     } catch {
-      setError('Network error. Please retry.');
+      setError('Lỗi mạng. Vui lòng thử lại.');
     } finally {
       setBusy(false);
     }
@@ -127,7 +127,7 @@ export function FinanceActions(props: Props) {
 
   const stepUpBlock = pending ? (
     <div className="space-y-2 rounded-lg border border-border p-3" data-testid="finance-stepup">
-      <Label htmlFor={`totp-${props.kind}`}>Enter your TOTP code to continue</Label>
+      <Label htmlFor={`totp-${props.kind}`}>Nhập mã TOTP để tiếp tục</Label>
       <div className="flex gap-2">
         <Input
           id={`totp-${props.kind}`}
@@ -139,7 +139,7 @@ export function FinanceActions(props: Props) {
           data-testid="finance-stepup-code"
         />
         <Button type="button" onClick={submitStepUp} disabled={busy || totpCode.length === 0}>
-          {busy ? 'Verifying…' : 'Confirm'}
+          {busy ? 'Đang xác minh…' : 'Xác nhận'}
         </Button>
         <Button
           type="button"
@@ -150,7 +150,7 @@ export function FinanceActions(props: Props) {
           }}
           disabled={busy}
         >
-          Cancel
+          Hủy
         </Button>
       </div>
     </div>
@@ -172,7 +172,7 @@ export function FinanceActions(props: Props) {
                 onClick={() => run(`/api/admin/finance/payouts/${props.payoutId}/retry`, undefined)}
                 data-testid={`payout-retry-${props.payoutId}`}
               >
-                {busy ? 'Working…' : 'Retry'}
+                {busy ? 'Đang xử lý…' : 'Thử lại'}
               </Button>
             ) : null}
             {props.payoutStatus === 'requested' ? (
@@ -182,7 +182,7 @@ export function FinanceActions(props: Props) {
                 onClick={() => run(`/api/admin/finance/payouts/${props.payoutId}/approve`, undefined)}
                 data-testid={`payout-approve-${props.payoutId}`}
               >
-                {busy ? 'Working…' : 'Approve'}
+                {busy ? 'Đang xử lý…' : 'Phê duyệt'}
               </Button>
             ) : null}
           </div>
@@ -286,16 +286,16 @@ function AdjustmentForm({
     e.preventDefault();
     setLocalError(null);
     if (!operatorId) {
-      setLocalError('Select an operator first.');
+      setLocalError('Chọn nhà xe trước.');
       return;
     }
     const amountMinor = Number(amount);
     if (!Number.isInteger(amountMinor) || amountMinor === 0) {
-      setLocalError('Enter a non-zero whole VND amount (negative to debit).');
+      setLocalError('Nhập số tiền VND nguyên khác 0 (âm để ghi nợ).');
       return;
     }
     if (reason.trim().length === 0) {
-      setLocalError('A reason is required.');
+      setLocalError('Cần nhập lý do.');
       return;
     }
     onSubmit(amountMinor, reason.trim());
@@ -314,7 +314,7 @@ function AdjustmentForm({
         <>
           <div className="flex flex-wrap items-end gap-2">
             <div className="flex flex-col gap-1">
-              <Label htmlFor="adj-amount">Amount (VND, signed)</Label>
+              <Label htmlFor="adj-amount">Số tiền (VND, có dấu)</Label>
               <Input
                 id="adj-amount"
                 inputMode="numeric"
@@ -326,21 +326,21 @@ function AdjustmentForm({
               />
             </div>
             <div className="flex flex-1 flex-col gap-1">
-              <Label htmlFor="adj-reason">Reason</Label>
+              <Label htmlFor="adj-reason">Lý do</Label>
               <Input
                 id="adj-reason"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="Correction for…"
+                placeholder="Điều chỉnh cho…"
                 data-testid="adjustment-reason"
               />
             </div>
             <Button type="submit" variant="outline" disabled={busy} data-testid="adjustment-submit">
-              {busy ? 'Working…' : 'Post adjustment'}
+              {busy ? 'Đang xử lý…' : 'Ghi điều chỉnh'}
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Positive credits the operator; a leading minus debits them.
+            Số dương ghi có cho nhà xe; dấu trừ đầu sẽ ghi nợ.
           </p>
         </>
       ) : null}
@@ -370,16 +370,16 @@ function BookingAmountForm({
     e.preventDefault();
     setLocalError(null);
     if (bookingId.trim().length === 0) {
-      setLocalError('Booking ID is required.');
+      setLocalError('Cần nhập mã đặt vé.');
       return;
     }
     const amountMinor = Number(amount);
     if (!Number.isInteger(amountMinor) || amountMinor <= 0) {
-      setLocalError('Enter a positive whole VND amount.');
+      setLocalError('Nhập số tiền VND nguyên dương.');
       return;
     }
     if (withReason && reason.trim().length === 0) {
-      setLocalError('A reason is required.');
+      setLocalError('Cần nhập lý do.');
       return;
     }
     onSubmit(bookingId.trim(), amountMinor, reason.trim());
@@ -397,7 +397,7 @@ function BookingAmountForm({
       {!disabled ? (
         <div className="flex flex-wrap items-end gap-2">
           <div className="flex flex-col gap-1">
-            <Label htmlFor={`${kind}-booking`}>Booking ID</Label>
+            <Label htmlFor={`${kind}-booking`}>Mã đặt vé</Label>
             <Input
               id={`${kind}-booking`}
               value={bookingId}
@@ -407,7 +407,7 @@ function BookingAmountForm({
             />
           </div>
           <div className="flex flex-col gap-1">
-            <Label htmlFor={`${kind}-amount`}>Amount (VND)</Label>
+            <Label htmlFor={`${kind}-amount`}>Số tiền (VND)</Label>
             <Input
               id={`${kind}-amount`}
               inputMode="numeric"
@@ -419,7 +419,7 @@ function BookingAmountForm({
           </div>
           {withReason ? (
             <div className="flex flex-1 flex-col gap-1">
-              <Label htmlFor={`${kind}-reason`}>Reason</Label>
+              <Label htmlFor={`${kind}-reason`}>Lý do</Label>
               <Input
                 id={`${kind}-reason`}
                 value={reason}
@@ -429,7 +429,7 @@ function BookingAmountForm({
             </div>
           ) : null}
           <Button type="submit" variant="outline" disabled={busy} data-testid={`${kind}-submit`}>
-            {busy ? 'Working…' : kind === 'refund-out' ? 'Issue refund' : 'Record chargeback'}
+            {busy ? 'Đang xử lý…' : kind === 'refund-out' ? 'Thực hiện hoàn tiền' : 'Ghi nhận chargeback'}
           </Button>
         </div>
       ) : null}
@@ -456,7 +456,7 @@ function GlobalFeeForm({
     setLocalError(null);
     const pct = Number(feePct);
     if (!Number.isFinite(pct) || pct < 0 || pct > 20) {
-      setLocalError('Enter a fee percentage between 0 and 20.');
+      setLocalError('Nhập phần trăm phí từ 0 đến 20.');
       return;
     }
     // %→ppm: pct * 10000 (6% → 60000 ppm). Round to an integer ppm.
@@ -486,7 +486,7 @@ function GlobalFeeForm({
             <span className="text-sm text-muted-foreground">%</span>
           </div>
           <Button type="submit" variant="outline" disabled={busy} data-testid="global-fee-submit">
-            {busy ? 'Working…' : 'Set global fee'}
+            {busy ? 'Đang xử lý…' : 'Đặt phí toàn cục'}
           </Button>
         </div>
       ) : null}
@@ -498,24 +498,24 @@ async function describeError(res: Response): Promise<string> {
   const data = (await res.json().catch(() => ({}))) as { error?: string };
   switch (data.error) {
     case 'STEP_UP_REQUIRED':
-      return 'Re-authentication required.';
+      return 'Cần xác thực lại.';
     case 'INVALID_RATE':
-      return 'Invalid fee rate. Enter a percentage between 0 and 20.';
+      return 'Tỷ lệ phí không hợp lệ. Nhập phần trăm từ 0 đến 20.';
     case 'PAYOUT_NOT_FOUND':
-      return 'Payout no longer exists.';
+      return 'Chi trả không còn tồn tại.';
     case 'BOOKING_NOT_FOUND':
-      return 'Booking not found.';
+      return 'Không tìm thấy đặt vé.';
     case 'NOT_RETRYABLE':
-      return 'This payout is not in a retryable (failed) state.';
+      return 'Chi trả này không ở trạng thái có thể thử lại (thất bại).';
     case 'NOT_APPROVABLE':
-      return 'This payout is not in an approvable (requested) state.';
+      return 'Chi trả này không ở trạng thái có thể phê duyệt (yêu cầu).';
     case 'NOT_REFUNDABLE':
-      return 'This booking is not in a refundable state.';
+      return 'Đặt vé này không ở trạng thái có thể hoàn tiền.';
     case 'INVALID_AMOUNT':
-      return 'Invalid amount.';
+      return 'Số tiền không hợp lệ.';
     case 'INVALID':
-      return 'Invalid input.';
+      return 'Dữ liệu không hợp lệ.';
     default:
-      return `Action failed (${res.status}).`;
+      return `Thao tác thất bại (${res.status}).`;
   }
 }

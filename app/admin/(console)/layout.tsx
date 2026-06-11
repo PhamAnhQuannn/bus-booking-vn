@@ -26,12 +26,12 @@ export default function AdminConsoleLayout({ children }: { children: React.React
         href="#admin-main"
         className="sr-only rounded-md bg-primary px-4 py-2 text-primary-foreground focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[60]"
       >
-        Skip to content
+        Chuyển đến nội dung
       </a>
 
       <aside className="shrink-0 border-b border-sidebar-border bg-sidebar text-sidebar-foreground md:sticky md:top-0 md:h-dvh md:w-60 md:border-r md:border-b-0">
         <div className="flex h-14 items-center px-4">
-          <span className="text-base font-semibold">Admin Console</span>
+          <span className="text-base font-semibold">Bảng điều khiển</span>
         </div>
         <div className="px-2 py-2">
           <AdminNav />

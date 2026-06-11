@@ -41,12 +41,12 @@ export function UserActions({ customerId, suspended }: Props) {
         headers: { 'X-CSRF-Token': readCsrfToken() },
       });
       if (!res.ok) {
-        setError(`Action failed (${res.status}).`);
+        setError(`Thao tác thất bại (${res.status}).`);
         return;
       }
       router.refresh();
     } catch {
-      setError('Network error. Please retry.');
+      setError('Lỗi mạng. Vui lòng thử lại.');
     } finally {
       setBusy(false);
     }
@@ -67,7 +67,7 @@ export function UserActions({ customerId, suspended }: Props) {
           disabled={busy}
           data-testid="action-reinstate"
         >
-          {busy ? 'Working…' : 'Reinstate account'}
+          {busy ? 'Đang xử lý…' : 'Khôi phục tài khoản'}
         </Button>
       ) : (
         <Button
@@ -77,7 +77,7 @@ export function UserActions({ customerId, suspended }: Props) {
           disabled={busy}
           data-testid="action-suspend"
         >
-          {busy ? 'Working…' : 'Suspend account'}
+          {busy ? 'Đang xử lý…' : 'Tạm ngưng tài khoản'}
         </Button>
       )}
     </div>

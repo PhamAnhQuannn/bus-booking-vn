@@ -48,12 +48,12 @@ export function ResolveReportButton({ reportId }: { reportId: string }) {
     try {
       const res = await postModeration(`reports/${reportId}/resolve`);
       if (!res.ok) {
-        setError(`Action failed (${res.status}).`);
+        setError(`Thao tác thất bại (${res.status}).`);
         return;
       }
       router.refresh();
     } catch {
-      setError('Network error. Please retry.');
+      setError('Lỗi mạng. Vui lòng thử lại.');
     } finally {
       setBusy(false);
     }
@@ -68,7 +68,7 @@ export function ResolveReportButton({ reportId }: { reportId: string }) {
         disabled={busy}
         data-testid={`resolve-report-${reportId}`}
       >
-        {busy ? 'Working…' : 'Resolve'}
+        {busy ? 'Đang xử lý…' : 'Giải quyết'}
       </Button>
       {error ? (
         <Alert variant="error">
@@ -91,7 +91,7 @@ export function DisableByIdForm() {
     e.preventDefault();
     const target = id.trim();
     if (!target) {
-      setError('Enter a trip or route id.');
+      setError('Nhập mã chuyến hoặc tuyến.');
       return;
     }
     setBusy(true);
@@ -102,14 +102,14 @@ export function DisableByIdForm() {
         reason.trim() ? { reason: reason.trim() } : {}
       );
       if (!res.ok) {
-        setError(res.status === 404 ? 'No such trip or route.' : `Action failed (${res.status}).`);
+        setError(res.status === 404 ? 'Không tìm thấy chuyến hoặc tuyến.' : `Thao tác thất bại (${res.status}).`);
         return;
       }
       setId('');
       setReason('');
       router.refresh();
     } catch {
-      setError('Network error. Please retry.');
+      setError('Lỗi mạng. Vui lòng thử lại.');
     } finally {
       setBusy(false);
     }
@@ -125,7 +125,7 @@ export function DisableByIdForm() {
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
-          <Label htmlFor="moderation-kind">Type</Label>
+          <Label htmlFor="moderation-kind">Loại</Label>
           <select
             id="moderation-kind"
             value={kind}
@@ -133,13 +133,13 @@ export function DisableByIdForm() {
             className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             data-testid="disable-kind"
           >
-            <option value="trips">Trip</option>
-            <option value="routes">Route</option>
+            <option value="trips">Chuyến</option>
+            <option value="routes">Tuyến</option>
           </select>
         </div>
 
         <div className="space-y-1">
-          <Label htmlFor="moderation-id">Id</Label>
+          <Label htmlFor="moderation-id">Mã</Label>
           <Input
             id="moderation-id"
             value={id}
@@ -151,7 +151,7 @@ export function DisableByIdForm() {
       </div>
 
       <div className="space-y-1">
-        <Label htmlFor="moderation-reason">Reason (optional)</Label>
+        <Label htmlFor="moderation-reason">Lý do (tùy chọn)</Label>
         <Input
           id="moderation-reason"
           value={reason}
@@ -162,7 +162,7 @@ export function DisableByIdForm() {
       </div>
 
       <Button type="submit" variant="destructive" disabled={busy} data-testid="disable-submit">
-        {busy ? 'Working…' : 'Disable'}
+        {busy ? 'Đang xử lý…' : 'Vô hiệu hóa'}
       </Button>
     </form>
   );
@@ -179,12 +179,12 @@ export function EnableButton({ kind, id }: { kind: Kind; id: string }) {
     try {
       const res = await postModeration(`${kind}/${encodeURIComponent(id)}/enable`, {});
       if (!res.ok) {
-        setError(`Action failed (${res.status}).`);
+        setError(`Thao tác thất bại (${res.status}).`);
         return;
       }
       router.refresh();
     } catch {
-      setError('Network error. Please retry.');
+      setError('Lỗi mạng. Vui lòng thử lại.');
     } finally {
       setBusy(false);
     }
@@ -199,7 +199,7 @@ export function EnableButton({ kind, id }: { kind: Kind; id: string }) {
         disabled={busy}
         data-testid={`enable-${kind}-${id}`}
       >
-        {busy ? 'Working…' : 'Enable'}
+        {busy ? 'Đang xử lý…' : 'Kích hoạt'}
       </Button>
       {error ? (
         <Alert variant="error">
