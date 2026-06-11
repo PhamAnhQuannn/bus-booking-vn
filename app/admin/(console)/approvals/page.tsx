@@ -24,12 +24,12 @@ import { ApprovalActions } from './ApprovalActions';
 import { KybDocLinks } from './KybDocLinks';
 
 const STATUS_BADGE: Record<ApprovalQueueOperator['status'], { variant: 'pending' | 'neutral'; label: string }> = {
-  PENDING_REVIEW: { variant: 'neutral', label: 'Pending review' },
-  UNDER_REVIEW: { variant: 'pending', label: 'Under review' },
+  PENDING_REVIEW: { variant: 'neutral', label: 'Chờ duyệt' },
+  UNDER_REVIEW: { variant: 'pending', label: 'Đang xem xét' },
   // Approved/Rejected/Suspended never appear in the queue, but the map stays total.
-  APPROVED: { variant: 'neutral', label: 'Approved' },
-  REJECTED: { variant: 'neutral', label: 'Rejected' },
-  SUSPENDED: { variant: 'neutral', label: 'Suspended' },
+  APPROVED: { variant: 'neutral', label: 'Đã duyệt' },
+  REJECTED: { variant: 'neutral', label: 'Từ chối' },
+  SUSPENDED: { variant: 'neutral', label: 'Tạm ngưng' },
 };
 
 function formatDate(d: Date): string {
@@ -45,13 +45,13 @@ export default async function AdminApprovalsPage() {
     return (
       <div className="mx-auto max-w-5xl space-y-6">
         <header className="space-y-1">
-          <h1 className="text-2xl font-semibold">Approvals</h1>
+          <h1 className="text-2xl font-semibold">Phê duyệt</h1>
         </header>
         <Alert variant="warning">
-          <AlertTitle>Insufficient role</AlertTitle>
+          <AlertTitle>Không đủ quyền</AlertTitle>
           <AlertDescription>
-            Operator approvals are restricted to SUPER_ADMIN. Your role has read-only
-            access elsewhere; the approval queue is not available to you.
+            Phê duyệt nhà xe chỉ dành cho SUPER_ADMIN. Vai trò của bạn chỉ có quyền
+            xem ở các mục khác; hàng đợi phê duyệt không khả dụng.
           </AlertDescription>
         </Alert>
       </div>
@@ -63,16 +63,16 @@ export default async function AdminApprovalsPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold">Approvals</h1>
+        <h1 className="text-2xl font-semibold">Phê duyệt</h1>
         <p className="text-sm text-muted-foreground">
-          Operators awaiting review ({queue.length}). Oldest applications first.
+          Nhà xe chờ xem xét ({queue.length}). Đơn cũ nhất trước.
         </p>
       </header>
 
       {queue.length === 0 ? (
         <Alert variant="success">
-          <AlertTitle>Queue clear</AlertTitle>
-          <AlertDescription>No operators are awaiting review.</AlertDescription>
+          <AlertTitle>Hàng đợi trống</AlertTitle>
+          <AlertDescription>Không có nhà xe nào chờ xem xét.</AlertDescription>
         </Alert>
       ) : (
         <ul className="space-y-4">
@@ -92,16 +92,16 @@ export default async function AdminApprovalsPage() {
                           <dd className="truncate">{op.contactEmail}</dd>
                         </div>
                         <div className="flex gap-2">
-                          <dt className="font-medium">Phone:</dt>
+                          <dt className="font-medium">Điện thoại:</dt>
                           <dd className="font-mono">{op.contactPhone}</dd>
                         </div>
                         <div className="flex gap-2">
-                          <dt className="font-medium">Applied:</dt>
+                          <dt className="font-medium">Ngày nộp:</dt>
                           <dd>{formatDate(op.createdAt)}</dd>
                         </div>
                         {op.rejectionReason ? (
                           <div className="flex gap-2">
-                            <dt className="font-medium">Prior rejection:</dt>
+                            <dt className="font-medium">Lý do từ chối trước:</dt>
                             <dd>{op.rejectionReason}</dd>
                           </div>
                         ) : null}
@@ -123,38 +123,38 @@ export default async function AdminApprovalsPage() {
 
                     {/* Payout account (078): masked number + name-match signal vs legalName. */}
                     <div data-testid={`payout-account-${op.id}`} className="rounded-md border p-3 text-sm">
-                      <p className="mb-1 font-medium">Payout account</p>
+                      <p className="mb-1 font-medium">Tài khoản thanh toán</p>
                       {op.payoutAccount ? (
                         <dl className="grid gap-0.5 text-muted-foreground">
                           <div className="flex gap-2">
-                            <dt className="font-medium">Bank:</dt>
+                            <dt className="font-medium">Ngân hàng:</dt>
                             <dd>{op.payoutAccount.bankName}</dd>
                           </div>
                           <div className="flex gap-2">
-                            <dt className="font-medium">Number:</dt>
+                            <dt className="font-medium">Số TK:</dt>
                             <dd className="font-mono">{op.payoutAccount.accountNumberMasked}</dd>
                           </div>
                           <div className="flex gap-2">
-                            <dt className="font-medium">Holder:</dt>
+                            <dt className="font-medium">Chủ TK:</dt>
                             <dd>{op.payoutAccount.accountHolderName}</dd>
                           </div>
                           <div className="flex items-center gap-2">
-                            <dt className="font-medium">Name match:</dt>
+                            <dt className="font-medium">Khớp tên:</dt>
                             <dd>
                               {Math.round(op.payoutAccount.nameMatchScore * 100)}%
                               {op.payoutAccount.suggestVerified ? (
                                 <Badge variant="success" className="ml-2">
-                                  Match — suggest verify
+                                  Khớp — đề xuất xác minh
                                 </Badge>
                               ) : (
                                 <Badge variant="neutral" className="ml-2">
-                                  Low match — review
+                                  Khớp thấp — cần xem xét
                                 </Badge>
                               )}
                             </dd>
                           </div>
                           <div className="flex items-center gap-2">
-                            <dt className="font-medium">Verified:</dt>
+                            <dt className="font-medium">Đã xác minh:</dt>
                             <dd>
                               {op.payoutAccount.verifiedAt ? (
                                 <Badge variant="success">
@@ -164,17 +164,17 @@ export default async function AdminApprovalsPage() {
                                     : ''}
                                 </Badge>
                               ) : (
-                                <Badge variant="pending">Not verified</Badge>
+                                <Badge variant="pending">Chưa xác minh</Badge>
                               )}
                             </dd>
                           </div>
                         </dl>
                       ) : (
-                        <p className="text-muted-foreground">No payout account registered.</p>
+                        <p className="text-muted-foreground">Chưa đăng ký tài khoản thanh toán.</p>
                       )}
                     </div>
 
-                    <ApprovalActions operatorId={op.id} status={op.status} />
+                    <ApprovalActions operatorId={op.id} status={op.status} hasPayout={!!op.payoutAccount} />
                   </CardContent>
                 </Card>
               </li>

@@ -77,7 +77,7 @@ export function CreateAccountAction({ operatorId }: Props) {
     try {
       await handleResponse(await post());
     } catch {
-      setError('Network error. Please retry.');
+      setError('Lỗi mạng. Vui lòng thử lại.');
     } finally {
       setBusy(false);
     }
@@ -96,12 +96,12 @@ export function CreateAccountAction({ operatorId }: Props) {
         body: JSON.stringify({ code: totpCode }),
       });
       if (!stepRes.ok) {
-        setError('Invalid or expired code. Please try again.');
+        setError('Mã không hợp lệ hoặc đã hết hạn. Vui lòng thử lại.');
         return;
       }
       await handleResponse(await post());
     } catch {
-      setError('Network error. Please retry.');
+      setError('Lỗi mạng. Vui lòng thử lại.');
     } finally {
       setBusy(false);
     }
@@ -137,7 +137,7 @@ export function CreateAccountAction({ operatorId }: Props) {
 
       {needsStepUp ? (
         <div className="space-y-2 rounded-lg border border-border p-3">
-          <Label htmlFor={`totp-create-${operatorId}`}>Enter your TOTP code to continue</Label>
+          <Label htmlFor={`totp-create-${operatorId}`}>Nhập mã TOTP để tiếp tục</Label>
           <div className="flex gap-2">
             <Input
               id={`totp-create-${operatorId}`}
@@ -149,7 +149,7 @@ export function CreateAccountAction({ operatorId }: Props) {
               data-testid="stepup-code"
             />
             <Button type="button" onClick={submitStepUp} disabled={busy || totpCode.length === 0}>
-              {busy ? 'Verifying…' : 'Confirm'}
+              {busy ? 'Đang xác minh…' : 'Xác nhận'}
             </Button>
             <Button
               type="button"
@@ -160,7 +160,7 @@ export function CreateAccountAction({ operatorId }: Props) {
               }}
               disabled={busy}
             >
-              Cancel
+              Hủy
             </Button>
           </div>
         </div>

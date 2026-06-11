@@ -12,9 +12,9 @@
 import { useState } from 'react';
 
 const TYPE_LABEL: Record<string, string> = {
-  business_license: 'Business license',
-  identity: 'Identity',
-  payout_account: 'Payout account',
+  business_license: 'Giấy phép kinh doanh',
+  identity: 'Giấy tờ tùy thân',
+  payout_account: 'Tài khoản thanh toán',
 };
 
 export interface KybDocView {
@@ -42,13 +42,13 @@ export function KybDocLinks({ operatorId, docs }: Props) {
         method: 'GET',
       });
       if (!res.ok) {
-        setError(res.status === 404 ? 'Document not found.' : `Could not open document (${res.status}).`);
+        setError(res.status === 404 ? 'Không tìm thấy tài liệu.' : `Không thể mở tài liệu (${res.status}).`);
         return;
       }
       const { url } = (await res.json()) as { url: string };
       window.open(url, '_blank', 'noopener,noreferrer');
     } catch {
-      setError('Network error. Please retry.');
+      setError('Lỗi mạng. Vui lòng thử lại.');
     } finally {
       setBusyId(null);
     }
@@ -57,7 +57,7 @@ export function KybDocLinks({ operatorId, docs }: Props) {
   if (docs.length === 0) {
     return (
       <p className="text-xs text-muted-foreground" data-testid={`kyb-empty-${operatorId}`}>
-        No KYB documents submitted yet.
+        Chưa nộp tài liệu KYB nào.
       </p>
     );
   }
@@ -82,7 +82,7 @@ export function KybDocLinks({ operatorId, docs }: Props) {
               <span className="font-medium">{TYPE_LABEL[doc.type] ?? doc.type}</span>
               <span className="text-muted-foreground">({doc.status})</span>
               <span className="underline underline-offset-2">
-                {busyId === doc.id ? 'Opening…' : 'View'}
+                {busyId === doc.id ? 'Đang mở…' : 'Xem'}
               </span>
             </button>
           </li>

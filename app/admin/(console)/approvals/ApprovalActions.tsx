@@ -33,13 +33,14 @@ import type { OperatorStatus } from '@prisma/client';
 interface Props {
   operatorId: string;
   status: OperatorStatus;
+  hasPayout?: boolean;
 }
 
 type PendingAction = 'approve' | 'confirm-payout-account';
 
 const BASE = '/api/admin/operators';
 
-export function ApprovalActions({ operatorId, status }: Props) {
+export function ApprovalActions({ operatorId, status, hasPayout }: Props) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +77,7 @@ export function ApprovalActions({ operatorId, status }: Props) {
       }
       router.refresh();
     } catch {
-      setError('Network error. Please retry.');
+      setError('Lỗi mạng. Vui lòng thử lại.');
     } finally {
       setBusy(false);
     }
@@ -101,7 +102,7 @@ export function ApprovalActions({ operatorId, status }: Props) {
       }
       router.refresh();
     } catch {
-      setError('Network error. Please retry.');
+      setError('Lỗi mạng. Vui lòng thử lại.');
     } finally {
       setBusy(false);
     }
@@ -122,7 +123,7 @@ export function ApprovalActions({ operatorId, status }: Props) {
         body: JSON.stringify({ code: totpCode }),
       });
       if (!stepRes.ok) {
-        setError('Invalid or expired code. Please try again.');
+        setError('Mã không hợp lệ hoặc hết hạn. Vui lòng thử lại.');
         return;
       }
       // Step-up cookie set — retry the original privileged action.
@@ -136,7 +137,7 @@ export function ApprovalActions({ operatorId, status }: Props) {
       setTotpCode('');
       router.refresh();
     } catch {
-      setError('Network error. Please retry.');
+      setError('Lỗi mạng. Vui lòng thử lại.');
     } finally {
       setBusy(false);
     }
@@ -155,7 +156,7 @@ export function ApprovalActions({ operatorId, status }: Props) {
 
       {stepUpFor ? (
         <div className="space-y-2 rounded-lg border border-border p-3">
-          <Label htmlFor={`totp-${operatorId}`}>Enter your TOTP code to continue</Label>
+          <Label htmlFor={`totp-${operatorId}`}>Nhập mã TOTP để tiếp tục</Label>
           <div className="flex gap-2">
             <Input
               id={`totp-${operatorId}`}
@@ -167,7 +168,7 @@ export function ApprovalActions({ operatorId, status }: Props) {
               data-testid="stepup-code"
             />
             <Button type="button" onClick={submitStepUp} disabled={busy || totpCode.length === 0}>
-              {busy ? 'Verifying…' : 'Confirm'}
+              {busy ? 'Đang xác minh…' : 'Xác nhận'}
             </Button>
             <Button
               type="button"
@@ -178,7 +179,7 @@ export function ApprovalActions({ operatorId, status }: Props) {
               }}
               disabled={busy}
             >
-              Cancel
+              Hủy
             </Button>
           </div>
         </div>
@@ -193,7 +194,7 @@ export function ApprovalActions({ operatorId, status }: Props) {
               disabled={busy}
               data-testid="action-under-review"
             >
-              Move to review
+              Chuyển sang xem xét
             </Button>
           ) : null}
 
@@ -205,20 +206,22 @@ export function ApprovalActions({ operatorId, status }: Props) {
               disabled={busy}
               data-testid="action-approve"
             >
-              Approve
+              Phê duyệt
             </Button>
           ) : null}
 
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => runPrivileged('confirm-payout-account')}
-            disabled={busy}
-            data-testid="action-confirm-payout"
-          >
-            Confirm payout account
-          </Button>
+          {hasPayout && canDecide ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => runPrivileged('confirm-payout-account')}
+              disabled={busy}
+              data-testid="action-confirm-payout"
+            >
+              Xác nhận tài khoản thanh toán
+            </Button>
+          ) : null}
         </div>
       )}
 
@@ -232,7 +235,7 @@ export function ApprovalActions({ operatorId, status }: Props) {
             }}
           >
             <div className="grid flex-1 gap-1">
-              <Label htmlFor={`reject-${operatorId}`}>Reject reason</Label>
+              <Label htmlFor={`reject-${operatorId}`}>Lý do từ chối</Label>
               <Input
                 id={`reject-${operatorId}`}
                 value={reason}
@@ -247,7 +250,7 @@ export function ApprovalActions({ operatorId, status }: Props) {
               disabled={busy || reason.trim().length === 0}
               data-testid="action-reject"
             >
-              Reject
+              Từ chối
             </Button>
           </form>
 
@@ -259,7 +262,7 @@ export function ApprovalActions({ operatorId, status }: Props) {
             }}
           >
             <div className="grid flex-1 gap-1">
-              <Label htmlFor={`note-${operatorId}`}>Request info note</Label>
+              <Label htmlFor={`note-${operatorId}`}>Ghi chú yêu cầu thông tin</Label>
               <Input
                 id={`note-${operatorId}`}
                 value={note}
@@ -274,7 +277,7 @@ export function ApprovalActions({ operatorId, status }: Props) {
               disabled={busy || note.trim().length === 0}
               data-testid="action-request-info"
             >
-              Request info
+              Yêu cầu thông tin
             </Button>
           </form>
         </div>
@@ -287,14 +290,14 @@ async function describeError(res: Response): Promise<string> {
   const data = (await res.json().catch(() => ({}))) as { error?: string };
   switch (data.error) {
     case 'ILLEGAL_TRANSITION':
-      return 'That action is not allowed from the operator’s current status.';
+      return 'Thao tác không được phép từ trạng thái hiện tại của nhà xe.';
     case 'OPERATOR_NOT_FOUND':
-      return 'Operator no longer exists.';
+      return 'Nhà xe không còn tồn tại.';
     case 'STEP_UP_REQUIRED':
-      return 'Re-authentication required.';
+      return 'Cần xác thực lại.';
     case 'INVALID':
-      return 'Invalid input.';
+      return 'Dữ liệu không hợp lệ.';
     default:
-      return `Action failed (${res.status}).`;
+      return `Thao tác thất bại (${res.status}).`;
   }
 }

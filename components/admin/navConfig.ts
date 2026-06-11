@@ -28,14 +28,14 @@ export interface AdminNavItem {
 }
 
 export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
-  { id: 'overview', label: 'Overview', href: '/admin', icon: LayoutDashboard },
-  { id: 'approvals', label: 'Approvals', href: '/admin/approvals', icon: ClipboardCheck },
-  { id: 'charter', label: 'Charter', href: '/admin/charter', icon: Bus },
-  { id: 'users', label: 'Users', href: '/admin/users', icon: Users },
-  { id: 'operators', label: 'Operators', href: '/admin/operators', icon: Building2 },
-  { id: 'finance', label: 'Finance', href: '/admin/finance', icon: Wallet },
-  { id: 'moderation', label: 'Moderation', href: '/admin/moderation', icon: ShieldAlert },
-  { id: 'system', label: 'System', href: '/admin/system', icon: Settings },
+  { id: 'overview', label: 'Tổng quan', href: '/admin', icon: LayoutDashboard },
+  { id: 'approvals', label: 'Phê duyệt', href: '/admin/approvals', icon: ClipboardCheck },
+  { id: 'charter', label: 'Thuê xe', href: '/admin/charter', icon: Bus },
+  { id: 'users', label: 'Người dùng', href: '/admin/users', icon: Users },
+  { id: 'operators', label: 'Nhà xe', href: '/admin/operators', icon: Building2 },
+  { id: 'finance', label: 'Tài chính', href: '/admin/finance', icon: Wallet },
+  { id: 'moderation', label: 'Kiểm duyệt', href: '/admin/moderation', icon: ShieldAlert },
+  { id: 'system', label: 'Hệ thống', href: '/admin/system', icon: Settings },
 ];
 
 /**

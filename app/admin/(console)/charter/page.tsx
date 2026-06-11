@@ -60,13 +60,13 @@ export default async function AdminCharterPage() {
     return (
       <div className="mx-auto max-w-5xl space-y-6">
         <header className="space-y-1">
-          <h1 className="text-2xl font-semibold">Charter dispatch</h1>
+          <h1 className="text-2xl font-semibold">Điều phối thuê xe</h1>
         </header>
         <Alert variant="warning">
-          <AlertTitle>Insufficient role</AlertTitle>
+          <AlertTitle>Không đủ quyền</AlertTitle>
           <AlertDescription>
-            Charter dispatch is restricted to SUPER_ADMIN and SUPPORT. Your role does
-            not have access to the dispatch queue.
+            Điều phối thuê xe chỉ dành cho SUPER_ADMIN và SUPPORT. Vai trò của bạn
+            không có quyền truy cập hàng đợi điều phối.
           </AlertDescription>
         </Alert>
       </div>
@@ -82,17 +82,17 @@ export default async function AdminCharterPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold">Charter dispatch</h1>
+        <h1 className="text-2xl font-semibold">Điều phối thuê xe</h1>
         <p className="text-sm text-muted-foreground">
-          Charter requests awaiting dispatch ({queue.items.length}). Oldest first
+          Yêu cầu thuê xe chờ điều phối ({queue.items.length}). Đơn cũ nhất trước
           (FIFO).
         </p>
       </header>
 
       {queue.items.length === 0 ? (
         <Alert variant="success">
-          <AlertTitle>Queue clear</AlertTitle>
-          <AlertDescription>No charter requests are awaiting dispatch.</AlertDescription>
+          <AlertTitle>Hàng đợi trống</AlertTitle>
+          <AlertDescription>Không có yêu cầu thuê xe nào chờ điều phối.</AlertDescription>
         </Alert>
       ) : (
         <ul className="space-y-4">
@@ -108,21 +108,21 @@ export default async function AdminCharterPage() {
                       </CardTitle>
                       <dl className="grid gap-0.5 text-sm text-muted-foreground">
                         <div className="flex gap-2">
-                          <dt className="font-medium">Contact:</dt>
+                          <dt className="font-medium">Liên hệ:</dt>
                           <dd className="truncate">
                             {c.contactName} · <span className="font-mono">{c.contactPhone}</span> ·{' '}
                             {c.contactEmail}
                           </dd>
                         </div>
                         <div className="flex gap-2">
-                          <dt className="font-medium">Route:</dt>
+                          <dt className="font-medium">Tuyến:</dt>
                           <dd className="truncate">
                             {c.originName ?? '—'}
                             {dests.length > 0 ? ` → ${dests.join(' → ')}` : ''}
                           </dd>
                         </div>
                         <div className="flex gap-2">
-                          <dt className="font-medium">Dates:</dt>
+                          <dt className="font-medium">Ngày:</dt>
                           <dd>
                             {formatDate(c.startDate)}
                             {c.endDate ? ` → ${formatDate(c.endDate)}` : ''}
@@ -130,36 +130,36 @@ export default async function AdminCharterPage() {
                           </dd>
                         </div>
                         <div className="flex gap-2">
-                          <dt className="font-medium">Pax / vehicle:</dt>
+                          <dt className="font-medium">Số khách / loại xe:</dt>
                           <dd>
                             {c.passengers} · {c.vehicleType}
                           </dd>
                         </div>
                         {c.budgetVnd != null ? (
                           <div className="flex gap-2">
-                            <dt className="font-medium">Budget:</dt>
+                            <dt className="font-medium">Ngân sách:</dt>
                             <dd>{vnd.format(c.budgetVnd)} ₫</dd>
                           </div>
                         ) : null}
                         {c.notes ? (
                           <div className="flex gap-2">
-                            <dt className="font-medium">Notes:</dt>
+                            <dt className="font-medium">Ghi chú:</dt>
                             <dd className="truncate">{c.notes}</dd>
                           </div>
                         ) : null}
                         <div className="flex gap-2">
-                          <dt className="font-medium">Submitted:</dt>
+                          <dt className="font-medium">Ngày gửi:</dt>
                           <dd>{formatDate(c.createdAt)}</dd>
                         </div>
                         {c.priorAssigneeName ? (
                           <div className="flex gap-2">
-                            <dt className="font-medium">Prior assignee:</dt>
-                            <dd>{c.priorAssigneeName} (reassign)</dd>
+                            <dt className="font-medium">Nhà xe trước:</dt>
+                            <dd>{c.priorAssigneeName} (giao lại)</dd>
                           </div>
                         ) : null}
                       </dl>
                     </div>
-                    <Badge variant="pending">Awaiting dispatch</Badge>
+                    <Badge variant="pending">Chờ điều phối</Badge>
                   </CardHeader>
                   <CardContent>
                     <CharterDispatchActions charterId={c.id} operators={operators} />

@@ -46,8 +46,8 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
     return (
       <div className="mx-auto max-w-3xl space-y-6">
         <Alert variant="warning">
-          <AlertTitle>Insufficient role</AlertTitle>
-          <AlertDescription>User detail is restricted to SUPER_ADMIN and SUPPORT.</AlertDescription>
+          <AlertTitle>Không đủ quyền</AlertTitle>
+          <AlertDescription>Chi tiết người dùng chỉ dành cho SUPER_ADMIN và SUPPORT.</AlertDescription>
         </Alert>
       </div>
     );
@@ -65,14 +65,14 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
         <Link href="/admin/users?kind=customer" className="text-sm text-muted-foreground hover:underline">
-          ← Back to users
+          ← Quay lại người dùng
         </Link>
       </div>
 
       <header className="flex items-start justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold">{detail.name}</h1>
-          <p className="text-sm text-muted-foreground">Customer</p>
+          <p className="text-sm text-muted-foreground">Khách hàng</p>
         </div>
         <Badge variant={isSuspended ? 'danger' : isDeleted ? 'neutral' : 'success'}>
           {detail.status}
@@ -82,13 +82,13 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
       <Card>
         <CardHeader>
           <CardTitle as="h2" className="text-lg">
-            Profile
+            Hồ sơ
           </CardTitle>
         </CardHeader>
         <CardContent>
           <dl className="grid gap-2 text-sm sm:grid-cols-2">
             <div>
-              <dt className="font-medium text-muted-foreground">Phone</dt>
+              <dt className="font-medium text-muted-foreground">Điện thoại</dt>
               <dd className="font-mono">{detail.phoneMasked ?? '—'}</dd>
             </div>
             <div>
@@ -96,15 +96,15 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
               <dd>{detail.email ?? '—'}</dd>
             </div>
             <div>
-              <dt className="font-medium text-muted-foreground">Joined</dt>
+              <dt className="font-medium text-muted-foreground">Ngày tham gia</dt>
               <dd>{formatDate(detail.createdAt)}</dd>
             </div>
             <div>
-              <dt className="font-medium text-muted-foreground">Last login</dt>
+              <dt className="font-medium text-muted-foreground">Đăng nhập cuối</dt>
               <dd>{formatDate(detail.lastLoginAt)}</dd>
             </div>
             <div>
-              <dt className="font-medium text-muted-foreground">Bookings</dt>
+              <dt className="font-medium text-muted-foreground">Đặt vé</dt>
               <dd>{detail.bookingCount}</dd>
             </div>
           </dl>
@@ -113,16 +113,16 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
 
       {isDeleted ? (
         <Alert variant="warning">
-          <AlertTitle>Account deleted</AlertTitle>
+          <AlertTitle>Tài khoản đã xóa</AlertTitle>
           <AlertDescription>
-            This account has been deleted/anonymized. Suspension actions are unavailable.
+            Tài khoản này đã bị xóa/ẩn danh. Không thể thực hiện thao tác tạm ngưng.
           </AlertDescription>
         </Alert>
       ) : (
         <Card>
           <CardHeader>
             <CardTitle as="h2" className="text-lg">
-              Moderation
+              Kiểm duyệt
             </CardTitle>
           </CardHeader>
           <CardContent>

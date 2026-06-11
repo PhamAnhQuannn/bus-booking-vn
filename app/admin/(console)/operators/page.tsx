@@ -36,11 +36,11 @@ const STATUSES: OperatorStatus[] = [
 ];
 
 const STATUS_BADGE: Record<OperatorStatus, { variant: 'neutral' | 'pending' | 'success' | 'danger'; label: string }> = {
-  PENDING_REVIEW: { variant: 'pending', label: 'Pending review' },
-  UNDER_REVIEW: { variant: 'pending', label: 'Under review' },
-  APPROVED: { variant: 'success', label: 'Approved' },
-  REJECTED: { variant: 'neutral', label: 'Rejected' },
-  SUSPENDED: { variant: 'danger', label: 'Suspended' },
+  PENDING_REVIEW: { variant: 'pending', label: 'Chờ duyệt' },
+  UNDER_REVIEW: { variant: 'pending', label: 'Đang xem xét' },
+  APPROVED: { variant: 'success', label: 'Đã duyệt' },
+  REJECTED: { variant: 'neutral', label: 'Từ chối' },
+  SUSPENDED: { variant: 'danger', label: 'Tạm ngưng' },
 };
 
 function normalizeStatus(raw: string | undefined): OperatorStatus | undefined {
@@ -64,12 +64,12 @@ export default async function AdminOperatorsPage({ searchParams }: PageProps) {
     return (
       <div className="mx-auto max-w-5xl space-y-6">
         <header className="space-y-1">
-          <h1 className="text-2xl font-semibold">Operators</h1>
+          <h1 className="text-2xl font-semibold">Nhà xe</h1>
         </header>
         <Alert variant="warning">
-          <AlertTitle>Insufficient role</AlertTitle>
+          <AlertTitle>Không đủ quyền</AlertTitle>
           <AlertDescription>
-            The Operators tab is restricted to SUPER_ADMIN and FINANCE roles.
+            Tab Nhà xe chỉ dành cho vai trò SUPER_ADMIN và FINANCE.
           </AlertDescription>
         </Alert>
       </div>
@@ -83,9 +83,9 @@ export default async function AdminOperatorsPage({ searchParams }: PageProps) {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold">Operators</h1>
+        <h1 className="text-2xl font-semibold">Nhà xe</h1>
         <p className="text-sm text-muted-foreground">
-          Review operator accounts, balances, and platform-fee overrides.
+          Xem xét tài khoản nhà xe, số dư, và ghi đè phí nền tảng.
         </p>
       </header>
 
@@ -96,7 +96,7 @@ export default async function AdminOperatorsPage({ searchParams }: PageProps) {
           className={`rounded-md border px-3 py-1.5 text-sm font-medium ${!status ? 'border-foreground bg-accent/40' : 'border-border'}`}
           aria-current={!status ? 'page' : undefined}
         >
-          All
+          Tất cả
         </Link>
         {STATUSES.map((s) => (
           <Link
@@ -112,8 +112,8 @@ export default async function AdminOperatorsPage({ searchParams }: PageProps) {
 
       {items.length === 0 ? (
         <Alert>
-          <AlertTitle>No operators</AlertTitle>
-          <AlertDescription>No operators match this filter.</AlertDescription>
+          <AlertTitle>Không có nhà xe</AlertTitle>
+          <AlertDescription>Không có nhà xe nào khớp bộ lọc.</AlertDescription>
         </Alert>
       ) : (
         <ul className="space-y-3">
@@ -150,7 +150,7 @@ export default async function AdminOperatorsPage({ searchParams }: PageProps) {
             className="min-h-9 rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-accent/40"
             data-testid="operators-next-page"
           >
-            Next page
+            Trang tiếp
           </Link>
         </div>
       ) : null}
