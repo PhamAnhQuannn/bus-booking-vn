@@ -70,7 +70,8 @@ const PICKUP_KIND_GROUPS: { kind: 'station' | 'pickup'; label: string }[] = [
 interface Props {
   routes: RouteOption[];
   buses: BusOption[];
-  pickupAreas: PickupAreaOption[];
+  /** Issue 113: routeId → pickup areas assigned to that route (route-scoped menu). */
+  routePickupAreas: Record<string, PickupAreaOption[]>;
   /** Issue 112: routeId → pickup-area ids from the most recent prior trip on that route. */
   routePickupMemory: Record<string, string[]>;
 }
@@ -91,7 +92,7 @@ function translateError(code: string): string {
   }
 }
 
-export default function NewTripClient({ routes, buses, pickupAreas, routePickupMemory }: Props) {
+export default function NewTripClient({ routes, buses, routePickupAreas, routePickupMemory }: Props) {
   const router = useRouter();
   const [routeId, setRouteId] = useState('');
   // Issue 112: true once the per-route memory default was applied (drives the reuse hint/button).
@@ -108,9 +109,12 @@ export default function NewTripClient({ routes, buses, pickupAreas, routePickupM
 
   const missingPrereq = routes.length === 0 || buses.length === 0;
 
-  // Issue 112: ids of the chosen route's most-recent prior trip (defensively intersected with the menu).
+  // Issue 113: the picker menu is scoped to the selected route's assigned areas.
+  const currentAreas = routePickupAreas[routeId] ?? [];
+
+  // Issue 112: ids of the chosen route's most-recent prior trip (intersected with the route menu).
   const memoryIds = (routePickupMemory[routeId] ?? []).filter((id) =>
-    pickupAreas.some((a) => a.id === id)
+    currentAreas.some((a) => a.id === id)
   );
   const hasMemory = memoryIds.length > 0;
 
@@ -121,9 +125,12 @@ export default function NewTripClient({ routes, buses, pickupAreas, routePickupM
 
   function handleRouteChange(next: string) {
     setRouteId(next);
-    // Default the pickup set from the most recent prior trip on this route (per-route memory).
+    setProvinceFilter(PROVINCE_ALL);
+    // Default the pickup set from the most recent prior trip on this route (per-route memory),
+    // intersected with the areas currently assigned to that route.
+    const nextAreas = routePickupAreas[next] ?? [];
     const remembered = (routePickupMemory[next] ?? []).filter((id) =>
-      pickupAreas.some((a) => a.id === id)
+      nextAreas.some((a) => a.id === id)
     );
     if (remembered.length > 0) {
       setSelectedAreaIds(remembered);
@@ -135,12 +142,12 @@ export default function NewTripClient({ routes, buses, pickupAreas, routePickupM
   }
 
   // Issue 112: count-gate the province filter — only useful when the menu spans >1 province.
-  const provinces = distinctProvinces(pickupAreas);
+  const provinces = distinctProvinces(currentAreas);
   const showProvinceFilter = provinces.length > 1;
   const filteredAreas =
     showProvinceFilter && provinceFilter !== PROVINCE_ALL
-      ? pickupAreas.filter((a) => a.provinceCode === provinceFilter)
-      : pickupAreas;
+      ? currentAreas.filter((a) => a.provinceCode === provinceFilter)
+      : currentAreas;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -199,7 +206,12 @@ export default function NewTripClient({ routes, buses, pickupAreas, routePickupM
             {/* base-ui Select: onValueChange, NOT onChange. */}
             <Select value={routeId} onValueChange={(v: string | null) => handleRouteChange(v ?? '')}>
               <SelectTrigger data-testid="new-trip-route">
-                <SelectValue placeholder="— Chọn tuyến —" />
+                <SelectValue placeholder="— Chọn tuyến —">
+                  {(v: string) => {
+                    const r = routes.find((x) => x.id === v);
+                    return r ? `${r.origin} → ${r.destination}` : '— Chọn tuyến —';
+                  }}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {routes.map((r) => (
@@ -215,7 +227,12 @@ export default function NewTripClient({ routes, buses, pickupAreas, routePickupM
             <Label>Xe</Label>
             <Select value={busId} onValueChange={(v: string | null) => setBusId(v ?? '')}>
               <SelectTrigger data-testid="new-trip-bus">
-                <SelectValue placeholder="— Chọn xe —" />
+                <SelectValue placeholder="— Chọn xe —">
+                  {(v: string) => {
+                    const b = buses.find((x) => x.id === v);
+                    return b ? `${b.licensePlate} · ${b.capacity} chỗ` : '— Chọn xe —';
+                  }}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {buses.map((b) => (
@@ -253,7 +270,19 @@ export default function NewTripClient({ routes, buses, pickupAreas, routePickupM
             />
           </div>
 
-          {pickupAreas.length > 0 && (
+          {routeId && currentAreas.length === 0 && (
+            <Alert data-testid="new-trip-no-areas">
+              <AlertDescription>
+                Tuyến này chưa có khu vực đón khách nào. Gán khu vực đón trong{' '}
+                <Link href="/op/routes" className="text-primary underline-offset-4 hover:underline">
+                  Tuyến đường
+                </Link>
+                .
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {currentAreas.length > 0 && (
             <div className="grid gap-1.5">
               <Label>Khu vực đón khách (tuỳ chọn)</Label>
               <p className="text-sm text-muted-foreground">
@@ -286,7 +315,12 @@ export default function NewTripClient({ routes, buses, pickupAreas, routePickupM
                   onValueChange={(v: string | null) => setProvinceFilter(v ?? PROVINCE_ALL)}
                 >
                   <SelectTrigger data-testid="new-trip-province-filter" className="max-w-xs">
-                    <SelectValue />
+                    <SelectValue>
+                      {(v: string) =>
+                        v === PROVINCE_ALL
+                          ? 'Tất cả tỉnh/thành'
+                          : (provinces.find((p) => p.code === v)?.name ?? 'Tất cả tỉnh/thành')}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={PROVINCE_ALL}>Tất cả tỉnh/thành</SelectItem>

@@ -10,6 +10,8 @@ export {
   type OperatorPickupAreaDto,
 } from './createOperatorPickupArea';
 export { listOperatorPickupAreas } from './listOperatorPickupAreas';
+export { listRoutePickupAreas } from './listRoutePickupAreas';
+export { setRoutePickupAreas, RoutePickupAreaServiceError } from './setRoutePickupAreas';
 export { pickupPlaceKindToPickupKind } from './pickupPlaceKind';
 export { deactivateOperatorPickupArea } from './deactivateOperatorPickupArea';
 export { updateOperatorPickupArea } from './updateOperatorPickupArea';

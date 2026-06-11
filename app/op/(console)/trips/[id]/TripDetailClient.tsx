@@ -14,6 +14,7 @@
 
 import { useState } from 'react';
 import type { TripDto } from '@/lib/trips';
+const tripRef = (id: string) => `CHUYEN-${id.slice(-6).toUpperCase()}`;
 import type { StaffDto } from '@/lib/staff';
 import type { TripStatus } from '@prisma/client';
 import {
@@ -296,11 +297,11 @@ export default function TripDetailClient({
         <CardContent>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
             <dt className="text-muted-foreground">ID</dt>
-            <dd data-testid="trip-id" className="font-mono break-all">{trip.id}</dd>
+            <dd data-testid="trip-id" className="font-mono" title={trip.id}>{tripRef(trip.id)}</dd>
             <dt className="text-muted-foreground">Tuyến</dt>
-            <dd className="font-mono">{trip.routeId}</dd>
+            <dd>{trip.routeOrigin && trip.routeDestination ? `${trip.routeOrigin} → ${trip.routeDestination}` : trip.routeId}</dd>
             <dt className="text-muted-foreground">Xe</dt>
-            <dd className="font-mono">{trip.busId}</dd>
+            <dd>{trip.busLicensePlate ?? trip.busId}</dd>
             <dt className="text-muted-foreground">Khởi hành</dt>
             <dd className="tabular-nums">{new Date(trip.departureAt).toLocaleString('vi-VN')}</dd>
             <dt className="text-muted-foreground">Giá</dt>

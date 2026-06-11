@@ -51,3 +51,6 @@ export { toTripDto } from './toTripDto';
 
 // tripDto.ts
 export type { TripDto, TemplateDto } from './tripDto';
+
+// tripRef.ts
+export { tripRef } from './tripRef';

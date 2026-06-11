@@ -32,6 +32,7 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import RouteEditDialog from './RouteEditDialog';
+import RoutePickupAreaDialog from './RoutePickupAreaDialog';
 import { ConfirmDialog } from '@/components/op/ConfirmDialog';
 
 // Single source of truth for the route shape is the API client (handles the
@@ -75,6 +76,8 @@ export default function RoutesClient({ initialRoutes }: Props) {
   const [message, setMessage] = useState('');
   const [isError, setIsError] = useState(false);
   const [editingRoute, setEditingRoute] = useState<RouteItem | null>(null);
+  // Issue 113: route whose pickup-area assignments are being edited.
+  const [pickupRoute, setPickupRoute] = useState<RouteItem | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   // PR 4: ConfirmDialog replaces window.confirm for deactivation.
   const [pendingDeactivate, setPendingDeactivate] = useState<string | null>(null);
@@ -182,6 +185,18 @@ export default function RoutesClient({ initialRoutes }: Props) {
         />
       )}
 
+      {pickupRoute && (
+        <RoutePickupAreaDialog
+          routeId={pickupRoute.id}
+          routeLabel={`${pickupRoute.origin} → ${pickupRoute.destination}`}
+          onClose={() => setPickupRoute(null)}
+          onSaved={(count) => {
+            setPickupRoute(null);
+            ok(`Đã cập nhật khu vực đón (${count}).`);
+          }}
+        />
+      )}
+
       {routes.length === 0 ? (
         <Card>
           <CardContent>
@@ -226,6 +241,16 @@ export default function RoutesClient({ initialRoutes }: Props) {
                               data-testid={`route-edit-${route.id}`}
                             >
                               Sửa
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setPickupRoute(route)}
+                              disabled={busy}
+                              data-testid={`route-pickup-${route.id}`}
+                            >
+                              Điểm đón
                             </Button>
                             <Button
                               type="button"

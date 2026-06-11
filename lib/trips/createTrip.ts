@@ -126,9 +126,16 @@ export async function createTrip(input: CreateTripInput): Promise<TripDto> {
       // Issue 106: per-trip pickup-area subset. Validate every id is one of THIS
       // operator's active menu areas (cross-op / inactive / unknown → reject), then
       // snapshot the label into TripPickupArea.
+      // Issue 113: the area must also be assigned to THIS route — pickup areas are
+      // route-scoped, so an area not on the route's menu is rejected.
       if (pickupAreaIds && pickupAreaIds.length > 0) {
         const owned = await tx.operatorPickupArea.findMany({
-          where: { id: { in: pickupAreaIds }, operatorId, isActive: true },
+          where: {
+            id: { in: pickupAreaIds },
+            operatorId,
+            isActive: true,
+            routeAreas: { some: { routeId } },
+          },
           select: { id: true, name: true, addressLine: true, kind: true },
         });
         if (owned.length !== new Set(pickupAreaIds).size) {

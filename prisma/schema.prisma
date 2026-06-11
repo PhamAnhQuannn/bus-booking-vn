@@ -148,6 +148,7 @@ model Route {
   originPlace        Place?                  @relation("RouteOrigin", fields: [originPlaceId], references: [id], onDelete: SetNull)
   destPlace          Place?                  @relation("RouteDest", fields: [destPlaceId], references: [id], onDelete: SetNull)
   recurringTemplates RecurringTripTemplate[]
+  pickupAreas        RoutePickupArea[]
 
   @@index([origin, destination])
   @@index([operatorId])
@@ -200,6 +201,7 @@ model OperatorPickupArea {
   operator      Operator             @relation(fields: [operatorId], references: [id], onDelete: Cascade)
   tripAreas     TripPickupArea[]
   templateAreas TemplatePickupArea[]
+  routeAreas    RoutePickupArea[]
   holds         Hold[]
   bookings      Booking[]
 
@@ -238,6 +240,23 @@ model TemplatePickupArea {
 
   @@unique([recurringTemplateId, operatorPickupAreaId])
   @@index([recurringTemplateId, displayOrder])
+}
+
+/// Issue 113: per-route subset of the operator's pickup-area menu. The new-trip
+/// picker, recurring templates, and per-route memory only offer areas assigned
+/// here. A live link (not a snapshot) — label/kind are read from OperatorPickupArea;
+/// TripPickupArea still snapshots them at trip-create time. Many-to-many: an area
+/// can serve many routes, a route has many areas.
+model RoutePickupArea {
+  id                   String             @id @default(cuid())
+  routeId              String
+  operatorPickupAreaId String
+  displayOrder         Int
+  route                Route              @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  pickupArea           OperatorPickupArea @relation(fields: [operatorPickupAreaId], references: [id], onDelete: Cascade)
+
+  @@unique([routeId, operatorPickupAreaId])
+  @@index([routeId, displayOrder])
 }
 
 enum TripStatus {

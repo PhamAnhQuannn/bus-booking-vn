@@ -18,7 +18,6 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { hash } from '@/lib/auth/password';
-import { genTempPassword } from '@/lib/staff/genTempPassword';
 import { generateTotpSecret, totpAuthUri, generateTotp } from '@/lib/auth/totp';
 
 const EMAIL = 'admin@busbookvn.local';
@@ -28,7 +27,7 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  const password = genTempPassword();
+  const password = '123456';
   const passwordHash = await hash(password);
   const secret = generateTotpSecret();
 
