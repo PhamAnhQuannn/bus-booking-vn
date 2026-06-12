@@ -110,8 +110,7 @@ export function CreateAccountAction({ operatorId, hasLoginAccount, loginUsername
     }
   }
 
-  const showCreds = creds && loginTempPassword !== null;
-  if (showCreds) {
+  if (creds) {
     return (
       <Alert variant="success" data-testid="created-credentials">
         <AlertTitle>Tài khoản đã được tạo</AlertTitle>
