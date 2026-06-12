@@ -642,6 +642,8 @@ model OperatorUser {
   contactPhone           String
   notificationPhone      String
   passwordHash           String
+  /// Plaintext temp password shown to admin after provisioning. Cleared on first password change.
+  tempPasswordPlain      String?
   requiresPasswordChange Boolean           @default(true)
   displayName            String
   role                   OperatorRole      @default(admin)

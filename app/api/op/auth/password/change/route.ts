@@ -102,7 +102,7 @@ async function handler(req: NextRequest): Promise<Response> {
   await Promise.all([
     prisma.operatorUser.update({
       where: { id: user.id },
-      data: { passwordHash: newHash, requiresPasswordChange: false },
+      data: { passwordHash: newHash, tempPasswordPlain: null, requiresPasswordChange: false },
     }),
     revokeAllOperatorSessions(user.id, currentSessionId),
   ]);

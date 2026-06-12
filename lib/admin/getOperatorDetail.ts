@@ -4,7 +4,7 @@
  *
  * In-process Prisma read (NEVER self-fetch — AGENTS.md Issue 002/003). Aggregates,
  * for the operator detail page:
- *   - profile: legalName, contactEmail, contactPhone (masked), status, createdAt,
+ *   - profile: legalName, contactEmail, contactPhone, status, createdAt,
  *     rejectionReason
  *   - fleet:   bus.count
  *   - trips:   trip.count (+ upcoming count: scheduled trips departing in the future)
@@ -23,7 +23,6 @@
 import type { OperatorStatus, PayoutStatus } from '@prisma/client';
 import { prisma as defaultPrisma } from '@/lib/core/db/client';
 import { withOperatorScope } from '@/lib/core/db';
-import { redactPhone } from '@/lib/audit';
 import { getOperatorBalance, type OperatorBalance } from '@/lib/ledger';
 import { getEffectiveFeeRate } from '@/lib/ledger';
 
@@ -44,13 +43,16 @@ export interface OperatorDetail {
   address: string | null;
   routesSummary: string | null;
   contactEmail: string;
-  /** Masked contact phone (redactPhone). */
-  contactPhoneMasked: string;
+  contactPhone: string;
   status: OperatorStatus;
   createdAt: Date;
   rejectionReason: string | null;
   /** True once a login account (OperatorUser) has been provisioned for this operator. */
   hasLoginAccount: boolean;
+  /** Username of the provisioned login account, or null if none. */
+  loginUsername: string | null;
+  /** Temp password shown to admin after provisioning. Null once operator changes password. */
+  loginTempPassword: string | null;
   fleetCount: number;
   tripCount: number;
   upcomingTripCount: number;
@@ -100,7 +102,7 @@ export async function getOperatorDetail(
   });
   if (!operator) return null;
 
-  const [fleetCount, tripCount, upcomingTripCount, gmvRows, balance, currentFeePpm, payouts, accountCount] =
+  const [fleetCount, tripCount, upcomingTripCount, gmvRows, balance, currentFeePpm, payouts, loginAccount] =
     await Promise.all([
       prisma.bus.count({ where: withOperatorScope(operatorId).where }),
       prisma.trip.count({ where: withOperatorScope(operatorId).where }),
@@ -125,7 +127,7 @@ export async function getOperatorDetail(
         orderBy: [{ scheduledAt: 'desc' }, { id: 'desc' }],
         take: PAYOUT_HISTORY_LIMIT,
       }),
-      prisma.operatorUser.count({ where: { operatorId } }),
+      prisma.operatorUser.findFirst({ where: { operatorId }, select: { username: true, tempPasswordPlain: true } }),
     ]);
 
   const gmvVnd = BigInt(gmvRows[0]?.gmv ?? '0');
@@ -138,11 +140,13 @@ export async function getOperatorDetail(
     address: operator.address,
     routesSummary: operator.routesSummary,
     contactEmail: operator.contactEmail,
-    contactPhoneMasked: redactPhone(operator.contactPhone),
+    contactPhone: operator.contactPhone,
     status: operator.status,
     createdAt: operator.createdAt,
     rejectionReason: operator.rejectionReason,
-    hasLoginAccount: accountCount > 0,
+    hasLoginAccount: loginAccount !== null,
+    loginUsername: loginAccount?.username ?? null,
+    loginTempPassword: loginAccount?.tempPasswordPlain ?? null,
     fleetCount,
     tripCount,
     upcomingTripCount,
