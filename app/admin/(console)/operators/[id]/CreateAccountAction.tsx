@@ -25,6 +25,9 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface Props {
   operatorId: string;
+  hasLoginAccount: boolean;
+  loginUsername: string | null;
+  loginTempPassword: string | null;
 }
 
 interface Credentials {
@@ -32,7 +35,7 @@ interface Credentials {
   tempPassword: string;
 }
 
-export function CreateAccountAction({ operatorId }: Props) {
+export function CreateAccountAction({ operatorId, hasLoginAccount, loginUsername, loginTempPassword }: Props) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -107,7 +110,8 @@ export function CreateAccountAction({ operatorId }: Props) {
     }
   }
 
-  if (creds) {
+  const showCreds = creds && loginTempPassword !== null;
+  if (showCreds) {
     return (
       <Alert variant="success" data-testid="created-credentials">
         <AlertTitle>Tài khoản đã được tạo</AlertTitle>
@@ -127,8 +131,35 @@ export function CreateAccountAction({ operatorId }: Props) {
     );
   }
 
+  if (hasLoginAccount) {
+    return (
+      <div className="space-y-2" data-testid="account-provisioned">
+        <p className="text-sm text-muted-foreground">
+          Tài khoản đăng nhập đã được tạo cho nhà xe này.
+        </p>
+        {loginUsername ? (
+          <p className="font-mono text-sm">
+            Tên đăng nhập: <span data-testid="login-username">{loginUsername}</span>
+          </p>
+        ) : null}
+        {loginTempPassword ? (
+          <p className="font-mono text-sm">
+            Mật khẩu tạm thời: <span data-testid="login-temp-password">{loginTempPassword}</span>
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Nhà xe đã đổi mật khẩu — mật khẩu tạm thời không còn hiển thị.
+          </p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3" data-testid={`create-account-${operatorId}`}>
+      <p className="text-sm text-muted-foreground">
+        Chưa có tài khoản đăng nhập. Tạo tài khoản sẽ sinh tên đăng nhập + mật khẩu tạm thời và gửi thông tin đăng nhập qua email cho nhà xe (đồng thời phê duyệt nhà xe).
+      </p>
       {error ? (
         <Alert variant="error" data-testid="create-account-error">
           <AlertDescription>{error}</AlertDescription>

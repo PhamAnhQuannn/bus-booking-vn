@@ -124,7 +124,7 @@ export default async function AdminOperatorDetailPage({ params }: PageProps) {
             </div>
             <div>
               <dt className="font-medium text-muted-foreground">Điện thoại liên hệ</dt>
-              <dd className="font-mono">{detail.contactPhoneMasked}</dd>
+              <dd className="font-mono">{detail.contactPhone}</dd>
             </div>
             <div>
               <dt className="font-medium text-muted-foreground">Địa chỉ</dt>
@@ -205,18 +205,7 @@ export default async function AdminOperatorDetailPage({ params }: PageProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {detail.hasLoginAccount ? (
-            <p className="text-sm text-muted-foreground" data-testid="account-provisioned">
-              Tài khoản đăng nhập đã được tạo cho nhà xe này.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Chưa có tài khoản đăng nhập. Tạo tài khoản sẽ sinh tên đăng nhập + mật khẩu tạm thời và gửi thông tin đăng nhập qua email cho nhà xe (đồng thời phê duyệt nhà xe).
-              </p>
-              <CreateAccountAction operatorId={detail.id} />
-            </div>
-          )}
+          <CreateAccountAction operatorId={detail.id} hasLoginAccount={detail.hasLoginAccount} loginUsername={detail.loginUsername} loginTempPassword={detail.loginTempPassword} />
         </CardContent>
       </Card>
 

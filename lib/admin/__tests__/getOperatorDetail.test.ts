@@ -26,7 +26,7 @@ function fakePrisma(opts: {
   upcomingCount?: number;
   gmv?: string;
   payouts?: unknown[];
-  accountCount?: number;
+  loginUsername?: string | null;
 }) {
   // trip.count is called twice (total then upcoming) — return in sequence.
   const tripCount = vi
@@ -35,7 +35,7 @@ function fakePrisma(opts: {
     .mockResolvedValueOnce(opts.upcomingCount ?? 0);
   return {
     operator: { findUnique: vi.fn(async () => opts.operator) },
-    operatorUser: { count: vi.fn(async () => opts.accountCount ?? 0) },
+    operatorUser: { findFirst: vi.fn(async () => opts.loginUsername != null ? { username: opts.loginUsername } : null) },
     bus: { count: vi.fn(async () => opts.busCount ?? 0) },
     trip: { count: tripCount },
     payout: { findMany: vi.fn(async () => opts.payouts ?? []) },
@@ -85,8 +85,7 @@ describe('getOperatorDetail', () => {
     const detail = await getOperatorDetail('op_1', prisma, now);
     expect(detail).not.toBeNull();
     expect(detail!.legalName).toBe('Acme Lines');
-    // Phone masked: last 4 digits kept, rest x'd.
-    expect(detail!.contactPhoneMasked).toBe('+xxxxxxx4567');
+    expect(detail!.contactPhone).toBe('+84901234567');
     expect(detail!.fleetCount).toBe(4);
     expect(detail!.tripCount).toBe(120);
     expect(detail!.upcomingTripCount).toBe(7);
