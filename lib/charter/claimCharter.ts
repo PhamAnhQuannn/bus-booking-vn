@@ -154,44 +154,48 @@ export async function claimCharter(
   // Post-commit, best-effort: enqueue the WIN notifications. A NotificationLog
   // failure here does not roll back the claim (the claim already committed).
   if (winNotify) {
-    const w: WinNotify = winNotify;
+    try {
+      const w: WinNotify = winNotify;
 
-    // (a) Customer match-notify — replicate the Issue 082 ACCEPTED side-effect.
-    const matchPayload = JSON.stringify({ ref: w.ref, operatorName: w.operatorName });
-    await createNotificationLog({
-      channel: 'sms',
-      template: 'charterMatched',
-      recipient: w.contactPhone,
-      payload: matchPayload,
-      status: 'pending',
-    });
-    await createNotificationLog({
-      channel: 'email',
-      template: 'charterMatched',
-      recipient: w.contactEmail,
-      payload: matchPayload,
-      status: 'pending',
-    });
-
-    // (b) Operator win-notify — charterClaimWon to the operator's targets.
-    const winPayload = JSON.stringify({ ref: w.ref });
-    if (w.operatorNotifyPhone) {
+      // (a) Customer match-notify — replicate the Issue 082 ACCEPTED side-effect.
+      const matchPayload = JSON.stringify({ ref: w.ref, operatorName: w.operatorName });
       await createNotificationLog({
         channel: 'sms',
-        template: 'charterClaimWon',
-        recipient: w.operatorNotifyPhone,
-        payload: winPayload,
+        template: 'charterMatched',
+        recipient: w.contactPhone,
+        payload: matchPayload,
         status: 'pending',
       });
-    }
-    if (w.operatorNotifyEmail) {
       await createNotificationLog({
         channel: 'email',
-        template: 'charterClaimWon',
-        recipient: w.operatorNotifyEmail,
-        payload: winPayload,
+        template: 'charterMatched',
+        recipient: w.contactEmail,
+        payload: matchPayload,
         status: 'pending',
       });
+
+      // (b) Operator win-notify — charterClaimWon to the operator's targets.
+      const winPayload = JSON.stringify({ ref: w.ref });
+      if (w.operatorNotifyPhone) {
+        await createNotificationLog({
+          channel: 'sms',
+          template: 'charterClaimWon',
+          recipient: w.operatorNotifyPhone,
+          payload: winPayload,
+          status: 'pending',
+        });
+      }
+      if (w.operatorNotifyEmail) {
+        await createNotificationLog({
+          channel: 'email',
+          template: 'charterClaimWon',
+          recipient: w.operatorNotifyEmail,
+          payload: winPayload,
+          status: 'pending',
+        });
+      }
+    } catch {
+      // Best-effort: claim committed, notification log failure is non-fatal.
     }
   }
 
