@@ -243,6 +243,11 @@ describe('markDeparted', () => {
 // ────────────────────────────────────────────────────────────────────────────
 
 describe('markCompleted', () => {
+  // completeTripCore now requires departedAt (B-05 guard) — depart first.
+  beforeAll(async () => {
+    await markDeparted(operatorId, completeTripId);
+  });
+
   it('sets completedAt and status=completed on first call', async () => {
     const result = await markCompleted(operatorId, completeTripId);
 
