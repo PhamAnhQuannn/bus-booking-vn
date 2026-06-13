@@ -162,12 +162,17 @@ export function createStubAdapter(config: StubConfig): PaymentGateway {
           ? 'failed'
           : 'unknown';
 
+    const amount = Number(parsed.amount ?? 0);
+    if (!Number.isFinite(amount) || amount < 0) {
+      return { ok: false, reason: 'invalid_amount' };
+    }
+
     return {
       ok: true,
       event: {
         orderRef: String(parsed.orderId ?? ''),
         providerTxnId: String(parsed.transId ?? ''),
-        amount: Number(parsed.amount ?? 0),
+        amount,
         currency: 'VND',
         status,
       },

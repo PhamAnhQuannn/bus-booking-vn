@@ -153,8 +153,7 @@ export async function processPaymentWebhook(
       // INSERT PaymentEvent — idempotent: @@unique([adapter, providerTxnId]).
       // providerTxnId + currency are non-PII reconciliation fields, intentionally
       // loggable (logger redact list reviewed — no new redaction needed).
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (tx as any).paymentEvent.create({
+      await tx.paymentEvent.create({
         data: {
           bookingId: booking.id,
           adapter,

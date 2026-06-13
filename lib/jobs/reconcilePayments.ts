@@ -130,7 +130,8 @@ function recoverEvent(
   let success = false;
   try {
     const parsed = JSON.parse(row.rawBody) as Record<string, unknown>;
-    amount = Number(parsed.amount ?? 0);
+    const rawAmount = Number(parsed.amount ?? 0);
+    amount = Number.isFinite(rawAmount) && rawAmount >= 0 ? rawAmount : 0;
     success = Number(parsed.resultCode ?? -1) === 0;
   } catch {
     // Non-JSON / shapeless body → not a confirmation.
