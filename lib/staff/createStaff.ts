@@ -93,6 +93,7 @@ export async function createStaff(input: CreateStaffInput): Promise<StaffDto> {
     status: smsResult.ok ? 'sent' : 'failed',
     externalRef: smsResult.externalRef ?? null,
     sentAt: smsResult.ok ? new Date() : null,
+    attemptCount: smsResult.ok ? 1 : 5,
   });
 
   return toStaffDto({ ...row, role: row.role as 'admin' | 'staff' });

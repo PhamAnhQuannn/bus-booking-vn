@@ -132,7 +132,7 @@ export const charterExpirySweeper: JobCore = async (tx, opts) => {
       throw err;
     }
     rerouted += 1;
-    await notifyReturned(row);
+    try { await notifyReturned(row); } catch { /* best-effort */ }
   }
 
   // 2. Public-pool expiry: two-step PUBLISHED → EXPIRED → ADMIN_REVIEW.
@@ -151,16 +151,21 @@ export const charterExpirySweeper: JobCore = async (tx, opts) => {
       }
       throw err;
     }
-    // EXPIRED is transient — immediately re-route to ADMIN_REVIEW. EXPIRED →
-    // ADMIN_REVIEW is only reachable by us here, so an illegal_transition would
-    // be a genuine bug; let it surface (do not swallow).
-    await transitionCharterRequest(prisma, {
-      charterId: row.id,
-      to: 'ADMIN_REVIEW',
-      actor,
-    });
+    // EXPIRED is transient — immediately re-route to ADMIN_REVIEW.
+    try {
+      await transitionCharterRequest(prisma, {
+        charterId: row.id,
+        to: 'ADMIN_REVIEW',
+        actor,
+      });
+    } catch (err) {
+      if (err instanceof CharterError && err.code === 'illegal_transition') {
+        continue;
+      }
+      throw err;
+    }
     rerouted += 1;
-    await notifyReturned(row);
+    try { await notifyReturned(row); } catch { /* best-effort */ }
   }
 
   return { rowsAffected: rerouted, status: 'success' };

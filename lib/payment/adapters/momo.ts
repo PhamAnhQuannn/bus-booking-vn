@@ -126,6 +126,9 @@ export function createMomoAdapter(
     const providerTxnId = String(parsed.transId ?? '');
     const resultCode = Number(parsed.resultCode ?? -1);
     const amount = Number(parsed.amount ?? 0);
+    if (!Number.isFinite(amount) || amount < 0) {
+      return { ok: false, reason: 'invalid_amount' };
+    }
 
     // MoMo IPN carries no currency field — VND by construction.
     return {

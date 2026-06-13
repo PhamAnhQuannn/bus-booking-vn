@@ -83,6 +83,10 @@ export async function completeTripCore(
     throw new TripServiceError('trip_cancelled');
   }
 
+  if (!row.departedAt) {
+    throw new TripServiceError('trip_not_departed');
+  }
+
   // Idempotency: already completed — return current state, do no work.
   if (row.completedAt !== null) {
     const existing = await tx.trip.findUnique({ where: { id: tripId }, include: tripInclude });

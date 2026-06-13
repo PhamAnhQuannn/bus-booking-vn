@@ -769,7 +769,7 @@ model Payout {
   failureReason String?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
-  trip          Trip?        @relation(fields: [tripId], references: [id])
+  trip          Trip?        @relation(fields: [tripId], references: [id], onDelete: Restrict)
   operator      Operator     @relation(fields: [operatorId], references: [id])
 
   @@index([tripId])
@@ -1001,7 +1001,7 @@ model LedgerEntry {
   createdAt     DateTime        @default(now())
 
   operator Operator @relation(fields: [operatorId], references: [id])
-  booking  Booking? @relation(fields: [bookingId], references: [id])
+  booking  Booking? @relation(fields: [bookingId], references: [id], onDelete: Restrict)
 
   @@unique([sourceEventId])
   @@index([operatorId])
@@ -1032,7 +1032,7 @@ model FeeConfig {
   createdBy     String? // admin/actor id; nullable for the seeded cutover row
   createdAt     DateTime  @default(now())
 
-  operator Operator? @relation(fields: [operatorId], references: [id])
+  operator Operator? @relation(fields: [operatorId], references: [id], onDelete: Restrict)
 
   @@index([operatorId, effectiveFrom])
   @@index([effectiveFrom])

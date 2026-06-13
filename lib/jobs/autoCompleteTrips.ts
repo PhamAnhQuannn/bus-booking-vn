@@ -27,6 +27,7 @@ export const autoCompleteTrips: JobCore = async (tx, opts) => {
       WHERE t.status = 'departed'::"TripStatus"
         AND t."departureAt" + (r."durationMinutes" || ' minutes')::interval < NOW()
       FOR UPDATE OF t SKIP LOCKED
+      LIMIT 100
     `
   );
 

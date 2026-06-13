@@ -2,9 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 
-// Prisma client singleton pattern for Next.js
-// - In development: reuse global instance across hot reloads (avoids "too many connections")
-// - In production: create a new instance per invocation (serverless-safe)
+// Prisma client singleton — reuse across hot reloads (dev) AND warm invocations (prod serverless)
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined };
 
@@ -13,7 +11,8 @@ function createPrismaClient(): PrismaClient {
   if (!connectionString) {
     throw new Error('DATABASE_URL environment variable is not set');
   }
-  const pool = new Pool({ connectionString });
+  const max = Number(process.env.DATABASE_POOL_MAX) || 5;
+  const pool = new Pool({ connectionString, max });
   const adapter = new PrismaPg(pool);
   return new PrismaClient({
     adapter,
@@ -23,6 +22,4 @@ function createPrismaClient(): PrismaClient {
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma;
-}
+globalForPrisma.prisma = prisma;

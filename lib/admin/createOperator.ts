@@ -128,6 +128,7 @@ export async function createOperator(
       status: smsResult.ok ? 'sent' : 'failed',
       externalRef: smsResult.externalRef ?? null,
       sentAt: smsResult.ok ? new Date() : null,
+      attemptCount: smsResult.ok ? 1 : 5,
     },
   });
 

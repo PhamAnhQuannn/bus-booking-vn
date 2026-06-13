@@ -27,7 +27,7 @@ function makeRequest(headers?: Record<string, string>): NextRequest {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  delete process.env.CRON_SECRET;
+  process.env.CRON_SECRET = 'test-cron-secret-0123456789';
   delete process.env.HOLD_SWEEPER_MODE;
 });
 
@@ -41,7 +41,7 @@ describe('GET /api/cron/sweep-holds', () => {
     it('returns expiredCount without mutating DB', async () => {
       vi.mocked(prisma.hold.count).mockResolvedValueOnce(5);
 
-      const req = makeRequest();
+      const req = makeRequest({ authorization: `Bearer ${process.env.CRON_SECRET}` });
       const res = await GET(req);
       const json = await res.json();
 
@@ -53,7 +53,7 @@ describe('GET /api/cron/sweep-holds', () => {
 
     it('uses count mode when HOLD_SWEEPER_MODE is not set', async () => {
       vi.mocked(prisma.hold.count).mockResolvedValueOnce(0);
-      const req = makeRequest();
+      const req = makeRequest({ authorization: `Bearer ${process.env.CRON_SECRET}` });
       const res = await GET(req);
       const json = await res.json();
       expect(json.mode).toBe('count');
@@ -65,7 +65,7 @@ describe('GET /api/cron/sweep-holds', () => {
       process.env.HOLD_SWEEPER_MODE = 'update';
       vi.mocked(runJob).mockResolvedValueOnce({ rowsAffected: 3, status: 'success' });
 
-      const req = makeRequest();
+      const req = makeRequest({ authorization: `Bearer ${process.env.CRON_SECRET}` });
       const res = await GET(req);
       const json = await res.json();
 
@@ -94,20 +94,19 @@ describe('GET /api/cron/sweep-holds', () => {
     });
 
     it('allows access when CRON_SECRET matches', async () => {
-      process.env.CRON_SECRET = 'my-secret';
       process.env.HOLD_SWEEPER_MODE = 'count';
       vi.mocked(prisma.hold.count).mockResolvedValueOnce(0);
 
-      const req = makeRequest({ authorization: 'Bearer my-secret' });
+      const req = makeRequest({ authorization: `Bearer ${process.env.CRON_SECRET}` });
       const res = await GET(req);
       expect(res.status).toBe(200);
     });
 
-    it('allows access when CRON_SECRET is not set (no auth required)', async () => {
-      vi.mocked(prisma.hold.count).mockResolvedValueOnce(0);
+    it('returns 401 when CRON_SECRET is not set', async () => {
+      delete process.env.CRON_SECRET;
       const req = makeRequest();
       const res = await GET(req);
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(401);
     });
   });
 });

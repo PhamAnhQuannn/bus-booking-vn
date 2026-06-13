@@ -8,7 +8,6 @@ export {
   verifyAdminRefreshToken,
 } from './adminSession';
 export { beginEnrollment, confirmEnrollment, verifyLoginTotp } from './adminTotp';
-export { isAdminTotpDisabled } from './totpDisabled';
 export { login, logout, refresh, register, verifyOtp, AuthServiceError } from './authService';
 export { readCsrfToken } from './csrfClient';
 export {

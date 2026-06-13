@@ -11,15 +11,23 @@
 import { Prisma } from '@prisma/client';
 import type { JobCore } from './types';
 
+const BATCH_LIMIT = 500;
+
 export const autoCloseSales: JobCore = async (tx) => {
   const closed = await tx.$queryRaw<{ id: string }[]>(
     Prisma.sql`
-      UPDATE "Trip"
+      WITH batch AS (
+        SELECT id FROM "Trip"
+        WHERE "departureAt" <= NOW()
+          AND "salesClosed" = false
+          AND status = 'scheduled'::"TripStatus"
+        LIMIT ${BATCH_LIMIT}
+      )
+      UPDATE "Trip" t
       SET "salesClosed" = true
-      WHERE "departureAt" <= NOW()
-        AND "salesClosed" = false
-        AND status = 'scheduled'::"TripStatus"
-      RETURNING id
+      FROM batch
+      WHERE t.id = batch.id
+      RETURNING t.id
     `
   );
 

@@ -17,7 +17,7 @@ function makeRequest(headers?: Record<string, string>): NextRequest {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  delete process.env.CRON_SECRET;
+  process.env.CRON_SECRET = 'test-cron-secret-0123456789';
   vi.mocked(runJob).mockResolvedValue({ rowsAffected: 0, status: 'success' });
 });
 
@@ -42,15 +42,16 @@ describe('GET /api/cron/send-reminders', () => {
     });
 
     it('allows access when CRON_SECRET matches', async () => {
-      process.env.CRON_SECRET = 'my-secret';
-      const res = await GET(makeRequest({ authorization: 'Bearer my-secret' }));
+      const res = await GET(makeRequest({ authorization: `Bearer ${process.env.CRON_SECRET}` }));
       expect(res.status).toBe(200);
       expect(runJob).toHaveBeenCalledWith('reminder-24h', expect.any(Function));
     });
 
-    it('allows access when CRON_SECRET is not set (no auth required)', async () => {
+    it('returns 401 when CRON_SECRET is not set', async () => {
+      delete process.env.CRON_SECRET;
       const res = await GET(makeRequest());
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(401);
+      expect(runJob).not.toHaveBeenCalled();
     });
   });
 });

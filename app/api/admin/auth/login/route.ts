@@ -15,7 +15,7 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { cookies } from 'next/headers';
-import { adminLogin, issueAdminSession, isAdminTotpDisabled } from '@/lib/auth';
+import { adminLogin, issueAdminSession } from '@/lib/auth';
 import { ratelimit } from '@/lib/ratelimit';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
@@ -61,11 +61,7 @@ async function handler(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: 'INVALID_CREDENTIALS' }, { status: 401 });
   }
 
-  // totpVerified=false at password-login time — the TOTP step (issue 055+) flips it.
-  // TEMP (dev/test): when the TOTP bypass flag is on, mint totpVerified=true so the
-  // code step is skipped. Hard-guarded off in production (see lib/auth/totpDisabled).
-  const totpSkipped = isAdminTotpDisabled();
-  const session = await issueAdminSession(result.adminUserId, result.role, totpSkipped);
+  const session = await issueAdminSession(result.adminUserId, result.role, false);
 
   const cookieStore = await cookies();
   const secure = process.env.NODE_ENV === 'production';
@@ -86,7 +82,7 @@ async function handler(req: NextRequest): Promise<Response> {
     maxAge: REFRESH_COOKIE_MAX_AGE,
   });
 
-  return NextResponse.json({ role: result.role, totpDisabled: totpSkipped });
+  return NextResponse.json({ role: result.role, totpDisabled: false });
 }
 
 export const POST = withErrorHandler(handler);

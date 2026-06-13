@@ -208,6 +208,30 @@ const envSchema = z.object({
     .string()
     .min(16, 'TICKET_SECRET must be at least 16 characters')
     .optional(),
+
+  /**
+   * HS256 signing secret for customer + operator session JWTs.
+   * Must be at least 32 characters. Required in production.
+   */
+  JWT_SECRET: z.string().min(32).optional(),
+
+  /**
+   * PostgreSQL connection string.
+   * Required in production; tests use a dedicated test database or mocks.
+   */
+  DATABASE_URL: z.string().optional(),
+
+  /** Max connections per pg.Pool instance (default 5). */
+  DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(50).default(5),
+
+  /**
+   * Bearer token that Vercel Cron injects as `Authorization: Bearer <secret>`.
+   * Must be at least 16 characters. Required in production (cron routes fail-closed).
+   */
+  CRON_SECRET: z.string().min(16).optional(),
+
+  /** Ops team email for internal notifications (charter declines, escalations). */
+  OPS_EMAIL: z.string().email().optional(),
 }).superRefine((env, ctx) => {
   // Real eSMS mode (NOTIFY_STUB=false) must carry credentials — fail fast at boot.
   if (!env.NOTIFY_STUB) {
@@ -217,6 +241,17 @@ const envSchema = z.object({
           code: z.ZodIssueCode.custom,
           path: [key],
           message: `${key} is required when NOTIFY_STUB=false (real eSMS mode)`,
+        });
+      }
+    }
+  }
+  if (process.env.NODE_ENV === 'production') {
+    for (const key of ['JWT_SECRET', 'DATABASE_URL', 'CRON_SECRET'] as const) {
+      if (!env[key]) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `${key} is required in production`,
         });
       }
     }

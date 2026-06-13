@@ -22,6 +22,7 @@ const {
   mockCharterFindUnique,
   mockCookieStore,
   mockDecline,
+  mockGetEnv,
 } = vi.hoisted(() => ({
   mockVerifyOperatorAccess: vi.fn(),
   mockOperatorUserFindUnique: vi.fn(),
@@ -29,6 +30,7 @@ const {
   mockCharterFindUnique: vi.fn(),
   mockCookieStore: { get: vi.fn() },
   mockDecline: vi.fn(),
+  mockGetEnv: vi.fn(() => ({ OPS_EMAIL: 'ops@test.com' })),
 }));
 
 vi.mock('@/lib/auth/jwt', () => ({ verifyOperatorAccess: mockVerifyOperatorAccess }));
@@ -41,6 +43,7 @@ vi.mock('@/lib/core/db/client', () => ({
 }));
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => mockCookieStore) }));
 vi.mock('@/lib/charter/declineCharter', () => ({ declineCharter: mockDecline }));
+vi.mock('@/lib/config', () => ({ getEnv: mockGetEnv }));
 
 import { POST } from '../route';
 import { NextRequest } from 'next/server';
@@ -110,6 +113,7 @@ describe('POST /api/op/charter/[id]/decline', () => {
       charterId: CHARTER_ID,
       actor: `operator:${OPERATOR_ID}`,
       reason: 'không đủ xe',
+      opsEmail: 'ops@test.com',
     });
   });
 
@@ -120,6 +124,7 @@ describe('POST /api/op/charter/[id]/decline', () => {
       charterId: CHARTER_ID,
       actor: `operator:${OPERATOR_ID}`,
       reason: undefined,
+      opsEmail: 'ops@test.com',
     });
   });
 
