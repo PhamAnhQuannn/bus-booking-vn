@@ -24,7 +24,7 @@ function makeRequest(headers?: Record<string, string>): NextRequest {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  delete process.env.CRON_SECRET;
+  process.env.CRON_SECRET = 'test-cron-secret-0123456789';
   vi.mocked(runJob).mockResolvedValue({ rowsAffected: 0, status: 'success' });
 });
 
@@ -49,22 +49,23 @@ describe('GET /api/cron/charter-expiry', () => {
     });
 
     it('allows access when CRON_SECRET matches', async () => {
-      process.env.CRON_SECRET = 'my-secret';
-      const res = await GET(makeRequest({ authorization: 'Bearer my-secret' }));
+      const res = await GET(makeRequest({ authorization: `Bearer ${process.env.CRON_SECRET}` }));
       expect(res.status).toBe(200);
       expect(runJob).toHaveBeenCalledWith('charter-sweep', expect.any(Function));
     });
 
-    it('allows access when CRON_SECRET is not set (no auth required)', async () => {
+    it('returns 401 when CRON_SECRET is not set', async () => {
+      delete process.env.CRON_SECRET;
       const res = await GET(makeRequest());
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(401);
+      expect(runJob).not.toHaveBeenCalled();
     });
   });
 
   describe('advisory-lock + JobRunLog wrapper', () => {
     it('runs the sweep through runJob with the charter-sweep lock key', async () => {
       vi.mocked(runJob).mockResolvedValue({ rowsAffected: 3, status: 'success' });
-      const res = await GET(makeRequest());
+      const res = await GET(makeRequest({ authorization: `Bearer ${process.env.CRON_SECRET}` }));
       expect(res.status).toBe(200);
       expect(runJob).toHaveBeenCalledTimes(1);
       expect(runJob).toHaveBeenCalledWith('charter-sweep', expect.any(Function));
@@ -74,7 +75,7 @@ describe('GET /api/cron/charter-expiry', () => {
 
     it('surfaces skipped_locked from a concurrent tick that finds the lock held', async () => {
       vi.mocked(runJob).mockResolvedValue({ rowsAffected: 0, status: 'skipped_locked' });
-      const res = await GET(makeRequest());
+      const res = await GET(makeRequest({ authorization: `Bearer ${process.env.CRON_SECRET}` }));
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body).toEqual({ rowsAffected: 0, status: 'skipped_locked' });
@@ -82,7 +83,7 @@ describe('GET /api/cron/charter-expiry', () => {
 
     it('returns 500 when runJob throws', async () => {
       vi.mocked(runJob).mockRejectedValue(new Error('boom'));
-      const res = await GET(makeRequest());
+      const res = await GET(makeRequest({ authorization: `Bearer ${process.env.CRON_SECRET}` }));
       expect(res.status).toBe(500);
       const body = await res.json();
       expect(body).toEqual({ error: 'internal_error' });

@@ -17,7 +17,7 @@ function makeRequest(headers?: Record<string, string>): NextRequest {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  delete process.env.CRON_SECRET;
+  process.env.CRON_SECRET = 'test-cron-secret-0123456789';
   vi.mocked(runJob).mockResolvedValue({ rowsAffected: 0, status: 'success' });
 });
 
@@ -42,22 +42,23 @@ describe('GET /api/cron/generate-trips', () => {
     });
 
     it('allows access when CRON_SECRET matches', async () => {
-      process.env.CRON_SECRET = 'my-secret';
-      const res = await GET(makeRequest({ authorization: 'Bearer my-secret' }));
+      const res = await GET(makeRequest({ authorization: `Bearer ${process.env.CRON_SECRET}` }));
       expect(res.status).toBe(200);
       expect(runJob).toHaveBeenCalledWith('trip-generate', expect.any(Function));
     });
 
-    it('allows access when CRON_SECRET is not set (no auth required)', async () => {
+    it('returns 401 when CRON_SECRET is not set', async () => {
+      delete process.env.CRON_SECRET;
       const res = await GET(makeRequest());
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(401);
+      expect(runJob).not.toHaveBeenCalled();
     });
   });
 
   describe('advisory-lock + JobRunLog wrapper (Issue 043)', () => {
     it('runs generation through runJob with the trip-generate lock key', async () => {
       vi.mocked(runJob).mockResolvedValue({ rowsAffected: 3, status: 'success' });
-      const res = await GET(makeRequest());
+      const res = await GET(makeRequest({ authorization: `Bearer ${process.env.CRON_SECRET}` }));
       expect(res.status).toBe(200);
       // Exactly one runJob call → exactly one JobRunLog row per run (runJob owns
       // the JobRunLog write; it is asserted to be invoked once here).
@@ -71,7 +72,7 @@ describe('GET /api/cron/generate-trips', () => {
       // runJob → withAdvisoryLock returns skipped_locked when another tick holds
       // the advisory key; the route passes that result straight through.
       vi.mocked(runJob).mockResolvedValue({ rowsAffected: 0, status: 'skipped_locked' });
-      const res = await GET(makeRequest());
+      const res = await GET(makeRequest({ authorization: `Bearer ${process.env.CRON_SECRET}` }));
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body).toEqual({ rowsAffected: 0, status: 'skipped_locked' });
@@ -79,7 +80,7 @@ describe('GET /api/cron/generate-trips', () => {
 
     it('returns 500 when runJob throws (JobRunLog failed row written by runJob)', async () => {
       vi.mocked(runJob).mockRejectedValue(new Error('boom'));
-      const res = await GET(makeRequest());
+      const res = await GET(makeRequest({ authorization: `Bearer ${process.env.CRON_SECRET}` }));
       expect(res.status).toBe(500);
       const body = await res.json();
       expect(body).toEqual({ error: 'internal_error' });
