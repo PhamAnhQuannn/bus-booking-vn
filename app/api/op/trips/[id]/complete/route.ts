@@ -39,6 +39,9 @@ export async function POST(req: NextRequest, routeCtx: RouteContext): Promise<Re
           if (err.code === 'trip_cancelled') {
             return NextResponse.json({ error: 'trip_cancelled' }, { status: 422 });
           }
+          if (err.code === 'trip_not_departed') {
+            return NextResponse.json({ error: 'trip_not_departed' }, { status: 422 });
+          }
         }
         throw err;
       }
