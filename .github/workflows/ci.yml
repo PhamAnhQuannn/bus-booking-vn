@@ -159,6 +159,9 @@ jobs:
       HOLD_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       # Route online payments through the local stub gateway for e2e.
       PAYMENTS_STUB: 'true'
+      # pnpm build sets NODE_ENV=production; env.ts superRefine requires these.
+      JWT_SECRET: ci-test-jwt-secret-not-for-production-use-0123456789ab
+      CRON_SECRET: ci-test-cron-secret-00
 
     steps:
       - uses: actions/checkout@v4
