@@ -34,7 +34,7 @@ beforeEach(() => {
 
 describe('declineCharter', () => {
   it('runs DECLINED then ADMIN_REVIEW in order, with the operator actor', async () => {
-    const result = await declineCharter(prisma, { charterId: CHARTER_ID, actor: ACTOR });
+    const result = await declineCharter(prisma, { charterId: CHARTER_ID, actor: ACTOR, opsEmail: 'ops@test.com' });
 
     expect(mockTransition).toHaveBeenCalledTimes(2);
     expect(mockTransition).toHaveBeenNthCalledWith(1, prisma, {
@@ -51,7 +51,7 @@ describe('declineCharter', () => {
   });
 
   it('enqueues a best-effort ops decline notification with the reason', async () => {
-    await declineCharter(prisma, { charterId: CHARTER_ID, actor: ACTOR, reason: 'no bus' });
+    await declineCharter(prisma, { charterId: CHARTER_ID, actor: ACTOR, reason: 'no bus', opsEmail: 'ops@test.com' });
     expect(mockCreateNotificationLog).toHaveBeenCalledTimes(1);
     const arg = mockCreateNotificationLog.mock.calls[0][0];
     expect(arg.template).toBe('charterDeclined');
@@ -61,13 +61,13 @@ describe('declineCharter', () => {
   it('propagates an illegal_transition from the first transition (does not run the second)', async () => {
     const err = new Error('illegal_transition');
     mockTransition.mockRejectedValueOnce(err);
-    await expect(declineCharter(prisma, { charterId: CHARTER_ID, actor: ACTOR })).rejects.toThrow(err);
+    await expect(declineCharter(prisma, { charterId: CHARTER_ID, actor: ACTOR, opsEmail: 'ops@test.com' })).rejects.toThrow(err);
     expect(mockTransition).toHaveBeenCalledTimes(1);
   });
 
   it('does not fail the decline if the ops notification throws', async () => {
     mockCreateNotificationLog.mockRejectedValueOnce(new Error('log down'));
-    const result = await declineCharter(prisma, { charterId: CHARTER_ID, actor: ACTOR });
+    const result = await declineCharter(prisma, { charterId: CHARTER_ID, actor: ACTOR, opsEmail: 'ops@test.com' });
     expect(result.to).toBe('ADMIN_REVIEW');
   });
 });

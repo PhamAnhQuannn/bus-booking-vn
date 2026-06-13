@@ -24,6 +24,7 @@ import { prisma } from '@/lib/core/db/client';
 import { declineCharter } from '@/lib/charter';
 import { CharterError } from '@/lib/charter';
 import { assertOperatorApproved, CharterNotApprovedError } from '@/lib/charter';
+import { getEnv } from '@/lib/config';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -67,6 +68,7 @@ export async function POST(req: NextRequest, ctx: RouteContext): Promise<Respons
           charterId: id,
           actor: `operator:${authCtx.operatorId}`,
           reason,
+          opsEmail: getEnv().OPS_EMAIL,
         });
         return NextResponse.json({ ok: true, to: result.to });
       } catch (e) {

@@ -31,6 +31,8 @@ export interface DeclineCharterInput {
   actor: string;
   /** Optional operator-supplied decline reason (logged to ops, not customer-facing). */
   reason?: string;
+  /** Ops email for decline notification. Caller reads from env. */
+  opsEmail?: string;
 }
 
 export interface DeclineCharterResult {
@@ -51,7 +53,7 @@ export async function declineCharter(
   prisma: CharterTransitionClient,
   input: DeclineCharterInput
 ): Promise<DeclineCharterResult> {
-  const { charterId, actor, reason } = input;
+  const { charterId, actor, reason, opsEmail } = input;
 
   // 1) ASSIGNED_DIRECT → DECLINED (clears assigneeOperatorId via the 081 side-effect).
   await transitionCharterRequest(prisma, { charterId, to: 'DECLINED', actor });
@@ -59,13 +61,15 @@ export async function declineCharter(
   // 2) DECLINED → ADMIN_REVIEW (re-route the freed lead into the admin queue).
   await transitionCharterRequest(prisma, { charterId, to: 'ADMIN_REVIEW', actor });
 
-  // Best-effort ops notification that a decline happened (the lead needs
-  // reassignment). NotificationLog failure must not fail the decline.
+  if (!opsEmail) {
+    logger.warn({ charterId }, 'charterDeclined notification skipped — OPS_EMAIL not configured');
+    return { ok: true, charterId, to: 'ADMIN_REVIEW' };
+  }
   try {
     await createNotificationLog({
       channel: 'email',
       template: 'charterDeclined',
-      recipient: 'ops',
+      recipient: opsEmail,
       payload: JSON.stringify({ charterId, actor, reason: reason ?? null }),
       status: 'pending',
     });

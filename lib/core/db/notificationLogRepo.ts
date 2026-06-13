@@ -18,6 +18,7 @@ export interface CreateNotificationLogInput {
   status: NotificationStatus;
   externalRef?: string | null;
   sentAt?: Date | null;
+  attemptCount?: number;
 }
 
 export async function createNotificationLog(input: CreateNotificationLogInput) {
@@ -31,6 +32,7 @@ export async function createNotificationLog(input: CreateNotificationLogInput) {
       status: input.status,
       externalRef: input.externalRef ?? null,
       sentAt: input.sentAt ?? null,
+      ...(input.attemptCount !== undefined && { attemptCount: input.attemptCount }),
     },
   });
 }

@@ -42,6 +42,8 @@ export type EmailTemplate =
   //   charterClaimLost — (optional) another operator claimed it first.
   | 'charterClaimWon'
   | 'charterClaimLost'
+  | 'ticketReady'
+  | 'charterDeclined'
   // Issue 086: charter-expiry sweeper auto-return. When a direct-assign accept
   // deadline (acceptByAt) or a public-pool claim deadline (claimByAt) elapses
   // with no operator response, the cron returns the lead to ADMIN_REVIEW and
@@ -96,11 +98,17 @@ const SUBJECTS: Record<string, string> = {
   charterClaimLost: 'BBVN — Yêu cầu thuê xe đã được nhà xe khác nhận',
   // Issue 086: auto-return to admin review (no operator responded in time).
   charterReturnedToReview: 'BBVN — Chúng tôi vẫn đang tìm nhà xe cho bạn',
+  ticketReady: 'BBVN — Vé điện tử của bạn đã sẵn sàng',
+  charterDeclined: 'BBVN — Nhà xe đã từ chối yêu cầu thuê xe',
 };
 
 /** Resolve a subject line for the template; falls back to a generic subject. */
 export function renderEmailSubject(template: string): string {
   return SUBJECTS[template] ?? 'BusBookVN';
+}
+
+function notifyStubbed(): boolean {
+  return process.env.NOTIFY_STUB !== 'false';
 }
 
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
@@ -111,7 +119,14 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
       ? input.payload.length
       : JSON.stringify(input.payload).length;
 
-  // Deterministic stub ref. No network I/O — real provider deferred.
+  if (!notifyStubbed()) {
+    logger.warn(
+      { template, recipientLen: to.length },
+      'email.real.not-wired — NOTIFY_STUB=false but no real email provider is configured'
+    );
+    return { ok: false, error: 'real_email_provider_not_wired' };
+  }
+
   const externalRef = `${STUB_PROVIDER_REF_PREFIX}${Date.now().toString(36)}`;
 
   logger.info(
