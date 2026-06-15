@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { FORBIDDEN_RESPONSE_FIELDS } from '../security/__tests__/forbiddenFields';
 
 describe('logger redactPaths', () => {
   it('exports a logger with redactPaths configured', async () => {
@@ -97,18 +98,7 @@ describe('logger redactPaths', () => {
       ? loggerOptions.redact
       : (loggerOptions.redact as { paths: string[] }).paths;
 
-    const forbiddenResponseFields = [
-      'passwordHash',
-      'tempPasswordPlain',
-      'tempPassword',
-      'otpCode',
-      'codeHash',
-      'refreshTokenHash',
-      'totpSecret',
-      'confirmationToken',
-    ];
-
-    for (const field of forbiddenResponseFields) {
+    for (const field of FORBIDDEN_RESPONSE_FIELDS) {
       const covered =
         redactPaths.includes(field) ||
         redactPaths.includes(`*.${field}`) ||

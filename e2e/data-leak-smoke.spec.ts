@@ -13,13 +13,10 @@ import { test, expect } from '@playwright/test';
 import { Client } from 'pg';
 import { primeCsrf } from './helpers/csrf';
 import { hash } from '../lib/auth/password';
-import { normalizePhone } from '../lib/core/validation/phone';
-
 const SANDBOX_ENABLED = process.env.E2E_DATA_LEAK_ENABLED === 'true';
 const DB_URL =
   process.env.DATABASE_URL ?? 'postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_dev';
 
-const SEED_PHONE = normalizePhone('0901230001');
 const SEED_PASSWORD = 'BBOp2026!';
 const SEED_USERNAME = 'PB-0001';
 
@@ -65,7 +62,7 @@ async function prepareOpB(): Promise<{ opBId: string; opBBusId: string; opBTripI
     if (opB.rows.length === 0) {
       const ins = await client.query(
         `INSERT INTO "Operator" ("id","legalName","contactPhone","contactEmail","status")
-         VALUES (gen_random_uuid()::text, 'Data Leak Test Org', $1, 'dleak@test.example', 'active')
+         VALUES (gen_random_uuid()::text, 'Data Leak Test Org', $1, 'dleak@test.example', 'APPROVED')
          RETURNING id`,
         [OP_B_PHONE]
       );
@@ -206,6 +203,7 @@ test.describe('Data leak smoke tests', () => {
     });
 
     const res = await request.get('/api/op/bookings');
+    expect(res.status()).toBeLessThan(500); // server errors must not pass silently
     if (res.status() !== 200) return; // no bookings seeded — skip
     const json = await res.json();
     const keys = collectKeys(json);
