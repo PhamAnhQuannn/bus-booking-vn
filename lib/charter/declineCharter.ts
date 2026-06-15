@@ -33,6 +33,8 @@ export interface DeclineCharterInput {
   reason?: string;
   /** Ops email for decline notification. Caller reads from env. */
   opsEmail?: string;
+  /** Issue 030 B-10: ownership guard forwarded to transitionCharterRequest. */
+  requiredAssigneeOperatorId?: string;
 }
 
 export interface DeclineCharterResult {
@@ -53,10 +55,10 @@ export async function declineCharter(
   prisma: CharterTransitionClient,
   input: DeclineCharterInput
 ): Promise<DeclineCharterResult> {
-  const { charterId, actor, reason, opsEmail } = input;
+  const { charterId, actor, reason, opsEmail, requiredAssigneeOperatorId } = input;
 
   // 1) ASSIGNED_DIRECT → DECLINED (clears assigneeOperatorId via the 081 side-effect).
-  await transitionCharterRequest(prisma, { charterId, to: 'DECLINED', actor });
+  await transitionCharterRequest(prisma, { charterId, to: 'DECLINED', actor, requiredAssigneeOperatorId });
 
   // 2) DECLINED → ADMIN_REVIEW (re-route the freed lead into the admin queue).
   await transitionCharterRequest(prisma, { charterId, to: 'ADMIN_REVIEW', actor });

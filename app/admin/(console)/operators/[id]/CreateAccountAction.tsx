@@ -141,15 +141,9 @@ export function CreateAccountAction({ operatorId, hasLoginAccount, loginUsername
             Tên đăng nhập: <span data-testid="login-username">{loginUsername}</span>
           </p>
         ) : null}
-        {loginTempPassword ? (
-          <p className="font-mono text-sm">
-            Mật khẩu tạm thời: <span data-testid="login-temp-password">{loginTempPassword}</span>
-          </p>
-        ) : (
-          <p className="text-xs text-muted-foreground">
-            Nhà xe đã đổi mật khẩu — mật khẩu tạm thời không còn hiển thị.
-          </p>
-        )}
+        <p className="text-xs text-muted-foreground">
+          Mật khẩu tạm thời đã được gửi qua SMS khi tạo tài khoản.
+        </p>
       </div>
     );
   }

@@ -127,7 +127,7 @@ export async function getOperatorDetail(
         orderBy: [{ scheduledAt: 'desc' }, { id: 'desc' }],
         take: PAYOUT_HISTORY_LIMIT,
       }),
-      prisma.operatorUser.findFirst({ where: { operatorId }, select: { username: true, tempPasswordPlain: true } }),
+      prisma.operatorUser.findFirst({ where: { operatorId }, select: { username: true } }),
     ]);
 
   const gmvVnd = BigInt(gmvRows[0]?.gmv ?? '0');
@@ -146,7 +146,7 @@ export async function getOperatorDetail(
     rejectionReason: operator.rejectionReason,
     hasLoginAccount: loginAccount !== null,
     loginUsername: loginAccount?.username ?? null,
-    loginTempPassword: loginAccount?.tempPasswordPlain ?? null,
+    loginTempPassword: null,
     fleetCount,
     tripCount,
     upcomingTripCount,

@@ -54,21 +54,15 @@ export async function POST(req: NextRequest, ctx: RouteContext): Promise<Respons
         // no body → no reason; fine.
       }
 
-      // Ownership check: only the assigned operator may act (else 404).
-      const charter = await prisma.charterRequest.findUnique({
-        where: { id },
-        select: { assigneeOperatorId: true },
-      });
-      if (!charter || charter.assigneeOperatorId !== authCtx.operatorId) {
-        return NextResponse.json({ error: 'not_found' }, { status: 404 });
-      }
-
+      // Issue 030 B-10: ownership check moved INSIDE transitionCharterRequest's
+      // FOR UPDATE lock via requiredAssigneeOperatorId — closes the TOCTOU gap.
       try {
         const result = await declineCharter(prisma, {
           charterId: id,
           actor: `operator:${authCtx.operatorId}`,
           reason,
           opsEmail: getEnv().OPS_EMAIL,
+          requiredAssigneeOperatorId: authCtx.operatorId,
         });
         return NextResponse.json({ ok: true, to: result.to });
       } catch (e) {

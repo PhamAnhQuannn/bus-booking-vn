@@ -150,6 +150,13 @@ export interface TransitionCharterRequestInput {
    * roll back together. Absent for system / cron callers (no audit row).
    */
   actor?: string;
+  /**
+   * Issue 030 B-10: when set, the locked row's assigneeOperatorId MUST equal this
+   * value — checked INSIDE the FOR UPDATE transaction to close the TOCTOU gap
+   * between an external ownership read and the transition write. Throws
+   * CharterError('charter_not_found') on mismatch (no cross-operator leak).
+   */
+  requiredAssigneeOperatorId?: string;
 }
 
 export interface TransitionCharterRequestResult {
@@ -179,7 +186,7 @@ export async function transitionCharterRequest(
   prisma: CharterTransitionClient,
   input: TransitionCharterRequestInput
 ): Promise<TransitionCharterRequestResult> {
-  const { charterId, to, assigneeOperatorId, acceptByAt, claimByAt, rejectionReason, actor } =
+  const { charterId, to, assigneeOperatorId, acceptByAt, claimByAt, rejectionReason, actor, requiredAssigneeOperatorId } =
     input;
 
   // Carried out of the transaction so the → ACCEPTED match notification (Issue
@@ -192,14 +199,18 @@ export async function transitionCharterRequest(
   const result = await prisma.$transaction(async (tx) => {
     // Lock the charter row so concurrent transitions serialise on the edge check
     // (the Issue 084 claim race depends on this).
-    const locked = await tx.$queryRaw<{ status: CharterStatus }[]>`
-      SELECT "status"
+    const locked = await tx.$queryRaw<{ status: CharterStatus; assigneeOperatorId: string | null }[]>`
+      SELECT "status", "assigneeOperatorId"
       FROM "CharterRequest"
       WHERE "id" = ${charterId}
       FOR UPDATE
     `;
 
     if (locked.length === 0) {
+      throw new CharterError('charter_not_found');
+    }
+
+    if (requiredAssigneeOperatorId && locked[0].assigneeOperatorId !== requiredAssigneeOperatorId) {
       throw new CharterError('charter_not_found');
     }
 

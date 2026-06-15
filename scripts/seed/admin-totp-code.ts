@@ -11,6 +11,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { generateTotp } from '@/lib/auth/totp';
+import { decryptTotpSecret } from '@/lib/auth/totpCrypto';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
@@ -26,7 +27,8 @@ async function main() {
     return;
   }
   const nowSec = Math.floor(Date.now() / 1000);
-  const code = generateTotp(admin.totpSecret, Math.floor(nowSec / 30));
+  const plainSecret = decryptTotpSecret(admin.totpSecret);
+  const code = generateTotp(plainSecret, Math.floor(nowSec / 30));
   const secondsLeft = 30 - (nowSec % 30);
   console.log(`email: ${admin.email}`);
   console.log(`TOTP code: ${code}   (valid ~${secondsLeft}s)`);

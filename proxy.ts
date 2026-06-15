@@ -106,8 +106,8 @@ async function decodeOperatorJwt(
 ): Promise<{ sub: string; requiresPasswordChange: boolean; operatorId: string } | null> {
   try {
     const raw =
-      process.env.JWT_SECRET ??
-      (process.env.NODE_ENV === 'test' ? 'a'.repeat(32) : null);
+      process.env.JWT_OPERATOR_SECRET ??
+      (process.env.NODE_ENV === 'test' ? 'b'.repeat(32) : null);
     if (!raw) return null;
     const secret = new TextEncoder().encode(raw);
     const { payload } = await jwtVerify(token, secret, { algorithms: ['HS256'] });
@@ -134,8 +134,8 @@ async function decodeAdminJwt(
 ): Promise<{ sub: string; role: string; totpVerified: boolean } | null> {
   try {
     const raw =
-      process.env.JWT_SECRET ??
-      (process.env.NODE_ENV === 'test' ? 'a'.repeat(32) : null);
+      process.env.JWT_ADMIN_SECRET ??
+      (process.env.NODE_ENV === 'test' ? 'c'.repeat(32) : null);
     if (!raw) return null;
     const secret = new TextEncoder().encode(raw);
     const { payload } = await jwtVerify(token, secret, { algorithms: ['HS256'] });

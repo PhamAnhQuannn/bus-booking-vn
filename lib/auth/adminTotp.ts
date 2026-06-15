@@ -20,6 +20,7 @@
 
 import { prisma } from '@/lib/core/db/client';
 import { generateTotpSecret, totpAuthUri, verifyTotp } from './totp';
+import { encryptTotpSecret, decryptTotpSecret } from './totpCrypto';
 
 export interface BeginEnrollmentResult {
   secret: string;
@@ -53,7 +54,7 @@ export async function beginEnrollment(adminId: string): Promise<BeginEnrollmentR
   const secret = generateTotpSecret();
   await prisma.adminUser.update({
     where: { id: adminId },
-    data: { totpSecret: secret },
+    data: { totpSecret: encryptTotpSecret(secret) },
   });
 
   return { secret, otpauthUri: totpAuthUri(secret, admin.email) };
@@ -76,7 +77,8 @@ export async function confirmEnrollment(
     return { ok: false, reason: 'not_started' };
   }
 
-  if (!verifyTotp(admin.totpSecret, code)) {
+  const plainSecret = decryptTotpSecret(admin.totpSecret);
+  if (!verifyTotp(plainSecret, code)) {
     return { ok: false, reason: 'bad_code' };
   }
 
@@ -106,7 +108,8 @@ export async function verifyLoginTotp(
     return { ok: false, reason: 'enrollment_required' };
   }
 
-  if (!verifyTotp(admin.totpSecret, code)) {
+  const plainSecret = decryptTotpSecret(admin.totpSecret);
+  if (!verifyTotp(plainSecret, code)) {
     return { ok: false, reason: 'bad_code' };
   }
 

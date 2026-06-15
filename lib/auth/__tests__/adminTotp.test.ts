@@ -39,10 +39,10 @@ describe('beginEnrollment', () => {
     expect(result.otpauthUri).toContain('secret=GENERATEDSECRET234567');
     expect(result.otpauthUri).toContain('admin@example.com');
 
-    // Persisted totpSecret, did NOT touch totpEnabledAt.
+    // Persisted encrypted totpSecret, did NOT touch totpEnabledAt.
     expect(mockUpdate).toHaveBeenCalledWith({
       where: { id: 'admin-1' },
-      data: { totpSecret: 'GENERATEDSECRET234567' },
+      data: { totpSecret: expect.stringMatching(/^enc:v1:/) },
     });
     const dataArg = mockUpdate.mock.calls[0][0].data;
     expect(dataArg).not.toHaveProperty('totpEnabledAt');
