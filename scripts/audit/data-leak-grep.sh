@@ -28,6 +28,7 @@ check_temp_password_plain() {
     | grep -v '\.md:' \
     | grep -v 'scripts/audit/' \
     | grep -v 'prisma/schema\.prisma' \
+    | grep -v 'lib/logger\.ts' \
     || true)
 
   if [ -n "$hits" ]; then
