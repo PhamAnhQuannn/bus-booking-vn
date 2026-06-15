@@ -100,7 +100,6 @@ export async function createOperatorAccount(
         contactPhone: operator.contactPhone,
         notificationPhone: operator.notificationPhone ?? operator.contactPhone,
         passwordHash,
-        tempPasswordPlain: tempPassword,
         displayName,
         role: 'admin',
         requiresPasswordChange: true,

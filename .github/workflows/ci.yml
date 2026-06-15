@@ -161,6 +161,9 @@ jobs:
       PAYMENTS_STUB: 'true'
       # pnpm build sets NODE_ENV=production; env.ts superRefine requires these.
       JWT_SECRET: ci-test-jwt-secret-not-for-production-use-0123456789ab
+      JWT_OPERATOR_SECRET: ci-test-operator-secret-not-for-production-0123
+      JWT_ADMIN_SECRET: ci-test-admin-secret-not-for-production-01234567
+      TOTP_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
       CRON_SECRET: ci-test-cron-secret-00
 
     steps:

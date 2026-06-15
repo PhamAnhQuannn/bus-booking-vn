@@ -25,6 +25,14 @@ regexes = [
   '''MOMOBKUN20180529''',
   '''klm05TvNBzhg7h7j''',
   '''at67qH6mk8w5Y1nAyMoYKMWACiEi2bsa''',
+  # CI-only test secrets — clearly labeled "not-for-production" in .github/workflows/ci.yml.
+  # generic-api-key flags them because the env var names contain SECRET/KEY.
+  '''ci-test-jwt-secret-not-for-production-use-0123456789ab''',
+  '''ci-test-operator-secret-not-for-production-0123''',
+  '''ci-test-admin-secret-not-for-production-01234567''',
+  '''ci-test-cron-secret-00''',
+  # CI-only TOTP encryption key — deterministic hex pattern, not a real key.
+  '''0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef''',
 ]
 paths = [
   '''prisma/seed\.ts''',
@@ -36,4 +44,7 @@ paths = [
   # QA report docs they emit print that seed phone. Fabricated seed data, not real PII.
   '''scripts/smoke/.*''',
   '''docs/qa/.*''',
+  # .env.example contains only placeholder values ("replace-with-32-byte-hex"),
+  # never real secrets. generic-api-key flags SECRET= and KEY= var names.
+  '''\.env\.example''',
 ]

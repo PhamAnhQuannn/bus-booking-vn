@@ -1,22 +1,40 @@
 /**
  * JWT utilities — HS256 access tokens via jose.
  *
- * signAccess({ sub, role }) → compact JWT string, exp=900s
- * verifyAccess(token)       → { sub, role } | null (null on any failure)
+ * AUTH-02: per-realm signing secrets. Customer, operator, and admin realms each
+ * use a dedicated secret so compromise of one realm cannot forge tokens for another.
  *
- * Secret: process.env.JWT_SECRET (required in production).
- * Test fallback: 'a'.repeat(32) when NODE_ENV === 'test'.
+ * - JWT_SECRET             → customer realm (backward compat)
+ * - JWT_OPERATOR_SECRET    → operator realm
+ * - JWT_ADMIN_SECRET       → admin realm (access + step-up)
+ *
+ * Test fallback: deterministic per-realm strings when NODE_ENV === 'test'.
  */
 
 import { SignJWT, jwtVerify } from 'jose';
 
 const ACCESS_TTL_SECONDS = 900; // 15 minutes
 
-function getSecret(): Uint8Array {
+type Realm = 'customer' | 'operator' | 'admin';
+
+const REALM_ENV_KEYS: Record<Realm, string> = {
+  customer: 'JWT_SECRET',
+  operator: 'JWT_OPERATOR_SECRET',
+  admin: 'JWT_ADMIN_SECRET',
+};
+
+const REALM_TEST_FALLBACKS: Record<Realm, string> = {
+  customer: 'a'.repeat(32),
+  operator: 'b'.repeat(32),
+  admin: 'c'.repeat(32),
+};
+
+function getSecret(realm: Realm): Uint8Array {
+  const envKey = REALM_ENV_KEYS[realm];
   const raw =
-    process.env.JWT_SECRET ??
-    (process.env.NODE_ENV === 'test' ? 'a'.repeat(32) : null);
-  if (!raw) throw new Error('JWT_SECRET not configured');
+    process.env[envKey] ??
+    (process.env.NODE_ENV === 'test' ? REALM_TEST_FALLBACKS[realm] : null);
+  if (!raw) throw new Error(`${envKey} not configured`);
   return new TextEncoder().encode(raw);
 }
 
@@ -64,7 +82,7 @@ const ADMIN_STEPUP_TTL_SECONDS = 300; // 5 minutes
  * Returns a compact HS256 JWT with exp = now + 900 s.
  */
 export async function signAccess(payload: AccessPayload): Promise<string> {
-  const secret = getSecret();
+  const secret = getSecret('customer');
   return new SignJWT({ role: payload.role })
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(payload.sub)
@@ -80,7 +98,7 @@ export async function signAccess(payload: AccessPayload): Promise<string> {
  */
 export async function verifyAccess(token: string): Promise<AccessPayload | null> {
   try {
-    const secret = getSecret();
+    const secret = getSecret('customer');
     const { payload } = await jwtVerify(token, secret, {
       algorithms: ['HS256'],
     });
@@ -106,7 +124,7 @@ export async function verifyAccess(token: string): Promise<AccessPayload | null>
  * is bounded by the 15-min access-token TTL.
  */
 export async function signOperatorAccess(payload: OperatorAccessPayload): Promise<string> {
-  const secret = getSecret();
+  const secret = getSecret('operator');
   return new SignJWT({
     scope: payload.scope,
     // Issue 016: role claim — defensive: falls back to 'admin' if not provided (one-release grace for old sessions).
@@ -128,7 +146,7 @@ export async function signOperatorAccess(payload: OperatorAccessPayload): Promis
  */
 export async function verifyOperatorAccess(token: string): Promise<OperatorAccessPayload | null> {
   try {
-    const secret = getSecret();
+    const secret = getSecret('operator');
     const { payload } = await jwtVerify(token, secret, {
       algorithms: ['HS256'],
     });
@@ -157,7 +175,7 @@ export async function verifyOperatorAccess(token: string): Promise<OperatorAcces
  * Edge middleware without a DB call.
  */
 export async function signAdminAccess(payload: AdminAccessPayload): Promise<string> {
-  const secret = getSecret();
+  const secret = getSecret('admin');
   return new SignJWT({
     scope: payload.scope,
     role: payload.role,
@@ -177,7 +195,7 @@ export async function signAdminAccess(payload: AdminAccessPayload): Promise<stri
  * verifyAdminAccess rejects it and verifyAdminStepUp rejects an access token.
  */
 export async function signAdminStepUp(adminId: string): Promise<string> {
-  const secret = getSecret();
+  const secret = getSecret('admin');
   return new SignJWT({ scope: 'admin_stepup' })
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(adminId)
@@ -194,7 +212,7 @@ export async function signAdminStepUp(adminId: string): Promise<string> {
  */
 export async function verifyAdminStepUp(token: string): Promise<{ sub: string } | null> {
   try {
-    const secret = getSecret();
+    const secret = getSecret('admin');
     const { payload } = await jwtVerify(token, secret, {
       algorithms: ['HS256'],
     });
@@ -216,7 +234,7 @@ export async function verifyAdminStepUp(token: string): Promise<{ sub: string } 
  */
 export async function verifyAdminAccess(token: string): Promise<AdminAccessPayload | null> {
   try {
-    const secret = getSecret();
+    const secret = getSecret('admin');
     const { payload } = await jwtVerify(token, secret, {
       algorithms: ['HS256'],
     });

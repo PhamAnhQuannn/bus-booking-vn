@@ -19,6 +19,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { hash } from '@/lib/auth/password';
 import { generateTotpSecret, totpAuthUri, generateTotp } from '@/lib/auth/totp';
+import { encryptTotpSecret } from '@/lib/auth/totpCrypto';
 
 const EMAIL = 'admin@busbookvn.local';
 
@@ -40,7 +41,7 @@ async function main() {
   if (existing) {
     await prisma.adminUser.update({
       where: { id: existing.id },
-      data: { passwordHash, totpSecret: secret, totpEnabledAt: new Date(), status: 'ACTIVE' },
+      data: { passwordHash, totpSecret: encryptTotpSecret(secret), totpEnabledAt: new Date(), status: 'ACTIVE' },
     });
     email = existing.email;
     console.log('Reset existing SUPER_ADMIN (new password + new TOTP secret):');
@@ -51,7 +52,7 @@ async function main() {
         passwordHash,
         role: 'SUPER_ADMIN',
         status: 'ACTIVE',
-        totpSecret: secret,
+        totpSecret: encryptTotpSecret(secret),
         totpEnabledAt: new Date(),
       },
       select: { email: true },

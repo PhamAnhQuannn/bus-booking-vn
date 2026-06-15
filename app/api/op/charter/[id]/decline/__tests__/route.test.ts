@@ -19,7 +19,6 @@ const {
   mockVerifyOperatorAccess,
   mockOperatorUserFindUnique,
   mockOperatorFindUnique,
-  mockCharterFindUnique,
   mockCookieStore,
   mockDecline,
   mockGetEnv,
@@ -27,7 +26,6 @@ const {
   mockVerifyOperatorAccess: vi.fn(),
   mockOperatorUserFindUnique: vi.fn(),
   mockOperatorFindUnique: vi.fn(),
-  mockCharterFindUnique: vi.fn(),
   mockCookieStore: { get: vi.fn() },
   mockDecline: vi.fn(),
   mockGetEnv: vi.fn(() => ({ OPS_EMAIL: 'ops@test.com' })),
@@ -38,7 +36,6 @@ vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     operatorUser: { findUnique: mockOperatorUserFindUnique },
     operator: { findUnique: mockOperatorFindUnique },
-    charterRequest: { findUnique: mockCharterFindUnique },
   },
 }));
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => mockCookieStore) }));
@@ -79,7 +76,6 @@ beforeEach(() => {
   mockVerifyOperatorAccess.mockResolvedValue({ sub: 'op-user-1', role: 'admin' });
   mockOperatorUserFindUnique.mockResolvedValue(OPERATOR_USER);
   mockOperatorFindUnique.mockResolvedValue({ status: 'APPROVED' });
-  mockCharterFindUnique.mockResolvedValue({ assigneeOperatorId: OPERATOR_ID });
   mockDecline.mockResolvedValue({ ok: true, charterId: CHARTER_ID, to: 'ADMIN_REVIEW' });
 });
 
@@ -98,11 +94,10 @@ describe('POST /api/op/charter/[id]/decline', () => {
     expect(mockDecline).not.toHaveBeenCalled();
   });
 
-  it('404 when charter is assigned to a different operator', async () => {
-    mockCharterFindUnique.mockResolvedValue({ assigneeOperatorId: 'op-org-B' });
+  it('404 when charter is assigned to a different operator (ownership inside tx)', async () => {
+    mockDecline.mockRejectedValueOnce(new CharterError('charter_not_found'));
     const res = await POST(makePost(), routeCtx);
     expect(res.status).toBe(404);
-    expect(mockDecline).not.toHaveBeenCalled();
   });
 
   it('200 happy path → declines (→ADMIN_REVIEW) with operator actor + reason', async () => {
@@ -114,6 +109,7 @@ describe('POST /api/op/charter/[id]/decline', () => {
       actor: `operator:${OPERATOR_ID}`,
       reason: 'không đủ xe',
       opsEmail: 'ops@test.com',
+      requiredAssigneeOperatorId: OPERATOR_ID,
     });
   });
 
@@ -125,6 +121,7 @@ describe('POST /api/op/charter/[id]/decline', () => {
       actor: `operator:${OPERATOR_ID}`,
       reason: undefined,
       opsEmail: 'ops@test.com',
+      requiredAssigneeOperatorId: OPERATOR_ID,
     });
   });
 

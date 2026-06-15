@@ -16,14 +16,12 @@ const {
   mockVerifyOperatorAccess,
   mockOperatorUserFindUnique,
   mockOperatorFindUnique,
-  mockCharterFindUnique,
   mockCookieStore,
   mockTransition,
 } = vi.hoisted(() => ({
   mockVerifyOperatorAccess: vi.fn(),
   mockOperatorUserFindUnique: vi.fn(),
   mockOperatorFindUnique: vi.fn(),
-  mockCharterFindUnique: vi.fn(),
   mockCookieStore: { get: vi.fn() },
   mockTransition: vi.fn(),
 }));
@@ -33,7 +31,6 @@ vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     operatorUser: { findUnique: mockOperatorUserFindUnique },
     operator: { findUnique: mockOperatorFindUnique },
-    charterRequest: { findUnique: mockCharterFindUnique },
   },
 }));
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => mockCookieStore) }));
@@ -72,7 +69,6 @@ beforeEach(() => {
   mockVerifyOperatorAccess.mockResolvedValue({ sub: 'op-user-1', role: 'admin' });
   mockOperatorUserFindUnique.mockResolvedValue(OPERATOR_USER);
   mockOperatorFindUnique.mockResolvedValue({ status: 'APPROVED' });
-  mockCharterFindUnique.mockResolvedValue({ assigneeOperatorId: OPERATOR_ID });
   mockTransition.mockResolvedValue({ ok: true });
 });
 
@@ -91,15 +87,14 @@ describe('POST /api/op/charter/[id]/accept', () => {
     expect(mockTransition).not.toHaveBeenCalled();
   });
 
-  it('404 when charter is assigned to a different operator', async () => {
-    mockCharterFindUnique.mockResolvedValue({ assigneeOperatorId: 'op-org-B' });
+  it('404 when charter is assigned to a different operator (ownership inside tx)', async () => {
+    mockTransition.mockRejectedValueOnce(new CharterError('charter_not_found'));
     const res = await POST(makePost(), routeCtx);
     expect(res.status).toBe(404);
-    expect(mockTransition).not.toHaveBeenCalled();
   });
 
   it('404 when charter does not exist', async () => {
-    mockCharterFindUnique.mockResolvedValue(null);
+    mockTransition.mockRejectedValueOnce(new CharterError('charter_not_found'));
     const res = await POST(makePost(), routeCtx);
     expect(res.status).toBe(404);
   });
@@ -112,6 +107,7 @@ describe('POST /api/op/charter/[id]/accept', () => {
       charterId: CHARTER_ID,
       to: 'ACCEPTED',
       actor: `operator:${OPERATOR_ID}`,
+      requiredAssigneeOperatorId: OPERATOR_ID,
     });
   });
 

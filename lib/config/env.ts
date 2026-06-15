@@ -210,10 +210,19 @@ const envSchema = z.object({
     .optional(),
 
   /**
-   * HS256 signing secret for customer + operator session JWTs.
+   * HS256 signing secret for customer session JWTs.
    * Must be at least 32 characters. Required in production.
    */
   JWT_SECRET: z.string().min(32).optional(),
+
+  /** HS256 signing secret for operator session JWTs (AUTH-02 realm split). */
+  JWT_OPERATOR_SECRET: z.string().min(32).optional(),
+
+  /** HS256 signing secret for admin session JWTs (AUTH-02 realm split). */
+  JWT_ADMIN_SECRET: z.string().min(32).optional(),
+
+  /** AES-256-GCM key for AdminUser.totpSecret at-rest encryption (AUTH-03). 64 hex chars = 32 bytes. */
+  TOTP_ENCRYPTION_KEY: z.string().length(64).regex(/^[0-9a-f]+$/i).optional(),
 
   /**
    * PostgreSQL connection string.
@@ -246,7 +255,7 @@ const envSchema = z.object({
     }
   }
   if (process.env.NODE_ENV === 'production') {
-    for (const key of ['JWT_SECRET', 'DATABASE_URL', 'CRON_SECRET'] as const) {
+    for (const key of ['JWT_SECRET', 'JWT_OPERATOR_SECRET', 'JWT_ADMIN_SECRET', 'TOTP_ENCRYPTION_KEY', 'DATABASE_URL', 'CRON_SECRET'] as const) {
       if (!env[key]) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

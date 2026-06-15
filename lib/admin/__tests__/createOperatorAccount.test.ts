@@ -86,8 +86,6 @@ describe('createOperatorAccount', () => {
     expect(userData.requiresPasswordChange).toBe(true);
     expect(userData.passwordHash).toBe('hashed');
     expect(userData.displayName).toBe('Phương Bắc');
-    expect(userData.tempPasswordPlain).toBe('Temp-Pass-123');
-
     expect(mockTx.operator.update).toHaveBeenCalledWith({
       where: { id: 'op_1' },
       data: { status: 'APPROVED' },

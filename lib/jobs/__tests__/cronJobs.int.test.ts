@@ -313,7 +313,7 @@ describe('AC4 sendReminders', () => {
     const tripId = await createTrip(new Date(Date.now() + 24 * 3_600_000), 'scheduled', false);
     const bookingId = await createBooking(tripId, 'BB-2026-cron-ac41', 'paid');
 
-    await prisma.$transaction((tx) => sendReminders(tx));
+    await sendReminders();
 
     let logs = await prisma.notificationLog.findMany({
       where: { bookingId, template: 'bookingReminder24h' },
@@ -328,7 +328,7 @@ describe('AC4 sendReminders', () => {
     expect(afterFirst?.reminderSentAt).not.toBeNull();
 
     // Second run must NOT re-fire for this booking (reminderSentAt guard).
-    await prisma.$transaction((tx) => sendReminders(tx));
+    await sendReminders();
 
     logs = await prisma.notificationLog.findMany({
       where: { bookingId, template: 'bookingReminder24h' },
@@ -340,7 +340,7 @@ describe('AC4 sendReminders', () => {
     const tripId = await createTrip(new Date(Date.now() + 48 * 3_600_000), 'scheduled', false);
     const bookingId = await createBooking(tripId, 'BB-2026-cron-ac42', 'paid');
 
-    await prisma.$transaction((tx) => sendReminders(tx));
+    await sendReminders();
 
     const logs = await prisma.notificationLog.findMany({
       where: { bookingId, template: 'bookingReminder24h' },

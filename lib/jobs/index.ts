@@ -11,5 +11,5 @@ export { processPayouts } from './processPayouts';
 export { reconcilePayments } from './reconcilePayments';
 export { retentionSweeper } from './retentionSweeper';
 export { runJob } from './runJob';
-export { sendReminders } from './sendReminders';
+export { sendReminders, claimReminders } from './sendReminders';
 export type { JobCore, JobOpts } from './types';
