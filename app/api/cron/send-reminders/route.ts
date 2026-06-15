@@ -44,16 +44,20 @@ export async function GET(req: NextRequest): Promise<Response> {
     return NextResponse.json(result);
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    await prisma.jobRunLog.create({
-      data: {
-        jobName: 'reminder-24h',
-        startedAt,
-        endedAt: new Date(),
-        status: 'failed',
-        rowsAffected: 0,
-        errorMessage,
-      },
-    });
+    try {
+      await prisma.jobRunLog.create({
+        data: {
+          jobName: 'reminder-24h',
+          startedAt,
+          endedAt: new Date(),
+          status: 'failed',
+          rowsAffected: 0,
+          errorMessage,
+        },
+      });
+    } catch (logErr) {
+      logger.error({ logErr }, 'send-reminders: failed to write JobRunLog');
+    }
     logger.error({ err }, 'send-reminders: cron run failed');
     return NextResponse.json({ error: 'internal_error' }, { status: 500 });
   }
