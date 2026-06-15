@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { FORBIDDEN_RESPONSE_FIELDS } from '../security/__tests__/forbiddenFields';
 
 describe('logger redactPaths', () => {
   it('exports a logger with redactPaths configured', async () => {
@@ -89,6 +90,29 @@ describe('logger redactPaths', () => {
 
     expect(redactPaths, 'missing buyerPhone redact path').toContain('buyerPhone');
     expect(redactPaths, 'missing buyerName redact path').toContain('buyerName');
+  });
+
+  it('has redact coverage for all forbidden response fields', async () => {
+    const { loggerOptions } = await import('../logger');
+    const redactPaths = Array.isArray(loggerOptions.redact)
+      ? loggerOptions.redact
+      : (loggerOptions.redact as { paths: string[] }).paths;
+
+    for (const field of FORBIDDEN_RESPONSE_FIELDS) {
+      const covered =
+        redactPaths.includes(field) ||
+        redactPaths.includes(`*.${field}`) ||
+        redactPaths.some((p: string) => p.endsWith(`.${field}`));
+      expect(covered, `no logger redact path covers forbidden field: ${field}`).toBe(true);
+    }
+  });
+
+  it('redact path count does not regress below baseline', async () => {
+    const { loggerOptions } = await import('../logger');
+    const redactPaths = Array.isArray(loggerOptions.redact)
+      ? loggerOptions.redact
+      : (loggerOptions.redact as { paths: string[] }).paths;
+    expect(redactPaths.length).toBeGreaterThanOrEqual(45);
   });
 
   it('redacts buyerPhone and buyerName to [REDACTED] in pino stream output', async () => {

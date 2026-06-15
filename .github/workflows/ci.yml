@@ -207,7 +207,17 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
-  # ---- 5. Secret scanning (gitleaks) ----
+  # ---- 5. Data leak audit (static grep) ----
+  data-leak-audit:
+    name: Data Leak Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run data-leak grep audit
+        run: bash scripts/audit/data-leak-grep.sh
+
+  # ---- 6. Secret scanning (gitleaks) ----
   gitleaks:
     name: Secret Scanning (gitleaks)
     runs-on: ubuntu-latest
