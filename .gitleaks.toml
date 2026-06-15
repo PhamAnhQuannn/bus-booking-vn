@@ -31,6 +31,8 @@ regexes = [
   '''ci-test-operator-secret-not-for-production-0123''',
   '''ci-test-admin-secret-not-for-production-01234567''',
   '''ci-test-cron-secret-00''',
+  # CI-only TOTP encryption key — deterministic hex pattern, not a real key.
+  '''0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef''',
 ]
 paths = [
   '''prisma/seed\.ts''',
