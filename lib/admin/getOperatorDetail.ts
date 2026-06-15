@@ -51,8 +51,6 @@ export interface OperatorDetail {
   hasLoginAccount: boolean;
   /** Username of the provisioned login account, or null if none. */
   loginUsername: string | null;
-  /** Temp password shown to admin after provisioning. Null once operator changes password. */
-  loginTempPassword: string | null;
   fleetCount: number;
   tripCount: number;
   upcomingTripCount: number;
@@ -146,7 +144,6 @@ export async function getOperatorDetail(
     rejectionReason: operator.rejectionReason,
     hasLoginAccount: loginAccount !== null,
     loginUsername: loginAccount?.username ?? null,
-    loginTempPassword: null,
     fleetCount,
     tripCount,
     upcomingTripCount,

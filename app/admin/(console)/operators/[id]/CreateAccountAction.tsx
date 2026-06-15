@@ -27,7 +27,6 @@ interface Props {
   operatorId: string;
   hasLoginAccount: boolean;
   loginUsername: string | null;
-  loginTempPassword: string | null;
 }
 
 interface Credentials {
@@ -35,7 +34,7 @@ interface Credentials {
   tempPassword: string;
 }
 
-export function CreateAccountAction({ operatorId, hasLoginAccount, loginUsername, loginTempPassword }: Props) {
+export function CreateAccountAction({ operatorId, hasLoginAccount, loginUsername }: Props) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

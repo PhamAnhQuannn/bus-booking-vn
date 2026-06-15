@@ -205,7 +205,7 @@ export default async function AdminOperatorDetailPage({ params }: PageProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <CreateAccountAction operatorId={detail.id} hasLoginAccount={detail.hasLoginAccount} loginUsername={detail.loginUsername} loginTempPassword={detail.loginTempPassword} />
+          <CreateAccountAction operatorId={detail.id} hasLoginAccount={detail.hasLoginAccount} loginUsername={detail.loginUsername} />
         </CardContent>
       </Card>
 
