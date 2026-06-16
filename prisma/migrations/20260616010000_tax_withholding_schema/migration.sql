@@ -11,6 +11,3 @@ ALTER TABLE "Operator" ADD COLUMN "taxClassification" "TaxClassification" NOT NU
 ALTER TABLE "Payout" ADD COLUMN "taxVat" INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE "Payout" ADD COLUMN "taxPit" INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE "Payout" ADD COLUMN "taxTotal" INTEGER NOT NULL DEFAULT 0;
-
--- Step 4: tax_withheld ledger entry type
-ALTER TYPE "LedgerEntryType" ADD VALUE 'tax_withheld';

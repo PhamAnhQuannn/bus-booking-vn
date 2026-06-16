@@ -101,6 +101,8 @@ export const loggerOptions: LoggerOptions = {
       '*.accountNumber',         // Issue 078: nested payout-account number (real harm if leaked)
       'ESMS_API_KEY',            // SMS-OTP: eSMS provider credential
       'ESMS_SECRET_KEY',         // SMS-OTP: eSMS provider credential (never log)
+      'MISA_API_KEY',              // e-invoice: MISA meInvoice provider credential
+      'RESEND_API_KEY',             // transactional email: Resend provider credential
     ],
     censor: '[REDACTED]',
   },

@@ -481,7 +481,7 @@ model Booking {
   refundedAt           DateTime?           @db.Timestamptz
   /// Circular 78/2021: e-invoice reference (hóa đơn điện tử). Set when invoice issued.
   einvoiceRef          String?
-  einvoiceIssuedAt     DateTime?
+  einvoiceIssuedAt     DateTime?      @db.Timestamptz
   trip                 Trip                @relation(fields: [tripId], references: [id])
   hold                 Hold?               @relation(fields: [holdId], references: [id], onDelete: Restrict)
   customer             Customer?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
@@ -508,6 +508,7 @@ model Booking {
   @@index([snapshotAnonymizedAt])
   /// Issue 100: oversold-refund reporting — status+refundedAt composite (supports cron/reporting).
   @@index([status, refundedAt])
+  @@index([einvoiceRef])
 }
 
 /// Issue 089: checkout consent capture. One row per consent the buyer accepted at
@@ -1072,7 +1073,7 @@ enum EInvoiceStatus {
 /// other approved provider. Immutable audit trail (append-only pattern).
 model EInvoice {
   id            String         @id @default(cuid())
-  bookingId     String         @db.Uuid
+  bookingId     String
   operatorId    String
   invoiceNumber String?
   status        EInvoiceStatus @default(pending)
@@ -1082,7 +1083,7 @@ model EInvoice {
   createdAt     DateTime       @default(now())
 
   booking  Booking  @relation(fields: [bookingId], references: [id], onDelete: Restrict)
-  operator Operator @relation(fields: [operatorId], references: [id])
+  operator Operator @relation(fields: [operatorId], references: [id], onDelete: Restrict)
 
   @@index([bookingId])
   @@index([operatorId, createdAt])
