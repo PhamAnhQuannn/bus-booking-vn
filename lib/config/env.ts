@@ -287,7 +287,7 @@ const envSchema = z.object({
   /** E-invoice mode: "stub" (log only) or "misa" (real API). */
   EINVOICE_ENABLED: z.enum(['stub', 'misa']).default('stub'),
   /** MISA meInvoice API base URL (real branch only). */
-  MISA_API_URL: z.string().optional(),
+  MISA_API_URL: z.string().url().optional(),
   /** MISA API key. NEVER log this value. */
   MISA_API_KEY: z.string().optional(),
   /** MISA company code. */
@@ -364,7 +364,7 @@ const envSchema = z.object({
   }
   // Real MISA e-invoice mode must carry credentials.
   if (env.EINVOICE_ENABLED === 'misa') {
-    for (const key of ['MISA_API_URL', 'MISA_API_KEY', 'MISA_COMPANY_CODE'] as const) {
+    for (const key of ['MISA_API_URL', 'MISA_API_KEY', 'MISA_COMPANY_CODE', 'MISA_TEMPLATE_CODE'] as const) {
       if (!env[key]) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -372,6 +372,14 @@ const envSchema = z.object({
           message: `${key} is required when EINVOICE_ENABLED=misa`,
         });
       }
+    }
+    // MISA API URL must use HTTPS in all modes (API key in header — plaintext over HTTP is a credential leak).
+    if (env.MISA_API_URL && !env.MISA_API_URL.startsWith('https://')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['MISA_API_URL'],
+        message: 'MISA_API_URL must use HTTPS',
+      });
     }
   }
   // Real Resend email mode must carry API key.
@@ -402,6 +410,16 @@ const envSchema = z.object({
         path: ['DIRECT_URL'],
         message: 'DIRECT_URL is required in production when PAYMENTS_STUB=false',
       });
+    }
+    // ioredis provider in production must have a real REDIS_URL (not the localhost default).
+    if (env.REDIS_PROVIDER === 'ioredis') {
+      if (!env.REDIS_URL || env.REDIS_URL === 'redis://localhost:6379') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['REDIS_URL'],
+          message: 'REDIS_URL must be set to a non-localhost value when REDIS_PROVIDER=ioredis in production',
+        });
+      }
     }
   }
 });

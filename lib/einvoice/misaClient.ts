@@ -9,14 +9,16 @@
  */
 
 import { logger } from '@/lib/logger';
+import { getEnv } from '@/lib/core/config';
 import type { EInvoiceProvider, InvoiceRequest, InvoiceResult } from './types';
 
 function getMisaConfig() {
+  const env = getEnv();
   return {
-    apiUrl: process.env.MISA_API_URL ?? '',
-    apiKey: process.env.MISA_API_KEY ?? '',
-    companyCode: process.env.MISA_COMPANY_CODE ?? '',
-    templateCode: process.env.MISA_TEMPLATE_CODE ?? '',
+    apiUrl: env.MISA_API_URL ?? '',
+    apiKey: env.MISA_API_KEY ?? '',
+    companyCode: env.MISA_COMPANY_CODE ?? '',
+    templateCode: env.MISA_TEMPLATE_CODE ?? '',
   };
 }
 
@@ -35,6 +37,7 @@ class MisaRealProvider implements EInvoiceProvider {
   async issueInvoice(req: InvoiceRequest): Promise<InvoiceResult> {
     const cfg = getMisaConfig();
     if (!cfg.apiUrl || !cfg.apiKey) {
+      logger.error({ einvoiceEnabled: getEnv().EINVOICE_ENABLED }, 'einvoice.misa.not_configured');
       return { ok: false, error: 'misa_not_configured' };
     }
 
@@ -57,22 +60,30 @@ class MisaRealProvider implements EInvoiceProvider {
           'X-Company-Code': cfg.companyCode,
         },
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(10_000),
       });
 
       if (!res.ok) {
         const text = await res.text();
-        logger.error({ status: res.status, body: text }, 'einvoice.misa.http-error');
+        logger.error(
+          { bookingId: req.bookingId, operatorId: req.operatorId, status: res.status, bodyLength: text.length },
+          'einvoice.misa.http-error',
+        );
         return { ok: false, error: `misa_http_${res.status}` };
       }
 
       const data = (await res.json()) as { InvoiceNo?: string; RefId?: string };
+      logger.info(
+        { bookingId: req.bookingId, operatorId: req.operatorId, invoiceNumber: data.InvoiceNo },
+        'einvoice.misa.issued',
+      );
       return {
         ok: true,
         invoiceNumber: data.InvoiceNo,
         vendorRef: data.RefId,
       };
     } catch (err) {
-      logger.error({ err }, 'einvoice.misa.exception');
+      logger.error({ bookingId: req.bookingId, operatorId: req.operatorId, err }, 'einvoice.misa.exception');
       return { ok: false, error: 'misa_exception' };
     }
   }
@@ -82,7 +93,7 @@ let _provider: EInvoiceProvider | null = null;
 
 export function getEInvoiceProvider(): EInvoiceProvider {
   if (_provider) return _provider;
-  const mode = process.env.EINVOICE_ENABLED ?? 'stub';
+  const mode = getEnv().EINVOICE_ENABLED;
   _provider = mode === 'misa' ? new MisaRealProvider() : new MisaStubProvider();
   return _provider;
 }

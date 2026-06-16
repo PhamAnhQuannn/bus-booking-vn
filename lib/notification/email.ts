@@ -15,6 +15,7 @@
  */
 
 import { logger } from '@/lib/logger';
+import { getEnv } from '@/lib/core/config';
 import type { Resend } from 'resend';
 
 export type EmailTemplate =
@@ -118,10 +119,12 @@ function notifyStubbed(): boolean {
 
 let _resend: Resend | null = null;
 
+export function _resetResendClient(): void { _resend = null; }
+
 async function getResendClient(): Promise<Resend> {
   if (_resend) return _resend;
   const { Resend: ResendCls } = await import('resend');
-  _resend = new ResendCls(process.env.RESEND_API_KEY);
+  _resend = new ResendCls(getEnv().RESEND_API_KEY);
   return _resend;
 }
 
@@ -129,6 +132,7 @@ async function sendViaResend(
   to: string,
   subject: string,
   body: string,
+  template: string,
 ): Promise<SendEmailResult> {
   const from = process.env.EMAIL_FROM ?? 'noreply@busbookvn.com';
   try {
@@ -140,12 +144,13 @@ async function sendViaResend(
       text: body,
     });
     if (error) {
-      logger.error({ err: error.message }, 'email.resend.api-error');
+      logger.error({ template, err: error.message }, 'email.resend.api-error');
       return { ok: false, error: error.message };
     }
+    logger.info({ template, externalRef: data?.id }, 'email.resend.sent');
     return { ok: true, externalRef: data?.id };
   } catch (err) {
-    logger.error({ err }, 'email.resend.exception');
+    logger.error({ template, err }, 'email.resend.exception');
     return { ok: false, error: 'resend_exception' };
   }
 }
@@ -173,7 +178,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
   }
 
   if (process.env.EMAIL_PROVIDER === 'resend') {
-    return sendViaResend(to, subject, body);
+    return sendViaResend(to, subject, body, template);
   }
 
   logger.warn(

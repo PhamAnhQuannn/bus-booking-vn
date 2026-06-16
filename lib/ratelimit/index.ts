@@ -9,6 +9,7 @@
 
 import type { Ratelimit as UpstashRatelimitClient } from '@upstash/ratelimit';
 import type Redis from 'ioredis';
+import { logger } from '@/lib/logger';
 
 export interface RatelimitResult {
   allowed: boolean;
@@ -125,6 +126,7 @@ export class IoRedisRatelimit implements Ratelimit {
   private readonly maxRequests: number;
   private readonly windowMs: number;
   private client: Redis | null = null;
+  private _connecting: Promise<Redis> | null = null;
 
   constructor(options: InMemoryRatelimitOptions) {
     this.maxRequests = options.limit;
@@ -133,28 +135,42 @@ export class IoRedisRatelimit implements Ratelimit {
 
   private async getClient(): Promise<Redis> {
     if (this.client) return this.client;
-    const url = process.env.REDIS_URL ?? 'redis://localhost:6379';
-    const { default: IORedis } = await import('ioredis');
-    this.client = new IORedis(url, { maxRetriesPerRequest: 1, lazyConnect: true });
-    await this.client.connect();
-    return this.client;
+    if (this._connecting) return this._connecting;
+    this._connecting = (async () => {
+      const url = process.env.REDIS_URL ?? 'redis://localhost:6379';
+      const { default: IORedis } = await import('ioredis');
+      const redis = new IORedis(url, { maxRetriesPerRequest: 1, lazyConnect: true });
+      try {
+        await redis.connect();
+      } catch (err) {
+        this._connecting = null;
+        logger.error({ err }, 'ratelimit.ioredis.connect_failed');
+        throw err;
+      }
+      this.client = redis;
+      return redis;
+    })();
+    return this._connecting;
   }
 
+  // INCR-first Lua script: atomically increment then gate — eliminates the GET→INCR TOCTOU
+  // race where two concurrent requests both see count < limit and both get allowed on the
+  // last available slot, letting through limit+1 requests total.
   private static LUA_SCRIPT = `
-    local key = KEYS[1]
-    local limit = tonumber(ARGV[1])
-    local windowMs = tonumber(ARGV[2])
-    local current = tonumber(redis.call('GET', key) or '0')
-    if current < limit then
-      current = redis.call('INCR', key)
-      if current == 1 then
-        redis.call('PEXPIRE', key, windowMs)
-      end
-      return {1, limit - current, 0}
+    local current = redis.call('INCR', KEYS[1])
+    if current == 1 then
+      redis.call('PEXPIRE', KEYS[1], ARGV[2])
     end
-    local ttl = redis.call('PTTL', key)
-    if ttl < 0 then ttl = windowMs end
-    return {0, 0, ttl}
+    if current <= tonumber(ARGV[1]) then
+      return {1, tonumber(ARGV[1]) - current, 0}
+    else
+      local ttl = redis.call('PTTL', KEYS[1])
+      if ttl < 0 then
+        redis.call('PEXPIRE', KEYS[1], ARGV[2])
+        ttl = ARGV[2]
+      end
+      return {0, 0, ttl}
+    end
   `;
 
   async limit(identifier: string): Promise<RatelimitResult> {
@@ -166,10 +182,15 @@ export class IoRedisRatelimit implements Ratelimit {
       this.maxRequests,
       this.windowMs,
     ) as [number, number, number];
+    const allowed = result[0] === 1;
+    const retryAfter = allowed ? 0 : Math.ceil(result[2] / 1000);
+    if (!allowed) {
+      logger.warn({ identifier, retryAfter }, 'ratelimit.denied');
+    }
     return {
-      allowed: result[0] === 1,
+      allowed,
       remaining: result[1],
-      retryAfter: result[0] === 1 ? 0 : Math.ceil(result[2] / 1000),
+      retryAfter,
     };
   }
 }

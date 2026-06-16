@@ -21,6 +21,7 @@
 
 import { SignJWT, jwtVerify } from 'jose';
 import crypto from 'crypto';
+import type IORedisType from 'ioredis';
 
 const OTP_PROOF_TTL_SECONDS = 300; // 5 minutes
 
@@ -59,18 +60,23 @@ function memConsumeJti(jti: string, ttlMs: number): boolean {
   return true; // consumed successfully (first use)
 }
 
-async function consumeJtiViaIoRedis(jti: string, ttlSec: number): Promise<boolean> {
+// Singleton ioredis client for JTI consumption — avoids a new TCP connection per proof verify.
+let _jtiRedis: IORedisType | null = null;
+
+async function getJtiRedisClient(): Promise<IORedisType> {
+  if (_jtiRedis) return _jtiRedis;
   const url = process.env.REDIS_URL ?? 'redis://localhost:6379';
   const { default: IORedis } = await import('ioredis');
-  const redis = new IORedis(url, { maxRetriesPerRequest: 1, lazyConnect: true });
-  try {
-    await redis.connect();
-    const key = `otpproof:consumed:${jti}`;
-    const result = await redis.set(key, '1', 'EX', ttlSec, 'NX');
-    return result === 'OK';
-  } finally {
-    redis.disconnect();
-  }
+  _jtiRedis = new IORedis(url, { maxRetriesPerRequest: 1, lazyConnect: true });
+  await _jtiRedis.connect();
+  return _jtiRedis;
+}
+
+async function consumeJtiViaIoRedis(jti: string, ttlSec: number): Promise<boolean> {
+  const redis = await getJtiRedisClient();
+  const key = `otpproof:consumed:${jti}`;
+  const result = await redis.set(key, '1', 'EX', ttlSec, 'NX');
+  return result === 'OK';
 }
 
 async function consumeJti(jti: string, ttlSec: number): Promise<boolean> {

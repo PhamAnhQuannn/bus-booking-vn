@@ -14,6 +14,7 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    networks: [internal]
 
   postgres:
     image: postgres:16
@@ -29,6 +30,7 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    networks: [internal]
 
   pgbouncer:
     image: edoburu/pgbouncer:1.22.1
@@ -38,8 +40,6 @@ services:
       MAX_CLIENT_CONN: 200
       PGBOUNCER_DEFAULT_POOL_SIZE: 30
       AUTH_TYPE: scram-sha-256
-    ports:
-      - '6432:6432'
     depends_on:
       postgres:
         condition: service_healthy
@@ -49,6 +49,7 @@ services:
       timeout: 3s
       retries: 5
     restart: unless-stopped
+    networks: [internal]
 
   redis:
     image: redis:7-alpine
@@ -63,7 +64,13 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    networks: [internal]
 
 volumes:
   postgres_data:
   redis_data:
+
+networks:
+  internal:
+    driver: bridge
+    internal: true
