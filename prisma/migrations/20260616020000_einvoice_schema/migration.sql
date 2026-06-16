@@ -10,7 +10,7 @@ ALTER TABLE "Booking" ADD COLUMN "einvoiceIssuedAt" TIMESTAMPTZ;
 -- Step 3: EInvoice table
 CREATE TABLE "EInvoice" (
     "id" TEXT NOT NULL,
-    "bookingId" TEXT NOT NULL,
+    "bookingId" UUID NOT NULL,
     "operatorId" TEXT NOT NULL,
     "invoiceNumber" TEXT,
     "status" "EInvoiceStatus" NOT NULL DEFAULT 'pending',

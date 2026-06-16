@@ -508,6 +508,7 @@ model Booking {
   @@index([snapshotAnonymizedAt])
   /// Issue 100: oversold-refund reporting — status+refundedAt composite (supports cron/reporting).
   @@index([status, refundedAt])
+  // Partial index Booking_einvoiceRef_idx (WHERE einvoiceRef IS NOT NULL) is SQL-only.
 }
 
 /// Issue 089: checkout consent capture. One row per consent the buyer accepted at
@@ -1072,7 +1073,7 @@ enum EInvoiceStatus {
 /// other approved provider. Immutable audit trail (append-only pattern).
 model EInvoice {
   id            String         @id @default(cuid())
-  bookingId     String
+  bookingId     String         @db.Uuid
   operatorId    String
   invoiceNumber String?
   status        EInvoiceStatus @default(pending)
@@ -1084,6 +1085,7 @@ model EInvoice {
   booking  Booking  @relation(fields: [bookingId], references: [id], onDelete: Restrict)
   operator Operator @relation(fields: [operatorId], references: [id], onDelete: Restrict)
 
+  // Partial unique EInvoice_invoiceNumber_key (WHERE invoiceNumber IS NOT NULL) is SQL-only.
   @@index([bookingId])
   @@index([operatorId, createdAt])
   @@index([status])
