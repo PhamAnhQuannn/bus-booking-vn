@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
-import { getEnv } from '@/lib/config/env';
+import { getEnv } from '@/lib/core/config';
 
 // Prisma client singleton -- reuse across hot reloads (dev) AND warm invocations (prod serverless)
 
