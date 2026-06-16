@@ -33,6 +33,10 @@ regexes = [
   '''ci-test-cron-secret-00''',
   # CI-only TOTP encryption key — deterministic hex pattern, not a real key.
   '''0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef''',
+  # VNPay PUBLIC sandbox defaults — sentinel values in lib/config/env.ts used to reject
+  # the test credentials in production mode. Published in VNPay's integration docs.
+  '''VNPAYSECRETTEST0123456789ABCDEF01''',
+  '''VNPAYTEST''',
 ]
 paths = [
   '''prisma/seed\.ts''',
