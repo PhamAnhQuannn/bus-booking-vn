@@ -16,7 +16,7 @@ CREATE TABLE "EInvoice" (
     "status" "EInvoiceStatus" NOT NULL DEFAULT 'pending',
     "vendorRef" TEXT,
     "rawResponse" TEXT,
-    "issuedAt" TIMESTAMP(3),
+    "issuedAt" TIMESTAMPTZ,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "EInvoice_pkey" PRIMARY KEY ("id")

@@ -113,7 +113,7 @@ async function availableUnderLock(
     SELECT (
       COALESCE(SUM(
         CASE
-          WHEN le."type" <> 'payout_debit'::"LedgerEntryType"
+          WHEN le."type" NOT IN ('payout_debit'::"LedgerEntryType", 'tax_withheld'::"LedgerEntryType")
            AND t."completedAt" IS NOT NULL
            AND t.status = 'completed'::"TripStatus"
            AND t."completedAt" + (${SETTLEMENT_DELAY_SQL_INTERVAL})::interval <= NOW()
@@ -125,7 +125,7 @@ async function availableUnderLock(
       -- i.e. settledEligible + SUM(payout_debit) == settledEligible − paidOut).
       + COALESCE(SUM(
         CASE
-          WHEN le."type" = 'payout_debit'::"LedgerEntryType"
+          WHEN le."type" IN ('payout_debit'::"LedgerEntryType", 'tax_withheld'::"LedgerEntryType")
           THEN le."amount"
           ELSE 0
         END

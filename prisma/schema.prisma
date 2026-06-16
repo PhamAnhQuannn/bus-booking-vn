@@ -508,7 +508,6 @@ model Booking {
   @@index([snapshotAnonymizedAt])
   /// Issue 100: oversold-refund reporting — status+refundedAt composite (supports cron/reporting).
   @@index([status, refundedAt])
-  @@index([einvoiceRef])
 }
 
 /// Issue 089: checkout consent capture. One row per consent the buyer accepted at
@@ -1079,7 +1078,7 @@ model EInvoice {
   status        EInvoiceStatus @default(pending)
   vendorRef     String?
   rawResponse   String?
-  issuedAt      DateTime?
+  issuedAt      DateTime? @db.Timestamptz
   createdAt     DateTime       @default(now())
 
   booking  Booking  @relation(fields: [bookingId], references: [id], onDelete: Restrict)
