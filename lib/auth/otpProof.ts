@@ -61,15 +61,25 @@ function memConsumeJti(jti: string, ttlMs: number): boolean {
 }
 
 // Singleton ioredis client for JTI consumption — avoids a new TCP connection per proof verify.
-let _jtiRedis: IORedisType | null = null;
+// Promise-based init guard: if connect() throws, the promise is nulled so the next call retries
+// rather than returning a permanently broken client (zombie client prevention).
+let _jtiRedisPromise: Promise<IORedisType> | null = null;
 
 async function getJtiRedisClient(): Promise<IORedisType> {
-  if (_jtiRedis) return _jtiRedis;
-  const url = process.env.REDIS_URL ?? 'redis://localhost:6379';
-  const { default: IORedis } = await import('ioredis');
-  _jtiRedis = new IORedis(url, { maxRetriesPerRequest: 1, lazyConnect: true });
-  await _jtiRedis.connect();
-  return _jtiRedis;
+  if (_jtiRedisPromise) return _jtiRedisPromise;
+  _jtiRedisPromise = (async () => {
+    const url = process.env.REDIS_URL ?? 'redis://localhost:6379';
+    const { default: IORedis } = await import('ioredis');
+    const redis = new IORedis(url, { maxRetriesPerRequest: 1, lazyConnect: true });
+    try {
+      await redis.connect();
+    } catch (err) {
+      _jtiRedisPromise = null; // allow retry on next call
+      throw err;
+    }
+    return redis;
+  })();
+  return _jtiRedisPromise;
 }
 
 async function consumeJtiViaIoRedis(jti: string, ttlSec: number): Promise<boolean> {
