@@ -69,7 +69,23 @@ const envSchema = z.object({
     .min(32, 'VNPAY_HASH_SECRET must be at least 32 characters')
     .default('VNPAYSECRETTEST0123456789ABCDEF01'),
   VNPAY_URL: z.string().url().default('https://sandbox.vnpayment.vn/paymentv2/vpcpay.html'),
-  VNPAY_RETURN_URL: z.string().default('/api/payments/vnpay/return'),
+  /**
+   * Absolute URL VNPay calls for IPN notifications (vnp_IpnUrl).
+   * Must be publicly reachable by VNPay servers. Optional — if unset,
+   * createPayment falls back to the caller-provided ipnUrl which is built from
+   * the request's own host (the preferred path in initiateOnlineBooking).
+   */
+  VNPAY_IPN_URL: z.string().url().optional(),
+  /**
+   * Absolute URL VNPay redirects the browser to after payment (vnp_ReturnUrl).
+   * Must be an absolute URL — VNPay rejects relative paths.
+   * Required when PAYMENTS_STUB=false (enforced in superRefine below).
+   * No default: must be set explicitly so sandbox vs production never share a URL.
+   */
+  VNPAY_RETURN_URL: z
+    .string()
+    .url('VNPAY_RETURN_URL must be an absolute URL (e.g. https://example.com/api/payments/vnpay/return)')
+    .optional(),
 
   /**
    * Payout settlement test-injection flag (Issue 019).
@@ -295,6 +311,14 @@ const envSchema = z.object({
           path: ['VNPAY_TMN_CODE'],
           message:
             'VNPAY_TMN_CODE must be set to a real production merchant code when PAYMENTS_STUB=false',
+        });
+      }
+      if (!env.VNPAY_RETURN_URL) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['VNPAY_RETURN_URL'],
+          message:
+            'VNPAY_RETURN_URL must be set to an absolute URL in production when PAYMENTS_STUB=false',
         });
       }
     }

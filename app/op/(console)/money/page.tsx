@@ -62,6 +62,7 @@ const LEDGER_TYPE_LABEL: Record<LedgerEntryType, string> = {
   payout_reversal: 'Hoàn chi trả',
   chargeback: 'Bồi hoàn',
   adjustment: 'Điều chỉnh',
+  tax_withheld: 'Thuế khấu trừ',
 };
 
 const PAYOUT_STATUS_LABEL: Record<PayoutStatus, { label: string; variant: 'success' | 'danger' | 'pending' | 'neutral' }> = {

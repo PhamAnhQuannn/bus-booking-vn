@@ -29,8 +29,6 @@ export interface CreatePaymentInput {
   requestId: string;
   /** Client IP address for gateway logging / fraud detection. */
   clientIp?: string;
-  /** Absolute IPN/webhook URL for gateways that accept it at payment-creation time. */
-  webhookUrl?: string;
 }
 
 export type CreatePaymentResult =

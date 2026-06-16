@@ -30,7 +30,8 @@ export interface VnpayConfig {
   tmnCode: string;
   hashSecret: string;
   vnpUrl: string;
-  returnUrl: string;
+  /** Fallback return URL used when createPayment's redirectUrl is not provided. */
+  returnUrl?: string;
 }
 
 const VNPAY_SUCCESS_CODE = '00';
@@ -172,9 +173,9 @@ export function createVnpayAdapter(
       amount,
       orderInfo,
       redirectUrl: inputRedirectUrl,
+      ipnUrl: inputIpnUrl,
       requestId,
       clientIp,
-      webhookUrl,
     } = input;
     void requestId;
 
@@ -182,14 +183,20 @@ export function createVnpayAdapter(
     const now = new Date(Date.now() + 7 * 3600_000);
     const createDate = now.toISOString().replace(/[-:T]/g, '').slice(0, 14);
 
-    // Determine the return URL — must be absolute for VNPay
-    let resolvedReturnUrl = inputRedirectUrl || returnUrl;
+    // Determine the return URL — must be absolute for VNPay.
+    // initiateOnlineBooking always provides redirectUrl; returnUrl is a fallback.
+    const resolvedReturnUrl = inputRedirectUrl || returnUrl || '';
     if (!resolvedReturnUrl.startsWith('http')) {
       logger.warn(
         { returnUrl: resolvedReturnUrl },
         'payment.vnpay.relative_return_url — VNPay requires an absolute URL; using as-is',
       );
     }
+
+    // vnp_IpnUrl is REQUIRED by VNPay v2.1.0. Use the caller-provided ipnUrl
+    // (set by initiateOnlineBooking as `${baseUrl}/api/payments/vnpay/webhook`).
+    // Fall back to VNPAY_IPN_URL env var as a safety net for misconfigured callers.
+    const resolvedIpnUrl = inputIpnUrl || (getEnv().VNPAY_IPN_URL ?? '');
 
     const params: Record<string, string> = {
       vnp_Version: '2.1.0',
@@ -199,17 +206,13 @@ export function createVnpayAdapter(
       vnp_CreateDate: createDate,
       vnp_CurrCode: 'VND',
       vnp_IpAddr: clientIp ?? '127.0.0.1',
+      vnp_IpnUrl: resolvedIpnUrl,
       vnp_Locale: 'vn',
       vnp_OrderInfo: orderInfo,
       vnp_OrderType: 'other',
       vnp_ReturnUrl: resolvedReturnUrl,
       vnp_TxnRef: orderId,
     };
-
-    // Add the IPN notification URL if provided
-    if (webhookUrl) {
-      params['vnp_IpnUrl'] = webhookUrl;
-    }
 
     // Sign data uses RAW values; query string uses URL-encoded values
     const signData = buildSignData(params);
@@ -241,7 +244,7 @@ export function getVnpayAdapter(): PaymentGateway {
     tmnCode: env.VNPAY_TMN_CODE,
     hashSecret: env.VNPAY_HASH_SECRET,
     vnpUrl: env.VNPAY_URL,
-    returnUrl: env.VNPAY_RETURN_URL,
+    returnUrl: env.VNPAY_RETURN_URL,  // optional — initiateOnlineBooking always passes redirectUrl
   });
 
   return _vnpayAdapter;

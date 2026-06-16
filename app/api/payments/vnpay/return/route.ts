@@ -45,6 +45,23 @@ export function GET(req: NextRequest): NextResponse {
     );
   }
 
+  // Guard: a zero-amount return is invalid — treat as a tampered/synthetic callback.
+  // The IPN is the authoritative payment record; this is browser-UX only, but we
+  // must not redirect to confirmation for a zero-amount result (e.g. a crafted URL
+  // with responseCode=00 but vnp_Amount=0).
+  if (verifyResult.event.amount === 0) {
+    logger.warn(
+      { txnRef, responseCode, amount: 0 },
+      'payment.vnpay.return.zero_amount — redirecting to error page',
+    );
+    return NextResponse.redirect(
+      new URL(
+        `/booking/payment-error?ref=${encodeURIComponent(txnRef)}&reason=invalid_amount`,
+        req.url,
+      ),
+    );
+  }
+
   // Signature valid — check the response code
   if (responseCode !== '00') {
     logger.info(

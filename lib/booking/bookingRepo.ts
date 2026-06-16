@@ -48,7 +48,7 @@ export interface CreateMomoBookingInput {
   consentVersion: string;
 }
 
-export type OnlineBookingMethod = 'momo' | 'zalopay' | 'card';
+export type OnlineBookingMethod = 'momo' | 'zalopay' | 'card' | 'vnpay';
 
 export interface CreateOnlineBookingInput {
   holdId: string;
