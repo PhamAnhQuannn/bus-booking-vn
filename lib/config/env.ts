@@ -58,6 +58,16 @@ const envSchema = z.object({
     .url()
     .default('https://test-payment.momo.vn/v2/gateway/api/create'),
 
+  // ---------------------------------------------------------------------------
+  // VNPay payment gateway (SCALE Issue 077)
+  // Defaults to VNPay sandbox credentials. Override for production.
+  // ---------------------------------------------------------------------------
+
+  VNPAY_TMN_CODE: z.string().default('VNPAYTEST'),
+  VNPAY_HASH_SECRET: z.string().default('VNPAYSECRETTEST0123456789ABCDEF01'),
+  VNPAY_URL: z.string().url().default('https://sandbox.vnpayment.vn/paymentv2/vpcpay.html'),
+  VNPAY_RETURN_URL: z.string().default('/api/payments/vnpay/return'),
+
   /**
    * Payout settlement test-injection flag (Issue 019).
    * When "true", settlePayout() returns a failure result so the payout
