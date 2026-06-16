@@ -283,6 +283,36 @@ const envSchema = z.object({
       }
     }
   }
+  // Real VNPay mode (PAYMENTS_STUB=false): VNPay credentials must not be defaults.
+  // Top-level (not NODE_ENV-gated) so staging/preview with real PSP also validates.
+  if (!env.PAYMENTS_STUB) {
+    const VNPAY_DEFAULT_SECRET = 'VNPAYSECRETTEST0123456789ABCDEF01';
+    const VNPAY_DEFAULT_TMN = 'VNPAYTEST';
+    if (!env.VNPAY_HASH_SECRET || env.VNPAY_HASH_SECRET === VNPAY_DEFAULT_SECRET) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['VNPAY_HASH_SECRET'],
+        message:
+          'VNPAY_HASH_SECRET must be set to a real secret when PAYMENTS_STUB=false',
+      });
+    }
+    if (!env.VNPAY_TMN_CODE || env.VNPAY_TMN_CODE === VNPAY_DEFAULT_TMN) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['VNPAY_TMN_CODE'],
+        message:
+          'VNPAY_TMN_CODE must be set to a real merchant code when PAYMENTS_STUB=false',
+      });
+    }
+    if (!env.VNPAY_RETURN_URL) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['VNPAY_RETURN_URL'],
+        message:
+          'VNPAY_RETURN_URL must be set to an absolute URL when PAYMENTS_STUB=false',
+      });
+    }
+  }
   if (process.env.NODE_ENV === 'production') {
     for (const key of ['JWT_SECRET', 'JWT_OPERATOR_SECRET', 'JWT_ADMIN_SECRET', 'TOTP_ENCRYPTION_KEY', 'DATABASE_URL', 'CRON_SECRET'] as const) {
       if (!env[key]) {
@@ -290,35 +320,6 @@ const envSchema = z.object({
           code: z.ZodIssueCode.custom,
           path: [key],
           message: `${key} is required in production`,
-        });
-      }
-    }
-    // Real VNPay mode (PAYMENTS_STUB=false): VNPay credentials must not be defaults.
-    if (!env.PAYMENTS_STUB) {
-      const VNPAY_DEFAULT_SECRET = 'VNPAYSECRETTEST0123456789ABCDEF01';
-      const VNPAY_DEFAULT_TMN = 'VNPAYTEST';
-      if (!env.VNPAY_HASH_SECRET || env.VNPAY_HASH_SECRET === VNPAY_DEFAULT_SECRET) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['VNPAY_HASH_SECRET'],
-          message:
-            'VNPAY_HASH_SECRET must be set to a real production secret when PAYMENTS_STUB=false',
-        });
-      }
-      if (!env.VNPAY_TMN_CODE || env.VNPAY_TMN_CODE === VNPAY_DEFAULT_TMN) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['VNPAY_TMN_CODE'],
-          message:
-            'VNPAY_TMN_CODE must be set to a real production merchant code when PAYMENTS_STUB=false',
-        });
-      }
-      if (!env.VNPAY_RETURN_URL) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['VNPAY_RETURN_URL'],
-          message:
-            'VNPAY_RETURN_URL must be set to an absolute URL in production when PAYMENTS_STUB=false',
         });
       }
     }

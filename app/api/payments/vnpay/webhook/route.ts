@@ -21,6 +21,7 @@ export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { getVnpayAdapter, processPaymentWebhook } from '@/lib/payment';
+import { prisma } from '@/lib/core/db/client';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { logger } from '@/lib/logger';
 
@@ -65,7 +66,19 @@ async function handler(req: NextRequest): Promise<Response> {
     return NextResponse.json(VNPAY_IPN.INVALID_CHECKSUM);
   }
 
-  // Signature valid — run the full processing pipeline (DB transition, ledger, SMS).
+  // VNPay v2.1.0: return ORDER_NOT_FOUND for unknown booking refs so VNPay
+  // stops retrying instead of looping on a generic '00' success.
+  const bookingRef = verifyResult.event.orderRef;
+  const bookingExists = await prisma.booking.findUnique({
+    where: { bookingRef },
+    select: { id: true },
+  });
+  if (!bookingExists) {
+    logger.info({ adapter: 'vnpay', bookingRef }, 'payment.vnpay.webhook.order_not_found');
+    return NextResponse.json(VNPAY_IPN.ORDER_NOT_FOUND);
+  }
+
+  // Signature valid + booking exists — run the full processing pipeline.
   // processPaymentWebhook re-verifies internally (idempotent); we ignore its Response
   // body and always return the VNPay-required format.
   try {

@@ -197,6 +197,9 @@ export function createVnpayAdapter(
     // (set by initiateOnlineBooking as `${baseUrl}/api/payments/vnpay/webhook`).
     // Fall back to VNPAY_IPN_URL env var as a safety net for misconfigured callers.
     const resolvedIpnUrl = inputIpnUrl || (getEnv().VNPAY_IPN_URL ?? '');
+    if (!resolvedIpnUrl) {
+      throw new Error('vnpay: ipnUrl is required — provide it in createPayment input or set VNPAY_IPN_URL');
+    }
 
     const params: Record<string, string> = {
       vnp_Version: '2.1.0',
