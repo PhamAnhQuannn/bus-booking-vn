@@ -10,7 +10,6 @@
 import type { Ratelimit as UpstashRatelimitClient } from '@upstash/ratelimit';
 import type Redis from 'ioredis';
 import { logger } from '@/lib/logger';
-import { getEnv } from '@/lib/core/config';
 
 export interface RatelimitResult {
   allowed: boolean;
@@ -138,7 +137,7 @@ export class IoRedisRatelimit implements Ratelimit {
     if (this.client) return this.client;
     if (this._connecting) return this._connecting;
     this._connecting = (async () => {
-      const url = getEnv().REDIS_URL ?? 'redis://localhost:6379';
+      const url = process.env.REDIS_URL ?? 'redis://localhost:6379';
       const { default: IORedis } = await import('ioredis');
       const redis = new IORedis(url, { maxRetriesPerRequest: 1, lazyConnect: true });
       try {
@@ -218,7 +217,7 @@ export class IoRedisRatelimit implements Ratelimit {
  * - Default (no provider / no vars) → InMemoryRatelimit
  */
 export function createRatelimit(options: InMemoryRatelimitOptions): Ratelimit {
-  const provider = getEnv().REDIS_PROVIDER;
+  const provider = process.env.REDIS_PROVIDER;
 
   if (provider === 'ioredis') {
     return new IoRedisRatelimit(options);
