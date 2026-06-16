@@ -110,7 +110,7 @@ export function renderEmailSubject(template: string): string {
 }
 
 function notifyStubbed(): boolean {
-  return getEnv().NOTIFY_STUB;
+  return process.env.NOTIFY_STUB !== 'false';
 }
 
 // ---------------------------------------------------------------------------
