@@ -59,16 +59,34 @@ function memConsumeJti(jti: string, ttlMs: number): boolean {
   return true; // consumed successfully (first use)
 }
 
+async function consumeJtiViaIoRedis(jti: string, ttlSec: number): Promise<boolean> {
+  const url = process.env.REDIS_URL ?? 'redis://localhost:6379';
+  const { default: IORedis } = await import('ioredis');
+  const redis = new IORedis(url, { maxRetriesPerRequest: 1, lazyConnect: true });
+  try {
+    await redis.connect();
+    const key = `otpproof:consumed:${jti}`;
+    const result = await redis.set(key, '1', 'EX', ttlSec, 'NX');
+    return result === 'OK';
+  } finally {
+    redis.disconnect();
+  }
+}
+
 async function consumeJti(jti: string, ttlSec: number): Promise<boolean> {
+  const provider = process.env.REDIS_PROVIDER;
+
+  if (provider === 'ioredis') {
+    return consumeJtiViaIoRedis(jti, ttlSec);
+  }
+
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
-  if (url && token) {
-    // Production: Upstash Redis SETNX equivalent via set with NX flag
+  if (provider === 'upstash' || (url && token)) {
     const { Redis } = await import('@upstash/redis');
-    const redis = new Redis({ url, token });
+    const redis = new Redis({ url: url!, token: token! });
     const key = `otpproof:consumed:${jti}`;
-    // SET key value NX EX ttlSec — returns 'OK' if set, null if already exists
     const result = await redis.set(key, '1', { nx: true, ex: ttlSec });
     return result === 'OK';
   }

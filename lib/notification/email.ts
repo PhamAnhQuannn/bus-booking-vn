@@ -15,6 +15,7 @@
  */
 
 import { logger } from '@/lib/logger';
+import type { Resend } from 'resend';
 
 export type EmailTemplate =
   | 'customerBookingPaid'
@@ -111,28 +112,73 @@ function notifyStubbed(): boolean {
   return process.env.NOTIFY_STUB !== 'false';
 }
 
+// ---------------------------------------------------------------------------
+// Resend adapter (lazy-loaded to avoid dep import in stub/dev mode)
+// ---------------------------------------------------------------------------
+
+let _resend: Resend | null = null;
+
+async function getResendClient(): Promise<Resend> {
+  if (_resend) return _resend;
+  const { Resend: ResendCls } = await import('resend');
+  _resend = new ResendCls(process.env.RESEND_API_KEY);
+  return _resend;
+}
+
+async function sendViaResend(
+  to: string,
+  subject: string,
+  body: string,
+): Promise<SendEmailResult> {
+  const from = process.env.EMAIL_FROM ?? 'noreply@busbookvn.com';
+  try {
+    const client = await getResendClient();
+    const { data, error } = await client.emails.send({
+      from,
+      to,
+      subject,
+      text: body,
+    });
+    if (error) {
+      logger.error({ err: error.message }, 'email.resend.api-error');
+      return { ok: false, error: error.message };
+    }
+    return { ok: true, externalRef: data?.id };
+  } catch (err) {
+    logger.error({ err }, 'email.resend.exception');
+    return { ok: false, error: 'resend_exception' };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Public dispatch
+// ---------------------------------------------------------------------------
+
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
   const { to, template } = input;
   const subject = renderEmailSubject(template);
-  const bodyLen =
+  const body =
     typeof input.payload === 'string'
-      ? input.payload.length
-      : JSON.stringify(input.payload).length;
+      ? input.payload
+      : JSON.stringify(input.payload);
+  const bodyLen = body.length;
 
-  if (!notifyStubbed()) {
-    logger.warn(
-      { template, recipientLen: to.length },
-      'email.real.not-wired — NOTIFY_STUB=false but no real email provider is configured'
+  if (notifyStubbed()) {
+    const externalRef = `${STUB_PROVIDER_REF_PREFIX}${Date.now().toString(36)}`;
+    logger.info(
+      { template, externalRef, subjectLen: subject.length, bodyLen, recipientLen: to.length },
+      'email.stub.dispatch',
     );
-    return { ok: false, error: 'real_email_provider_not_wired' };
+    return { ok: true, externalRef };
   }
 
-  const externalRef = `${STUB_PROVIDER_REF_PREFIX}${Date.now().toString(36)}`;
+  if (process.env.EMAIL_PROVIDER === 'resend') {
+    return sendViaResend(to, subject, body);
+  }
 
-  logger.info(
-    { template, externalRef, subjectLen: subject.length, bodyLen, recipientLen: to.length },
-    'email.stub.dispatch'
+  logger.warn(
+    { template, recipientLen: to.length },
+    'email.real.not-wired — NOTIFY_STUB=false but no real email provider is configured',
   );
-
-  return { ok: true, externalRef };
+  return { ok: false, error: 'real_email_provider_not_wired' };
 }

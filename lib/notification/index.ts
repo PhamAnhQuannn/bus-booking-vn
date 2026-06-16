@@ -2,3 +2,5 @@
 
 export { getTestOtp, renderTemplate, sendSms, sendSmsBody } from './esms';
 export { dispatchNotifications } from './dispatchNotifications';
+export { sendEmail, renderEmailSubject } from './email';
+export type { SendEmailInput, SendEmailResult, EmailTemplate } from './email';
