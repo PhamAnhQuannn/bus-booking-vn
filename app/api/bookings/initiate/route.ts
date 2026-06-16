@@ -31,7 +31,7 @@ import { track, sessionIdFromRequest } from '@/lib/analytics';
 
 const initiateInputSchema = z.object({
   holdId: z.string().min(1).max(128),
-  paymentMethod: z.enum(['momo', 'zalopay', 'card']),
+  paymentMethod: z.enum(['momo', 'zalopay', 'card', 'vnpay']),
   // Issue 089: checkout consent block. Shape-validated here; the value gate
   // (both true + matching version) is enforced below so the failure surfaces as
   // 422 consent_required, not a generic 400 INVALID.

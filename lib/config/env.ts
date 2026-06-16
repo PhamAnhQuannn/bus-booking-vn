@@ -64,7 +64,10 @@ const envSchema = z.object({
   // ---------------------------------------------------------------------------
 
   VNPAY_TMN_CODE: z.string().default('VNPAYTEST'),
-  VNPAY_HASH_SECRET: z.string().default('VNPAYSECRETTEST0123456789ABCDEF01'),
+  VNPAY_HASH_SECRET: z
+    .string()
+    .min(32, 'VNPAY_HASH_SECRET must be at least 32 characters')
+    .default('VNPAYSECRETTEST0123456789ABCDEF01'),
   VNPAY_URL: z.string().url().default('https://sandbox.vnpayment.vn/paymentv2/vpcpay.html'),
   VNPAY_RETURN_URL: z.string().default('/api/payments/vnpay/return'),
 
@@ -271,6 +274,27 @@ const envSchema = z.object({
           code: z.ZodIssueCode.custom,
           path: [key],
           message: `${key} is required in production`,
+        });
+      }
+    }
+    // Real VNPay mode (PAYMENTS_STUB=false): VNPay credentials must not be defaults.
+    if (!env.PAYMENTS_STUB) {
+      const VNPAY_DEFAULT_SECRET = 'VNPAYSECRETTEST0123456789ABCDEF01';
+      const VNPAY_DEFAULT_TMN = 'VNPAYTEST';
+      if (!env.VNPAY_HASH_SECRET || env.VNPAY_HASH_SECRET === VNPAY_DEFAULT_SECRET) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['VNPAY_HASH_SECRET'],
+          message:
+            'VNPAY_HASH_SECRET must be set to a real production secret when PAYMENTS_STUB=false',
+        });
+      }
+      if (!env.VNPAY_TMN_CODE || env.VNPAY_TMN_CODE === VNPAY_DEFAULT_TMN) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['VNPAY_TMN_CODE'],
+          message:
+            'VNPAY_TMN_CODE must be set to a real production merchant code when PAYMENTS_STUB=false',
         });
       }
     }

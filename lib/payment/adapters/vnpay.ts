@@ -4,8 +4,10 @@
  * Implements PaymentGateway for VNPay domestic card + ATM transfers.
  *
  * Signature algorithm (VNPay public docs):
- *   HMAC-SHA512 over alphabetically-sorted query string of all vnp_* fields
- *   (excluding vnp_SecureHash itself), joined with "&".
+ *   HMAC-SHA512 over alphabetically-sorted canonical string of all vnp_* fields
+ *   (excluding vnp_SecureHash and vnp_SecureHashType), joined with "&".
+ *   Values are RAW (not URL-encoded) in the sign data string.
+ *   Values ARE URL-encoded in the payment URL query string.
  *
  * Security notes:
  *   - Uses crypto.timingSafeEqual for constant-time comparison.
@@ -15,6 +17,7 @@
 
 import crypto from 'crypto';
 import { getEnv } from '@/lib/config';
+import { logger } from '@/lib/logger';
 import type {
   PaymentGateway,
   CreatePaymentInput,
@@ -34,14 +37,29 @@ const VNPAY_SUCCESS_CODE = '00';
 const VNPAY_FAILURE_CODES = new Set(['24', '51', '65', '75', '11', '12', '13']);
 const VNPAY_PENDING_CODES = new Set(['01', '02']);
 
-function classifyVnpayStatus(responseCode: string): CanonicalPaymentStatus {
-  if (responseCode === VNPAY_SUCCESS_CODE) return 'paid';
-  if (VNPAY_FAILURE_CODES.has(responseCode)) return 'failed';
-  if (VNPAY_PENDING_CODES.has(responseCode)) return 'pending';
+function classifyVnpayStatus(code: string): CanonicalPaymentStatus {
+  if (code === VNPAY_SUCCESS_CODE) return 'paid';
+  if (VNPAY_FAILURE_CODES.has(code)) return 'failed';
+  if (VNPAY_PENDING_CODES.has(code)) return 'pending';
   return 'unknown';
 }
 
-function sortedQueryString(params: Record<string, string>): string {
+/**
+ * Build the HMAC canonical string: sorted keys, RAW (not URL-encoded) values,
+ * joined with "&". This is what VNPay signs/verifies.
+ */
+function buildSignData(params: Record<string, string>): string {
+  return Object.keys(params)
+    .sort()
+    .map((k) => `${k}=${params[k]}`)
+    .join('&');
+}
+
+/**
+ * Build URL query string: sorted keys, URL-encoded values, joined with "&".
+ * Used to construct the payment URL appended after "?".
+ */
+function buildQueryString(params: Record<string, string>): string {
   return Object.keys(params)
     .sort()
     .map((k) => `${k}=${encodeURIComponent(params[k])}`)
@@ -71,16 +89,24 @@ export function createVnpayAdapter(
   void fetchFn;
   const { tmnCode, hashSecret, vnpUrl, returnUrl } = config;
 
+  /**
+   * verifyWebhook — accepts a URL-encoded string (IPN POST body or
+   * reconstructed GET query string) or a pre-parsed Record<string,string>.
+   *
+   * VNPay IPN comes as URL-encoded form data (POST) or query params (GET),
+   * NOT JSON.
+   */
   const verifyWebhook = (rawBody: string): VerifyWebhookResult => {
-    let parsed: Record<string, string>;
-    try {
-      parsed = JSON.parse(rawBody) as Record<string, string>;
-    } catch {
-      return { ok: false, reason: 'invalid_json' };
+    // Parse as URLSearchParams (handles both POST body and GET query string)
+    const parsed: Record<string, string> = {};
+    const params = new URLSearchParams(rawBody);
+    for (const [key, value] of params.entries()) {
+      parsed[key] = value;
     }
 
-    const receivedHash = parsed.vnp_SecureHash;
+    const receivedHash = parsed['vnp_SecureHash'];
     if (typeof receivedHash !== 'string' || receivedHash.length === 0) {
+      logger.warn({ reason: 'missing_signature' }, 'payment.vnpay.verify_failed');
       return { ok: false, reason: 'missing_signature' };
     }
 
@@ -91,20 +117,40 @@ export function createVnpayAdapter(
       }
     }
 
-    const signData = sortedQueryString(verifyParams);
+    // Sign data uses RAW values (not URL-encoded)
+    const signData = buildSignData(verifyParams);
     const expected = hmacSha512(hashSecret, signData);
 
     if (!timingSafeHexEqual(expected, receivedHash)) {
+      const bookingRef = parsed['vnp_TxnRef'] ?? '';
+      const responseCode = parsed['vnp_ResponseCode'] ?? '';
+      logger.warn(
+        { reason: 'sig_mismatch', bookingRef, responseCode },
+        'payment.vnpay.verify_failed',
+      );
       return { ok: false, reason: 'sig_mismatch' };
     }
 
-    const orderRef = String(parsed.vnp_TxnRef ?? '');
-    const providerTxnId = String(parsed.vnp_TransactionNo ?? '');
-    const responseCode = String(parsed.vnp_ResponseCode ?? '99');
-    const amount = Math.floor(Number(parsed.vnp_Amount ?? 0) / 100);
+    const orderRef = String(parsed['vnp_TxnRef'] ?? '');
+    const providerTxnId = String(parsed['vnp_TransactionNo'] ?? '');
+    const responseCode = String(parsed['vnp_ResponseCode'] ?? '99');
+    // vnp_TransactionStatus is the IPN-authoritative field; fall back to
+    // vnp_ResponseCode if absent (return-URL flow omits it).
+    const transactionStatus = parsed['vnp_TransactionStatus'];
+    const classifyCode = transactionStatus !== undefined ? transactionStatus : responseCode;
+    const amount = Math.floor(Number(parsed['vnp_Amount'] ?? 0) / 100);
     if (!Number.isFinite(amount) || amount < 0) {
+      logger.warn(
+        { reason: 'invalid_amount', bookingRef: orderRef, responseCode },
+        'payment.vnpay.verify_failed',
+      );
       return { ok: false, reason: 'invalid_amount' };
     }
+
+    logger.info(
+      { bookingRef: orderRef, amount, responseCode, transactionStatus },
+      'payment.vnpay.verified',
+    );
 
     return {
       ok: true,
@@ -113,7 +159,7 @@ export function createVnpayAdapter(
         providerTxnId,
         amount,
         currency: 'VND',
-        status: classifyVnpayStatus(responseCode),
+        status: classifyVnpayStatus(classifyCode),
       },
     };
   };
@@ -121,14 +167,29 @@ export function createVnpayAdapter(
   const createPayment = async (
     input: CreatePaymentInput,
   ): Promise<CreatePaymentResult> => {
-    const { orderId, amount, orderInfo, redirectUrl: inputRedirectUrl, requestId } = input;
+    const {
+      orderId,
+      amount,
+      orderInfo,
+      redirectUrl: inputRedirectUrl,
+      requestId,
+      clientIp,
+      webhookUrl,
+    } = input;
     void requestId;
 
-    const now = new Date();
-    const createDate = now
-      .toISOString()
-      .replace(/[-:T]/g, '')
-      .slice(0, 14);
+    // VNPay createDate must be in Vietnam time (UTC+7)
+    const now = new Date(Date.now() + 7 * 3600_000);
+    const createDate = now.toISOString().replace(/[-:T]/g, '').slice(0, 14);
+
+    // Determine the return URL — must be absolute for VNPay
+    let resolvedReturnUrl = inputRedirectUrl || returnUrl;
+    if (!resolvedReturnUrl.startsWith('http')) {
+      logger.warn(
+        { returnUrl: resolvedReturnUrl },
+        'payment.vnpay.relative_return_url — VNPay requires an absolute URL; using as-is',
+      );
+    }
 
     const params: Record<string, string> = {
       vnp_Version: '2.1.0',
@@ -137,18 +198,27 @@ export function createVnpayAdapter(
       vnp_Amount: String(amount * 100),
       vnp_CreateDate: createDate,
       vnp_CurrCode: 'VND',
-      vnp_IpAddr: '127.0.0.1',
+      vnp_IpAddr: clientIp ?? '127.0.0.1',
       vnp_Locale: 'vn',
       vnp_OrderInfo: orderInfo,
       vnp_OrderType: 'other',
-      vnp_ReturnUrl: inputRedirectUrl || returnUrl,
+      vnp_ReturnUrl: resolvedReturnUrl,
       vnp_TxnRef: orderId,
     };
 
-    const signData = sortedQueryString(params);
+    // Add the IPN notification URL if provided
+    if (webhookUrl) {
+      params['vnp_IpnUrl'] = webhookUrl;
+    }
+
+    // Sign data uses RAW values; query string uses URL-encoded values
+    const signData = buildSignData(params);
     const secureHash = hmacSha512(hashSecret, signData);
 
-    const payUrl = `${vnpUrl}?${signData}&vnp_SecureHash=${secureHash}`;
+    const queryString = buildQueryString(params);
+    const payUrl = `${vnpUrl}?${queryString}&vnp_SecureHash=${secureHash}`;
+
+    logger.info({ orderId, amount }, 'payment.vnpay.url_built');
 
     return {
       ok: true,
