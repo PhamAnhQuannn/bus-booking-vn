@@ -1,0 +1,51 @@
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: bbvn
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: bbvn_prod
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U bbvn -d bbvn_prod']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  pgbouncer:
+    image: edoburu/pgbouncer:1.22.1
+    environment:
+      DATABASE_URL: "postgres://bbvn:${POSTGRES_PASSWORD}@postgres:5432/bbvn_prod"
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 200
+      PGBOUNCER_DEFAULT_POOL_SIZE: 30
+      AUTH_TYPE: scram-sha-256
+    ports:
+      - '6432:6432'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 6432 -U bbvn"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: "postgresql://bbvn:${POSTGRES_PASSWORD}@pgbouncer:6432/bbvn_prod"
+      DIRECT_URL: "postgresql://bbvn:${POSTGRES_PASSWORD}@postgres:5432/bbvn_prod"
+      NODE_ENV: production
+    ports:
+      - '3000:3000'
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
