@@ -22,6 +22,7 @@
 import { SignJWT, jwtVerify } from 'jose';
 import crypto from 'crypto';
 import type IORedisType from 'ioredis';
+import { getEnv } from '@/lib/core/config';
 
 const OTP_PROOF_TTL_SECONDS = 300; // 5 minutes
 
@@ -68,7 +69,7 @@ let _jtiRedisPromise: Promise<IORedisType> | null = null;
 async function getJtiRedisClient(): Promise<IORedisType> {
   if (_jtiRedisPromise) return _jtiRedisPromise;
   _jtiRedisPromise = (async () => {
-    const url = process.env.REDIS_URL ?? 'redis://localhost:6379';
+    const url = getEnv().REDIS_URL ?? 'redis://localhost:6379';
     const { default: IORedis } = await import('ioredis');
     const redis = new IORedis(url, { maxRetriesPerRequest: 1, lazyConnect: true });
     try {
@@ -85,12 +86,17 @@ async function getJtiRedisClient(): Promise<IORedisType> {
 async function consumeJtiViaIoRedis(jti: string, ttlSec: number): Promise<boolean> {
   const redis = await getJtiRedisClient();
   const key = `otpproof:consumed:${jti}`;
-  const result = await redis.set(key, '1', 'EX', ttlSec, 'NX');
-  return result === 'OK';
+  try {
+    const result = await redis.set(key, '1', 'EX', ttlSec, 'NX');
+    return result === 'OK';
+  } catch (err) {
+    _jtiRedisPromise = null;
+    throw err;
+  }
 }
 
 async function consumeJti(jti: string, ttlSec: number): Promise<boolean> {
-  const provider = process.env.REDIS_PROVIDER;
+  const provider = getEnv().REDIS_PROVIDER;
 
   if (provider === 'ioredis') {
     return consumeJtiViaIoRedis(jti, ttlSec);

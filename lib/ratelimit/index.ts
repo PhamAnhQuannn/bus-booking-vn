@@ -10,6 +10,7 @@
 import type { Ratelimit as UpstashRatelimitClient } from '@upstash/ratelimit';
 import type Redis from 'ioredis';
 import { logger } from '@/lib/logger';
+import { getEnv } from '@/lib/core/config';
 
 export interface RatelimitResult {
   allowed: boolean;
@@ -137,7 +138,7 @@ export class IoRedisRatelimit implements Ratelimit {
     if (this.client) return this.client;
     if (this._connecting) return this._connecting;
     this._connecting = (async () => {
-      const url = process.env.REDIS_URL ?? 'redis://localhost:6379';
+      const url = getEnv().REDIS_URL ?? 'redis://localhost:6379';
       const { default: IORedis } = await import('ioredis');
       const redis = new IORedis(url, { maxRetriesPerRequest: 1, lazyConnect: true });
       try {
@@ -167,31 +168,44 @@ export class IoRedisRatelimit implements Ratelimit {
       local ttl = redis.call('PTTL', KEYS[1])
       if ttl < 0 then
         redis.call('PEXPIRE', KEYS[1], ARGV[2])
-        ttl = ARGV[2]
+        ttl = tonumber(ARGV[2])
       end
       return {0, 0, ttl}
     end
   `;
 
   async limit(identifier: string): Promise<RatelimitResult> {
-    const redis = await this.getClient();
-    const result = await redis.eval(
-      IoRedisRatelimit.LUA_SCRIPT,
-      1,
-      `rl:${identifier}`,
-      this.maxRequests,
-      this.windowMs,
-    ) as [number, number, number];
-    const allowed = result[0] === 1;
-    const retryAfter = allowed ? 0 : Math.ceil(result[2] / 1000);
-    if (!allowed) {
-      logger.warn({ identifier, retryAfter }, 'ratelimit.denied');
+    let redis: Redis;
+    try {
+      redis = await this.getClient();
+    } catch (err) {
+      logger.error({ err, identifier }, 'ratelimit.ioredis.getClient_failed — fail-open');
+      return { allowed: true, remaining: 0, retryAfter: 0 };
     }
-    return {
-      allowed,
-      remaining: result[1],
-      retryAfter,
-    };
+    try {
+      const result = await redis.eval(
+        IoRedisRatelimit.LUA_SCRIPT,
+        1,
+        `rl:${identifier}`,
+        this.maxRequests,
+        this.windowMs,
+      ) as [number, number, number];
+      const allowed = result[0] === 1;
+      const retryAfter = allowed ? 0 : Math.ceil(result[2] / 1000);
+      if (!allowed) {
+        logger.warn({ identifier, retryAfter }, 'ratelimit.denied');
+      }
+      return {
+        allowed,
+        remaining: result[1],
+        retryAfter,
+      };
+    } catch (err) {
+      this.client = null;
+      this._connecting = null;
+      logger.error({ err, identifier }, 'ratelimit.ioredis.eval_failed — fail-open, will reconnect');
+      return { allowed: true, remaining: 0, retryAfter: 0 };
+    }
   }
 }
 
@@ -204,7 +218,7 @@ export class IoRedisRatelimit implements Ratelimit {
  * - Default (no provider / no vars) → InMemoryRatelimit
  */
 export function createRatelimit(options: InMemoryRatelimitOptions): Ratelimit {
-  const provider = process.env.REDIS_PROVIDER;
+  const provider = getEnv().REDIS_PROVIDER;
 
   if (provider === 'ioredis') {
     return new IoRedisRatelimit(options);

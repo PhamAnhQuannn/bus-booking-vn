@@ -110,7 +110,7 @@ export function renderEmailSubject(template: string): string {
 }
 
 function notifyStubbed(): boolean {
-  return process.env.NOTIFY_STUB !== 'false';
+  return getEnv().NOTIFY_STUB;
 }
 
 // ---------------------------------------------------------------------------
@@ -134,7 +134,7 @@ async function sendViaResend(
   body: string,
   template: string,
 ): Promise<SendEmailResult> {
-  const from = process.env.EMAIL_FROM ?? 'noreply@busbookvn.com';
+  const from = getEnv().EMAIL_FROM ?? 'noreply@busbookvn.com';
   try {
     const client = await getResendClient();
     const { data, error } = await client.emails.send({
@@ -177,7 +177,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
     return { ok: true, externalRef };
   }
 
-  if (process.env.EMAIL_PROVIDER === 'resend') {
+  if (getEnv().EMAIL_PROVIDER === 'resend') {
     return sendViaResend(to, subject, body, template);
   }
 
