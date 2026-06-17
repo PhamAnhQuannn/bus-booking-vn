@@ -11,10 +11,11 @@
 
 import { getEnv } from '@/lib/config';
 import { getMomoAdapter } from './adapters/momo';
+import { getVnpayAdapter } from './adapters/vnpay';
 import { getStubAdapter } from './adapters/stub';
 import type { PaymentGateway } from './gateway';
 
-export type OnlinePaymentMethod = 'momo' | 'zalopay' | 'card';
+export type OnlinePaymentMethod = 'momo' | 'zalopay' | 'card' | 'vnpay';
 
 /**
  * Resolve the gateway for an online method. `baseUrl` is required because the
@@ -30,6 +31,10 @@ export function getGatewayFor(
     return getMomoAdapter();
   }
 
-  // momo (when stubbed), zalopay, card → local fake gateway
+  if (method === 'vnpay' && !env.PAYMENTS_STUB) {
+    return getVnpayAdapter();
+  }
+
+  // momo (when stubbed), zalopay, card, vnpay (when stubbed) → local fake gateway
   return getStubAdapter(method, baseUrl);
 }

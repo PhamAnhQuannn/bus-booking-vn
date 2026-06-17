@@ -387,6 +387,7 @@ enum PaymentMethod {
   momo
   zalopay
   card
+  vnpay
 }
 
 /// Issue 109: classifies an OperatorPickupArea / trip-snapshot place.

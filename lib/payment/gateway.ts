@@ -27,6 +27,8 @@ export interface CreatePaymentInput {
   redirectUrl: string;
   /** Unique request ID for idempotency (caller-provided). */
   requestId: string;
+  /** Client IP address for gateway logging / fraud detection. */
+  clientIp?: string;
 }
 
 export type CreatePaymentResult =

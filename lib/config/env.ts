@@ -58,6 +58,35 @@ const envSchema = z.object({
     .url()
     .default('https://test-payment.momo.vn/v2/gateway/api/create'),
 
+  // ---------------------------------------------------------------------------
+  // VNPay payment gateway (SCALE Issue 077)
+  // Defaults to VNPay sandbox credentials. Override for production.
+  // ---------------------------------------------------------------------------
+
+  VNPAY_TMN_CODE: z.string().default('VNPAYTEST'),
+  VNPAY_HASH_SECRET: z
+    .string()
+    .min(32, 'VNPAY_HASH_SECRET must be at least 32 characters')
+    .default('VNPAYSECRETTEST0123456789ABCDEF01'),
+  VNPAY_URL: z.string().url().default('https://sandbox.vnpayment.vn/paymentv2/vpcpay.html'),
+  /**
+   * Absolute URL VNPay calls for IPN notifications (vnp_IpnUrl).
+   * Must be publicly reachable by VNPay servers. Optional — if unset,
+   * createPayment falls back to the caller-provided ipnUrl which is built from
+   * the request's own host (the preferred path in initiateOnlineBooking).
+   */
+  VNPAY_IPN_URL: z.string().url().optional(),
+  /**
+   * Absolute URL VNPay redirects the browser to after payment (vnp_ReturnUrl).
+   * Must be an absolute URL — VNPay rejects relative paths.
+   * Required when PAYMENTS_STUB=false (enforced in superRefine below).
+   * No default: must be set explicitly so sandbox vs production never share a URL.
+   */
+  VNPAY_RETURN_URL: z
+    .string()
+    .url('VNPAY_RETURN_URL must be an absolute URL (e.g. https://example.com/api/payments/vnpay/return)')
+    .optional(),
+
   /**
    * Payout settlement test-injection flag (Issue 019).
    * When "true", settlePayout() returns a failure result so the payout
@@ -259,6 +288,36 @@ const envSchema = z.object({
           message: `${key} is required when NOTIFY_STUB=false (real eSMS mode)`,
         });
       }
+    }
+  }
+  // Real VNPay mode (PAYMENTS_STUB=false): VNPay credentials must not be defaults.
+  // Top-level (not NODE_ENV-gated) so staging/preview with real PSP also validates.
+  if (!env.PAYMENTS_STUB) {
+    const VNPAY_DEFAULT_SECRET = 'VNPAYSECRETTEST0123456789ABCDEF01';
+    const VNPAY_DEFAULT_TMN = 'VNPAYTEST';
+    if (!env.VNPAY_HASH_SECRET || env.VNPAY_HASH_SECRET === VNPAY_DEFAULT_SECRET) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['VNPAY_HASH_SECRET'],
+        message:
+          'VNPAY_HASH_SECRET must be set to a real secret when PAYMENTS_STUB=false',
+      });
+    }
+    if (!env.VNPAY_TMN_CODE || env.VNPAY_TMN_CODE === VNPAY_DEFAULT_TMN) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['VNPAY_TMN_CODE'],
+        message:
+          'VNPAY_TMN_CODE must be set to a real merchant code when PAYMENTS_STUB=false',
+      });
+    }
+    if (!env.VNPAY_RETURN_URL) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['VNPAY_RETURN_URL'],
+        message:
+          'VNPAY_RETURN_URL must be set to an absolute URL when PAYMENTS_STUB=false',
+      });
     }
   }
   if (process.env.NODE_ENV === 'production') {
