@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 
-// Prisma client singleton — reuse across hot reloads (dev) AND warm invocations (prod serverless)
+// Prisma client singleton -- reuse across hot reloads (dev) AND warm invocations (prod serverless)
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined };
 
@@ -12,7 +12,12 @@ function createPrismaClient(): PrismaClient {
     throw new Error('DATABASE_URL environment variable is not set');
   }
   const max = Number(process.env.DATABASE_POOL_MAX) || 5;
-  const pool = new Pool({ connectionString, max });
+  const pool = new Pool({
+    connectionString,
+    max,
+    idleTimeoutMillis: 10_000,
+    connectionTimeoutMillis: 3_000,
+  });
   const adapter = new PrismaPg(pool);
   return new PrismaClient({
     adapter,

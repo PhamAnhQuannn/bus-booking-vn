@@ -230,8 +230,15 @@ const envSchema = z.object({
    */
   DATABASE_URL: z.string().optional(),
 
-  /** Max connections per pg.Pool instance (default 5). */
-  DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(50).default(5),
+  /**
+   * Direct PostgreSQL connection URL — bypasses PgBouncer for Prisma migrations
+   * (prepared statements, CREATE INDEX CONCURRENTLY). Required in production
+   * when PAYMENTS_STUB=false; for local dev set to the same value as DATABASE_URL.
+   */
+  DIRECT_URL: z.string().url().optional(),
+
+  /** Max connections per pg.Pool instance (default 1 — PgBouncer handles pooling). */
+  DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(50).default(1),
 
   /**
    * Bearer token that Vercel Cron injects as `Authorization: Bearer <secret>`.
@@ -263,6 +270,15 @@ const envSchema = z.object({
           message: `${key} is required in production`,
         });
       }
+    }
+    // DIRECT_URL is required in production when using real payments (non-stub).
+    // It must point directly at Postgres (bypassing PgBouncer) for migrations.
+    if (!env.PAYMENTS_STUB && !env.DIRECT_URL) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['DIRECT_URL'],
+        message: 'DIRECT_URL is required in production when PAYMENTS_STUB=false',
+      });
     }
   }
 });
