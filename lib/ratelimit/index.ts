@@ -1,11 +1,15 @@
 /**
- * Ratelimit factory — exports Ratelimit interface, InMemoryRatelimit (dev/CI default),
- * and UpstashRatelimit (production, sliding window via @upstash/ratelimit).
+ * Ratelimit factory — exports Ratelimit interface + three backends:
+ *   InMemoryRatelimit  — dev/CI default (no external deps)
+ *   UpstashRatelimit   — Vercel/serverless via @upstash/ratelimit (HTTP REST)
+ *   IoRedisRatelimit   — self-hosted Redis via ioredis (TCP, sliding window via Lua)
+ *
+ * Selection: REDIS_PROVIDER env var → 'ioredis' | 'upstash' | default (in-memory).
  */
 
-// type-only import: erased at runtime, so the Upstash dep stays lazy-loaded inside
-// getClient() (never eagerly imported in CI/dev without the env vars).
 import type { Ratelimit as UpstashRatelimitClient } from '@upstash/ratelimit';
+import type Redis from 'ioredis';
+import { logger } from '@/lib/logger';
 
 export interface RatelimitResult {
   allowed: boolean;
@@ -115,16 +119,114 @@ export class UpstashRatelimit implements Ratelimit {
 }
 
 /**
+ * Self-hosted Redis rate limiter via ioredis (TCP).
+ * Sliding window counter implemented with a Lua script (atomic INCR + PEXPIRE).
+ */
+export class IoRedisRatelimit implements Ratelimit {
+  private readonly maxRequests: number;
+  private readonly windowMs: number;
+  private client: Redis | null = null;
+  private _connecting: Promise<Redis> | null = null;
+
+  constructor(options: InMemoryRatelimitOptions) {
+    this.maxRequests = options.limit;
+    this.windowMs = options.windowMs;
+  }
+
+  private async getClient(): Promise<Redis> {
+    if (this.client) return this.client;
+    if (this._connecting) return this._connecting;
+    this._connecting = (async () => {
+      const url = process.env.REDIS_URL ?? 'redis://localhost:6379';
+      const { default: IORedis } = await import('ioredis');
+      const redis = new IORedis(url, { maxRetriesPerRequest: 1, lazyConnect: true });
+      try {
+        await redis.connect();
+      } catch (err) {
+        this._connecting = null;
+        logger.error({ err }, 'ratelimit.ioredis.connect_failed');
+        throw err;
+      }
+      this.client = redis;
+      return redis;
+    })();
+    return this._connecting;
+  }
+
+  // INCR-first Lua script: atomically increment then gate — eliminates the GET→INCR TOCTOU
+  // race where two concurrent requests both see count < limit and both get allowed on the
+  // last available slot, letting through limit+1 requests total.
+  private static LUA_SCRIPT = `
+    local current = redis.call('INCR', KEYS[1])
+    if current == 1 then
+      redis.call('PEXPIRE', KEYS[1], ARGV[2])
+    end
+    if current <= tonumber(ARGV[1]) then
+      return {1, tonumber(ARGV[1]) - current, 0}
+    else
+      local ttl = redis.call('PTTL', KEYS[1])
+      if ttl < 0 then
+        redis.call('PEXPIRE', KEYS[1], ARGV[2])
+        ttl = tonumber(ARGV[2])
+      end
+      return {0, 0, ttl}
+    end
+  `;
+
+  async limit(identifier: string): Promise<RatelimitResult> {
+    let redis: Redis;
+    try {
+      redis = await this.getClient();
+    } catch (err) {
+      logger.error({ err, identifier }, 'ratelimit.ioredis.getClient_failed — fail-open');
+      return { allowed: true, remaining: 0, retryAfter: 0 };
+    }
+    try {
+      const result = await redis.eval(
+        IoRedisRatelimit.LUA_SCRIPT,
+        1,
+        `rl:${identifier}`,
+        this.maxRequests,
+        this.windowMs,
+      ) as [number, number, number];
+      const allowed = result[0] === 1;
+      const retryAfter = allowed ? 0 : Math.ceil(result[2] / 1000);
+      if (!allowed) {
+        logger.warn({ identifier, retryAfter }, 'ratelimit.denied');
+      }
+      return {
+        allowed,
+        remaining: result[1],
+        retryAfter,
+      };
+    } catch (err) {
+      this.client = null;
+      this._connecting = null;
+      logger.error({ err, identifier }, 'ratelimit.ioredis.eval_failed — fail-open, will reconnect');
+      return { allowed: true, remaining: 0, retryAfter: 0 };
+    }
+  }
+}
+
+/**
  * Factory that returns the appropriate Ratelimit implementation
  * based on the runtime environment.
  *
- * - CI / development (no UPSTASH_REDIS_REST_URL): InMemoryRatelimit
- * - Production (UPSTASH_REDIS_REST_URL set): UpstashRatelimit
+ * - REDIS_PROVIDER=ioredis         → IoRedisRatelimit (self-hosted Redis)
+ * - REDIS_PROVIDER=upstash (or Upstash env vars set) → UpstashRatelimit
+ * - Default (no provider / no vars) → InMemoryRatelimit
  */
 export function createRatelimit(options: InMemoryRatelimitOptions): Ratelimit {
-  if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+  const provider = process.env.REDIS_PROVIDER;
+
+  if (provider === 'ioredis') {
+    return new IoRedisRatelimit(options);
+  }
+
+  if (provider === 'upstash' || (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)) {
     return new UpstashRatelimit(options);
   }
+
   return new InMemoryRatelimit(options);
 }
 

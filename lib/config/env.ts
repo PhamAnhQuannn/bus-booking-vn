@@ -277,6 +277,48 @@ const envSchema = z.object({
 
   /** Ops team email for internal notifications (charter declines, escalations). */
   OPS_EMAIL: z.string().email().optional(),
+
+  // ---------------------------------------------------------------------------
+  // E-invoice (Issue 074 — Circular 78/2021 hóa đơn điện tử via MISA meInvoice).
+  // EINVOICE_ENABLED="stub" (default) → stub provider, no network I/O.
+  // EINVOICE_ENABLED="misa" → real MISA API; MISA_* creds required.
+  // ---------------------------------------------------------------------------
+
+  /** E-invoice mode: "stub" (log only) or "misa" (real API). */
+  EINVOICE_ENABLED: z.enum(['stub', 'misa']).default('stub'),
+  /** MISA meInvoice API base URL (real branch only). */
+  MISA_API_URL: z.string().url().optional(),
+  /** MISA API key. NEVER log this value. */
+  MISA_API_KEY: z.string().optional(),
+  /** MISA company code. */
+  MISA_COMPANY_CODE: z.string().optional(),
+  /** MISA invoice template code. */
+  MISA_TEMPLATE_CODE: z.string().optional(),
+
+  // ---------------------------------------------------------------------------
+  // Transactional email provider (Issue 080 — Resend).
+  // EMAIL_PROVIDER="stub" (default) → NOTIFY_STUB covers; no real send.
+  // EMAIL_PROVIDER="resend" → Resend API; RESEND_API_KEY required.
+  // ---------------------------------------------------------------------------
+
+  /** Email dispatch provider: "stub" or "resend". */
+  EMAIL_PROVIDER: z.enum(['stub', 'resend']).default('stub'),
+  /** Resend API key (real branch only). NEVER log this value. */
+  RESEND_API_KEY: z.string().optional(),
+  /** Sender address for transactional email. */
+  EMAIL_FROM: z.string().default('noreply@busbookvn.com'),
+
+  // ---------------------------------------------------------------------------
+  // Self-hosted Redis (Issue 083 — ioredis).
+  // REDIS_PROVIDER unset/memory → InMemoryRatelimit + in-memory JTI store.
+  // REDIS_PROVIDER="ioredis"   → IoRedisRatelimit + ioredis JTI consume.
+  // REDIS_PROVIDER="upstash"   → UpstashRatelimit + Upstash JTI consume.
+  // ---------------------------------------------------------------------------
+
+  /** Redis backend selection. */
+  REDIS_PROVIDER: z.enum(['memory', 'ioredis', 'upstash']).default('memory'),
+  /** Redis connection URL for ioredis provider. */
+  REDIS_URL: z.string().default('redis://localhost:6379'),
 }).superRefine((env, ctx) => {
   // Real eSMS mode (NOTIFY_STUB=false) must carry credentials — fail fast at boot.
   if (!env.NOTIFY_STUB) {
@@ -320,6 +362,36 @@ const envSchema = z.object({
       });
     }
   }
+  // Real MISA e-invoice mode must carry credentials.
+  if (env.EINVOICE_ENABLED === 'misa') {
+    for (const key of ['MISA_API_URL', 'MISA_API_KEY', 'MISA_COMPANY_CODE', 'MISA_TEMPLATE_CODE'] as const) {
+      if (!env[key]) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `${key} is required when EINVOICE_ENABLED=misa`,
+        });
+      }
+    }
+    // MISA API URL must use HTTPS in all modes (API key in header — plaintext over HTTP is a credential leak).
+    if (env.MISA_API_URL && !env.MISA_API_URL.startsWith('https://')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['MISA_API_URL'],
+        message: 'MISA_API_URL must use HTTPS',
+      });
+    }
+  }
+  // Real Resend email mode must carry API key.
+  if (env.EMAIL_PROVIDER === 'resend') {
+    if (!env.RESEND_API_KEY) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['RESEND_API_KEY'],
+        message: 'RESEND_API_KEY is required when EMAIL_PROVIDER=resend',
+      });
+    }
+  }
   if (process.env.NODE_ENV === 'production') {
     for (const key of ['JWT_SECRET', 'JWT_OPERATOR_SECRET', 'JWT_ADMIN_SECRET', 'TOTP_ENCRYPTION_KEY', 'DATABASE_URL', 'CRON_SECRET'] as const) {
       if (!env[key]) {
@@ -338,6 +410,16 @@ const envSchema = z.object({
         path: ['DIRECT_URL'],
         message: 'DIRECT_URL is required in production when PAYMENTS_STUB=false',
       });
+    }
+    // ioredis provider in production must have a real REDIS_URL (not the localhost default).
+    if (env.REDIS_PROVIDER === 'ioredis') {
+      if (!env.REDIS_URL || env.REDIS_URL === 'redis://localhost:6379') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['REDIS_URL'],
+          message: 'REDIS_URL must be set to a non-localhost value when REDIS_PROVIDER=ioredis in production',
+        });
+      }
     }
   }
 });

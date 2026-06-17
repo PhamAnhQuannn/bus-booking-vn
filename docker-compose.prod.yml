@@ -1,4 +1,24 @@
 services:
+  # NOTE: Run database migrations before starting this stack.
+  # One-off command: docker compose -f docker-compose.prod.yml run --rm app pnpm prisma migrate deploy
+  # Or use an external init step in your CI/CD pipeline.
+  app:
+    build: .
+    env_file: .env.production
+    environment:
+      DATABASE_URL: "postgresql://bbvn:${POSTGRES_PASSWORD}@pgbouncer:6432/bbvn_prod"
+      DIRECT_URL: "postgresql://bbvn:${POSTGRES_PASSWORD}@postgres:5432/bbvn_prod"
+      NODE_ENV: production
+    ports:
+      - '3000:3000'
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks: [internal]
+
   postgres:
     image: postgres:16
     environment:
@@ -13,6 +33,7 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    networks: [internal]
 
   pgbouncer:
     image: edoburu/pgbouncer:1.22.1
@@ -21,14 +42,7 @@ services:
       POOL_MODE: transaction
       MAX_CLIENT_CONN: 200
       PGBOUNCER_DEFAULT_POOL_SIZE: 30
-      # AUTH_TYPE scram-sha-256: safe with edoburu/pgbouncer because the image writes
-      # plaintext password entries into pgbouncer.ini (via DATABASE_URL), which allows
-      # pgbouncer to derive and cache SCRAM verifiers at runtime when it first connects
-      # to Postgres. Client connections to pgbouncer are then authenticated end-to-end
-      # as SCRAM-SHA-256. No plaintext passwords are transmitted on the wire.
       AUTH_TYPE: scram-sha-256
-    ports:
-      - '6432:6432'
     depends_on:
       postgres:
         condition: service_healthy
@@ -38,31 +52,31 @@ services:
       timeout: 3s
       retries: 5
     restart: unless-stopped
+    networks: [internal]
 
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    # Inject all secrets via .env.production (never commit real values to version control).
-    # Generate each secret with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-    # REQUIRED secrets (env.ts superRefine enforces these when NODE_ENV=production):
-    #   HOLD_SECRET           -- HMAC-SHA256 key for bb_hold cookies (min 64 hex chars)
-    #   JWT_SECRET            -- HS256 key for customer session JWTs (min 32 chars)
-    #   JWT_OPERATOR_SECRET   -- HS256 key for operator session JWTs (min 32 chars)
-    #   JWT_ADMIN_SECRET      -- HS256 key for admin session JWTs (min 32 chars)
-    #   TOTP_ENCRYPTION_KEY   -- AES-256-GCM key for admin TOTP secrets (64 hex chars)
-    #   CRON_SECRET           -- Bearer token for cron route Authorization header (min 16 chars)
-    env_file: .env.production
-    environment:
-      DATABASE_URL: "postgresql://bbvn:${POSTGRES_PASSWORD}@pgbouncer:6432/bbvn_prod"
-      DIRECT_URL: "postgresql://bbvn:${POSTGRES_PASSWORD}@postgres:5432/bbvn_prod"
-      NODE_ENV: production
-    ports:
-      - '3000:3000'
-    depends_on:
-      pgbouncer:
-        condition: service_healthy
+  redis:
+    image: redis:7-alpine
+    # IMPORTANT: Set REDIS_PASSWORD to a strong secret in production.
+    # The default 'changeme' is only for local testing — never use it in prod.
+    command: redis-server --requirepass ${REDIS_PASSWORD:-changeme}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      # Pass the password so redis-cli can AUTH before PING — without -a this
+      # returns "NOAUTH Authentication required" (exit 1) and the healthcheck
+      # never passes, blocking the app container from starting.
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD:-changeme}', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
+    networks: [internal]
 
 volumes:
   postgres_data:
+  redis_data:
+
+networks:
+  internal:
+    driver: bridge
+    internal: true

@@ -21,6 +21,7 @@
 
 import { SignJWT, jwtVerify } from 'jose';
 import crypto from 'crypto';
+import type IORedisType from 'ioredis';
 
 const OTP_PROOF_TTL_SECONDS = 300; // 5 minutes
 
@@ -59,16 +60,54 @@ function memConsumeJti(jti: string, ttlMs: number): boolean {
   return true; // consumed successfully (first use)
 }
 
+// Singleton ioredis client for JTI consumption — avoids a new TCP connection per proof verify.
+// Promise-based init guard: if connect() throws, the promise is nulled so the next call retries
+// rather than returning a permanently broken client (zombie client prevention).
+let _jtiRedisPromise: Promise<IORedisType> | null = null;
+
+async function getJtiRedisClient(): Promise<IORedisType> {
+  if (_jtiRedisPromise) return _jtiRedisPromise;
+  _jtiRedisPromise = (async () => {
+    const url = process.env.REDIS_URL ?? 'redis://localhost:6379';
+    const { default: IORedis } = await import('ioredis');
+    const redis = new IORedis(url, { maxRetriesPerRequest: 1, lazyConnect: true });
+    try {
+      await redis.connect();
+    } catch (err) {
+      _jtiRedisPromise = null; // allow retry on next call
+      throw err;
+    }
+    return redis;
+  })();
+  return _jtiRedisPromise;
+}
+
+async function consumeJtiViaIoRedis(jti: string, ttlSec: number): Promise<boolean> {
+  const redis = await getJtiRedisClient();
+  const key = `otpproof:consumed:${jti}`;
+  try {
+    const result = await redis.set(key, '1', 'EX', ttlSec, 'NX');
+    return result === 'OK';
+  } catch (err) {
+    _jtiRedisPromise = null;
+    throw err;
+  }
+}
+
 async function consumeJti(jti: string, ttlSec: number): Promise<boolean> {
+  const provider = process.env.REDIS_PROVIDER;
+
+  if (provider === 'ioredis') {
+    return consumeJtiViaIoRedis(jti, ttlSec);
+  }
+
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
-  if (url && token) {
-    // Production: Upstash Redis SETNX equivalent via set with NX flag
+  if (provider === 'upstash' || (url && token)) {
     const { Redis } = await import('@upstash/redis');
-    const redis = new Redis({ url, token });
+    const redis = new Redis({ url: url!, token: token! });
     const key = `otpproof:consumed:${jti}`;
-    // SET key value NX EX ttlSec — returns 'OK' if set, null if already exists
     const result = await redis.set(key, '1', { nx: true, ex: ttlSec });
     return result === 'OK';
   }
