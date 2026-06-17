@@ -87,6 +87,7 @@ export const OPERATOR_BALANCE_TYPES = [
   'payout_reversal',
   'chargeback',
   'adjustment',
+  'tax_withheld',
 ] as const;
 
 export interface OperatorBalance {
@@ -124,7 +125,7 @@ export async function getOperatorBalance(operatorId: string): Promise<OperatorBa
       -- settlement-eligible: non-payout entries on a completed trip past T+1.
       COALESCE(SUM(
         CASE
-          WHEN le."type" <> 'payout_debit'::"LedgerEntryType"
+          WHEN le."type" NOT IN ('payout_debit'::"LedgerEntryType", 'tax_withheld'::"LedgerEntryType")
            AND t."completedAt" IS NOT NULL
            AND t.status = 'completed'::"TripStatus"
            AND t."completedAt" + (${SETTLEMENT_DELAY_SQL_INTERVAL})::interval <= NOW()
@@ -135,7 +136,7 @@ export async function getOperatorBalance(operatorId: string): Promise<OperatorBa
       -- pending: non-payout entries NOT yet settlement-eligible.
       COALESCE(SUM(
         CASE
-          WHEN le."type" <> 'payout_debit'::"LedgerEntryType"
+          WHEN le."type" NOT IN ('payout_debit'::"LedgerEntryType", 'tax_withheld'::"LedgerEntryType")
            AND NOT (
                  t."completedAt" IS NOT NULL
              AND t.status = 'completed'::"TripStatus"
@@ -148,7 +149,7 @@ export async function getOperatorBalance(operatorId: string): Promise<OperatorBa
       -- paid out: magnitude of payout_debit (stored negative → negate to positive).
       COALESCE(-SUM(
         CASE
-          WHEN le."type" = 'payout_debit'::"LedgerEntryType"
+          WHEN le."type" IN ('payout_debit'::"LedgerEntryType", 'tax_withheld'::"LedgerEntryType")
           THEN le."amount"
           ELSE 0
         END

@@ -39,6 +39,13 @@ enum CharterStatus {
   CANCELLED
 }
 
+/// Decree 117/2025: tax classification for platform withholding.
+/// company = exempt (self-files VAT/PIT); individual_household = 4.5% withheld.
+enum TaxClassification {
+  company
+  individual_household
+}
+
 model Operator {
   id                 String                  @id @default(cuid())
   legalName          String
@@ -71,6 +78,9 @@ model Operator {
   /// on the self-serve registration confirmation page + the pending email. Unique;
   /// null for operators provisioned via the admin CLI (which has no application).
   applicationRef     String?                 @unique
+  /// Decree 117/2025: tax classification determines withholding rate.
+  /// company = exempt (self-files); individual_household = 4.5% withheld.
+  taxClassification  TaxClassification       @default(company)
   createdAt          DateTime                @default(now())
   buses              Bus[]
   operatorUsers      OperatorUser[]
@@ -86,6 +96,7 @@ model Operator {
   charterAssignments CharterRequest[]
   /// Issue 105: operator's reusable pickup-area menu.
   pickupAreas        OperatorPickupArea[]
+  einvoices          EInvoice[]
 
   @@index([id])
   @@index([status])
@@ -468,6 +479,9 @@ model Booking {
   /// Issue 100: instant of oversold-race refund. NULL = not refunded via oversold path.
   /// Paired with status='refunded' (Issue 014 verb-At+status rule — both written in same tx).
   refundedAt           DateTime?           @db.Timestamptz
+  /// Circular 78/2021: e-invoice reference (hóa đơn điện tử). Set when invoice issued.
+  einvoiceRef          String?
+  einvoiceIssuedAt     DateTime?      @db.Timestamptz
   trip                 Trip                @relation(fields: [tripId], references: [id])
   hold                 Hold?               @relation(fields: [holdId], references: [id], onDelete: Restrict)
   customer             Customer?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
@@ -475,6 +489,7 @@ model Booking {
   notifications        NotificationLog[]
   paymentEvents        PaymentEvent[]
   ledgerEntries        LedgerEntry[]
+  einvoices            EInvoice[]
   /// Issue 089: checkout consent capture (no-refund + PII-storage). Append-only.
   consents             ConsentRecord[]
 
@@ -493,6 +508,7 @@ model Booking {
   @@index([snapshotAnonymizedAt])
   /// Issue 100: oversold-refund reporting — status+refundedAt composite (supports cron/reporting).
   @@index([status, refundedAt])
+  // Partial index Booking_einvoiceRef_idx (WHERE einvoiceRef IS NOT NULL) is SQL-only.
 }
 
 /// Issue 089: checkout consent capture. One row per consent the buyer accepted at
@@ -761,6 +777,9 @@ model Payout {
   gross         Int
   platformFee   Int
   net           Int
+  taxVat        Int          @default(0)
+  taxPit        Int          @default(0)
+  taxTotal      Int          @default(0)
   status        PayoutStatus @default(requested)
   scheduledAt   DateTime
   settledAt     DateTime?
@@ -970,6 +989,7 @@ enum LedgerEntryType {
   payout_reversal
   chargeback
   adjustment
+  tax_withheld
 }
 
 /// Issue 047: append-only, immutable money ledger. One row per money event.
@@ -1034,6 +1054,41 @@ model FeeConfig {
 
   @@index([operatorId, effectiveFrom])
   @@index([effectiveFrom])
+}
+
+// ---------------------------------------------------------------------------
+// Circular 78/2021 — E-invoice (hóa đơn điện tử) tracking
+// ---------------------------------------------------------------------------
+
+enum EInvoiceStatus {
+  pending
+  issued
+  sent
+  failed
+  cancelled
+}
+
+/// E-invoice record — one per booking (may have corrections → multiple rows).
+/// Tracks the GDT-compliant electronic invoice issued via MISA meInvoice or
+/// other approved provider. Immutable audit trail (append-only pattern).
+model EInvoice {
+  id            String         @id @default(cuid())
+  bookingId     String         @db.Uuid
+  operatorId    String
+  invoiceNumber String?
+  status        EInvoiceStatus @default(pending)
+  vendorRef     String?
+  rawResponse   String?
+  issuedAt      DateTime? @db.Timestamptz
+  createdAt     DateTime       @default(now())
+
+  booking  Booking  @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  operator Operator @relation(fields: [operatorId], references: [id], onDelete: Restrict)
+
+  // Partial unique EInvoice_invoiceNumber_key (WHERE invoiceNumber IS NOT NULL) is SQL-only.
+  @@index([bookingId])
+  @@index([operatorId, createdAt])
+  @@index([status])
 }
 
 /// FeatureFlag (Issue 060) — DB-backed runtime feature gate / payment-rail
