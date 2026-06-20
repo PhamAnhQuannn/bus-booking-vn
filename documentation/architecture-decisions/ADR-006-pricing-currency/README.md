@@ -1,7 +1,9 @@
 # ADR-006: Pricing & Currency
 
 ## Status
-ACCEPTED
+ACCEPTED — RATES CORRECTED
+
+> **Rates correction (2026-06-18):** This ADR's decision text references an aspirational "8-10% standard" band that was never encoded. Actual configured default is **6%** (`ratePpm=60000`), floor **5%**, ceiling **20%** (`MAX_FEE_OVERRIDE_PPM=200000`). All downstream docs (business-model.md, pricing-comparison.md, DS-011, FD-024) use 6%. Read decision text below as historical rationale; the CORRECTION inline note at D1 §40 has the authoritative numbers.
 
 ## Date
 2026-06-17 (reviewed and confirmed)
