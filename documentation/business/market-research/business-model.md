@@ -57,41 +57,12 @@ Mirrors "Shopify Basic vs. Shopify Plus" structure. Validated by VeXeRe's dual B
 | 5 | **Agent/reseller network** (AMS for travel agents) | LOW near-term | CPS commission 2-8% | Month 12+ |
 | 6 | **Data/analytics products** (route demand, occupancy optimization) | LOW near-term | Premium SaaS tier | Month 12+ |
 
-## Operator Acquisition Playbook
+## Acquisition Strategy
 
-### Phase 1 (Month 0-3): Beachhead — 10-20 Operators in One Corridor
+> Detailed operator acquisition playbook (4-phase beachhead → scale plan) and customer acquisition channels (ranked by ROI) are in [`strategic-roadmap.md`](strategic-roadmap.md). Summary below.
 
-- **Target**: Small-to-medium operators on beachhead corridor **Thanh Hoa ↔ TPHCM** (labor migration, underserved by VeXeRe, high avg ticket 875K-1,750K VND)
-- **Value prop**: "Compliant e-invoicing from day one + your own branded booking page + T+1 settlement (faster than any competitor)"
-- **Acquisition channel**: Direct sales — visit bus stations, meet operator managers in person. Vietnamese B2B sales is relationship-driven.
-- **Offer**: 6% default commission (admin can adjust per operator during pilot)
+**Operator acquisition**: Beachhead corridor (Thanh Hoa ↔ TPHCM) → tourist corridors → regional scale → distribution partnerships. Direct sales first; Zalo OA/Facebook groups for scale.
 
-### Phase 2 (Month 3-6): Tourist Corridor Expansion — 50+ Operators
+**Customer acquisition**: Operator's own channels (near-zero CAC) is BB's structural advantage. Supplemented by Google SEO (long-tail route keywords), Zalo OA/ZNS campaigns, and MoMo/ZaloPay distribution partnerships.
 
-- **Target**: Operators on tourist routes (higher AOV, tech-savvier customers)
-- **Value prop**: "Your buses are already on 12Go/Bookaway for foreign tourists — BB gives you a branded channel for Vietnamese customers too"
-- **Acquisition channel**: Direct sales + referral from Phase 1 operators
-
-### Phase 3 (Month 6-12): Regional Scale — 200+ Operators
-
-- **Target**: Provincial operators too small for VeXeRe's attention
-- **Value prop**: "VeXeRe ignores operators with fewer than 10 buses. BB was built for you."
-- **Acquisition channel**: Zalo OA campaigns, Facebook groups for bus operators, industry association partnerships
-
-### Phase 4 (Month 12+): Distribution Partnerships
-
-- Negotiate MoMo/ZaloPay distribution (BB operators' inventory in super-app booking flows)
-- Build 12Go/Bookaway API integration (BB operators' routes visible to international tourists)
-- Launch agent/reseller program
-
-## Customer Acquisition Channels (Ranked by ROI)
-
-| # | Channel | CAC Estimate | Priority | Notes |
-|---|---|---|---|---|
-| 1 | **Operator's own channels** (Facebook page, Zalo group, station signage) | Near zero | HIGHEST | BB's structural advantage — operators send existing customers to branded BB page |
-| 2 | **Google SEO — route-specific long-tail keywords** | Low (content investment, 12-24 month payoff) | HIGH | "ve xe Sapa Ha Noi," "ve xe Da Lat TPHCM" etc. Long-tail provincial routes undercontested |
-| 3 | **Zalo OA / ZNS campaigns** | $3-5 USD first-booking CAC | HIGH | 25-35% lower CAC than Facebook for local services |
-| 4 | **MoMo/ZaloPay distribution** | Near zero marginal CAC | HIGHEST (when available) | FUTA reached tens of millions through MoMo without users downloading FUTA app |
-| 5 | **Facebook/Meta ads** | $5-8 USD first-booking CAC | MEDIUM | Good for awareness; algorithm changes hurt organic reach |
-| 6 | **Google SEM** | $5-10 USD | MEDIUM | Expensive on VeXeRe branded keywords; better ROI on long-tail route terms |
-| 7 | **Referral program** | $2-4 USD (referral reward cost) | MEDIUM | Build after initial user base exists |
+**Target CAC**: < 80,000 VND (~$3 USD), must be < 50% of first-year LTV.

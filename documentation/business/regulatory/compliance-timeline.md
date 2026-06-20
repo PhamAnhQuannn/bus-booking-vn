@@ -16,6 +16,10 @@ IRC (15 wd statutory / 3-5 wk actual)
 
 SBV PSP licensing ── NOT needed if using licensed VNPay/MoMo (marketplace model)
 
+DECIDED (2026-06-19): FPT Cloud (Vietnam) is the chosen primary host.
+TIA/CDTIA is NOT required for hosting (no cross-border transfer).
+See ADR-020 D7/D8/D9/D10, DS-017.
+
 Brandname SMS
   └─► Trademark certificate
         └─► Carrier registration (Viettel + Vinaphone + Mobifone; 2-4 wk each)
@@ -80,7 +84,7 @@ PDPL/Cybersecurity
 | Submit brandname SMS sender registration to all 3 carriers | Allow 2-4 week processing per carrier |
 | Confirm brandname SMS approved | OTP/transactional only; promotional SMS requires VNCert pre-approval |
 | Conduct DPIA and submit to Ministry of Public Security portal | Within 60 days of first user data collection |
-| Submit TIA/CDTIA | Within 60 days of first data transfer offshore (required if using Singapore/international cloud) |
+| ~~Submit TIA/CDTIA for hosting~~ | **NOT REQUIRED** — FPT Cloud (Vietnam) chosen as primary host (2026-06-19). No cross-border transfer for compute/DB/Redis. Evaluate CDTIA for Resend (US email) only if retained. See ADR-020 D7, DS-017 §3.1. |
 | Appoint DPO | SME grace: 5 years if <100k records and no sensitive data |
 | Legal opinion on PSP licensing | Confirm marketplace model = no SBV license needed |
 | E-invoice provider integration (MISA API) | XML format, digital signature; test in UAT before go-live |

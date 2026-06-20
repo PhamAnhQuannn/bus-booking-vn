@@ -28,6 +28,8 @@
 
 ## Priority Matrix
 
+> For week-by-week sequencing with blocking dependencies, see [`compliance-timeline.md`](compliance-timeline.md). The matrix below is a summary view grouped by urgency.
+
 ### BLOCKING — Before go-live
 
 | # | Item | Lead time | Notes |

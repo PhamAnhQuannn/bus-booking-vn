@@ -1,5 +1,7 @@
 # Operator Sentiment & Churn Drivers
 
+> Operator research data. For BB's product differentiators that address these pain points, see [`market-research/competitive-advantages.md`](../market-research/competitive-advantages.md).
+
 > Structural analysis of operator motivations. No documented public departures found -- findings are inference from platform structure and revealed preferences. Research date: 2026-06-17.
 
 ### What Operators Value Most (by revealed preference)

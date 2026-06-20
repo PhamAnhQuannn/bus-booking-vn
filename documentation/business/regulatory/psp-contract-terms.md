@@ -44,47 +44,68 @@
 
 ---
 
-## VietQR / NAPAS
+## VietQR / NAPAS (Bank Transfer)
+
+> **Updated 2026-06-20**: Added SePay as the confirmation mechanism. Bank: Agribank (BIN 970405).
 
 | Dimension | Detail |
 |-----------|--------|
-| Type | Not a PSP -- merchants integrate via partner bank or licensed PSP |
+| Type | Not a PSP -- direct bank transfer via VietQR standard (NAPAS EMVCo) |
 | Network | NAPAS 247 real-time interbank; 9.56 billion transactions in 2024 |
-| Settlement | Near-instant (<10s finality); T+0 to T+1 |
-| MDR P2M | <0.5-1% (set by acquiring bank) |
-| Merchant setup | Via partner bank (Vietcombank, Techcombank, MBBank recommended) |
+| Settlement | Instant -- money arrives directly in bank account (T+0) |
+| Transaction fee | **0đ** (domestic transfers are free) + ~100-500k VND/month SePay fee |
+| Confirmation | **SePay webhook** (sepay.vn) -- push-based, 5-30s latency. See DS-013 |
+| Bank | Agribank (BIN 970405, account 3516205005863) -- configurable via env |
 | Customer reach | All Vietnamese bank app users with VietQR support |
 | International cards | Not supported |
 | Chargeback mechanism | None (bank transfer model; no card-network dispute process) |
 | Refund | Manual reverse transfer via bank; no programmatic refund API |
+| Merchant setup | No merchant account needed -- personal/business bank account + SePay subscription |
+
+---
+
+## SePay (Bank Account Monitoring)
+
+| Dimension | Detail |
+|-----------|--------|
+| Type | Bank account monitoring service -- not a PSP |
+| Website | sepay.vn |
+| Supported banks | 30+ Vietnamese banks including Agribank, Vietcombank, MBBank, Techcombank, BIDV |
+| Webhook auth | Bearer token (`Authorization: Bearer <API_KEY>`) |
+| Confirmation latency | 5-30 seconds after bank confirms transfer |
+| Cost | ~100-500k VND/month depending on plan |
+| Data residency | Vietnam |
+| Alternative | Casso (casso.vn) -- similar service, HMAC webhook auth |
 
 ---
 
 ## Comparison
 
-| Dimension | VNPay | MoMo | VietQR |
-|-----------|-------|------|--------|
-| Transaction fee (domestic) | 0.5-2% | 1.5-2.5% | <0.5-1% |
+| Dimension | VNPay | MoMo | Bank Transfer (VietQR + SePay) |
+|-----------|-------|------|-------------------------------|
+| Transaction fee (domestic) | 0.5-2% | 1.5-2.5% | 0đ (+ ~100-500k/month SePay) |
 | International cards | Yes (2.5-4.5%) | No | No |
-| Settlement speed | T+1 | T+1 to T+2 | T+0 to T+1 |
+| Settlement speed | T+1 | T+1 to T+2 | T+0 (instant) |
+| Confirmation latency | Sub-second (webhook) | Sub-second (webhook) | 5-30 seconds (SePay webhook) |
 | Customer reach | Broad (cards + QR + wallets) | 40M+ wallet users | All VN bank app users |
-| Integration effort | Medium | Low-Medium | Low (via bank SDK) |
+| Integration effort | Medium | Low-Medium | Low (adapter + SePay signup) |
 | BNPL support | Available on select plans | MoMo TraLater (pilot) | No |
 | Chargeback process | NAPAS 45-day timeline | MoMo-mediated | None |
 | Refund API | Yes (programmatic reversal) | Yes (AIO refund endpoint) | No (manual bank transfer) |
+| Merchant account required | Yes (ERC + tax code) | Yes (ERC + tax code) | No (personal bank account works) |
 
 ---
 
 ## Recommendation
 
-Integrate all three. VNPay + MoMo as primary payment gateways covering cards, wallets, and QR. VietQR via bank partner as the lowest-cost domestic transfer option.
+Integrate all three. Bank transfer (VietQR + SePay) launches first as the zero-fee domestic option -- ships before entity formation (no merchant account required, personal Agribank account sufficient). MoMo + VNPay added when business registration is complete.
 
-This matches the project's existing adapter architecture: `VNPayAdapter` and `MoMoAdapter` are already implemented; VietQR can follow the same `PaymentAdapter` interface.
+This matches the project's existing adapter architecture: `BankTransferAdapter`, `MoMoAdapter`, and `VNPayAdapter` all implement the same `PaymentGateway` interface.
 
 **Priority order for production onboarding**:
-1. VNPay -- broadest payment method coverage (domestic + international cards + QR)
-2. MoMo -- largest wallet user base; highest mobile conversion
-3. VietQR -- lowest fees; add after launch for cost optimization
+1. Bank transfer + cash -- zero fees, zero registration, ships with personal bank account. Cash covers older/rural travelers
+2. MoMo + VNPay -- MoMo covers e-wallet users (40M+); VNPay covers cards/international. Both require ERC + merchant approval
+3. ZaloPay -- additional wallet coverage
 
 ---
 

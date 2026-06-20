@@ -74,7 +74,7 @@ Before first paid booking, ensure station managers at each terminal honor platfo
 - **Corridor**: Thanh Hóa ↔ TPHCM (high avg ticket 875K-1,750K VND, labor migration demand, overnight sleeper)
 - **Target**: 1-3 operators, 20+ bookings/day
 - **Customer**: Migrant workers, students, families — budget domestic persona ("Chị Lan"), price-sensitive, MoMo/cash primary
-- **Payment**: VietQR + MoMo (two rails cover ~80% of digitally-active travelers)
+- **Payment**: Bank transfer (VietQR + SePay) + cash (launch); MoMo + VNPay added Phase 2
 - **Language**: Vietnamese only
 - **Charter**: OFF
 - **Success metric**: 1-3 operators sustaining >10 bookings/day each for 30 consecutive days

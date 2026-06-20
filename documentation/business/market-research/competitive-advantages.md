@@ -1,5 +1,7 @@
 # BB Competitive Advantages
 
+> Product differentiators. For operator churn drivers and switching-cost analysis that validate these advantages, see [`competitor-benchmark/operator-sentiment.md`](../competitor-benchmark/operator-sentiment.md).
+
 ## 1. MISA E-Invoice Automation (Unique — No Competitor Has This Natively)
 
 BB has built automated MISA e-invoice generation per booking. Decree 158/2024 requires operators using platform software to send e-invoices to passengers at trip completion. This is a compliance requirement every operator must meet.
