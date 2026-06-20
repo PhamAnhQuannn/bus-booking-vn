@@ -1,5 +1,11 @@
 # Business Documentation
 
+## Executive Summary
+
+| Document | File |
+|----------|------|
+| Báo Cáo Kinh Doanh Tổng Hợp | [BAO-CAO-KINH-DOANH-TONG-HOP.md](BAO-CAO-KINH-DOANH-TONG-HOP.md) — Vietnamese executive summary: market, risks, business model, competitors, regulatory |
+
 ## Market Research
 
 | Document | File |

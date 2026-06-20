@@ -5,7 +5,7 @@
 | # | Requirement | Governing Law | Risk if Non-Compliant | Action |
 |---|---|---|---|---|
 | 1 | **IPS license legal opinion** — determine whether BB's T+1 settlement constitutes "thu ho/chi ho" (collection and payment support) | Decree 52/2024/ND-CP | Operating unlicensed payment intermediary. Penalties include license revocation and fines. | Obtain formal legal opinion from Vietnamese law firm specializing in fintech/payments. If opinion says BB holds funds, restructure so VNPay/MoMo splits and settles directly to operators — BB never touches customer money. |
-| 2 | **Data localization** — Vietnamese user PII must be stored on servers physically in Vietnam | Cybersecurity Law 2018 + Decree 53/2022 + Decree 147/2024 | Violation of data localization law. Enforcement increasing. | Add Vietnam-hosted PostgreSQL instance (Viettel IDC, VNPT, FPT Telecom) for PII storage. Vercel sin1 can serve the app; PII data must reside in-country. |
+| 2 | **Data localization** — Vietnamese user PII must be stored on servers physically in Vietnam | Cybersecurity Law 2018 + Decree 53/2022 + Decree 147/2024 | Violation of data localization law. Enforcement increasing. | **RESOLVED (2026-06-19):** FPT Cloud (Vietnam) chosen as primary host — all data stays in-country; CDTIA not required. See ADR-020 D7, DS-017. |
 
 ## HIGH PRIORITY — Before or At Launch
 

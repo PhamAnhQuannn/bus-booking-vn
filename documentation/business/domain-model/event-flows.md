@@ -160,7 +160,9 @@ The primary customer journey from finding a trip to receiving a ticket.
 
 ## Flow 3: Cancellation + Refund
 
-No customer-initiated cancellation implemented. Legal opinion pending on CPL 2023 (No. 19/2023/QH15) Art. 29 (3-day right for remote contracts — may not apply if service already performed). Currently: `no_refund` consent recorded at booking; only operators/system can cancel. This is a known gap — see risk-register and feature-parity-matrix.
+> **Update (2026-06-20):** Customer-initiated cancellation is now fully specified in DS-007 (Refund Flow) and FD-018 (Cancellation & Refund UX). Five refund triggers (customer self-cancel with CPL 2023 Art. 29 3-day window, operator trip cancel, oversold race, overpay difference, admin manual), tiered fee schedule (0/10/20%), and PSP refund APIs (MoMo/VNPay/manual bank transfer) are designed. Verify implementation status against DS-007 before go-live.
+
+Previously: no customer-initiated cancellation was implemented; only operators/system could cancel. Legal opinion on CPL 2023 Art. 29 was pending.
 
 ### Operator Trip Cancellation
 
