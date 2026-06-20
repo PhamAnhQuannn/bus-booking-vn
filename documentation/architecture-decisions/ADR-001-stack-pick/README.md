@@ -18,7 +18,7 @@ Key business constraints driving stack decisions (sourced from `documentation/bu
 - **Speed to market**: small team, pre-launch through month 12; Series A gate = $500K-2M GMV/month. (investor-kpis.md, strategic-roadmap.md)
 - **SEO + accessibility**: compete with VeXeRe's Google presence; WCAG compliance is a stated differentiator vs all competitors. (feature-benchmark.md, feature-parity-matrix.md)
 - **Multi-channel notifications**: Zalo ZNS primary, SMS fallback (eSMS), email (Resend); brandname SMS requires carrier approval. (telecom-sms.md)
-- **Payment integration**: VNPay + MoMo + VietQR; marketplace model where PSP settles directly to operator to avoid SBV payment intermediary license. (payment.md, psp-contract-terms.md)
+- **Payment integration**: Bank transfer (VietQR + SePay) + cash (launch), MoMo + VNPay (Phase 2), ZaloPay (Phase 3); marketplace model where PSP settles directly to operator to avoid SBV payment intermediary license. (payment.md, psp-contract-terms.md)
 - **E-invoice compliance**: MISA integration mandatory under Decree 123/2020 + Decree 70/2025. (einvoice-tax.md)
 
 ---
@@ -76,7 +76,7 @@ Key business constraints driving stack decisions (sourced from `documentation/bu
 | Option | Pros | Cons |
 |--------|------|------|
 | **Prisma** | Schema-as-source-of-truth; typed client generation; migration system; `$transaction` callback form with raw SQL escape hatch; PgBouncer `directUrl` support | Generated client size; Edge runtime limitations (needs `@prisma/adapter-*`); breaking changes across major versions |
-| Drizzle | Lightweight; SQL-like syntax; Edge-compatible | Newer; smaller ecosystem; migration tooling less mature; no equivalent of `$transaction(async tx => ...)` with raw SQL |
+| Drizzle | Lightweight; SQL-like syntax; Edge-compatible | Newer ecosystem; migration tooling less mature than Prisma's at evaluation time; no equivalent of `$transaction(async tx => ...)` callback with raw SQL escape hatch |
 | TypeORM | Decorator-based; Active Record + Data Mapper | Heavy; poor TypeScript inference; migration reliability issues; declining maintenance |
 | Knex.js | Query builder; flexible; lightweight | No type generation from schema; manual migration management; no automatic relation loading |
 | Raw pg driver | Zero abstraction overhead; full SQL control | No type safety; no migration system; manual connection management; every query hand-written |
@@ -90,6 +90,8 @@ Key business constraints driving stack decisions (sourced from `documentation/bu
 - `directUrl` PgBouncer configuration already proven — handles connection pooling for serverless environment (regulatory-compliance.md)
 - Migration system has supported 70+ shipped issues with schema changes, including raw SQL migrations for CHECK constraints and partial indices
 
+> **CORRECTION** (2026-06-18): Drizzle Cons originally overstated limitations. Drizzle's ecosystem has matured since evaluation; the primary rejection reason was migration tooling maturity and the lack of a `$transaction` callback form with raw SQL escape hatch at evaluation time, not ecosystem size per se. Cons text updated to reflect accurate rationale.
+
 ---
 
 ### 4. Hosting — Vercel (Singapore, sin1)
@@ -100,17 +102,22 @@ Key business constraints driving stack decisions (sourced from `documentation/bu
 | AWS (EC2/ECS/Lambda) | Vietnam region possible (no current ap-southeast region covers VN); full infrastructure control | Manual scaling; complex deployment pipeline; significant DevOps overhead for small team |
 | GCP Cloud Run | Serverless containers; good auto-scaling | No Vietnam region; less Next.js-native than Vercel |
 | Self-hosted VPS (Vietnam) | Full data residency compliance; lowest latency to Vietnam DB | Manual scaling; no CDN; DevOps burden; single point of failure; Tet surge risk |
+| **FPT Cloud (Vietnam)** | **Full data residency; eliminates CDTIA entirely; managed PG/Redis/K8s/S3; Tier III DCs (PCI DSS, ISO 27001/27017/27018); lowest latency to Vietnamese users** | **No serverless (no Lambda equivalent); pricing opaque (contact sales); smaller ecosystem vs Vercel; no edge middleware** |
 | Fly.io | Edge deployment; can run in Singapore | Less mature; no native Next.js optimizations; limited enterprise support |
 | Railway | Simple deployment; good DX | No Vietnam/SEA region; less auto-scaling capability |
 
-**Choice**: Vercel sin1 (Singapore)
+**Choice**: FPT Cloud (Vietnam) — primary production host. Vercel sin1 (Singapore) — retained for staging/preview only.
+
+> **2026-06-19 Pivot**: Vercel sin1 demoted from primary to staging-only. FPT Cloud promoted to primary. See ADR-020 D2/D7 for full rationale and service mapping.
 
 **Reasons**:
-- Auto-scaling serverless eliminates capacity planning for Tet surge (10-20x normal traffic) — "Vercel auto-scales compute" (risk-matrix.md)
-- Application serving stays in Singapore; PII data moves to Vietnam-hosted PostgreSQL — this split satisfies data localization with acceptable +5-15ms latency (regulatory-compliance.md)
-- Next.js-native host = zero-config deployment, preview deployments, edge functions — critical for small team velocity toward Series A gate (investor-kpis.md)
-- Global CDN serves static assets from nearest PoP to Vietnamese users
-- **Known risk acknowledged**: Singapore hosting constitutes cross-border transfer under Decree 53/2022; requires CDTIA (Cross-Border Data Transfer Impact Assessment) filing within 60 days of processing start (data-privacy.md, dpia-checklist.md)
+- **CDTIA elimination is decisive**: all compute, database, cache, and storage on FPT Cloud = all data physically in Vietnam. Zero cross-border transfer obligation under PDPL 2025 Art. 25, Decree 356/2025, Decree 53/2022. No CDTIA filing, no enforcement risk, no per-transfer consent burden
+- FPT Cloud provides managed PostgreSQL, managed Redis, S3-compatible Object Storage (MinIO-based), and Kubernetes Engine from Tier III data centers (PCI DSS Level 1, ISO 27001/27017/27018) in Hanoi and HCMC
+- Terraform provider exists (`fpt-corp/fptcloud` v0.3.51, 58 releases) covering VPC, instances, floating IPs, load balancer, database, object storage, and managed Kubernetes — infrastructure-as-code from Day 1
+- Provider-agnostic Docker deployment contract (ADR-020 D8) ensures migration to Vercel/AWS/Azure = DNS + connection string change, zero app code changes. Estimated 2-4 hours
+- Cloudflare CDN in front of FPT origin provides edge caching for static assets via Vietnamese PoPs (Hanoi, HCMC) without CDTIA concern — PII stays on origin
+- Vercel retained for staging/preview: per-PR preview deploys, zero-ops DX for development workflow. Production traffic never touches Vercel
+- **Previous Vercel-primary rationale (superseded)**: auto-scaling for Tet surge was the primary argument. FPT Cloud Autoscale (VM cloning on CPU/RAM triggers) + FPT Load Balancer v2 provide horizontal scaling at Stage 1+. Stage 0 single VPS handles ~200 bookings/day comfortably
 
 ---
 
@@ -152,23 +159,37 @@ Key business constraints driving stack decisions (sourced from `documentation/bu
 
 ---
 
+## Known Gaps (as of 2026-06-19)
+
+- **ZaloPay adapter**: Listed as a payment option in business docs (payment.md) but no adapter implemented. Only VNPay and MoMo adapters exist.
+- **Bank transfer adapter (VietQR + SePay)**: Design complete (DS-013, rewritten 2026-06-20). Launch PSP — implements `PaymentGateway` interface with SePay webhook confirmation. Code implementation pending.
+- **FPT Cloud pricing**: Compute and managed database pricing require sales quotation (only Object Storage has published prices). Terraform provider (`fpt-corp/fptcloud`) enables IaC provisioning but does not expose pricing. Cost comparison with Viettel IDC / CMC Cloud pending.
+- **FPT PG16 / Redis 7 version confirmation**: Engine versions not published on FPT marketing pages — visible only in the FPT Console portal during provisioning. Must verify PostgreSQL 16 and Redis 7 availability before committing.
+- **FPT DBProxy mode**: FPT Database Engine offers a "DBProxy" (connection proxy, likely PgBouncer-based) but has not confirmed whether it supports transaction mode — critical for Prisma's connection behavior. Verify before relying on it; fall back to self-hosted PgBouncer if needed.
+
+---
+
 ## Consequences
 
 ### Positive
 - Single codebase with typed schema enables rapid iteration across all three user surfaces
-- Serverless auto-scaling eliminates Tet surge capacity planning
-- PostgreSQL provider-agnosticism enables Vietnam data residency migration without application changes
-- Hybrid Edge/Origin maximizes performance while maintaining financial integrity guarantees
+- **CDTIA eliminated** — FPT Cloud primary hosting keeps all data in Vietnam; zero cross-border transfer obligation (PDPL 2025 Art. 25, Decree 356/2025)
+- PostgreSQL provider-agnosticism enables migration between FPT Cloud / AWS / Vercel / bare-metal without application changes
+- Provider-agnostic Docker deployment contract (ADR-020 D8) ensures vendor lock-in is a configuration concern, not an architectural one
+- Terraform provider (`fpt-corp/fptcloud`) enables infrastructure-as-code from Day 1 — infra is documented and reproducible
+- Hybrid Edge/Origin pattern still applies on FPT Cloud: middleware runs as Node.js middleware (not Vercel Edge) but same JWT/CSRF logic, same auth gates
 - Prisma's migration system + raw SQL escape hatch balances productivity with the precision needed for ledger/concurrency invariants
 
 ### Negative
-- Vercel vendor coupling — migrating away requires rewriting Edge middleware, `after()` usage, and deployment pipeline
+- **DevOps overhead** — FPT Cloud requires Docker, Nginx, SSL, and cron sidecar management (vs Vercel zero-ops). Mitigated by Terraform IaC
 - Prisma generated client adds bundle weight and constrains Edge runtime usage
-- Singapore application hosting requires CDTIA regulatory filing and carries enforcement risk until Vietnam DB migration completes
 - Single-app monorepo means all three portals deploy together — a regression in admin can block customer-facing releases
 - Next.js App Router breaking changes (documented in AGENTS.md) require reading `node_modules/next/dist/docs/` before writing code — ongoing maintenance cost
+- FPT Cloud pricing opacity — compute and managed database pricing require sales quotation; cost modeling blocked until quotes obtained
+- No preview deploys on FPT Cloud — Vercel staging retained for per-PR preview environments
 
 ### Mitigations
-- Data localization: split architecture (Vercel sin1 app + Vietnam-hosted PG) already planned in strategic-roadmap.md
-- Vendor lock-in: Prisma schema + PostgreSQL are portable; Next.js-specific APIs (`after()`, Edge middleware) are isolated to thin adapter layers
+- DevOps burden: Terraform provider automates VPC/instance/DB/LB provisioning; Nginx + Let's Encrypt is standard Vietnamese DevOps practice
+- Vendor lock-in: Prisma schema + PostgreSQL are portable; Next.js-specific APIs (`after()`, Edge middleware) are isolated to thin adapter layers; S3-compatible storage via standard `@aws-sdk/client-s3`
 - Deploy blast radius: route-group organization + feature flags enable incremental rollout per surface
+- Preview deploys: Vercel staging (zero-ops) retained for development workflow; production traffic stays on FPT Cloud

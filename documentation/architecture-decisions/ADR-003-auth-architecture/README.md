@@ -43,6 +43,12 @@ Key business constraints driving auth decisions (sourced from `documentation/bus
 - VeXeRe (dominant competitor, ~80% market) uses phone OTP — matching this removes friction for multi-homing users who already expect the pattern (competitor-benchmark/feature-parity-matrix.md, competitor-benchmark/operator-sentiment.md)
 - Phone number serves as a natural unique identifier that connects booking history, OTP logs, and notification delivery into one identity (domain-model/ubiquitous-language.md)
 
+> **IMPLEMENTATION STATUS** (2026-06-18)
+> - **Documented**: OTP-only (passwordless via phone). No password involved.
+> - **Actual**: Customer model includes a `passwordHash` column in schema despite OTP-only decision. Column exists but is not used in any auth flow — likely residual from earlier design iteration.
+> - **Status**: `IMPLEMENTED_DIFFERENTLY`
+> - **Tracking**: Remove unused `passwordHash` column from Customer model or document its intended future use.
+
 ---
 
 ### 2. Operator Authentication — Password + OTP Hybrid
@@ -58,7 +64,7 @@ Key business constraints driving auth decisions (sourced from `documentation/bus
 
 **Reasons**:
 - 60-70% of market is micro operators (1-5 buses, owner-operated) — need simple daily password login without per-login delivery cost (personas/operator-personas.md)
-- Operator console controls revenue (8-10% commission on all bookings), fleet assets, and payout requests — password-only is insufficient for a surface that handles money (competitor-benchmark/pricing-comparison.md, domain-model/invariants-catalog.md)
+- Operator console controls revenue (6% commission on all bookings — admin-configurable), fleet assets, and payout requests — password-only is insufficient for a surface that handles money (competitor-benchmark/pricing-comparison.md, domain-model/invariants-catalog.md)
 - First-login temp password → forced password change gates the operator onboarding flow — admin provisions account, operator claims it (domain-model/event-flows.md, personas/admin-personas.md)
 - OTP step-up for sensitive operations (payout withdrawal, staff role changes) adds security proportional to risk without burdening daily route/trip management (domain-model/bounded-contexts.md)
 - SSO/SAML only relevant for large fleets (5-10 operators nationally) — premature infrastructure for a beachhead launch targeting 10-20 operators in one corridor (vietnam-market-context.md)
@@ -86,6 +92,12 @@ Key business constraints driving auth decisions (sourced from `documentation/bus
 - TOTP authenticator apps (Google Authenticator, Authy) are free, work offline, and require no per-login delivery cost — sustainable for a pre-revenue startup (vietnam-market-context.md)
 - Hardware keys (FIDO2) are appropriate post-Series A when team scales and physical key logistics are justified — not now (investor-kpis.md)
 
+> **IMPLEMENTATION STATUS** (2026-06-18)
+> - **Documented**: Password + TOTP MFA with backup codes for device-loss recovery.
+> - **Actual**: TOTP is implemented (`lib/auth/totp.ts` with encrypted secret storage). However: (1) no TOTP replay protection (no jti/SETNX — same code can be reused within its 30-second window), (2) backup codes not implemented (Mitigations section mentions them but no code exists).
+> - **Status**: `PARTIALLY_IMPLEMENTED`
+> - **Tracking**: Add TOTP replay protection (SETNX with 30s TTL on last-used code) and backup code generation before go-live.
+
 ---
 
 ### 4. Session Strategy — Hybrid JWT Access + Refresh Token Rotation
@@ -107,6 +119,12 @@ Key business constraints driving auth decisions (sourced from `documentation/bus
 - 90-day session audit trail requirement (PDPL 2025) satisfied by refresh token table records without bloating JWT payloads (regulatory/data-privacy.md)
 - Full stateless JWT rejected: cannot revoke compromised operator sessions fast enough — operator console handles financial operations (domain-model/invariants-catalog.md)
 - Full server-side sessions rejected: DB lookup on every request incompatible with Edge middleware and adds connection pressure during Tet surge (risk-matrix.md)
+
+> **IMPLEMENTATION STATUS** (2026-06-18)
+> - **Documented**: Three independent session lifecycles with realm-isolated tokens.
+> - **Actual**: Single `REFRESH_TOKEN_SECRET` env var shared across all three realms (customer, operator, admin). Realm isolation enforced at the access token level (separate JWT secrets per realm) but the refresh layer uses one shared secret. A refresh token minted for one realm could theoretically be exchanged in another realm's refresh endpoint if the endpoint doesn't validate the realm claim.
+> - **Status**: `PARTIALLY_IMPLEMENTED`
+> - **Tracking**: Verify refresh endpoints validate realm claim; or split to per-realm refresh secrets.
 
 ---
 
@@ -162,11 +180,13 @@ Key business constraints driving auth decisions (sourced from `documentation/bus
 | **Phone-based sliding window + lockout** | Per-phone tracking catches targeted brute-force; 15-min lockout after 3 failures stops automated OTP guessing; lockout sentinel reuses existing OTP row (no new table); audit-friendly (90-day log retention) | Legitimate user locked out after 3 typos (frustration); attacker can intentionally lock out a phone (denial-of-service on specific user) |
 | CAPTCHA after N failures | Stops bots without locking out humans; no temporal lockout frustration | Poor mobile experience (CAPTCHA on phone is slow); accessibility barrier for "Ba Hoa" (elderly); adds third-party dependency (Google reCAPTCHA / hCaptcha); CAPTCHA solving services exist |
 
-**Choice**: Phone-based sliding window + 15-minute lockout after 3 failed OTP verifications
+**Choice**: Phone-based sliding window + 15-minute lockout after failed OTP verifications
 
 **Reasons**:
 - OTP brute-force flagged as a risk — 6-digit OTP has 1M combinations; without rate limiting, automated guessing can crack it within the 5-minute TTL (risk-matrix.md)
-- OTP state machine defines lockout sentinel: on 3rd verify mismatch, the existing OTP row is repurposed as a lockout marker (`consumed=true`, `expiresAt` extended to `now + 15min`) — no new table or column needed (domain-model/state-machines.md)
+- OTP state machine defines lockout sentinel: on failed verify mismatch threshold, the existing OTP row is repurposed as a lockout marker (`consumed=true`, `expiresAt` extended to `now + 15min`) — no new table or column needed (domain-model/state-machines.md)
+
+> **CORRECTION** (2026-06-18): ADR states "3 failed OTP verifications" as lockout threshold. Code uses `MAX_OTP_ATTEMPTS=5`. The 15-minute lockout window is correct.
 - 90-day OTP log retention requirement (PDPL 2025) means lockout events are naturally auditable through the same OTP table (regulatory/data-privacy.md, regulatory/dpia-checklist.md)
 - CAPTCHA rejected: poor mobile experience is unacceptable for a population where 6/6 customer personas are mobile-primary; accessibility barrier for elderly segment "Ba Hoa" (personas/customer-personas.md)
 - IP-based-only rejected: Vietnamese mobile carriers use extensive CGNAT — blocking by IP would lock out entire carrier subnets during Tet surge (risk-matrix.md)

@@ -17,7 +17,7 @@ Key business constraints driving background job decisions (sourced from `documen
 - **T+1 settlement as competitive differentiator**: Revenue is available only when `Trip.completedAt + 1 day <= NOW()`. Payout rows created at trip completion with `status='requested'` and `scheduledAt = completedAt + 1 day` must be swept and settled reliably. T+1 is the fastest published settlement in the Vietnamese bus booking market -- faster than VeXeRe's estimated T+7 to T+14 and directly addresses the #2 operator churn trigger (settlement speed). (competitor-benchmark/pricing-comparison.md, competitor-benchmark/operator-sentiment.md, event-flows.md, invariants-catalog.md)
 - **Notification latency expectations**: Receiving confirmation within 60 seconds separates trusted platforms from unreliable ones. OTP delivery is blocking (user waits for SMS). Zalo ZNS primary channel, SMS fallback, email tertiary. eSMS aggregator already integrated. All domains produce `NotificationLog` rows; the dispatch cron is the sole delivery path. (market-research/user-insights.md, telecom-sms.md, bounded-contexts.md)
 - **E-invoice compliance timing**: E-invoice must be issued no later than payment confirmation per Decree 70/2025. MISA meInvoice submission is async but must not lag significantly behind payment. (einvoice-tax.md, stakeholder-map.md)
-- **VietQR reconciliation**: Memo truncation or user mistyped reference = money received but no ticket, rated HIGH likelihood x HIGH impact. Issue 095 recon sweeper must flag unmatched payments. (risk-matrix.md, stakeholder-map.md)
+- **Bank transfer reconciliation**: Memo truncation or user mistyped reference = money received but no ticket, rated HIGH likelihood x HIGH impact. SePay webhook is primary confirmation (5-30s); recon sweeper is optional backup for unmatched payments. (risk-matrix.md, stakeholder-map.md, DS-013)
 - **Tet surge (10-20x volume)**: 260% demand spike at major stations. Background jobs must not become a bottleneck during peak. Permanent customer defection on failure. (risk-matrix.md, market-research/user-insights.md)
 - **Charter expiry**: Published charter requests past their claim deadline transition to EXPIRED via `charterExpirySweeper`. Assigned-direct requests past `acceptByAt` need admin re-routing. (state-machines.md, bounded-contexts.md)
 - **Auto-complete trips**: Departed trips not manually completed by operator get auto-completed by cron, triggering payout row creation and `payout_scheduled` notification. (state-machines.md, event-flows.md)
@@ -169,7 +169,7 @@ The following jobs are identified from business documentation, grouped by trigge
 | `charterExpirySweeper` | Every 15 min | state-machines.md, bounded-contexts.md | `PUBLISHED` charter requests past `claimByAt` -> `EXPIRED`. `ASSIGNED_DIRECT` past `acceptByAt` -> flag for admin re-routing. |
 | `einvoiceSubmission` | Every 5 min | einvoice-tax.md, state-machines.md | `EInvoice` rows with `status='pending'` -> submit to MISA meInvoice API -> `issued`/`failed`. |
 | `ticketPdfGeneration` | Every 5 min | event-flows.md | Paid bookings without `ticketPdfKey` -> generate PDF -> upload to object storage -> set `Booking.ticketPdfKey`. |
-| `paymentReconSweeper` | Every 30 min | risk-matrix.md | Flag unmatched VietQR payments (memo truncation/mistype). Surface in admin reconciliation dashboard. |
+| `paymentReconSweeper` | Every 30 min | risk-matrix.md | Optional backup — flag unmatched bank transfer payments (memo truncation/mistype). SePay webhook is primary confirmation path (DS-013). Surface unmatched in admin reconciliation dashboard. |
 | `generateFromTemplate` | Daily (early morning VN time) | ubiquitous-language.md, bounded-contexts.md | Auto-generate Trip rows from `RecurringTripTemplate` for 14-day rolling horizon. Dedup via partial unique index in `RecurringGenerationLog`. |
 | `operatorLicenseAlert` | Daily | risk-matrix.md | Scan operator transport license expiry dates. Alert 60 days before expiry via admin notification. |
 | `piiAnonymization` | Daily | regulatory/data-privacy.md, risk-matrix.md | Booking PII anonymization after 5-year retention period per PDPL 2025. |
@@ -185,6 +185,16 @@ The following jobs are identified from business documentation, grouped by trigge
 | Operator status change SMS+email | `transitionOperatorStatus` | state-machines.md |
 | Oversold/overpay refund | Payment webhook -> `refundOut` | event-flows.md, invariants-catalog.md |
 
+> **IMPLEMENTATION STATUS** (2026-06-18)
+> Job Catalog vs actual `vercel.json` cron entries — known discrepancies:
+> - **Schedule mismatches**: Several jobs documented above may differ in actual cron schedule configured in `vercel.json` (e.g., documented "every 5 min" vs actual "every 1 min" or vice versa). Reconcile before go-live.
+> - **Missing from implementation**: `paymentReconSweeper` (Issue 095 — not yet built), `operatorLicenseAlert` (no cron route exists), `piiAnonymization` (no cron route exists).
+> - **Extra in vercel.json**: `vercel.json` may contain cron entries not listed in this catalog (e.g., health-check or monitoring pings).
+> - **Status**: `PARTIALLY_IMPLEMENTED`
+> - **Tracking**: Full Job Catalog reconciliation required before Issue 094 go-live. Each job's actual schedule, route path, and batch size should be verified against this table.
+
+> **CONFLICT**: OTP dispatch trigger — ADR-012 D2 lists OTP SMS as `after()`-accelerated (with cron catch-up). ADR-013 D4 specifies cron-only outbox pattern ("routes and webhooks only enqueue, never dispatch in-process"). Actual code uses inline `sendSms()` within the OTP send route — neither `after()` nor cron-based. Three conflicting descriptions of the same operation.
+
 ---
 
 ## Consequences
@@ -198,7 +208,7 @@ The following jobs are identified from business documentation, grouped by trigge
 - Dual-channel notification routing (Zalo ZNS primary, SMS fallback) saves 50-70% on messaging costs compared to SMS-only (telecom-sms.md)
 - All background operations inherit the existing idempotency framework -- no new idempotency patterns needed (invariants-catalog.md)
 - E-invoice submission cron ensures Decree 70/2025 compliance (issue at payment time) without blocking the checkout flow (einvoice-tax.md)
-- VietQR reconciliation sweeper addresses a risk rated HIGH likelihood x HIGH impact (risk-matrix.md)
+- Bank transfer reconciliation: SePay webhook is primary (DS-013); recon sweeper is optional backup for the ~5% memo-mismatch edge case (risk-matrix.md)
 
 ### Negative
 - 1-minute minimum cron resolution means the catch-up path for `after()` failures has up to 60 seconds of added latency -- a failed `after()` for booking confirmation could delay SMS by up to 1 minute plus dispatch time
@@ -213,6 +223,12 @@ The following jobs are identified from business documentation, grouped by trigge
 - 300s function timeout: batch sizes (500 for hold expiry, configurable for other sweepers) are tuned to complete well within the timeout. If volume exceeds batch capacity during Tet surge, the next cron invocation processes the overflow -- `SKIP LOCKED` ensures no contention (risk-matrix.md)
 - No dashboard: Finance/Accounting Manager persona workflow includes payout queue and ledger reconciliation via the admin console (personas/admin-personas.md). `JobRunLog` data surfaces in the admin dashboard. Purpose-built job dashboard is a future enhancement when operational volume justifies it
 - Polling load: `FOR UPDATE SKIP LOCKED` queries with proper indexes (e.g., `@@index([template, scheduledFor])` on NotificationLog, `@@index([status, scheduledAt])` on Payout) are index-scan queries that return immediately when no work exists. At pre-launch volume, this load is negligible. At Tet scale, PgBouncer connection pooling (ADR-001) manages connection pressure
+
+---
+
+## Known Gaps (as of 2026-06-18)
+
+- **Payout processing stranding**: If a payout transitions to `processing` and the cron function crashes or times out before confirming `paid`/`failed`, the payout stays in `processing` indefinitely. No automatic recovery or timeout-based cleanup for stranded `processing` payouts is documented. Admin must manually investigate and retry.
 
 ---
 

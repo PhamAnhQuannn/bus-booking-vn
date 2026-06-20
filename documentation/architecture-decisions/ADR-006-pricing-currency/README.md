@@ -43,6 +43,8 @@ Cross-reference: ADR-005 covers BigInt arithmetic (D6), ledger entry types inclu
 - 8-10% standard rate is competitively below VeXeRe's estimated ~8-12% blended rate and redBus's confirmed 10-20%. The 5% introductory rate is a genuine undercut no incumbent matches publicly (competitor-benchmark/pricing-comparison.md)
 - Floor of 5% preserves unit economics: at 5% on 400K VND average ticket = 20,000 VND commission, minus ~12,000 VND costs (payment + notifications + support) = 8,000 VND net margin (2.0% of ticket). Below 5%, net margin goes negative (market-research/business-model.md)
 - Ceiling of 15% matches the empirically-observed churn trigger threshold: "above this, operators bypass platform for direct bookings." FUTA at 0% (vertically integrated) sets the structural ceiling on what any OTA can charge scaled operators (competitor-benchmark/operator-sentiment.md, competitor-benchmark/pricing-comparison.md)
+
+> **CORRECTION** (2026-06-18): ADR references "8-10% standard" band with "5% introductory." Actual configured default is **6%** (`ratePpm=60000` in seed, `DEFAULT_PLATFORM_FEE_PCT=0.06` in calcPayout). Ceiling is **20%** (`MAX_FEE_OVERRIDE_PPM=200000`), not 15%. Rate is admin-configurable per operator via FeeConfig. The 8-10% band and 3-4% pilot are aspirational tiers that were never encoded.
 - Publishing commission rates transparently is itself a differentiator — no competitor does this. VCC (Vietnam Competition Commission) tightening oversight of OTA platforms creates regulatory tailwind for transparency (competitor-benchmark/operator-sentiment.md)
 - Unit economics at 10% on 400K VND average ticket: ~16,000 VND net margin per booking (4.0% of ticket). Break-even at 50,000-100,000 bookings/month with 100-200 active operators averaging 15-30 daily bookings each (market-research/business-model.md)
 - FeeConfig `ratePpm` encoding supports the full band: 50000 (5% intro), 80000 (8% standard), 100000 (10% standard), 150000 (15% ceiling). Per-operator override with effective-dating enables smooth transitions without data loss (domain-model/ubiquitous-language.md, domain-model/bounded-contexts.md)
@@ -130,6 +132,12 @@ Cross-reference: ADR-005 covers BigInt arithmetic (D6), ledger entry types inclu
 **Reasons**:
 - "VND has no minor unit (no cents). All amounts are integer VND." Per-booking amounts are always whole VND integers (domain-model/ubiquitous-language.md)
 - Per-record VND values in this domain: ticket prices 100K-2M VND, booking totals up to ~10M VND (group booking), payout amounts up to ~100M VND (large trip). All within 32-bit signed integer range (max 2,147,483,647 ≈ 2.1B VND) (market-research/business-model.md)
+
+> **IMPLEMENTATION STATUS** (2026-06-18)
+> - **Documented**: Int for per-record amounts, BigInt at computation time for aggregates.
+> - **Actual**: Payout columns (`grossVnd`, `feeVnd`, `netVnd`, `taxVat`, `taxPit`, `taxTotal`) are `Int` (32-bit, max ~2.1B VND ≈ $84K). A single busy operator's aggregate payout could exceed this within months. `BigInt` in schema should be considered for Payout amount columns at scale.
+> - **Status**: `PARTIALLY_IMPLEMENTED`
+> - **Tracking**: Safe for Phase 1 (per-record amounts are well within Int range). Monitor as operator volume grows; migrate Payout columns to BigInt before any single payout batch exceeds 2.1B VND.
 - `DECIMAL`/`NUMERIC` rejected: VND has no fractional part. Using a decimal type for a non-decimal currency adds complexity with zero precision gain (domain-model/ubiquitous-language.md)
 - Aggregate computations (operator balance, platform GMV) use raw SQL with BigInt in application code — the database SUM result may exceed `Int` but is handled at the application layer (domain-model/bounded-contexts.md, domain-model/event-flows.md)
 - Cross-ref ADR-005 D6: BigInt computation is the complement to integer storage. ADR-005 covers how arithmetic is performed; ADR-006 covers why integer storage is correct for VND. `ratePpm` (parts-per-million) encoding in FeeConfig is also integer: 60000 = 6% (domain-model/ubiquitous-language.md)
@@ -179,6 +187,12 @@ Cross-reference: ADR-005 covers BigInt arithmetic (D6), ledger entry types inclu
 - "Many small VN bus operators are sole proprietors or family businesses" — entity-type determination at onboarding is the operational challenge. Platform must collect business registration certificate or household business certificate (regulatory/einvoice-tax.md, personas/operator-personas.md)
 - Entity-type determination error is explicitly identified as a risk: "withholding on wrong type creates liability" (regulatory/einvoice-tax.md)
 - Cross-ref ADR-005 D5: `tax_withheld` ledger entry type is one of the 9 defined entry types
+
+> **IMPLEMENTATION STATUS** (2026-06-18)
+> - **Documented**: Platform withholds VAT ~3% + PIT ~1.5% from individual/household operators. `tax_withheld` ledger entry type. Payout model carries `taxVat`, `taxPit`, `taxTotal` columns.
+> - **Actual**: Schema columns exist (`taxVat`, `taxPit`, `taxTotal` on Payout; `taxClassification` on Operator; `tax_withheld` in LedgerEntryType enum). However, zero service functions implement the withholding calculation. No `calcWithholding()` function, no `applyWithholding()` in payout flow. Columns are always null/zero.
+> - **Status**: `NOT_IMPLEMENTED`
+> - **Tracking**: E-Commerce Law 2025 effective **1 Jul 2026** — withholding must be functional by then. Schema is ready; service logic is not. See also ADR-014 D4.
 
 ---
 
@@ -256,6 +270,13 @@ Cross-reference: ADR-005 covers BigInt arithmetic (D6), ledger entry types inclu
 - Streams #5-6 explicitly "LOW near-term" and deferred to Month 12+ (market-research/business-model.md)
 - "Compete with VeXeRe's BMS/AMS subscriptions, flash sale placement, insurance" — VeXeRe already operates multi-stream (competitor-benchmark/pricing-comparison.md)
 - No stream beyond commission + SaaS before Phase 1 corridor proof. "Building for multi-operator scale before proving single-corridor viability" is in the STOP list (vietnam-market-context.md)
+
+---
+
+## Known Gaps (as of 2026-06-18)
+
+- **Payout Int overflow**: `Payout.amount` and `Payout.platformFee` columns are `Int` (32-bit, max ~2.1B VND ≈ $84K). A high-value operator with daily aggregate payouts could approach this limit. Should be `BigInt` for production safety. See D5 IMPLEMENTATION STATUS.
+- **Commission invoice (platform→operator)**: Platform charges commission but does not issue a VAT invoice to the operator for this service fee. Under Circular 32/2025/TT-BTC, the platform providing intermediary services must issue a VAT invoice to the operator for commission earned. Not addressed in ADR-006 or ADR-014.
 
 ---
 

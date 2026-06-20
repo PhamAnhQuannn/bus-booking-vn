@@ -81,6 +81,12 @@ This ADR records the 16 architectural decisions that define the booking lifecycl
 
 **Rationale**: Central collection is classified as "thu hộ chi hộ" (collect-and-remit) under Article 3(17) of SBV regulations — requires IPS license BB doesn't have. VeXeRe operates on marketplace model with VNPay for 10+ years without SBV challenge. Payment flows directly to operator's merchant account; platform 6% fee extracted at source. Eliminates fund custody, SBV license requirement, and T+N payout obligation entirely. Fallback for micro-operators who can't open merchant accounts: licensed escrow (Option C), never Option A.
 
+> **IMPLEMENTATION STATUS** (2026-06-18)
+> - **Documented**: "Payment flows directly to operator's merchant account; platform 6% fee extracted at source."
+> - **Actual**: Central collection (Option A). Single platform merchant account. `PAYMENTS_STUB=true` stubs all PSP interaction in dev/staging. When real keys are used, all payments flow to platform's single merchant account. See ADR-004 D2, ADR-005 D1.
+> - **Status**: `NOT_IMPLEMENTED`
+> - **Tracking**: Must resolve before Issue 094 go-live. Risk-register #1 (CERTAIN/CRITICAL).
+
 ---
 
 ### D5: Settlement Timing — T+1 (After Trip Completion)
@@ -179,6 +185,8 @@ This ADR records the 16 architectural decisions that define the booking lifecycl
 
 **Rationale**: 8-10% standard commission, below VeXeRe (~8-12%) and redBus (10-20%). Introductory 3-4% for first 3 months to reduce adoption friction ("Bác Tâm" micro-operator). Stored as `ratePpm` for precision without floating-point — 60,000 ppm = 6.0000%. Effective-dating means fee changes apply only to future bookings. All fee math uses BigInt (invariant I10) to prevent IEEE 754 drift.
 
+> **CORRECTION** (2026-06-18): ADR references "8-10% standard" and "3-4% introductory." Actual configured default is **6%** (`ratePpm=60000`). Ceiling is **20%** (`MAX_FEE_OVERRIDE_PPM=200000`). Rate is admin-configurable per operator via FeeConfig. The 8-10% band and 3-4% intro are aspirational tiers that were never encoded.
+
 ---
 
 ### D11: Ledger Model — Append-Only Double-Entry
@@ -226,19 +234,19 @@ This ADR records the 16 architectural decisions that define the booking lifecycl
 
 ---
 
-### D14: Payment Gateway Strategy — Multi-PSP (VNPay + MoMo + VietQR)
+### D14: Payment Gateway Strategy — Multi-PSP (Bank Transfer + MoMo + VNPay)
 
 **Sources**: `regulatory/psp-contract-terms.md`, `market-research/user-insights.md`, `vietnam-market-context.md`, `domain-model/bounded-contexts.md`
 
 | Option | Description | Pros | Cons |
 |--------|-------------|------|------|
 | A. Single PSP (VNPay only) | One integration, broadest card coverage | Simplest | Misses MoMo's 40M+ users; higher MDR for bank transfers |
-| **B. Multi-PSP with adapter pattern** ✅ | VNPay (cards + QR) + MoMo (e-wallet) + VietQR (bank transfer); adapter interface normalizes | ~95% payment coverage; best MDR per channel; redundancy | Three integrations; three webhook handlers |
-| C. Start with one, add later | VNPay first, others phased | Lower initial complexity | Phase 1 demographic ("Chị Lan") is MoMo-heavy; delays PMF |
+| **B. Multi-PSP with adapter pattern** ✅ | Bank transfer + cash (launch) + MoMo + VNPay (Month 1-3) + ZaloPay (later); adapter interface normalizes | ~95% payment coverage; best MDR per channel; redundancy | Multiple integrations; multiple webhook handlers |
+| C. Start with one, add later | Bank transfer + cash first, others phased | Lower initial complexity; zero business registration needed for launch | Delays e-wallet/card coverage |
 
 **Choice**: Option B — Multi-PSP with PaymentGateway adapter interface.
 
-**Rationale**: Phase 1 corridor demographic (migrant workers, MoMo primary) requires MoMo from day 1. VietQR offers lowest MDR (<0.5-1%). VNPay covers international cards for Phase 2 tourist corridors. Adapter interface (anti-corruption layer) normalizes webhook codes, status enums, and refund APIs across PSPs. Integration priority: VNPay → MoMo → VietQR.
+**Rationale**: Bank transfer (VietQR + SePay) + cash launch first — zero business registration, zero transaction fees, works with personal Agribank account. MoMo + VNPay added Month 1-3 when entity formation is complete and volume justifies MDR costs (1.5-3%). ZaloPay follows later. Adapter interface (anti-corruption layer) normalizes webhook codes, status enums, and refund APIs across PSPs. Integration priority: bank transfer + cash → MoMo + VNPay → ZaloPay.
 
 ---
 
@@ -272,6 +280,12 @@ This ADR records the 16 architectural decisions that define the booking lifecycl
 **Choice**: Option B for launch (SMS + email). Option D planned for Phase 2.
 
 **Rationale**: Brandname SMS via eSMS is the only channel guaranteed to reach all 6 customer personas. ZNS cheaper (200-500 VND vs 300-800 VND) but not universal. Email via Resend handles business traveler invoice delivery and acts as SMS fallback. Phase 2 adds ZNS as primary with SMS fallback (50-70% cost savings). Brandname SMS registration is a 2-4 week hard blocker — must start immediately.
+
+---
+
+## Known Gaps (as of 2026-06-18)
+
+- **Customer cancellation flow**: No customer-initiated cancellation path documented or implemented. ADR covers operator/admin cancellation (D6, D10) but not self-service customer cancellation with refund. Consumer Protection Law 2023 requires clear cancellation terms accessible to the customer.
 
 ---
 

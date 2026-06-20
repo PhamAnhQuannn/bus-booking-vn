@@ -44,6 +44,12 @@ Key business constraints driving compliance decisions (sourced from `documentati
 - Authorization agreement becomes a standard onboarding document alongside transport license and bank account verification — no additional friction beyond existing KYB (regulatory/compliance-timeline.md)
 - Transport-specific invoice requirements (vehicle plate number, departure, destination per Decree 70/2025) are fields the platform already captures at trip creation — automation is straightforward (regulatory/einvoice-tax.md)
 
+> **IMPLEMENTATION STATUS** (2026-06-18)
+> - **Documented**: Platform issues invoices on behalf of operator with transport-specific fields (vehicle plate, departure, destination, operator MST).
+> - **Actual**: MISA meInvoice integration exists (Issue #74). However, transport-specific fields (vehiclePlate, departure city, destination city, operator MST/tax ID) are not mapped into MISA invoice payload. Current integration issues generic commercial invoices, not transport-compliant invoices per Decree 70/2025.
+> - **Status**: `PARTIALLY_IMPLEMENTED`
+> - **Tracking**: Map transport fields into MISA payload before go-live. Authorization agreement template not yet created.
+
 ---
 
 ### 2. E-Invoice Provider — MISA meInvoice
@@ -168,6 +174,13 @@ Key business constraints driving compliance decisions (sourced from `documentati
 - Children under 16 require parental consent (PDPL Decree 356 enhanced protection) — granular consent model supports this as an additional purpose/gate without restructuring (regulatory/dpia-checklist.md)
 - Transactional communications (OTP, booking confirmations, departure reminders) are exempt from consent requirements per Decree 91/2020 — only marketing communications require opt-in + DNC (Do-Not-Call) registry check. The granular model cleanly separates these categories (regulatory/telecom-sms.md)
 - Lower marketing opt-in rate is an accepted trade-off — the alternative (non-compliance) carries fines and operational shutdown risk. Marketing reach gap is mitigated by Zalo OA (primary channel, 85% Vietnamese penetration) where users explicitly follow the account (market-research/user-insights.md)
+
+---
+
+## Known Gaps (as of 2026-06-18)
+
+- **Data residency CDTIA status**: Vercel sin1 (Singapore) hosting constitutes cross-border data transfer under Decree 53/2022. CDTIA (Cross-Border Data Transfer Impact Assessment) filing status is unknown — required within 60 days of processing start. See ADR-001 D4.
+- **DSAR response workflow**: E-invoice records contain operator PII (MST, name, address). PDPL 2025 data subject rights apply. No deletion/anonymization workflow for e-invoice records exists (10-year GDT retention requirement conflicts with PDPL deletion rights — resolution not documented).
 
 ---
 

@@ -35,6 +35,12 @@ All API error responses use a consistent envelope:
 
 **Rationale**: A single envelope shape means client-side error handling is consistent across all endpoints. Machine-readable `code` enables programmatic branching without parsing human-readable messages.
 
+> **IMPLEMENTATION STATUS** (2026-06-18)
+> - **Documented**: `{"error": {"code": "...", "message": "..."}}` — nested envelope with code + message.
+> - **Actual**: Most routes return `{"error": "code_string"}` — flat string, no message field. Some routes return `{"error": "code", "message": "..."}` at top level (not nested).
+> - **Status**: `IMPLEMENTED_DIFFERENTLY`
+> - **Tracking**: Functional but inconsistent with spec. Client code switches on `data.error` (string), not `data.error.code`. Standardize if client refactor occurs.
+
 ---
 
 ### D2: HTTP Status Code Semantics

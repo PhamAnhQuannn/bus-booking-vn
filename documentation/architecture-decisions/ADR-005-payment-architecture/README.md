@@ -45,25 +45,35 @@ Key business constraints driving payment decisions (sourced from `documentation/
 - Fallback documented: if split-settlement proves infeasible with specific PSPs, licensed escrow provider is the next option (vietnam-market-context.md)
 - Legal opinion on IPS classification required before issue 094 go-live keys — this is a HALT-level regulatory blocker (market-research/regulatory-compliance.md, risk-matrix.md)
 
+> **IMPLEMENTATION STATUS** (2026-06-18)
+> - **Documented**: "Customer pays VNPay/MoMo → PSP splits payment → operator's merchant account receives ticket price." "BB never holds operator funds in transit."
+> - **Actual**: Central collection model. Single platform `tmnCode` (VNPay) and `partnerCode` (MoMo). All payments settle to platform's merchant account. Operator share tracked via software ledger (`booking_credit`, `platform_fee` entries). Payout to operator is a separate internal disbursement, not PSP-level split.
+> - **Status**: `NOT_IMPLEMENTED`
+> - **Tracking**: The code implements "Central collection (BB holds funds)" — Option B in the table above, which this ADR rates as "Illegal without SBV intermediary license." See also ADR-004 D2, ADR-010 D4. Resolution: implement split-settlement OR obtain legal opinion confirming current model is acceptable, before Issue 094 go-live.
+
 ---
 
-### 2. PSP Selection & Priority — VNPay First, MoMo Second, VietQR Third
+### 2. PSP Selection & Priority — Bank Transfer + Cash First, MoMo + VNPay Second, ZaloPay Third
+
+> **Updated 2026-06-20**: Bank transfer (VietQR + SePay) promoted to Phase 1 launch alongside cash. No merchant account or ERC required — ships with personal Agribank account + SePay subscription. MoMo + VNPay moved to Phase 2 (require business registration, merchant approval, contracted MDR fees).
 
 | Option | Pros | Cons |
 |--------|------|------|
-| **VNPay first** | Broadest coverage: domestic cards, international cards (Visa/MC), QR, e-wallets; MDR 0.5-1.5% domestic cards, 1-2% e-wallet/QR; T+1 settlement; serves both Vietnamese and tourist segments | Higher MDR than VietQR for QR payments; requires ERC + tax code + bank account + UBO ID for production onboarding |
-| MoMo first | Largest e-wallet user base (40M+, 68% market share); strongest brand trust signal for domestic travelers; "Chị Lan" persona's primary payment method | MDR 1.5-2.5% wallet (higher than VNPay domestic); wallet-only (no card acceptance without additional integration); VND 100M monthly cap per user |
-| VietQR first | Lowest MDR (<0.5-1%); fastest settlement (T+0/T+1); growing rapidly | No programmatic refund API (manual bank transfer only); accessed via partner bank, not direct; memo truncation risk = reconciliation failures |
+| VNPay first | Broadest coverage: domestic cards, international cards (Visa/MC), QR, e-wallets; MDR 0.5-1.5% domestic cards, 1-2% e-wallet/QR; T+1 settlement; serves both Vietnamese and tourist segments | Higher MDR than VietQR for QR payments; card/site-based payments less relevant for early beachhead customers who are MoMo-native |
+| MoMo second | Largest e-wallet user base (40M+, 68% market share); strongest brand trust signal for domestic travelers; "Chị Lan" persona's preferred payment method | MDR 1.5-2.5% wallet; requires ERC + tax code + merchant approval (5-15 business days); wallet-only (no card acceptance without additional integration); VND 100M monthly cap per user |
+| **Bank transfer first (VietQR + SePay)** | Zero transaction fees; fastest settlement (T+0 instant); SePay webhook provides push-based confirmation (5-30s); no PSP merchant account needed; works with personal Agribank account; can ship before entity formation | No programmatic refund API (manual bank transfer only); ~5% memo mismatch rate requires admin reconciliation; SePay monthly fee (~100-500k VND) |
 | All at once | Maximum payment method coverage from day one; no customer payment friction | Triple integration effort; triple webhook/reconciliation complexity; delays launch; testing matrix explosion |
 
-**Choice**: VNPay first → MoMo second → VietQR third (phased rollout)
+**Choice**: Bank transfer + cash first (launch) → MoMo + VNPay second (Month 1-3) → ZaloPay third
 
 **Reasons**:
-- VNPay covers the widest customer base with a single integration — domestic cards, international cards (tourist segment "Marco"), QR, and e-wallets. No other single PSP covers both Vietnamese and international travelers (regulatory/psp-contract-terms.md, personas/customer-personas.md)
-- MoMo is the primary payment method for the beachhead customer persona "Chị Lan" (migrant worker, 20-45yo, MoMo wallet + cash primary) and "Em Quan" (student, MoMo via family top-up) — must be live before or at Phase 1 launch on Thanh Hóa ↔ TPHCM corridor (personas/customer-personas.md, vietnam-market-context.md)
-- VietQR deferred to post-launch cost optimization: lowest fees but no programmatic refund (manual bank transfer), and memo truncation risk is rated HIGH likelihood × HIGH impact (risk-matrix.md, regulatory/psp-contract-terms.md)
+- Bank transfer ships first because it requires zero business registration — only a personal Agribank account + SePay subscription (~100-500k VND/month). Can go live before entity formation is complete
+- Cash at boarding ships alongside bank transfer — no PSP integration needed, covers older/rural travelers and walk-up bookings
+- Zero transaction fees on bank transfer make it the lowest-cost launch option. SePay webhook provides push-based confirmation (5-30s) — customer experience comparable to MoMo/VNPay (DS-013)
+- Bank transfer implementation uses the same `PaymentGateway` adapter interface — no new architectural patterns. SePay webhook routes through `processPaymentWebhook` identically to MoMo/VNPay (DS-013, DS-005)
+- MoMo moved to Phase 2: requires ERC, tax code, merchant approval (5-15 business days), contracted MDR fees (1.5-2.5%). "Chị Lan" persona prefers MoMo — add when volume justifies the overhead
+- VNPay in Phase 2 alongside MoMo: covers card payments, international tourists, QR at retail
 - Phased rollout reduces integration complexity per milestone — each PSP adapter normalizes to canonical `paid | failed | pending | unknown` enum behind a gateway-agnostic interface (domain-model/bounded-contexts.md)
-- Production onboarding for each PSP requires ERC (Entity Registration Certificate) as a prerequisite — phased approach aligns with entity formation timeline (regulatory/compliance-timeline.md)
 
 ---
 
@@ -160,9 +170,9 @@ Key business constraints driving payment decisions (sourced from `documentation/
 |--------|------|------|
 | Manual bank transfer refunds | No PSP API integration needed; works with any payment method; admin controls timing | Slow (days); error-prone (wrong account, wrong amount); no audit trail; worst customer experience; violates 24-48h refund target |
 | **PSP-initiated refund via API** | Refund to original payment method (highest trust); automated; audit trail via PaymentEvent; integrates with ledger reversal entries; 24-48h achievable | Requires per-PSP refund API integration; VietQR has no programmatic refund (manual fallback needed); refund fees may apply; PSP may reject refund after settlement window |
-| Platform credit/voucher only | Zero PSP integration; instant; retains funds in ecosystem; simple implementation | Not a real refund — customer's money is trapped; #1 complaint pattern at competitors; likely violates Consumer Protection Law 59/2023 complaint resolution requirements; destroys trust |
+| Platform credit/voucher only | Zero PSP integration; instant; retains funds in ecosystem; simple implementation | Not a real refund — customer's money is trapped; #1 complaint pattern at competitors; likely violates Consumer Protection Law 2023 (No. 19/2023/QH15) complaint resolution requirements; destroys trust |
 
-**Choice**: PSP-initiated refund via MoMo + VNPay refund APIs, with manual bank transfer fallback for VietQR
+**Choice**: PSP-initiated refund via MoMo + VNPay refund APIs, with manual bank transfer fallback for bank transfer payments
 
 **Reasons**:
 - Refund is the #1 user pain point across all Vietnamese bus booking platforms — VeXeRe's 2.7-star Trustpilot is dominated by "slow refund" complaints. Automated refund-to-original-payment within 24-48h is a stated trust differentiator (market-research/user-insights.md, risk-matrix.md)
@@ -171,8 +181,26 @@ Key business constraints driving payment decisions (sourced from `documentation/
 - `refund_out` entries deliberately excluded from operator available balance computation — these are platform-float (the platform absorbs the refund timing mismatch between PSP refund and operator settlement) (domain-model/event-flows.md)
 - Trip cancellation triggers bulk refund: `cancelTrip` → bulk UPDATE bookings to `trip_cancelled` → post-commit `refundOut` per paid booking, keyed `cancel:<tripId>:<bookingId>` (domain-model/event-flows.md)
 - Oversold race refund: if `paid_count > capacity` detected at webhook processing time → immediate status='refunded' + post-commit refundOut in same transaction (domain-model/event-flows.md, domain-model/invariants-catalog.md)
-- VietQR has no programmatic refund API — manual bank transfer is the only option. VietQR reconciliation dashboard in admin is required to flag unmatched payments for manual resolution (risk-matrix.md, regulatory/psp-contract-terms.md)
-- Platform credit/voucher rejected: Consumer Protection Law 59/2023 requires complaint resolution with clear response timelines — trapping customer funds in platform credit likely violates this and is the exact pattern generating negative reviews for competitors (regulatory/consumer-protection.md, market-research/user-insights.md)
+- Bank transfer (VietQR + SePay) has no programmatic refund API — manual bank transfer is the only option. Admin reconciliation dashboard is required to flag unmatched payments for manual resolution (risk-matrix.md, regulatory/psp-contract-terms.md)
+- Platform credit/voucher rejected: Consumer Protection Law 2023 (No. 19/2023/QH15) requires complaint resolution with clear response timelines — trapping customer funds in platform credit likely violates this and is the exact pattern generating negative reviews for competitors (regulatory/consumer-protection.md, market-research/user-insights.md)
+
+---
+
+## Related Design Specifications
+
+| Concern | Design Spec | Status |
+|---------|------------|--------|
+| Inbound payment webhooks (MoMo/VNPay) | [DS-005 Webhook Design](../../design-specifications/DS-005-webhook-design/README.md) | CURRENT |
+| Refund state machine + PSP refund API | [DS-007 Refund Flow](../../design-specifications/DS-007-refund-flow/README.md) | NEW |
+| ZaloPay AIO v2 adapter | [DS-008 ZaloPay Adapter](../../design-specifications/DS-008-zalopay-adapter/README.md) | NEW |
+| Central → marketplace migration path | [DS-009 Split-Settlement Migration](../../design-specifications/DS-009-split-settlement-migration/README.md) | NEW |
+| Chargeback state machine | [DS-010 Chargeback Design](../../design-specifications/DS-010-chargeback-design/README.md) | NEW |
+| Bank transfer (VietQR + SePay webhook) | [DS-013 VietQR Bank Transfer Design](../../design-specifications/DS-013-vietqr-reconciliation/README.md) | CURRENT (rewritten 2026-06-20: SePay webhook replaces cron reconciliation) |
+| IPS license / Decree 52/2024 risk | [regulatory/payment.md](../../business/regulatory/payment.md) C2 conflict | BLOCKING |
+
+## Known Gaps (as of 2026-06-18)
+
+- **Chargeback handling**: No chargeback/dispute resolution flow documented. VNPay international card payments can trigger chargebacks. Platform response workflow, operator notification, and ledger reversal entries are undefined.
 
 ---
 
@@ -180,7 +208,7 @@ Key business constraints driving payment decisions (sourced from `documentation/
 
 ### Positive
 - PSP split-settlement eliminates SBV IPS license requirement — the single highest-severity regulatory risk is structurally removed
-- Phased PSP rollout (VNPay → MoMo → VietQR) reduces per-milestone integration complexity while covering the widest customer base first
+- Phased PSP rollout (bank transfer + cash → MoMo + VNPay → ZaloPay) reduces per-milestone integration complexity; launch requires zero business registration
 - T+1 published settlement is the fastest in the Vietnamese bus booking market — directly addresses the #2 operator churn trigger
 - Full webhook defense stack (HMAC + unique + amount guard) prevents the three most damaging payment failure modes: forgery, replay, and amount mismatch
 - Append-only double-entry ledger with DB-enforced immutability makes retroactive balance alteration impossible at the database level, not just the application level
@@ -189,7 +217,7 @@ Key business constraints driving payment decisions (sourced from `documentation/
 
 ### Negative
 - PSP split-settlement requires each operator to open their own merchant account — onboarding friction, especially for micro operators (60-70% of market) with low tech literacy
-- VietQR has no programmatic refund API — manual bank transfer fallback is slow and error-prone for VietQR-originated payments
+- Bank transfer has no programmatic refund API — manual bank transfer fallback is slow and error-prone for bank-transfer-originated payments
 - T+1 settlement provides only a 1-day buffer for dispute resolution — chargebacks or fraud detected after payout are harder to recover
 - Append-only ledger means corrections require reversal entries (`adjustment`, `payout_reversal`) — no "just fix the number" path; every correction is visible in the audit trail
 - BigInt arithmetic requires explicit conversion at every boundary (`Number()` for JSON serialization, `BigInt()` for arithmetic entry) — developer discipline required
@@ -197,7 +225,7 @@ Key business constraints driving payment decisions (sourced from `documentation/
 
 ### Mitigations
 - Operator merchant onboarding friction: white-glove onboarding for first 10-20 operators (vietnam-market-context.md); operator console guides through PSP setup; admin persona (Operations Manager) handles document verification (personas/admin-personas.md)
-- VietQR refund gap: admin reconciliation dashboard flags unmatched VietQR payments; manual resolution documented in support agent workflow; VietQR is Phase 3 (post-launch), so gap doesn't block go-live (regulatory/psp-contract-terms.md)
+- Bank transfer refund gap: admin reconciliation dashboard flags unmatched bank transfer payments; manual resolution documented in support agent workflow (regulatory/psp-contract-terms.md)
 - T+1 chargeback risk: payout account verification gate (any edit resets `verifiedAt` to null, blocking withdrawals until re-verified) prevents attacker from changing payout destination and immediately withdrawing (domain-model/invariants-catalog.md)
 - Ledger correction overhead: reversal entries are an audit feature, not a bug — GDT (General Department of Taxation) compliance requires traceable corrections, not invisible edits (regulatory/einvoice-tax.md)
 - BigInt discipline: greppable smell documented (`Math.round(<int> * <fractional>)` in money-handling modules = bug); ESLint or code review catches violations (domain-model/invariants-catalog.md)

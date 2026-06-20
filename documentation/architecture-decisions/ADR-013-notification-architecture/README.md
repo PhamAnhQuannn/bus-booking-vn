@@ -47,6 +47,12 @@ Key business constraints driving notification decisions (sourced from `documenta
 - SMS/Zalo booking confirmation is rated P1 (currently email-only) — launching without phone-based notification "feels unreliable to Vietnamese users" and ZNS is recommended over SMS for "higher open rates, lower cost, 70M Zalo users" (market-research/feature-benchmark.md)
 - Zalo OA/ZNS campaigns achieve $3–5 USD first-booking CAC (25–35% lower than Facebook) — the notification infrastructure doubles as a customer acquisition channel (market-research/business-model.md)
 
+> **IMPLEMENTATION STATUS** (2026-06-18)
+> - **Documented**: ZNS primary channel with SMS fallback and email supplementary.
+> - **Actual**: Zalo ZNS is not integrated. SMS via eSMS is the actual primary notification channel. Email via Resend is implemented. No ZNS OA registration has been completed.
+> - **Status**: `NOT_IMPLEMENTED` (ZNS portion)
+> - **Tracking**: ZNS integration deferred. SMS (eSMS) functions as primary, not fallback. Cost savings from ZNS-primary strategy are unrealized. Zalo OA registration is a prerequisite.
+
 ---
 
 ### 2. SMS Provider Selection — Vietnamese Local Aggregator (eSMS)

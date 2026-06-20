@@ -18,6 +18,8 @@ The platform contains 8 distinct state machines governing the lifecycle of core 
 
 ### D1: Eight Canonical State Machines
 
+> Canonical transition tables, guards, and side-effect details: [`domain-model/state-machines.md`](../../business/domain-model/state-machines.md). Summary below.
+
 | Entity | States | Terminal states |
 |--------|--------|----------------|
 | **Trip** | `scheduled → departed → completed`, `scheduled → cancelled` | `completed`, `cancelled` |
@@ -46,6 +48,12 @@ const LEGAL_BOOKING_TRANSITIONS: Record<BookingStatus, BookingStatus[]> = {
 Every `UPDATE ... SET status = X` is guarded by checking that the current status is in `legalPredecessors(targetStatus)`. The guard runs inside the transaction after acquiring the row lock.
 
 **Rationale**: A centralized transition map is auditable — one glance shows all legal moves. Without it, transitions are scattered across service functions and each handler invents its own predecessor check (or forgets it). The map is also the basis for exhaustive testing: every edge in the transition graph should have a test.
+
+> **IMPLEMENTATION STATUS** (2026-06-18)
+> - **Documented**: Every state machine has a `LEGAL_*_TRANSITIONS` map; no status write bypasses it.
+> - **Actual**: Only 3 of 8 state machines have explicit `LEGAL_*_TRANSITIONS` maps (Booking, CharterRequest, Operator). The remaining 5 (Trip, Hold, Payout, OTP, EInvoice) use inline `WHERE status IN (...)` clauses in service functions — functionally equivalent guards but not centralized in a single auditable map.
+> - **Status**: `PARTIALLY_IMPLEMENTED`
+> - **Tracking**: Extract transition maps for Trip, Hold, Payout, OTP, and EInvoice. Low severity — guards exist but are scattered.
 
 ---
 

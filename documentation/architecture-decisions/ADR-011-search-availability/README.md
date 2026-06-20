@@ -94,6 +94,8 @@ How seat availability is calculated and presented to customers during search.
 - Seat-level tracking rejected: explicitly deferred as "DEFER (REMODEL)" with the rationale "count-based model matches operator reality" — Vietnamese operators, especially micro operators (60-70% by count), do not track individual seats and use walk-up assignment (risk-matrix.md, personas/operator-personas.md)
 - Cached counts rejected: Hold TTL is 10 minutes and holds change availability instantly. A cache with even a 30-second TTL could show seats that are already held. During Tet peak when trips sell out in minutes, a 30-second stale window is the difference between a successful booking and a frustrated customer defecting permanently (risk-matrix.md, domain-model/ubiquitous-language.md)
 
+> **CORRECTION** (2026-06-18): Formula references `blockedSeats` (Context line and D3 Reasons) but this field was retired from the capacity computation. Actual formula: `available = capacity - active_holds - paid_bookings - awaiting_payment_bookings(within PSP_WINDOW)`. The `blockedSeats` term no longer participates. `awaiting_payment` within PSP_WINDOW_MINUTES is correctly included.
+
 ---
 
 ### 4. Search Visibility Gates — Multi-Dimensional Composite

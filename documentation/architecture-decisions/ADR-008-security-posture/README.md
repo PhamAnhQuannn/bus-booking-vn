@@ -13,7 +13,7 @@ Bus-Booking handles financial transactions, sensitive personal data (phone numbe
 Key constraints driving security decisions (sourced from `documentation/business/`):
 
 - **PDPL 2025 (No. 91/2025) + Decree 356/2025**: Distinguishes "basic personal data" (name, phone, email) from "sensitive personal data" (payment records, government ID, location). Different consent and handling requirements per category. Breach notification to MPS A05 within 72 hours (24 hours for cybersecurity attacks). Penalties up to 5% annual VN revenue. (regulatory/data-privacy.md, regulatory/dpia-checklist.md)
-- **Data residency (Decree 53/2022 + Decree 147/2024)**: Vietnamese user PII must reside on Vietnam-hosted servers. Cross-border transfer requires CDTIA filing. Platform currently on Vercel sin1 (Singapore). (regulatory/data-privacy.md, market-research/regulatory-compliance.md)
+- **Data residency (Decree 53/2022 + Decree 147/2024)**: Vietnamese user PII must reside on Vietnam-hosted servers. Cross-border transfer requires CDTIA filing. **Resolved**: FPT Cloud (Vietnam) chosen as primary host — all data domestic, CDTIA eliminated (ADR-020 D2/D7). (regulatory/data-privacy.md, market-research/regulatory-compliance.md)
 - **Financial integrity**: 8 state machines with ACID requirements, append-only ledger invariant, BigInt currency math. Admin compromise or payment forgery rated CRITICAL in risk-matrix.md. (domain-model/invariants-catalog.md, risk-matrix.md)
 - **Multi-tenant isolation**: Shared database serving multiple operators. `withOperatorScope` bypass = cross-tenant data leak. Single large operator leaving removes 30-50% of supply. (domain-model/bounded-contexts.md, stakeholder-map.md)
 - **Informal operator risk**: 20-30% of inter-provincial trips operate informally (unlicensed). Admitting unlicensed operators = regulatory shutdown risk from Ministry of Transport. (stakeholder-map.md, vietnam-market-context.md)
@@ -34,6 +34,8 @@ ADR-008 is the cross-cutting security umbrella. It does NOT re-decide topics own
 ---
 
 ## Decisions
+
+> Canonical invariant catalog (I1–I9+): [`domain-model/invariants-catalog.md`](../../business/domain-model/invariants-catalog.md). This ADR references invariant IDs but does not re-define them.
 
 ### 1. Defense-in-Depth Architecture — Five-Layer Model
 
@@ -97,6 +99,12 @@ ADR-008 is the cross-cutting security umbrella. It does NOT re-decide topics own
 - Full column-level encryption rejected: indexing and Prisma query builder incompatibility makes it impractical for T1 fields that are search keys
 - PDPL requires "appropriate security measures" — provider disk encryption + T2 app-layer encryption is a defensible answer to auditors (regulatory/data-privacy.md)
 
+> **IMPLEMENTATION STATUS** (2026-06-18)
+> - **Documented**: AES-256-GCM for TOTP secret, CCCD/passport, and payout account numbers.
+> - **Actual**: Only TOTP secret is encrypted (`lib/auth/totp.ts` uses `TOTP_ENCRYPTION_KEY`). `PayoutAccount.accountNumber` is stored plaintext. CCCD/passport fields not yet in schema.
+> - **Status**: `PARTIALLY_IMPLEMENTED`
+> - **Tracking**: PayoutAccount encryption needed before go-live. CCCD encryption at field-introduction time.
+
 ---
 
 ### 4. HTTP Security Headers — Full OWASP Set
@@ -121,6 +129,12 @@ ADR-008 is the cross-cutting security umbrella. It does NOT re-decide topics own
 - Investor diligence flags missing security headers — "regulatory non-compliance in diligence = term sheet pulled" (stakeholder-map.md)
 - Consumer-protection.md requires platform to protect against unauthorized transactions — CSP and X-Frame-Options prevent clickjacking attacks on the payment flow (regulatory/consumer-protection.md)
 - CSP `connect-src` must include PSP redirect origins (MoMo sandbox, VNPay sandbox/production) — misconfiguration here breaks payment checkout, so PSP-specific origins are maintained in a named constant per environment
+
+> **IMPLEMENTATION STATUS** (2026-06-18)
+> - **Documented**: Full OWASP header set via `next.config.ts headers()` — HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy.
+> - **Actual**: Zero security headers configured. No `headers()` function in `next.config.ts`, no `vercel.json` header rules. All listed headers are absent from HTTP responses.
+> - **Status**: `NOT_IMPLEMENTED`
+> - **Tracking**: Must add before Issue 094 go-live. CSP tuning required for VNPay/MoMo redirect origins.
 
 ---
 
@@ -160,13 +174,19 @@ ADR-008 is the cross-cutting security umbrella. It does NOT re-decide topics own
 - `pnpm install --frozen-lockfile` in CI already prevents phantom dependency changes
 - Snyk deferred to post-Series-A when team and budget scale — current tooling is zero-cost
 
+> **IMPLEMENTATION STATUS** (2026-06-18)
+> - **Documented**: GitHub Dependabot config + `pnpm audit --audit-level=high` in CI pipeline.
+> - **Actual**: No `.github/dependabot.yml` file. No `pnpm audit` step in CI workflow. `pnpm install --frozen-lockfile` is present but audit gate is not.
+> - **Status**: `NOT_IMPLEMENTED`
+> - **Tracking**: Add dependabot.yml + CI audit step. Low effort, high signal.
+
 ---
 
 ### 7. Secret Management — Env Vars with Zod Validation + Rotation Runbook
 
 | Option | Pros | Cons |
 |--------|------|------|
-| Env vars only (current state) | Simple; Vercel-native; Zod validates at boot; gitleaks prevents accidental commits | No rotation automation; no audit trail of secret access; Vercel dashboard compromise exposes all secrets |
+| Env vars only (current state) | Simple; Zod validates at boot; gitleaks prevents accidental commits | No rotation automation; no audit trail of secret access; FPT Cloud has no secrets management service |
 | External secret manager (HashiCorp Vault, AWS Secrets Manager) | Centralized rotation; audit log of access; dynamic secrets; principle of least privilege | Infrastructure overhead; cold-start latency to fetch secrets; cost; no Vietnam-region Vault/ASM offering; overkill for Phase 1 team size |
 | **Env vars + documented rotation runbook + 90-day rotation cron alert** | Retains simplicity of env vars; rotation runbook ensures secrets are changed on schedule; cron alert prevents drift; gitleaks prevents accidental commit | Manual rotation process; no automatic rotation; relies on discipline |
 
@@ -217,7 +237,7 @@ ADR-008 is the cross-cutting security umbrella. It does NOT re-decide topics own
 - **Consent**: ConsentRecord model (append-only with immutability trigger). Two consent records atomically at booking initiation: `no_refund` + `pii_storage`. Per-purpose consent as required by PDPL 2025 Art. 9. Pre-ticked boxes prohibited (regulatory/dpia-checklist.md Section D)
 - **Anonymization sweeper**: Replaces T1 PII (name, phone, email) with anonymized values on Booking/Customer records after retention period + 24 months. Financial data (LedgerEntry, PaymentEvent) retained for 5-10 years per Accounting Law/Decree 123 — ledger amounts persist but PII is anonymized (regulatory/dpia-checklist.md Section E)
 - **DSAR API**: Admin endpoint to (1) export all personal data for a customer by phone, (2) delete/anonymize on request. The 5-10 year financial retention exemption means booking amounts and ledger entries persist but customer PII is anonymized
-- **VN Cloud migration path**: PII database migration to Viettel IDC/FPT Cloud documented as executable fallback within 6 months if MPS requests. Current Vercel sin1 + CDTIA filing is the Phase 1 path (market-research/regulatory-compliance.md)
+- **Data residency achieved**: All PII resides on FPT Cloud infrastructure in Vietnam (Hanoi/HCMC). No cross-border transfer = no CDTIA filing required. Provider-agnostic Docker contract (ADR-020 D8) ensures migration to alternative VN providers (Viettel IDC, CMC Cloud) or overseas (AWS, Vercel) is a config change, not a rewrite
 
 ---
 
@@ -262,25 +282,41 @@ ADR-008 is the cross-cutting security umbrella. It does NOT re-decide topics own
 
 ---
 
-### 12. Infrastructure Security — Vercel Compute + VN-Hosted PG + CDTIA
+### 12. Infrastructure Security — FPT Cloud (Vietnam) — All Data Domestic
+
+> **2026-06-19 Pivot**: This section supersedes the original Vercel+VN PG+CDTIA architecture. FPT Cloud is now the primary production host. See ADR-020 D2/D7.
 
 | Option | Pros | Cons |
 |--------|------|------|
 | All on Vercel + Singapore DB (Neon/Supabase) | Simplest; single vendor; low latency | PII in Singapore = cross-border transfer violation without CDTIA; no data localization compliance; flagged as non-compliant in ADR-001 |
-| **Vercel compute + VN-hosted PG + CDTIA filing** | Compute stays on Vercel (auto-scaling for Tet surge, CDN, Edge runtime); PII resides in Vietnam (data localization compliant); CDTIA covers compute-to-DB data transit; 5-15ms added latency (acceptable) | Cross-border connection must be TLS-encrypted; VN cloud provider SLA may be lower than Vercel/AWS |
-| All on VN infrastructure | Maximum data sovereignty; zero cross-border transit; no CDTIA needed | No Vercel auto-scaling (Tet surge risk — 10-20x traffic spike); must self-manage Node.js deployment; CDN coverage weaker; operational burden on small team |
+| Vercel compute + VN-hosted PG + CDTIA filing | Compute stays on Vercel (auto-scaling for Tet surge); PII resides in Vietnam; CDTIA covers compute-to-DB data transit | Cross-border connection = CDTIA filing obligation; enforcement risk; 5-15ms added latency |
+| **All on FPT Cloud (Vietnam)** ✅ | **Maximum data sovereignty; zero cross-border transit; zero CDTIA; all data physically in Vietnam; PCI DSS L1 + ISO 27001/27017/27018 certified DCs; Terraform IaC available** | **DevOps overhead (Docker, Nginx, SSL, cron sidecar); no serverless; FPT pricing opaque; no preview deploys** |
 
-**Choice**: Vercel compute (sin1) + VN-hosted PostgreSQL (Viettel IDC or FPT Cloud) + CDTIA filing for cross-border
+**Choice**: All compute + data on FPT Cloud (Vietnam). Vercel retained for staging/preview only (no production PII).
 
 **Reasons**:
-- Data residency (Decree 53/2022 + Decree 147/2024) requires Vietnamese user PII on Vietnam-hosted servers — current all-Singapore deployment is non-compliant for production go-live (regulatory/data-privacy.md, market-research/regulatory-compliance.md)
-- Tet surge (risk-matrix.md #4) produces 10-20x traffic spike over 2 weeks — self-hosting compute loses Vercel's auto-scaling, CDN, and Edge runtime. Risk of downtime during the highest-revenue period of the year
-- 5-15ms cross-border latency (Vercel sin1 ↔ Vietnam DB) is acceptable for a web application (market-research/regulatory-compliance.md)
-- **Database**: PG on Viettel IDC or FPT Cloud with `sslmode=require`; PgBouncer connection pooling; disk encryption enabled (provider-managed)
-- **Vercel**: DDoS protection built-in; TLS termination at edge; auto-scaling for Tet. Edge Runtime for `proxy.ts` (JWT verification, CSRF, rate limiting — no DB dependency)
-- **Redis**: Upstash (serverless) for rate limiting counters only (no PII). If session data or PII ever stored in Redis, must be VN-hosted or CDTIA filed
-- **DNS**: `.vn` + `.com.vn` domains registered defensively (regulatory/labor-aml-ip.md)
-- **Object storage**: Signed URLs (15min PUT, 5min GET) for KYB documents. Production S3 or VN-equivalent for PII-classified documents
+- **CDTIA elimination is decisive**: all compute, database, cache, and storage on FPT Cloud = zero cross-border transfer. No PDPL 2025 Art. 25 obligation, no Decree 356/2025 filing, no enforcement risk. This removes an entire regulatory compliance workstream
+- FPT Fornix data centers (Hanoi HN01/HN02, HCMC HCM01/HCM02) hold PCI DSS Level 1 (v4.0.1), ISO 27001, ISO 27017, ISO 27018, SOC 2 certifications — audit-defensible infrastructure
+- **Compute**: FPT Cloud Server (Docker on Ubuntu); Nginx + Let's Encrypt for TLS termination; Cloudflare CDN in front for edge caching + DDoS protection (static assets only, PII stays on origin)
+- **Database**: FPT Database Engine for PostgreSQL (managed, HA) with `sslmode=require`; PgBouncer connection pooling; disk encryption (provider-managed). Standard `postgres://` connection string
+- **Redis**: FPT Database Engine for Redis (managed). Standard `redis://` connection string. All data domestic — no CDTIA concern for session/cache data
+- **Object Storage**: FPT Object Storage (MinIO-based, S3-compatible). `@aws-sdk/client-s3` with `forcePathStyle: true`. Signed URLs (15min PUT, 5min GET) for KYB documents
+- **Networking**: FPT VPC (OpenStack-based) with security groups; Floating IP; L4 firewall included with compute. Terraform provider (`fpt-corp/fptcloud` v0.3.51) manages VPC/instances/DB/LB/storage
+- **WAF/DDoS**: Cloudflare WAF (Pro $20/mo) for OWASP Top 10 protection; Cloudflare Magic Transit available via FPT Cloud Hub (FPT is Cloudflare's sole VN distributor). FPT Cloud WAF (CyRadar, 7.9M+ VND/mo) deferred to Stage 2
+- **Secrets**: Env vars on VM + Zod validation at boot (ADR-020 D4). No FPT KMS/Vault equivalent — self-host HashiCorp Vault on FPT VM if needed post-Series-A
+- **DNS**: Cloudflare DNS (free tier); `.vn` + `.com.vn` domains registered defensively (regulatory/labor-aml-ip.md)
+- **Container images**: GitHub Container Registry (GHCR) — free. FPT Container Registry (16M VND/mo) skipped as cost-prohibitive
+- **Edge middleware**: On FPT Cloud, `proxy.ts` runs as Node.js middleware (not Vercel Edge Runtime) but executes the same JWT/CSRF/rate-limit logic. Same security gates, different runtime — no functional gap
+
+---
+
+## Known Gaps (as of 2026-06-19)
+
+- **Rate limiter fail-open**: Redis-based rate limiter (`createRatelimit`) fails open on Redis downtime — if Redis is unreachable, all requests pass unthrottled. No circuit-breaker or in-memory fallback documented. Risk #13 in risk-matrix.md. On FPT Cloud, Redis is managed (not Upstash HTTP) — TCP connection failure is the trigger, not HTTP timeout.
+- **Secret rotation runbook**: No documented procedure for rotating JWT secrets, HMAC keys, or API credentials. 6 JWT/HMAC secrets in env with no rotation schedule or procedure. FPT Cloud has no secrets management service — rotation is manual env var update + app restart.
+- **DSAR response API**: PDPL 2025 grants data subjects right of access/correction/deletion. No API endpoint or admin workflow exists to fulfill Data Subject Access Requests within the 72-hour response window.
+- **FPT Cloud IAM**: FPT Cloud console access supports basic roles (Super Admin, Readonly) and custom roles. MFA status unconfirmed — verify and enable before production. IP-based access control available for console lockdown.
+- **No external secrets vault**: FPT Cloud has no KMS/Vault/Secrets Manager equivalent. Env vars + Zod boot validation is the only mechanism. Self-hosted HashiCorp Vault on FPT VM is the upgrade path if investor diligence requires it.
 
 ---
 
@@ -300,7 +336,7 @@ ADR-008 is the cross-cutting security umbrella. It does NOT re-decide topics own
 - Application-layer T2 encryption adds key management complexity (TOTP_ENCRYPTION_KEY, future CCCD encryption key) — key loss = data loss
 - HTTP CSP headers require per-PSP tuning (MoMo, VNPay sandbox vs production URLs) — misconfiguration breaks payment checkout flow
 - Dependabot may create alert noise from transitive dependency vulns that are not directly exploitable — requires triage discipline
-- VN-hosted PG adds 5-15ms latency vs co-located Singapore PG — acceptable but measurable
+- FPT Cloud requires Docker/Nginx/SSL DevOps (vs Vercel zero-ops) — mitigated by Terraform IaC (`fpt-corp/fptcloud`)
 - Manual secret rotation (no external vault) relies on discipline and the 90-day cron alert
 - Incident response playbook requires quarterly tabletop exercises to remain current
 - Application-level tenant isolation can be `eslint-disable`d by a developer — not DB-enforced until Phase 3 RLS migration
@@ -309,7 +345,7 @@ ADR-008 is the cross-cutting security umbrella. It does NOT re-decide topics own
 - Key management: rotation runbook documents per-secret procedure; backup key stored in separate secure location; env.ts Zod validation fails fast on missing/malformed key
 - CSP tuning: PSP-specific `connect-src` origins maintained in a named constant per environment; CI e2e tests validate payment flow with headers enabled
 - Dependabot noise: `dependabot.yml` configured for security-updates-only (not version updates); `pnpm audit --audit-level=high` blocks only high/critical in CI
-- VN PG latency: PgBouncer connection pooling reduces connection overhead; read replicas available for Phase 3 scale
+- FPT Cloud DevOps: Terraform provider covers core infra; Nginx + Let's Encrypt is standard Vietnamese DevOps practice; read replicas available for Phase 3 scale
 - Secret rotation discipline: 90-day cron alert; sandbox sentinel detection in env.ts prevents production launch with test credentials
 - Playbook staleness: quarterly tabletop exercise; post-incident retrospective updates the playbook in the same sprint
 - Tenant isolation: `eslint-disable` for boundary rules flagged in code review; RLS migration planned for Phase 3 as defense-in-depth addition

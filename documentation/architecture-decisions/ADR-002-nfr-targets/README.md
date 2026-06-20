@@ -118,7 +118,7 @@ Add PSP retry storms if a gateway has a momentary blip = 2x replay. 1,040 × 2 =
 
 #### Why 10 Minutes — Payment Flow Timing
 
-MoMo app-switch flow (primary PSP per market research): user clicks "Pay" → redirect to MoMo → authenticate (PIN or biometric) → confirm → redirect back.
+Bank transfer flow (launch PSP): user selects "Chuyển khoản" → QR display page → customer scans VietQR with banking app → SePay webhook confirms (5-30s). MoMo app-switch flow (Phase 2 PSP): user clicks "Pay" → redirect to MoMo → authenticate (PIN or biometric) → confirm → redirect back.
 
 - Best case: 45 seconds
 - Median (user reads amount, checks balance): 90 seconds
@@ -227,6 +227,8 @@ pricing-comparison.md explicitly positions "faster settlement than VeXeRe" as th
 | 30 seconds | Expensive APM required (Datadog, custom metrics with 15s scrape). Generates alert fatigue from transient network blips. Overkill for Phase 1 |
 | 1 minute | Aggressive. Some monitoring probes have 1-minute minimum interval on free tiers. 2 consecutive failures = 2 minutes anyway |
 | **2 minutes (chosen)** | risk-matrix.md: "2-minute detection target" (Risk #12). External probe every 60s, alert after 2 consecutive failures = 120s detection. At Tet peak (~10 bookings/minute), 2 minutes undetected = ~20 lost booking attempts. Painful but survivable. BetterStack/UptimeRobot free tier supports this |
+
+> **CONFLICT**: References BetterStack as monitoring platform, but ADR-007 D1 confirms neither Sentry nor BetterStack is deployed. Only stdout JSON logs exist. 2-minute detection target has no tooling to enforce it. See ADR-007 IMPLEMENTATION STATUS.
 | 5 minutes | 50 lost bookings during Tet peak + Facebook group complaint spiral starts within 3 minutes of outage (user-insights.md: Vietnamese customers escalate to social media immediately) |
 | 15 minutes | By the time alert fires, customers have already called operators directly and bypassed platform permanently. Reputation damage irreversible |
 
@@ -270,13 +272,23 @@ At scale (Phase 3 Tet: 500 trips/day × 40 seats × 1,750,000 VND = 35B VND dail
 | **MIN_WITHDRAW_THRESHOLD_VND = 100,000** (~$4) | Minimum amount an operator can withdraw | Processing cost of bank transfer = ~2,000-5,000 VND. At 100K threshold: processing = 2-5% (acceptable). At 10K: processing = 20-50% (platform loses money on micro-withdrawals). At 500K: small operators earning ~200K VND/day (micro operator persona, 60-70% of market) cannot withdraw daily — friction |
 | **Commission 8-10%** | Platform take rate per ticket | Below VeXeRe ~12% and redBus 10-20% (pricing-comparison.md). Floor 5%: below this, unit economics negative after payment processing 1.5-2.5% + notification costs 1K VND + support 3K VND. Ceiling 15%: above this, operators bypass platform for direct bookings (operator-sentiment.md: commission rate is top concern) |
 | **5% introductory rate** (3 months) | Operator acquisition incentive | No incumbent matches publicly (pricing-comparison.md). Combined with T+1 settlement = strongest operator value prop. 3 months chosen because: operator needs ~60 days to evaluate platform value (2 booking cycles, including at least one weekend peak). Shorter (1 month): not enough data for operator to decide. Longer (6 months): platform bleeds money during growth phase without converting to sustainable rate |
+
+> **CORRECTION** (2026-06-18): Commission "8-10%" and "5% introductory" → actual default is 6% (`ratePpm=60000`), admin-configurable. Ceiling is 20%, not 15%. No hardcoded introductory rate exists — commission is set per-operator by admin. See ADR-004 D4, ADR-006 D1 for same correction.
 | **CONCURRENT_HOLD_CAP** (per phone) | Maximum simultaneous active holds across all trips for one phone number | Prevents bot-driven seat hoarding. Too low (1): family booking requires parent to hold seats on multiple trips simultaneously while comparing options — creates friction. Too high (10): single compromised phone can block 10 × 4 seats = 40 seats across hot trips. Sweet spot (3-5): covers legitimate comparison shopping (2-3 trip options) while limiting abuse |
 | **Overbooking < 0.1%** | Maximum acceptable oversell rate | investor-kpis.md: "any overbooking is trust-destroying." At 500 bookings/day: 0.1% = 1 oversell every 2 days. Each oversell = stranded customer at bus station (worst possible CX in a market where trust is already low per user-insights.md). At 1%: 5 oversells/day = social media crisis within a week |
 | **Refund rate < 2% GMV** | Maximum acceptable refund volume | investor-kpis.md target. At 10% take rate on 400K VND avg ticket, each refunded booking costs platform 8K VND in non-recoverable payment processing fees + operational cost. At 2% refund rate with 15,000 bookings/month: 300 refunds × 8K = 2.4M VND/month. Above 2%: the refund processing cost alone exceeds support staff budget |
 | **Conversion 8-15%** (search → booking) | Target funnel completion rate | investor-kpis.md: "<5% indicates pricing or UX problem." Google Search travel CVR = 3-5%, but platform traffic is higher intent (user already decided to take a bus, just choosing which). 8% achievable. 15% optimistic (requires repeat users with saved preferences). Below 8% after 90 days: investigate search UX, pricing display, hold creation friction |
 | **Support < 20 per 1,000 bookings** | Customer support ticket ratio | investor-kpis.md target. At Phase 3 (500 bookings/day): 10 tickets/day. One support agent handles ~50 tickets/day. <20/1000 means <1 FTE support needed at Phase 3 volume — sustainable unit economics. Above 20: every 1,000 additional daily bookings requires a new support hire |
 | **Payment failure < 3%** | Failed payment attempts as % of total | investor-kpis.md target. PSP uptime SLA = 99.9% (≈0.1% infra-side failures). Remaining 2.9% = user-side failures (insufficient balance, wrong PIN, timeout). Above 3%: indicates gateway configuration issue, UX friction in payment flow, or PSP degradation requiring escalation |
-| **VND 100M e-wallet monthly cap** | MoMo/ZaloPay per-user monthly spending limit | Regulatory ceiling (Decree 52/2024, payment.md). Individual tickets (100-500K VND) = no impact. Business travelers booking 200+ tickets/month (persona "Anh Minh") or group bookings could hit cap. Platform must detect approaching-cap scenarios and offer VietQR/bank transfer fallback before checkout failure |
+| **VND 100M e-wallet monthly cap** | MoMo/ZaloPay per-user monthly spending limit | Regulatory ceiling (Decree 52/2024, payment.md). Individual tickets (100-500K VND) = no impact. Business travelers booking 200+ tickets/month (persona "Anh Minh") or group bookings could hit cap. Platform must detect approaching-cap scenarios and offer bank transfer fallback before checkout failure |
+
+---
+
+## Known Gaps (as of 2026-06-18)
+
+- **No RPO/RTO targets documented**: Recovery Point Objective and Recovery Time Objective for database/infrastructure failure are not specified. Critical for Tet surge planning and disaster recovery runbook.
+- **No load test results**: 2,000 concurrent target exists but no load testing infrastructure or historical test results documented. Pre-Tet validation path undefined.
+- **Monitoring tooling absent**: All monitoring targets (§I) reference BetterStack but no monitoring platform is deployed. See ADR-007.
 
 ---
 
@@ -293,7 +305,7 @@ At scale (Phase 3 Tet: 500 trips/day × 40 seats × 1,750,000 VND = 35B VND dail
 ### Negative
 
 - 99.5% uptime accepts ~3.6 hours/month potential downtime — if concentrated during Tet peak, consequences severe (mitigated by Tet-window escalation to 99.9%)
-- T+1 settlement exposes platform to chargeback risk for transactions older than 24 hours (mitigated: domestic-only MoMo/VietQR payments have near-zero chargeback mechanism; VNPay international card chargebacks are the only real vector, and international tourist volume is zero in Phase 1)
+- T+1 settlement exposes platform to chargeback risk for transactions older than 24 hours (mitigated: launch PSPs — bank transfer and cash — have zero chargeback mechanism; VNPay international card chargebacks are the only real vector, added in Phase 2 when international tourist volume is still near-zero)
 - 10-minute hold TTL may cause abandonment for users interrupted by phone calls or those on extremely slow connections (mitigated: hold can be re-created if expired; 10 min is generous compared to 5 min alternatives)
 - 2,000 concurrent target requires PgBouncer tuning and load testing infrastructure that adds operational complexity
 

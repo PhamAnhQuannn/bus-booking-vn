@@ -29,6 +29,8 @@ Key constraints (from `design/11-concurrency/`, `business/domain-model/invariant
 
 ## Decisions
 
+> Canonical invariant catalog (I1/Capacity Guard): [`domain-model/invariants-catalog.md`](../../business/domain-model/invariants-catalog.md). This ADR decides the concurrency mechanisms that enforce those invariants.
+
 ### D1: PostgreSQL `SELECT FOR UPDATE` Row Locking
 
 All capacity-affecting operations acquire a row-level lock on the gating entity (Trip, Bus, Operator) before reading or writing seat counts.
@@ -105,6 +107,12 @@ Holds expire after 10 minutes. Expired holds are cleaned up by a cron job proces
 
 **Rationale**: 10 minutes is calibrated against observed PSP redirect-to-completion times (VNPay: 3-5 min typical, MoMo: 2-4 min). Shorter (B) risks legitimate payments failing because the hold expired mid-checkout. Longer (C) wastes too much capacity on abandoned carts. Redis-based expiry (D) is unreliable — if the notification is missed, the hold stays active in PostgreSQL forever. Cron batch size of 500 prevents a single sweep from locking the Hold table under heavy load.
 
+> **IMPLEMENTATION STATUS** (2026-06-18)
+> - **Documented**: Cron sweeps expired holds automatically on schedule.
+> - **Actual**: `HOLD_SWEEPER_MODE` defaults to `'count'` (dry-run — counts but does not transition). Fresh deploy without explicit `HOLD_SWEEPER_MODE=sweep` leaves hold expiry non-functional, causing phantom capacity accumulation.
+> - **Status**: `PARTIALLY_IMPLEMENTED`
+> - **Tracking**: Ensure `HOLD_SWEEPER_MODE=sweep` is set in production env. Document in deployment runbook.
+
 ---
 
 ### D5: PSP Window for Awaiting-Payment Seat Reservation
@@ -143,6 +151,8 @@ Oversell prevention uses three independent defense layers:
 | **Layer 3: Phone hold cap** | Hold creation | Phone-level advisory lock + count active holds | Single phone hoarding multiple holds across trips (seat-squatting) |
 
 **Rationale**: No single layer is sufficient. Layer 1 handles the common case (concurrent hold attempts). Layer 2 handles the rare but critical case where two holds exist and both payment webhooks arrive simultaneously — one must be refunded. Layer 3 prevents abuse (a single phone locking up inventory across many trips). Defense-in-depth: if any one layer has a bug, the others catch it.
+
+> **CONFLICT**: D2 uses `pg_advisory_xact_lock` (advisory locks) for hold creation, while D7 Layer 2 uses `SELECT FOR UPDATE` (row-level locks) for payment webhook. These are independent lock mechanisms — advisory locks do not participate in PostgreSQL's deadlock detector alongside row-level locks. A concurrent hold-creation (advisory lock on Trip hash) and payment webhook (`FOR UPDATE` on Trip row) on the same trip operate on different lock planes with no cross-detection documented.
 
 ---
 

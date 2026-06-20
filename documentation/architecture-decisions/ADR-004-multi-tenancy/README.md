@@ -59,6 +59,12 @@ Key multi-tenancy constraints driving decisions (sourced from `documentation/bus
 - Fallback to licensed escrow only if small operators (60-70% of market by count) cannot open their own merchant accounts (operator-personas.md)
 - Fund flow matters more than contract label — even with a marketplace contract, if VNPay settles to platform's account first, the practical flow looks like thu hộ chi hộ (payment.md)
 
+> **IMPLEMENTATION STATUS** (2026-06-18)
+> - **Documented**: PSP split-settlement — each operator opens own VNPay/MoMo merchant account, payment splits at source
+> - **Actual**: Central collection via single platform merchant account (one `tmnCode` for VNPay, one `partnerCode` for MoMo from env). All payments flow to platform's account; operator share tracked via internal software ledger. Zero per-operator merchant credentials, zero sub-merchant IDs, zero PSP-level split calls.
+> - **Status**: `NOT_IMPLEMENTED`
+> - **Tracking**: This is the single highest-severity gap. The implemented model matches the "Central collection then remit" row above — which this ADR itself labels **illegal without SBV license**. Resolution required before Issue 094 go-live. See also ADR-005 D1, ADR-010 D4, risk-register #1.
+
 ---
 
 ### 3. Brand Ownership — Operator-Branded ("Shopify Model")
@@ -95,6 +101,8 @@ Key multi-tenancy constraints driving decisions (sourced from `documentation/bus
 - 5% introductory rate for operator acquisition (3-month free trial, then 5% intro) — no incumbent matches publicly (business-model.md, pricing-comparison.md)
 - Floor 5%: below this, unit economics are negative after payment processing (1.5-2.5%) and support costs. Ceiling 15%: above this, operators bypass platform for direct bookings. (business-model.md)
 - Unit economics at 10% on 400K VND avg ticket: ~16,000 VND net margin per booking (4.0% of ticket). Break-even at 50K-100K bookings/month. (business-model.md)
+
+> **CORRECTION** (2026-06-18): ADR references "8-10%" as standard commission and "5% introductory" rate. Actual configured default is **6%** (`ratePpm=60000` in seed + `DEFAULT_PLATFORM_FEE_PCT=0.06` in calcPayout). Ceiling is **20%** (`MAX_FEE_OVERRIDE_PPM=200000`), not 15%. Rate is admin-configurable per operator via FeeConfig. SaaS subscription tier has no schema implementation.
 
 ---
 
@@ -237,12 +245,14 @@ Key multi-tenancy constraints driving decisions (sourced from `documentation/bus
 | T+3 (marketed) | Published as headline differentiator | No competitor publishes settlement terms |
 | T+7 to T+14 | VeXeRe estimated default (not published) | Industry norm (inferred) |
 
-**Choice**: T+1 in code (`SETTLEMENT_DELAY_DAYS = 1`), marketed as T+3
+**Choice**: T+1 in code (`SETTLEMENT_DELAY_DAYS = 1`), marketed as T+1
 
 **Reasons**:
 - 1-day buffer provides time for dispute resolution, chargebacks, and oversold-race refunds before funds become withdrawable — without it, an operator could complete a trip and immediately withdraw before disputes are processed (invariants-catalog.md)
-- "T+3 fast settlement" is the fastest published settlement term in the Vietnam bus booking market — no competitor publishes their terms at all (competitive-advantages.md, pricing-comparison.md)
-- VeXeRe advertises "direct bank account deposits" as a BMS selling point, implying their baseline experience involves delays — BB's published T+3 is a concrete, verifiable trust advantage (operator-sentiment.md)
+- "T+1 fast settlement" is the fastest published settlement term in the Vietnam bus booking market — no competitor publishes their terms at all (competitive-advantages.md, pricing-comparison.md)
+- VeXeRe advertises "direct bank account deposits" as a BMS selling point, implying their baseline experience involves delays — BB's published T+1 is a concrete, verifiable trust advantage (operator-sentiment.md)
+
+> **CORRECTION** (2026-06-18): Original ADR said "marketed as T+3." User confirmed T+1 is the canonical marketing term. All business docs updated to T+1. Code already implements T+1 (`SETTLEMENT_DELAY_DAYS=1`).
 - Fast payout is meaningful to small operators with tight cash flow, especially during Tet when revenue is lumpy (competitive-advantages.md)
 - **Regulatory caveat**: T+3 model has risk under Decree 52/2024 — must be structured so PSP holds funds, not BB. Platform never takes custody. (competitive-advantages.md)
 
@@ -302,7 +312,7 @@ Key multi-tenancy constraints driving decisions (sourced from `documentation/bus
 - Lower OTA competition than tourist corridors — VeXeRe and redBus concentrate on tourist routes with higher foreign tourist visibility (vietnam-market-context.md)
 - Core demographic = migrant workers / laborers from Thanh Hóa working in TPHCM — maps to "Chị Lan" budget domestic persona (customer-personas.md)
 - 30-day kill-switch: if 3 LOIs (Thư bày tỏ ý định hợp tác) do not materialize in 30 days, product-market fit hypothesis invalidated — pivot before further investment (vietnam-market-context.md)
-- Two payment rails (VietQR + MoMo) cover ~80% of digitally-active travelers on this corridor. Vietnamese UI only — no English needed for beachhead. (vietnam-market-context.md)
+- Two payment rails (bank transfer + cash) cover launch needs on this corridor; MoMo + VNPay added Phase 2. Vietnamese UI only — no English needed for beachhead. (vietnam-market-context.md)
 
 ---
 

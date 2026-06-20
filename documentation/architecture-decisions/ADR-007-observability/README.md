@@ -43,6 +43,14 @@ Key business constraints driving observability decisions (sourced from `document
 - Sentry error tracking captures unhandled exceptions with source maps, grouping, and alerting. PII redaction in the Sentry `beforeSend` hook prevents phone numbers and payment data from leaving Vietnam (domain-model/invariants-catalog.md, regulatory/dpia-checklist.md)
 - Upgrade path: when Phase 3 revenue justifies it (~500 bookings/day), migrate to Grafana Cloud or self-hosted Grafana stack on Vietnam infrastructure. Structured JSON log format ensures zero-rework migration — Loki/Grafana ingest the same JSON lines PG currently stores
 
+> **FPT Cloud Monitoring Assessment** (2026-06-19): FPT Cloud Monitoring service (v1.3) collects metrics, logs, and traces with HTTP(S) endpoint monitoring and Kubernetes integration. However: no confirmed Prometheus-compatible scrape endpoints, no confirmed Grafana integration or API for programmatic access, and no published retention periods. **Recommendation: do NOT adopt FPT Cloud Monitoring as primary observability**. Use it as a secondary infrastructure-level signal (VM CPU/memory/disk) only. Primary stack remains BetterStack + Sentry + PG-based structured logs. When Phase 3 revenue justifies dedicated observability infra, self-deploy Prometheus + Grafana + Loki on a dedicated FPT VM — this stack is fully portable and runs within Vietnam data residency.
+
+> **IMPLEMENTATION STATUS** (2026-06-18)
+> - **Documented**: BetterStack (uptime monitoring) + Sentry (error tracking) + structured JSON logs to PG.
+> - **Actual**: Only stdout JSON logs via `lib/core/logger.ts` are implemented. Neither Sentry SDK nor BetterStack uptime monitoring is installed. No `@sentry/nextjs` in dependencies. No BetterStack heartbeat URL configured. `/api/health` endpoint exists but does not check Redis connectivity.
+> - **Status**: `NOT_IMPLEMENTED`
+> - **Tracking**: Sentry + BetterStack are zero-config additions. Add before go-live for error visibility and uptime monitoring. Add Redis check to `/api/health`.
+
 ---
 
 ### 2. PII Redaction Strategy — Field-Level Redaction at Log Serialization
@@ -117,7 +125,7 @@ Key business constraints driving observability decisions (sourced from `document
 
 **Reasons**:
 - Risk #8 (risk-matrix.md): "VietQR payment reconciliation failure (memo truncation, user mistype)" rated HIGH likelihood × HIGH impact. "Keep orderRef under 25 chars; build reconciliation dashboard in admin; recon sweeper must flag unmatched payments." Monitoring must track unmatched VietQR payments specifically
-- Stakeholder map rates NAPAS/VietQR as CRITICAL infrastructure: "VietQR webhook not reconciled = money received but no ticket = worst customer experience." MoMo: "IPN failure codes mis-mapped = legitimate payments marked failed = revenue loss." VNPay: "Incorrect return URL handling = payment confirmed by VNPay but booking never updated = double charges on retry" (stakeholder-map.md)
+- Stakeholder map rates NAPAS/bank transfer as CRITICAL infrastructure: "Bank transfer not reconciled = money received but no ticket = worst customer experience." SePay webhook is primary confirmation (5-30s); memo truncation remains a risk for the ~5% mismatch rate. MoMo: "IPN failure codes mis-mapped = legitimate payments marked failed = revenue loss." VNPay: "Incorrect return URL handling = payment confirmed by VNPay but booking never updated = double charges on retry" (stakeholder-map.md)
 - Payment anomaly detection target from ADR-002 Section I: "≤5 minutes — webhook volume drop >50% from 15-min rolling average." This requires tracking webhook volume as a time series, which webhook-level counting alone does not provide
 - Finance/Accounting Manager persona daily workflow (personas/admin-personas.md): "Morning: check overnight payment settlements (VNPay T+1, MoMo T+1 reconciliation files)." Monitoring must surface settlement discrepancies proactively, not wait for manual morning review
 - Specific metrics to monitor (derived from domain-model/event-flows.md, domain-model/invariants-catalog.md):
