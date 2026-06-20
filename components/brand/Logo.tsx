@@ -1,15 +1,5 @@
 import { cn } from '@/lib/utils';
 
-/**
- * BBVN brand mark — "route mark" (Concept A, docs/design/logo-brief.md):
- * an origin dot with an orange path → arrowhead, echoing the `Origin → Destination`
- * pattern used across the app.
- *
- * - `variant="glyph"` → just the route mark (favicon / app icon / tight spaces).
- * - `variant="combo"` → glyph + "BBVN" wordmark (header default).
- * - `mono` → render entirely in `currentColor` (PDF / print / single-color contexts);
- *   otherwise the path is brand-orange and the wordmark is foreground ink.
- */
 export function Logo({
   variant = 'combo',
   mono = false,
@@ -19,7 +9,7 @@ export function Logo({
   mono?: boolean;
   className?: string;
 }) {
-  const stroke = mono ? 'currentColor' : 'var(--primary)';
+  const fill = mono ? 'currentColor' : 'var(--primary)';
 
   const glyph = (
     <svg
@@ -28,19 +18,14 @@ export function Logo({
       aria-hidden="true"
       className="size-6 shrink-0"
     >
-      {/* origin dot */}
-      <circle cx="4" cy="12" r="2.5" fill={stroke} />
-      {/* route path */}
-      <path d="M7 12 H14.5" stroke={stroke} strokeWidth="2.25" strokeLinecap="round" />
-      {/* arrowhead → destination */}
       <path
-        d="M14 8 L19 12 L14 16"
-        stroke={stroke}
-        strokeWidth="2.25"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M8 3h8a4 4 0 0 1 4 4v7a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4Zm.5 2h7a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"
+        fill={fill}
       />
+      <circle cx="8" cy="21" r="2" fill={fill} />
+      <circle cx="16" cy="21" r="2" fill={fill} />
     </svg>
   );
 

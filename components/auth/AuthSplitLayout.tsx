@@ -8,7 +8,7 @@ const logoLinkClass =
   'inline-flex w-fit rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
 
 /**
- * Split-panel auth shell (design: docs/design/auth-redesign-20260527.md, design-language v1.0).
+ * Split-panel auth shell (design: docs/design/03a-frontend-design-system/, design-language v1.0).
  *
  * Desktop (≥md): brand panel beside the form panel. Mobile: form panel only + a slim
  * brand bar. `audience` swaps the brand panel surface + copy so customers and operators
