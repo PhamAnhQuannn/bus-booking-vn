@@ -6,7 +6,7 @@ This document defines the end-to-end refund architecture for the BusBooking plat
 
 **Source ADRs.** This document synthesizes decisions from ADR-005 (Payment Architecture), ADR-006 (Pricing/Currency), ADR-010 (Booking Lifecycle), ADR-015 (Error Contract), ADR-019 (State Machines).
 
-**Cross-references.** DS-001 (Data Model) for `Booking`, `PaymentEvent`, `LedgerEntry` entity schemas. DS-003 (API Contract) for route namespace table and error envelope format. DS-005 (Webhook Design) for inbound payment pipeline, idempotency key format, and refund trigger points (oversold race, overpay difference). DS-006 (Background Jobs) for cron-based retry patterns.
+**Cross-references.** DS-001 (Data Model) for `Booking`, `PaymentEvent`, `LedgerEntry` entity schemas. DS-003 (API Contract) for route namespace table and error envelope format. DS-005 (Webhook Design) for inbound payment pipeline, idempotency key format, and refund trigger points (oversold race, overpay difference). DS-006 (Background Jobs) for cron-based retry patterns. FD-018 (Cancellation & Refund UX) for the frontend UX of this refund flow.
 
 ---
 

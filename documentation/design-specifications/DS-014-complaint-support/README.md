@@ -6,7 +6,7 @@ This document defines the customer complaint handling system for the BusBooking 
 
 **Source ADRs.** This document synthesizes decisions from ADR-010 (Booking Lifecycle), ADR-013 (Notification Architecture), ADR-015 (Error Contract). Business context from regulatory/consumer-protection.md, personas/customer-personas.md, domain-model/event-flows.md.
 
-**Cross-references.** 01-data-model-design for `Complaint` entity schema and `Booking`/`Customer` relationships. 03-api-contract for route namespace table and auth middleware chain. 06-background-jobs for `complaintSlaMon` cron job and SLA deadline enforcement.
+**Cross-references.** 01-data-model-design for `Complaint` entity schema and `Booking`/`Customer` relationships. 03-api-contract for route namespace table and auth middleware chain. 06-background-jobs for `complaintSlaMon` cron job and SLA deadline enforcement. FD-020 (Complaint Tracking UX) for customer-facing complaint display, including the `KN-YYYY-NNNN` alias mapping.
 
 ---
 
@@ -99,6 +99,9 @@ The transition guard follows the same pattern as booking state transitions (ADR-
 model Complaint {
   id                   String            @id @default(cuid())
   refCode              String            @unique  // human-readable reference (e.g., "CPL-2026-0001")
+  // NOTE: DB stores "CPL-YYYY-NNNN" format. Customer-facing UX (FD-020 Complaint Tracking)
+  // displays the alias "KN-YYYY-NNNN" (Vietnamese: Khiếu Nại). Conversion is display-only;
+  // all API responses, logs, and queries use the CPL- prefix.
   customerId           String?                    // FK to Customer (null for guest complaints)
   customerPhone        String                     // contact phone (required for all complaints)
   customerEmail        String?                    // optional email for follow-up

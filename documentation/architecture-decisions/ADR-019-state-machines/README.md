@@ -12,6 +12,8 @@ The platform contains 8 distinct state machines governing the lifecycle of core 
 
 **Sources**: `business/domain-model/state-machines.md`, `business/domain-model/invariants-catalog.md` §I5, `business/domain-model/event-flows.md`
 
+> **Authoritative schema source**: DS-001 (Data Model) defines the canonical entity schemas, column types, and enum values for all state machine entities. This ADR covers the architectural rationale for state machine enforcement patterns (centralized transition maps, `SELECT FOR UPDATE`, guard placement). When transition tables or enum values diverge, DS-001 is authoritative.
+
 ---
 
 ## Decisions
