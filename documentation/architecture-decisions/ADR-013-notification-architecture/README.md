@@ -97,7 +97,7 @@ Key business constraints driving notification decisions (sourced from `documenta
 
 ---
 
-### 4. Dispatch Model — Cron-Only Outbox Pattern (Never In-Process)
+### 4. Dispatch Model — Cron-Based Outbox with `after()` Acceleration for Time-Critical Notifications
 
 | Option | Pros | Cons |
 |--------|------|------|
@@ -106,15 +106,28 @@ Key business constraints driving notification decisions (sourced from `documenta
 | Event-driven (message queue) | Real-time delivery; natural backpressure handling; scales horizontally | Additional infrastructure (Redis/RabbitMQ queue); message ordering complexity; dead-letter queue management; overkill for notification volume at launch scale |
 | Hybrid (immediate attempt + queue fallback) | Fast happy-path delivery; queue catches failures | Dual-path complexity; race conditions between immediate and queued attempts; harder to debug delivery issues; booking state still at risk from synchronous path |
 
-**Choice**: Cron-only outbox pattern (never in-process)
+**Choice**: Cron-based outbox as default dispatch path, with `after()` acceleration for time-critical notifications
 
 **Reasons**:
 - Critical design rule: notification failure must NEVER affect booking state — the booking is `paid` because the payment webhook confirmed it; if SMS fails, the booking is still paid (domain-model/bounded-contexts.md)
 - Payment webhook must always return HTTP 200 to gateway (except 400 for invalid HMAC) — synchronous notification sending risks webhook timeout, causing PSP retry storms that compound the problem (domain-model/event-flows.md)
-- All domains produce NotificationLog rows with `status='pending'` — the dispatch cron is the sole delivery path; routes and webhooks only enqueue, never dispatch in-process (domain-model/bounded-contexts.md)
+- All domains produce NotificationLog rows with `status='pending'` — the dispatch cron is the catch-all delivery path; routes and webhooks enqueue, and the cron ensures delivery even if `after()` fails (domain-model/bounded-contexts.md)
 - Retry with backoff tracked via `attemptCount` and `nextAttemptAt` columns on NotificationLog — automatic retry on next cron run without manual intervention (domain-model/bounded-contexts.md)
 - eSMS delivery status callback is not fire-and-forget — the cron-based approach naturally accommodates asynchronous delivery status updates (stakeholder-map.md)
 - Message queue rejected: additional infrastructure overhead not justified at launch scale (10–20 operators, beachhead corridor); cron-based dispatch is sufficient for projected volume and can be migrated to queue-based if Tet surge (10–20x traffic) demands it (risk-matrix.md, vietnam-market-context.md)
+
+> **EXEMPTION: Time-Critical Notifications** (added 2026-06-20)
+>
+> The following notification types are exempt from cron-only dispatch and use `after()` acceleration (post-commit immediate attempt with cron catch-up on failure), per DS-006 (Background Jobs) hybrid trigger pattern and ADR-012 D2/D6:
+>
+> - **OTP send** — user is waiting at a 6-digit input box; cron-interval delay (up to 60s) is unacceptable for authentication UX
+> - **Booking confirmation SMS** — customer expects immediate confirmation after payment; delay erodes trust
+> - **Trip cancellation SMS** — affected passengers need prompt notification to make alternative arrangements
+> - **Payment webhook post-commit notifications** — DS-005 §8.2 specifies `after()` for all webhook-triggered SMS (customerBookingPaid, operatorNewBooking)
+>
+> The `after()` hook fires immediately after the HTTP response is sent. If `after()` fails silently (cold-start crash, timeout), the 1-minute cron sweep picks up the pending NotificationLog row on its next invocation. This preserves the core invariant: notification failure never affects booking/payment state.
+>
+> All other notification types (payout_scheduled, operator onboarding, admin alerts, batch reports) use cron-only dispatch — no `after()` acceleration needed.
 
 ---
 

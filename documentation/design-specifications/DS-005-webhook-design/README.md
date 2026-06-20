@@ -357,23 +357,19 @@ Refund creates two LedgerEntry rows: `refund_debit` (reverses `booking_credit`) 
 
 ## 8. Notification Enqueue
 
-### 8.1 Cron-Only Outbox Pattern
+> **Full notification dispatch architecture**: See DS-006 (Background Jobs) §5 for the complete dispatch model, channel hierarchy, retry strategy, and `after()` acceleration pattern. This section covers only the webhook-specific enqueue behavior.
 
-Webhook handlers **enqueue** `NotificationLog` rows with `status = 'pending'` — they **never dispatch** notifications in-process. The `notificationDispatch` cron (every 1 minute) is the sole delivery path.
+### 8.1 Outbox Pattern with `after()` Acceleration
+
+Webhook handlers **enqueue** `NotificationLog` rows with `status = 'pending'`, then use `after()` to attempt best-effort dispatch post-commit. The `notificationDispatch` cron (every 1 minute) catches any rows that `after()` missed.
 
 **Critical decoupling invariant:** Notification failure must NEVER affect booking state. The booking is `paid` because the payment webhook confirmed it. If SMS fails, the booking is still paid.
 
-**Rationale:** Synchronous notification sending inside the webhook handler risks webhook timeout, causing PSP retry storms that compound the problem.
+**Rationale:** Synchronous notification sending inside the webhook handler risks webhook timeout, causing PSP retry storms that compound the problem. The `after()` hook fires after the HTTP 200 response is already sent, so PSP retry behavior is unaffected.
 
-**Source:** ADR-013 D4.
+**Source:** ADR-013 D4 (time-critical exemption), ADR-012 D2/D6, DS-006 §5.
 
-### 8.2 `after()` Acceleration
-
-The `after()` hook fires immediately after the webhook's HTTP 200 response is sent, attempting best-effort notification dispatch within seconds. If `after()` fails silently (cold-start crash, timeout), the 1-minute cron sweep picks up the pending `NotificationLog` row on its next invocation.
-
-**Source:** ADR-012 D2, ADR-012 D6.
-
-### 8.3 I9 Invariant: Phone Segregation
+### 8.2 I9 Invariant: Phone Segregation
 
 - `NotificationLog.recipient` column carries the phone number for delivery.
 - The `payload` JSON field **must never contain the phone number** — prevents double-exposure if payload is logged or exported.
