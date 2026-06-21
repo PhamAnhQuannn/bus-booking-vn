@@ -30,7 +30,7 @@ Status tracking for all work items derived from gap analysis
 | 04 | [payout-account-encryption](04-payout-account-encryption.md) | HIGH | DONE | 02 S2 | KG-03, HD-001 |
 | 05 | [admin-totp-replay-protection](05-admin-totp-replay-protection.md) | HIGH | DONE | 02 S3 | HD-012 |
 | 06 | [branch-protection-rules](06-branch-protection-rules.md) | HIGH | NOT_STARTED | 02 S4 | KG-04 |
-| 07 | [secrets-rotation-runbook](07-secrets-rotation-runbook.md) | HIGH | NOT_STARTED | 02 S5 | KG-06 |
+| 07 | [secrets-rotation-runbook](07-secrets-rotation-runbook.md) | HIGH | DONE | 02 S5 | KG-06 |
 
 ## Group C: Phase 1 Infrastructure
 
