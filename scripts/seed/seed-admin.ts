@@ -1,5 +1,5 @@
 /**
- * Dev seed: provision a platform SUPER_ADMIN with a known password AND an
+ * Dev seed: provision a platform SUPER_ADMIN with a random password AND an
  * already-enabled TOTP secret, so you can sign in at /admin/login immediately.
  *
  * The real flow is sealed (CLI bootstrap -> API enroll/confirm, no enroll UI).
@@ -20,6 +20,7 @@ import { Pool } from 'pg';
 import { hash } from '@/lib/auth/password';
 import { generateTotpSecret, totpAuthUri, generateTotp } from '@/lib/auth/totp';
 import { encryptTotpSecret } from '@/lib/auth/totpCrypto';
+import { genTempPassword } from '@/lib/staff/genTempPassword';
 
 const EMAIL = 'admin@busbookvn.local';
 
@@ -28,7 +29,7 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  const password = '123456';
+  const password = genTempPassword();
   const passwordHash = await hash(password);
   const secret = generateTotpSecret();
 
