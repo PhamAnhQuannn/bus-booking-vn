@@ -65,7 +65,7 @@ Status tracking for all work items derived from gap analysis
 | 19 | [cron-supercronic-sidecar](19-cron-supercronic-sidecar.md) | MEDIUM | NOT_STARTED | 06 | DS-006 |
 | 20 | [zod-boot-validation-completeness](20-zod-boot-validation-completeness.md) | MEDIUM | DONE | 02 S8 | SI-006 |
 | 21 | [pnpm-audit-ci-stage](21-pnpm-audit-ci-stage.md) | HIGH | DONE | 02 S6, 05 | KG-01 |
-| 22 | [greppable-invariants-ci](22-greppable-invariants-ci.md) | HIGH | NOT_STARTED | 02 S7, 05 | KG-14 |
+| 22 | [greppable-invariants-ci](22-greppable-invariants-ci.md) | HIGH | DONE | 02 S7, 05 | KG-14 |
 | 23 | [smoke-tests](23-smoke-tests.md) | HIGH | NOT_STARTED | 09 | GL-006 |
 | 24 | [post-deploy-health-check](24-post-deploy-health-check.md) | MEDIUM | NOT_STARTED | 01 S8, 09 | GL-006 |
 

@@ -22,15 +22,13 @@ const DEFAULT_PLATFORM_FEE_PCT = 0.06;
  *   halfEvenRound(50.5) → 50  (50 is even)
  *   halfEvenRound(51.5) → 52  (52 is even)
  */
-export function halfEvenRound(x: number): number {
-  const floor = Math.floor(x);
+export function halfEvenRound(x: number): number { // bigint-exempt: Number-domain rounding helper, not money multiplication
+  const floor = Math.floor(x); // bigint-exempt:
   const frac = x - floor;
-  // Check for exact 0.5 midpoint (within float epsilon)
   if (Math.abs(frac - 0.5) < Number.EPSILON) {
-    // Round to nearest even
     return floor % 2 === 0 ? floor : floor + 1;
   }
-  return Math.round(x);
+  return Math.round(x); // bigint-exempt:
 }
 
 export interface CalcPayoutInput {
