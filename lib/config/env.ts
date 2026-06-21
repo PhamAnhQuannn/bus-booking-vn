@@ -319,6 +319,22 @@ const envSchema = z.object({
   REDIS_PROVIDER: z.enum(['memory', 'ioredis', 'upstash']).default('memory'),
   /** Redis connection URL for ioredis provider. */
   REDIS_URL: z.string().default('redis://localhost:6379'),
+  /** Upstash Redis REST URL (required when REDIS_PROVIDER=upstash). */
+  UPSTASH_REDIS_REST_URL: z.string().url().optional(),
+  /** Upstash Redis REST token (required when REDIS_PROVIDER=upstash). NEVER log this value. */
+  UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
+
+  /**
+   * HMAC-SHA256 secret for refresh-token signing (customer + operator + admin realms).
+   * Must be at least 32 characters. Required in production; test fallback to 'b'.repeat(32).
+   */
+  REFRESH_TOKEN_SECRET: z.string().min(32).optional(),
+
+  /** Shadow database URL for Prisma migrations (prisma.config.ts). */
+  SHADOW_DATABASE_URL: z.string().url().optional(),
+
+  /** Enable OTP peek endpoint for dev/test (ignored in production). */
+  OTP_PEEK_ENABLED: z.string().optional(),
 }).superRefine((env, ctx) => {
   // Real eSMS mode (NOTIFY_STUB=false) must carry credentials — fail fast at boot.
   if (!env.NOTIFY_STUB) {
@@ -392,8 +408,25 @@ const envSchema = z.object({
       });
     }
   }
+  // Upstash provider must carry REST credentials.
+  if (env.REDIS_PROVIDER === 'upstash') {
+    if (!env.UPSTASH_REDIS_REST_URL) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['UPSTASH_REDIS_REST_URL'],
+        message: 'UPSTASH_REDIS_REST_URL is required when REDIS_PROVIDER=upstash',
+      });
+    }
+    if (!env.UPSTASH_REDIS_REST_TOKEN) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['UPSTASH_REDIS_REST_TOKEN'],
+        message: 'UPSTASH_REDIS_REST_TOKEN is required when REDIS_PROVIDER=upstash',
+      });
+    }
+  }
   if (process.env.NODE_ENV === 'production') {
-    for (const key of ['JWT_SECRET', 'JWT_OPERATOR_SECRET', 'JWT_ADMIN_SECRET', 'TOTP_ENCRYPTION_KEY', 'DATABASE_URL', 'CRON_SECRET'] as const) {
+    for (const key of ['JWT_SECRET', 'JWT_OPERATOR_SECRET', 'JWT_ADMIN_SECRET', 'TOTP_ENCRYPTION_KEY', 'DATABASE_URL', 'CRON_SECRET', 'REFRESH_TOKEN_SECRET'] as const) {
       if (!env[key]) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
