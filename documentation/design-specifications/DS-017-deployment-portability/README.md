@@ -529,3 +529,9 @@ const s3 = new S3Client({
 | P9 | GHCR over FPT Container Registry | 2026-06-19 | FPT CR costs 16M VND/mo ($640) — prohibitive; GHCR is free with GitHub |
 | P10 | Cloudflare WAF over FPT Cloud WAF for Stage 0-1 | 2026-06-19 | $20/mo vs $316-640/mo; same Cloudflare edge network; re-evaluate at Stage 2 |
 | P11 | S3 `forcePathStyle` for FPT Object Storage | 2026-06-19 | MinIO-based storage requires path-style addressing; env var controls the flag |
+
+---
+
+## See Also
+
+- [SI-006 Deployment Config](../../scaffolding-infra/SI-006-deployment-config/) — deployment contract implementation, Docker Compose reference, cron sidecar, Nginx, staged evolution path

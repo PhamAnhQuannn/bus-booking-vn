@@ -962,3 +962,10 @@ Any background job that computes currency amounts (payout settlement, platform f
 6. **Greppable bug:** Any `Math.round(<int> * <fractional>)` or `Math.floor(<minor-unit> * <rate>)` in `lib/payouts/**`, `lib/ledger/**`, or any money-handling module is a representation drift bug.
 
 **Source:** ADR-006 D5, Mistake Log Issue 016.
+
+---
+
+## See Also
+
+- [SI-003 CI/CD Pipeline](../../scaffolding-infra/SI-003-ci-cd-pipeline/) — cron endpoint testing in CI, migration safety checks
+- [SI-006 Deployment Config](../../scaffolding-infra/SI-006-deployment-config/) — cron sidecar design, job catalog with schedules, `after()`-accelerated side effects
