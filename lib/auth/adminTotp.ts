@@ -21,6 +21,7 @@
 import { prisma } from '@/lib/core/db/client';
 import { generateTotpSecret, totpAuthUri, verifyTotp } from './totp';
 import { encryptTotpSecret, decryptTotpSecret } from './totpCrypto';
+import { consumeJti } from './otpProof';
 
 export interface BeginEnrollmentResult {
   secret: string;
@@ -33,7 +34,7 @@ export type ConfirmEnrollmentResult =
 
 export type VerifyLoginTotpResult =
   | { ok: true }
-  | { ok: false; reason: 'enrollment_required' | 'bad_code' };
+  | { ok: false; reason: 'enrollment_required' | 'bad_code' | 'code_already_used' };
 
 /**
  * Phase 1 of enrollment: generate a fresh secret, persist it WITHOUT enabling TOTP,
@@ -111,6 +112,12 @@ export async function verifyLoginTotp(
   const plainSecret = decryptTotpSecret(admin.totpSecret);
   if (!verifyTotp(plainSecret, code)) {
     return { ok: false, reason: 'bad_code' };
+  }
+
+  // HD-012: TOTP replay protection — SETNX prevents same code reuse within ±1 window (90s)
+  const consumed = await consumeJti(`totp-replay:${adminId}:${code}`, 90);
+  if (!consumed) {
+    return { ok: false, reason: 'code_already_used' };
   }
 
   return { ok: true };
