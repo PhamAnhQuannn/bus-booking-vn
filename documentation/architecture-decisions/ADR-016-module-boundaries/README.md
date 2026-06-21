@@ -119,3 +119,10 @@ Note: `eslint-plugin-import@2` (legacy CJS) has no flat-config export — use `e
 - **Deep import discipline for client components** — developers must know which modules are client-safe
 - **Two lint plugins** — `eslint-plugin-boundaries` + `eslint-plugin-import-x` add configuration complexity
 - **Test/dev-only internals** — some symbols (`_resetEnvCache`, `STUB_BLOBS`) must remain deep-importable for tests, creating exceptions to the barrel rule
+
+---
+
+## See Also
+
+- [SI-002 Dev Environment](../../scaffolding-infra/SI-002-dev-environment/) — D3 barrel import pitfall documented as Section 8.6 known pitfall
+- [SI-004 Linting & Formatting](../../scaffolding-infra/SI-004-linting-formatting/) — `eslint-plugin-boundaries` and `eslint-plugin-import-x` configuration

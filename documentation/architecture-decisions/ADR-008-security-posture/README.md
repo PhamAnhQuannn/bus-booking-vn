@@ -123,18 +123,20 @@ ADR-008 is the cross-cutting security umbrella. It does NOT re-decide topics own
 - `X-Frame-Options: DENY` (no legitimate iframe embedding use case)
 - `Referrer-Policy: strict-origin-when-cross-origin` (preserves origin for PSP redirects, strips path)
 - `Permissions-Policy: camera=(), microphone=(), geolocation=()` (no hardware access needed)
-- `Content-Security-Policy`: `default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' <psp-origins> <sentry-origin>; frame-ancestors 'none'; form-action 'self'` — PSP-specific `connect-src` origins maintained per environment (sandbox vs production)
+- `Content-Security-Policy`: `default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' <payment-origins> <sentry-origin>; frame-ancestors 'none'; form-action 'self'` — Phase 1: `connect-src` includes SePay webhook callback origin only (no MoMo/VNPay). Phase 2: add PSP-specific origins when MoMo/VNPay ship
 
 **Reasons**:
 - Investor diligence flags missing security headers — "regulatory non-compliance in diligence = term sheet pulled" (stakeholder-map.md)
 - Consumer-protection.md requires platform to protect against unauthorized transactions — CSP and X-Frame-Options prevent clickjacking attacks on the payment flow (regulatory/consumer-protection.md)
-- CSP `connect-src` must include PSP redirect origins (MoMo sandbox, VNPay sandbox/production) — misconfiguration here breaks payment checkout, so PSP-specific origins are maintained in a named constant per environment
+- CSP `connect-src`: Phase 1 includes SePay callback origin only (bank transfer). Phase 2 adds MoMo/VNPay redirect origins when PSP integration ships. Origins maintained in a named constant per environment
 
 > **IMPLEMENTATION STATUS** (2026-06-18)
 > - **Documented**: Full OWASP header set via `next.config.ts headers()` — HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy.
 > - **Actual**: Zero security headers configured. No `headers()` function in `next.config.ts`, no `vercel.json` header rules. All listed headers are absent from HTTP responses.
 > - **Status**: `NOT_IMPLEMENTED`
-> - **Tracking**: Must add before Issue 094 go-live. CSP tuning required for VNPay/MoMo redirect origins.
+> - **Tracking**: Must add before Issue 094 go-live. Phase 1 CSP only needs SePay origin; MoMo/VNPay origins added in Phase 2.
+>
+> **Auth Provider Note (ADR-003 D8):** Better Auth (self-hosted in Next.js, MIT, Prisma adapter) chosen as auth provider. Handles password hashing, session management, token rotation, TOTP, OTP — no additional dependency container or SaaS vendor. Zero CDTIA impact (runs inside same Next.js process on FPT Cloud). See ADR-003 D8 for full decision rationale.
 
 ---
 
@@ -334,7 +336,7 @@ ADR-008 is the cross-cutting security umbrella. It does NOT re-decide topics own
 
 ### Negative
 - Application-layer T2 encryption adds key management complexity (TOTP_ENCRYPTION_KEY, future CCCD encryption key) — key loss = data loss
-- HTTP CSP headers require per-PSP tuning (MoMo, VNPay sandbox vs production URLs) — misconfiguration breaks payment checkout flow
+- HTTP CSP headers require payment-origin tuning per phase — Phase 1: SePay only; Phase 2: add MoMo/VNPay redirect origins. Misconfiguration breaks payment flow
 - Dependabot may create alert noise from transitive dependency vulns that are not directly exploitable — requires triage discipline
 - FPT Cloud requires Docker/Nginx/SSL DevOps (vs Vercel zero-ops) — mitigated by Terraform IaC (`fpt-corp/fptcloud`)
 - Manual secret rotation (no external vault) relies on discipline and the 90-day cron alert
@@ -343,7 +345,7 @@ ADR-008 is the cross-cutting security umbrella. It does NOT re-decide topics own
 
 ### Mitigations
 - Key management: rotation runbook documents per-secret procedure; backup key stored in separate secure location; env.ts Zod validation fails fast on missing/malformed key
-- CSP tuning: PSP-specific `connect-src` origins maintained in a named constant per environment; CI e2e tests validate payment flow with headers enabled
+- CSP tuning: payment-specific `connect-src` origins maintained in a named constant per environment (Phase 1: SePay; Phase 2: MoMo/VNPay); CI e2e tests validate payment flow with headers enabled
 - Dependabot noise: `dependabot.yml` configured for security-updates-only (not version updates); `pnpm audit --audit-level=high` blocks only high/critical in CI
 - FPT Cloud DevOps: Terraform provider covers core infra; Nginx + Let's Encrypt is standard Vietnamese DevOps practice; read replicas available for Phase 3 scale
 - Secret rotation discipline: 90-day cron alert; sandbox sentinel detection in env.ts prevents production launch with test credentials
@@ -377,3 +379,10 @@ All decisions sourced exclusively from `documentation/business/`:
 | stakeholder-map.md | D1, D4, D6, D7, D8, D10 |
 | vietnam-market-context.md | D7, D10, D12 |
 | competitor-benchmark/operator-sentiment.md | Context |
+
+---
+
+## See Also
+
+- [SI-003 CI/CD Pipeline](../../scaffolding-infra/SI-003-ci-cd-pipeline/) — security gates (Gitleaks, dependency scanning, HTTP headers), sandbox sentinel detection
+- [SI-006 Deployment Config](../../scaffolding-infra/SI-006-deployment-config/) — environment validation, secrets management, WAF configuration

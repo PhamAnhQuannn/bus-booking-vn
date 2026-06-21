@@ -138,3 +138,9 @@ await page.goto('/search?' + new URLSearchParams({ from: 'TPHCM', to: 'Thanh Hoa
 - **CI requires Docker** — PostgreSQL container must be available
 - **Mock update burden** — every Prisma query change requires grep-and-update of all mocks
 - **E2E URL driving doesn't test the form** — form-specific bugs (validation, field interaction) require dedicated form tests
+
+---
+
+## See Also
+
+- [SI-005 Testing Strategy](../../scaffolding-infra/SI-005-testing-strategy/) — test pyramid implementation, mock hygiene rules, concurrency testing, financial math testing

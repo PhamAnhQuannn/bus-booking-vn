@@ -193,3 +193,11 @@ Key business constraints driving stack decisions (sourced from `documentation/bu
 - Vendor lock-in: Prisma schema + PostgreSQL are portable; Next.js-specific APIs (`after()`, Edge middleware) are isolated to thin adapter layers; S3-compatible storage via standard `@aws-sdk/client-s3`
 - Deploy blast radius: route-group organization + feature flags enable incremental rollout per surface
 - Preview deploys: Vercel staging (zero-ops) retained for development workflow; production traffic stays on FPT Cloud
+
+---
+
+## See Also
+
+- [SI-001 Project Scaffold](../../scaffolding-infra/SI-001-project-scaffold/) — stack consolidation, monorepo structure, multi-tenancy model, state machines
+- [SI-002 Dev Environment](../../scaffolding-infra/SI-002-dev-environment/) — local setup, Prisma workflow, stub modes, environment variable schema
+- [SI-006 Deployment Config](../../scaffolding-infra/SI-006-deployment-config/) — FPT Cloud hosting architecture, deployment contract, provider migration playbook

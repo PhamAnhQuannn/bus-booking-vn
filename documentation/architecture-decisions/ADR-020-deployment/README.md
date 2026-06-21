@@ -360,3 +360,12 @@ Internet → Cloudflare (CDN + DNS + DDoS) → FPT Cloud Server public IP
 - **No FPT secrets management** — no KMS/Vault equivalent; env vars + Zod validation is the only option until self-hosted Vault
 - **No auto-scaling at Stage 0** — VPS requires manual vertical scaling; FPT Autoscale (VM cloning) available but adds complexity. Acceptable at ~200 bookings/day
 - **PgBouncer still mandatory** — even with persistent process, connection pooling needed for concurrent request handling
+
+---
+
+## See Also
+
+- [SI-001 Project Scaffold](../../scaffolding-infra/SI-001-project-scaffold/) — stack choices, monorepo structure, module architecture
+- [SI-002 Dev Environment](../../scaffolding-infra/SI-002-dev-environment/) — local setup, stub/real mode switching, Zod boot validation, cron dev workflow
+- [SI-003 CI/CD Pipeline](../../scaffolding-infra/SI-003-ci-cd-pipeline/) — pipeline stages, Docker build, migration safety in CI
+- [SI-006 Deployment Config](../../scaffolding-infra/SI-006-deployment-config/) — deployment contract implementation, cron sidecar, Nginx, NFRs

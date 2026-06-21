@@ -120,11 +120,11 @@ Key business constraints driving auth decisions (sourced from `documentation/bus
 - Full stateless JWT rejected: cannot revoke compromised operator sessions fast enough — operator console handles financial operations (domain-model/invariants-catalog.md)
 - Full server-side sessions rejected: DB lookup on every request incompatible with Edge middleware and adds connection pressure during Tet surge (risk-matrix.md)
 
-> **IMPLEMENTATION STATUS** (2026-06-18)
-> - **Documented**: Three independent session lifecycles with realm-isolated tokens.
-> - **Actual**: Single `REFRESH_TOKEN_SECRET` env var shared across all three realms (customer, operator, admin). Realm isolation enforced at the access token level (separate JWT secrets per realm) but the refresh layer uses one shared secret. A refresh token minted for one realm could theoretically be exchanged in another realm's refresh endpoint if the endpoint doesn't validate the realm claim.
-> - **Status**: `PARTIALLY_IMPLEMENTED`
-> - **Tracking**: Verify refresh endpoints validate realm claim; or split to per-realm refresh secrets.
+> **IMPLEMENTATION STATUS** (2026-06-21)
+> - **Documented**: Three independent session lifecycles with realm-isolated tokens. Per-realm signing secrets for both access and refresh tokens (D10).
+> - **Actual**: Single `REFRESH_TOKEN_SECRET` env var shared across all three realms. Access tokens already use per-realm secrets. Refresh layer uses one shared secret.
+> - **Status**: `PLANNED` — D10 decides per-realm refresh secrets. Migration to Better Auth (D8) will implement this as part of the auth provider integration.
+> - **Tracking**: Generate per-realm refresh secrets during Better Auth migration. Interim: refresh endpoints validate realm claim.
 
 ---
 
@@ -158,16 +158,17 @@ Key business constraints driving auth decisions (sourced from `documentation/bus
 | Email OTP | Near-zero delivery cost; no carrier registration; works globally | Email rated low-importance for Vietnamese bus travelers; delivery to spam folder; not real-time; poor fit for time-sensitive OTP (60-second confirmation is a trust signal) |
 | **Zalo ZNS primary + SMS fallback** | Optimal cost (ZNS for majority of users); universal reach (SMS catches non-Zalo users); resilient (if ZNS fails, SMS delivers); matches actual channel preference hierarchy | Two integrations to maintain; routing logic needed; SMS brandname registration still required for fallback |
 
-**Choice**: Zalo ZNS primary + SMS fallback
+**Choice**: Zalo ZNS primary + SMS fallback (Phase 2 target). **Phase 1: eSMS (SMS) only.**
 
 **Reasons**:
 - 50-70% cost savings with ZNS-primary strategy — at scale, OTP delivery is a significant operating cost line item (regulatory/telecom-sms.md)
 - Zalo is the primary communication channel for Vietnamese travelers — "Em Quan" (student) is Zalo-native; MoMo (68% e-wallet share, 31M users) proves Vietnamese users expect in-app messaging (market-research/user-insights.md)
 - SMS fallback covers segments that don't use Zalo: "Ba Hoa" (elderly, feature phone), "Marco" (international tourist, fresh local SIM), users in low-connectivity areas (personas/customer-personas.md)
-- Brandname SMS registration (2-4 weeks per carrier) is a hard blocker regardless — having SMS as fallback rather than primary reduces urgency of the blocker but doesn't eliminate it (risk-matrix.md, regulatory/telecom-sms.md)
+- Brandname SMS registration (5-10 weeks per carrier) is a hard blocker — start early (regulatory/telecom-sms.md)
 - Dual-channel provides resilience: carrier SMS outages during Tet surge (10-20x traffic) are a known risk — Zalo ZNS is an independent delivery path (risk-matrix.md)
-- Channel preference hierarchy mirrors user behavior: Zalo primary, SMS secondary, email tertiary (market-research/user-insights.md)
 - eSMS aggregator recommended for SMS to avoid per-carrier integration (regulatory/telecom-sms.md)
+
+> **Phase 1 Scope**: eSMS (SMS) only. Zalo ZNS integration deferred to Phase 2 — ZNS template approval and OA verification add lead time incompatible with beachhead launch timeline. SMS provides universal reach for 1-3 operator launch corridor. Better Auth OTP plugin (D8) wires to eSMS via custom adapter.
 
 ---
 
@@ -195,13 +196,105 @@ Key business constraints driving auth decisions (sourced from `documentation/bus
 
 ---
 
+### 8. Auth Provider — Better Auth (Self-Hosted in Next.js)
+
+| Option | Pros | Cons |
+|--------|------|------|
+| Build from scratch | Full control; no dependencies; exact fit for three-realm model | Massive surface area: password hashing, token rotation, reuse detection, brute-force, TOTP — each a bug category we'd own entirely |
+| Auth0 / Clerk (SaaS) | Decades of hardening; managed infrastructure; SOC2 audit logs | US/EU-hosted — requires CDTIA for Vietnamese user PII; per-MAU pricing at scale; external dependency for critical path |
+| Firebase Auth (Google) | 50k MAU free; phone OTP built-in | Google Cloud = CDTIA needed; 1000-byte custom claim limit; no self-host |
+| Supabase Auth (self-host) | Self-host on FPT Cloud (zero CDTIA); free; PostgreSQL-native | Separate GoTrue Docker container; Go codebase harder to debug for TypeScript team |
+| **Better Auth (self-host)** | Self-host inside Next.js (zero CDTIA, zero extra container); MIT licensed, zero per-MAU; TypeScript-native with Prisma adapter; plugins for OTP, TOTP, phone-number; full session customization | Younger than Auth0/Firebase; smaller community; we still own realm routing, tenant isolation, CSRF, business authz |
+
+**Choice**: Better Auth (self-hosted in Next.js, Prisma adapter)
+
+**Reasons**:
+- **Data residency solved** — runs inside our Next.js app on FPT Cloud. No separate container, no cross-border transfer, zero CDTIA
+- **Zero ongoing cost** — MIT licensed, no per-MAU. SaaS providers cost $240-$300+/year at 10k MAU
+- **TypeScript-native** — same Prisma ORM and PostgreSQL; no language boundary when debugging auth
+- **Plugin system covers three realms**: `phoneNumber()` + `otp()` for customer via eSMS; built-in email+password for operator; `twoFactor()` for admin TOTP with backup codes
+- **Custom session fields** — `realm`, `operatorId` stored in session; Edge middleware reads without DB lookup
+- SaaS providers (Auth0, Clerk, Firebase) rejected: US/EU-hosted = CDTIA; external critical-path dependency; per-MAU pricing misaligned with pre-revenue startup
+
+**Provider vs App Responsibility Split:**
+
+| Provider (Better Auth) | App (Our Code) |
+|----------------------|----------------|
+| Password hashing (bcrypt cost 12) | Tenant isolation (`withOperatorScope`) |
+| Session management (DB-backed, revocable) | IDOR checks (resource ownership) |
+| Refresh token rotation + reuse detection | Zod validation (mass assignment) |
+| Brute-force protection + rate limiting | Race condition guards (`SELECT FOR UPDATE`) |
+| TOTP (setup, verify, backup codes, replay) | Webhook auth (SePay bearer token) |
+| OTP (custom eSMS adapter) | CSRF double-submit |
+| Token integrity (JWT signing, alg:none rejection) | Select whitelists (data leak prevention) |
+| | Realm routing (path enforcement) |
+
+**Three-Realm Routing via Better Auth:**
+```
+/api/auth/customer/otp/send     → phone OTP (eSMS)
+/api/auth/customer/otp/verify   → session with realm='customer'
+
+/api/auth/operator/login        → password → session with realm='operator', operatorId=X
+/api/auth/operator/otp/send     → step-up OTP for sensitive ops
+
+/api/auth/admin/login           → password+TOTP → session with realm='admin'
+/api/auth/admin/totp/setup      → first-login QR scan
+```
+
+---
+
+### 9. Password Hashing — bcrypt Cost 12
+
+**Choice**: bcrypt with cost factor 12 (handled by Better Auth)
+
+**Reasons**:
+- ~250ms hash time balances security vs login latency
+- Only operator and admin realms use passwords; customer is OTP-only
+
+---
+
+### 10. Separate JWT Signing Secrets Per Realm
+
+**Choice**: Independent signing secret per realm (customer, operator, admin) — both access and refresh tokens
+
+**Reasons**:
+- Blast-radius isolation: compromised customer secret cannot forge operator/admin tokens
+- Refresh secrets also per-realm — eliminates cross-realm token exchange attack
+- Each secret independently rotatable (90-day cadence per D7)
+
+---
+
+### 11. Customer Refresh Token TTL — 30 Days
+
+**Choice**: 30-day refresh token TTL for customer realm
+
+**Reasons**:
+- Phone-first Vietnam market: customers book trips days/weeks apart; 7-day TTL forces unnecessary OTP re-auth
+- 30 days aligns with repeat booking: "Chị Lan" (migrant worker) books returns 2-4 weeks apart
+- Operator stays 7 days (shift-scoped); admin stays 24 hours (high-security)
+- Rotation + reuse detection still active regardless of TTL length
+
+---
+
+### 12. Phase 1 Staff Deferral
+
+**Choice**: Staff management (FI-011) deferred to Phase 2. Phase 1 = single operator user per company (`role='admin'` only).
+
+**Reasons**:
+- Beachhead launch targets 1-3 operators in one corridor — owner-operated micro fleets (60-70% of market) have no staff to manage
+- Staff RBAC, `StaffTripAssignment`, mobile console ship in Phase 2 when multi-operator adoption drives demand
+- `OperatorRole` enum (`admin | staff`) already in schema; no migration needed when Phase 2 ships
+
+---
+
 ## Consequences
 
 ### Positive
 - Passwordless customer auth eliminates password-related support burden (resets, credential stuffing, account lockout) — reduces complaint volume against 3-day acknowledge SLA
 - Three-realm separation (OTP / password+OTP / password+TOTP) matches security requirements proportional to each group's risk profile and technical literacy
 - Hybrid JWT session enables Edge-level auth enforcement with zero DB hit — critical for Tet surge latency and cross-cutting gate enforcement
-- Zalo ZNS primary channel aligns with user behavior and saves 50-70% on OTP delivery costs at scale
+- Better Auth handles identity primitives (password hashing, session rotation, TOTP, OTP) — reduces hand-rolled auth surface and resolves TOTP replay/backup-code HALT blockers
+- Phase 2: Zalo ZNS primary channel will save 50-70% on OTP delivery costs at scale
 - OTP lockout sentinel reusing existing OTP row avoids schema sprawl — no new table for a single boolean state
 - Double-submit CSRF is stateless, Edge-compatible, and consistent with JWT session architecture
 
