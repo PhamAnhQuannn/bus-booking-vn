@@ -244,7 +244,17 @@ jobs:
       - name: Audit production dependencies
         run: pnpm audit --prod --audit-level=critical
 
-  # ---- 7. Secret scanning (gitleaks) ----
+  # ---- 7. Greppable invariants (KG-14) ----
+  greppable-invariants:
+    name: Greppable Invariants
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run greppable invariants G1-G6
+        run: bash scripts/audit/greppable-invariants.sh
+
+  # ---- 8. Secret scanning (gitleaks) ----
   gitleaks:
     name: Secret Scanning (gitleaks)
     runs-on: ubuntu-latest
