@@ -4,17 +4,25 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
-## Rebuild Plan — read this BEFORE working on product scope
+## Documentation — read this BEFORE working on product scope
 
-`rebuild-plan.md` (repo root) is the SECTION-INDEXED product source of truth.
+`documentation/` is the product spec library, organized in 7 series:
 
-- On any scope/feature/verify task: open `rebuild-plan.md`, read its INDEX table, Grep the
-  matching section token (`[S02]`…`[S15]`), and read ONLY that section.
-- Then verify/implement using ONLY that section's `Verify:` code paths. Do NOT scan the whole
-  repo. Full-repo or full-file scans happen ONLY when the user explicitly asks.
-- Sections are independent: read more than one only when the task genuinely spans them.
-- The stories were authored without reading code — they are the TARGET. Reconcile against the
-  actual codebase during Verify and update each section's `Status:` (TODO/PARTIAL/DONE).
+| Prefix | Folder | Coverage |
+|--------|--------|----------|
+| ADR | `architecture-decisions/` | Stack, auth, payments, deployment decisions |
+| DS | `design-specifications/` | Data model, APIs, payment flows, compliance |
+| FD | `frontend-design/` | UI/UX specs for customer, operator, admin |
+| FI | `feature-implementation/` | Per-feature synthesis (links ADR→DS→FD→code) |
+| SI | `scaffolding-infra/` | Toolchain, CI/CD, testing, deployment |
+| GL | `go-live/` | Production readiness gates |
+| HD | `hardening/` | Security, perf, compliance pre-release audits |
+
+Plus `business/` (market research, personas, domain model, regulatory).
+
+- On any scope/feature/verify task: find the matching spec by prefix ID (e.g., FI-003, DS-006). Each is a directory with `README.md`.
+- Do NOT scan the whole repo. Full-repo scans happen ONLY when the user explicitly asks.
+- Specs cross-reference each other by prefix ID. Read only what the task touches.
 
 ## Mistake Log
 
