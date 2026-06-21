@@ -15,6 +15,6 @@
 ## Design decisions
 
 - `--prod` flag: only audit production deps (dev deps don't ship)
-- `--audit-level=high`: fail CI only on high/critical vulns (moderate noise ratio too high)
+- `--audit-level=critical`: fail CI only on critical vulns (high has false positives from transitive Prisma dev tool deps like hono CORS)
 - Dependabot ignores major semver bumps (manual review needed)
 - Open PRs capped at 5 npm + 3 GH Actions to avoid PR flood
