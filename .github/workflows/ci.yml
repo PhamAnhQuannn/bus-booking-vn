@@ -222,7 +222,29 @@ jobs:
       - name: Run data-leak grep audit
         run: bash scripts/audit/data-leak-grep.sh
 
-  # ---- 6. Secret scanning (gitleaks) ----
+  # ---- 6. Dependency audit ----
+  dep-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Audit production dependencies
+        run: pnpm audit --prod --audit-level=high
+
+  # ---- 7. Secret scanning (gitleaks) ----
   gitleaks:
     name: Secret Scanning (gitleaks)
     runs-on: ubuntu-latest
