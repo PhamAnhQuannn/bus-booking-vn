@@ -94,9 +94,9 @@ check_client_server_barrel() {
   fi
 }
 
-# ---------- A5: sameSite lax baseline ----------
+# ---------- A4: sameSite lax baseline ----------
 check_samesite_lax_baseline() {
-  echo "--- A5: sameSite lax baseline ---"
+  echo "--- A4: sameSite lax baseline ---"
   local BASELINE=10
   local count
   count=$(grep -rn --include='*.ts' -i 'sameSite.*lax' app/api/ \
@@ -113,9 +113,9 @@ check_samesite_lax_baseline() {
   fi
 }
 
-# ---------- A6: Referrer-Policy existence ----------
+# ---------- A5: Referrer-Policy existence ----------
 check_referrer_policy() {
-  echo "--- A6: Referrer-Policy existence ---"
+  echo "--- A5: Referrer-Policy existence ---"
   local hits
   hits=$(grep -rn --include='*.ts' --include='*.tsx' \
     -e 'Referrer-Policy' -e 'referrerPolicy' \
@@ -132,9 +132,9 @@ check_referrer_policy() {
   fi
 }
 
-# ---------- A7: devtunnels wildcard ----------
+# ---------- A6: devtunnels wildcard ----------
 check_devtunnels() {
-  echo "--- A7: devtunnels wildcard ---"
+  echo "--- A6: devtunnels wildcard ---"
   local hits
   hits=$(grep -n 'devtunnels' next.config.ts 2>/dev/null || true)
 
@@ -147,9 +147,9 @@ check_devtunnels() {
   fi
 }
 
-# ---------- A8: OTP_PEEK_ENABLED scope ----------
+# ---------- A7: OTP_PEEK_ENABLED scope ----------
 check_otp_peek_scope() {
-  echo "--- A8: OTP_PEEK_ENABLED scope ---"
+  echo "--- A7: OTP_PEEK_ENABLED scope ---"
   local hits
   hits=$(grep -rn --include='*.ts' --exclude-dir=node_modules --exclude-dir=.next \
     'OTP_PEEK_ENABLED' . \
