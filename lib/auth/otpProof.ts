@@ -94,7 +94,7 @@ async function consumeJtiViaIoRedis(jti: string, ttlSec: number): Promise<boolea
   }
 }
 
-async function consumeJti(jti: string, ttlSec: number): Promise<boolean> {
+export async function consumeJti(jti: string, ttlSec: number): Promise<boolean> {
   const provider = process.env.REDIS_PROVIDER;
 
   if (provider === 'ioredis') {
