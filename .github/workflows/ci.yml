@@ -165,6 +165,7 @@ jobs:
       JWT_ADMIN_SECRET: ci-test-admin-secret-not-for-production-01234567
       TOTP_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
       CRON_SECRET: ci-test-cron-secret-00
+      REFRESH_TOKEN_SECRET: ci-test-refresh-secret-not-for-prod-0123
 
     steps:
       - uses: actions/checkout@v4
