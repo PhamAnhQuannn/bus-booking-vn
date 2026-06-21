@@ -12,6 +12,7 @@ export {
   type PickupSelection,
   type PickupCheck,
 } from './pickupSelection';
+export { createCashBooking, CashBookingError, type CashBookingErrorCode } from './createCashBooking';
 export { getBookingDetailPage } from './getBookingDetailPage';
 export { getCustomerBookingDetail, type CustomerBookingDetail } from './getCustomerBookingDetail';
 export { getHoldDetails } from './getHoldDetails';

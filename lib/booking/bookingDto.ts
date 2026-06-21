@@ -28,7 +28,7 @@ export interface BookingDto {
   buyerPhone: string;
   ticketCount: number;
   totalVnd: number;
-  paymentMethod: 'momo' | 'zalopay' | 'card';
+  paymentMethod: 'momo' | 'zalopay' | 'card' | 'vnpay' | 'cash' | 'bank_transfer';
   paymentExternalRef: string | null;
   status: BookingPaymentStatus;
   isManual: boolean;
