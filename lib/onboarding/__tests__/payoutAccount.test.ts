@@ -15,6 +15,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // (needs DATABASE_URL) is never constructed. Each test injects its own stub.
 vi.mock('@/lib/core/db/client', () => ({ prisma: { payoutAccount: {} } }));
 
+import { encryptBankField } from '@/lib/security';
+
 import {
   maskAccountNumber,
   setPayoutAccount,
@@ -43,7 +45,7 @@ describe('maskAccountNumber', () => {
 });
 
 describe('setPayoutAccount', () => {
-  it('upserts on operatorId and resets verification on BOTH branches', async () => {
+  it('upserts on operatorId, encrypts accountNumber, and resets verification', async () => {
     const { prisma, upsert } = makePrisma();
     await setPayoutAccount(prisma, {
       operatorId: 'op-1',
@@ -54,11 +56,14 @@ describe('setPayoutAccount', () => {
     expect(upsert).toHaveBeenCalledTimes(1);
     const arg = upsert.mock.calls[0][0];
     expect(arg.where).toEqual({ operatorId: 'op-1' });
+    // accountNumber stored encrypted (enc:v1: prefix), never plaintext
+    expect(arg.create.accountNumber).toMatch(/^enc:v1:/);
+    expect(arg.create.accountNumber).not.toContain('0123456789');
+    expect(arg.update.accountNumber).toMatch(/^enc:v1:/);
     // create branch starts unverified
     expect(arg.create).toMatchObject({
       operatorId: 'op-1',
       bankName: 'Test Bank',
-      accountNumber: '0123456789',
       accountHolderName: 'Acme Buses',
       verifiedAt: null,
       verifyMethod: null,
@@ -66,7 +71,6 @@ describe('setPayoutAccount', () => {
     // update branch RE-ARMS verification (security: edit resets verify)
     expect(arg.update).toMatchObject({
       bankName: 'Test Bank',
-      accountNumber: '0123456789',
       accountHolderName: 'Acme Buses',
       verifiedAt: null,
       verifyMethod: null,
@@ -75,11 +79,11 @@ describe('setPayoutAccount', () => {
 });
 
 describe('getPayoutAccount (masked display)', () => {
-  it('returns the account with the number MASKED', async () => {
+  it('decrypts then masks the account number', async () => {
     const { prisma, findUnique } = makePrisma();
     findUnique.mockResolvedValue({
       bankName: 'Test Bank',
-      accountNumber: '0123456789',
+      accountNumber: encryptBankField('0123456789'),
       accountHolderName: 'Acme Buses',
       verifiedAt: null,
       verifyMethod: null,
@@ -92,8 +96,20 @@ describe('getPayoutAccount (masked display)', () => {
       verifiedAt: null,
       verifyMethod: null,
     });
-    // The raw number never leaks on this path.
     expect(JSON.stringify(acct)).not.toContain('0123456789');
+  });
+
+  it('handles plaintext backward compat (pre-encryption rows)', async () => {
+    const { prisma, findUnique } = makePrisma();
+    findUnique.mockResolvedValue({
+      bankName: 'Test Bank',
+      accountNumber: '0123456789',
+      accountHolderName: 'Acme Buses',
+      verifiedAt: null,
+      verifyMethod: null,
+    });
+    const acct = await getPayoutAccount(prisma, 'op-1');
+    expect(acct?.accountNumberMasked).toBe('••••6789');
   });
 
   it('returns null when the operator has no account', async () => {
@@ -104,17 +120,30 @@ describe('getPayoutAccount (masked display)', () => {
 });
 
 describe('getPayoutAccountInternal (unmasked rail path)', () => {
-  it('returns the UNMASKED number', async () => {
+  it('decrypts and returns the full number', async () => {
     const { prisma, findUnique } = makePrisma();
     findUnique.mockResolvedValue({
       bankName: 'Test Bank',
-      accountNumber: '0123456789',
+      accountNumber: encryptBankField('0123456789'),
       accountHolderName: 'Acme Buses',
       verifiedAt: new Date('2026-05-01T00:00:00Z'),
       verifyMethod: 'name_match',
     });
     const acct = await getPayoutAccountInternal(prisma, 'op-1');
     expect(acct?.accountNumber).toBe('0123456789');
+  });
+
+  it('handles plaintext backward compat', async () => {
+    const { prisma, findUnique } = makePrisma();
+    findUnique.mockResolvedValue({
+      bankName: 'Test Bank',
+      accountNumber: '9876543210',
+      accountHolderName: 'Legacy',
+      verifiedAt: null,
+      verifyMethod: null,
+    });
+    const acct = await getPayoutAccountInternal(prisma, 'op-1');
+    expect(acct?.accountNumber).toBe('9876543210');
   });
 });
 

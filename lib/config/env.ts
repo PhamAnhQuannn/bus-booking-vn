@@ -253,6 +253,9 @@ const envSchema = z.object({
   /** AES-256-GCM key for AdminUser.totpSecret at-rest encryption (AUTH-03). 64 hex chars = 32 bytes. */
   TOTP_ENCRYPTION_KEY: z.string().length(64).regex(/^[0-9a-f]+$/i).optional(),
 
+  /** AES-256-GCM key for PayoutAccount.accountNumber at-rest encryption (KG-03). 64 hex chars = 32 bytes. */
+  BANK_ENCRYPTION_KEY: z.string().length(64).regex(/^[0-9a-f]+$/i).optional(),
+
   /**
    * PostgreSQL connection string.
    * Required in production; tests use a dedicated test database or mocks.
@@ -424,7 +427,7 @@ const envSchema = z.object({
     }
   }
   if (process.env.NODE_ENV === 'production') {
-    for (const key of ['JWT_SECRET', 'JWT_OPERATOR_SECRET', 'JWT_ADMIN_SECRET', 'TOTP_ENCRYPTION_KEY', 'DATABASE_URL', 'CRON_SECRET', 'REFRESH_TOKEN_SECRET'] as const) {
+    for (const key of ['JWT_SECRET', 'JWT_OPERATOR_SECRET', 'JWT_ADMIN_SECRET', 'TOTP_ENCRYPTION_KEY', 'BANK_ENCRYPTION_KEY', 'DATABASE_URL', 'CRON_SECRET', 'REFRESH_TOKEN_SECRET'] as const) {
       if (!env[key]) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
