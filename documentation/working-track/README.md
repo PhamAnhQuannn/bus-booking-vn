@@ -20,7 +20,7 @@ Status tracking for all work items derived from gap analysis
 | # | File | Severity | Status | Comparison | Spec |
 |---|------|----------|--------|------------|------|
 | 01 | [admin-seed-password-and-temp-column](01-admin-seed-password-and-temp-column.md) | CRITICAL | DONE | 01 S4 | SI-002, I-113 |
-| 02 | [http-security-headers](02-http-security-headers.md) | CRITICAL | NOT_STARTED | 02 S1, 09 HD-001 | ADR-008, KG-02 |
+| 02 | [http-security-headers](02-http-security-headers.md) | CRITICAL | DONE | 02 S1, 09 HD-001 | ADR-008, KG-02 |
 | 03 | [sepay-vietqr-payment-flow](03-sepay-vietqr-payment-flow.md) | CRITICAL | NOT_STARTED | 01 S5, 03 S3 | DS-013 |
 
 ## Group B: Phase 1 Security Hardening
