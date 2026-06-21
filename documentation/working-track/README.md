@@ -46,7 +46,7 @@ Status tracking for all work items derived from gap analysis
 | # | File | Severity | Status | Comparison | Spec |
 |---|------|----------|--------|------------|------|
 | 12 | [sepay-vendor-account-setup](12-sepay-vendor-account-setup.md) | CRITICAL | NOT_STARTED | 03 S3 | DS-013 |
-| 13 | [cash-booking-operator-flow](13-cash-booking-operator-flow.md) | MEDIUM | NOT_STARTED | 03 S8 | GL-006 |
+| 13 | [cash-booking-operator-flow](13-cash-booking-operator-flow.md) | MEDIUM | DONE | 03 S8 | GL-006 |
 | 14 | [ledger-triggers-production-verification](14-ledger-triggers-production-verification.md) | MEDIUM | DONE | 03 | GL-006 |
 | 15 | [esms-production-sms](15-esms-production-sms.md) | MEDIUM | NOT_STARTED | 09 | ADR-013 |
 | 16 | [manual-refund-process-documentation](16-manual-refund-process-documentation.md) | LOW | DONE | 01 S6, 03 S6 | DS-007 |

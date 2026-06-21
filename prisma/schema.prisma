@@ -388,6 +388,8 @@ enum PaymentMethod {
   zalopay
   card
   vnpay
+  cash
+  bank_transfer
 }
 
 /// Issue 109: classifies an OperatorPickupArea / trip-snapshot place.

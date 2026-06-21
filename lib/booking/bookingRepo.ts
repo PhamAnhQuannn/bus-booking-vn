@@ -81,7 +81,7 @@ export interface BookingRow {
   buyerEmail: string | null;
   ticketCount: number;
   totalVnd: number;
-  paymentMethod: 'momo' | 'zalopay' | 'card';
+  paymentMethod: 'momo' | 'zalopay' | 'card' | 'vnpay' | 'cash' | 'bank_transfer';
   status:
     | 'awaiting_payment'
     | 'paid'
