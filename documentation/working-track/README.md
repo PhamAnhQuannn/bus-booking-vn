@@ -49,7 +49,7 @@ Status tracking for all work items derived from gap analysis
 | 13 | [cash-booking-operator-flow](13-cash-booking-operator-flow.md) | MEDIUM | NOT_STARTED | 03 S8 | GL-006 |
 | 14 | [ledger-triggers-production-verification](14-ledger-triggers-production-verification.md) | MEDIUM | NOT_STARTED | 03 | GL-006 |
 | 15 | [esms-production-sms](15-esms-production-sms.md) | MEDIUM | NOT_STARTED | 09 | ADR-013 |
-| 16 | [manual-refund-process-documentation](16-manual-refund-process-documentation.md) | LOW | NOT_STARTED | 01 S6, 03 S6 | DS-007 |
+| 16 | [manual-refund-process-documentation](16-manual-refund-process-documentation.md) | LOW | DONE | 01 S6, 03 S6 | DS-007 |
 
 ## Group E: Phase 1 Data + Legal
 
