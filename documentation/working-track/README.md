@@ -55,8 +55,8 @@ Status tracking for all work items derived from gap analysis
 
 | # | File | Severity | Status | Comparison | Spec |
 |---|------|----------|--------|------------|------|
-| 17 | [privacy-policy-publication](17-privacy-policy-publication.md) | MEDIUM | NOT_STARTED | 04 S1 | GL-006, PDPL |
-| 18 | [terms-of-service-publication](18-terms-of-service-publication.md) | MEDIUM | NOT_STARTED | 04 | GL-006 |
+| 17 | [privacy-policy-publication](17-privacy-policy-publication.md) | MEDIUM | DONE | 04 S1 | GL-006, PDPL |
+| 18 | [terms-of-service-publication](18-terms-of-service-publication.md) | MEDIUM | DONE | 04 | GL-006 |
 
 ## Group F: Phase 1 Verification
 
