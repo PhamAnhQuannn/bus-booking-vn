@@ -10,10 +10,10 @@ Audited all `process.env.*` reads across the codebase (86 unique vars) against t
 2. **`UPSTASH_REDIS_REST_URL`** — url, optional, required when `REDIS_PROVIDER=upstash` via superRefine
 3. **`UPSTASH_REDIS_REST_TOKEN`** — string, optional, required when `REDIS_PROVIDER=upstash` via superRefine
 4. **`SHADOW_DATABASE_URL`** — url, optional (Prisma migrations only)
-5. **`OTP_PEEK_ENABLED`** — string, optional (dev/test gate)
 
 ## What was NOT added (and why)
 
+- `OTP_PEEK_ENABLED` — dev/test gate, guarded by `NODE_ENV !== 'production'` at call site; CI data-leak audit scopes it to specific files only
 - `SEARCH_USE_BLOCKED_SEATS`, `MANUAL_BOOKING_ENABLED` — not referenced in code, only in `.env.example` comments
 - `ADMIN_TOTP_DISABLED` — not referenced in code, only in docs
 - `NEXT_PUBLIC_*` vars — client-side, not server boot-time validated

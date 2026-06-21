@@ -333,8 +333,6 @@ const envSchema = z.object({
   /** Shadow database URL for Prisma migrations (prisma.config.ts). */
   SHADOW_DATABASE_URL: z.string().url().optional(),
 
-  /** Enable OTP peek endpoint for dev/test (ignored in production). */
-  OTP_PEEK_ENABLED: z.string().optional(),
 }).superRefine((env, ctx) => {
   // Real eSMS mode (NOTIFY_STUB=false) must carry credentials — fail fast at boot.
   if (!env.NOTIFY_STUB) {
