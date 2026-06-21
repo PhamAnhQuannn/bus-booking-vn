@@ -2,3 +2,6 @@
 
 // holdCookie.ts
 export { buildSetCookieHeader, extractHoldCookie, verifyCookieValue } from './holdCookie';
+
+// bankCrypto.ts — AES-256-GCM field-level encryption for PayoutAccount.accountNumber
+export { encryptBankField, decryptBankField } from './bankCrypto';

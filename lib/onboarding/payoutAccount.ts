@@ -20,6 +20,7 @@
  */
 
 import { prisma as defaultPrisma } from '@/lib/core/db/client';
+import { encryptBankField, decryptBankField } from '@/lib/security';
 
 /** Minimal prisma surface — lets unit tests inject a payoutAccount stub. */
 type PrismaLike = Pick<typeof defaultPrisma, 'payoutAccount'>;
@@ -72,12 +73,13 @@ export async function setPayoutAccount(
   input: SetPayoutAccountInput
 ): Promise<void> {
   const { operatorId, bankName, accountNumber, accountHolderName } = input;
+  const encrypted = encryptBankField(accountNumber);
   await prisma.payoutAccount.upsert({
     where: { operatorId },
     create: {
       operatorId,
       bankName,
-      accountNumber,
+      accountNumber: encrypted,
       accountHolderName,
       // New account starts unverified.
       verifiedAt: null,
@@ -85,7 +87,7 @@ export async function setPayoutAccount(
     },
     update: {
       bankName,
-      accountNumber,
+      accountNumber: encrypted,
       accountHolderName,
       // SECURITY: editing the destination RE-ARMS verification (file header).
       verifiedAt: null,
@@ -107,7 +109,7 @@ export async function getPayoutAccount(
   if (!row) return null;
   return {
     bankName: row.bankName,
-    accountNumberMasked: maskAccountNumber(row.accountNumber),
+    accountNumberMasked: maskAccountNumber(decryptBankField(row.accountNumber)),
     accountHolderName: row.accountHolderName,
     verifiedAt: row.verifiedAt,
     verifyMethod: row.verifyMethod,
@@ -126,7 +128,7 @@ export async function getPayoutAccountInternal(
   if (!row) return null;
   return {
     bankName: row.bankName,
-    accountNumber: row.accountNumber,
+    accountNumber: decryptBankField(row.accountNumber),
     accountHolderName: row.accountHolderName,
     verifiedAt: row.verifiedAt,
     verifyMethod: row.verifyMethod,
