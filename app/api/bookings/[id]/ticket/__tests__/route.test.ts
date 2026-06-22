@@ -62,7 +62,7 @@ function detail(status: string) {
     route: { origin: 'Hanoi', destination: 'Hue' },
     departureAt: '2026-06-10T22:00:00.000Z',
     busLicensePlate: '29B-12345',
-    operator: { legalName: 'Phuong Trang', contactPhone: '+84909999999' },
+    operator: { legalName: 'Test Bus Co', contactPhone: '+8490xxxxxx9' },
   };
 }
 

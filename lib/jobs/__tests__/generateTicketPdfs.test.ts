@@ -83,7 +83,7 @@ function bookingRow(id: string) {
       route: { origin: 'Hanoi', destination: 'Hue' },
       bus: {
         licensePlate: '29B-12345',
-        operator: { legalName: 'Phuong Trang', contactPhone: '+84909999999' },
+        operator: { legalName: 'Test Bus Co', contactPhone: '+8490xxxxxx9' },
       },
     },
   };

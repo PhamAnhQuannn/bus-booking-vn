@@ -187,7 +187,7 @@ _None._
 | PASS | desktop | J-link | /search→/booking/customer | BookButton | reached customer form |
 | PASS | desktop | J-link | /booking/customer→/booking/review | submit customer form (POST /api/holds) | hold created, reached review |
 | PASS | desktop | J-link | /booking/review | hold timer | countdown="10:00" |
-| PASS | desktop | J-link | /booking/review | guest booking w/ shared phone | hold created for +84932133894 |
+| PASS | desktop | J-link | /booking/review | guest booking w/ shared phone | hold created for +8490xxxxxxx |
 | PASS | desktop | J-link | /auth/register | load | HTTP 200 → redirected to / |
 | BROKEN | desktop | phase-error | - | guest-link | phase threw: locator.waitFor: Timeout 12000ms exceeded. Call log: [2m  - waiting for locator('#phone') to be visible[22m  |
 | PASS | desktop | C-forgot(setup) | /auth/register | load | HTTP 200 → redirected to / |
