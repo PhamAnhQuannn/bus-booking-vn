@@ -46,7 +46,7 @@ function rawBooking(overrides: Record<string, unknown> = {}) {
       bus: {
         licensePlate: '29B-12345',
         busType: 'sleeper',
-        operator: { legalName: 'Phuong Trang' },
+        operator: { legalName: 'Test Bus Co' },
       },
     },
     ...overrides,
@@ -73,7 +73,7 @@ describe('getTicketVerification', () => {
       isPaid: true,
       ticketCount: 2,
       providerTxnId: 'momo-txn-998877',
-      operatorName: 'Phuong Trang',
+      operatorName: 'Test Bus Co',
       route: { origin: 'Hanoi', destination: 'Hue' },
       departureAt: '2026-06-10T22:00:00.000Z',
       busPlate: '29B-12345',
