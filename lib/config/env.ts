@@ -263,7 +263,7 @@ const envSchema = z.object({
   DATABASE_URL: z.string().optional(),
 
   /**
-   * Direct PostgreSQL connection URL — bypasses PgBouncer for Prisma migrations
+   * Direct PostgreSQL connection URL — bypasses connection pooler (Neon built-in or PgBouncer) for Prisma migrations
    * (prepared statements, CREATE INDEX CONCURRENTLY). Required in production
    * when PAYMENTS_STUB=false; for local dev set to the same value as DATABASE_URL.
    */
