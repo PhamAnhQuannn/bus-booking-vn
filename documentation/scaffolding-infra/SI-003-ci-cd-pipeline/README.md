@@ -206,11 +206,13 @@ For full deployment architecture, hosting details, cron sidecar design, Nginx co
 
 ### 6.1 Primary Host -- FPT Cloud Vietnam
 
-FPT Cloud is the primary production host (ADR-020 D2/D7, DS-017). The decisive factor is CDTIA elimination: all compute, PostgreSQL, Redis, and object storage running on FPT Cloud Vietnam means zero cross-border data transfer under PDPL 2025 Art. 25.
+> **2026-06-21 Update**: Primary production is now Vercel Pro sin1 + Neon + Upstash (ADR-020 D11). FPT Cloud is the backup Docker self-hosted option. The CI/CD pipeline outputs a Docker image that works on both Vercel (via standalone output) and FPT Cloud (via Docker Compose).
+
+Vercel Pro sin1 is the primary production host (ADR-020 D2/D11). Database on Neon (Singapore), cache on Upstash (Singapore). CDTIA filing accepted for cross-border transfer under PDPL 2025 Art. 25. FPT Cloud (Vietnam) retained as Docker self-hosted backup — eliminates CDTIA entirely.
 
 ### 6.2 Staging Alternative -- Vercel sin1
 
-Vercel (Singapore region `sin1`) is a zero-ops alternative retained for PR previews and staging only (ADR-020 D2, 2026-06-19 hosting pivot). It is **not** a co-primary deployment target -- FPT Cloud is the sole production host. No production user PII is processed in the Vercel environment. If Vercel staging is activated, CDTIA filing obligations apply (PDPL 2025 Art. 25).
+Vercel Pro (Singapore region `sin1`) is the primary production AND staging host (ADR-020 D2/D11, 2026-06-21 pivot). CDTIA filing is required and accepted for production user PII processed on Vercel+Neon+Upstash (PDPL 2025 Art. 25). FPT Cloud (Vietnam) is the Docker self-hosted backup — see `deployment-fpt-cloud-setup.md`.
 
 ### 6.3 Deployment Contract
 
@@ -631,7 +633,7 @@ Stages 1a, 1b, 2, 3, 4, 5, 6 run in parallel. Stage 7 depends on 1-6. Stage 8 de
 - **ADR-016** -- Module Boundaries: client component deep-import rule (D3); barrel-as-public-API (D4); `data-leak-grep.sh` check A3
 - **ADR-017** -- Schema Evolution: forward-only migrations (D1); two-phase destructive changes (D2); dual declaration (D3); NOT NULL checklist (D5); committed migrations immutable (D6)
 - **ADR-018** -- Testing Strategy: test pyramid (D1); real DB mandate (D2); mock hygiene (D3-D6); E2E URL-driving (D7)
-- **ADR-020** -- Deployment: FPT Cloud primary (D2/D7); Docker build (D3); Zod env validation (D4); standalone output (D8); cron sidecar (D9); Nginx (D10)
+- **ADR-020** -- Deployment: Vercel Pro primary (D2/D11), FPT Cloud backup (D7); Docker build (D3); Zod env validation (D4); standalone output (D8); cron sidecar (D9); Nginx (D10)
 - **DS-002** -- Migration Strategy: Tet deployment freeze window; NOT NULL grep commands; CHECK constraint validation
 - **DS-006** -- Background Jobs Design: canonical cron schedule source; dual-config maintenance; cron response contract
 - **DS-017** -- Deployment Portability: deployment contract C1-C8; Docker Compose reference; cron sidecar spec; Nginx config; GHCR registry; Terraform provider

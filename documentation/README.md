@@ -10,4 +10,6 @@
 | [Architecture Decisions](architecture-decisions/) | 20 ADRs — stack, auth, payments, concurrency, booking, search, state machines, deployment |
 | [Scaffolding & Infrastructure](scaffolding-infra/) | SI-001–006: stack, dev environment, CI/CD, linting, testing, deployment |
 | [Feature Implementation](feature-implementation/) | FI-001–015: per-feature synthesis of ADRs, design specs, frontend, business rules, regulatory |
+| [Go-Live Gates](go-live/) | GL-001–006: launch checklist, monitoring, backup/DR, rollback, smoke tests, Phase 1 scope |
+| [Hardening](hardening/) | HD-001–012: security, performance, compliance pre-release audits |
 | [Guides](guides/) | Operational guides — eSMS registration, provider setup |

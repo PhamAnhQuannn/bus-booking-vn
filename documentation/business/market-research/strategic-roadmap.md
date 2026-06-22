@@ -8,7 +8,7 @@
 |---|---|---|---|
 | 1 | **Build customer cancellation & refund flow** | #1 user complaint. Every competitor has it. Reputation death sentence without it. | M |
 | 2 | **Obtain IPS license legal opinion** | T+1 may be illegal without license. Go/no-go determination for current payment architecture. | S (legal consultation) |
-| 3 | **~~Resolve data localization for PII~~** **RESOLVED (2026-06-19)** | ~~Decree 53/2022 violation. Vercel sin1 (Singapore) does not comply.~~ **FPT Cloud (Vietnam) chosen as primary host. All data stays in Vietnam. CDTIA eliminated.** See ADR-020 D7, DS-017. Remaining: provision FPT Cloud VPS, deploy Docker stack, configure Nginx + SSL, set up cron sidecar. | M |
+| 3 | **~~Resolve data localization for PII~~** **RESOLVED (2026-06-19)** | ~~Decree 53/2022 violation. Vercel sin1 (Singapore) does not comply.~~ **FPT Cloud (Vietnam) chosen as primary host. All data stays in Vietnam. CDTIA eliminated.** See ADR-020 D7, DS-017. Remaining: provision FPT Cloud VPS, deploy Docker stack, configure Nginx + SSL, set up cron sidecar. **UPDATE (2026-06-21)**: Vercel Pro sin1 (Singapore) restored as primary (ADR-020 D11). CDTIA filing now required and accepted (~$2-5K). FPT Cloud backup still eliminates CDTIA. | M |
 | 4 | **Build round-trip booking flow** | All major competitors have it. Missing it doubles booking friction. Paired-return infrastructure exists (Issue 013); customer-facing search/checkout needs completion. | M |
 | 5 | **Add Zalo ZNS for booking confirmations** | Email-only insufficient for Vietnamese users. Zalo 70M+ users, ZNS higher open rates than SMS, lower cost. VeXeRe BMS uses ZNS. | S-M |
 | 6 | **Build "My Bookings" page** | Every platform with accounts has this. Data exists — read-only UI. | S |

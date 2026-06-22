@@ -19,6 +19,7 @@ All five hardening audits (HD-001 through HD-005) must reach PASS status before 
 | Backup & DR | [GL-003](GL-003-backup-dr/) | `/backup-restore` + `/dr-drill` | NOT_STARTED |
 | Rollback plan | [GL-004](GL-004-rollback-plan/) | `/rollback-plan` | NOT_STARTED |
 | Smoke test suite | [GL-005](GL-005-smoke-test-suite/) | `/prod-smoke` | NOT_STARTED |
+| Phase 1 launch scope | [GL-006](GL-006-phase1-launch-scope/) | — | DRAFT |
 
 ## Cross-References
 

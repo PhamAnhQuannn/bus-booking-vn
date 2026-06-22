@@ -14,14 +14,16 @@ Master checklist for the first production deployment (Issue 094). Every item mus
 
 ### Infrastructure (SI-006, ADR-020)
 
-- [ ] FPT Cloud VPS provisioned (Hanoi or HCM data centre)
-- [ ] PostgreSQL 16 managed instance running (FPT Cloud)
-- [ ] Redis 7 managed instance running (FPT Cloud)
-- [ ] PgBouncer transaction mode confirmed on port 6432
-- [ ] Docker Compose stack deploying successfully
-- [ ] Nginx reverse proxy configured with SSL (Let's Encrypt or Cloudflare Origin CA)
-- [ ] DNS pointing to FPT Cloud instance
-- [ ] Cloudflare WAF Pro ($20/mo) active
+- [ ] Vercel Pro project configured (sin1 region)
+- [ ] Neon database provisioned (ap-southeast-1, Launch tier)
+- [ ] Neon pooled + unpooled connection strings configured (`DATABASE_URL` + `DIRECT_URL`)
+- [ ] Upstash Redis provisioned (ap-southeast-1)
+- [ ] `REDIS_PROVIDER=upstash` configured with Upstash REST URL + token
+- [ ] Vercel environment variables configured (all secrets from `lib/config/env.ts`)
+- [ ] Custom domain configured on Vercel
+- [ ] Cloudflare DNS pointing to Vercel
+- [ ] Cloudflare WAF Pro ($20/mo) active (optional — Vercel has built-in DDoS)
+- [ ] `vercel.json` cron jobs verified (11 endpoints)
 
 ### Security (ADR-008, HD-001, HD-006, HD-010)
 
@@ -78,7 +80,7 @@ Master checklist for the first production deployment (Issue 094). Every item mus
 ### Data & Compliance (ADR-014, PDPL 2025, HD-007)
 
 - [ ] HD-007 regulatory & compliance audit: **PASS**
-- [ ] All user data stored on FPT Cloud Vietnam (zero CDTIA obligation)
+- [ ] CDTIA filed for Vercel/Neon/Upstash (Singapore hosting) OR deferral documented with legal rationale
 - [ ] If Resend (US) processes customer email: CDTIA filed with MPS A05 within 60 days
 - [ ] No production PII in staging/Vercel environment
 - [ ] Privacy policy published
@@ -111,7 +113,7 @@ Master checklist for the first production deployment (Issue 094). Every item mus
 
 - [ ] HD-011 cron & background job resilience audit: **PASS**
 - [ ] All 16 cron endpoints responding with correct contract shape
-- [ ] Supercronic sidecar running with `TZ=Asia/Ho_Chi_Minh`
+- [ ] Vercel Cron active (11 endpoints in `vercel.json`; schedules in UTC matching DS-006 VN-time equivalents)
 - [ ] Hold expiry sweep verified (10-min TTL)
 - [ ] Notification dispatch cron verified
 - [ ] `operatorLicenseAlert` and `piiAnonymization` cron routes implemented (KG from SI-006)

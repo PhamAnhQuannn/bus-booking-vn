@@ -6,6 +6,8 @@
 
 Define and verify backup strategy and disaster recovery procedures. RPO and RTO targets must be established and tested via drill before production launch.
 
+> **2026-06-21 Note**: Primary database is Neon (ADR-020 D11). Neon provides built-in PITR (7-day retention on free, 30-day on paid). The `pg_dump` to FPT Object Storage strategy below applies to the FPT Cloud backup deployment path. For the Vercel stack, Neon's managed backups are the primary recovery mechanism.
+
 ## Skill Invocation
 
 - **Primary**: `/backup-restore` -- backup strategy validation
