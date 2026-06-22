@@ -1,18 +1,17 @@
-# Production Docker Compose — FPT Cloud / self-hosted backup deployment.
-# Primary production runs on Vercel Pro + Neon + Upstash (ADR-020 D11).
+# Staging Docker Compose — FPT Cloud / self-hosted backup deployment.
+# Primary staging uses Vercel Preview deployments (ADR-020 D11).
 services:
   # NOTE: Run database migrations before starting this stack.
-  # One-off command: docker compose -f docker-compose.prod.yml run --rm app pnpm prisma migrate deploy
-  # Or use an external init step in your CI/CD pipeline.
+  # One-off command: docker compose -f docker-compose.staging.yml run --rm app pnpm prisma migrate deploy
   app:
     build: .
-    env_file: .env.production
+    env_file: .env.staging
     environment:
-      DATABASE_URL: "postgresql://bbvn:${POSTGRES_PASSWORD}@pgbouncer:6432/bbvn_prod"
-      DIRECT_URL: "postgresql://bbvn:${POSTGRES_PASSWORD}@postgres:5432/bbvn_prod"
+      DATABASE_URL: "postgresql://bbvn:${POSTGRES_PASSWORD}@pgbouncer:6432/bbvn_staging"
+      DIRECT_URL: "postgresql://bbvn:${POSTGRES_PASSWORD}@postgres:5432/bbvn_staging"
       NODE_ENV: production
     ports:
-      - '3000:3000'
+      - '3001:3000'
     depends_on:
       pgbouncer:
         condition: service_healthy
@@ -26,11 +25,11 @@ services:
     environment:
       POSTGRES_USER: bbvn
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: bbvn_prod
+      POSTGRES_DB: bbvn_staging
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U bbvn -d bbvn_prod']
+      test: ['CMD-SHELL', 'pg_isready -U bbvn -d bbvn_staging']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -40,7 +39,7 @@ services:
   pgbouncer:
     image: edoburu/pgbouncer:1.22.1
     environment:
-      DATABASE_URL: "postgres://bbvn:${POSTGRES_PASSWORD}@postgres:5432/bbvn_prod"
+      DATABASE_URL: "postgres://bbvn:${POSTGRES_PASSWORD}@postgres:5432/bbvn_staging"
       POOL_MODE: transaction
       MAX_CLIENT_CONN: 200
       PGBOUNCER_DEFAULT_POOL_SIZE: 30
@@ -58,15 +57,10 @@ services:
 
   redis:
     image: redis:7-alpine
-    # IMPORTANT: Set REDIS_PASSWORD to a strong secret in production.
-    # The default 'changeme' is only for local testing — never use it in prod.
     command: redis-server --requirepass ${REDIS_PASSWORD:-changeme}
     volumes:
       - redis_data:/data
     healthcheck:
-      # Pass the password so redis-cli can AUTH before PING — without -a this
-      # returns "NOAUTH Authentication required" (exit 1) and the healthcheck
-      # never passes, blocking the app container from starting.
       test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD:-changeme}', 'ping']
       interval: 5s
       timeout: 5s

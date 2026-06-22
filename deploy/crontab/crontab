@@ -1,0 +1,36 @@
+# Cron jobs for supercronic sidecar (TZ=Asia/Ho_Chi_Minh set in docker-compose)
+# Auth: Bearer ${CRON_SECRET} header on each request
+# Target: http://app:3000 (Docker internal network)
+
+# Hold expiry sweep — every minute
+*/1 * * * * curl -sf -H "Authorization: Bearer ${CRON_SECRET}" http://app:3000/api/cron/sweep-holds
+
+# Sales close — every minute
+*/1 * * * * curl -sf -H "Authorization: Bearer ${CRON_SECRET}" http://app:3000/api/cron/close-sales
+
+# Generate trips from templates — daily 01:00 VN
+0 1 * * * curl -sf -H "Authorization: Bearer ${CRON_SECRET}" http://app:3000/api/cron/generate-trips
+
+# Complete departed trips — every 5 min
+*/5 * * * * curl -sf -H "Authorization: Bearer ${CRON_SECRET}" http://app:3000/api/cron/complete-trips
+
+# Notification dispatch — every minute
+*/1 * * * * curl -sf -H "Authorization: Bearer ${CRON_SECRET}" http://app:3000/api/cron/dispatch-notifications
+
+# Send reminders — every 15 min
+*/15 * * * * curl -sf -H "Authorization: Bearer ${CRON_SECRET}" http://app:3000/api/cron/send-reminders
+
+# Process payouts — hourly
+0 * * * * curl -sf -H "Authorization: Bearer ${CRON_SECRET}" http://app:3000/api/cron/process-payouts
+
+# Reconcile payments — every 15 min
+*/15 * * * * curl -sf -H "Authorization: Bearer ${CRON_SECRET}" http://app:3000/api/cron/reconcile-payments
+
+# Generate ticket PDFs — every 2 min
+*/2 * * * * curl -sf -H "Authorization: Bearer ${CRON_SECRET}" http://app:3000/api/cron/generate-ticket-pdfs
+
+# Charter expiry check — hourly
+0 * * * * curl -sf -H "Authorization: Bearer ${CRON_SECRET}" http://app:3000/api/cron/charter-expiry
+
+# PII retention/anonymization — daily 03:00 VN
+0 3 * * * curl -sf -H "Authorization: Bearer ${CRON_SECRET}" http://app:3000/api/cron/retention
