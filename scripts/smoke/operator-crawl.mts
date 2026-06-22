@@ -34,6 +34,7 @@ const SHOT_DIR = join(OUT_DIR, 'operator-smoke-shots');
 const TODAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
 
 const DB_URL = process.env.DATABASE_URL ?? 'postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_dev';
+const SEED_USERNAME = 'PB-0001';
 const SEED_PHONE_LOCAL = '0901230001'; // UI accepts local form, server normalizes → +84901230001
 const SEED_PHONE_E164 = '+84901230001';
 const SEED_PASSWORD = 'BBOp2026!';
@@ -263,7 +264,7 @@ async function apiGet<T = unknown>(page: Page, path: string): Promise<T | null> 
 /** Re-login via the UI (password is NEW_PASSWORD after the first-login change). */
 async function opReLogin(page: Page) {
   await page.goto(`${ORIGIN}/op/login`, { waitUntil: 'domcontentloaded' }).catch(() => {});
-  await page.locator('#op-login-phone').fill(SEED_PHONE_LOCAL).catch(() => {});
+  await page.locator('#op-login-username').fill(SEED_USERNAME).catch(() => {});
   await page.locator('#op-login-password').fill(NEW_PASSWORD).catch(() => {});
   await page.getByRole('button', { name: /^đăng nhập$/i }).click().catch(() => {});
   await page.waitForURL(/\/op\/dashboard/, { timeout: 15000 }).catch(() => {});
@@ -373,7 +374,7 @@ async function phaseAuthGuard(page: Page) {
 async function phaseLogin(page: Page): Promise<boolean> {
   CURRENT_CTX = 'op login';
   await visit(page, '/op/login', 'B-login');
-  await page.locator('#op-login-phone').fill(SEED_PHONE_LOCAL);
+  await page.locator('#op-login-username').fill(SEED_USERNAME);
   await page.locator('#op-login-password').fill(SEED_PASSWORD);
   const loginResp = page.waitForResponse((r) => r.url().includes('/api/auth/login'), { timeout: 20000 });
   await page.getByRole('button', { name: /^đăng nhập$/i }).click();
