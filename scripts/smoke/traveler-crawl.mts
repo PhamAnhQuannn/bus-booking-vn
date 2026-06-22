@@ -166,7 +166,7 @@ function vnTomorrow(): string {
   return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, '0')}-${String(t.getUTCDate()).padStart(2, '0')}`;
 }
 const TOMORROW = vnTomorrow();
-const SEARCH_QS = new URLSearchParams({ origin: 'Hà Nội', destination: 'TP.HCM', date: TOMORROW, ticketCount: '1' }).toString();
+const SEARCH_QS = new URLSearchParams({ origin: 'Hà Nội', destination: 'Sài Gòn', date: TOMORROW, ticketCount: '1' }).toString();
 
 /** OTP straight from the backend test-peek sink. */
 async function peekOtp(page: Page, phone: string): Promise<string | null> {
@@ -892,14 +892,14 @@ async function runViewport(browser: Browser, vp: 'desktop' | 'mobile', full: boo
 }
 
 async function main() {
-  const probe = await fetch(`${ORIGIN}/api/trips/search?origin=${encodeURIComponent('Hà Nội')}&destination=${encodeURIComponent('TP.HCM')}&date=${TOMORROW}&ticketCount=1`).catch(() => null);
+  const probe = await fetch(`${ORIGIN}/api/trips/search?origin=${encodeURIComponent('Hà Nội')}&destination=${encodeURIComponent('Sài Gòn')}&date=${TOMORROW}&ticketCount=1`).catch(() => null);
   if (!probe || !probe.ok) {
     console.error(`Preflight FAILED: ${ORIGIN} not answering /api/trips/search. Is dev up on ${BASE}?`);
     process.exit(1);
   }
   const trips = (await probe.json().catch(() => [])) as unknown[];
   if (!Array.isArray(trips) || trips.length === 0) {
-    console.error(`Preflight FAILED: no seeded trips for Hà Nội→TP.HCM on ${TOMORROW}. Run prisma seed.`);
+    console.error(`Preflight FAILED: no seeded trips for Hà Nội→Sài Gòn on ${TOMORROW}. Run prisma seed.`);
     process.exit(1);
   }
   console.log(`Preflight OK: ${trips.length} trips for ${TOMORROW}. Crawling ${BASE} ...`);

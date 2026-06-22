@@ -46,6 +46,7 @@ const SHOT_DIR = join(OUT_DIR, 'cross-persona-shots');
 const TODAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
 
 const DB_URL = process.env.DATABASE_URL ?? 'postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_dev';
+const SEED_USERNAME = 'PB-0001';
 const SEED_PHONE_LOCAL = '0901230001';
 const SEED_PHONE_E164 = '+84901230001';
 const SEED_PASSWORD = 'BBOp2026!';
@@ -199,7 +200,7 @@ async function preReset(): Promise<boolean> {
 async function opLogin(page: Page): Promise<boolean> {
   CUR = 'op login';
   await visit(page, '/op/login', 'operator');
-  await page.locator('#op-login-phone').fill(SEED_PHONE_LOCAL).catch(() => {});
+  await page.locator('#op-login-username').fill(SEED_USERNAME).catch(() => {});
   await page.locator('#op-login-password').fill(SEED_PASSWORD).catch(() => {});
   const loginResp = page.waitForResponse((r) => r.url().includes('/api/auth/login'), { timeout: 20000 });
   await page.getByRole('button', { name: /^đăng nhập$/i }).click().catch(() => {});

@@ -14,7 +14,7 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline'",
+      `script-src 'self' 'unsafe-inline'${isProd ? '' : " 'unsafe-eval'"}`,
       `connect-src 'self'${isProd ? '' : ' ws://localhost:* http://localhost:*'}`,
       "img-src 'self' data: blob:",
       "style-src 'self' 'unsafe-inline'",
