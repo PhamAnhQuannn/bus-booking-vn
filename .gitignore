@@ -67,3 +67,13 @@ dev3001.log
 # not its dump.
 docs/research/vexere-operators.json
 docs/research/vexere-operators.md
+
+# Office temp/lock files
+~$*
+
+# Business legal documents (contain author metadata and sensitive business data)
+documentation/business/*.doc
+documentation/business/*.docx
+
+# One-off status reports (contain PII)
+awake-status-report.md

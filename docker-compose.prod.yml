@@ -58,16 +58,15 @@ services:
 
   redis:
     image: redis:7-alpine
-    # IMPORTANT: Set REDIS_PASSWORD to a strong secret in production.
-    # The default 'changeme' is only for local testing — never use it in prod.
-    command: redis-server --requirepass ${REDIS_PASSWORD:-changeme}
+    # REDIS_PASSWORD must be set in the environment — container fails to start without it.
+    command: redis-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD required}
     volumes:
       - redis_data:/data
     healthcheck:
       # Pass the password so redis-cli can AUTH before PING — without -a this
       # returns "NOAUTH Authentication required" (exit 1) and the healthcheck
       # never passes, blocking the app container from starting.
-      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD:-changeme}', 'ping']
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD:?REDIS_PASSWORD required}', 'ping']
       interval: 5s
       timeout: 5s
       retries: 5

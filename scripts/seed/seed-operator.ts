@@ -32,8 +32,8 @@ import { genTempPassword } from '@/lib/staff/genTempPassword';
 import { normalizePhone } from '@/lib/core/validation/phone';
 
 // ---- Demo defaults (drive the generated username ACRONYM-last4phone) ----
-const LEGAL_NAME = 'Phương Trang Express';
-const CONTACT_EMAIL = 'ops@phuongtrang.vn';
+const LEGAL_NAME = 'Test Bus Express';
+const CONTACT_EMAIL = 'ops@testbus.example.com';
 const RAW_PHONE = '0901234567';
 const LOGIN_URL = `${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3001'}/op/login`;
 

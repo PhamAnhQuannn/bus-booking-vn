@@ -1,6 +1,6 @@
 # PRD: Personal Pickup Destinations
 
-> Source plan: `C:\Users\mrimp\.claude\plans\now-a-new-feature-twinkling-puzzle.md` (approved). Decisions below are already grilled — treat as settled.
+> Decisions below are already grilled — treat as settled.
 
 ## Problem Statement
 
