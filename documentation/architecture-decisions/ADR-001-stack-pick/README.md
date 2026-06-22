@@ -106,18 +106,21 @@ Key business constraints driving stack decisions (sourced from `documentation/bu
 | Fly.io | Edge deployment; can run in Singapore | Less mature; no native Next.js optimizations; limited enterprise support |
 | Railway | Simple deployment; good DX | No Vietnam/SEA region; less auto-scaling capability |
 
-**Choice**: FPT Cloud (Vietnam) — primary production host. Vercel sin1 (Singapore) — retained for staging/preview only.
+**Choice**: Vercel Pro sin1 (Singapore) — primary production host. FPT Cloud (Vietnam) — retained as Docker self-hosted backup.
 
-> **2026-06-19 Pivot**: Vercel sin1 demoted from primary to staging-only. FPT Cloud promoted to primary. See ADR-020 D2/D7 for full rationale and service mapping.
+> **2026-06-19 Pivot**: Vercel sin1 demoted from primary to staging-only. FPT Cloud promoted to primary. See ADR-020 D2/D7.
+>
+> **2026-06-21 Pivot**: FPT Cloud demoted back to backup. Vercel Pro sin1 restored as primary. See ADR-020 D2/D11.
 
-**Reasons**:
-- **CDTIA elimination is decisive**: all compute, database, cache, and storage on FPT Cloud = all data physically in Vietnam. Zero cross-border transfer obligation under PDPL 2025 Art. 25, Decree 356/2025, Decree 53/2022. No CDTIA filing, no enforcement risk, no per-transfer consent burden
-- FPT Cloud provides managed PostgreSQL, managed Redis, S3-compatible Object Storage (MinIO-based), and Kubernetes Engine from Tier III data centers (PCI DSS Level 1, ISO 27001/27017/27018) in Hanoi and HCMC
-- Terraform provider exists (`fpt-corp/fptcloud` v0.3.51, 58 releases) covering VPC, instances, floating IPs, load balancer, database, object storage, and managed Kubernetes — infrastructure-as-code from Day 1
-- Provider-agnostic Docker deployment contract (ADR-020 D8) ensures migration to Vercel/AWS/Azure = DNS + connection string change, zero app code changes. Estimated 2-4 hours
-- Cloudflare CDN in front of FPT origin provides edge caching for static assets via Vietnamese PoPs (Hanoi, HCMC) without CDTIA concern — PII stays on origin
-- Vercel retained for staging/preview: per-PR preview deploys, zero-ops DX for development workflow. Production traffic never touches Vercel
-- **Previous Vercel-primary rationale (superseded)**: auto-scaling for Tet surge was the primary argument. FPT Cloud Autoscale (VM cloning on CPU/RAM triggers) + FPT Load Balancer v2 provide horizontal scaling at Stage 1+. Stage 0 single VPS handles ~200 bookings/day comfortably
+**Reasons** (2026-06-21 pivot):
+- **Cost decisive**: Vercel + Neon + Upstash stack = ~$55-140/mo vs FPT Cloud = ~$340-520/mo. CDTIA filing (~$2-5K one-time) is acceptable vs $200-400/mo ongoing savings
+- **Zero ops**: no Docker, Nginx, SSL, PgBouncer, or cron sidecar to manage. Push-to-deploy from Git
+- **Neon replaces managed PG**: serverless PostgreSQL 16 with built-in pooler (replaces PgBouncer), branching for preview DBs, PITR backup. `DATABASE_URL`/`DIRECT_URL` split works identically
+- **Upstash replaces managed Redis**: already wired via `REDIS_PROVIDER=upstash`. HTTP REST transport works on Vercel Edge
+- **Cloudflare R2 for storage**: S3-compatible, zero egress fees, wires via `STORAGE_ENDPOINT` env var
+- **FPT Cloud gaps unresolved**: PG 16 / Redis 7 versions unconfirmed; DBProxy transaction mode unconfirmed; all pricing requires sales quotation
+- **Escape hatch preserved**: provider-agnostic Docker contract (ADR-020 D8) means reverting to FPT Cloud = DNS + connection string change (~2-4 hours)
+- **CDTIA accepted**: one-time filing with MPS A05 within 60 days. Does not block technical deployment
 
 ---
 
@@ -173,7 +176,7 @@ Key business constraints driving stack decisions (sourced from `documentation/bu
 
 ### Positive
 - Single codebase with typed schema enables rapid iteration across all three user surfaces
-- **CDTIA eliminated** — FPT Cloud primary hosting keeps all data in Vietnam; zero cross-border transfer obligation (PDPL 2025 Art. 25, Decree 356/2025)
+- **CDTIA filing accepted** — Vercel+Neon+Upstash (Singapore) requires CDTIA under PDPL 2025 Art. 25 (~$2-5K one-time, 60-day window). FPT Cloud backup path eliminates CDTIA entirely. See ADR-020 D11.
 - PostgreSQL provider-agnosticism enables migration between FPT Cloud / AWS / Vercel / bare-metal without application changes
 - Provider-agnostic Docker deployment contract (ADR-020 D8) ensures vendor lock-in is a configuration concern, not an architectural one
 - Terraform provider (`fpt-corp/fptcloud`) enables infrastructure-as-code from Day 1 — infra is documented and reproducible

@@ -209,7 +209,7 @@ Key business constraints driving auth decisions (sourced from `documentation/bus
 **Choice**: Better Auth (self-hosted in Next.js, Prisma adapter)
 
 **Reasons**:
-- **Data residency solved** — runs inside our Next.js app on FPT Cloud. No separate container, no cross-border transfer, zero CDTIA
+- **Data residency** — runs inside our Next.js app (no separate auth container). On Vercel (primary), cross-border transfer to Neon (Singapore) requires CDTIA filing (accepted per ADR-020 D11). On FPT Cloud (backup), all data stays in Vietnam — zero CDTIA
 - **Zero ongoing cost** — MIT licensed, no per-MAU. SaaS providers cost $240-$300+/year at 10k MAU
 - **TypeScript-native** — same Prisma ORM and PostgreSQL; no language boundary when debugging auth
 - **Plugin system covers three realms**: `phoneNumber()` + `otp()` for customer via eSMS; built-in email+password for operator; `twoFactor()` for admin TOTP with backup codes

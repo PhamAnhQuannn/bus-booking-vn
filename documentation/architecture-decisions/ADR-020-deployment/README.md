@@ -1,10 +1,10 @@
 # ADR-020: Deployment & Infrastructure
 
 ## Status
-ACCEPTED — HOSTING PIVOT 2026-06-19
+ACCEPTED — HOSTING PIVOT 2026-06-21 (Vercel-first)
 
 ## Date
-2026-06-19 (hosting pivot to FPT Cloud; original 2026-06-17)
+2026-06-21 (Vercel-first pivot; FPT Cloud backup) — prior: 2026-06-19 FPT Cloud pivot; original 2026-06-17
 
 ## Context
 
@@ -38,7 +38,7 @@ All three share one Next.js deployment with separate route groups (`app/(custome
 
 ---
 
-### D2: Hosting Provider — FPT Cloud (Primary), Vercel (Alternative)
+### D2: Hosting Provider — Vercel Pro (Primary), FPT Cloud (Backup)
 
 > **2026-06-19 Pivot**: Vercel sin1 demoted from primary to zero-ops alternative. FPT Cloud VM promoted to primary hosting to eliminate CDTIA obligation entirely.
 
@@ -49,9 +49,11 @@ All three share one Next.js deployment with separate route groups (`app/(custome
 | C. AWS ap-southeast-1 (Singapore) | EC2/ECS/EKS | Broadest service catalog; mature DevOps tooling; auto-scaling | Singapore = cross-border transfer → CDTIA; higher cost at small scale; more complex than VPS |
 | D. Railway/Render | Managed container hosting | Persistent process; simpler background workers | Less Next.js integration; no edge middleware; overseas hosting → CDTIA |
 
-**Choice**: Option B primary (FPT Cloud), with Option A retained as zero-ops alternative for staging/preview.
+**Choice**: Option A primary (Vercel Pro sin1), with Option B retained as Docker self-hosted backup for data-residency-constrained scenarios.
 
-**Rationale**: CDTIA elimination is the decisive factor. Vietnam data residency removes the entire cross-border transfer regulatory burden (PDPL 2025 Art. 25, Decree 356/2025). FPT Cloud provides managed PostgreSQL, managed Redis, and S3-compatible storage — matching the full stack need. The provider-agnostic Docker contract (D8) ensures switching to AWS/Vercel/bare-metal later is a DNS + connection-string change, not a rewrite. Cloudflare CDN in front of FPT origin provides edge caching without CDTIA concern (static assets only; PII stays on origin).
+> **2026-06-21 Pivot**: FPT Cloud demoted from primary to backup. Vercel Pro sin1 restored as primary production host. Rationale: CDTIA filing cost ($2-5K one-time) is acceptable vs $200-400/month savings (Vercel stack ~$55-140/mo vs FPT Cloud ~$340-520/mo). Vercel provides zero-ops deployment, built-in cron (already configured in `vercel.json`), preview deploys per PR, and auto-scaling. FPT Cloud pricing remained opaque (sales quotation required) with unconfirmed PG 16 / Redis 7 availability. The provider-agnostic Docker contract (D8) means reverting to FPT Cloud is a DNS + connection-string change if CDTIA becomes untenable.
+
+**Rationale**: Cost and operational simplicity are decisive at startup scale. The Vercel + Neon + Upstash stack eliminates Docker, Nginx, SSL, PgBouncer, and cron sidecar management entirely. Neon's built-in connection pooler replaces PgBouncer; Upstash's HTTP REST Redis is already wired via `REDIS_PROVIDER=upstash`; Vercel Cron replaces the Supercronic sidecar. CDTIA filing is a one-time legal process (~60 days) that does not block technical deployment. Cloudflare remains the DNS/WAF layer. FPT Cloud Docker self-hosted path (D3, D7) is retained as a documented escape hatch for data-residency mandates.
 
 ---
 
@@ -118,7 +120,9 @@ External integrations support two modes controlled by environment variables:
 
 ---
 
-### D7: Vietnam-Hosted Cloud (FPT Cloud) — CHOSEN Primary Host
+### D7: Vietnam-Hosted Cloud (FPT Cloud) — Backup Host
+
+> **2026-06-21**: FPT Cloud retained as documented backup option. Primary production stack is Vercel Pro + Neon + Upstash (D11). All FPT Cloud details below remain valid for the backup deployment path.
 
 For full data residency compliance that **eliminates CDTIA filing entirely**, the platform can deploy on FPT Cloud with all compute and data in Vietnam. No cross-border transfer = no Decree 13/2023 impact assessment required.
 
@@ -334,11 +338,36 @@ Internet → Cloudflare (CDN + DNS + DDoS) → FPT Cloud Server public IP
 
 ---
 
+### D11: Vercel-First Production Stack (Primary)
+
+> Added 2026-06-21. This is the primary production stack. D3/D7 (Docker self-hosted / FPT Cloud) are the backup path.
+
+| Component | Provider | Monthly Cost | Notes |
+|-----------|----------|:------------:|-------|
+| Compute | Vercel Pro (sin1) | $20 | Next.js-native; built-in CDN, cron, preview deploys |
+| PostgreSQL | Neon Launch (ap-southeast-1) | $19 | Built-in pooler replaces PgBouncer; `DATABASE_URL` (pooled) + `DIRECT_URL` (unpooled) provided; branching for preview DBs |
+| Redis | Upstash PAYG (ap-southeast-1) | $0-2 | HTTP REST (Edge-safe); already wired via `REDIS_PROVIDER=upstash`; fails open |
+| Object Storage | Cloudflare R2 | $0-5 | S3-compatible; zero egress; `STORAGE_ENDPOINT` + `forcePathStyle: true` |
+| CDN / DNS / WAF | Cloudflare Free/Pro | $0-20 | DNS, DDoS, WAF; Vercel also has built-in CDN |
+| **Total** | | **~$55-70/mo** | Before SMS/email/monitoring usage costs |
+
+**Cron**: 11 jobs defined in `vercel.json` (1-min minimum on Pro). No Supercronic sidecar needed.
+
+**Connection pooling**: Neon provides pooled + unpooled connection strings natively. PgBouncer is not needed. The `DATABASE_URL`/`DIRECT_URL` pattern in `lib/core/db/client.ts` works identically.
+
+**Rate limiting**: `REDIS_PROVIDER=upstash` activates `@upstash/ratelimit` HTTP client. Edge middleware (`proxy.ts`) works natively on Vercel Edge with Upstash.
+
+**Cold starts**: ~100-300ms on Node.js serverless functions. PDF generation cron (`@react-pdf/renderer`) works within Vercel Pro's 60s function timeout.
+
+**CDTIA**: Required for Neon (Singapore) and Upstash (Singapore). One-time filing with MPS A05 (~$2-5K legal cost, 60-day process). See `documentation/guides/cdtia-data-residency-guide.md`.
+
+---
+
 ## Consequences
 
 ### Positive
 
-- **CDTIA eliminated** — all data in Vietnam; zero cross-border transfer obligation under PDPL 2025 (D7)
+- **CDTIA eliminated (backup path only)** — when using FPT Cloud (D7), all data stays in Vietnam; zero cross-border transfer. Primary Vercel stack requires CDTIA filing (D11).
 - **Provider-agnostic** — deployment contract (D8) ensures any Docker host works; migration = DNS + connection strings
 - **Terraform IaC available** — `fpt-corp/fptcloud` provider (v0.3.51) covers core infra (VPC, instances, DB, storage, K8s); infra is documented and reproducible from Day 1
 - **Persistent process available** — VPS hosting supports future BullMQ workers without platform constraints (Stage 1)

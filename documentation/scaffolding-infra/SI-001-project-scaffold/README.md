@@ -15,8 +15,8 @@ This document consolidates the foundational architectural decisions for the BenX
 | Node.js | 20 LTS | Required by Next.js App Router |
 | pnpm | 9.x | Workspace root; `corepack enable` activates the pinned version |
 | Docker / Docker Compose | 24+ | PostgreSQL + Redis dev containers; production image build |
-| PostgreSQL | 16 | FPT Cloud managed PG (prod); Docker (dev) |
-| Redis | 7 | FPT Cloud managed (prod); Docker (dev) |
+| PostgreSQL | 16 | Neon serverless (prod); FPT Cloud managed (backup); Docker (dev) |
+| Redis | 7 | Upstash serverless (prod); FPT Cloud managed (backup); Docker (dev) |
 
 **Dev server port**: `3001` (not 3000 -- port 3000 is occupied by another application in the standard dev setup). All references to `localhost:3000` in this documentation suite are legacy and should read `localhost:3001` for local development.
 
@@ -38,7 +38,7 @@ BenXe is a Next.js (App Router) monolith backed by PostgreSQL, accessed through 
 | Cache / rate-limit | Redis (`memory` / `ioredis` / `upstash` provider tripartite) | ADR-020 D8 |
 | Package manager | pnpm (workspace root) | ADR-001 D6 |
 | Edge gate | `jose` JWT + CSRF double-submit | ADR-003, ADR-008 |
-| Static assets / CDN | Cloudflare in front of FPT origin | ADR-001 D4 |
+| Static assets / CDN | Vercel Edge Network + Cloudflare (DNS/WAF) | ADR-001 D4 |
 
 **Why Next.js App Router.** Server-side rendering is required to appear in Google search results -- the platform competes directly with VeXeRe's strong organic presence (ADR-001 D1). React Server Components (RSC) enforce two financial invariants: I7 (no client-originated price, because price derivation stays server-side) and I9 (no raw phone in payloads). The `after()` API enables post-commit side effects such as notification fan-out and overpay-refund scheduling without blocking the HTTP response (ADR-001 D1).
 
@@ -52,9 +52,18 @@ BenXe is a Next.js (App Router) monolith backed by PostgreSQL, accessed through 
 
 ## 2. Hosting Summary
 
-FPT Cloud (Vietnam) is the primary production host. Vercel sin1 (Singapore) is retained for staging and per-PR preview deployments only. This is an irreversible architectural choice driven by PDPL 2025 data residency law -- hosting all compute and data on FPT Cloud eliminates the CDTIA (Cross-border Data Transfer Impact Assessment) filing obligation entirely (ADR-001 D4, ADR-020 D2).
+Vercel Pro sin1 (Singapore) is the primary production host. FPT Cloud (Vietnam) is retained as a Docker self-hosted backup for data-residency-constrained scenarios. This pivot (2026-06-21) accepts CDTIA filing in exchange for ~$200-400/mo cost savings and zero-ops deployment (ADR-001 D4, ADR-020 D2/D11).
 
-The deployment contract is provider-agnostic Docker: the application is a Docker image that accepts `DATABASE_URL`, `REDIS_URL`, and S3-compatible env vars. Migrating to any other host is a DNS + connection-string change, estimated at 2-4 hours (ADR-001 D4; see SI-006 for full deployment architecture).
+| Layer | Primary (Vercel stack) | Backup (FPT Cloud) |
+|---|---|---|
+| Compute | Vercel Pro sin1 ($20/mo) | FPT Cloud Server + Docker Compose |
+| PostgreSQL | Neon Launch ap-southeast-1 ($19/mo) | FPT Managed PG |
+| Redis | Upstash PAYG ap-southeast-1 ($0-2/mo) | FPT Managed Redis |
+| Object Storage | Cloudflare R2 ($0-5/mo) | FPT Object Storage (MinIO) |
+| Cron | Vercel Cron (vercel.json) | Supercronic sidecar |
+| **Total** | **~$55-70/mo** | **~$340-520/mo** |
+
+The deployment contract is provider-agnostic Docker: the application is a Docker image that accepts `DATABASE_URL`, `REDIS_URL`, and S3-compatible env vars. Migrating between providers is a DNS + connection-string change, estimated at 2-4 hours (ADR-020 D8; see SI-006 for full deployment architecture).
 
 ---
 

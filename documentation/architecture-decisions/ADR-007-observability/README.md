@@ -43,6 +43,8 @@ Key business constraints driving observability decisions (sourced from `document
 - Sentry error tracking captures unhandled exceptions with source maps, grouping, and alerting. PII redaction in the Sentry `beforeSend` hook prevents phone numbers and payment data from leaving Vietnam (domain-model/invariants-catalog.md, regulatory/dpia-checklist.md)
 - Upgrade path: when Phase 3 revenue justifies it (~500 bookings/day), migrate to Grafana Cloud or self-hosted Grafana stack on Vietnam infrastructure. Structured JSON log format ensures zero-rework migration — Loki/Grafana ingest the same JSON lines PG currently stores
 
+> **2026-06-21 Note**: Primary production is Vercel Pro + Neon + Upstash (ADR-020 D11). FPT Cloud Monitoring assessment below applies to the backup self-hosted deployment path only.
+
 > **FPT Cloud Monitoring Assessment** (2026-06-19): FPT Cloud Monitoring service (v1.3) collects metrics, logs, and traces with HTTP(S) endpoint monitoring and Kubernetes integration. However: no confirmed Prometheus-compatible scrape endpoints, no confirmed Grafana integration or API for programmatic access, and no published retention periods. **Recommendation: do NOT adopt FPT Cloud Monitoring as primary observability**. Use it as a secondary infrastructure-level signal (VM CPU/memory/disk) only. Primary stack remains BetterStack + Sentry + PG-based structured logs. When Phase 3 revenue justifies dedicated observability infra, self-deploy Prometheus + Grafana + Loki on a dedicated FPT VM — this stack is fully portable and runs within Vietnam data residency.
 
 > **IMPLEMENTATION STATUS** (2026-06-18)

@@ -5,7 +5,7 @@
 | # | Requirement | Governing Law | Risk if Non-Compliant | Action |
 |---|---|---|---|---|
 | 1 | **IPS license legal opinion** — determine whether BB's T+1 settlement constitutes "thu ho/chi ho" (collection and payment support) | Decree 52/2024/ND-CP | Operating unlicensed payment intermediary. Penalties include license revocation and fines. | Obtain formal legal opinion from Vietnamese law firm specializing in fintech/payments. If opinion says BB holds funds, restructure so VNPay/MoMo splits and settles directly to operators — BB never touches customer money. |
-| 2 | **Data localization** — Vietnamese user PII must be stored on servers physically in Vietnam | Cybersecurity Law 2018 + Decree 53/2022 + Decree 147/2024 | Violation of data localization law. Enforcement increasing. | **RESOLVED (2026-06-19):** FPT Cloud (Vietnam) chosen as primary host — all data stays in-country; CDTIA not required. See ADR-020 D7, DS-017. |
+| 2 | **Data localization** — Vietnamese user PII must be stored on servers physically in Vietnam | Cybersecurity Law 2018 + Decree 53/2022 + Decree 147/2024 | Violation of data localization law. Enforcement increasing. | **RESOLVED (2026-06-19):** FPT Cloud chosen as primary host. **UPDATE (2026-06-21):** Vercel Pro sin1 (Singapore) restored as primary (ADR-020 D11). CDTIA filing IS required and accepted. FPT Cloud backup eliminates CDTIA. See ADR-020 D2/D11, DS-017. |
 
 ## HIGH PRIORITY — Before or At Launch
 
@@ -33,7 +33,7 @@
 
 ## Data & Infrastructure Gap
 
-**Current state (2026-06-19)**: FPT Cloud (Vietnam) chosen as primary production host. Vercel sin1 (Singapore) retained for staging/preview only. See ADR-020 D2/D7.
+**Current state (2026-06-21)**: Vercel Pro sin1 (Singapore) is the primary production host (ADR-020 D2/D11). FPT Cloud (Vietnam) retained as Docker self-hosted backup. CDTIA filing required and accepted for Vercel+Neon+Upstash (Singapore).
 
 **Data localization requirement**: Decree 53/2022 requires Vietnamese user PII (account names, phone numbers, payment card details, email, IP addresses) stored on servers physically in Vietnam. Decree 147/2024 adds: at least one server must be in Vietnam for investigation/complaint purposes.
 
@@ -54,7 +54,7 @@
 - Data centers: 4 Tier III facilities in Hanoi + HCMC (FPT Fornix HN01/HN02/HCM01/HCM02)
 - Certifications: PCI DSS Level 1 (v4.0.1), ISO 27001/27017/27018, SOC 2
 - Infrastructure-as-code: Terraform provider `fpt-corp/fptcloud` (v0.3.51) covers VPC, instances, DB, storage, K8s
-- **No CDTIA filing needed** — no cross-border transfer occurs
+- **CDTIA filing required** — Vercel+Neon+Upstash (Singapore) = cross-border transfer. Filing accepted per ADR-020 D11 (~$2-5K, 60-day window with MPS A05). FPT Cloud backup path eliminates CDTIA.
 - Provider-agnostic deployment contract (ADR-020 D8): migration to AWS/Vercel/Azure = DNS + connection strings, zero app code changes
 - See ADR-020 D7 for staged architecture (VPS → multi-VM → FKE Kubernetes)
 - Pricing: only Object Storage published; compute + DB require sales quotation

@@ -4,29 +4,33 @@
 
 ## Purpose
 
-This document consolidates the deployment architecture for the BenXe bus-booking platform. It covers the hosting provider choice (FPT Cloud Vietnam as primary), the provider-agnostic deployment contract, the Docker Compose reference stack, the cron sidecar design, reverse proxy and SSL configuration, environment validation, non-functional requirements, the three-stage infrastructure evolution path, and operational playbooks. The platform's primary hosting constraint is data residency: all user PII, booking records, and payment data must remain physically in Vietnam to eliminate the CDTIA cross-border transfer obligation under PDPL 2025 Art. 25 and Decree 356/2025.
+This document consolidates the deployment architecture for the BenXe bus-booking platform. It covers the hosting provider choice (Vercel Pro sin1 as primary, FPT Cloud Vietnam as backup), the provider-agnostic deployment contract, the Docker Compose reference stack, the cron sidecar design, reverse proxy and SSL configuration, environment validation, non-functional requirements, the three-stage infrastructure evolution path, and operational playbooks. The platform accepts CDTIA filing for Singapore-hosted services (Vercel, Neon, Upstash) in exchange for ~$200-400/mo cost savings and zero-ops deployment. FPT Cloud (Vietnam) is retained as a Docker self-hosted backup that eliminates CDTIA entirely.
 
 ---
 
 ## 1. Hosting Architecture
 
-### 1.1 Primary Host -- FPT Cloud (Vietnam)
+### 1.1 Primary Host -- Vercel Pro + Neon + Upstash
 
-FPT Cloud is the chosen production host (ADR-020 D2, pivot 2026-06-19). All compute and data reside in Vietnam (Hanoi or Ho Chi Minh City data centres), which eliminates the CDTIA filing requirement entirely. See SI-001 §2 for the architectural rationale and PDPL 2025 data residency context.
+> **2026-06-21 Pivot**: FPT Cloud demoted from primary to backup. Vercel Pro sin1 promoted to primary production host. See ADR-020 D2/D11.
 
-**Stage 0 architecture on FPT Cloud:**
+Vercel Pro (Singapore, sin1) is the primary production host (ADR-020 D11, pivot 2026-06-21). Database is Neon serverless PostgreSQL (ap-southeast-1), Redis is Upstash (ap-southeast-1), storage is Cloudflare R2. CDTIA filing accepted for Singapore-hosted services.
+
+**Stage 0 architecture on Vercel:**
 
 ```
-Cloudflare (CDN + DNS + WAF + DDoS)
-        | HTTPS
+Vercel Edge Network (CDN + Edge Middleware)
+        |
         v
-FPT Cloud Server (4 vCPU / 8 GB / 80 GB SSD)
-    +-- Nginx (TLS termination, :443 / :80->301)
-    +-- Next.js standalone (:3000)
-    +-- Cron sidecar (aptible/supercronic)
-    +-- PgBouncer (:6432)
-    +-- PostgreSQL 16 (:5432)   <- self-hosted OR FPT Managed PG
-    +-- Redis 7 (:6379)         <- self-hosted OR FPT Managed Redis
+Vercel Serverless Functions (sin1)
+    +-- Next.js App (Node.js runtime)
+    +-- Vercel Cron (11 jobs via vercel.json)
+        |
+        +-- Neon PostgreSQL (ap-southeast-1)
+        |   (built-in pooler replaces PgBouncer)
+        +-- Upstash Redis (ap-southeast-1)
+        |   (HTTP REST, REDIS_PROVIDER=upstash)
+        +-- Cloudflare R2 (object storage)
 ```
 
 **FPT Cloud service mapping (ADR-020 D7):**
@@ -45,11 +49,15 @@ FPT Cloud Server (4 vCPU / 8 GB / 80 GB SSD)
 
 **FPT Cloud data centre certifications:** PCI DSS Level 1 (v4.0.1), ISO 27001, ISO 27017, ISO 27018, SOC 2 (July 2023, verify Type I vs II). Four Tier III facilities: HN01, HN02, HCM01, HCM02.
 
-### 1.2 Staging / Preview -- Vercel sin1 (Singapore)
+### 1.2 Vercel Environments
 
-Vercel (Singapore region) is retained for staging and per-PR preview deployments only (ADR-020 D2). Singapore hosting triggers a CDTIA obligation and is therefore ineligible for production use with real customer data.
+Vercel serves both production and staging/preview. Per-PR preview deploys use Neon database branching (instant copy-on-write) for isolated preview databases.
 
-### 1.3 CDTIA Impact by Provider
+### 1.3 Backup Host -- FPT Cloud (Docker Self-Hosted)
+
+### 1.4 CDTIA Impact by Provider
+
+> With Vercel-first stack, CDTIA filing is required and accepted. FPT Cloud backup eliminates CDTIA entirely.
 
 | Provider | Data location | CDTIA required? |
 |---|---|---|
@@ -282,9 +290,10 @@ Infrastructure scales in three defined stages, each triggered by measurable sign
 
 ### Stage 0 -- Single App (Current)
 
-- One FPT Cloud Server (4 vCPU / 8 GB)
-- Docker Compose: Next.js + PgBouncer + PostgreSQL + Redis + cron sidecar
-- Estimated cost: ~8,500,000-13,000,000 VND/month (~$340-520)
+- Vercel Pro (sin1) + Neon Launch + Upstash PAYG + Cloudflare R2
+- Cron via `vercel.json` (11 endpoints)
+- Estimated cost: ~$55-70/month (before SMS/email/monitoring)
+- **FPT Cloud backup**: Docker Compose on single FPT Cloud Server (~$340-520/month)
 
 **Trigger to Stage 1:** cron jobs exceed 30-second latency OR admin surface requires stronger isolation.
 
@@ -307,15 +316,15 @@ Infrastructure scales in three defined stages, each triggered by measurable sign
 
 ## 11. Cost Comparison
 
-| Component | FPT Cloud (est.) | AWS Singapore | Vercel Pro |
+| Component | Vercel Stack (primary) | FPT Cloud (backup) | AWS Singapore |
 |---|---|---|---|
-| Compute | ~$80-160/mo | t3.medium: ~$30/mo | $20/mo |
-| PostgreSQL | ~$80-120/mo managed | RDS db.t3.micro: ~$15/mo | Neon Free / $19/mo Pro |
-| Redis | ~$40-80/mo managed | ElastiCache t3.micro: ~$13/mo | Upstash Free / $10/mo Pro |
-| Object storage | ~$140/mo for 2 TB | ~$5/mo for 50 GB | ~$0/mo (1 GB free) |
-| **Stage 0 total** | **~$340-520/mo** | **~$68-168/mo** | **~$40-49/mo** |
+| Compute | $20/mo (Vercel Pro) | ~$80-160/mo | t3.medium: ~$30/mo |
+| PostgreSQL | $19/mo (Neon Launch) | ~$80-120/mo managed | RDS db.t3.micro: ~$15/mo |
+| Redis | $0-2/mo (Upstash PAYG) | ~$40-80/mo managed | ElastiCache t3.micro: ~$13/mo |
+| Object storage | $0-5/mo (Cloudflare R2) | ~$140/mo for 2 TB | ~$5/mo for 50 GB |
+| **Stage 0 total** | **~$55-70/mo** | **~$340-520/mo** | **~$68-168/mo** |
 
-**CDTIA compliance cost** (not in the table): estimated $2,000-5,000 one-time legal filing plus $500-1,000/year for ongoing maintenance. This cost applies to AWS Singapore and Vercel sin1 but not to FPT Cloud. The CDTIA elimination value exceeds the price premium at all stages.
+CDTIA filing cost (~$2-5K one-time, ~$500-1K/year) applies to Vercel and AWS stacks but is accepted as the cost of zero-ops deployment and $200-400/mo savings vs FPT Cloud.
 
 ---
 

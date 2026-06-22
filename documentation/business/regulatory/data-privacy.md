@@ -144,12 +144,15 @@ Cross-border transfer of important data requires separate impact assessment to c
 | Data subject rights portal | Before launch | Access/correct/delete. Manual process OK initially |
 | DPAs with all processors | Before launch | VNPay, MoMo, eSMS, MISA, hosting, analytics |
 | Appoint DPO | Before launch | Likely cannot use startup exemption (processes payment data) |
+> **2026-06-21 Update**: Vercel Pro sin1 (Singapore) is now primary host (ADR-020 D11). CDTIA filing IS required and accepted. FPT Cloud backup path eliminates CDTIA. See cdtia-data-residency-guide.md.
+
 | ~~Migration plan to VN cloud~~ | **DECIDED (2026-06-19)** | FPT Cloud **chosen as primary host**. See ADR-020 D7/D8/D9/D10, DS-017. Docker Compose on FPT Cloud Server with cron sidecar, Nginx + Let's Encrypt, Cloudflare CDN. Eliminates CDTIA for hosting entirely. Contact FPT sales for pricing quotes. |
 | Define retention schedules | Before launch | Booking data, payment data, OTP logs |
 
 ### CDTIA Filing Status (as of 2026-06-19)
 
 > **2026-06-19 UPDATE:** FPT Cloud (Vietnam) chosen as primary host. Items 1 and 2 below are **eliminated** by this decision.
+> **2026-06-21 UPDATE:** Vercel Pro sin1 (Singapore) restored as primary host (ADR-020 D11). Items 1 and 2 below are now **required** — CDTIA filing accepted (~$2-5K, 60-day window). FPT Cloud backup path still eliminates both items.
 
 **NOT FILED** for remaining cross-border processors. ~~Deadline has likely passed per PDPL 2025 Art. 25.~~
 

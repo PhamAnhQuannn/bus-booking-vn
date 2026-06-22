@@ -13,7 +13,7 @@ Bus-Booking handles financial transactions, sensitive personal data (phone numbe
 Key constraints driving security decisions (sourced from `documentation/business/`):
 
 - **PDPL 2025 (No. 91/2025) + Decree 356/2025**: Distinguishes "basic personal data" (name, phone, email) from "sensitive personal data" (payment records, government ID, location). Different consent and handling requirements per category. Breach notification to MPS A05 within 72 hours (24 hours for cybersecurity attacks). Penalties up to 5% annual VN revenue. (regulatory/data-privacy.md, regulatory/dpia-checklist.md)
-- **Data residency (Decree 53/2022 + Decree 147/2024)**: Vietnamese user PII must reside on Vietnam-hosted servers. Cross-border transfer requires CDTIA filing. **Resolved**: FPT Cloud (Vietnam) chosen as primary host — all data domestic, CDTIA eliminated (ADR-020 D2/D7). (regulatory/data-privacy.md, market-research/regulatory-compliance.md)
+- **Data residency (Decree 53/2022 + Decree 147/2024)**: Vietnamese user PII must reside on Vietnam-hosted servers. Cross-border transfer requires CDTIA filing. **Resolved**: Vercel Pro sin1 (Singapore) chosen as primary host (ADR-020 D2/D11). CDTIA filing accepted for cross-border transfer to Neon/Upstash (Singapore). FPT Cloud (Vietnam) retained as backup — eliminates CDTIA if used. (regulatory/data-privacy.md, market-research/regulatory-compliance.md)
 - **Financial integrity**: 8 state machines with ACID requirements, append-only ledger invariant, BigInt currency math. Admin compromise or payment forgery rated CRITICAL in risk-matrix.md. (domain-model/invariants-catalog.md, risk-matrix.md)
 - **Multi-tenant isolation**: Shared database serving multiple operators. `withOperatorScope` bypass = cross-tenant data leak. Single large operator leaving removes 30-50% of supply. (domain-model/bounded-contexts.md, stakeholder-map.md)
 - **Informal operator risk**: 20-30% of inter-provincial trips operate informally (unlicensed). Admitting unlicensed operators = regulatory shutdown risk from Ministry of Transport. (stakeholder-map.md, vietnam-market-context.md)
@@ -286,7 +286,8 @@ ADR-008 is the cross-cutting security umbrella. It does NOT re-decide topics own
 
 ### 12. Infrastructure Security — FPT Cloud (Vietnam) — All Data Domestic
 
-> **2026-06-19 Pivot**: This section supersedes the original Vercel+VN PG+CDTIA architecture. FPT Cloud is now the primary production host. See ADR-020 D2/D7.
+> **2026-06-19 Pivot**: This section supersedes the original Vercel+VN PG+CDTIA architecture. FPT Cloud promoted to primary.
+> **2026-06-21 Pivot**: Vercel Pro sin1 restored as primary production host (ADR-020 D2/D11). FPT Cloud demoted to backup. CDTIA filing accepted for Singapore-hosted services.
 
 | Option | Pros | Cons |
 |--------|------|------|
@@ -297,7 +298,7 @@ ADR-008 is the cross-cutting security umbrella. It does NOT re-decide topics own
 **Choice**: All compute + data on FPT Cloud (Vietnam). Vercel retained for staging/preview only (no production PII).
 
 **Reasons**:
-- **CDTIA elimination is decisive**: all compute, database, cache, and storage on FPT Cloud = zero cross-border transfer. No PDPL 2025 Art. 25 obligation, no Decree 356/2025 filing, no enforcement risk. This removes an entire regulatory compliance workstream
+- **CDTIA filing accepted**: Vercel+Neon+Upstash (Singapore) requires CDTIA under PDPL 2025 Art. 25. One-time filing cost ~$2-5K with MPS A05 (60-day window). FPT Cloud backup path eliminates CDTIA entirely.
 - FPT Fornix data centers (Hanoi HN01/HN02, HCMC HCM01/HCM02) hold PCI DSS Level 1 (v4.0.1), ISO 27001, ISO 27017, ISO 27018, SOC 2 certifications — audit-defensible infrastructure
 - **Compute**: FPT Cloud Server (Docker on Ubuntu); Nginx + Let's Encrypt for TLS termination; Cloudflare CDN in front for edge caching + DDoS protection (static assets only, PII stays on origin)
 - **Database**: FPT Database Engine for PostgreSQL (managed, HA) with `sslmode=require`; PgBouncer connection pooling; disk encryption (provider-managed). Standard `postgres://` connection string

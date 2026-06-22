@@ -38,7 +38,7 @@ Data model, API contract, and system design specifications for the BusBooking pl
 
 | Spec | Status | Scope |
 |------|--------|-------|
-| [DS-017: Deployment Portability](DS-017-deployment-portability/) | NEW | Provider-agnostic deployment contract, FPT Cloud primary host, cron sidecar, reverse proxy, migration playbook, cost comparison |
+| [DS-017: Deployment Portability](DS-017-deployment-portability/) | NEW | Provider-agnostic deployment contract, Vercel Pro primary / FPT Cloud backup, cron sidecar, reverse proxy, migration playbook, cost comparison |
 
 ### Customer Experience
 

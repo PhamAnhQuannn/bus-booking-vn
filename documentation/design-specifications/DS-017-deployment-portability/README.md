@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-This document defines the provider-agnostic deployment architecture for the BusBooking platform. The platform must run on FPT Cloud (Vietnam) as the primary host to eliminate CDTIA obligations, while maintaining the ability to migrate to AWS, Vercel, or bare-metal hosting with minimal effort.
+This document defines the provider-agnostic deployment architecture for the BusBooking platform. The primary production host is Vercel Pro sin1 + Neon + Upstash (ADR-020 D11). FPT Cloud (Vietnam) is retained as a Docker self-hosted backup. The deployment contract (C1-C8) ensures migration between any provider is a DNS + connection-string change.
 
 The core principle: **the application is a portable Docker artifact. The hosting provider is a configuration detail, not an architectural dependency.**
 
@@ -47,7 +47,9 @@ Before declaring a new provider ready:
 
 How each potential provider satisfies the deployment contract:
 
-| Contract | FPT Cloud (chosen) | AWS | Vercel | Bare Metal / Other VPS |
+> **2026-06-21 Update**: Vercel Pro + Neon + Upstash is now the primary production stack (ADR-020 D11). FPT Cloud is the backup Docker self-hosted option. The deployment contract (C1-C8) ensures migration between providers is a DNS + connection-string change.
+
+| Contract | FPT Cloud (backup) | AWS | Vercel | Bare Metal / Other VPS |
 |----------|-------------------|-----|--------|------------------------|
 | C1 Compute | FPT Cloud Server (4vCPU/8GB Stage 0); Docker on Ubuntu; Autoscale available for VM cloning | EC2 (t3.medium) / ECS Fargate / EKS | Serverless Functions (no Docker) | Any Linux VPS (DigitalOcean, Linode, Hetzner) |
 | C2 PostgreSQL | FPT Database Engine for PostgreSQL (managed, HA); DBProxy available (verify transaction mode); **PG16 unconfirmed — verify in Console** | RDS PostgreSQL | External: Neon or Supabase | Self-hosted PG 16 + PgBouncer in Docker |
@@ -337,6 +339,8 @@ Step-by-step for switching from Provider A to Provider B.
 
 Estimates for Stage 0 (~200 bookings/day, 1 operator, single VPS).
 
+> **2026-06-21 Update**: With the pivot to Vercel Pro + Neon + Upstash as primary (ADR-020 D11), see SI-006 §11 for the current cost breakdown. The Vercel column below remains accurate; FPT Cloud column applies to the backup self-hosted option.
+
 | Component | FPT Cloud (est.) | AWS (Singapore) | Vercel Pro |
 |-----------|-----------------|-----------------|------------|
 | Compute | ~2-4M VND/mo ($80-160) | t3.medium: ~$30/mo | $20/mo (Pro plan) |
@@ -518,15 +522,16 @@ const s3 = new S3Client({
 
 | # | Decision | Date | Rationale |
 |---|----------|------|-----------|
-| P1 | FPT Cloud as primary host over Vercel/AWS | 2026-06-19 | CDTIA elimination decisive; all data stays in Vietnam |
-| P2 | Provider-agnostic deployment contract | 2026-06-19 | Prevents vendor lock-in; migration = config change |
-| P3 | Supercronic sidecar over host crontab or Ofelia | 2026-06-19 | Container-portable; proper signal handling; stdout logging |
-| P4 | Nginx + Let's Encrypt over Caddy/Traefik | 2026-06-19 | Vietnam DevOps familiarity; battle-tested; widest documentation |
-| P5 | Dual cron config (vercel.json + crontab) | 2026-06-19 | Retains Vercel for staging/preview while FPT runs production |
-| P6 | Cloudflare CDN in front of FPT origin | 2026-06-19 | Edge caching + DDoS protection without CDTIA; Vietnamese PoPs |
-| P7 | FPT Managed PG + Redis recommended over self-hosted | 2026-06-19 | Outsource DB ops; HA + automated backup; fall back to Docker self-hosted if cost prohibitive |
-| P8 | Terraform (`fpt-corp/fptcloud`) from Day 1 | 2026-06-19 | IaC for reproducible infra; 25+ resource types; migration = rewrite TF resource types |
-| P9 | GHCR over FPT Container Registry | 2026-06-19 | FPT CR costs 16M VND/mo ($640) — prohibitive; GHCR is free with GitHub |
+| P1 | FPT Cloud as primary host over Vercel/AWS | 2026-06-19 | CDTIA elimination decisive |
+| P2 | Vercel Pro sin1 restored as primary; FPT Cloud backup | 2026-06-21 | Cost savings (~$200-400/mo), zero ops; CDTIA filing accepted |
+| P3 | Provider-agnostic deployment contract | 2026-06-19 | Prevents vendor lock-in; migration = config change |
+| P4 | Supercronic sidecar over host crontab or Ofelia | 2026-06-19 | Container-portable; proper signal handling; stdout logging |
+| P5 | Nginx + Let's Encrypt over Caddy/Traefik | 2026-06-19 | Vietnam DevOps familiarity; battle-tested; widest documentation |
+| P6 | Dual cron config (vercel.json + crontab) | 2026-06-19 | Retains Vercel for staging/preview while FPT runs production |
+| P7 | Cloudflare CDN in front of FPT origin | 2026-06-19 | Edge caching + DDoS protection without CDTIA; Vietnamese PoPs |
+| P8 | FPT Managed PG + Redis recommended over self-hosted | 2026-06-19 | Outsource DB ops; HA + automated backup; fall back to Docker self-hosted if cost prohibitive |
+| P9 | Terraform (`fpt-corp/fptcloud`) from Day 1 | 2026-06-19 | IaC for reproducible infra; 25+ resource types; migration = rewrite TF resource types |
+| P10 | GHCR over FPT Container Registry | 2026-06-19 | FPT CR costs 16M VND/mo ($640) — prohibitive; GHCR is free with GitHub |
 | P10 | Cloudflare WAF over FPT Cloud WAF for Stage 0-1 | 2026-06-19 | $20/mo vs $316-640/mo; same Cloudflare edge network; re-evaluate at Stage 2 |
 | P11 | S3 `forcePathStyle` for FPT Object Storage | 2026-06-19 | MinIO-based storage requires path-style addressing; env var controls the flag |
 
