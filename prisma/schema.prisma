@@ -94,8 +94,6 @@ model Operator {
   payoutAccount      PayoutAccount?
   /// Issue 081: charter requests directly assigned to or claimed by this operator.
   charterAssignments CharterRequest[]
-  /// Issue 105: operator's reusable pickup-area menu.
-  pickupAreas        OperatorPickupArea[]
   einvoices          EInvoice[]
 
   @@index([id])
@@ -159,7 +157,6 @@ model Route {
   originPlace        Place?                  @relation("RouteOrigin", fields: [originPlaceId], references: [id], onDelete: SetNull)
   destPlace          Place?                  @relation("RouteDest", fields: [destPlaceId], references: [id], onDelete: SetNull)
   recurringTemplates RecurringTripTemplate[]
-  pickupAreas        RoutePickupArea[]
 
   @@index([origin, destination])
   @@index([operatorId])
@@ -183,93 +180,6 @@ model Place {
   charterOrigins CharterRequest[] @relation("CharterOrigin")
 
   @@index([canonicalName])
-}
-
-/// Issue 105/106: operator's reusable pickup-area menu (huyện/xã from lib/geo).
-/// Replaces the legacy route-scoped PickupPoint (removed in issue 104). Tenant-scoped
-/// via withOperatorScope. Deactivate (isActive=false) instead of deleting so historical
-/// bookings keep their snapshotted label.
-model OperatorPickupArea {
-  id            String               @id @default(cuid())
-  operatorId    String
-  provinceCode  String
-  districtCode  String
-  districtName  String
-  wardCode      String
-  wardName      String
-  /// Named point: the stop name (e.g. "Bến xe Mỹ Đình", "Văn phòng Phúc Xá").
-  name          String
-  /// Optional street / landmark line for the point.
-  addressLine   String?
-  /// Denormalized ward address "Phường X, Quận Y, Tỉnh Z" — region context for the operator menu.
-  label         String
-  /// Issue 109: station (Bến xe) vs pickup (Đón tận nơi). Same table, distinguished by kind.
-  /// Default 'station' — most VN operator menu entries are bến xe (matches the Zod default
-  /// in lib/core/validation/pickupArea.ts + the Issue-110 backfill). Migration 20260610000000.
-  kind          PickupPlaceKind      @default(station)
-  isActive      Boolean              @default(true)
-  displayOrder  Int
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
-  operator      Operator             @relation(fields: [operatorId], references: [id], onDelete: Cascade)
-  tripAreas     TripPickupArea[]
-  templateAreas TemplatePickupArea[]
-  routeAreas    RoutePickupArea[]
-  holds         Hold[]
-  bookings      Booking[]
-
-  @@index([operatorId, isActive])
-}
-
-/// Issue 106: per-trip enabled subset of the operator's pickup-area menu. Travelers
-/// see only these for the trip. label is a snapshot (survives later menu edits).
-model TripPickupArea {
-  id                   String             @id @default(cuid())
-  tripId               String
-  operatorPickupAreaId String
-  label                String
-  /// Issue 109: snapshot of OperatorPickupArea.kind — lets the picker/manifest group station-vs-point without a join.
-  kind                 PickupPlaceKind    @default(pickup)
-  displayOrder         Int
-  trip                 Trip               @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  pickupArea           OperatorPickupArea @relation(fields: [operatorPickupAreaId], references: [id], onDelete: Cascade)
-
-  @@unique([tripId, operatorPickupAreaId])
-  @@index([tripId, displayOrder])
-}
-
-/// Issue 106: recurring-template subset; generateFromTemplate copies these into each
-/// generated trip's TripPickupArea.
-model TemplatePickupArea {
-  id                   String                @id @default(cuid())
-  recurringTemplateId  String
-  operatorPickupAreaId String
-  label                String
-  /// Issue 109: snapshot of OperatorPickupArea.kind, propagated into each generated trip's TripPickupArea.
-  kind                 PickupPlaceKind       @default(pickup)
-  displayOrder         Int
-  template             RecurringTripTemplate @relation(fields: [recurringTemplateId], references: [id], onDelete: Cascade)
-  pickupArea           OperatorPickupArea    @relation(fields: [operatorPickupAreaId], references: [id], onDelete: Cascade)
-
-  @@unique([recurringTemplateId, operatorPickupAreaId])
-  @@index([recurringTemplateId, displayOrder])
-}
-
-/// Issue 113: per-route subset of the operator's pickup-area menu. The new-trip
-/// picker, recurring templates, and per-route memory only offer areas assigned
-/// here. A live link (not a snapshot) — label/kind are read from OperatorPickupArea;
-/// TripPickupArea still snapshots them at trip-create time. Many-to-many: an area
-/// can serve many routes, a route has many areas.
-model RoutePickupArea {
-  id                   String             @id @default(cuid())
-  routeId              String
-  operatorPickupAreaId String
-  displayOrder         Int
-  route                Route              @relation(fields: [routeId], references: [id], onDelete: Cascade)
-  pickupArea           OperatorPickupArea @relation(fields: [operatorPickupAreaId], references: [id], onDelete: Cascade)
-
-  @@unique([routeId, operatorPickupAreaId])
-  @@index([routeId, displayOrder])
 }
 
 enum TripStatus {
@@ -322,8 +232,6 @@ model Trip {
   generationLogs      RecurringGenerationLog[]
   payouts             Payout[]
   assignedStaff       OperatorUser[]           @relation("StaffAssignment")
-  /// Issue 106: per-trip enabled pickup-area subset (travelers pick from these).
-  pickupAreas         TripPickupArea[]
   // Partial unique index (recurringTemplateId, departureAt) WHERE recurringTemplateId IS NOT NULL
   // is SQL-only in migration step2; Prisma DSL cannot express WHERE-clause partial unique indices.
 
@@ -345,18 +253,11 @@ model Hold {
   expiresAt       DateTime
   status          HoldStatus          @default(active)
   createdAt       DateTime            @default(now())
-  /// Issue 107: traveler pickup selection captured at hold creation (booking snapshots it).
   pickupKind      PickupKind          @default(station)
-  pickupAreaId    String?
-  pickupAreaLabel String?
   pickupDetail    String?
-  /// Issue 109/111: true ⇔ pickupKind=custom (free-text request). Indexed inert flag for manifest
-  /// filtering + notification trigger. Derived in SQL from pickupKind at INSERT (single-source).
-  /// SQL-only CHECK "Hold_custom_requires_detail" (migration 20260609040000): when this is true,
-  /// pickupDetail must be non-null with ≥5 trimmed chars. Prisma's DSL cannot model CHECK.
+  /// true ⇔ pickupKind=custom. Derived in SQL at INSERT. SQL-only CHECK enforces pickupDetail ≥5 chars when true.
   customPickupRequested Boolean        @default(false)
   trip            Trip                @relation(fields: [tripId], references: [id])
-  pickupArea      OperatorPickupArea? @relation(fields: [pickupAreaId], references: [id], onDelete: SetNull)
   booking         Booking?
 
   @@index([tripId, status, expiresAt])
@@ -392,19 +293,9 @@ enum PaymentMethod {
   bank_transfer
 }
 
-/// Issue 109: classifies an OperatorPickupArea / trip-snapshot place.
-/// `station` = Bến xe (terminal/depot). `pickup` = Đón tận nơi (door-to-door).
-enum PickupPlaceKind {
-  station
-  pickup
-}
-
-/// Issue 104/109/111: how the traveler boards. `station` = at the bus station (no detail).
-/// `point` = personal pickup in a chosen OperatorPickupArea (pickupDetail optional — a note).
-/// `custom` = free-text request not on the list (pickupDetail REQUIRED, ≥5 chars; operator phones back).
+/// Traveler pickup: `station` = at the bus station; `custom` = free-text address (≥5 chars).
 enum PickupKind {
   station
-  point
   custom
 }
 
@@ -439,19 +330,9 @@ model Booking {
   createdAt            DateTime            @default(now())
   /// Issue 014: operator call-queue contact tracking
   contactStatus        ContactStatus       @default(pending)
-  /// Issue 104/107: traveler pickup selection, snapshotted from the hold at booking.
-  /// station = board at the bus station; point = personal pickup in pickupAreaId.
   pickupKind           PickupKind          @default(station)
-  pickupAreaId         String?
-  /// Denormalized area label snapshot (survives OperatorPickupArea edit/deactivate).
-  pickupAreaLabel      String?
-  /// Free-text detail. PII (location). Optional note when pickupKind=point; REQUIRED
-  /// (≥5 trimmed chars) when pickupKind=custom; null for station. See the CHECK below.
   pickupDetail         String?
-  /// Issue 109/111: true ⇔ pickupKind=custom (free-text request). Indexed inert flag for
-  /// manifest filtering + notification trigger. Derived in SQL from pickupKind at INSERT.
-  /// SQL-only CHECK "Booking_custom_requires_detail" (migration 20260609040000): when this is
-  /// true, pickupDetail must be non-null with ≥5 trimmed chars. Prisma's DSL cannot model CHECK.
+  /// true ⇔ pickupKind=custom. Derived in SQL at INSERT. SQL-only CHECK enforces pickupDetail ≥5 chars when true.
   customPickupRequested Boolean            @default(false)
   /// Timestamp when boarding was marked (SET-TRUE-ONLY per SPEC NOTE)
   pickedUpAt           DateTime?
@@ -488,7 +369,6 @@ model Booking {
   trip                 Trip                @relation(fields: [tripId], references: [id])
   hold                 Hold?               @relation(fields: [holdId], references: [id], onDelete: Restrict)
   customer             Customer?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  pickupArea           OperatorPickupArea? @relation(fields: [pickupAreaId], references: [id], onDelete: SetNull)
   notifications        NotificationLog[]
   paymentEvents        PaymentEvent[]
   ledgerEntries        LedgerEntry[]
@@ -822,9 +702,6 @@ model RecurringTripTemplate {
   bus                Bus                      @relation(fields: [busId], references: [id])
   trips              Trip[]
   generationLogs     RecurringGenerationLog[]
-  /// Issue 106: pickup-area subset copied into each generated trip's TripPickupArea.
-  pickupAreas        TemplatePickupArea[]
-
   @@index([operatorId])
   @@index([routeId])
   @@index([busId])

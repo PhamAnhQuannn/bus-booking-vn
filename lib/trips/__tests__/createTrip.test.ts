@@ -18,7 +18,6 @@ vi.mock('@/lib/core/db/client', () => ({
 }));
 
 import { createTrip } from '../createTrip';
-import { TripServiceError } from '../errors';
 import { prisma } from '@/lib/core/db/client';
 
 const mockRouteFindFirst = prisma.route.findFirst as Mock;
@@ -57,24 +56,19 @@ function wireTx(opts: {
   busLockRows: unknown[];
   overlapRows?: unknown[];
   createRow?: unknown;
-  ownedAreas?: { id: string; name: string; addressLine: string | null; kind: 'station' | 'pickup' }[];
 }) {
   const tripCreate = vi.fn().mockResolvedValue(opts.createRow ?? BASE_TRIP_ROW);
   const queryRaw = vi
     .fn()
     .mockResolvedValueOnce(opts.busLockRows)
     .mockResolvedValueOnce(opts.overlapRows ?? []);
-  const areaFindMany = vi.fn().mockResolvedValue(opts.ownedAreas ?? []);
-  const areaCreateMany = vi.fn().mockResolvedValue({ count: (opts.ownedAreas ?? []).length });
   mockTransaction.mockImplementationOnce(async (fn: (tx: unknown) => unknown) =>
     fn({
       $queryRaw: queryRaw,
       trip: { create: tripCreate },
-      operatorPickupArea: { findMany: areaFindMany },
-      tripPickupArea: { createMany: areaCreateMany },
     })
   );
-  return { tripCreate, queryRaw, areaFindMany, areaCreateMany };
+  return { tripCreate, queryRaw };
 }
 
 beforeEach(() => {
@@ -209,51 +203,4 @@ describe('createTrip', () => {
     expect(tripCreate).not.toHaveBeenCalled();
   });
 
-  // Issue 106: per-trip pickup-area subset
-  it('writes TripPickupArea rows (snapshotting the named-point label) for owned active areas', async () => {
-    mockRouteFindFirst.mockResolvedValue({ durationMinutes: 240 });
-    const { areaCreateMany } = wireTx({
-      busLockRows: [BASE_BUS_LOCK],
-      ownedAreas: [
-        { id: 'a1', name: 'Bến A', addressLine: '12 Lê Lợi', kind: 'station' },
-        { id: 'a2', name: 'Bến B', addressLine: null, kind: 'pickup' },
-      ],
-    });
-
-    await createTrip({
-      operatorId: 'op-1',
-      routeId: 'route-1',
-      busId: 'bus-1',
-      departureAt: new Date('2026-06-01T08:00:00Z'),
-      price: 100000,
-      pickupAreaIds: ['a1', 'a2'],
-    });
-
-    expect(areaCreateMany).toHaveBeenCalledTimes(1);
-    const data = areaCreateMany.mock.calls[0][0].data;
-    expect(data).toHaveLength(2);
-    // Issue 110: kind is snapshotted alongside label.
-    expect(data[0]).toMatchObject({ tripId: 'trip-1', operatorPickupAreaId: 'a1', label: 'Bến A — 12 Lê Lợi', kind: 'station' });
-    expect(data[1]).toMatchObject({ operatorPickupAreaId: 'a2', label: 'Bến B', kind: 'pickup' });
-  });
-
-  it('throws invalid_pickup_area when an id is not one of the operator\'s active areas', async () => {
-    mockRouteFindFirst.mockResolvedValue({ durationMinutes: 240 });
-    const { areaCreateMany } = wireTx({
-      busLockRows: [BASE_BUS_LOCK],
-      ownedAreas: [{ id: 'a1', name: 'Bến A', addressLine: null, kind: 'station' }], // only 1 of the 2 requested is owned
-    });
-
-    await expect(
-      createTrip({
-        operatorId: 'op-1',
-        routeId: 'route-1',
-        busId: 'bus-1',
-        departureAt: new Date('2026-06-01T08:00:00Z'),
-        price: 100000,
-        pickupAreaIds: ['a1', 'a2'],
-      })
-    ).rejects.toMatchObject({ code: 'invalid_pickup_area' });
-    expect(areaCreateMany).not.toHaveBeenCalled();
-  });
 });

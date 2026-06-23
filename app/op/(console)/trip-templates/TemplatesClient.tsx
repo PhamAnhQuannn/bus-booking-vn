@@ -23,7 +23,6 @@ import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { PICKUP_KIND_GROUPS } from '@/components/op/pickupKindGroups';
 import {
   Table,
   TableHeader,
@@ -35,7 +34,6 @@ import {
 
 interface Props {
   initialTemplates: TemplateDto[];
-  pickupAreas: { id: string; label: string; kind: 'station' | 'pickup' }[];
 }
 
 /** Issue 110: picker grouping — Bến xe (station) first, then Đón tận nơi (pickup). */
@@ -58,12 +56,11 @@ function translateError(code: string): string {
     case 'not_found': return 'Không tìm thấy';
     case 'invalid_input': return 'Dữ liệu không hợp lệ';
     case 'validation_failed': return 'Dữ liệu không hợp lệ';
-    case 'invalid_pickup_area': return 'Khu vực đón không hợp lệ';
     default: return 'Đã xảy ra lỗi';
   }
 }
 
-export default function TemplatesClient({ initialTemplates, pickupAreas }: Props) {
+export default function TemplatesClient({ initialTemplates }: Props) {
   const [templates, setTemplates] = useState<TemplateDto[]>(initialTemplates);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string>('');
@@ -77,8 +74,6 @@ export default function TemplatesClient({ initialTemplates, pickupAreas }: Props
   const [daysMask, setDaysMask] = useState<number>(31); // Mon-Fri default
   const [validFrom, setValidFrom] = useState('');
   const [validUntil, setValidUntil] = useState('');
-  const [selectedAreaIds, setSelectedAreaIds] = useState<string[]>([]);
-
   function ok(text: string) {
     setMessage(text);
     setIsError(false);
@@ -115,7 +110,6 @@ export default function TemplatesClient({ initialTemplates, pickupAreas }: Props
         daysOfMask: daysMask,
         validFrom,
         validUntil,
-        pickupAreaIds: selectedAreaIds.length > 0 ? selectedAreaIds : undefined,
       });
       ok('Đã tạo lịch cố định.');
       setRouteId('');
@@ -125,7 +119,6 @@ export default function TemplatesClient({ initialTemplates, pickupAreas }: Props
       setDaysMask(31);
       setValidFrom('');
       setValidUntil('');
-      setSelectedAreaIds([]);
       await refreshTemplates();
     } catch (err) {
       fail(err);
@@ -251,41 +244,6 @@ export default function TemplatesClient({ initialTemplates, pickupAreas }: Props
                 className="w-48"
               />
             </div>
-            {pickupAreas.length > 0 && (
-              <div className="grid gap-1.5">
-                <Label>Khu vực đón khách (tuỳ chọn)</Label>
-                <div className="flex flex-col gap-4 rounded-md border border-input p-3">
-                  {PICKUP_KIND_GROUPS.map((group) => {
-                    const items = pickupAreas.filter((a) => a.kind === group.kind);
-                    if (items.length === 0) return null;
-                    return (
-                      <div key={group.kind} className="flex flex-col gap-2">
-                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          {group.label}
-                        </div>
-                        {items.map((a) => (
-                          <label key={a.id} className="flex items-center gap-2 text-sm">
-                            <input
-                              type="checkbox"
-                              checked={selectedAreaIds.includes(a.id)}
-                              onChange={(e) =>
-                                setSelectedAreaIds((prev) =>
-                                  e.target.checked
-                                    ? [...prev, a.id]
-                                    : prev.filter((id) => id !== a.id)
-                                )
-                              }
-                              data-testid={`new-template-area-${a.id}`}
-                            />
-                            {a.label}
-                          </label>
-                        ))}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
             <div>
               <Button type="submit" disabled={busy} data-testid="create-template-submit">
                 {busy ? 'Đang xử lý...' : 'Tạo lịch'}

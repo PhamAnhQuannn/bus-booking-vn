@@ -220,7 +220,7 @@ export default function DashboardClient({
                         {contactStatusDisplay(row.contactStatus).label}
                       </Badge>
                     </TableCell>
-                    <TableCell>{row.pickupAreaLabel ?? '—'}</TableCell>
+                    <TableCell>{row.pickupDetail ?? '—'}</TableCell>
                     <TableCell>
                       <Badge variant={pay.variant}>{pay.label}</Badge>
                     </TableCell>

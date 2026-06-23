@@ -22,8 +22,7 @@ export interface HoldDetails {
   departureAt: string;
   operatorLegalName: string;
   /** Issue 107: traveler pickup selection for review display. */
-  pickupKind: 'station' | 'point' | 'custom';
-  pickupAreaLabel: string | null;
+  pickupKind: 'station' | 'custom';
   pickupDetail: string | null;
 }
 
@@ -35,7 +34,6 @@ export async function getHoldDetails(holdId: string): Promise<HoldDetails | null
       ticketCount: true,
       expiresAt: true,
       pickupKind: true,
-      pickupAreaLabel: true,
       pickupDetail: true,
       trip: {
         select: {
@@ -61,7 +59,6 @@ export async function getHoldDetails(holdId: string): Promise<HoldDetails | null
     departureAt: hold.trip.departureAt.toISOString(),
     operatorLegalName: hold.trip.bus.operator.legalName,
     pickupKind: hold.pickupKind,
-    pickupAreaLabel: hold.pickupAreaLabel,
     pickupDetail: hold.pickupDetail,
   };
 }

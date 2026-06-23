@@ -269,7 +269,7 @@ export default function StaffDashboardClient({
                         <TableCell>
                           <Badge variant={contact.variant}>{contact.label}</Badge>
                         </TableCell>
-                        <TableCell>{row.pickupAreaLabel ?? '—'}</TableCell>
+                        <TableCell>{row.pickupDetail ?? '—'}</TableCell>
                         <TableCell>
                           <Badge variant={payment.variant}>{payment.label}</Badge>
                         </TableCell>
@@ -353,8 +353,6 @@ export default function StaffDashboardClient({
                               <span className="text-warning font-medium">Cần liên hệ: </span>
                               {row.pickupDetail || '—'}
                             </span>
-                          ) : row.pickupKind === 'point' ? (
-                            [row.pickupAreaLabel, row.pickupDetail].filter(Boolean).join(' — ') || '—'
                           ) : (
                             'Tại bến'
                           )}

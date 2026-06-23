@@ -26,9 +26,8 @@ export const holdInputSchema = z.object({
     .max(254)
     .email(),
   // Issue 107: traveler pickup selection. Optional for back-compat (absent = station);
-  // the point/detail constraints are enforced server-side against the trip's areas.
-  pickupKind: z.enum(['station', 'point', 'custom']).optional().default('station'),
-  pickupAreaId: z.string().optional(),
+  // custom detail constraints are enforced server-side.
+  pickupKind: z.enum(['station', 'custom']).optional().default('station'),
   pickupDetail: z.string().trim().max(300).optional(),
 });
 

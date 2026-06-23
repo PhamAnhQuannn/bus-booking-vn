@@ -17,8 +17,6 @@ export const CreateTripSchema = z.object({
   departureAt: z.string().datetime().pipe(z.coerce.date()),
   price: z.number().int().min(0),
   blockedSeats: z.number().int().min(0).optional().default(0),
-  // Issue 106: OperatorPickupArea ids enabled for this trip (subset of the menu).
-  pickupAreaIds: z.array(z.string().min(1)).max(50).optional(),
 });
 
 export type CreateTripInput = z.infer<typeof CreateTripSchema>;
@@ -94,8 +92,6 @@ export const CreateRecurringTemplateSchema = z
     daysOfMask: z.number().int().min(1).max(127),
     validFrom: z.string().regex(YYYYMMDD_REGEX, 'validFrom must be YYYY-MM-DD'),
     validUntil: z.string().regex(YYYYMMDD_REGEX, 'validUntil must be YYYY-MM-DD'),
-    // Issue 106: pickup-area subset copied into each generated trip.
-    pickupAreaIds: z.array(z.string().min(1)).max(50).optional(),
   })
   .refine((v) => v.validFrom <= v.validUntil, {
     message: 'validUntil must be >= validFrom',

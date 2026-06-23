@@ -14,7 +14,7 @@
 
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { UserCircle, Users, ShieldCheck, KeyRound, MapPin } from 'lucide-react';
+import { UserCircle, Users, ShieldCheck, KeyRound } from 'lucide-react';
 
 import { getOperatorSession } from '@/lib/op';
 import { getPayoutAccount } from '@/lib/onboarding';
@@ -45,12 +45,6 @@ const HUB_LINKS: HubLink[] = [
     description: 'Quản lý tài khoản nhân viên (theo vai trò).',
     icon: Users,
     adminOnly: true,
-  },
-  {
-    label: 'Khu vực đón khách',
-    href: '/op/pickup-areas',
-    description: 'Danh sách điểm đón tận nơi (huyện/xã) khách có thể chọn.',
-    icon: MapPin,
   },
   {
     label: 'Trạng thái đăng ký',

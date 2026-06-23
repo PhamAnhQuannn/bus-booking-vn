@@ -301,7 +301,6 @@ describe('getOperatorBooking', () => {
     expect(booking?.id).toBe(paidBookingId);
     expect(booking).toHaveProperty('contactStatus');
     expect(booking).toHaveProperty('pickupKind');
-    expect(booking).toHaveProperty('pickupAreaLabel');
     expect(booking).toHaveProperty('escalationNote');
   });
 

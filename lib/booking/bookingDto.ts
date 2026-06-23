@@ -35,8 +35,7 @@ export interface BookingDto {
   createdAt: string; // ISO 8601
   // Issue 014 contact + Issue 104/107 pickup (read-only; traveler self-selected)
   contactStatus: BookingContactStatus;
-  pickupKind: 'station' | 'point' | 'custom';
-  pickupAreaLabel: string | null;
+  pickupKind: 'station' | 'custom';
   pickupDetail: string | null;
   pickedUpAt: string | null; // ISO 8601
   escalationNote: string | null;

@@ -22,7 +22,6 @@ export interface BookingDtoRow {
   createdAt: Date;
   contactStatus: string;
   pickupKind: string;
-  pickupAreaLabel: string | null;
   pickupDetail: string | null;
   pickedUpAt: Date | null;
   escalationNote: string | null;
@@ -57,7 +56,6 @@ export function toBookingDto(row: BookingDtoRow): BookingDto {
     createdAt: row.createdAt.toISOString(),
     contactStatus: row.contactStatus as BookingDto['contactStatus'],
     pickupKind: row.pickupKind as BookingDto['pickupKind'],
-    pickupAreaLabel: row.pickupAreaLabel,
     pickupDetail: row.pickupDetail,
     pickedUpAt: row.pickedUpAt ? row.pickedUpAt.toISOString() : null,
     escalationNote: row.escalationNote,
