@@ -9,7 +9,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowRight, Clock, Armchair, MapPin, Phone, Timer } from 'lucide-react';
+import { ArrowRight, Clock, Armchair, Phone, Timer } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getTripDetails } from '@/lib/trips';
 import { formatVnd } from '@/lib/format';
@@ -147,27 +147,6 @@ export default async function TripDetailPage({
           </div>
         </CardContent>
       </Card>
-
-      {/* Pickup areas (Issue 106): huyện/xã this trip serves for personal pickup */}
-      {trip.pickupAreas.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle as="h2" className="text-base">
-              Khu vực đón
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="flex flex-col gap-3">
-              {trip.pickupAreas.map((a) => (
-                <li key={a.label} className="flex items-start gap-2 text-sm">
-                  <MapPin className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-                  <div className="font-medium">{a.label}</div>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Operator contact */}
       <Card>

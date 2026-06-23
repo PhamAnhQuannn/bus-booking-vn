@@ -16,7 +16,6 @@ import { withOperatorScope } from '@/lib/core/db';
 import { fromZonedTime } from 'date-fns-tz';
 import { addDays, parseISO, format } from 'date-fns';
 import { randomUUID } from 'crypto';
-import { resolveOwnedAreas, toPickupAreaRows } from './snapshotPickupAreas';
 
 const TZ = 'Asia/Ho_Chi_Minh';
 const HORIZON_DAYS = 14;
@@ -60,11 +59,6 @@ export async function generateTripsFromTemplates(
           maintenanceStart: true,
           maintenanceEnd: true,
         },
-      },
-      // Issue 106: pickup-area subset copied into each generated trip.
-      // Issue 110: carry `kind` from the template snapshot (NOT a fresh place select).
-      pickupAreas: {
-        select: { operatorPickupAreaId: true, label: true, kind: true, displayOrder: true },
       },
     },
   });
@@ -170,19 +164,6 @@ export async function generateTripsFromTemplates(
             },
           });
 
-          // Issue 106: copy the template's pickup-area subset into this trip.
-          if (template.pickupAreas?.length) {
-            await tx.tripPickupArea.createMany({
-              data: template.pickupAreas.map((a) => ({
-                tripId: trip.id,
-                operatorPickupAreaId: a.operatorPickupAreaId,
-                label: a.label,
-                kind: a.kind, // Issue 110: propagate kind from the template snapshot.
-                displayOrder: a.displayOrder,
-              })),
-            });
-          }
-
           await tx.recurringGenerationLog.create({
             data: {
               id: randomUUID().replace(/-/g, '').slice(0, 25),
@@ -258,8 +239,6 @@ export async function createTemplate(
     daysOfMask: number;
     validFrom: string;
     validUntil: string;
-    /** Issue 106: OperatorPickupArea ids enabled for this template's trips. */
-    pickupAreaIds?: string[];
   }
 ): Promise<TemplateDto> {
   const template = await prisma.$transaction(async (tx) => {
@@ -275,15 +254,6 @@ export async function createTemplate(
         validUntil: new Date(input.validUntil),
       },
     });
-
-    // Issue 106: snapshot the operator's chosen areas onto the template. Validate
-    // ownership + active (cross-op / inactive / unknown → reject).
-    if (input.pickupAreaIds && input.pickupAreaIds.length > 0) {
-      const owned = await resolveOwnedAreas(tx, operatorId, input.pickupAreaIds);
-      await tx.templatePickupArea.createMany({
-        data: toPickupAreaRows(owned).map((r) => ({ recurringTemplateId: created.id, ...r })),
-      });
-    }
 
     return created;
   });

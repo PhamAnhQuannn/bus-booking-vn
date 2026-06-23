@@ -162,7 +162,7 @@ export async function createOnlineBookingFromHold(
               id, "bookingRef", "confirmationToken", "tripId", "holdId",
               "customerId", "buyerName", "buyerPhone", "buyerEmail", "ticketCount", "totalVnd",
               "paymentMethod", status, "isManual", "createdAt",
-              "pickupKind", "pickupAreaId", "pickupAreaLabel", "pickupDetail",
+              "pickupKind", "pickupDetail",
               "customPickupRequested"
             )
             SELECT
@@ -182,8 +182,6 @@ export async function createOnlineBookingFromHold(
               false,
               NOW(),
               h."pickupKind",
-              h."pickupAreaId",
-              h."pickupAreaLabel",
               h."pickupDetail",
               (h."pickupKind" = 'custom'::"PickupKind")
             FROM "Hold" h

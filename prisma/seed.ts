@@ -5,7 +5,7 @@ import { addDays, startOfDay, set } from 'date-fns';
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import { hash as hashPassword } from '../lib/auth/password';
 import { normalizePhone } from '../lib/core/validation/phone';
-import { listProvinces, listDistricts, listWards, resolveLabel } from '../lib/geo/vnAdmin';
+
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -54,8 +54,7 @@ async function main() {
   await prisma.trip.deleteMany();
 
   // Route children (RecurringTripTemplate no cascade) and Bus children
-  // (BusMaintenance Cascade) precede their parents. (TripPickupArea cascades from
-  // Trip; OperatorPickupArea cascades from Operator — handled below.)
+  // (BusMaintenance Cascade) precede their parents.
   await prisma.recurringTripTemplate.deleteMany();
   await prisma.route.deleteMany();
   await prisma.busMaintenance.deleteMany();
@@ -119,54 +118,6 @@ async function main() {
     },
   });
 
-  // ---- Operator pickup areas (Issue 105/106) ----
-  // Seed each operator's reusable menu (a few real huyện/xã from the vnAdmin
-  // dataset) + set their base province, so trips can expose pickup destinations.
-  async function seedOperatorAreas(operatorId: string, provinceName: string) {
-    const province = listProvinces().find((p) => p.name.includes(provinceName));
-    if (!province) return [] as { id: string; label: string }[];
-    const district = listDistricts(province.code)[0];
-    if (!district) return [];
-    const wards = listWards(district.code).slice(0, 3);
-    await prisma.operator.update({
-      where: { id: operatorId },
-      data: { provinceCode: province.code, provinceName: province.name },
-    });
-    const created: { id: string; label: string }[] = [];
-    let order = 1;
-    for (const w of wards) {
-      const label =
-        resolveLabel({ provinceCode: province.code, districtCode: district.code, wardCode: w.code }) ??
-        `${w.name}, ${district.name}, ${province.name}`;
-      // Named point: a concrete stop inside the ward + an address line.
-      const name = `Văn phòng ${w.name}`;
-      const addressLine = `Số ${order} đường ${district.name}`;
-      const row = await prisma.operatorPickupArea.create({
-        data: {
-          operatorId,
-          provinceCode: province.code,
-          districtCode: district.code,
-          districtName: district.name,
-          wardCode: w.code,
-          wardName: w.name,
-          name,
-          addressLine,
-          label,
-          displayOrder: order++,
-        },
-        select: { id: true },
-      });
-      // The customer-facing snapshot is the point identity (name — address), not the ward label.
-      created.push({ id: row.id, label: `${name} — ${addressLine}` });
-    }
-    return created;
-  }
-
-  const areasByOperator: Record<string, { id: string; label: string }[]> = {
-    [op1.id]: await seedOperatorAreas(op1.id, 'Hà Nội'),
-    [op2.id]: await seedOperatorAreas(op2.id, 'Hồ Chí Minh'),
-    [op3.id]: await seedOperatorAreas(op3.id, 'Đắk Lắk'),
-  };
 
   // ---- Buses ----
   const buses = await Promise.all([
@@ -247,19 +198,6 @@ async function main() {
   }
   const reverseRoutes = await Promise.all(reverseDefs.map((d) => prisma.route.create({ data: d })));
 
-  // ---- Route-scoped pickup areas (Issue 113) ----
-  // Pickup areas are route-scoped: assign each operator's full menu to every one of
-  // that operator's routes so a fresh seed has populated new-trip pickers per route.
-  const allRoutesForPickup = await prisma.route.findMany({ select: { id: true, operatorId: true } });
-  for (const r of allRoutesForPickup) {
-    const areas = areasByOperator[r.operatorId] ?? [];
-    if (areas.length === 0) continue;
-    await prisma.routePickupArea.createMany({
-      data: areas.map((a, i) => ({ routeId: r.id, operatorPickupAreaId: a.id, displayOrder: i })),
-      skipDuplicates: true,
-    });
-  }
-
   // ---- Places (Issue 044) ----
   // Canonical Place per distinct trimmed origin/destination, then link route FKs.
   // Mirrors the place_entity migration backfill so a fresh seed is place-linked.
@@ -281,10 +219,6 @@ async function main() {
   await prisma.$executeRawUnsafe(
     `UPDATE "Route" r SET "destPlaceId" = p."id" FROM "Place" p WHERE p."canonicalName" = btrim(r.destination);`
   );
-
-  // Pickup areas (OperatorPickupArea + per-trip TripPickupArea) are seeded by the
-  // pickup-feature slices (issues 105/106); the legacy route-scoped PickupPoint seed
-  // was removed in issue 104.
 
   // ---- Trips ----
   // today in VN time
@@ -479,22 +413,6 @@ async function main() {
   }
 
   await prisma.trip.createMany({ data: tripData });
-
-  // ---- Per-trip pickup areas (Issue 106) ----
-  // Link every seeded trip to its operator's pickup-area menu (snapshot label),
-  // so the booking flow shows real huyện/xã pickup options.
-  const seededTrips = await prisma.trip.findMany({ select: { id: true, operatorId: true } });
-  const tripAreaData = seededTrips.flatMap((trip) =>
-    (areasByOperator[trip.operatorId] ?? []).map((a, i) => ({
-      tripId: trip.id,
-      operatorPickupAreaId: a.id,
-      label: a.label,
-      displayOrder: i,
-    }))
-  );
-  if (tripAreaData.length > 0) {
-    await prisma.tripPickupArea.createMany({ data: tripAreaData });
-  }
 
   // ---- OperatorUser (Issue 010) ----
   // NOTE: contact/notification phones use literal-x mask — NEVER real VN numbers

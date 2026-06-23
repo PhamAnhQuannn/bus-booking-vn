@@ -18,9 +18,8 @@ export interface ManifestRow {
   name: string;
   phone: string;
   ticketCount: number;
-  /** Issue 104/111: traveler pickup. station = bus station; point = personal pickup; custom = off-list request. */
-  pickupKind: 'station' | 'point' | 'custom';
-  pickupAreaLabel: string | null;
+  /** Issue 104/111: traveler pickup. station = bus station; custom = off-list request. */
+  pickupKind: 'station' | 'custom';
   pickupDetail: string | null;
   /** Issue 111: true ⇔ pickupKind=custom — the "Cần liên hệ" highlight trigger (gated on contactStatus=pending). */
   customPickupRequested: boolean;
@@ -79,7 +78,6 @@ export async function getManifest(
       checkedInAt: true,
       noShowAt: true,
       pickupKind: true,
-      pickupAreaLabel: true,
       pickupDetail: true,
       customPickupRequested: true,
     },
@@ -93,7 +91,6 @@ export async function getManifest(
     phone: b.buyerPhone,
     ticketCount: b.ticketCount,
     pickupKind: b.pickupKind as ManifestRow['pickupKind'],
-    pickupAreaLabel: b.pickupAreaLabel,
     pickupDetail: b.pickupDetail,
     customPickupRequested: b.customPickupRequested,
     contactStatus: b.contactStatus as ManifestRow['contactStatus'],

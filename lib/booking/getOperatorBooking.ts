@@ -26,7 +26,6 @@ const bookingFullSelect = {
   createdAt: true,
   contactStatus: true,
   pickupKind: true,
-  pickupAreaLabel: true,
   pickupDetail: true,
   pickedUpAt: true,
   escalationNote: true,

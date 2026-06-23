@@ -16,7 +16,6 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/core/db/client';
 import { withOperatorScope } from '@/lib/core/db';
 import { TripServiceError } from './errors';
-import { resolveOwnedAreas, toPickupAreaRows } from './snapshotPickupAreas';
 import type { TripDto } from './tripDto';
 import { toTripDto } from './toTripDto';
 import { busHasOverlappingTrip, tripWindowEnd } from './busOverlap';
@@ -30,8 +29,6 @@ export interface CreateTripInput {
   blockedSeats?: number;
   recurringTemplateId?: string;
   pairedTripId?: string;
-  /** Issue 106: OperatorPickupArea ids enabled for this trip (must be owned + active). */
-  pickupAreaIds?: string[];
 }
 
 export async function createTrip(input: CreateTripInput): Promise<TripDto> {
@@ -42,7 +39,6 @@ export async function createTrip(input: CreateTripInput): Promise<TripDto> {
     departureAt,
     price,
     blockedSeats = 0,
-    pickupAreaIds,
     recurringTemplateId,
     pairedTripId,
   } = input;
@@ -122,18 +118,6 @@ export async function createTrip(input: CreateTripInput): Promise<TripDto> {
           },
         },
       });
-
-      // Issue 106: per-trip pickup-area subset. Validate every id is one of THIS
-      // operator's active menu areas (cross-op / inactive / unknown → reject), then
-      // snapshot the label into TripPickupArea. resolveOwnedAreas throws
-      // TripServiceError('invalid_pickup_area') — re-thrown as-is by the catch below.
-      // Issue 113: route-scoped — area must also be assigned to THIS route.
-      if (pickupAreaIds && pickupAreaIds.length > 0) {
-        const owned = await resolveOwnedAreas(tx, operatorId, pickupAreaIds, routeId);
-        await tx.tripPickupArea.createMany({
-          data: toPickupAreaRows(owned).map((r) => ({ tripId: created.id, ...r })),
-        });
-      }
 
       return created;
     });

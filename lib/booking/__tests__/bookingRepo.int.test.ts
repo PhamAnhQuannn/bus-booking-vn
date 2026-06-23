@@ -183,8 +183,6 @@ describe('createOnlineBookingFromHold (momo)', () => {
       customerName: 'Custom Holder',
       customerEmail: 'custom@example.com',
       pickupKind: 'custom',
-      pickupAreaId: null,
-      pickupAreaLabel: null,
       pickupDetail: '12 Lê Lợi, phường X',
     });
     expect(h).not.toBeNull();
@@ -213,13 +211,11 @@ describe('createOnlineBookingFromHold (momo)', () => {
       select: {
         pickupKind: true,
         customPickupRequested: true,
-        pickupAreaId: true,
         pickupDetail: true,
       },
     });
     expect(bookingRow?.pickupKind).toBe('custom');
     expect(bookingRow?.customPickupRequested).toBe(true);
-    expect(bookingRow?.pickupAreaId).toBeNull();
     expect(bookingRow?.pickupDetail).toBe('12 Lê Lợi, phường X');
   });
 

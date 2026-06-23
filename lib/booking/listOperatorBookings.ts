@@ -47,6 +47,7 @@ const bookingQueueSelect = {
   status: true,
   isManual: true,
   escalatedAt: true,
+  pickupDetail: true,
   trip: {
     select: {
       id: true,
@@ -55,7 +56,6 @@ const bookingQueueSelect = {
       routeId: true,
     },
   },
-  pickupAreaLabel: true,
 } as const;
 
 export async function listOperatorBookings(

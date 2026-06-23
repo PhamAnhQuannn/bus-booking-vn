@@ -45,9 +45,7 @@ export interface CreateHoldInput {
   /** Issue 042: buyer email captured at hold creation. Optional for back-compat callers. */
   customerEmail?: string | null;
   /** Issue 107: traveler pickup selection (already validated + resolved by the caller). */
-  pickupKind?: 'station' | 'point' | 'custom';
-  pickupAreaId?: string | null;
-  pickupAreaLabel?: string | null;
+  pickupKind?: 'station' | 'custom';
   pickupDetail?: string | null;
 }
 
@@ -68,8 +66,6 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
     customerName,
     customerEmail = null,
     pickupKind = 'station',
-    pickupAreaId = null,
-    pickupAreaLabel = null,
     pickupDetail = null,
   } = input;
 
@@ -105,7 +101,7 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
     // 2. Conditional INSERT — only if available seats >= ticketCount
     const inserted = await tx.$queryRaw<InsertRow[]>(
       Prisma.sql`
-        INSERT INTO "Hold" (id, "tripId", "ticketCount", "customerPhone", "customerName", "customerEmail", "expiresAt", status, "createdAt", "pickupKind", "pickupAreaId", "pickupAreaLabel", "pickupDetail", "customPickupRequested")
+        INSERT INTO "Hold" (id, "tripId", "ticketCount", "customerPhone", "customerName", "customerEmail", "expiresAt", status, "createdAt", "pickupKind", "pickupDetail", "customPickupRequested")
         SELECT
           ${holdId},
           ${tripId},
@@ -117,8 +113,6 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
           'active'::"HoldStatus",
           NOW(),
           ${pickupKind}::"PickupKind",
-          ${pickupAreaId},
-          ${pickupAreaLabel},
           ${pickupDetail},
           (${pickupKind}::"PickupKind" = 'custom'::"PickupKind")
         WHERE (

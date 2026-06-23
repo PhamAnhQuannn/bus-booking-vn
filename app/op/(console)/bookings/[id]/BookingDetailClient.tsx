@@ -73,8 +73,6 @@ export default function BookingDetailClient({ booking }: Props) {
                   <span className="text-warning font-medium">Cần liên hệ: </span>
                   {booking.pickupDetail || '—'}
                 </span>
-              ) : booking.pickupKind === 'point' ? (
-                [booking.pickupAreaLabel, booking.pickupDetail].filter(Boolean).join(' — ') || '—'
               ) : (
                 'Tại bến xe'
               )}

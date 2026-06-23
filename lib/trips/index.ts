@@ -39,9 +39,6 @@ export { reassignBus } from './reassignBus';
 // salesToggle.ts
 export { salesToggle } from './salesToggle';
 
-// setTripPickupAreas.ts
-export { setTripPickupAreas, type TripPickupAreaItem } from './setTripPickupAreas';
-
 // searchTrips.ts
 export { searchTrips, SEARCH_PAGE_LIMIT } from './searchTrips';
 export type { TripResult } from './searchTrips';

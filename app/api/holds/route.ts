@@ -17,7 +17,6 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { holdInputSchema } from '@/lib/core/validation/hold';
 import { createHold } from '@/lib/core/db/holdRepo';
-import { prisma } from '@/lib/core/db/client';
 import { validatePickupSelection } from '@/lib/booking';
 import { HoldCapExceededError } from '@/lib/core/db/holdErrors';
 import { buildSetCookieHeader } from '@/lib/security';
@@ -60,61 +59,29 @@ async function handler(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: 'INVALID' }, { status: 400 });
   }
 
-  const { tripId, ticketCount, buyerName, buyerPhone, buyerEmail, pickupKind, pickupAreaId, pickupDetail } =
+  const { tripId, ticketCount, buyerName, buyerPhone, buyerEmail, pickupKind, pickupDetail } =
     parsed.data;
 
-  // ---- 2b. Resolve + validate pickup against the trip's enabled areas (Issue 107/111) ----
+  // ---- 2b. Resolve + validate pickup (Issue 107/111) ----
   // The client-supplied pickupKind selects the branch; the resulting fields are always
-  // SERVER-validated (custom detail length; point areaId ∈ this trip's enabled areas).
-  // areaId is only honored inside the 'point' branch — a 'station'/'custom' request never
-  // adopts a stray areaId. Anything not 'custom'/'point' falls through to station.
+  // SERVER-validated (custom detail length). Anything not 'custom' falls through to station.
   // NB: customPickupRequested is NOT tracked here — createHold (lib/core/db/holdRepo)
   // derives it authoritatively in SQL as (pickupKind = 'custom'), the single source of truth.
   let pickup: {
-    pickupKind: 'station' | 'point' | 'custom';
-    pickupAreaId: string | null;
-    pickupAreaLabel: string | null;
+    pickupKind: 'station' | 'custom';
     pickupDetail: string | null;
   } = {
     pickupKind: 'station',
-    pickupAreaId: null,
-    pickupAreaLabel: null,
     pickupDetail: null,
   };
 
   if (pickupKind === 'custom') {
-    const check = validatePickupSelection([], { kind: 'custom', detail: pickupDetail });
+    const check = validatePickupSelection({ kind: 'custom', detail: pickupDetail });
     if (!check.ok) {
       return NextResponse.json({ error: check.code }, { status: 422 });
     }
     pickup = {
       pickupKind: 'custom',
-      pickupAreaId: null,
-      pickupAreaLabel: null,
-      pickupDetail: check.pickupDetail,
-    };
-  } else if (pickupKind === 'point') {
-    // Issue 112 (deactivate-then-book, edge P2-4 — decided + documented): we validate ONLY against
-    // this trip's TripPickupArea enablement and intentionally do NOT join OperatorPickupArea.isActive.
-    // Per-trip enablement is an explicit operator choice and is honored for the life of the trip even
-    // if the parent area is later deactivated; deactivation only removes the area from the NEW-trip
-    // setup menu (see lib/catalog/deactivateOperatorPickupArea.ts). No isActive gate here by design.
-    const tripAreas = await prisma.tripPickupArea.findMany({
-      where: { tripId },
-      select: { operatorPickupAreaId: true, label: true },
-    });
-    const check = validatePickupSelection(
-      tripAreas.map((a) => a.operatorPickupAreaId),
-      { kind: 'point', areaId: pickupAreaId, detail: pickupDetail }
-    );
-    if (!check.ok) {
-      return NextResponse.json({ error: check.code }, { status: 422 });
-    }
-    const label = tripAreas.find((a) => a.operatorPickupAreaId === check.pickupAreaId)?.label ?? null;
-    pickup = {
-      pickupKind: 'point',
-      pickupAreaId: check.pickupAreaId,
-      pickupAreaLabel: label,
       pickupDetail: check.pickupDetail,
     };
   }
@@ -129,8 +96,6 @@ async function handler(req: NextRequest): Promise<Response> {
       customerName: buyerName,
       customerEmail: buyerEmail,
       pickupKind: pickup.pickupKind,
-      pickupAreaId: pickup.pickupAreaId,
-      pickupAreaLabel: pickup.pickupAreaLabel,
       pickupDetail: pickup.pickupDetail,
     });
   } catch (e) {

@@ -14,8 +14,6 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createTripApi } from '@/lib/api';
-// lib/geo is pure + client-safe (static JSON; no server-only/pg) — see lib/geo/index.ts.
-import { getProvince } from '@/lib/geo';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -28,7 +26,6 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { PICKUP_KIND_GROUPS } from '@/components/op/pickupKindGroups';
 
 interface RouteOption {
   id: string;
@@ -42,34 +39,9 @@ interface BusOption {
   capacity: number;
 }
 
-interface PickupAreaOption {
-  id: string;
-  label: string;
-  kind: 'station' | 'pickup';
-  provinceCode: string;
-}
-
-/** Issue 112: distinct provinces in the menu, resolved to names for the filter dropdown. */
-function distinctProvinces(areas: PickupAreaOption[]): { code: string; name: string }[] {
-  const seen = new Map<string, string>();
-  for (const a of areas) {
-    if (!seen.has(a.provinceCode)) {
-      seen.set(a.provinceCode, getProvince(a.provinceCode)?.name ?? a.provinceCode);
-    }
-  }
-  return [...seen].map(([code, name]) => ({ code, name }));
-}
-
-const PROVINCE_ALL = '__all__';
-
-/** Issue 110: picker grouping — Bến xe (station) first, then Đón tận nơi (pickup). */
 interface Props {
   routes: RouteOption[];
   buses: BusOption[];
-  /** Issue 113: routeId → pickup areas assigned to that route (route-scoped menu). */
-  routePickupAreas: Record<string, PickupAreaOption[]>;
-  /** Issue 112: routeId → pickup-area ids from the most recent prior trip on that route. */
-  routePickupMemory: Record<string, string[]>;
 }
 
 interface ApiError {
@@ -88,62 +60,17 @@ function translateError(code: string): string {
   }
 }
 
-export default function NewTripClient({ routes, buses, routePickupAreas, routePickupMemory }: Props) {
+export default function NewTripClient({ routes, buses }: Props) {
   const router = useRouter();
   const [routeId, setRouteId] = useState('');
-  // Issue 112: true once the per-route memory default was applied (drives the reuse hint/button).
-  const [memoryApplied, setMemoryApplied] = useState(false);
   const [busId, setBusId] = useState('');
   const [departureLocal, setDepartureLocal] = useState('');
   const [price, setPrice] = useState<number>(0);
-  const [selectedAreaIds, setSelectedAreaIds] = useState<string[]>([]);
-  // Issue 112: province filter — display-only; selection still writes the chosen ids.
-  const [provinceFilter, setProvinceFilter] = useState<string>(PROVINCE_ALL);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [isError, setIsError] = useState(false);
 
   const missingPrereq = routes.length === 0 || buses.length === 0;
-
-  // Issue 113: the picker menu is scoped to the selected route's assigned areas.
-  const currentAreas = routePickupAreas[routeId] ?? [];
-
-  // Issue 112: ids of the chosen route's most-recent prior trip (intersected with the route menu).
-  const memoryIds = (routePickupMemory[routeId] ?? []).filter((id) =>
-    currentAreas.some((a) => a.id === id)
-  );
-  const hasMemory = memoryIds.length > 0;
-
-  function applyMemory(ids: string[]) {
-    setSelectedAreaIds(ids);
-    setMemoryApplied(true);
-  }
-
-  function handleRouteChange(next: string) {
-    setRouteId(next);
-    setProvinceFilter(PROVINCE_ALL);
-    // Default the pickup set from the most recent prior trip on this route (per-route memory),
-    // intersected with the areas currently assigned to that route.
-    const nextAreas = routePickupAreas[next] ?? [];
-    const remembered = (routePickupMemory[next] ?? []).filter((id) =>
-      nextAreas.some((a) => a.id === id)
-    );
-    if (remembered.length > 0) {
-      setSelectedAreaIds(remembered);
-      setMemoryApplied(true);
-    } else {
-      setSelectedAreaIds([]);
-      setMemoryApplied(false);
-    }
-  }
-
-  // Issue 112: count-gate the province filter — only useful when the menu spans >1 province.
-  const provinces = distinctProvinces(currentAreas);
-  const showProvinceFilter = provinces.length > 1;
-  const filteredAreas =
-    showProvinceFilter && provinceFilter !== PROVINCE_ALL
-      ? currentAreas.filter((a) => a.provinceCode === provinceFilter)
-      : currentAreas;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -157,7 +84,6 @@ export default function NewTripClient({ routes, buses, routePickupAreas, routePi
         // datetime-local has no timezone — interpret as local, send full ISO-8601.
         departureAt: new Date(departureLocal).toISOString(),
         price,
-        pickupAreaIds: selectedAreaIds.length > 0 ? selectedAreaIds : undefined,
       });
       router.push(`/op/trips/${trip.id}`);
     } catch (err) {
@@ -200,7 +126,7 @@ export default function NewTripClient({ routes, buses, routePickupAreas, routePi
           <div className="grid gap-1.5">
             <Label>Tuyến đường</Label>
             {/* base-ui Select: onValueChange, NOT onChange. */}
-            <Select value={routeId} onValueChange={(v: string | null) => handleRouteChange(v ?? '')}>
+            <Select value={routeId} onValueChange={(v: string | null) => setRouteId(v ?? '')}>
               <SelectTrigger data-testid="new-trip-route">
                 <SelectValue placeholder="— Chọn tuyến —">
                   {(v: string) => {
@@ -265,101 +191,6 @@ export default function NewTripClient({ routes, buses, routePickupAreas, routePi
               data-testid="new-trip-price"
             />
           </div>
-
-          {routeId && currentAreas.length === 0 && (
-            <Alert data-testid="new-trip-no-areas">
-              <AlertDescription>
-                Tuyến này chưa có khu vực đón khách nào. Gán khu vực đón trong{' '}
-                <Link href="/op/routes" className="text-primary underline-offset-4 hover:underline">
-                  Tuyến đường
-                </Link>
-                .
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {currentAreas.length > 0 && (
-            <div className="grid gap-1.5">
-              <Label>Khu vực đón khách (tuỳ chọn)</Label>
-              <p className="text-sm text-muted-foreground">
-                Khách có thể chọn một trong các khu vực này để được đón tận nơi.
-              </p>
-              {hasMemory && (
-                <div
-                  className="flex flex-wrap items-center gap-2 text-sm"
-                  data-testid="new-trip-reuse-memory"
-                >
-                  {memoryApplied ? (
-                    <span className="text-muted-foreground">
-                      Đã áp dụng điểm đón của chuyến gần nhất trên tuyến này.
-                    </span>
-                  ) : null}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => applyMemory(memoryIds)}
-                    data-testid="new-trip-reuse-memory-btn"
-                  >
-                    Dùng lại điểm đón chuyến trước
-                  </Button>
-                </div>
-              )}
-              {showProvinceFilter && (
-                <Select
-                  value={provinceFilter}
-                  onValueChange={(v: string | null) => setProvinceFilter(v ?? PROVINCE_ALL)}
-                >
-                  <SelectTrigger data-testid="new-trip-province-filter" className="max-w-xs">
-                    <SelectValue>
-                      {(v: string) =>
-                        v === PROVINCE_ALL
-                          ? 'Tất cả tỉnh/thành'
-                          : (provinces.find((p) => p.code === v)?.name ?? 'Tất cả tỉnh/thành')}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={PROVINCE_ALL}>Tất cả tỉnh/thành</SelectItem>
-                    {provinces.map((p) => (
-                      <SelectItem key={p.code} value={p.code}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              <div className="flex flex-col gap-4 rounded-md border border-input p-3">
-                {PICKUP_KIND_GROUPS.map((group) => {
-                  const items = filteredAreas.filter((a) => a.kind === group.kind);
-                  if (items.length === 0) return null;
-                  return (
-                    <div key={group.kind} className="flex flex-col gap-2">
-                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        {group.label}
-                      </div>
-                      {items.map((a) => (
-                        <label key={a.id} className="flex items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={selectedAreaIds.includes(a.id)}
-                            onChange={(e) =>
-                              setSelectedAreaIds((prev) =>
-                                e.target.checked
-                                  ? [...prev, a.id]
-                                  : prev.filter((id) => id !== a.id)
-                              )
-                            }
-                            data-testid={`new-trip-area-${a.id}`}
-                          />
-                          {a.label}
-                        </label>
-                      ))}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           <div>
             <Button

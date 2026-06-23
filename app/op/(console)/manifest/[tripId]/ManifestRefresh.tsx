@@ -257,8 +257,6 @@ export default function ManifestRefresh({ tripId, initialGeneratedAt, initialRow
                           <span className="text-warning font-medium">Cần liên hệ: </span>
                           {row.pickupDetail || '—'}
                         </span>
-                      ) : row.pickupKind === 'point' ? (
-                        [row.pickupAreaLabel, row.pickupDetail].filter(Boolean).join(' — ') || '—'
                       ) : (
                         'Tại bến'
                       )}

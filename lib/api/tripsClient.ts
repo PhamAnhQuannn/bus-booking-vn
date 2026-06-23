@@ -36,7 +36,6 @@ export async function createTripApi(body: {
   busId: string;
   departureAt: string;
   price: number;
-  pickupAreaIds?: string[];
 }): Promise<{ trip: TripDto }> {
   const res = await fetch('/api/op/trips', {
     method: 'POST',
@@ -76,26 +75,6 @@ export async function patchTripApi(
   if (!res.ok) {
     const data = await res.json().catch(() => null);
     throw Object.assign(new Error('patchTrip failed'), { status: res.status, data });
-  }
-  return res.json();
-}
-
-export async function setTripPickupAreasApi(
-  id: string,
-  pickupAreaIds: string[]
-): Promise<{ areas: { areaId: string; label: string }[] }> {
-  const res = await fetch(`/api/op/trips/${id}/pickup-areas`, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-CSRF-Token': readCsrfToken(),
-    },
-    credentials: 'same-origin',
-    body: JSON.stringify({ pickupAreaIds }),
-  });
-  if (!res.ok) {
-    const data = await res.json().catch(() => null);
-    throw Object.assign(new Error('setTripPickupAreas failed'), { status: res.status, data });
   }
   return res.json();
 }
@@ -208,7 +187,6 @@ export async function createTemplateApi(body: {
   daysOfMask: number;
   validFrom: string;
   validUntil: string;
-  pickupAreaIds?: string[];
 }): Promise<{ template: TemplateDto }> {
   const res = await fetch('/api/op/trip-templates', {
     method: 'POST',
