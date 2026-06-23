@@ -91,11 +91,17 @@ DROP TABLE IF EXISTS "TemplatePickupArea";
 DROP TABLE IF EXISTS "OperatorPickupArea";
 
 -- Step 6: Recreate PickupKind enum without 'point'.
+-- Must drop column defaults first — PG cannot auto-cast a DEFAULT typed as the old enum.
+ALTER TABLE "Hold" ALTER COLUMN "pickupKind" DROP DEFAULT;
+ALTER TABLE "Booking" ALTER COLUMN "pickupKind" DROP DEFAULT;
 CREATE TYPE "PickupKind_new" AS ENUM ('station', 'custom');
 ALTER TABLE "Hold" ALTER COLUMN "pickupKind" TYPE "PickupKind_new" USING "pickupKind"::text::"PickupKind_new";
 ALTER TABLE "Booking" ALTER COLUMN "pickupKind" TYPE "PickupKind_new" USING "pickupKind"::text::"PickupKind_new";
 DROP TYPE "PickupKind";
 ALTER TYPE "PickupKind_new" RENAME TO "PickupKind";
+-- Restore defaults with the new enum type.
+ALTER TABLE "Hold" ALTER COLUMN "pickupKind" SET DEFAULT 'station'::"PickupKind";
+ALTER TABLE "Booking" ALTER COLUMN "pickupKind" SET DEFAULT 'station'::"PickupKind";
 
 -- Step 7: Drop PickupPlaceKind enum (no longer referenced).
 DROP TYPE IF EXISTS "PickupPlaceKind";
