@@ -4,8 +4,21 @@
 -- Drop columns: Hold.pickupAreaId, Hold.pickupAreaLabel, Booking.pickupAreaId, Booking.pickupAreaLabel.
 -- Drop enum: PickupPlaceKind.
 
--- Step 1: Rescue data — copy pickupAreaLabel into pickupDetail for point rows
--- that have no detail yet, so location info survives the column drop.
+-- Step 1a: For point rows that have BOTH pickupAreaLabel AND pickupDetail,
+-- concatenate so neither is lost when the label column is dropped.
+UPDATE "Hold"
+SET "pickupDetail" = "pickupAreaLabel" || ' - ' || "pickupDetail"
+WHERE "pickupKind" = 'point'::"PickupKind"
+  AND "pickupDetail" IS NOT NULL
+  AND "pickupAreaLabel" IS NOT NULL;
+
+UPDATE "Booking"
+SET "pickupDetail" = "pickupAreaLabel" || ' - ' || "pickupDetail"
+WHERE "pickupKind" = 'point'::"PickupKind"
+  AND "pickupDetail" IS NOT NULL
+  AND "pickupAreaLabel" IS NOT NULL;
+
+-- Step 1b: For point rows with only a label (no detail), copy label into detail.
 UPDATE "Hold"
 SET "pickupDetail" = "pickupAreaLabel"
 WHERE "pickupKind" = 'point'::"PickupKind"
@@ -17,6 +30,18 @@ SET "pickupDetail" = "pickupAreaLabel"
 WHERE "pickupKind" = 'point'::"PickupKind"
   AND "pickupDetail" IS NULL
   AND "pickupAreaLabel" IS NOT NULL;
+
+-- Step 1c: Defensive fallback — point rows with neither label nor detail.
+-- Satisfies CHECK constraint (pickupDetail >= 5 trimmed chars when customPickupRequested).
+UPDATE "Hold"
+SET "pickupDetail" = 'Diem don cu (chuyen doi)'
+WHERE "pickupKind" = 'point'::"PickupKind"
+  AND "pickupDetail" IS NULL;
+
+UPDATE "Booking"
+SET "pickupDetail" = 'Diem don cu (chuyen doi)'
+WHERE "pickupKind" = 'point'::"PickupKind"
+  AND "pickupDetail" IS NULL;
 
 -- Pad short labels to satisfy CHECK (pickupDetail >= 5 trimmed chars when custom).
 UPDATE "Hold"

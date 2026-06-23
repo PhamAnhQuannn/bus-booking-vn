@@ -12,7 +12,6 @@ export type TripErrorCode =
   | 'already_cancelled'
   | 'trip_cancelled'
   | 'trip_not_departed'
-  | 'invalid_pickup_area'
   | 'not_found';
 
 export interface TripServiceErrorMeta {
