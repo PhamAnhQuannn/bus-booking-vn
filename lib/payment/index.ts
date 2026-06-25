@@ -2,6 +2,7 @@
 
 export { getMomoAdapter } from './adapters/momo';
 export { getVnpayAdapter } from './adapters/vnpay';
+export { getBankTransferAdapter } from './adapters/bankTransfer';
 export { buildStubIpn, createStubAdapter, refundPaymentStub } from './adapters/stub';
 export type { StubOutcome } from './adapters/stub';
 export type { PaymentGateway, CreatePaymentInput } from './gateway';

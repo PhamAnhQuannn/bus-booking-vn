@@ -22,7 +22,7 @@ const envSchema = z.object({
    * "count"  — log count of expired holds only (safe default during canary)
    * "update" — actually mark expired holds as status='expired'
    */
-  HOLD_SWEEPER_MODE: z.enum(['count', 'update']).default('count'),
+  HOLD_SWEEPER_MODE: z.enum(['count', 'update']).default('update'),
 
   // ---------------------------------------------------------------------------
   // MoMo payment gateway (Issue 004)
@@ -97,6 +97,23 @@ const envSchema = z.object({
     .string()
     .default('false')
     .transform((v) => v === 'true'),
+
+  // ---------------------------------------------------------------------------
+  // SePay / VietQR bank transfer (Issue 126 — Phase 1 primary payment method).
+  // Bearer token auth for webhook verification. VietQR image generation uses
+  // the bank BIN + account number to build the QR URL.
+  // ---------------------------------------------------------------------------
+
+  /** SePay API key — bearer token for webhook auth. Required when PAYMENTS_STUB=false. */
+  SEPAY_API_KEY: z.string().optional(),
+  /** VietQR bank BIN (Agribank = 970405). */
+  VIETQR_BANK_BIN: z.string().default('970405'),
+  /** VietQR account number (receiving account). */
+  VIETQR_ACCOUNT_NUMBER: z.string().default('3516205005863'),
+  /** VietQR account holder name (shown on payment page). */
+  VIETQR_ACCOUNT_NAME: z.string().default('BUS BOOK VN'),
+  /** VietQR image template variant. */
+  VIETQR_TEMPLATE: z.string().default('compact2'),
 
   // ---------------------------------------------------------------------------
   // Local fake-gateway stub (Phase 1 — run all online-payment stories with no
@@ -347,6 +364,16 @@ const envSchema = z.object({
           message: `${key} is required when NOTIFY_STUB=false (real eSMS mode)`,
         });
       }
+    }
+  }
+  // Real SePay mode (PAYMENTS_STUB=false): bearer token required.
+  if (!env.PAYMENTS_STUB) {
+    if (!env.SEPAY_API_KEY) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['SEPAY_API_KEY'],
+        message: 'SEPAY_API_KEY is required when PAYMENTS_STUB=false',
+      });
     }
   }
   // Real VNPay mode (PAYMENTS_STUB=false): VNPay credentials must not be defaults.

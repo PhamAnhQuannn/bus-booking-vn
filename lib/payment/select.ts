@@ -12,10 +12,11 @@
 import { getEnv } from '@/lib/config';
 import { getMomoAdapter } from './adapters/momo';
 import { getVnpayAdapter } from './adapters/vnpay';
+import { getBankTransferAdapter } from './adapters/bankTransfer';
 import { getStubAdapter } from './adapters/stub';
 import type { PaymentGateway } from './gateway';
 
-export type OnlinePaymentMethod = 'momo' | 'zalopay' | 'card' | 'vnpay';
+export type OnlinePaymentMethod = 'momo' | 'zalopay' | 'card' | 'vnpay' | 'bank_transfer';
 
 /**
  * Resolve the gateway for an online method. `baseUrl` is required because the
@@ -26,6 +27,10 @@ export function getGatewayFor(
   baseUrl: string
 ): PaymentGateway {
   const env = getEnv();
+
+  if (method === 'bank_transfer') {
+    return getBankTransferAdapter();
+  }
 
   if (method === 'momo' && !env.PAYMENTS_STUB) {
     return getMomoAdapter();

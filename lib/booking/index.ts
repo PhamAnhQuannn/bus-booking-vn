@@ -4,7 +4,8 @@ export { backfillGuestBookingsForCustomer } from './attachGuestBookingByPhone';
 export { renderTicketPdf } from './ticketPdf';
 export { customerBookingDetailSelect } from './getCustomerBookingDetail';
 export { type BookingDto, type BookingPaymentStatus } from './bookingDto';
-export { getBookingByConfirmationToken } from './bookingRepo';
+export { getBookingByConfirmationToken, getBookingByRef } from './bookingRepo';
+export { BOOKING_REF_REGEX } from './bookingRef';
 export { checkInBooking, markNoShow, scanTicket } from './checkIn';
 export { CONSENT_VERSION, CONSENT_TEXT } from './consent';
 export {

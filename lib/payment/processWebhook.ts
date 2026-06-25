@@ -51,7 +51,7 @@ import {
 export interface ProcessPaymentWebhookInput {
   rawBody: string;
   gateway: PaymentGateway;
-  /** Gateway label stored on PaymentEvent.adapter: 'momo' | 'zalopay' | 'card'. */
+  /** Gateway label stored on PaymentEvent.adapter: 'momo' | 'zalopay' | 'card' | 'vnpay' | 'bank_transfer'. */
   adapter: string;
   /** x-forwarded-proto header (for building the confirmation URL in SMS). */
   proto: string;

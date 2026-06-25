@@ -88,6 +88,9 @@ importers:
         specifier: ^5.0.13
         version: 5.0.13(@types/react@19.2.14)(immer@11.1.8)(react@19.2.7)(use-sync-external-store@1.6.0(react@19.2.7))
     devDependencies:
+      '@playwright/mcp':
+        specifier: ^0.0.76
+        version: 0.0.76
       '@playwright/test':
         specifier: ^1.60.0
         version: 1.60.0
@@ -918,6 +921,11 @@ packages:
 
   '@pinojs/redact@0.4.0':
     resolution: {integrity: sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg==}
+
+  '@playwright/mcp@0.0.76':
+    resolution: {integrity: sha512-ICcW6wAV+HoNEco19eni+JTVylCIIedruWkrRl2Rsv/qcGhBZLT/c0I1VounjIjSVSupw3pHmcr3CNCikTHTBQ==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   '@playwright/test@1.60.0':
     resolution: {integrity: sha512-O71yZIbAh/PxDMNGns37GHBIfrVkEVyn+AXyIa5dOTfb4/xNvRWV+Vv/NMbNCtODB/pO7vLlF2OTmMVLhmr7Ag==}
@@ -3753,8 +3761,18 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
+  playwright-core@1.61.0-alpha-1781023400000:
+    resolution: {integrity: sha512-UdtUd9qnCO0zvb8p3OvOZpelY6mA40mTb3NmWGuMtrD+hqqWuorWCPlSGwj7jw/LEB9AxvYLHTL1CJi2flvksg==}
+    engines: {node: '>=18'}
+    hasBin: true
+
   playwright@1.60.0:
     resolution: {integrity: sha512-hheHdokM8cdqCb0lcE3s+zT4t4W+vvjpGxsZlDnikarzx8tSzMebh3UiFtgqwFwnTnjYQcsyMF8ei2mCO/tpeA==}
+    engines: {node: '>=18'}
+    hasBin: true
+
+  playwright@1.61.0-alpha-1781023400000:
+    resolution: {integrity: sha512-8TRUG3IvwaAhuVm6k3C5vB7CwC5Fxq76DCCxOgPr6r1dpTedDwxlmdOBUkSZ0zxfxP14jcuPxi86/Trq4eA03w==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -5461,6 +5479,11 @@ snapshots:
   '@package-json/types@0.0.12': {}
 
   '@pinojs/redact@0.4.0': {}
+
+  '@playwright/mcp@0.0.76':
+    dependencies:
+      playwright: 1.61.0-alpha-1781023400000
+      playwright-core: 1.61.0-alpha-1781023400000
 
   '@playwright/test@1.60.0':
     dependencies:
@@ -8430,9 +8453,17 @@ snapshots:
 
   playwright-core@1.60.0: {}
 
+  playwright-core@1.61.0-alpha-1781023400000: {}
+
   playwright@1.60.0:
     dependencies:
       playwright-core: 1.60.0
+    optionalDependencies:
+      fsevents: 2.3.2
+
+  playwright@1.61.0-alpha-1781023400000:
+    dependencies:
+      playwright-core: 1.61.0-alpha-1781023400000
     optionalDependencies:
       fsevents: 2.3.2
 

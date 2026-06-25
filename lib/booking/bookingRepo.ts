@@ -48,7 +48,7 @@ export interface CreateMomoBookingInput {
   consentVersion: string;
 }
 
-export type OnlineBookingMethod = 'momo' | 'zalopay' | 'card' | 'vnpay';
+export type OnlineBookingMethod = 'momo' | 'zalopay' | 'card' | 'vnpay' | 'bank_transfer';
 
 export interface CreateOnlineBookingInput {
   holdId: string;
@@ -278,6 +278,15 @@ export async function getBookingByConfirmationToken(
  * to recover from an idempotent re-attempt (when createOnlineBookingFromHold
  * returns `already_booked`).
  */
+export async function getBookingByRef(
+  bookingRef: string
+): Promise<{ id: string; confirmationToken: string; status: string } | null> {
+  return prisma.booking.findUnique({
+    where: { bookingRef },
+    select: { id: true, confirmationToken: true, status: true },
+  });
+}
+
 export async function getBookingByHoldId(
   holdId: string
 ): Promise<{ id: string; confirmationToken: string } | null> {
