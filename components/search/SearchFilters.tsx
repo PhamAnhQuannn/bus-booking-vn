@@ -13,7 +13,7 @@
  */
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { SlidersHorizontal, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -205,13 +205,42 @@ export function SearchFilterRail({ facets }: { facets: TripFacets }) {
   );
 }
 
-/** Mobile filter button → Dialog sheet. */
+/** Mobile filter button → Dialog sheet. Snapshot/restore so dismiss discards changes. */
 export function SearchFilterSheet({ facets }: { facets: TripFacets }) {
   const s = useFilterState();
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
   const [open, setOpen] = useState(false);
+  const snapshotRef = useRef('');
+  const confirmedRef = useRef(false);
+
+  function handleOpenChange(nextOpen: boolean) {
+    if (nextOpen) {
+      const snap = new URLSearchParams();
+      for (const k of FILTER_KEYS) {
+        const v = params.get(k);
+        if (v !== null) snap.set(k, v);
+      }
+      snapshotRef.current = snap.toString();
+      confirmedRef.current = false;
+    } else if (!confirmedRef.current) {
+      const next = new URLSearchParams(params.toString());
+      for (const k of FILTER_KEYS) next.delete(k);
+      for (const [k, v] of new URLSearchParams(snapshotRef.current).entries()) next.set(k, v);
+      router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+    }
+    setOpen(nextOpen);
+  }
+
+  function handleConfirm() {
+    confirmedRef.current = true;
+    setOpen(false);
+  }
+
   return (
     <div className="md:hidden">
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogTrigger
           render={(p) => (
             <Button {...p} type="button" variant="outline" size="sm">
@@ -222,7 +251,7 @@ export function SearchFilterSheet({ facets }: { facets: TripFacets }) {
         <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogTitle>Bộ lọc chuyến xe</DialogTitle>
           <FilterControls facets={facets} s={s} />
-          <Button type="button" className="w-full" onClick={() => setOpen(false)}>Xem kết quả</Button>
+          <Button type="button" className="w-full" onClick={handleConfirm}>Xem kết quả</Button>
         </DialogContent>
       </Dialog>
     </div>
