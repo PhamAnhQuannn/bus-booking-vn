@@ -103,6 +103,7 @@ export const loggerOptions: LoggerOptions = {
       'ESMS_SECRET_KEY',         // SMS-OTP: eSMS provider credential (never log)
       'MISA_API_KEY',            // e-invoice: MISA meInvoice API key (never log)
       'RESEND_API_KEY',          // email: Resend transactional email API key (never log)
+      'SEPAY_API_KEY',           // bank transfer: SePay webhook bearer token (never log)
     ],
     censor: '[REDACTED]',
   },

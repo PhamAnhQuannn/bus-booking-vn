@@ -59,6 +59,10 @@ export default async function BankTransferPage({ searchParams }: BankTransferPag
     notFound();
   }
 
+  if (redirectUrl && !redirectUrl.startsWith('/')) {
+    notFound();
+  }
+
   const amount = parseInt(amountStr, 10);
   if (!amount || amount <= 0) {
     notFound();

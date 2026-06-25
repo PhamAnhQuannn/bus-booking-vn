@@ -22,7 +22,7 @@ const envSchema = z.object({
    * "count"  — log count of expired holds only (safe default during canary)
    * "update" — actually mark expired holds as status='expired'
    */
-  HOLD_SWEEPER_MODE: z.enum(['count', 'update']).default('update'),
+  HOLD_SWEEPER_MODE: z.enum(['count', 'update']).default('count'),
 
   // ---------------------------------------------------------------------------
   // MoMo payment gateway (Issue 004)
