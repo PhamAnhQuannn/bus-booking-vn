@@ -14,7 +14,7 @@ import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useBookingStore } from '@/lib/state';
 
-const TOKEN_LANDING_PREFIXES = ['/booking/confirmation', '/booking/result'];
+const TOKEN_LANDING_PREFIXES = ['/booking/confirmation', '/booking/result', '/booking/bank-transfer'];
 
 export default function BookingLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();

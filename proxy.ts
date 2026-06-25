@@ -73,6 +73,7 @@ const CSRF_EXEMPT = new Set([
   '/api/payments/zalopay/webhook',
   '/api/payments/card/webhook',
   '/api/payments/vnpay/webhook',
+  '/api/payments/bank_transfer/webhook',
 ]);
 // Prefix exemptions (CSRF) — routes where the CSRF cookie is unavailable pre-auth
 const CSRF_EXEMPT_PREFIXES = [
