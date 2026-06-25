@@ -13,6 +13,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getBookingByRef } from '@/lib/booking';
+import { getEnv } from '@/lib/config';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BankTransferClient } from './BankTransferClient';
 
@@ -26,10 +27,6 @@ interface BankTransferPageProps {
     bookingRef?: string;
     amount?: string;
     redirectUrl?: string;
-    bankBin?: string;
-    accountNumber?: string;
-    accountName?: string;
-    template?: string;
   }>;
 }
 
@@ -45,15 +42,13 @@ function formatVND(amount: number): string {
 
 export default async function BankTransferPage({ searchParams }: BankTransferPageProps) {
   const sp = await searchParams;
-  const {
-    bookingRef,
-    amount: amountStr,
-    redirectUrl,
-    bankBin = '970405',
-    accountNumber = '',
-    accountName = 'BUS BOOK VN',
-    template = 'compact2',
-  } = sp;
+  const { bookingRef, amount: amountStr, redirectUrl } = sp;
+
+  const env = getEnv();
+  const bankBin = env.VIETQR_BANK_BIN;
+  const accountNumber = env.VIETQR_ACCOUNT_NUMBER;
+  const accountName = env.VIETQR_ACCOUNT_NAME;
+  const template = env.VIETQR_TEMPLATE;
 
   if (!bookingRef || !amountStr) {
     notFound();

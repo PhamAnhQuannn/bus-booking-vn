@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 
 interface BankTransferClientProps {
@@ -10,7 +10,8 @@ interface BankTransferClientProps {
   redirectUrl?: string;
 }
 
-const MAX_REFRESHES = 120; // ~10 min at 5s interval
+const MAX_REFRESHES = 120;
+const POLL_INTERVAL_MS = 5000;
 
 export function BankTransferClient({
   bookingRef,
@@ -18,17 +19,21 @@ export function BankTransferClient({
   redirectUrl,
 }: BankTransferClientProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [paid, setPaid] = useState(false);
-
-  const refreshCount = parseInt(searchParams.get('r') ?? '0', 10) || 0;
-  const isTimeout = refreshCount >= MAX_REFRESHES;
+  const [isTimeout, setIsTimeout] = useState(false);
+  const pollCount = useRef(0);
 
   useEffect(() => {
-    if (isTimeout) return;
+    if (isTimeout || paid) return;
 
     const controller = new AbortController();
-    const timer = setTimeout(async () => {
+    const timer = setInterval(async () => {
+      pollCount.current += 1;
+      if (pollCount.current >= MAX_REFRESHES) {
+        setIsTimeout(true);
+        return;
+      }
+
       try {
         const res = await fetch(
           `/api/bookings/status?ref=${encodeURIComponent(bookingRef)}`,
@@ -40,22 +45,18 @@ export function BankTransferClient({
             setPaid(true);
             const target = redirectUrl ?? `/booking/confirmation/${confirmationToken}`;
             router.replace(target);
-            return;
           }
         }
       } catch {
         // Network error — keep polling
       }
-      const params = new URLSearchParams(searchParams.toString());
-      params.set('r', String(refreshCount + 1));
-      router.replace(`/booking/bank-transfer?${params.toString()}`);
-    }, 5000);
+    }, POLL_INTERVAL_MS);
 
     return () => {
-      clearTimeout(timer);
+      clearInterval(timer);
       controller.abort();
     };
-  }, [bookingRef, confirmationToken, redirectUrl, refreshCount, isTimeout, router, searchParams]);
+  }, [bookingRef, confirmationToken, redirectUrl, isTimeout, paid, router]);
 
   if (paid) {
     return (
@@ -74,12 +75,13 @@ export function BankTransferClient({
         <p className="text-sm text-warning-foreground">
           Chưa nhận được thanh toán. Nếu bạn đã chuyển khoản, vui lòng đợi thêm 1-2 phút.
         </p>
-        <a
-          href={`/booking/bank-transfer?${searchParams.toString()}`}
+        <button
+          type="button"
+          onClick={() => { pollCount.current = 0; setIsTimeout(false); }}
           className="text-sm font-medium text-primary underline"
         >
-          Tải lại trang
-        </a>
+          Thử lại
+        </button>
       </div>
     );
   }

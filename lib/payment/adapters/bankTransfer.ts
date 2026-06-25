@@ -15,7 +15,6 @@
  * case-insensitive non-anchored variant of BOOKING_REF_REGEX.
  */
 
-import { getEnv } from '@/lib/config';
 import type {
   PaymentGateway,
   CreatePaymentInput,
@@ -45,15 +44,10 @@ const EXTRACT_REGEX = /BB-\d{4}-[0-9a-z]{4}-[0-9a-z]{4}/i;
 function createBankTransferAdapter(): PaymentGateway {
   return {
     async createPayment(input: CreatePaymentInput): Promise<CreatePaymentResult> {
-      const env = getEnv();
       const params = new URLSearchParams({
         bookingRef: input.orderId,
         amount: String(input.amount),
         redirectUrl: input.redirectUrl,
-        bankBin: env.VIETQR_BANK_BIN,
-        accountNumber: env.VIETQR_ACCOUNT_NUMBER,
-        accountName: env.VIETQR_ACCOUNT_NAME,
-        template: env.VIETQR_TEMPLATE,
       });
 
       return {

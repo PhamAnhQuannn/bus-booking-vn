@@ -34,8 +34,8 @@ describe('bankTransfer adapter — createPayment', () => {
     expect(result.payUrl).toContain('/booking/bank-transfer?');
     expect(result.payUrl).toContain('bookingRef=BB-2026-abcd-ef01');
     expect(result.payUrl).toContain('amount=150000');
-    expect(result.payUrl).toContain('bankBin=970405');
-    expect(result.payUrl).toContain('accountNumber=3516205005863');
+    expect(result.payUrl).not.toContain('bankBin=');
+    expect(result.payUrl).not.toContain('accountNumber=');
   });
 });
 
