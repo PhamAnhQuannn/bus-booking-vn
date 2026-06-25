@@ -105,6 +105,7 @@ test.describe('Hold booking flow', () => {
 
     // Fill in customer form
     await page.getByLabel(/họ và tên|name/i).fill('Nguyen Van Test');
+    await page.getByLabel(/email/i).fill('test@example.com');
     await page.getByLabel(/số điện thoại|phone/i).fill('0912345678');
     await page.getByRole('button', { name: /tiếp tục|continue/i }).click();
 
@@ -209,6 +210,7 @@ test.describe('Hold creation API - race condition (integration)', () => {
       ticketCount: 1,
       buyerName: 'Race Test User',
       buyerPhone: '0912345678',
+      buyerEmail: 'racetest@example.com',
     };
 
     const csrf = await primeCsrf(request);
