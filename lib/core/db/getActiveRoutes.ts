@@ -38,8 +38,13 @@ export async function getActiveRoutes(): Promise<ActiveRoute[]> {
         MIN(r."durationMinutes")::int    AS "minDurationMinutes",
         MIN(t."departureAt")             AS "nextDepartureAt"
       FROM "Route" r
+      JOIN "Operator" o ON o.id = r."operatorId"
       JOIN "Trip" t ON t."routeId" = r.id
       WHERE r."deactivatedAt" IS NULL
+        AND r."moderatedAt" IS NULL
+        AND t."moderatedAt" IS NULL
+        AND o.status = 'APPROVED'::"OperatorStatus"
+        AND o."disabledAt" IS NULL
         AND t.status = 'scheduled'::"TripStatus"
         AND t."salesClosed" = false
         AND t."departureAt" >= NOW()

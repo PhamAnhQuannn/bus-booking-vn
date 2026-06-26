@@ -161,7 +161,7 @@ async function main() {
   // Same origin/destination as r6 but a different operator → /routes shows "2 nhà xe".
   const r9 = await prisma.route.create({ data: { origin: 'Sài Gòn', destination: 'Đà Lạt', operatorId: op3.id, durationMinutes: 360 } });
   // Dedicated route for e2e race-condition test (capacity-1 bus, AC-4)
-  const rRace = await prisma.route.create({ data: { origin: 'E2E Race Origin', destination: 'E2E Race Destination', operatorId: op1.id, durationMinutes: 240 } });
+  const rRace = await prisma.route.create({ data: { origin: 'E2E Race Origin', destination: 'E2E Race Destination', operatorId: op1.id, durationMinutes: 240, moderatedAt: new Date() } });
 
   // --- Popular landing-page routes (RouteDirectory + carousels) so those links
   //     return real results. Names match the UI exactly — canonical "Sài Gòn" (no "TP.HCM" split).
