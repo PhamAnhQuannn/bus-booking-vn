@@ -18,9 +18,12 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/core/db/client';
 import { runJob } from '@/lib/jobs';
 import { expireHolds } from '@/lib/jobs';
-import { logger } from '@/lib/logger';
+import { getEnv } from '@/lib/config';
+import { getOrCreateRequestId, loggerForRequest } from '@/lib/observability';
 
 export async function GET(req: NextRequest): Promise<Response> {
+  const log = loggerForRequest(getOrCreateRequestId(req.headers));
+
   // Authenticate via CRON_SECRET (Vercel sets Authorization: Bearer <secret>)
   const authHeader = req.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
@@ -29,7 +32,7 @@ export async function GET(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
   }
 
-  const mode = process.env.HOLD_SWEEPER_MODE ?? 'count';
+  const mode = getEnv().HOLD_SWEEPER_MODE;
 
   if (mode === 'count') {
     // Count-only mode: read without mutation. No JobRunLog row — this path
@@ -40,12 +43,12 @@ export async function GET(req: NextRequest): Promise<Response> {
         expiresAt: { lt: new Date() },
       },
     });
-    logger.info({ mode, expiredCount: count }, 'sweep-holds: count mode');
+    log.info({ mode, expiredCount: count }, 'sweep-holds: count mode');
     return NextResponse.json({ mode, expiredCount: count });
   }
 
   // "update" mode: expire holds under the advisory lock + JobRunLog wrapper.
   const result = await runJob('hold-expiry', expireHolds);
-  logger.info({ mode, ...result }, 'sweep-holds: update mode');
+  log.info({ mode, ...result }, 'sweep-holds: update mode');
   return NextResponse.json({ mode, expiredCount: result.rowsAffected, status: result.status });
 }
