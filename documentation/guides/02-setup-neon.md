@@ -1,7 +1,6 @@
 # Neon PostgreSQL — Setup Guide
 
 Provision PostgreSQL 16 database on Neon (Singapore region). Built-in connection pooler replaces PgBouncer. Code integration: `prisma/schema.prisma`, `lib/core/db/client.ts`. Env vars: `DATABASE_URL`, `DIRECT_URL`.
-
 ---
 
 ## Step 1: Create Neon Account
