@@ -54,7 +54,7 @@ next-env.d.ts
 
 # dev throwaway artifacts (verification screenshots, raw diff dumps, scratch scripts)
 gitdiff.txt
-docs/dev/screenshots/
+docs/dev/
 scripts/dev/
 
 # QA smoke/crawl screenshots — large throwaway binaries (~100MB/run). The markdown

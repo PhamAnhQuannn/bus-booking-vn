@@ -13,9 +13,14 @@ vi.mock('@/lib/jobs/runJob', () => ({
   runJob: vi.fn(),
 }));
 
+vi.mock('@/lib/config', () => ({
+  getEnv: vi.fn(() => ({ HOLD_SWEEPER_MODE: 'count' })),
+}));
+
 import { GET } from '../route';
 import { prisma } from '@/lib/core/db/client';
 import { runJob } from '@/lib/jobs';
+import { getEnv } from '@/lib/config';
 import { NextRequest } from 'next/server';
 
 function makeRequest(headers?: Record<string, string>): NextRequest {
@@ -28,12 +33,11 @@ function makeRequest(headers?: Record<string, string>): NextRequest {
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.CRON_SECRET = 'test-cron-secret-0123456789';
-  delete process.env.HOLD_SWEEPER_MODE;
+  vi.mocked(getEnv).mockReturnValue({ HOLD_SWEEPER_MODE: 'count' } as ReturnType<typeof getEnv>);
 });
 
 afterEach(() => {
   delete process.env.CRON_SECRET;
-  delete process.env.HOLD_SWEEPER_MODE;
 });
 
 describe('GET /api/cron/sweep-holds', () => {
@@ -62,7 +66,7 @@ describe('GET /api/cron/sweep-holds', () => {
 
   describe('update mode', () => {
     it('delegates to runJob and returns expiredCount from rowsAffected', async () => {
-      process.env.HOLD_SWEEPER_MODE = 'update';
+      vi.mocked(getEnv).mockReturnValue({ HOLD_SWEEPER_MODE: 'update' } as ReturnType<typeof getEnv>);
       vi.mocked(runJob).mockResolvedValueOnce({ rowsAffected: 3, status: 'success' });
 
       const req = makeRequest({ authorization: `Bearer ${process.env.CRON_SECRET}` });
@@ -94,7 +98,6 @@ describe('GET /api/cron/sweep-holds', () => {
     });
 
     it('allows access when CRON_SECRET matches', async () => {
-      process.env.HOLD_SWEEPER_MODE = 'count';
       vi.mocked(prisma.hold.count).mockResolvedValueOnce(0);
 
       const req = makeRequest({ authorization: `Bearer ${process.env.CRON_SECRET}` });

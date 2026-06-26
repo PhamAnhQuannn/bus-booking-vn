@@ -139,6 +139,10 @@ describe('POST /api/bookings/initiate — happy path', () => {
     expect(json.bookingId).toBe(BOOKING_ID);
     expect(json.payUrl).toBe(PAY_URL);
     expect(res.headers.get('Cache-Control')).toContain('no-store');
+    const setCookies = res.headers.getSetCookie();
+    const holdClear = setCookies.find((c: string) => c.startsWith('bb_hold='));
+    expect(holdClear).toBeDefined();
+    expect(holdClear).toContain('Max-Age=0');
   });
 
   it('passes baseUrl derived from x-forwarded-proto + host to orchestrator', async () => {

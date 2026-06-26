@@ -113,10 +113,17 @@ async function handler(req: NextRequest): Promise<Response> {
       bookingId: result.bookingId,
       context: { paymentMethod },
     });
-    return NextResponse.json(
+    const res = NextResponse.json(
       { bookingId: result.bookingId, payUrl: result.payUrl },
       { status: 200, headers: { 'Cache-Control': 'no-store' } }
     );
+    res.cookies.set('bb_hold', '', {
+      path: '/',
+      maxAge: 0,
+      httpOnly: true,
+      sameSite: 'lax',
+    });
+    return res;
   }
 
   switch (result.error) {
