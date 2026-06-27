@@ -70,7 +70,18 @@ jobs:
           DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
 
       - name: Run unit tests
-        run: pnpm test
+        run: pnpm test:unit
+
+      - name: Run coverage
+        run: pnpm test:cov
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-lcov
+          path: coverage/lcov.info
+          retention-days: 7
 
   # ---- 3. Integration tests (real postgres:16) ----
   integration-tests:
@@ -137,6 +148,10 @@ jobs:
   e2e-tests:
     name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chromium, mobile-390]
     services:
       postgres:
         image: postgres:16
@@ -193,14 +208,14 @@ jobs:
         run: pnpm prisma db seed
 
       - name: Install Playwright browsers
-        # mobile-390 project uses devices['iPhone SE'] → WebKit. chromium kept for the desktop project.
+        # mobile-390 uses devices['iPhone SE'] → WebKit; chromium keeps the desktop project covered.
         run: pnpm exec playwright install --with-deps chromium webkit
 
       - name: Build Next.js app
         run: pnpm build
 
       - name: Run E2E tests
-        run: pnpm exec playwright test --project=mobile-390
+        run: pnpm exec playwright test --project=${{ matrix.project }}
         env:
           CI: true
 
@@ -211,6 +226,74 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  # ---- 4b. Quarantine lane (non-blocking) ----
+  flaky-e2e:
+    name: Flaky E2E Quarantine
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: bbvn
+          POSTGRES_PASSWORD: bbvn_dev_password
+          POSTGRES_DB: bbvn_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_dev
+      PLAYWRIGHT_BASE_URL: http://localhost:3000
+      HOLD_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      PAYMENTS_STUB: 'true'
+      JWT_SECRET: ci-test-jwt-secret-not-for-production-use-0123456789ab
+      JWT_OPERATOR_SECRET: ci-test-operator-secret-not-for-production-0123
+      JWT_ADMIN_SECRET: ci-test-admin-secret-not-for-production-01234567
+      TOTP_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+      CRON_SECRET: ci-test-cron-secret-00
+      REFRESH_TOKEN_SECRET: ci-test-refresh-secret-not-for-prod-0123
+      BANK_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        run: pnpm prisma generate
+
+      - name: Run migrations
+        run: pnpm prisma migrate deploy
+
+      - name: Seed database
+        run: pnpm prisma db seed
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Build Next.js app
+        run: pnpm build
+
+      - name: Run flaky E2E quarantine lane
+        run: pnpm exec playwright test --grep @flaky --project=chromium --pass-with-no-tests
+        env:
+          CI: true
 
   # ---- 5. Data leak audit (static grep) ----
   data-leak-audit:
