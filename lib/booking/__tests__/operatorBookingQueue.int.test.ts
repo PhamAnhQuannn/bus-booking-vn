@@ -21,6 +21,7 @@ import { listOperatorBookings } from '../listOperatorBookings';
 import { getOperatorBooking } from '../getOperatorBooking';
 import { getUnviewedPaidCount } from '../getUnviewedPaidCount';
 import { getManifest } from '@/lib/booking/getManifest';
+import { vnLocalDate } from '@/test/helpers';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Fixtures
@@ -246,7 +247,7 @@ describe('listOperatorBookings', () => {
 
   it('AC2: filter by serviceDate', async () => {
     const departureInstantMs = Date.now() + 2 * 86_400_000;
-    const vnDateStr = new Date(departureInstantMs + 7 * 3600 * 1000).toISOString().slice(0, 10);
+    const vnDateStr = vnLocalDate(departureInstantMs);
     const result = await listOperatorBookings(operatorId, { serviceDate: vnDateStr });
     expect(result.rows.length).toBeGreaterThan(0);
 

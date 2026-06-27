@@ -16,6 +16,26 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
+      include: [
+        'app/**/*.{ts,tsx,js,jsx}',
+        'components/**/*.{ts,tsx,js,jsx}',
+        'lib/**/*.{ts,tsx,js,jsx}',
+      ],
+      exclude: [
+        '**/__tests__/**',
+        '**/*.config.*',
+        '**/*.d.ts',
+        '**/*.md',
+        '.next/**',
+        'e2e/**',
+        'test/**',
+      ],
+      thresholds: {
+        statements: 40,
+        branches: 32,
+        functions: 34,
+        lines: 40,
+      },
     },
   },
   resolve: {
