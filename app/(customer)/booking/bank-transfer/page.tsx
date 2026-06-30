@@ -54,7 +54,7 @@ export default async function BankTransferPage({ searchParams }: BankTransferPag
     notFound();
   }
 
-  if (redirectUrl && !redirectUrl.startsWith('/')) {
+  if (redirectUrl && (!redirectUrl.startsWith('/') || redirectUrl.startsWith('//'))) {
     notFound();
   }
 
