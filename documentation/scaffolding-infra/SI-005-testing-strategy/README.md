@@ -22,6 +22,8 @@ The pyramid is intentionally weighted toward integration tests for this platform
 
 The E2E layer is thin and covers critical happy paths only. Sandbox-gated E2E specs that require a fresh DB and cannot run in CI are acceptable for payment flows; they are never treated as a substitute for integration test coverage.
 
+Unit coverage thresholds gate CI so the smallest layer still has an explicit floor.
+
 ---
 
 ## 2. Real Database Mandate for Integration Tests
@@ -120,6 +122,25 @@ The operator flow crawl (`scripts/smoke/operator-crawl.mts`) demonstrated that a
 ### 4.3 CSRF Header Threading in E2E
 
 Because the CSRF double-submit middleware gates all non-safe `/api/*` routes, Playwright specs must extract the `bb_csrf` cookie and include the `X-CSRF-Token` header on all POST/PUT/DELETE requests. Use `e2e/helpers/csrf.ts` `primeCsrf()` before any mutation phase. Webhook routes authenticated via HMAC (`/api/payments/momo/webhook`) are exempt from CSRF.
+
+### 4.4 Toolkit and commands
+
+The shared test toolkit lives under `test/helpers/`:
+
+- `hexMock(byte, len)` for valid SHA-256 hex strings in `Buffer.from(..., 'hex')` tests.
+- `vnLocalDate(instant)` for Vietnam-local date derivation in service-date assertions.
+- `resetIntegrationTables(prisma)` for deterministic integration cleanup.
+- `expectNoForbiddenFields(body)` for response-shape assertions.
+- `makeOperator`, `makeBus`, `makeRoute`, `makeTrip` for schema-aligned fixtures.
+
+The command surface is:
+
+- `pnpm test:unit` for unit Vitest.
+- `pnpm test:cov` for coverage with `coverage/lcov.info`.
+- `pnpm vitest:int` or `pnpm test:int` for integration runs after `scripts/test/prepare-int-db.ts` seeds the DB.
+- `pnpm test:e2e` for Playwright.
+
+`scripts/test/prepare-int-db.ts` is intentionally separate so local runs and CI both execute the same migrate-and-seed path before integration tests.
 
 ---
 

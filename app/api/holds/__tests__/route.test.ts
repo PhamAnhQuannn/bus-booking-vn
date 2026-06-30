@@ -222,4 +222,14 @@ describe('POST /api/holds', () => {
 
     expect(createHold).not.toHaveBeenCalled();
   });
+
+  it('returns 422 pickup_custom_detail_required for custom pickup with short detail (Issue 107)', async () => {
+    const req = makeRequest({ ...VALID_BODY, pickupKind: 'custom', pickupDetail: 'ab' });
+    const res = await POST(req);
+    const json = await res.json();
+
+    expect(res.status).toBe(422);
+    expect(json.error).toBe('pickup_custom_detail_required');
+    expect(createHold).not.toHaveBeenCalled();
+  });
 });

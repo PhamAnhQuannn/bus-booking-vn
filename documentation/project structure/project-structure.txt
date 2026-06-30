@@ -2059,5 +2059,4 @@ Bus-Booking/ ------------------                                                 
 |__vercel.json ------------------                                                             "Vercel deployment config"
 |__vitest.config.ts ------------------                                                        "Vitest unit-test config"
 |__vitest.integration.config.ts ------------------                                            "Vitest integration-test config"
-|__vitest.integration.setup.ts ------------------                                             "Vitest integration setup"
 |__vitest.setup.ts ------------------                                                         "Vitest unit setup"
