@@ -46,7 +46,17 @@ export default function OpLoginPage() {
       });
 
       if (!res.ok) {
-        setError('Tên đăng nhập hoặc mật khẩu không đúng.');
+        if (res.status === 429) {
+          const json = await res.json().catch(() => ({}));
+          const errCode = (json as { error?: string }).error ?? '';
+          if (errCode === 'LOCKED_OUT') {
+            setError('Tài khoản tạm khóa sau nhiều lần đăng nhập sai. Vui lòng thử lại sau 15 phút.');
+          } else {
+            setError('Quá nhiều yêu cầu. Vui lòng thử lại sau.');
+          }
+        } else {
+          setError('Tên đăng nhập hoặc mật khẩu không đúng.');
+        }
         return;
       }
 

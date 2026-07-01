@@ -90,6 +90,7 @@ const CSRF_EXEMPT_PREFIXES = [
 const OP_AUTH_FREE_PATHS = new Set([
   '/op/login',
   '/op/first-login',
+  '/op/forgot-password',
   '/op/register',
   '/op/register/confirmation',
 ]);
