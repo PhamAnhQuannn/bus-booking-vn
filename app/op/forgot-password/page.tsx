@@ -119,7 +119,7 @@ export default function OpForgotPasswordPage() {
   if (step === 'done') {
     return (
       <AuthSplitLayout audience="operator" title="Đặt lại mật khẩu thành công">
-        <Card className="shadow-e3">
+        <Card key={step} className="shadow-e3">
           <CardContent className="flex flex-col gap-4">
             <p className="text-sm text-muted-foreground">Mật khẩu của bạn đã được cập nhật.</p>
             <Button size="lg" className="w-full" onClick={() => router.push('/op/login')}>
@@ -138,7 +138,7 @@ export default function OpForgotPasswordPage() {
         title="Đặt lại mật khẩu"
         subtitle="Nhập mã OTP đã gửi đến số điện thoại của bạn và mật khẩu mới."
       >
-        <Card className="shadow-e3">
+        <Card key={step} className="shadow-e3">
           <CardContent className="flex flex-col gap-4">
             <form onSubmit={handleReset} className="grid gap-4">
               <div className="grid gap-1.5">
@@ -202,7 +202,7 @@ export default function OpForgotPasswordPage() {
       title="Quên mật khẩu — Quản trị viên"
       subtitle="Nhập số điện thoại đăng nhập. Chúng tôi sẽ gửi mã OTP để đặt lại mật khẩu."
     >
-      <Card className="shadow-e3">
+      <Card key={step} className="shadow-e3">
         <CardContent className="flex flex-col gap-4">
           <form onSubmit={handleRequestOtp} className="grid gap-4">
             <div className="grid gap-1.5">
