@@ -39,6 +39,10 @@ export default function AdminLoginPage() {
     setError(null);
     try {
       const res = await post('/api/admin/auth/login', { email, password });
+      if (res.status === 429) {
+        setError('Quá nhiều lần thử. Vui lòng thử lại sau.');
+        return;
+      }
       if (!res.ok) {
         setError('Email hoặc mật khẩu không đúng.');
         return;
@@ -57,6 +61,13 @@ export default function AdminLoginPage() {
       const res = await post('/api/admin/auth/totp/verify', { code });
       if (res.status === 409) {
         setError('Tài khoản chưa thiết lập TOTP. Liên hệ quản trị viên.');
+        return;
+      }
+      if (res.status === 429) {
+        const json = await res.json();
+        setError(json.error === 'LOCKED_OUT'
+          ? 'Tài khoản bị khóa tạm thời. Vui lòng thử lại sau 15 phút.'
+          : 'Quá nhiều lần thử. Vui lòng thử lại sau.');
         return;
       }
       if (!res.ok) {
