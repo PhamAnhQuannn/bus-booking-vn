@@ -1,5 +1,6 @@
 // jobs domain public API barrel (SYS20 rule 3).
 
+export { anonymizeCustomers } from './anonymizeCustomers';
 export { autoCloseSales } from './autoCloseSales';
 export { autoCompleteTrips } from './autoCompleteTrips';
 export { charterExpirySweeper } from './charterExpirySweeper';
