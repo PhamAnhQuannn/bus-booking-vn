@@ -16,31 +16,44 @@
 | Prisma migration failure | Migration error during deploy | **Forward-fix** (cannot rollback) |
 | Operator portal 500 | Any console page returns 500 | Rollback |
 
-## 2. Docker Image Rollback Procedure
+## 2. Rollback Procedure
 
-### Pre-deployment checklist
+### 2.1 Vercel Production (primary)
+
+Vercel is the primary deployment target (ADR-020 D11, SI-006 §1.1).
+
+1. **Instant rollback via Vercel dashboard:** Deployments → select previous known-good deployment → "Promote to Production"
+2. **Or redeploy via git:** `git revert <bad-commit> && git push origin master`
+3. **Verify health:** `curl -f https://<prod-url>/api/health`
+4. **Run smoke test:** `./scripts/fresh-boot-smoke.sh https://<prod-url>`
+
+### 2.2 FPT Cloud Backup (Docker fallback)
+
+If Vercel is unavailable or for the FPT Cloud Docker deployment:
+
+#### Pre-deployment checklist
 
 Before every deployment:
 1. Record current running image SHA: `docker inspect --format='{{.Image}}' bus-booking-app`
 2. Verify at least 3 previous image SHAs exist in GHCR: `gh api /orgs/.../packages/container/bus-booking/versions | head -5`
 3. Note the rollback SHA in the deployment log
 
-### Rollback steps
+#### Rollback steps
 
 ```bash
 # 1. Pull previous known-good image
 export ROLLBACK_SHA="sha256:<previous-known-good>"
-docker compose pull
+docker compose -f docker-compose.prod.yml pull
 
-# 2. Update docker-compose.yml image tag to rollback SHA
+# 2. Update docker-compose.prod.yml image tag to rollback SHA
 # 3. Restart services
-docker compose up -d
+docker compose -f docker-compose.prod.yml up -d
 
 # 4. Verify health
 curl -f https://<prod-url>/api/health
 
 # 5. Run smoke test
-pnpm run smoke:prod
+./scripts/fresh-boot-smoke.sh https://<prod-url>
 ```
 
 **Target rollback time:** < 5 minutes from decision to healthy state.
@@ -107,7 +120,7 @@ Service will resume shortly. Contact: [support email]
 After any rollback:
 
 1. Health check: `GET /api/health` returns 200
-2. Smoke test: `pnpm run smoke:prod` passes
+2. Smoke test: `./scripts/fresh-boot-smoke.sh https://<prod-url>` passes
 3. Cron endpoints: verify at least 3 respond correctly
 4. Operator portal: spot-check dashboard, bus list, trip list
 5. Check `JobRunLog` for any failed cron runs during the incident
