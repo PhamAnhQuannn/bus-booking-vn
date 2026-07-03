@@ -44,7 +44,7 @@ describe('GET /api/cron/generate-ticket-pdfs', () => {
     it('allows access when CRON_SECRET matches', async () => {
       const res = await GET(makeRequest({ authorization: `Bearer ${process.env.CRON_SECRET}` }));
       expect(res.status).toBe(200);
-      expect(runJob).toHaveBeenCalledWith('ticket-pdf', expect.any(Function));
+      expect(runJob).toHaveBeenCalledWith('ticket-pdf', expect.any(Function), { timeout: 120_000 });
     });
 
     it('returns 401 when CRON_SECRET is not set', async () => {
@@ -61,7 +61,7 @@ describe('GET /api/cron/generate-ticket-pdfs', () => {
       const res = await GET(makeRequest({ authorization: `Bearer ${process.env.CRON_SECRET}` }));
       expect(res.status).toBe(200);
       expect(runJob).toHaveBeenCalledTimes(1);
-      expect(runJob).toHaveBeenCalledWith('ticket-pdf', expect.any(Function));
+      expect(runJob).toHaveBeenCalledWith('ticket-pdf', expect.any(Function), { timeout: 120_000 });
       expect(await res.json()).toEqual({ rowsAffected: 3, status: 'success' });
     });
 

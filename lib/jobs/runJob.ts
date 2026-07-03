@@ -17,11 +17,15 @@ import { prisma } from '@/lib/core/db/client';
 import { withAdvisoryLock } from './withAdvisoryLock';
 import type { JobCore, JobResult } from './types';
 
-export async function runJob(jobName: string, core: JobCore): Promise<JobResult> {
+export async function runJob(
+  jobName: string,
+  core: JobCore,
+  opts?: { timeout?: number }
+): Promise<JobResult> {
   const startedAt = new Date();
 
   try {
-    const result = await withAdvisoryLock(jobName, core);
+    const result = await withAdvisoryLock(jobName, core, opts);
     await prisma.jobRunLog.create({
       data: {
         jobName,

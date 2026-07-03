@@ -37,7 +37,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   }
 
   try {
-    const result = await runJob('ticket-pdf', generateTicketPdfs);
+    const result = await runJob('ticket-pdf', generateTicketPdfs, { timeout: 120_000 });
     logger.info(result, 'generate-ticket-pdfs: cron run complete');
     return NextResponse.json(result);
   } catch (err) {
