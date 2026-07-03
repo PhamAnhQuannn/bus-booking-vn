@@ -502,7 +502,6 @@ model OtpAttempt {
   consumedAt   DateTime?
   attemptCount Int       @default(0)
   createdAt    DateTime  @default(now())
-  ipAddress    String?
 
   @@index([phone, createdAt(sort: Desc)])
 }
@@ -585,7 +584,6 @@ model OperatorOtpAttempt {
   consumedAt   DateTime?
   attemptCount Int       @default(0)
   createdAt    DateTime  @default(now())
-  ipAddress    String?
 
   @@index([phone, createdAt(sort: Desc)])
 }
