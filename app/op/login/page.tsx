@@ -78,7 +78,7 @@ export default function OpLoginPage() {
     <AuthSplitLayout audience="operator" title="Đăng nhập — Quản trị viên">
       <Card className="shadow-e3">
         <CardContent>
-          <form onSubmit={handleLogin} className="grid gap-4">
+          <form onSubmit={handleLogin} method="post" className="grid gap-4">
             <div className="grid gap-1.5">
               <Label htmlFor="op-login-username">Tên đăng nhập</Label>
               <Input
