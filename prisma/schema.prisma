@@ -519,6 +519,7 @@ model Session {
   customer         Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   @@index([customerId])
+  @@index([expiresAt])
 }
 
 // ---------------------------------------------------------------------------
