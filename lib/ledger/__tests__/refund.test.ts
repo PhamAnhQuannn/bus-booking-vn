@@ -19,6 +19,7 @@ vi.mock('@/lib/core/db/client', () => {
     prisma: {
       booking: { findUnique: vi.fn() },
       ledgerEntry: { findUnique: vi.fn() },
+      notificationLog: { create: vi.fn().mockResolvedValue({ id: 'nl-1' }) },
       $transaction: vi.fn((fn: (tx: typeof txMock) => Promise<unknown>) => fn(txMock)),
     },
   };
@@ -178,6 +179,29 @@ describe('refundOut', () => {
         idempotencyKey: 'k',
       })
     ).rejects.toMatchObject({ code: 'invalid_amount' });
+  });
+
+  it('handles manual refund when PSP returns ok:false — writes ledger + notification, no throw', async () => {
+    psp.mockResolvedValueOnce({ ok: false, manualRefundRequired: true });
+
+    const res = await refundOut({
+      bookingId: 'bk-1',
+      amountMinor: 200_000,
+      reason: 'operator_cancel',
+      idempotencyKey: 'cancel:trip-2:bk-1',
+    });
+
+    expect(res).toEqual({ refunded: true, alreadyDone: false, manualRefundRequired: true });
+    expect(append).toHaveBeenCalledTimes(2);
+
+    const notifCreate = (prisma.notificationLog as unknown as { create: Mock }).create;
+    expect(notifCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        template: 'manual_refund_required',
+        recipient: 'operator:op-1',
+        bookingId: 'bk-1',
+      }),
+    });
   });
 });
 

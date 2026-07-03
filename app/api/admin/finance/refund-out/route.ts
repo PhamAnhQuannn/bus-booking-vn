@@ -67,7 +67,11 @@ async function handler(req: NextRequest, ctx: AdminAuthContext): Promise<Respons
       }),
     });
 
-    return NextResponse.json({ refunded: result.refunded, alreadyDone: result.alreadyDone });
+    return NextResponse.json({
+      refunded: result.refunded,
+      alreadyDone: result.alreadyDone,
+      ...(result.manualRefundRequired && { manualRefundRequired: true }),
+    });
   } catch (e) {
     if (e instanceof RefundOutError) {
       // booking_not_found → 404; invalid_amount / not_refundable → 422.

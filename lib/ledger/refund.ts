@@ -65,6 +65,8 @@ export interface RefundOutResult {
   refunded: boolean;
   /** true iff the refund had already been recorded for this idempotencyKey. */
   alreadyDone: boolean;
+  /** true when no PSP exists (Phase 1 bank transfer) — operator must transfer manually. */
+  manualRefundRequired?: boolean;
 }
 
 /**
@@ -139,6 +141,55 @@ export async function refundOut(input: RefundOutInput): Promise<RefundOutResult>
     amountMinor,
     idempotencyKey,
   });
+
+  // 3a. Phase 1 manual refund: no PSP exists. Record the obligation on the
+  //     ledger (operator revenue clawback is correct regardless of mechanism)
+  //     and notify admin/operator to transfer manually.
+  if (!psp.ok) {
+    const amt = BigInt(amountMinor);
+    await prisma.$transaction(async (tx) => {
+      await appendLedgerEntry(
+        {
+          operatorId,
+          bookingId,
+          type: 'refund_debit',
+          amountMinor: -amt,
+          currency: 'VND',
+          sourceEventId: refundDebitSourceId,
+        },
+        tx
+      );
+      await appendLedgerEntry(
+        {
+          operatorId,
+          bookingId,
+          type: 'refund_out',
+          amountMinor: -amt,
+          currency: 'VND',
+          sourceEventId: refundOutSourceId,
+        },
+        tx
+      );
+    });
+
+    await prisma.notificationLog.create({
+      data: {
+        bookingId,
+        channel: 'email',
+        template: 'manual_refund_required',
+        recipient: `operator:${operatorId}`,
+        payload: JSON.stringify({ bookingId, amountMinor, reason, idempotencyKey }),
+        status: 'pending',
+      },
+    });
+
+    logger.info(
+      { bookingId, reason, idempotencyKey, amountMinor },
+      'refund.out.manual_refund_required — operator must transfer manually'
+    );
+
+    return { refunded: true, alreadyDone: false, manualRefundRequired: true };
+  }
 
   // 4. Write BOTH ledger entries inside one transaction. Each is idempotent on
   //    its DISTINCT sourceEventId (derived from idempotencyKey, NOT from the
