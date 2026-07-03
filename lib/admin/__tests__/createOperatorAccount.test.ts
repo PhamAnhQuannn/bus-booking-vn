@@ -17,6 +17,7 @@ const {
   mockWriteAudit,
 } = vi.hoisted(() => {
   const mockTx = {
+    $queryRaw: vi.fn(),
     operator: { findUnique: vi.fn(), update: vi.fn() },
     operatorUser: { count: vi.fn(), create: vi.fn() },
   };
@@ -60,6 +61,7 @@ beforeEach(() => {
   mockHash.mockResolvedValue('hashed');
   mockBuildUsername.mockReturnValue('PB-0001');
   mockEnsureUnique.mockResolvedValue('PB-0001');
+  mockTx.$queryRaw.mockResolvedValue([{ id: 'op_1' }]);
   mockTx.operator.findUnique.mockResolvedValue({
     id: 'op_1',
     brandName: 'Phương Bắc',
@@ -113,6 +115,7 @@ describe('createOperatorAccount', () => {
   });
 
   it('throws operator_not_found when the application is missing', async () => {
+    mockTx.$queryRaw.mockResolvedValue([]);
     mockTx.operator.findUnique.mockResolvedValue(null);
     await expect(createOperatorAccount(prisma, INPUT)).rejects.toMatchObject({
       name: 'AdminServiceError',

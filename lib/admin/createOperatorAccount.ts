@@ -70,6 +70,12 @@ export async function createOperatorAccount(
   const passwordHash = await hash(tempPassword);
 
   const result = await prisma.$transaction(async (tx) => {
+    // Lock the Operator row to serialize concurrent provisioning attempts
+    const locked = await tx.$queryRaw<{ id: string }[]>`
+      SELECT id FROM "Operator" WHERE id = ${input.operatorId} FOR UPDATE
+    `;
+    if (locked.length === 0) throw new AdminServiceError('operator_not_found');
+
     const operator = await tx.operator.findUnique({
       where: { id: input.operatorId },
       select: {
