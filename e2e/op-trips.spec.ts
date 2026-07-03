@@ -205,6 +205,7 @@ async function prepareTrips(): Promise<PrepareCtx> {
 
 test.describe('Operator trip lifecycle (Issue 013)', () => {
   test.skip(!SANDBOX_ENABLED, 'Set E2E_OP_TRIPS_ENABLED=true to run');
+  test.describe.configure({ mode: 'serial' });
 
   let ctx: PrepareCtx;
 
