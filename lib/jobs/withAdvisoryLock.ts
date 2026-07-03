@@ -27,8 +27,10 @@ import type { JobCore, JobResult } from './types';
 
 export async function withAdvisoryLock(
   jobName: string,
-  core: JobCore
+  core: JobCore,
+  opts?: { timeout?: number }
 ): Promise<JobResult> {
+  const txOpts = opts?.timeout ? { timeout: opts.timeout } : undefined;
   return prisma.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<{ locked: boolean }[]>(
       Prisma.sql`SELECT pg_try_advisory_xact_lock(hashtext(${jobName})) AS locked`
@@ -39,5 +41,5 @@ export async function withAdvisoryLock(
     }
 
     return core(tx);
-  });
+  }, txOpts);
 }
