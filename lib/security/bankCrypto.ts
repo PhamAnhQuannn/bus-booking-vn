@@ -8,7 +8,7 @@ const PREFIX = 'enc:v1:';
 function getKey(): Buffer {
   const hex =
     process.env.BANK_ENCRYPTION_KEY ??
-    (process.env.NODE_ENV === 'test' ? 'cd'.repeat(32) : null);
+    (process.env.NODE_ENV === 'production' ? null : 'cd'.repeat(32));
   if (!hex) throw new Error('BANK_ENCRYPTION_KEY not configured');
   return Buffer.from(hex, 'hex');
 }
