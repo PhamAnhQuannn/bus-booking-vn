@@ -21,10 +21,10 @@ Runs all categories below in sequence. Reports PASS/FAIL per category.
 | # | Check | Method | Pass Criteria |
 |---|-------|--------|---------------|
 | 1 | Homepage loads | `GET /` | HTTP 200 |
-| 2 | Trip search returns valid JSON | `GET /api/trips/search?from=...&date=...` | HTTP 200, JSON array with `id`, `departureAt`, `price`, `status` fields |
+| 2 | Trip search returns valid JSON | `GET /api/trips/search?from=...&date=...` | HTTP 200, JSON array with `tripId`, `departureAt`, `price`, `availableSeats` fields |
 | 3 | Trip search Cache-Control | Same request | `Cache-Control` header present |
 | 4 | Trip search rejects invalid params | `GET /api/trips/search` (no params) | HTTP 400 |
-| 5 | Booking flow: search → hold | `POST /api/holds` with valid tripId | HTTP 201, returns `holdId` |
+| 5 | Booking flow: search → hold | `POST /api/holds` with valid tripId | HTTP 200, returns `holdId` |
 | 6 | Review page renders | `GET /booking/review` with valid `bb_hold` cookie | HTTP 200 |
 | 7 | OTP send endpoint responds | `POST /api/auth/otp/send` | HTTP 200 or 429 (rate-limited) |
 
