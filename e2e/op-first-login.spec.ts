@@ -71,7 +71,7 @@ test.describe('Operator first-login forced password change', () => {
     expect(loginRes.status()).toBe(200);
     const loginJson = await loginRes.json();
     expect(loginJson.requiresPasswordChange).toBe(true);
-    expect(loginJson.operator.phone).toBe(SEED_PHONE);
+    expect(loginJson.operator.username).toBe(SEED_USERNAME);
 
     // Cookies set
     const loginCookies = await request.storageState();

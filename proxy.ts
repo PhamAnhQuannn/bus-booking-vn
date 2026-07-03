@@ -203,7 +203,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   // returning 410 for the customer scope itself) and /api/op/auth/* is untouched.
   if (
     pathname.startsWith('/api/auth/register') ||
-    pathname.startsWith('/api/auth/otp') ||
+    (pathname.startsWith('/api/auth/otp') && pathname !== '/api/auth/otp/test-peek') ||
     pathname.startsWith('/api/auth/forgot-password') ||
     pathname.startsWith('/api/auth/reset-password') ||
     pathname.startsWith('/api/auth/refresh') ||
