@@ -6,11 +6,10 @@
  *     txn id is a pure function of the idempotency key). This is the path every
  *     local / test refund takes today (real PSP credentials deferred per project
  *     memory: "real PSP/eSMS deferred; site runs fully on local stub gateway").
- *   - PAYMENTS_STUB=false → real PSP refund. NOT YET IMPLEMENTED. Real MoMo/
- *     ZaloPay refund API integration is deferred to the go-live payment-keys
- *     issue (094). Until then this branch throws 'psp_refund_not_implemented'
- *     so a non-stub deployment fails LOUDLY rather than silently skipping the
- *     cash leg of a refund.
+ *   - PAYMENTS_STUB=false → manual refund. Phase 1 uses bank transfer only,
+ *     so no PSP refund API exists. Returns { ok: false, manualRefundRequired }
+ *     and callers record the obligation + notify admin/operator. Real MoMo/
+ *     ZaloPay refund API integration is deferred to issue 094.
  *
  * Idempotency: the refundTxnId is deterministic from `idempotencyKey`, so a
  * replay produces the identical result. The ledger writes (lib/ledger/refund.ts)
@@ -30,18 +29,9 @@ export interface RefundPaymentInput {
   idempotencyKey: string;
 }
 
-export interface RefundPaymentResult {
-  ok: true;
-  refundTxnId: string;
-}
-
-/** Thrown when a real (non-stub) PSP refund is attempted before 094 lands. */
-export class PspRefundNotImplementedError extends Error {
-  constructor() {
-    super('psp_refund_not_implemented');
-    this.name = 'PspRefundNotImplementedError';
-  }
-}
+export type RefundPaymentResult =
+  | { ok: true; refundTxnId: string }
+  | { ok: false; manualRefundRequired: true };
 
 export async function refundPayment(
   input: RefundPaymentInput
@@ -52,8 +42,8 @@ export async function refundPayment(
     return refundPaymentStub(input);
   }
 
-  // TODO(094-go-live-real-payment-keys): integrate the real MoMo/ZaloPay refund
-  // API here (call the PSP refund endpoint, verify the response, surface the
-  // PSP refund txn id). Until then a real deployment MUST fail loudly.
-  throw new PspRefundNotImplementedError();
+  // Phase 1: bank transfer only — no real PSP refund API. Return a
+  // discriminated result so callers can record the obligation and notify
+  // the operator to transfer manually. Real PSP integration lands in 094.
+  return { ok: false, manualRefundRequired: true };
 }
