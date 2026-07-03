@@ -75,7 +75,7 @@ export default function AdminLoginPage() {
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
       {step === 'credentials' ? (
-        <form onSubmit={submitCredentials} className="mt-6 space-y-4">
+        <form onSubmit={submitCredentials} method="post" className="mt-6 space-y-4">
           <input
             type="email"
             required
@@ -99,7 +99,7 @@ export default function AdminLoginPage() {
           </button>
         </form>
       ) : (
-        <form onSubmit={submitTotp} className="mt-6 space-y-4">
+        <form onSubmit={submitTotp} method="post" className="mt-6 space-y-4">
           <input
             inputMode="numeric"
             pattern="[0-9]*"

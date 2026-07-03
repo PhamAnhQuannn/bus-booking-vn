@@ -71,7 +71,7 @@ function LoginPageInner() {
     <AuthSplitLayout audience="customer" title="Đăng nhập">
       <Card className="shadow-e3">
         <CardContent className="flex flex-col gap-4">
-          <form onSubmit={handleLogin} className="flex flex-col gap-4">
+          <form onSubmit={handleLogin} method="post" className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="phone">Số điện thoại</Label>
               <Input id="phone" type="tel" name="phone" required placeholder="0901234567" />
