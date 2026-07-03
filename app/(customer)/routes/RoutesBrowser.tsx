@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { ActiveRoute } from '@/lib/core/db/getActiveRoutes';
 import { formatVnd } from '@/lib/format';
+import { normalizeVi } from '@/lib/text';
 
 function formatDuration(mins: number): string {
   const h = Math.floor(mins / 60);
@@ -19,20 +20,14 @@ function formatDuration(mins: number): string {
   return m ? `${h}h${m}` : `${h}h`;
 }
 
-/** Diacritic-insensitive contains check for the search box. */
-function normalize(s: string): string {
-  // Strip combining diacritical marks (U+0300–U+036F) after NFD decomposition.
-  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-}
-
 export function RoutesBrowser({ routes, today }: { routes: ActiveRoute[]; today: string }) {
   const [q, setQ] = useState('');
 
   const filtered = useMemo(() => {
-    const nq = normalize(q.trim());
+    const nq = normalizeVi(q.trim());
     if (!nq) return routes;
     return routes.filter(
-      (r) => normalize(`${r.origin} ${r.destination}`).includes(nq)
+      (r) => normalizeVi(`${r.origin} ${r.destination}`).includes(nq)
     );
   }, [q, routes]);
 
