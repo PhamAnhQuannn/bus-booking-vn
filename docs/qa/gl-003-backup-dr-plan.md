@@ -136,13 +136,13 @@ The `LedgerEntry` table has a database-level immutability trigger (`BEFORE UPDAT
 ```sql
 -- Verify trigger exists
 SELECT tgname FROM pg_trigger WHERE tgrelid = '"LedgerEntry"'::regclass;
--- Expected: ledger_entry_immutable
+-- Expected: ledger_entry_no_update, ledger_entry_no_delete
 
 -- Verify row count matches
 SELECT COUNT(*) FROM "LedgerEntry";
 
 -- Verify sum integrity (should match pre-backup checkpoint)
-SELECT SUM("amountMinor") FROM "LedgerEntry";
+SELECT SUM("amount") FROM "LedgerEntry";
 ```
 
 ## 7. DR Drill Checklist
