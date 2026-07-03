@@ -93,4 +93,12 @@ describe('POST /api/auth/refresh', () => {
     expect(res.status).toBe(401);
     expect(json.error).toBe('invalid_session');
   });
+
+  it('returns 401 invalid_session for SESSION_NOT_FOUND', async () => {
+    mockRefresh.mockRejectedValue(new AuthServiceError('SESSION_NOT_FOUND'));
+    const res = await POST(makeRequest());
+    const json = await res.json();
+    expect(res.status).toBe(401);
+    expect(json.error).toBe('invalid_session');
+  });
 });
