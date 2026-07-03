@@ -87,41 +87,56 @@ export default function AdminLoginPage() {
 
       {step === 'credentials' ? (
         <form onSubmit={submitCredentials} method="post" className="mt-6 space-y-4">
-          <input
-            type="email"
-            required
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded border px-3 py-2"
-            autoComplete="username"
-          />
-          <input
-            type="password"
-            required
-            placeholder="Mật khẩu"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded border px-3 py-2"
-            autoComplete="current-password"
-          />
+          <div>
+            <label htmlFor="admin-email" className="mb-1 block text-sm font-medium">Email</label>
+            <input
+              id="admin-email"
+              name="email"
+              type="email"
+              required
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded border px-3 py-2"
+              autoComplete="username"
+            />
+          </div>
+          <div>
+            <label htmlFor="admin-password" className="mb-1 block text-sm font-medium">Mật khẩu</label>
+            <input
+              id="admin-password"
+              name="password"
+              type="password"
+              required
+              placeholder="Mật khẩu"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded border px-3 py-2"
+              autoComplete="current-password"
+            />
+          </div>
           <button type="submit" disabled={busy} className="w-full rounded bg-primary px-3 py-2 text-white">
             Tiếp tục
           </button>
         </form>
       ) : (
         <form onSubmit={submitTotp} method="post" className="mt-6 space-y-4">
-          <input
-            inputMode="numeric"
-            pattern="[0-9]*"
-            maxLength={6}
-            required
-            placeholder="Mã TOTP (6 số)"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            className="w-full rounded border px-3 py-2 tracking-widest"
-            autoComplete="one-time-code"
-          />
+          <div>
+            <label htmlFor="admin-totp-code" className="mb-1 block text-sm font-medium">Mã TOTP (6 số)</label>
+            <input
+              id="admin-totp-code"
+              name="code"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={6}
+              required
+              placeholder="Mã TOTP (6 số)"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              className="w-full rounded border px-3 py-2 tracking-widest"
+              autoComplete="one-time-code"
+            />
+          </div>
           <button type="submit" disabled={busy} className="w-full rounded bg-primary px-3 py-2 text-white">
             Xác thực
           </button>
