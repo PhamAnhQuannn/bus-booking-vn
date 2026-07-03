@@ -21,6 +21,7 @@ import { validatePickupSelection } from '@/lib/booking';
 import { HoldCapExceededError } from '@/lib/core/db/holdErrors';
 import { buildSetCookieHeader } from '@/lib/security';
 import { ratelimit } from '@/lib/ratelimit';
+import { clientIp } from '@/lib/core/http/clientIp';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { getOrCreateRequestId, loggerForRequest } from '@/lib/observability';
 import { track, sessionIdFromRequest } from '@/lib/analytics';
@@ -29,8 +30,7 @@ async function handler(req: NextRequest): Promise<Response> {
   const logger = loggerForRequest(getOrCreateRequestId(req.headers));
 
   // ---- 1. Rate limit by IP ----
-  const ip =
-    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1';
+  const ip = clientIp(req.headers);
 
   const rl = await ratelimit.limit(ip);
   if (!rl.allowed) {

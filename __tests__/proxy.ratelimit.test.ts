@@ -41,10 +41,11 @@ function deny(retryAfter = 42) {
 /** Build a non-safe (POST) request, optionally with a valid CSRF double-submit pair. */
 function post(
   path: string,
-  opts: { csrf?: boolean; ip?: string } = {}
+  opts: { csrf?: boolean; ip?: string; realIp?: string } = {}
 ): NextRequest {
   const headers: Record<string, string> = {};
   if (opts.ip) headers['x-forwarded-for'] = opts.ip;
+  if (opts.realIp) headers['x-real-ip'] = opts.realIp;
   const token = generateToken();
   if (opts.csrf) headers[CSRF_HEADER] = token;
   const req = new NextRequest(`https://example.com${path}`, { method: 'POST', headers });
@@ -73,7 +74,13 @@ describe('proxy rate-limit — Issue 096', () => {
     expect(body).toEqual({ error: 'TOO_MANY_REQUESTS' });
   });
 
-  it('keys the limiter on the x-forwarded-for first hop', async () => {
+  it('prefers x-real-ip over x-forwarded-for for rate-limit key', async () => {
+    allow();
+    await proxy(post('/api/holds', { csrf: true, realIp: '198.51.100.50', ip: '10.99.99.99' }));
+    expect(limitMock).toHaveBeenCalledWith('198.51.100.50');
+  });
+
+  it('falls back to x-forwarded-for first hop when x-real-ip is absent', async () => {
     allow();
     await proxy(post('/api/holds', { csrf: true, ip: '198.51.100.9, 10.0.0.1' }));
     expect(limitMock).toHaveBeenCalledWith('198.51.100.9');

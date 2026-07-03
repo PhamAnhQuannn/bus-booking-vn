@@ -17,6 +17,7 @@ import { z } from 'zod';
 import { cookies } from 'next/headers';
 import { adminLogin, issueAdminSession } from '@/lib/auth';
 import { ratelimit } from '@/lib/ratelimit';
+import { clientIp } from '@/lib/core/http/clientIp';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 const ACCESS_COOKIE_MAX_AGE = 10 * 60; // 600s — matches ADMIN_ACCESS_TTL_SECONDS
@@ -27,15 +28,9 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-function clientIp(req: NextRequest): string {
-  const fwd = req.headers.get('x-forwarded-for');
-  if (fwd) return fwd.split(',')[0].trim();
-  return req.headers.get('x-real-ip') ?? 'unknown';
-}
-
 async function handler(req: NextRequest): Promise<Response> {
   // Strict per-IP rate-limit on the admin login surface.
-  const ip = clientIp(req);
+  const ip = clientIp(req.headers);
   const rl = await ratelimit.limit(`admin-login:${ip}`);
   if (!rl.allowed) {
     return NextResponse.json(

@@ -7,4 +7,4 @@
  * empty barrel for now.
  */
 
-export {};
+export { clientIp } from './clientIp';

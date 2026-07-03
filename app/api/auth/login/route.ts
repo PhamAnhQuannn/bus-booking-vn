@@ -20,18 +20,13 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { operatorLoginInput } from '@/lib/core/validation/auth';
 import { AuthServiceError } from '@/lib/auth';
+import { clientIp } from '@/lib/core/http/clientIp';
 import { operatorLogin } from '@/lib/auth';
 import { opLoginRatelimit, opLoginLockout } from '@/lib/ratelimit';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 const REFRESH_COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days in seconds
 const ACCESS_COOKIE_MAX_AGE = 15 * 60; // 15 minutes in seconds
-
-function clientIp(req: NextRequest): string {
-  const fwd = req.headers.get('x-forwarded-for');
-  if (fwd) return fwd.split(',')[0].trim();
-  return req.headers.get('x-real-ip') ?? 'unknown';
-}
 
 async function handler(req: NextRequest): Promise<Response> {
   let body: unknown;
@@ -55,7 +50,7 @@ async function handler(req: NextRequest): Promise<Response> {
     // Operator branch (username + password)
     // -----------------------------------------------------------------------
     // Per-IP throttle on the login surface (tighter than the generic edge limit).
-    const ipRl = await opLoginRatelimit.limit(`op-login:${clientIp(req)}`);
+    const ipRl = await opLoginRatelimit.limit(`op-login:${clientIp(req.headers)}`);
     if (!ipRl.allowed) {
       return NextResponse.json(
         { error: 'RATE_LIMITED' },
