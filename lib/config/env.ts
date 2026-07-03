@@ -19,10 +19,10 @@ const envSchema = z.object({
 
   /**
    * Controls how the sweeper cron behaves.
-   * "count"  — log count of expired holds only (safe default during canary)
+   * "count"  — log count of expired holds only (dry-run / debugging)
    * "update" — actually mark expired holds as status='expired'
    */
-  HOLD_SWEEPER_MODE: z.enum(['count', 'update']).default('count'),
+  HOLD_SWEEPER_MODE: z.enum(['count', 'update']).default('update'),
 
   // ---------------------------------------------------------------------------
   // MoMo payment gateway (Issue 004)
