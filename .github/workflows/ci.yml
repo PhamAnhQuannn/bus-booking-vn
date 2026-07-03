@@ -169,7 +169,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_dev
-      PLAYWRIGHT_BASE_URL: http://localhost:3000
+      PLAYWRIGHT_BASE_URL: http://localhost:3001
       # Test-only secret (64 hex) — required by lib/config/env.ts (no default).
       HOLD_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       # Route online payments through the local stub gateway for e2e.
@@ -249,7 +249,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_dev
-      PLAYWRIGHT_BASE_URL: http://localhost:3000
+      PLAYWRIGHT_BASE_URL: http://localhost:3001
       HOLD_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       PAYMENTS_STUB: 'true'
       JWT_SECRET: ci-test-jwt-secret-not-for-production-use-0123456789ab
