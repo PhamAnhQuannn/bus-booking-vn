@@ -29,6 +29,7 @@ import { prisma } from '@/lib/core/db/client';
 import { createCharterRequest } from '@/lib/charter';
 import { getCustomerOptional } from '@/lib/auth';
 import { charterRatelimit } from '@/lib/ratelimit';
+import { clientIp } from '@/lib/core/http/clientIp';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 const charterSchema = z.object({
@@ -58,7 +59,7 @@ function parseDate(s: string | null | undefined): Date | null {
 
 async function handler(req: NextRequest): Promise<Response> {
   // ---- 1. Rate limit by IP ----
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1';
+  const ip = clientIp(req.headers);
   const rl = await charterRatelimit.limit(`charter:${ip}`);
   if (!rl.allowed) {
     return new Response(JSON.stringify({ error: 'TOO_MANY_REQUESTS' }), {

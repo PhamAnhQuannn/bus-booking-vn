@@ -26,6 +26,7 @@ import { prisma } from '@/lib/core/db/client';
 import { registerOperator } from '@/lib/onboarding';
 import { PhoneNormalizeError } from '@/lib/core/validation/phone';
 import { opRegisterRatelimit } from '@/lib/ratelimit';
+import { clientIp } from '@/lib/core/http/clientIp';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 const registerSchema = z.object({
@@ -43,8 +44,7 @@ const registerSchema = z.object({
 
 async function handler(req: NextRequest): Promise<Response> {
   // ---- 1. Rate limit by IP ----
-  const ip =
-    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1';
+  const ip = clientIp(req.headers);
 
   const rl = await opRegisterRatelimit.limit(`op-register:${ip}`);
   if (!rl.allowed) {

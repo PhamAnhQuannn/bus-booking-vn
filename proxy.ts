@@ -27,8 +27,7 @@
  *    customer + operator + admin (Issue 096, spec [S14]).
  *
  *    Rate-limit (Issue 096): runs FIRST (cheap reject before CSRF token work).
- *      Keyed on the client IP (x-forwarded-for first hop, parity with the per-route
- *      limiters in app/api/holds, /bookings/initiate, /charter, /op/register). On breach
+ *      Keyed on the client IP (x-real-ip preferred, XFF fallback — Issue 174). On breach
  *      returns 429 + Retry-After, body { error: 'TOO_MANY_REQUESTS' } — same shape the
  *      per-route limiters emit so clients see consistent 429s. Uses lib/ratelimit
  *      (`ratelimit.limit(ip)`), Edge-safe: InMemoryRatelimit in dev/CI (no Redis), lazy
@@ -58,6 +57,7 @@ import { jwtVerify } from 'jose';
 import { generateToken, compareTokens } from '@/lib/auth/csrf';
 import { ratelimit } from '@/lib/ratelimit';
 import { REQUEST_ID_HEADER, getOrCreateRequestId } from '@/lib/observability/requestId';
+import { clientIp } from '@/lib/core/http/clientIp';
 
 const CSRF_COOKIE = 'bb_csrf';
 const CSRF_HEADER = 'X-CSRF-Token';
@@ -305,12 +305,10 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   }
 
   // ---- Rate-limit FIRST (cheap reject before CSRF token work) — Issue 096 ----
-  // Derive the client IP the same way the per-route limiters do (x-forwarded-for
-  // first hop). Applies to ALL non-safe /api/* (customer + operator + admin),
+  // Applies to ALL non-safe /api/* (customer + operator + admin),
   // including the CSRF prefix-exempt pre-auth routes below — those are only
   // CSRF-exempt, never rate-limit-exempt.
-  const ip =
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1';
+  const ip = clientIp(request.headers);
   const rl = await ratelimit.limit(ip);
   if (!rl.allowed) {
     // Match the per-route 429 shape so clients see consistent responses.

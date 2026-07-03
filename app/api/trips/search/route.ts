@@ -3,7 +3,7 @@
  *
  * Pipeline:
  * 1. Zod parse query params (400 on breach — AC-10)
- * 2. Rate-limit by x-forwarded-for IP (429 + Retry-After — AC-7)
+ * 2. Rate-limit by client IP (429 + Retry-After — AC-7)
  * 3. Delegate to searchTrips() (diacritic-insensitive, maintenance-aware, hold-aware)
  * 4. Return departureAt-ascending JSON, Cache-Control: no-store
  *
@@ -20,6 +20,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { searchParamsSchema } from '@/lib/core/validation/search';
 import { searchTrips } from '@/lib/trips';
 import { ratelimit } from '@/lib/ratelimit';
+import { clientIp } from '@/lib/core/http/clientIp';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { track, sessionIdFromRequest } from '@/lib/analytics';
 
@@ -49,8 +50,7 @@ async function handler(request: NextRequest): Promise<Response> {
   const cursor = searchParams.get('cursor');
 
   // ---- 2. Rate limit by IP ----
-  const ip =
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1';
+  const ip = clientIp(request.headers);
 
   const rl = await ratelimit.limit(ip);
   if (!rl.allowed) {

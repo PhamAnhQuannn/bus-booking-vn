@@ -26,6 +26,7 @@ import { CONSENT_VERSION } from '@/lib/booking';
 import { extractHoldCookie } from '@/lib/security';
 import { getCustomerOptional } from '@/lib/auth';
 import { ratelimit } from '@/lib/ratelimit';
+import { clientIp } from '@/lib/core/http/clientIp';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { track, sessionIdFromRequest } from '@/lib/analytics';
 
@@ -43,8 +44,7 @@ const initiateInputSchema = z.object({
 });
 
 async function handler(req: NextRequest): Promise<Response> {
-  const ip =
-    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1';
+  const ip = clientIp(req.headers);
   const rl = await ratelimit.limit(ip);
   if (!rl.allowed) {
     return new Response(JSON.stringify({ error: 'TOO_MANY_REQUESTS' }), {
