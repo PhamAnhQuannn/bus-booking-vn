@@ -164,7 +164,15 @@ export async function refresh(
   const verified = verifyRefreshToken(rawToken);
   if (!verified) throw new AuthServiceError('REFRESH_INVALID');
 
-  const result = await rotateRefresh(verified.hash, null);
+  let result: Awaited<ReturnType<typeof rotateRefresh>>;
+  try {
+    result = await rotateRefresh(verified.hash, null);
+  } catch (err) {
+    if (err instanceof Error && err.message === 'SESSION_NOT_FOUND') {
+      throw new AuthServiceError('SESSION_NOT_FOUND');
+    }
+    throw err;
+  }
   if ('reuse' in result) {
     throw new AuthServiceError('SESSION_REUSE');
   }
