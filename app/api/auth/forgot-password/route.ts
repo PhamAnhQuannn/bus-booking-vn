@@ -1,10 +1,11 @@
 /**
  * POST /api/auth/forgot-password
  * Body: { phone }
- * Response: 200 { ok: true } always (no phone enumeration).
+ * Response: 200 { ok: true, retryAfter?: number } always (no phone enumeration).
  *
  * Sends OTP to the phone if a non-deleted customer exists.
- * Max 3 resends per 15 min; always-200 even on rate-limit / lockout.
+ * Max 3 resends per 15 min; always-200 even on rate-limit / lockout
+ * (retryAfter present when rate-limited, status stays 200 to avoid enumeration).
  */
 
 export const runtime = 'nodejs';
@@ -32,8 +33,8 @@ async function handler(req: NextRequest): Promise<Response> {
     return NextResponse.json({ ok: true });
   }
 
-  await forgotPassword(parsed.data.phone);
-  return NextResponse.json({ ok: true });
+  const result = await forgotPassword(parsed.data.phone);
+  return NextResponse.json({ ok: true, ...(result.retryAfter != null && { retryAfter: result.retryAfter }) });
 }
 
 export const POST = withErrorHandler(handler);

@@ -37,11 +37,17 @@ export default function ForgotPasswordPage() {
     const rawPhone = fd.get('phone') as string;
     try {
       // pre-auth: no CSRF header required (proxy.ts exempt prefix)
-      await fetch('/api/auth/forgot-password', {
+      const res = await fetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: rawPhone }),
       });
+      const json = (await res.json().catch(() => ({}))) as { retryAfter?: number };
+      if (json.retryAfter != null) {
+        const secs = Math.ceil(json.retryAfter);
+        setError(`Vui lòng thử lại sau ${secs} giây.`);
+        return;
+      }
       // Always move to reset step (no-enumeration: even non-existent phones appear ok)
       setPhone(rawPhone);
       setStep('reset');
