@@ -14,7 +14,7 @@ vi.mock('@/lib/jobs/runJob', () => ({
 }));
 
 vi.mock('@/lib/config', () => ({
-  getEnv: vi.fn(() => ({ HOLD_SWEEPER_MODE: 'count' })),
+  getEnv: vi.fn(() => ({ HOLD_SWEEPER_MODE: 'update' })),
 }));
 
 import { GET } from '../route';
@@ -33,7 +33,7 @@ function makeRequest(headers?: Record<string, string>): NextRequest {
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.CRON_SECRET = 'test-cron-secret-0123456789';
-  vi.mocked(getEnv).mockReturnValue({ HOLD_SWEEPER_MODE: 'count' } as ReturnType<typeof getEnv>);
+  vi.mocked(getEnv).mockReturnValue({ HOLD_SWEEPER_MODE: 'update' } as ReturnType<typeof getEnv>);
 });
 
 afterEach(() => {
@@ -41,8 +41,9 @@ afterEach(() => {
 });
 
 describe('GET /api/cron/sweep-holds', () => {
-  describe('count mode (default)', () => {
+  describe('count mode (explicit)', () => {
     it('returns expiredCount without mutating DB', async () => {
+      vi.mocked(getEnv).mockReturnValue({ HOLD_SWEEPER_MODE: 'count' } as ReturnType<typeof getEnv>);
       vi.mocked(prisma.hold.count).mockResolvedValueOnce(5);
 
       const req = makeRequest({ authorization: `Bearer ${process.env.CRON_SECRET}` });
@@ -55,12 +56,12 @@ describe('GET /api/cron/sweep-holds', () => {
       expect(prisma.$queryRaw).not.toHaveBeenCalled();
     });
 
-    it('uses count mode when HOLD_SWEEPER_MODE is not set', async () => {
-      vi.mocked(prisma.hold.count).mockResolvedValueOnce(0);
+    it('defaults to update mode when HOLD_SWEEPER_MODE is not set', async () => {
+      vi.mocked(runJob).mockResolvedValueOnce({ rowsAffected: 0, status: 'success' });
       const req = makeRequest({ authorization: `Bearer ${process.env.CRON_SECRET}` });
       const res = await GET(req);
       const json = await res.json();
-      expect(json.mode).toBe('count');
+      expect(json.mode).toBe('update');
     });
   });
 
@@ -98,7 +99,7 @@ describe('GET /api/cron/sweep-holds', () => {
     });
 
     it('allows access when CRON_SECRET matches', async () => {
-      vi.mocked(prisma.hold.count).mockResolvedValueOnce(0);
+      vi.mocked(runJob).mockResolvedValueOnce({ rowsAffected: 0, status: 'success' });
 
       const req = makeRequest({ authorization: `Bearer ${process.env.CRON_SECRET}` });
       const res = await GET(req);
