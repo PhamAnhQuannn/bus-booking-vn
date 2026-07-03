@@ -60,11 +60,9 @@ export async function createTrip(input: CreateTripInput): Promise<TripDto> {
         {
           id: string;
           deactivatedAt: Date | null;
-          maintenanceStart: Date | null;
-          maintenanceEnd: Date | null;
         }[]
       >(Prisma.sql`
-        SELECT id, "deactivatedAt", "maintenanceStart", "maintenanceEnd"
+        SELECT id, "deactivatedAt"
         FROM "Bus"
         WHERE id = ${busId} AND "operatorId" = ${operatorId}
         FOR UPDATE
@@ -78,11 +76,17 @@ export async function createTrip(input: CreateTripInput): Promise<TripDto> {
         throw Object.assign(new Error('bus_deactivated'), { _trip: 'bus_deactivated' });
       }
 
-      // AC1: maintenance window overlap check (Issue 001 pattern — departure as the event).
-      if (bus.maintenanceStart !== null && bus.maintenanceEnd !== null) {
-        if (bus.maintenanceStart <= departureAt && departureAt < bus.maintenanceEnd) {
-          throw Object.assign(new Error('bus_in_maintenance'), { _trip: 'bus_in_maintenance' });
-        }
+      // AC1: maintenance window overlap check against BusMaintenance table.
+      const maintenanceOverlap = await tx.busMaintenance.findFirst({
+        where: {
+          busId,
+          startAt: { lte: departureAt },
+          endAt: { gt: departureAt },
+        },
+        select: { id: true },
+      });
+      if (maintenanceOverlap) {
+        throw Object.assign(new Error('bus_in_maintenance'), { _trip: 'bus_in_maintenance' });
       }
 
       // Double-book guard: reject if the bus already runs an overlapping trip.

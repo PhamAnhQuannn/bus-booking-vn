@@ -26,8 +26,6 @@ const mockTransaction = prisma.$transaction as Mock;
 const BASE_BUS_LOCK = {
   id: 'bus-1',
   deactivatedAt: null,
-  maintenanceStart: null,
-  maintenanceEnd: null,
 };
 
 const BASE_TRIP_ROW = {
@@ -55,9 +53,11 @@ const BASE_TRIP_ROW = {
 function wireTx(opts: {
   busLockRows: unknown[];
   overlapRows?: unknown[];
+  maintenanceOverlap?: unknown;
   createRow?: unknown;
 }) {
   const tripCreate = vi.fn().mockResolvedValue(opts.createRow ?? BASE_TRIP_ROW);
+  const maintenanceFindFirst = vi.fn().mockResolvedValue(opts.maintenanceOverlap ?? null);
   const queryRaw = vi
     .fn()
     .mockResolvedValueOnce(opts.busLockRows)
@@ -65,10 +65,11 @@ function wireTx(opts: {
   mockTransaction.mockImplementationOnce(async (fn: (tx: unknown) => unknown) =>
     fn({
       $queryRaw: queryRaw,
+      busMaintenance: { findFirst: maintenanceFindFirst },
       trip: { create: tripCreate },
     })
   );
-  return { tripCreate, queryRaw };
+  return { tripCreate, queryRaw, maintenanceFindFirst };
 }
 
 beforeEach(() => {
@@ -140,13 +141,8 @@ describe('createTrip', () => {
   it('throws bus_in_maintenance when departureAt falls within maintenance window', async () => {
     mockRouteFindFirst.mockResolvedValue({ durationMinutes: 240 });
     wireTx({
-      busLockRows: [
-        {
-          ...BASE_BUS_LOCK,
-          maintenanceStart: new Date('2026-06-01T06:00:00Z'),
-          maintenanceEnd: new Date('2026-06-01T10:00:00Z'),
-        },
-      ],
+      busLockRows: [BASE_BUS_LOCK],
+      maintenanceOverlap: { id: 'maint-1' },
     });
 
     await expect(
@@ -154,22 +150,17 @@ describe('createTrip', () => {
         operatorId: 'op-1',
         routeId: 'route-1',
         busId: 'bus-1',
-        departureAt: new Date('2026-06-01T08:00:00Z'), // within window
+        departureAt: new Date('2026-06-01T08:00:00Z'),
         price: 100000,
       })
     ).rejects.toMatchObject({ code: 'bus_in_maintenance' });
   });
 
-  it('does NOT throw bus_in_maintenance when departureAt is outside maintenance window', async () => {
+  it('does NOT throw bus_in_maintenance when no maintenance overlap', async () => {
     mockRouteFindFirst.mockResolvedValue({ durationMinutes: 240 });
     wireTx({
-      busLockRows: [
-        {
-          ...BASE_BUS_LOCK,
-          maintenanceStart: new Date('2026-06-01T06:00:00Z'),
-          maintenanceEnd: new Date('2026-06-01T07:30:00Z'),
-        },
-      ],
+      busLockRows: [BASE_BUS_LOCK],
+      maintenanceOverlap: null,
       overlapRows: [],
     });
 
@@ -177,7 +168,7 @@ describe('createTrip', () => {
       operatorId: 'op-1',
       routeId: 'route-1',
       busId: 'bus-1',
-      departureAt: new Date('2026-06-01T08:00:00Z'), // after window ends
+      departureAt: new Date('2026-06-01T08:00:00Z'),
       price: 100000,
     });
 

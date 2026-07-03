@@ -9,6 +9,7 @@ vi.mock('@/lib/core/db/client', () => {
   const txMock = {
     $queryRaw: vi.fn(),
     bus: { findFirst: vi.fn() },
+    busMaintenance: { findFirst: vi.fn() },
     hold: { aggregate: vi.fn() },
     booking: { aggregate: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
     trip: { findFirst: vi.fn(), update: vi.fn() },
@@ -32,6 +33,7 @@ const p = prisma as unknown as {
   _txMock: {
     $queryRaw: Mock;
     bus: { findFirst: Mock };
+    busMaintenance: { findFirst: Mock };
     hold: { aggregate: Mock };
     booking: { aggregate: Mock; findMany: Mock; updateMany: Mock };
     trip: { findFirst: Mock; update: Mock };
@@ -55,8 +57,6 @@ const BASE_BUS = {
   id: 'bus-new',
   capacity: 30,
   deactivatedAt: null,
-  maintenanceStart: null,
-  maintenanceEnd: null,
   licensePlate: '30A-99999',
   busType: 'coach',
 };
@@ -83,6 +83,7 @@ const UPDATED_TRIP = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  p._txMock.busMaintenance.findFirst.mockResolvedValue(null);
 });
 
 describe('reassignBus', () => {
@@ -182,11 +183,8 @@ describe('reassignBus', () => {
 
   it('throws bus_in_maintenance when new bus is in maintenance at departure', async () => {
     p._txMock.$queryRaw.mockResolvedValue(LOCKED_TRIP);
-    p._txMock.bus.findFirst.mockResolvedValue({
-      ...BASE_BUS,
-      maintenanceStart: new Date('2026-06-01T06:00:00Z'),
-      maintenanceEnd: new Date('2026-06-01T10:00:00Z'),
-    });
+    p._txMock.bus.findFirst.mockResolvedValue(BASE_BUS);
+    p._txMock.busMaintenance.findFirst.mockResolvedValue({ id: 'maint-1' });
 
     await expect(reassignBus('op-1', 'trip-1', 'bus-maint')).rejects.toMatchObject({
       code: 'bus_in_maintenance',

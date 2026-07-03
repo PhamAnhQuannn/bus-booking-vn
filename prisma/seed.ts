@@ -124,15 +124,8 @@ async function main() {
     prisma.bus.create({ data: { operatorId: op1.id, capacity: 40, licensePlate: '29B-12345', busType: 'coach' } }),
     prisma.bus.create({ data: { operatorId: op1.id, capacity: 40, licensePlate: '29B-12346', busType: 'coach' } }),
     prisma.bus.create({
-      data: {
-        operatorId: op1.id,
-        capacity: 40,
-        licensePlate: '29B-12347',
-        busType: 'coach',
-        maintenanceStart: new Date(),
-        maintenanceEnd: addDays(new Date(), 3),
-      },
-    }), // Under maintenance
+      data: { operatorId: op1.id, capacity: 40, licensePlate: '29B-12347', busType: 'coach' },
+    }), // Under maintenance — BusMaintenance row created below
     prisma.bus.create({ data: { operatorId: op2.id, capacity: 40, licensePlate: '51B-99001', busType: 'coach' } }),
     prisma.bus.create({ data: { operatorId: op2.id, capacity: 40, licensePlate: '51B-99002', busType: 'coach' } }),
     // Capacity-1 bus dedicated for e2e race-condition test (AC-4)
@@ -147,6 +140,11 @@ async function main() {
     prisma.bus.create({ data: { operatorId: op3.id, capacity: 34, licensePlate: '47B-30002', busType: 'sleeper' } }),    // 12
     prisma.bus.create({ data: { operatorId: op3.id, capacity: 22, licensePlate: '47B-30003', busType: 'limousine' } }),  // 13
   ]);
+
+  // Maintenance window for bus[2] (29B-12347)
+  await prisma.busMaintenance.create({
+    data: { busId: buses[2].id, startAt: new Date(), endAt: addDays(new Date(), 3), reason: 'scheduled maintenance' },
+  });
 
   // ---- Routes ----
   const r1 = await prisma.route.create({ data: { origin: 'Hà Nội', destination: 'Sài Gòn', operatorId: op1.id, durationMinutes: 960 } });
