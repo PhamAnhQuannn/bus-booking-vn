@@ -96,8 +96,6 @@ export async function reassignBus(
           id: true,
           capacity: true,
           deactivatedAt: true,
-          maintenanceStart: true,
-          maintenanceEnd: true,
           licensePlate: true,
           busType: true,
         },
@@ -108,10 +106,16 @@ export async function reassignBus(
       if (bus.deactivatedAt !== null) {
         throw Object.assign(new Error('bus_deactivated'), { _trip: 'bus_deactivated' });
       }
-      if (bus.maintenanceStart !== null && bus.maintenanceEnd !== null) {
-        if (bus.maintenanceStart <= departureAt && departureAt < bus.maintenanceEnd) {
-          throw Object.assign(new Error('bus_in_maintenance'), { _trip: 'bus_in_maintenance' });
-        }
+      const maintenanceOverlap = await tx.busMaintenance.findFirst({
+        where: {
+          busId: newBusId,
+          startAt: { lte: departureAt },
+          endAt: { gt: departureAt },
+        },
+        select: { id: true },
+      });
+      if (maintenanceOverlap) {
+        throw Object.assign(new Error('bus_in_maintenance'), { _trip: 'bus_in_maintenance' });
       }
 
       // Check for capacity: required = activeHolds + confirmedBookings + blockedSeats

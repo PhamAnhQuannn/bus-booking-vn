@@ -58,8 +58,7 @@ const MONDAY_TEMPLATE = {
   bus: {
     id: 'bus-1',
     deactivatedAt: null,
-    maintenanceStart: null,
-    maintenanceEnd: null,
+    maintenances: [],
   },
 };
 
@@ -103,9 +102,9 @@ describe('generateTripsFromTemplates', () => {
       bus: {
         id: 'bus-1',
         deactivatedAt: null,
-        // Maintenance covers the entire horizon
-        maintenanceStart: new Date('2026-01-01T00:00:00Z'),
-        maintenanceEnd: new Date('2026-12-31T23:59:59Z'),
+        maintenances: [
+          { startAt: new Date('2026-01-01T00:00:00Z'), endAt: new Date('2026-12-31T23:59:59Z') },
+        ],
       },
     };
     p.recurringTripTemplate.findMany.mockResolvedValue([templateWithMaintBus]);

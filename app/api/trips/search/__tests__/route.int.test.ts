@@ -115,8 +115,14 @@ beforeAll(async () => {
   const busMaint = await prisma.bus.create({
     data: {
       operatorId: op.id, capacity: 20, licensePlate: 'AC3-MAINT-DOWN', busType: 'coach',
-      maintenanceStart: new Date(Date.now() - 24 * 3600 * 1000),
-      maintenanceEnd: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+    },
+  });
+  await prisma.busMaintenance.create({
+    data: {
+      busId: busMaint.id,
+      startAt: new Date(Date.now() - 24 * 3600 * 1000),
+      endAt: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+      reason: 'test maintenance',
     },
   });
   await prisma.trip.create({

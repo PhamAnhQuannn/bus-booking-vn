@@ -56,8 +56,9 @@ export async function generateTripsFromTemplates(
         select: {
           id: true,
           deactivatedAt: true,
-          maintenanceStart: true,
-          maintenanceEnd: true,
+          maintenances: {
+            select: { startAt: true, endAt: true },
+          },
         },
       },
     },
@@ -98,10 +99,7 @@ export async function generateTripsFromTemplates(
       if (bus.deactivatedAt !== null) {
         skipReason = 'bus_deactivated';
       } else if (
-        bus.maintenanceStart !== null &&
-        bus.maintenanceEnd !== null &&
-        bus.maintenanceStart <= departureAt &&
-        departureAt < bus.maintenanceEnd
+        bus.maintenances.some((m) => m.startAt <= departureAt && departureAt < m.endAt)
       ) {
         skipReason = 'bus_in_maintenance';
       }

@@ -167,12 +167,13 @@ export async function searchTrips(input: TripSearchInput): Promise<TripSearchPag
       operator: { status: { in: SEARCH_VISIBLE_STATUSES }, disabledAt: null },
       bus: {
         capacity: { gte: ticketCount },
-        // AC-3: maintenance window must not overlap trip day [startUtc, endUtc]
-        OR: [
-          { maintenanceStart: null },
-          { maintenanceEnd: { lt: startUtc } },
-          { maintenanceStart: { gt: endUtc } },
-        ],
+        // AC-3: no active maintenance window overlapping trip day [startUtc, endUtc]
+        maintenances: {
+          none: {
+            startAt: { lte: endUtc },
+            endAt: { gte: startUtc },
+          },
+        },
       },
     },
     select: searchResultSelect,
