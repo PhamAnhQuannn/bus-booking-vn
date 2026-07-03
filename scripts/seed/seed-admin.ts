@@ -36,6 +36,7 @@ async function main() {
   const existing = await prisma.adminUser.findFirst({
     where: { role: 'SUPER_ADMIN' },
     select: { id: true, email: true },
+    orderBy: { createdAt: 'asc' },
   });
 
   let email: string;

@@ -21,6 +21,7 @@ async function main() {
   const admin = await prisma.adminUser.findFirst({
     where: { role: 'SUPER_ADMIN' },
     select: { email: true, totpSecret: true, totpEnabledAt: true },
+    orderBy: { createdAt: 'asc' },
   });
   if (!admin || !admin.totpSecret) {
     console.log('No SUPER_ADMIN with a TOTP secret. Run `pnpm seed:admin` first.');
