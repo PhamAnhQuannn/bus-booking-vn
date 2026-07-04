@@ -7,7 +7,7 @@ import { useBookingStore } from '@/lib/state';
 import { useHoldTimerStore } from '@/lib/state';
 import { createHoldRequest } from '@/lib/api';
 import { validatePickupSelection } from '@/lib/booking/pickupSelection';
-import { getDisplayName, getCustomerPhone } from '@/app/(customer)/auth/register/page';
+import { getDisplayName } from '@/lib/auth/clientSession';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -62,8 +62,7 @@ export function CustomerForm() {
 
   useEffect(() => {
     if (typeof window === 'undefined' || !phoneInputRef.current) return;
-    const accountPhone = getCustomerPhone();
-    const saved = accountPhone ?? localStorage.getItem(LS_PHONE_KEY);
+    const saved = localStorage.getItem(LS_PHONE_KEY);
     if (saved) {
       phoneInputRef.current.value = saved;
     }

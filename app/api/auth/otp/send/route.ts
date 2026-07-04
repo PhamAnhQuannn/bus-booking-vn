@@ -1,6 +1,6 @@
 /**
  * POST /api/auth/otp/send
- * Body: { phone }
+ * Body: { email }
  * Response: { success: true } | { error: 'rate_limited', retryAfter: number }
  */
 
@@ -24,7 +24,7 @@ async function handler(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: 'INVALID' }, { status: 400 });
   }
 
-  const result = await sendOtp(parsed.data.phone);
+  const result = await sendOtp(parsed.data.email);
   if (!result.ok) {
     return NextResponse.json(
       { error: 'rate_limited', retryAfter: result.retryAfter },

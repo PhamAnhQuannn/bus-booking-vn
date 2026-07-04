@@ -98,3 +98,26 @@ export async function backfillGuestBookingsForCustomer(
   }
   return result.count;
 }
+
+/**
+ * backfillGuestBookingsByEmail — at register time, claim any pre-existing
+ * guest bookings whose buyerEmail matches the new customer's email.
+ */
+export async function backfillGuestBookingsByEmail(
+  tx: Prisma.TransactionClient,
+  customerId: string,
+  email: string
+): Promise<number> {
+  const normalized = email.trim().toLowerCase();
+  const result = await tx.booking.updateMany({
+    where: { buyerEmail: normalized, customerId: null },
+    data: { customerId },
+  });
+  if (result.count > 0) {
+    logger.info(
+      { customerId, count: result.count },
+      'booking.guest_attach.backfilled_by_email'
+    );
+  }
+  return result.count;
+}

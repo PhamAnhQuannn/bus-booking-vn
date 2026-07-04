@@ -64,9 +64,16 @@ const globalForOtpSink = globalThis as unknown as { otpTestSink: Map<string, str
 const _testOtpSink: Map<string, string> = globalForOtpSink.otpTestSink ?? new Map<string, string>();
 globalForOtpSink.otpTestSink = _testOtpSink;
 
-/** Return the last OTP code sent to `phone` in this process. Test-only. */
-export function getTestOtp(phone: string): string | undefined {
-  return _testOtpSink.get(phone);
+/** Return the last OTP code sent to a given key (phone or email) in this process. Test-only. */
+export function getTestOtp(key: string): string | undefined {
+  return _testOtpSink.get(key);
+}
+
+/** Stash an OTP code in the test sink (keyed by email/phone). Used by email OTP path. */
+export function stashTestOtp(key: string, code: string): void {
+  if (process.env.NODE_ENV !== 'production') {
+    _testOtpSink.set(key, code);
+  }
 }
 
 /** Clear the test OTP sink (call between tests to avoid cross-test pollution). */

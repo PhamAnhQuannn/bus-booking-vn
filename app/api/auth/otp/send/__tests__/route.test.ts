@@ -31,16 +31,16 @@ beforeEach(() => {
 });
 
 describe('POST /api/auth/otp/send', () => {
-  it('returns 200 success on valid phone', async () => {
-    const res = await POST(makeRequest({ phone: '0901234567' }));
+  it('returns 200 success on valid email', async () => {
+    const res = await POST(makeRequest({ email: 'test@example.com' }));
     const json = await res.json();
     expect(res.status).toBe(200);
     expect(json.success).toBe(true);
-    expect(mockSendOtp).toHaveBeenCalledWith('0901234567');
+    expect(mockSendOtp).toHaveBeenCalledWith('test@example.com');
   });
 
-  it('returns 400 for invalid phone', async () => {
-    const res = await POST(makeRequest({ phone: '1234' }));
+  it('returns 400 for invalid email', async () => {
+    const res = await POST(makeRequest({ email: 'not-an-email' }));
     expect(res.status).toBe(400);
     expect(mockSendOtp).not.toHaveBeenCalled();
   });
@@ -57,7 +57,7 @@ describe('POST /api/auth/otp/send', () => {
 
   it('returns 429 with retryAfter when rate limited', async () => {
     mockSendOtp.mockResolvedValue({ ok: false, reason: 'rate_limited', retryAfter: 300 });
-    const res = await POST(makeRequest({ phone: '0901234567' }));
+    const res = await POST(makeRequest({ email: 'test@example.com' }));
     const json = await res.json();
     expect(res.status).toBe(429);
     expect(json.error).toBe('rate_limited');

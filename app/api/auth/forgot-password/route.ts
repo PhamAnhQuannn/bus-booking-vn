@@ -1,11 +1,7 @@
 /**
  * POST /api/auth/forgot-password
- * Body: { phone }
- * Response: 200 { ok: true, retryAfter?: number } always (no phone enumeration).
- *
- * Sends OTP to the phone if a non-deleted customer exists.
- * Max 3 resends per 15 min; always-200 even on rate-limit / lockout
- * (retryAfter present when rate-limited, status stays 200 to avoid enumeration).
+ * Body: { email }
+ * Response: 200 { ok: true, retryAfter?: number } always (no email enumeration).
  */
 
 export const runtime = 'nodejs';
@@ -16,7 +12,7 @@ import { forgotPassword } from '@/lib/account';
 import { z } from 'zod';
 
 const schema = z.object({
-  phone: z.string().trim().regex(/^(0|\+84)[35789][0-9]{8}$/),
+  email: z.string().trim().email().max(254),
 });
 
 async function handler(req: NextRequest): Promise<Response> {
@@ -29,11 +25,10 @@ async function handler(req: NextRequest): Promise<Response> {
 
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
-    // Return 200 even on invalid phone — no enumeration
     return NextResponse.json({ ok: true });
   }
 
-  const result = await forgotPassword(parsed.data.phone);
+  const result = await forgotPassword(parsed.data.email);
   return NextResponse.json({ ok: true, ...(result.retryAfter != null && { retryAfter: result.retryAfter }) });
 }
 

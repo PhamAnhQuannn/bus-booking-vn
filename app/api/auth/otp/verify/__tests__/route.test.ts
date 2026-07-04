@@ -21,7 +21,7 @@ function makeRequest(body: unknown): NextRequest {
   });
 }
 
-const VALID_BODY = { phone: '0901234567', code: '123456' };
+const VALID_BODY = { email: 'test@example.com', code: '123456' };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -54,7 +54,7 @@ describe('POST /api/auth/otp/verify', () => {
   });
 
   it('returns 400 for invalid request body', async () => {
-    const res = await POST(makeRequest({ phone: '0901234567' })); // missing code
+    const res = await POST(makeRequest({ email: 'test@example.com' })); // missing code
     expect(res.status).toBe(400);
   });
 });

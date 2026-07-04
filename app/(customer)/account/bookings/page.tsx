@@ -4,14 +4,15 @@
  * /account/bookings — authenticated customer's booking history (Issue 009,
  * PRD story 15). Upcoming / Past tabs, status badges, cursor "load more".
  *
- * Access token lives in client memory (module store in the register page); a
- * page reload loses it, so a missing token redirects to login with returnTo.
+ * Access token lives in the shared client session store; a page reload loses
+ * it unless a refresh cookie is still valid (ensureAuthenticated handles the
+ * silent-refresh attempt before redirecting to login with returnTo).
  */
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { getAccessToken } from '@/app/(customer)/auth/register/page';
+import { authFetch, ensureAuthenticated } from '@/lib/auth/clientSession';
 import { STATUS_LABEL, STATUS_VARIANT } from './bookingStatus';
 import type { CustomerBookingRow } from '@/lib/booking';
 import { Ticket, ArrowRight } from 'lucide-react';
@@ -88,8 +89,8 @@ export default function BookingsHistoryPage() {
 
   const load = useCallback(
     async (activeTab: Tab, cursor: string | null) => {
-      const token = getAccessToken();
-      if (!token) {
+      const ok = await ensureAuthenticated();
+      if (!ok) {
         router.push('/auth/login?returnTo=/account/bookings');
         return;
       }
@@ -98,9 +99,7 @@ export default function BookingsHistoryPage() {
       try {
         const qs = new URLSearchParams({ tab: activeTab });
         if (cursor) qs.set('cursor', cursor);
-        const res = await fetch(`/api/bookings?${qs}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await authFetch(`/api/bookings?${qs}`);
         if (res.status === 401) {
           router.push('/auth/login?returnTo=/account/bookings');
           return;

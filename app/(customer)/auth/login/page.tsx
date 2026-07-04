@@ -1,14 +1,14 @@
 'use client';
 
 /**
- * /auth/login — phone + password → POST /api/auth/login → redirect
- * CSRF token read from bb_csrf cookie (set by proxy.ts on first GET).
+ * /auth/login — email + password → POST /api/auth/login → redirect
  */
 
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { setAccessToken, setDisplayName, setCustomerPhone } from '@/app/(customer)/auth/register/page';
+import { setAccessToken, setDisplayName, setCustomerEmail } from '@/lib/auth/clientSession';
+import { readCsrfToken } from '@/lib/auth/csrfClient';
 import { safeReturnTo } from '@/lib/auth/safeReturnTo';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
 import { Button } from '@/components/ui/button';
@@ -16,13 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 
-function getCsrf(): string {
-  const match = document.cookie.match(/(?:^|;\s*)bb_csrf=([^;]+)/);
-  return match ? decodeURIComponent(match[1]) : '';
-}
-
 export default function LoginPage() {
-  // useSearchParams() requires a Suspense boundary for static prerender (Next 16).
   return (
     <Suspense fallback={null}>
       <LoginPageInner />
@@ -43,22 +37,22 @@ function LoginPageInner() {
     setError('');
     setLoading(true);
     const fd = new FormData(e.currentTarget);
-    const phone = fd.get('phone') as string;
+    const email = fd.get('email') as string;
     const password = fd.get('password') as string;
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrf() },
-        body: JSON.stringify({ phone, password }),
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': readCsrfToken() },
+        body: JSON.stringify({ email, password }),
       });
       const json = await res.json();
       if (!res.ok) {
-        setError('Số điện thoại hoặc mật khẩu không đúng.');
+        setError('Email hoặc mật khẩu không đúng.');
         return;
       }
       setAccessToken(json.accessToken);
       setDisplayName(json.customer?.displayName ?? null);
-      setCustomerPhone(json.customer?.phone ?? null);
+      setCustomerEmail(json.customer?.email ?? null);
       router.push(returnTo);
     } catch {
       setError('Lỗi kết nối. Vui lòng thử lại.');
@@ -73,8 +67,8 @@ function LoginPageInner() {
         <CardContent className="flex flex-col gap-4">
           <form onSubmit={handleLogin} method="post" className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="phone">Số điện thoại</Label>
-              <Input id="phone" type="tel" name="phone" required placeholder="0901234567" />
+              <Label htmlFor="email">Địa chỉ email</Label>
+              <Input id="email" type="email" name="email" required placeholder="you@example.com" />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="password">Mật khẩu</Label>

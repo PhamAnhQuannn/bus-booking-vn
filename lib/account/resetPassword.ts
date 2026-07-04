@@ -27,10 +27,10 @@ export async function resetPassword(
   newPassword: string
 ): Promise<void> {
   const proof = await verifyOtpProof(otpProof, 'reset_password');
-  if (!proof) throw new ResetPasswordError('INVALID_PROOF');
+  if (!proof || !proof.email) throw new ResetPasswordError('INVALID_PROOF');
 
   const customer = await prisma.customer.findFirst({
-    where: { phone: proof.phone, deletedAt: null },
+    where: { email: proof.email, deletedAt: null },
     select: { id: true, passwordHash: true },
   });
 

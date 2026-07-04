@@ -10,31 +10,21 @@
  *                        step 2 verify  (POST /api/account/phone/confirm)
  *   AC5 — Delete account (DELETE /api/account/delete)
  *
- * Bearer token from in-memory store (set by login/register).
- * All state-changing calls include X-CSRF-Token (proxy.ts enforcement).
+ * Bearer token from the shared client session store (set by login/register).
+ * All state-changing calls go through authFetch (Bearer + CSRF + 401 retry).
  * No server-component self-fetch — purely client-side.
  */
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { getAccessToken, setAccessToken, setDisplayName } from '@/app/(customer)/auth/register/page';
-import { readCsrfToken } from '@/lib/auth/csrfClient';
+import { authFetch, ensureAuthenticated, clearSession, setDisplayName } from '@/lib/auth/clientSession';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 // ---- helpers ---------------------------------------------------------------
-
-function authHeaders(extra?: Record<string, string>): Record<string, string> {
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${getAccessToken() ?? ''}`,
-    'X-CSRF-Token': readCsrfToken(),
-    ...extra,
-  };
-}
 
 function OkText({ children }: { children: React.ReactNode }) {
   return <p className="text-sm text-success-foreground">{children}</p>;
@@ -57,9 +47,9 @@ function ChangeNameForm() {
     const fd = new FormData(e.currentTarget);
     const displayName = fd.get('displayName') as string;
     try {
-      const res = await fetch('/api/account/name', {
+      const res = await authFetch('/api/account/name', {
         method: 'PATCH',
-        headers: authHeaders(),
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ displayName }),
       });
       if (res.ok) {
@@ -129,9 +119,9 @@ function ChangePasswordForm() {
     }
 
     try {
-      const res = await fetch('/api/account/password', {
+      const res = await authFetch('/api/account/password', {
         method: 'POST',
-        headers: authHeaders(),
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ currentPassword, newPassword }),
       });
       if (res.ok) {
@@ -199,9 +189,9 @@ function ChangePhoneForm() {
     const fd = new FormData(e.currentTarget);
     const newPhone = fd.get('newPhone') as string;
     try {
-      const res = await fetch('/api/account/phone/init', {
+      const res = await authFetch('/api/account/phone/init', {
         method: 'POST',
-        headers: authHeaders(),
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ newPhone }),
       });
       if (res.ok) {
@@ -231,9 +221,9 @@ function ChangePhoneForm() {
     const fd = new FormData(e.currentTarget);
     const code = fd.get('code') as string;
     try {
-      const res = await fetch('/api/account/phone/confirm', {
+      const res = await authFetch('/api/account/phone/confirm', {
         method: 'POST',
-        headers: authHeaders(),
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ newPhone: pendingPhone, code }),
       });
       if (res.ok) {
@@ -339,14 +329,12 @@ function DeleteAccountForm() {
     setStatus('idle');
     setLoading(true);
     try {
-      const res = await fetch('/api/account/delete', {
+      const res = await authFetch('/api/account/delete', {
         method: 'DELETE',
-        headers: authHeaders(),
       });
       if (res.ok) {
         // Clear token + cached display name — account is gone
-        setAccessToken(null);
-        setDisplayName(null);
+        clearSession();
         router.push('/');
         return;
       }
@@ -407,12 +395,13 @@ export default function AccountSettingsPage() {
   const [authed, setAuthed] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (getAccessToken()) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setAuthed(true);
-    } else {
-      router.replace('/auth/login?returnTo=/account/settings');
-    }
+    ensureAuthenticated().then((ok) => {
+      if (ok) {
+        setAuthed(true);
+      } else {
+        router.replace('/auth/login?returnTo=/account/settings');
+      }
+    });
   }, [router]);
 
   if (!authed) return null;

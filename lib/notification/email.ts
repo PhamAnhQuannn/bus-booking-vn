@@ -19,6 +19,7 @@ import { getEnv } from '@/lib/core/config';
 import type { Resend } from 'resend';
 
 export type EmailTemplate =
+  | 'otpCode'
   | 'customerBookingPaid'
   | 'operatorNewBooking'
   | 'bookingReminder24h'
@@ -77,6 +78,7 @@ const STUB_PROVIDER_REF_PREFIX = 'stub_email_';
  * dispatcher hands sendSms a pre-rendered string-ish payload.
  */
 const SUBJECTS: Record<string, string> = {
+  otpCode: 'BusBookVN — Mã xác thực OTP',
   customerBookingPaid: 'BusBookVN — Xac nhan thanh toan',
   operatorNewBooking: 'BusBookVN — Khach dat ve moi',
   bookingReminder24h: 'BusBookVN — Nhac nho chuyen di',

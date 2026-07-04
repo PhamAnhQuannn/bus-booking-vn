@@ -108,7 +108,7 @@ export const ForgotPasswordSchema = z.object({
 export type ForgotPasswordInput = z.infer<typeof ForgotPasswordSchema>;
 
 // ---------------------------------------------------------------------------
-// POST /api/op/auth/forgot-password/verify
+// POST /api/op/auth/forgot-password/verify (operator — phone-based)
 // ---------------------------------------------------------------------------
 
 export const ForgotPasswordVerifySchema = z.object({
@@ -120,6 +120,20 @@ export const ForgotPasswordVerifySchema = z.object({
 });
 
 export type ForgotPasswordVerifyInput = z.infer<typeof ForgotPasswordVerifySchema>;
+
+// ---------------------------------------------------------------------------
+// POST /api/auth/forgot-password/verify (customer — email-based)
+// ---------------------------------------------------------------------------
+
+export const CustomerForgotPasswordVerifySchema = z.object({
+  email: z.string().trim().email().max(254),
+  code: z
+    .string()
+    .length(6, 'OTP code must be exactly 6 digits')
+    .regex(/^[0-9]{6}$/, 'OTP code must be numeric'),
+});
+
+export type CustomerForgotPasswordVerifyInput = z.infer<typeof CustomerForgotPasswordVerifySchema>;
 
 // ---------------------------------------------------------------------------
 // POST /api/op/auth/forgot-password/reset

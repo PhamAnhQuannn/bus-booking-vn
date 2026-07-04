@@ -1,19 +1,18 @@
 /**
- * sendOtp — orchestrates OTP generation, rate-limiting, DB supersede, and SMS dispatch.
+ * sendOtp — orchestrates OTP generation, rate-limiting, DB supersede, and email dispatch.
  *
- * Rate-limit key: normalized phone (AC 2 — max 3 sends / 15 min per phone).
+ * Rate-limit key: normalized email (max 3 sends / 15 min per email).
  * Atomic supersede: raw $executeRaw with ON CONFLICT on the partial unique index
- * "OtpAttempt_phone_active_key" (WHERE consumed=false), resetting the active row
- * in-place so the constraint is never violated across two active rows.
+ * "OtpAttempt_email_active_key" (WHERE consumed=false AND email IS NOT NULL),
+ * resetting the active row in-place so the constraint is never violated.
  *
  * Returns: { ok: true } | { ok: false, reason: 'rate_limited', retryAfter: number }
  */
 
 import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
-import { normalizePhone } from '@/lib/core/validation/phone';
 import { generateCode, generateSalt, hashCode } from './otp';
-import { sendSms } from '@/lib/notification';
+import { sendEmail, stashTestOtp } from '@/lib/notification';
 import { createRatelimit } from '@/lib/ratelimit';
 
 const OTP_TTL_SECONDS = 5 * 60; // 5 minutes
@@ -25,10 +24,14 @@ export type SendOtpResult =
   | { ok: true }
   | { ok: false; reason: 'rate_limited'; retryAfter: number };
 
-export async function sendOtp(rawPhone: string): Promise<SendOtpResult> {
-  const phone = normalizePhone(rawPhone);
+function normalizeEmail(raw: string): string {
+  return raw.trim().toLowerCase();
+}
 
-  const rl = await otpRatelimit.limit(phone);
+export async function sendOtp(rawEmail: string): Promise<SendOtpResult> {
+  const email = normalizeEmail(rawEmail);
+
+  const rl = await otpRatelimit.limit(email);
   if (!rl.allowed) {
     return { ok: false, reason: 'rate_limited', retryAfter: rl.retryAfter };
   }
@@ -39,15 +42,12 @@ export async function sendOtp(rawPhone: string): Promise<SendOtpResult> {
   const expiresAt = new Date(Date.now() + OTP_TTL_SECONDS * 1000);
   const id = crypto.randomUUID();
 
-  // Atomic supersede: insert new row or update the existing unconsumed row in-place.
-  // The partial unique index "OtpAttempt_phone_active_key" covers (phone) WHERE consumed=false,
-  // so ON CONFLICT targets exactly one active row and resets it.
   await prisma.$executeRaw(
     Prisma.sql`
-      INSERT INTO "OtpAttempt" (id, phone, "codeHash", salt, "expiresAt", consumed, "attemptCount", "createdAt")
+      INSERT INTO "OtpAttempt" (id, email, "codeHash", salt, "expiresAt", consumed, "attemptCount", "createdAt")
       VALUES (
         ${id},
-        ${phone},
+        ${email},
         ${codeHash},
         ${salt},
         ${expiresAt},
@@ -55,7 +55,7 @@ export async function sendOtp(rawPhone: string): Promise<SendOtpResult> {
         0,
         NOW()
       )
-      ON CONFLICT (phone) WHERE consumed = false
+      ON CONFLICT (email) WHERE consumed = false AND email IS NOT NULL
       DO UPDATE SET
         "codeHash"    = EXCLUDED."codeHash",
         salt          = EXCLUDED.salt,
@@ -65,10 +65,12 @@ export async function sendOtp(rawPhone: string): Promise<SendOtpResult> {
     `
   );
 
-  await sendSms({
-    to: phone,
+  stashTestOtp(email, code);
+
+  await sendEmail({
+    to: email,
     template: 'otpCode',
-    payload: { code, expiryMinutes: OTP_EXPIRY_MINUTES },
+    payload: `BusBookVN: Ma xac thuc cua ban la ${code}. Ma co hieu luc trong ${OTP_EXPIRY_MINUTES} phut.`,
   });
 
   return { ok: true };

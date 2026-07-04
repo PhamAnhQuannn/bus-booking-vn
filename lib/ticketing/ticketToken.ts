@@ -57,7 +57,7 @@ const TICKET_SCOPE = 'ticket' as const;
 function getTicketSecret(): Uint8Array {
   const raw =
     process.env.TICKET_SECRET ??
-    (process.env.NODE_ENV === 'test' ? 't'.repeat(32) : null);
+    (process.env.NODE_ENV === 'production' ? null : 'tk'.repeat(16));
   if (!raw) throw new Error('TICKET_SECRET not configured');
   return new TextEncoder().encode(raw);
 }
