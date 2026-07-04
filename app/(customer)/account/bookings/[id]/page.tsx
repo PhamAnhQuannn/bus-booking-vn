@@ -5,16 +5,17 @@
  * PRD story 16). Shows route, departure, ticket count, buyer info, total,
  * status, operator contact phone, and a PDF-ticket download button.
  *
- * Access token lives in client memory (module store in the register page); a
- * missing token redirects to login with returnTo. The download button must
- * fetch the ticket route with the Bearer header and stream the blob — a plain
+ * Access token lives in the shared client session store; a missing/expired
+ * token triggers a silent refresh attempt (ensureAuthenticated) before
+ * redirecting to login with returnTo. The download button must fetch the
+ * ticket route with the Bearer header and stream the blob — a plain
  * <a href> can't carry the Authorization header.
  */
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { getAccessToken } from '@/app/(customer)/auth/register/page';
+import { authFetch, ensureAuthenticated } from '@/lib/auth/clientSession';
 import { STATUS_LABEL, STATUS_VARIANT } from '../bookingStatus';
 import type { CustomerBookingDetail } from '@/lib/booking';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -60,17 +61,15 @@ export default function BookingDetailPage() {
   }, [router, id]);
 
   useEffect(() => {
-    const token = getAccessToken();
-    if (!token) {
-      loginRedirect();
-      return;
-    }
     let active = true;
     (async () => {
+      const ok = await ensureAuthenticated();
+      if (!ok) {
+        loginRedirect();
+        return;
+      }
       try {
-        const res = await fetch(`/api/bookings/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await authFetch(`/api/bookings/${id}`);
         if (!active) return;
         if (res.status === 401) {
           loginRedirect();
@@ -98,17 +97,15 @@ export default function BookingDetailPage() {
   }, [id, loginRedirect]);
 
   const downloadTicket = useCallback(async () => {
-    const token = getAccessToken();
-    if (!token) {
+    const ok = await ensureAuthenticated();
+    if (!ok) {
       loginRedirect();
       return;
     }
     setDownloading(true);
     setError('');
     try {
-      const res = await fetch(`/api/bookings/${id}/ticket`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await authFetch(`/api/bookings/${id}/ticket`);
       if (res.status === 401) {
         loginRedirect();
         return;

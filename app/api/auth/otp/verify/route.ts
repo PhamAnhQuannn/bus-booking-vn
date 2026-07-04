@@ -1,10 +1,7 @@
 /**
  * POST /api/auth/otp/verify
- * Body: { phone, code }
+ * Body: { email, code }
  * Response: { otpProof: string } | { error: 'invalid' | 'expired' | 'already_used' }
- *
- * otpProof is a short-lived HS256 JWT signed with JWT_SECRET that the register
- * endpoint validates before creating the customer account.
  */
 
 export const runtime = 'nodejs';
@@ -12,7 +9,6 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { otpVerifyInput } from '@/lib/core/validation/auth';
 import { verifyOtp } from '@/lib/auth';
-import { normalizePhone } from '@/lib/core/validation/phone';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { issueOtpProof } from '@/lib/auth';
 
@@ -29,8 +25,8 @@ async function handler(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: 'INVALID' }, { status: 400 });
   }
 
-  const { phone, code } = parsed.data;
-  const result = await verifyOtp(phone, code);
+  const { email, code } = parsed.data;
+  const result = await verifyOtp(email, code);
 
   if (result.status === 'gone') {
     return NextResponse.json({ error: 'expired' }, { status: 400 });
@@ -42,9 +38,8 @@ async function handler(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: 'attempt_cap' }, { status: 429 });
   }
 
-  // status === 'ok' — issue short-lived OTP proof JWT via shared util
-  const normalizedPhone = normalizePhone(phone);
-  const otpProof = await issueOtpProof(normalizedPhone, 'otp_proof');
+  const normalizedEmail = email.trim().toLowerCase();
+  const otpProof = await issueOtpProof(normalizedEmail, 'otp_proof');
 
   return NextResponse.json({ otpProof });
 }

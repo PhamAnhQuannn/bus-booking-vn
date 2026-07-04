@@ -10,13 +10,10 @@ vi.mock('@/lib/auth', async (importOriginal) => {
   const { z } = await import('zod');
   return {
     ...(await importOriginal<Record<string, unknown>>()),
-    ForgotPasswordVerifySchema: z.object({ phone: z.string(), code: z.string() }),
+    CustomerForgotPasswordVerifySchema: z.object({ email: z.string(), code: z.string() }),
     issueOtpProof: mockIssueProof,
   };
 });
-vi.mock('@/lib/core/validation/phone', () => ({
-  normalizePhone: (p: string) => p.replace(/^0/, '+84'),
-}));
 vi.mock('@/lib/withErrorHandler', () => ({
   withErrorHandler: (h: CallableFunction) => h,
 }));
@@ -40,16 +37,16 @@ beforeEach(() => {
 
 describe('POST /api/auth/forgot-password/verify', () => {
   it('returns 200 with otpProof on valid OTP', async () => {
-    const res = await POST(makeRequest({ phone: '+84901234567', code: '123456' }));
+    const res = await POST(makeRequest({ email: 'test@example.com', code: '123456' }));
     const json = await res.json();
     expect(res.status).toBe(200);
     expect(json.otpProof).toBe('proof-jwt-token');
-    expect(mockIssueProof).toHaveBeenCalledWith('+84901234567', 'reset_password');
+    expect(mockIssueProof).toHaveBeenCalledWith('test@example.com', 'reset_password');
   });
 
   it('returns 429 OTP_LOCKED_OUT on lockout', async () => {
     mockVerifyOtp.mockResolvedValue({ status: 'locked_out' });
-    const res = await POST(makeRequest({ phone: '+84901234567', code: '000000' }));
+    const res = await POST(makeRequest({ email: 'test@example.com', code: '000000' }));
     const json = await res.json();
     expect(res.status).toBe(429);
     expect(json.error).toBe('OTP_LOCKED_OUT');
@@ -57,7 +54,7 @@ describe('POST /api/auth/forgot-password/verify', () => {
 
   it('returns 400 OTP_EXPIRED when gone', async () => {
     mockVerifyOtp.mockResolvedValue({ status: 'gone' });
-    const res = await POST(makeRequest({ phone: '+84901234567', code: '000000' }));
+    const res = await POST(makeRequest({ email: 'test@example.com', code: '000000' }));
     const json = await res.json();
     expect(res.status).toBe(400);
     expect(json.error).toBe('OTP_EXPIRED');
@@ -65,7 +62,7 @@ describe('POST /api/auth/forgot-password/verify', () => {
 
   it('returns 400 OTP_INVALID on mismatch', async () => {
     mockVerifyOtp.mockResolvedValue({ status: 'mismatch' });
-    const res = await POST(makeRequest({ phone: '+84901234567', code: '000000' }));
+    const res = await POST(makeRequest({ email: 'test@example.com', code: '000000' }));
     const json = await res.json();
     expect(res.status).toBe(400);
     expect(json.error).toBe('OTP_INVALID');
@@ -73,7 +70,7 @@ describe('POST /api/auth/forgot-password/verify', () => {
 
   it('returns 400 OTP_INVALID on attempt_cap', async () => {
     mockVerifyOtp.mockResolvedValue({ status: 'attempt_cap' });
-    const res = await POST(makeRequest({ phone: '+84901234567', code: '000000' }));
+    const res = await POST(makeRequest({ email: 'test@example.com', code: '000000' }));
     const json = await res.json();
     expect(res.status).toBe(400);
     expect(json.error).toBe('OTP_INVALID');

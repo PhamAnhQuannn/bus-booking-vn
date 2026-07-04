@@ -61,8 +61,10 @@ const envSchema = z.object({
   // ---------------------------------------------------------------------------
   // VNPay payment gateway (SCALE Issue 077)
   // Defaults to VNPay sandbox credentials. Override for production.
+  // Phase 1 launches with bank transfer only; set VNPAY_ENABLED=true when ready.
   // ---------------------------------------------------------------------------
 
+  VNPAY_ENABLED: z.coerce.boolean().default(false),
   VNPAY_TMN_CODE: z.string().default('VNPAYTEST'),
   VNPAY_HASH_SECRET: z
     .string()
@@ -376,9 +378,9 @@ const envSchema = z.object({
       });
     }
   }
-  // Real VNPay mode (PAYMENTS_STUB=false): VNPay credentials must not be defaults.
-  // Top-level (not NODE_ENV-gated) so staging/preview with real PSP also validates.
-  if (!env.PAYMENTS_STUB) {
+  // Real VNPay mode: credentials must not be defaults.
+  // Only validated when VNPAY_ENABLED=true (Phase 1 is bank-transfer-only).
+  if (env.VNPAY_ENABLED) {
     const VNPAY_DEFAULT_SECRET = 'VNPAYSECRETTEST0123456789ABCDEF01';
     const VNPAY_DEFAULT_TMN = 'VNPAYTEST';
     if (!env.VNPAY_HASH_SECRET || env.VNPAY_HASH_SECRET === VNPAY_DEFAULT_SECRET) {
@@ -386,7 +388,7 @@ const envSchema = z.object({
         code: z.ZodIssueCode.custom,
         path: ['VNPAY_HASH_SECRET'],
         message:
-          'VNPAY_HASH_SECRET must be set to a real secret when PAYMENTS_STUB=false',
+          'VNPAY_HASH_SECRET must be set to a real secret when VNPAY_ENABLED=true',
       });
     }
     if (!env.VNPAY_TMN_CODE || env.VNPAY_TMN_CODE === VNPAY_DEFAULT_TMN) {
@@ -394,7 +396,7 @@ const envSchema = z.object({
         code: z.ZodIssueCode.custom,
         path: ['VNPAY_TMN_CODE'],
         message:
-          'VNPAY_TMN_CODE must be set to a real merchant code when PAYMENTS_STUB=false',
+          'VNPAY_TMN_CODE must be set to a real merchant code when VNPAY_ENABLED=true',
       });
     }
     if (!env.VNPAY_RETURN_URL) {
@@ -402,7 +404,7 @@ const envSchema = z.object({
         code: z.ZodIssueCode.custom,
         path: ['VNPAY_RETURN_URL'],
         message:
-          'VNPAY_RETURN_URL must be set to an absolute URL when PAYMENTS_STUB=false',
+          'VNPAY_RETURN_URL must be set to an absolute URL when VNPAY_ENABLED=true',
       });
     }
   }
@@ -454,7 +456,7 @@ const envSchema = z.object({
     }
   }
   if (process.env.NODE_ENV === 'production') {
-    for (const key of ['JWT_SECRET', 'JWT_OPERATOR_SECRET', 'JWT_ADMIN_SECRET', 'TOTP_ENCRYPTION_KEY', 'BANK_ENCRYPTION_KEY', 'DATABASE_URL', 'CRON_SECRET', 'REFRESH_TOKEN_SECRET'] as const) {
+    for (const key of ['JWT_SECRET', 'JWT_OPERATOR_SECRET', 'JWT_ADMIN_SECRET', 'TOTP_ENCRYPTION_KEY', 'BANK_ENCRYPTION_KEY', 'DATABASE_URL', 'CRON_SECRET', 'REFRESH_TOKEN_SECRET', 'TICKET_SECRET'] as const) {
       if (!env[key]) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

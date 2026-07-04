@@ -49,6 +49,7 @@ export { safeReturnTo } from './safeReturnTo';
 export { sendOtp } from './sendOtp';
 export {
   ChangePasswordSchema,
+  CustomerForgotPasswordVerifySchema,
   ForgotPasswordSchema,
   ForgotPasswordVerifySchema,
   ForgotPasswordResetSchema,

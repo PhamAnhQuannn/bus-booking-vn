@@ -26,25 +26,25 @@ beforeEach(() => {
 });
 
 describe('POST /api/auth/forgot-password', () => {
-  it('returns 200 ok on valid phone', async () => {
-    const res = await POST(makeRequest({ phone: '+84901234567' }));
+  it('returns 200 ok on valid email', async () => {
+    const res = await POST(makeRequest({ email: 'test@example.com' }));
     const json = await res.json();
     expect(res.status).toBe(200);
     expect(json.ok).toBe(true);
-    expect(mockForgotPassword).toHaveBeenCalledWith('+84901234567');
+    expect(mockForgotPassword).toHaveBeenCalledWith('test@example.com');
   });
 
   it('returns 200 ok with retryAfter when rate-limited', async () => {
     mockForgotPassword.mockResolvedValue({ retryAfter: 45 });
-    const res = await POST(makeRequest({ phone: '+84901234567' }));
+    const res = await POST(makeRequest({ email: 'test@example.com' }));
     const json = await res.json();
     expect(res.status).toBe(200);
     expect(json.ok).toBe(true);
     expect(json.retryAfter).toBe(45);
   });
 
-  it('returns 200 ok on invalid phone format (no enumeration)', async () => {
-    const res = await POST(makeRequest({ phone: 'bad-phone' }));
+  it('returns 200 ok on invalid email format (no enumeration)', async () => {
+    const res = await POST(makeRequest({ email: 'bad-email' }));
     const json = await res.json();
     expect(res.status).toBe(200);
     expect(json.ok).toBe(true);

@@ -114,7 +114,8 @@ Common triggers for bus booking platform:
 
 | Action | Urgency | Detail |
 |--------|---------|--------|
-| MISA integration live | Before launch | Already built (#74). Verify issuer role |
+| MISA meInvoice live | Before launch | E-invoice issuance only (not accounting). Already built (#74). Verify issuer role |
+| Accounting software (MISA SME/AMIS) | **NOT at launch** | Internal ledger + bank statements sufficient for 1-2 family operators. Revisit when scaling to external operators or hiring bookkeeper |
 | Operator MST collection | Before launch | All operators need valid tax code |
 | Authorization agreements | Before launch | For platform to issue e-invoices on behalf of operators |
 | VAT registration | Before launch | Platform needs own VAT registration |

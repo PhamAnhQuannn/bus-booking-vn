@@ -182,6 +182,7 @@ jobs:
       CRON_SECRET: ci-test-cron-secret-00
       REFRESH_TOKEN_SECRET: ci-test-refresh-secret-not-for-prod-0123
       BANK_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+      TICKET_SECRET: ci-test-ticket-secret-not-for-prod
 
     steps:
       - uses: actions/checkout@v7
@@ -259,6 +260,7 @@ jobs:
       CRON_SECRET: ci-test-cron-secret-00
       REFRESH_TOKEN_SECRET: ci-test-refresh-secret-not-for-prod-0123
       BANK_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+      TICKET_SECRET: ci-test-ticket-secret-not-for-prod
 
     steps:
       - uses: actions/checkout@v7

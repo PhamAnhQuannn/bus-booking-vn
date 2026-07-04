@@ -1,54 +1,41 @@
 /**
  * Customer OTP utilities for account-management flows (Issue 008).
  *
- * sendCustomerAccountOtp(phone, purpose) — send OTP for reset-password or phone-change.
- *   Rate-limited: 3 sends per 15 min per phone.
+ * sendCustomerAccountOtp(email) — send OTP for reset-password.
+ *   Rate-limited: 3 sends per 15 min per email.
  *   Lockout check (3 failed verifies → 15-min lockout sentinel) PRECEDES the rate check.
- *   Always returns ok=true (no phone enumeration) even when no row exists.
  *
- * verifyCustomerAccountOtp(phone, code) — consume-or-fail with 15-min lockout.
- *   3 failed verifies → extends OtpAttempt row as lockout sentinel (consumed=true,
- *   expiresAt = now+15min). Mirrors verifyOperatorOtp pattern from lib/auth/operatorOtp.ts.
- *   Uses the shared OtpAttempt table (NOT a separate table).
- *
- * NOTE: The existing lib/auth/otp.ts consume() caps at 5 with NO lockout.
- * This module provides a SEPARATE verify path that enforces the 3-failure/15-min AC.
+ * verifyCustomerAccountOtp(email, code) — consume-or-fail with 15-min lockout.
+ *   3 failed verifies → extends OtpAttempt row as lockout sentinel.
  */
 
 import crypto from 'crypto';
 import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
-import { normalizePhone } from '@/lib/core/validation/phone';
 import { generateCode, generateSalt, hashCode } from '@/lib/auth';
-import { sendSms } from '@/lib/notification';
+import { sendEmail, stashTestOtp } from '@/lib/notification';
 import { createRatelimit } from '@/lib/ratelimit';
 
-const OTP_TTL_SECONDS = 5 * 60;    // 5 minutes
+const OTP_TTL_SECONDS = 5 * 60;
 const OTP_EXPIRY_MINUTES = 5;
 export const MAX_VERIFY_FAILURES = 3;
-export const LOCKOUT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+export const LOCKOUT_WINDOW_MS = 15 * 60 * 1000;
 
-// Rate-limiter: 3 OTP sends per 15 min per phone
 const customerAccountOtpRatelimit = createRatelimit({ limit: 3, windowMs: LOCKOUT_WINDOW_MS });
 
 // ---------------------------------------------------------------------------
 // Lockout sentinel helper
 // ---------------------------------------------------------------------------
 
-/**
- * Check for an active lockout sentinel row in the OtpAttempt table.
- * Sentinel: consumed=true, attemptCount >= 3, expiresAt still in the future.
- * Returns { expiresAt } if locked out, or null.
- */
 export async function findCustomerLockoutSentinel(
-  phone: string
+  email: string
 ): Promise<{ expiresAt: Date } | null> {
   type SentinelRow = { expiresAt: Date };
   const rows = await prisma.$queryRaw<SentinelRow[]>(
     Prisma.sql`
       SELECT "expiresAt"
       FROM "OtpAttempt"
-      WHERE phone = ${phone}
+      WHERE email = ${email}
         AND "attemptCount" >= ${MAX_VERIFY_FAILURES}
         AND consumed = true
         AND "expiresAt" > NOW()
@@ -67,22 +54,16 @@ export type SendCustomerOtpResult =
   | { ok: true }
   | { ok: false; reason: 'rate_limited' | 'locked_out'; retryAfter: number };
 
-/**
- * Send an account-management OTP to a customer phone.
- * Always returns { ok: true } when phone has no customer row (no enumeration).
- * Lockout sentinel check precedes rate-limiter check (per AC6).
- */
-export async function sendCustomerAccountOtp(rawPhone: string): Promise<SendCustomerOtpResult> {
-  const phone = normalizePhone(rawPhone);
+export async function sendCustomerAccountOtp(rawEmail: string): Promise<SendCustomerOtpResult> {
+  const email = rawEmail.trim().toLowerCase();
 
-  // Check lockout sentinel first
-  const sentinel = await findCustomerLockoutSentinel(phone);
+  const sentinel = await findCustomerLockoutSentinel(email);
   if (sentinel) {
     const retryAfter = Math.ceil((sentinel.expiresAt.getTime() - Date.now()) / 1000);
     return { ok: false, reason: 'locked_out', retryAfter };
   }
 
-  const rl = await customerAccountOtpRatelimit.limit(phone);
+  const rl = await customerAccountOtpRatelimit.limit(email);
   if (!rl.allowed) {
     return { ok: false, reason: 'rate_limited', retryAfter: rl.retryAfter };
   }
@@ -93,15 +74,12 @@ export async function sendCustomerAccountOtp(rawPhone: string): Promise<SendCust
   const expiresAt = new Date(Date.now() + OTP_TTL_SECONDS * 1000);
   const id = crypto.randomUUID();
 
-  // Supersede: ON CONFLICT on partial unique index resets the active row.
-  // The OtpAttempt table has a partial unique index on (phone) WHERE consumed=false
-  // named "OtpAttempt_phone_active_key".
   await prisma.$executeRaw(
     Prisma.sql`
-      INSERT INTO "OtpAttempt" (id, phone, "codeHash", salt, "expiresAt", consumed, "attemptCount", "createdAt")
+      INSERT INTO "OtpAttempt" (id, email, "codeHash", salt, "expiresAt", consumed, "attemptCount", "createdAt")
       VALUES (
         ${id},
-        ${phone},
+        ${email},
         ${codeHash},
         ${salt},
         ${expiresAt},
@@ -109,7 +87,7 @@ export async function sendCustomerAccountOtp(rawPhone: string): Promise<SendCust
         0,
         NOW()
       )
-      ON CONFLICT (phone) WHERE consumed = false
+      ON CONFLICT (email) WHERE consumed = false AND email IS NOT NULL
       DO UPDATE SET
         "codeHash"     = EXCLUDED."codeHash",
         salt           = EXCLUDED.salt,
@@ -119,10 +97,12 @@ export async function sendCustomerAccountOtp(rawPhone: string): Promise<SendCust
     `
   );
 
-  await sendSms({
-    to: phone,
+  stashTestOtp(email, code);
+
+  await sendEmail({
+    to: email,
     template: 'otpCode',
-    payload: { code, expiryMinutes: OTP_EXPIRY_MINUTES },
+    payload: `BusBookVN: Ma xac thuc cua ban la ${code}. Ma co hieu luc trong ${OTP_EXPIRY_MINUTES} phut.`,
   });
 
   return { ok: true };
@@ -137,18 +117,13 @@ export interface VerifyCustomerOtpResult {
   otpId?: string;
 }
 
-/**
- * Atomically verify a customer account OTP.
- * 3 failed attempts → 15-min lockout sentinel (consumed=true, expiresAt=now+15min).
- */
 export async function verifyCustomerAccountOtp(
-  rawPhone: string,
+  rawEmail: string,
   plainCode: string
 ): Promise<VerifyCustomerOtpResult> {
-  const phone = normalizePhone(rawPhone);
+  const email = rawEmail.trim().toLowerCase();
 
-  // Check lockout sentinel first
-  const sentinel = await findCustomerLockoutSentinel(phone);
+  const sentinel = await findCustomerLockoutSentinel(email);
   if (sentinel) {
     return { status: 'locked_out' };
   }
@@ -158,7 +133,7 @@ export async function verifyCustomerAccountOtp(
     Prisma.sql`
       SELECT id, "codeHash", salt, "attemptCount"
       FROM "OtpAttempt"
-      WHERE phone = ${phone}
+      WHERE email = ${email}
         AND consumed = false
         AND "expiresAt" > NOW()
       ORDER BY "createdAt" DESC
@@ -187,7 +162,6 @@ export async function verifyCustomerAccountOtp(
     const newAttemptCount = row.attemptCount + 1;
 
     if (newAttemptCount >= MAX_VERIFY_FAILURES) {
-      // 3rd failure: write lockout sentinel
       const lockoutExpiry = new Date(Date.now() + LOCKOUT_WINDOW_MS);
       await prisma.$executeRaw(
         Prisma.sql`
@@ -213,7 +187,6 @@ export async function verifyCustomerAccountOtp(
     return { status: 'mismatch' };
   }
 
-  // CAS — atomically consume the row
   const updated = await prisma.$executeRaw(
     Prisma.sql`
       UPDATE "OtpAttempt"
@@ -231,7 +204,7 @@ export async function verifyCustomerAccountOtp(
     const activeCheck = await prisma.$queryRaw<Array<{ id: string }>>(
       Prisma.sql`
         SELECT id FROM "OtpAttempt"
-        WHERE phone = ${phone}
+        WHERE email = ${email}
           AND consumed = false
           AND "expiresAt" > NOW()
         LIMIT 1

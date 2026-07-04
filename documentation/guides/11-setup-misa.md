@@ -1,8 +1,41 @@
 # MISA meInvoice — E-Invoice Setup Guide
 
-Configure MISA meInvoice for electronic invoicing (hóa đơn điện tử) per Circular 78/2021/TT-BTC. Required by Vietnamese law for all business transactions. Code integration: `lib/einvoice/misaClient.ts` (planned). Env vars: `EINVOICE_ENABLED`, `MISA_API_URL`, `MISA_API_KEY`, `MISA_COMPANY_CODE`, `MISA_TEMPLATE_CODE`.
+Configure MISA meInvoice for electronic invoicing (hóa đơn điện tử) per Decree 123/2020 as amended by Decree 70/2025. Required by Vietnamese law for all business transactions. Code integration: `lib/einvoice/misaClient.ts`. Env vars: `EINVOICE_ENABLED`, `MISA_API_URL`, `MISA_API_KEY`, `MISA_COMPANY_CODE`, `MISA_TEMPLATE_CODE`.
 
 > **Phase 1 status:** Deferred. `EINVOICE_ENABLED="stub"` — invoices logged only. Activate when tax compliance is required (Phase 2, HD-005 hardening gate).
+
+---
+
+## Scope Clarification: E-Invoice Only — Not Accounting
+
+**MISA meInvoice ≠ MISA Accounting.** This integration covers **e-invoice issuance only** (issuing hóa đơn điện tử to customers per tax law). It does NOT connect to MISA's accounting/bookkeeping products (MISA SME, MISA AMIS).
+
+### Do I need MISA Accounting at launch?
+
+**No.** At launch with 1-2 family-operated bus operators:
+
+- All customer payments land in **one company bank account** (Agribank via SePay)
+- Operator share splits are internal company transfers (operators are family members)
+- The app's **built-in ledger** (`lib/ledger/`) tracks all financial events: booking revenue, platform fees, refunds, payouts, chargebacks — append-only, immutable, double-entry
+- Revenue and payout **CSV exports** are available from the operator dashboard
+- Your accountant reconciles bank statements against the internal ledger manually
+
+**This is sufficient** for a small-scale launch. Bank statement reports + internal ledger CSV = your books.
+
+### When does accounting software become relevant?
+
+| Trigger | Why |
+|---------|-----|
+| Scaling past family operators | Automated multi-party settlement needs formal books |
+| Tax reporting complexity grows | Monthly/quarterly VAT and CIT filings at volume |
+| Auditor or investor due diligence | Requires formal accounting system, not spreadsheets |
+| Hiring a bookkeeper/accountant | They expect MISA or similar tool |
+
+When that time comes, options include: MISA SME.NET, MISA AMIS (cloud), or exporting ledger data to any accounting software your accountant prefers. The internal ledger's CSV export (`lib/ledger/buildRevenueCsv.ts`, `buildBookingRevenueCsv.ts`) bridges the gap.
+
+### What about the commission B2B invoice (platform → operator)?
+
+This is a **separate gap** tracked in FI-015 and DS-009. When you charge operators a platform fee, you must issue a VAT invoice to them for that commission. This is an e-invoice feature (not accounting software) and will use the same MISA meInvoice integration — but requires a second invoice template and flow. Not needed until operators are external companies requiring formal invoices for their own books.
 
 ---
 
@@ -148,11 +181,14 @@ EINVOICE_ENABLED="stub"
 
 | Requirement | Deadline | Notes |
 |-------------|----------|-------|
-| E-invoice mandatory | Since July 1, 2022 | Circular 78/2021/TT-BTC |
+| E-invoice mandatory | Since July 1, 2022 | Decree 123/2020, amended by Decree 70/2025 |
 | Issue within 24h of payment | Per transaction | App must issue on payment confirmation |
 | Store for 10 years | Archive policy | MISA handles storage |
 | Digital signature | Each invoice | Auto-signed via connected certificate |
 | GDT reporting | Real-time | MISA auto-reports to GDT |
+| Transport-specific fields | Decree 70/2025 | Vehicle plate, departure/destination — **NOT YET MAPPED** (FI-015 blocker) |
+
+> **Note:** E-invoice issuance is a legal requirement separate from accounting. Even if you handle bookkeeping via bank statements + spreadsheets, you must still issue e-invoices to customers. However, at soft launch with family operators and low volume, enforcement risk is minimal — prioritize getting the template approved and transport fields mapped before scaling.
 
 ---
 

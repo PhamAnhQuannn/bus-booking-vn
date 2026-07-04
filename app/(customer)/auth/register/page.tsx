@@ -2,17 +2,16 @@
 
 /**
  * /auth/register — 3-step registration:
- *   1. Enter phone → POST /api/auth/otp/send
+ *   1. Enter email → POST /api/auth/otp/send
  *   2. Enter OTP code → POST /api/auth/otp/verify → get otpProof
  *   3. Enter password + displayName → POST /api/auth/register → redirect home
- *
- * Access token held in module-level variable (simple in-memory store).
- * CSRF token read from bb_csrf cookie set by proxy.ts.
  */
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { readCsrfToken } from '@/lib/auth/csrfClient';
+import { setAccessToken, setDisplayName, setCustomerEmail } from '@/lib/auth/clientSession';
 import { safeReturnTo } from '@/lib/auth/safeReturnTo';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
 import { Button } from '@/components/ui/button';
@@ -21,34 +20,11 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
-type Step = 'phone' | 'otp' | 'details';
+type Step = 'email' | 'otp' | 'details';
 
-function getCsrf(): string {
-  const match = document.cookie.match(/(?:^|;\s*)bb_csrf=([^;]+)/);
-  return match ? decodeURIComponent(match[1]) : '';
-}
-
-// Module-level access token store (cleared on logout)
-let _accessToken: string | null = null;
-export function getAccessToken(): string | null { return _accessToken; }
-export function setAccessToken(t: string | null): void { _accessToken = t; }
-
-// Module-level display-name store — pre-fills the checkout buyer-name field (AC4).
-// In-memory like the access token; lost on hard reload (same as the session).
-let _displayName: string | null = null;
-export function getDisplayName(): string | null { return _displayName; }
-export function setDisplayName(n: string | null): void { _displayName = n; }
-
-// Module-level account-phone store — pre-fills the checkout buyer-phone field
-// from the signed-in customer's registered phone (Issue 030). In-memory like
-// the access token; lost on hard reload (same as the session + displayName).
-let _customerPhone: string | null = null;
-export function getCustomerPhone(): string | null { return _customerPhone; }
-export function setCustomerPhone(p: string | null): void { _customerPhone = p; }
-
-const STEP_INDEX: Record<Step, number> = { phone: 0, otp: 1, details: 2 };
+const STEP_INDEX: Record<Step, number> = { email: 0, otp: 1, details: 2 };
 const STEP_SUBTITLE: Record<Step, string> = {
-  phone: 'Bước 1/3 · Số điện thoại',
+  email: 'Bước 1/3 · Địa chỉ email',
   otp: 'Bước 2/3 · Xác minh OTP',
   details: 'Bước 3/3 · Tạo mật khẩu',
 };
@@ -70,7 +46,6 @@ function StepDots({ current }: { current: number }) {
 }
 
 export default function RegisterPage() {
-  // useSearchParams() requires a Suspense boundary for static prerender (Next 16).
   return (
     <Suspense fallback={null}>
       <RegisterPageInner />
@@ -83,26 +58,24 @@ function RegisterPageInner() {
   const searchParams = useSearchParams();
   const returnTo = safeReturnTo(searchParams.get('returnTo'));
 
-  const [step, setStep] = useState<Step>('phone');
-  const [phone, setPhone] = useState('');
+  const [step, setStep] = useState<Step>('email');
+  const [email, setEmail] = useState('');
   const [otpProof, setOtpProof] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resendIn, setResendIn] = useState(0);
 
-  // Tick the resend cooldown down once per second.
   useEffect(() => {
     if (resendIn <= 0) return;
     const t = setTimeout(() => setResendIn((s) => s - 1), 1000);
     return () => clearTimeout(t);
   }, [resendIn]);
 
-  // POST /api/auth/otp/send for `phone`. Returns true on success.
   async function sendOtp(target: string): Promise<boolean> {
     const res = await fetch('/api/auth/otp/send', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrf() },
-      body: JSON.stringify({ phone: target }),
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': readCsrfToken() },
+      body: JSON.stringify({ email: target }),
     });
     const json = await res.json();
     if (!res.ok) {
@@ -117,13 +90,12 @@ function RegisterPageInner() {
     return true;
   }
 
-  // Step 1: send OTP
   async function handleSendOtp(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      if (await sendOtp(phone)) {
+      if (await sendOtp(email)) {
         setStep('otp');
         setResendIn(30);
       }
@@ -134,13 +106,12 @@ function RegisterPageInner() {
     }
   }
 
-  // Step 2: resend OTP (cooldown-gated)
   async function handleResend() {
     if (resendIn > 0 || loading) return;
     setError('');
     setLoading(true);
     try {
-      if (await sendOtp(phone)) setResendIn(30);
+      if (await sendOtp(email)) setResendIn(30);
     } catch {
       setError('Lỗi kết nối. Vui lòng thử lại.');
     } finally {
@@ -148,7 +119,6 @@ function RegisterPageInner() {
     }
   }
 
-  // Step 2: verify OTP
   async function handleVerifyOtp(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
@@ -158,14 +128,12 @@ function RegisterPageInner() {
     try {
       const res = await fetch('/api/auth/otp/verify', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrf() },
-        body: JSON.stringify({ phone, code }),
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': readCsrfToken() },
+        body: JSON.stringify({ email, code }),
       });
       const json = await res.json();
       if (!res.ok) {
         if (json.error === 'attempt_cap') {
-          // 5 wrong codes — the OTP is now dead; only a new code works. Clear the
-          // resend cooldown so "Gửi lại mã" is immediately usable.
           setResendIn(0);
           setError('Bạn đã nhập sai quá nhiều lần. Vui lòng bấm "Gửi lại mã" để nhận mã mới.');
         } else {
@@ -182,7 +150,6 @@ function RegisterPageInner() {
     }
   }
 
-  // Step 3: register
   async function handleRegister(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
@@ -190,21 +157,20 @@ function RegisterPageInner() {
     const fd = new FormData(e.currentTarget);
     const password = fd.get('password') as string;
     const displayName = (fd.get('displayName') as string) || undefined;
-    // Use the otpProof JWT captured at step-2 verify (consumed once; register validates the proof)
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrf() },
-        body: JSON.stringify({ phone, otpProof, password, displayName }),
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': readCsrfToken() },
+        body: JSON.stringify({ email, otpProof, password, displayName }),
       });
       const json = await res.json();
       if (!res.ok) {
-        setError(json.error === 'invalid_credentials' ? 'Số điện thoại đã được đăng ký.' : 'Đăng ký thất bại.');
+        setError(json.error === 'invalid_credentials' ? 'Email đã được đăng ký.' : 'Đăng ký thất bại.');
         return;
       }
       setAccessToken(json.accessToken);
       setDisplayName(json.customer?.displayName ?? displayName ?? null);
-      setCustomerPhone(json.customer?.phone ?? phone);
+      setCustomerEmail(json.customer?.email ?? email);
       router.push(returnTo);
     } catch {
       setError('Lỗi kết nối. Vui lòng thử lại.');
@@ -219,18 +185,18 @@ function RegisterPageInner() {
         <CardContent className="flex flex-col gap-4">
           <StepDots current={STEP_INDEX[step]} />
 
-          {step === 'phone' && (
+          {step === 'email' && (
             <form onSubmit={handleSendOtp} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="phone">Số điện thoại</Label>
+                <Label htmlFor="email">Địa chỉ email</Label>
                 <Input
-                  id="phone"
-                  type="tel"
-                  name="phone"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  id="email"
+                  type="email"
+                  name="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
-                  placeholder="0901234567"
+                  placeholder="you@example.com"
                 />
               </div>
               {error && (
@@ -247,7 +213,7 @@ function RegisterPageInner() {
           {step === 'otp' && (
             <form onSubmit={handleVerifyOtp} className="flex flex-col gap-4">
               <p className="text-sm text-muted-foreground">
-                Nhập mã 6 chữ số đã gửi đến {phone}
+                Nhập mã 6 chữ số đã gửi đến {email}
               </p>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="code">Mã OTP</Label>
