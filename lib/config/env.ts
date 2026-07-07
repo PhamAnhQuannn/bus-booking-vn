@@ -108,12 +108,12 @@ const envSchema = z.object({
 
   /** SePay API key — bearer token for webhook auth. Required when PAYMENTS_STUB=false. */
   SEPAY_API_KEY: z.string().optional(),
-  /** VietQR bank BIN (Agribank = 970405). */
-  VIETQR_BANK_BIN: z.string().default('970405'),
+  /** VietQR bank BIN (Sacombank = 970403). */
+  VIETQR_BANK_BIN: z.string().default('970403'),
   /** VietQR account number (receiving account). */
-  VIETQR_ACCOUNT_NUMBER: z.string().default('3516205005863'),
+  VIETQR_ACCOUNT_NUMBER: z.string().default('030027766656'),
   /** VietQR account holder name (shown on payment page). */
-  VIETQR_ACCOUNT_NAME: z.string().default('BUS BOOK VN'),
+  VIETQR_ACCOUNT_NAME: z.string().default('CTNHH MINH QUAN'),
   /** VietQR image template variant. */
   VIETQR_TEMPLATE: z.string().default('compact2'),
 
