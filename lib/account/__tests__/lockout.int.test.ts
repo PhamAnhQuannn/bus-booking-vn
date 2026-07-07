@@ -14,8 +14,10 @@ import {
   MAX_VERIFY_FAILURES,
 } from '../customerOtp';
 
-vi.mock('@/lib/notification/esms', () => ({
-  sendSms: vi.fn().mockResolvedValue({ ok: true }),
+vi.mock('@/lib/notification', async (importOriginal) => ({
+  ...(await importOriginal()),
+  sendEmail: vi.fn().mockResolvedValue({ ok: true }),
+  stashTestOtp: vi.fn(),
 }));
 
 const testEmail = (n: number) => `lockout-test-${n}@example.com`;

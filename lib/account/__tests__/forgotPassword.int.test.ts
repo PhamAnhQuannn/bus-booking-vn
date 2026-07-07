@@ -8,8 +8,10 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { prisma } from '@/lib/core/db/client';
 import { hash as hashPassword } from '@/lib/auth';
 
-vi.mock('@/lib/notification/esms', () => ({
-  sendSms: vi.fn().mockResolvedValue({ ok: true }),
+vi.mock('@/lib/notification', async (importOriginal) => ({
+  ...(await importOriginal()),
+  sendEmail: vi.fn().mockResolvedValue({ ok: true }),
+  stashTestOtp: vi.fn(),
 }));
 
 const TEST_EMAIL = 'forgot-pw-test@example.com';
