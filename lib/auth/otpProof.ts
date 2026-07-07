@@ -1,22 +1,11 @@
 /**
  * OTP proof JWT utilities.
  *
- * issueOtpProof(phone, purpose) — sign a short-lived HS256 JWT (5min TTL).
- *   Purposes:
- *     'otp_proof'       — customer OTP verification (register/login flow).
- *     'op_pwd_reset'    — operator password-reset flow.
- *     'reset_password'  — customer forgot-password reset flow (Issue 008).
- *     'phone_change'    — customer phone-change OTP flow (Issue 008).
+ * issueOtpProof(identifier, purpose) — sign a short-lived HS256 JWT (5min TTL).
+ *   Customer flows carry `email`, operator flows carry `phone`.
  *
- * verifyOtpProof(token, purpose) — verify and return { phone, jti } or null.
- *   For 'otp_proof', 'reset_password' and 'phone_change' purposes, a Redis SETNX
- *   one-shot consume is enforced to prevent replay within the TTL window
- *   (Mistake Log Issue 007: register/login proof must be one-shot, replay-safe via jti).
- *   For 'op_pwd_reset', the proof is short-lived (5 min) and replay risk is
- *   acceptable within the TTL (reset is idempotent for the same hash).
- *
- * Rule (Mistake Log 2026-05-18 Issue 007): add the proof field to the top-level
- * logger redact list the same commit it's introduced — already done in logger.ts.
+ * verifyOtpProof(token, purpose) — verify and return { email?, phone?, jti } or null.
+ *   One-shot jti consume enforced for customer purposes (replay-safe).
  */
 
 import { SignJWT, jwtVerify } from 'jose';
@@ -27,7 +16,6 @@ const OTP_PROOF_TTL_SECONDS = 300; // 5 minutes
 
 export type OtpProofPurpose = 'otp_proof' | 'op_pwd_reset' | 'reset_password' | 'phone_change';
 
-/** Purposes that require one-shot jti consumption via Redis SETNX */
 const JTI_REQUIRED_PURPOSES: Set<OtpProofPurpose> = new Set([
   'otp_proof',
   'reset_password',
@@ -43,26 +31,21 @@ function getJwtSecret(): Uint8Array {
 }
 
 // ---------------------------------------------------------------------------
-// JTI one-shot store — in-memory (dev/test) or Upstash Redis (prod)
+// JTI one-shot store
 // ---------------------------------------------------------------------------
 
-/** In-memory JTI consumed-set with TTL cleanup. */
-const _memConsumed = new Map<string, number>(); // jti -> expiresAt (epoch ms)
+const _memConsumed = new Map<string, number>();
 
 function memConsumeJti(jti: string, ttlMs: number): boolean {
-  // Prune expired entries opportunistically
   const now = Date.now();
   for (const [k, exp] of _memConsumed.entries()) {
     if (exp <= now) _memConsumed.delete(k);
   }
-  if (_memConsumed.has(jti)) return false; // already consumed
+  if (_memConsumed.has(jti)) return false;
   _memConsumed.set(jti, now + ttlMs);
-  return true; // consumed successfully (first use)
+  return true;
 }
 
-// Singleton ioredis client for JTI consumption — avoids a new TCP connection per proof verify.
-// Promise-based init guard: if connect() throws, the promise is nulled so the next call retries
-// rather than returning a permanently broken client (zombie client prevention).
 let _jtiRedisPromise: Promise<IORedisType> | null = null;
 
 async function getJtiRedisClient(): Promise<IORedisType> {
@@ -74,7 +57,7 @@ async function getJtiRedisClient(): Promise<IORedisType> {
     try {
       await redis.connect();
     } catch (err) {
-      _jtiRedisPromise = null; // allow retry on next call
+      _jtiRedisPromise = null;
       throw err;
     }
     return redis;
@@ -112,7 +95,6 @@ export async function consumeJti(jti: string, ttlSec: number): Promise<boolean> 
     return result === 'OK';
   }
 
-  // Dev/test: in-memory store
   return memConsumeJti(jti, ttlSec * 1000);
 }
 
@@ -120,14 +102,19 @@ export async function consumeJti(jti: string, ttlSec: number): Promise<boolean> 
 // Public API
 // ---------------------------------------------------------------------------
 
+export interface OtpProofPayload {
+  email?: string;
+  phone?: string;
+  jti: string;
+}
+
 /**
- * Issue a short-lived OTP proof JWT.
- * For 'reset_password' and 'phone_change' purposes, a jti is embedded for
- * one-shot consumption on verify.
+ * Issue a short-lived OTP proof JWT carrying email (customer flows).
  */
-export async function issueOtpProof(phone: string, purpose: OtpProofPurpose): Promise<string> {
+export async function issueOtpProof(identifier: string, purpose: OtpProofPurpose): Promise<string> {
   const jti = crypto.randomUUID();
-  return new SignJWT({ phone, purpose, jti })
+  const identifierKey = purpose === 'op_pwd_reset' ? 'phone' : 'email';
+  return new SignJWT({ [identifierKey]: identifier, purpose, jti })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(`${OTP_PROOF_TTL_SECONDS}s`)
@@ -136,38 +123,35 @@ export async function issueOtpProof(phone: string, purpose: OtpProofPurpose): Pr
 
 /**
  * Verify an OTP proof JWT.
- * Returns { phone, jti } if valid and purpose matches, null otherwise.
- * For 'reset_password' and 'phone_change' purposes, enforces one-shot jti consume.
+ * Returns { email?, phone?, jti } if valid and purpose matches, null otherwise.
  */
 export async function verifyOtpProof(
   token: string,
   purpose: OtpProofPurpose
-): Promise<{ phone: string; jti: string } | null> {
+): Promise<OtpProofPayload | null> {
   try {
     const { payload } = await jwtVerify(token, getJwtSecret(), {
       algorithms: ['HS256'],
     });
-    if (
-      typeof payload['phone'] !== 'string' ||
-      payload['purpose'] !== purpose ||
-      typeof payload['jti'] !== 'string'
-    ) {
+    if (payload['purpose'] !== purpose || typeof payload['jti'] !== 'string') {
       return null;
     }
 
-    const phone = payload['phone'] as string;
+    const email = typeof payload['email'] === 'string' ? payload['email'] : undefined;
+    const phone = typeof payload['phone'] === 'string' ? payload['phone'] : undefined;
+
+    if (!email && !phone) return null;
+
     const jti = payload['jti'] as string;
 
-    // For customer-facing flows, enforce one-shot jti consumption
     if (JTI_REQUIRED_PURPOSES.has(purpose)) {
-      // Compute remaining TTL in seconds for Redis key expiry
       const exp = payload.exp as number | undefined;
       const ttlSec = exp ? Math.max(1, exp - Math.floor(Date.now() / 1000)) : OTP_PROOF_TTL_SECONDS;
       const consumed = await consumeJti(jti, ttlSec);
-      if (!consumed) return null; // already consumed — replay attempt
+      if (!consumed) return null;
     }
 
-    return { phone, jti };
+    return { email, phone, jti };
   } catch {
     return null;
   }

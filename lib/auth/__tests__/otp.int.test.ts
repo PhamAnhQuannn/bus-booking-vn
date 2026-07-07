@@ -12,34 +12,30 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { prisma } from '@/lib/core/db/client';
 import { generateCode, generateSalt, hashCode, consume } from '../otp';
 
-// Unique phone per test run to avoid cross-test pollution.
-// Literal-x mask satisfies gitleaks PII regex (cannot match \+84[35789]\d{8}).
-const TEST_PHONE = `+8490xxxxxx12`;
+const TEST_EMAIL = 'otp-race-test@example.com';
 
 beforeEach(async () => {
-  // Clean slate
-  await prisma.$executeRaw`DELETE FROM "OtpAttempt" WHERE phone = ${TEST_PHONE}`;
+  await prisma.$executeRaw`DELETE FROM "OtpAttempt" WHERE email = ${TEST_EMAIL}`;
 });
 
 afterEach(async () => {
-  await prisma.$executeRaw`DELETE FROM "OtpAttempt" WHERE phone = ${TEST_PHONE}`;
+  await prisma.$executeRaw`DELETE FROM "OtpAttempt" WHERE email = ${TEST_EMAIL}`;
   await prisma.$disconnect();
 });
 
 describe('consume — concurrent-verify race (AC4)', () => {
   it('2 simultaneous correct verifies → exactly 1 consumes, the other returns already_used (gone)', async () => {
-    // Seed one active OtpAttempt row with a known plain code
     const plainCode = generateCode();
     const salt = generateSalt();
     const codeHash = hashCode(plainCode, salt);
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 min from now
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
     const id = crypto.randomUUID();
 
     await prisma.$executeRaw`
-      INSERT INTO "OtpAttempt" (id, phone, "codeHash", salt, "expiresAt", consumed, "attemptCount", "createdAt")
+      INSERT INTO "OtpAttempt" (id, email, "codeHash", salt, "expiresAt", consumed, "attemptCount", "createdAt")
       VALUES (
         ${id},
-        ${TEST_PHONE},
+        ${TEST_EMAIL},
         ${codeHash},
         ${salt},
         ${expiresAt},
@@ -49,25 +45,19 @@ describe('consume — concurrent-verify race (AC4)', () => {
       )
     `;
 
-    // Fire 2 consume calls simultaneously with the correct code
     const [result1, result2] = await Promise.all([
-      consume(TEST_PHONE, plainCode),
-      consume(TEST_PHONE, plainCode),
+      consume(TEST_EMAIL, plainCode),
+      consume(TEST_EMAIL, plainCode),
     ]);
 
     const statuses = [result1.status, result2.status];
 
-    // Exactly one must succeed
     const okCount = statuses.filter((s) => s === 'ok').length;
     expect(okCount).toBe(1);
 
-    // The other must be 'gone' (CAS update returned 0 rows — race loser sees no active row)
-    // or 'mismatch' (if race loser sees the row still unconsumed but wrong codeHash branch).
-    // Both indicate "already used" semantics — the important invariant is exactly 1 ok.
     const otherStatus = statuses.find((s) => s !== 'ok');
     expect(['gone', 'mismatch', 'attempt_cap']).toContain(otherStatus);
 
-    // Verify the DB row is now consumed
     const rows = await prisma.$queryRaw<Array<{ consumed: boolean }>>`
       SELECT consumed FROM "OtpAttempt" WHERE id = ${id}
     `;

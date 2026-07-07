@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   attachGuestBookingByPhone,
   backfillGuestBookingsForCustomer,
+  backfillGuestBookingsByEmail,
 } from '../attachGuestBookingByPhone';
 import type { Prisma } from '@prisma/client';
 
@@ -89,6 +90,37 @@ describe('backfillGuestBookingsForCustomer', () => {
   it('returns 0 when no guest bookings match', async () => {
     const { tx } = makeTx({ updateCount: 0 });
     const count = await backfillGuestBookingsForCustomer(tx, 'cust-1', '+84901234567');
+    expect(count).toBe(0);
+  });
+});
+
+describe('backfillGuestBookingsByEmail', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('claims unowned bookings matching the normalized email', async () => {
+    const { tx, updateMany } = makeTx({ updateCount: 3 });
+    const count = await backfillGuestBookingsByEmail(tx, 'cust-1', 'Buyer@Example.COM');
+
+    expect(count).toBe(3);
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { buyerEmail: 'buyer@example.com', customerId: null },
+      data: { customerId: 'cust-1' },
+    });
+  });
+
+  it('trims whitespace from email before querying', async () => {
+    const { tx, updateMany } = makeTx({ updateCount: 1 });
+    await backfillGuestBookingsByEmail(tx, 'cust-1', '  test@example.com  ');
+
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { buyerEmail: 'test@example.com', customerId: null },
+      data: { customerId: 'cust-1' },
+    });
+  });
+
+  it('returns 0 when no guest bookings match', async () => {
+    const { tx } = makeTx({ updateCount: 0 });
+    const count = await backfillGuestBookingsByEmail(tx, 'cust-1', 'nobody@example.com');
     expect(count).toBe(0);
   });
 });

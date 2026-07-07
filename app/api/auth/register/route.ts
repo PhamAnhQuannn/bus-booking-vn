@@ -1,14 +1,9 @@
 /**
  * POST /api/auth/register
- * Body: { phone, otpProof, password, displayName? }
+ * Body: { email, otpProof, password, displayName? }
  *
  * Flow: validate otpProof JWT (issued by /api/auth/otp/verify) →
  *       create Customer + Session → return access token + set cookie.
- * Access token in response body (900s TTL).
- * Refresh token in HttpOnly cookie bb_rt (30d).
- *
- * The OTP is consumed once at /api/auth/otp/verify. The register endpoint
- * validates the short-lived otpProof JWT — no second OTP consumption.
  */
 
 export const runtime = 'nodejs';
@@ -17,17 +12,14 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { registerInput } from '@/lib/core/validation/auth';
 import { register, AuthServiceError, verifyOtpProof } from '@/lib/auth';
-import { normalizePhone } from '@/lib/core/validation/phone';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { z } from 'zod';
 
-// Extend the shared registerInput schema with otpProof (register-only field).
-// Single source of truth: phone/password/displayName come from registerInput.
 const registerBodySchema = registerInput.extend({
   otpProof: z.string().min(1),
 });
 
-const REFRESH_COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days in seconds
+const REFRESH_COOKIE_MAX_AGE = 30 * 24 * 60 * 60;
 
 async function handler(req: NextRequest): Promise<Response> {
   let body: unknown;
@@ -42,29 +34,23 @@ async function handler(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: 'INVALID' }, { status: 400 });
   }
 
-  const { phone, otpProof, password, displayName } = parsed.data;
+  const { email, otpProof, password, displayName } = parsed.data;
 
-  // Validate the otpProof JWT issued by /api/auth/otp/verify.
-  // verifyOtpProof enforces one-shot jti consumption for 'otp_proof' (replay-safe
-  // within the 5-min TTL — Mistake Log Issue 007). Returns null on invalid sig,
-  // wrong purpose, or replay (already-consumed jti).
   const proof = await verifyOtpProof(otpProof, 'otp_proof');
   if (!proof) {
     return NextResponse.json({ error: 'otp_proof_invalid' }, { status: 400 });
   }
 
-  // The phone in the proof must match the request phone (normalized).
-  const normalizedPhone = normalizePhone(phone);
-  if (proof.phone !== normalizedPhone) {
+  const normalizedEmail = email.trim().toLowerCase();
+  if (proof.email !== normalizedEmail) {
     return NextResponse.json({ error: 'otp_proof_invalid' }, { status: 400 });
   }
 
   let result;
   try {
-    result = await register({ phone, password, displayName });
+    result = await register({ email, password, displayName });
   } catch (err) {
-    if (err instanceof AuthServiceError && err.code === 'PHONE_TAKEN') {
-      // Generic error — do not reveal phone existence
+    if (err instanceof AuthServiceError && err.code === 'EMAIL_TAKEN') {
       return NextResponse.json({ error: 'invalid_credentials' }, { status: 409 });
     }
     throw err;

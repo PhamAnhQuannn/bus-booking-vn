@@ -141,6 +141,7 @@ const eslintConfig = defineConfig([
               allow: [
                 "index.{ts,tsx}",
                 "csrfClient.{ts,tsx}", // lib/auth — browser cookie reader
+                "clientSession.{ts,tsx}", // lib/auth — client session state + refresh
                 "safeReturnTo.{ts,tsx}", // lib/auth — pure redirect sanitizer
                 "consent.{ts,tsx}", // lib/booking — checkout consent constants
               "pickupSelection.{ts,tsx}", // lib/booking — pure pickup validator (client + server)

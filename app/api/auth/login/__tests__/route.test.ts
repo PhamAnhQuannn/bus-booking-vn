@@ -1,12 +1,12 @@
 /**
  * Unit tests for POST /api/auth/login.
- * 2026-06-06: customer accounts PAUSED — any non-operator scope returns 410. The
- * operator path logs in by username (not phone).
+ * Two branches: customer (email+password) and operator (username+password).
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const {
+  mockLogin,
   mockOperatorLogin,
   mockCookieStore,
   AuthServiceError,
@@ -23,6 +23,7 @@ const {
   }
   const mockCookieStore = { set: vi.fn(), get: vi.fn(), has: vi.fn(), delete: vi.fn() };
   return {
+    mockLogin: vi.fn(),
     mockOperatorLogin: vi.fn(),
     mockCookieStore,
     AuthServiceError,
@@ -32,11 +33,7 @@ const {
 });
 
 vi.mock('@/lib/auth/operatorAuthService', () => ({ operatorLogin: mockOperatorLogin, AuthServiceError }));
-// The route imports AuthServiceError via the @/lib/auth barrel (→ authService); mock it
-// with the SAME hoisted class so `instanceof AuthServiceError` matches the thrown error.
-vi.mock('@/lib/auth/authService', () => ({ AuthServiceError }));
-// Partial mock — spread the real module so barrel co-consumers (e.g. operatorOtp's
-// createRatelimit) still resolve; override only the two login limiters.
+vi.mock('@/lib/auth/authService', () => ({ login: mockLogin, AuthServiceError }));
 vi.mock('@/lib/ratelimit', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/ratelimit')>()),
   opLoginRatelimit: mockOpLoginRatelimit,
@@ -58,6 +55,14 @@ function makeRequest(body: unknown): NextRequest {
   });
 }
 
+const CUSTOMER_AUTH_RESULT = {
+  accessToken: 'customer-access-token',
+  refreshToken: 'customer-refresh-token',
+  refreshHash: 'customer-hash',
+  csrf: 'csrf-token',
+  customer: { id: 'cust-1', email: 'test@example.com', displayName: 'Test User' },
+};
+
 const OP_AUTH_RESULT = {
   accessToken: 'op-access-token',
   refreshToken: 'op-refresh-token',
@@ -73,27 +78,52 @@ const OP_AUTH_RESULT = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockLogin.mockResolvedValue(CUSTOMER_AUTH_RESULT);
   mockOperatorLogin.mockResolvedValue(OP_AUTH_RESULT);
   mockOpLoginRatelimit.limit.mockResolvedValue(ALLOW);
   mockOpLoginLockout.limit.mockResolvedValue(ALLOW);
 });
 
 describe('POST /api/auth/login', () => {
-  describe('customer scope (paused)', () => {
-    it('returns 410 with no scope', async () => {
-      const res = await POST(makeRequest({ username: 'x', password: 'Password1' }));
+  describe('customer scope', () => {
+    it('returns 200 with accessToken + customer on valid credentials', async () => {
+      const res = await POST(makeRequest({ email: 'test@example.com', password: 'Password1' }));
       const json = await res.json();
-      expect(res.status).toBe(410);
-      expect(json.error).toBe('customer_login_disabled');
+      expect(res.status).toBe(200);
+      expect(json.accessToken).toBe('customer-access-token');
+      expect(json.customer).toEqual({ id: 'cust-1', email: 'test@example.com', displayName: 'Test User' });
+      expect(mockLogin).toHaveBeenCalledWith({ email: 'test@example.com', password: 'Password1' });
     });
 
-    it('returns 410 with scope: customer', async () => {
-      const res = await POST(makeRequest({ username: 'x', password: 'Password1', scope: 'customer' }));
-      expect(res.status).toBe(410);
+    it('sets bb_rt cookie on customer login', async () => {
+      await POST(makeRequest({ email: 'test@example.com', password: 'Password1' }));
+      const calls = mockCookieStore.set.mock.calls.map((c: string[]) => c[0]);
+      expect(calls).toContain('bb_rt');
+      expect(calls).not.toContain('bb_op_access');
+      expect(calls).not.toContain('bb_op_refresh');
     });
 
-    it('does not invoke operatorLogin for a customer scope', async () => {
-      await POST(makeRequest({ username: 'x', password: 'Password1', scope: 'customer' }));
+    it('returns 401 for invalid customer credentials', async () => {
+      mockLogin.mockRejectedValue(new AuthServiceError('INVALID_CREDENTIALS'));
+      const res = await POST(makeRequest({ email: 'test@example.com', password: 'wrong' }));
+      const json = await res.json();
+      expect(res.status).toBe(401);
+      expect(json.error).toBe('invalid_credentials');
+    });
+
+    it('returns 400 for missing email', async () => {
+      const res = await POST(makeRequest({ password: 'Password1' }));
+      expect(res.status).toBe(400);
+    });
+
+    it('does not invoke operatorLogin for customer scope', async () => {
+      await POST(makeRequest({ email: 'test@example.com', password: 'Password1' }));
+      expect(mockOperatorLogin).not.toHaveBeenCalled();
+    });
+
+    it('defaults to customer scope when scope is absent', async () => {
+      await POST(makeRequest({ email: 'test@example.com', password: 'Password1' }));
+      expect(mockLogin).toHaveBeenCalled();
       expect(mockOperatorLogin).not.toHaveBeenCalled();
     });
   });
@@ -141,7 +171,6 @@ describe('POST /api/auth/login', () => {
       expect(res.status).toBe(429);
       expect(json.error).toBe('RATE_LIMITED');
       expect(res.headers.get('Retry-After')).toBe('900');
-      // Throttled before the credential check — operatorLogin never runs.
       expect(mockOperatorLogin).not.toHaveBeenCalled();
     });
 

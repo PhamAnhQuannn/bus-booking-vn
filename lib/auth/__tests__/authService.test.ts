@@ -60,7 +60,7 @@ const SESSION_STUB = {
 
 const CUSTOMER_STUB = {
   id: 'cust-001',
-  phone: '0901234567', // local format — avoids gitleaks \+84[35789]\d{8}; mock stub value only
+  email: 'test@example.com',
   displayName: 'Test User',
 };
 
@@ -83,29 +83,22 @@ describe('authService.register', () => {
   it('creates customer and returns authResult on success', async () => {
     mockPrisma.customer.create.mockResolvedValue(CUSTOMER_STUB);
 
-    const result = await register({ phone: '0901234567', password: 'Password1' });
+    const result = await register({ email: 'test@example.com', password: 'Password1' });
     expect(result.accessToken).toBe('mock-access-token');
-    expect(result.customer.phone).toBe(CUSTOMER_STUB.phone);
+    expect(result.customer.email).toBe(CUSTOMER_STUB.email);
   });
 
-  it('normalizes phone before create', async () => {
+  it('lowercases email before create', async () => {
     mockPrisma.customer.create.mockResolvedValue(CUSTOMER_STUB);
-    await register({ phone: '0901234567', password: 'Password1' });
+    await register({ email: 'Test@Example.COM', password: 'Password1' });
     expect(mockPrisma.customer.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ phone: '+84901234567' }),
+        data: expect.objectContaining({ email: 'test@example.com' }),
       })
     );
   });
 
-  it('throws PHONE_TAKEN on Prisma P2002 unique constraint', async () => {
-    const prismaErr = Object.assign(new Error('Unique'), {
-      code: 'P2002',
-      name: 'PrismaClientKnownRequestError',
-    });
-    mockPrisma.customer.create.mockRejectedValue(prismaErr);
-
-    // Need actual Prisma error class
+  it('throws EMAIL_TAKEN on Prisma P2002 unique constraint', async () => {
     const { Prisma } = await import('@prisma/client');
     const realErr = new Prisma.PrismaClientKnownRequestError('Unique constraint', {
       code: 'P2002',
@@ -113,8 +106,8 @@ describe('authService.register', () => {
     });
     mockPrisma.customer.create.mockRejectedValue(realErr);
 
-    await expect(register({ phone: '0901234567', password: 'Password1' })).rejects.toThrow(AuthServiceError);
-    await expect(register({ phone: '0901234567', password: 'Password1' })).rejects.toMatchObject({ code: 'PHONE_TAKEN' });
+    await expect(register({ email: 'test@example.com', password: 'Password1' })).rejects.toThrow(AuthServiceError);
+    await expect(register({ email: 'test@example.com', password: 'Password1' })).rejects.toMatchObject({ code: 'EMAIL_TAKEN' });
   });
 });
 
@@ -128,7 +121,7 @@ describe('authService.login', () => {
       passwordHash: 'hash',
     });
 
-    const result = await login({ phone: '0901234567', password: 'Password1' });
+    const result = await login({ email: 'test@example.com', password: 'Password1' });
     expect(result.accessToken).toBe('mock-access-token');
   });
 
@@ -139,13 +132,13 @@ describe('authService.login', () => {
     });
     mockVerifyPassword.mockResolvedValue(false);
 
-    await expect(login({ phone: '0901234567', password: 'wrong' })).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
+    await expect(login({ email: 'test@example.com', password: 'wrong' })).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
   });
 
-  it('throws INVALID_CREDENTIALS and runs dummyVerify for nonexistent phone', async () => {
+  it('throws INVALID_CREDENTIALS and runs dummyVerify for nonexistent email', async () => {
     mockPrisma.customer.findFirst.mockResolvedValue(null);
 
-    await expect(login({ phone: '0901234567', password: 'whatever' })).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
+    await expect(login({ email: 'test@example.com', password: 'whatever' })).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
     expect(mockDummyVerify).toHaveBeenCalledTimes(1);
   });
 
@@ -155,7 +148,7 @@ describe('authService.login', () => {
       passwordHash: null,
     });
 
-    await expect(login({ phone: '0901234567', password: 'whatever' })).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
+    await expect(login({ email: 'test@example.com', password: 'whatever' })).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
     expect(mockDummyVerify).toHaveBeenCalledTimes(1);
   });
 });
@@ -166,26 +159,26 @@ describe('authService.login', () => {
 describe('authService.verifyOtp', () => {
   it('returns ok when consume returns ok', async () => {
     mockConsume.mockResolvedValue({ status: 'ok', otpId: 'otp-1' });
-    const result = await verifyOtp('0901234567', '123456');
+    const result = await verifyOtp('test@example.com', '123456');
     expect(result.status).toBe('ok');
   });
 
   it('returns mismatch when consume returns mismatch', async () => {
     mockConsume.mockResolvedValue({ status: 'mismatch' });
-    const result = await verifyOtp('0901234567', '000000');
+    const result = await verifyOtp('test@example.com', '000000');
     expect(result.status).toBe('mismatch');
   });
 
   it('returns gone when consume returns gone', async () => {
     mockConsume.mockResolvedValue({ status: 'gone' });
-    const result = await verifyOtp('0901234567', '000000');
+    const result = await verifyOtp('test@example.com', '000000');
     expect(result.status).toBe('gone');
   });
 
-  it('passes normalized phone to consume', async () => {
+  it('passes normalized email to consume', async () => {
     mockConsume.mockResolvedValue({ status: 'ok' });
-    await verifyOtp('0901234567', '123456');
-    expect(mockConsume).toHaveBeenCalledWith('+84901234567', '123456');
+    await verifyOtp('Test@Example.COM', '123456');
+    expect(mockConsume).toHaveBeenCalledWith('test@example.com', '123456');
   });
 });
 

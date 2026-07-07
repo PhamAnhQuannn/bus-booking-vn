@@ -2,30 +2,29 @@
  * authService — register, login, verifyOtp, refresh, logout.
  *
  * All functions call DB/session libs in-process (no self-fetch per Issue 002/003 rule).
- * Error enum strings are safe to log; never disclose phone/email existence to callers.
+ * Error enum strings are safe to log; never disclose email existence to callers.
  */
 
 import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
-import { normalizePhone } from '@/lib/core/validation/phone';
 import { consume } from './otp';
 import { hash as hashPassword, verify as verifyPassword, dummyVerify } from './password';
 import { createSession, rotateRefresh, revokeSession } from './session';
 import { verify as verifyRefreshToken } from './refreshToken';
-import { backfillGuestBookingsForCustomer } from '@/lib/booking';
+import { backfillGuestBookingsByEmail } from '@/lib/booking';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 export interface RegisterInput {
-  phone: string;
+  email: string;
   password: string;
   displayName?: string;
 }
 
 export interface LoginInput {
-  phone: string;
+  email: string;
   password: string;
 }
 
@@ -36,14 +35,14 @@ export interface AuthResult {
   csrf: string;
   customer: {
     id: string;
-    phone: string | null;
+    email: string | null;
     displayName: string | null;
   };
 }
 
 export type AuthError =
   | 'INVALID_CREDENTIALS'
-  | 'PHONE_TAKEN'
+  | 'EMAIL_TAKEN'
   | 'OTP_MISMATCH'
   | 'OTP_GONE'
   | 'SESSION_NOT_FOUND'
@@ -62,27 +61,24 @@ export class AuthServiceError extends Error {
 // ---------------------------------------------------------------------------
 
 export async function register(input: RegisterInput): Promise<AuthResult> {
-  const phone = normalizePhone(input.phone);
+  const email = input.email.trim().toLowerCase();
   const passwordHash = await hashPassword(input.password);
 
-  let customer: { id: string; phone: string | null; displayName: string | null };
+  let customer: { id: string; email: string | null; displayName: string | null };
   try {
     customer = await prisma.$transaction(async (tx) => {
       const created = await tx.customer.create({
-        data: { phone, passwordHash, displayName: input.displayName ?? null },
-        select: { id: true, phone: true, displayName: true },
+        data: { email, passwordHash, displayName: input.displayName ?? null },
+        select: { id: true, email: true, displayName: true },
       });
-      // Issue 009 AC(a): attach pre-existing guest bookings made with this phone.
-      // phone is guaranteed non-null here — we just set it above.
-      if (created.phone) {
-        await backfillGuestBookingsForCustomer(tx, created.id, created.phone);
+      if (created.email) {
+        await backfillGuestBookingsByEmail(tx, created.id, created.email);
       }
       return created;
     });
   } catch (err) {
-    // Prisma unique constraint violation on Customer.phone
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-      throw new AuthServiceError('PHONE_TAKEN');
+      throw new AuthServiceError('EMAIL_TAKEN');
     }
     throw err;
   }
@@ -107,15 +103,14 @@ export async function register(input: RegisterInput): Promise<AuthResult> {
 // ---------------------------------------------------------------------------
 
 export async function login(input: LoginInput): Promise<AuthResult> {
-  const phone = normalizePhone(input.phone);
+  const email = input.email.trim().toLowerCase();
 
   const customer = await prisma.customer.findFirst({
-    where: { phone, deletedAt: null },
-    select: { id: true, phone: true, displayName: true, passwordHash: true },
+    where: { email, deletedAt: null },
+    select: { id: true, email: true, displayName: true, passwordHash: true },
   });
 
   if (!customer || !customer.passwordHash) {
-    // Run dummy verify to prevent timing-based phone enumeration
     await dummyVerify();
     throw new AuthServiceError('INVALID_CREDENTIALS');
   }
@@ -136,7 +131,7 @@ export async function login(input: LoginInput): Promise<AuthResult> {
     refreshToken: session.refreshToken,
     refreshHash: session.refreshHash,
     csrf: session.csrf,
-    customer: { id: customer.id, phone: customer.phone, displayName: customer.displayName },
+    customer: { id: customer.id, email: customer.email, displayName: customer.displayName },
   };
 }
 
@@ -149,9 +144,9 @@ export interface VerifyOtpResult {
   otpId?: string;
 }
 
-export async function verifyOtp(rawPhone: string, code: string): Promise<VerifyOtpResult> {
-  const phone = normalizePhone(rawPhone);
-  return consume(phone, code);
+export async function verifyOtp(rawEmail: string, code: string): Promise<VerifyOtpResult> {
+  const email = rawEmail.trim().toLowerCase();
+  return consume(email, code);
 }
 
 // ---------------------------------------------------------------------------
@@ -191,6 +186,6 @@ export async function refresh(
 
 export async function logout(rawToken: string): Promise<void> {
   const verified = verifyRefreshToken(rawToken);
-  if (!verified) return; // already invalid, nothing to revoke
+  if (!verified) return;
   await revokeSession(verified.hash);
 }
