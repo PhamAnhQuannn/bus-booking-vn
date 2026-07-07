@@ -12,21 +12,22 @@ import { usePathname } from 'next/navigation';
 import { Dialog } from '@base-ui/react/dialog';
 import { MenuIcon, XIcon } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
+import { CustomerAccountMenu } from '@/components/auth/CustomerAccountMenu';
+import { useIsSignedIn } from '@/lib/auth/clientSession';
 import { cn } from '@/lib/utils';
 
-// 2026-06-06: customer accounts paused (guest-only) — "Tài khoản" link removed.
-// "Trở thành đối tác" routes operators to the public application form.
 const NAV = [
   { href: '/', label: 'Trang chủ' },
   { href: '/lien-he-dat-xe', label: 'Liên hệ đặt xe' },
   { href: '/op/register', label: 'Trở thành đối tác' },
 ];
 
-const LOGIN = { href: '/op/login', label: 'Đăng nhập' };
+const LOGIN = { href: '/auth/login', label: 'Đăng nhập' };
 
 export function SiteHeader() {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const signedIn = useIsSignedIn();
 
   if (pathname.startsWith('/op') || pathname.startsWith('/dev') || pathname.startsWith('/auth'))
     return null;
@@ -70,13 +71,18 @@ export function SiteHeader() {
                 );
               })}
             </nav>
-            {/* 2026-06-06: only operators log in (admin has its own door). Sign-in → /op/login. */}
-            <Link
-              href={LOGIN.href}
-              className="ml-1 inline-flex min-h-11 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
-              {LOGIN.label}
-            </Link>
+            {signedIn ? (
+              <div className="ml-1">
+                <CustomerAccountMenu />
+              </div>
+            ) : (
+              <Link
+                href={LOGIN.href}
+                className="ml-1 inline-flex min-h-11 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                {LOGIN.label}
+              </Link>
+            )}
           </div>
         </div>
       </header>
@@ -121,13 +127,19 @@ export function SiteHeader() {
             })}
           </nav>
           <div className="border-t border-border px-2 py-2">
-            <Link
-              href={LOGIN.href}
-              onClick={() => setDrawerOpen(false)}
-              className="flex min-h-11 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
-              {LOGIN.label}
-            </Link>
+            {signedIn ? (
+              <div className="flex items-center justify-center">
+                <CustomerAccountMenu />
+              </div>
+            ) : (
+              <Link
+                href={LOGIN.href}
+                onClick={() => setDrawerOpen(false)}
+                className="flex min-h-11 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                {LOGIN.label}
+              </Link>
+            )}
           </div>
         </Dialog.Popup>
       </Dialog.Portal>

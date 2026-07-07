@@ -1,27 +1,28 @@
 /**
  * POST /api/auth/login
- * Body: { username, password, scope: 'operator' }
+ * Body: { email, password, scope?: 'operator' }
  *
- * 2026-06-06: customer accounts PAUSED (guest-only). Only the operator branch is live;
- * any non-operator scope returns 410 customer_login_disabled. Re-enable = restore the
- * customer branch (git history) + the customer auth UI (S04).
+ * Two branches:
+ *   Customer (default / scope absent):
+ *     Response: { accessToken, customer }
+ *     + Set-Cookie bb_rt (30d, HttpOnly)
  *
- * Operator (scope='operator'):
- *   Response: { accessToken, operator, requiresPasswordChange }
- *   + Set-Cookie bb_op_access (15min, HttpOnly) + bb_op_refresh (30d, HttpOnly)
- *   Login key is the generated username (BRAND_ACRONYM-last4phone), NOT phone.
+ *   Operator (scope='operator'):
+ *     Response: { accessToken, operator, requiresPasswordChange }
+ *     + Set-Cookie bb_op_access (15min, HttpOnly) + bb_op_refresh (30d, HttpOnly)
+ *     Login key is the generated username (BRAND_ACRONYM-last4phone), NOT phone.
  *
- * 401 invalid_credentials on wrong username/password.
+ * 401 invalid_credentials on wrong credentials.
  */
 
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { operatorLoginInput } from '@/lib/core/validation/auth';
-import { AuthServiceError } from '@/lib/auth';
-import { clientIp } from '@/lib/core/http/clientIp';
+import { loginInput, operatorLoginInput } from '@/lib/core/validation/auth';
+import { login, AuthServiceError } from '@/lib/auth';
 import { operatorLogin } from '@/lib/auth';
+import { clientIp } from '@/lib/core/http/clientIp';
 import { opLoginRatelimit, opLoginLockout } from '@/lib/ratelimit';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
@@ -36,20 +37,13 @@ async function handler(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: 'INVALID' }, { status: 400 });
   }
 
-  // Parse scope from body (default to 'customer' when absent)
   const rawScope = (body as Record<string, unknown>)?.scope;
   const scope = rawScope === 'operator' ? 'operator' : 'customer';
 
-  // 2026-06-06: customer accounts paused (guest-only). Only the operator branch is live.
-  if (scope !== 'operator') {
-    return NextResponse.json({ error: 'customer_login_disabled' }, { status: 410 });
-  }
-
-  {
+  if (scope === 'operator') {
     // -----------------------------------------------------------------------
     // Operator branch (username + password)
     // -----------------------------------------------------------------------
-    // Per-IP throttle on the login surface (tighter than the generic edge limit).
     const ipRl = await opLoginRatelimit.limit(`op-login:${clientIp(req.headers)}`);
     if (!ipRl.allowed) {
       return NextResponse.json(
@@ -63,8 +57,6 @@ async function handler(req: NextRequest): Promise<Response> {
       return NextResponse.json({ error: 'INVALID' }, { status: 400 });
     }
 
-    // Account-level lockout key — usernames are publicly enumerable, so the
-    // brake is keyed on the (case-normalized) username, not just the IP.
     const lockoutKey = `op-login-fail:${parsed.data.username.trim().toLowerCase()}`;
 
     let result;
@@ -72,7 +64,6 @@ async function handler(req: NextRequest): Promise<Response> {
       result = await operatorLogin(parsed.data);
     } catch (err) {
       if (err instanceof AuthServiceError && err.code === 'INVALID_CREDENTIALS') {
-        // Bad credentials — consume the consecutive-failure lockout counter.
         const lk = await opLoginLockout.limit(lockoutKey);
         if (!lk.allowed) {
           return NextResponse.json(
@@ -87,7 +78,6 @@ async function handler(req: NextRequest): Promise<Response> {
 
     const cookieStore = await cookies();
 
-    // bb_op_access — short-lived, HttpOnly
     cookieStore.set('bb_op_access', result.accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -96,7 +86,6 @@ async function handler(req: NextRequest): Promise<Response> {
       maxAge: ACCESS_COOKIE_MAX_AGE,
     });
 
-    // bb_op_refresh — long-lived, HttpOnly
     cookieStore.set('bb_op_refresh', result.refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -111,6 +100,38 @@ async function handler(req: NextRequest): Promise<Response> {
       requiresPasswordChange: result.requiresPasswordChange,
     });
   }
+
+  // -------------------------------------------------------------------------
+  // Customer branch (email + password)
+  // -------------------------------------------------------------------------
+  const parsed = loginInput.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'INVALID' }, { status: 400 });
+  }
+
+  let result;
+  try {
+    result = await login(parsed.data);
+  } catch (err) {
+    if (err instanceof AuthServiceError && err.code === 'INVALID_CREDENTIALS') {
+      return NextResponse.json({ error: 'invalid_credentials' }, { status: 401 });
+    }
+    throw err;
+  }
+
+  const cookieStore = await cookies();
+  cookieStore.set('bb_rt', result.refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: REFRESH_COOKIE_MAX_AGE,
+  });
+
+  return NextResponse.json({
+    accessToken: result.accessToken,
+    customer: result.customer,
+  });
 }
 
 export const POST = withErrorHandler(handler);

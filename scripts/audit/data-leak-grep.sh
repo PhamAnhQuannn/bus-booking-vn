@@ -97,7 +97,7 @@ check_client_server_barrel() {
 # ---------- A4: sameSite lax baseline ----------
 check_samesite_lax_baseline() {
   echo "--- A4: sameSite lax baseline ---"
-  local BASELINE=11
+  local BASELINE=12
   local count
   count=$(grep -rn --include='*.ts' -i 'sameSite.*lax' app/api/ \
     | grep -v '__tests__/' \

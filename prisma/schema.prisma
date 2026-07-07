@@ -386,6 +386,8 @@ model Booking {
   @@index([status, reminderSentAt])
   /// Issue 009: register-time guest-booking backfill scan (match buyerPhone → Customer.phone)
   @@index([buyerPhone])
+  /// PR 259: register-time guest-booking backfill scan (match buyerEmail → Customer.email)
+  @@index([buyerEmail])
   /// Issue 090: retention sweeper predicate — claims guest bookings WHERE
   /// snapshotAnonymizedAt IS NULL (then joins Trip for the departure window).
   @@index([snapshotAnonymizedAt])

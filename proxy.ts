@@ -185,36 +185,6 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   };
 
   // -------------------------------------------------------------------------
-  // Layer 0.5 — Customer accounts PAUSED (2026-06-06, guest-only).
-  // Customer auth + account pages are soft-disabled (code retained). Redirect the
-  // page routes home so the doors are closed without deleting anything.
-  // Re-enable: delete this block + restore the nav links (S04). The customer-only
-  // API routes return 410 at the route layer.
-  // -------------------------------------------------------------------------
-  if (
-    pathname === '/auth' ||
-    pathname.startsWith('/auth/') ||
-    pathname === '/account' ||
-    pathname.startsWith('/account/')
-  ) {
-    return withRid(NextResponse.redirect(new URL('/', request.url)));
-  }
-  // Customer-only API → 410 Gone. NOTE: /api/auth/login stays live (operators use it,
-  // returning 410 for the customer scope itself) and /api/op/auth/* is untouched.
-  if (
-    pathname.startsWith('/api/auth/register') ||
-    (pathname.startsWith('/api/auth/otp') && pathname !== '/api/auth/otp/test-peek') ||
-    pathname.startsWith('/api/auth/forgot-password') ||
-    pathname.startsWith('/api/auth/reset-password') ||
-    pathname.startsWith('/api/auth/refresh') ||
-    pathname.startsWith('/api/account')
-  ) {
-    return withRid(
-      NextResponse.json({ error: 'customer_accounts_disabled' }, { status: 410 }),
-    );
-  }
-
-  // -------------------------------------------------------------------------
   // Layer 1 — Operator forced-redirect guard
   // -------------------------------------------------------------------------
   if (pathname.startsWith('/op/') && !pathname.startsWith(OP_API_AUTH_PREFIX)) {

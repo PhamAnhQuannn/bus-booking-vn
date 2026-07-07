@@ -3,7 +3,7 @@
 /**
  * /auth/forgot-password — AC1 (Issue 008)
  *
- * Step 1: enter phone → POST /api/auth/forgot-password (always 200, no-enum)
+ * Step 1: enter email → POST /api/auth/forgot-password (always 200, no-enum)
  * Step 2: enter OTP + new password → POST /api/auth/reset-password
  *
  * No CSRF token needed for forgot-password POST (pre-auth exemption in proxy.ts).
@@ -19,12 +19,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 
-type Step = 'phone' | 'reset' | 'done';
+type Step = 'email' | 'reset' | 'done';
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
-  const [step, setStep] = useState<Step>('phone');
-  const [phone, setPhone] = useState('');
+  const [step, setStep] = useState<Step>('email');
+  const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -34,13 +34,12 @@ export default function ForgotPasswordPage() {
     setError('');
     setLoading(true);
     const fd = new FormData(e.currentTarget);
-    const rawPhone = fd.get('phone') as string;
+    const rawEmail = fd.get('email') as string;
     try {
-      // pre-auth: no CSRF header required (proxy.ts exempt prefix)
       const res = await fetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: rawPhone }),
+        body: JSON.stringify({ email: rawEmail }),
       });
       const json = (await res.json().catch(() => ({}))) as { retryAfter?: number };
       if (json.retryAfter != null) {
@@ -48,8 +47,7 @@ export default function ForgotPasswordPage() {
         setError(`Vui lòng thử lại sau ${secs} giây.`);
         return;
       }
-      // Always move to reset step (no-enumeration: even non-existent phones appear ok)
-      setPhone(rawPhone);
+      setEmail(rawEmail);
       setStep('reset');
     } catch {
       setError('Lỗi kết nối. Vui lòng thử lại.');
@@ -73,12 +71,10 @@ export default function ForgotPasswordPage() {
       return;
     }
     try {
-      // pre-auth: no CSRF header required (proxy.ts exempt prefix)
-      // Step 2a: verify OTP code → single-use reset_password proof
       const verifyRes = await fetch('/api/auth/forgot-password/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, code }),
+        body: JSON.stringify({ email, code }),
       });
       if (!verifyRes.ok) {
         const json = await verifyRes.json().catch(() => ({}));
@@ -94,7 +90,6 @@ export default function ForgotPasswordPage() {
       }
       const { otpProof } = (await verifyRes.json()) as { otpProof: string };
 
-      // Step 2b: present the proof + new password to reset-password
       const res = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -142,7 +137,7 @@ export default function ForgotPasswordPage() {
       <AuthSplitLayout
         audience="customer"
         title="Đặt lại mật khẩu"
-        subtitle="Nhập mã OTP đã gửi đến số điện thoại của bạn và mật khẩu mới."
+        subtitle="Nhập mã OTP đã gửi đến email của bạn và mật khẩu mới."
       >
         <Card className="shadow-e3">
           <CardContent className="flex flex-col gap-4">
@@ -183,11 +178,11 @@ export default function ForgotPasswordPage() {
               size="sm"
               className="self-start px-0"
               onClick={() => {
-                setStep('phone');
+                setStep('email');
                 setError('');
               }}
             >
-              Dùng số điện thoại khác
+              Dùng email khác
             </Button>
           </CardContent>
         </Card>
@@ -195,19 +190,19 @@ export default function ForgotPasswordPage() {
     );
   }
 
-  // step === 'phone'
+  // step === 'email'
   return (
     <AuthSplitLayout
       audience="customer"
       title="Quên mật khẩu"
-      subtitle="Nhập số điện thoại đã đăng ký. Chúng tôi sẽ gửi mã OTP để đặt lại mật khẩu."
+      subtitle="Nhập email đã đăng ký. Chúng tôi sẽ gửi mã OTP để đặt lại mật khẩu."
     >
       <Card className="shadow-e3">
         <CardContent className="flex flex-col gap-4">
           <form onSubmit={handleRequestOtp} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="phone">Số điện thoại</Label>
-              <Input id="phone" type="tel" name="phone" required placeholder="0901234567" />
+              <Label htmlFor="email">Địa chỉ email</Label>
+              <Input id="email" type="email" name="email" required placeholder="you@example.com" />
             </div>
             {error && (
               <p className="text-sm text-destructive" role="alert" aria-live="assertive">

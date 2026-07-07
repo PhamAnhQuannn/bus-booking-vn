@@ -4,7 +4,7 @@
  * /auth/reset-password — AC1 (Issue 008)
  *
  * Alternative direct URL for password reset (same logic as the reset step in
- * /auth/forgot-password). Accepts `?phone=...` query param pre-filled from
+ * /auth/forgot-password). Accepts `?email=...` query param pre-filled from
  * the forgot-password flow, or the user can enter it manually.
  *
  * No CSRF required — /api/auth/reset-password is pre-auth exempted in proxy.ts.
@@ -20,7 +20,6 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 
 export default function ResetPasswordPage() {
-  // useSearchParams() requires a Suspense boundary for static prerender (Next 16).
   return (
     <Suspense fallback={null}>
       <ResetPasswordPageInner />
@@ -31,7 +30,7 @@ export default function ResetPasswordPage() {
 function ResetPasswordPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const prefillPhone = searchParams.get('phone') ?? '';
+  const prefillEmail = searchParams.get('email') ?? '';
 
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
@@ -42,7 +41,7 @@ function ResetPasswordPageInner() {
     setError('');
     setLoading(true);
     const fd = new FormData(e.currentTarget);
-    const phone = fd.get('phone') as string;
+    const email = fd.get('email') as string;
     const code = fd.get('code') as string;
     const newPassword = fd.get('newPassword') as string;
     const confirmPassword = fd.get('confirmPassword') as string;
@@ -54,11 +53,10 @@ function ResetPasswordPageInner() {
     }
 
     try {
-      // Step 1: verify OTP code → single-use reset_password proof
       const verifyRes = await fetch('/api/auth/forgot-password/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, code }),
+        body: JSON.stringify({ email, code }),
       });
       if (!verifyRes.ok) {
         const vjson = await verifyRes.json().catch(() => ({}));
@@ -74,7 +72,6 @@ function ResetPasswordPageInner() {
       }
       const { otpProof } = (await verifyRes.json()) as { otpProof: string };
 
-      // Step 2: present proof + new password
       const res = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -125,14 +122,14 @@ function ResetPasswordPageInner() {
         <CardContent className="flex flex-col gap-4">
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="phone">Số điện thoại</Label>
+              <Label htmlFor="email">Địa chỉ email</Label>
               <Input
-                id="phone"
-                type="tel"
-                name="phone"
+                id="email"
+                type="email"
+                name="email"
                 required
-                defaultValue={prefillPhone}
-                placeholder="0901234567"
+                defaultValue={prefillEmail}
+                placeholder="you@example.com"
               />
             </div>
             <div className="flex flex-col gap-1.5">
