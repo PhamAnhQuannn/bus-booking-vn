@@ -54,6 +54,7 @@
 | `/op/kyb` | KYB verification |
 | `/op/activity` | Activity feed |
 | `/op/pickup-areas` | Pickup/dropoff points |
+<!-- Phase 2 (deferred): trigger = 4 operators onboarded -->
 | `/op/trip-templates` | Trip template library |
 | `/op/upcoming` | All upcoming trips |
 | `/op/status` | Operator status |

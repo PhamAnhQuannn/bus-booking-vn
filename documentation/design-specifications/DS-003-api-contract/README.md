@@ -804,6 +804,8 @@ Passenger manifest for trip. Returns list of bookings with: passenger name, phon
 
 ### 7.6 Pickup Area Management
 
+> **Phase 2 (deferred)**: Pickup area management APIs deferred to post-launch (trigger: 4 operators onboarded). Phase 1 = station-only pickup.
+
 #### `POST /api/op/pickup-areas`
 
 Create named pickup/station point.

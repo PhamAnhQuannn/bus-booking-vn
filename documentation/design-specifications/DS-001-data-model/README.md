@@ -217,6 +217,8 @@ This document is the authoritative data model reference for the BusBooking platf
 
 **Note:** Place is GLOBAL (not operator-scoped). Functional GIN index `trip_route_unaccent_idx` on Route (not Place) uses `unaccent_immutable(lower(...))` for Vietnamese diacritic-insensitive search.
 
+> **Phase 2 (deferred)**: Pickup area entities (`OperatorPickupArea`, `TripPickupArea`, `TemplatePickupArea`, `RoutePickupArea`), `PickupPlaceKind`/`PickupKind` enums, and Hold/Booking pickup fields are deferred to post-launch (trigger: 4 operators). Phase 1 defaults all bookings to `pickupKind = 'station'`.
+
 #### OperatorPickupArea
 
 | Column | Prisma Type | Nullable | Default | Constraints / Notes |

@@ -34,6 +34,8 @@ Trip card [Dat ve] click
 
 ### 1.3 Pickup Selection (Pre-Hold)
 
+> **Phase 2 (deferred)**: Pickup selection UI deferred to post-launch (trigger: 4 operators). Phase 1 = station-only.
+
 | `PickupKind` | Vietnamese Label | UI |
 |--------------|------------------|-----|
 | `station` | "Ben xe" | Default option. No additional input required |

@@ -112,7 +112,7 @@ Pick any channel:
 SmsType `"2"` (brandname CSKH/OTP) requires pre-approved message templates with each carrier.
 
 1. While contacting sales for brandname (Step 5), also request template registration
-2. Provide your OTP template text:
+2. Provide your OTP template text (used for **operator** password reset OTP only — customer OTP now uses email, see `10-setup-resend.md`):
    ```
    BusBookVN: Ma xac thuc cua ban la {OTP}. Het han sau {X} phut. Khong chia se ma nay.
    ```
@@ -155,11 +155,11 @@ SmsType `"2"` (brandname CSKH/OTP) requires pre-approved message templates with 
    ESMS_BASE_URL="https://rest.esms.vn"
    ```
 2. Deploy or restart server
-3. All 3 OTP flows automatically route through real eSMS:
-   - Customer login/register OTP (`POST /api/auth/otp/send`)
-   - Operator password reset OTP (`POST /api/op/auth/forgot-password`)
-   - Customer account management OTP (password reset, phone change)
-4. All booking notification SMS (confirmation, reminder, expiry) also route through eSMS
+3. The following SMS flows route through real eSMS:
+   - Operator password reset OTP (`POST /api/op/auth/forgot-password`) — SMS via eSMS
+   - Booking notification SMS: confirmation, reminder (24h), expiry — SMS via eSMS
+   - Staff/operator temp password SMS (`staffTempPassword`, `operatorAdminTempPassword`)
+4. Customer OTP flows (`POST /api/auth/otp/send`, password reset, account management) now use **email** (Resend/stub), not SMS — see `10-setup-resend.md`
 5. Monitor logs:
    - `sms.esms.sent` — successful dispatch (CodeResult 100)
    - `sms.esms.rejected` — eSMS rejected the request (check CodeResult)
@@ -304,8 +304,8 @@ Bus-Booking does NOT use this because the codebase has its own OTP generation, h
 | `lib/notification/esmsClient.ts` | eSMS HTTP client (POST to SendMultipleMessage_V4) |
 | `lib/notification/esms.ts` | Stub/real router, SMS template renderer, test OTP sink |
 | `lib/auth/otp.ts` | OTP generation, hashing, timing-safe verification, consumption |
-| `lib/auth/sendOtp.ts` | Customer OTP send with rate limiting (3 per 15 min) |
+| `lib/auth/sendOtp.ts` | Customer OTP send via **email** (migrated from SMS — commit `686ec85`) |
 | `lib/auth/operatorOtp.ts` | Operator password-reset OTP with lockout sentinel |
-| `lib/account/customerOtp.ts` | Customer account OTP (password reset, phone change) |
+| `lib/account/customerOtp.ts` | Customer account OTP via **email** (password reset) — no longer SMS |
 | `lib/config/env.ts` | Environment validation (superRefine enforces ESMS_* creds when NOTIFY_STUB=false) |
 | `.env.example` | All eSMS environment variables documented (lines 87-100) |

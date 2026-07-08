@@ -126,7 +126,7 @@ Guard: `checkedInAt IS NULL` (mutually exclusive with check-in). Sets `noShowAt=
 |------|------|----------------|-------|
 | Login | `/op/login` | Phone input (+84 format), OTP verification (6-digit), first-login password change | Same flow as operator admin |
 | Staff Dashboard | `/op/dashboard` (staff view) | Today's assigned trips only (no stat cards, no revenue/balance, no quick actions, no onboarding checklist) | Trip cards: route, bus plate, departure time, seat count, status badge |
-| Manifest | `/op/manifest/[tripId]` | Passenger list (status icon, name, pickup, payment badge), boarding counter (`{checkedIn}/{total} da len xe`), progress bar, refresh button, PDF download | 56px min row height, high contrast, offline-resilient |
+| Manifest | `/op/manifest/[tripId]` | Passenger list (status icon, name, pickup (Phase 2 — station-only in Phase 1), payment badge), boarding counter (`{checkedIn}/{total} da len xe`), progress bar, refresh button, PDF download | 56px min row height, high contrast, offline-resilient |
 | Check-in | (on manifest) | Tap empty circle -> immediate optimistic green CheckCircle -> background POST -> atomic conditional update | Network error: revert to empty circle, toast "Khong the xac nhan. Thu lai." |
 | No-show | (on manifest) | Long-press (500ms) -> confirmation dialog -> XCircle (red) + strikethrough | |
 | Trip Actions | (sticky footer on manifest) | `scheduled`: "Xe da khoi hanh" (orange); `departed`: "Hoan thanh chuyen" (green); `completed`/`cancelled`: no button | Full-width, confirmation dialog required |

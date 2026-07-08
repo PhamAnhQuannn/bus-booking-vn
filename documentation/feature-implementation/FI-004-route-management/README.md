@@ -15,6 +15,8 @@ FI-004 covers operator-facing tools for defining and managing bus routes -- the 
 - CRUD for `Route` records (origin, destination, durationMinutes, optional Place links)
 - Route soft-deactivation by operator (`deactivatedAt`)
 - Route soft-hide by admin (`moderatedAt`) -- platform-level kill switch
+> **Phase 2 (deferred)**: Pickup area association + pickup API endpoints deferred to post-launch (trigger: 4 operators). Phase 1 = station-only.
+
 - Associating `OperatorPickupArea` records to a Route via `RoutePickupArea` (live link, not snapshot)
 - `Place` lookup (read-only from operator perspective -- Places are admin-managed global registry)
 - Diacritics-insensitive route search (GIN index on `unaccent_immutable(lower(origin))` and `unaccent_immutable(lower(destination))`)

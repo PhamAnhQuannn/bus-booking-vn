@@ -109,6 +109,8 @@ Frontend UX specification for the pre-booking search funnel: search form, result
 | Bus type | `Bus.busType` | Badge with label (see table below) |
 | Amenity badges | Per bus configuration | Small icons with tooltips |
 | Pickup type | `PickupKind` indicator | Icon: station / pickup point / custom |
+
+> **Phase 2 (deferred)**: Pickup type indicator deferred to post-launch (trigger: 4 operators). Phase 1 = station-only.
 | Price | `Trip.price` (VND integer, server-derived) | Formatted: `350.000 d` (dot thousands separator, dong symbol) |
 | Available seats | Computed: `capacity - holds - bookings` | "Con {n} cho" (n seats left) |
 | CTA | "Dat ve" (Book ticket) | Primary button, links to hold creation |

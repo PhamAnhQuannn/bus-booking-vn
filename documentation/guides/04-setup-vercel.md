@@ -79,6 +79,7 @@ Why `sin1`: lowest latency to Vietnam users, same region as Neon DB (ap-southeas
 | `BANK_ENCRYPTION_KEY` | Generate | Same command, fresh value |
 | `TICKET_SECRET` | Generate | `node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"` |
 | `CRON_SECRET` | Generate | Same as TICKET_SECRET |
+| `STORAGE_STUB_SECRET` | Generate | Same as TICKET_SECRET |
 | `SEPAY_API_KEY` | SePay dashboard | See `setup-sepay.md` |
 | `VIETQR_ACCOUNT_NUMBER` | SePay dashboard | See `setup-sepay.md` |
 | `VIETQR_BANK_BIN` | Literal | `970405` (Agribank) |
@@ -91,9 +92,12 @@ Why `sin1`: lowest latency to Vietnam users, same region as Neon DB (ap-southeas
 | `PAYMENTS_STUB` | `false` | Real SePay payments |
 | `NOTIFY_STUB` | `false` | Real eSMS (or `true` to defer SMS) |
 | `STORAGE_STUB` | `true` | R2 deferred to Phase 2 |
+| `VNPAY_ENABLED` | `false` | VNPay disabled (Phase 1 = bank transfer only) |
 | `EINVOICE_ENABLED` | `stub` | MISA deferred to Phase 2 |
 | `HOLD_SWEEPER_MODE` | `update` | Active hold expiry |
 | `SEARCH_USE_BLOCKED_SEATS` | `true` | Live seat blocking |
+
+> **Phase 2 vars (not needed at launch):** `EMAIL_PROVIDER`, `RESEND_API_KEY`, `EMAIL_FROM` — required when customer authentication via email OTP is enabled. See `10-setup-resend.md`.
 
 5. **NEVER set in production:**
    - `OTP_PEEK_ENABLED` — must be absent or `false`
