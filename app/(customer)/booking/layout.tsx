@@ -10,13 +10,13 @@
  * guard. The token in the URL is itself the access key.
  */
 
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useBookingStore } from '@/lib/state';
 
 const TOKEN_LANDING_PREFIXES = ['/booking/confirmation', '/booking/result', '/booking/bank-transfer'];
 
-export default function BookingLayout({ children }: { children: React.ReactNode }) {
+function BookingGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -35,4 +35,12 @@ export default function BookingLayout({ children }: { children: React.ReactNode 
   if (!isTokenLanding && !hasTripParam && !tripId) return null;
 
   return <>{children}</>;
+}
+
+export default function BookingLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense>
+      <BookingGuard>{children}</BookingGuard>
+    </Suspense>
+  );
 }
