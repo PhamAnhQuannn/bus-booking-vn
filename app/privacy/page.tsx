@@ -47,7 +47,7 @@ export default function PrivacyPage() {
         <h2 className="text-lg font-semibold">3. Mục đích sử dụng</h2>
         <ul className="list-disc pl-6 text-sm leading-relaxed">
           <li>Xử lý và xác nhận đặt vé xe khách.</li>
-          <li>Gửi thông báo qua SMS (xác thực OTP, xác nhận vé, nhắc nhở chuyến đi).</li>
+          <li>Gửi thông báo qua email (xác nhận vé, nhắc nhở chuyến đi).</li>
           <li>Hỗ trợ khách hàng và giải quyết tranh chấp.</li>
           <li>Cải thiện chất lượng dịch vụ và phát hiện gian lận.</li>
         </ul>

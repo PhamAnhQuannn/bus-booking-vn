@@ -34,7 +34,7 @@ export default function OgImage() {
         <div style={{ fontSize: 44, fontWeight: 600, opacity: 0.95 }}>
           Đặt vé xe khách liên tỉnh
         </div>
-        <div style={{ fontSize: 30, opacity: 0.85 }}>Tìm chuyến · Đặt vé · Xác nhận qua SMS</div>
+        <div style={{ fontSize: 30, opacity: 0.85 }}>Tìm chuyến · Đặt vé · Xác nhận qua email</div>
       </div>
     ),
     { ...size },
