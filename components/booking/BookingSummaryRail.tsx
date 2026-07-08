@@ -70,7 +70,7 @@ export function BookingSummaryRail({ summary }: { summary: BookingSummary }) {
 
       <p className="inline-flex items-start gap-1.5 border-t border-border/60 pt-3 text-xs text-muted-foreground">
         <ShieldCheck className="mt-0.5 size-4 shrink-0 text-success-foreground" aria-hidden="true" />
-        Nhà xe gọi xác nhận giờ đón &amp; chỗ ngồi qua SMS sau khi đặt.
+        Nhà xe xác nhận giờ đón &amp; chỗ ngồi qua email sau khi đặt.
       </p>
     </aside>
   );

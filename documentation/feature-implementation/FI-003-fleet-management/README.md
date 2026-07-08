@@ -14,6 +14,7 @@ FI-003 covers the operator-facing tools for managing the physical supply side of
 
 - CRUD for `Bus` records (licensePlate, capacity, busType, deactivatedAt, maintenance windows)
 - CRUD for `BusMaintenance` records (structured maintenance window history)
+> **Phase 2 (deferred)**: Pickup area CRUD deferred to post-launch (trigger: 4 operators). Phase 1 = station-only.
 - CRUD for `OperatorPickupArea` records (named station and door-to-door pickup points, GSO province/district/ward codes)
 - Soft-deactivation of buses
 - Capacity-reduction guard enforced at edit time

@@ -3,6 +3,8 @@
 Configure Sentry for real-time error monitoring and alerting. Code integration: not yet installed (`@sentry/nextjs` SDK deferred). This guide covers account setup and DSN provisioning. Env vars: `SENTRY_DSN` (planned), `SENTRY_AUTH_TOKEN` (for source maps, planned).
 
 > **Note:** Sentry SDK (`@sentry/nextjs`) is not yet installed in the codebase. This guide covers vendor-side account setup only. SDK integration will be added in a future hardening pass (HD-001/GL-002 scope).
+>
+> **Phase 1 status:** Explicitly deferred per GL-006. Phase 1 uses stdout JSON logs + manual checks. Activate when monthly bookings exceed 1,000 (see GL-006 Phase 2 Triggers).
 
 ---
 

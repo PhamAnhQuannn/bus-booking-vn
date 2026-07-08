@@ -260,6 +260,8 @@ Key multi-tenancy constraints driving decisions (sourced from `documentation/bus
 
 ### 13. Place/Location Model — Global Registry + Operator-Scoped Pickup Areas
 
+> **Phase 2 (deferred)**: Operator-scoped pickup areas (`OperatorPickupArea`, `PickupPlaceKind`, `PickupKind` enums) deferred to post-launch (trigger: 4 operators). Phase 1 defaults `pickupKind = 'station'`.
+
 | Option | Description | Search impact |
 |--------|-------------|---------------|
 | Operator-scoped places | Each operator defines own location names | Customer search fragmented — "Da Lat" has N different spellings across N operators |

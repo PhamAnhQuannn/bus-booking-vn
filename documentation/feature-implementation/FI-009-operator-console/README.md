@@ -14,6 +14,8 @@ The Operator Console is the primary multi-tenant management portal for bus opera
 
 - Bus/route/trip CRUD with maintenance window and bus overlap guards
 - Recurring trip template management (daily cron generates trips for 14-day horizon)
+> **Phase 2 (deferred)**: Pickup area management deferred to post-launch (trigger: 4 operators). Phase 1 = station-only.
+
 - Pickup area management (station/pickup kinds, deactivate-not-delete)
 - Booking manifest view with phone masking (last 4 digits)
 - Booking check-in (SET-ONCE atomic), no-show marking, contact status tracking

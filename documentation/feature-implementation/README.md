@@ -9,7 +9,7 @@
 | 1 | [FI-001: Core Auth](FI-001-core-auth/README.md) | Customer OTP, Operator password, Admin TOTP authentication | ADR-003, ADR-008, DS-001, FD-012 |
 | 2 | [FI-002: Operator Onboarding](FI-002-operator-onboarding/README.md) | KYB pipeline, operator approval lifecycle, document upload | ADR-004, ADR-014, DS-001, FD-021 |
 | 3 | [FI-003: Fleet Management](FI-003-fleet-management/README.md) | Bus CRUD, maintenance windows, capacity management | ADR-004, ADR-009, DS-001, FD-022 |
-| 4 | [FI-004: Route Management](FI-004-route-management/README.md) | Route CRUD, pickup/dropoff points, paired returns | ADR-004, DS-001, FD-022 |
+| 4 | [FI-004: Route Management](FI-004-route-management/README.md) | Route CRUD, pickup/dropoff points, paired returns (pickup areas deferred to Phase 2, trigger: 4 operators) | ADR-004, DS-001, FD-022 |
 | 5 | [FI-005: Trip Management](FI-005-trip-management/README.md) | Trip CRUD, departure/completion lifecycle, bus assignment | ADR-009, ADR-019, DS-001, FD-022 |
 | 6 | [FI-006: Search & Discovery](FI-006-search-discovery/README.md) | Public search API, availability, filters, SEO | ADR-011, DS-001, DS-003, FD-013 |
 | 7 | [FI-007: Booking Flow](FI-007-booking-flow/README.md) | Hold -> Book -> Pay -> Confirm lifecycle, concurrency guards | ADR-009, ADR-010, DS-001, FD-014/016/017 |

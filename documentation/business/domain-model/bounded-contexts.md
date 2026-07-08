@@ -51,6 +51,7 @@ Operator-owned supply side: vehicles, routes, trips, pickup areas, recurring sch
 
 | Layer | Artifacts |
 |-------|-----------|
+<!-- Phase 2: Pickup area models deferred to post-launch (trigger: 4 operators). Phase 1 = station-only. -->
 | Models | `Operator`, `Bus`, `BusMaintenance`, `Route`, `Place`, `Trip`, `RecurringTripTemplate`, `RecurringGenerationLog`, `OperatorPickupArea`, `TripPickupArea`, `TemplatePickupArea`, `RoutePickupArea` |
 | Services | `lib/trips/createTrip.ts`, `lib/trips/cancelTrip.ts`, `lib/trips/markDeparted.ts`, `lib/trips/markCompleted.ts`, `lib/trips/completeTripCore.ts`, `lib/trips/searchTrips.ts`, `lib/trips/generateFromTemplate.ts`, `lib/trips/reassignBus.ts`, `lib/trips/salesToggle.ts`, `lib/trips/busOverlap.ts`, `lib/trips/toTripDto.ts` |
 | Operator approval | `lib/onboarding/operatorStatus.ts`, `lib/onboarding/operatorCapabilities.ts` |

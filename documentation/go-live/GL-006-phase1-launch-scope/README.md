@@ -30,7 +30,7 @@ Split-settlement (DS-009) becomes relevant only when adding **external** operato
 |-----|-------|--------|
 | ADR-001 Stack | IN-SCOPE | Core stack unchanged |
 | ADR-002 NFR Targets | PARTIAL | Target 99.5% uptime + basic latency. Tet surge (2,000 concurrent) deferred |
-| ADR-003 Auth | PARTIAL | Customer OTP + operator password auth. Admin TOTP MFA deferred (family = admin) |
+| ADR-003 Auth | PARTIAL | Operator password auth + admin TOTP only. Customer auth deferred to Phase 2 (proxy 410 gate active) |
 | ADR-004 Multi-Tenancy | PARTIAL | `withOperatorScope` stays for data isolation. Per-operator fee override unused (single operator) |
 | ADR-005 Payment | PARTIAL | Bank transfer + cash only. Split-settlement, MoMo, VNPay all deferred |
 | ADR-006 Pricing | PARTIAL | Trip pricing active. Commission can be 0% for family operator. Tax withholding deferred |
@@ -40,7 +40,7 @@ Split-settlement (DS-009) becomes relevant only when adding **external** operato
 | ADR-010 Booking Lifecycle | IN-SCOPE | Core domain — hold → book → pay → confirm |
 | ADR-011 Search | IN-SCOPE | SSR search + real-time availability |
 | ADR-012 Background Jobs | PARTIAL | Hold expiry, notification dispatch, sales close. E-invoice/PII sweepers deferred |
-| ADR-013 Notifications | PARTIAL | eSMS for OTP + booking confirmation. ZNS, brandname SMS deferred |
+| ADR-013 Notifications | PARTIAL | eSMS for operator OTP + booking SMS. Customer OTP via email (Resend, Phase 2). ZNS, brandname SMS deferred |
 | ADR-014 E-Invoice | DEFERRED | Not needed for family operator. Activate when ERC + tax registration complete |
 | ADR-015 Error Contract | IN-SCOPE | Standard error shape for API |
 | ADR-016 Module Boundaries | IN-SCOPE | Code hygiene, barrel imports |
@@ -115,8 +115,9 @@ Simplified from GL-001. Only items that apply to family operator + bank transfer
 ### Notifications
 
 - [ ] eSMS production API key configured
-- [ ] OTP SMS delivery working
+- [ ] Operator OTP SMS delivery working
 - [ ] Booking confirmation SMS working
+- [ ] Customer OTP: N/A (auth 410-gated; Resend needed for Phase 2)
 
 ### Data
 
@@ -126,10 +127,11 @@ Simplified from GL-001. Only items that apply to family operator + bank transfer
 
 ### Cron Jobs
 
-- [ ] Hold expiry sweep (10-min TTL)
-- [ ] Notification dispatch
-- [ ] Sales close (pre-departure cutoff)
-- [ ] Supercronic sidecar running (`TZ=Asia/Ho_Chi_Minh`)
+- [ ] Vercel Cron jobs configured (11 endpoints in `vercel.json`)
+- [ ] Hold expiry sweep running (10-min TTL)
+- [ ] Notification dispatch running
+- [ ] Sales close running (pre-departure cutoff)
+- [ ] FPT Cloud backup: Supercronic sidecar validated (only if using Docker deployment)
 
 ### Smoke Tests
 
@@ -149,6 +151,7 @@ These GL-001 checklist items do not apply to Phase 1 family operator:
 | Payment collection model legal clearance | Family = same entity, no thu hộ chi hộ |
 | Admin reconciliation dashboard (~5% memo mismatch) | Handle manually for low volume |
 | Payment anomaly alerting | Low volume, manual monitoring sufficient |
+| Pickup areas (personal pickup destinations) | Station-only in Phase 1. Feature activates at 4 operators (#244-#253) |
 | eSMS brandname approval (5-10 weeks) | Use generic sender for Phase 1; brandname for Phase 2 |
 | DPO appointment | < 10k users, defer |
 | DPA with processors | Family operation, minimal processor relationships |
@@ -174,6 +177,7 @@ Activate deferred specs when these conditions are met:
 | > 1,000 monthly bookings | ADR-007 full observability (BetterStack + Sentry), HD-006/009 audits |
 | > 10,000 registered users | DS-015 DSAR/privacy, DPO appointment, PII anonymization cron |
 | MoMo/VNPay integration | DS-005 full webhook pipeline, DS-010 chargebacks, DS-007 PSP refunds |
+| 4 operators onboarded | Pickup areas feature (PICKUP-01..10, #244-#253). Phase 1 = station-only |
 | > 10 operators | DS-016 promotions, brandname SMS, admin reconciliation dashboard |
 
 ## Cross-References

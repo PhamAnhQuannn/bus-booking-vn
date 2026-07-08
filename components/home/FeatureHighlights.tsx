@@ -37,7 +37,7 @@ const FEATURES: Feature[] = [
     slug: 'support',
     title: 'Hỗ trợ 24/7',
     tagline: 'Tổng đài và hỗ trợ trực tuyến mọi lúc, kể cả ngày lễ.',
-    details: ['Tổng đài 24/7', 'Dịch vụ tận tình chu đáo', 'Xác nhận tức thì qua SMS'],
+    details: ['Tổng đài 24/7', 'Dịch vụ tận tình chu đáo', 'Xác nhận tức thì qua email'],
   },
 ];
 

@@ -32,7 +32,7 @@ Comprehensive reference for the Bus-Booking platform. Last updated: 2026-06-21.
 | 06 | [06-lib-core.md](06-lib-core.md) | lib/core/ (db, validation, logger, config) | lib/core/, lib/config/, lib/utils/ |
 | 07 | [07-lib-auth.md](07-lib-auth.md) | 3-realm auth, JWT, OTP, CSRF, sessions | lib/auth/ |
 | 08 | [08-lib-booking.md](08-lib-booking.md) | Holds, bookings, DTOs, transitions | lib/booking/ |
-| 09 | [09-lib-catalog.md](09-lib-catalog.md) | Buses, routes, pickup areas, capacity | lib/catalog/ |
+| 09 | [09-lib-catalog.md](09-lib-catalog.md) | Buses, routes, pickup areas (Phase 2), capacity | lib/catalog/ |
 | 10 | [10-lib-trips.md](10-lib-trips.md) | Trip CRUD, lifecycle, search, templates | lib/trips/ |
 | 11 | [11-lib-ledger.md](11-lib-ledger.md) | Revenue, payouts, fees, refunds, BigInt math | lib/ledger/ |
 | 12 | [12-lib-admin.md](12-lib-admin.md) | Operator mgmt, moderation, audit | lib/admin/ |

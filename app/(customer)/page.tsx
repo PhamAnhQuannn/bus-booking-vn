@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { preload } from 'react-dom';
-import { Wallet, ShieldCheck, Bus } from 'lucide-react';
+import { Banknote, ShieldCheck, Bus } from 'lucide-react';
 import { SearchFormWrapper } from '@/components/search/SearchFormWrapper';
 import { FeatureHighlights } from '@/components/home/FeatureHighlights';
 import { PopularTrips } from '@/components/home/PopularTrips';
@@ -21,8 +21,8 @@ export const metadata: Metadata = {
 };
 
 const TRUST = [
-  { icon: Wallet, title: 'MoMo · ZaloPay · Thẻ' },
-  { icon: ShieldCheck, title: 'Xác nhận qua SMS' },
+  { icon: Banknote, title: 'Chuyển khoản · Tiền mặt' },
+  { icon: ShieldCheck, title: 'Xác nhận qua email' },
   { icon: Bus, title: 'Nhiều nhà xe' },
 ];
 

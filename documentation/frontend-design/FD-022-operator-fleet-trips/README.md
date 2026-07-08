@@ -360,6 +360,8 @@ After creating a template, a 14-day preview calendar shows generated trips:
 | TT (Thanh toán) | Payment status | `booking.status` | Badge: ✓ TT (paid) / ○ CT (awaiting) |
 | Thao tác | Action buttons | -- | Check-in / No-show |
 
+> **Phase 2 (deferred)**: Pickup column in manifest deferred to post-launch (trigger: 4 operators). Phase 1 = station-only.
+
 **Phone masking**: Only the last 4 digits are shown to the operator. Full phone numbers are not exposed in the manifest UI (privacy by design, PII minimization).
 
 ### 6.4 Check-In Action

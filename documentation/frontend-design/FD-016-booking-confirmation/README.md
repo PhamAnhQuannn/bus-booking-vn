@@ -117,6 +117,8 @@ After returning from a PSP redirect (MoMo app, VNPay portal), the browser lands 
 | Ticket count | `Booking.ticketCount` | "2 ve" |
 | Ticket PDF download | `Booking.ticketPdfKey` | CTA: "Tai ve PDF" -- available when PDF generated (async cron) |
 
+> **Phase 2 (deferred)**: Pickup instructions display deferred to post-launch (trigger: 4 operators). Phase 1 shows station name only.
+
 ### 2.4 QR Code for Boarding
 
 | Property | Specification |
