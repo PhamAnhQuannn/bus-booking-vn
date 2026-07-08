@@ -29,7 +29,7 @@ const linkClass =
 
 export function SiteFooter() {
   const pathname = usePathname();
-  if (pathname.startsWith('/op') || pathname.startsWith('/dev') || pathname.startsWith('/auth'))
+  if (pathname.startsWith('/op') || pathname.startsWith('/dev') || pathname.startsWith('/auth') || pathname.startsWith('/admin'))
     return null;
 
   const year = new Date().getFullYear();
