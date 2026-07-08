@@ -2,7 +2,9 @@
 
 Configure Resend for booking confirmations, ticket delivery, OTP codes, and operator notifications via email. Code integration: `lib/notification/email.ts`. Env vars: `EMAIL_PROVIDER`, `RESEND_API_KEY`, `EMAIL_FROM`.
 
-> **Phase 1 status:** Stub mode — guest booking only, no customer sign-in requires email. `EMAIL_PROVIDER="stub"` logs email only. **Phase 2 (customer auth):** Required — customer OTP login/register uses email (commit `686ec85`). Set `EMAIL_PROVIDER="resend"` when customer authentication is enabled.
+> **Phase 1 status:** Deferred — customer auth is 410-gated, so no customer OTP emails are sent. `EMAIL_PROVIDER="stub"` logs email only. Guest booking does not require email delivery.
+>
+> **Phase 2 (customer auth):** **Immediately required** when the 410 gate is lifted. Customer OTP login/register uses email (commit `686ec85`). Set `EMAIL_PROVIDER="resend"` and provision API key before enabling customer authentication.
 
 > **CDTIA note:** Resend is a US-based service. Sending transactional email through Resend constitutes cross-border data transfer (email addresses, customer names). CDTIA filing covers this — see `cdtia-data-residency-guide.md`.
 

@@ -40,7 +40,7 @@ Split-settlement (DS-009) becomes relevant only when adding **external** operato
 | ADR-010 Booking Lifecycle | IN-SCOPE | Core domain — hold → book → pay → confirm |
 | ADR-011 Search | IN-SCOPE | SSR search + real-time availability |
 | ADR-012 Background Jobs | PARTIAL | Hold expiry, notification dispatch, sales close. E-invoice/PII sweepers deferred |
-| ADR-013 Notifications | PARTIAL | eSMS for OTP + booking confirmation. ZNS, brandname SMS deferred |
+| ADR-013 Notifications | PARTIAL | eSMS for operator OTP + booking SMS. Customer OTP via email (Resend, Phase 2). ZNS, brandname SMS deferred |
 | ADR-014 E-Invoice | DEFERRED | Not needed for family operator. Activate when ERC + tax registration complete |
 | ADR-015 Error Contract | IN-SCOPE | Standard error shape for API |
 | ADR-016 Module Boundaries | IN-SCOPE | Code hygiene, barrel imports |
@@ -115,8 +115,9 @@ Simplified from GL-001. Only items that apply to family operator + bank transfer
 ### Notifications
 
 - [ ] eSMS production API key configured
-- [ ] OTP SMS delivery working
+- [ ] Operator OTP SMS delivery working
 - [ ] Booking confirmation SMS working
+- [ ] Customer OTP: N/A (auth 410-gated; Resend needed for Phase 2)
 
 ### Data
 
@@ -126,10 +127,11 @@ Simplified from GL-001. Only items that apply to family operator + bank transfer
 
 ### Cron Jobs
 
-- [ ] Hold expiry sweep (10-min TTL)
-- [ ] Notification dispatch
-- [ ] Sales close (pre-departure cutoff)
-- [ ] Supercronic sidecar running (`TZ=Asia/Ho_Chi_Minh`)
+- [ ] Vercel Cron jobs configured (11 endpoints in `vercel.json`)
+- [ ] Hold expiry sweep running (10-min TTL)
+- [ ] Notification dispatch running
+- [ ] Sales close running (pre-departure cutoff)
+- [ ] FPT Cloud backup: Supercronic sidecar validated (only if using Docker deployment)
 
 ### Smoke Tests
 

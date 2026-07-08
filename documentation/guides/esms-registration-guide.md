@@ -1,6 +1,9 @@
 # eSMS.vn — Registration & Activation Guide
 
-Operational guide for setting up eSMS.vn as the SMS/OTP provider for Bus-Booking. The codebase integration is already complete (`lib/notification/esmsClient.ts` + `lib/notification/esms.ts`). This document covers account registration, credential setup, sandbox testing, brandname registration, and go-live.
+Operational guide for setting up eSMS.vn as the SMS notification provider (operator OTP + booking confirmations) for Bus-Booking. The codebase integration is already complete (`lib/notification/esmsClient.ts` + `lib/notification/esms.ts`). This document covers account registration, credential setup, sandbox testing, brandname registration, and go-live.
+
+> **Phase 1 role:** Operator OTP via SMS + booking confirmation SMS to passengers.
+> Customer OTP uses email (Resend) since commit `686ec85`. Customer auth is 410-gated in Phase 1 — eSMS is not used for customer OTP.
 
 ---
 

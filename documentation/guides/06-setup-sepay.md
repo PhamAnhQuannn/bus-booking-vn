@@ -2,6 +2,8 @@
 
 Configure SePay for VietQR bank transfer payments. Customers scan QR → transfer to Agribank collection account → SePay webhook notifies app → booking confirmed. Code integration: `lib/payment/adapters/bankTransfer.ts`, `app/api/payments/bank_transfer/webhook/route.ts`. Env vars: `SEPAY_API_KEY`, `VIETQR_ACCOUNT_NUMBER`, `VIETQR_BANK_BIN`.
 
+> **Known Issue (2026-07-08 audit):** The bank transfer page validates `redirectUrl` must be a relative path (`/...`). The stub payment adapter generates absolute URLs (`http://host/booking/result/...`), causing an HTTP 404 status on the bank transfer page. Fix needed in `app/(customer)/booking/bank-transfer/page.tsx:57` before SePay go-live.
+
 ---
 
 ## Prerequisites
