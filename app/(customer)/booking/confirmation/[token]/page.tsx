@@ -16,12 +16,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { CheckCircle2, Phone, CalendarPlus } from 'lucide-react';
+import { CheckCircle2, CalendarPlus } from 'lucide-react';
 import { getBookingByConfirmationToken } from '@/lib/booking';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { TripDetailCard } from '@/components/ticket/TripDetailCard';
+import { BookingSummaryRail } from '@/components/booking/BookingSummaryRail';
 
 // Private, per-booking page reachable only via the token link — never indexed.
 export const metadata: Metadata = {
@@ -98,112 +98,120 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
 
   const { trip } = booking;
 
+  const unitPrice = trip.price;
+
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-8">
-      {/* Success header */}
-      <header className="flex flex-col items-center gap-3 text-center">
-        <span className="flex size-14 items-center justify-center rounded-full bg-success text-success-foreground">
-          <CheckCircle2 className="size-8" aria-hidden="true" />
-        </span>
-        <h1 className="text-2xl font-bold">Đặt vé thành công</h1>
-        <Badge variant={STATUS_VARIANT[booking.status] ?? 'neutral'}>
-          {STATUS_LABEL[booking.status] ?? booking.status}
-        </Badge>
-      </header>
+    <main className="mx-auto flex w-full max-w-3xl flex-col-reverse gap-6 px-4 py-8 md:grid md:grid-cols-[1fr_20rem] md:items-start">
+      <div className="flex flex-col gap-6">
+        {/* Success header */}
+        <header className="flex flex-col items-center gap-3 text-center">
+          <span className="flex size-14 items-center justify-center rounded-full bg-success text-success-foreground">
+            <CheckCircle2 className="size-8" aria-hidden="true" />
+          </span>
+          <h1 className="text-2xl font-bold">Đặt vé thành công</h1>
+          <Badge variant={STATUS_VARIANT[booking.status] ?? 'neutral'}>
+            {STATUS_LABEL[booking.status] ?? booking.status}
+          </Badge>
+        </header>
 
-      {/* Prominent e-ticket ref */}
-      <div className="flex flex-col items-center gap-1 rounded-xl border border-dashed border-primary/40 bg-primary/5 px-4 py-4 text-center">
-        <span className="text-xs uppercase tracking-wide text-muted-foreground">Mã đặt vé</span>
-        <span className="font-mono text-2xl font-bold tracking-widest text-primary">{booking.bookingRef}</span>
-        <a
-          href={buildCalendarHref({
-            ref: booking.bookingRef,
-            origin: trip.route.origin,
-            destination: trip.route.destination,
-            departure: trip.departureAt,
-          })}
-          download={`chuyen-xe-${booking.bookingRef}.ics`}
-          className={buttonVariants({ variant: 'outline', size: 'sm', className: 'mt-2' })}
-        >
-          <CalendarPlus className="size-4" aria-hidden="true" />
-          Thêm vào lịch
-        </a>
-      </div>
-
-      {/* AC5: trip-fact presentation is shared with the /verify boarding page. */}
-      <TripDetailCard
-        origin={trip.route.origin}
-        destination={trip.route.destination}
-        departureAt={trip.departureAt}
-        busPlate={trip.bus.licensePlate}
-        operatorName={trip.bus.operator.legalName}
-      >
-        <div className="flex items-center justify-between gap-4 text-sm">
-          <dt className="inline-flex items-center gap-2 text-muted-foreground">
-            <Phone className="size-4" aria-hidden="true" />
-            Hotline nhà xe
-          </dt>
-          <dd className="text-right">
-            <a href={`tel:${trip.bus.operator.contactPhone}`} className="font-mono text-primary hover:underline">
-              {trip.bus.operator.contactPhone}
-            </a>
-          </dd>
+        {/* Prominent e-ticket ref */}
+        <div className="flex flex-col items-center gap-1 rounded-xl border border-dashed border-primary/40 bg-primary/5 px-4 py-4 text-center">
+          <span className="text-xs uppercase tracking-wide text-muted-foreground">Mã đặt vé</span>
+          <span className="font-mono text-2xl font-bold tracking-widest text-primary">{booking.bookingRef}</span>
+          <a
+            href={buildCalendarHref({
+              ref: booking.bookingRef,
+              origin: trip.route.origin,
+              destination: trip.route.destination,
+              departure: trip.departureAt,
+            })}
+            download={`chuyen-xe-${booking.bookingRef}.ics`}
+            className={buttonVariants({ variant: 'outline', size: 'sm', className: 'mt-2' })}
+          >
+            <CalendarPlus className="size-4" aria-hidden="true" />
+            Thêm vào lịch
+          </a>
         </div>
-      </TripDetailCard>
 
-      <Card>
-        <CardHeader>
-          <CardTitle as="h2">Thông tin đặt vé</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <dl className="flex flex-col gap-2.5 text-sm">
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">Hành khách</dt>
-              <dd>{booking.buyerName}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">Số điện thoại</dt>
-              <dd className="font-mono">{booking.buyerPhone}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">Số vé</dt>
-              <dd>{booking.ticketCount}</dd>
-            </div>
-            <div className="mt-1 flex items-center justify-between border-t border-border pt-3 text-lg font-semibold">
-              <dt>Tổng cộng</dt>
-              <dd className="font-mono text-primary">{formatVND(booking.totalVnd)}</dd>
-            </div>
-          </dl>
-        </CardContent>
-      </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle as="h2">Thông tin đặt vé</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <dl className="flex flex-col gap-2.5 text-sm">
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Hành khách</dt>
+                <dd>{booking.buyerName}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Số điện thoại</dt>
+                <dd className="font-mono">{booking.buyerPhone}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Số vé</dt>
+                <dd>{booking.ticketCount}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Biển số xe</dt>
+                <dd className="font-mono">{trip.bus.licensePlate}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Hotline nhà xe</dt>
+                <dd>
+                  <a href={`tel:${trip.bus.operator.contactPhone}`} className="font-mono text-primary hover:underline">
+                    {trip.bus.operator.contactPhone}
+                  </a>
+                </dd>
+              </div>
+              <div className="mt-1 flex items-center justify-between border-t border-border pt-3 text-lg font-semibold">
+                <dt>Tổng cộng</dt>
+                <dd className="font-mono text-primary">{formatVND(booking.totalVnd)}</dd>
+              </div>
+            </dl>
+          </CardContent>
+        </Card>
 
-      {/* Issue 112: pickup is locked at hold; no self-serve edit. Point travelers to the operator. */}
-      <p className="text-center text-sm text-muted-foreground" data-testid="pickup-edit-hint">
-        Cần đổi điểm đón? Vui lòng liên hệ nhà xe
-        {trip.bus.operator.contactPhone ? (
-          <>
-            {': '}
-            <a
-              href={`tel:${trip.bus.operator.contactPhone}`}
-              className="font-medium text-primary hover:underline"
-            >
-              {trip.bus.operator.contactPhone}
-            </a>
-          </>
-        ) : (
-          '.'
-        )}
-      </p>
+        {/* Issue 112: pickup is locked at hold; no self-serve edit. Point travelers to the operator. */}
+        <p className="text-center text-sm text-muted-foreground" data-testid="pickup-edit-hint">
+          Cần đổi điểm đón? Vui lòng liên hệ nhà xe
+          {trip.bus.operator.contactPhone ? (
+            <>
+              {': '}
+              <a
+                href={`tel:${trip.bus.operator.contactPhone}`}
+                className="font-medium text-primary hover:underline"
+              >
+                {trip.bus.operator.contactPhone}
+              </a>
+            </>
+          ) : (
+            '.'
+          )}
+        </p>
 
-      {/* Forward CTAs — no post-payment dead-end. */}
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <Link href="/" className={buttonVariants({ variant: 'default', className: 'flex-1' })}>
-          Về trang chủ
-        </Link>
-        <Link href="/search" className={buttonVariants({ variant: 'outline', className: 'flex-1' })}>
-          Tìm chuyến khác
-        </Link>
+        {/* Forward CTAs — no post-payment dead-end. */}
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Link href="/" className={buttonVariants({ variant: 'default', className: 'flex-1' })}>
+            Về trang chủ
+          </Link>
+          <Link href="/search" className={buttonVariants({ variant: 'outline', className: 'flex-1' })}>
+            Tìm chuyến khác
+          </Link>
+        </div>
       </div>
+
+      <BookingSummaryRail
+        showHoldTimer={false}
+        summary={{
+          routeOrigin: trip.route.origin,
+          routeDestination: trip.route.destination,
+          departureAt: trip.departureAt.toISOString(),
+          operatorLegalName: trip.bus.operator.legalName,
+          ticketCount: booking.ticketCount,
+          unitPriceVND: unitPrice,
+          totalVND: booking.totalVnd,
+        }}
+      />
     </main>
   );
 }

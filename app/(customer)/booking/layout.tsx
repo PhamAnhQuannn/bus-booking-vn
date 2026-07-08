@@ -11,7 +11,7 @@
  */
 
 import { useEffect } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useBookingStore } from '@/lib/state';
 
 const TOKEN_LANDING_PREFIXES = ['/booking/confirmation', '/booking/result', '/booking/bank-transfer'];
@@ -19,18 +19,20 @@ const TOKEN_LANDING_PREFIXES = ['/booking/confirmation', '/booking/result', '/bo
 export default function BookingLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const tripId = useBookingStore((s) => s.tripId);
 
   const isTokenLanding =
     TOKEN_LANDING_PREFIXES.some((p) => pathname?.startsWith(p)) ?? false;
+  const hasTripParam = !!searchParams.get('tripId');
 
   useEffect(() => {
-    if (!isTokenLanding && !tripId) {
+    if (!isTokenLanding && !hasTripParam && !tripId) {
       router.replace('/search');
     }
-  }, [isTokenLanding, tripId, router]);
+  }, [isTokenLanding, hasTripParam, tripId, router]);
 
-  if (!isTokenLanding && !tripId) return null;
+  if (!isTokenLanding && !hasTripParam && !tripId) return null;
 
   return <>{children}</>;
 }

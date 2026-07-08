@@ -15,7 +15,7 @@ export function BookButton({ tripId, ticketCount }: BookButtonProps) {
 
   function handleClick() {
     setTrip(tripId, ticketCount);
-    router.push('/booking/customer');
+    router.push(`/booking/customer?tripId=${tripId}&ticketCount=${ticketCount}`);
   }
 
   return (
