@@ -37,6 +37,42 @@ describe('bankTransfer adapter — createPayment', () => {
     expect(result.payUrl).not.toContain('bankBin=');
     expect(result.payUrl).not.toContain('accountNumber=');
   });
+
+  it('strips origin from absolute redirectUrl (#261)', async () => {
+    const result = await adapter.createPayment({
+      orderId: 'BB-2026-abcd-ef01',
+      amount: 150000,
+      orderInfo: 'Bus ticket',
+      ipnUrl: 'https://example.com/api/payments/bank_transfer/webhook',
+      redirectUrl: 'https://example.com/booking/result/tok123',
+      requestId: 'req-1',
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const url = new URL(result.payUrl, 'http://localhost');
+    const redirect = url.searchParams.get('redirectUrl');
+    expect(redirect).toBe('/booking/result/tok123');
+    expect(redirect).not.toContain('https://');
+  });
+
+  it('preserves relative redirectUrl as-is', async () => {
+    const result = await adapter.createPayment({
+      orderId: 'BB-2026-abcd-ef01',
+      amount: 150000,
+      orderInfo: 'Bus ticket',
+      ipnUrl: 'https://example.com/api/payments/bank_transfer/webhook',
+      redirectUrl: '/booking/result/tok123',
+      requestId: 'req-1',
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const url = new URL(result.payUrl, 'http://localhost');
+    expect(url.searchParams.get('redirectUrl')).toBe('/booking/result/tok123');
+  });
 });
 
 describe('bankTransfer adapter — verifyWebhook', () => {

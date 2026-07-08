@@ -44,10 +44,20 @@ const EXTRACT_REGEX = /BB-\d{4}-[0-9a-z]{4}-[0-9a-z]{4}/i;
 function createBankTransferAdapter(): PaymentGateway {
   return {
     async createPayment(input: CreatePaymentInput): Promise<CreatePaymentResult> {
+      // Strip origin from redirectUrl — bank transfer is internal (no external PSP),
+      // and the bank-transfer page rejects absolute URLs to prevent open redirects.
+      let safeRedirect = input.redirectUrl;
+      try {
+        const parsed = new URL(input.redirectUrl);
+        safeRedirect = parsed.pathname + parsed.search + parsed.hash;
+      } catch {
+        // Already a relative path — use as-is
+      }
+
       const params = new URLSearchParams({
         bookingRef: input.orderId,
         amount: String(input.amount),
-        redirectUrl: input.redirectUrl,
+        redirectUrl: safeRedirect,
       });
 
       return {
