@@ -4,6 +4,10 @@
  * Customer-facing site header. Hidden on operator console (`/op/*`, which has its
  * own (console) sidebar shell), the dev stub-pay page (`/dev/*`), and the auth
  * pages (`/auth/*`, which use the full-bleed AuthSplitLayout shell).
+ *
+ * Phase 1: customer accounts paused (guest-only). "Đăng nhập" points to
+ * operator login (/op/login). Restore CustomerAccountMenu + /auth/login when
+ * customer auth is enabled in Phase 2.
  */
 
 import { useState } from 'react';
@@ -12,8 +16,6 @@ import { usePathname } from 'next/navigation';
 import { Dialog } from '@base-ui/react/dialog';
 import { MenuIcon, XIcon } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
-import { CustomerAccountMenu } from '@/components/auth/CustomerAccountMenu';
-import { useIsSignedIn } from '@/lib/auth/clientSession';
 import { cn } from '@/lib/utils';
 
 const NAV = [
@@ -22,14 +24,13 @@ const NAV = [
   { href: '/op/register', label: 'Trở thành đối tác' },
 ];
 
-const LOGIN = { href: '/auth/login', label: 'Đăng nhập' };
+const LOGIN = { href: '/op/login', label: 'Đăng nhập' };
 
 export function SiteHeader() {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const signedIn = useIsSignedIn();
 
-  if (pathname.startsWith('/op') || pathname.startsWith('/dev') || pathname.startsWith('/auth'))
+  if (pathname.startsWith('/op') || pathname.startsWith('/dev') || pathname.startsWith('/auth') || pathname.startsWith('/admin'))
     return null;
 
   return (
@@ -71,18 +72,12 @@ export function SiteHeader() {
                 );
               })}
             </nav>
-            {signedIn ? (
-              <div className="ml-1">
-                <CustomerAccountMenu />
-              </div>
-            ) : (
-              <Link
-                href={LOGIN.href}
-                className="ml-1 inline-flex min-h-11 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50"
-              >
-                {LOGIN.label}
-              </Link>
-            )}
+            <Link
+              href={LOGIN.href}
+              className="ml-1 inline-flex min-h-11 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              {LOGIN.label}
+            </Link>
           </div>
         </div>
       </header>
@@ -127,19 +122,13 @@ export function SiteHeader() {
             })}
           </nav>
           <div className="border-t border-border px-2 py-2">
-            {signedIn ? (
-              <div className="flex items-center justify-center">
-                <CustomerAccountMenu />
-              </div>
-            ) : (
-              <Link
-                href={LOGIN.href}
-                onClick={() => setDrawerOpen(false)}
-                className="flex min-h-11 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50"
-              >
-                {LOGIN.label}
-              </Link>
-            )}
+            <Link
+              href={LOGIN.href}
+              onClick={() => setDrawerOpen(false)}
+              className="flex min-h-11 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              {LOGIN.label}
+            </Link>
           </div>
         </Dialog.Popup>
       </Dialog.Portal>

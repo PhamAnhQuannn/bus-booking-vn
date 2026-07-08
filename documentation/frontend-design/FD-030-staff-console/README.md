@@ -151,6 +151,8 @@ The manifest is conductor-optimized for field conditions:
 | Pickup | Pickup point name | 120px | Truncated with tooltip |
 | Payment | Badge: paid/cash | 64px | --- |
 
+> **Phase 2 (deferred)**: Manifest pickup column deferred to post-launch (trigger: 4 operators). Phase 1 = station-only.
+
 ### 5.4 Check-In Interaction
 
 | State | Icon | Color | Interaction |

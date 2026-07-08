@@ -24,10 +24,10 @@ Current codebase is launch-ready for the defined scope (after #242):
 - ✅ Guest booking flow (search → hold → bank transfer → confirmation)
 - ✅ Operator portal (routes, trips, buses, bookings, payouts, staff)
 - ✅ Admin portal (operators, system config, audit, TOTP)
-- ✅ Email OTP (replaces phone/SMS for customer auth when enabled)
+- ✅ Email OTP (code ready; customer auth deferred to Phase 2)
 - ✅ Security hardened (CSRF, rate-limit, XFF validation, encryption)
-- ⏸️ Customer sign-in (proxy 410 gate — phase 2)
-- ⏸️ Multi-payment (MoMo/VNPay/ZaloPay — phase 2)
+- ⏸️ Customer sign-in (proxy 410 gate re-enabled 2026-07-07; PR #259 code kept for Phase 2)
+- ⏸️ Multi-payment (MoMo/VNPay/ZaloPay — phase 2; ReviewClient hardcoded to bank_transfer)
 
 ---
 

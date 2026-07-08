@@ -20,7 +20,7 @@
 | SePay (payment) | Vietnam | **No** | Vietnam-hosted |
 | Cloudflare CDN/DNS | Edge (global) | **No** | No PII stored; pass-through only |
 | Vercel (staging only) | Singapore | **No** | No production data; test/seed only |
-| **Resend (email)** | **US** | **YES** | Only remaining trigger |
+| **Resend (email)** | **US** | **YES** | Only remaining trigger (launch-critical if customer auth enabled — OTP uses email) |
 
 **Bottom line:** FPT Cloud hosting (decided 2026-06-19) eliminates CDTIA for all core infrastructure. Only **Resend** (US-based email) still triggers it — and can be avoided entirely by switching to a Vietnam-hosted email solution.
 
@@ -104,7 +104,7 @@ US servers = cross-border transfer under Decree 356/2025.
 **Eliminates CDTIA entirely.** Options:
 1. **eSMS email add-on** — eSMS.vn (already our SMS provider) offers email delivery
 2. **Self-hosted Postal/Mailtrain** on FPT Cloud VPS — full control, no cross-border
-3. **Defer email feature** — Phase 1 only needs SMS (OTP, booking confirmation). Email can wait.
+3. **Defer customer auth** — Phase 1 guest booking needs no customer OTP. If customer sign-in is enabled, email becomes launch-critical (customer OTP uses email since commit `686ec85`).
 
 If Option A is chosen: set `EMAIL_PROVIDER="stub"` (already default) and skip CDTIA entirely.
 

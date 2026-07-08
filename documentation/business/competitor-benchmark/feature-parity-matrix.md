@@ -150,7 +150,7 @@
 | Online payment — VNPay | ✅ DONE (code ready) | Enabled Month 1-3 (cards, QR, international) |
 | E-ticket delivery by email | ✅ DONE (Resend) | — |
 | Instant booking confirmation | ✅ DONE | — |
-| Pickup/drop-off point selection | ✅ DONE | — |
+| Pickup/drop-off point selection | **Phase 2** | — |
 | Multiple bus types displayed | ✅ DONE | — |
 | Mobile-responsive web | ✅ DONE | — |
 | Customer cancellation & refund | ❌ MISSING | **P0 LAUNCH BLOCKER** |

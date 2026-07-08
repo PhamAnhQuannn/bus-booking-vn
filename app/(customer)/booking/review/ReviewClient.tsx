@@ -3,19 +3,12 @@
 /**
  * ReviewClient — client component for the review/confirmation step.
  *
- * Displays hold details fetched from GET /api/holds/[id] server-side (passed as props).
- * Shows total formatted as ###.###đ (Vietnamese currency style).
- * Includes HoldTimer + HoldExpiryModal.
- *
- * On "Xác nhận thanh toán" click, POSTs to /api/bookings/initiate with
- * { holdId, paymentMethod }. Online-only (Issue 039): momo|zalopay|card → 200
- * { payUrl } → window.location to the gateway (real MoMo sandbox or local
- * stub-pay). The bb_hold cookie travels automatically via same-origin
- * credentials.
+ * Phase 1: bank transfer only. Payment method is hardcoded to 'bank_transfer'.
+ * MoMo/ZaloPay/Card payment method selector removed — restore when Phase 2
+ * multi-payment is enabled.
  */
 
 import { useEffect, useState } from 'react';
-import { Wallet, Smartphone, CreditCard } from 'lucide-react';
 import { useHoldTimerStore } from '@/lib/state';
 import { HoldExpiryModal } from '@/components/HoldExpiryModal';
 import { BookingSteps } from '@/components/booking/BookingSteps';
@@ -24,7 +17,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { authFetch } from '@/lib/auth/clientSession';
 import { CONSENT_TEXT, CONSENT_VERSION } from '@/lib/booking/consent';
-import { cn } from '@/lib/utils';
 
 export interface HoldDetails {
   holdId: string;
@@ -57,19 +49,10 @@ const ERROR_LABEL: Record<string, string> = {
   consent_required: 'Vui lòng đồng ý cả hai điều khoản trước khi thanh toán.',
 };
 
-type PaymentMethod = 'momo' | 'zalopay' | 'card';
-
-const PAYMENT_METHODS: ReadonlyArray<{ value: PaymentMethod; label: string; icon: typeof Wallet }> = [
-  { value: 'momo', label: 'MoMo', icon: Wallet },
-  { value: 'zalopay', label: 'ZaloPay', icon: Smartphone },
-  { value: 'card', label: 'Thẻ', icon: CreditCard },
-];
-
 export function ReviewClient({ holdDetails }: ReviewClientProps) {
   const { holdId, expiresAt } = holdDetails;
   const { startTimer } = useHoldTimerStore();
 
-  const [method, setMethod] = useState<PaymentMethod>('momo');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Issue 089: both consents must be accepted before initiate is enabled.
@@ -96,7 +79,7 @@ export function ReviewClient({ holdDetails }: ReviewClientProps) {
         credentials: 'include',
         body: JSON.stringify({
           holdId,
-          paymentMethod: method,
+          paymentMethod: 'bank_transfer',
           consents: { noRefund, piiStorage, version: CONSENT_VERSION },
         }),
       });
@@ -127,36 +110,9 @@ export function ReviewClient({ holdDetails }: ReviewClientProps) {
             <CardTitle as="h2">Phương thức thanh toán</CardTitle>
           </CardHeader>
           <CardContent>
-            <fieldset className="grid grid-cols-2 gap-2">
-              <legend className="sr-only">Phương thức thanh toán</legend>
-              {PAYMENT_METHODS.map((m) => {
-                const Icon = m.icon;
-                const selected = method === m.value;
-                return (
-                  <label
-                    key={m.value}
-                    className={cn(
-                      'flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
-                      selected
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border hover:bg-muted'
-                    )}
-                  >
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value={m.value}
-                      checked={selected}
-                      onChange={() => setMethod(m.value)}
-                      disabled={submitting}
-                      className="sr-only"
-                    />
-                    <Icon className="size-4" aria-hidden="true" />
-                    {m.label}
-                  </label>
-                );
-              })}
-            </fieldset>
+            <p className="text-sm text-muted-foreground">
+              Chuyển khoản ngân hàng (VietQR)
+            </p>
           </CardContent>
         </Card>
 

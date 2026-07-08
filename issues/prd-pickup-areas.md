@@ -1,5 +1,7 @@
 # PRD: Personal Pickup Destinations
 
+> **Phase**: Post-launch (Phase 2). **Trigger**: 4 operators onboarded. Phase 1 launches with station-only pickup (`pickupKind = 'station'`).
+
 > Decisions below are already grilled — treat as settled.
 
 ## Problem Statement

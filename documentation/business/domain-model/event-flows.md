@@ -31,6 +31,7 @@ The primary customer journey from finding a trip to receiving a ticket.
 
 **Route**: `app/api/holds/route.ts` -> `lib/core/db/holdRepo.ts:createHold`
 
+<!-- Phase 2: Pickup selection steps deferred to post-launch (trigger: 4 operators). Phase 1 = station-only. -->
 **Input**: tripId, ticketCount, customerPhone, customerName, customerEmail, pickup selection (pickupKind, pickupAreaId, pickupDetail)
 
 **Actions**:

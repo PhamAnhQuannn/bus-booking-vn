@@ -220,6 +220,7 @@ Compensating transaction: gateway failure after hold consumed -> DELETE booking,
 | Cancellation Modal | (overlay from booking detail) | Fee preview: ticket price, cancellation fee, refund amount, refund method, timeline | Destructive CTA "Xac nhan huy ve" (red); Art. 29 variant: fee "0 d (mien phi)" |
 | Refund Tracking | (within booking detail) | Vertical timeline stepper: Yeu cau hoan tien -> Dang xu ly -> Hoan tien thanh cong/that bai | Permanently failed: display support contact |
 
+<!-- Phase 2: Pickup selection deferred to post-launch (trigger: 4 operators). Phase 1 = station-only. -->
 ### Pickup Selection
 
 | Kind | Vietnamese | UI |

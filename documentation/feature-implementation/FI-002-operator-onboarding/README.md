@@ -37,6 +37,7 @@ Operator Onboarding is the admin-gated KYB (Know-Your-Business) lifecycle that t
 
 ### Bounded Context(s)
 
+<!-- Phase 2: OperatorPickupArea CRUD deferred to post-launch (trigger: 4 operators). Phase 1 = station-only. -->
 **Onboarding / KYB Context** -- Models: `KybDocument`, `PayoutAccount`, `OperatorPickupArea`, `StoredObject`, `Operator`, `OperatorUser`, `OperatorSession`, `OperatorOtpAttempt`, `OperatorSettings`. Services: `lib/onboarding/registerOperator.ts`, `lib/onboarding/operatorStatus.ts`, `lib/onboarding/kyb.ts`.
 
 **Dependencies on other FI features:**

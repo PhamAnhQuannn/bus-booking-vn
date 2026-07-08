@@ -28,7 +28,7 @@ export default function TermsPage() {
         <ul className="list-disc pl-6 text-sm leading-relaxed">
           <li>Tìm kiếm và so sánh chuyến xe khách liên tỉnh.</li>
           <li>Đặt chỗ và thanh toán trực tuyến qua chuyển khoản ngân hàng.</li>
-          <li>Xác nhận vé và thông báo qua SMS.</li>
+          <li>Xác nhận vé và thông báo qua email.</li>
         </ul>
         <p className="text-sm leading-relaxed">
           BBVN không phải là nhà vận tải. Nhà xe chịu trách nhiệm về dịch vụ vận chuyển, an toàn và
@@ -111,7 +111,7 @@ export default function TermsPage() {
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold">9. Thay đổi điều khoản</h2>
         <p className="text-sm leading-relaxed">
-          Chúng tôi có thể cập nhật Điều khoản này. Thay đổi quan trọng sẽ được thông báo qua SMS
+          Chúng tôi có thể cập nhật Điều khoản này. Thay đổi quan trọng sẽ được thông báo qua email
           hoặc thông báo trong ứng dụng. Việc tiếp tục sử dụng Dịch vụ sau khi thay đổi đồng nghĩa
           với việc bạn chấp nhận Điều khoản mới.
         </p>

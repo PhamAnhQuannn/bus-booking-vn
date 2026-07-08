@@ -1,8 +1,10 @@
 # Resend — Transactional Email Setup Guide
 
-Configure Resend for booking confirmations, ticket delivery, and operator notifications via email. Code integration: `lib/notification/emailClient.ts` (planned). Env vars: `EMAIL_PROVIDER`, `RESEND_API_KEY`, `EMAIL_FROM`.
+Configure Resend for booking confirmations, ticket delivery, OTP codes, and operator notifications via email. Code integration: `lib/notification/email.ts`. Env vars: `EMAIL_PROVIDER`, `RESEND_API_KEY`, `EMAIL_FROM`.
 
-> **Phase 1 status:** Deferred. `EMAIL_PROVIDER="stub"` — email notifications logged only. Activate when email delivery is needed (Phase 2).
+> **Phase 1 status:** Deferred — customer auth is 410-gated, so no customer OTP emails are sent. `EMAIL_PROVIDER="stub"` logs email only. Guest booking does not require email delivery.
+>
+> **Phase 2 (customer auth):** **Immediately required** when the 410 gate is lifted. Customer OTP login/register uses email (commit `686ec85`). Set `EMAIL_PROVIDER="resend"` and provision API key before enabling customer authentication.
 
 > **CDTIA note:** Resend is a US-based service. Sending transactional email through Resend constitutes cross-border data transfer (email addresses, customer names). CDTIA filing covers this — see `cdtia-data-residency-guide.md`.
 
@@ -101,15 +103,18 @@ For Vietnamese customers, sender details matter for trust:
 
 ---
 
-## Email Templates (Planned)
+## Email Templates
 
 | Template | Trigger | Content |
 |----------|---------|---------|
+| OTP code | Customer login/register, password reset | 6-digit OTP code + expiry |
 | Booking confirmation | After payment confirmed | Route, date, seat, QR ticket |
 | Ticket delivery | After PDF generated | Attached ticket PDF |
 | Departure reminder | 2h before departure | Trip details, boarding info |
 | Payout notification | After T+3 settlement | Operator payout amount |
 | Password reset | Operator requests reset | Temp password link |
+
+Full template list in `lib/notification/email.ts` (`SUBJECTS` map includes: `otpCode`, `customerBookingPaid`, `operatorNewBooking`, `bookingReminder24h`, `ticketReady`, charter lifecycle templates, and more).
 
 ---
 
