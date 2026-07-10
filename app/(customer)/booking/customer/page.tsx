@@ -18,7 +18,7 @@ interface PageProps {
 export default async function CustomerPage({ searchParams }: PageProps) {
   const sp = await searchParams;
   const tripId = sp.tripId;
-  const ticketCount = Number(sp.ticketCount) || 1;
+  const ticketCount = Math.max(1, Number(sp.ticketCount) || 1);
 
   if (!tripId) redirect('/');
 

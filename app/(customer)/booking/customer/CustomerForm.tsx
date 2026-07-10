@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-const LS_PHONE_KEY = 'busbooking_last_phone';
+const PHONE_STORAGE_KEY = 'busbooking_last_phone';
 
 const clientSchema = z.object({
   buyerName: z
@@ -62,7 +62,7 @@ export function CustomerForm() {
 
   useEffect(() => {
     if (typeof window === 'undefined' || !phoneInputRef.current) return;
-    const saved = sessionStorage.getItem(LS_PHONE_KEY);
+    const saved = sessionStorage.getItem(PHONE_STORAGE_KEY);
     if (saved) {
       phoneInputRef.current.value = saved;
     }
@@ -123,7 +123,7 @@ export function CustomerForm() {
         return { status: 'error', message: 'Có lỗi xảy ra. Vui lòng thử lại.' };
       }
 
-      sessionStorage.setItem(LS_PHONE_KEY, parsed.data.buyerPhone);
+      sessionStorage.setItem(PHONE_STORAGE_KEY, parsed.data.buyerPhone);
 
       setBuyerInfo(parsed.data.buyerName, parsed.data.buyerPhone, parsed.data.buyerEmail);
       setHold(result.holdId, result.expiresAt);
