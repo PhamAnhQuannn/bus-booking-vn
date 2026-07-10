@@ -31,7 +31,10 @@ const envSchema = z.object({
   // Phase 1 launches with bank transfer only; set MOMO_ENABLED=true when ready.
   // ---------------------------------------------------------------------------
 
-  MOMO_ENABLED: z.coerce.boolean().default(false),
+  MOMO_ENABLED: z
+    .string()
+    .default('false')
+    .transform((v) => v === 'true'),
 
   /**
    * MoMo partner code — identifies the merchant.
@@ -67,7 +70,10 @@ const envSchema = z.object({
   // Phase 1 launches with bank transfer only; set VNPAY_ENABLED=true when ready.
   // ---------------------------------------------------------------------------
 
-  VNPAY_ENABLED: z.coerce.boolean().default(false),
+  VNPAY_ENABLED: z
+    .string()
+    .default('false')
+    .transform((v) => v === 'true'),
   VNPAY_TMN_CODE: z.string().default('VNPAYTEST'),
   VNPAY_HASH_SECRET: z
     .string()
