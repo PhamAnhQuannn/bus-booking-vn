@@ -106,11 +106,7 @@ Key business constraints driving stack decisions (sourced from `documentation/bu
 | Fly.io | Edge deployment; can run in Singapore | Less mature; no native Next.js optimizations; limited enterprise support |
 | Railway | Simple deployment; good DX | No Vietnam/SEA region; less auto-scaling capability |
 
-**Choice**: Vercel Pro sin1 (Singapore) — primary production host. FPT Cloud (Vietnam) — retained as Docker self-hosted backup.
-
-> **2026-06-19 Pivot**: Vercel sin1 demoted from primary to staging-only. FPT Cloud promoted to primary. See ADR-020 D2/D7.
->
-> **2026-06-21 Pivot**: FPT Cloud demoted back to backup. Vercel Pro sin1 restored as primary. See ADR-020 D2/D11.
+**Choice**: Vercel Pro sin1 (Singapore) — sole production host. See ADR-020 D2/D11.
 
 **Reasons** (2026-06-21 pivot):
 - **Cost decisive**: Vercel + Neon + Upstash stack = ~$55-140/mo vs FPT Cloud = ~$340-520/mo. CDTIA filing (~$2-5K one-time) is acceptable vs $200-400/mo ongoing savings
@@ -119,7 +115,6 @@ Key business constraints driving stack decisions (sourced from `documentation/bu
 - **Upstash replaces managed Redis**: already wired via `REDIS_PROVIDER=upstash`. HTTP REST transport works on Vercel Edge
 - **Cloudflare R2 for storage**: S3-compatible, zero egress fees, wires via `STORAGE_ENDPOINT` env var
 - **FPT Cloud gaps unresolved**: PG 16 / Redis 7 versions unconfirmed; DBProxy transaction mode unconfirmed; all pricing requires sales quotation
-- **Escape hatch preserved**: provider-agnostic Docker contract (ADR-020 D8) means reverting to FPT Cloud = DNS + connection string change (~2-4 hours)
 - **CDTIA accepted**: one-time filing with MPS A05 within 60 days. Does not block technical deployment
 
 ---
@@ -166,9 +161,6 @@ Key business constraints driving stack decisions (sourced from `documentation/bu
 
 - **ZaloPay adapter**: Listed as a payment option in business docs (payment.md) but no adapter implemented. Only VNPay and MoMo adapters exist.
 - **Bank transfer adapter (VietQR + SePay)**: Design complete (DS-013, rewritten 2026-06-20). Launch PSP — implements `PaymentGateway` interface with SePay webhook confirmation. Code implementation pending.
-- **FPT Cloud pricing**: Compute and managed database pricing require sales quotation (only Object Storage has published prices). Terraform provider (`fpt-corp/fptcloud`) enables IaC provisioning but does not expose pricing. Cost comparison with Viettel IDC / CMC Cloud pending.
-- **FPT PG16 / Redis 7 version confirmation**: Engine versions not published on FPT marketing pages — visible only in the FPT Console portal during provisioning. Must verify PostgreSQL 16 and Redis 7 availability before committing.
-- **FPT DBProxy mode**: FPT Database Engine offers a "DBProxy" (connection proxy, likely PgBouncer-based) but has not confirmed whether it supports transaction mode — critical for Prisma's connection behavior. Verify before relying on it; fall back to self-hosted PgBouncer if needed.
 
 ---
 
@@ -176,26 +168,19 @@ Key business constraints driving stack decisions (sourced from `documentation/bu
 
 ### Positive
 - Single codebase with typed schema enables rapid iteration across all three user surfaces
-- **CDTIA filing accepted** — Vercel+Neon+Upstash (Singapore) requires CDTIA under PDPL 2025 Art. 25 (~$2-5K one-time, 60-day window). FPT Cloud backup path eliminates CDTIA entirely. See ADR-020 D11.
-- PostgreSQL provider-agnosticism enables migration between FPT Cloud / AWS / Vercel / bare-metal without application changes
+- **CDTIA filing accepted** — Vercel+Neon+Upstash (Singapore) requires CDTIA under PDPL 2025 Art. 25 (~$2-5K one-time, 60-day window). See ADR-020 D11.
+- PostgreSQL provider-agnosticism enables migration between AWS / Vercel / bare-metal without application changes
 - Provider-agnostic Docker deployment contract (ADR-020 D8) ensures vendor lock-in is a configuration concern, not an architectural one
-- Terraform provider (`fpt-corp/fptcloud`) enables infrastructure-as-code from Day 1 — infra is documented and reproducible
-- Hybrid Edge/Origin pattern still applies on FPT Cloud: middleware runs as Node.js middleware (not Vercel Edge) but same JWT/CSRF logic, same auth gates
 - Prisma's migration system + raw SQL escape hatch balances productivity with the precision needed for ledger/concurrency invariants
 
 ### Negative
-- **DevOps overhead** — FPT Cloud requires Docker, Nginx, SSL, and cron sidecar management (vs Vercel zero-ops). Mitigated by Terraform IaC
 - Prisma generated client adds bundle weight and constrains Edge runtime usage
 - Single-app monorepo means all three portals deploy together — a regression in admin can block customer-facing releases
 - Next.js App Router breaking changes (documented in AGENTS.md) require reading `node_modules/next/dist/docs/` before writing code — ongoing maintenance cost
-- FPT Cloud pricing opacity — compute and managed database pricing require sales quotation; cost modeling blocked until quotes obtained
-- No preview deploys on FPT Cloud — Vercel staging retained for per-PR preview environments
 
 ### Mitigations
-- DevOps burden: Terraform provider automates VPC/instance/DB/LB provisioning; Nginx + Let's Encrypt is standard Vietnamese DevOps practice
 - Vendor lock-in: Prisma schema + PostgreSQL are portable; Next.js-specific APIs (`after()`, Edge middleware) are isolated to thin adapter layers; S3-compatible storage via standard `@aws-sdk/client-s3`
 - Deploy blast radius: route-group organization + feature flags enable incremental rollout per surface
-- Preview deploys: Vercel staging (zero-ops) retained for development workflow; production traffic stays on FPT Cloud
 
 ---
 
@@ -203,4 +188,4 @@ Key business constraints driving stack decisions (sourced from `documentation/bu
 
 - [SI-001 Project Scaffold](../../scaffolding-infra/SI-001-project-scaffold/) — stack consolidation, monorepo structure, multi-tenancy model, state machines
 - [SI-002 Dev Environment](../../scaffolding-infra/SI-002-dev-environment/) — local setup, Prisma workflow, stub modes, environment variable schema
-- [SI-006 Deployment Config](../../scaffolding-infra/SI-006-deployment-config/) — FPT Cloud hosting architecture, deployment contract, provider migration playbook
+- [SI-006 Deployment Config](../../scaffolding-infra/SI-006-deployment-config/) — Vercel deployment config, deployment contract, provider migration playbook

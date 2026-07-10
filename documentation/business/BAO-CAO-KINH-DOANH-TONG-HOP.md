@@ -603,7 +603,7 @@ Thuế suất chính:
 QUYẾT ĐỊNH: Kiến trúc lưu trú dữ liệu
 Các phương án: (A) Giữ toàn bộ trên Vercel Singapore vs (B) Hybrid: Vercel SG cho compute + DB tại VN cho PII vs (C) Chuyển toàn bộ về VN
 Đánh đổi: (A): Kỹ thuật vi phạm NĐ 53/2022, rủi ro BCA buộc di chuyển khẩn cấp. (B): Thêm 5-15ms latency Vercel SG → VN DB, nhưng tuân thủ hoàn toàn. Prisma directUrl PgBouncer config đã có. (C): Mất lợi thế CDN/edge functions của Vercel, tăng chi phí hosting.
-→ Lựa chọn: Hybrid: Vercel Singapore cho compute/CDN + PostgreSQL tại VN (Viettel IDC/VNPT/FPT Cloud) cho PII
+→ Lựa chọn: Vercel Pro sin1 (Singapore) cho compute/CDN + Neon PostgreSQL (Singapore) cho DB. CDTIA filing chấp nhận cho cross-border transfer
 Lý do: Giữ lợi thế Vercel (auto-scale, edge, CDN) cho serving. PII (tên, SĐT, email, payment tokens, IP) lưu trên server VN. Latency thêm 5-15ms chấp nhận được cho web app. NĐ 147/2024 bổ sung: ít nhất 1 server phải ở VN cho điều tra/khiếu nại.
 
 Yêu cầu PDPL 2025 chính:

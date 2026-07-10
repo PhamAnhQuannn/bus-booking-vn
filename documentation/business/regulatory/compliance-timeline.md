@@ -16,10 +16,8 @@ IRC (15 wd statutory / 3-5 wk actual)
 
 SBV PSP licensing ── NOT needed if using licensed VNPay/MoMo (marketplace model)
 
-DECIDED (2026-06-19): FPT Cloud (Vietnam) is the chosen primary host.
-**UPDATE (2026-06-21)**: Vercel Pro sin1 (Singapore) restored as primary host (ADR-020 D11). CDTIA filing IS required and accepted. FPT Cloud retained as backup (eliminates CDTIA if used).
+Vercel Pro sin1 (Singapore) is the sole production host (ADR-020 D2/D11).
 TIA/CDTIA IS required for Vercel+Neon+Upstash (Singapore hosting). Filing accepted per ADR-020 D11 (~$2-5K one-time, 60-day window with MPS A05).
-See ADR-020 D7/D8/D9/D10, DS-017.
 
 Brandname SMS
   └─► Trademark certificate

@@ -36,7 +36,7 @@ Phase 2 (when MoMo/VNPay ship):
 
 - [ ] If Resend (US-hosted) processes customer email addresses: CDTIA filed with MPS A05 within 60 days of go-live
 - [ ] If Vercel used for any log processing: CDTIA filed (FI-008 gap)
-- [ ] If all processing on FPT Cloud Vietnam: CDTIA obligation eliminated -- document this determination
+- [ ] Vercel (US) + Neon (AWS ap-southeast-1) + Upstash (ap-southeast-1): CDTIA filing required for Vercel edge/function processing outside Vietnam
 - [ ] No production PII in non-Vietnam environments (staging, CI)
 
 ### DSAR Response (PDPL 2025 Art. 14)

@@ -191,7 +191,7 @@ Migrations must never reduce retention capacity for these models. Columns cannot
 
 Vietnamese user PII must be stored on servers physically in Vietnam (Decree 53/2022, Cybersecurity Law 2018, Law 116/2025 effective 1 July 2026). Decree 356/2025 expressly categorizes use of foreign cloud services as cross-border transfer regardless of physical server location.
 
-**Current state.** PostgreSQL is hosted outside Vietnam (Vercel Singapore). This is a known compliance violation. Migration to Vietnam-hosted infrastructure (FPT Cloud, Viettel IDC, or VNG Cloud) is planned. The existing Prisma `directUrl` PgBouncer configuration is a compatibility bridge for the infrastructure migration.
+**Current state.** PostgreSQL is hosted on Neon (Singapore). Vercel Pro sin1 is the sole production host (ADR-020 D11). CDTIA filing required and accepted for cross-border transfer to Singapore-hosted infrastructure.
 
 **Migration implications:**
 - Any migration adding a new PII column to an existing table expands the data residency violation scope until the Vietnam-hosted DB is in place.

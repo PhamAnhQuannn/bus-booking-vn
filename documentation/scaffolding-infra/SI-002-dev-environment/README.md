@@ -17,7 +17,7 @@ This document consolidates everything a developer needs to bring up a fully func
 | Docker Desktop | 24+ | Runs the local PostgreSQL and Redis containers (ADR-020 D3) |
 | Git | 2.39+ | Source control; Windows-specific constraints apply (see Section 8) |
 
-PostgreSQL and Redis are **not** installed locally as native services. Both run inside Docker Compose to match the self-hosted production topology (ADR-020 D3). Do not install native PostgreSQL on the dev machine -- port conflicts with the Docker container will occur.
+PostgreSQL and Redis are **not** installed locally as native services. Both run inside Docker Compose to match the production database configuration. Do not install native PostgreSQL on the dev machine -- port conflicts with the Docker container will occur.
 
 ---
 
@@ -192,7 +192,7 @@ E-invoice integration is mandatory under Decree 123/2020 and Decree 70/2025 for 
 | `STORAGE_STUB=true` (default for dev) | Pre-signed URLs are generated locally without calling an S3-compatible endpoint; uploaded files are not persisted |
 | `STORAGE_STUB=false` | Real S3-compatible calls; requires `STORAGE_ENDPOINT`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY`, `STORAGE_BUCKET` |
 
-In production, storage targets FPT Object Storage (MinIO-based, ADR-020 D7). The `@aws-sdk/client-s3` client with `forcePathStyle: true` is required for MinIO path-style addressing. In stub mode the SDK is not invoked.
+In production, storage targets Cloudflare R2 (S3-compatible). In stub mode the SDK is not invoked.
 
 ### 5.6 Switching Rules
 
@@ -372,13 +372,9 @@ Background cron jobs are triggered by HTTP calls to `/api/cron/*` endpoints auth
 curl -H "Authorization: Bearer <your_CRON_SECRET>" http://localhost:3001/api/cron/hold-expiry
 ```
 
-Replace `<your_CRON_SECRET>` with the value from `.env.local`. The cron sidecar container (supercronic) is not needed in local dev -- manual curl invocations are sufficient for testing individual job handlers. See SI-006 Section 4 for the full cron sidecar design and SI-006 Section 5 for the complete job catalog.
+Replace `<your_CRON_SECRET>` with the value from `.env.local`. Manual curl invocations are sufficient for testing individual job handlers. In production, Vercel Cron triggers these endpoints on schedule (see `vercel.json`). See SI-006 Section 5 for the complete job catalog.
 
 **`HOLD_SWEEPER_MODE` note:** The hold-expiry cron (`/api/cron/hold-expiry`) defaults to `HOLD_SWEEPER_MODE='update'` (active sweep — expires holds and releases capacity). Dev `.env.local` overrides to `'count'` (dry-run — counts but does not transition). To test actual hold expiry in local dev, set `HOLD_SWEEPER_MODE='update'` in `.env.local`. Production deploys use the default `'update'` — verify it is not overridden to `'count'` (DS-006 §23, FI-005, FI-006).
-
-**Supercronic timezone:** When running the cron sidecar in Docker (production or local Docker-based testing), set `TZ=Asia/Ho_Chi_Minh` in the sidecar container environment. Cron schedules in the crontab file assume Vietnam local time. Vercel cron schedules are UTC (DS-017 §5.5).
-
-**Dual-config crontab rule:** If using the supercronic sidecar, keep `vercel.json` cron schedules and the supercronic `crontab` file in sync — they must declare identical schedules (DS-006 §2.1, DS-017 §5.2). No automated sync check exists (FI-012 Known Gap).
 
 ---
 
@@ -393,7 +389,7 @@ Replace `<your_CRON_SECRET>` with the value from `.env.local`. The cron sidecar 
 - **ADR-012** -- Cron architecture: hybrid `after()`+cron model, partially implemented job catalog
 - **ADR-013** -- Notification architecture: `NOTIFY_STUB`, eSMS provider selection, I9 PII invariant, cron outbox
 - **ADR-016** -- Module boundaries: barrel import rule, `'use client'` deep-import mandate (D3 — Section 8.6)
-- **ADR-020** -- Deployment and infrastructure: Zod boot validation (D4), stub/real mode table (D5), Docker self-hosted setup (D3), provider-agnostic deployment contract (D8)
+- **ADR-020** -- Deployment and infrastructure: Zod boot validation (D4), stub/real mode table (D5), provider-agnostic deployment contract (D8)
 
 ### Design Specifications
 
@@ -404,14 +400,14 @@ Replace `<your_CRON_SECRET>` with the value from `.env.local`. The cron sidecar 
 - **DS-009** -- Split-settlement: `SPLIT_SETTLEMENT_ENABLED` feature flag (not implemented)
 - **DS-012** -- Transport e-invoice: Decree 70/2025 field requirements, `MISA_TRANSPORT_TEMPLATE_ID`
 - **DS-013** -- SePay/VietQR: bank-transfer webhook, QR generation env vars
-- **DS-017** -- Deployment portability: `DIRECT_URL` vs `DATABASE_URL`, `REDIS_PROVIDER`, supercronic `TZ` setting
+- **DS-017** -- Deployment portability: `DIRECT_URL` vs `DATABASE_URL`, `REDIS_PROVIDER`
 
 ### Scaffolding and Infrastructure
 
 - **SI-001** -- Project Scaffold: stack overview, module architecture, multi-tenancy model
 - **SI-003** -- CI/CD Pipeline: how lint, type-check, and tests run in the pipeline
 - **SI-005** -- Testing Strategy: NOT NULL column checklist, migration testing details
-- **SI-006** -- Deployment Configuration: cron sidecar design, production environment setup
+- **SI-006** -- Deployment Configuration: production environment setup
 
 ### Guides
 
@@ -424,7 +420,6 @@ Replace `<your_CRON_SECRET>` with the value from `.env.local`. The cron sidecar 
 | ID | Gap | Go-Live Blocker? | Status | Source |
 |----|-----|-----------------|--------|--------|
 | KG-01 | `superRefine` production guard does not enforce minimum-length requirements for all secrets (e.g., `HOLD_SECRET`) | Yes (Issue 094) | NOT_IMPLEMENTED | ADR-020 D4; see also SI-006 Known Gaps |
-| KG-02 | FPT DBProxy (PgBouncer-like) transaction mode compatibility with Prisma unconfirmed. Local dev PgBouncer sidecar confirmed compatible | Yes (Issue 094) | UNCONFIRMED | ADR-020 D7; see SI-006 §2.2 for production mitigation |
 | KG-03 | `OperatorUser.tempPasswordPlain` column — removed via migration 20260615000000 | No | RESOLVED | SI-001 |
 | KG-04 | ZNS (Zalo ZNS) integration documented in ADR-013 D1 not yet implemented. SMS via eSMS is the actual primary channel. `NOTIFY_STUB` controls eSMS only | No (deferred) | DEFERRED | ADR-013 D1 |
 | KG-05 | `HOLD_SWEEPER_MODE` defaults to `'update'` (active sweep). Dev overrides to `'count'`. Verify production does not override. | No | IMPLEMENTED | DS-006 §23, FI-005, FI-006 |

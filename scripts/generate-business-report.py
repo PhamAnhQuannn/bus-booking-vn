@@ -1085,7 +1085,7 @@ add_decision_box(doc,
     '(A): Kỹ thuật vi phạm NĐ 53/2022, rủi ro BCA buộc di chuyển khẩn cấp. '
     '(B): Thêm 5-15ms latency Vercel SG → VN DB, nhưng tuân thủ hoàn toàn. Prisma directUrl PgBouncer config đã có. '
     '(C): Mất lợi thế CDN/edge functions của Vercel, tăng chi phí hosting.',
-    'Hybrid: Vercel Singapore cho compute/CDN + PostgreSQL tại VN (Viettel IDC/VNPT/FPT Cloud) cho PII',
+    'Hybrid: Vercel Singapore cho compute/CDN + PostgreSQL tại VN (Viettel IDC/VNPT) cho PII',
     'Giữ lợi thế Vercel (auto-scale, edge, CDN) cho serving. PII (tên, SĐT, email, payment tokens, IP) '
     'lưu trên server VN. Latency thêm 5-15ms chấp nhận được cho web app. '
     'NĐ 147/2024 bổ sung: ít nhất 1 server phải ở VN cho điều tra/khiếu nại.'

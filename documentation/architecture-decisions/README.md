@@ -21,4 +21,4 @@
 | [ADR-017: Migration Safety](ADR-017-migration-safety/) | ACCEPTED | Forward-only migrations, two-phase destructive changes, dual index declaration, NOT NULL checklist |
 | [ADR-018: Testing Strategy](ADR-018-testing-strategy/) | ACCEPTED | Test pyramid, real DB integration tests, mock hygiene, error code coverage, timezone rules |
 | [ADR-019: State Machine Enforcement](ADR-019-state-machines/) | ACCEPTED — PARTIALLY_IMPLEMENTED | 8 state machines, LEGAL_TRANSITIONS maps, row locking, timestamp+status coupling, discriminated results |
-| [ADR-020: Deployment & Infrastructure](ADR-020-deployment/) | ACCEPTED — HOSTING PIVOT 2026-06-21 | Vercel Pro sin1 primary + Neon + Upstash; FPT Cloud backup; provider-agnostic Docker contract, cron (Vercel/Supercronic), env validation, stub/real mode, staged evolution |
+| [ADR-020: Deployment & Infrastructure](ADR-020-deployment/) | ACCEPTED — HOSTING PIVOT 2026-06-21 | Vercel Pro sin1 primary + Neon + Upstash; Vercel Cron, env validation, stub/real mode, staged evolution |

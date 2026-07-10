@@ -15,8 +15,8 @@ This document consolidates the foundational architectural decisions for the BenX
 | Node.js | 20 LTS | Required by Next.js App Router |
 | pnpm | 9.x | Workspace root; `corepack enable` activates the pinned version |
 | Docker / Docker Compose | 24+ | PostgreSQL + Redis dev containers; production image build |
-| PostgreSQL | 16 | Neon serverless (prod); FPT Cloud managed (backup); Docker (dev) |
-| Redis | 7 | Upstash serverless (prod); FPT Cloud managed (backup); Docker (dev) |
+| PostgreSQL | 16 | Neon serverless (prod); Docker (dev) |
+| Redis | 7 | Upstash serverless (prod); Docker (dev) |
 
 **Dev server port**: `3001` (not 3000 -- port 3000 is occupied by another application in the standard dev setup). All references to `localhost:3000` in this documentation suite are legacy and should read `localhost:3001` for local development.
 
@@ -42,7 +42,7 @@ BenXe is a Next.js (App Router) monolith backed by PostgreSQL, accessed through 
 
 **Why Next.js App Router.** Server-side rendering is required to appear in Google search results -- the platform competes directly with VeXeRe's strong organic presence (ADR-001 D1). React Server Components (RSC) enforce two financial invariants: I7 (no client-originated price, because price derivation stays server-side) and I9 (no raw phone in payloads). The `after()` API enables post-commit side effects such as notification fan-out and overpay-refund scheduling without blocking the HTTP response (ADR-001 D1).
 
-**Why PostgreSQL.** The append-only ledger, `SELECT FOR UPDATE` serialization, `BEFORE UPDATE/DELETE` immutability triggers, and eight state-machine ACID requirements all demand row-level locking across multi-table transactions. MongoDB cannot enforce ledger immutability; CockroachDB and PlanetScale (MySQL) lack adequate Vietnam hosting options. PostgreSQL is provider-agnostic -- the same schema runs on FPT Cloud managed PG, bare-metal Viettel IDC, or any standard PG 14+ instance without application changes (ADR-001 D2).
+**Why PostgreSQL.** The append-only ledger, `SELECT FOR UPDATE` serialization, `BEFORE UPDATE/DELETE` immutability triggers, and eight state-machine ACID requirements all demand row-level locking across multi-table transactions. MongoDB cannot enforce ledger immutability; CockroachDB and PlanetScale (MySQL) lack adequate Vietnam hosting options. PostgreSQL is provider-agnostic -- the same schema runs on Neon, bare-metal Viettel IDC, or any standard PG 14+ instance without application changes (ADR-001 D2).
 
 **Why Prisma.** `prisma/schema.prisma` is the single source of truth for the domain model. The `$transaction(async (tx) => { ... })` callback form (not the array form) enables a `tx.$queryRaw\`SELECT ... FOR UPDATE\`` escape hatch inside the same transaction handle -- critical for seat-hold concurrency and payout computations. Typed DTO mapping (`toTripDto.ts`, `toBookingDto.ts`) ensures the select whitelist matches exactly the UI contract fields with zero runtime guessing (ADR-001 D3).
 
@@ -52,16 +52,16 @@ BenXe is a Next.js (App Router) monolith backed by PostgreSQL, accessed through 
 
 ## 2. Hosting Summary
 
-Vercel Pro sin1 (Singapore) is the primary production host. FPT Cloud (Vietnam) is retained as a Docker self-hosted backup for data-residency-constrained scenarios. This pivot (2026-06-21) accepts CDTIA filing in exchange for ~$200-400/mo cost savings and zero-ops deployment (ADR-001 D4, ADR-020 D2/D11).
+Vercel Pro sin1 (Singapore) is the sole production host (ADR-001 D4, ADR-020 D2/D11). CDTIA filing is required and accepted.
 
-| Layer | Primary (Vercel stack) | Backup (FPT Cloud) |
-|---|---|---|
-| Compute | Vercel Pro sin1 ($20/mo) | FPT Cloud Server + Docker Compose |
-| PostgreSQL | Neon Launch ap-southeast-1 ($19/mo) | FPT Managed PG |
-| Redis | Upstash PAYG ap-southeast-1 ($0-2/mo) | FPT Managed Redis |
-| Object Storage | Cloudflare R2 ($0-5/mo) | FPT Object Storage (MinIO) |
-| Cron | Vercel Cron (vercel.json) | Supercronic sidecar |
-| **Total** | **~$55-70/mo** | **~$340-520/mo** |
+| Layer | Production (Vercel stack) |
+|---|---|
+| Compute | Vercel Pro sin1 ($20/mo) |
+| PostgreSQL | Neon Launch ap-southeast-1 ($19/mo) |
+| Redis | Upstash PAYG ap-southeast-1 ($0-2/mo) |
+| Object Storage | Cloudflare R2 ($0-5/mo) |
+| Cron | Vercel Cron (vercel.json) |
+| **Total** | **~$55-70/mo** |
 
 The deployment contract is provider-agnostic Docker: the application is a Docker image that accepts `DATABASE_URL`, `REDIS_URL`, and S3-compatible env vars. Migrating between providers is a DNS + connection-string change, estimated at 2-4 hours (ADR-020 D8; see SI-006 for full deployment architecture).
 
@@ -310,7 +310,7 @@ The monolith is designed with explicit extraction seams. The module boundary arc
 | **Stage 1** | Extract background workers (payout sweeper, notification dispatcher, cron jobs) into separate processes. API routes remain in the Next.js app. | Booking volume or Tet surge pressure exceeds single-process capacity |
 | **Stage 2** | Extract high-volume domains (Search/Availability, Payment webhook processing) as separate services behind an internal API gateway | Series A scale; per-service scaling requirements diverge; team grows enough to own separate services |
 
-The progression is pull-not-push: extraction happens when a specific bottleneck demands it, not on a schedule. SI-006 §10 provides the infrastructure-level detail for each stage, including FPT Cloud service mapping, cost estimates, and measurable trigger thresholds (e.g., cron latency >30s for Stage 1, >50% CPU sustained for Stage 2).
+The progression is pull-not-push: extraction happens when a specific bottleneck demands it, not on a schedule. SI-006 §10 provides the infrastructure-level detail for each stage, including cost estimates and measurable trigger thresholds (e.g., cron latency >30s for Stage 1, >50% CPU sustained for Stage 2).
 
 ---
 
@@ -348,7 +348,7 @@ Branch strategy, PR review gates, and CI pipeline details are in SI-003. Key poi
 - **ADR-010** -- Booking Lifecycle: booking state machine detailed transitions and side effects
 - **ADR-016** -- Module Boundaries: barrel-as-public-API, layered direction rule, client-safe deep imports, lint enforcement
 - **ADR-019** -- State Machine Enforcement: eight state machines, `LEGAL_*_TRANSITIONS` maps, `SELECT FOR UPDATE` pattern, discriminated idempotency, side-effect coupling, side-effect orchestration via `after()` (D7)
-- **ADR-020** -- Deployment: FPT Cloud service mapping, Terraform IaC, Docker deployment contract, staged evolution (D6), provider-agnostic migration path
+- **ADR-020** -- Deployment: Docker deployment contract, staged evolution (D6), provider-agnostic migration path
 
 ### Design Specifications
 

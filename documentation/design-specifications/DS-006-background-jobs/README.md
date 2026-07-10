@@ -18,29 +18,19 @@ Background jobs run on **scheduled cron + database-as-queue** — PostgreSQL tab
 
 | Property | Value |
 |----------|-------|
-| Scheduler | Provider-agnostic HTTP cron (see Mode A / Mode B below) |
+| Scheduler | Vercel Cron (`vercel.json`) |
 | Queue | PostgreSQL tables (Hold, NotificationLog, Payout, EInvoice, etc.) |
 | Handler runtime | Origin (Node.js) — full Prisma/DB access |
 | Execution metadata | `JobRunLog` model per invocation |
 | Minimum cron resolution | 1 minute |
-| Max function duration | Mode A (Vercel): 300 seconds. Mode B (self-hosted): no platform limit; batch self-limits. |
-| Persistent workers | None at Stage 0. Stage 1: BullMQ worker on FPT Cloud Server. |
+| Max function duration | 300 seconds (Vercel Pro) |
+| Persistent workers | None at Stage 0. |
 
-#### Mode A: Vercel Cron (Serverless)
-
-Schedules declared in `vercel.json`. Vercel invokes each route on schedule and injects `Authorization: Bearer <CRON_SECRET>`. Used for staging/preview environments.
-
-#### Mode B: Sidecar Container (Self-Hosted) — Primary
-
-A lightweight container (`aptible/supercronic`) runs a crontab file, issuing `curl` requests to `/api/cron/*` endpoints with the same `Authorization: Bearer <CRON_SECRET>` header. Used for FPT Cloud production and any Docker-based deployment.
-
-Both modes hit **identical HTTP endpoints** with **identical auth**. The cron trigger is a deployment detail, not an application concern. See DS-017 §5 for sidecar specification.
+Schedules are declared in `vercel.json`. Vercel invokes each route on schedule and injects `Authorization: Bearer <CRON_SECRET>`.
 
 **Why database-as-queue.** The platform has ~16 known background jobs — a bounded set, not an unbounded stream. Every job already operates on PostgreSQL state (Hold rows, Payout rows, NotificationLog rows). The database IS the queue. External schedulers (Trigger.dev, Inngest) add vendor dependency and potential cross-border data transfer concerns.
 
-**Dual-config maintenance.** `vercel.json` and the sidecar `crontab` must declare identical schedules. The source of truth is the job catalog in §4.1 below. When adding or removing a cron job, update both files.
-
-**Stage 1 evolution trigger.** When jobs exceed 30-second latency or admin needs stronger isolation: split admin to `admin.busbooking.vn`; add BullMQ worker process on FPT Cloud Server consuming the same `lib/<domain>/` job handlers; add read replica.
+**Stage 1 evolution trigger.** When jobs exceed 30-second latency or admin needs stronger isolation: add BullMQ worker process consuming the same `lib/<domain>/` job handlers; add read replica.
 
 **Source:** ADR-012 D1, ADR-020 D7, ADR-020 D9, DS-017 §5.
 
@@ -50,10 +40,10 @@ All cron routes live under `/api/cron/**` and are authenticated via a **cron sec
 
 | Control | Implementation |
 |---------|---------------|
-| Auth | `Authorization: Bearer <CRON_SECRET>` header. Vercel injects this automatically (Mode A). Sidecar `curl` passes it from env (Mode B). Both use identical server-side verification. |
+| Auth | `Authorization: Bearer <CRON_SECRET>` header. Vercel injects this automatically. |
 | CSRF | Not applicable (server-to-server) |
 | Rate limiting | IP-based at Edge (same as all `/api/**` routes) |
-| External access | Self-hosted: Nginx blocks `/api/cron/` from external IPs (allow 127.0.0.1 + Docker internal network only). Vercel: not externally reachable without secret. |
+| External access | Not externally reachable without secret |
 | Secret rotation | 90-day rotation cron alert; rotation runbook per ADR-008 D7 |
 
 **Source:** ADR-008 D7, ADR-020 D5, DS-017 §6.2, 03-api-contract §10.
@@ -723,8 +713,8 @@ Each e-invoice submission must carry the correct per-operator tax identity (MST/
 | `PSP_WINDOW_MINUTES` | 20 | Capacity formula: `awaiting_payment` bookings within 20 min count against capacity | ADR-009 D5 |
 | `SETTLEMENT_DELAY_DAYS` | 1 | Payout `scheduledAt = completedAt + 1 day` (T+1) | ADR-005 D3 |
 | Hold expiry cron batch | 500 rows | `expireHolds` transaction size | ADR-002 H |
-| Function duration limit | Mode A (Vercel): 300s hard ceiling. Mode B (self-hosted): no platform limit; jobs self-limit via batch sizing. | All cron invocations | ADR-020, DS-017 |
-| Cron resolution floor | 1 minute | Floor for scheduling frequency (both modes) | ADR-020 |
+| Function duration limit | 300s (Vercel Pro) | All cron invocations | ADR-020 |
+| Cron resolution floor | 1 minute | Floor for scheduling frequency | ADR-020 |
 | Notification delivery target | 60 seconds | From user research; drives `after()` acceleration | ADR-002 |
 | ZNS → SMS fallback timeout | 60 seconds | Channel waterfall in dispatch function | ADR-013 D5 |
 | E-invoice issuance deadline | At payment time (same-day best practice; next-business-day legal) | `einvoiceSubmission` cron | Decree 123/2020, Decree 70/2025 |
@@ -808,7 +798,7 @@ Each e-invoice submission must carry the correct per-operator tax identity (MST/
 | Payment failure rate | <3% | >3% | ADR-002 G |
 | Payout failure rate | — | >5% per operator | ADR-007 D5 |
 | External uptime probe | 2-min detection (2 consecutive failures) | — | ADR-002 I |
-| Cron function timeout | 300s max (Vercel Pro) | — | ADR-020 |
+| Cron function timeout | 300s (Vercel Pro) | — | ADR-020 |
 
 ---
 
@@ -833,7 +823,7 @@ Each e-invoice submission must carry the correct per-operator tax identity (MST/
 | Operator churn early-warning sweep (14-day zero-booking) | Operations | LOW — churn with outstanding bookings undetected | Post-launch |
 | OTP dispatch model conflict (3 conflicting descriptions) | Architecture | LOW — functional but inconsistent docs | Post-launch cleanup |
 | CDTIA filing for overseas log processing | Compliance | HIGH — 5% revenue penalty | Go-live (if using overseas APM) |
-| Schedule mismatches (vercel.json vs catalog) | Operations | LOW — reconciliation required before go-live | Go-live |
+| Schedule mismatches (vercel.json vs catalog) | Operations | LOW — verify vercel.json matches catalog before go-live | Go-live |
 
 ---
 
@@ -968,4 +958,4 @@ Any background job that computes currency amounts (payout settlement, platform f
 ## See Also
 
 - [SI-003 CI/CD Pipeline](../../scaffolding-infra/SI-003-ci-cd-pipeline/) — cron endpoint testing in CI, migration safety checks
-- [SI-006 Deployment Config](../../scaffolding-infra/SI-006-deployment-config/) — cron sidecar design, job catalog with schedules, `after()`-accelerated side effects
+- [SI-006 Deployment Config](../../scaffolding-infra/SI-006-deployment-config/) — job catalog with schedules, `after()`-accelerated side effects

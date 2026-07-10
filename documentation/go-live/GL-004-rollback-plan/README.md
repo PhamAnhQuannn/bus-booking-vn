@@ -12,12 +12,11 @@ Document and verify the production rollback procedure so any failed deployment c
 
 ## Acceptance Criteria
 
-### Docker Image Rollback
+### Vercel Deployment Rollback
 
-- [ ] Previous image SHA recorded before every deployment
-- [ ] Rollback command documented: `docker compose pull && docker compose up -d` with previous SHA tag
+- [ ] Rollback procedure: promote previous Vercel deployment from deployment history
 - [ ] Rollback time verified: < 5 minutes from decision to healthy state
-- [ ] At least 3 previous image SHAs retained in GHCR
+- [ ] Vercel retains deployment history (previous deployments available for instant rollback)
 
 ### Rollback Trigger Thresholds (SI-003 §11.5)
 

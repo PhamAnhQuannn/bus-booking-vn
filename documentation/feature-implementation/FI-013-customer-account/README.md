@@ -205,7 +205,7 @@ This feature does not have a single dedicated state machine. The relevant state 
 | PDPL 2025 Art. 13 (Object to processing) | 30 days response deadline | DSAR type=OBJECTION (processing halt + admin review) |
 | PDPL 2025 Art. 9 (Consent) | No pre-ticked boxes; separate consent per purpose; silence/inactivity is NOT consent; log timestamp, version, user ID, purpose per consent event | Consent banner + preference center + ConsentRecord model |
 | PDPL 2025 Art. 20 | Children (<16): parental consent required | Age not currently collected -- GAP |
-| Decree 53/2022 (Data Residency) | All customer PII on FPT Cloud (Vietnam). Resend (US email) remains potential CDTIA obligation | CDTIA filing status still open for Resend |
+| Decree 53/2022 (Data Residency) | All customer PII on Neon (Singapore). CDTIA filing required and accepted (ADR-020 D11). Resend (US email) remains potential CDTIA obligation | CDTIA filing required for Neon + Upstash + Vercel; status still open for Resend |
 | PDPL 2025 (Breach) | 72h to MPS A05; 24h for cybersecurity attacks; SBV if payment data | Breach notification runbook |
 | Consumer Protection Law 2023 Art. 29 | Right to cancel remote contracts within 3 working days | Legal opinion pending on "service already performed" exception |
 | Decree 123/2020 + Decree 70/2025 | Payment records / invoices: 10-year retention | EInvoice, LedgerEntry retention-exempt from anonymization |

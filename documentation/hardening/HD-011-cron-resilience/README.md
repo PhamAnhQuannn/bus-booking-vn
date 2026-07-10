@@ -44,7 +44,6 @@ Verify each cron is implemented, tested, and has correct scheduling:
 
 - [ ] Every cron is safe to invoke twice in a row (no double-processing)
 - [ ] `FOR UPDATE SKIP LOCKED` prevents concurrent cron instances from processing same rows
-- [ ] Supercronic sidecar: single instance guarantee (no overlapping invocations)
 - [ ] If cron is interrupted mid-batch: next run picks up remaining rows without data loss
 
 ### Missed-Cron Detection (ADR-007 P4)
@@ -65,8 +64,7 @@ Verify each cron is implemented, tested, and has correct scheduling:
 
 ### Timezone & Scheduling
 
-- [ ] Supercronic sidecar runs with `TZ=Asia/Ho_Chi_Minh`
-- [ ] Cron schedules documented in crontab file (not hardcoded in application)
+- [ ] Cron schedules documented (not hardcoded in application)
 - [ ] Business-date-sensitive crons (payout settlement, license alert) use Vietnam local date, not UTC
 - [ ] `scheduledFor` column on NotificationLog: composite `@@index([template, scheduledFor])` exists (Mistake Log Issue 014 rule)
 - [ ] No cron queries use `payload->>'field'` predicates (must be top-level indexed columns)

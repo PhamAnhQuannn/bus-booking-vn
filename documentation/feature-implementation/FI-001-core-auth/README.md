@@ -195,7 +195,7 @@ OTP TTL: 5 minutes. Auth max attempts: 5. Account management max attempts: 3.
 | PDPL 2025 (No. 91/2025/QH15) | Phone number = "basic personal data" (T1 tier). Must be redacted in logs, not stored in NotificationLog.payload, retained minimum 24 months after user stops using service. | ADR-007 D2 log redaction; I9 payload rule; OtpAttempt logs 90-day cap |
 | PDPL 2025 + Decree 356/2025 | Breach notification: 72 hours to MPS A05; 24 hours for cybersecurity attacks; SBV if payment data involved. | Incident response runbook |
 | PDPL 2025 | DPO mandatory at launch. Platform processes payment data (sensitive) -> SME exemption (5-year grace) does NOT apply. | Must appoint DPO before go-live |
-| Decree 53/2022 (Data Residency) | All auth data (Customer, Session, OtpAttempt) resides on FPT Cloud (Vietnam). Redis (FPT Managed) Vietnam-hosted. | Eliminates CDTIA obligation for auth-related hosting |
+| Decree 53/2022 (Data Residency) | All auth data (Customer, Session, OtpAttempt) resides on Neon (Singapore). Redis on Upstash (Singapore). CDTIA filing required and accepted (ADR-020 D11). | CDTIA obligation for auth-related hosting |
 | Consumer Protection Law 2023 (No. 19/2023/QH15) | Platform must protect against unauthorized transactions (CSRF, session integrity). | CSRF enforcement in middleware |
 
 ## Testing Strategy
