@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const isProd = process.env.NODE_ENV === 'production';
+const hasSentry = !!process.env.NEXT_PUBLIC_SENTRY_DSN;
 
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -15,7 +16,7 @@ const securityHeaders = [
     value: [
       "default-src 'self'",
       `script-src 'self' 'unsafe-inline'${isProd ? '' : " 'unsafe-eval'"}`,
-      `connect-src 'self'${isProd ? '' : ' ws://localhost:* http://localhost:*'}`,
+      `connect-src 'self'${hasSentry ? ' https://*.ingest.sentry.io' : ''}${isProd ? '' : ' ws://localhost:* http://localhost:*'}`,
       "img-src 'self' data: blob:",
       "style-src 'self' 'unsafe-inline'",
       "font-src 'self'",
