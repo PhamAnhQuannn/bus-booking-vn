@@ -34,7 +34,7 @@ export interface BookingSummary {
   totalVND: number;
 }
 
-export function BookingSummaryRail({ summary }: { summary: BookingSummary }) {
+export function BookingSummaryRail({ summary, showHoldTimer = true }: { summary: BookingSummary; showHoldTimer?: boolean }) {
   return (
     <aside
       className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5 shadow-e2 md:sticky md:top-20"
@@ -54,19 +54,32 @@ export function BookingSummaryRail({ summary }: { summary: BookingSummary }) {
       </div>
 
       <dl className="flex flex-col gap-2 border-t border-border/60 pt-3 text-sm">
-        <div className="flex justify-between">
-          <dt className="text-muted-foreground">
-            Giá vé × {summary.ticketCount}
-          </dt>
-          <dd className="font-mono">{formatVND(summary.unitPriceVND * summary.ticketCount)}</dd>
-        </div>
+        {summary.ticketCount > 1 ? (
+          <>
+            <div className="flex justify-between">
+              <dt className="text-muted-foreground">Giá vé</dt>
+              <dd className="font-mono">{formatVND(summary.unitPriceVND)}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-muted-foreground">× {summary.ticketCount}</dt>
+              <dd className="font-mono">{formatVND(summary.unitPriceVND * summary.ticketCount)}</dd>
+            </div>
+          </>
+        ) : (
+          <div className="flex justify-between">
+            <dt className="text-muted-foreground">
+              Giá vé × {summary.ticketCount}
+            </dt>
+            <dd className="font-mono">{formatVND(summary.unitPriceVND * summary.ticketCount)}</dd>
+          </div>
+        )}
         <div className="mt-1 flex items-center justify-between border-t border-border pt-3 text-lg font-semibold">
           <dt>Tổng cộng</dt>
           <dd className="font-mono text-primary" aria-live="polite">{formatVND(summary.totalVND)}</dd>
         </div>
       </dl>
 
-      <HoldTimer />
+      {showHoldTimer && <HoldTimer />}
 
       <p className="inline-flex items-start gap-1.5 border-t border-border/60 pt-3 text-xs text-muted-foreground">
         <ShieldCheck className="mt-0.5 size-4 shrink-0 text-success-foreground" aria-hidden="true" />
