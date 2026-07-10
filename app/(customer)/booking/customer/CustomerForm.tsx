@@ -62,7 +62,7 @@ export function CustomerForm() {
 
   useEffect(() => {
     if (typeof window === 'undefined' || !phoneInputRef.current) return;
-    const saved = localStorage.getItem(LS_PHONE_KEY);
+    const saved = sessionStorage.getItem(LS_PHONE_KEY);
     if (saved) {
       phoneInputRef.current.value = saved;
     }
@@ -123,7 +123,7 @@ export function CustomerForm() {
         return { status: 'error', message: 'Có lỗi xảy ra. Vui lòng thử lại.' };
       }
 
-      localStorage.setItem(LS_PHONE_KEY, parsed.data.buyerPhone);
+      sessionStorage.setItem(LS_PHONE_KEY, parsed.data.buyerPhone);
 
       setBuyerInfo(parsed.data.buyerName, parsed.data.buyerPhone, parsed.data.buyerEmail);
       setHold(result.holdId, result.expiresAt);

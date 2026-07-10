@@ -100,7 +100,7 @@ test.describe('Hold booking flow', () => {
     // Should navigate to /booking/customer (or redirect there via store setup)
     // The layout guard needs tripId in store — normally set by the search result click handler
     // For e2e, we set the store via localStorage hack or direct navigation with state
-    await page.waitForURL('**/booking/customer');
+    await page.waitForURL('**/booking/customer**');
     await expect(page).toHaveURL(/booking\/customer/);
 
     // Fill in customer form
@@ -130,7 +130,7 @@ test.describe('Hold booking flow', () => {
     // Simulate a previous hold having saved the phone
     await page.goto('/search');
     await page.evaluate(() => {
-      localStorage.setItem('busbooking_last_phone', '0912345678');
+      sessionStorage.setItem('busbooking_last_phone', '0912345678');
     });
 
     await searchForTrips(page);
@@ -140,7 +140,7 @@ test.describe('Hold booking flow', () => {
     test.skip(count === 0, 'No trips available for tomorrow — skipping');
 
     await bookButtons.first().click();
-    await page.waitForURL('**/booking/customer');
+    await page.waitForURL('**/booking/customer**');
 
     // Phone should be pre-filled
     const phoneInput = page.getByLabel(/số điện thoại|phone/i);

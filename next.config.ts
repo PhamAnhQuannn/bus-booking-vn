@@ -27,6 +27,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
   output: 'standalone',
   // 2026-06-06: allow the VS Code devtunnel origin in `next dev` so cross-origin
   // /_next assets, HMR, and server actions are not blocked when the app is reached

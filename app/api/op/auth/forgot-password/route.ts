@@ -15,8 +15,19 @@ import { sendOperatorPasswordResetOtp } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { prisma } from '@/lib/core/db/client';
 import { normalizePhone } from '@/lib/core/validation/phone';
+import { ratelimit } from '@/lib/ratelimit';
+import { clientIp } from '@/lib/core/http/clientIp';
 
 async function handler(req: NextRequest): Promise<Response> {
+  const ip = clientIp(req.headers);
+  const rl = await ratelimit.limit(`forgot-pw:${ip}`);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'RATE_LIMITED' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } }
+    );
+  }
+
   let body: unknown;
   try {
     body = await req.json();

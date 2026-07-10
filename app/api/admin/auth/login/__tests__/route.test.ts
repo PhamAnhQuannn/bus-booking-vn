@@ -8,16 +8,21 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockAdminLogin, mockIssueAdminSession, mockRatelimit, mockCookieStore } = vi.hoisted(() => ({
+const { mockAdminLogin, mockIssueAdminSession, mockAdminLoginRatelimit, mockAdminLoginLockout, mockCookieStore } = vi.hoisted(() => ({
   mockAdminLogin: vi.fn(),
   mockIssueAdminSession: vi.fn(),
-  mockRatelimit: { limit: vi.fn() },
+  mockAdminLoginRatelimit: { limit: vi.fn() },
+  mockAdminLoginLockout: { limit: vi.fn() },
   mockCookieStore: { set: vi.fn(), get: vi.fn() },
 }));
 
 vi.mock('@/lib/auth/adminAuthService', () => ({ adminLogin: mockAdminLogin }));
 vi.mock('@/lib/auth/adminSession', () => ({ issueAdminSession: mockIssueAdminSession }));
-vi.mock('@/lib/ratelimit', async (importOriginal) => ({ ...(await importOriginal()), ratelimit: mockRatelimit }));
+vi.mock('@/lib/ratelimit', async (importOriginal) => ({
+  ...(await importOriginal()),
+  adminLoginRatelimit: mockAdminLoginRatelimit,
+  adminLoginLockout: mockAdminLoginLockout,
+}));
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => mockCookieStore) }));
 
 import { POST } from '../route';
@@ -40,7 +45,8 @@ const SESSION = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockRatelimit.limit.mockResolvedValue({ allowed: true, remaining: 9, retryAfter: 0 });
+  mockAdminLoginRatelimit.limit.mockResolvedValue({ allowed: true, remaining: 9, retryAfter: 0 });
+  mockAdminLoginLockout.limit.mockResolvedValue({ allowed: true, remaining: 4, retryAfter: 0 });
   mockAdminLogin.mockResolvedValue({ ok: true, adminUserId: 'admin-1', role: 'FINANCE' });
   mockIssueAdminSession.mockResolvedValue(SESSION);
 });
@@ -78,13 +84,37 @@ describe('POST /api/admin/auth/login', () => {
     expect(mockCookieStore.set).not.toHaveBeenCalled();
   });
 
-  it('returns 429 when the rate limit is exhausted', async () => {
-    mockRatelimit.limit.mockResolvedValue({ allowed: false, remaining: 0, retryAfter: 42 });
+  it('returns 429 when the per-IP rate limit is exhausted', async () => {
+    mockAdminLoginRatelimit.limit.mockResolvedValue({ allowed: false, remaining: 0, retryAfter: 42 });
     const res = await POST(makeRequest({ email: 'admin@example.com', password: 'CorrectPassword1' }));
     expect(res.status).toBe(429);
     expect(res.headers.get('Retry-After')).toBe('42');
-    // Login must not be attempted once rate-limited.
     expect(mockAdminLogin).not.toHaveBeenCalled();
+  });
+
+  it('returns 429 LOCKED_OUT when per-email lockout is exhausted on invalid credentials', async () => {
+    mockAdminLogin.mockResolvedValue({ ok: false });
+    mockAdminLoginLockout.limit.mockResolvedValue({ allowed: false, remaining: 0, retryAfter: 900 });
+    const res = await POST(makeRequest({ email: 'admin@example.com', password: 'wrong' }));
+    const json = await res.json();
+    expect(res.status).toBe(429);
+    expect(json.error).toBe('LOCKED_OUT');
+    expect(res.headers.get('Retry-After')).toBe('900');
+  });
+
+  it('consumes lockout counter on invalid credentials but returns 401 when still within limit', async () => {
+    mockAdminLogin.mockResolvedValue({ ok: false });
+    mockAdminLoginLockout.limit.mockResolvedValue({ allowed: true, remaining: 3, retryAfter: 0 });
+    const res = await POST(makeRequest({ email: 'admin@example.com', password: 'wrong' }));
+    const json = await res.json();
+    expect(res.status).toBe(401);
+    expect(json.error).toBe('INVALID_CREDENTIALS');
+    expect(mockAdminLoginLockout.limit).toHaveBeenCalledWith('admin-login-fail:admin@example.com');
+  });
+
+  it('does not consume lockout counter on successful login', async () => {
+    await POST(makeRequest({ email: 'admin@example.com', password: 'CorrectPassword1' }));
+    expect(mockAdminLoginLockout.limit).not.toHaveBeenCalled();
   });
 
   it('returns 400 for malformed body (missing email)', async () => {
