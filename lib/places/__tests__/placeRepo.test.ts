@@ -40,7 +40,7 @@ describe('resolveOrCreatePlace', () => {
 
     expect(mockPlaceCreate).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: { canonicalName: 'Sa Pa', aliases: [] },
+        data: { canonicalName: 'Sa Pa', aliases: [], slug: 'sa-pa' },
       })
     );
     expect(result).toEqual({ id: 'p2', canonicalName: 'Sa Pa' });
@@ -58,7 +58,7 @@ describe('resolveOrCreatePlace', () => {
     expect(JSON.stringify(matchCall.values)).not.toContain('  Đà Lạt  ');
     // Create is called with the trimmed canonicalName.
     expect(mockPlaceCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { canonicalName: 'Đà Lạt', aliases: [] } })
+      expect.objectContaining({ data: { canonicalName: 'Đà Lạt', aliases: [], slug: 'da-lat' } })
     );
   });
 

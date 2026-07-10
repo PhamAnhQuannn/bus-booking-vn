@@ -9,6 +9,7 @@
 
 import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
+import { slugify } from './slugify';
 
 export interface ResolvedPlace {
   id: string;
@@ -33,7 +34,7 @@ export async function resolveOrCreatePlace(name: string): Promise<ResolvedPlace>
 
   try {
     const created = await prisma.place.create({
-      data: { canonicalName: trimmed, aliases: [] },
+      data: { canonicalName: trimmed, aliases: [], slug: slugify(trimmed) },
       select: { id: true, canonicalName: true },
     });
     return created;
@@ -80,4 +81,16 @@ export async function listSearchablePlaces(): Promise<string[]> {
     `
   );
   return rows.map((r) => r.place);
+}
+
+/**
+ * Resolve a Place by its URL-safe slug (Issue 262). Returns the canonical name
+ * if found, null otherwise. Used by searchTrips to accept slug-based URLs.
+ */
+export async function findCanonicalNameBySlug(slug: string): Promise<string | null> {
+  const row = await prisma.place.findUnique({
+    where: { slug },
+    select: { canonicalName: true },
+  });
+  return row?.canonicalName ?? null;
 }
