@@ -77,7 +77,6 @@ const CSRF_EXEMPT = new Set([
 ]);
 // Prefix exemptions (CSRF) — routes where the CSRF cookie is unavailable pre-auth
 const CSRF_EXEMPT_PREFIXES = [
-  '/api/op/auth/forgot-password',
   '/api/op/auth/refresh',
   '/api/admin/auth/refresh',     // Issue 056: admin refresh (HttpOnly refresh cookie, no JS-readable CSRF)
   '/api/auth/forgot-password',   // Issue 008: customer forgot-password (pre-auth)

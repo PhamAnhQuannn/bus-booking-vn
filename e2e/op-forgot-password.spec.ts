@@ -13,8 +13,8 @@
  *   - Seeded DB with OperatorUser (phone +8490xxxxxx1)
  *   - OperatorOtpAttempt table reachable via test-peek endpoint
  *
- * NOTE: The forgot-password routes are CSRF_EXEMPT (pre-auth, no bb_csrf cookie).
- * They do not require X-CSRF-Token.
+ * CSRF: forgot-password routes require X-CSRF-Token (bb_csrf cookie set on GET /).
+ * primeCsrf() primes the cookie and returns the token for request headers.
  *
  * SANDBOX-GATED: set E2E_OP_AUTH_ENABLED=true to run.
  */
@@ -74,16 +74,20 @@ test.describe('Operator forgot-password OTP flow', () => {
   });
 
   test('always returns 202 even for non-existent phone (no enumeration)', async ({ request }) => {
+    const csrfToken = await primeCsrf(request);
     const res = await request.post('/api/op/auth/forgot-password', {
       data: { phone: '0999999999' }, // non-existent
+      headers: { 'X-CSRF-Token': csrfToken },
     });
     expect(res.status()).toBe(202);
   });
 
   test('full forgot-password OTP reset flow', async ({ request }) => {
+    const csrfToken = await primeCsrf(request);
     // Step 1: request OTP for seed operator
     const forgotRes = await request.post('/api/op/auth/forgot-password', {
       data: { phone: RAW_PHONE },
+      headers: { 'X-CSRF-Token': csrfToken },
     });
     expect(forgotRes.status()).toBe(202);
 
@@ -102,6 +106,7 @@ test.describe('Operator forgot-password OTP flow', () => {
     // Step 3: verify OTP → get otpProof
     const verifyRes = await request.post('/api/op/auth/forgot-password/verify', {
       data: { phone: RAW_PHONE, code: otpCode },
+      headers: { 'X-CSRF-Token': csrfToken },
     });
     expect(verifyRes.status()).toBe(200);
     const verifyJson = await verifyRes.json();
@@ -112,12 +117,11 @@ test.describe('Operator forgot-password OTP flow', () => {
     // Step 4: reset password
     const resetRes = await request.post('/api/op/auth/forgot-password/reset', {
       data: { otpProof, newPassword: NEW_PASSWORD },
+      headers: { 'X-CSRF-Token': csrfToken },
     });
     expect(resetRes.status()).toBe(204);
 
     // Step 5: login with new password succeeds
-    const csrfToken = await primeCsrf(request);
-
     const loginRes = await request.post('/api/auth/login', {
       data: { scope: 'operator', username: 'PB-0001', password: NEW_PASSWORD },
       headers: { 'X-CSRF-Token': csrfToken },
@@ -126,12 +130,15 @@ test.describe('Operator forgot-password OTP flow', () => {
   });
 
   test('invalid OTP code returns 400 INVALID_CODE', async ({ request }) => {
+    const csrfToken = await primeCsrf(request);
     await request.post('/api/op/auth/forgot-password', {
       data: { phone: RAW_PHONE },
+      headers: { 'X-CSRF-Token': csrfToken },
     });
 
     const verifyRes = await request.post('/api/op/auth/forgot-password/verify', {
       data: { phone: RAW_PHONE, code: '000000' },
+      headers: { 'X-CSRF-Token': csrfToken },
     });
     expect(verifyRes.status()).toBe(400);
     const json = await verifyRes.json();
@@ -139,8 +146,10 @@ test.describe('Operator forgot-password OTP flow', () => {
   });
 
   test('reset with invalid proof returns 401 INVALID_PROOF', async ({ request }) => {
+    const csrfToken = await primeCsrf(request);
     const resetRes = await request.post('/api/op/auth/forgot-password/reset', {
       data: { otpProof: 'invalid.proof.token', newPassword: NEW_PASSWORD },
+      headers: { 'X-CSRF-Token': csrfToken },
     });
     expect(resetRes.status()).toBe(401);
     const json = await resetRes.json();
@@ -148,6 +157,7 @@ test.describe('Operator forgot-password OTP flow', () => {
   });
 
   test('3 failed verifications → 15-min lockout (AC4)', async ({ request }) => {
+    const csrfToken = await primeCsrf(request);
     // Use a distinct phone slot so this test does not collide with the happy-path seed
     // on the unique active-OTP partial index.
     const LOCKOUT_PHONE = '+8490xxxxxx4';
@@ -165,6 +175,7 @@ test.describe('Operator forgot-password OTP flow', () => {
     // Step 1: request OTP for the lockout-test operator
     const forgotRes = await request.post('/api/op/auth/forgot-password', {
       data: { phone: LOCKOUT_RAW_PHONE },
+      headers: { 'X-CSRF-Token': csrfToken },
     });
     expect(forgotRes.status()).toBe(202);
 
@@ -179,6 +190,7 @@ test.describe('Operator forgot-password OTP flow', () => {
     for (let attempt = 1; attempt <= 3; attempt++) {
       const badRes = await request.post('/api/op/auth/forgot-password/verify', {
         data: { phone: LOCKOUT_RAW_PHONE, code: '000000' },
+        headers: { 'X-CSRF-Token': csrfToken },
       });
       expect(badRes.status()).toBe(400);
       const badJson = await badRes.json();
@@ -188,6 +200,7 @@ test.describe('Operator forgot-password OTP flow', () => {
     // Step 4: 4th attempt — sentinel is now active → 429 LOCKED_OUT
     const lockedRes = await request.post('/api/op/auth/forgot-password/verify', {
       data: { phone: LOCKOUT_RAW_PHONE, code: '000000' },
+      headers: { 'X-CSRF-Token': csrfToken },
     });
     expect(lockedRes.status()).toBe(429);
     const lockedJson = await lockedRes.json();
@@ -197,6 +210,7 @@ test.describe('Operator forgot-password OTP flow', () => {
     // (sentinel blocks the send path too, per lib/auth/operatorOtp.ts sendOperatorPasswordResetOtp)
     const retrySendRes = await request.post('/api/op/auth/forgot-password', {
       data: { phone: LOCKOUT_RAW_PHONE },
+      headers: { 'X-CSRF-Token': csrfToken },
     });
     // Route returns 429 only when operator exists AND is locked out; if phone not seeded it
     // silently returns 202 (no-enumeration). Conditionally assert only if 429 was returned.
