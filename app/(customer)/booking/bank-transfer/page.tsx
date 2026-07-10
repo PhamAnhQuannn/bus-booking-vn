@@ -48,6 +48,7 @@ export default async function BankTransferPage({ searchParams }: BankTransferPag
   const bankBin = env.VIETQR_BANK_BIN;
   const accountNumber = env.VIETQR_ACCOUNT_NUMBER;
   const accountName = env.VIETQR_ACCOUNT_NAME;
+  const bankName = env.VIETQR_BANK_NAME;
   const template = env.VIETQR_TEMPLATE;
 
   if (!bookingRef || !amountStr) {
@@ -98,7 +99,7 @@ export default async function BankTransferPage({ searchParams }: BankTransferPag
           <dl className="flex flex-col gap-3 text-sm">
             <div className="flex justify-between gap-4">
               <dt className="text-muted-foreground">Ngân hàng</dt>
-              <dd className="text-right font-medium">Agribank</dd>
+              <dd className="text-right font-medium">{bankName}</dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-muted-foreground">Số tài khoản</dt>

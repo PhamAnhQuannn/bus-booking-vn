@@ -1,12 +1,12 @@
 /**
- * POST /api/bookings/initiate — online (momo | zalopay | card) initiation.
+ * POST /api/bookings/initiate — online payment initiation.
  *
- * Online-only (Issue 039): the cash / pay-on-board rail was removed. A
- * `paymentMethod: 'cash'` body is now rejected at the zod-enum layer (400 INVALID).
+ * Phase 1: bank_transfer only. MoMo/VNPay/ZaloPay/card rejected at Zod layer.
+ * Expand the paymentMethod enum when enabling additional PSPs.
  *
  * Pipeline:
  *   1. Rate-limit by IP (429 + Retry-After)
- *   2. Parse + validate body — { holdId, paymentMethod: 'momo'|'zalopay'|'card' } (400 INVALID)
+ *   2. Parse + validate body — { holdId, paymentMethod: 'bank_transfer' } (400 INVALID)
  *   3. Verify bb_hold cookie matches body.holdId (403 FORBIDDEN)
  *   4. initiateOnlineBooking(method) → { bookingId, payUrl }
  *   5. Map orchestrator result to HTTP status
@@ -32,7 +32,8 @@ import { track, sessionIdFromRequest } from '@/lib/analytics';
 
 const initiateInputSchema = z.object({
   holdId: z.string().min(1).max(128),
-  paymentMethod: z.enum(['momo', 'zalopay', 'card', 'vnpay', 'bank_transfer']),
+  // Phase 1: bank transfer only. Expand enum when enabling MoMo/VNPay/ZaloPay.
+  paymentMethod: z.enum(['bank_transfer']),
   // Issue 089: checkout consent block. Shape-validated here; the value gate
   // (both true + matching version) is enforced below so the failure surfaces as
   // 422 consent_required, not a generic 400 INVALID.
@@ -97,7 +98,7 @@ async function handler(req: NextRequest): Promise<Response> {
   const baseUrl = `${proto}://${host}`;
 
   // ---------------------------------------------------------------------------
-  // Online path (momo | zalopay | card) — stub gateway locally, real in Phase 2
+  // Online path — Phase 1: bank_transfer only
   // ---------------------------------------------------------------------------
   const result = await initiateOnlineBooking({
     holdId,

@@ -1,14 +1,14 @@
 /**
- * Unit tests for POST /api/bookings/initiate (online-only: momo | zalopay | card).
+ * Unit tests for POST /api/bookings/initiate (Phase 1: bank_transfer only).
  *
- * Online-only (Issue 039): the cash rail was removed. A `paymentMethod: 'cash'`
- * body is now rejected at the zod-enum layer (400 INVALID).
+ * Phase 1 restricts the Zod enum to ['bank_transfer']. MoMo/VNPay/ZaloPay/card
+ * and cash are all rejected at the zod-enum layer (400 INVALID).
  *
  * Mocks: initiateOnlineBooking orchestrator, extractHoldCookie, ratelimit.
  *
  * Covers status mapping:
  *   200  ok           — orchestrator success (payUrl)
- *   400  INVALID      — non-JSON body, missing fields, unknown paymentMethod, cash
+ *   400  INVALID      — non-JSON body, missing fields, unknown paymentMethod, cash/momo/vnpay
  *   403  FORBIDDEN    — no cookie OR cookie holdId ≠ body holdId
  *   404  NOT_FOUND    — orchestrator returns hold_not_found
  *   409  CONFLICT     — orchestrator returns hold_expired OR trip_departed
@@ -60,7 +60,7 @@ const HOLD_ID = 'ckabcdefghijklmnopqrstuvwx';
 const VALID_CONSENTS = { noRefund: true, piiStorage: true, version: CONSENT_VERSION };
 const BOOKING_ID = '01975f3b-3f4a-7c2a-8b1c-deadbeefcafe';
 const CONFIRMATION_TOKEN = 'A'.repeat(32);
-const PAY_URL = 'https://payment.momo.vn/pay/app?orderId=BB-2026-test-0001';
+const PAY_URL = '/booking/bank-transfer?bookingRef=BB-2026-test-0001&amount=150000&redirectUrl=%2Fbooking%2Fresult%2Ftoken';
 
 interface RequestOpts {
   body?: unknown;
@@ -85,7 +85,7 @@ function makeRequest(opts: RequestOpts = {}): NextRequest {
     body:
       opts.raw ??
       JSON.stringify(
-        opts.body ?? { holdId: HOLD_ID, paymentMethod: 'momo', consents: VALID_CONSENTS }
+        opts.body ?? { holdId: HOLD_ID, paymentMethod: 'bank_transfer', consents: VALID_CONSENTS }
       ),
   });
 }
@@ -155,7 +155,7 @@ describe('POST /api/bookings/initiate — happy path', () => {
     const call = vi.mocked(initiateOnlineBooking).mock.calls[0]?.[0];
     expect(call?.holdId).toBe(HOLD_ID);
     expect(call?.baseUrl).toBe('https://example.test');
-    expect(call?.method).toBe('momo');
+    expect(call?.method).toBe('bank_transfer');
   });
 
   it('threads the accepted consent version to the orchestrator (Issue 089)', async () => {
@@ -182,7 +182,7 @@ describe('POST /api/bookings/initiate — consent gate (Issue 089)', () => {
       makeRequest({
         body: {
           holdId: HOLD_ID,
-          paymentMethod: 'momo',
+          paymentMethod: 'bank_transfer',
           consents: { noRefund: false, piiStorage: true, version: CONSENT_VERSION },
         },
         cookie: `bb_hold=signedvalue`,
@@ -203,7 +203,7 @@ describe('POST /api/bookings/initiate — consent gate (Issue 089)', () => {
       makeRequest({
         body: {
           holdId: HOLD_ID,
-          paymentMethod: 'momo',
+          paymentMethod: 'bank_transfer',
           consents: { noRefund: true, piiStorage: false, version: CONSENT_VERSION },
         },
         cookie: `bb_hold=signedvalue`,
@@ -223,7 +223,7 @@ describe('POST /api/bookings/initiate — consent gate (Issue 089)', () => {
       makeRequest({
         body: {
           holdId: HOLD_ID,
-          paymentMethod: 'momo',
+          paymentMethod: 'bank_transfer',
           consents: { noRefund: true, piiStorage: true, version: '1999-01-01' },
         },
         cookie: `bb_hold=signedvalue`,
@@ -241,7 +241,7 @@ describe('POST /api/bookings/initiate — consent gate (Issue 089)', () => {
 
     const res = await POST(
       makeRequest({
-        body: { holdId: HOLD_ID, paymentMethod: 'momo' },
+        body: { holdId: HOLD_ID, paymentMethod: 'bank_transfer' },
         cookie: `bb_hold=signedvalue`,
       })
     );
@@ -295,7 +295,7 @@ describe('POST /api/bookings/initiate — input validation', () => {
   it('returns 400 INVALID when holdId missing', async () => {
     allowRatelimit();
 
-    const res = await POST(makeRequest({ body: { paymentMethod: 'momo' }, cookie: `bb_hold=x` }));
+    const res = await POST(makeRequest({ body: { paymentMethod: 'bank_transfer' }, cookie: `bb_hold=x` }));
     const json = await res.json();
 
     expect(res.status).toBe(400);
@@ -312,6 +312,19 @@ describe('POST /api/bookings/initiate — input validation', () => {
 
     expect(res.status).toBe(400);
     expect(json.error).toBe('INVALID');
+  });
+
+  it('rejects momo with 400 INVALID (Phase 1: bank_transfer only)', async () => {
+    allowRatelimit();
+
+    const res = await POST(
+      makeRequest({ body: { holdId: HOLD_ID, paymentMethod: 'momo', consents: VALID_CONSENTS }, cookie: `bb_hold=x` })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error).toBe('INVALID');
+    expect(initiateOnlineBooking).not.toHaveBeenCalled();
   });
 
   it('rejects the removed cash rail with 400 INVALID (Issue 039)', async () => {

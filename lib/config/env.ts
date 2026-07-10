@@ -123,6 +123,8 @@ const envSchema = z.object({
   VIETQR_ACCOUNT_NUMBER: z.string().default('030027766656'),
   /** VietQR account holder name (shown on payment page). */
   VIETQR_ACCOUNT_NAME: z.string().default('CTNHH MINH QUAN'),
+  /** VietQR bank display name (shown on payment page). */
+  VIETQR_BANK_NAME: z.string().default('Sacombank'),
   /** VietQR image template variant. */
   VIETQR_TEMPLATE: z.string().default('compact2'),
 
@@ -384,6 +386,18 @@ const envSchema = z.object({
         code: z.ZodIssueCode.custom,
         path: ['SEPAY_API_KEY'],
         message: 'SEPAY_API_KEY is required when PAYMENTS_STUB=false',
+      });
+    }
+  }
+  // Real VietQR mode (PAYMENTS_STUB=false): reject dev-default account config.
+  if (!env.PAYMENTS_STUB) {
+    const VIETQR_DEFAULT_ACCOUNT = '030027766656';
+    if (env.VIETQR_ACCOUNT_NUMBER === VIETQR_DEFAULT_ACCOUNT) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['VIETQR_ACCOUNT_NUMBER'],
+        message:
+          'VIETQR_ACCOUNT_NUMBER must be set to a real account when PAYMENTS_STUB=false',
       });
     }
   }
