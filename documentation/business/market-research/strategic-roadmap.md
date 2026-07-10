@@ -8,25 +8,16 @@
 |---|---|---|---|
 | 1 | **Build customer cancellation & refund flow** | #1 user complaint. Every competitor has it. Reputation death sentence without it. | M |
 | 2 | **Obtain IPS license legal opinion** | T+1 may be illegal without license. Go/no-go determination for current payment architecture. | S (legal consultation) |
-| 3 | **~~Resolve data localization for PII~~** **RESOLVED (2026-06-19)** | ~~Decree 53/2022 violation. Vercel sin1 (Singapore) does not comply.~~ **FPT Cloud (Vietnam) chosen as primary host. All data stays in Vietnam. CDTIA eliminated.** See ADR-020 D7, DS-017. Remaining: provision FPT Cloud VPS, deploy Docker stack, configure Nginx + SSL, set up cron sidecar. **UPDATE (2026-06-21)**: Vercel Pro sin1 (Singapore) restored as primary (ADR-020 D11). CDTIA filing now required and accepted (~$2-5K). FPT Cloud backup still eliminates CDTIA. | M |
+| 3 | **~~Resolve data localization for PII~~** **RESOLVED (2026-06-21)** | ~~Decree 53/2022 violation. Vercel sin1 (Singapore) does not comply.~~ Vercel Pro sin1 (Singapore) is the sole production host (ADR-020 D11). CDTIA filing required and accepted (~$2-5K). See Part 4 of `guides/cdtia-data-residency-guide.md`. | M |
 | 4 | **Build round-trip booking flow** | All major competitors have it. Missing it doubles booking friction. Paired-return infrastructure exists (Issue 013); customer-facing search/checkout needs completion. | M |
 | 5 | **Add Zalo ZNS for booking confirmations** | Email-only insufficient for Vietnamese users. Zalo 70M+ users, ZNS higher open rates than SMS, lower cost. VeXeRe BMS uses ZNS. | S-M |
 | 6 | **Build "My Bookings" page** | Every platform with accounts has this. Data exists — read-only UI. | S |
-
-## Pre-Launch: Hosting Migration (Added 2026-06-19)
-
-| # | Action | Why | Effort |
-|---|---|---|---|
-| 3a | **Provision FPT Cloud VPS + managed services** | Contact FPT sales for quote. Provision Cloud Server (4vCPU/8GB), Managed PG, Managed Redis. | S |
-| 3b | **Deploy Docker Compose stack on FPT Cloud** | Docker image + PgBouncer + cron sidecar (supercronic) + Nginx + Let's Encrypt. See DS-017 §4-6. | M |
-| 3c | **Migrate database from current host** | `pg_dump` → `pg_restore` to FPT Managed PG. Verify data integrity. | S |
-| 3d | **DNS cutover + PSP webhook URL update** | Point domain to FPT Cloud. Update MoMo/VNPay IPN callback URLs. Verify e2e payment flow. | S |
 
 ## Month 1-3
 
 | # | Action | Why | Effort |
 |---|---|---|---|
-| 7 | **Complete regulatory filings** | MOIT e-commerce notification, DPO appointment, DPIA filing, standard-form contract registration. ~~Cross-border transfer dossier~~ **no longer needed** (FPT Cloud hosting eliminates CDTIA). | M (administrative) |
+| 7 | **Complete regulatory filings** | MOIT e-commerce notification, DPO appointment, DPIA filing, standard-form contract registration, CDTIA dossier for Vercel/Neon/Upstash (Singapore). | M (administrative) |
 | 8 | **Build promo code / discount voucher engine** | Vietnamese consumers extremely price-sensitive and promotion-responsive. 20-50k VND micro-discounts significantly shift conversion. | M |
 | 9a | **Add MoMo + VNPay as payment methods** | MoMo covers e-wallet users (40M+); VNPay covers cards, QR, international. Launch uses bank transfer + cash (zero registration). | S-M |
 | 9b | **Add ZaloPay as payment method** | 20M active users, embedded in Zalo (70M+ users), growing rapidly. Expands payment coverage. | S-M |

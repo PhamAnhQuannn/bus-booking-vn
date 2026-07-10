@@ -12,6 +12,7 @@ Status tracking for all work items derived from gap analysis
 | BLOCKED | Waiting on external dependency |
 | DONE | Completed and verified |
 | DEFERRED | Explicitly deferred to Phase 2+ |
+| REMOVED | Scope eliminated; no longer applicable |
 
 ---
 
@@ -36,8 +37,8 @@ Status tracking for all work items derived from gap analysis
 
 | # | File | Severity | Status | Comparison | Spec |
 |---|------|----------|--------|------------|------|
-| 08 | [fpt-cloud-vps-provisioning](08-fpt-cloud-vps-provisioning.md) | HIGH | NOT_STARTED | 09, 12 | ADR-020 |
-| 09 | [docker-compose-production-stack](09-docker-compose-production-stack.md) | HIGH | NOT_STARTED | 05, 09 | ADR-020, SI-006 |
+| 08 | [fpt-cloud-vps-provisioning](08-fpt-cloud-vps-provisioning.md) | HIGH | REMOVED | 09, 12 | FPT Cloud backup path eliminated (2026-07-10) |
+| 09 | [docker-compose-production-stack](09-docker-compose-production-stack.md) | HIGH | REMOVED | 05, 09 | FPT Cloud backup path eliminated (2026-07-10) |
 | 10 | [nginx-ssl-dns-cloudflare](10-nginx-ssl-dns-cloudflare.md) | HIGH | NOT_STARTED | 09 | SI-006 |
 | 11 | [production-jwt-and-cron-secrets](11-production-jwt-and-cron-secrets.md) | HIGH | NOT_STARTED | 09 | GL-006 |
 
@@ -62,7 +63,7 @@ Status tracking for all work items derived from gap analysis
 
 | # | File | Severity | Status | Comparison | Spec |
 |---|------|----------|--------|------------|------|
-| 19 | [cron-supercronic-sidecar](19-cron-supercronic-sidecar.md) | MEDIUM | NOT_STARTED | 06 | DS-006 |
+| 19 | [cron-supercronic-sidecar](19-cron-supercronic-sidecar.md) | MEDIUM | REMOVED | 06 | FPT Cloud backup path eliminated (2026-07-10) |
 | 20 | [zod-boot-validation-completeness](20-zod-boot-validation-completeness.md) | MEDIUM | DONE | 02 S8 | SI-006 |
 | 21 | [pnpm-audit-ci-stage](21-pnpm-audit-ci-stage.md) | HIGH | DONE | 02 S6, 05 | KG-01 |
 | 22 | [greppable-invariants-ci](22-greppable-invariants-ci.md) | HIGH | DONE | 02 S7, 05 | KG-14 |

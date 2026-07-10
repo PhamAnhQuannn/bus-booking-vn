@@ -34,7 +34,6 @@
 | Guide | Purpose |
 |-------|---------|
 | [cdtia-data-residency-guide.md](cdtia-data-residency-guide.md) | Vietnam PDPL 2025 compliance, CDTIA filing for Singapore-hosted services |
-| [deployment-fpt-cloud-setup.md](deployment-fpt-cloud-setup.md) | FPT Cloud VPS + Docker backup deployment (alternative to Vercel) |
 
 ## Cross-References
 

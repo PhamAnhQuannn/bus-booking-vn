@@ -203,13 +203,13 @@ Key business constraints driving auth decisions (sourced from `documentation/bus
 | Build from scratch | Full control; no dependencies; exact fit for three-realm model | Massive surface area: password hashing, token rotation, reuse detection, brute-force, TOTP — each a bug category we'd own entirely |
 | Auth0 / Clerk (SaaS) | Decades of hardening; managed infrastructure; SOC2 audit logs | US/EU-hosted — requires CDTIA for Vietnamese user PII; per-MAU pricing at scale; external dependency for critical path |
 | Firebase Auth (Google) | 50k MAU free; phone OTP built-in | Google Cloud = CDTIA needed; 1000-byte custom claim limit; no self-host |
-| Supabase Auth (self-host) | Self-host on FPT Cloud (zero CDTIA); free; PostgreSQL-native | Separate GoTrue Docker container; Go codebase harder to debug for TypeScript team |
+| Supabase Auth (self-host) | Self-host (zero CDTIA if Vietnam-hosted); free; PostgreSQL-native | Separate GoTrue Docker container; Go codebase harder to debug for TypeScript team |
 | **Better Auth (self-host)** | Self-host inside Next.js (zero CDTIA, zero extra container); MIT licensed, zero per-MAU; TypeScript-native with Prisma adapter; plugins for OTP, TOTP, phone-number; full session customization | Younger than Auth0/Firebase; smaller community; we still own realm routing, tenant isolation, CSRF, business authz |
 
 **Choice**: Better Auth (self-hosted in Next.js, Prisma adapter)
 
 **Reasons**:
-- **Data residency** — runs inside our Next.js app (no separate auth container). On Vercel (primary), cross-border transfer to Neon (Singapore) requires CDTIA filing (accepted per ADR-020 D11). On FPT Cloud (backup), all data stays in Vietnam — zero CDTIA
+- **Data residency** — runs inside our Next.js app (no separate auth container). On Vercel Pro sin1 (Singapore), cross-border transfer to Neon (Singapore) requires CDTIA filing (accepted per ADR-020 D11)
 - **Zero ongoing cost** — MIT licensed, no per-MAU. SaaS providers cost $240-$300+/year at 10k MAU
 - **TypeScript-native** — same Prisma ORM and PostgreSQL; no language boundary when debugging auth
 - **Plugin system covers three realms**: `phoneNumber()` + `otp()` for customer via eSMS; built-in email+password for operator; `twoFactor()` for admin TOTP with backup codes

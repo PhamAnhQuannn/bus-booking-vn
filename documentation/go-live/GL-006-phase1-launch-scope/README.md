@@ -7,7 +7,7 @@
 - **Operators**: 1-2 family-owned bus operators (platform owner = operator = same entity)
 - **Payment**: VietQR bank transfer (SePay webhook) + cash at boarding
 - **Bank account**: Single family Agribank account (BIN 970405)
-- **Hosting**: Vercel Pro sin1 + Neon + Upstash (ADR-020 D11, Stage 0). FPT Cloud Docker self-hosted retained as backup.
+- **Hosting**: Vercel Pro sin1 + Neon + Upstash (ADR-020 D11, Stage 0)
 - **Corridor**: Thanh Hoa ↔ TPHCM (beachhead route)
 - **Goal**: Validate core booking flow with real passengers before scaling to external operators
 
@@ -47,7 +47,7 @@ Split-settlement (DS-009) becomes relevant only when adding **external** operato
 | ADR-017 Schema Evolution | IN-SCOPE | Forward-only migrations |
 | ADR-018 Testing Strategy | IN-SCOPE | E2E + integration + unit pyramid |
 | ADR-019 State Machines | PARTIAL | Trip + Booking + Hold FSMs needed. Payout/Charter/EInvoice FSMs deferred |
-| ADR-020 Deployment | IN-SCOPE | Vercel Pro sin1 + Neon + Upstash (FPT Cloud backup) |
+| ADR-020 Deployment | IN-SCOPE | Vercel Pro sin1 + Neon + Upstash |
 
 ## DS Scope
 
@@ -69,7 +69,7 @@ Split-settlement (DS-009) becomes relevant only when adding **external** operato
 | DS-014 Complaint API | DEFERRED | Handle via Zalo/phone for Phase 1 |
 | DS-015 DSAR/Privacy | DEFERRED | < 10k users, defer until scale |
 | DS-016 Promotions | DEFERRED | Phase 2+ |
-| DS-017 Deployment Portability | IN-SCOPE | Vercel primary; Docker on FPT Cloud as backup |
+| DS-017 Deployment Portability | IN-SCOPE | Vercel Pro sin1 sole deployment target |
 
 ## Phase 1 Launch Checklist
 
@@ -86,7 +86,6 @@ Simplified from GL-001. Only items that apply to family operator + bank transfer
 - [ ] Custom domain configured + SSL active
 - [ ] DNS pointing to Vercel
 - [ ] Cloudflare active (free tier acceptable for Phase 1)
-- [ ] FPT Cloud Docker Compose backup validated (fallback)
 
 ### Security
 
@@ -131,7 +130,6 @@ Simplified from GL-001. Only items that apply to family operator + bank transfer
 - [ ] Hold expiry sweep running (10-min TTL)
 - [ ] Notification dispatch running
 - [ ] Sales close running (pre-departure cutoff)
-- [ ] FPT Cloud backup: Supercronic sidecar validated (only if using Docker deployment)
 
 ### Smoke Tests
 
@@ -185,4 +183,4 @@ Activate deferred specs when these conditions are met:
 - GL-001 — full launch checklist (Phase 2+ items)
 - ADR-005 — payment architecture (split-settlement = Phase 2+)
 - DS-013 — VietQR/SePay design (Phase 1 primary payment)
-- ADR-020 — Vercel + Neon + Upstash deployment (Stage 0, FPT Cloud backup)
+- ADR-020 — Vercel + Neon + Upstash deployment (Stage 0)

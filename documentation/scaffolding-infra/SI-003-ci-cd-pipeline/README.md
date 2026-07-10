@@ -4,7 +4,7 @@
 
 ## Purpose
 
-This document consolidates the CI/CD pipeline design for the BenXe platform: how code moves from a developer's branch to a production Docker container running on FPT Cloud Vietnam. It covers the full pipeline stage sequence, security gate requirements, Docker build configuration, container registry selection, deployment flow, migration safety checks in CI, infrastructure-as-code setup, branch strategy, and skills-based review gates. For detailed linting rules see SI-004; for detailed testing strategy see SI-005; for full deployment architecture see SI-006.
+This document consolidates the CI/CD pipeline design for the BenXe platform: how code moves from a developer's branch to production on Vercel. It covers the full pipeline stage sequence, security gate requirements, Docker build configuration, container registry selection, deployment flow, migration safety checks in CI, infrastructure-as-code setup, branch strategy, and skills-based review gates. For detailed linting rules see SI-004; for detailed testing strategy see SI-005; for full deployment architecture see SI-006.
 
 ---
 
@@ -39,7 +39,7 @@ The CI pipeline is defined in `.github/workflows/ci.yml`. It runs on every push 
 | **6. Secret scanning** | `gitleaks` | Gitleaks action v2 + `.gitleaks.toml` | Secret / PII detection | Yes |
 | **7. Dependency audit** | **TO ADD** | `pnpm audit --audit-level=high` | Supply-chain vulnerability | Yes |
 | **8. Docker build** | **TO ADD** | `docker build` (multi-stage, Next.js standalone) | Artifact production | Yes |
-| **9. Deploy** | manual | `docker compose pull && docker compose up -d` on FPT Cloud | Delivery | Production only |
+| **9. Deploy** | automatic | Vercel deploy (on main push) | Delivery | Production only |
 | **10. Post-deploy verify** | **TO ADD** | Health check + smoke test | Deployment validation | Production only |
 
 ### 1.1 Stage Dependencies
@@ -84,7 +84,7 @@ Security enforcement is distributed across ADR-008 Layer 5 (CI pipeline layer) a
 
 ### 2.3 HTTP Security Headers
 
-The full OWASP header set is defined in ADR-008 D4: HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy. The CSP `connect-src` must include PSP redirect origins (MoMo, VNPay) per environment. **Status**: NOT_IMPLEMENTED as of 2026-06-20. **Severity**: **Go-live blocker** (Issue 094) -- ADR-008 classifies this as mandatory; SI-006 §6.2 confirms Nginx must serve these headers.
+The full OWASP header set is defined in ADR-008 D4: HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy. The CSP `connect-src` must include PSP redirect origins (MoMo, VNPay) per environment. **Status**: NOT_IMPLEMENTED as of 2026-06-20. **Severity**: **Go-live blocker** (Issue 094) -- ADR-008 classifies this as mandatory.
 
 ### 2.4 Five-Layer Security Model -- Pipeline Role
 
@@ -121,7 +121,7 @@ After security headers are implemented (ADR-008 D4), a post-deploy verification 
 
 The `data-leak-grep.sh` check A5 provides code-level detection (warns if no Referrer-Policy found in source). The post-deploy curl provides response-level verification. Both are needed.
 
-**Status**: NOT_IMPLEMENTED -- headers themselves do not exist yet. See SI-006 Section 6.2 (Nginx security headers).
+**Status**: NOT_IMPLEMENTED -- headers themselves do not exist yet.
 
 ---
 
@@ -169,18 +169,18 @@ The `runner` stage contains no source code, no devDependencies, and no secrets. 
 `next.config.ts` sets `output: 'standalone'`. This produces:
 
 - `.next/standalone/` -- the complete server bundle including all required `node_modules`
-- `.next/static/` -- static assets served via Nginx or CDN, not through the Node.js process
+- `.next/static/` -- static assets served via CDN, not through the Node.js process
 - `public/` -- public assets
 
 The standalone output is the only artifact copied into the `runner` stage.
 
 ### 4.3 Non-Root User
 
-The runner container executes as a non-root user (`USER node`). PM2 is used when deploying the standalone output directly on a VPS without Docker.
+The runner container executes as a non-root user (`USER node`).
 
 ### 4.4 Environment Variables at Runtime
 
-No secrets are baked into the Docker image. All credentials are injected at container start via `docker run --env-file`, Docker Compose `env_file:`, or VM-level environment variables. Environment validation runs at boot (`lib/config/env.ts` Zod schema) -- the application fails fast if required credentials are missing. See SI-006 Section 8 for the full environment validation design.
+No secrets are baked into the Docker image. All credentials are injected at runtime via environment variables (Vercel dashboard, `docker run --env-file`, or equivalent). Environment validation runs at boot (`lib/config/env.ts` Zod schema) -- the application fails fast if required credentials are missing. See SI-006 Section 4 for the full environment validation design.
 
 ---
 
@@ -188,31 +188,27 @@ No secrets are baked into the Docker image. All credentials are injected at cont
 
 **Registry choice**: GitHub Container Registry (GHCR) -- free tier (DS-017, ADR-020 D7).
 
-**Why not FPT Container Registry**: FPT CR costs 16,000,000 VND/month (~$640 USD/month; DS-017 §11) -- cost-prohibitive for a startup.
-
-**Images are deploy-time-only artifacts**: Container images contain no PII, no user data, no production secrets. The image pull from GHCR to the FPT Cloud VPS happens only at deployment time. International network transit during image pull does not constitute a PDPL 2025 cross-border data transfer.
+**Images are deploy-time-only artifacts**: Container images contain no PII, no user data, no production secrets.
 
 **Image tagging strategy**:
 - `ghcr.io/org/busbooking:sha-<git-sha>` -- immutable, tied to a specific commit; used for production deployments
 - `ghcr.io/org/busbooking:latest` -- mutable, points to most recent main branch build; used for staging pulls
 
-**Future alternative**: Self-hosted Harbor on an FPT VM if Vietnam-residency for container images becomes a compliance requirement.
+**Future alternative**: Self-hosted Harbor if Vietnam-residency for container images becomes a compliance requirement.
 
 ---
 
 ## 6. Deployment Overview
 
-For full deployment architecture, hosting details, cron sidecar design, Nginx configuration, and provider migration playbooks, see SI-006.
+For full deployment architecture, hosting details, and provider migration playbooks, see SI-006.
 
-### 6.1 Primary Host -- FPT Cloud Vietnam
+### 6.1 Primary Host -- Vercel Pro sin1
 
-> **2026-06-21 Update**: Primary production is now Vercel Pro sin1 + Neon + Upstash (ADR-020 D11). FPT Cloud is the backup Docker self-hosted option. The CI/CD pipeline outputs a Docker image that works on both Vercel (via standalone output) and FPT Cloud (via Docker Compose).
+Vercel Pro sin1 is the primary production host (ADR-020 D2/D11). Database on Neon (Singapore), cache on Upstash (Singapore). CDTIA filing accepted for cross-border transfer under PDPL 2025 Art. 25.
 
-Vercel Pro sin1 is the primary production host (ADR-020 D2/D11). Database on Neon (Singapore), cache on Upstash (Singapore). CDTIA filing accepted for cross-border transfer under PDPL 2025 Art. 25. FPT Cloud (Vietnam) retained as Docker self-hosted backup — eliminates CDTIA entirely.
+### 6.2 Staging -- Vercel Preview
 
-### 6.2 Staging Alternative -- Vercel sin1
-
-Vercel Pro (Singapore region `sin1`) is the primary production AND staging host (ADR-020 D2/D11, 2026-06-21 pivot). CDTIA filing is required and accepted for production user PII processed on Vercel+Neon+Upstash (PDPL 2025 Art. 25). FPT Cloud (Vietnam) is the Docker self-hosted backup — see `deployment-fpt-cloud-setup.md`.
+Vercel Pro (Singapore region `sin1`) is the primary production AND staging host (ADR-020 D2/D11). Per-PR preview deploys use Neon database branching for isolated preview databases. CDTIA filing is required and accepted for production user PII processed on Vercel+Neon+Upstash (PDPL 2025 Art. 25).
 
 ### 6.3 Deployment Contract
 
@@ -260,46 +256,17 @@ Three migration safety checks are currently manual. Automation targets for Stage
 
 **Status**: Manual checklist sufficient at team size 1; CI automation deferred to Stage 1.
 
-### 7.7 Cron Dual-Config Parity Check (Future)
+### 7.7 Cron Schedule Verification (Future)
 
-`vercel.json` cron entries and `deploy/crontab` sidecar entries must stay in sync (DS-006 Section 2.1, SI-006 Section 4.3). Currently enforced by same-commit discipline only.
+`vercel.json` cron entries define the production schedule (DS-006 Section 2.1). The canonical cron schedule source is DS-006 Section 4.1.
 
-**Automation target**: A CI script (`scripts/audit/cron-parity.sh`) that extracts endpoint paths from both files and asserts set equality. When added, this should run as a CI job alongside `data-leak-audit`.
-
-**Status**: NOT_AUTOMATED. The canonical cron schedule source is DS-006 Section 4.1.
+**Status**: NOT_AUTOMATED.
 
 ---
 
 ## 8. Infrastructure as Code
 
-### 8.1 Terraform -- FPT Cloud Provider
-
-All FPT Cloud infrastructure is managed by Terraform using the `fpt-corp/fptcloud` provider (DS-017, ADR-020 D7):
-
-| Detail | Value |
-|--------|------|
-| Provider | `fpt-corp/fptcloud` |
-| Version | v0.3.51 (as of 2026-06-19; 58 releases, actively maintained) |
-| License | MPL-2.0 |
-| Auth | `API_URL`, `REGION`, `TENANT_NAME`, `TOKEN` env vars |
-
-**Terraform-managed resources**: VPC and subnet, security groups, compute instances, floating IPs, load balancer v2, managed PostgreSQL, object storage, managed Kubernetes (MFKE), SSH keys.
-
-**Recommendation**: Use Terraform from Day 1 for all core infrastructure provisioning. IaC ensures the infrastructure is reproducible, version-controlled, and auditable.
-
-### 8.2 IaC Gaps -- Portal-Only Services
-
-The following FPT Cloud services are not yet available in the Terraform provider and must be configured manually via the FPT Cloud console:
-
-| Service | Alternative |
-|---------|------------|
-| WAF | Cloudflare WAF (Pro, $20/mo) -- Terraform-managed via `cloudflare/cloudflare` provider |
-| Monitoring | BetterStack + Sentry (external; already decided in ADR-007) |
-| Backup / DR | Documented manually; automated backup via `pg_dump` to FPT Object Storage cron |
-
-### 8.3 Secret Management in IaC
-
-FPT Cloud has no KMS or Vault equivalent (ADR-008 D12). Secrets are managed as VM-level environment variables validated by Zod at boot. Terraform should NOT store credentials in `.tfstate` plain text -- use `sensitive = true` for all credential outputs and store state in a remote backend with encryption.
+Vercel configuration is managed via `vercel.json` (cron schedules, headers, rewrites) and the Vercel dashboard (environment variables, domain settings). Cloudflare DNS and WAF are managed via the `cloudflare/cloudflare` Terraform provider. Secrets are injected as Vercel environment variables and validated by Zod at boot (SI-006 Section 4).
 
 ---
 
@@ -398,7 +365,7 @@ Trivy or Grype scan on the built Docker image for OS-level CVEs. Currently only 
 
 ### 11.1 Health Check
 
-After `docker compose pull && up -d`, verify `curl http://localhost:3000/api/health` returns HTTP 200. See SI-006 Section 2.1 (deployment contract verification checklist).
+After Vercel deployment completes, verify `curl https://<domain>/api/health` returns HTTP 200. See SI-006 Section 2.1 (deployment contract verification checklist).
 
 ### 11.2 Smoke Test
 
@@ -414,7 +381,7 @@ Fire one cron endpoint (`/api/cron/sweep-holds`) with the `Authorization: Bearer
 
 ### 11.5 Rollback Trigger Definition
 
-Conditions that trigger a rollback to the previous Docker image tag (`ghcr.io/org/busbooking:sha-<previous-sha>`):
+Conditions that trigger a rollback to the previous deployment:
 
 | Trigger | Threshold |
 |---------|-----------|
@@ -423,9 +390,9 @@ Conditions that trigger a rollback to the previous Docker image tag (`ghcr.io/or
 | Prisma migration failure | Forward-fix required (ADR-017 D1 -- no rollback of migrations) |
 | Cron endpoint failure | Response does not match DS-006 contract shape |
 
-Rollback procedure: revert Docker image tag to the previous SHA. Migration rollback is NOT possible (forward-only) -- if a migration is the cause, a forward-fix migration must be authored.
+Rollback procedure: redeploy the previous commit via Vercel dashboard or `vercel rollback`. Migration rollback is NOT possible (forward-only) -- if a migration is the cause, a forward-fix migration must be authored.
 
-**Status**: NOT_DOCUMENTED operationally. Must be documented before Issue 094 go-live. See SI-006 Section 13 (provider migration playbook).
+**Status**: NOT_DOCUMENTED operationally. Must be documented before Issue 094 go-live. See SI-006 Section 9 (provider migration playbook).
 
 ---
 
@@ -433,7 +400,7 @@ Rollback procedure: revert Docker image tag to the previous SHA. Migration rollb
 
 ### 12.1 NFR Targets
 
-SI-006 Section 9 defines latency and throughput targets:
+SI-006 Section 5 defines latency and throughput targets:
 
 | Metric | Target | Alert threshold |
 |--------|--------|-----------------|
@@ -447,7 +414,7 @@ No performance testing infrastructure exists as of 2026-06-20 (SI-006 Known Gaps
 
 ### 12.2 Stage 0 Performance Gate
 
-For Stage 0 (current single-VPS), extend the post-deploy smoke test (`scripts/fresh-boot-smoke.sh`) to assert LCP < 2.5s on the trip search page and API response time < 300ms on `/api/trips/search`. This provides a regression floor, not a load test.
+For Stage 0 (current), extend the post-deploy smoke test (`scripts/fresh-boot-smoke.sh`) to assert LCP < 2.5s on the trip search page and API response time < 300ms on `/api/trips/search`. This provides a regression floor, not a load test.
 
 ### 12.3 Stage 1+ Performance Gate
 
@@ -489,7 +456,7 @@ Target: consolidate into `scripts/audit/invariants.sh` and add as CI stage along
 | G6 | No `'use client'` barrel imports (redundant with A3 but different scope) | `grep -rln "from ['\"]@/lib/auth['\"]" app/ components/ \| xargs head -1 \| grep "use client"` must return zero | Mistake Log Issue 092b |
 | G7 | PII redaction coverage | `grep -rn "otpProof\|tempPassword\|accessToken\|refreshToken" lib/ app/ --include="*.ts" \| grep -v "redact\|REDACT\|sanitize"` must return zero (excluding type definitions) | ADR-007, Mistake Log Issue 007 |
 | G8 | Mock method parity (semi-automatable) | `grep -rn "findUnique" __tests__/ \| grep "mock\|Mock"` → cross-check each against actual service call method | Mistake Log Issue 008 |
-| G9 | Cron dual-config parity | Extract endpoint paths from `vercel.json` and `deploy/crontab`, assert set equality | DS-006 §2.1, SI-006 §4.3 |
+| G9 | Cron schedule parity | Verify `vercel.json` cron endpoints match DS-006 canonical schedule | DS-006 §2.1 |
 | G10 | Hex mock validity | `grep -rn "Buffer\.from.*hex" __tests__/ \| grep -v "[0-9a-f]\{64\}"` should return zero | Mistake Log Issue 010 |
 | G11 | `findFirst` vs `findUnique` — soft-delete models must use `findFirst` | `grep -rn "\.findUnique" lib/ app/ \| grep -i "customer\|operator"` should be checked against models with `deletedAt` | Mistake Log Issue 008 |
 
@@ -525,7 +492,7 @@ All review gate skills operate in **advisory mode** (non-blocking, comment-only)
 | Files in `prisma/migrations/` changed | `/migration-safety` | NOT NULL checklist, dual-declaration audit, CHECK constraint validation | Required |
 | Files in `lib/payment/` or `lib/payout/` changed | `/ledger-invariants` | Financial integrity, BigInt math, append-only ledger guards | Required |
 | Files in `app/api/cron/` or `lib/cron/` changed | `/observability-review` | Cron job health, idempotency, `SKIP LOCKED` pattern | Recommended |
-| Files in `docker*`, `nginx*`, or `deploy/` changed | `/rollback-plan` | Rollback procedure review, image tag strategy | Recommended |
+| Files in `docker*`, `vercel.json`, or `deploy/` changed | `/rollback-plan` | Rollback procedure review, deployment strategy | Recommended |
 | Files in `app/**/page.tsx` or `components/` changed | `/design-review` | UI consistency, accessibility, responsive design | Recommended |
 | Release branch or `v*` tag | `/launch-checklist` | Go-live readiness gate (references GL-001) | Required |
 | Files in `lib/auth/` or JWT-related | `/threat-model` | Auth flow threat analysis, token handling review | Recommended |
@@ -618,7 +585,7 @@ With all enhancements, the target pipeline becomes:
 | **6. SBOM generation** | `sbom` | `npx @cyclonedx/cyclonedx-npm --output-file sbom.json` | Supply chain inventory | No (informational) |
 | **7. E2E tests** | `e2e-tests` | Playwright `mobile-390` project | Full user flows | Yes |
 | **8. Docker build + size gate** | `docker-build` | `docker build` + assert size < 500MB | Artifact validation | Yes |
-| **9. Deploy** | manual | `docker compose pull && up -d` on FPT Cloud | Delivery | Production only |
+| **9. Deploy** | automatic | Vercel deploy (on main push) | Delivery | Production only |
 | **10. Post-deploy verify** | `post-deploy` | Health check + smoke + cron endpoint + headers | Deployment validation | Production only |
 | **11. Review gate skills** | PR comments | Skills from §14.2 (advisory → blocking post-hardening) | Quality review | Advisory initially |
 
@@ -629,19 +596,19 @@ Stages 1a, 1b, 2, 3, 4, 5, 6 run in parallel. Stage 7 depends on 1-6. Stage 8 de
 ## Cross-References
 
 - **ADR-007** -- Observability: P4 alert for missed cron runs
-- **ADR-008** -- Security Posture: five-layer defense-in-depth (D1); Dependabot + `pnpm audit` (D6); secret management (D7); tenant isolation lint enforcement (D8); FPT infrastructure security (D12)
+- **ADR-008** -- Security Posture: five-layer defense-in-depth (D1); Dependabot + `pnpm audit` (D6); secret management (D7); tenant isolation lint enforcement (D8)
 - **ADR-016** -- Module Boundaries: client component deep-import rule (D3); barrel-as-public-API (D4); `data-leak-grep.sh` check A3
 - **ADR-017** -- Schema Evolution: forward-only migrations (D1); two-phase destructive changes (D2); dual declaration (D3); NOT NULL checklist (D5); committed migrations immutable (D6)
 - **ADR-018** -- Testing Strategy: test pyramid (D1); real DB mandate (D2); mock hygiene (D3-D6); E2E URL-driving (D7)
-- **ADR-020** -- Deployment: Vercel Pro primary (D2/D11), FPT Cloud backup (D7); Docker build (D3); Zod env validation (D4); standalone output (D8); cron sidecar (D9); Nginx (D10)
+- **ADR-020** -- Deployment: Vercel Pro primary (D2/D11); Docker build (D3); Zod env validation (D4); standalone output (D8)
 - **DS-002** -- Migration Strategy: Tet deployment freeze window; NOT NULL grep commands; CHECK constraint validation
 - **DS-006** -- Background Jobs Design: canonical cron schedule source; dual-config maintenance; cron response contract
-- **DS-017** -- Deployment Portability: deployment contract C1-C8; Docker Compose reference; cron sidecar spec; Nginx config; GHCR registry; Terraform provider
+- **DS-017** -- Deployment Portability: deployment contract C1-C8; GHCR registry
 - **SI-001** -- Project Scaffold: stack overview, toolchain baseline (§0), module architecture, multi-tenancy model, SDLC process overview (§9)
 - **SI-002** -- Developer Environment: local toolchain, env vars, stub modes, Prisma workflow, dev port convention (3001)
 - **SI-004** -- Linting and Formatting: full ESLint configuration, module boundary enforcement, pre-commit hooks, client component guard
 - **SI-005** -- Testing Strategy: test pyramid details, mock hygiene rules, concurrency testing, NOT NULL checklist, financial math testing
-- **SI-006** -- Deployment Configuration: full hosting architecture, deployment contract, cron sidecar, Nginx config, staged evolution, post-deploy verification
+- **SI-006** -- Deployment Configuration: full hosting architecture, deployment contract, staged evolution, post-deploy verification
 
 ---
 
@@ -662,11 +629,10 @@ Stages 1a, 1b, 2, 3, 4, 5, 6 run in parallel. Stage 7 depends on 1-6. Stage 8 de
 
 | ID | Gap | Status | Source |
 |----|-----|--------|--------|
-| KG-09 | Cron dual-config parity check | NOT_AUTOMATED | Section 7.7, G9 |
+| KG-09 | Cron schedule parity check | NOT_AUTOMATED | Section 7.7, G9 |
 | KG-10 | Migration safety CI automation | NOT_AUTOMATED | Section 7.6 |
 | KG-11 | Performance / load testing | DEFERRED | Section 12 |
 | KG-12 | Container security scan (Trivy/Grype) | DEFERRED | Section 10.3 |
-| KG-13 | FPT Cloud console MFA unconfirmed | UNVERIFIED | ADR-008 |
 | KG-14 | Greppable invariant CI enforcement (§13.2 items) | NOT_AUTOMATED | Section 13.2 |
 | KG-15 | No hardening gate stage in pipeline — HD-001 through HD-005 audits undefined | NOT_DOCUMENTED | Section 14.5, `documentation/hardening/` |
 | KG-16 | No go-live gate stage in pipeline — GL-001 through GL-005 checklists undefined | NOT_DOCUMENTED | Section 14.5, `documentation/go-live/` |
@@ -679,7 +645,6 @@ Stages 1a, 1b, 2, 3, 4, 5, 6 run in parallel. Stage 7 depends on 1-6. Stage 8 de
 | KG-23 | No migration dry-run against shadow DB in CI | NOT_IMPLEMENTED | ADR-017, Section 14.6 Stage 4 |
 | KG-24 | PII redaction coverage — no CI check that redact list covers all sensitive fields | NOT_AUTOMATED | ADR-007, G7 |
 | KG-25 | BigInt/currency math lint — `Math.round` in money modules not CI-gated | NOT_AUTOMATED | Mistake Log Issue 016, G4 |
-| KG-26 | Dual cron config drift — `vercel.json` vs `deploy/crontab` parity | NOT_AUTOMATED | DS-017, SI-006, G9 |
 
 ### Resolved
 

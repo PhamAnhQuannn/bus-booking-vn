@@ -6,7 +6,7 @@
 
 Verify that monitoring tooling is deployed and configured to meet the 2-minute incident detection target (SI-006 §9.4) before production launch.
 
-> **2026-06-21 Note**: Primary production is Vercel Pro + Neon + Upstash (ADR-020 D11). Vercel provides built-in analytics and function logs. Sentry and BetterStack remain the primary monitoring tools. FPT Cloud monitoring references apply to the backup deployment path only.
+> **2026-06-21 Note**: Production is Vercel Pro + Neon + Upstash (ADR-020 D11). Vercel provides built-in analytics and function logs. Sentry and BetterStack remain the primary monitoring tools.
 
 ## Skill Invocation
 

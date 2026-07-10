@@ -390,7 +390,7 @@ h3('Phương án giảm thiểu rủi ro')
 table(
     ['Phương án', 'Mô tả', 'Đánh giá'],
     [
-        ['A. DB đặt tại Việt Nam', 'PostgreSQL trên Viettel IDC / VNPT / FPT Cloud;\n'
+        ['A. DB đặt tại Việt Nam', 'PostgreSQL trên Viettel IDC / VNPT;\n'
          'Vercel Singapore chỉ làm compute/CDN',
          'Tốt nhất cho compliance\nThêm 5-15ms latency (chấp nhận được)'],
         ['B. Nộp CDTIA + ký DPA', 'Giữ nguyên kiến trúc hiện tại;\nnộp CDTIA + DPA với hosting provider',

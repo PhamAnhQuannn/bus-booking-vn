@@ -32,8 +32,8 @@ Production secrets rotation procedures for BusBookVN Phase 1.
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 # Update .env.production with new value
-# Restart application
-docker compose restart app
+# Update in Vercel Environment Variables, then redeploy:
+# vercel --prod
 ```
 
 **Post-checks:**
@@ -135,20 +135,16 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
    node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
    ```
 
-2. Update cron caller (supercronic config or external scheduler) with new `Authorization: Bearer <new_secret>`
+2. Update `CRON_SECRET` in Vercel Environment Variables
 
-3. Update `.env.production` with new `CRON_SECRET`
-
-4. Restart application
+3. Redeploy: Vercel Cron (`CRON_SECRET` injected by Vercel) will use the new value automatically after redeployment
 
 **Post-checks:**
 - [ ] Cron endpoints return 200 (check `/api/cron/sweep-holds` manually)
 - [ ] No 401s in cron logs
 - [ ] Hold sweeper, notification dispatch, trip completion all firing
 
-**Rollback:** Restore old secret in both app and cron caller, restart both.
-
-**WARNING:** Update cron caller and app atomically. If only one side updates, cron jobs fail.
+**Rollback:** Restore old secret in Vercel Environment Variables, redeploy.
 
 ---
 
@@ -188,17 +184,6 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ## 7. Redis Password
 
 **Secret:** `REDIS_URL` (password component) or `UPSTASH_REDIS_REST_TOKEN`
-
-### Self-hosted Redis (ioredis)
-
-```bash
-# On Redis server:
-redis-cli CONFIG SET requirepass "new_password"
-redis-cli -a old_password CONFIG REWRITE
-
-# Update REDIS_URL in .env.production
-# Restart application
-```
 
 ### Upstash Redis
 

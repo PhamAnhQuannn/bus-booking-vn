@@ -4,7 +4,7 @@
 
 ## Purpose
 
-Verify production infrastructure security: FPT Cloud access controls, WAF configuration, TLS/SSL, secrets management, error monitoring, and Docker image hygiene. Covers the gap between application-level security (HD-001) and infrastructure-level controls.
+Verify production infrastructure security: Vercel access controls, WAF configuration, TLS/SSL, secrets management, error monitoring, and Docker image hygiene. Covers the gap between application-level security (HD-001) and infrastructure-level controls.
 
 ## Skill Invocation
 
@@ -13,12 +13,10 @@ Verify production infrastructure security: FPT Cloud access controls, WAF config
 
 ## Acceptance Criteria
 
-### FPT Cloud Access Controls (ADR-020)
+### Vercel Access Controls (ADR-020)
 
-- [ ] MFA enabled on FPT Cloud console for all admin accounts (ADR-008 known gap)
-- [ ] IP-based access control lockdown on FPT Cloud management console
-- [ ] SSH key-based authentication only (no password SSH)
-- [ ] Firewall rules: only ports 80, 443, 22 (restricted IP) exposed
+- [ ] Team MFA enforced on Vercel dashboard
+- [ ] Role-based access: least-privilege roles assigned per team member
 
 ### WAF & DDoS Protection
 
@@ -29,10 +27,9 @@ Verify production infrastructure security: FPT Cloud access controls, WAF config
 
 ### TLS/SSL
 
-- [ ] Nginx reverse proxy: SSL with Let's Encrypt or Cloudflare Origin CA
-- [ ] PostgreSQL connection: `sslmode=require` verified
-- [ ] Redis connection: TLS enabled (if FPT managed Redis supports it)
-- [ ] No plaintext internal traffic between containers (Docker network)
+- [ ] Vercel handles TLS termination automatically (HTTPS enforced)
+- [ ] PostgreSQL connection: `sslmode=require` verified (Neon enforces TLS)
+- [ ] Upstash Redis: TLS enforced by default
 
 ### Secrets Management (ADR-008 D7)
 
@@ -40,10 +37,9 @@ Verify production infrastructure security: FPT Cloud access controls, WAF config
 - [ ] All secrets validated at boot with min-length guards (Zod `superRefine`)
 - [ ] Sandbox sentinel: `env.ts` rejects production deployment with test keys
 - [ ] No secrets in Docker image layers (`docker history --no-trunc <image>` shows no env vars baked in)
-- [ ] No secrets in `.tfstate` plaintext
 - [ ] Secrets rotation runbook documented (6 JWT/HMAC secrets)
 - [ ] 90-day rotation reminder: cron alert or calendar reminder configured
-- [ ] Upgrade path documented: self-hosted HashiCorp Vault on FPT VM if investor diligence requires
+- [ ] Upgrade path documented: managed KMS if investor diligence requires
 
 ### Error Monitoring & Uptime (FI-008 Gaps)
 
@@ -69,7 +65,7 @@ Verify production infrastructure security: FPT Cloud access controls, WAF config
 
 ## Verdict
 
-**PASS** when: FPT Cloud access secured, WAF active, TLS verified, secrets validated at boot, error monitoring deployed. KMS/Vault deferral acceptable with documented upgrade path.
+**PASS** when: Vercel access secured, WAF active, TLS verified, secrets validated at boot, error monitoring deployed. KMS deferral acceptable with documented upgrade path.
 
 ## Cross-References
 

@@ -8,21 +8,20 @@
 
 ## TL;DR — Current Status
 
-> **2026-06-21 Update**: With the pivot to Vercel Pro + Neon + Upstash as primary production stack (ADR-020 D11), **CDTIA IS required** for database (Neon, Singapore) and cache (Upstash, Singapore). The filing steps in Part 4 of this guide are now the primary compliance path, not a Resend-only edge case. FPT Cloud backup deployment eliminates CDTIA entirely — see `deployment-fpt-cloud-setup.md`.
+> **2026-07-10 Update**: Vercel Pro sin1 (Singapore) is the sole production host (ADR-020 D11). **CDTIA IS required** for compute (Vercel, Singapore), database (Neon, Singapore), and cache (Upstash, Singapore). The filing steps in Part 4 of this guide are the primary compliance path.
 
 | Service | Data Location | CDTIA Required? | Status |
 |---------|---------------|------------------|--------|
-| FPT Cloud VPS (compute) | Vietnam | **No** | ELIMINATED |
-| FPT Managed PostgreSQL | Vietnam | **No** | ELIMINATED |
-| FPT Managed Redis | Vietnam | **No** | ELIMINATED |
-| FPT Object Storage | Vietnam | **No** | ELIMINATED |
+| **Vercel Pro (compute)** | **Singapore** | **YES** | Production host |
+| **Neon (PostgreSQL)** | **Singapore** | **YES** | Production database |
+| **Upstash (Redis)** | **Singapore** | **YES** | Production cache |
+| Cloudflare R2 (storage) | Auto (nearest) | **YES** | Object storage for ticket PDFs |
 | eSMS (SMS gateway) | Vietnam | **No** | Vietnam-hosted |
 | SePay (payment) | Vietnam | **No** | Vietnam-hosted |
 | Cloudflare CDN/DNS | Edge (global) | **No** | No PII stored; pass-through only |
-| Vercel (staging only) | Singapore | **No** | No production data; test/seed only |
-| **Resend (email)** | **US** | **YES** | Only remaining trigger (launch-critical if customer auth enabled — OTP uses email) |
+| **Resend (email)** | **US** | **YES** | Deferred; stub mode for now |
 
-**Bottom line:** FPT Cloud hosting (decided 2026-06-19) eliminates CDTIA for all core infrastructure. Only **Resend** (US-based email) still triggers it — and can be avoided entirely by switching to a Vietnam-hosted email solution.
+**Bottom line:** CDTIA filing is required. All core infrastructure (Vercel, Neon, Upstash) is hosted in Singapore. Follow the filing steps in Part 4.
 
 ---
 
@@ -55,67 +54,54 @@ Under Decree 53/2022, domestic enterprises must store these 3 categories in Viet
 
 ---
 
-## Part 2: Why We (Mostly) Don't Need CDTIA
+## Part 2: Why CDTIA Is Required
 
-> **2026-06-21 Note**: This section was written when FPT Cloud was the primary host. With Vercel-first stack, CDTIA filing IS required and accepted. The analysis below remains valid for the FPT Cloud backup deployment path.
+### Architecture Decision (2026-07-10)
+Vercel Pro sin1 (Singapore) is the sole production host (ADR-020 D11). All core infrastructure is in Singapore:
 
-### Architecture Decision (2026-06-19)
-ADR-020 Decision D2 chose **FPT Cloud (Vietnam)** as primary host. This means:
+- Compute (Next.js app) runs on Vercel Pro sin1 (Singapore)
+- Database (PostgreSQL 16) on Neon ap-southeast-1 (Singapore)
+- Cache (Redis 7) on Upstash ap-southeast-1 (Singapore)
+- Object storage on Cloudflare R2
 
-- All compute (Next.js app) runs on FPT Cloud Server in Vietnam
-- All database (PostgreSQL 16) on FPT Managed DB in Vietnam
-- All cache (Redis 7) on FPT Managed Redis in Vietnam
-- All object storage on FPT Object Storage in Vietnam
+Personal data (customer names, phones, emails, booking records) is processed and stored on servers outside Vietnam. **CDTIA filing is mandatory.**
 
-**No personal data crosses Vietnam's border = No CDTIA obligation.**
-
-This is documented across: ADR-020 D2/D7, SI-006 S1.1/S1.3, DS-017 S3.1, GL-001, HD-007.
-
-### What About Cloudflare?
+### What About Cloudflare CDN?
 Cloudflare acts as a CDN/reverse proxy. User requests pass through Cloudflare edge nodes globally, but:
 - Cloudflare does NOT store personal data (pass-through)
 - SSL termination at edge, then re-encrypted to origin
 - No PII cached — only static assets (`/_next/static/`)
 - Cloudflare is classified as a "transit processor" not a "storage processor"
 
-**Verdict: No CDTIA required for Cloudflare CDN.**
-
-### What About Vercel (Staging)?
-Vercel sin1 (Singapore) is retained for staging/preview only:
-- No production user data
-- Only test/seed data
-- `PAYMENTS_STUB=true`, `NOTIFY_STUB=true`
-
-**Verdict: No CDTIA required — no real personal data processed.**
+**Verdict: No CDTIA required for Cloudflare CDN alone, but CDTIA is already required for the Vercel/Neon/Upstash stack.**
 
 ---
 
-## Part 3: The Resend Problem (Only Remaining CDTIA Trigger)
+## Part 3: The Resend Question (Additional US Transfer)
 
 ### Current Situation
 Resend is a US-based transactional email service. If enabled (`EMAIL_PROVIDER=resend`), customer email addresses are sent to Resend's US servers for delivery.
 
-Email addresses = personal data under PDPL 2025 Art. 2.  
+Email addresses = personal data under PDPL 2025 Art. 2.
 US servers = cross-border transfer under Decree 356/2025.
+
+CDTIA is already required for the core Vercel/Neon/Upstash stack (Singapore). If Resend is also activated, the CDTIA dossier must additionally cover the US transfer for email.
 
 ### Options
 
-#### Option A: Replace Resend with Vietnam-Hosted Email (Recommended)
-**Eliminates CDTIA entirely.** Options:
-1. **eSMS email add-on** — eSMS.vn (already our SMS provider) offers email delivery
-2. **Self-hosted Postal/Mailtrain** on FPT Cloud VPS — full control, no cross-border
-3. **Defer customer auth** — Phase 1 guest booking needs no customer OTP. If customer sign-in is enabled, email becomes launch-critical (customer OTP uses email since commit `686ec85`).
+#### Option A: Replace Resend with Vietnam-Hosted Email
+Reduces cross-border scope to Singapore only. Options:
+1. **eSMS email add-on** -- eSMS.vn (already our SMS provider) offers email delivery
+2. **Defer customer auth** -- Phase 1 guest booking needs no customer OTP. If customer sign-in is enabled, email becomes launch-critical (customer OTP uses email since commit `686ec85`).
 
-If Option A is chosen: set `EMAIL_PROVIDER="stub"` (already default) and skip CDTIA entirely.
-
-#### Option B: Keep Resend, File CDTIA
-If Resend is retained for production, follow the filing steps below.
+#### Option B: Keep Resend, Add US to CDTIA Dossier
+If Resend is retained for production, include the US transfer in the CDTIA filing below.
 
 ---
 
-## Part 4: CDTIA Filing Steps (If Needed)
+## Part 4: CDTIA Filing Steps
 
-> Only required if using Resend or any other overseas data processor in production.
+> Required for the Vercel Pro + Neon + Upstash production stack (Singapore). Additional entries needed if Resend (US) is activated.
 
 ### Step 1: Prepare the Dossier (Ho so)
 
@@ -132,18 +118,22 @@ Contents:
    - Contact person for data protection
 
 2. Description of the transfer
-   - What data: customer email addresses
-   - Why: transactional email delivery (booking confirmations, receipts)
+   - What data: customer PII (name, phone, email), booking records, payment metadata
+   - Why: application hosting, database storage, cache, email delivery
    - Volume: estimated number of records/month
    - Frequency: real-time per transaction
 
 3. Receiving party information
-   - Resend Inc., [address], United States
+   - Vercel Inc. (compute) — Singapore
+   - Neon Inc. (PostgreSQL) — Singapore
+   - Upstash Inc. (Redis) — Singapore
+   - Cloudflare Inc. (object storage) — global
+   - Resend Inc. (email, if activated) — United States
    - Data processing role: processor (not controller)
-   - Data protection measures: [Resend's security page]
 
 4. Destination country assessment
-   - United States data protection legal framework
+   - Singapore data protection legal framework (PDPA)
+   - United States (if Resend activated)
    - Adequacy determination (if any from Vietnam MPS)
    - Risks identified and mitigations
 
@@ -203,76 +193,28 @@ Contents:
 
 ---
 
-## Part 5: Documenting "No CDTIA Needed" Determination
+## Part 5: Post-Filing Record Keeping
 
-Even when CDTIA is not required, you should document WHY for audit purposes.
-
-### Create Internal Record
-
-Save this as an internal compliance memo (not in the public repo):
-
-```
-MEMORANDUM — CDTIA Determination
-Date: [date of FPT Cloud go-live]
-Company: [your company name]
-Service: Bus Booking Platform ([domain])
-
-DETERMINATION: CDTIA filing is NOT required.
-
-RATIONALE:
-All personal data processing occurs on infrastructure physically located
-in Vietnam (FPT Cloud, Ho Chi Minh City / Hanoi data centers):
-
-- Application server: FPT Cloud Server (Vietnam)
-- Database: FPT Managed PostgreSQL (Vietnam)
-- Cache: FPT Managed Redis (Vietnam)
-- Object storage: FPT Object Storage (Vietnam)
-- SMS gateway: eSMS.vn (Vietnam)
-- Payment gateway: SePay (Vietnam)
-
-No personal data is transferred to servers outside Vietnam.
-Cloudflare CDN is used for edge caching of static assets only —
-no personal data is cached or stored by Cloudflare.
-
-Email delivery: currently stub mode (no email sent).
-If a cross-border email provider is activated in the future,
-a CDTIA will be filed within 60 days per PDPL 2025 Art. 25.
-
-LEGAL BASIS:
-- PDPL No. 91/2025/QH15, Art. 25 (cross-border transfer)
-- Decree 356/2025/ND-CP (foreign cloud = cross-border)
-- Decree 53/2022/ND-CP (data localization)
-
-ARCHITECTURE DECISION: ADR-020, Decision D2 (2026-06-19)
-
-Signed: _______________
-Legal Representative
-[Company seal]
-```
+After filing the CDTIA, maintain an internal compliance record:
 
 ### Keep Updated
-Review this determination when:
+Review the CDTIA filing when:
 - Adding any new third-party service that processes user data
-- Changing hosting provider
+- Changing hosting provider or region
 - Adding analytics, logging, or monitoring services hosted outside Vietnam
+- Activating Resend or any other overseas email provider
 
 ---
 
 ## Part 6: Checklist
 
-### If Using FPT Cloud Only (No Resend)
-- [ ] All services confirmed Vietnam-hosted (FPT Cloud Console)
-- [ ] `EMAIL_PROVIDER` = `"stub"` in production env
-- [ ] Internal "No CDTIA Needed" memo signed and filed
-- [ ] Privacy policy states data stored in Vietnam
-- [ ] No overseas third-party processors in production
-
-### If Using Resend (CDTIA Required)
-- [ ] DPA signed with Resend
+### CDTIA Filing (Required)
+- [ ] DPAs signed with Vercel, Neon, Upstash, Cloudflare
+- [ ] DPA signed with Resend (if `EMAIL_PROVIDER=resend`)
 - [ ] CDTIA assessment report drafted and signed
-- [ ] Dossier submitted to MPS A05 within 60 days
+- [ ] Dossier submitted to MPS A05 within 60 days of go-live
 - [ ] Stamped receipt copy retained
-- [ ] Privacy policy discloses cross-border transfer to US
+- [ ] Privacy policy discloses cross-border transfer to Singapore (and US if Resend active)
 - [ ] User consent mechanism in place
 - [ ] Annual review calendar set
 
@@ -282,7 +224,7 @@ Review this determination when:
 
 | Question | Answer |
 |----------|--------|
-| Do we need CDTIA? | **No** (if all on FPT Cloud + no Resend) |
+| Do we need CDTIA? | **Yes** (Vercel/Neon/Upstash in Singapore) |
 | What triggers CDTIA? | Any personal data sent to servers outside Vietnam |
 | Who do we file with? | MPS Department A05 |
 | How long to file? | Within 60 days of first cross-border transfer |

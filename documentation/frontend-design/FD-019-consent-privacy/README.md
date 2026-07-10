@@ -184,7 +184,7 @@ Vietnamese language (primary). The page must use proper diacritics throughout.
 | 2 | Dữ liệu thu thập | Categories: identity (phone, name, email), booking data (routes, dates), payment data (transaction IDs -- no card numbers stored), device data (IP, user agent) |
 | 3 | Mục đích xử lý | Mapping of each data category to processing purpose(s) |
 | 4 | Thời gian lưu trữ | Retention periods per data tier: T1 Operational (24 months post-deletion), T2 Compliance (5 years), T3 Financial (10 years for ledger/invoice) |
-| 5 | Chia sẻ với bên thứ ba | Third-party data sharing inventory: eSMS (phone for OTP/SMS), Resend (email for notifications), MISA (booking details for e-invoice), VNPay/MoMo (phone for payment), FPT Cloud (hosting) |
+| 5 | Chia sẻ với bên thứ ba | Third-party data sharing inventory: eSMS (phone for OTP/SMS), Resend (email for notifications), MISA (booking details for e-invoice), VNPay/MoMo (phone for payment), Vercel (hosting), Neon (database), Upstash (cache) |
 | 6 | Quyền của bạn | Data subject rights: access, correction, deletion, consent withdrawal, objection to processing. Response deadlines per PDPL: Access 10 days, Correction 10 days, Deletion 20 days, Consent withdrawal 15 days |
 | 7 | Chuyển dữ liệu ra nước ngoài | Cross-border transfer disclosure (if applicable): which processors, which countries, CDTIA filing status |
 | 8 | Bảo mật dữ liệu | Security measures: encryption at rest and in transit, access controls, breach notification (72-hour MPS, 24-hour for financial data breaches) |

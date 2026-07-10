@@ -38,7 +38,7 @@ Items below are scattered across SI-001–006 Known Gaps sections. All block Iss
 | No secrets rotation runbook (6 JWT/HMAC secrets) | SI-003 KG-06 | High |
 | Branch protection rules not configured in GitHub | SI-003 KG-04 | High |
 | Post-deploy health check + rollback definition undocumented operationally | SI-003 KG-05, GL-004 | High |
-| FPT PG 16 / Redis 7 / DBProxy transaction mode unconfirmed | SI-002, SI-006 | High |
+| Neon PG pooler transaction mode confirmed compatible with Prisma | SI-002, SI-006 | Resolved |
 | Monitoring tooling (BetterStack, Sentry) not deployed — 2-min detection target has no tooling | SI-006 §9.4, GL-002 | High |
 | Hardening audits not started — 5 gates undefined (HD-001–005) | SI-003 §14.5 | High |
 | Go-live gates not started — 5 gates undefined (GL-001–005) | SI-003 §14.5 | High |
