@@ -52,6 +52,7 @@ import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import { searchResultSelect } from '@/lib/core/db/selects';
 import { SEARCH_VISIBLE_STATUSES } from '@/lib/onboarding';
+import { findCanonicalNameBySlug } from '@/lib/places';
 import { fromZonedTime } from 'date-fns-tz';
 import { startOfDay, endOfDay } from 'date-fns';
 import { encodeCursor, decodeCursor } from '@/lib/core/db/searchCursor';
@@ -114,9 +115,17 @@ export interface TripResult {
  * by the caller, but facets stay page-independent (see module DESIGN note).
  */
 export async function searchTrips(input: TripSearchInput): Promise<TripSearchPage> {
-  const { origin, destination, date, ticketCount } = input;
+  const { date, ticketCount } = input;
   const limit = input.limit ?? SEARCH_PAGE_LIMIT;
   const seek = decodeCursor(input.cursor);
+
+  // Issue 262: resolve slug → canonical name so /search?origin=ha-noi works.
+  // If the input matches a Place.slug, use the canonical name for the ILIKE.
+  // Falls through to the raw input when no slug matches (backward-compatible).
+  const origin =
+    (await findCanonicalNameBySlug(input.origin)) ?? input.origin;
+  const destination =
+    (await findCanonicalNameBySlug(input.destination)) ?? input.destination;
 
   // Convert VN wall-clock date to UTC range
   const [year, month, day] = date.split('-').map(Number);

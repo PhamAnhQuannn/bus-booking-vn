@@ -200,8 +200,16 @@ async function main() {
   // Canonical Place per distinct trimmed origin/destination, then link route FKs.
   // Mirrors the place_entity migration backfill so a fresh seed is place-linked.
   await prisma.$executeRawUnsafe(`
-    INSERT INTO "Place" ("id", "canonicalName", "aliases", "createdAt")
-    SELECT gen_random_uuid()::text, n, ARRAY[]::text[], CURRENT_TIMESTAMP
+    INSERT INTO "Place" ("id", "canonicalName", "aliases", "slug", "createdAt")
+    SELECT gen_random_uuid()::text, n, ARRAY[]::text[],
+      regexp_replace(
+        regexp_replace(
+          lower(unaccent_immutable(translate(n, 'đĐ', 'dd'))),
+          '[^a-z0-9]+', '-', 'g'
+        ),
+        '^-+|-+$', '', 'g'
+      ),
+      CURRENT_TIMESTAMP
     FROM (
       SELECT DISTINCT btrim(origin) AS n FROM "Route" WHERE btrim(origin) <> ''
       UNION
