@@ -4,14 +4,19 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockSendOtp, mockOperatorFindUnique } = vi.hoisted(() => ({
+const { mockSendOtp, mockOperatorFindUnique, mockRatelimit } = vi.hoisted(() => ({
   mockSendOtp: vi.fn(),
   mockOperatorFindUnique: vi.fn(),
+  mockRatelimit: { limit: vi.fn() },
 }));
 
 vi.mock('@/lib/auth/operatorOtp', () => ({ sendOperatorPasswordResetOtp: mockSendOtp }));
 vi.mock('@/lib/core/db/client', () => ({
   prisma: { operatorUser: { findUnique: mockOperatorFindUnique } },
+}));
+vi.mock('@/lib/ratelimit', async (importOriginal) => ({
+  ...(await importOriginal()),
+  ratelimit: mockRatelimit,
 }));
 
 import { POST } from '../route';
@@ -27,6 +32,7 @@ function makeRequest(body: unknown): NextRequest {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockRatelimit.limit.mockResolvedValue({ allowed: true, remaining: 59, retryAfter: 0 });
   mockSendOtp.mockResolvedValue({ ok: true });
   mockOperatorFindUnique.mockResolvedValue({ id: 'op-1', disabledAt: null });
 });
@@ -66,6 +72,16 @@ describe('POST /api/op/auth/forgot-password', () => {
     expect(res.status).toBe(429);
     expect(json.error).toBe('LOCKED_OUT');
     expect(json.retryAfter).toBe(600);
+  });
+
+  it('returns 429 when outer IP rate limit exceeded', async () => {
+    mockRatelimit.limit.mockResolvedValue({ allowed: false, remaining: 0, retryAfter: 45 });
+    const res = await POST(makeRequest({ phone: '0901234567' }));
+    const json = await res.json();
+    expect(res.status).toBe(429);
+    expect(json.error).toBe('RATE_LIMITED');
+    expect(res.headers.get('Retry-After')).toBe('45');
+    expect(mockSendOtp).not.toHaveBeenCalled();
   });
 
   it('returns 400 for invalid phone', async () => {
