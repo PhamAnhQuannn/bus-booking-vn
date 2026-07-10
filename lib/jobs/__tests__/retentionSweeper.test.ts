@@ -119,8 +119,8 @@ describe('retentionSweeper', () => {
 
   it('does NOT stamp purgedAt when deleteObject throws (loud failure, bytes-first)', async () => {
     const { tx, kybUpdate } = makeTx(0, [{ id: 'kyb_z', storageKey: 'kyb_doc/z/z.pdf' }]);
-    mockDeleteObject.mockRejectedValueOnce(new Error('s3_not_implemented'));
-    await expect(retentionSweeper(tx, { now: NOW })).rejects.toThrow('s3_not_implemented');
+    mockDeleteObject.mockRejectedValueOnce(new Error('s3_delete_failed'));
+    await expect(retentionSweeper(tx, { now: NOW })).rejects.toThrow('s3_delete_failed');
     // purgedAt must NOT be stamped if the object delete failed.
     expect(kybUpdate).not.toHaveBeenCalled();
   });

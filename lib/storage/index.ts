@@ -1,7 +1,7 @@
 /**
  * Storage layer barrel (Issue 059). Server mints signed PUT/GET URLs; the DB
  * stores object KEYS, never bytes. Stub mode is fully exercisable locally;
- * the real S3 adapter is deferred behind STORAGE_STUB (Wave 9).
+ * real S3/R2 adapter activated by STORAGE_STUB=false.
  */
 
 export {
@@ -10,6 +10,7 @@ export {
   putObject,
   deleteObject,
   verifyStubSignature,
+  _resetS3Client,
   type StorageClient,
   type StoredObjectRow,
   type CreateSignedUploadUrlInput,

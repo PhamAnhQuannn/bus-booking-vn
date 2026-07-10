@@ -25,9 +25,9 @@
  * same `tx` so the row lock is held until the tick commits.
  *
  * STORAGE_STUB note: deleteObject under stub removes the blob from the shared
- * stubStore + the StoredObject pointer row. Under real S3 it throws
- * StorageError('s3_not_implemented') (Wave 9) — which would bubble and fail the
- * tick LOUDLY rather than silently stamping purgedAt without removing bytes.
+ * stubStore + the StoredObject pointer row. Under real S3 it sends a
+ * DeleteObjectCommand — any SDK error bubbles and fails the tick LOUDLY rather
+ * than silently stamping purgedAt without removing bytes.
  *
  * Operator-status gate: the KYB candidate join uses Operator.status IN
  * ('REJECTED','SUSPENDED'). SUSPENDED is the canonical "deactivated" state
