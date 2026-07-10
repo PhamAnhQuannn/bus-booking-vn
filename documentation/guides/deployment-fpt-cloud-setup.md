@@ -396,7 +396,6 @@ curl -I https://yourdomain.com/api/cron/sweep-holds
 | Real eSMS SMS keys | Issue 094 go-live gate |
 | Real S3/FPT Object Storage | Wave-9 adapter |
 | Production user data | Staging uses seed/test data only |
-| Remove `ADMIN_TOTP_DISABLED` | Must enable TOTP before real admin access |
 | Remove `OTP_PEEK_ENABLED` | Must disable OTP peek before production |
 
 ---

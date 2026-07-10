@@ -38,7 +38,6 @@
  *    CSRF Exempt:
  *      - GET / HEAD / OPTIONS (safe methods)
  *      - /api/payments/{momo,zalopay,card}/webhook (HMAC body verification used instead)
- *      - /api/op/auth/forgot-password* (pre-auth; no session cookie available)
  *      - /api/op/auth/refresh (uses HttpOnly refresh cookie; no JS-readable CSRF token)
  *      - /api/admin/auth/refresh (Issue 056 — HttpOnly refresh cookie; no JS-readable CSRF token)
  *    Webhooks (the CSRF_EXEMPT exact-match Set) are exempt from BOTH gates — they
@@ -77,7 +76,6 @@ const CSRF_EXEMPT = new Set([
 ]);
 // Prefix exemptions (CSRF) — routes where the CSRF cookie is unavailable pre-auth
 const CSRF_EXEMPT_PREFIXES = [
-  '/api/op/auth/forgot-password',
   '/api/op/auth/refresh',
   '/api/admin/auth/refresh',     // Issue 056: admin refresh (HttpOnly refresh cookie, no JS-readable CSRF)
   '/api/auth/forgot-password',   // Issue 008: customer forgot-password (pre-auth)

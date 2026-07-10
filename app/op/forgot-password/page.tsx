@@ -8,13 +8,14 @@
  *         (→ otpProof) then POST /api/op/auth/forgot-password/reset
  * Step 3: success → /op/login
  *
- * CSRF: /api/op/auth/forgot-password is in CSRF_EXEMPT_PREFIXES (pre-auth) — no
- * X-CSRF-Token header needed, same as the customer forgot-password flow.
+ * CSRF: bb_csrf cookie is set by proxy.ts on the initial GET /op/forgot-password
+ * page load. All POSTs include X-CSRF-Token via readCsrfToken().
  * Shell-exempt: lives outside the (console) route group, so no operator sidebar.
  */
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { readCsrfToken } from '@/lib/auth/csrfClient';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -39,10 +40,9 @@ export default function OpForgotPasswordPage() {
     const fd = new FormData(e.currentTarget);
     const rawPhone = fd.get('phone') as string;
     try {
-      // pre-auth: no CSRF header required (CSRF_EXEMPT_PREFIXES)
       await fetch('/api/op/auth/forgot-password', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': readCsrfToken() },
         body: JSON.stringify({ phone: rawPhone }),
       });
       // Always advance (no-enumeration: even non-existent phones appear ok)
@@ -73,7 +73,7 @@ export default function OpForgotPasswordPage() {
       // Step 2a: verify OTP code → short-lived op_pwd_reset proof
       const verifyRes = await fetch('/api/op/auth/forgot-password/verify', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': readCsrfToken() },
         body: JSON.stringify({ phone, code }),
       });
       if (!verifyRes.ok) {
@@ -93,7 +93,7 @@ export default function OpForgotPasswordPage() {
       // Step 2b: present the proof + new password to reset
       const res = await fetch('/api/op/auth/forgot-password/reset', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': readCsrfToken() },
         body: JSON.stringify({ otpProof, newPassword }),
       });
       if (res.status === 204 || res.ok) {
