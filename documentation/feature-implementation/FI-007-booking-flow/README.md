@@ -316,7 +316,7 @@ Compensating transaction: gateway failure after hold consumed -> DELETE booking,
 ## Known Gaps & Open Questions
 
 - **CRITICAL -- `paid -> cancelled` customer self-cancel gap** -- Booking state machine has no customer-initiated `paid -> cancelled` transition. CPL 2023 Art. 29 legal opinion pending. FD-018 assumes implemented. Pre-go-live compliance blocker.
-- **HIGH -- HOLD_SWEEPER_MODE defaults to dry-run** -- `HOLD_SWEEPER_MODE` defaults to `'count'` in production. Must be set to `'sweep'` for live expiry. Causes phantom capacity accumulation.
+- **MEDIUM -- HOLD_SWEEPER_MODE dry-run override** -- `HOLD_SWEEPER_MODE` defaults to `'update'` (active sweep). Verify production env does not override to `'count'` (dry-run).
 - **HIGH -- Tax withholding NOT_IMPLEMENTED** -- VAT ~3% + PIT ~1.5% for individual/household operators. E-Commerce Law 2025 July 2026 deadline. Schema ready; service logic absent.
 - **HIGH -- Marketplace payment model NOT_IMPLEMENTED** -- Currently central collection; target is VNPay/MoMo direct to operator merchants (ADR-010 D4).
 - **MEDIUM -- Sandbox-gated MoMo/VNPay E2E specs excluded from CI** -- No documented manual execution schedule.

@@ -34,7 +34,7 @@ Master checklist for the first production deployment (Issue 094). Every item mus
 - [ ] PayoutAccount bank details encrypted at rest (KG-03) -- verified via integration test
 - [ ] Branch protection rules configured in GitHub (KG-04)
 - [ ] Secrets rotation runbook documented (KG-06)
-- [ ] Admin seed password changed from `123456`
+- [x] Admin seed password changed from `123456` (Fixed — seed-admin.ts uses genTempPassword())
 - [ ] `tempPasswordPlain` column removed or encrypted
 - [ ] Gitleaks + data-leak-audit passing in CI
 - [ ] Dependabot + `pnpm audit` active in CI (KG-01)

@@ -270,6 +270,6 @@ Server component render bodies must not call `Date.now()`, `Math.random()`, or `
 
 - No documented strategy for load testing the advisory lock contention path under Tet-surge conditions (2,000 concurrent booking attempts, ADR-009 context). Load test thresholds and tooling are not specified.
 - Sandbox-gated E2E specs for MoMo and VNPay payment flows are excluded from CI with no documented schedule or owner for manual execution.
-- The `HOLD_SWEEPER_MODE` defaults to `'count'` (dry-run) in production unless explicitly set -- no integration test currently validates the live sweep path end-to-end.
+- `HOLD_SWEEPER_MODE` defaults to `'update'` (active sweep). Dev overrides to `'count'` (dry-run). No integration test currently validates the live sweep path end-to-end.
 - The concurrent-write integration test requirement (Section 5.2) has no CI enforcement mechanism -- it is a code-review rule only.
 - Financial math BigInt tests are required by rule but there is no linter or static-analysis check enforcing the absence of `Math.round(<int> * <fractional>)` patterns in money-handling modules.

@@ -28,7 +28,13 @@ const envSchema = z.object({
   // MoMo payment gateway (Issue 004)
   // Defaults to MoMo sandbox credentials (vendor-published, public).
   // Override in production with real credentials.
+  // Phase 1 launches with bank transfer only; set MOMO_ENABLED=true when ready.
   // ---------------------------------------------------------------------------
+
+  MOMO_ENABLED: z
+    .string()
+    .default('false')
+    .transform((v) => v === 'true'),
 
   /**
    * MoMo partner code — identifies the merchant.
@@ -64,7 +70,10 @@ const envSchema = z.object({
   // Phase 1 launches with bank transfer only; set VNPAY_ENABLED=true when ready.
   // ---------------------------------------------------------------------------
 
-  VNPAY_ENABLED: z.coerce.boolean().default(false),
+  VNPAY_ENABLED: z
+    .string()
+    .default('false')
+    .transform((v) => v === 'true'),
   VNPAY_TMN_CODE: z.string().default('VNPAYTEST'),
   VNPAY_HASH_SECRET: z
     .string()
@@ -114,6 +123,8 @@ const envSchema = z.object({
   VIETQR_ACCOUNT_NUMBER: z.string().default('030027766656'),
   /** VietQR account holder name (shown on payment page). */
   VIETQR_ACCOUNT_NAME: z.string().default('CTNHH MINH QUAN'),
+  /** VietQR bank display name (shown on payment page). */
+  VIETQR_BANK_NAME: z.string().default('Sacombank'),
   /** VietQR image template variant. */
   VIETQR_TEMPLATE: z.string().default('compact2'),
 
@@ -378,6 +389,18 @@ const envSchema = z.object({
       });
     }
   }
+  // Real VietQR mode (PAYMENTS_STUB=false): reject dev-default account config.
+  if (!env.PAYMENTS_STUB) {
+    const VIETQR_DEFAULT_ACCOUNT = '030027766656';
+    if (env.VIETQR_ACCOUNT_NUMBER === VIETQR_DEFAULT_ACCOUNT) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['VIETQR_ACCOUNT_NUMBER'],
+        message:
+          'VIETQR_ACCOUNT_NUMBER must be set to a real account when PAYMENTS_STUB=false',
+      });
+    }
+  }
   // Real VNPay mode: credentials must not be defaults.
   // Only validated when VNPAY_ENABLED=true (Phase 1 is bank-transfer-only).
   if (env.VNPAY_ENABLED) {
@@ -405,6 +428,44 @@ const envSchema = z.object({
         path: ['VNPAY_RETURN_URL'],
         message:
           'VNPAY_RETURN_URL must be set to an absolute URL when VNPAY_ENABLED=true',
+      });
+    }
+  }
+  // Real MoMo mode: credentials must not be sandbox defaults.
+  if (env.MOMO_ENABLED) {
+    const MOMO_DEFAULT_PARTNER = 'MOMOBKUN20180529';
+    const MOMO_DEFAULT_ACCESS = 'klm05TvNBzhg7h7j';
+    const MOMO_DEFAULT_SECRET = 'at67qH6mk8w5Y1nAyMoYKMWACiEi2bsa';
+    if (!env.MOMO_PARTNER_CODE || env.MOMO_PARTNER_CODE === MOMO_DEFAULT_PARTNER) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['MOMO_PARTNER_CODE'],
+        message:
+          'MOMO_PARTNER_CODE must be set to a real partner code when MOMO_ENABLED=true',
+      });
+    }
+    if (!env.MOMO_ACCESS_KEY || env.MOMO_ACCESS_KEY === MOMO_DEFAULT_ACCESS) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['MOMO_ACCESS_KEY'],
+        message:
+          'MOMO_ACCESS_KEY must be set to a real access key when MOMO_ENABLED=true',
+      });
+    }
+    if (!env.MOMO_SECRET_KEY || env.MOMO_SECRET_KEY === MOMO_DEFAULT_SECRET) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['MOMO_SECRET_KEY'],
+        message:
+          'MOMO_SECRET_KEY must be set to a real secret key when MOMO_ENABLED=true',
+      });
+    }
+    if (env.MOMO_ENDPOINT.includes('test-payment.momo.vn')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['MOMO_ENDPOINT'],
+        message:
+          'MOMO_ENDPOINT must point to the production MoMo gateway when MOMO_ENABLED=true',
       });
     }
   }

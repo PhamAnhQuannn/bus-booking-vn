@@ -126,14 +126,14 @@ Key behavior:
 | Email | `EMAIL_PROVIDER`, `RESEND_API_KEY` | `stub` provider for dev (Section 5.3) |
 | E-Invoice | `EINVOICE_ENABLED`, `MISA_CLIENT_ID`, `MISA_CLIENT_SECRET`, `MISA_INVOICE_TEMPLATE_CODE`, `MISA_TRANSPORT_TEMPLATE_ID` | `stub` skips MISA meInvoice API calls (Section 5.4). `MISA_TRANSPORT_TEMPLATE_ID` selects Decree 70/2025 transport template (DS-012 §6.4) |
 | Storage | `STORAGE_STUB`, `STORAGE_ENDPOINT`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY` | Stub returns local signed URLs (Section 5.5) |
-| Cron and Jobs | `CRON_SECRET`, `HOLD_SWEEPER_MODE` | `CRON_SECRET` required for cron endpoint auth. `HOLD_SWEEPER_MODE` defaults to `'count'` (dry-run) — must be set to `'sweep'` for live hold expiry (Section 10). **Go-live blocker if left on default** (DS-006 §23) |
+| Cron and Jobs | `CRON_SECRET`, `HOLD_SWEEPER_MODE` | `CRON_SECRET` required for cron endpoint auth. `HOLD_SWEEPER_MODE` defaults to `'update'` (active sweep). Dev `.env.local` overrides to `'count'` (dry-run). Verify production does not override to `'count'` (DS-006 §23) |
 | Observability | `SENTRY_DSN` | Sentry SDK not yet integrated; variable accepted by Zod but unused (ADR-007 D1) |
 
 ### 4.3 Secrets Management in Dev
 
 In local development, secrets are stored in `.env.local` which is gitignored. Never commit `.env.local` or any file containing real credentials. The `.env.local.example` file contains placeholder values safe to commit.
 
-For the seed admin password, see Section 7.2 and the project memory note: it is hardcoded to `123456` in the dev seed script. The seed must be reverted to use `genTempPassword()` before go-live (Issue 113 blocking constraint).
+For the seed admin password, see Section 7.2: the seed script (`scripts/seed/seed-admin.ts`) now uses `genTempPassword()` instead of the former hardcoded `123456`. This go-live blocker (Issue 113) is resolved.
 
 ---
 
@@ -279,7 +279,7 @@ The seed is defined in `prisma/seed.ts` and uses `prisma.<model>.create` calls. 
 
 ### 7.2 Admin Seed Password
 
-The seed creates an admin user with a hardcoded password `123456` for local development convenience. This must be replaced with `genTempPassword()` before go-live. Do not use `123456` in any non-local environment.
+The seed creates an admin user using `genTempPassword()` (in `scripts/seed/seed-admin.ts`), which generates a random temporary password logged to the console on first run. The former hardcoded `123456` has been removed. Do not reintroduce hardcoded passwords in any environment.
 
 ### 7.3 LedgerEntry Append-Only Constraint Requires DROP SCHEMA for Reseed
 
@@ -374,7 +374,7 @@ curl -H "Authorization: Bearer <your_CRON_SECRET>" http://localhost:3001/api/cro
 
 Replace `<your_CRON_SECRET>` with the value from `.env.local`. The cron sidecar container (supercronic) is not needed in local dev -- manual curl invocations are sufficient for testing individual job handlers. See SI-006 Section 4 for the full cron sidecar design and SI-006 Section 5 for the complete job catalog.
 
-**`HOLD_SWEEPER_MODE` warning:** The hold-expiry cron (`/api/cron/hold-expiry`) defaults to `HOLD_SWEEPER_MODE='count'` (dry-run). In this mode the cron counts expired holds but does **not** release their capacity. To test actual hold expiry in local dev, set `HOLD_SWEEPER_MODE='sweep'` in `.env.local`. **Go-live blocker:** leaving this on `'count'` in production causes phantom capacity accumulation -- seats appear sold but the holds are never released (DS-006 §23, FI-005, FI-006).
+**`HOLD_SWEEPER_MODE` note:** The hold-expiry cron (`/api/cron/hold-expiry`) defaults to `HOLD_SWEEPER_MODE='update'` (active sweep — expires holds and releases capacity). Dev `.env.local` overrides to `'count'` (dry-run — counts but does not transition). To test actual hold expiry in local dev, set `HOLD_SWEEPER_MODE='update'` in `.env.local`. Production deploys use the default `'update'` — verify it is not overridden to `'count'` (DS-006 §23, FI-005, FI-006).
 
 **Supercronic timezone:** When running the cron sidecar in Docker (production or local Docker-based testing), set `TZ=Asia/Ho_Chi_Minh` in the sidecar container environment. Cron schedules in the crontab file assume Vietnam local time. Vercel cron schedules are UTC (DS-017 §5.5).
 
@@ -425,9 +425,9 @@ Replace `<your_CRON_SECRET>` with the value from `.env.local`. The cron sidecar 
 |----|-----|-----------------|--------|--------|
 | KG-01 | `superRefine` production guard does not enforce minimum-length requirements for all secrets (e.g., `HOLD_SECRET`) | Yes (Issue 094) | NOT_IMPLEMENTED | ADR-020 D4; see also SI-006 Known Gaps |
 | KG-02 | FPT DBProxy (PgBouncer-like) transaction mode compatibility with Prisma unconfirmed. Local dev PgBouncer sidecar confirmed compatible | Yes (Issue 094) | UNCONFIRMED | ADR-020 D7; see SI-006 §2.2 for production mitigation |
-| KG-03 | `OperatorUser.tempPasswordPlain` column is dev-only — must be removed or encrypted before go-live | Yes (Issue 113) | NOT_IMPLEMENTED | SI-001 |
+| KG-03 | `OperatorUser.tempPasswordPlain` column — removed via migration 20260615000000 | No | RESOLVED | SI-001 |
 | KG-04 | ZNS (Zalo ZNS) integration documented in ADR-013 D1 not yet implemented. SMS via eSMS is the actual primary channel. `NOTIFY_STUB` controls eSMS only | No (deferred) | DEFERRED | ADR-013 D1 |
-| KG-05 | `HOLD_SWEEPER_MODE` defaults to `'count'` (dry-run) in production — phantom capacity accumulation if not set to `'sweep'` | Yes (Issue 094) | PARTIALLY_IMPLEMENTED | DS-006 §23, FI-005, FI-006 |
+| KG-05 | `HOLD_SWEEPER_MODE` defaults to `'update'` (active sweep). Dev overrides to `'count'`. Verify production does not override. | No | IMPLEMENTED | DS-006 §23, FI-005, FI-006 |
 | KG-06 | Sentry SDK not yet integrated — `SENTRY_DSN` accepted by Zod but unused | No | NOT_IMPLEMENTED | ADR-007 D1 |
 | KG-07 | 3 cron jobs not yet implemented: `paymentReconSweeper`, `operatorLicenseAlert`, `piiAnonymization` | Medium | NOT_IMPLEMENTED | ADR-012, SI-006 §5.2 |
 | KG-08 | Shared `REFRESH_TOKEN_SECRET` across all three auth realms — per-realm split pending | No (security hardening) | PARTIALLY_IMPLEMENTED | FI-001 |

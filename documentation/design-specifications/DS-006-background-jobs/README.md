@@ -440,9 +440,9 @@ Without hold expiry, abandoned holds permanently reduce available seat capacity 
 
 ### 10.3 HOLD_SWEEPER_MODE
 
-**Implementation status:** `HOLD_SWEEPER_MODE` defaults to `'count'` (dry-run — counts but does not transition). A fresh deploy without explicit `HOLD_SWEEPER_MODE=sweep` leaves hold expiry **non-functional**, causing phantom capacity accumulation.
+**Implementation status:** `HOLD_SWEEPER_MODE` defaults to `'update'` (active sweep — expires holds and releases capacity). Dev `.env.local` overrides to `'count'` (dry-run). Valid values: `'count'` | `'update'`.
 
-**Required action:** Ensure `HOLD_SWEEPER_MODE=sweep` is set in production env before go-live.
+**Required action:** Verify production env does not override `HOLD_SWEEPER_MODE` to `'count'`.
 
 **Source:** ADR-009 D4, ADR-012 Job Catalog, domain-model/invariants-catalog.md.
 
@@ -817,7 +817,7 @@ Each e-invoice submission must carry the correct per-operator tax identity (MST/
 | Gap | Category | Risk | Required Before |
 |-----|----------|------|----------------|
 | `paymentReconSweeper` backup cron not built | Feature | LOW — SePay webhook is primary bank transfer confirmation (DS-013); cron is optional backup for orphaned transfers | Post-launch |
-| `HOLD_SWEEPER_MODE` defaults to `count` (dry-run) | Configuration | HIGH — phantom capacity accumulation | Go-live |
+| `HOLD_SWEEPER_MODE` defaults to `update` (active sweep) — RESOLVED | Configuration | RESOLVED — default is now active sweep | Done |
 | Payout `processing` stranding (no auto-recovery) | Operations | MEDIUM — crashed cron leaves payout stuck | Go-live |
 | Tax withholding (`calcWithholding`, `applyWithholding`) absent | Compliance | HIGH — mandatory 1 July 2026 | Go-live |
 | Transport e-invoice fields missing (Decree 70/2025) | Compliance | HIGH — GDT non-compliance | Go-live |
