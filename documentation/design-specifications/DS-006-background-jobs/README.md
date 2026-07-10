@@ -440,9 +440,9 @@ Without hold expiry, abandoned holds permanently reduce available seat capacity 
 
 ### 10.3 HOLD_SWEEPER_MODE
 
-**Implementation status:** `HOLD_SWEEPER_MODE` defaults to `'count'` (dry-run — counts but does not transition). A fresh deploy without explicit `HOLD_SWEEPER_MODE=sweep` leaves hold expiry **non-functional**, causing phantom capacity accumulation.
+**Implementation status:** `HOLD_SWEEPER_MODE` defaults to `'update'` (active sweep — expires holds and releases capacity). Dev `.env.local` overrides to `'count'` (dry-run). Valid values: `'count'` | `'update'`.
 
-**Required action:** Ensure `HOLD_SWEEPER_MODE=sweep` is set in production env before go-live.
+**Required action:** Verify production env does not override `HOLD_SWEEPER_MODE` to `'count'`.
 
 **Source:** ADR-009 D4, ADR-012 Job Catalog, domain-model/invariants-catalog.md.
 

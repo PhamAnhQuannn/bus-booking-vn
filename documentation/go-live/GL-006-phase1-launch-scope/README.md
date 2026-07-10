@@ -97,7 +97,7 @@ Simplified from GL-001. Only items that apply to family operator + bank transfer
 - [ ] Production JWT secrets generated
 - [ ] CRON_SECRET generated
 - [ ] Gitleaks passing
-- [ ] Admin password changed from `123456`
+- [x] Admin password changed from `123456` (Fixed — seed-admin.ts uses genTempPassword())
 - [ ] `tempPasswordPlain` column handled
 
 ### Payment

@@ -273,7 +273,7 @@ Only `APPROVED` operators appear in search. `SEARCH_VISIBLE_STATUSES = ['APPROVE
 
 ## Known Gaps & Open Questions
 
-- **HIGH -- HOLD_SWEEPER_MODE defaults to dry-run** -- `HOLD_SWEEPER_MODE` defaults to `'count'` in production. Must be set to `'sweep'` for live expiry (PARTIALLY_IMPLEMENTED per ADR-009).
+- **MEDIUM -- HOLD_SWEEPER_MODE dry-run override** -- `HOLD_SWEEPER_MODE` defaults to `'update'` (active sweep). Verify production env does not override to `'count'` (dry-run).
 - **MEDIUM -- blockedSeats status contradiction** -- ADR-011 states "blockedSeats retired from formula" but DS-001 still lists it as a Trip column. Reconcile before go-live.
 - **MEDIUM -- No load test for Tet-surge concurrent search** -- SI-005 known gap; no owner; 3.6x demand spike expected.
 - **MEDIUM -- No waitlist/notification for sold-out trips** -- Persona research identifies this as high-value for Tet; not implemented.

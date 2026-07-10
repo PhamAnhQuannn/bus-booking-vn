@@ -242,7 +242,7 @@ FI-005 covers the full lifecycle of individual trips -- the bookable unit of the
 
 - **HIGH -- Customer-initiated cancellation (CPL 2023 Art. 29)** -- No `paid -> cancelled` customer-initiated Booking transition. state-machines.md notes the GAP. Event-flows.md says it is "now fully specified in DS-007" but implementation status must be verified. Pre-launch compliance blocker.
 - **HIGH -- E-Invoice fields OVERDUE** -- DS-003 Section 14.4 marks transport-specific e-invoice fields (`vehiclePlateNumber`, `departureCityCode`, `destinationCityCode`) as OVERDUE. Required by Decree 70/2025. Pre-launch compliance blocker.
-- **MEDIUM -- HOLD_SWEEPER_MODE defaults to dry-run** -- `HOLD_SWEEPER_MODE` defaults to `'count'` (dry-run) in production. Must be set to `'sweep'` for live expiry. Causes phantom capacity accumulation if not set.
+- **MEDIUM -- HOLD_SWEEPER_MODE dry-run override** -- `HOLD_SWEEPER_MODE` defaults to `'update'` (active sweep). Dev `.env.local` overrides to `'count'` (dry-run). Verify production env does not override to `'count'`.
 - **MEDIUM -- autoCompleteTrips arrival window definition** -- DS-003 documents the cron but the exact "arrival window" definition (`departureAt + route.durationMinutes`) is not explicitly stated.
 - **MEDIUM -- Recurring template conflict highlighting** -- FD-022 Section 5.4 shows conflict warnings in 14-day preview. API endpoint for preview data not documented in DS-003.
 - **MEDIUM -- SPEC CONFLICT: bus overlap HTTP status** -- `BUS_OVERLAP_WITH_OUTBOUND` returns 422 in `pairedReturn` (AC6) but 409 in `reassignBus` (I3). Both carry `// SPEC CONFLICT:` comments. Deferred to follow-up.

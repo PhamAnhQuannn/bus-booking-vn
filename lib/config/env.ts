@@ -28,7 +28,10 @@ const envSchema = z.object({
   // MoMo payment gateway (Issue 004)
   // Defaults to MoMo sandbox credentials (vendor-published, public).
   // Override in production with real credentials.
+  // Phase 1 launches with bank transfer only; set MOMO_ENABLED=true when ready.
   // ---------------------------------------------------------------------------
+
+  MOMO_ENABLED: z.coerce.boolean().default(false),
 
   /**
    * MoMo partner code — identifies the merchant.
@@ -405,6 +408,44 @@ const envSchema = z.object({
         path: ['VNPAY_RETURN_URL'],
         message:
           'VNPAY_RETURN_URL must be set to an absolute URL when VNPAY_ENABLED=true',
+      });
+    }
+  }
+  // Real MoMo mode: credentials must not be sandbox defaults.
+  if (env.MOMO_ENABLED) {
+    const MOMO_DEFAULT_PARTNER = 'MOMOBKUN20180529';
+    const MOMO_DEFAULT_ACCESS = 'klm05TvNBzhg7h7j';
+    const MOMO_DEFAULT_SECRET = 'at67qH6mk8w5Y1nAyMoYKMWACiEi2bsa';
+    if (!env.MOMO_PARTNER_CODE || env.MOMO_PARTNER_CODE === MOMO_DEFAULT_PARTNER) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['MOMO_PARTNER_CODE'],
+        message:
+          'MOMO_PARTNER_CODE must be set to a real partner code when MOMO_ENABLED=true',
+      });
+    }
+    if (!env.MOMO_ACCESS_KEY || env.MOMO_ACCESS_KEY === MOMO_DEFAULT_ACCESS) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['MOMO_ACCESS_KEY'],
+        message:
+          'MOMO_ACCESS_KEY must be set to a real access key when MOMO_ENABLED=true',
+      });
+    }
+    if (!env.MOMO_SECRET_KEY || env.MOMO_SECRET_KEY === MOMO_DEFAULT_SECRET) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['MOMO_SECRET_KEY'],
+        message:
+          'MOMO_SECRET_KEY must be set to a real secret key when MOMO_ENABLED=true',
+      });
+    }
+    if (env.MOMO_ENDPOINT.includes('test-payment.momo.vn')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['MOMO_ENDPOINT'],
+        message:
+          'MOMO_ENDPOINT must point to the production MoMo gateway when MOMO_ENABLED=true',
       });
     }
   }

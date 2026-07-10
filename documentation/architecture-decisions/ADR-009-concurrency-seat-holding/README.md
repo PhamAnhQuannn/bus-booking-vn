@@ -109,9 +109,9 @@ Holds expire after 10 minutes. Expired holds are cleaned up by a cron job proces
 
 > **IMPLEMENTATION STATUS** (2026-06-18)
 > - **Documented**: Cron sweeps expired holds automatically on schedule.
-> - **Actual**: `HOLD_SWEEPER_MODE` defaults to `'count'` (dry-run — counts but does not transition). Fresh deploy without explicit `HOLD_SWEEPER_MODE=sweep` leaves hold expiry non-functional, causing phantom capacity accumulation.
-> - **Status**: `PARTIALLY_IMPLEMENTED`
-> - **Tracking**: Ensure `HOLD_SWEEPER_MODE=sweep` is set in production env. Document in deployment runbook.
+> - **Actual**: `HOLD_SWEEPER_MODE` defaults to `'update'` (active sweep). Env override to `'count'` for dry-run in dev. Production deploys use the default `'update'` which expires holds correctly.
+> - **Status**: `IMPLEMENTED`
+> - **Tracking**: Verify `HOLD_SWEEPER_MODE` is not overridden to `'count'` in production env.
 
 ---
 

@@ -63,7 +63,7 @@ Comprehensive security audit of the BenXe platform before first production deplo
 - [ ] No secrets in Docker image or `.tfstate` plaintext
 - [ ] Zod boot validation covers all secrets with min-length guards
 - [ ] `tempPasswordPlain` column removed or encrypted (SI-002 §7.2)
-- [ ] Admin seed password changed from `123456` (SI-002 §7.2)
+- [x] Admin seed password changed from `123456` (SI-002 §7.2) (Fixed — seed-admin.ts uses genTempPassword())
 
 ### Webhook Security (DS-005, DS-013, ADR-005)
 
