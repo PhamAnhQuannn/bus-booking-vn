@@ -1,15 +1,10 @@
 /**
- * Sentry error-reporting ABSTRACTION (Issue 061, AC4/AC5).
- *
- * The seam ships now; the real `@sentry/nextjs` SDK is DEFERRED (not installed —
- * offline / dep-conscious), the same "defer real, ship the seam" pattern as the
- * refund PSP and the S3 storage stub.
+ * Sentry error-reporting abstraction (Issue 061, AC4/AC5).
  *
  *   getEnv().SENTRY_DSN UNSET → fallback sink: emit the (PII-scrubbed) event to
  *                              the structured pino logger with `sentry:'fallback'`.
- *   getEnv().SENTRY_DSN SET   → Stage-1 will forward to the real client here. The
- *                              PII scrubbing already runs regardless, so no PII can
- *                              ship even once the real SDK's beforeSend is wired.
+ *   getEnv().SENTRY_DSN SET   → forward to @sentry/nextjs AND log locally.
+ *                              PII scrubbing runs before both sinks.
  *
  * INVARIANT: observability must NEVER break the request. Both functions are
  * synchronous and swallow every internal error — a failure to report is logged
@@ -21,6 +16,7 @@
  * before it reaches any sink.
  */
 
+import * as Sentry from '@sentry/nextjs';
 import { logger } from '@/lib/logger';
 import { getEnv } from '@/lib/config';
 
@@ -149,10 +145,7 @@ export function captureException(err: unknown, context?: Record<string, unknown>
     }
 
     if (dsn) {
-      // TODO(stage1): forward to @sentry/nextjs here, e.g.
-      //   Sentry.captureException(err, { extra: scrubbedContext });
-      // The real init lives in instrumentation.ts (server) when SENTRY_DSN is set.
-      // The scrubbing above is the beforeSend equivalent and runs regardless.
+      Sentry.captureException(err, { extra: scrubbedContext });
       logger.error(
         { err: errInfo, ...scrubbedContext, sentry: 'forward' },
         errInfo.message
@@ -188,7 +181,7 @@ export function captureMessage(message: string, context?: Record<string, unknown
     }
 
     if (dsn) {
-      // TODO(stage1): forward to @sentry/nextjs Sentry.captureMessage(...) here.
+      Sentry.captureMessage(scrubbed, { extra: scrubbedContext });
       logger.error({ ...scrubbedContext, sentry: 'forward' }, scrubbed);
       return;
     }

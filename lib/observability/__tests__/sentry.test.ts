@@ -1,10 +1,11 @@
 /**
- * Unit tests for the Sentry abstraction (Issue 061, AC4).
+ * Unit tests for the Sentry abstraction (Issue 061 AC4, Issue 281).
  *
  * Proves:
  *   - captureException PII-scrubs the context (phone / accessToken / otpProof /
  *     nested codeHash / recipient → '[REDACTED]') before it reaches the sink.
  *   - SENTRY_DSN unset → fallback sink (logger.error with sentry:'fallback').
+ *   - SENTRY_DSN set → forwards to @sentry/nextjs AND logs with sentry:'forward'.
  *   - non-throwing on weird input (circular object, non-Error throw).
  *   - captureMessage scrubs an inline `phone=...` token in the message.
  */
@@ -13,11 +14,23 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const errorMock = vi.fn();
 vi.mock('@/lib/logger', () => ({
-  logger: { info: vi.fn(), warn: vi.fn(), error: (...a: unknown[]) => errorMock(...a) },
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: (...a: unknown[]) => errorMock(...a),
+  },
 }));
 
-// Default: SENTRY_DSN unset → fallback sink.
-const getEnvMock = vi.fn(() => ({ SENTRY_DSN: undefined as string | undefined }));
+const sentryCaptureException = vi.fn();
+const sentryCaptureMessage = vi.fn();
+vi.mock('@sentry/nextjs', () => ({
+  captureException: (...a: unknown[]) => sentryCaptureException(...a),
+  captureMessage: (...a: unknown[]) => sentryCaptureMessage(...a),
+}));
+
+const getEnvMock = vi.fn(
+  () => ({ SENTRY_DSN: undefined as string | undefined }),
+);
 vi.mock('@/lib/config/env', () => ({
   getEnv: () => getEnvMock(),
 }));
@@ -43,7 +56,9 @@ describe('scrubPii', () => {
     expect(out.phone).toBe('[REDACTED]');
     expect(out.accessToken).toBe('[REDACTED]');
     expect(out.otpProof).toBe('[REDACTED]');
-    expect((out.nested as Record<string, unknown>).codeHash).toBe('[REDACTED]');
+    expect((out.nested as Record<string, unknown>).codeHash).toBe(
+      '[REDACTED]',
+    );
     expect((out.nested as Record<string, unknown>).keep).toBe('ok');
     expect((out.list as unknown[])[0]).toEqual({ recipient: '[REDACTED]' });
     expect((out.list as unknown[])[1]).toBe('plain');
@@ -75,22 +90,32 @@ describe('captureException', () => {
     expect(payload.phone).toBe('[REDACTED]');
     expect(payload.accessToken).toBe('[REDACTED]');
     expect(payload.otpProof).toBe('[REDACTED]');
-    // non-PII reconciliation field passes through
     expect(payload.bookingRef).toBe('BB-2026-abcd-efgh');
-    // the error itself is normalized, never raw
     expect(payload.err).toEqual({ name: 'Error', message: 'boom' });
+    expect(sentryCaptureException).not.toHaveBeenCalled();
   });
 
-  it('forwards (still scrubbed) when SENTRY_DSN is set', () => {
-    getEnvMock.mockReturnValue({ SENTRY_DSN: 'https://k@o.ingest.sentry.io/1' });
-    captureException(new Error('boom'), { phone: '+84901234567' });
+  it('forwards to Sentry SDK AND logs when SENTRY_DSN is set', () => {
+    getEnvMock.mockReturnValue({
+      SENTRY_DSN: 'https://k@o.ingest.sentry.io/1',
+    });
+    const err = new Error('boom');
+    captureException(err, { phone: '+84901234567' });
+
+    expect(sentryCaptureException).toHaveBeenCalledTimes(1);
+    expect(sentryCaptureException).toHaveBeenCalledWith(err, {
+      extra: { phone: '[REDACTED]' },
+    });
+
     const [payload] = errorMock.mock.calls[0];
     expect(payload.sentry).toBe('forward');
     expect(payload.phone).toBe('[REDACTED]');
   });
 
   it('does not throw on a non-Error throw value', () => {
-    expect(() => captureException('a raw string', { otp: '123456' })).not.toThrow();
+    expect(() =>
+      captureException('a raw string', { otp: '123456' }),
+    ).not.toThrow();
     const [payload, message] = errorMock.mock.calls[0];
     expect(message).toBe('a raw string');
     expect(payload.otp).toBe('[REDACTED]');
@@ -119,5 +144,21 @@ describe('captureMessage', () => {
     expect(message).toBe('login failed for phone=[REDACTED]');
     expect(payload.sentry).toBe('fallback');
     expect(payload.area).toBe('auth');
+    expect(sentryCaptureMessage).not.toHaveBeenCalled();
+  });
+
+  it('forwards to Sentry SDK when SENTRY_DSN is set', () => {
+    getEnvMock.mockReturnValue({
+      SENTRY_DSN: 'https://k@o.ingest.sentry.io/1',
+    });
+    captureMessage('webhook timeout', { adapter: 'momo' });
+
+    expect(sentryCaptureMessage).toHaveBeenCalledTimes(1);
+    expect(sentryCaptureMessage).toHaveBeenCalledWith('webhook timeout', {
+      extra: { adapter: 'momo' },
+    });
+
+    const [payload] = errorMock.mock.calls[0];
+    expect(payload.sentry).toBe('forward');
   });
 });
