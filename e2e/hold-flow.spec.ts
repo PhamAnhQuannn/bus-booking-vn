@@ -130,7 +130,7 @@ test.describe('Hold booking flow', () => {
     // Simulate a previous hold having saved the phone
     await page.goto('/search');
     await page.evaluate(() => {
-      localStorage.setItem('busbooking_last_phone', '0912345678');
+      sessionStorage.setItem('busbooking_last_phone', '0912345678');
     });
 
     await searchForTrips(page);

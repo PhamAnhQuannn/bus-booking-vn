@@ -6,8 +6,8 @@
  *
  * Liveness is implicit (the process answered). Readiness is a CHEAP DB ping —
  * `SELECT 1` — wrapped in try/catch:
- *   ping resolves → 200 { status:'ok',       db:'up',   ts }
- *   ping throws   → 503 { status:'degraded', db:'down',      ts }
+ *   ping resolves → 200 { status:'ok' }
+ *   ping throws   → 503 { status:'degraded' }
  *
  * Redis: there is no app-wide Redis client wired for a liveness ping (rate-limit
  * uses @upstash/ratelimit lazily per-route, no shared health handle), so the
@@ -25,17 +25,16 @@ import { prisma } from '@/lib/core/db/client';
 const NO_STORE = { 'Cache-Control': 'no-store' } as const;
 
 export async function GET(): Promise<NextResponse> {
-  const ts = new Date().toISOString();
   try {
     // Cheap readiness ping. Prisma.sql tagged template avoids any string interp.
     await prisma.$queryRaw(Prisma.sql`SELECT 1`);
     return NextResponse.json(
-      { status: 'ok', db: 'up', ts },
+      { status: 'ok' },
       { status: 200, headers: NO_STORE }
     );
   } catch {
     return NextResponse.json(
-      { status: 'degraded', db: 'down', ts },
+      { status: 'degraded' },
       { status: 503, headers: NO_STORE }
     );
   }

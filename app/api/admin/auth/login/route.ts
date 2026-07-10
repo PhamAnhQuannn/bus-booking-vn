@@ -16,7 +16,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { cookies } from 'next/headers';
 import { adminLogin, issueAdminSession } from '@/lib/auth';
-import { ratelimit } from '@/lib/ratelimit';
+import { adminLoginRatelimit, adminLoginLockout } from '@/lib/ratelimit';
 import { clientIp } from '@/lib/core/http/clientIp';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
@@ -29,9 +29,8 @@ const loginSchema = z.object({
 });
 
 async function handler(req: NextRequest): Promise<Response> {
-  // Strict per-IP rate-limit on the admin login surface.
   const ip = clientIp(req.headers);
-  const rl = await ratelimit.limit(`admin-login:${ip}`);
+  const rl = await adminLoginRatelimit.limit(`admin-login:${ip}`);
   if (!rl.allowed) {
     return NextResponse.json(
       { error: 'RATE_LIMITED' },
@@ -51,8 +50,17 @@ async function handler(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: 'INVALID' }, { status: 400 });
   }
 
-  const result = await adminLogin(parsed.data.email, parsed.data.password);
+  const { email, password } = parsed.data;
+
+  const result = await adminLogin(email, password);
   if (!result.ok) {
+    const lk = await adminLoginLockout.limit(`admin-login-fail:${email.toLowerCase()}`);
+    if (!lk.allowed) {
+      return NextResponse.json(
+        { error: 'LOCKED_OUT' },
+        { status: 429, headers: { 'Retry-After': String(lk.retryAfter) } }
+      );
+    }
     return NextResponse.json({ error: 'INVALID_CREDENTIALS' }, { status: 401 });
   }
 

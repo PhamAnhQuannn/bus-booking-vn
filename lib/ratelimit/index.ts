@@ -278,3 +278,16 @@ export const opLoginRatelimit = createRatelimit({ limit: 10, windowMs: 60_000 })
  * unless they have already burned 5 wrong attempts.
  */
 export const opLoginLockout = createRatelimit({ limit: 5, windowMs: 15 * 60_000 });
+
+/**
+ * Admin login per-IP throttle: 10 attempts/min/IP — mirrors opLoginRatelimit.
+ * Keyed `admin-login:<ip>`.
+ */
+export const adminLoginRatelimit = createRatelimit({ limit: 10, windowMs: 60_000 });
+
+/**
+ * Admin login consecutive-failure lockout: 5 bad attempts per 15 min per email.
+ * Keyed `admin-login-fail:<email>`, consumed ONLY on INVALID_CREDENTIALS.
+ * Mirrors opLoginLockout — account-level brake against credential-stuffing.
+ */
+export const adminLoginLockout = createRatelimit({ limit: 5, windowMs: 15 * 60_000 });
