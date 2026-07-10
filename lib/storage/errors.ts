@@ -10,8 +10,7 @@ export type StorageErrorCode =
   | 'invalid_content_type'
   | 'too_large'
   | 'invalid_purpose'
-  | 'not_found'
-  | 's3_not_implemented';
+  | 'not_found';
 
 export class StorageError extends Error {
   readonly code: StorageErrorCode;

@@ -9,10 +9,8 @@
  *   - STORAGE_STUB=true  → mint a deterministic, HMAC-signed stub PUT/GET URL
  *     pointing at the dev stub-storage route. Tamper-evident via
  *     STORAGE_STUB_SECRET. This is the path every local / test transfer takes.
- *   - STORAGE_STUB=false → real S3 (@aws-sdk getSignedUrl). NOT YET IMPLEMENTED
- *     — real S3 is a Wave-9 concern (issue note) and @aws-sdk is not installed.
- *     The real branch throws StorageError('s3_not_implemented') so a non-stub
- *     deployment fails LOUDLY rather than silently minting a dead URL.
+ *   - STORAGE_STUB=false → real S3/R2 adapter via @aws-sdk/client-s3. R2 is
+ *     S3-compatible and reached by setting STORAGE_ENDPOINT to the R2 URL.
  *
  * The Prisma client is taken as a parameter (reuse-by-param, like
  * lib/audit/adminAuditLog.ts) so unit tests inject a mock and the integration
@@ -20,6 +18,13 @@
  */
 
 import crypto from 'crypto';
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
+} from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { getEnv } from '@/lib/config';
 import { writeAdminAuditLog, type AdminAuditLogClient } from '@/lib/audit';
 import { StorageError } from './errors';
@@ -34,8 +39,37 @@ import {
 
 /** Signed PUT URL lifetime: 15 minutes. */
 const UPLOAD_TTL_MS = 15 * 60 * 1000;
+const UPLOAD_TTL_S = 15 * 60;
 /** Signed GET URL lifetime: 5 minutes. */
 const DOWNLOAD_TTL_MS = 5 * 60 * 1000;
+const DOWNLOAD_TTL_S = 5 * 60;
+
+// --- S3 client singleton (lazy, only created when STORAGE_STUB=false) --------
+
+let _s3: S3Client | null = null;
+
+function getS3(): S3Client {
+  if (_s3) return _s3;
+  const env = getEnv();
+  _s3 = new S3Client({
+    region: env.STORAGE_REGION ?? 'auto',
+    ...(env.STORAGE_ENDPOINT ? { endpoint: env.STORAGE_ENDPOINT } : {}),
+    ...(env.STORAGE_ACCESS_KEY && env.STORAGE_SECRET_KEY
+      ? {
+          credentials: {
+            accessKeyId: env.STORAGE_ACCESS_KEY,
+            secretAccessKey: env.STORAGE_SECRET_KEY,
+          },
+        }
+      : {}),
+  });
+  return _s3;
+}
+
+/** Reset the S3 singleton (test helper). */
+export function _resetS3Client(): void {
+  _s3 = null;
+}
 
 // --- Prisma surface (minimal, injected) --------------------------------------
 
@@ -65,7 +99,9 @@ export interface StorageClient extends AdminAuditLogClient {
         uploadedBy?: string | null;
       };
     }) => Promise<StoredObjectRow>;
-    findUnique: (args: { where: { key: string } }) => Promise<StoredObjectRow | null>;
+    findUnique: (args: {
+      where: { key: string };
+    }) => Promise<StoredObjectRow | null>;
     upsert: (args: {
       where: { key: string };
       create: {
@@ -77,7 +113,9 @@ export interface StorageClient extends AdminAuditLogClient {
       };
       update: { contentType: string; sizeBytes: number };
     }) => Promise<StoredObjectRow>;
-    deleteMany: (args: { where: { key: string } }) => Promise<{ count: number }>;
+    deleteMany: (args: {
+      where: { key: string };
+    }) => Promise<{ count: number }>;
   };
 }
 
@@ -173,7 +211,7 @@ function buildStubUrl(
   baseUrl: string,
   key: string,
   method: 'PUT' | 'GET',
-  exp: number
+  exp: number,
 ): string {
   const sig = signStub(key, method, exp);
   const encodedKey = key.split('/').map(encodeURIComponent).join('/');
@@ -192,12 +230,16 @@ function buildStubUrl(
  */
 export async function createSignedUploadUrl(
   prisma: StorageClient,
-  input: CreateSignedUploadUrlInput
+  input: CreateSignedUploadUrlInput,
 ): Promise<CreateSignedUploadUrlResult> {
-  const { purpose, contentType, sizeBytes, uploadedBy, keyHint, baseUrl } = input;
+  const { purpose, contentType, sizeBytes, uploadedBy, keyHint, baseUrl } =
+    input;
 
   if (!isStoragePurpose(purpose)) {
-    throw new StorageError('invalid_purpose', `unknown storage purpose: ${purpose}`);
+    throw new StorageError(
+      'invalid_purpose',
+      `unknown storage purpose: ${purpose}`,
+    );
   }
 
   const policy = STORAGE_POLICIES[purpose];
@@ -205,33 +247,56 @@ export async function createSignedUploadUrl(
   if (!policy.allowedContentTypes.includes(contentType)) {
     throw new StorageError(
       'invalid_content_type',
-      `content type ${contentType} not allowed for ${purpose}`
+      `content type ${contentType} not allowed for ${purpose}`,
     );
   }
 
-  if (!Number.isInteger(sizeBytes) || sizeBytes <= 0 || sizeBytes > policy.maxBytes) {
+  if (
+    !Number.isInteger(sizeBytes) ||
+    sizeBytes <= 0 ||
+    sizeBytes > policy.maxBytes
+  ) {
     throw new StorageError(
       'too_large',
-      `size ${sizeBytes} exceeds limit ${policy.maxBytes} for ${purpose}`
+      `size ${sizeBytes} exceeds limit ${policy.maxBytes} for ${purpose}`,
     );
   }
 
   const key = buildKey(purpose, keyHint);
 
   await prisma.storedObject.create({
-    data: { key, contentType, sizeBytes, purpose, uploadedBy: uploadedBy ?? null },
+    data: {
+      key,
+      contentType,
+      sizeBytes,
+      purpose,
+      uploadedBy: uploadedBy ?? null,
+    },
   });
 
   const env = getEnv();
   if (!env.STORAGE_STUB) {
-    // TODO(wave9): real S3 adapter — `getSignedUrl(s3, new PutObjectCommand({
-    //   Bucket: env.STORAGE_BUCKET, Key: key, ContentType: contentType }), { expiresIn })`.
-    // @aws-sdk/client-s3 is not installed; deferred to the Wave-9 storage issue.
-    throw new StorageError('s3_not_implemented', 'real S3 upload deferred to wave 9');
+    const s3 = getS3();
+    const uploadUrl = await getSignedUrl(
+      s3,
+      new PutObjectCommand({
+        Bucket: env.STORAGE_BUCKET,
+        Key: key,
+        ContentType: contentType,
+      }),
+      { expiresIn: UPLOAD_TTL_S },
+    );
+    const expiresAt = new Date(Date.now() + UPLOAD_TTL_MS);
+    return { key, uploadUrl, expiresAt };
   }
 
   const expiresAt = new Date(Date.now() + UPLOAD_TTL_MS);
-  const uploadUrl = buildStubUrl(resolveBaseUrl(baseUrl), key, 'PUT', expiresAt.getTime());
+  const uploadUrl = buildStubUrl(
+    resolveBaseUrl(baseUrl),
+    key,
+    'PUT',
+    expiresAt.getTime(),
+  );
 
   return { key, uploadUrl, expiresAt };
 }
@@ -254,33 +319,41 @@ function purposeFromKey(key: string): string {
  * row is UPSERTed (keyed on the unique `key`) so the audit/download path is
  * consistent and a re-upload of the same key is idempotent.
  *
- * STORAGE_STUB=false → throws StorageError('s3_not_implemented') (real S3
- * PutObject deferred to Wave 9, @aws-sdk not installed) so a non-stub deploy
- * fails LOUDLY rather than silently dropping the bytes.
+ * STORAGE_STUB=false → real S3 PutObjectCommand via @aws-sdk/client-s3.
  */
 export async function putObject(
   prisma: StorageClient,
   key: string,
   contentType: string,
-  bytes: Buffer | Uint8Array
+  bytes: Buffer | Uint8Array,
 ): Promise<void> {
   const buf = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
   const purpose = purposeFromKey(key);
 
-  // Upsert the pointer row first so the download/audit path always finds a row
-  // for a putObject-created key (parity with createSignedUploadUrl's create).
   await prisma.storedObject.upsert({
     where: { key },
-    create: { key, contentType, sizeBytes: buf.length, purpose, uploadedBy: null },
+    create: {
+      key,
+      contentType,
+      sizeBytes: buf.length,
+      purpose,
+      uploadedBy: null,
+    },
     update: { contentType, sizeBytes: buf.length },
   });
 
   const env = getEnv();
   if (!env.STORAGE_STUB) {
-    // TODO(wave9): real S3 adapter — `s3.send(new PutObjectCommand({
-    //   Bucket: env.STORAGE_BUCKET, Key: key, Body: buf, ContentType: contentType }))`.
-    // @aws-sdk/client-s3 is not installed; deferred to the Wave-9 storage issue.
-    throw new StorageError('s3_not_implemented', 'real S3 putObject deferred to wave 9');
+    const s3 = getS3();
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: env.STORAGE_BUCKET,
+        Key: key,
+        Body: buf,
+        ContentType: contentType,
+      }),
+    );
+    return;
   }
 
   const { putStubBlob } = await import('./stubStore');
@@ -297,23 +370,25 @@ export async function putObject(
  * if the row is already gone), so a re-run of the sweeper over an
  * already-purged key is a no-op rather than an error.
  *
- * STORAGE_STUB=false → throws StorageError('s3_not_implemented') (real S3
- * DeleteObject deferred to Wave 9, @aws-sdk not installed) so a non-stub deploy
- * fails LOUDLY rather than silently leaving the object in the bucket.
+ * STORAGE_STUB=false → real S3 DeleteObjectCommand then pointer row deletion.
  */
-export async function deleteObject(prisma: StorageClient, key: string): Promise<void> {
+export async function deleteObject(
+  prisma: StorageClient,
+  key: string,
+): Promise<void> {
   const env = getEnv();
   if (!env.STORAGE_STUB) {
-    // TODO(wave9): real S3 adapter — `s3.send(new DeleteObjectCommand({
-    //   Bucket: env.STORAGE_BUCKET, Key: key }))`. @aws-sdk/client-s3 not installed.
-    throw new StorageError('s3_not_implemented', 'real S3 deleteObject deferred to wave 9');
+    const s3 = getS3();
+    await s3.send(
+      new DeleteObjectCommand({ Bucket: env.STORAGE_BUCKET, Key: key }),
+    );
+    await prisma.storedObject.deleteMany({ where: { key } });
+    return;
   }
 
   const { removeStubBlob } = await import('./stubStore');
   removeStubBlob(key);
 
-  // Remove the pointer row too (deleteMany so an absent key is a silent no-op,
-  // keeping the purge idempotent under a sweeper re-run).
   await prisma.storedObject.deleteMany({ where: { key } });
 }
 
@@ -325,14 +400,13 @@ export async function deleteObject(prisma: StorageClient, key: string): Promise<
 export async function createSignedDownloadUrl(
   prisma: StorageClient,
   key: string,
-  options: CreateSignedDownloadUrlOptions
+  options: CreateSignedDownloadUrlOptions,
 ): Promise<CreateSignedDownloadUrlResult> {
   const row = await prisma.storedObject.findUnique({ where: { key } });
   if (!row) {
     throw new StorageError('not_found', `no stored object for key ${key}`);
   }
 
-  // PII access audit (AC5) — only for PII purposes (kyb_doc), not ticket_pdf.
   if (isStoragePurpose(row.purpose) && PII_PURPOSES.has(row.purpose)) {
     await writeAdminAuditLog(prisma, {
       actor: options.actor,
@@ -344,9 +418,14 @@ export async function createSignedDownloadUrl(
 
   const env = getEnv();
   if (!env.STORAGE_STUB) {
-    // TODO(wave9): real S3 adapter — `getSignedUrl(s3, new GetObjectCommand({
-    //   Bucket: env.STORAGE_BUCKET, Key: key }), { expiresIn })`. Deferred.
-    throw new StorageError('s3_not_implemented', 'real S3 download deferred to wave 9');
+    const s3 = getS3();
+    const downloadUrl = await getSignedUrl(
+      s3,
+      new GetObjectCommand({ Bucket: env.STORAGE_BUCKET, Key: key }),
+      { expiresIn: DOWNLOAD_TTL_S },
+    );
+    const expiresAt = new Date(Date.now() + DOWNLOAD_TTL_MS);
+    return { downloadUrl, expiresAt };
   }
 
   const expiresAt = new Date(Date.now() + DOWNLOAD_TTL_MS);
@@ -354,7 +433,7 @@ export async function createSignedDownloadUrl(
     resolveBaseUrl(options.baseUrl),
     key,
     'GET',
-    expiresAt.getTime()
+    expiresAt.getTime(),
   );
 
   return { downloadUrl, expiresAt };
@@ -373,7 +452,7 @@ export function verifyStubSignature(
   method: 'PUT' | 'GET',
   exp: number,
   sig: string,
-  now: number = Date.now()
+  now: number = Date.now(),
 ): boolean {
   if (!Number.isFinite(exp) || exp < now) return false;
   const expected = signStub(key, method, exp);

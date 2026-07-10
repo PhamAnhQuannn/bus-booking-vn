@@ -379,6 +379,18 @@ const envSchema = z.object({
       }
     }
   }
+  // Real S3 mode (STORAGE_STUB=false): bucket + credentials required.
+  if (!env.STORAGE_STUB) {
+    for (const key of ['STORAGE_BUCKET', 'STORAGE_ACCESS_KEY', 'STORAGE_SECRET_KEY'] as const) {
+      if (!env[key]) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `${key} is required when STORAGE_STUB=false (real S3/R2 mode)`,
+        });
+      }
+    }
+  }
   // Real SePay mode (PAYMENTS_STUB=false): bearer token required.
   if (!env.PAYMENTS_STUB) {
     if (!env.SEPAY_API_KEY) {

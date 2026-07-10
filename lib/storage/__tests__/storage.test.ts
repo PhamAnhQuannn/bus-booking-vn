@@ -1,17 +1,53 @@
 /**
- * Unit tests for the storage layer (Issue 059).
+ * Unit tests for the storage layer (Issue 059 + Issue 280 S3 adapter).
  *
  * Mock-prisma + env driven (process.env + _resetEnvCache so getEnv re-parses).
  * Covers: createSignedUploadUrl validates content-type + size, persists a
  * StoredObject row, returns a signed stub PUT URL; createSignedDownloadUrl mints
  * a GET URL + audits kyb_doc but NOT ticket_pdf + throws not_found; verifyStubSignature
  * round-trips a fresh sig and rejects tampered/expired; real mode (STORAGE_STUB=false)
- * throws s3_not_implemented on both mint paths.
+ * mints real S3 pre-signed URLs via @aws-sdk.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('@/lib/config/env', () => ({ getEnv: vi.fn() }));
+
+// --- S3 SDK mocks (class-based — `new` requires constructable) ---------------
+vi.mock('@aws-sdk/client-s3', () => {
+  const send = vi.fn(async () => ({}));
+  class MockS3Client {
+    send = send;
+  }
+  class MockPutObjectCommand {
+    input: unknown;
+    constructor(input: unknown) {
+      this.input = input;
+    }
+  }
+  class MockDeleteObjectCommand {
+    input: unknown;
+    constructor(input: unknown) {
+      this.input = input;
+    }
+  }
+  class MockGetObjectCommand {
+    input: unknown;
+    constructor(input: unknown) {
+      this.input = input;
+    }
+  }
+  return {
+    S3Client: MockS3Client,
+    PutObjectCommand: MockPutObjectCommand,
+    DeleteObjectCommand: MockDeleteObjectCommand,
+    GetObjectCommand: MockGetObjectCommand,
+    __mockSend: send,
+  };
+});
+vi.mock('@aws-sdk/s3-request-presigner', () => ({
+  getSignedUrl: vi.fn(async () => 'https://s3.example.com/signed-url'),
+}));
 
 import {
   createSignedUploadUrl,
@@ -19,17 +55,21 @@ import {
   putObject,
   deleteObject,
   verifyStubSignature,
+  _resetS3Client,
   type StorageClient,
   type StoredObjectRow,
 } from '..';
 import { getStubBlob } from '../stubStore';
 import { getEnv } from '@/lib/config';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+
+const { __mockSend } = (await import('@aws-sdk/client-s3')) as unknown as {
+  __mockSend: ReturnType<typeof vi.fn>;
+};
 
 const STUB_SECRET = 'unit-test-storage-secret-0123456789';
 
 function makePrisma(seed?: StoredObjectRow | null) {
-  // In-memory row store so an upsert is visible to a subsequent findUnique
-  // (exercises the putObject → signed-download round-trip on the row side).
   const rows = new Map<string, StoredObjectRow>();
   if (seed) rows.set(seed.key, seed);
   const storedObject = {
@@ -39,7 +79,10 @@ function makePrisma(seed?: StoredObjectRow | null) {
       uploadedBy: null,
       ...data,
     })),
-    findUnique: vi.fn(async ({ where }: { where: { key: string } }) => rows.get(where.key) ?? null),
+    findUnique: vi.fn(
+      async ({ where }: { where: { key: string } }) =>
+        rows.get(where.key) ?? null,
+    ),
     upsert: vi.fn(
       async ({
         where,
@@ -57,7 +100,7 @@ function makePrisma(seed?: StoredObjectRow | null) {
         } as unknown as StoredObjectRow;
         rows.set(where.key, row);
         return row;
-      }
+      },
     ),
     deleteMany: vi.fn(async ({ where }: { where: { key: string } }) => {
       const had = rows.delete(where.key);
@@ -77,11 +120,20 @@ function setStub(on: boolean) {
   vi.mocked(getEnv).mockReturnValue({
     STORAGE_STUB: on,
     STORAGE_STUB_SECRET: STUB_SECRET,
+    ...(on
+      ? {}
+      : {
+          STORAGE_BUCKET: 'test-bucket',
+          STORAGE_REGION: 'us-east-1',
+          STORAGE_ACCESS_KEY: 'AKIATEST',
+          STORAGE_SECRET_KEY: 'secret-test',
+        }),
   } as never);
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  _resetS3Client();
   setStub(true);
 });
 afterEach(() => vi.clearAllMocks());
@@ -94,7 +146,7 @@ describe('createSignedUploadUrl', () => {
         purpose: 'ticket_pdf',
         contentType: 'image/png',
         sizeBytes: 1000,
-      })
+      }),
     ).rejects.toMatchObject({ code: 'invalid_content_type' });
     expect(prisma.storedObject.create).not.toHaveBeenCalled();
   });
@@ -106,7 +158,7 @@ describe('createSignedUploadUrl', () => {
         purpose: 'ticket_pdf',
         contentType: 'application/pdf',
         sizeBytes: 6 * 1024 * 1024, // > 5MB ticket_pdf cap
-      })
+      }),
     ).rejects.toMatchObject({ code: 'too_large' });
     expect(prisma.storedObject.create).not.toHaveBeenCalled();
   });
@@ -118,7 +170,7 @@ describe('createSignedUploadUrl', () => {
         purpose: 'kyb_doc',
         contentType: 'application/pdf',
         sizeBytes: 0,
-      })
+      }),
     ).rejects.toMatchObject({ code: 'too_large' });
   });
 
@@ -150,16 +202,25 @@ describe('createSignedUploadUrl', () => {
     expect(result.expiresAt.getTime()).toBeGreaterThan(Date.now());
   });
 
-  it('throws s3_not_implemented in real mode (after persisting the row)', async () => {
+  it('returns a real S3 pre-signed URL in real mode', async () => {
     setStub(false);
     const prisma = makePrisma();
-    await expect(
-      createSignedUploadUrl(prisma, {
-        purpose: 'kyb_doc',
-        contentType: 'image/jpeg',
-        sizeBytes: 1234,
-      })
-    ).rejects.toMatchObject({ code: 's3_not_implemented' });
+    const result = await createSignedUploadUrl(prisma, {
+      purpose: 'kyb_doc',
+      contentType: 'image/jpeg',
+      sizeBytes: 1234,
+    });
+
+    expect(result.uploadUrl).toBe('https://s3.example.com/signed-url');
+    expect(vi.mocked(getSignedUrl)).toHaveBeenCalledTimes(1);
+    const [, cmd, opts] = vi.mocked(getSignedUrl).mock.calls[0];
+    expect((cmd as { input: Record<string, unknown> }).input).toMatchObject({
+      Bucket: 'test-bucket',
+      Key: result.key,
+      ContentType: 'image/jpeg',
+    });
+    expect(opts).toMatchObject({ expiresIn: 15 * 60 });
+    expect(prisma.storedObject.create).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -184,7 +245,7 @@ describe('createSignedDownloadUrl', () => {
   it('throws not_found when the object is absent', async () => {
     const prisma = makePrisma(null);
     await expect(
-      createSignedDownloadUrl(prisma, 'kyb_doc/missing', { actor: 'admin_1' })
+      createSignedDownloadUrl(prisma, 'kyb_doc/missing', { actor: 'admin_1' }),
     ).rejects.toMatchObject({ code: 'not_found' });
   });
 
@@ -212,12 +273,21 @@ describe('createSignedDownloadUrl', () => {
     expect(prisma.adminAuditLog.create).not.toHaveBeenCalled();
   });
 
-  it('throws s3_not_implemented in real mode', async () => {
+  it('returns a real S3 pre-signed URL in real mode', async () => {
     setStub(false);
     const prisma = makePrisma(ticketRow);
-    await expect(
-      createSignedDownloadUrl(prisma, ticketRow.key, { actor: 'sys' })
-    ).rejects.toMatchObject({ code: 's3_not_implemented' });
+    const result = await createSignedDownloadUrl(prisma, ticketRow.key, {
+      actor: 'sys',
+    });
+
+    expect(result.downloadUrl).toBe('https://s3.example.com/signed-url');
+    expect(vi.mocked(getSignedUrl)).toHaveBeenCalledTimes(1);
+    const [, cmd, opts] = vi.mocked(getSignedUrl).mock.calls[0];
+    expect((cmd as { input: Record<string, unknown> }).input).toMatchObject({
+      Bucket: 'test-bucket',
+      Key: ticketRow.key,
+    });
+    expect(opts).toMatchObject({ expiresIn: 5 * 60 });
   });
 });
 
@@ -273,7 +343,6 @@ describe('verifyStubSignature', () => {
     const url = new URL(uploadUrl);
     const exp = Number(url.searchParams.get('exp'));
     const sig = url.searchParams.get('sig') as string;
-    // now is AFTER exp → expired.
     expect(verifyStubSignature(key, 'PUT', exp, sig, exp + 1)).toBe(false);
   });
 });
@@ -286,19 +355,20 @@ describe('putObject (server-side upload, Issue 074)', () => {
 
     await putObject(prisma, key, 'application/pdf', bytes);
 
-    // Pointer row upserted (so the download/audit path finds it).
     expect(prisma.storedObject.upsert).toHaveBeenCalledTimes(1);
     expect(prisma.storedObject.upsert.mock.calls[0][0]).toMatchObject({
       where: { key },
-      create: { key, contentType: 'application/pdf', purpose: 'ticket_pdf' },
+      create: {
+        key,
+        contentType: 'application/pdf',
+        purpose: 'ticket_pdf',
+      },
     });
 
-    // Bytes landed in the SHARED stub store (same Map the GET route reads).
     const blob = getStubBlob(key);
     expect(blob?.bytes.equals(bytes)).toBe(true);
     expect(blob?.contentType).toBe('application/pdf');
 
-    // A signed download URL can now be minted for the putObject-created key.
     const { downloadUrl } = await createSignedDownloadUrl(prisma, key, {
       actor: 'customer:c1',
       baseUrl: 'http://localhost:3001',
@@ -320,12 +390,21 @@ describe('putObject (server-side upload, Issue 074)', () => {
     expect(getStubBlob(key)?.bytes.length).toBe(5);
   });
 
-  it('throws s3_not_implemented in real mode (after upserting the row)', async () => {
+  it('sends PutObjectCommand with Body in real mode', async () => {
     setStub(false);
     const prisma = makePrisma();
-    await expect(
-      putObject(prisma, 'ticket_pdf/real.pdf', 'application/pdf', Buffer.from('x'))
-    ).rejects.toMatchObject({ code: 's3_not_implemented' });
+    const buf = Buffer.from('pdf-bytes');
+    await putObject(prisma, 'ticket_pdf/real.pdf', 'application/pdf', buf);
+
+    expect(__mockSend).toHaveBeenCalledTimes(1);
+    const cmd = __mockSend.mock.calls[0][0] as {
+      input: Record<string, unknown>;
+    };
+    expect(cmd.input).toMatchObject({
+      Bucket: 'test-bucket',
+      Key: 'ticket_pdf/real.pdf',
+      ContentType: 'application/pdf',
+    });
     expect(prisma.storedObject.upsert).toHaveBeenCalledTimes(1);
   });
 });
@@ -341,28 +420,38 @@ describe('deleteObject (retention purge, Issue 090)', () => {
 
     await deleteObject(prisma, key);
 
-    // Blob gone from the shared stub store.
     expect(getStubBlob(key)).toBeUndefined();
-    // Pointer row deleted.
-    expect(prisma.storedObject.deleteMany).toHaveBeenCalledWith({ where: { key } });
-    // A subsequent signed-download no longer finds the object.
+    expect(prisma.storedObject.deleteMany).toHaveBeenCalledWith({
+      where: { key },
+    });
     await expect(
-      createSignedDownloadUrl(prisma, key, { actor: 'cron:retention-sweep' })
+      createSignedDownloadUrl(prisma, key, { actor: 'cron:retention-sweep' }),
     ).rejects.toMatchObject({ code: 'not_found' });
   });
 
   it('is idempotent on an absent key (no throw, deleteMany count 0)', async () => {
     const prisma = makePrisma();
-    await expect(deleteObject(prisma, 'kyb_doc/never/existed')).resolves.toBeUndefined();
+    await expect(
+      deleteObject(prisma, 'kyb_doc/never/existed'),
+    ).resolves.toBeUndefined();
     expect(prisma.storedObject.deleteMany).toHaveBeenCalledTimes(1);
   });
 
-  it('throws s3_not_implemented in real mode (no row deleted)', async () => {
+  it('sends DeleteObjectCommand + deletes row in real mode', async () => {
     setStub(false);
     const prisma = makePrisma();
-    await expect(deleteObject(prisma, 'kyb_doc/x/y.pdf')).rejects.toMatchObject({
-      code: 's3_not_implemented',
+    await deleteObject(prisma, 'kyb_doc/x/y.pdf');
+
+    expect(__mockSend).toHaveBeenCalledTimes(1);
+    const cmd = __mockSend.mock.calls[0][0] as {
+      input: Record<string, unknown>;
+    };
+    expect(cmd.input).toMatchObject({
+      Bucket: 'test-bucket',
+      Key: 'kyb_doc/x/y.pdf',
     });
-    expect(prisma.storedObject.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.storedObject.deleteMany).toHaveBeenCalledWith({
+      where: { key: 'kyb_doc/x/y.pdf' },
+    });
   });
 });
