@@ -6,7 +6,7 @@
  * 2. Customer form pre-filled phone after first run (localStorage)
  * 3. POST hold → navigate to review with total
  * 4. Timer countdown observable on review page
- * 5. Hold expiry redirects to /search (HoldExpiryModal)
+ * 5. Hold expiry redirects to homepage (HoldExpiryModal)
  *
  * Prerequisites: running dev server + seeded DB with at least one trip
  * on the next available date for route Hà Nội → Sài Gòn.
@@ -76,7 +76,7 @@ async function searchForTrips(page: Page) {
     date: TOMORROW,
     ticketCount: '1',
   });
-  await page.goto(`/search?${params.toString()}`);
+  await page.goto(`/?${params.toString()}`);
   await page.waitForLoadState('networkidle');
 }
 
@@ -128,7 +128,7 @@ test.describe('Hold booking flow', () => {
 
   test('phone is pre-filled on second visit after successful hold', async ({ page }) => {
     // Simulate a previous hold having saved the phone
-    await page.goto('/search');
+    await page.goto('/');
     await page.evaluate(() => {
       sessionStorage.setItem('busbooking_last_phone', '0912345678');
     });
@@ -147,9 +147,9 @@ test.describe('Hold booking flow', () => {
     await expect(phoneInput).toHaveValue('0912345678');
   });
 
-  test('hold expiry modal redirects to /search', async ({ page }) => {
+  test('hold expiry modal redirects to homepage', async ({ page }) => {
     // Navigate to a review page with an already-expired hold by manipulating the timer store
-    await page.goto('/search');
+    await page.goto('/');
 
     // We simulate expiry by going to review and fast-forwarding time
     // This test is a best-effort: it can only be done reliably with a real expired hold
@@ -159,9 +159,9 @@ test.describe('Hold booking flow', () => {
       // For a real test, we'd wait for hold to expire or mock the timer
     });
 
-    // At minimum verify /search is reachable
-    await page.goto('/search');
-    await expect(page).toHaveURL(/search/);
+    // At minimum verify homepage is reachable
+    await page.goto('/');
+    await expect(page).toHaveURL('/');
   });
 });
 

@@ -80,7 +80,7 @@ export default async function TripDetailPage({
     }),
     breadcrumbLd([
       { name: 'Trang chủ', url: `${SITE_URL}/` },
-      { name: 'Tìm chuyến', url: `${SITE_URL}/search` },
+      { name: 'Tìm chuyến', url: `${SITE_URL}/` },
       { name: `${trip.routeOrigin} → ${trip.routeDestination}`, url: tripUrl },
     ]),
   ];
@@ -96,7 +96,7 @@ export default async function TripDetailPage({
         <ol className="flex flex-wrap items-center gap-1.5">
           <li><Link href="/" className="underline-offset-4 hover:text-foreground hover:underline">Trang chủ</Link></li>
           <li aria-hidden="true">/</li>
-          <li><Link href="/search" className="underline-offset-4 hover:text-foreground hover:underline">Tìm chuyến</Link></li>
+          <li><Link href="/" className="underline-offset-4 hover:text-foreground hover:underline">Tìm chuyến</Link></li>
           <li aria-hidden="true">/</li>
           <li aria-current="page" className="font-medium text-foreground">
             {trip.routeOrigin} → {trip.routeDestination}

@@ -14,7 +14,7 @@ import { SITE_URL } from '@/lib/seo';
 // Trip set changes constantly; never statically cache this sitemap.
 export const dynamic = 'force-dynamic';
 
-const STATIC_PATHS = ['', '/search', '/routes', '/terms', '/privacy', '/lien-he-dat-xe'];
+const STATIC_PATHS = ['', '/routes', '/terms', '/privacy', '/lien-he-dat-xe'];
 
 const MAX_TRIP_URLS = 5000;
 

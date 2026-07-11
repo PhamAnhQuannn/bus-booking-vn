@@ -1,8 +1,8 @@
 /**
- * Build a /search URL that lands on the RESULTS listing (not the search form).
+ * Build a homepage URL with search params that lands on the RESULTS listing.
  * The page's `searchParamsSchema` requires `date` + `ticketCount`; omitting them
- * makes /search fall back to the form. We default `date` to today (VN) and
- * `ticketCount` to 1. Stale (past) dates are auto-redirected to today by /search.
+ * shows the marketing homepage. We default `date` to today (VN) and
+ * `ticketCount` to 1. Stale (past) dates are auto-redirected to today.
  *
  * `new Date()` lives in this module-scope helper (not a component render body),
  * keeping RSC consumers `react-hooks/purity`-clean.
@@ -14,7 +14,7 @@ export function todayVN(): string {
 }
 
 export function searchHref(origin: string, destination: string): string {
-  return `/search?${new URLSearchParams({
+  return `/?${new URLSearchParams({
     origin,
     destination,
     date: todayVN(),

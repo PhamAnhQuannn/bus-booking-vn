@@ -17,7 +17,7 @@ export default function TripNotFound() {
         </p>
       </div>
       <div className="flex flex-wrap items-center justify-center gap-3">
-        <Link href="/search" className={buttonVariants({ variant: 'default', size: 'lg' })}>
+        <Link href="/" className={buttonVariants({ variant: 'default', size: 'lg' })}>
           Về tìm kiếm
         </Link>
         <Link href="/" className={buttonVariants({ variant: 'outline', size: 'lg' })}>

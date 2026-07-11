@@ -20,7 +20,7 @@ export default function NotFound() {
         <Link href="/" className={buttonVariants({ variant: 'default', size: 'lg' })}>
           Về trang chủ
         </Link>
-        <Link href="/search" className={buttonVariants({ variant: 'outline', size: 'lg' })}>
+        <Link href="/#search" className={buttonVariants({ variant: 'outline', size: 'lg' })}>
           Tìm chuyến xe
         </Link>
       </div>

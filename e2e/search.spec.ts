@@ -38,7 +38,7 @@ function searchUrl(date = TOMORROW, ticketCount = '1') {
     date,
     ticketCount,
   });
-  return `/search?${p.toString()}`;
+  return `/?${p.toString()}`;
 }
 
 // ---- AC-4: Results display ----
@@ -46,7 +46,7 @@ function searchUrl(date = TOMORROW, ticketCount = '1') {
 test.describe('AC-4: Search results display', () => {
   test('shows trip cards with required fields on mobile-390', async ({ page }) => {
     await page.goto(searchUrl());
-    await expect(page).toHaveURL(/\/search/);
+    await expect(page).toHaveURL(/\?origin=/);
 
     // At least one trip card should be visible (seed has tomorrow trips)
     const cards = page.locator('article');
@@ -72,7 +72,7 @@ test.describe('AC-4: Search results display', () => {
   });
 
   test('shows "Không tìm thấy" for no results', async ({ page }) => {
-    const noResultUrl = `/search?${new URLSearchParams({
+    const noResultUrl = `/?${new URLSearchParams({
       origin: 'Thành Phố Không Tồn Tại',
       destination: 'Nơi Không Có Thật',
       date: TOMORROW,
@@ -156,7 +156,7 @@ test.describe('AC-6: Date navigation chips', () => {
   });
 
   test('empty state also shows ±1-day chips', async ({ page }) => {
-    const noResultUrl = `/search?${new URLSearchParams({
+    const noResultUrl = `/?${new URLSearchParams({
       origin: 'Không Tồn Tại',
       destination: 'Ảo',
       date: TOMORROW,

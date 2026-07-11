@@ -26,7 +26,7 @@ export default function BookingLayout({ children }: { children: React.ReactNode 
 
   useEffect(() => {
     if (!isTokenLanding && !tripId) {
-      router.replace('/search');
+      router.replace('/');
     }
   }, [isTokenLanding, tripId, router]);
 

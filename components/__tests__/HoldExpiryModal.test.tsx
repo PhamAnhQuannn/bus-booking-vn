@@ -46,10 +46,10 @@ describe('HoldExpiryModal', () => {
     expect(clearSpy).toHaveBeenCalled();
   });
 
-  it('navigates to /search on button click', () => {
+  it('navigates to homepage on button click', () => {
     useHoldTimerStore.setState({ remainingMs: 0, isWarning: false, isExpired: true });
     render(<HoldExpiryModal />);
     fireEvent.click(screen.getByText('Tìm chuyến xe mới'));
-    expect(mockReplace).toHaveBeenCalledWith('/search');
+    expect(mockReplace).toHaveBeenCalledWith('/');
   });
 });

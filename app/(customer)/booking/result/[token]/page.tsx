@@ -161,7 +161,7 @@ export default async function ResultPage({ params, searchParams }: ResultPagePro
             <p className="text-sm text-destructive">
               Giao dịch {gatewayLabel} của bạn chưa hoàn tất hoặc đã bị hủy. Vui lòng thử lại với chuyến xe khác.
             </p>
-            <Link href="/search" className={buttonVariants({ variant: 'default', size: 'default' }) + ' self-start'}>
+            <Link href="/" className={buttonVariants({ variant: 'default', size: 'default' }) + ' self-start'}>
               Tìm chuyến khác
             </Link>
           </div>
