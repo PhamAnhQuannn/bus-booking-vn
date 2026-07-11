@@ -4,4 +4,4 @@
 export { applyTripFilters } from './applyTripFilters';
 export type { TripFacets } from './applyTripFilters';
 
-export { searchHref } from './searchHref';
+export { searchHref, todayVN } from './searchHref';

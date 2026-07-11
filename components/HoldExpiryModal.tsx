@@ -31,7 +31,7 @@ export function HoldExpiryModal() {
   }, [isExpired, clearBooking]);
 
   function handleGoToSearch() {
-    router.replace('/search');
+    router.replace('/');
   }
 
   // Controlled open with no onOpenChange handler → Esc/backdrop cannot close it; expiry forces re-search.

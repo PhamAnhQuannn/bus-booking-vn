@@ -28,24 +28,24 @@ export default async function ReviewPage({ searchParams }: ReviewPageProps) {
   const { holdId } = await searchParams;
 
   if (!holdId) {
-    redirect('/search');
+    redirect('/');
   }
 
   const cookieStore = await cookies();
   const bbHold = cookieStore.get('bb_hold');
 
   if (!bbHold) {
-    redirect('/search');
+    redirect('/');
   }
 
   const verified = verifyCookieValue(bbHold.value);
   if (!verified || verified.holdId !== holdId) {
-    redirect('/search');
+    redirect('/');
   }
 
   const details = await getHoldDetails(holdId);
   if (!details) {
-    redirect('/search');
+    redirect('/');
   }
 
   return (

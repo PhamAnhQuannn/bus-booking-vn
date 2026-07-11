@@ -22,6 +22,10 @@ const FOOTER_LINKS = {
     { href: '/terms', label: 'Điều khoản dịch vụ' },
     { href: '/privacy', label: 'Chính sách bảo mật' },
   ],
+  support: [
+    { href: '/chinh-sach-huy-ve-hoan-tien', label: 'Chính sách hủy/hoàn vé' },
+    { href: '/khieu-nai', label: 'Giải quyết khiếu nại' },
+  ],
 } as const;
 
 const linkClass =
@@ -40,9 +44,8 @@ export function SiteFooter() {
         <div className="flex max-w-xs flex-col gap-2">
           <Logo variant="combo" />
           <p>Đặt vé xe khách liên tỉnh trên toàn quốc.</p>
-          {/* Global support entry point (no public hotline yet → contact page). */}
-          <Link href="/lien-he-dat-xe" className={linkClass + ' font-medium text-foreground'}>
-            Hỗ trợ 24/7
+          <Link href="/khieu-nai" className={linkClass + ' font-medium text-foreground'}>
+            Hỗ trợ
           </Link>
         </div>
         <div className="flex flex-wrap gap-x-12 gap-y-6">
@@ -57,6 +60,14 @@ export function SiteFooter() {
           <nav className="flex flex-col gap-2" aria-label="Pháp lý">
             <span className="text-xs font-semibold uppercase tracking-wide text-foreground">Pháp lý</span>
             {FOOTER_LINKS.legal.map((l) => (
+              <Link key={l.href} href={l.href} className={linkClass}>
+                {l.label}
+              </Link>
+            ))}
+          </nav>
+          <nav className="flex flex-col gap-2" aria-label="Hỗ trợ & Khiếu nại">
+            <span className="text-xs font-semibold uppercase tracking-wide text-foreground">Hỗ trợ & Khiếu nại</span>
+            {FOOTER_LINKS.support.map((l) => (
               <Link key={l.href} href={l.href} className={linkClass}>
                 {l.label}
               </Link>

@@ -38,7 +38,7 @@ export function RoutesBrowser({ routes, today }: { routes: ActiveRoute[]; today:
       date: today,
       ticketCount: '1',
     });
-    return `/search?${p.toString()}`;
+    return `/?${p.toString()}`;
   }
 
   return (

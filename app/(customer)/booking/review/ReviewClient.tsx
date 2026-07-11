@@ -152,7 +152,17 @@ export function ReviewClient({ holdDetails }: ReviewClientProps) {
                   disabled={submitting}
                   className="mt-0.5 size-4 shrink-0 accent-primary"
                 />
-                <span>{CONSENT_TEXT.noRefund}</span>
+                <span>
+                  {CONSENT_TEXT.noRefund}{' '}
+                  <a
+                    href="/chinh-sach-huy-ve-hoan-tien"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline"
+                  >
+                    Xem chi tiết
+                  </a>
+                </span>
               </label>
               <label className="flex cursor-pointer items-start gap-2 text-sm">
                 <input
@@ -163,7 +173,17 @@ export function ReviewClient({ holdDetails }: ReviewClientProps) {
                   disabled={submitting}
                   className="mt-0.5 size-4 shrink-0 accent-primary"
                 />
-                <span>{CONSENT_TEXT.piiStorage}</span>
+                <span>
+                  {CONSENT_TEXT.piiStorage}{' '}
+                  <a
+                    href="/privacy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline"
+                  >
+                    Xem chi tiết
+                  </a>
+                </span>
               </label>
             </fieldset>
           </CardContent>

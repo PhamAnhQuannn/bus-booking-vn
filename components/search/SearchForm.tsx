@@ -60,7 +60,7 @@ export function SearchForm({
       date,
       ticketCount,
     });
-    router.push(`/search?${params.toString()}`);
+    router.push(`/?${params.toString()}`);
   }
 
   return (

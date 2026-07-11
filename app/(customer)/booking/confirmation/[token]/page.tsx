@@ -194,7 +194,7 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
           <Link href="/" className={buttonVariants({ variant: 'default', className: 'flex-1' })}>
             Về trang chủ
           </Link>
-          <Link href="/search" className={buttonVariants({ variant: 'outline', className: 'flex-1' })}>
+          <Link href="/" className={buttonVariants({ variant: 'outline', className: 'flex-1' })}>
             Tìm chuyến khác
           </Link>
         </div>
