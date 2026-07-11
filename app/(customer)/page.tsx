@@ -7,7 +7,7 @@ import { Banknote, ShieldCheck, Bus } from 'lucide-react';
 import { searchParamsSchema, searchFiltersSchema } from '@/lib/core/validation/search';
 import { track } from '@/lib/analytics';
 import { searchTrips, SEARCH_PAGE_LIMIT } from '@/lib/trips';
-import { applyTripFilters } from '@/lib/search';
+import { applyTripFilters, todayVN } from '@/lib/search';
 import { SearchFormWrapper } from '@/components/search/SearchFormWrapper';
 import { SearchForm } from '@/components/search/SearchForm';
 import { SearchStoreHydrator } from '@/components/search/SearchStoreHydrator';
@@ -85,9 +85,9 @@ async function SearchResultsView({
 }) {
   const { origin, destination, date, ticketCount } = parsed;
 
-  const todayVN = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
-  if (date < todayVN) {
-    const p = new URLSearchParams({ origin, destination, date: todayVN, ticketCount: String(ticketCount) });
+  const todayVNDate = todayVN();
+  if (date < todayVNDate) {
+    const p = new URLSearchParams({ origin, destination, date: todayVNDate, ticketCount: String(ticketCount) });
     redirect(`/?${p.toString()}`);
   }
 
@@ -109,7 +109,7 @@ async function SearchResultsView({
   const { facets, totalBeforeFilters } = applyTripFilters(baseTrips, activeFilters);
   const { trips } = applyTripFilters(page.trips, activeFilters);
 
-  const showPrev = date > todayVN;
+  const showPrev = date > todayVNDate;
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6">
