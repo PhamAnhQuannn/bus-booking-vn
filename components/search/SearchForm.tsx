@@ -37,11 +37,14 @@ export function SearchForm({
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!o.trim() || !d.trim() || !dt || dt < todayVN) {
+      return;
+    }
     const params = new URLSearchParams({
-      origin: origin.trim(),
-      destination: destination.trim(),
-      date,
-      ticketCount,
+      origin: o.trim(),
+      destination: d.trim(),
+      date: dt,
+      ticketCount: tc,
     });
     router.push(`/?${params.toString()}`);
   }
@@ -140,7 +143,7 @@ export function SearchForm({
             >
               <Minus className="size-4" aria-hidden="true" />
             </button>
-            <span className="min-w-6 select-none text-center text-base font-semibold tabular-nums" aria-live="polite" aria-label={`${tc} vé`}>
+            <span className="min-w-6 select-none text-center text-base font-semibold tabular-nums" aria-label={`${tc} vé`}>
               {tc}
             </span>
             <button
