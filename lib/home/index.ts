@@ -3,3 +3,7 @@
 // getHomeMetrics.ts
 export { getHomeMetrics } from './getHomeMetrics';
 export type { HomeMetrics } from './getHomeMetrics';
+
+// getPublicOperators.ts
+export { getPublicOperators } from './getPublicOperators';
+export type { PublicOperator } from './getPublicOperators';

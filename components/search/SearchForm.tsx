@@ -1,18 +1,8 @@
 'use client';
 
-/**
- * SearchForm — client component for trip search.
- *
- * Mobile-first, 390px viewport. All interactive elements meet
- * WCAG 2.5.5 min 44px tap target (min-h-11 = 44px in Tailwind).
- *
- * Reads/writes searchStore (Zustand + localStorage) so back-nav restores state.
- * On submit navigates to /search?origin=...&destination=...&date=...&ticketCount=...
- */
-
 import { type FormEvent, useEffect, useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Input } from '@/components/ui/input';
+import { MapPin, ArrowLeftRight, Minus, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PlaceCombobox } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -32,18 +22,10 @@ export function SearchForm({
   const { origin, destination, date, ticketCount, setOrigin, setDestination, setDate, setTicketCount } =
     useSearchStore();
 
-  // Earliest selectable day = today in Asia/Ho_Chi_Minh (en-CA → YYYY-MM-DD).
-  // Drives the DatePicker `min` (greys past days) + the submit guard. Computed once
-  // (initializer) so the render body stays pure — no `new Date()` per render.
   const [todayVN] = useState(() =>
     new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date())
   );
 
-  // Hydration gate: the store rehydrates persisted search state from localStorage
-  // (a client-only value the server can't know). Render every store-bound, SSR-visible
-  // value from empty defaults until mounted, so the first client render is byte-identical
-  // to the server render — then fill from the store on the next render. Prevents the
-  // submit-button `disabled` / input-value hydration mismatch.
   const [hydrated, setHydrated] = useState(false);
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setHydrated(true), []);
@@ -51,6 +33,7 @@ export function SearchForm({
   const d = hydrated ? destination : '';
   const dt = hydrated ? date : '';
   const tc = hydrated ? ticketCount : '1';
+  const tcNum = Number(tc) || 1;
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -63,6 +46,12 @@ export function SearchForm({
     router.push(`/?${params.toString()}`);
   }
 
+  function handleSwap() {
+    const prevOrigin = origin;
+    setOrigin(destination);
+    setDestination(prevOrigin);
+  }
+
   return (
     <form
       id={formId}
@@ -71,47 +60,61 @@ export function SearchForm({
       className={
         horizontal
           ? 'flex w-full flex-col gap-3 md:flex-row md:items-end'
-          : 'flex w-full flex-col gap-4'
+          : 'flex w-full flex-col gap-3'
       }
     >
-      {/* Origin */}
+      {/* Origin + Destination grouped */}
       <div className={horizontal ? 'flex flex-col gap-1.5 md:flex-1' : 'flex flex-col gap-1.5'}>
-        <label htmlFor={`${formId}-origin`} className="text-sm font-medium">
+        <label htmlFor={`${formId}-origin`} className={horizontal ? 'sr-only' : 'text-sm font-medium'}>
           Điểm xuất phát
         </label>
-        <PlaceCombobox
-          id={`${formId}-origin`}
-          items={places}
-          value={o}
-          onValueChange={setOrigin}
-          placeholder="Ví dụ: Hà Nội"
-          required
-          maxLength={50}
-          aria-required="true"
-        />
-      </div>
-
-      {/* Destination */}
-      <div className={horizontal ? 'flex flex-col gap-1.5 md:flex-1' : 'flex flex-col gap-1.5'}>
-        <label htmlFor={`${formId}-destination`} className="text-sm font-medium">
+        <label htmlFor={`${formId}-destination`} className="sr-only">
           Điểm đến
         </label>
-        <PlaceCombobox
-          id={`${formId}-destination`}
-          items={places}
-          value={d}
-          onValueChange={setDestination}
-          placeholder="Ví dụ: TP.HCM"
-          required
-          maxLength={50}
-          aria-required="true"
-        />
+        <div className="relative flex flex-col overflow-hidden rounded-lg border border-input divide-y divide-input focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 sm:flex-row sm:divide-x sm:divide-y-0">
+          <div className="relative flex-1">
+            <MapPin className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <PlaceCombobox
+              id={`${formId}-origin`}
+              items={places}
+              value={o}
+              onValueChange={setOrigin}
+              placeholder="Điểm xuất phát"
+              className="border-0 rounded-none pl-9 focus-visible:ring-0 focus-visible:outline-none"
+              required
+              maxLength={50}
+              aria-required="true"
+            />
+          </div>
+          <div className="relative flex-1">
+            <MapPin className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <PlaceCombobox
+              id={`${formId}-destination`}
+              items={places}
+              value={d}
+              onValueChange={setDestination}
+              placeholder="Điểm đến"
+              className="border-0 rounded-none pl-9 focus-visible:ring-0 focus-visible:outline-none"
+              required
+              maxLength={50}
+              aria-required="true"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={handleSwap}
+            aria-label="Đổi chiều điểm đi và điểm đến"
+            className="absolute right-2 top-1/2 z-10 flex size-9 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-primary shadow-e2 transition-transform hover:scale-105 hover:bg-primary/5 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none sm:left-1/2 sm:right-auto sm:-translate-x-1/2"
+          >
+            <ArrowLeftRight className="size-4 rotate-90 sm:rotate-0" aria-hidden="true" />
+          </button>
+        </div>
       </div>
 
-      {/* Date + ticket count on one row — date wider, count compact */}
-      <div className={horizontal ? 'grid grid-cols-3 gap-3 md:w-56 md:shrink-0' : 'grid grid-cols-3 gap-3'}>
-        <div className="col-span-2 flex flex-col gap-1.5">
-          <label htmlFor={`${formId}-date`} className="text-sm font-medium">
+      {/* Date + ticket count */}
+      <div className={horizontal ? 'grid grid-cols-2 gap-3 md:w-64 md:shrink-0' : 'grid grid-cols-2 gap-3'}>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor={`${formId}-date`} className={horizontal ? 'sr-only' : 'text-sm font-medium'}>
             Ngày đi
           </label>
           <DatePicker
@@ -125,22 +128,31 @@ export function SearchForm({
           />
         </div>
 
-        <div className="col-span-1 flex flex-col gap-1.5">
-          <label htmlFor={`${formId}-ticketCount`} className="text-sm font-medium">
-            Số vé
-          </label>
-          <Input
-            id={`${formId}-ticketCount`}
-            name="ticketCount"
-            type="number"
-            min={1}
-            max={10}
-            value={tc}
-            onChange={(e) => setTicketCount(e.target.value)}
-            required
-            className="min-h-11"
-            aria-required="true"
-          />
+        <div className="flex flex-col gap-1.5">
+          <span className={horizontal ? 'sr-only' : 'text-sm font-medium'}>Số vé</span>
+          <div className="flex min-h-11 items-center justify-between rounded-lg border border-input px-1">
+            <button
+              type="button"
+              onClick={() => setTicketCount(String(Math.max(1, tcNum - 1)))}
+              disabled={tcNum <= 1}
+              aria-label="Giảm số vé"
+              className="flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+            >
+              <Minus className="size-4" aria-hidden="true" />
+            </button>
+            <span className="min-w-6 select-none text-center text-base font-semibold tabular-nums" aria-live="polite" aria-label={`${tc} vé`}>
+              {tc}
+            </span>
+            <button
+              type="button"
+              onClick={() => setTicketCount(String(Math.min(10, tcNum + 1)))}
+              disabled={tcNum >= 10}
+              aria-label="Tăng số vé"
+              className="flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+            >
+              <Plus className="size-4" aria-hidden="true" />
+            </button>
+          </div>
         </div>
       </div>
 

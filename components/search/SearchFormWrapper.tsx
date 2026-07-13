@@ -27,6 +27,9 @@ export function SearchFormWrapper({ initialValues, places }: Props) {
     void (async () => {
       await useSearchStore.persist.rehydrate();
       if (initialValues) setQuery(initialValues);
+      const todayVN = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
+      const { date, setDate } = useSearchStore.getState();
+      if (date && date < todayVN) setDate(todayVN);
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
