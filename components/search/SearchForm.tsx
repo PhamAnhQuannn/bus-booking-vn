@@ -74,8 +74,8 @@ export function SearchForm({
         <label htmlFor={`${formId}-destination`} className="sr-only">
           Điểm đến
         </label>
-        <div className="relative flex flex-col overflow-hidden rounded-lg border border-input divide-y divide-input focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 sm:flex-row sm:divide-x sm:divide-y-0">
-          <div className="relative flex-1">
+        <div className="relative flex flex-col gap-2 sm:flex-row sm:gap-2">
+          <div className="relative flex-1 overflow-hidden rounded-lg border border-input focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
             <MapPin className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <PlaceCombobox
               id={`${formId}-origin`}
@@ -89,7 +89,7 @@ export function SearchForm({
               aria-required="true"
             />
           </div>
-          <div className="relative flex-1">
+          <div className="relative flex-1 overflow-hidden rounded-lg border border-input focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
             <MapPin className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <PlaceCombobox
               id={`${formId}-destination`}
@@ -107,7 +107,7 @@ export function SearchForm({
             type="button"
             onClick={handleSwap}
             aria-label="Đổi chiều điểm đi và điểm đến"
-            className="absolute right-2 top-1/2 z-10 flex size-9 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-primary shadow-e2 transition-transform hover:scale-105 hover:bg-primary/5 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none sm:left-1/2 sm:right-auto sm:-translate-x-1/2"
+            className="absolute left-1/2 top-1/2 z-10 flex size-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-primary shadow-e2 transition-transform hover:scale-105 hover:bg-primary/5 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
           >
             <ArrowLeftRight className="size-4 rotate-90 sm:rotate-0" aria-hidden="true" />
           </button>
