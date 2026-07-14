@@ -13,17 +13,16 @@ import { SearchForm } from '@/components/search/SearchForm';
 import { SearchStoreHydrator } from '@/components/search/SearchStoreHydrator';
 import { EmptyState } from '@/components/search/EmptyState';
 import { ResultsList } from '@/components/search/ResultsList';
-import { FeatureHighlights } from '@/components/home/FeatureHighlights';
 import { PopularTrips } from '@/components/home/PopularTrips';
-import { ContractCarRental } from '@/components/home/ContractCarRental';
+import { FeatureHighlights } from '@/components/home/FeatureHighlights';
 import { IntroBanner } from '@/components/home/IntroBanner';
 import { RouteDirectory } from '@/components/home/RouteDirectory';
-import { TrustStrip } from '@/components/home/TrustStrip';
+import { OperatorShowcase } from '@/components/home/OperatorShowcase';
 import { POPULAR_ROUTES, routeKey } from '@/components/home/popularRoutes';
 import { Card, CardContent } from '@/components/ui/card';
 import { getSearchablePlaces } from '@/lib/places';
 import { getActiveRoutes } from '@/lib/core/db/getActiveRoutes';
-import { getHomeMetrics } from '@/lib/home';
+import { getPublicOperators } from '@/lib/home';
 import { organizationLd } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
@@ -165,10 +164,10 @@ async function SearchResultsView({
 async function HeroMarketingView() {
   preload('/hero/landing-1280.jpg', { as: 'image', media: '(max-width: 767px)' });
   preload('/hero/landing-2560.jpg', { as: 'image', media: '(min-width: 768px)' });
-  const [places, activeRoutes, metrics] = await Promise.all([
+  const [places, activeRoutes, operators] = await Promise.all([
     getSearchablePlaces(),
     getActiveRoutes(),
-    getHomeMetrics(),
+    getPublicOperators(),
   ]);
 
   const popularKeys = new Set(POPULAR_ROUTES.map((r) => routeKey(r.origin, r.destination)));
@@ -187,25 +186,25 @@ async function HeroMarketingView() {
       <section id="search" className="relative w-full scroll-mt-16 overflow-hidden">
         <div
           aria-hidden="true"
-          className="absolute inset-0 bg-cover bg-center brightness-95 will-change-transform motion-safe:animate-[kenburns_28s_ease-in-out_infinite_alternate] md:hidden"
+          className="pointer-events-none absolute inset-0 bg-cover bg-center brightness-95 md:will-change-transform md:motion-safe:animate-[kenburns_28s_ease-in-out_infinite_alternate] md:hidden"
           style={{ backgroundImage: "url('/hero/landing-1280.jpg')" }}
         />
         <div
           aria-hidden="true"
-          className="absolute inset-0 hidden bg-cover bg-center brightness-95 will-change-transform motion-safe:animate-[kenburns_28s_ease-in-out_infinite_alternate] md:block"
+          className="pointer-events-none absolute inset-0 hidden bg-cover bg-center brightness-95 md:will-change-transform md:motion-safe:animate-[kenburns_28s_ease-in-out_infinite_alternate] md:block"
           style={{ backgroundImage: "url('/hero/landing-2560.jpg')" }}
         />
         <div
           aria-hidden="true"
-          className="absolute inset-0 bg-gradient-to-tr from-primary/30 via-primary/10 to-transparent mix-blend-multiply"
+          className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-primary/30 via-primary/10 to-transparent mix-blend-multiply"
         />
         <div
           aria-hidden="true"
-          className="absolute inset-0 bg-gradient-to-b from-black/55 via-transparent to-black/25"
+          className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/55 via-transparent to-black/25"
         />
         <div
           aria-hidden="true"
-          className="absolute inset-0 opacity-[0.04] mix-blend-overlay"
+          className="pointer-events-none absolute inset-0 opacity-[0.04] mix-blend-overlay"
           style={{
             backgroundImage:
               "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
@@ -214,10 +213,10 @@ async function HeroMarketingView() {
 
         <div className="relative mx-auto flex w-full max-w-3xl flex-col items-center gap-6 px-4 pt-16 pb-12 text-center sm:pt-24 sm:pb-14">
           <div className="flex flex-col gap-3">
-            <h1 className="font-display text-3xl font-bold tracking-tight text-white [text-shadow:0_2px_10px_rgba(0,0,0,0.5)] sm:text-4xl">
+            <h1 className="font-display text-3xl font-bold tracking-tight text-white [text-shadow:0_2px_10px_rgba(0,0,0,0.5)] sm:text-4xl md:text-5xl">
               Đặt <span className="text-primary">vé xe khách</span> trong 30 giây
             </h1>
-            <p className="text-base text-white/90 [text-shadow:0_1px_6px_rgba(0,0,0,0.45)]">
+            <p className="text-base text-white/90 [text-shadow:0_1px_6px_rgba(0,0,0,0.45)] sm:text-lg">
               Tìm chuyến, đặt vé, nhà xe gọi xác nhận. Không cần chọn ghế trên màn hình.
             </p>
           </div>
@@ -229,24 +228,28 @@ async function HeroMarketingView() {
           </Card>
         </div>
 
-        <div className="relative z-10 border-t border-white/15 bg-black/30 backdrop-blur-sm">
-          <ul className="flex w-full list-none items-stretch justify-around divide-x divide-white/10 px-2 py-0 sm:px-6">
+        <div className="relative z-10 border-t border-white/20 bg-gradient-to-r from-primary/40 via-primary/25 to-primary/40 backdrop-blur-md">
+          <ul className="mx-auto flex w-full max-w-3xl list-none items-stretch justify-center gap-1 px-2 py-0 sm:gap-0 sm:divide-x sm:divide-white/15 sm:px-6">
             {TRUST.map(({ icon: Icon, title }) => (
-              <li key={title} className="flex flex-1 flex-col items-center gap-2 px-2 py-4 text-center">
-                <span className="inline-flex size-9 items-center justify-center rounded-full bg-white/90 text-primary">
-                  <Icon className="size-5" aria-hidden="true" />
+              <li key={title} className="flex flex-1 flex-col items-center gap-1.5 px-1 py-3 text-center sm:flex-row sm:gap-2 sm:px-4 sm:py-4">
+                <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-white/95 text-primary sm:size-9">
+                  <Icon className="size-4 sm:size-5" aria-hidden="true" />
                 </span>
-                <span className="text-xs font-medium text-white sm:text-sm">{title}</span>
+                <span className="text-[11px] font-medium leading-tight text-white sm:text-sm">{title}</span>
               </li>
             ))}
           </ul>
         </div>
       </section>
 
-      <TrustStrip metrics={metrics} />
+      <div className="bg-muted/30">
+        <PopularTrips prices={prices} />
+      </div>
+
+      <OperatorShowcase operators={operators} />
+
       <FeatureHighlights />
-      <PopularTrips prices={prices} />
-      <ContractCarRental />
+
       <RouteDirectory />
       <IntroBanner />
     </main>

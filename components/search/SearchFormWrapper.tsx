@@ -22,13 +22,23 @@ export function SearchFormWrapper({ initialValues, places }: Props) {
   const setQuery = useSearchStore((s) => s.setQuery);
 
   useEffect(() => {
-    // Store uses skipHydration (SSR-safe). Rehydrate from localStorage AFTER mount
-    // so the first client render matches the server, then let URL values win.
+    // Store uses skipHydration (SSR-safe). If URL params are present (initialValues),
+    // they are authoritative — seed the store directly and skip the async rehydrate
+    // to avoid the gap where user typing could be clobbered by a late-arriving
+    // localStorage value. Otherwise (hero page, no URL params), rehydrate from
+    // localStorage AFTER mount for AC-5 back-nav restoration.
     void (async () => {
-      await useSearchStore.persist.rehydrate();
-      if (initialValues) setQuery(initialValues);
+      if (initialValues) {
+        setQuery(initialValues);
+      } else {
+        await useSearchStore.persist.rehydrate();
+      }
+      const todayVN = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
+      const { date, setDate } = useSearchStore.getState();
+      if (date && date < todayVN) setDate(todayVN);
     })();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(initialValues)]);
 
   return <SearchForm places={places} />;
 }

@@ -117,8 +117,8 @@ test.describe('AC-5: Back navigation restores search form', () => {
     await expect(page).toHaveURL('/');
 
     // Form should have origin pre-filled from store
-    await expect(page.getByLabel(/Điểm xuất phát/i)).toHaveValue('Hà Nội');
-    await expect(page.getByLabel(/Điểm đến/i)).toHaveValue('Sài Gòn');
+    await expect(page.getByLabel('Điểm xuất phát', { exact: true })).toHaveValue('Hà Nội');
+    await expect(page.getByLabel('Điểm đến', { exact: true })).toHaveValue('Sài Gòn');
   });
 });
 

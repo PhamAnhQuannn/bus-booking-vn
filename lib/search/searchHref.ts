@@ -13,11 +13,16 @@ export function todayVN(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
 }
 
-export function searchHref(origin: string, destination: string): string {
+export function searchHref(
+  origin: string,
+  destination: string,
+  filters?: Record<string, string>,
+): string {
   return `/?${new URLSearchParams({
     origin,
     destination,
     date: todayVN(),
     ticketCount: '1',
+    ...filters,
   }).toString()}`;
 }

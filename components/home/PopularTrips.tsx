@@ -16,6 +16,7 @@ import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { searchHref } from '@/lib/search';
 import { formatVnd } from '@/lib/format';
 import { POPULAR_ROUTES, routeKey } from './popularRoutes';
+import { CardImage } from './CardImage';
 
 /**
  * `prices` — starting ("Từ") price per route, keyed by routeKey(origin, destination),
@@ -81,20 +82,14 @@ export function PopularTrips({ prices }: { prices: Record<string, number | null>
                 }
                 className="group relative block aspect-[4/3] w-full overflow-hidden rounded-xl shadow-e1 transition-all hover:shadow-e2 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none motion-safe:hover:-translate-y-0.5"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element -- local /public thumbnail; next/image+sharp not used in this app */}
-                <img
-                  src={`/destinations/${r.slug}.jpg`}
-                  alt={r.destination}
-                  loading="lazy"
-                  decoding="async"
-                  className="absolute inset-0 size-full object-cover transition-transform duration-500 motion-safe:group-hover:scale-105"
-                />
+                <CardImage src={`/destinations/${r.slug}.jpg`} alt={r.destination} />
                 <div
                   aria-hidden="true"
                   className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-transparent"
                 />
-                <span className="absolute right-3 top-3 rounded-full bg-white/15 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-sm">
+                <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-sm font-semibold text-foreground shadow-e1 transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
                   Tìm chuyến
+                  <ArrowRight className="size-3.5" aria-hidden="true" />
                 </span>
                 <div className="absolute inset-x-0 bottom-0 flex flex-col gap-0.5 p-4">
                   <span className="flex items-center gap-1.5 text-lg font-semibold text-white [text-shadow:0_1px_4px_rgba(0,0,0,0.55)]">

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, Bus } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 
 import { searchHref } from '@/lib/search';
 
@@ -59,8 +59,7 @@ export function RouteDirectory() {
   return (
     <section className="mx-auto w-full max-w-5xl px-4 py-12">
       <div className="mb-6 flex flex-col gap-1">
-        <h2 className="flex items-center gap-2 text-2xl font-bold tracking-tight sm:text-3xl">
-          <Bus className="size-6 text-primary" aria-hidden="true" />
+        <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
           Tuyến đường phổ biến
         </h2>
         <p className="text-base text-muted-foreground">
