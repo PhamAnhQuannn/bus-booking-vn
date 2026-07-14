@@ -55,7 +55,7 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
 const TRUST = [
   { icon: Banknote, title: 'Chuyển khoản · Tiền mặt' },
   { icon: ShieldCheck, title: 'Xác nhận qua email' },
-  { icon: Bus, title: 'Nhiều nhà xe' },
+  { icon: Bus, title: 'Nhà xe được kiểm định' },
 ];
 
 export default async function HomePage({ searchParams }: PageProps) {
@@ -170,6 +170,7 @@ async function HeroMarketingView() {
     getPublicOperators(),
   ]);
 
+  const activeRouteKeys = new Set(activeRoutes.map((r) => routeKey(r.origin, r.destination)));
   const popularKeys = new Set(POPULAR_ROUTES.map((r) => routeKey(r.origin, r.destination)));
   const prices: Record<string, number | null> = {};
   for (const r of activeRoutes) {
@@ -250,7 +251,7 @@ async function HeroMarketingView() {
 
       <FeatureHighlights />
 
-      <RouteDirectory />
+      <RouteDirectory activeRouteKeys={activeRouteKeys} />
       <IntroBanner />
     </main>
   );

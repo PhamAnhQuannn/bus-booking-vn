@@ -27,6 +27,14 @@ import { CardImage } from './CardImage';
 export function PopularTrips({ prices }: { prices: Record<string, number | null> }) {
   const scrollerRef = useRef<HTMLUListElement>(null);
 
+  const liveRoutes = POPULAR_ROUTES.filter(
+    (r) => prices[routeKey(r.origin, r.destination)] != null,
+  );
+
+  if (liveRoutes.length === 0) return null;
+
+  const useCarousel = liveRoutes.length >= 4;
+
   function nudge(direction: 1 | -1) {
     const el = scrollerRef.current;
     if (!el) return;
@@ -40,38 +48,48 @@ export function PopularTrips({ prices }: { prices: Record<string, number | null>
           <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Tuyến phổ biến</h2>
           <p className="text-base text-muted-foreground">Các tuyến xe khách được đặt nhiều nhất.</p>
         </div>
-        <div className="hidden gap-2 md:flex">
-          <button
-            type="button"
-            onClick={() => nudge(-1)}
-            aria-label="Cuộn sang trái"
-            className="inline-flex size-11 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-e1 transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-          >
-            <ChevronLeft className="size-6" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={() => nudge(1)}
-            aria-label="Cuộn sang phải"
-            className="inline-flex size-11 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-e1 transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-          >
-            <ChevronRight className="size-6" aria-hidden="true" />
-          </button>
-        </div>
+        {useCarousel && (
+          <div className="hidden gap-2 md:flex">
+            <button
+              type="button"
+              onClick={() => nudge(-1)}
+              aria-label="Cuộn sang trái"
+              className="inline-flex size-11 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-e1 transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+            >
+              <ChevronLeft className="size-6" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={() => nudge(1)}
+              aria-label="Cuộn sang phải"
+              className="inline-flex size-11 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-e1 transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+            >
+              <ChevronRight className="size-6" aria-hidden="true" />
+            </button>
+          </div>
+        )}
       </div>
 
       <ul
-        ref={scrollerRef}
+        ref={useCarousel ? scrollerRef : undefined}
         role="region"
         aria-label="Tuyến phổ biến"
-        className="flex snap-x snap-mandatory list-none gap-4 overflow-x-auto p-0 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className={
+          useCarousel
+            ? 'flex snap-x snap-mandatory list-none gap-4 overflow-x-auto p-0 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+            : 'grid list-none grid-cols-1 gap-4 p-0 sm:grid-cols-2'
+        }
       >
-        {POPULAR_ROUTES.map((r) => {
+        {liveRoutes.map((r) => {
           const price = prices[routeKey(r.origin, r.destination)] ?? null;
           return (
             <li
               key={`${r.origin}-${r.destination}`}
-              className="shrink-0 snap-start basis-[88%] sm:basis-[calc(50%-0.5rem)] lg:basis-[calc(33.333%-0.667rem)] xl:basis-[calc(25%-0.75rem)]"
+              className={
+                useCarousel
+                  ? 'shrink-0 snap-start basis-[88%] sm:basis-[calc(50%-0.5rem)] lg:basis-[calc(33.333%-0.667rem)] xl:basis-[calc(25%-0.75rem)]'
+                  : undefined
+              }
             >
               <Link
                 href={searchHref(r.origin, r.destination)}

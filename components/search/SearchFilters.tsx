@@ -259,7 +259,7 @@ export function SearchFilterSheet({ facets }: { facets: TripFacets }) {
 }
 
 /** Sort select + removable active-filter chips (results column header). */
-export function SearchToolbar({ facets }: { facets: TripFacets }) {
+export function SearchToolbar({ facets, showFilterSheet = true }: { facets: TripFacets; showFilterSheet?: boolean }) {
   const s = useFilterState();
 
   const chips: { key: string; label: string; remove: () => void }[] = [];
@@ -284,7 +284,7 @@ export function SearchToolbar({ facets }: { facets: TripFacets }) {
             </SelectContent>
           </Select>
         </div>
-        <SearchFilterSheet facets={facets} />
+        {showFilterSheet && <SearchFilterSheet facets={facets} />}
       </div>
 
       {chips.length > 0 && (

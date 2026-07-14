@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { SearchFilterRail, SearchToolbar } from '@/components/search/SearchFilters';
 import { type TripFacets } from '@/lib/search';
 import { type TripResult } from '@/lib/trips';
-import { TripCard } from './TripCard';
+import { TripCard, type TripCardSize } from './TripCard';
 import { formatVnDate, shiftDate } from './search-utils';
 
 export function ResultsList({
@@ -28,6 +28,13 @@ export function ResultsList({
   nextCursor: string | null;
   allParams: Record<string, string | string[] | undefined>;
 }) {
+  const showFilterRail =
+    facets.operators.length > 1 ||
+    facets.busTypes.length > 1 ||
+    facets.windows.length > 1;
+
+  const cardSize: TripCardSize = totalBeforeFilters < 6 ? 'expanded' : 'default';
+
   const prevDate = shiftDate(date, -1);
   const nextDate = shiftDate(date, 1);
 
@@ -53,8 +60,8 @@ export function ResultsList({
   }
 
   return (
-    <div className="md:grid md:grid-cols-[16rem_1fr] md:gap-6">
-      <SearchFilterRail facets={facets} />
+    <div className={showFilterRail ? 'md:grid md:grid-cols-[16rem_1fr] md:gap-6' : ''}>
+      {showFilterRail && <SearchFilterRail facets={facets} />}
 
       <div className="flex min-w-0 flex-col gap-4">
         <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1 shadow-e1">
@@ -87,7 +94,7 @@ export function ResultsList({
           </Link>
         </div>
 
-        <SearchToolbar facets={facets} />
+        <SearchToolbar facets={facets} showFilterSheet={showFilterRail} />
 
         <p className="text-sm text-muted-foreground" aria-live="polite">
           Hiển thị <strong className="text-foreground">{trips.length}</strong>
@@ -102,7 +109,7 @@ export function ResultsList({
           <ul className="flex flex-col gap-3" aria-label={`${trips.length} chuyến xe`}>
             {trips.map((trip) => (
               <li key={trip.tripId}>
-                <TripCard trip={trip} ticketCount={ticketCount} />
+                <TripCard trip={trip} ticketCount={ticketCount} size={cardSize} />
               </li>
             ))}
           </ul>
