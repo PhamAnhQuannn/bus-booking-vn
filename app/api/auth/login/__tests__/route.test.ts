@@ -128,6 +128,44 @@ describe('POST /api/auth/login', () => {
       const calls = mockCookieStore.set.mock.calls.map((c: string[]) => c[0]);
       expect(calls).not.toContain('bb_rt');
     });
+
+    it('returns otpRequired when operator has email (2FA)', async () => {
+      mockOperatorLogin.mockResolvedValue({
+        otpRequired: true as const,
+        loginChallenge: 'challenge-jwt',
+        maskedEmail: 'o***@example.com',
+      });
+
+      const res = await POST(makeRequest({ username: 'PB-0001', password: 'OpPass1', scope: 'operator' }));
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.otpRequired).toBe(true);
+      expect(json.loginChallenge).toBe('challenge-jwt');
+      expect(json.maskedEmail).toBe('o***@example.com');
+      expect(json.accessToken).toBeUndefined();
+      expect(mockCookieStore.set).not.toHaveBeenCalled();
+    });
+
+    it('returns 429 OTP_LOCKED_OUT when OTP lockout active', async () => {
+      mockOperatorLogin.mockRejectedValue(new AuthServiceError('OTP_LOCKED_OUT'));
+
+      const res = await POST(makeRequest({ username: 'PB-0001', password: 'OpPass1', scope: 'operator' }));
+      const json = await res.json();
+
+      expect(res.status).toBe(429);
+      expect(json.error).toBe('OTP_LOCKED_OUT');
+    });
+
+    it('returns 429 OTP_RATE_LIMITED when OTP rate limited', async () => {
+      mockOperatorLogin.mockRejectedValue(new AuthServiceError('OTP_RATE_LIMITED'));
+
+      const res = await POST(makeRequest({ username: 'PB-0001', password: 'OpPass1', scope: 'operator' }));
+      const json = await res.json();
+
+      expect(res.status).toBe(429);
+      expect(json.error).toBe('OTP_RATE_LIMITED');
+    });
   });
 
   describe('rate-limit + account lockout', () => {
