@@ -64,6 +64,7 @@ export const loggerOptions: LoggerOptions = {
       'phone',
       'otp',
       'otpProof',
+      'loginChallenge',
       'accessToken',
       'refreshToken',
       '*.password',

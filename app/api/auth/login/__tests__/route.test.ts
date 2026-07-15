@@ -1,12 +1,11 @@
 /**
  * Unit tests for POST /api/auth/login.
- * Two branches: customer (email+password) and operator (username+password).
+ * Phase 1: customer auth is 410-gated; only operator login is active.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const {
-  mockLogin,
   mockOperatorLogin,
   mockCookieStore,
   AuthServiceError,
@@ -23,7 +22,6 @@ const {
   }
   const mockCookieStore = { set: vi.fn(), get: vi.fn(), has: vi.fn(), delete: vi.fn() };
   return {
-    mockLogin: vi.fn(),
     mockOperatorLogin: vi.fn(),
     mockCookieStore,
     AuthServiceError,
@@ -32,8 +30,8 @@ const {
   };
 });
 
-vi.mock('@/lib/auth/operatorAuthService', () => ({ operatorLogin: mockOperatorLogin, AuthServiceError }));
-vi.mock('@/lib/auth/authService', () => ({ login: mockLogin, AuthServiceError }));
+vi.mock('@/lib/auth/operatorAuthService', () => ({ operatorLogin: mockOperatorLogin }));
+vi.mock('@/lib/auth/authService', () => ({ AuthServiceError }));
 vi.mock('@/lib/ratelimit', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/ratelimit')>()),
   opLoginRatelimit: mockOpLoginRatelimit,
@@ -55,15 +53,8 @@ function makeRequest(body: unknown): NextRequest {
   });
 }
 
-const CUSTOMER_AUTH_RESULT = {
-  accessToken: 'customer-access-token',
-  refreshToken: 'customer-refresh-token',
-  refreshHash: 'customer-hash',
-  csrf: 'csrf-token',
-  customer: { id: 'cust-1', email: 'test@example.com', displayName: 'Test User' },
-};
-
 const OP_AUTH_RESULT = {
+  otpRequired: false as const,
   accessToken: 'op-access-token',
   refreshToken: 'op-refresh-token',
   refreshHash: 'op-hash',
@@ -78,53 +69,29 @@ const OP_AUTH_RESULT = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockLogin.mockResolvedValue(CUSTOMER_AUTH_RESULT);
   mockOperatorLogin.mockResolvedValue(OP_AUTH_RESULT);
   mockOpLoginRatelimit.limit.mockResolvedValue(ALLOW);
   mockOpLoginLockout.limit.mockResolvedValue(ALLOW);
 });
 
 describe('POST /api/auth/login', () => {
-  describe('customer scope', () => {
-    it('returns 200 with accessToken + customer on valid credentials', async () => {
+  describe('customer scope (Phase 1: 410-gated)', () => {
+    it('returns 410 when scope is absent', async () => {
       const res = await POST(makeRequest({ email: 'test@example.com', password: 'Password1' }));
       const json = await res.json();
-      expect(res.status).toBe(200);
-      expect(json.accessToken).toBe('customer-access-token');
-      expect(json.customer).toEqual({ id: 'cust-1', email: 'test@example.com', displayName: 'Test User' });
-      expect(mockLogin).toHaveBeenCalledWith({ email: 'test@example.com', password: 'Password1' });
-    });
-
-    it('sets bb_rt cookie on customer login', async () => {
-      await POST(makeRequest({ email: 'test@example.com', password: 'Password1' }));
-      const calls = mockCookieStore.set.mock.calls.map((c: string[]) => c[0]);
-      expect(calls).toContain('bb_rt');
-      expect(calls).not.toContain('bb_op_access');
-      expect(calls).not.toContain('bb_op_refresh');
-    });
-
-    it('returns 401 for invalid customer credentials', async () => {
-      mockLogin.mockRejectedValue(new AuthServiceError('INVALID_CREDENTIALS'));
-      const res = await POST(makeRequest({ email: 'test@example.com', password: 'wrong' }));
-      const json = await res.json();
-      expect(res.status).toBe(401);
-      expect(json.error).toBe('invalid_credentials');
-    });
-
-    it('returns 400 for missing email', async () => {
-      const res = await POST(makeRequest({ password: 'Password1' }));
-      expect(res.status).toBe(400);
-    });
-
-    it('does not invoke operatorLogin for customer scope', async () => {
-      await POST(makeRequest({ email: 'test@example.com', password: 'Password1' }));
+      expect(res.status).toBe(410);
+      expect(json.error).toBe('customer_accounts_disabled');
       expect(mockOperatorLogin).not.toHaveBeenCalled();
     });
 
-    it('defaults to customer scope when scope is absent', async () => {
-      await POST(makeRequest({ email: 'test@example.com', password: 'Password1' }));
-      expect(mockLogin).toHaveBeenCalled();
-      expect(mockOperatorLogin).not.toHaveBeenCalled();
+    it('returns 410 when scope is explicitly "customer"', async () => {
+      const res = await POST(makeRequest({ email: 'test@example.com', password: 'Password1', scope: 'customer' }));
+      expect(res.status).toBe(410);
+    });
+
+    it('returns 410 for unknown scope values', async () => {
+      const res = await POST(makeRequest({ email: 'test@example.com', password: 'Password1', scope: 'admin' }));
+      expect(res.status).toBe(410);
     });
   });
 

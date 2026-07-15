@@ -14,10 +14,11 @@ import type IORedisType from 'ioredis';
 
 const OTP_PROOF_TTL_SECONDS = 300; // 5 minutes
 
-export type OtpProofPurpose = 'otp_proof' | 'op_pwd_reset' | 'reset_password' | 'phone_change';
+export type OtpProofPurpose = 'otp_proof' | 'op_pwd_reset' | 'op_login' | 'reset_password' | 'phone_change';
 
 const JTI_REQUIRED_PURPOSES: Set<OtpProofPurpose> = new Set([
   'otp_proof',
+  'op_login',
   'reset_password',
   'phone_change',
 ]);
