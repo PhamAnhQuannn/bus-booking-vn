@@ -3,6 +3,7 @@ import { Be_Vietnam_Pro, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
+import { CookieConsent } from "@/components/CookieConsent";
 import { SITE_URL } from "@/lib/seo";
 
 const beVietnam = Be_Vietnam_Pro({
@@ -56,6 +57,7 @@ export default function RootLayout({
         <SiteHeader />
         <div className="flex flex-1 flex-col">{children}</div>
         <SiteFooter />
+        <CookieConsent />
       </body>
     </html>
   );
