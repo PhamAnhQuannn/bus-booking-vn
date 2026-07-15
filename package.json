@@ -26,6 +26,7 @@
     "seed:operator": "tsx --env-file=.env.local scripts/seed/seed-operator.ts",
     "seed:admin": "tsx --env-file=.env.local scripts/seed/seed-admin.ts",
     "admin:code": "tsx --env-file=.env.local scripts/seed/admin-totp-code.ts",
+    "postinstall": "prisma generate",
     "prepare": "husky"
   },
   "dependencies": {
