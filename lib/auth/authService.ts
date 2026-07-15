@@ -45,6 +45,8 @@ export type AuthError =
   | 'EMAIL_TAKEN'
   | 'OTP_MISMATCH'
   | 'OTP_GONE'
+  | 'OTP_LOCKED_OUT'
+  | 'OTP_RATE_LIMITED'
   | 'SESSION_NOT_FOUND'
   | 'SESSION_REUSE'
   | 'REFRESH_INVALID';

@@ -23,9 +23,11 @@ export {
   type OperatorAccessPayload,
   type AdminAccessPayload,
 } from './jwt';
-export { operatorLogin } from './operatorAuthService';
+export { operatorLogin, operatorLoginStep2 } from './operatorAuthService';
+export type { OperatorLoginResult, OperatorAuthResult, OperatorOtpRequiredResult } from './operatorAuthService';
 export { buildUsername, buildAcronym, last4, ensureUniqueUsername } from './operatorUsername';
 export { sendOperatorPasswordResetOtp, verifyOperatorOtp } from './operatorOtp';
+export { sendOperatorLoginOtp, verifyOperatorLoginOtp } from './operatorLoginOtp';
 export {
   issueOperatorSession,
   revokeOperatorSession,

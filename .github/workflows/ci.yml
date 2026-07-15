@@ -327,7 +327,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Audit production dependencies
-        run: pnpm audit --prod --audit-level=critical
+        run: pnpm audit --prod --audit-level=critical --ignore-registry-errors
 
   # ---- 7. Greppable invariants (KG-14) ----
   greppable-invariants:

@@ -97,7 +97,7 @@ check_client_server_barrel() {
 # ---------- A4: sameSite lax baseline ----------
 check_samesite_lax_baseline() {
   echo "--- A4: sameSite lax baseline ---"
-  local BASELINE=12
+  local BASELINE=14
   local count
   count=$(grep -rn --include='*.ts' -i 'sameSite.*lax' app/api/ \
     | grep -v '__tests__/' \
@@ -155,6 +155,7 @@ check_otp_peek_scope() {
     'OTP_PEEK_ENABLED' . \
     | grep -v 'app/api/auth/otp/test-peek/route\.ts' \
     | grep -v 'lib/auth/operatorOtp\.ts' \
+    | grep -v 'lib/auth/operatorLoginOtp\.ts' \
     | grep -v '\.env' \
     | grep -v '__tests__/' \
     | grep -v '\.test\.ts' \
