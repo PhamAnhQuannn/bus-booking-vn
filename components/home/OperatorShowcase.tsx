@@ -59,8 +59,60 @@ function OperatorCard({ op }: { op: PublicOperator }) {
   );
 }
 
+function OperatorSpotlight({ op }: { op: PublicOperator }) {
+  const display = op.brandName ?? op.legalName;
+  const inner = (
+    <div className="flex items-center gap-5 rounded-xl border border-border bg-card p-6 shadow-e1 transition-all hover:border-primary/30 hover:shadow-e2 motion-safe:hover:-translate-y-0.5">
+      <span className="inline-flex size-16 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-xl font-bold text-primary sm:size-20 sm:text-2xl">
+        {initials(op)}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-xl font-bold leading-tight sm:text-2xl">{display}</p>
+        {op.brandName && op.legalName !== op.brandName && (
+          <p className="mt-0.5 truncate text-sm text-muted-foreground">{op.legalName}</p>
+        )}
+        {op.provinceName && (
+          <div className="mt-1.5 flex items-center gap-1.5 text-sm text-muted-foreground">
+            <MapPin className="size-4" aria-hidden="true" />
+            {op.provinceName}
+          </div>
+        )}
+        {op.routesSummary && (
+          <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-foreground/80">
+            {op.routesSummary}
+          </p>
+        )}
+      </div>
+      {op.topRoute && (
+        <ArrowRight className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+      )}
+    </div>
+  );
+
+  if (op.topRoute) {
+    return (
+      <Link href={searchHref(op.topRoute.origin, op.topRoute.destination, { operatorId: op.id })}>
+        {inner}
+      </Link>
+    );
+  }
+  return inner;
+}
+
 export function OperatorShowcase({ operators }: { operators: PublicOperator[] }) {
   if (operators.length === 0) return null;
+
+  if (operators.length <= 2) {
+    return (
+      <section className="mx-auto w-full max-w-5xl px-4 py-8 sm:py-10 md:py-12">
+        <div className="flex flex-col gap-4">
+          {operators.map((op) => (
+            <OperatorSpotlight key={op.id} op={op} />
+          ))}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="mx-auto w-full max-w-5xl px-4 py-8 sm:py-10 md:py-12">

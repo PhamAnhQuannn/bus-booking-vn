@@ -53,8 +53,14 @@ function groupByHub(routes: Route[]): Group[] {
   return [...groups, other].filter((g) => g.routes.length > 0);
 }
 
-export function RouteDirectory() {
-  const groups = groupByHub(ROUTES);
+export function RouteDirectory({ activeRouteKeys }: { activeRouteKeys?: Set<string> }) {
+  const filtered = activeRouteKeys
+    ? ROUTES.filter((r) => activeRouteKeys.has(`${r.origin}→${r.destination}`))
+    : ROUTES;
+
+  if (filtered.length < 3) return null;
+
+  const groups = groupByHub(filtered);
 
   return (
     <section className="mx-auto w-full max-w-5xl px-4 py-12">
