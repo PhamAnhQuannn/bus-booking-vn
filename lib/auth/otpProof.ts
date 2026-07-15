@@ -18,7 +18,6 @@ export type OtpProofPurpose = 'otp_proof' | 'op_pwd_reset' | 'op_login' | 'reset
 
 const JTI_REQUIRED_PURPOSES: Set<OtpProofPurpose> = new Set([
   'otp_proof',
-  'op_login',
   'reset_password',
   'phone_change',
 ]);
