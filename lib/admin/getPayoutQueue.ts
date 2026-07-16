@@ -7,8 +7,8 @@
  * defaults to the actionable statuses (requested + failed) but this query takes a
  * single optional status so the caller controls the filter.
  *
- * Money fields (net) are plain Int columns on Payout (not BigInt), so they are
- * returned as numbers as-is.
+ * Money fields (net) are BigInt columns on Payout (Issue 016). Converted to
+ * string at the DTO boundary — BigInt is not JSON-serializable.
  *
  * ── CURSOR (scheduledAt DESC, id DESC) ───────────────────────────────────────
  * Seek paginated on (scheduledAt DESC, id DESC) — scheduledAt primary, id as a
@@ -21,7 +21,7 @@ import { prisma as defaultPrisma } from '@/lib/core/db/client';
 export interface PayoutQueueRow {
   id: string;
   operatorId: string;
-  net: number;
+  net: string;
   status: PayoutStatus;
   scheduledAt: Date;
   settledAt: Date | null;
@@ -74,7 +74,7 @@ export async function getPayoutQueue(
     items: page.map((row) => ({
       id: row.id,
       operatorId: row.operatorId,
-      net: row.net,
+      net: row.net.toString(),
       status: row.status,
       scheduledAt: row.scheduledAt,
       settledAt: row.settledAt,

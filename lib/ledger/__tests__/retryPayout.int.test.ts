@@ -35,9 +35,9 @@ async function seedPayout(
     data: {
       tripId,
       operatorId: overrideOperatorId ?? operatorAId,
-      gross: 1_500_000,
-      platformFee: 90_000,
-      net: 1_410_000,
+      gross: BigInt(1_500_000),
+      platformFee: BigInt(90_000),
+      net: BigInt(1_410_000),
       status,
       scheduledAt: new Date(Date.now() + 3 * 24 * 3600 * 1000), // T+3
     },

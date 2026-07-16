@@ -38,7 +38,7 @@ import type { JobCore } from './types';
 interface DuePayout {
   id: string;
   operatorId: string;
-  net: number;
+  net: bigint;
 }
 
 export const processPayouts: JobCore = async (tx, opts) => {
@@ -117,7 +117,7 @@ export const processPayouts: JobCore = async (tx, opts) => {
             operatorId: payout.operatorId,
             payoutId: payout.id,
             type: 'payout_debit',
-            amountMinor: -BigInt(payout.net),
+            amountMinor: -payout.net,
             sourceEventId: debitKey,
           },
           tx

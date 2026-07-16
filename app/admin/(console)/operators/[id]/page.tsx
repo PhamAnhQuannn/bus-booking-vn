@@ -28,8 +28,9 @@ interface PageProps {
 }
 
 const vnd = new Intl.NumberFormat('vi-VN');
-function formatVnd(amount: bigint | number): string {
-  return `${vnd.format(amount)} ₫`;
+function formatVnd(amount: bigint | number | string): string {
+  const n = typeof amount === 'string' ? BigInt(amount) : amount;
+  return `${vnd.format(n)} ₫`;
 }
 
 function formatDate(d: Date | null): string {

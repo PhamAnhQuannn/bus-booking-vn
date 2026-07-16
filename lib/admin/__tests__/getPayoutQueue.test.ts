@@ -15,7 +15,7 @@ import { getPayoutQueue } from '../getPayoutQueue';
 interface Row {
   id: string;
   operatorId: string;
-  net: number;
+  net: bigint;
   status: string;
   scheduledAt: Date;
   settledAt: Date | null;
@@ -26,7 +26,7 @@ function makeRows(n: number, status = 'requested'): Row[] {
   return Array.from({ length: n }, (_, i) => ({
     id: `po_${i}`,
     operatorId: 'op_1',
-    net: 100000 + i,
+    net: BigInt(100000 + i),
     status,
     scheduledAt: new Date(2026, 0, n - i),
     settledAt: null,
@@ -73,7 +73,7 @@ describe('getPayoutQueue', () => {
     expect(captured?.take).toBe(3);
     expect(res.items).toHaveLength(2);
     expect(res.nextCursor).toBe('po_1');
-    expect(res.items[0]).toMatchObject({ id: 'po_0', net: 100000, status: 'requested' });
+    expect(res.items[0]).toMatchObject({ id: 'po_0', net: '100000', status: 'requested' });
   });
 
   it('nextCursor is null with no overflow', async () => {

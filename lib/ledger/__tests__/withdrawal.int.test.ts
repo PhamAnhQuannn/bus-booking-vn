@@ -187,8 +187,8 @@ describe('Issue 053 — on-demand withdrawal', () => {
     const payout = await prisma.payout.findUniqueOrThrow({ where: { id: res.payoutId } });
     expect(payout.tripId).toBeNull();
     expect(payout.status).toBe('requested');
-    expect(payout.platformFee).toBe(0);
-    expect(payout.net).toBe(partial);
+    expect(payout.platformFee).toBe(BigInt(0));
+    expect(payout.net).toBe(BigInt(partial));
 
     // available dropped by the withdrawn amount (the payout_debit drained it).
     const after = await getOperatorBalance(operatorId);
@@ -258,7 +258,7 @@ describe('Issue 053 — on-demand withdrawal', () => {
       expect(a.payoutId).toBe(b.payoutId); // dedup: one Payout for one key
     }
     const payoutCount = await prisma.payout.count({
-      where: { operatorId, tripId: null, net: 150_000 },
+      where: { operatorId, tripId: null, net: BigInt(150_000) },
     });
     expect(payoutCount).toBe(1);
   });
