@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
 export function Logo({
@@ -9,45 +10,45 @@ export function Logo({
   mono?: boolean;
   className?: string;
 }) {
-  const fill = mono ? 'currentColor' : 'var(--primary)';
+  const isGlyph = variant === 'glyph';
+  const w = isGlyph ? 32 : 120;
+  const h = isGlyph ? 32 : 48;
+  const sizeClass = isGlyph ? 'size-8' : 'h-10 w-auto';
+  const filterClass = mono ? 'brightness-0 invert' : '';
 
-  const glyph = (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-      className="size-6 shrink-0"
-    >
-      <path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M8 3h8a4 4 0 0 1 4 4v7a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4Zm.5 2h7a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"
-        fill={fill}
-      />
-      <circle cx="8" cy="21" r="2" fill={fill} />
-      <circle cx="16" cy="21" r="2" fill={fill} />
-    </svg>
-  );
-
-  if (variant === 'glyph') {
+  if (isGlyph || mono) {
     return (
-      <span className={cn('inline-flex', className)} aria-label="BBVN">
-        {glyph}
+      <span className={cn('inline-flex items-center', className)} aria-label="BBVN">
+        <Image
+          src={isGlyph ? '/icons/icon-192.png' : '/logo-light.png'}
+          alt="BBVN"
+          width={w}
+          height={h}
+          className={cn(sizeClass, filterClass)}
+          priority
+        />
       </span>
     );
   }
 
   return (
-    <span className={cn('inline-flex items-center gap-2', className)} aria-label="BBVN">
-      {glyph}
-      <span
-        className={cn(
-          'font-display text-lg font-bold tracking-tight',
-          mono ? '' : 'text-foreground'
-        )}
-      >
-        BBVN
-      </span>
+    <span className={cn('inline-flex items-center', className)} aria-label="BBVN">
+      <Image
+        src="/logo-light.png"
+        alt="BBVN"
+        width={w}
+        height={h}
+        className={cn(sizeClass, 'dark:hidden')}
+        priority
+      />
+      <Image
+        src="/logo-dark.png"
+        alt="BBVN"
+        width={w}
+        height={h}
+        className={cn(sizeClass, 'hidden dark:block')}
+        priority
+      />
     </span>
   );
 }
