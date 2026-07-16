@@ -17,7 +17,7 @@ import { getEnv } from '@/lib/config';
 export interface SettlePayoutInput {
   payoutId: string;
   operatorId: string;
-  net: number;
+  net: bigint;
 }
 
 export type SettlePayoutResult = { ok: true } | { ok: false; reason: string };

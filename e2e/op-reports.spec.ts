@@ -205,7 +205,7 @@ async function prepareReports(): Promise<PrepareCtx> {
          ("id","tripId","operatorId","gross","platformFee","net","status","scheduledAt","failureReason","updatedAt")
        VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, 'failed', $6, 'bank_timeout', NOW())
        RETURNING id`,
-      [tripId, opAId, GROSS_VND, PLATFORM_FEE_VND, NET_VND, scheduledAt]
+      [tripId, opAId, BigInt(GROSS_VND), BigInt(PLATFORM_FEE_VND), BigInt(NET_VND), scheduledAt]
     );
     const payoutId: string = payoutRow.rows[0].id;
 

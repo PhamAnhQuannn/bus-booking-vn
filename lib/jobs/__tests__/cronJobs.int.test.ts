@@ -277,7 +277,7 @@ describe('AC3 autoCompleteTrips', () => {
     const payouts = await prisma.payout.findMany({ where: { tripId } });
     expect(payouts.length).toBe(1);
     const payout = payouts[0];
-    expect(payout.gross).toBe(150_000);
+    expect(payout.gross).toBe(BigInt(150_000));
     expect(payout.platformFee + payout.net).toBe(payout.gross);
     // completeTripCore creates the trip Payout in 'requested' (the sweep then
     // transitions requested → processing → paid). 'pending' was a stale guess.
@@ -365,9 +365,9 @@ describe('AC5 processPayouts', () => {
       data: {
         tripId,
         operatorId,
-        gross: 150_000,
-        platformFee: 9_000,
-        net: 141_000,
+        gross: BigInt(150_000),
+        platformFee: BigInt(9_000),
+        net: BigInt(141_000),
         status: 'requested',
         scheduledAt: new Date(Date.now() - 60_000), // due (past)
       },
@@ -442,9 +442,9 @@ describe('AC5 processPayouts', () => {
       data: {
         tripId: trip.id,
         operatorId: unverifiedOp.id,
-        gross: 100_000,
-        platformFee: 6_000,
-        net: 94_000,
+        gross: BigInt(100_000),
+        platformFee: BigInt(6_000),
+        net: BigInt(94_000),
         status: 'requested',
         scheduledAt: new Date(Date.now() - 60_000), // due
       },
@@ -479,9 +479,9 @@ describe('AC5 processPayouts', () => {
       data: {
         tripId,
         operatorId,
-        gross: 100_000,
-        platformFee: 6_000,
-        net: 94_000,
+        gross: BigInt(100_000),
+        platformFee: BigInt(6_000),
+        net: BigInt(94_000),
         status: 'requested',
         scheduledAt: new Date(Date.now() + 3 * 86_400_000), // not due
       },
@@ -514,7 +514,7 @@ describe('AC5 processPayouts', () => {
       select: { amount: true, operatorId: true, sourceEventId: true },
     });
     expect(debits).toHaveLength(1);
-    expect(debits[0].amount).toBe(-BigInt(payout.net));
+    expect(debits[0].amount).toBe(-payout.net);
     expect(debits[0].operatorId).toBe(payout.operatorId);
     expect(debits[0].sourceEventId).toBe(`payout_debit:${payoutId}`);
 

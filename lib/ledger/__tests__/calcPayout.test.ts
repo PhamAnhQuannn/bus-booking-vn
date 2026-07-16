@@ -35,35 +35,35 @@ describe('calcPayout', () => {
     {
       label: '1_000_000 VND gross',
       input: { grossPaidBookings: 1_000_000 },
-      expected: { gross: 1_000_000, platformFee: 60_000, net: 940_000 },
+      expected: { gross: BigInt(1_000_000), platformFee: BigInt(60_000), net: BigInt(940_000) },
     },
     {
       label: '1_234_567 VND gross (non-round — 1234567 × 0.06 = 74074.02 → 74074)',
       input: { grossPaidBookings: 1_234_567 },
-      expected: { gross: 1_234_567, platformFee: 74_074, net: 1_160_493 },
+      expected: { gross: BigInt(1_234_567), platformFee: BigInt(74_074), net: BigInt(1_160_493) },
     },
     {
       label: '100_000_000 VND gross',
       input: { grossPaidBookings: 100_000_000 },
-      expected: { gross: 100_000_000, platformFee: 6_000_000, net: 94_000_000 },
+      expected: { gross: BigInt(100_000_000), platformFee: BigInt(6_000_000), net: BigInt(94_000_000) },
     },
     // Zero
     {
       label: 'zero gross',
       input: { grossPaidBookings: 0 },
-      expected: { gross: 0, platformFee: 0, net: 0 },
+      expected: { gross: BigInt(0), platformFee: BigInt(0), net: BigInt(0) },
     },
     // Half-even tie: 101 × 0.5 = 50.5 → rounds to 50 (even)
     {
       label: 'half-even tie: 50.5 → 50',
       input: { grossPaidBookings: 101, platformFeePct: 0.5 },
-      expected: { gross: 101, platformFee: 50, net: 51 },
+      expected: { gross: BigInt(101), platformFee: BigInt(50), net: BigInt(51) },
     },
     // Half-even tie: 103 × 0.5 = 51.5 → rounds to 52 (even)
     {
       label: 'half-even tie: 51.5 → 52',
       input: { grossPaidBookings: 103, platformFeePct: 0.5 },
-      expected: { gross: 103, platformFee: 52, net: 51 },
+      expected: { gross: BigInt(103), platformFee: BigInt(52), net: BigInt(51) },
     },
   ])('$label', ({ input, expected }) => {
     expect(calcPayout(input)).toEqual(expected);

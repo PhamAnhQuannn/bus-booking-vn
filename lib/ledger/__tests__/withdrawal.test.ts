@@ -155,9 +155,9 @@ describe('requestWithdrawal — happy path', () => {
     expect(payoutData).toMatchObject({
       tripId: null,
       operatorId: OP,
-      gross: 200_000,
-      platformFee: 0,
-      net: 200_000,
+      gross: BigInt(200_000),
+      platformFee: BigInt(0),
+      net: BigInt(200_000),
       status: 'requested',
     });
 
