@@ -18,6 +18,8 @@ import { cookies } from 'next/headers';
 import { adminLogin, issueAdminSession } from '@/lib/auth';
 import { adminLoginRatelimit, adminLoginLockout } from '@/lib/ratelimit';
 import { clientIp } from '@/lib/core/http/clientIp';
+import { writeAdminAuditLog } from '@/lib/audit';
+import { prisma } from '@/lib/core/db/client';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 const ACCESS_COOKIE_MAX_AGE = 10 * 60; // 600s — matches ADMIN_ACCESS_TTL_SECONDS
@@ -54,6 +56,16 @@ async function handler(req: NextRequest): Promise<Response> {
 
   const result = await adminLogin(email, password);
   if (!result.ok) {
+    // Audit the failed attempt server-side (best-effort — never break auth on an
+    // audit write hiccup). The RESPONSE stays uniform (no enumeration); recording
+    // the attempted email in the internal audit trail does not leak to the client.
+    await writeAdminAuditLog(prisma, {
+      actor: `ip:${ip}`,
+      action: 'admin_login_failure',
+      target: email.toLowerCase(),
+      argsRedacted: JSON.stringify({ ip }),
+    }).catch(() => undefined);
+
     const lk = await adminLoginLockout.limit(`admin-login-fail:${email.toLowerCase()}`);
     if (!lk.allowed) {
       return NextResponse.json(
@@ -63,6 +75,13 @@ async function handler(req: NextRequest): Promise<Response> {
     }
     return NextResponse.json({ error: 'INVALID_CREDENTIALS' }, { status: 401 });
   }
+
+  await writeAdminAuditLog(prisma, {
+    actor: `admin:${result.adminUserId}`,
+    action: 'admin_login_success',
+    target: result.adminUserId,
+    argsRedacted: JSON.stringify({ ip }),
+  }).catch(() => undefined);
 
   const session = await issueAdminSession(result.adminUserId, result.role, false);
 

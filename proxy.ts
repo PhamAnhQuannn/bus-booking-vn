@@ -97,7 +97,10 @@ const OP_API_AUTH_PREFIX = '/api/op/auth/';
 
 // /admin/* PAGE paths that do NOT require a valid admin session.
 // Exact-match (Issue 010) — NOT startsWith, prevents /admin/login-bypass sneak-throughs.
-const ADMIN_AUTH_FREE_PATHS = new Set(['/admin/login']);
+// /admin/enroll-totp is here so a password-only (totpVerified=false) session can
+// reach the self-enrollment page WITHOUT the TOTP forced-redirect; the underlying
+// /api/admin/auth/totp/{enroll,confirm} routes still enforce requireAdminAuth.
+const ADMIN_AUTH_FREE_PATHS = new Set(['/admin/login', '/admin/enroll-totp']);
 
 /** Decode the JWT payload without hitting the DB — used for forced-redirect guard.
  *  Issue 011: operatorId claim is mandatory. Tokens without it are stale (pre-Issue-011
