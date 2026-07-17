@@ -24,7 +24,7 @@ const NAV = [
   { href: '/op/register', label: 'Trở thành đối tác' },
 ];
 
-const LOGIN = { href: '/op/login', label: 'Đăng nhập' };
+const LOGIN = { href: '/op/login', label: 'Đăng nhập nhà xe' };
 
 export function SiteHeader() {
   const pathname = usePathname();
@@ -36,7 +36,7 @@ export function SiteHeader() {
   return (
     <Dialog.Root open={drawerOpen} onOpenChange={setDrawerOpen}>
       <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
-        <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between gap-4 px-4">
+        <div className="mx-auto flex h-14 w-full max-w-[1920px] items-center justify-between gap-4 px-4 sm:px-8 lg:h-[80px] xl:px-[72px]">
           {/* Mobile hamburger trigger */}
           <Dialog.Trigger
             aria-label="Mở menu điều hướng"
@@ -45,13 +45,13 @@ export function SiteHeader() {
             <MenuIcon className="size-5" />
           </Dialog.Trigger>
 
-          <Link href="/" className="rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+          <Link href="/" className="inline-flex min-h-11 items-center rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
             <Logo variant="combo" />
           </Link>
 
           {/* Desktop nav — hidden on mobile */}
-          <div className="hidden items-center gap-1 md:flex">
-            <nav className="flex items-center gap-1 text-sm" aria-label="Điều hướng chính">
+          <div className="hidden items-center gap-1 md:flex lg:gap-2">
+            <nav className="flex items-center gap-1 text-sm lg:gap-2 lg:text-base" aria-label="Điều hướng chính">
               {NAV.map((item) => {
                 const active =
                   item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
@@ -74,7 +74,7 @@ export function SiteHeader() {
             </nav>
             <Link
               href={LOGIN.href}
-              className="ml-1 inline-flex min-h-11 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="ml-1 inline-flex min-h-11 items-center rounded-md px-3 font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               {LOGIN.label}
             </Link>
@@ -125,7 +125,7 @@ export function SiteHeader() {
             <Link
               href={LOGIN.href}
               onClick={() => setDrawerOpen(false)}
-              className="flex min-h-11 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="flex min-h-11 items-center justify-center rounded-md border border-border px-4 text-sm font-medium text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               {LOGIN.label}
             </Link>

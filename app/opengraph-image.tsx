@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { ImageResponse } from 'next/og';
 
 /**
@@ -13,7 +15,10 @@ export const alt = 'BBVN — Đặt vé xe khách liên tỉnh';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
-export default function OgImage() {
+export default async function OgImage() {
+  const logo = await readFile(join(process.cwd(), 'public/brand/logo-horizontal-white.png'));
+  const logoSrc = `data:image/png;base64,${logo.toString('base64')}`;
+
   return new ImageResponse(
     (
       <div
@@ -24,13 +29,14 @@ export default function OgImage() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 24,
+          gap: 40,
           background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
           color: 'white',
           fontFamily: 'sans-serif',
         }}
       >
-        <div style={{ fontSize: 160, fontWeight: 800, letterSpacing: -4 }}>BBVN</div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={logoSrc} width={640} height={260} alt="" />
         <div style={{ fontSize: 44, fontWeight: 600, opacity: 0.95 }}>
           Đặt vé xe khách liên tỉnh
         </div>

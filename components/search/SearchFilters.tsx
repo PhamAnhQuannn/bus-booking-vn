@@ -96,7 +96,14 @@ type FilterState = ReturnType<typeof useFilterState>;
 
 function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <Button type="button" variant={active ? 'default' : 'outline'} size="sm" aria-pressed={active} onClick={onClick}>
+    <Button
+      type="button"
+      variant={active ? 'default' : 'outline'}
+      size="sm"
+      className="min-h-9 md:min-h-0"
+      aria-pressed={active}
+      onClick={onClick}
+    >
       {children}
     </Button>
   );
@@ -243,7 +250,7 @@ export function SearchFilterSheet({ facets }: { facets: TripFacets }) {
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogTrigger
           render={(p) => (
-            <Button {...p} type="button" variant="outline" size="sm">
+            <Button {...p} type="button" variant="outline" size="sm" className="min-h-9 md:min-h-0">
               <SlidersHorizontal className="size-4" /> Bộ lọc{s.activeCount > 0 ? ` (${s.activeCount})` : ''}
             </Button>
           )}
@@ -294,7 +301,7 @@ export function SearchToolbar({ facets, showFilterSheet = true }: { facets: Trip
               <button
                 type="button"
                 onClick={c.remove}
-                className="inline-flex min-h-8 items-center gap-1 rounded-full border border-border bg-muted/60 px-3 text-xs font-medium transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="inline-flex min-h-9 items-center gap-1 rounded-full border border-border bg-muted/60 px-3 text-xs font-medium transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-8"
                 aria-label={`Bỏ lọc: ${c.label}`}
               >
                 {c.label}

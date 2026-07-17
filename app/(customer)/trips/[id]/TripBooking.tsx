@@ -31,6 +31,7 @@ export function TripBooking({
           type="button"
           variant="ghost"
           size="icon-sm"
+          className="size-11"
           aria-label="Giảm số vé"
           disabled={count <= 1}
           onClick={() => setCount((c) => Math.max(1, c - 1))}
@@ -44,6 +45,7 @@ export function TripBooking({
           type="button"
           variant="ghost"
           size="icon-sm"
+          className="size-11"
           aria-label="Tăng số vé"
           disabled={count >= max}
           onClick={() => setCount((c) => Math.min(max, c + 1))}

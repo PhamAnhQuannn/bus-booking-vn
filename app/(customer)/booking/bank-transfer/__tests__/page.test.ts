@@ -20,6 +20,7 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/lib/booking', () => ({
   getBookingByRef: vi.fn(),
+  getBookingByConfirmationToken: vi.fn(),
 }));
 
 vi.mock('@/lib/config', () => ({
@@ -42,9 +43,13 @@ vi.mock('@/components/ui/card', () => ({
   CardTitle: ({ children }: { children: React.ReactNode }) => children,
 }));
 
+vi.mock('@/components/booking/BookingSummaryRail', () => ({
+  BookingSummaryRail: () => null,
+}));
+
 import BankTransferPage from '../page';
 import { notFound } from 'next/navigation';
-import { getBookingByRef } from '@/lib/booking';
+import { getBookingByRef, getBookingByConfirmationToken } from '@/lib/booking';
 
 const MOCK_BOOKING = {
   id: 'booking-1',
@@ -61,6 +66,9 @@ function makeProps(params: Record<string, string | undefined>) {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(getBookingByRef).mockResolvedValue(MOCK_BOOKING as never);
+  // Order-summary rail is optional (rendered only when this resolves) — tests
+  // here cover routing/guard behavior, not the summary card itself.
+  vi.mocked(getBookingByConfirmationToken).mockResolvedValue(undefined as never);
 });
 
 describe('BankTransferPage', () => {

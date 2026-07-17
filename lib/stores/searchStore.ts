@@ -4,8 +4,8 @@
  * Persists to localStorage under key 'bbvn-search-query' so the back-nav
  * flow can restore the last search form state (AC-5, AC-6).
  *
- * Shape mirrors searchParamsSchema fields (string form for form state):
- *   origin, destination, date (YYYY-MM-DD), ticketCount (string '1'–'10')
+ * Shape mirrors searchParamsSchema fields:
+ *   origin, destination, date (YYYY-MM-DD), ticketCount (number 1–10)
  *
  * Usage:
  *   const { origin, setOrigin, ... } = useSearchStore();
@@ -18,14 +18,14 @@ export interface SearchQuery {
   origin: string;
   destination: string;
   date: string;
-  ticketCount: string;
+  ticketCount: number;
 }
 
 interface SearchStore extends SearchQuery {
   setOrigin: (v: string) => void;
   setDestination: (v: string) => void;
   setDate: (v: string) => void;
-  setTicketCount: (v: string) => void;
+  setTicketCount: (v: number) => void;
   setQuery: (q: Partial<SearchQuery>) => void;
   reset: () => void;
 }
@@ -34,7 +34,7 @@ const DEFAULT_STATE: SearchQuery = {
   origin: '',
   destination: '',
   date: '',
-  ticketCount: '1',
+  ticketCount: 1,
 };
 
 export const useSearchStore = create<SearchStore>()(
@@ -59,6 +59,14 @@ export const useSearchStore = create<SearchStore>()(
       // (empty DEFAULT_STATE) and throw a hydration mismatch. Consumers call
       // useSearchStore.persist.rehydrate() in a mount effect instead.
       skipHydration: true,
+      version: 1,
+      migrate: (persisted: unknown, version: number) => {
+        const state = persisted as Record<string, unknown>;
+        if (version === 0 && typeof state?.ticketCount === 'string') {
+          return { ...state, ticketCount: Number(state.ticketCount) || 1 };
+        }
+        return state;
+      },
       // Only persist the query fields, not the action functions
       partialize: (state) => ({
         origin: state.origin,

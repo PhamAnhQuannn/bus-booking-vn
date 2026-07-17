@@ -126,7 +126,7 @@ export function Calendar({
           type="button"
           aria-label="Tháng trước"
           onClick={() => onMonthChange(addMonths(month, -1))}
-          className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          className="inline-flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
         >
           <ChevronLeft className="size-5" aria-hidden="true" />
         </button>
@@ -137,7 +137,7 @@ export function Calendar({
           type="button"
           aria-label="Tháng sau"
           onClick={() => onMonthChange(addMonths(month, 1))}
-          className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          className="inline-flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
         >
           <ChevronRight className="size-5" aria-hidden="true" />
         </button>

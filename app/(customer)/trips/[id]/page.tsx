@@ -7,6 +7,7 @@
  */
 
 import type { Metadata } from 'next';
+import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, Clock, Armchair, Phone, Timer } from 'lucide-react';
@@ -17,6 +18,11 @@ import { busTripLd, breadcrumbLd, SITE_URL } from '@/lib/seo';
 import { TripBooking } from './TripBooking';
 
 export const dynamic = 'force-dynamic';
+
+// Audit F5: generateMetadata + the page body both called getTripDetails(id)
+// uncached — two DB round-trips per request and two chances to time out.
+// React cache() dedupes them within one request.
+const getTripDetailsCached = cache(getTripDetails);
 
 const BUS_TYPE_LABEL: Record<'coach' | 'sleeper' | 'limousine', string> = {
   coach: 'Ghế ngồi',
@@ -47,12 +53,18 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const trip = await getTripDetails(id);
-  if (!trip) return { title: 'Chuyến xe | BBVN' };
-  return {
-    title: `${trip.routeOrigin} → ${trip.routeDestination} | BBVN`,
-    description: `Chuyến ${trip.routeOrigin} đi ${trip.routeDestination} — ${trip.operatorLegalName}.`,
-  };
+  // Metadata must never take down the page — a DB timeout here falls back to a
+  // static title instead of throwing (audit F5).
+  try {
+    const trip = await getTripDetailsCached(id);
+    if (!trip) return { title: 'Chuyến xe | BBVN' };
+    return {
+      title: `${trip.routeOrigin} → ${trip.routeDestination} | BBVN`,
+      description: `Chuyến ${trip.routeOrigin} đi ${trip.routeDestination} — ${trip.operatorLegalName}.`,
+    };
+  } catch {
+    return { title: 'Chi tiết chuyến xe | BBVN' };
+  }
 }
 
 export default async function TripDetailPage({
@@ -61,7 +73,7 @@ export default async function TripDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const trip = await getTripDetails(id);
+  const trip = await getTripDetailsCached(id);
   if (!trip) notFound();
 
   const tripUrl = `${SITE_URL}/trips/${trip.tripId}`;

@@ -65,7 +65,7 @@ export function RouteDirectory({ activeRouteKeys }: { activeRouteKeys?: Set<stri
   return (
     <section className="mx-auto w-full max-w-5xl px-4 py-12">
       <div className="mb-6 flex flex-col gap-1">
-        <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
+        <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
           Tuyến đường phổ biến
         </h2>
         <p className="text-base text-muted-foreground">

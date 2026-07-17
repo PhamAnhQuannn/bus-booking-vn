@@ -22,7 +22,7 @@ export function BookButton({ tripId, ticketCount }: BookButtonProps) {
     <Button
       type="button"
       onClick={handleClick}
-      className="min-h-11"
+      className="min-h-11 bg-primary-strong hover:bg-primary-strong/90"
       aria-label="Đặt vé chuyến này"
     >
       Đặt vé

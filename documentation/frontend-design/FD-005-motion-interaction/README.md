@@ -15,7 +15,7 @@ Hero cover image slow zoom + pan.
 - Transform: `scale(1) → scale(1.08)`, `translateY(0 → -1.2%)`
 - Duration: 28s ease-in-out infinite alternate
 - Guard: `motion-safe:` + `will-change-transform`
-- Used on: home hero banner layers
+- Used on: none — removed from home hero banner layers 2026-07 (hero is now a static image per redesign); keyframes retained for future use
 
 ### Floating Blobs (`@keyframes blob`)
 

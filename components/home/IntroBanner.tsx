@@ -50,8 +50,8 @@ export function IntroBanner() {
         </h2>
 
         <p className="max-w-2xl text-base text-primary-foreground/90 sm:text-lg">
-          BBVN kết nối bạn với hàng nghìn nhà xe trên toàn quốc. Tìm chuyến, đặt vé, thuê xe hợp đồng,
-          nhanh và an toàn, hỗ trợ 24/7.
+          BBVN kết nối bạn với các nhà xe uy tín. Tìm chuyến, đặt vé, thuê xe hợp đồng — nhanh và
+          an toàn, hỗ trợ 24/7.
         </p>
 
         <div className="mt-1 flex flex-wrap items-center justify-center gap-3">
