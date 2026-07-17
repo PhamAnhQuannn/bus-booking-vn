@@ -31,6 +31,13 @@ function vnTime(baseUtcDate: Date, hours: number, minutes = 0): Date {
 }
 
 async function main() {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'Refusing to seed: NODE_ENV=production. prisma/seed.ts contains dev fixtures ' +
+        '(including the weak operator password BBOp2026!) and must never run against a production DB.',
+    );
+  }
+
   console.log('Seeding database...');
 
   // Clear existing data (safe for CI fresh-boot), FK-ordered children-first.
