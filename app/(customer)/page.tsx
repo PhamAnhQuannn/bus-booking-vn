@@ -3,7 +3,7 @@ import { preload } from 'react-dom';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { Banknote, ShieldCheck, Bus } from 'lucide-react';
+import { Bus, BusFront, CreditCard, Headset, MailCheck, MapPin, ShieldCheck, Zap } from 'lucide-react';
 import { searchParamsSchema, searchFiltersSchema } from '@/lib/core/validation/search';
 import { track } from '@/lib/analytics';
 import { searchTrips, SEARCH_PAGE_LIMIT } from '@/lib/trips';
@@ -13,6 +13,7 @@ import { SearchForm } from '@/components/search/SearchForm';
 import { SearchStoreHydrator } from '@/components/search/SearchStoreHydrator';
 import { EmptyState } from '@/components/search/EmptyState';
 import { ResultsList } from '@/components/search/ResultsList';
+import { ResultsHeading } from '@/components/search/ResultsHeading';
 import { PopularTrips } from '@/components/home/PopularTrips';
 import { FeatureHighlights } from '@/components/home/FeatureHighlights';
 import { IntroBanner } from '@/components/home/IntroBanner';
@@ -52,10 +53,17 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   };
 }
 
-const TRUST = [
-  { icon: Banknote, title: 'Chuyển khoản · Tiền mặt' },
-  { icon: ShieldCheck, title: 'Xác nhận qua email' },
-  { icon: Bus, title: 'Nhà xe được kiểm định' },
+const HERO_TRUST = [
+  { icon: Zap, title: 'Đặt vé nhanh chóng', sub: 'Chỉ 30 giây là có vé' },
+  { icon: ShieldCheck, title: 'An toàn & uy tín', sub: 'Nhà xe chất lượng cao' },
+  { icon: Headset, title: 'Hỗ trợ 24/7', sub: 'Luôn sẵn sàng phục vụ' },
+];
+
+const FEATURES = [
+  { icon: CreditCard, title: 'Thanh toán đơn giản', sub: 'Chuyển khoản VietQR hoặc tiền mặt khi lên xe' },
+  { icon: MailCheck, title: 'Xác nhận qua email', sub: 'Thông tin chuyến đi được gửi đến email của bạn' },
+  { icon: Bus, title: 'Nhiều nhà xe uy tín', sub: 'Hợp tác cùng nhiều nhà xe chất lượng trên toàn quốc' },
+  { icon: MapPin, title: 'Đón trả tận nơi', sub: 'Đón tại nhà hoặc khách sạn, trả đúng điểm bạn cần' },
 ];
 
 export default async function HomePage({ searchParams }: PageProps) {
@@ -113,7 +121,7 @@ async function SearchResultsView({
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6">
       <SearchStoreHydrator
-        query={{ origin, destination, date, ticketCount: String(ticketCount) }}
+        query={{ origin, destination, date, ticketCount }}
       />
 
       <div className="flex items-center gap-3">
@@ -124,9 +132,7 @@ async function SearchResultsView({
         >
           ← Tìm lại
         </Link>
-        <h1 className="text-lg font-semibold">
-          {origin} → {destination}
-        </h1>
+        <ResultsHeading origin={origin} destination={destination} />
       </div>
 
       <Card className="shadow-e1">
@@ -162,8 +168,9 @@ async function SearchResultsView({
 }
 
 async function HeroMarketingView() {
-  preload('/hero/landing-1280.jpg', { as: 'image', media: '(max-width: 767px)' });
-  preload('/hero/landing-2560.jpg', { as: 'image', media: '(min-width: 768px)' });
+  preload('/hero/landing-golden-1280.jpg', { as: 'image', media: '(max-width: 767px)' });
+  preload('/hero/landing-golden-1920.jpg', { as: 'image', media: '(min-width: 768px) and (max-width: 1919px)' });
+  preload('/hero/landing-golden-3840.jpg', { as: 'image', media: '(min-width: 1920px)' });
   const [places, activeRoutes, operators] = await Promise.all([
     getSearchablePlaces(),
     getActiveRoutes(),
@@ -187,21 +194,30 @@ async function HeroMarketingView() {
       <section id="search" className="relative w-full scroll-mt-16 overflow-hidden">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-cover bg-center brightness-95 md:will-change-transform md:motion-safe:animate-[kenburns_28s_ease-in-out_infinite_alternate] md:hidden"
-          style={{ backgroundImage: "url('/hero/landing-1280.jpg')" }}
+          className="pointer-events-none absolute inset-0 bg-cover bg-[position:72%_center] md:hidden"
+          style={{ backgroundImage: "url('/hero/landing-golden-1280.jpg')" }}
         />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 hidden bg-cover bg-center brightness-95 md:will-change-transform md:motion-safe:animate-[kenburns_28s_ease-in-out_infinite_alternate] md:block"
-          style={{ backgroundImage: "url('/hero/landing-2560.jpg')" }}
+          className="pointer-events-none absolute inset-0 hidden bg-cover bg-[position:0%_30%] md:block lg:bg-[position:53%_30%] 3xl:hidden"
+          style={{ backgroundImage: "url('/hero/landing-golden-1920.jpg')" }}
         />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-primary/30 via-primary/10 to-transparent mix-blend-multiply"
+          className="pointer-events-none absolute inset-0 hidden bg-cover bg-[position:0%_30%] lg:bg-[position:53%_30%] 3xl:block"
+          style={{ backgroundImage: "url('/hero/landing-golden-3840.jpg')" }}
         />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/55 via-transparent to-black/25"
+          className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/85 via-white/40 to-white/70 md:hidden"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 hidden md:block md:bg-[linear-gradient(90deg,rgba(255,247,237,0.88)_0%,rgba(255,247,237,0.72)_38%,rgba(255,247,237,0.38)_62%,rgba(255,247,237,0.12)_82%,rgba(255,247,237,0)_100%)] xl:bg-[linear-gradient(90deg,rgba(255,247,237,0.82)_0%,rgba(255,247,237,0.66)_30%,rgba(255,247,237,0.30)_52%,rgba(255,247,237,0.08)_72%,rgba(255,247,237,0)_100%)]"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 hidden md:block md:bg-[linear-gradient(90deg,rgba(0,0,0,0)_62%,rgba(0,0,0,0.2)_100%)]"
         />
         <div
           aria-hidden="true"
@@ -212,35 +228,59 @@ async function HeroMarketingView() {
           }}
         />
 
-        <div className="relative mx-auto flex w-full max-w-3xl flex-col items-center gap-6 px-4 pt-16 pb-12 text-center sm:pt-24 sm:pb-14">
-          <div className="flex flex-col gap-3">
-            <h1 className="font-display text-3xl font-bold tracking-tight text-white [text-shadow:0_2px_10px_rgba(0,0,0,0.5)] sm:text-4xl md:text-5xl">
-              Đặt <span className="text-primary">vé xe khách</span> trong 30 giây
+        <div className="relative mx-auto flex w-full max-w-[1920px] flex-col gap-6 px-4 pt-12 pb-16 sm:px-8 sm:pt-16 sm:pb-20 lg:min-h-[720px] lg:pt-[120px] xl:px-[104px]">
+          <div className="flex max-w-[680px] flex-col items-start gap-4 text-left 2xl:max-w-[760px]">
+            <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-white/80 px-3.5 py-1.5 text-sm font-medium text-primary backdrop-blur">
+              <BusFront className="size-4" aria-hidden="true" />
+              Đặt vé dễ dàng – Đi xe an toàn
+            </span>
+            <h1 className="font-display text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl md:text-[64px] md:leading-[1.05] 2xl:text-7xl">
+              <span className="block">Đặt vé xe khách</span>
+              <span className="block text-primary">trong 30 giây</span>
             </h1>
-            <p className="text-base text-white/90 [text-shadow:0_1px_6px_rgba(0,0,0,0.45)] sm:text-lg">
+            <p className="max-w-[620px] text-base text-foreground/80 sm:text-lg xl:text-[22px] xl:leading-snug 2xl:max-w-[680px]">
               Tìm chuyến, đặt vé, nhà xe gọi xác nhận. Không cần chọn ghế trên màn hình.
             </p>
           </div>
 
-          <Card className="w-full text-left shadow-e4">
-            <CardContent className="py-3">
-              <SearchFormWrapper places={places} />
-            </CardContent>
-          </Card>
-        </div>
+          <div className="flex w-full flex-col gap-4 lg:max-w-[calc(63vw-60px)] xl:max-w-[min(63vw-132px,13.2vw+828px)]">
+            <Card className="w-full rounded-3xl text-left shadow-e4">
+              <CardContent className="py-3 xl:px-8 xl:py-5">
+                <SearchFormWrapper places={places} />
+              </CardContent>
+            </Card>
 
-        <div className="relative z-10 border-t border-white/20 bg-gradient-to-r from-primary/40 via-primary/25 to-primary/40 backdrop-blur-md">
-          <ul className="mx-auto flex w-full max-w-3xl list-none items-stretch justify-center gap-1 px-2 py-0 sm:gap-0 sm:divide-x sm:divide-white/15 sm:px-6">
-            {TRUST.map(({ icon: Icon, title }) => (
-              <li key={title} className="flex flex-1 flex-col items-center gap-1.5 px-1 py-3 text-center sm:flex-row sm:gap-2 sm:px-4 sm:py-4">
-                <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-white/95 text-primary sm:size-9">
-                  <Icon className="size-4 sm:size-5" aria-hidden="true" />
-                </span>
-                <span className="text-[11px] font-medium leading-tight text-white sm:text-sm">{title}</span>
-              </li>
-            ))}
-          </ul>
+            <ul className="hidden list-none grid-cols-3 gap-3 lg:grid">
+              {HERO_TRUST.map(({ icon: Icon, title, sub }) => (
+                <li key={title} className="flex items-center gap-3 rounded-xl bg-white/80 px-3 py-2 backdrop-blur">
+                  <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                    <Icon className="size-5" aria-hidden="true" />
+                  </span>
+                  <span className="flex flex-col">
+                    <span className="text-sm font-semibold text-foreground">{title}</span>
+                    <span className="text-xs text-muted-foreground">{sub}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
+      </section>
+
+      <section aria-label="Điểm nổi bật" className="relative z-10 mx-auto w-full max-w-[1920px] px-4 py-6 sm:px-8 xl:px-[104px]">
+        <ul className="grid list-none grid-cols-1 gap-x-4 gap-y-5 rounded-2xl border border-border bg-card p-5 shadow-e2 sm:grid-cols-2 sm:p-6 lg:grid-cols-4 lg:gap-x-0 lg:divide-x lg:divide-border xl:px-9 xl:py-7">
+          {FEATURES.map(({ icon: Icon, title, sub }) => (
+            <li key={title} className="flex items-start gap-3 lg:px-5 xl:items-center">
+              <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary xl:size-[60px]">
+                <Icon className="size-5 xl:size-7" aria-hidden="true" />
+              </span>
+              <span className="flex flex-col gap-0.5">
+                <span className="text-sm font-semibold text-foreground xl:text-base">{title}</span>
+                <span className="text-sm text-muted-foreground">{sub}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
       </section>
 
       <div className="bg-muted/30">

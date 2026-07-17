@@ -18,6 +18,7 @@ export interface PlaceComboboxProps {
   maxLength?: number;
   className?: string;
   'aria-required'?: React.AriaAttributes['aria-required'];
+  'aria-invalid'?: React.AriaAttributes['aria-invalid'];
 }
 
 /**
@@ -50,7 +51,7 @@ export function PlaceCombobox({
         placeholder={placeholder}
         autoComplete="off"
         className={cn(
-          'min-h-11 w-full min-w-0 rounded-lg border border-input bg-transparent px-3 py-1 text-base outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm',
+          'min-h-11 w-full min-w-0 rounded-lg border border-input bg-transparent px-3 py-1 text-base outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 md:text-sm',
           className
         )}
         {...rest}

@@ -47,6 +47,8 @@ export interface DatePickerProps {
   'data-testid'?: string;
   'aria-label'?: string;
   'aria-required'?: React.AriaAttributes['aria-required'];
+  'aria-invalid'?: React.AriaAttributes['aria-invalid'];
+  iconPosition?: 'leading' | 'trailing';
 }
 
 export function DatePicker({
@@ -60,6 +62,7 @@ export function DatePicker({
   id,
   disabled,
   className,
+  iconPosition = 'trailing',
   ...rest
 }: DatePickerProps) {
   const isControlled = value !== undefined;
@@ -92,16 +95,23 @@ export function DatePicker({
         id={id}
         disabled={disabled}
         aria-required={rest['aria-required']}
+        aria-invalid={rest['aria-invalid']}
         aria-label={rest['aria-label']}
         data-testid={rest['data-testid']}
         className={cn(
-          'inline-flex min-h-11 w-full items-center justify-between gap-2 rounded-lg border border-input bg-transparent px-3 py-1 text-base outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 md:text-sm',
+          'inline-flex min-h-11 w-full items-center gap-2 rounded-lg border border-input bg-transparent px-3 py-1 text-base outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 md:text-sm',
+          iconPosition === 'trailing' && 'justify-between',
           !current && 'text-muted-foreground',
           className
         )}
       >
-        <span>{current ? displayDate(current) : placeholder}</span>
-        <CalendarDays className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        {iconPosition === 'leading' && (
+          <CalendarDays className="size-4 shrink-0 text-primary" aria-hidden="true" />
+        )}
+        <span className={iconPosition === 'leading' ? 'flex-1 text-left' : ''}>{current ? displayDate(current) : placeholder}</span>
+        {iconPosition === 'trailing' && (
+          <CalendarDays className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        )}
       </Popover.Trigger>
 
       {name != null && <input type="hidden" name={name} value={current ?? ''} />}
