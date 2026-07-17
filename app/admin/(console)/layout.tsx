@@ -18,8 +18,21 @@
  */
 
 import { AdminNav } from '@/components/admin/AdminNav';
+import { AdminAccountMenu } from '@/components/admin/AdminAccountMenu';
+import { requireAdminPage } from '@/lib/auth';
+import { prisma } from '@/lib/core/db/client';
 
-export default function AdminConsoleLayout({ children }: { children: React.ReactNode }) {
+export default async function AdminConsoleLayout({ children }: { children: React.ReactNode }) {
+  // Central identity read for the sidebar footer (email + role). requireAdminPage
+  // reads the bb_admin_access cookie in-process (never self-fetch — AGENTS.md
+  // 002/003) and redirects to /admin/login if the session is missing/non-TOTP;
+  // pages still call it themselves for their role-aware ctx (defense-in-depth).
+  const ctx = await requireAdminPage();
+  const admin = await prisma.adminUser.findUnique({
+    where: { id: ctx.adminId },
+    select: { email: true },
+  });
+
   return (
     <div className="flex min-h-dvh flex-col md:flex-row">
       <a
@@ -29,12 +42,15 @@ export default function AdminConsoleLayout({ children }: { children: React.React
         Chuyển đến nội dung
       </a>
 
-      <aside className="shrink-0 border-b border-sidebar-border bg-sidebar text-sidebar-foreground md:sticky md:top-0 md:h-dvh md:w-60 md:border-r md:border-b-0">
+      <aside className="flex shrink-0 flex-col border-b border-sidebar-border bg-sidebar text-sidebar-foreground md:sticky md:top-0 md:h-dvh md:w-60 md:border-r md:border-b-0">
         <div className="flex h-14 items-center px-4">
           <span className="text-base font-semibold">Bảng điều khiển</span>
         </div>
         <div className="px-2 py-2">
           <AdminNav />
+        </div>
+        <div className="mt-auto border-t border-sidebar-border p-2">
+          <AdminAccountMenu email={admin?.email ?? ''} role={ctx.role} />
         </div>
       </aside>
 

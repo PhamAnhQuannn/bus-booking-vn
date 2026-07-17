@@ -24,6 +24,9 @@ import { verifyLoginTotp } from '@/lib/auth';
 import { issueAdminSession } from '@/lib/auth';
 import { requireAdminAuth, type AdminAuthContext } from '@/lib/auth';
 import { adminTotpRatelimit, adminTotpLockout } from '@/lib/ratelimit';
+import { clientIp } from '@/lib/core/http/clientIp';
+import { writeAdminAuditLog } from '@/lib/audit';
+import { prisma } from '@/lib/core/db/client';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 const ACCESS_COOKIE_MAX_AGE = 10 * 60; // 600s — matches ADMIN_ACCESS_TTL_SECONDS
@@ -60,7 +63,15 @@ async function handler(req: NextRequest, ctx: AdminAuthContext): Promise<Respons
   }
 
   if (!result.ok) {
-    // Bad code — consume the consecutive-failure lockout counter.
+    // Bad code — audit the failed TOTP verify (best-effort; never break auth).
+    await writeAdminAuditLog(prisma, {
+      actor: `admin:${ctx.adminId}`,
+      action: 'admin_totp_failure',
+      target: ctx.adminId,
+      argsRedacted: JSON.stringify({ ip: clientIp(req.headers) }),
+    }).catch(() => undefined);
+
+    // Consume the consecutive-failure lockout counter.
     const lk = await adminTotpLockout.limit(`admin-totp-fail:${ctx.adminId}`);
     if (!lk.allowed) {
       return NextResponse.json(

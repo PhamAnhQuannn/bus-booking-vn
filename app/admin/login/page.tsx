@@ -60,7 +60,10 @@ export default function AdminLoginPage() {
     try {
       const res = await post('/api/admin/auth/totp/verify', { code });
       if (res.status === 409) {
-        setError('Tài khoản chưa thiết lập TOTP. Liên hệ quản trị viên.');
+        // TOTP_ENROLLMENT_REQUIRED — the session is authenticated (password OK)
+        // but no TOTP secret is set. Send the admin to self-enrollment rather than
+        // a dead-end "contact your admin" message.
+        router.push('/admin/enroll-totp');
         return;
       }
       if (res.status === 429) {
