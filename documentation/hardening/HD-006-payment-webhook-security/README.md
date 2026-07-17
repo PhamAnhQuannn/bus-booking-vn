@@ -8,6 +8,8 @@ Verify end-to-end payment security for Phase 1 (bank transfer via VietQR + SePay
 
 **Phase 1 scope:** Bank transfer (SePay webhook) + cash at boarding only. MoMo/VNPay/ZaloPay are Phase 2/3 -- re-audit this document when those adapters ship.
 
+**Phase 2 update (VNPay enablement):** VNPay (domestic card/ATM) is being enabled ALONGSIDE bank transfer. The Phase-2 re-audit trigger (bottom of this doc) is now discharged for VNPay — see **"VNPay Adapter Security Audit"** below.
+
 ## Skill Invocation
 
 - **Primary**: `/security-review` -- payment flow threat analysis
@@ -105,9 +107,42 @@ When MoMo/VNPay adapters ship, re-audit this document and add:
 - PSP-specific credential management (MoMo `partnerCode`, VNPay `tmnCode`)
 - Chargeback workflow and holdback reserve policy
 
+## VNPay Adapter Security Audit (Phase 2 — discharged by the VNPay-enablement change)
+
+VNPay uses HMAC-SHA512 signatures (not bearer token like SePay, not SHA-256 like MoMo). Code: `lib/payment/adapters/vnpay.ts`, `app/api/payments/vnpay/webhook/route.ts`, `app/api/payments/vnpay/return/route.ts`.
+
+### Signature Verification (HMAC-SHA512)
+- [x] Canonical sign-data = alphabetically-sorted `vnp_*` fields (excluding `vnp_SecureHash`/`vnp_SecureHashType`), RAW values, `&`-joined; transport query is URL-encoded — verified by round-trip test (`lib/payment/__tests__/vnpay.test.ts`).
+- [x] Constant-time compare (`crypto.timingSafeEqual`) with length guard (`timingSafeHexEqual`).
+- [x] `missing_signature` / `sig_mismatch` / `invalid_amount` (negative/non-finite) paths all covered by unit tests.
+- [x] `vnp_Amount` divided by 100 (VNPay sends ×100); zero-amount return-URL attack guarded (`return/route.ts`).
+
+### Always-200 Webhook Response (VNPay v2.1.0)
+- [x] IPN handler ALWAYS returns VNPay's JSON `{ RspCode, Message }` — `00`=Confirm Success, `97`=Invalid Checksum, `01`=Order not found, `99`=Unknown error. Any other shape causes VNPay retry storms. Route + response-code mapping covered by `app/api/payments/vnpay/webhook/__tests__/route.test.ts`.
+- [x] IPN is the authoritative state transition; the browser return route is UX-only (verified independently, redirects to confirmation/pending/error).
+- [x] `runtime = 'nodejs'` on both routes (Node `crypto`, not Edge).
+
+### PSP Credential Management (VNPay `tmnCode` / `hashSecret`)
+- [x] `hashSecret` never passed to `logger.*` (only into `hmacSha512`); raw webhook body never logged. (True in current `vnpay.ts`.)
+- [x] `VNPAY_ENABLED=true` boot-guard rejects sandbox-default `TMN_CODE`/`HASH_SECRET` (`env.ts` superRefine — already present).
+- [ ] `VNPAY_HASH_SECRET` + `VNPAY_TMN_CODE` added to the logger redact list (`lib/logger.ts`) — defense-in-depth, matching SePay/eSMS/MISA convention. **PENDING Issue 122.**
+- [ ] `VNPAY_ENABLED` wired as the real runtime kill-switch in `select.ts` (today `select.ts` gates only on `PAYMENTS_STUB`). **PENDING Issue 122.**
+
+### Chargeback Workflow & Holdback Reserve
+- [x] **Decision documented (Q1): platform-absorb, no holdback reserve, payouts stay T+1.** VNPay card chargebacks (45-90 day window) are contested with retained evidence (ticket, boarding scan, manifest, consent); on loss the PLATFORM absorbs — operator held harmless. DIVERGES from S15#7 operator-liable default.
+- [x] VNPay has NO push dispute webhook → chargebacks recorded via the admin-manual Finance route (`/api/admin/finance/chargeback`), idempotent on `sourceEventId`. (Existing engine.)
+- [ ] Platform-absorb path implemented in `lib/ledger/chargeback.ts` (operator balance untouched). **PENDING Issue 124.**
+- [ ] Holdback reserve — deliberately NOT built (accepted risk, bounded by low family-operator volume). Revisit if VNPay card volume grows.
+
+### PSP Fee (MDR) Tracking
+- [ ] VNPay MDR recorded as a `psp_fee` ledger entry — **platform-float, EXCLUDED from operator balance** (operator stays whole), mirroring `refund_out` exclusion. BigInt math. Placeholder rate 1.1%. **PENDING Issue 123.**
+
+### FAILURE_RESULT_CODES Discipline (Mistake Log Issue 004)
+- [x] `VNPAY_FAILURE_CODES` / `VNPAY_PENDING_CODES` / `VNPAY_SUCCESS_CODE` pinned in `vnpay.ts`; `classifyVnpayStatus` tested for every code + an unmapped→`unknown`. No vendor-doc superset.
+
 ## Verdict
 
-**PASS** when: SePay bearer token verified, all 4 defense layers active, bookingRef extraction tested, memo mismatch reconciliation working, manual refund process documented, and central collection model has legal clearance.
+**PASS** when: SePay bearer token verified, all 4 defense layers active, bookingRef extraction tested, memo mismatch reconciliation working, manual refund process documented, and central collection model has legal clearance. **VNPay addendum** — as of Issue 120 (this slice): HMAC-SHA512 verify + always-200 IPN + FAILURE_CODES discipline + zero-amount guard are audited and test-covered (ticked). Credential redaction + `VNPAY_ENABLED` kill-switch (Issue 122), platform-absorb chargeback (Issue 124), and `psp_fee` tracking (Issue 123) are PENDING their respective issues — the addendum reaches full PASS only when those tick. Holdback reserve is deliberately deferred.
 
 ## Cross-References
 
