@@ -4,6 +4,7 @@ import "./globals.css";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { CookieConsent } from "@/components/CookieConsent";
+import { Analytics } from "@vercel/analytics/next";
 import { SITE_URL } from "@/lib/seo";
 
 const beVietnam = Be_Vietnam_Pro({
@@ -58,6 +59,8 @@ export default function RootLayout({
         <div className="flex flex-1 flex-col">{children}</div>
         <SiteFooter />
         <CookieConsent />
+        {/* Dev mode loads an external debug script (va.vercel-scripts.com) that our CSP blocks — prod-only. */}
+        {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
   );
