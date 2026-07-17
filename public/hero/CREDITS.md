@@ -11,5 +11,3 @@
 | `landing-sunset-1774.jpg` | Same image, native resolution | Owner-provided |
 | `landing-day-1280.jpg` | AI-generated (owner-provided, 2026-07) — daylight variant, unused | Owner-provided |
 | `landing-day-1774.jpg` | Same image, native resolution — unused | Owner-provided |
-| `landing-1280.jpg` | AI-generated (owner-provided) — previous hero, unused since 2026-07 redesign | Owner-provided |
-| `landing-2560.jpg` | Same image, desktop resolution — unused | Owner-provided |
