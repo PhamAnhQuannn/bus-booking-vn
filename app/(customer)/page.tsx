@@ -18,6 +18,7 @@ import { ResultsHeading } from '@/components/search/ResultsHeading';
 import { ResultsSkeleton } from '@/components/search/ResultsSkeleton';
 import { PopularTrips } from '@/components/home/PopularTrips';
 import { FeatureHighlights } from '@/components/home/FeatureHighlights';
+import { ContractCarRental } from '@/components/home/ContractCarRental';
 import { IntroBanner } from '@/components/home/IntroBanner';
 import { RouteDirectory } from '@/components/home/RouteDirectory';
 import { OperatorShowcase } from '@/components/home/OperatorShowcase';
@@ -296,6 +297,8 @@ async function HeroMarketingView() {
       <OperatorShowcase operators={operators} />
 
       <FeatureHighlights />
+
+      <ContractCarRental />
 
       <RouteDirectory activeRouteKeys={activeRouteKeys} />
       <IntroBanner />
