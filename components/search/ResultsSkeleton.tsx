@@ -1,6 +1,12 @@
 import { Skeleton } from '@/components/ui/skeleton';
 
-export default function Loading() {
+/**
+ * Search-results streaming fallback. Rendered via an explicit <Suspense> in
+ * app/(customer)/page.tsx — deliberately NOT a route-level loading.tsx: a
+ * segment-wide boundary at app/(customer)/ flushes a 200 shell before child
+ * pages (e.g. /booking/result/[token]) can commit their notFound() 404 status.
+ */
+export function ResultsSkeleton() {
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6">
       <div className="flex items-center gap-3">

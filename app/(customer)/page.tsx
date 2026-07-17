@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { preload } from 'react-dom';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
@@ -14,6 +15,7 @@ import { SearchStoreHydrator } from '@/components/search/SearchStoreHydrator';
 import { EmptyState } from '@/components/search/EmptyState';
 import { ResultsList } from '@/components/search/ResultsList';
 import { ResultsHeading } from '@/components/search/ResultsHeading';
+import { ResultsSkeleton } from '@/components/search/ResultsSkeleton';
 import { PopularTrips } from '@/components/home/PopularTrips';
 import { FeatureHighlights } from '@/components/home/FeatureHighlights';
 import { IntroBanner } from '@/components/home/IntroBanner';
@@ -77,7 +79,11 @@ export default async function HomePage({ searchParams }: PageProps) {
   const parsed = searchParamsSchema.safeParse(raw);
 
   if (parsed.success) {
-    return <SearchResultsView params={params} parsed={parsed.data} />;
+    return (
+      <Suspense fallback={<ResultsSkeleton />}>
+        <SearchResultsView params={params} parsed={parsed.data} />
+      </Suspense>
+    );
   }
 
   return <HeroMarketingView />;
