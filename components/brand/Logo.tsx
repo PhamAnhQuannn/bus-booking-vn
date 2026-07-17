@@ -1,9 +1,14 @@
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import logoHorizontal from '@/public/brand/logo-horizontal.png';
-import logoHorizontalWhite from '@/public/brand/logo-horizontal-white.png';
-import logoMark from '@/public/brand/logo-mark.png';
-import logoMarkWhite from '@/public/brand/logo-mark-white.png';
+
+// String src + explicit intrinsic dims (not static imports): the CI type gate runs
+// bare `tsc --noEmit` without next-env.d.ts image-module declarations.
+const LOGOS = {
+  combo: { src: '/brand/logo-horizontal.png', width: 959, height: 400 },
+  comboMono: { src: '/brand/logo-horizontal-white.png', width: 983, height: 400 },
+  glyph: { src: '/brand/logo-mark.png', width: 686, height: 678 },
+  glyphMono: { src: '/brand/logo-mark-white.png', width: 566, height: 530 },
+} as const;
 
 export function Logo({
   variant = 'combo',
@@ -15,18 +20,20 @@ export function Logo({
   mono?: boolean;
   className?: string;
 }) {
-  const src =
+  const logo =
     variant === 'glyph'
       ? mono
-        ? logoMarkWhite
-        : logoMark
+        ? LOGOS.glyphMono
+        : LOGOS.glyph
       : mono
-        ? logoHorizontalWhite
-        : logoHorizontal;
+        ? LOGOS.comboMono
+        : LOGOS.combo;
 
   return (
     <Image
-      src={src}
+      src={logo.src}
+      width={logo.width}
+      height={logo.height}
       alt="BBVN — Bus Booking"
       priority
       className={cn(variant === 'glyph' ? 'h-8 w-auto' : 'h-9 w-auto', 'shrink-0 self-start', className)}
