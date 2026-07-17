@@ -12,11 +12,16 @@ import { Logo } from '@/components/brand/Logo';
 // 2026-06-06: customer accounts paused (guest-only). "Tài khoản" removed; "Đăng nhập"
 // now points at the operator login (/op/login) — only operators log in. "Trở thành
 // đối tác" routes operators to the application form.
+// 2026-07-16: operator login/register moved out of the "ĐẶT VÉ" customer group into
+// its own "Dành cho nhà xe" partner group — the customer-facing group's strongest
+// slot should not carry a B2B utility link (audit F9).
 const FOOTER_LINKS = {
   main: [
     { href: '/lien-he-dat-xe', label: 'Liên hệ đặt xe' },
+  ],
+  partner: [
     { href: '/op/register', label: 'Trở thành đối tác' },
-    { href: '/op/login', label: 'Đăng nhập' },
+    { href: '/op/login', label: 'Đăng nhập nhà xe' },
   ],
   legal: [
     { href: '/terms', label: 'Điều khoản dịch vụ' },
@@ -29,7 +34,7 @@ const FOOTER_LINKS = {
 } as const;
 
 const linkClass =
-  'inline-flex min-h-9 items-center rounded-md outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50';
+  'inline-flex min-h-11 items-center rounded-md outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50';
 
 export function SiteFooter() {
   const pathname = usePathname();
@@ -52,6 +57,14 @@ export function SiteFooter() {
           <nav className="flex flex-col gap-2" aria-label="Liên kết">
             <span className="text-xs font-semibold uppercase tracking-wide text-foreground">Đặt vé</span>
             {FOOTER_LINKS.main.map((l) => (
+              <Link key={l.href} href={l.href} className={linkClass}>
+                {l.label}
+              </Link>
+            ))}
+          </nav>
+          <nav className="flex flex-col gap-2" aria-label="Dành cho nhà xe">
+            <span className="text-xs font-semibold uppercase tracking-wide text-foreground">Dành cho nhà xe</span>
+            {FOOTER_LINKS.partner.map((l) => (
               <Link key={l.href} href={l.href} className={linkClass}>
                 {l.label}
               </Link>

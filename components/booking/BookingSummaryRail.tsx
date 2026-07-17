@@ -15,7 +15,7 @@ function formatVND(amount: number): string {
 
 function formatDeparture(iso: string): string {
   return new Date(iso).toLocaleString('vi-VN', {
-    weekday: 'short',
+    weekday: 'long',
     day: 'numeric',
     month: 'numeric',
     hour: '2-digit',

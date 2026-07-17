@@ -201,7 +201,7 @@ export function ReviewClient({ holdDetails }: ReviewClientProps) {
         <Button
           type="button"
           size="lg"
-          className="w-full"
+          className="w-full bg-primary-strong hover:bg-primary-strong/90"
           onClick={handleSubmit}
           disabled={submitting || !consented}
         >

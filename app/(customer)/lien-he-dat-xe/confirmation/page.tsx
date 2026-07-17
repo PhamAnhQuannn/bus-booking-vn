@@ -13,6 +13,7 @@ import Link from 'next/link';
 import { CheckCircle2 } from 'lucide-react';
 
 import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 export const metadata: Metadata = {
   title: 'Đã nhận yêu cầu | BBVN',
@@ -52,7 +53,10 @@ export default async function CharterConfirmationPage({ searchParams }: Confirma
 
         <div className="flex flex-wrap justify-center gap-2">
           {ref && (
-            <Link href={`/charter/status/${encodeURIComponent(ref)}`} className={buttonVariants({})}>
+            <Link
+              href={`/charter/status/${encodeURIComponent(ref)}`}
+              className={cn(buttonVariants({}), 'bg-primary-strong hover:bg-primary-strong/90')}
+            >
               Theo dõi trạng thái
             </Link>
           )}
