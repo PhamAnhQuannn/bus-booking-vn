@@ -18,12 +18,14 @@ const clientSchema = z.object({
   buyerName: z
     .string()
     .trim()
+    .min(1, 'Vui lòng nhập họ tên')
     .min(4, 'Họ tên phải có ít nhất 4 ký tự')
     .max(100, 'Họ tên không được vượt quá 100 ký tự')
     .regex(/^[\p{L}\p{M}\s'.-]+$/u, 'Họ tên chỉ được chứa chữ cái, dấu cách và các ký tự hợp lệ'),
   buyerPhone: z
     .string()
     .trim()
+    .min(1, 'Vui lòng nhập số điện thoại')
     .regex(/^(0|\+84)[35789][0-9]{8}$/, 'Số điện thoại không hợp lệ'),
   buyerEmail: z
     .string()
@@ -82,7 +84,10 @@ export function CustomerForm() {
         const errors: Record<string, string> = {};
         for (const issue of parsed.error.issues) {
           const key = String(issue.path[0]);
-          if (key) errors[key] = issue.message;
+          // First issue per field wins (presence checks are ordered ahead of
+          // format checks above) — an empty field must surface "required",
+          // not the format message a later regex/refine check also raises.
+          if (key && !errors[key]) errors[key] = issue.message;
         }
         return { status: 'field_errors', errors };
       }
@@ -294,7 +299,7 @@ export function CustomerForm() {
         </div>
       )}
 
-      <Button type="submit" size="lg" disabled={isPending} className="w-full">
+      <Button type="submit" size="lg" disabled={isPending} className="w-full bg-primary-strong hover:bg-primary-strong/90">
         {isPending ? 'Đang xử lý...' : 'Tiếp tục'}
       </Button>
     </form>

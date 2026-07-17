@@ -43,6 +43,7 @@ const GATEWAY_LABEL: Record<string, string> = {
   momo: 'MoMo',
   zalopay: 'ZaloPay',
   card: 'thẻ',
+  bank_transfer: 'chuyển khoản ngân hàng',
 };
 
 function formatVND(amount: number): string {
@@ -118,7 +119,10 @@ export default async function ResultPage({ params, searchParams }: ResultPagePro
               Đang chờ xác nhận thanh toán {gatewayLabel}
             </h2>
             <p className="text-sm text-warning-foreground">
-              Vui lòng hoàn tất thanh toán {gatewayLabel}. Trang này tự động cập nhật sau 5 giây.
+              {booking.paymentMethod === 'bank_transfer'
+                ? 'Chúng tôi đang chờ ngân hàng xác nhận chuyển khoản của bạn.'
+                : `Vui lòng hoàn tất thanh toán ${gatewayLabel}.`}{' '}
+              Trang này tự động cập nhật sau 5 giây.
             </p>
             {refreshCount >= MAX_AUTO_REFRESH && (
               <div className="flex flex-col gap-2">

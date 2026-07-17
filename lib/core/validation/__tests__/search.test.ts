@@ -117,6 +117,30 @@ describe('searchParamsSchema', () => {
     }
   });
 
+  it('origin same as destination (case-insensitive) fails', () => {
+    const result = searchParamsSchema.safeParse({
+      origin: 'Hà Nội',
+      destination: 'hà nội',
+      date: '2026-06-01',
+      ticketCount: '2',
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const keys = result.error.issues.map((i) => String(i.path[0]));
+      expect(keys).toContain('destination');
+    }
+  });
+
+  it('origin same as destination with whitespace padding fails', () => {
+    const result = searchParamsSchema.safeParse({
+      origin: ' TP.HCM ',
+      destination: 'TP.HCM',
+      date: '2026-06-01',
+      ticketCount: '2',
+    });
+    expect(result.success).toBe(false);
+  });
+
   it('ticketCount coerced from string to number', () => {
     const result = searchParamsSchema.safeParse({
       origin: 'Hà Nội',

@@ -17,7 +17,7 @@ const securityHeaders = [
       "default-src 'self'",
       `script-src 'self' 'unsafe-inline'${isProd ? '' : " 'unsafe-eval'"}`,
       `connect-src 'self'${hasSentry ? ' https://*.ingest.sentry.io' : ''}${isProd ? '' : ' ws://localhost:* http://localhost:*'}`,
-      "img-src 'self' data: blob:",
+      "img-src 'self' data: blob: https://img.vietqr.io",
       "style-src 'self' 'unsafe-inline'",
       "font-src 'self'",
       "frame-ancestors 'none'",
