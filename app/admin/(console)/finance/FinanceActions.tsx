@@ -234,12 +234,13 @@ export function FinanceActions(props: Props) {
       <BookingAmountForm
         kind="chargeback"
         withReason={false}
+        withLiability
         busy={busy}
         disabled={pending !== null}
         errorBlock={errorBlock}
         stepUpBlock={stepUpBlock}
-        onSubmit={(bookingId, amountMinor) =>
-          run('/api/admin/finance/chargeback', { bookingId, amountMinor })
+        onSubmit={(bookingId, amountMinor, _reason, liability) =>
+          run('/api/admin/finance/chargeback', { bookingId, amountMinor, liability })
         }
       />
     );
@@ -351,6 +352,7 @@ function AdjustmentForm({
 function BookingAmountForm({
   kind,
   withReason,
+  withLiability = false,
   busy,
   disabled,
   errorBlock,
@@ -359,11 +361,20 @@ function BookingAmountForm({
 }: FormShellProps & {
   kind: string;
   withReason: boolean;
-  onSubmit: (bookingId: string, amountMinor: number, reason: string) => void;
+  withLiability?: boolean;
+  onSubmit: (
+    bookingId: string,
+    amountMinor: number,
+    reason: string,
+    liability: 'operator' | 'platform'
+  ) => void;
 }) {
   const [bookingId, setBookingId] = useState('');
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
+  // Issue 124: chargeback liability — 'operator' (S15#7 default) or 'platform'
+  // (platform-absorb for VNPay card disputes; operator held harmless).
+  const [liability, setLiability] = useState<'operator' | 'platform'>('operator');
   const [localError, setLocalError] = useState<string | null>(null);
 
   function submit(e: React.FormEvent) {
@@ -382,7 +393,7 @@ function BookingAmountForm({
       setLocalError('Cần nhập lý do.');
       return;
     }
-    onSubmit(bookingId.trim(), amountMinor, reason.trim());
+    onSubmit(bookingId.trim(), amountMinor, reason.trim(), liability);
   }
 
   return (
@@ -417,6 +428,21 @@ function BookingAmountForm({
               data-testid={`${kind}-amount`}
             />
           </div>
+          {withLiability ? (
+            <div className="flex flex-col gap-1">
+              <Label htmlFor={`${kind}-liability`}>Chịu phí</Label>
+              <select
+                id={`${kind}-liability`}
+                value={liability}
+                onChange={(e) => setLiability(e.target.value as 'operator' | 'platform')}
+                className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+                data-testid={`${kind}-liability`}
+              >
+                <option value="operator">Nhà xe chịu (mặc định)</option>
+                <option value="platform">Nền tảng chịu (VNPay)</option>
+              </select>
+            </div>
+          ) : null}
           {withReason ? (
             <div className="flex flex-1 flex-col gap-1">
               <Label htmlFor={`${kind}-reason`}>Lý do</Label>
