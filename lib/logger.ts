@@ -105,6 +105,8 @@ export const loggerOptions: LoggerOptions = {
       'MISA_API_KEY',            // e-invoice: MISA meInvoice API key (never log)
       'RESEND_API_KEY',          // email: Resend transactional email API key (never log)
       'SEPAY_API_KEY',           // bank transfer: SePay webhook bearer token (never log)
+      'VNPAY_HASH_SECRET',       // VNPay: HMAC-SHA512 signing secret (never log)
+      'VNPAY_TMN_CODE',          // VNPay: merchant terminal code (never log)
     ],
     censor: '[REDACTED]',
   },

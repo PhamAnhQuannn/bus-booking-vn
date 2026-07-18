@@ -1,14 +1,14 @@
 /**
- * Unit tests for POST /api/bookings/initiate (Phase 1: bank_transfer only).
+ * Unit tests for POST /api/bookings/initiate.
  *
- * Phase 1 restricts the Zod enum to ['bank_transfer']. MoMo/VNPay/ZaloPay/card
- * and cash are all rejected at the zod-enum layer (400 INVALID).
+ * Enabled methods: bank_transfer + vnpay. The Zod enum is ['bank_transfer','vnpay'];
+ * MoMo/ZaloPay/card and cash are rejected at the zod-enum layer (400 INVALID).
  *
  * Mocks: initiateOnlineBooking orchestrator, extractHoldCookie, ratelimit.
  *
  * Covers status mapping:
- *   200  ok           — orchestrator success (payUrl)
- *   400  INVALID      — non-JSON body, missing fields, unknown paymentMethod, cash/momo/vnpay
+ *   200  ok           — orchestrator success (payUrl); bank_transfer + vnpay
+ *   400  INVALID      — non-JSON body, missing fields, unknown paymentMethod, cash/momo
  *   403  FORBIDDEN    — no cookie OR cookie holdId ≠ body holdId
  *   404  NOT_FOUND    — orchestrator returns hold_not_found
  *   409  CONFLICT     — orchestrator returns hold_expired OR trip_departed
@@ -167,6 +167,25 @@ describe('POST /api/bookings/initiate — happy path', () => {
 
     const call = vi.mocked(initiateOnlineBooking).mock.calls[0]?.[0];
     expect(call?.consentVersion).toBe(CONSENT_VERSION);
+  });
+
+  it('accepts vnpay and threads method=vnpay + clientIp to the orchestrator', async () => {
+    allowRatelimit();
+    matchCookie();
+    mockOnlineOk();
+
+    const res = await POST(
+      makeRequest({
+        body: { holdId: HOLD_ID, paymentMethod: 'vnpay', consents: VALID_CONSENTS },
+        cookie: `bb_hold=signedvalue`,
+        ip: '203.0.113.9',
+      })
+    );
+
+    expect(res.status).toBe(200);
+    const call = vi.mocked(initiateOnlineBooking).mock.calls[0]?.[0];
+    expect(call?.method).toBe('vnpay');
+    expect(call?.clientIp).toBe('203.0.113.9');
   });
 });
 

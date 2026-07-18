@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { authFetch } from '@/lib/auth/clientSession';
 import { CONSENT_TEXT, CONSENT_VERSION } from '@/lib/booking/consent';
+import { cn } from '@/lib/utils';
 
 export interface HoldDetails {
   holdId: string;
@@ -35,6 +36,8 @@ export interface HoldDetails {
 
 interface ReviewClientProps {
   holdDetails: HoldDetails;
+  /** Whether to offer VNPay as a payment option (usable in this env). */
+  showVnpay: boolean;
 }
 
 const ERROR_LABEL: Record<string, string> = {
@@ -49,12 +52,14 @@ const ERROR_LABEL: Record<string, string> = {
   consent_required: 'Vui lòng đồng ý cả hai điều khoản trước khi thanh toán.',
 };
 
-export function ReviewClient({ holdDetails }: ReviewClientProps) {
+export function ReviewClient({ holdDetails, showVnpay }: ReviewClientProps) {
   const { holdId, expiresAt } = holdDetails;
   const { startTimer } = useHoldTimerStore();
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Payment method selection — bank transfer (VietQR/SePay) or VNPay (card/ATM).
+  const [paymentMethod, setPaymentMethod] = useState<'bank_transfer' | 'vnpay'>('bank_transfer');
   // Issue 089: both consents must be accepted before initiate is enabled.
   const [noRefund, setNoRefund] = useState(false);
   const [piiStorage, setPiiStorage] = useState(false);
@@ -79,7 +84,7 @@ export function ReviewClient({ holdDetails }: ReviewClientProps) {
         credentials: 'include',
         body: JSON.stringify({
           holdId,
-          paymentMethod: 'bank_transfer',
+          paymentMethod,
           consents: { noRefund, piiStorage, version: CONSENT_VERSION },
         }),
       });
@@ -110,9 +115,65 @@ export function ReviewClient({ holdDetails }: ReviewClientProps) {
             <CardTitle as="h2">Phương thức thanh toán</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Chuyển khoản ngân hàng (VietQR)
-            </p>
+            {!showVnpay ? (
+              <p className="text-sm text-muted-foreground">
+                Chuyển khoản ngân hàng (VietQR)
+              </p>
+            ) : (
+            <fieldset className="flex flex-col gap-3" disabled={submitting}>
+              <legend className="sr-only">Chọn phương thức thanh toán</legend>
+
+              <label
+                className={cn(
+                  'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+                  paymentMethod === 'bank_transfer'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:border-primary/30'
+                )}
+              >
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="bank_transfer"
+                  checked={paymentMethod === 'bank_transfer'}
+                  onChange={() => setPaymentMethod('bank_transfer')}
+                  disabled={submitting}
+                  className="mt-0.5 size-4 shrink-0 accent-primary"
+                />
+                <span className="flex flex-col gap-0.5">
+                  <span className="text-sm font-medium">Chuyển khoản ngân hàng (VietQR)</span>
+                  <span className="text-sm text-muted-foreground">
+                    Quét mã QR và chuyển khoản, xác nhận tự động trong vài phút
+                  </span>
+                </span>
+              </label>
+
+              <label
+                className={cn(
+                  'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+                  paymentMethod === 'vnpay'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:border-primary/30'
+                )}
+              >
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="vnpay"
+                  checked={paymentMethod === 'vnpay'}
+                  onChange={() => setPaymentMethod('vnpay')}
+                  disabled={submitting}
+                  className="mt-0.5 size-4 shrink-0 accent-primary"
+                />
+                <span className="flex flex-col gap-0.5">
+                  <span className="text-sm font-medium">VNPay (thẻ ATM / thẻ quốc tế / QR)</span>
+                  <span className="text-sm text-muted-foreground">
+                    Bạn sẽ được chuyển đến trang thanh toán của VNPay
+                  </span>
+                </span>
+              </label>
+            </fieldset>
+            )}
           </CardContent>
         </Card>
 

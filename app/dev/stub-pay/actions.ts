@@ -19,7 +19,7 @@ import { getGatewayFor, type OnlinePaymentMethod } from '@/lib/payment';
 import { buildStubIpn, type StubOutcome } from '@/lib/payment';
 import { processPaymentWebhook } from '@/lib/payment';
 
-const STUB_ADAPTERS = new Set<OnlinePaymentMethod>(['momo', 'zalopay', 'card']);
+const STUB_ADAPTERS = new Set<OnlinePaymentMethod>(['momo', 'zalopay', 'card', 'vnpay']);
 
 export async function submitStubPayment(outcome: StubOutcome, formData: FormData): Promise<void> {
   const env = getEnv();
@@ -61,6 +61,21 @@ export async function submitStubPayment(outcome: StubOutcome, formData: FormData
     proto,
     host,
   });
+
+  // VNPay's real redirectUrl is its signature-verifying return route
+  // (/api/payments/vnpay/return), which the browser only reaches WITH signed
+  // vnp_* params VNPay attaches. The stub cannot mint those, so it stands in for
+  // VNPay's return leg directly: the webhook above already set the authoritative
+  // booking state, so we land the browser on the ref-addressed confirmation
+  // (success) or error (fail) page — the same destinations the real return route
+  // resolves to. Other adapters keep their result-page redirectUrl unchanged.
+  if (adapter === 'vnpay') {
+    redirect(
+      outcome === 'success'
+        ? `/booking/confirmation?ref=${encodeURIComponent(orderId)}`
+        : `/booking/payment-error?ref=${encodeURIComponent(orderId)}&reason=stub_fail`
+    );
+  }
 
   redirect(redirectUrl);
 }

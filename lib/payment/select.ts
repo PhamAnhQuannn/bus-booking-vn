@@ -1,10 +1,13 @@
 /**
  * Gateway selector — maps an online payment method to its PaymentGateway.
  *
- * Phase 1 (PAYMENTS_STUB=true or no real PSP creds):
- *   momo    → real MoMo sandbox adapter, UNLESS PAYMENTS_STUB → stub
- *   zalopay → local stub (no real adapter until Phase 2)
- *   card    → local stub (no real adapter until Phase 2)
+ * Routing:
+ *   bank_transfer → real VietQR/SePay adapter (no stub — internal QR flow)
+ *   momo          → real MoMo adapter, UNLESS PAYMENTS_STUB → stub
+ *   vnpay         → real VNPay adapter ONLY when VNPAY_ENABLED && !PAYMENTS_STUB;
+ *                   otherwise stub (VNPAY_ENABLED is the real kill-switch)
+ *   zalopay       → local stub (no real adapter until Phase 2)
+ *   card          → local stub (no real adapter until Phase 2)
  *
  * Phase 2 swaps real zalopay/card adapters in here with no caller change.
  */
@@ -36,7 +39,11 @@ export function getGatewayFor(
     return getMomoAdapter();
   }
 
-  if (method === 'vnpay' && !env.PAYMENTS_STUB) {
+  // VNPAY_ENABLED is the real runtime kill-switch: route to the real VNPay
+  // adapter ONLY when explicitly enabled AND not in stub mode. Left disabled (the
+  // default), vnpay falls through to the stub — so PAYMENTS_STUB=false can never
+  // silently activate real VNPay pointed at sandbox-default credentials.
+  if (method === 'vnpay' && env.VNPAY_ENABLED && !env.PAYMENTS_STUB) {
     return getVnpayAdapter();
   }
 
