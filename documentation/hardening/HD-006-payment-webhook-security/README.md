@@ -131,7 +131,7 @@ VNPay uses HMAC-SHA512 signatures (not bearer token like SePay, not SHA-256 like
 ### Chargeback Workflow & Holdback Reserve
 - [x] **Decision documented (Q1): platform-absorb, no holdback reserve, payouts stay T+1.** VNPay card chargebacks (45-90 day window) are contested with retained evidence (ticket, boarding scan, manifest, consent); on loss the PLATFORM absorbs — operator held harmless. DIVERGES from S15#7 operator-liable default.
 - [x] VNPay has NO push dispute webhook → chargebacks recorded via the admin-manual Finance route (`/api/admin/finance/chargeback`), idempotent on `sourceEventId`. (Existing engine.)
-- [ ] Platform-absorb path implemented in `lib/ledger/chargeback.ts` (operator balance untouched). **PENDING Issue 124.**
+- [x] Platform-absorb path implemented in `lib/ledger/chargeback.ts` (`liability:'platform'` → chargeback −amount + chargeback_platform_absorb +amount, net 0 on operator; guarded to card methods only). (Issue 124.)
 - [ ] Holdback reserve — deliberately NOT built (accepted risk, bounded by low family-operator volume). Revisit if VNPay card volume grows.
 
 ### PSP Fee (MDR) Tracking
