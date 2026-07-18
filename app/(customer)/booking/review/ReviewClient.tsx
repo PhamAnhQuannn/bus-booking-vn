@@ -36,6 +36,8 @@ export interface HoldDetails {
 
 interface ReviewClientProps {
   holdDetails: HoldDetails;
+  /** Whether to offer VNPay as a payment option (usable in this env). */
+  showVnpay: boolean;
 }
 
 const ERROR_LABEL: Record<string, string> = {
@@ -50,7 +52,7 @@ const ERROR_LABEL: Record<string, string> = {
   consent_required: 'Vui lòng đồng ý cả hai điều khoản trước khi thanh toán.',
 };
 
-export function ReviewClient({ holdDetails }: ReviewClientProps) {
+export function ReviewClient({ holdDetails, showVnpay }: ReviewClientProps) {
   const { holdId, expiresAt } = holdDetails;
   const { startTimer } = useHoldTimerStore();
 
@@ -113,6 +115,11 @@ export function ReviewClient({ holdDetails }: ReviewClientProps) {
             <CardTitle as="h2">Phương thức thanh toán</CardTitle>
           </CardHeader>
           <CardContent>
+            {!showVnpay ? (
+              <p className="text-sm text-muted-foreground">
+                Chuyển khoản ngân hàng (VietQR)
+              </p>
+            ) : (
             <fieldset className="flex flex-col gap-3" disabled={submitting}>
               <legend className="sr-only">Chọn phương thức thanh toán</legend>
 
@@ -166,6 +173,7 @@ export function ReviewClient({ holdDetails }: ReviewClientProps) {
                 </span>
               </label>
             </fieldset>
+            )}
           </CardContent>
         </Card>
 

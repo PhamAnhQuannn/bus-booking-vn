@@ -12,6 +12,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { verifyCookieValue } from '@/lib/security';
 import { getHoldDetails } from '@/lib/booking';
+import { getEnv } from '@/lib/config';
 import { ReviewClient } from './ReviewClient';
 
 // Transient checkout step gated by the bb_hold cookie — never indexed.
@@ -48,10 +49,17 @@ export default async function ReviewPage({ searchParams }: ReviewPageProps) {
     redirect('/');
   }
 
+  // Only offer VNPay when it is actually usable: the stub handles it in dev
+  // (PAYMENTS_STUB) OR the real adapter is enabled (VNPAY_ENABLED). When both are
+  // off, vnpay would route to the stub-pay page which refuses — so hide it.
+  const env = getEnv();
+  const showVnpay = env.PAYMENTS_STUB || env.VNPAY_ENABLED;
+
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-8">
       <h1 className="mb-6 text-2xl font-bold">Xem lại đơn hàng</h1>
       <ReviewClient
+        showVnpay={showVnpay}
         holdDetails={{
           holdId,
           tripId: details.tripId,
