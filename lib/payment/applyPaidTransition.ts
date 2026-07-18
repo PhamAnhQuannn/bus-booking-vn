@@ -30,6 +30,8 @@ import {
   appendLedgerEntry,
   getEffectiveFeeRate,
   calcPlatformFeeMinor,
+  applyFeePpm,
+  VNPAY_MDR_PPM,
 } from '@/lib/ledger';
 
 export interface PaidTransitionResult {
@@ -132,18 +134,32 @@ export async function applyPaidStatusTransition(
 }
 
 /**
- * Append the two booking-paid ledger entries inside the caller's tx:
+ * Append the booking-paid ledger entries inside the caller's tx:
  *   booking_credit = +gross  (full fare credited to the operator)
  *   platform_fee   = −fee    (the platform's cut)
+ *   psp_fee        = −mdr     (VNPay ONLY — the PSP's MDR cut; Issue 123)
+ *
+ * psp_fee is PLATFORM-FLOAT: it is EXCLUDED from the operator balance
+ * (OPERATOR_BALANCE_TYPES in lib/ledger/balance.ts does NOT list it, exactly like
+ * refund_out), so the operator is kept whole — VNPay's fee comes out of the
+ * platform's margin, not the operator's. The entry exists purely so the platform
+ * can measure its per-booking VNPay cost. Written ONLY when adapter === 'vnpay'.
  *
  * Idempotent via per-booking `sourceEventId`s. Call ONLY after a successful
  * (rowcount 1) paid transition so a replay never re-appends.
  */
 export async function appendBookingPaidLedger(
   tx: Prisma.TransactionClient,
-  input: { operatorId: string; bookingId: string; grossVnd: number; now: Date }
+  input: {
+    operatorId: string;
+    bookingId: string;
+    grossVnd: number;
+    now: Date;
+    /** Payment adapter/method — 'vnpay' additionally writes a psp_fee entry. */
+    adapter: string;
+  }
 ): Promise<void> {
-  const { operatorId, bookingId, grossVnd, now } = input;
+  const { operatorId, bookingId, grossVnd, now, adapter } = input;
   const gross = BigInt(grossVnd);
   const feePpm = await getEffectiveFeeRate(operatorId, now, tx);
   const fee = calcPlatformFeeMinor(gross, feePpm);
@@ -170,4 +186,22 @@ export async function appendBookingPaidLedger(
     },
     tx
   );
+
+  // Issue 123: VNPay MDR cost as a platform-float psp_fee entry (negative =
+  // money the platform pays VNPay). BigInt via applyFeePpm (floor). Excluded
+  // from operator balance, so it never touches operator-owed money.
+  if (adapter === 'vnpay') {
+    const pspFee = applyFeePpm(gross, VNPAY_MDR_PPM);
+    await appendLedgerEntry(
+      {
+        operatorId,
+        bookingId,
+        type: 'psp_fee',
+        amountMinor: -pspFee,
+        currency: 'VND',
+        sourceEventId: `psp_fee:${bookingId}`,
+      },
+      tx
+    );
+  }
 }

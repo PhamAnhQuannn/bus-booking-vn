@@ -165,6 +165,8 @@ export async function createCashBooking(
           bookingId,
           grossVnd: totalVnd,
           now: new Date(),
+          // Cash bookings incur no PSP fee.
+          adapter: 'cash',
         });
 
         return {

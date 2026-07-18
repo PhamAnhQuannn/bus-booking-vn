@@ -36,6 +36,10 @@
  *                              customer. It is paired with a refund_debit that
  *                              ALREADY claws the credit from the operator balance.
  *                              Counting refund_out too would DOUBLE-subtract.)
+ *   psp_fee           EXCLUDED (PLATFORM-FLOAT, Issue 123: the VNPay MDR cost the
+ *                              platform pays. The operator is kept whole — VNPay's
+ *                              fee comes out of platform margin, not operator
+ *                              balance. Tracked only for platform cost reporting.)
  *
  * `OPERATOR_BALANCE_TYPES` below is the single source of that inclusion set and
  * is injected into the bucket SQL as an explicit IN-list. This MUST be an
@@ -74,10 +78,11 @@ import { SETTLEMENT_DELAY_SQL_INTERVAL } from './constants';
 
 /**
  * The EXPLICIT set of LedgerEntry types that count toward the OPERATOR balance
- * (Issue 051). `refund_out` is deliberately absent — it is platform-float cash,
- * already accounted for on the operator side by its paired `refund_debit`.
+ * (Issue 051). `refund_out` AND `psp_fee` (Issue 123) are deliberately absent —
+ * both are platform-float (refund_out already accounted via its paired
+ * refund_debit; psp_fee is the platform's own VNPay MDR cost, never operator-owed).
  * Injected into the bucket SQL as an IN-list (never a `<> payout_debit`
- * negation, which would leak refund_out in and double-subtract refunds).
+ * negation, which would leak platform-float types in and corrupt the balance).
  */
 export const OPERATOR_BALANCE_TYPES = [
   'booking_credit',

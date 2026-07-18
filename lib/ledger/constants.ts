@@ -34,3 +34,17 @@ export const SETTLEMENT_DELAY_DAYS = 1;
 
 /** SQL interval literal for the T+1 settlement delay used in the balance bucket. */
 export const SETTLEMENT_DELAY_SQL_INTERVAL = "1 day";
+
+/**
+ * VNPay MDR (Merchant Discount Rate) in parts-per-million, for the `psp_fee`
+ * platform-float ledger entry written on a paid VNPay booking (Issue 123).
+ * ppm encoding keeps the fee computation in the BigInt domain (see applyFeePpm).
+ *
+ * 11000 ppm = 1.1%. This is a PLACEHOLDER — VNPay's real per-transaction MDR
+ * comes from the signed merchant contract (typically 0.5–2% by card type).
+ *
+ * TODO: replace with the real VNPay contract rate before go-live. A FeeConfig-
+ * style effective-dated store (à la platform fee) is the eventual home; a const
+ * is the bootstrap.
+ */
+export const VNPAY_MDR_PPM = 11000;

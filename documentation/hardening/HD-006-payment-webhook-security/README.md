@@ -135,7 +135,7 @@ VNPay uses HMAC-SHA512 signatures (not bearer token like SePay, not SHA-256 like
 - [ ] Holdback reserve — deliberately NOT built (accepted risk, bounded by low family-operator volume). Revisit if VNPay card volume grows.
 
 ### PSP Fee (MDR) Tracking
-- [ ] VNPay MDR recorded as a `psp_fee` ledger entry — **platform-float, EXCLUDED from operator balance** (operator stays whole), mirroring `refund_out` exclusion. BigInt math. Placeholder rate 1.1%. **PENDING Issue 123.**
+- [x] VNPay MDR recorded as a `psp_fee` ledger entry — **platform-float, EXCLUDED from operator balance** (operator stays whole), mirroring `refund_out` exclusion. BigInt math (`applyFeePpm`). Placeholder rate `VNPAY_MDR_PPM=11000` (1.1%). Reported via `sumPspFees`. (Issue 123.)
 
 ### FAILURE_RESULT_CODES Discipline (Mistake Log Issue 004)
 - [x] `VNPAY_FAILURE_CODES` / `VNPAY_PENDING_CODES` / `VNPAY_SUCCESS_CODE` pinned in `vnpay.ts`; `classifyVnpayStatus` tested for every code + an unmapped→`unknown`. No vendor-doc superset.

@@ -874,6 +874,7 @@ enum LedgerEntryType {
   chargeback
   adjustment
   tax_withheld
+  psp_fee
 }
 
 /// Issue 047: append-only, immutable money ledger. One row per money event.

@@ -127,6 +127,9 @@ describe('reconcilePayments (a) confirming linked event → paid', () => {
       bookingId: baseBooking().id,
       grossVnd: 200000,
       now: NOW,
+      // Issue 123: adapter comes from the CONFIRMING event's rail (here 'momo'),
+      // so a sweeper-resolved VNPay booking would correctly record its psp_fee.
+      adapter: 'momo',
     });
     // Two pending notices (customer + operator) written through the tx.
     expect(tx.notificationLog.create).toHaveBeenCalledTimes(2);
