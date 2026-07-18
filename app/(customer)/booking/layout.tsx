@@ -5,8 +5,9 @@
  *
  * Checks bookingStore.tripId on mount for the pre-booking flow (customer-info).
  * Confirmation (`/booking/confirmation/:token`), result (`/booking/result/:token`),
- * bank-transfer (`/booking/bank-transfer`), and review (`/booking/review`) pages
- * are reachable via SMS/email link, the payment redirect, or a restored tab with
+ * bank-transfer (`/booking/bank-transfer`), review (`/booking/review`), and the
+ * VNPay return pages (`/booking/payment-pending`, `/booking/payment-error`) are
+ * reachable via SMS/email link, the payment redirect, or a restored tab with
  * no prior session state — they MUST bypass the tripId guard. Each of those
  * routes re-verifies its own access key server-side (confirmationToken / bb_hold
  * cookie), so the token/cookie in the URL is itself the access key, not the
@@ -35,6 +36,10 @@ const TOKEN_LANDING_PREFIXES = [
   '/booking/result',
   '/booking/bank-transfer',
   '/booking/review',
+  // VNPay return destinations — reached via the payment redirect with no client
+  // store state; each reads its own ?ref= / server data, so bypass the tripId guard.
+  '/booking/payment-pending',
+  '/booking/payment-error',
 ];
 
 export default function BookingLayout({ children }: { children: React.ReactNode }) {

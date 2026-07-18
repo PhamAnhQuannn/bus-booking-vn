@@ -1,12 +1,12 @@
 /**
  * POST /api/bookings/initiate — online payment initiation.
  *
- * Phase 1: bank_transfer only. MoMo/VNPay/ZaloPay/card rejected at Zod layer.
- * Expand the paymentMethod enum when enabling additional PSPs.
+ * Enabled methods: bank_transfer (VietQR/SePay) + vnpay (domestic card/ATM).
+ * MoMo/ZaloPay/card rejected at the Zod layer. Expand the enum for more PSPs.
  *
  * Pipeline:
  *   1. Rate-limit by IP (429 + Retry-After)
- *   2. Parse + validate body — { holdId, paymentMethod: 'bank_transfer' } (400 INVALID)
+ *   2. Parse + validate body — { holdId, paymentMethod: 'bank_transfer'|'vnpay' } (400 INVALID)
  *   3. Verify bb_hold cookie matches body.holdId (403 FORBIDDEN)
  *   4. initiateOnlineBooking(method) → { bookingId, payUrl }
  *   5. Map orchestrator result to HTTP status
@@ -32,8 +32,9 @@ import { track, sessionIdFromRequest } from '@/lib/analytics';
 
 const initiateInputSchema = z.object({
   holdId: z.string().min(1).max(128),
-  // Phase 1: bank transfer only. Expand enum when enabling MoMo/VNPay/ZaloPay.
-  paymentMethod: z.enum(['bank_transfer']),
+  // Online methods enabled: bank transfer (VietQR/SePay) + VNPay (domestic card/ATM).
+  // MoMo/ZaloPay/card remain gated. Expand the enum as further PSPs ship.
+  paymentMethod: z.enum(['bank_transfer', 'vnpay']),
   // Issue 089: checkout consent block. Shape-validated here; the value gate
   // (both true + matching version) is enforced below so the failure surfaces as
   // 422 consent_required, not a generic 400 INVALID.
@@ -98,7 +99,7 @@ async function handler(req: NextRequest): Promise<Response> {
   const baseUrl = `${proto}://${host}`;
 
   // ---------------------------------------------------------------------------
-  // Online path — Phase 1: bank_transfer only
+  // Online path — bank_transfer (VietQR) + vnpay (card/ATM)
   // ---------------------------------------------------------------------------
   const result = await initiateOnlineBooking({
     holdId,
@@ -106,6 +107,7 @@ async function handler(req: NextRequest): Promise<Response> {
     method: paymentMethod,
     customerId,
     consentVersion: consents.version,
+    clientIp: ip,
   });
 
   if (result.ok) {

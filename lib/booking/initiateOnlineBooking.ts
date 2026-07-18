@@ -1,7 +1,8 @@
 /**
  * initiateOnlineBooking — orchestrates every online (pay-first) booking flow:
- * momo | zalopay | card. Generalised from the original MoMo orchestrator so a
- * single code path drives all gateways (real MoMo sandbox or local stub).
+ * momo | zalopay | card | vnpay | bank_transfer. Generalised from the original
+ * MoMo orchestrator so a single code path drives all gateways (real PSP, VNPay,
+ * VietQR bank transfer, or local stub).
  *
  * Pipeline:
  *   1. Validate hold exists (fetches with trip → route)
@@ -58,6 +59,12 @@ export interface InitiateOnlineBookingInput {
    * getGatewayFor(method, baseUrl) which reads env vars.
    */
   gateway?: PaymentGateway;
+  /**
+   * Buyer's client IP (from the initiate route). Passed to the gateway's
+   * createPayment for fraud/logging — VNPay signs it into vnp_IpAddr. Optional;
+   * adapters fall back to a placeholder when absent.
+   */
+  clientIp?: string;
 }
 
 export type InitiateOnlineBookingResult =
@@ -77,7 +84,7 @@ export type InitiateOnlineBookingResult =
 export async function initiateOnlineBooking(
   input: InitiateOnlineBookingInput
 ): Promise<InitiateOnlineBookingResult> {
-  const { holdId, baseUrl, method, customerId = null, consentVersion } = input;
+  const { holdId, baseUrl, method, customerId = null, consentVersion, clientIp } = input;
   const gateway = input.gateway ?? getGatewayFor(method, baseUrl);
 
   const hold = await prisma.hold.findUnique({
@@ -181,7 +188,13 @@ export async function initiateOnlineBooking(
 
   // Booking row exists — now call the payment gateway
   const ipnUrl = `${baseUrl}/api/payments/${method}/webhook`;
-  const redirectUrl = `${baseUrl}/booking/result/${confirmationToken}`;
+  // VNPay redirects the browser to its own return route (signature-verifying,
+  // then redirects on to confirmation/pending/error). Every other method returns
+  // straight to the canonical result page.
+  const redirectUrl =
+    method === 'vnpay'
+      ? `${baseUrl}/api/payments/vnpay/return`
+      : `${baseUrl}/booking/result/${confirmationToken}`;
   const routeLabel = `${hold.trip.route.origin} - ${hold.trip.route.destination}`;
 
   const gatewayResult = await gateway.createPayment({
@@ -191,6 +204,7 @@ export async function initiateOnlineBooking(
     ipnUrl,
     redirectUrl,
     requestId: bookingId,
+    clientIp,
   });
 
   if (!gatewayResult.ok) {
