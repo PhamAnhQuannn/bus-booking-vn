@@ -125,8 +125,8 @@ VNPay uses HMAC-SHA512 signatures (not bearer token like SePay, not SHA-256 like
 ### PSP Credential Management (VNPay `tmnCode` / `hashSecret`)
 - [x] `hashSecret` never passed to `logger.*` (only into `hmacSha512`); raw webhook body never logged. (True in current `vnpay.ts`.)
 - [x] `VNPAY_ENABLED=true` boot-guard rejects sandbox-default `TMN_CODE`/`HASH_SECRET` (`env.ts` superRefine — already present).
-- [ ] `VNPAY_HASH_SECRET` + `VNPAY_TMN_CODE` added to the logger redact list (`lib/logger.ts`) — defense-in-depth, matching SePay/eSMS/MISA convention. **PENDING Issue 122.**
-- [ ] `VNPAY_ENABLED` wired as the real runtime kill-switch in `select.ts` (today `select.ts` gates only on `PAYMENTS_STUB`). **PENDING Issue 122.**
+- [x] `VNPAY_HASH_SECRET` + `VNPAY_TMN_CODE` added to the logger redact list (`lib/logger.ts`) — defense-in-depth, matching SePay/eSMS/MISA convention. (Issue 122.)
+- [x] `VNPAY_ENABLED` wired as the real runtime kill-switch in `select.ts` — routes real VNPay only when `VNPAY_ENABLED && !PAYMENTS_STUB`, else stub. (Issue 122.)
 
 ### Chargeback Workflow & Holdback Reserve
 - [x] **Decision documented (Q1): platform-absorb, no holdback reserve, payouts stay T+1.** VNPay card chargebacks (45-90 day window) are contested with retained evidence (ticket, boarding scan, manifest, consent); on loss the PLATFORM absorbs — operator held harmless. DIVERGES from S15#7 operator-liable default.
