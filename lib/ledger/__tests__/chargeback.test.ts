@@ -89,7 +89,7 @@ describe('recordChargeback — pre-payout', () => {
       sourceEventId: 'dispute-abc',
     });
 
-    expect(res).toEqual({ recorded: true, alreadyDone: false, backstopped: 0 });
+    expect(res).toEqual({ recorded: true, alreadyDone: false, backstopped: 0, platformAbsorbed: 0 });
 
     const cb = callFor('chargeback');
     expect(cb).toMatchObject({
@@ -132,7 +132,7 @@ describe('recordChargeback — post-payout', () => {
       amountMinor: 200_000,
       sourceEventId: 'dispute-xyz',
     });
-    expect(res).toEqual({ recorded: true, alreadyDone: false, backstopped: 0 });
+    expect(res).toEqual({ recorded: true, alreadyDone: false, backstopped: 0, platformAbsorbed: 0 });
 
     const pr = callFor('payout_reversal');
     const cb = callFor('chargeback');
@@ -270,7 +270,7 @@ describe('recordChargeback — idempotency', () => {
       amountMinor: 200_000,
       sourceEventId: 'dispute-replay',
     });
-    expect(res).toEqual({ recorded: false, alreadyDone: true, backstopped: 0 });
+    expect(res).toEqual({ recorded: false, alreadyDone: true, backstopped: 0, platformAbsorbed: 0 });
     expect(append).not.toHaveBeenCalled();
   });
 
@@ -305,5 +305,65 @@ describe('recordChargeback — validation', () => {
     await expect(
       recordChargeback({ bookingId: 'bk-1', amountMinor: 1.5, sourceEventId: 'k' })
     ).rejects.toMatchObject({ code: 'invalid_amount' });
+  });
+});
+
+describe('recordChargeback — platform-absorb (Issue 124)', () => {
+  const VNPAY_BOOKING = { ...BOOKING, paymentMethod: 'vnpay' };
+
+  it('writes chargeback −amount + chargeback_platform_absorb +amount (net 0), platformAbsorbed=amount', async () => {
+    bookingFind.mockResolvedValueOnce(VNPAY_BOOKING);
+    const res = await recordChargeback({
+      bookingId: 'bk-1',
+      amountMinor: 200_000,
+      sourceEventId: 'vnpay-dispute-1',
+      liability: 'platform',
+    });
+
+    expect(res).toEqual({ recorded: true, alreadyDone: false, backstopped: 0, platformAbsorbed: 200_000 });
+
+    const cb = callFor('chargeback');
+    const absorb = append.mock.calls.find(
+      (c) => c[0].sourceEventId === 'chargeback_platform_absorb:vnpay-dispute-1'
+    )?.[0];
+    expect(cb?.amountMinor).toBe(BigInt(-200_000));
+    expect(cb?.sourceEventId).toBe('chargeback:vnpay-dispute-1');
+    expect(absorb?.type).toBe('adjustment');
+    expect(absorb?.amountMinor).toBe(BigInt(200_000));
+
+    // Net zero across the two legs → operator held harmless.
+    const net = append.mock.calls.reduce((acc, c) => acc + (c[0].amountMinor as bigint), BigInt(0));
+    expect(net).toBe(BigInt(0));
+
+    // Platform path skips operator-liable machinery entirely.
+    expect(callFor('payout_reversal')).toBeUndefined();
+    expect(balance).not.toHaveBeenCalled(); // no backstop sizing
+    expect(payoutFindFirst).not.toHaveBeenCalled(); // no post-payout detection
+  });
+
+  it('rejects platform-absorb for a non-card (bank_transfer) booking', async () => {
+    bookingFind.mockResolvedValueOnce({ ...BOOKING, paymentMethod: 'bank_transfer' });
+    await expect(
+      recordChargeback({
+        bookingId: 'bk-1',
+        amountMinor: 200_000,
+        sourceEventId: 'bt-dispute',
+        liability: 'platform',
+      })
+    ).rejects.toMatchObject({ code: 'platform_absorb_requires_card' });
+    expect(append).not.toHaveBeenCalled();
+  });
+
+  it('replay of a platform chargeback → alreadyDone, no new entries', async () => {
+    bookingFind.mockResolvedValueOnce(VNPAY_BOOKING);
+    ledgerFind.mockResolvedValueOnce({ id: 'existing-cb' });
+    const res = await recordChargeback({
+      bookingId: 'bk-1',
+      amountMinor: 200_000,
+      sourceEventId: 'vnpay-dispute-1',
+      liability: 'platform',
+    });
+    expect(res).toEqual({ recorded: false, alreadyDone: true, backstopped: 0, platformAbsorbed: 0 });
+    expect(append).not.toHaveBeenCalled();
   });
 });

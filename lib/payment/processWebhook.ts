@@ -253,6 +253,8 @@ export async function processPaymentWebhook(
             bookingId: booking.id,
             grossVnd: booking.totalVnd,
             now: new Date(),
+            // Issue 123: 'vnpay' additionally writes a platform-float psp_fee entry.
+            adapter,
           });
 
           // Issue 100: for an oversold booking, the booking is already `refunded`

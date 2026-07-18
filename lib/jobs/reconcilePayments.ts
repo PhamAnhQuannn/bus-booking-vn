@@ -330,6 +330,11 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
           bookingId: booking.id,
           grossVnd: booking.totalVnd,
           now,
+          // Issue 123: use the CONFIRMING event's rail (the one that actually
+          // charged the MDR), not a hardcoded literal — the sweeper resolves stuck
+          // bookings for ANY method, so a sweeper-resolved VNPay booking must still
+          // record its psp_fee.
+          adapter: confirming.adapter,
         });
 
         // Enqueue the paid-confirmation notices (Issue 058 — pending only). The

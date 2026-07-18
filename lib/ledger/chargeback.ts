@@ -102,8 +102,18 @@ export interface RecordChargebackInput {
    * Dispute-event idempotency key (e.g. the PSP dispute id). DISTINCT per dispute.
    * The (up to 3) ledger sourceEventIds are DERIVED from it:
    *   chargeback:<key>  payout_reversal:<key>  chargeback_backstop:<key>
+   *   (platform-absorb path: chargeback:<key> + chargeback_platform_absorb:<key>)
    */
   sourceEventId: string;
+  /**
+   * Who bears the disputed funds. Default 'operator' (S15#7 — operator liable,
+   * platform bad-debt backstop only for the uncoverable shortfall).
+   *
+   * 'platform' = PLATFORM-ABSORB (Issue 124, Q1): the platform eats the FULL
+   * disputed amount and the operator is held harmless (balance UNCHANGED). Used
+   * for VNPay card chargebacks so operators aren't punished for card disputes.
+   */
+  liability?: 'operator' | 'platform';
 }
 
 export interface RecordChargebackResult {
@@ -117,6 +127,13 @@ export interface RecordChargebackResult {
    * the clawback. Undefined-safe: always a number on a recorded call, 0 on replay.
    */
   backstopped: number;
+  /**
+   * Full amount absorbed by the platform via the `chargeback_platform_absorb:<key>`
+   * adjustment when liability==='platform' (Issue 124). 0 for the operator-liable
+   * path. This is distinct from `backstopped` (which is only the uncoverable
+   * shortfall on the operator-liable path).
+   */
+  platformAbsorbed: number;
 }
 
 export class ChargebackError extends Error {
@@ -136,7 +153,7 @@ export class ChargebackError extends Error {
 export async function recordChargeback(
   input: RecordChargebackInput
 ): Promise<RecordChargebackResult> {
-  const { bookingId, amountMinor, sourceEventId } = input;
+  const { bookingId, amountMinor, sourceEventId, liability = 'operator' } = input;
 
   if (!Number.isInteger(amountMinor) || amountMinor <= 0) {
     throw new ChargebackError('invalid_amount');
@@ -145,6 +162,7 @@ export async function recordChargeback(
   const chargebackSourceId = `chargeback:${sourceEventId}`;
   const payoutReversalSourceId = `payout_reversal:${sourceEventId}`;
   const backstopSourceId = `chargeback_backstop:${sourceEventId}`;
+  const platformAbsorbSourceId = `chargeback_platform_absorb:${sourceEventId}`;
 
   // 1. Resolve booking → operatorId + tripId (for the post-payout check).
   const booking = await prisma.booking.findUnique({
@@ -152,12 +170,21 @@ export async function recordChargeback(
     select: {
       id: true,
       tripId: true,
+      paymentMethod: true,
       trip: { select: { bus: { select: { operatorId: true } } } },
     },
   });
   if (!booking) throw new ChargebackError('booking_not_found');
   const operatorId = booking.trip.bus.operatorId;
   const tripId = booking.tripId;
+
+  // Guard (Issue 124): platform-absorb is ONLY for card-network chargebacks (VNPay).
+  // Push rails (bank_transfer, cash) have NO involuntary chargeback (no pull-back —
+  // HD-006), so marking one platform-absorb would give money away outside the Q1
+  // scope. Reject rather than silently override the operator-liable default.
+  if (liability === 'platform' && booking.paymentMethod !== 'vnpay') {
+    throw new ChargebackError('platform_absorb_requires_card');
+  }
 
   // 2. Layer-1 idempotency: if the chargeback row already exists for this key,
   //    the dispute was already recorded — short-circuit, write nothing.
@@ -170,7 +197,49 @@ export async function recordChargeback(
       { bookingId, sourceEventId },
       'chargeback.already_done — short-circuit, no new entries'
     );
-    return { recorded: false, alreadyDone: true, backstopped: 0 };
+    return { recorded: false, alreadyDone: true, backstopped: 0, platformAbsorbed: 0 };
+  }
+
+  // ── PLATFORM-ABSORB (Issue 124, Q1) — operator held harmless ────────────────
+  // SPEC DIVERGENCE from S15#7 (operator-liable default): for VNPay card
+  // chargebacks the PLATFORM eats the full disputed amount so operators aren't
+  // punished for card disputes they didn't cause. We write two operator-scoped
+  // legs that NET TO ZERO on the operator balance:
+  //   chargeback                (−amount)  — records the reversal
+  //   adjustment (platform_absorb, +amount) — platform injects the offset
+  // NET = 0 → operator balance UNCHANGED (whole). The +amount adjustment, tagged
+  // by its `chargeback_platform_absorb:` sourceEventId prefix, IS the platform's
+  // bad-debt for this dispute (summable for the Finance tab). No pre/post-payout
+  // distinction and no backstop: the operator never bears any of it, in any state.
+  if (liability === 'platform') {
+    const amount = BigInt(amountMinor);
+    await prisma.$transaction(async (tx) => {
+      await appendLedgerEntry(
+        {
+          operatorId,
+          bookingId,
+          type: 'chargeback' satisfies LedgerEntryType,
+          amountMinor: -amount,
+          sourceEventId: chargebackSourceId,
+        },
+        tx
+      );
+      await appendLedgerEntry(
+        {
+          operatorId,
+          bookingId,
+          type: 'adjustment' satisfies LedgerEntryType,
+          amountMinor: amount, // +amount offset — operator net 0; platform eats it
+          sourceEventId: platformAbsorbSourceId,
+        },
+        tx
+      );
+    });
+    logger.info(
+      { bookingId, sourceEventId, amountMinor, liability: 'platform' },
+      'chargeback.recorded — platform-absorb, operator held harmless'
+    );
+    return { recorded: true, alreadyDone: false, backstopped: 0, platformAbsorbed: amountMinor };
   }
 
   // 3. Post-payout detection (documented heuristic). The credit is "already paid
@@ -280,7 +349,7 @@ export async function recordChargeback(
     'chargeback.recorded'
   );
 
-  return { recorded: true, alreadyDone: false, backstopped: Number(shortfall) };
+  return { recorded: true, alreadyDone: false, backstopped: Number(shortfall), platformAbsorbed: 0 };
 }
 
 /**
@@ -313,6 +382,8 @@ export async function listChargebacks(operatorId?: string): Promise<DisputeEntry
         { type: 'payout_reversal' },
         // platform bad-debt backstops are `adjustment` rows tagged by prefix.
         { type: 'adjustment', sourceEventId: { startsWith: 'chargeback_backstop:' } },
+        // Issue 124: platform-absorb offsets are `adjustment` rows tagged by prefix.
+        { type: 'adjustment', sourceEventId: { startsWith: 'chargeback_platform_absorb:' } },
       ],
     },
     orderBy: { createdAt: 'desc' },

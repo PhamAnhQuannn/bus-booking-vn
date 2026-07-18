@@ -27,7 +27,7 @@
 | [10-setup-resend.md](10-setup-resend.md) | Transactional email (customer OTP, confirmations) | Customer auth 410 gate lifted |
 | [11-setup-misa.md](11-setup-misa.md) | E-invoice (Decree 123/2020) | ERC obtained + tax registration |
 | [12-setup-momo.md](12-setup-momo.md) | MoMo e-wallet payment | Multi-payment Phase 2 |
-| [13-setup-vnpay.md](13-setup-vnpay.md) | VNPay domestic card/ATM | Multi-payment Phase 2 |
+| [13-setup-vnpay.md](13-setup-vnpay.md) | VNPay domestic card/ATM — **code active, offered alongside bank transfer** | Set `VNPAY_ENABLED=true` + real creds. ⚠️ requires real SePay + VietQR too (coupling — `PAYMENTS_STUB=false` forces both). See the guide's HITL checklist. |
 
 ## Supplementary
 

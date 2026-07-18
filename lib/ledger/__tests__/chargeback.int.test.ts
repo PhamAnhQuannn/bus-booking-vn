@@ -215,7 +215,7 @@ describe('Issue 052 — pre-payout chargeback', () => {
       amountMinor: GROSS,
       sourceEventId: 'dispute-pre-1',
     });
-    expect(res).toEqual({ recorded: true, alreadyDone: false, backstopped: 0 });
+    expect(res).toEqual({ recorded: true, alreadyDone: false, backstopped: 0, platformAbsorbed: 0 });
 
     const cb = await prisma.ledgerEntry.findUnique({
       where: { sourceEventId: 'chargeback:dispute-pre-1' },
@@ -277,7 +277,7 @@ describe('Issue 052 — post-payout chargeback', () => {
       amountMinor: GROSS,
       sourceEventId: 'dispute-post-1', // same key
     });
-    expect(res).toEqual({ recorded: false, alreadyDone: true, backstopped: 0 });
+    expect(res).toEqual({ recorded: false, alreadyDone: true, backstopped: 0, platformAbsorbed: 0 });
 
     expect(
       await prisma.ledgerEntry.count({

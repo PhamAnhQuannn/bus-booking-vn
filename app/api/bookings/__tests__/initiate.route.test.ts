@@ -47,7 +47,16 @@ vi.mock('@/lib/analytics/track', () => ({
 // so the import doesn't construct the real Pool (no DATABASE_URL in unit env).
 vi.mock('@/lib/core/db/client', () => ({ prisma: { customer: { findUnique: vi.fn() } } }));
 
+// The route reads getEnv for the VNPay availability gate. Default the mock to a
+// stub-enabled env (PAYMENTS_STUB=true) so vnpay is usable; a specific test
+// overrides it to the bank-transfer-only prod config to assert the 400 gate.
+vi.mock('@/lib/config', async (importOriginal) => ({
+  ...(await importOriginal()),
+  getEnv: vi.fn(() => ({ PAYMENTS_STUB: true, VNPAY_ENABLED: false })),
+}));
+
 import { POST } from '../initiate/route';
+import { getEnv } from '@/lib/config';
 import { initiateOnlineBooking } from '@/lib/booking';
 import { extractHoldCookie } from '@/lib/security';
 import { ratelimit } from '@/lib/ratelimit';
@@ -331,6 +340,25 @@ describe('POST /api/bookings/initiate — input validation', () => {
 
     expect(res.status).toBe(400);
     expect(json.error).toBe('INVALID');
+  });
+
+  it('rejects vnpay with 400 INVALID when VNPay is not usable (PAYMENTS_STUB=false, VNPAY_ENABLED=false)', async () => {
+    allowRatelimit();
+    matchCookie();
+    vi.mocked(getEnv).mockReturnValueOnce({ PAYMENTS_STUB: false, VNPAY_ENABLED: false } as never);
+
+    const res = await POST(
+      makeRequest({
+        body: { holdId: HOLD_ID, paymentMethod: 'vnpay', consents: VALID_CONSENTS },
+        cookie: `bb_hold=signedvalue`,
+      })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error).toBe('INVALID');
+    // Server rejects BEFORE creating a booking / consuming the hold (no orphan).
+    expect(initiateOnlineBooking).not.toHaveBeenCalled();
   });
 
   it('rejects momo with 400 INVALID (Phase 1: bank_transfer only)', async () => {

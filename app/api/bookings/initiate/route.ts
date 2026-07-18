@@ -25,6 +25,7 @@ import { initiateOnlineBooking } from '@/lib/booking';
 import { CONSENT_VERSION } from '@/lib/booking';
 import { extractHoldCookie } from '@/lib/security';
 import { getCustomerOptional } from '@/lib/auth';
+import { getEnv } from '@/lib/config';
 import { ratelimit } from '@/lib/ratelimit';
 import { clientIp } from '@/lib/core/http/clientIp';
 import { withErrorHandler } from '@/lib/withErrorHandler';
@@ -80,6 +81,19 @@ async function handler(req: NextRequest): Promise<Response> {
     consents.version !== CONSENT_VERSION
   ) {
     return NextResponse.json({ error: 'consent_required' }, { status: 422 });
+  }
+
+  // Server-side VNPay availability gate — MIRRORS the UI's `showVnpay`
+  // (app/(customer)/booking/review/page.tsx): VNPay is only usable when the stub
+  // handles it (PAYMENTS_STUB) OR real VNPay is enabled (VNPAY_ENABLED). Without
+  // this, a direct API call with paymentMethod='vnpay' in the bank-transfer-only
+  // prod config would route to the stub adapter → /dev/stub-pay (which 404s when
+  // PAYMENTS_STUB is off) after creating an orphan booking + consuming the hold.
+  if (paymentMethod === 'vnpay') {
+    const env = getEnv();
+    if (!env.PAYMENTS_STUB && !env.VNPAY_ENABLED) {
+      return NextResponse.json({ error: 'INVALID' }, { status: 400 });
+    }
   }
 
   const verified = extractHoldCookie(req.headers.get('cookie'));

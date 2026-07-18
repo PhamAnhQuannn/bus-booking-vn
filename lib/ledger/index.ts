@@ -62,11 +62,16 @@ export {
 } from './refund';
 
 // Issue 050: ledger-domain constants (withdrawal floor, settlement delay).
+// Issue 123: VNPAY_MDR_PPM — VNPay MDR rate for the psp_fee platform-float entry.
 export {
   MIN_WITHDRAW_THRESHOLD_VND,
   SETTLEMENT_DELAY_DAYS,
   SETTLEMENT_DELAY_SQL_INTERVAL,
+  VNPAY_MDR_PPM,
 } from './constants';
+
+// Issue 123: VNPay PSP-fee (MDR) reporting — sum of psp_fee platform-float entries.
+export { sumPspFees } from './pspFees';
 
 // Issue 053: on-demand operator withdrawal — creates a (requested) non-trip-scoped
 // Payout + sweep-aligned payout_debit; FOR-UPDATE-serialised, replay-idempotent.

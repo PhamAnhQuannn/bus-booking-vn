@@ -28,6 +28,9 @@ const bodySchema = z.object({
   bookingId: z.string().min(1),
   amountMinor: z.number().int().positive(),
   sourceEventId: z.string().min(1).optional(),
+  // Issue 124: 'platform' = platform-absorb (VNPay, operator held harmless).
+  // Defaults to 'operator' (S15#7) when omitted.
+  liability: z.enum(['operator', 'platform']).optional(),
 });
 
 async function handler(req: NextRequest, ctx: AdminAuthContext): Promise<Response> {
@@ -46,6 +49,7 @@ async function handler(req: NextRequest, ctx: AdminAuthContext): Promise<Respons
       bookingId: body.data.bookingId,
       amountMinor: body.data.amountMinor,
       sourceEventId,
+      liability: body.data.liability,
     });
 
     await writeAdminAuditLog(prisma, {
@@ -55,9 +59,11 @@ async function handler(req: NextRequest, ctx: AdminAuthContext): Promise<Respons
       argsRedacted: JSON.stringify({
         amountMinor: body.data.amountMinor,
         sourceEventId,
+        liability: body.data.liability ?? 'operator',
         recorded: result.recorded,
         alreadyDone: result.alreadyDone,
         backstopped: result.backstopped,
+        platformAbsorbed: result.platformAbsorbed,
       }),
     });
 
@@ -65,6 +71,7 @@ async function handler(req: NextRequest, ctx: AdminAuthContext): Promise<Respons
       recorded: result.recorded,
       alreadyDone: result.alreadyDone,
       backstopped: result.backstopped,
+      platformAbsorbed: result.platformAbsorbed,
     });
   } catch (e) {
     if (e instanceof ChargebackError) {
