@@ -202,7 +202,8 @@ export function SearchFilterRail({ facets }: { facets: TripFacets }) {
   const s = useFilterState();
   return (
     <aside className="hidden md:block" aria-label="Bộ lọc chuyến xe">
-      <div className="sticky top-20 rounded-xl border border-border bg-card p-4 shadow-e1">
+      {/* Offsets track SiteHeader's height (h-18 / lg:h-24) plus 8px breathing room. */}
+      <div className="sticky top-20 rounded-xl border border-border bg-card p-4 shadow-e1 lg:top-[104px]">
         <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold">
           <SlidersHorizontal className="size-4 text-primary" aria-hidden="true" /> Bộ lọc
         </h2>
