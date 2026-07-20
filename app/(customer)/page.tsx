@@ -4,7 +4,7 @@ import { preload } from 'react-dom';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { Bus, BusFront, CreditCard, Headset, MailCheck, MapPin, ShieldCheck, Zap } from 'lucide-react';
+import { Bus, BusFront, CreditCard, MailCheck, MapPin } from 'lucide-react';
 import { searchParamsSchema, searchFiltersSchema } from '@/lib/core/validation/search';
 import { track } from '@/lib/analytics';
 import { searchTrips, SEARCH_PAGE_LIMIT } from '@/lib/trips';
@@ -55,12 +55,6 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
     description: 'Tìm và đặt vé xe khách liên tỉnh trên toàn quốc, đặt trong 30 giây.',
   };
 }
-
-const HERO_TRUST = [
-  { icon: Zap, title: 'Đặt vé nhanh chóng', sub: 'Chỉ 30 giây là có vé' },
-  { icon: ShieldCheck, title: 'An toàn & uy tín', sub: 'Nhà xe chất lượng cao' },
-  { icon: Headset, title: 'Hỗ trợ 24/7', sub: 'Luôn sẵn sàng phục vụ' },
-];
 
 const FEATURES = [
   { icon: CreditCard, title: 'Thanh toán đơn giản', sub: 'Chuyển khoản VietQR hoặc tiền mặt khi lên xe' },
@@ -258,39 +252,34 @@ async function HeroMarketingView() {
                 <SearchFormWrapper places={places} />
               </CardContent>
             </Card>
-
-            <ul className="hidden list-none grid-cols-3 gap-3 lg:grid">
-              {HERO_TRUST.map(({ icon: Icon, title, sub }) => (
-                <li key={title} className="flex items-center gap-3 rounded-xl bg-white/80 px-3 py-2 backdrop-blur">
-                  <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                    <Icon className="size-5" aria-hidden="true" />
-                  </span>
-                  <span className="flex flex-col">
-                    <span className="text-sm font-semibold text-foreground">{title}</span>
-                    <span className="text-xs text-muted-foreground">{sub}</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
           </div>
         </div>
       </section>
 
-      <section aria-label="Điểm nổi bật" className="relative z-10 mx-auto w-full max-w-[1920px] px-4 py-6 sm:px-8 xl:px-[104px]">
-        <ul className="grid list-none grid-cols-1 gap-x-4 gap-y-5 rounded-2xl border border-border bg-card p-5 shadow-e2 sm:grid-cols-2 sm:p-6 lg:grid-cols-4 lg:gap-x-0 lg:divide-x lg:divide-border xl:px-9 xl:py-7">
-          {FEATURES.map(({ icon: Icon, title, sub }) => (
-            <li key={title} className="flex items-start gap-3 lg:px-5 xl:items-center">
-              <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary xl:size-[60px]">
-                <Icon className="size-5 xl:size-7" aria-hidden="true" />
-              </span>
-              <span className="flex flex-col gap-0.5">
-                <span className="text-sm font-semibold text-foreground xl:text-base">{title}</span>
-                <span className="text-sm text-muted-foreground">{sub}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
+      {/* Full bg-muted here, bg-muted/30 on PopularTrips below: the two alphas are
+          deliberate — equal alphas merge the two sections into one un-seamed slab.
+          The tint lives on this full-bleed wrapper, not on the section, because the
+          section carries max-w-[1920px] and would leave untinted gutters at 3xl. */}
+      <div className="border-b border-border bg-muted">
+        <section aria-label="Điểm nổi bật" className="relative z-10 mx-auto w-full max-w-[1920px] px-4 py-6 sm:px-8 sm:py-8 xl:px-[104px]">
+          <ul className="grid list-none grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {FEATURES.map(({ icon: Icon, title, sub }) => (
+              <li
+                key={title}
+                className="flex items-start gap-3 rounded-2xl border border-border bg-card p-5 shadow-e1 xl:p-6"
+              >
+                <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary xl:size-12">
+                  <Icon className="size-5 xl:size-6" aria-hidden="true" />
+                </span>
+                <span className="flex flex-col gap-0.5">
+                  <span className="text-sm font-semibold text-foreground xl:text-base">{title}</span>
+                  <span className="text-sm text-muted-foreground">{sub}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </div>
 
       <div className="bg-muted/30">
         <PopularTrips prices={prices} />
