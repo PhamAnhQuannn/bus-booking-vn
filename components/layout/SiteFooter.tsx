@@ -47,7 +47,7 @@ export function SiteFooter() {
     <footer className="mt-12 border-t border-border bg-muted/40">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8 text-sm text-muted-foreground sm:flex-row sm:justify-between">
         <div className="flex max-w-xs flex-col gap-2">
-          <Logo variant="combo" />
+          <Logo variant="combo" className="h-14 w-auto lg:h-18" />
           <p>Đặt vé xe khách liên tỉnh trên toàn quốc.</p>
           <Link href="/khieu-nai" className={linkClass + ' font-medium text-foreground'}>
             Hỗ trợ

@@ -105,7 +105,11 @@ export function AuthSplitLayout({
 
         <div className="relative flex flex-col gap-1">
           <Link href="/" aria-label="Về trang chủ BBVN" className={logoLinkClass}>
-            <Logo variant="combo" mono={c.monoLogo} className={c.monoLogo ? c.ink : undefined} />
+            <Logo
+              variant="combo"
+              mono={c.monoLogo}
+              className={cn('h-14 w-auto lg:h-18', c.monoLogo ? c.ink : undefined)}
+            />
           </Link>
           {c.eyebrow && <p className={cn('text-sm font-medium', c.inkMuted)}>{c.eyebrow}</p>}
         </div>
@@ -132,7 +136,8 @@ export function AuthSplitLayout({
         <div className="flex w-full max-w-sm flex-col gap-6">
           {/* mobile brand bar */}
           <Link href="/" aria-label="Về trang chủ BBVN" className={cn(logoLinkClass, 'md:hidden')}>
-            <Logo variant="combo" />
+            {/* No lg: step — this bar is md:hidden, so it only renders below md. */}
+            <Logo variant="combo" className="h-14 w-auto" />
           </Link>
           <div className="flex flex-col gap-1.5">
             <h1 className="text-2xl font-bold tracking-tight">{title}</h1>

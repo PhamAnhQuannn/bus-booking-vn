@@ -198,7 +198,9 @@ async function HeroMarketingView() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationLd()) }}
       />
-      <section id="search" className="relative w-full scroll-mt-16 overflow-hidden">
+      {/* scroll-mt tracks the SiteHeader height (h-18 / lg:h-24) plus 8px of
+          breathing room, so #search anchor jumps clear the sticky bar. */}
+      <section id="search" className="relative w-full scroll-mt-20 overflow-hidden lg:scroll-mt-[104px]">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 bg-cover bg-[position:72%_center] md:hidden"
