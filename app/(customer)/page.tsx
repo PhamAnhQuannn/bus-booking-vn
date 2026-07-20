@@ -170,7 +170,8 @@ async function SearchResultsView({
 
 async function HeroMarketingView() {
   preload('/hero/landing-golden-1280.jpg', { as: 'image', media: '(max-width: 767px)' });
-  preload('/hero/landing-golden-1920.jpg', { as: 'image', media: '(min-width: 768px) and (max-width: 1919px)' });
+  preload('/hero/landing-golden-md-1536.jpg', { as: 'image', media: '(min-width: 768px) and (max-width: 1023px)' });
+  preload('/hero/landing-golden-1920.jpg', { as: 'image', media: '(min-width: 1024px) and (max-width: 1919px)' });
   preload('/hero/landing-golden-3840.jpg', { as: 'image', media: '(min-width: 1920px)' });
   const [places, activeRoutes, operators] = await Promise.all([
     getSearchablePlaces(),
@@ -200,9 +201,17 @@ async function HeroMarketingView() {
           className="pointer-events-none absolute inset-0 bg-cover bg-[position:72%_center] md:hidden"
           style={{ backgroundImage: "url('/hero/landing-golden-1280.jpg')" }}
         />
+        {/* md-only crop. The 2:1 master puts the bus at x 0.63-0.90, so a portrait-ish
+            md box (AR ~1.14-1.52) crops it off the right edge. This 4:3 recrop centres
+            the bus at x 0.383-0.833 so cover keeps it whole across the whole md range. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 hidden bg-cover bg-[position:0%_30%] md:block lg:bg-[position:53%_30%] 3xl:hidden"
+          className="pointer-events-none absolute inset-0 hidden bg-cover bg-[position:50%_30%] md:block lg:hidden"
+          style={{ backgroundImage: "url('/hero/landing-golden-md-1536.jpg')" }}
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 hidden bg-cover bg-[position:53%_30%] lg:block 3xl:hidden"
           style={{ backgroundImage: "url('/hero/landing-golden-1920.jpg')" }}
         />
         <div
@@ -246,7 +255,9 @@ async function HeroMarketingView() {
             </p>
           </div>
 
-          <div className="flex w-full flex-col gap-4 lg:max-w-[calc(63vw-60px)] xl:max-w-[min(63vw-132px,13.2vw+828px)]">
+          {/* md cap mirrors the lg one: a full-width card would sit over the bus in the
+              md hero crop. Capping it opens a right-hand column the way lg already does. */}
+          <div className="flex w-full flex-col gap-4 md:max-w-[560px] lg:max-w-[calc(63vw-60px)] xl:max-w-[min(63vw-132px,13.2vw+828px)]">
             <Card className="w-full rounded-3xl text-left shadow-e4">
               <CardContent className="py-3 xl:px-8 xl:py-5">
                 <SearchFormWrapper places={places} />
