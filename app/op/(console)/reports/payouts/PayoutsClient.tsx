@@ -35,8 +35,8 @@ interface Props {
   initialRows: PayoutReportRow[];
 }
 
-function formatVnd(amount: number): string {
-  return amount.toLocaleString('vi-VN') + ' ₫';
+function formatVnd(amount: string): string {
+  return Number(amount).toLocaleString('vi-VN') + ' ₫';
 }
 
 function formatDate(date: Date | string): string {

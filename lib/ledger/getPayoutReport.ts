@@ -20,9 +20,9 @@ export interface PayoutReportRow {
   /** null for a withdrawal payout (no trip ⇒ no departure). */
   departureAt: Date | null;
   payoutId: string;
-  gross: number;
-  platformFee: number;
-  net: number;
+  gross: string;
+  platformFee: string;
+  net: string;
   status: PayoutStatus;
   scheduledAt: Date;
   settledAt: Date | null;
@@ -58,9 +58,9 @@ export async function getPayoutReport(input: GetPayoutReportInput): Promise<Payo
     // and a null departure instead of a route + departure time.
     routeName: p.trip ? `${p.trip.route.origin} → ${p.trip.route.destination}` : 'Rút tiền (Withdrawal)',
     departureAt: p.trip?.departureAt ?? null,
-    gross: p.gross,
-    platformFee: p.platformFee,
-    net: p.net,
+    gross: p.gross.toString(),
+    platformFee: p.platformFee.toString(),
+    net: p.net.toString(),
     status: p.status,
     scheduledAt: p.scheduledAt,
     settledAt: p.settledAt,

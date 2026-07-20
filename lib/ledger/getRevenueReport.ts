@@ -139,8 +139,8 @@ export async function getRevenueReport(input: GetRevenueReportInput): Promise<Re
         routeName: trip.routeName,
         seatsSold: trip.seatsSold,
         grossRevenueVnd: trip.grossRevenueVnd,
-        platformFeeVnd: platformFee,
-        netPayoutVnd: net,
+        platformFeeVnd: Number(platformFee),
+        netPayoutVnd: Number(net),
         payoutStatus,
       };
     });

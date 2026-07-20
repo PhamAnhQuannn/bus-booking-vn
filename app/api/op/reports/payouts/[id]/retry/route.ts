@@ -32,7 +32,18 @@ export async function POST(req: NextRequest, routeCtx: RouteContext): Promise<Re
       const result = await retryPayout({ payoutId, operatorId: authCtx.operatorId });
 
       if (result.ok) {
-        return NextResponse.json({ payout: result.payout });
+        const p = result.payout;
+        return NextResponse.json({
+          payout: {
+            ...p,
+            gross: p.gross.toString(),
+            platformFee: p.platformFee.toString(),
+            net: p.net.toString(),
+            taxVat: p.taxVat.toString(),
+            taxPit: p.taxPit.toString(),
+            taxTotal: p.taxTotal.toString(),
+          },
+        });
       }
 
       switch (result.error) {

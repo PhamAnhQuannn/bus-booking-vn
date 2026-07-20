@@ -37,9 +37,9 @@ export interface CalcPayoutInput {
 }
 
 export interface CalcPayoutResult {
-  gross: number;
-  platformFee: number;
-  net: number;
+  gross: bigint;
+  platformFee: bigint;
+  net: bigint;
 }
 
 /**
@@ -80,7 +80,7 @@ export function calcPayout(input: CalcPayoutInput): CalcPayoutResult {
     rounded = quotient % BigInt(2) === BigInt(0) ? quotient : quotient + BigInt(1);
   }
 
-  const platformFee = Number(rounded);
-  const net = gross - platformFee;
-  return { gross, platformFee, net };
+  const platformFee = rounded;
+  const net = grossBig - platformFee;
+  return { gross: grossBig, platformFee, net };
 }

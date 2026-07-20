@@ -49,8 +49,8 @@ function fmtVndStr(minor: string): string {
   return VND.format(Number(BigInt(minor))) + 'đ';
 }
 
-function fmtVndNum(v: number): string {
-  return VND.format(v) + 'đ';
+function fmtVndNum(v: string): string {
+  return VND.format(Number(v)) + 'đ';
 }
 
 const LEDGER_TYPE_LABEL: Record<LedgerEntryType, string> = {
@@ -178,7 +178,7 @@ export default async function OpMoneyPage() {
             <CardContent>
               {nextPayout ? (
                 <div className="space-y-1" data-testid="next-payout">
-                  <p className="text-xl font-bold tabular-nums">{fmtVndNum(nextPayout.net)}</p>
+                  <p className="text-xl font-bold tabular-nums">{fmtVndNum(nextPayout.net.toString())}</p>
                   <p className="text-sm text-muted-foreground">
                     Dự kiến {fmtDate(nextPayout.scheduledAt)} ·{' '}
                     <Badge variant={PAYOUT_STATUS_LABEL[nextPayout.status].variant}>

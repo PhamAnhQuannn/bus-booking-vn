@@ -96,7 +96,6 @@ model Operator {
   charterAssignments CharterRequest[]
   einvoices          EInvoice[]
 
-  @@index([id])
   @@index([status])
 }
 
@@ -238,6 +237,7 @@ model Trip {
   @@index([status, departureAt])
   @@index([routeId, departureAt])
   @@index([operatorId])
+  @@index([busId])
   @@index([recurringTemplateId])
   @@index([pairedTripId])
 }
@@ -261,7 +261,7 @@ model Hold {
   booking         Booking?
 
   @@index([tripId, status, expiresAt])
-  @@index([expiresAt])
+  @@index([status, expiresAt])
 }
 
 enum BookingStatus {
@@ -661,12 +661,12 @@ model Payout {
   // reports must tolerate / filter null-trip rows (see getPayoutReport.ts).
   tripId        String?
   operatorId    String
-  gross         Int
-  platformFee   Int
-  net           Int
-  taxVat        Int          @default(0)
-  taxPit        Int          @default(0)
-  taxTotal      Int          @default(0)
+  gross         BigInt
+  platformFee   BigInt
+  net           BigInt
+  taxVat        BigInt       @default(0)
+  taxPit        BigInt       @default(0)
+  taxTotal      BigInt       @default(0)
   status        PayoutStatus @default(requested)
   scheduledAt   DateTime
   settledAt     DateTime?
@@ -908,6 +908,7 @@ model LedgerEntry {
 
   @@unique([sourceEventId])
   @@index([operatorId])
+  @@index([operatorId, createdAt])
   @@index([bookingId])
   @@index([payoutId])
 }

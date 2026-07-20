@@ -223,9 +223,9 @@ export async function requestWithdrawal(
       data: {
         tripId: null,
         operatorId,
-        gross: amountMinor,
-        platformFee: 0,
-        net: amountMinor,
+        gross: amount,
+        platformFee: BigInt(0),
+        net: amount,
         status: 'requested',
         scheduledAt: new Date(),
       },
