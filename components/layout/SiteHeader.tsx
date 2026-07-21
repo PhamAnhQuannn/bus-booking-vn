@@ -14,19 +14,19 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Dialog } from '@base-ui/react/dialog';
-import { ChevronDown, Globe, LogInIcon, MenuIcon, XIcon } from 'lucide-react';
+import { Globe, LogInIcon, MenuIcon, XIcon } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
 import { cn } from '@/lib/utils';
 
-/* Nav mirrors the mockup's five items (docs/design/mockup-home.png S1).
-   ⚠ "Hướng dẫn" and "Hỗ trợ" have no pages yet — they are parked on '#' rather than
-   pointed at a 404. Build the pages or drop the items before this ships. */
+/* Nav mirrors the mockup's five items (docs/design/mockup-home.png S1). */
 const NAV = [
   { href: '/', label: 'Đặt vé xe' },
   { href: '/lien-he-dat-xe', label: 'Thuê xe hợp đồng' },
   { href: '/op/register', label: 'Nhà xe' },
-  { href: '#', label: 'Hướng dẫn' },
-  { href: '#', label: 'Hỗ trợ' },
+  // Imperfect mapping: no guide page exists yet; the cancellation/refund policy is
+  // the closest real destination. Replace when a real "Hướng dẫn" page ships.
+  { href: '/chinh-sach-huy-ve-hoan-tien', label: 'Hướng dẫn' },
+  { href: '/khieu-nai', label: 'Hỗ trợ' },
 ];
 
 /* The mockup's label is "Đăng nhập / Đăng ký", but customer auth is 410-gated in
@@ -76,34 +76,39 @@ export function SiteHeader() {
         <div className="flex h-18 w-full items-center justify-between gap-4 px-6 lg:h-24">
           {/* Logo owns the left slot at every breakpoint so its 24px gutter is
               uniform; the hamburger sits in the right-hand mobile cluster. */}
-          <Link href="/" className="inline-flex min-h-11 items-center rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+          <Link href="/" className="inline-flex min-h-11 shrink-0 items-center rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
             <Logo variant="combo" className="h-14 w-auto lg:h-18" />
           </Link>
 
-          {/* Right zone — nav links + CTA clustered together. Two links cannot hold
-              the centre of a wide viewport; the empty middle read as dead surface. */}
-          <div className="hidden items-center gap-1 md:flex lg:gap-2">
-            {/* 18px only from lg: at 768 the cluster has just 15px of slack at 18px,
-                which any label edit would break. 16px there keeps 64px of slack. */}
-            <nav className="flex items-center gap-1 text-sm lg:gap-1.5 lg:text-base" aria-label="Điều hướng chính">
+          {/* Three-zone bar, matching the mockup's measured geometry: nav packed next
+              to the logo (logo→nav1 ≈6.4% of width, uniform ≈3.3% inter-nav rhythm),
+              then one large flex space (`ml-auto`) before the tightly-paired pill +
+              button (≈1.3% apart). `flex-1` absorbs the container's justify-between
+              so all slack lands inside this wrapper, not after the logo.
+              xl (not md/lg): measured live, logo + five items + pill + button need
+              ~1240px of viewport at this scale — at 1024 the button label wraps to
+              four lines and flex squashes the logo. The drawer covers below xl. */}
+          <div className="hidden flex-1 items-center xl:flex">
+            {/* ml-16 + the container's gap-4 + the first link's px-3 = 92px visual
+                gap at 1440 ≈ the mockup's 6.4%-of-width logo→nav spacing. */}
+            <nav className="ml-16 flex items-center gap-6 text-base" aria-label="Điều hướng chính">
               {NAV.map((item) => {
-                // '/' would prefix-match every route, and '#' is a parked placeholder —
-                // neither can use startsWith.
+                // '/' would prefix-match every route, so it needs an exact match.
                 const active =
-                  item.href === '/'
-                    ? pathname === '/'
-                    : item.href !== '#' && pathname.startsWith(item.href);
+                  item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
                 return (
                   <Link
                     key={item.label}
                     href={item.href}
                     aria-current={active ? 'page' : undefined}
                     className={cn(
-                      'group relative inline-flex min-h-11 items-center rounded-md px-3 font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
-                      // Underline bar so the active state is not signalled by colour alone (WCAG 1.4.1)
+                      'group relative inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-3 font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
+                      // Underline bar so the active state is not signalled by colour alone
+                      // (WCAG 1.4.1) — deliberate improvement over the mockup, which
+                      // signals active by colour only.
                       'after:absolute after:inset-x-3 after:bottom-2 after:h-0.5 after:rounded-full after:bg-primary after:transition-opacity',
                       active
-                        ? 'font-semibold text-primary after:opacity-100'
+                        ? 'font-semibold text-primary-strong after:opacity-100'
                         : 'text-muted-foreground after:opacity-0 hover:text-foreground group-hover:after:opacity-40'
                     )}
                   >
@@ -112,29 +117,30 @@ export function SiteHeader() {
                 );
               })}
             </nav>
-            {/* Language pill — visual only. There is no i18n in the app; it renders
-                because the mockup has it. Non-interactive so it cannot promise a
-                switch that does not exist. */}
-            <span
-              aria-hidden="true"
-              className="ml-3 inline-flex h-9 select-none items-center gap-1.5 rounded-full border border-border px-3 text-sm font-medium text-foreground lg:ml-4"
-            >
-              <Globe className="size-4 text-primary" />
-              VI
-              <ChevronDown className="size-3.5 text-muted-foreground" />
-            </span>
-            <Link
-              href={LOGIN.href}
-              className={cn(
-                'ml-2 inline-flex h-11 items-center rounded-lg border border-primary/30 px-5 text-sm font-medium text-primary-strong outline-none transition-colors hover:bg-primary/5 focus-visible:ring-3 focus-visible:ring-ring/50 lg:ml-3 lg:text-base'
-              )}
-            >
-              {LOGIN.label}
-            </Link>
+            <div className="ml-auto flex items-center gap-5">
+              {/* Language pill — visual only. There is no i18n in the app; it renders
+                  because the mockup has it. Non-interactive, and no chevron — a
+                  chevron would promise a dropdown that does not exist. */}
+              <span
+                aria-hidden="true"
+                className="inline-flex h-9 select-none items-center gap-1.5 rounded-full bg-card px-3 text-sm font-medium text-foreground"
+              >
+                <Globe className="size-4 text-primary" />
+                VI
+              </span>
+              <Link
+                href={LOGIN.href}
+                className={cn(
+                  'inline-flex h-11 items-center whitespace-nowrap rounded-lg border border-primary/30 px-5 text-base font-medium text-foreground outline-none transition-colors hover:bg-primary/5 focus-visible:ring-3 focus-visible:ring-ring/50'
+                )}
+              >
+                {LOGIN.label}
+              </Link>
+            </div>
           </div>
 
           {/* Mobile action cluster — login CTA + drawer trigger, both right-aligned */}
-          <div className="flex items-center gap-2 md:hidden">
+          <div className="flex items-center gap-2 xl:hidden">
             <Link
               href={LOGIN.href}
               aria-label={LOGIN.label}
@@ -157,9 +163,9 @@ export function SiteHeader() {
 
       {/* Mobile drawer */}
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/50 transition-opacity duration-200 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 md:hidden" />
+        <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/50 transition-opacity duration-200 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 xl:hidden" />
         <Dialog.Popup
-          className="fixed inset-y-0 right-0 z-50 flex w-72 flex-col bg-background shadow-lg transition-transform duration-200 ease-out outline-none data-[ending-style]:translate-x-full data-[ending-style]:duration-150 data-[starting-style]:translate-x-full md:hidden"
+          className="fixed inset-y-0 right-0 z-50 flex w-72 flex-col bg-background shadow-lg transition-transform duration-200 ease-out outline-none data-[ending-style]:translate-x-full data-[ending-style]:duration-150 data-[starting-style]:translate-x-full xl:hidden"
         >
           <div className="flex h-14 items-center justify-between border-b border-border px-4">
             <Dialog.Title>
@@ -167,7 +173,7 @@ export function SiteHeader() {
             </Dialog.Title>
             <Dialog.Close
               aria-label="Đóng menu"
-              className="inline-flex size-9 items-center justify-center rounded-md outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="inline-flex size-11 items-center justify-center rounded-md outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               <XIcon className="size-5" />
             </Dialog.Close>
@@ -175,9 +181,7 @@ export function SiteHeader() {
           <nav aria-label="Điều hướng chính" className="flex-1 overflow-y-auto px-2 py-2">
             {NAV.map((item) => {
               const active =
-                item.href === '/'
-                  ? pathname === '/'
-                  : item.href !== '#' && pathname.startsWith(item.href);
+                item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
               return (
                 <Link
                   key={item.label}
@@ -187,7 +191,7 @@ export function SiteHeader() {
                   className={cn(
                     'flex min-h-11 items-center rounded-md px-3 text-sm font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
                     active
-                      ? 'font-semibold text-primary'
+                      ? 'font-semibold text-primary-strong'
                       : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
