@@ -14,16 +14,25 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Dialog } from '@base-ui/react/dialog';
-import { LogInIcon, MenuIcon, XIcon } from 'lucide-react';
+import { ChevronDown, Globe, LogInIcon, MenuIcon, XIcon } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
 import { cn } from '@/lib/utils';
 
+/* Nav mirrors the mockup's five items (docs/design/mockup-home.png S1).
+   ⚠ "Hướng dẫn" and "Hỗ trợ" have no pages yet — they are parked on '#' rather than
+   pointed at a 404. Build the pages or drop the items before this ships. */
 const NAV = [
-  { href: '/lien-he-dat-xe', label: 'Liên hệ đặt xe' },
-  { href: '/op/register', label: 'Trở thành đối tác' },
+  { href: '/', label: 'Đặt vé xe' },
+  { href: '/lien-he-dat-xe', label: 'Thuê xe hợp đồng' },
+  { href: '/op/register', label: 'Nhà xe' },
+  { href: '#', label: 'Hướng dẫn' },
+  { href: '#', label: 'Hỗ trợ' },
 ];
 
-const LOGIN = { href: '/op/login', label: 'Đăng nhập nhà xe' };
+/* The mockup's label is "Đăng nhập / Đăng ký", but customer auth is 410-gated in
+   Phase 1 (proxy.ts). The button keeps the mockup's outlined treatment and points at
+   operator login — the only login that exists. */
+const LOGIN = { href: '/op/login', label: 'Đăng nhập / Đăng ký' };
 
 /* Solid CTA fill uses `--primary-strong` (orange-700, ~4.7:1 on white), not
    `--primary` (~3.4:1) — the label is below the AA large-text threshold. */
@@ -76,12 +85,17 @@ export function SiteHeader() {
           <div className="hidden items-center gap-1 md:flex lg:gap-2">
             {/* 18px only from lg: at 768 the cluster has just 15px of slack at 18px,
                 which any label edit would break. 16px there keeps 64px of slack. */}
-            <nav className="flex items-center gap-1 text-base lg:gap-2 lg:text-lg" aria-label="Điều hướng chính">
+            <nav className="flex items-center gap-1 text-sm lg:gap-1.5 lg:text-base" aria-label="Điều hướng chính">
               {NAV.map((item) => {
-                const active = pathname.startsWith(item.href);
+                // '/' would prefix-match every route, and '#' is a parked placeholder —
+                // neither can use startsWith.
+                const active =
+                  item.href === '/'
+                    ? pathname === '/'
+                    : item.href !== '#' && pathname.startsWith(item.href);
                 return (
                   <Link
-                    key={item.href}
+                    key={item.label}
                     href={item.href}
                     aria-current={active ? 'page' : undefined}
                     className={cn(
@@ -98,11 +112,21 @@ export function SiteHeader() {
                 );
               })}
             </nav>
+            {/* Language pill — visual only. There is no i18n in the app; it renders
+                because the mockup has it. Non-interactive so it cannot promise a
+                switch that does not exist. */}
+            <span
+              aria-hidden="true"
+              className="ml-3 inline-flex h-9 select-none items-center gap-1.5 rounded-full border border-border px-3 text-sm font-medium text-foreground lg:ml-4"
+            >
+              <Globe className="size-4 text-primary" />
+              VI
+              <ChevronDown className="size-3.5 text-muted-foreground" />
+            </span>
             <Link
               href={LOGIN.href}
               className={cn(
-                'ml-3 inline-flex h-11 items-center rounded-full px-5 text-base font-medium lg:ml-5 lg:text-lg',
-                CTA_CLASS
+                'ml-2 inline-flex h-11 items-center rounded-lg border border-primary/30 px-5 text-sm font-medium text-primary-strong outline-none transition-colors hover:bg-primary/5 focus-visible:ring-3 focus-visible:ring-ring/50 lg:ml-3 lg:text-base'
               )}
             >
               {LOGIN.label}
@@ -115,7 +139,7 @@ export function SiteHeader() {
               href={LOGIN.href}
               aria-label={LOGIN.label}
               className={cn(
-                'inline-flex size-10 items-center justify-center rounded-full',
+                'inline-flex size-11 items-center justify-center rounded-full',
                 CTA_CLASS
               )}
             >
@@ -123,7 +147,7 @@ export function SiteHeader() {
             </Link>
             <Dialog.Trigger
               aria-label="Mở menu điều hướng"
-              className="inline-flex size-10 items-center justify-center rounded-md outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="inline-flex size-11 items-center justify-center rounded-md outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               <MenuIcon className="size-5" />
             </Dialog.Trigger>
@@ -150,10 +174,13 @@ export function SiteHeader() {
           </div>
           <nav aria-label="Điều hướng chính" className="flex-1 overflow-y-auto px-2 py-2">
             {NAV.map((item) => {
-              const active = pathname.startsWith(item.href);
+              const active =
+                item.href === '/'
+                  ? pathname === '/'
+                  : item.href !== '#' && pathname.startsWith(item.href);
               return (
                 <Link
-                  key={item.href}
+                  key={item.label}
                   href={item.href}
                   onClick={() => setDrawerOpen(false)}
                   aria-current={active ? 'page' : undefined}

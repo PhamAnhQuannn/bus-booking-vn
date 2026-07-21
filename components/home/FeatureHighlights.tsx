@@ -1,110 +1,70 @@
-import { Sparkles, MapPin, Headset, Check, type LucideIcon } from 'lucide-react';
-
-import { cn } from '@/lib/utils';
+import { CircleCheck } from 'lucide-react';
 
 /**
- * FeatureHighlights — "Vì sao chọn BBVN?" benefits section above the carousels.
- * Centered header + 3 cards, each: icon panel · bold heading + tagline · key-detail
- * checklist. Static, no client JS.
+ * FeatureHighlights — "Vì sao chọn BBVN?" benefits section. Rebuilt 2026-07-21 to the
+ * mockup's two-column layout (docs/design/mockup-home.png S6): sleeper-bus interior photo
+ * on the left, eyebrow + two-line heading + four checked benefit rows on the right, the
+ * text column vertically centred against the photo. Static, no client JS.
  */
 
-interface Feature {
-  icon: LucideIcon;
-  /** public/features/<slug>.jpg */
-  slug: string;
+interface Benefit {
   title: string;
-  tagline: string;
-  details: string[];
+  description: string;
 }
 
-const FEATURES: Feature[] = [
+const BENEFITS: Benefit[] = [
   {
-    icon: Sparkles,
-    slug: 'service',
-    title: 'Dịch vụ tuyệt vời',
-    tagline: 'Xe đời mới, sạch sẽ, tài xế tận tâm cho mỗi chuyến đi.',
-    details: ['Xe đời mới, ghế ngả êm ái', 'Tài xế lịch sự, đúng giờ', 'Đánh giá 4.8/5 từ hành khách'],
+    title: 'Đa dạng tuyến đường',
+    description: 'Nhiều tuyến xe khách liên tỉnh trên toàn quốc.',
   },
   {
-    icon: MapPin,
-    slug: 'pickup',
-    title: 'Đón trả tận nơi',
-    tagline: 'Đón tại nhà hoặc khách sạn, trả đúng điểm bạn cần.',
-    details: ['Đón tận nhà / khách sạn', 'Nhiều điểm đón linh hoạt', 'Không phát sinh phụ phí'],
+    title: 'Giá tốt mỗi ngày',
+    description: 'So sánh giá từ nhiều nhà xe để chọn mức tốt nhất.',
   },
   {
-    icon: Headset,
-    slug: 'support',
-    title: 'Hỗ trợ 24/7',
-    tagline: 'Tổng đài và hỗ trợ trực tuyến mọi lúc, kể cả ngày lễ.',
-    details: ['Tổng đài 24/7', 'Dịch vụ tận tình chu đáo', 'Xác nhận tức thì qua email'],
+    title: 'Đặt vé nhanh chóng',
+    description: 'Giao diện đơn giản, đặt vé chỉ trong 30 giây.',
+  },
+  {
+    title: 'An toàn & đáng tin cậy',
+    description: 'Đối tác uy tín, xe chất lượng, tài xế chuyên nghiệp.',
   },
 ];
 
 export function FeatureHighlights() {
   return (
-    <section className="mx-auto w-full max-w-5xl px-4 py-12">
-      <div className="mb-8 flex flex-col items-center gap-2 text-center">
-        <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Vì sao chọn BBVN?</h2>
-        <p className="max-w-2xl text-base text-muted-foreground">
-          Đặt vé xe khách nhanh, an toàn và tiện lợi trên toàn quốc.
-        </p>
-      </div>
+    <section className="mx-auto w-full max-w-7xl px-4 py-8 lg:py-10">
+      <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-[45%_1fr] lg:gap-12">
+        {/* eslint-disable-next-line @next/next/no-img-element -- local /public photo; next/image+sharp not used in this app */}
+        <img
+          src="/features/service.jpg"
+          alt="Khoang giường nằm trên xe khách"
+          loading="lazy"
+          decoding="async"
+          className="aspect-[3/2] w-full rounded-xl object-cover shadow-e1"
+        />
 
-      {/* Asymmetric bento: feature[0] is the hero cell (spans both rows on the left at
-          lg), feature[1]/[2] stack as compact cells on the right. 3 items → 3 cells. */}
-      <div className="reveal grid grid-cols-1 gap-6 md:grid-cols-2 md:grid-rows-2 lg:grid-cols-3 lg:grid-rows-2">
-        {FEATURES.map(({ icon: Icon, slug, title, tagline, details }, i) => {
-          const hero = i === 0;
-          return (
-            <article
-              key={title}
-              style={{ ['--i' as string]: i }}
-              className={cn(
-                'flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-e1 transition-all hover:shadow-e2 motion-safe:hover:-translate-y-0.5',
-                hero
-                  ? 'md:col-span-1 md:row-span-2 lg:col-span-2 lg:row-span-2'
-                  : 'md:col-span-1 md:row-span-1 lg:col-span-1 lg:row-span-1'
-              )}
-            >
-              {/* Photo header + floating icon badge */}
-              <div className="relative">
-                {/* eslint-disable-next-line @next/next/no-img-element -- local /public thumbnail; next/image+sharp not used in this app */}
-                <img
-                  src={`/features/${slug}.jpg`}
-                  alt={title}
-                  loading="lazy"
-                  decoding="async"
-                  className={cn(
-                    'w-full object-cover aspect-[16/10]',
-                    hero ? 'md:aspect-[16/10]' : 'md:aspect-[16/7]'
-                  )}
-                />
-                <span className="absolute bottom-0 left-6 flex size-12 translate-y-1/2 items-center justify-center rounded-xl bg-card text-primary shadow-e2 ring-1 ring-primary/10">
-                  <Icon className="size-6" aria-hidden="true" />
-                </span>
-              </div>
+        <div className="flex flex-col gap-3">
+          <span className="text-xs font-bold uppercase tracking-widest text-primary">
+            Vì sao chọn BBVN?
+          </span>
+          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+            <span className="block">Trải nghiệm khác biệt</span>
+            <span className="block">trên từng hành trình</span>
+          </h2>
 
-              <div className="flex flex-1 flex-col gap-4 p-6 pt-8">
-                <div className="flex flex-col gap-1.5">
-                  <h3 className={cn('font-bold tracking-tight', hero ? 'text-xl' : 'text-lg')}>
-                    {title}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">{tagline}</p>
+          <ul className="mt-3 flex list-none flex-col gap-5 p-0">
+            {BENEFITS.map((b) => (
+              <li key={b.title} className="flex items-start gap-3">
+                <CircleCheck className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm font-bold">{b.title}</span>
+                  <span className="text-sm text-muted-foreground">{b.description}</span>
                 </div>
-
-                <ul className={cn('flex flex-col', hero ? 'gap-2' : 'gap-1.5')}>
-                  {details.map((d) => (
-                    <li key={d} className="flex items-center gap-2 text-sm">
-                      <Check className="size-4 shrink-0 text-primary" aria-hidden="true" />
-                      <span>{d}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </article>
-          );
-        })}
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </section>
   );

@@ -63,7 +63,7 @@ export function RouteDirectory({ activeRouteKeys }: { activeRouteKeys?: Set<stri
   const groups = groupByHub(filtered);
 
   return (
-    <section className="mx-auto w-full max-w-5xl px-4 py-12">
+    <section className="mx-auto w-full max-w-6xl px-4 py-12">
       <div className="mb-6 flex flex-col gap-1">
         <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
           Tuyến đường phổ biến
@@ -84,7 +84,7 @@ export function RouteDirectory({ activeRouteKeys }: { activeRouteKeys?: Set<stri
                 <li key={`${r.origin}-${r.destination}`}>
                   <Link
                     href={searchHref(r.origin, r.destination)}
-                    className="group flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
+                    className="group flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none 2xl:text-base"
                   >
                     <span className="font-medium">{r.origin}</span>
                     <ArrowRight
