@@ -196,12 +196,20 @@ async function HeroMarketingView() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationLd()) }}
       />
-      {/* scroll-mt tracks the SiteHeader height (h-18 / lg:h-24) plus 8px of
-          breathing room, so #search anchor jumps clear the sticky bar. */}
-      <section id="search" className="relative w-full scroll-mt-20 overflow-hidden lg:scroll-mt-[104px]">
+      {/* scroll-mt tracks the SiteHeader height (h-18 / lg:h-21) plus 8px of
+          breathing room, so #search anchor jumps clear the sticky bar.
+          No `overflow-hidden`: the decorative layers below deliberately extend
+          upward past this section's top edge to sit behind the header, and
+          clipping would defeat that. */}
+      <section id="search" className="relative w-full scroll-mt-20 lg:scroll-mt-[92px]">
+        {/* Every decorative layer uses `-top-18 lg:-top-21` rather than `inset-0`:
+            the photo box extends upward by exactly the header's height so the
+            image starts at viewport y=0 and the sky sits behind the navbar. The
+            header is z-40 and this section sets no z-index, so the photo paints
+            behind it without any explicit stacking work. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-cover bg-[position:72%_center] md:hidden"
+          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 bg-cover bg-[position:72%_center] md:hidden lg:-top-21"
           style={{ backgroundImage: "url('/hero/landing-golden-1280.jpg')" }}
         />
         {/* md-only crop. The 2:1 master puts the bus at x 0.63-0.90, so a portrait-ish
@@ -209,52 +217,66 @@ async function HeroMarketingView() {
             the bus at x 0.383-0.833 so cover keeps it whole across the whole md range. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 hidden bg-cover bg-[position:50%_30%] md:block lg:hidden"
+          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 hidden bg-cover bg-[position:50%_30%] md:block lg:hidden"
           style={{ backgroundImage: "url('/hero/landing-golden-md-1536.jpg')" }}
         />
         {/* lg+ framing is solved, not eyeballed. The reference hero is the SAME
-            photograph as this master (normalised cross-correlation: four
-            texture-distinct patches converged on scale 0.866, peak 0.75-0.85,
-            cross-checked by projecting the bus bbox through the fit — all four
-            edges within ~1.8pp). Affine: master = (255.5, 244.2) + 0.866 * ref.
-            The reference's photo box (1817 x 732) therefore maps to a 1573 x 634
-            window at master (255,244), which fits this 1920x960 asset.
+            photograph as this master; the crop was recovered by normalised
+            cross-correlation and validated against the bus ROOFLINE — a straight
+            high-contrast edge deliberately excluded from the fit — which projected
+            to within ±3px on an 1828px canvas (<0.2%). The reference's photo box
+            maps to a 1316 x 626 window at master (444, 268), with margins on all
+            four sides of this 1920x960 asset.
 
-            Our box is 2.25 aspect vs the reference's 2.48, i.e. relatively taller,
-            so the surplus is anchored to the BOTTOM — the road stays put and the
-            extra height becomes sky above the bus, which is the intent.
+            The photo box now spans header + hero (724px at lg), so the sky the
+            reference shows behind its navbar is preserved. That box is 1.97 aspect
+            against the reference's 2.45 — ours is proportionally 143px taller,
+            floored by 539px of content — so the surplus is anchored to the TOP:
+            the window's top edge is pinned at master y=268, exactly the
+            reference's, and the extra height becomes road at the bottom.
 
-            128% not the exact-match 122%: background-size resolves against the
-            BOX width, not the viewport, and at lg=1024 the box is ~1009px after
-            the scrollbar. Rendered height is half the rendered width (2:1 asset),
-            so cover needs s >= 1280/1009 = 1.269 — measured live, 126% came up
-            4px short and showed a gap. 128% leaves ~6px of margin. Both layers
-            share these values (percentages resolve against the box, and
-            1920/3840 are the same 2:1 crop). */}
+            146% is 1920/1316, i.e. the reference's exact window width, and it also
+            clears the cover floor: background-size resolves against the BOX width,
+            and at lg=1024 the box is ~1009px after the scrollbar, so a 724px-tall
+            box needs s >= 2*724/1009 = 1.435. The previous 128% would have left a
+            78px gap there. Both layers share these values (1920/3840 are the same
+            2:1 crop). */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 hidden bg-[length:128%_auto] bg-[position:78%_69%] lg:block 3xl:hidden"
+          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 hidden bg-[length:146%_auto] bg-[position:73.5%_92%] lg:-top-21 lg:block 3xl:hidden"
           style={{ backgroundImage: "url('/hero/landing-golden-1920.jpg')" }}
         />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 hidden bg-[length:128%_auto] bg-[position:78%_69%] 3xl:block"
+          className="pointer-events-none absolute inset-x-0 bottom-0 -top-21 hidden bg-[length:146%_auto] bg-[position:73.5%_92%] 3xl:block"
           style={{ backgroundImage: "url('/hero/landing-golden-3840.jpg')" }}
         />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/85 via-white/40 to-white/70 md:hidden"
+          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 bg-gradient-to-b from-white/85 via-white/40 to-white/70 md:hidden lg:-top-21"
         />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 hidden md:block md:bg-[linear-gradient(90deg,rgba(255,247,237,0.88)_0%,rgba(255,247,237,0.72)_38%,rgba(255,247,237,0.38)_62%,rgba(255,247,237,0.12)_82%,rgba(255,247,237,0)_100%)] xl:bg-[linear-gradient(90deg,rgba(255,247,237,0.82)_0%,rgba(255,247,237,0.66)_30%,rgba(255,247,237,0.30)_52%,rgba(255,247,237,0.08)_72%,rgba(255,247,237,0)_100%)]"
+          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 hidden md:block md:bg-[linear-gradient(90deg,rgba(255,247,237,0.88)_0%,rgba(255,247,237,0.72)_38%,rgba(255,247,237,0.38)_62%,rgba(255,247,237,0.12)_82%,rgba(255,247,237,0)_100%)] lg:-top-21 xl:bg-[linear-gradient(90deg,rgba(255,247,237,0.82)_0%,rgba(255,247,237,0.66)_30%,rgba(255,247,237,0.30)_52%,rgba(255,247,237,0.08)_72%,rgba(255,247,237,0)_100%)]"
+        />
+        {/* Navbar scrim — the white wash the nav labels sit on. Measured off the
+            reference: alpha ≈0.96 through the left half, ramping to ~0 by the
+            right edge, over a band exactly the header's height. It lives here
+            rather than on SiteHeader because that component also renders on 17
+            routes that have no photograph behind it.
+            This is what keeps the nav labels legible: at x<50% the surface is
+            effectively near-white, so `--primary-strong`'s AA margin — which was
+            calibrated against flat white — still holds. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 -top-18 h-18 bg-[linear-gradient(90deg,rgba(255,255,255,0.97)_0%,rgba(255,255,255,0.96)_50%,rgba(255,255,255,0.65)_62%,rgba(255,255,255,0.34)_83%,rgba(255,255,255,0.05)_96%,rgba(255,255,255,0)_100%)] lg:-top-21 lg:h-21"
         />
         {/* The right-edge black scrim that used to sit here was removed: it dimmed
             exactly the bright sky and cloud the reference keeps luminous, and the
             reference has no counterpart to it. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 opacity-[0.04] mix-blend-overlay"
+          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 opacity-[0.04] mix-blend-overlay lg:-top-21"
           style={{
             backgroundImage:
               "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",

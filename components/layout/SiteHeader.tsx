@@ -43,13 +43,71 @@ export function SiteHeader() {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  /* True only while a hero photograph is actually behind the bar. Three states
+     exist now — over-photo-at-rest, over-photo-scrolled, and past-the-hero — and
+     the old `scrollY > 8` boolean collapsed the first two into the third, which
+     would flash an opaque white bar over the photo 8px into a 640px hero. */
+  const [overHero, setOverHero] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8);
+    const onScroll = () => {
+      setScrolled(window.scrollY > 8);
+      /* Second, independent read of the same question the observer below
+         answers. The two cover each other: the observer is authoritative during
+         continuous scrolling, while this catches instant jumps, where a large
+         programmatic scrollTo was measured leaving the bar transparent over page
+         content. Both are cheap and idempotent, and React drops same-value
+         updates, so the redundancy costs nothing. */
+      const hero = document.getElementById('search');
+      if (!hero) return;
+      const headerH = window.innerWidth >= 1024 ? 84 : 72;
+      setOverHero(hero.getBoundingClientRect().bottom > headerH);
+    };
     onScroll(); // deep-linked mid-page loads start scrolled
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+  }, [pathname]);
+
+  useEffect(() => {
+    /* Whether a hero photograph is behind the bar is tracked with an
+       IntersectionObserver rather than a rect read inside the scroll handler.
+       Scroll events coalesce, and a single one (an anchor jump, the End key, a
+       restored scroll position) can be serviced before layout settles — measured
+       live, that left the bar stuck transparent for >1.5s with page content
+       visible underneath it. The observer reports the crossing itself, so it
+       cannot go stale.
+
+       Presence of #search also settles which branch of `/` rendered: the hero
+       view has it, the search-results view does not. That distinction cannot
+       come from `usePathname()` alone, and `useSearchParams()` is not an option
+       here — this component mounts in the root layout, where it triggers the CSR
+       bailout that broke `notFound()` status codes once already (mistake log,
+       2026-07-17). */
+    // No hero on this route: nothing to observe. State already defaults to
+    // false, and leaving a hero route resets it via this effect's cleanup — so
+    // there is no synchronous setState in the effect body to cascade renders.
+    const hero = document.getElementById('search');
+    if (!hero) return;
+    let observer: IntersectionObserver | null = null;
+    const attach = () => {
+      observer?.disconnect();
+      // Shrink the viewport by the bar's own height: the hero counts as "behind
+      // the bar" only while it still reaches below that inset.
+      const headerH = window.innerWidth >= 1024 ? 84 : 72;
+      observer = new IntersectionObserver(
+        ([entry]) => setOverHero(entry.isIntersecting),
+        { rootMargin: `-${headerH}px 0px 0px 0px`, threshold: 0 }
+      );
+      observer.observe(hero);
+    };
+    attach();
+    window.addEventListener('resize', attach);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', attach);
+      setOverHero(false); // navigating away from the hero route
+    };
+  }, [pathname]);
 
   if (pathname.startsWith('/op') || pathname.startsWith('/dev') || pathname.startsWith('/auth') || pathname.startsWith('/admin'))
     return null;
@@ -65,9 +123,16 @@ export function SiteHeader() {
           // re-create the hairline this replaces. Eased via `background/40` so the
           // falloff reads as light bloom rather than a linear smudge.
           'after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-12 after:bg-gradient-to-b after:from-background after:via-background/40 after:to-transparent after:transition-opacity after:duration-200',
-          scrolled
-            ? 'bg-background/90 shadow-e1 backdrop-blur after:opacity-0'
-            : 'bg-background'
+          overHero
+            // Over the hero photo the bar carries no surface of its own — the
+            // white wash behind the nav labels is a scrim layer inside the hero
+            // (page.tsx), so it stays scoped to the one route that has a photo.
+            // The feather is switched off too: it exists to fade an OPAQUE bar
+            // into the photo, and with nothing to fade from it reads as a smear.
+            ? 'bg-transparent after:opacity-0'
+            : scrolled
+              ? 'bg-background/90 shadow-e1 backdrop-blur after:opacity-0'
+              : 'bg-background'
         )}
       >
         {/* Flat px-6 with no max-width container: keeps the logo a constant 24px
@@ -165,7 +230,10 @@ export function SiteHeader() {
                   // border-primary/40: the reference's stroke samples (251,113,77),
                   // far more saturated than /30 composites to. JPEG blur can only
                   // wash a thin stroke toward its neighbour, so that is a floor.
-                  'inline-flex h-11 items-center whitespace-nowrap rounded-lg border border-primary/40 px-5 text-base font-medium text-foreground outline-none transition-colors hover:bg-primary/5 focus-visible:ring-3 focus-visible:ring-ring/50'
+                  // bg-card, not a transparent interior: the scrim has faded to
+                  // ~0 this far right, so the label would otherwise sit on raw
+                  // sky pixels. The reference's own button carries a fill too.
+                  'inline-flex h-11 items-center whitespace-nowrap rounded-lg border border-primary/40 bg-card px-5 text-base font-medium text-foreground outline-none transition-colors hover:bg-primary/5 focus-visible:ring-3 focus-visible:ring-ring/50'
                 )}
               >
                 {LOGIN.label}
