@@ -4,7 +4,7 @@ import { preload } from 'react-dom';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { BusFront, CreditCard, Headset, MailCheck, RefreshCw } from 'lucide-react';
+import { Bus, BusFront, CreditCard, MailCheck, MapPin } from 'lucide-react';
 import { searchParamsSchema, searchFiltersSchema } from '@/lib/core/validation/search';
 import { track } from '@/lib/analytics';
 import { searchTrips, SEARCH_PAGE_LIMIT } from '@/lib/trips';
@@ -56,15 +56,11 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   };
 }
 
-/* Trust strip under the hero. Copy tracks the mockup's four items
-   (docs/design/mockup-home.png S3) but stays inside what Phase 1 can actually back:
-   "Hỗ trợ tận tình" rather than the mockup's "Hỗ trợ 24/7" (no 24/7 desk exists), and
-   the cancellation line points at the real published policy. */
 const FEATURES = [
-  { icon: CreditCard, title: 'Thanh toán dễ dàng', sub: 'Chuyển khoản VietQR hoặc tiền mặt khi lên xe' },
+  { icon: CreditCard, title: 'Thanh toán đơn giản', sub: 'Chuyển khoản VietQR hoặc tiền mặt khi lên xe' },
   { icon: MailCheck, title: 'Xác nhận qua email', sub: 'Thông tin chuyến đi được gửi đến email của bạn' },
-  { icon: Headset, title: 'Hỗ trợ tận tình', sub: 'Đội ngũ hỗ trợ sẵn sàng giúp bạn khi cần' },
-  { icon: RefreshCw, title: 'Đổi trả linh hoạt', sub: 'Đổi hoặc hủy vé theo chính sách đã công bố' },
+  { icon: Bus, title: 'Nhiều nhà xe uy tín', sub: 'Hợp tác cùng nhiều nhà xe chất lượng trên toàn quốc' },
+  { icon: MapPin, title: 'Đón trả tận nơi', sub: 'Đón tại nhà hoặc khách sạn, trả đúng điểm bạn cần' },
 ];
 
 export default async function HomePage({ searchParams }: PageProps) {
@@ -274,29 +270,29 @@ async function HeroMarketingView() {
         </div>
       </section>
 
-      {/* Trust strip. No band, no card chrome, no dividers — it reads as the tail of
-          the hero rather than a separate section (docs/design/mockup-home.png S3).
-          The page-wide banding that used to separate sections is gone: the mockup
-          holds the page together with one flat field, the tinted charter panel, and
-          section rhythm instead. */}
-      <section
-        aria-label="Điểm nổi bật"
-        className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-4 sm:px-8 lg:px-4"
-      >
-        <ul className="grid list-none grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {FEATURES.map(({ icon: Icon, title, sub }) => (
-            <li key={title} className="flex items-start gap-3">
-              <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border-2 border-primary text-primary">
-                <Icon className="size-5" aria-hidden="true" />
-              </span>
-              <span className="flex flex-col gap-0.5">
-                <span className="text-sm font-semibold text-foreground">{title}</span>
-                <span className="text-sm text-muted-foreground">{sub}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
+      {/* The tint lives on this full-bleed wrapper rather than on the section itself:
+          the section carries max-w-[1920px], so tinting it would leave untinted
+          gutters at 3xl. */}
+      <div className="border-b border-border bg-muted">
+        <section aria-label="Điểm nổi bật" className="relative z-10 mx-auto w-full max-w-[1920px] px-4 py-6 sm:px-8 sm:py-8 xl:px-[104px]">
+          <ul className="grid list-none grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {FEATURES.map(({ icon: Icon, title, sub }) => (
+              <li
+                key={title}
+                className="flex items-start gap-3 rounded-2xl border border-border bg-card p-5 shadow-e1 xl:p-6"
+              >
+                <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary xl:size-12">
+                  <Icon className="size-5 xl:size-6" aria-hidden="true" />
+                </span>
+                <span className="flex flex-col gap-0.5">
+                  <span className="text-sm font-semibold text-foreground xl:text-base">{title}</span>
+                  <span className="text-sm text-muted-foreground 2xl:text-base">{sub}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </div>
 
       <PopularTrips prices={prices} durations={durations} />
 
