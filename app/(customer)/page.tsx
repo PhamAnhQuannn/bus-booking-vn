@@ -207,54 +207,80 @@ async function HeroMarketingView() {
             image starts at viewport y=0 and the sky sits behind the navbar. The
             header is z-40 and this section sets no z-index, so the photo paints
             behind it without any explicit stacking work. */}
+        {/* Mobile deliberately does NOT show the whole bus, and no crop can make
+            it. The box here is PORTRAIT — measured 375x732 at 390, h/w 1.952 —
+            so cover exposes only 28.8% of the master's width while the bus
+            spans 36% of it. A frame tall enough to hold the bus at that aspect
+            would need 1306px of height; the master has 941. This variant is cut
+            around the bus FRONT plus sky instead, which is the honest framing
+            for the space. All four variants come from scripts/hero-cut.py. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 bg-cover bg-[position:72%_center] md:hidden lg:-top-21"
+          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 bg-cover bg-center md:hidden lg:-top-21"
           style={{ backgroundImage: "url('/hero/landing-golden-1280.jpg')" }}
         />
-        {/* md-only crop. The 2:1 master puts the bus at x 0.63-0.90, so a portrait-ish
-            md box (AR ~1.14-1.52) crops it off the right edge. This 4:3 recrop centres
-            the bus at x 0.383-0.833 so cover keeps it whole across the whole md range. */}
+        {/* md box measures 885x734 at 900 (h/w 0.830). cover shows 67.9% of the
+            asset's width there and the bus spans 36%, so the whole vehicle does
+            fit. The variant is pre-cut to the box aspect (1.204 vs 1.205), which
+            is why position is plain centre — there is nothing to pan. The sun
+            (master x 0.09) falls outside this crop and is sacrificed. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 hidden bg-cover bg-[position:50%_30%] md:block lg:hidden"
+          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 hidden bg-cover bg-center md:block lg:hidden"
           style={{ backgroundImage: "url('/hero/landing-golden-md-1536.jpg')" }}
         />
-        {/* lg+ framing is solved, not eyeballed. The reference hero is the SAME
-            photograph as this master; the crop was recovered by normalised
-            cross-correlation and validated against the bus ROOFLINE — a straight
-            high-contrast edge deliberately excluded from the fit — which projected
-            to within ±3px on an 1828px canvas (<0.2%). The reference's photo box
-            maps to a 1316 x 626 window at master (444, 268), with margins on all
-            four sides of this 1920x960 asset.
+        {/* lg and 3xl use `cover`, not a percentage zoom. The old asset was 2:1
+            and needed 138% merely to cover, which is why only ~50% of it was
+            ever visible. This master is 1.777, so cover IS the floor and the
+            whole frame is in play — the framing is done by position alone.
 
-            The photo box spans header + hero, so the sky the reference shows
-            behind its navbar is preserved.
+            These position values depend on pixel-measured landmarks in the
+            master. If the photograph is ever swapped, they silently become
+            wrong — re-measure before changing the asset:
 
-            138%, down from 146%. background-size resolves against the BOX width,
-            not the viewport, so the cover floor is 200 * box_h / box_w. The
-            binding case is lg=1024, where the box measures 1009 x 690 — note the
-            HEIGHT there is set by content wrapping, not by lg:min-h, so it is
-            690 rather than the 654 the min-height alone would predict. That puts
-            the floor at 136.8%; 138% clears it with ~6px of margin, measured.
+              bus body    x 0.59 -> 0.95,  roof y 0.41
+              tyres       y 0.83,  shadow floor y 0.845
+              sun disc    x 0.09, y 0.46
+              trees intrude from the top at x 0.90 -> y 0.379,
+                          x 0.96 -> y 0.254,  x 0.99 -> y 0.187
 
-            146% was the only floor-safe value while the hero was 640px, and it
-            was also the most aggressive crop — it showed just 47.7% of the master,
-            discarding the sun and the richest cloud band, and left every margin
-            around the bus thin at once, which read as the vehicle being crowded.
+            lg spans 1024-1919 and changes character partway: below a box width
+            of ~1263 the image is height-constrained (no y travel, only x
+            matters) and above it width-constrained (no x travel, only y). One
+            declaration covers both.
 
-            Do not reduce this without re-measuring the box at 1024: 130% was
-            tried here and left a 35px gap. A bottom-edge gap has now shipped from
-            this arithmetic three times. Both layers share these values (1920/3840
-            are the same 2:1 crop). */}
+            x=100% (right) is for the 1024 end. The box there is 1009x690, so
+            cover shows 82.3% of the width — but the bus rear (0.95) and the sun
+            (0.09) span 0.86 and cannot both fit. Right-anchoring keeps the bus
+            whole with 61px behind its rear and drops the sun, which the goal
+            does not name. The sun returns on its own by ~1170px.
+
+            y=60% is for the wide end. At 1920 the visible window is 67.9% of
+            image height with 32.1% of travel: the tyres need y >= 51.7% and the
+            trees cap it at 72.2% (they, not the horizon at 0.39, are the
+            binding intruder). 60% sits mid-window; worst case across the range
+            is [53.9%, 68.8%] at 1919. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 hidden bg-[length:138%_auto] bg-[position:72%_82%] lg:-top-21 lg:block 3xl:hidden"
+          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 hidden bg-cover bg-[position:100%_60%] lg:-top-21 lg:block 3xl:hidden"
           style={{ backgroundImage: "url('/hero/landing-golden-1920.jpg')" }}
         />
+        {/* 3xl gets its OWN crop rather than another position value, because
+            position alone has an empty solution past ~2090px of box width: at
+            2560 the tyres need y >= 68.5% while the trees cap y <= 51.1%. The
+            asset is pre-cut to the box aspect (2.618 vs 1905/728 = 2.617), so
+            at 1920 essentially the whole crop is visible and the bottom anchor
+            just pins the shadow floor in view.
+
+            Known limit, do not tune against it: beyond ~2140px of box width the
+            sky-to-floor span (503 master rows) exceeds the visible band and NO
+            crop/size/position satisfies both invariants. The bottom anchor then
+            fails in the right order — the bus stays whole and tree tips rise
+            into the navbar's far-right corner, outside the nav content box
+            (94.6%) and behind the scrim. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 -top-21 hidden bg-[length:138%_auto] bg-[position:72%_82%] 3xl:block"
+          className="pointer-events-none absolute inset-x-0 bottom-0 -top-21 hidden bg-cover bg-[position:50%_100%] 3xl:block"
           style={{ backgroundImage: "url('/hero/landing-golden-3840.jpg')" }}
         />
         <div
