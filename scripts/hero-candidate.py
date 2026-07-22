@@ -45,9 +45,14 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
 # --- Acceptance criteria ------------------------------------------------------
-BUS_W = (0.22, 0.26)          # manual
+BUS_W = (0.22, 0.26)          # manual; 0.18-0.30 is acceptable in practice
 TRAIL_MARGIN_MIN = 0.09       # manual
-TYRE_Y = (0.64, 0.72)         # manual - catches a shrink-in-place
+# Corrected from (0.64, 0.72), which was derived with horizon=0.39 (itself wrong)
+# and rounded down - it would have rejected a correct candidate. Apparent size
+# scales with (tyre_y - horizon_y). Attempt A: tyres 0.83 at 36% width, horizon
+# ~0.50-0.55, so 0.28-0.33 above it. For 24%: 0.28 x 24/36 = 0.187 -> tyre_y
+# ~0.74.
+TYRE_Y = (0.70, 0.76)         # manual - see the two failure modes below
 SUN_X = (0.07, 0.11)
 # ~0.50, NOT the 0.39 quoted in early analysis - that figure came from a visual
 # estimate and is wrong. Corrected against two anchors on the current master:
@@ -153,9 +158,12 @@ def main():
     print(f"    tyre y            target {TYRE_Y[0]}-{TYRE_Y[1]}")
     print(f"    horizon y         target {HORIZON_Y[0]}-{HORIZON_Y[1]} "
           f"(soft haze edge — not automatable, see module docstring)")
-    print("    ^ the tyre check is the important one: a smaller bus whose tyres")
-    print("      are still near y 0.83 was shrunk IN PLACE, not moved down the")
-    print("      road. Reject it - it will not read as distance.")
+    print("    ^ size and depth fail SEPARATELY - check both, they distinguish:")
+    print("        tyres near 0.83 + small bus -> shrunk IN PLACE, no recession")
+    print("        tyres correct  + small bus -> miniaturised BEYOND its own")
+    print("                                      perspective (this is what the")
+    print("                                      8.8% attempt did at tyres 0.685,")
+    print("                                      where its road position implied 17%)")
 
     bad = len([x for x in ok if not x])
     if bad:
