@@ -124,12 +124,20 @@ export function SiteHeader() {
           // falloff reads as light bloom rather than a linear smudge.
           'after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-12 after:bg-gradient-to-b after:from-background after:via-background/40 after:to-transparent after:transition-opacity after:duration-200',
           overHero
-            // Over the hero photo the bar carries no surface of its own — the
-            // white wash behind the nav labels is a scrim layer inside the hero
-            // (page.tsx), so it stays scoped to the one route that has a photo.
-            // The feather is switched off too: it exists to fade an OPAQUE bar
-            // into the photo, and with nothing to fade from it reads as a smear.
-            ? 'bg-transparent after:opacity-0'
+            // Over the hero photo the bar is frosted glass: translucent surface
+            // plus backdrop blur, so the sky and clouds read through it.
+            //
+            // 0.45 is as opaque as it needs to be and no more. Over the sky in
+            // this band (~RGB 173) it composites to ~210, where the dark labels
+            // measure ~8.9:1; even against the darkest content that reaches the
+            // bar at 2560 (tree tops, ~RGB 60) it still clears 4.5:1. This only
+            // works because the active label is dark — an orange one would need
+            // ~RGB 243 behind it and force the bar back to near-white. See the
+            // nav-link classes below before raising either.
+            //
+            // The feather stays off: it exists to fade an OPAQUE bar into the
+            // photo, and against a translucent bar it reads as a smear.
+            ? 'bg-background/45 backdrop-blur-md after:opacity-0'
             : scrolled
               ? 'bg-background/90 shadow-e1 backdrop-blur after:opacity-0'
               : 'bg-background'
@@ -184,12 +192,18 @@ export function SiteHeader() {
                       // (WCAG 1.4.1) — deliberate improvement over the mockup, which
                       // signals active by colour only.
                       'after:absolute after:inset-x-3 after:bottom-2 after:h-0.5 after:rounded-full after:bg-primary after:transition-opacity',
+                      // Active is signalled by WEIGHT + the orange underline, not by
+                      // orange text. That is what lets the bar be real glass over
+                      // the hero: #CA3500 has relative luminance 0.151 and needs its
+                      // backdrop at L >= 0.855 (~RGB 243) for 4.5:1, so an orange
+                      // label forces a near-white bar no matter how the glass alpha
+                      // is set. Dark text clears the same bar at ~7:1 even over the
+                      // darkest sky in the band, so the surface is free to be
+                      // transparent. Colour is still not the sole active signal
+                      // (WCAG 1.4.1) — the underline carries it.
                       active
-                        ? 'font-semibold text-primary-strong after:opacity-100'
-                        // Reference renders inactive items pure #000; text-foreground
-                        // is our nearest token and raises contrast over the old
-                        // muted grey. Active stays distinguishable via orange + rule.
-                        : 'text-foreground after:opacity-0 hover:text-primary-strong group-hover:after:opacity-40'
+                        ? 'font-semibold text-foreground after:opacity-100'
+                        : 'text-foreground/80 after:opacity-0 hover:text-foreground group-hover:after:opacity-40'
                     )}
                   >
                     {item.label}

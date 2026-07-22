@@ -300,18 +300,20 @@ async function HeroMarketingView() {
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 hidden md:block md:bg-[linear-gradient(90deg,rgba(255,247,237,0.56)_0%,rgba(255,247,237,0.44)_38%,rgba(255,247,237,0.22)_62%,rgba(255,247,237,0.07)_82%,rgba(255,247,237,0)_100%)] lg:-top-21 xl:bg-[linear-gradient(90deg,rgba(255,247,237,0.50)_0%,rgba(255,247,237,0.40)_30%,rgba(255,247,237,0.18)_52%,rgba(255,247,237,0.05)_72%,rgba(255,247,237,0)_100%)]"
         />
-        {/* Navbar scrim — the white wash the nav labels sit on. Measured off the
-            reference: alpha ≈0.96 through the left half, ramping to ~0 by the
-            right edge, over a band exactly the header's height. It lives here
-            rather than on SiteHeader because that component also renders on 17
-            routes that have no photograph behind it.
-            This is what keeps the nav labels legible: at x<50% the surface is
-            effectively near-white, so `--primary-strong`'s AA margin — which was
-            calibrated against flat white — still holds. */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 -top-18 h-18 bg-[linear-gradient(90deg,rgba(255,255,255,0.97)_0%,rgba(255,255,255,0.96)_50%,rgba(255,255,255,0.65)_62%,rgba(255,255,255,0.34)_83%,rgba(255,255,255,0.05)_96%,rgba(255,255,255,0)_100%)] lg:-top-21 lg:h-21"
-        />
+        {/* The navbar scrim that used to sit here — a white wash ramping 0.97 to
+            0 across the bar — has been REMOVED. It existed for one reason: the
+            active nav label was orange (#CA3500, relative luminance 0.151),
+            which needs its backdrop at ~RGB 243 to clear 4.5:1, and that forced
+            a near-white strip across the top of the photograph.
+
+            The active label is now dark text plus its orange underline, so the
+            constraint is gone and SiteHeader's own `bg-background/45` glass
+            carries legibility on its own (~8.9:1 for the labels). Deleting the
+            scrim is what actually lets the bar read as glass rather than as a
+            white bar with a blur behind it.
+
+            If an orange label ever comes back to the navbar, this layer — or
+            something like it — has to come back with it. */}
         {/* The right-edge black scrim that used to sit here was removed: it dimmed
             exactly the bright sky and cloud the reference keeps luminous, and the
             reference has no counterpart to it. */}
