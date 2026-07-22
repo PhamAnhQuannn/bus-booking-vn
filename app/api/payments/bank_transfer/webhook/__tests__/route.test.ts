@@ -25,14 +25,14 @@ import { getBankTransferAdapter, processPaymentWebhook } from '@/lib/payment';
 import { getEnv } from '@/lib/config';
 import { logger } from '@/lib/logger';
 
-function makeRequest(body: string, token?: string): NextRequest {
+function makeRequest(body: string, token?: string, scheme = 'Bearer'): NextRequest {
   const headers: Record<string, string> = {
     'content-type': 'application/json',
     'x-forwarded-proto': 'https',
     'host': 'example.com',
   };
   if (token) {
-    headers['authorization'] = `Bearer ${token}`;
+    headers['authorization'] = `${scheme} ${token}`;
   }
   return new NextRequest('https://example.com/api/payments/bank_transfer/webhook', {
     method: 'POST',
@@ -43,7 +43,7 @@ function makeRequest(body: string, token?: string): NextRequest {
 
 const validPayload = JSON.stringify({
   id: 99,
-  gateway: 'Agribank',
+  gateway: 'Sacombank',
   transactionDate: '2026-06-24 10:00:00',
   accountNumber: '3516205005863',
   subAccount: null,
@@ -82,7 +82,24 @@ describe('POST /api/payments/bank_transfer/webhook', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns 200 no-op when memo has no booking ref', async () => {
+  it('accepts SePay\'s "Apikey" auth scheme', async () => {
+    const adapter = getBankTransferAdapter();
+    vi.mocked(adapter.verifyWebhook).mockReturnValueOnce({
+      ok: false,
+      reason: 'no_booking_ref_in_memo',
+    });
+
+    const res = await POST(makeRequest(validPayload, 'test-sepay-key-abc123', 'Apikey'));
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ success: true });
+  });
+
+  it('returns 401 when the auth scheme is unrecognised', async () => {
+    const res = await POST(makeRequest(validPayload, 'test-sepay-key-abc123', 'Basic'));
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 200 no-op with SePay ack shape when memo has no booking ref', async () => {
     const adapter = getBankTransferAdapter();
     vi.mocked(adapter.verifyWebhook).mockReturnValueOnce({
       ok: false,
@@ -91,8 +108,7 @@ describe('POST /api/payments/bank_transfer/webhook', () => {
 
     const res = await POST(makeRequest(validPayload, 'test-sepay-key-abc123'));
     expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.message).toBe('ok');
+    await expect(res.json()).resolves.toEqual({ success: true });
     expect(processPaymentWebhook).not.toHaveBeenCalled();
   });
 
@@ -114,6 +130,8 @@ describe('POST /api/payments/bank_transfer/webhook', () => {
 
     const res = await POST(makeRequest(validPayload, 'test-sepay-key-abc123'));
     expect(res.status).toBe(200);
+    // processPaymentWebhook's shared {message:'ok'} is re-emitted as SePay's ack.
+    await expect(res.json()).resolves.toEqual({ success: true });
     expect(processPaymentWebhook).toHaveBeenCalledWith(
       expect.objectContaining({
         adapter: 'bank_transfer',
@@ -135,6 +153,8 @@ describe('POST /api/payments/bank_transfer/webhook', () => {
 
     const res = await POST(makeRequest(validPayload, 'test-sepay-key-abc123'));
     expect(res.status).toBe(400);
+    // Non-2xx passes through unwrapped so SePay retries.
+    await expect(res.json()).resolves.toEqual({ error: 'INVALID_SIGNATURE' });
     expect(processPaymentWebhook).toHaveBeenCalled();
   });
 });
