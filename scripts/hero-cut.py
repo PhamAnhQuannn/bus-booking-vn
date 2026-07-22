@@ -12,13 +12,21 @@ its content:
     viewport 1920 -> box 1905x728  (h/w 0.382)
 
 Each crop is chosen so `background-size: cover` lands the bus and the sky where
-the layout needs them. Landmark fractions of the master, pixel-measured:
+the layout needs them. Landmark fractions of the CURRENT master, measured:
 
-    bus body      x 0.59 -> 0.95, roof y 0.41, tyres y 0.83, shadow floor 0.845
-    sun disc      x 0.09, y 0.46
-    city skyline  x 0.29 -> 0.58
+    bus body      x 0.63 -> 0.855, tyres y 0.775, shadow floor ~0.79
+    sun disc      x 0.114, y 0.472
     trees down the right edge intrude from the top at
-                  x 0.90 -> y 0.379,  x 0.96 -> y 0.254,  x 0.99 -> y 0.187
+                  x 0.85 -> y 0.397,  x 0.90 -> y 0.326,
+                  x 0.946 -> y 0.272 (the nav-content edge, the binding one),
+                  x 0.99 -> y 0.179
+
+The bus figures are read off the grid overlay from hero-candidate.py, NOT
+detected. Automated masking has now failed four times on these frames: a
+white/orange mask returns x 0.550-0.949 because it catches the guardrail and the
+lit road markings, and a dark-window-band probe returns x 0.498-0.999 because it
+catches the trees and the mountain. On a golden-hour coastal scene there is no
+colour that isolates the vehicle. Do not re-add a detector here.
 
 If the master is ever replaced, these fractions change and every crop below
 becomes wrong. Re-measure before trusting this script on a new photograph.
@@ -31,8 +39,8 @@ import sys
 from PIL import Image
 
 # Landmarks as fractions of the master. Re-measure on any asset swap.
-BUS_X0, BUS_X1 = 0.59, 0.95
-BUS_FLOOR_Y = 0.845
+BUS_X0, BUS_X1 = 0.63, 0.855
+BUS_FLOOR_Y = 0.79
 
 # Output quality. 88 is where this photograph stops gaining visible detail.
 JPEG_Q = 88
@@ -79,38 +87,47 @@ def main():
     jobs = []
 
     # --- mobile, <768. Box is PORTRAIT (h/w 1.952 at 390). ------------------
-    # The whole bus cannot fit here and no crop changes that: a 0.512-aspect
-    # frame holding a bus 36% of the master's width would need to be 1306px
-    # tall, and the master is 941. So this crop deliberately frames the bus
-    # FRONT plus sky rather than pretending to show the vehicle. Cut slightly
-    # wider than the 390 box (0.55 vs 0.512) so it still covers at 767.
+    # The constraint here is the SEARCH CARD, not the frame. At 390 the card
+    # covers roughly y 340-665 of a 732px box - the middle 44%. A full-height
+    # crop puts the bus at y 373-578, i.e. entirely behind it: the vehicle is in
+    # the picture and invisible. (The previous master had the same problem for a
+    # different reason - its 36% bus could not fit the 28.8% window at all.)
+    #
+    # So the crop is LIFTED: taking master y 0.18-1.0 raises the bus to y
+    # 0.402-0.744 of the crop, putting its roof and window band above the card's
+    # top edge at 0.464 while the card hides the wheels. Sky still fills the
+    # navbar band (0.18-0.261 against a tree line of 0.397 in this x-window).
+    #
+    # Cut slightly wider than the 390 box (0.55 vs 0.512) so it still covers
+    # at 767.
     jobs.append(("landing-golden-1280.jpg", 0.55, 768,
-                 BUS_X0 - 0.005, None,
-                 "mobile: bus front + sky; whole bus geometrically impossible"))
+                 0.615, (0.18, 1.0),
+                 "mobile: lifted so the bus clears the search card"))
 
     # --- md, 768-1023. Box h/w 0.830 -> aspect 1.205. -----------------------
-    # cover shows 67.9% of width here and the bus spans 36%, so it fits. Anchor
-    # so the crop holds the bus with margin on both sides; the sun (x 0.09)
-    # falls outside and is sacrificed.
+    # cover shows 67.9% of width and the bus spans 22.5%, so there is room to
+    # keep the skyline too. Window 0.30-0.979.
     jobs.append(("landing-golden-md-1536.jpg", 1.205, 1536,
                  0.30, None,
-                 "md: whole bus + skyline; sun sacrificed"))
+                 "md: whole bus + skyline"))
 
     # --- lg, 1024-1919. Full master, positioned in CSS. ---------------------
-    # No crop: the CSS uses `cover` with `100% 60%`, which is provably valid
-    # across this whole range. Just resize.
+    # No crop. The CSS uses `cover` at `50% 48%` - see page.tsx for why the old
+    # right-anchor is gone.
     jobs.append(("landing-golden-1920.jpg", W / H, 1920,
                  0.0, None,
                  "lg: full master, CSS positions it"))
 
     # --- 3xl, >=1920. Box aspect 2.617; crop to match. ----------------------
-    # Position-only tuning has an EMPTY valid range past ~2090px box width
-    # (tyres need P>=68.5% while trees cap P<=51.1% at 2560), which is why this
-    # slot gets its own crop instead. y 0.181-0.860 puts the navbar band on
-    # sky and keeps the shadow floor (0.845) inside.
+    # Position-only tuning has an empty valid range past ~2090px of box width,
+    # which is why this slot gets its own crop. Band re-derived for this master:
+    # the crop is 639 rows, the navbar covers 11.5% of it (73 rows), the tree
+    # line under nav content is y 0.272 (= row 256) and the bus floor is row
+    # 743. So y0 <= 183 to keep the navbar on sky, and y0 >= 104 to keep the
+    # wheels. y0 = 145 sits mid-range -> 0.154-0.833.
     jobs.append(("landing-golden-3840.jpg", 2.617, 2560,
-                 0.0, (0.181, 0.860),
-                 "3xl: cropped to box aspect; position-only fails past ~2090px"))
+                 0.0, (0.154, 0.833),
+                 "3xl: cropped to box aspect; band re-derived for this master"))
 
     os.makedirs(a.out, exist_ok=True)
     for name, aspect, out_w, ax, yr, note in jobs:

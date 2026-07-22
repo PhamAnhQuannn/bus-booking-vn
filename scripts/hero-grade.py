@@ -188,9 +188,14 @@ def grade(path, out_dir, variant=None, strict=False):
               f"this region on the {variant} crop")
 
     # --- F1: saturation -----------------------------------------------------
+    # Band widened from 35-45%. That range was calibrated on the ORIGINAL 2:1
+    # master (40.8%); the current approved master measures 50.2% and its
+    # variants 46-53%, so the old band failed all four on an image the user had
+    # signed off. The band describes the asset, not the other way round - if a
+    # future master sits outside this, check it looks right before retuning.
     sat = hsv_saturation(a).mean()
-    rep.add("F1", "overall saturation", 0.35 <= sat <= 0.45,
-            f"{sat * 100:.1f}%", "35 - 45%  (master 40.8%)")
+    rep.add("F1", "overall saturation", 0.35 <= sat <= 0.55,
+            f"{sat * 100:.1f}%", "35 - 55%  (current master 50.2%)")
 
     rep.render()
 

@@ -207,23 +207,22 @@ async function HeroMarketingView() {
             image starts at viewport y=0 and the sky sits behind the navbar. The
             header is z-40 and this section sets no z-index, so the photo paints
             behind it without any explicit stacking work. */}
-        {/* Mobile deliberately does NOT show the whole bus, and no crop can make
-            it. The box here is PORTRAIT — measured 375x732 at 390, h/w 1.952 —
-            so cover exposes only 28.8% of the master's width while the bus
-            spans 36% of it. A frame tall enough to hold the bus at that aspect
-            would need 1306px of height; the master has 941. This variant is cut
-            around the bus FRONT plus sky instead, which is the honest framing
-            for the space. All four variants come from scripts/hero-cut.py. */}
+        {/* Mobile DOES show the whole bus, which it could not before. The box
+            here is PORTRAIT — measured 375x732 at 390, h/w 1.952 — so cover
+            exposes only 28.8% of the master's width. The previous master's bus
+            was 36% and could not fit at any position, so this crop framed only
+            the vehicle's front. The current bus is 22.5%, which fits inside that
+            window with margin. All four variants come from scripts/hero-cut.py. */}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 bg-cover bg-center md:hidden lg:-top-21"
           style={{ backgroundImage: "url('/hero/landing-golden-1280.jpg')" }}
         />
         {/* md box measures 885x734 at 900 (h/w 0.830). cover shows 67.9% of the
-            asset's width there and the bus spans 36%, so the whole vehicle does
-            fit. The variant is pre-cut to the box aspect (1.204 vs 1.205), which
-            is why position is plain centre — there is nothing to pan. The sun
-            (master x 0.09) falls outside this crop and is sacrificed. */}
+            asset's width and the bus spans 22.5%, so the whole vehicle fits with
+            room for the skyline too. The variant is pre-cut to the box aspect
+            (1.205 vs 1.205), which is why position is plain centre — there is
+            nothing to pan. */}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 hidden bg-cover bg-center md:block lg:hidden"
@@ -238,46 +237,50 @@ async function HeroMarketingView() {
             master. If the photograph is ever swapped, they silently become
             wrong — re-measure before changing the asset:
 
-              bus body    x 0.59 -> 0.95,  roof y 0.41
-              tyres       y 0.83,  shadow floor y 0.845
-              sun disc    x 0.09, y 0.46
-              trees intrude from the top at x 0.90 -> y 0.379,
-                          x 0.96 -> y 0.254,  x 0.99 -> y 0.187
+              bus body    x 0.63 -> 0.855,  tyres y 0.775, floor ~0.79
+              sun disc    x 0.114, y 0.472
+              trees intrude from the top at x 0.85 -> y 0.397,
+                          x 0.90 -> y 0.326,  x 0.946 -> y 0.272,
+                          x 0.99 -> y 0.179
 
             lg spans 1024-1919 and changes character partway: below a box width
             of ~1263 the image is height-constrained (no y travel, only x
             matters) and above it width-constrained (no x travel, only y). One
             declaration covers both.
 
-            x=100% (right) is for the 1024 end. The box there is 1009x690, so
-            cover shows 82.3% of the width — but the bus rear (0.95) and the sun
-            (0.09) span 0.86 and cannot both fit. Right-anchoring keeps the bus
-            whole with 61px behind its rear and drops the sun, which the goal
-            does not name. The sun returns on its own by ~1170px.
+            x=50% (centred). The previous master needed a RIGHT anchor here: its
+            bus rear sat at x 0.95 and the sun at 0.09, spanning 0.86, which does
+            not fit the 82.3% of width that cover shows at 1024 — so the sun was
+            sacrificed. This master's rear is at 0.855, so the centred window
+            [0.0885, 0.9115] holds the whole bus AND the sun. The anchor hack is
+            gone; do not reintroduce it without re-checking that span.
 
-            y=60% is for the wide end. At 1920 the visible window is 67.9% of
-            image height with 32.1% of travel: the tyres need y >= 51.7% and the
-            trees cap it at 72.2% (they, not the horizon at 0.39, are the
-            binding intruder). 60% sits mid-window; worst case across the range
-            is [53.9%, 68.8%] at 1919. */}
+            y=48% is for the wide end. At 1920 the visible window is 67.9% of
+            image height with 32.1% of travel: the bus floor (0.79) needs
+            y >= 34.6% and the tree line under nav content (0.272) caps it at
+            60.4%. 48% sits mid-window. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 hidden bg-cover bg-[position:100%_60%] lg:-top-21 lg:block 3xl:hidden"
+          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 hidden bg-cover bg-[position:50%_48%] lg:-top-21 lg:block 3xl:hidden"
           style={{ backgroundImage: "url('/hero/landing-golden-1920.jpg')" }}
         />
         {/* 3xl gets its OWN crop rather than another position value, because
-            position alone has an empty solution past ~2090px of box width: at
-            2560 the tyres need y >= 68.5% while the trees cap y <= 51.1%. The
-            asset is pre-cut to the box aspect (2.618 vs 1905/728 = 2.617), so
-            at 1920 essentially the whole crop is visible and the bottom anchor
-            just pins the shadow floor in view.
+            position alone has an empty solution here: at 2560 the full master
+            would need y >= 28.2% to keep the bus floor and <= 21.3% to keep the
+            navbar on sky. The asset is pre-cut to the box aspect (2.618 vs
+            1905/728 = 2.617), so at 1920 the whole crop is visible and the
+            bottom anchor just pins the floor in view. Measured at 1920: navbar
+            band lands on master y 0.154-0.232 against a tree line of 0.272, and
+            the bus floor 0.790 sits inside 0.833.
 
-            Known limit, do not tune against it: beyond ~2140px of box width the
-            sky-to-floor span (503 master rows) exceeds the visible band and NO
-            crop/size/position satisfies both invariants. The bottom anchor then
-            fails in the right order — the bus stays whole and tree tips rise
-            into the navbar's far-right corner, outside the nav content box
-            (94.6%) and behind the scrim. */}
+            Known limit, do not tune against it: beyond ~2040px of box width the
+            visible band can no longer hold both invariants, and tree tips rise
+            into the navbar band. It fails in the right order — the bus stays
+            whole. Note the navbar is now translucent glass with NO scrim behind
+            it (that layer was removed when the active label went dark), so this
+            is more visible than it used to be; it is an aesthetic cost at
+            ultra-wide, not a legibility one, since the dark labels clear 4.5:1
+            against tree tops. Re-check on the render if it ever looks wrong. */}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 bottom-0 -top-21 hidden bg-cover bg-[position:50%_100%] 3xl:block"
