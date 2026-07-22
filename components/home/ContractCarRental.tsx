@@ -53,9 +53,15 @@ export function ContractCarRental() {
             <ArrowRight className="size-4" aria-hidden="true" />
           </a>
 
+          {/* Purpose-cut to this box's 2.25 aspect (scripts/hero-cut.py). Do NOT
+              point this at a hero variant: it used to use landing-golden-1280,
+              which was fine while that file was landscape, but the mobile hero
+              is now portrait 0.550 and object-cover reduced it to a close-up of
+              the windscreen. A hero recut should not be able to reframe this
+              section. */}
           {/* eslint-disable-next-line @next/next/no-img-element -- local /public photo; next/image+sharp not used in this app */}
           <img
-            src="/hero/landing-golden-1280.jpg"
+            src="/hero/contract-rental-thumb.jpg"
             alt="Xe hợp đồng BBVN"
             loading="lazy"
             decoding="async"

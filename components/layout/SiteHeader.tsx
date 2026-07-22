@@ -39,6 +39,13 @@ const LOGIN = { href: '/op/login', label: 'Đăng nhập / Đăng ký' };
 const CTA_CLASS =
   'bg-primary-strong text-primary-foreground shadow-e1 outline-none transition-all hover:bg-primary-strong/90 active:translate-y-px focus-visible:ring-3 focus-visible:ring-ring/50';
 
+/* The bar's own height, mirroring the `h-18 lg:h-21` classes on the inner row
+   below. Both the scroll handler and the IntersectionObserver's rootMargin need
+   it in JS, so it lives here rather than being written out twice — three places
+   had to agree and nothing enforced it. If those classes change, change this. */
+const BAR_H_PX = { base: 72, lg: 84 } as const;
+const barHeight = () => (window.innerWidth >= 1024 ? BAR_H_PX.lg : BAR_H_PX.base);
+
 export function SiteHeader() {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -60,8 +67,7 @@ export function SiteHeader() {
          updates, so the redundancy costs nothing. */
       const hero = document.getElementById('search');
       if (!hero) return;
-      const headerH = window.innerWidth >= 1024 ? 84 : 72;
-      setOverHero(hero.getBoundingClientRect().bottom > headerH);
+      setOverHero(hero.getBoundingClientRect().bottom > barHeight());
     };
     onScroll(); // deep-linked mid-page loads start scrolled
     window.addEventListener('scroll', onScroll, { passive: true });
@@ -93,10 +99,9 @@ export function SiteHeader() {
       observer?.disconnect();
       // Shrink the viewport by the bar's own height: the hero counts as "behind
       // the bar" only while it still reaches below that inset.
-      const headerH = window.innerWidth >= 1024 ? 84 : 72;
       observer = new IntersectionObserver(
         ([entry]) => setOverHero(entry.isIntersecting),
-        { rootMargin: `-${headerH}px 0px 0px 0px`, threshold: 0 }
+        { rootMargin: `-${barHeight()}px 0px 0px 0px`, threshold: 0 }
       );
       observer.observe(hero);
     };

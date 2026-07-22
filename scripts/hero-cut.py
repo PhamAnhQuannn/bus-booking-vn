@@ -129,6 +129,17 @@ def main():
                  0.0, (0.154, 0.833),
                  "3xl: cropped to box aspect; band re-derived for this master"))
 
+    # --- contract-rental thumbnail, NOT a hero variant. ----------------------
+    # components/home/ContractCarRental.tsx paints a 288x128 (aspect 2.25)
+    # thumbnail. It used to point at landing-golden-1280.jpg, which was fine
+    # while that file was landscape 2.000 - but the mobile hero is now PORTRAIT
+    # 0.550, so object-cover kept only ~24% of its height and rendered a
+    # close-up of the windscreen. It also pulled a 187KB hero to paint a
+    # thumbnail. Cut to the box aspect instead, at 2x for retina.
+    jobs.append(("contract-rental-thumb.jpg", 2.25, 576,
+                 0.35, (0.34, 0.84),
+                 "contract-rental thumb: landscape, bus + road + coast"))
+
     os.makedirs(a.out, exist_ok=True)
     for name, aspect, out_w, ax, yr, note in jobs:
         img, (x0, y0, cw, ch) = cut(m, aspect, out_w, ax, yr)
