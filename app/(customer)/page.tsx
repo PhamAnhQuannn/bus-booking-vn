@@ -212,14 +212,25 @@ async function HeroMarketingView() {
           className="pointer-events-none absolute inset-0 hidden bg-cover bg-[position:50%_30%] md:block lg:hidden"
           style={{ backgroundImage: "url('/hero/landing-golden-md-1536.jpg')" }}
         />
+        {/* lg+ framing is solved, not eyeballed: the reference hero maps to a
+            1608x579 window of the 1920x960 master (top-left 216,309), recovered by
+            normalised cross-correlation and checked by projecting the bus through
+            that window — all four bus edges land within 3.3pp of the reference.
+            148.7% is the optimum zoom for a 2.25-aspect box; `cover` would put the
+            bus far too small and too low. position-x is 70% rather than the solver's
+            66%: both carry the same total edge error, but the bus's rear bound was
+            read off the image by eye, and 70% keeps the whole vehicle inside the
+            frame if that estimate ran short. Both layers share these values: the
+            percentages resolve against the box, and 1920 and 3840 are the same 2:1
+            crop. Renders 1070px tall in a 640px box, so no gap. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 hidden bg-cover bg-[position:53%_30%] lg:block 3xl:hidden"
+          className="pointer-events-none absolute inset-0 hidden bg-[length:148.7%_auto] bg-[position:70%_80%] lg:block 3xl:hidden"
           style={{ backgroundImage: "url('/hero/landing-golden-1920.jpg')" }}
         />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 hidden bg-cover bg-[position:0%_30%] lg:bg-[position:53%_30%] 3xl:block"
+          className="pointer-events-none absolute inset-0 hidden bg-[length:148.7%_auto] bg-[position:70%_80%] 3xl:block"
           style={{ backgroundImage: "url('/hero/landing-golden-3840.jpg')" }}
         />
         <div
@@ -243,7 +254,12 @@ async function HeroMarketingView() {
           }}
         />
 
-        <div className="relative mx-auto flex w-full max-w-[1920px] flex-col gap-6 px-4 pt-12 pb-16 sm:px-8 sm:pt-16 sm:pb-20 lg:min-h-[720px] lg:pt-[120px] xl:px-[104px]">
+        {/* 640px at lg gives the box a ~2.25 aspect, which is what the solved
+            background framing above is tuned to. Content measures 539px, so the
+            padding budget is ~101px — hence pt-16/pb-9 rather than the old
+            120/80. Going shorter still (the reference's own 2.78 aspect, 519px)
+            would need the badge dropped and the card compacted. */}
+        <div className="relative mx-auto flex w-full max-w-[1920px] flex-col gap-6 px-4 pt-12 pb-16 sm:px-8 sm:pt-16 sm:pb-20 lg:min-h-[640px] lg:pt-16 lg:pb-9 xl:px-[104px]">
           <div className="flex max-w-[680px] flex-col items-start gap-4 text-left 2xl:max-w-[760px]">
             <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-white/80 px-3.5 py-1.5 text-sm font-medium text-primary-strong backdrop-blur">
               <BusFront className="size-4" aria-hidden="true" />
