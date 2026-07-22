@@ -14,7 +14,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Dialog } from '@base-ui/react/dialog';
-import { Globe, LogInIcon, MenuIcon, XIcon } from 'lucide-react';
+import { ChevronDown, LogInIcon, MenuIcon, XIcon } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
 import { cn } from '@/lib/utils';
 
@@ -73,11 +73,18 @@ export function SiteHeader() {
         {/* Flat px-6 with no max-width container: keeps the logo a constant 24px
             from the window edge at every viewport (a max-w container re-centres
             above its cap and the gutter grows unbounded). */}
-        <div className="flex h-18 w-full items-center justify-between gap-4 px-6 lg:h-24">
+        {/* lg:h-21 (84px) = 5.83% of a 1440 viewport, matching the reference bar's
+            measured 5.88%. The old h-24 ran ~14% proportionally tall. */}
+        <div className="flex h-18 w-full items-center justify-between gap-4 px-6 lg:h-21">
           {/* Logo owns the left slot at every breakpoint so its 24px gutter is
-              uniform; the hamburger sits in the right-hand mobile cluster. */}
+              uniform; the hamburger sits in the right-hand mobile cluster.
+              h-11 at lg = 44px ≈ 52% of the 84px bar, matching the reference's
+              50.5%; the previous h-18 filled 75% and read oversized. Our mark
+              also carries a "BUS BOOKING" tagline the reference has no
+              equivalent for — it is baked into the PNG, so scale is the only
+              lever without commissioning a new asset. */}
           <Link href="/" className="inline-flex min-h-11 shrink-0 items-center rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-            <Logo variant="combo" className="h-14 w-auto lg:h-18" />
+            <Logo variant="combo" className="h-9 w-auto lg:h-11" />
           </Link>
 
           {/* Three-zone bar, matching the mockup's measured geometry: nav packed next
@@ -91,7 +98,12 @@ export function SiteHeader() {
           <div className="hidden flex-1 items-center xl:flex">
             {/* ml-16 + the container's gap-4 + the first link's px-3 = 92px visual
                 gap at 1440 ≈ the mockup's 6.4%-of-width logo→nav spacing. */}
-            <nav className="ml-16 flex items-center gap-6 text-base" aria-label="Điều hướng chính">
+            {/* text-sm, not text-base: cap-heights already matched the reference,
+                so the cluster's 5.8pp width overshoot was relative type size —
+                the reference's ~17px on an 1828 frame scales to ~13.4px here.
+                This also lands "VI" at nav size and keeps the button label one
+                step larger than the nav, both as measured. */}
+            <nav className="ml-16 flex items-center gap-4 text-sm" aria-label="Điều hướng chính">
               {NAV.map((item) => {
                 // '/' would prefix-match every route, so it needs an exact match.
                 const active =
@@ -109,7 +121,10 @@ export function SiteHeader() {
                       'after:absolute after:inset-x-3 after:bottom-2 after:h-0.5 after:rounded-full after:bg-primary after:transition-opacity',
                       active
                         ? 'font-semibold text-primary-strong after:opacity-100'
-                        : 'text-muted-foreground after:opacity-0 hover:text-foreground group-hover:after:opacity-40'
+                        // Reference renders inactive items pure #000; text-foreground
+                        // is our nearest token and raises contrast over the old
+                        // muted grey. Active stays distinguishable via orange + rule.
+                        : 'text-foreground after:opacity-0 hover:text-primary-strong group-hover:after:opacity-40'
                     )}
                   >
                     {item.label}
@@ -119,19 +134,38 @@ export function SiteHeader() {
             </nav>
             <div className="ml-auto flex items-center gap-5">
               {/* Language pill — visual only. There is no i18n in the app; it renders
-                  because the mockup has it. Non-interactive, and no chevron — a
-                  chevron would promise a dropdown that does not exist. */}
+                  because the reference has it, and it stays inert + aria-hidden so
+                  assistive tech is never told a control exists.
+                  ⚠ The chevron is restored for visual fidelity with the reference,
+                  but it does promise a dropdown that does not exist — a known
+                  misleading affordance for sighted users. Resolve when i18n ships
+                  or the pill becomes real.
+                  h-11 matches the button: the reference sizes the two within 1px,
+                  where ours had the pill 18% shorter. */}
               <span
                 aria-hidden="true"
-                className="inline-flex h-9 select-none items-center gap-1.5 rounded-full bg-card px-3 text-sm font-medium text-foreground"
+                className="inline-flex h-11 select-none items-center gap-1.5 rounded-full bg-card px-3 text-sm font-medium text-foreground"
               >
-                <Globe className="size-4 text-primary" />
+                {/* Vietnam flag, not a globe — the reference shows a red disc with a
+                    yellow star. Lucide ships no such icon, so it is inlined rather
+                    than adding an asset. */}
+                <svg viewBox="0 0 16 16" className="size-4 shrink-0" aria-hidden="true">
+                  <circle cx="8" cy="8" r="8" fill="#DA251D" />
+                  <path
+                    fill="#FF0"
+                    d="M8 3.2l1.176 3.62h3.806l-3.079 2.237 1.176 3.62L8 10.44l-3.079 2.237 1.176-3.62L3.018 6.82h3.806z"
+                  />
+                </svg>
                 VI
+                <ChevronDown className="size-3.5 text-muted-foreground" />
               </span>
               <Link
                 href={LOGIN.href}
                 className={cn(
-                  'inline-flex h-11 items-center whitespace-nowrap rounded-lg border border-primary/30 px-5 text-base font-medium text-foreground outline-none transition-colors hover:bg-primary/5 focus-visible:ring-3 focus-visible:ring-ring/50'
+                  // border-primary/40: the reference's stroke samples (251,113,77),
+                  // far more saturated than /30 composites to. JPEG blur can only
+                  // wash a thin stroke toward its neighbour, so that is a floor.
+                  'inline-flex h-11 items-center whitespace-nowrap rounded-lg border border-primary/40 px-5 text-base font-medium text-foreground outline-none transition-colors hover:bg-primary/5 focus-visible:ring-3 focus-visible:ring-ring/50'
                 )}
               >
                 {LOGIN.label}
