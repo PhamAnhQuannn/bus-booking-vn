@@ -87,7 +87,11 @@ export function SiteFooter() {
       <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-8 px-4 py-12 text-sm sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr_1.2fr] lg:gap-10">
         {/* Brand column */}
         <div className="flex flex-col gap-3">
-          <Logo variant="combo" className="h-12 w-auto" />
+          {/* mono: the footer slab is `--footer` (~#202123) and the colour
+              lockup's wordmark is near-black ink, which all but disappears on
+              it. The white knockout is what public/brand/README.md assigns to
+              dark surfaces. */}
+          <Logo variant="combo" mono className="h-12 w-auto" />
           <p className="max-w-xs text-footer-muted">
             BBVN – Nền tảng đặt vé xe khách trực tuyến. Đặt vé nhanh chóng, giá tốt, hỗ trợ
             tận tình.
