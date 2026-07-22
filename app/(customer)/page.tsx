@@ -212,25 +212,33 @@ async function HeroMarketingView() {
           className="pointer-events-none absolute inset-0 hidden bg-cover bg-[position:50%_30%] md:block lg:hidden"
           style={{ backgroundImage: "url('/hero/landing-golden-md-1536.jpg')" }}
         />
-        {/* lg+ framing is solved, not eyeballed: the reference hero maps to a
-            1608x579 window of the 1920x960 master (top-left 216,309), recovered by
-            normalised cross-correlation and checked by projecting the bus through
-            that window — all four bus edges land within 3.3pp of the reference.
-            148.7% is the optimum zoom for a 2.25-aspect box; `cover` would put the
-            bus far too small and too low. position-x is 70% rather than the solver's
-            66%: both carry the same total edge error, but the bus's rear bound was
-            read off the image by eye, and 70% keeps the whole vehicle inside the
-            frame if that estimate ran short. Both layers share these values: the
-            percentages resolve against the box, and 1920 and 3840 are the same 2:1
-            crop. Renders 1070px tall in a 640px box, so no gap. */}
+        {/* lg+ framing is solved, not eyeballed. The reference hero is the SAME
+            photograph as this master (normalised cross-correlation: four
+            texture-distinct patches converged on scale 0.866, peak 0.75-0.85,
+            cross-checked by projecting the bus bbox through the fit — all four
+            edges within ~1.8pp). Affine: master = (255.5, 244.2) + 0.866 * ref.
+            The reference's photo box (1817 x 732) therefore maps to a 1573 x 634
+            window at master (255,244), which fits this 1920x960 asset.
+
+            Our box is 2.25 aspect vs the reference's 2.48, i.e. relatively taller,
+            so the surplus is anchored to the BOTTOM — the road stays put and the
+            extra height becomes sky above the bus, which is the intent.
+
+            128% not the exact-match 122%: background-size resolves against the
+            BOX width, not the viewport, and at lg=1024 the box is ~1009px after
+            the scrollbar. Rendered height is half the rendered width (2:1 asset),
+            so cover needs s >= 1280/1009 = 1.269 — measured live, 126% came up
+            4px short and showed a gap. 128% leaves ~6px of margin. Both layers
+            share these values (percentages resolve against the box, and
+            1920/3840 are the same 2:1 crop). */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 hidden bg-[length:148.7%_auto] bg-[position:70%_80%] lg:block 3xl:hidden"
+          className="pointer-events-none absolute inset-0 hidden bg-[length:128%_auto] bg-[position:78%_69%] lg:block 3xl:hidden"
           style={{ backgroundImage: "url('/hero/landing-golden-1920.jpg')" }}
         />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 hidden bg-[length:148.7%_auto] bg-[position:70%_80%] 3xl:block"
+          className="pointer-events-none absolute inset-0 hidden bg-[length:128%_auto] bg-[position:78%_69%] 3xl:block"
           style={{ backgroundImage: "url('/hero/landing-golden-3840.jpg')" }}
         />
         <div
@@ -241,10 +249,9 @@ async function HeroMarketingView() {
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 hidden md:block md:bg-[linear-gradient(90deg,rgba(255,247,237,0.88)_0%,rgba(255,247,237,0.72)_38%,rgba(255,247,237,0.38)_62%,rgba(255,247,237,0.12)_82%,rgba(255,247,237,0)_100%)] xl:bg-[linear-gradient(90deg,rgba(255,247,237,0.82)_0%,rgba(255,247,237,0.66)_30%,rgba(255,247,237,0.30)_52%,rgba(255,247,237,0.08)_72%,rgba(255,247,237,0)_100%)]"
         />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 hidden md:block md:bg-[linear-gradient(90deg,rgba(0,0,0,0)_62%,rgba(0,0,0,0.2)_100%)]"
-        />
+        {/* The right-edge black scrim that used to sit here was removed: it dimmed
+            exactly the bright sky and cloud the reference keeps luminous, and the
+            reference has no counterpart to it. */}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 opacity-[0.04] mix-blend-overlay"
