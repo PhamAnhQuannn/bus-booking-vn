@@ -40,6 +40,26 @@ ORANGE = (255, 106, 0)
 # Pixels at or below this saturation are the "white" class.
 NEUTRAL_MAX_SAT = 0.35
 
+# Palette size for the PNG outputs. These lockups are flat-colour artwork over a
+# soft glow, and a full-depth RGBA PNG stores that glow as thousands of unique
+# partial-alpha pixels - logo-horizontal.png weighed 173KB at 726x294, and the
+# header plus footer together pulled 334KB of logo on EVERY page, comparable to
+# the hero LCP asset itself. Quantising to 256 colours takes that to ~44KB, a 75%
+# cut, while leaving dimensions untouched (so Logo.tsx's intrinsic sizes and the
+# OG card's aspect stay valid). Measured cost: mean per-channel delta 0.54, only
+# 4.3% of pixels differing by more than 8 - visually indistinguishable at every
+# rendered size.
+PALETTE_COLOURS = 256
+
+
+def save_png(img, path):
+    """Quantised PNG write. See PALETTE_COLOURS for why."""
+    if img.mode != "RGBA":
+        img = img.convert("RGBA")
+    img.quantize(colors=PALETTE_COLOURS, method=Image.FASTOCTREE).save(
+        path, optimize=True
+    )
+
 
 def extract(rgb):
     """Screen-on-black -> straight RGBA."""
@@ -136,7 +156,7 @@ def main():
     for name, rgba in outputs.items():
         print(f"  {name:<28} {rgba.shape[1]}x{rgba.shape[0]}")
         if not args.dry_run:
-            Image.fromarray(rgba, "RGBA").save(os.path.join(args.out, name))
+            save_png(Image.fromarray(rgba, "RGBA"), os.path.join(args.out, name))
 
     # --- icons ---------------------------------------------------------------
     # icon-192/512 keep the transparent colour glyph the site already ships.
@@ -152,7 +172,6 @@ def main():
     for name, img, transparent in icons:
         if transparent:
             # on_plate filled an opaque black plate; drop it back to transparent.
-            arr = np.asarray(img).copy()
             g = Image.fromarray(tight_crop(colour_glyph), "RGBA")
             size = img.size[0]
             target = int(size * 0.92)
@@ -163,7 +182,7 @@ def main():
             img.paste(g, ((size - g.size[0]) // 2, (size - g.size[1]) // 2), g)
         print(f"  {name:<28} {img.size[0]}x{img.size[1]}")
         if not args.dry_run:
-            img.save(os.path.join(args.out, name))
+            save_png(img, os.path.join(args.out, name))
 
     # favicon: multi-size ICO off the colour glyph on transparent.
     fav = Image.fromarray(tight_crop(colour_glyph), "RGBA")
