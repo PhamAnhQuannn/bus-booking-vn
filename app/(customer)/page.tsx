@@ -228,36 +228,51 @@ async function HeroMarketingView() {
             maps to a 1316 x 626 window at master (444, 268), with margins on all
             four sides of this 1920x960 asset.
 
-            The photo box now spans header + hero (724px at lg), so the sky the
-            reference shows behind its navbar is preserved. That box is 1.97 aspect
-            against the reference's 2.45 — ours is proportionally 143px taller,
-            floored by 539px of content — so the surplus is anchored to the TOP:
-            the window's top edge is pinned at master y=268, exactly the
-            reference's, and the extra height becomes road at the bottom.
+            The photo box spans header + hero, so the sky the reference shows
+            behind its navbar is preserved.
 
-            146% is 1920/1316, i.e. the reference's exact window width, and it also
-            clears the cover floor: background-size resolves against the BOX width,
-            and at lg=1024 the box is ~1009px after the scrollbar, so a 724px-tall
-            box needs s >= 2*724/1009 = 1.435. The previous 128% would have left a
-            78px gap there. Both layers share these values (1920/3840 are the same
-            2:1 crop). */}
+            138%, down from 146%. background-size resolves against the BOX width,
+            not the viewport, so the cover floor is 200 * box_h / box_w. The
+            binding case is lg=1024, where the box measures 1009 x 690 — note the
+            HEIGHT there is set by content wrapping, not by lg:min-h, so it is
+            690 rather than the 654 the min-height alone would predict. That puts
+            the floor at 136.8%; 138% clears it with ~6px of margin, measured.
+
+            146% was the only floor-safe value while the hero was 640px, and it
+            was also the most aggressive crop — it showed just 47.7% of the master,
+            discarding the sun and the richest cloud band, and left every margin
+            around the bus thin at once, which read as the vehicle being crowded.
+
+            Do not reduce this without re-measuring the box at 1024: 130% was
+            tried here and left a 35px gap. A bottom-edge gap has now shipped from
+            this arithmetic three times. Both layers share these values (1920/3840
+            are the same 2:1 crop). */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 hidden bg-[length:146%_auto] bg-[position:73.5%_92%] lg:-top-21 lg:block 3xl:hidden"
+          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 hidden bg-[length:138%_auto] bg-[position:72%_82%] lg:-top-21 lg:block 3xl:hidden"
           style={{ backgroundImage: "url('/hero/landing-golden-1920.jpg')" }}
         />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 -top-21 hidden bg-[length:146%_auto] bg-[position:73.5%_92%] 3xl:block"
+          className="pointer-events-none absolute inset-x-0 bottom-0 -top-21 hidden bg-[length:138%_auto] bg-[position:72%_82%] 3xl:block"
           style={{ backgroundImage: "url('/hero/landing-golden-3840.jpg')" }}
         />
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 bg-gradient-to-b from-white/85 via-white/40 to-white/70 md:hidden lg:-top-21"
         />
+        {/* Legibility wash, sized to the contrast floor rather than by feel.
+            It used to run alpha 0.82 -> 0.66 across x=0-30%, which erased the
+            photograph: gutter luminance sigma measured 7 against the reference's
+            68 — numerically a flat fill, and the "top left fell white" the user
+            reported. Measured against the darkest tone actually under the text
+            (129,94,74), the subcopy clears its 4.5:1 AA floor at alpha ~0.345 and
+            the headline clears 3:1 well below that. These stops sit at ~0.50 with
+            deliberate margin over that floor, i.e. roughly half the old values.
+            Do not raise them back without re-measuring contrast on the render. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 hidden md:block md:bg-[linear-gradient(90deg,rgba(255,247,237,0.88)_0%,rgba(255,247,237,0.72)_38%,rgba(255,247,237,0.38)_62%,rgba(255,247,237,0.12)_82%,rgba(255,247,237,0)_100%)] lg:-top-21 xl:bg-[linear-gradient(90deg,rgba(255,247,237,0.82)_0%,rgba(255,247,237,0.66)_30%,rgba(255,247,237,0.30)_52%,rgba(255,247,237,0.08)_72%,rgba(255,247,237,0)_100%)]"
+          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 hidden md:block md:bg-[linear-gradient(90deg,rgba(255,247,237,0.56)_0%,rgba(255,247,237,0.44)_38%,rgba(255,247,237,0.22)_62%,rgba(255,247,237,0.07)_82%,rgba(255,247,237,0)_100%)] lg:-top-21 xl:bg-[linear-gradient(90deg,rgba(255,247,237,0.50)_0%,rgba(255,247,237,0.40)_30%,rgba(255,247,237,0.18)_52%,rgba(255,247,237,0.05)_72%,rgba(255,247,237,0)_100%)]"
         />
         {/* Navbar scrim — the white wash the nav labels sit on. Measured off the
             reference: alpha ≈0.96 through the left half, ramping to ~0 by the
@@ -283,12 +298,14 @@ async function HeroMarketingView() {
           }}
         />
 
-        {/* 640px at lg gives the box a ~2.25 aspect, which is what the solved
-            background framing above is tuned to. Content measures 539px, so the
-            padding budget is ~101px — hence pt-16/pb-9 rather than the old
-            120/80. Going shorter still (the reference's own 2.78 aspect, 519px)
-            would need the badge dropped and the card compacted. */}
-        <div className="relative mx-auto flex w-full max-w-[1920px] flex-col gap-6 px-4 pt-12 pb-16 sm:px-8 sm:pt-16 sm:pb-20 lg:min-h-[640px] lg:pt-16 lg:pb-9 xl:px-[104px]">
+        {/* 570px at lg, down from 640. The height is not a free choice: it sets
+            the photo box, and the cover floor is 200 * box_h / box_w, so every
+            pixel of hero height forces more zoom at lg=1024. 640 forced 146% and
+            a crop showing under half the master; 570 drops the floor to ~129.7%.
+            Content measures 539px, so this leaves ~30px of padding budget — tight
+            by design. Anything that grows the content (longer copy, a locale
+            change) will overflow here before it overflows anywhere else. */}
+        <div className="relative mx-auto flex w-full max-w-[1920px] flex-col gap-6 px-4 pt-12 pb-16 sm:px-8 sm:pt-16 sm:pb-20 lg:min-h-[570px] lg:pt-14 lg:pb-8 xl:px-[104px]">
           <div className="flex max-w-[680px] flex-col items-start gap-4 text-left 2xl:max-w-[760px]">
             <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-white/80 px-3.5 py-1.5 text-sm font-medium text-primary-strong backdrop-blur">
               <BusFront className="size-4" aria-hidden="true" />
