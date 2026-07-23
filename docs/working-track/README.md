@@ -37,9 +37,9 @@ Status tracking for all work items derived from gap analysis
 
 | # | File | Severity | Status | Comparison | Spec |
 |---|------|----------|--------|------------|------|
-| 08 | [fpt-cloud-vps-provisioning](08-fpt-cloud-vps-provisioning.md) | HIGH | REMOVED | 09, 12 | FPT Cloud backup path eliminated (2026-07-10) |
-| 09 | [docker-compose-production-stack](09-docker-compose-production-stack.md) | HIGH | REMOVED | 05, 09 | FPT Cloud backup path eliminated (2026-07-10) |
-| 10 | [nginx-ssl-dns-cloudflare](10-nginx-ssl-dns-cloudflare.md) | HIGH | NOT_STARTED | 09 | SI-006 |
+| 08 | fpt-cloud-vps-provisioning (file deleted) | HIGH | REMOVED | 09, 12 | FPT Cloud backup path eliminated (2026-07-10) |
+| 09 | docker-compose-production-stack (file deleted) | HIGH | REMOVED | 05, 09 | FPT Cloud backup path eliminated (2026-07-10) |
+| 10 | nginx-ssl-dns-cloudflare (file deleted) | HIGH | REMOVED | 09 | FPT Cloud backup path eliminated (2026-07-10) |
 | 11 | [production-jwt-and-cron-secrets](11-production-jwt-and-cron-secrets.md) | HIGH | NOT_STARTED | 09 | GL-006 |
 
 ## Group D: Phase 1 Integration
