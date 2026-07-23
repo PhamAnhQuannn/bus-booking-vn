@@ -42,7 +42,7 @@ Core Auth establishes three fully isolated authentication realms -- Customer (OT
 **Dependencies on other FI features:**
 - [FI-013](../FI-013-customer-account/README.md) (Customer Account): `Customer` model, `Session` model, `ConsentRecord` model, account soft-delete
 - Notification Context: OTP delivery via `lib/auth/sendOtp.ts` -> `lib/notification/esms.ts`
-- Redis (Upstash/FPT Managed): `jti` SETNX for `otpProof` single-use enforcement, IP-based rate limiting
+- Redis (Upstash): `jti` SETNX for `otpProof` single-use enforcement, IP-based rate limiting
 
 ## Key Entities
 

@@ -85,6 +85,8 @@ Key business constraints driving compliance decisions (sourced from `documentati
 
 **Choice**: Hybrid — PII in Vietnam-hosted PostgreSQL (Viettel IDC / VNPT Technology / FPT Telecom IDC), Vercel sin1 for application serving
 
+> **Superseded 2026-07-10:** The FPT Cloud / self-hosted Vietnam path was dropped; deployment is Vercel-only (Vercel Pro + Neon + Upstash — see ADR-001 §4 and ADR-020). The Vietnam-hosted-PII migration named here has not been executed; data-residency compliance is handled via CDTIA filing.
+
 **Reasons**:
 - Decree 53/2022 + Decree 147/2024 require Vietnamese user PII stored on servers physically in Vietnam — Singapore hosting for PII is non-compliant regardless of CDTIA filing (regulatory/data-privacy.md, market-research/regulatory-compliance.md)
 - Data localization violation is rated CRITICAL severity in risk matrix — "Decree 53/2022 violation" with CEO + DPO ownership (risk-matrix.md)
