@@ -20,7 +20,6 @@ import { BookingSummaryRail } from '@/components/booking/BookingSummaryRail';
 import { BankTransferClient } from './BankTransferClient';
 import { CopyButton } from './CopyButton';
 import { QrImage } from './QrImage';
-import { PaymentDeadline } from './PaymentDeadline';
 
 export const metadata: Metadata = {
   title: 'Thanh toán chuyển khoản | BBVN',
@@ -87,6 +86,12 @@ export default async function BankTransferPage({ searchParams }: BankTransferPag
 
   const qrUrl = `https://img.vietqr.io/image/${bankBin}-${accountNumber}-${template}.png?amount=${amount}&addInfo=${encodeURIComponent(bookingRef)}`;
 
+  // Transfer deadline = booking creation + payment window. Derived from booking data
+  // (not Date.now()) so the RSC render stays pure.
+  const deadlineIso = fullBooking
+    ? new Date(fullBooking.createdAt.getTime() + PAYMENT_WINDOW_MINUTES * 60_000).toISOString()
+    : undefined;
+
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 md:grid md:grid-cols-[1fr_20rem] md:items-start">
       <div className="flex flex-col gap-6">
@@ -95,11 +100,6 @@ export default async function BankTransferPage({ searchParams }: BankTransferPag
           <p className="text-sm text-muted-foreground">
             Quét mã QR hoặc chuyển khoản thủ công theo thông tin bên dưới
           </p>
-          {fullBooking && (
-            <PaymentDeadline
-              deadlineIso={new Date(fullBooking.createdAt.getTime() + PAYMENT_WINDOW_MINUTES * 60_000).toISOString()}
-            />
-          )}
         </header>
 
         <div className="flex flex-col items-center gap-4">
@@ -149,6 +149,7 @@ export default async function BankTransferPage({ searchParams }: BankTransferPag
           bookingRef={bookingRef}
           confirmationToken={booking.confirmationToken}
           redirectUrl={redirectUrl}
+          deadlineIso={deadlineIso}
         />
 
         <p className="text-center text-sm text-muted-foreground">

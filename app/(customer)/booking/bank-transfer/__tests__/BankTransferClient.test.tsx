@@ -6,7 +6,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mockReplace }),
 }));
 
-import { BankTransferClient } from '../BankTransferClient';
+import { BankTransferClient, MAX_REFRESHES } from '../BankTransferClient';
 
 const PROPS = {
   bookingRef: 'BB-2026-abcd-ef12',
@@ -58,11 +58,29 @@ describe('BankTransferClient', () => {
     render(<BankTransferClient {...PROPS} />);
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(120 * 5000);
+      await vi.advanceTimersByTimeAsync(MAX_REFRESHES * 5000);
     });
 
     expect(screen.getByText(/Chưa nhận được thanh toán/)).toBeDefined();
     expect(screen.getByText('Thử lại')).toBeDefined();
+  });
+
+  it('shows a live transfer countdown when a deadline is provided', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: 'awaiting_payment' }),
+    });
+
+    const deadlineIso = new Date(Date.now() + 15 * 60_000).toISOString();
+    render(<BankTransferClient {...PROPS} deadlineIso={deadlineIso} />);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    // Countdown copy shown, not the "auto-check every 5s" phrasing.
+    expect(screen.getByText(/còn \d+:\d{2}/)).toBeDefined();
+    expect(screen.queryByText(/mỗi 5 giây/)).toBeNull();
   });
 
   it('resets polling on retry button click', async () => {
@@ -74,7 +92,7 @@ describe('BankTransferClient', () => {
     render(<BankTransferClient {...PROPS} />);
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(120 * 5000);
+      await vi.advanceTimersByTimeAsync(MAX_REFRESHES * 5000);
     });
 
     expect(screen.getByText(/Chưa nhận được thanh toán/)).toBeDefined();
