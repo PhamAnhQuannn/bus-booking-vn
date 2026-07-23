@@ -117,7 +117,7 @@ describe('POST /api/payments/bank_transfer/webhook', () => {
     vi.mocked(adapter.verifyWebhook).mockReturnValueOnce({
       ok: true,
       event: {
-        orderRef: 'bb-2026-abcd-ef01',
+        orderRef: 'BB-2026-abcd-ef01',
         providerTxnId: '99',
         amount: 150000,
         currency: 'VND',

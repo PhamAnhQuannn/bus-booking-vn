@@ -94,10 +94,14 @@ function createBankTransferAdapter(): PaymentGateway {
         return { ok: false, reason: 'no_booking_ref_in_memo' };
       }
 
-      // Rebuild the canonical hyphenated ref from the captured segments — the memo
-      // may have arrived without separators (BB2026c64fv372), but the DB stores the
-      // hyphenated form (bb-2026-c64f-v372).
-      const orderRef = `bb-${match[1]}-${match[2]}-${match[3]}`.toLowerCase();
+      // Rebuild the canonical ref from the captured segments. Two normalisations:
+      //  1. Separators: the memo may arrive without them (BB2026c64fv372) — we insert
+      //     the hyphens.
+      //  2. Case: generateBookingRef stores an UPPERCASE `BB-` prefix with lowercase
+      //     base36 segments (see lib/booking/bookingRef.ts + BOOKING_REF_REGEX). The DB
+      //     `bookingRef` column is case-sensitive text, so the rebuilt ref MUST use the
+      //     `BB-` prefix — a lowercase `bb-` never findUnique-matches the stored row.
+      const orderRef = `BB-${match[1]}-${match[2].toLowerCase()}-${match[3].toLowerCase()}`;
 
       return {
         ok: true,
