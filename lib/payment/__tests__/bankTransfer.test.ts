@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { getBankTransferAdapter, _resetBankTransferAdapter } from '../adapters/bankTransfer';
+import { BOOKING_REF_REGEX, generateBookingRef } from '@/lib/booking/bookingRef';
 
 vi.mock('@/lib/config', () => ({
   getEnv: () => ({
@@ -97,20 +98,22 @@ describe('bankTransfer adapter — verifyWebhook', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
-    expect(result.event.orderRef).toBe('bb-2026-abcd-ef01');
+    expect(result.event.orderRef).toBe('BB-2026-abcd-ef01');
     expect(result.event.providerTxnId).toBe('12345');
     expect(result.event.amount).toBe(150000);
     expect(result.event.currency).toBe('VND');
     expect(result.event.status).toBe('paid');
   });
 
-  it('extracts bookingRef case-insensitively and lowercases it', () => {
+  it('normalises segment case but keeps the canonical uppercase BB- prefix', () => {
     const payload = { ...validPayload, content: 'Pay BB-2026-AbCd-EfGh ticket' };
     const result = adapter.verifyWebhook(JSON.stringify(payload));
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.event.orderRef).toBe('bb-2026-abcd-efgh');
+    // Segments lowercased to match stored base36; `BB-` prefix preserved (the DB
+    // column is case-sensitive — a lowercase `bb-` would never findUnique-match).
+    expect(result.event.orderRef).toBe('BB-2026-abcd-efgh');
   });
 
   it('extracts bookingRef when the VN bank strips the hyphens from the memo', () => {
@@ -122,7 +125,7 @@ describe('bankTransfer adapter — verifyWebhook', () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.event.orderRef).toBe('bb-2026-c64f-v372');
+    expect(result.event.orderRef).toBe('BB-2026-c64f-v372');
   });
 
   it('extracts bookingRef when the memo uses spaces as separators', () => {
@@ -131,7 +134,23 @@ describe('bankTransfer adapter — verifyWebhook', () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.event.orderRef).toBe('bb-2026-abcd-ef01');
+    expect(result.event.orderRef).toBe('BB-2026-abcd-ef01');
+  });
+
+  it('reconstructs the EXACT ref generateBookingRef stores (case + hyphens) so findUnique matches', () => {
+    // Regression guard for the case-mismatch bug: a real generated ref has an
+    // uppercase `BB-` prefix; the bank strips the hyphens in the memo; the adapter
+    // must rebuild the exact stored ref, else processWebhook's findUnique misses and
+    // the booking silently never confirms.
+    const realRef = generateBookingRef(); // BB-YYYY-xxxx-yyyy
+    const strippedMemo = realRef.replace(/-/g, ''); // as the VN bank delivers it
+    const payload = { ...validPayload, content: `${strippedMemo} CKN 123456` };
+    const result = adapter.verifyWebhook(JSON.stringify(payload));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.event.orderRef).toBe(realRef);
+    expect(BOOKING_REF_REGEX.test(result.event.orderRef)).toBe(true);
   });
 
   it('returns invalid_json for non-JSON body', () => {
