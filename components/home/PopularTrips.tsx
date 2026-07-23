@@ -2,29 +2,45 @@
 
 /**
  * PopularTrips — horizontal scroll-snap carousel of popular intercity routes on the
- * landing page. Each tile is a destination photo + route label; clicking pre-fills the
- * search form via /search?origin=…&destination=… (the parse-fail branch in
- * app/search/page.tsx seeds SearchFormWrapper with these values). Images live in
- * public/destinations/<slug>.jpg and use a plain <img> (native lazy-load; avoids the
- * Turbopack `/public` url() drop seen with CSS backgrounds).
+ * landing page. Rebuilt 2026-07-21 to the mockup's data card (docs/design/mockup-home.png
+ * S4): destination photo on top, then route pair → duration + from-price → rating +
+ * "Tìm vé". Clicking anywhere on the card pre-fills the search form via
+ * /?origin=…&destination=…. Images live in public/destinations/<slug>.jpg and use a
+ * plain <img> (native lazy-load; avoids the Turbopack `/public` url() drop seen with
+ * CSS backgrounds).
  */
 
 import { useRef } from 'react';
 import Link from 'next/link';
-import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, Clock, Star } from 'lucide-react';
 
 import { searchHref } from '@/lib/search';
 import { formatVnd } from '@/lib/format';
 import { POPULAR_ROUTES, routeKey } from './popularRoutes';
 import { CardImage } from './CardImage';
+import { placeholderRating, placeholderReviewCount } from './homePlaceholders';
+
+/** "450" → "7h 30m", "120" → "2h 00m". Mirrors the mockup's duration format. */
+function formatDuration(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${h}h ${String(m).padStart(2, '0')}m`;
+}
 
 /**
- * `prices` — starting ("Từ") price per route, keyed by routeKey(origin, destination),
- * computed server-side in app/(customer)/page.tsx from getActiveRoutes(). A null/absent
- * entry means no upcoming bookable trip → the card omits the price line. Indicative
- * teaser (cheapest scheduled future trip) — may be sold out, standard OTA "from" semantic.
+ * `prices` / `durations` — starting ("Từ") price and shortest duration per route, keyed
+ * by routeKey(origin, destination), computed server-side in app/(customer)/page.tsx from
+ * getActiveRoutes(). A null/absent price entry means no upcoming bookable trip → the card
+ * is dropped entirely. Indicative teaser (cheapest scheduled future trip) — may be sold
+ * out, standard OTA "from" semantic.
  */
-export function PopularTrips({ prices }: { prices: Record<string, number | null> }) {
+export function PopularTrips({
+  prices,
+  durations,
+}: {
+  prices: Record<string, number | null>;
+  durations: Record<string, number | null>;
+}) {
   const scrollerRef = useRef<HTMLUListElement>(null);
 
   const liveRoutes = POPULAR_ROUTES.filter(
@@ -42,38 +58,43 @@ export function PopularTrips({ prices }: { prices: Record<string, number | null>
   }
 
   return (
-    <section className="mx-auto w-full max-w-5xl px-4 py-10">
+    <section className="mx-auto w-full max-w-7xl px-4 py-8 lg:py-10">
       <div className="mb-6 flex items-end justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Tuyến phổ biến</h2>
-          <p className="text-base text-muted-foreground">Các tuyến xe khách được đặt nhiều nhất.</p>
+        <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Tuyến đường phổ biến</h2>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/"
+            className="text-sm font-medium text-primary-strong outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            Xem tất cả
+          </Link>
+          {useCarousel && (
+            <div className="hidden gap-2 md:flex">
+              <button
+                type="button"
+                onClick={() => nudge(-1)}
+                aria-label="Cuộn sang trái"
+                className="inline-flex size-11 items-center justify-center rounded-full bg-card text-muted-foreground shadow-e2 transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+              >
+                <ChevronLeft className="size-5" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={() => nudge(1)}
+                aria-label="Cuộn sang phải"
+                className="inline-flex size-11 items-center justify-center rounded-full bg-card text-muted-foreground shadow-e2 transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+              >
+                <ChevronRight className="size-5" aria-hidden="true" />
+              </button>
+            </div>
+          )}
         </div>
-        {useCarousel && (
-          <div className="hidden gap-2 md:flex">
-            <button
-              type="button"
-              onClick={() => nudge(-1)}
-              aria-label="Cuộn sang trái"
-              className="inline-flex size-11 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-e1 transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-            >
-              <ChevronLeft className="size-6" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={() => nudge(1)}
-              aria-label="Cuộn sang phải"
-              className="inline-flex size-11 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-e1 transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-            >
-              <ChevronRight className="size-6" aria-hidden="true" />
-            </button>
-          </div>
-        )}
       </div>
 
       <ul
         ref={useCarousel ? scrollerRef : undefined}
         role="region"
-        aria-label="Tuyến phổ biến"
+        aria-label="Tuyến đường phổ biến"
         className={
           useCarousel
             ? 'flex snap-x snap-mandatory list-none gap-4 overflow-x-auto p-0 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
@@ -81,7 +102,9 @@ export function PopularTrips({ prices }: { prices: Record<string, number | null>
         }
       >
         {liveRoutes.map((r) => {
-          const price = prices[routeKey(r.origin, r.destination)] ?? null;
+          const key = routeKey(r.origin, r.destination);
+          const price = prices[key] ?? null;
+          const duration = durations[key] ?? null;
           return (
             <li
               key={`${r.origin}-${r.destination}`}
@@ -98,28 +121,49 @@ export function PopularTrips({ prices }: { prices: Record<string, number | null>
                     ? `Tìm chuyến ${r.origin} đến ${r.destination}, từ ${formatVnd(price)}`
                     : `Tìm chuyến ${r.origin} đến ${r.destination}`
                 }
-                className="group relative block aspect-[4/3] w-full overflow-hidden rounded-xl shadow-e1 transition-all hover:shadow-e2 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none motion-safe:hover:-translate-y-0.5"
+                className="group flex h-full flex-col overflow-hidden rounded-xl bg-card shadow-e1 transition-all hover:shadow-e2 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none motion-safe:hover:-translate-y-0.5"
               >
-                <CardImage src={`/destinations/${r.slug}.jpg`} alt={r.destination} />
-                <div
-                  aria-hidden="true"
-                  className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-transparent"
-                />
-                <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-sm font-semibold text-foreground shadow-e1 transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-                  Tìm chuyến
-                  <ArrowRight className="size-3.5" aria-hidden="true" />
-                </span>
-                <div className="absolute inset-x-0 bottom-0 flex flex-col gap-0.5 p-4">
-                  <span className="flex items-center gap-1.5 text-lg font-semibold text-white [text-shadow:0_1px_4px_rgba(0,0,0,0.55)]">
+                <div className="relative aspect-video w-full overflow-hidden">
+                  <CardImage src={`/destinations/${r.slug}.jpg`} alt={r.destination} />
+                </div>
+
+                <div className="flex flex-1 flex-col gap-3 p-4">
+                  <span className="flex items-center gap-1.5 text-base font-semibold leading-tight">
                     {r.origin}
-                    <ArrowRight className="size-5 shrink-0" aria-hidden="true" />
+                    <ArrowRight className="size-4 shrink-0 text-primary" aria-hidden="true" />
                     {r.destination}
                   </span>
-                  {price != null && (
-                    <span className="font-mono text-sm font-semibold text-white/95 [text-shadow:0_1px_4px_rgba(0,0,0,0.6)]">
-                      Từ {formatVnd(price)}
+
+                  <div className="flex items-center justify-between gap-2">
+                    {duration != null ? (
+                      <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <Clock className="size-4 shrink-0" aria-hidden="true" />
+                        {formatDuration(duration)}
+                      </span>
+                    ) : (
+                      <span />
+                    )}
+                    {price != null && (
+                      <span className="text-sm font-semibold">Từ {formatVnd(price)}</span>
+                    )}
+                  </div>
+
+                  <div className="mt-auto flex items-center justify-between gap-2">
+                    {/* PLACEHOLDER rating — no Review model exists. See homePlaceholders.ts. */}
+                    <span className="flex items-center gap-1.5 text-sm">
+                      <Star
+                        className="size-4 shrink-0 fill-primary text-primary"
+                        aria-hidden="true"
+                      />
+                      <span className="font-medium">{placeholderRating(r.slug)}</span>
+                      <span className="text-muted-foreground">
+                        ({placeholderReviewCount(r.slug)})
+                      </span>
                     </span>
-                  )}
+                    <span className="inline-flex h-9 items-center rounded-lg border border-primary/20 px-4 text-sm font-medium text-primary-strong transition-colors group-hover:bg-primary/5">
+                      Tìm vé
+                    </span>
+                  </div>
                 </div>
               </Link>
             </li>

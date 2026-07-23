@@ -35,8 +35,11 @@ export default async function OgImage() {
           fontFamily: 'sans-serif',
         }}
       >
+        {/* These dims must track logo-horizontal-white.png's aspect ratio
+            (681x289 = 2.356) or the wordmark stretches — ImageResponse applies
+            no object-fit. 640 / 2.356 = 272. Re-check if the artwork is recut. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={logoSrc} width={640} height={260} alt="" />
+        <img src={logoSrc} width={640} height={272} alt="" />
         <div style={{ fontSize: 44, fontWeight: 600, opacity: 0.95 }}>
           Đặt vé xe khách liên tỉnh
         </div>

@@ -51,6 +51,11 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-footer: var(--footer);
+  --color-footer-foreground: var(--footer-foreground);
+  --color-footer-muted: var(--footer-muted);
+  --color-footer-chip: var(--footer-chip);
+  --color-footer-hairline: var(--footer-hairline);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -116,6 +121,15 @@
   --chart-4: oklch(0.60 0.13 150);
   --chart-5: oklch(0.55 0.12 270);
   --radius: 0.75rem;
+  /* Dark footer slab (mockup S10). Charcoal #202123 with a lighter social-chip
+     fill (#3A3B3D) and a hairline (#333537) that separates the bottom bar. The
+     footer is the one intentionally dark surface on the customer site — kept as
+     tokens rather than arbitrary hex so the values stay greppable. */
+  --footer: oklch(0.235 0.003 264);
+  --footer-foreground: oklch(1 0 0);
+  --footer-muted: oklch(0.775 0.003 264);
+  --footer-chip: oklch(0.33 0.003 264);
+  --footer-hairline: oklch(0.31 0.003 264);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.646 0.222 41.116);
