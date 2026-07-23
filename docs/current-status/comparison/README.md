@@ -1,7 +1,7 @@
 # Documentation vs Reality: Comparison Index
 
 **Date:** 2026-06-21
-**Scope:** All files in `documentation/` compared against actual codebase state via `documentation/current-status/`
+**Scope:** All files in `documentation/` compared against actual codebase state via `docs/current-status/`
 
 ---
 
@@ -54,13 +54,13 @@
 | 11 | [Business Domain](11-business-domain.md) | Domain model, state machines, invariants, regulatory alignment |
 | 12 | [Spec Contradictions](12-spec-contradictions.md) | Resolved contradictions + documentation-only gaps |
 
-**Phase 1 scope:** See [GL-006](../../go-live/GL-006-phase1-launch-scope/README.md) for which ADRs/DSs are in-scope vs deferred.
+**Phase 1 scope:** See [GL-006](../../../documentation/go-live/GL-006-phase1-launch-scope/README.md) for which ADRs/DSs are in-scope vs deferred.
 
 ---
 
 ## Phase 1 Applicability (GL-006)
 
-Phase 1 = 1-2 family-owned operators, VietQR bank transfer + cash, single Agribank account. Platform owner = operator = same entity. See [GL-006](../../go-live/GL-006-phase1-launch-scope/README.md).
+Phase 1 = 1-2 family-owned operators, VietQR bank transfer + cash, single Agribank account. Platform owner = operator = same entity. See [GL-006](../../../documentation/go-live/GL-006-phase1-launch-scope/README.md).
 
 **Re-scored Top 10 for Phase 1:**
 

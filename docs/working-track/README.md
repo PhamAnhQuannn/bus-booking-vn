@@ -1,7 +1,7 @@
 # Working Track -- Phase 1 Launch
 
 Status tracking for all work items derived from gap analysis
-(`documentation/current-status/comparison/`) scoped to GL-006 Phase 1.
+(`docs/current-status/comparison/`) scoped to GL-006 Phase 1.
 
 ## Legend
 
@@ -86,4 +86,4 @@ Status tracking for all work items derived from gap analysis
 
 ---
 
-Cross-references: [GL-006](../go-live/GL-006-phase1-launch-scope/README.md) | [Comparison Index](../current-status/comparison/README.md)
+Cross-references: [GL-006](../../documentation/go-live/GL-006-phase1-launch-scope/README.md) | [Comparison Index](../current-status/comparison/README.md)
