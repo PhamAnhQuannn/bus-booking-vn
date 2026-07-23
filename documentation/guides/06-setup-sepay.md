@@ -1,15 +1,13 @@
 # SePay — Bank Transfer Payment Gateway Setup Guide
 
-Configure SePay for VietQR bank transfer payments. Customers scan QR → transfer to Agribank collection account → SePay webhook notifies app → booking confirmed. Code integration: `lib/payment/adapters/bankTransfer.ts`, `app/api/payments/bank_transfer/webhook/route.ts`. Env vars: `SEPAY_API_KEY`, `VIETQR_ACCOUNT_NUMBER`, `VIETQR_BANK_BIN`.
-
-> **Known Issue (2026-07-08 audit):** The bank transfer page validates `redirectUrl` must be a relative path (`/...`). The stub payment adapter generates absolute URLs (`http://host/booking/result/...`), causing an HTTP 404 status on the bank transfer page. Fix needed in `app/(customer)/booking/bank-transfer/page.tsx:57` before SePay go-live.
+Configure SePay for VietQR bank transfer payments. Customers scan QR → transfer to the Sacombank collection account → SePay webhook notifies app → booking confirmed. Code integration: `lib/payment/adapters/bankTransfer.ts`, `app/api/payments/bank_transfer/webhook/route.ts`. Env vars: `SEPAY_API_KEY`, `VIETQR_ACCOUNT_NUMBER`, `VIETQR_BANK_BIN`.
 
 ---
 
 ## Prerequisites
 
 - Vietnamese business license (Giấy phép kinh doanh) — required for SePay merchant account
-- Agribank business bank account (or another Vietnamese bank supported by SePay)
+- Sacombank business bank account (or another Vietnamese bank supported by SePay)
 - Domain with HTTPS for webhook URL
 
 ---
@@ -56,8 +54,8 @@ Configure SePay for VietQR bank transfer payments. Customers scan QR → transfe
 
 | Field | Value |
 |-------|-------|
-| Ngân hàng (Bank) | **Agribank** (Ngân hàng Nông nghiệp và PTNT Việt Nam) |
-| Số tài khoản | Your Agribank business account number |
+| Ngân hàng (Bank) | **Sacombank** (Ngân hàng TMCP Sài Gòn Thương Tín) |
+| Số tài khoản | Your Sacombank business account number |
 | Tên chủ tài khoản | Must match business registration exactly |
 
 4. SePay verifies account ownership via micro-deposit (1,000-5,000 VND)
@@ -67,36 +65,67 @@ Configure SePay for VietQR bank transfer payments. Customers scan QR → transfe
 
 | Bank | BIN Code | Notes |
 |------|----------|-------|
-| Agribank | `970405` | Default for Bus-Booking |
+| Sacombank | `970403` | **Default for Bus-Booking** (`VIETQR_BANK_BIN`) |
+| Agribank | `970405` | Alternative |
 | Vietcombank | `970436` | Alternative |
 | BIDV | `970418` | Alternative |
 | VietinBank | `970415` | Alternative |
 
 ---
 
-## Step 4: Get API Key
+## Step 4: Choose the webhook API Key
 
-1. Go to **"Cài đặt"** (Settings) → **"API"**
-2. Click **"Tạo API Key"** (Generate API Key)
-3. Copy the API key — displayed once only
-4. Keep it safe — never commit to version control
+`SEPAY_API_KEY` is **not** the SePay API-Access token (that one is for *pulling* transactions, which this app never does). SePay's webhook form lets you type an **arbitrary** API Key of your choosing — that is the value the app checks.
+
+1. Generate a random secret locally, 32+ chars:
+   ```bash
+   openssl rand -hex 32
+   ```
+2. Store it as `SEPAY_API_KEY` in Vercel (Step 6)
+3. Paste the identical value into the webhook form (Step 5)
+4. Never commit it to version control
+
+This key is the **entire** auth boundary for `/api/payments/bank_transfer/webhook` — the route has no HMAC body signing and no IP allowlist.
 
 ---
 
 ## Step 5: Configure Webhook
 
-1. In SePay dashboard → **"Cài đặt"** → **"Webhook"**
-2. Click **"Thêm webhook"** (Add Webhook)
-3. Configure:
+1. In SePay dashboard → **"Tích hợp Webhook"** (or https://my.sepay.vn/webhooks)
+2. Click **"+ Thêm webhook"** (Add Webhook)
+3. Configure across the 4-step form:
 
-| Field | Value |
-|-------|-------|
-| URL | `https://YOURDOMAIN.COM/api/payments/bank_transfer/webhook` |
-| Sự kiện (Events) | **"Giao dịch đến"** (Incoming transaction) |
-| Trạng thái (Status) | Active |
+| Step | Field | Value |
+|------|-------|-------|
+| 1 | Tên | e.g. `bus-booking-prod` |
+| 1 | Sự kiện (Events) | **"Giao dịch đến"** (incoming only) |
+| 1 | URL | `https://YOURDOMAIN.COM/api/payments/bank_transfer/webhook` |
+| 2 | Tài khoản ngân hàng | The linked Sacombank account |
+| 2 | VA / Tiền tố mã thanh toán | **Leave empty** — reconciliation reads the `content` memo, not `code` |
+| 3 | Kiểu xác thực | **API Key**, value = `SEPAY_API_KEY` from Step 4 |
+| 4 | Kênh cảnh báo | Optional |
 
-4. SePay sends a test webhook — verify in your server logs
-5. Note: webhook requests include a signature header for HMAC verification
+4. Use **"Gửi thử"** (test send) — expect 200 in SePay's delivery log
+
+### Authentication — exact header
+
+With auth type **API Key**, SePay sends:
+
+```
+Authorization: Apikey <SEPAY_API_KEY>
+```
+
+Note the `Apikey` scheme, **not** `Bearer`. SePay does not HMAC-sign the webhook body for this auth type. The route (`route.ts`) accepts either `Apikey` or `Bearer`, compared with `crypto.timingSafeEqual`.
+
+### Response contract — SePay expects `{"success": true}`
+
+SePay counts a delivery as successful **only** on:
+
+- HTTP **200 or 201**
+- JSON body of exactly `{"success": true}`
+- Response within **30 seconds**
+
+Anything else triggers Fibonacci-spaced retries, **max 7 attempts over 5 hours**. The shared `processPaymentWebhook` returns `{"message":"ok"}` (MoMo/VNPay have different ack formats), so the bank_transfer route re-emits 2xx in SePay's shape and passes non-2xx through untouched — those *should* be retried.
 
 ### Webhook Payload Format
 
@@ -105,7 +134,7 @@ SePay sends POST with JSON body on each incoming bank transfer:
 ```json
 {
   "id": 123456,
-  "gateway": "Agribank",
+  "gateway": "Sacombank",
   "transactionDate": "2026-06-21 14:30:00",
   "accountNumber": "1234567890",
   "transferType": "in",
@@ -128,10 +157,17 @@ The `content` field contains the booking reference (e.g. `BB-2026-abc1-def2`) us
 
 ```env
 PAYMENTS_STUB="false"
-SEPAY_API_KEY="your-api-key-from-step-4"
-VIETQR_ACCOUNT_NUMBER="your-agribank-account-number"
-VIETQR_BANK_BIN="970405"
+SEPAY_API_KEY="your-secret-from-step-4"
+VIETQR_BANK_BIN="970403"
+VIETQR_ACCOUNT_NUMBER="your-sacombank-account-number"
+VIETQR_ACCOUNT_NAME="ACCOUNT HOLDER NAME"
+VIETQR_BANK_NAME="Sacombank"
+VIETQR_TEMPLATE="compact2"
 ```
+
+`lib/config/env.ts` hard-gates this at boot: `PAYMENTS_STUB=false` fails unless `SEPAY_API_KEY` is set **and** `VIETQR_ACCOUNT_NUMBER` differs from the checked-in placeholder.
+
+`VIETQR_ACCOUNT_NAME` is display-only (shown on the payment page for manual transfers) — it is not part of the QR payload and does not affect matching.
 
 ### For Local Development
 
@@ -157,7 +193,7 @@ SePay provides a sandbox environment:
 
 ### Production Testing
 
-1. Make a small real bank transfer (e.g. 10,000 VND) to your Agribank collection account
+1. Make a small real bank transfer (e.g. 10,000 VND) to your Sacombank collection account
 2. Include a test booking reference in the transfer memo (e.g. `BB-TEST-0001-0001`)
 3. Verify:
    - SePay dashboard shows the incoming transaction
@@ -172,7 +208,7 @@ How the customer experience works:
 
 1. Customer selects "Bank Transfer" at checkout
 2. App generates VietQR code containing:
-   - Bank BIN (`970405` = Agribank)
+   - Bank BIN (`970403` = Sacombank)
    - Account number (your collection account)
    - Amount (booking total in VND)
    - Memo: booking reference (`BB-2026-xxxx-yyyy`)
@@ -189,7 +225,8 @@ How the customer experience works:
 | Problem | Cause | Fix |
 |---------|-------|-----|
 | Webhook not firing | URL wrong or HTTPS not configured | Verify webhook URL in SePay dashboard; must be HTTPS |
-| 401 on API calls | Wrong API key | Re-generate key in SePay dashboard |
+| Webhook 401s on every delivery | `SEPAY_API_KEY` mismatch, or auth type not set to **API Key** in the webhook form | Confirm the webhook-form key matches Vercel's `SEPAY_API_KEY` byte-for-byte (no trailing whitespace) |
+| SePay log shows delivery failed but booking IS paid | Endpoint returned 2xx without the `{"success": true}` body | Expected only if the ack wrapper regressed — retries are idempotent (`PaymentEvent` unique on `[adapter, providerTxnId]`), so no double-credit |
 | Payment not matched | Customer modified transfer memo | Manual reconciliation needed; check `content` field in webhook payload |
 | KYC rejected | Document mismatch | Ensure business name matches bank account name exactly |
 | QR scan fails | Bank app doesn't support VietQR | All major VN banking apps support VietQR (MB, Vietcombank, BIDV, Techcombank, etc.) |
@@ -210,6 +247,6 @@ How the customer experience works:
 ## Security Notes
 
 - Store `SEPAY_API_KEY` only in Vercel env vars — never in code or git
-- Webhook endpoint must verify HMAC signature from SePay header
+- Webhook auth is a shared API key (`Authorization: Apikey <key>`), not an HMAC body signature — the key alone is the auth boundary, so treat it like a password and rotate it if leaked
 - Collection account should be a dedicated business account, not personal
 - Enable SePay IP whitelist if available (restrict webhook sources)

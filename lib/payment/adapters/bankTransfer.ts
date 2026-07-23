@@ -37,9 +37,14 @@ interface SepayWebhookPayload {
   description: string;
 }
 
-// Non-anchored, case-insensitive variant of BOOKING_REF_REGEX for extraction from memo text.
-// Source pattern: BB-YYYY-XXXX-XXXX (lowercase base36 segments).
-const EXTRACT_REGEX = /BB-\d{4}-[0-9a-z]{4}-[0-9a-z]{4}/i;
+// Non-anchored, case-insensitive variant of BOOKING_REF_REGEX for extraction from
+// memo text. Source pattern: BB-YYYY-XXXX-XXXX (lowercase base36 segments).
+//
+// Vietnamese bank transfer memos (nội dung chuyển khoản) strip non-alphanumeric
+// characters, so the canonical `BB-2026-c64f-v372` arrives as `BB2026c64fv372`.
+// The separators are therefore OPTIONAL here ([-\s]?), and we capture the three
+// segments to rebuild the canonical hyphenated ref for the DB lookup below.
+const EXTRACT_REGEX = /BB[-\s]?(\d{4})[-\s]?([0-9a-z]{4})[-\s]?([0-9a-z]{4})/i;
 
 function createBankTransferAdapter(): PaymentGateway {
   return {
@@ -89,7 +94,10 @@ function createBankTransferAdapter(): PaymentGateway {
         return { ok: false, reason: 'no_booking_ref_in_memo' };
       }
 
-      const orderRef = match[0].toLowerCase();
+      // Rebuild the canonical hyphenated ref from the captured segments — the memo
+      // may have arrived without separators (BB2026c64fv372), but the DB stores the
+      // hyphenated form (bb-2026-c64f-v372).
+      const orderRef = `bb-${match[1]}-${match[2]}-${match[3]}`.toLowerCase();
 
       return {
         ok: true,

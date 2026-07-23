@@ -113,6 +113,27 @@ describe('bankTransfer adapter — verifyWebhook', () => {
     expect(result.event.orderRef).toBe('bb-2026-abcd-efgh');
   });
 
+  it('extracts bookingRef when the VN bank strips the hyphens from the memo', () => {
+    // Real prod memo: VietQR addInfo `BB-2026-c64f-v372` arrived as `BB2026c64fv372`
+    // (VN transfer memos drop non-alphanumeric chars). Must still match + rebuild
+    // the canonical hyphenated ref for the DB lookup.
+    const payload = { ...validPayload, content: 'BB2026c64fv372 CKN 458949' };
+    const result = adapter.verifyWebhook(JSON.stringify(payload));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.event.orderRef).toBe('bb-2026-c64f-v372');
+  });
+
+  it('extracts bookingRef when the memo uses spaces as separators', () => {
+    const payload = { ...validPayload, content: 'Thanh toan BB 2026 abcd ef01' };
+    const result = adapter.verifyWebhook(JSON.stringify(payload));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.event.orderRef).toBe('bb-2026-abcd-ef01');
+  });
+
   it('returns invalid_json for non-JSON body', () => {
     const result = adapter.verifyWebhook('not json');
 

@@ -50,7 +50,7 @@ vi.mock('@/lib/ledger', () => ({ refundOut: vi.fn() }));
 import { reconcilePayments, matchDegraded } from '../reconcilePayments';
 
 const NOW = new Date('2026-06-03T12:00:00.000Z');
-// Created 40 min ago — comfortably past the 30-min threshold.
+// Created 40 min ago — comfortably past the 15-min threshold.
 const CREATED_AT = new Date(NOW.getTime() - 40 * 60_000);
 
 function baseBooking(overrides: Record<string, unknown> = {}) {
