@@ -1,15 +1,24 @@
 /**
  * POST /api/payments/bank_transfer/webhook — SePay IPN receiver.
  *
- * Auth: Bearer token (SEPAY_API_KEY) in the Authorization header. SePay does
- * not use HMAC body signing — the bearer token IS the authentication. Verified
- * here before calling processPaymentWebhook.
+ * Auth: API key (SEPAY_API_KEY) in the Authorization header. SePay does not use
+ * HMAC body signing — the key IS the authentication. SePay's "API Key" auth type
+ * sends `Authorization: Apikey <key>`; we also accept `Bearer <key>` so the
+ * endpoint keeps working if the webhook is reconfigured. Verified here before
+ * calling processPaymentWebhook.
  *
  * SePay payload: JSON with `content` field containing the transfer memo. The
  * adapter extracts the bookingRef from the memo using BOOKING_REF_REGEX.
  *
+ * Ack contract: SePay only counts a delivery as successful on HTTP 200/201 with
+ * a JSON body of exactly `{"success": true}` within 30s. Anything else triggers
+ * Fibonacci-spaced retries (max 7 attempts over 5 hours). processPaymentWebhook
+ * is shared across adapters and returns `{message:'ok'}`, so we re-emit the
+ * SePay-shaped ack here for 2xx and pass non-2xx through untouched (those SHOULD
+ * be retried).
+ *
  * When the memo contains no recognisable bookingRef, the adapter returns
- * { ok: false, reason: 'no_booking_ref_in_memo' }. We return 200 (not 400) so
+ * { ok: false, reason: 'no_booking_ref_in_memo' }. We ack 200 (not 400) so
  * SePay doesn't retry — the transfer is real, we just can't match it. The
  * reconciliation sweeper handles unmatched transfers.
  */
@@ -23,13 +32,21 @@ import { logger } from '@/lib/logger';
 import { getEnv } from '@/lib/config';
 import crypto from 'crypto';
 
+/** SePay's required success ack — 200 with exactly `{"success": true}`. */
+function sepayAck(): Response {
+  return NextResponse.json({ success: true }, { status: 200 });
+}
+
+// SePay sends `Apikey <key>`; `Bearer <key>` accepted as an alternate config.
+const AUTH_SCHEME_REGEX = /^(?:Apikey|Bearer)\s+(.+)$/i;
+
 async function handler(req: NextRequest): Promise<Response> {
   const env = getEnv();
   const proto = req.headers.get('x-forwarded-proto') ?? 'https';
   const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? '';
 
   const authHeader = req.headers.get('authorization') ?? '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  const token = AUTH_SCHEME_REGEX.exec(authHeader)?.[1] ?? '';
 
   if (!env.SEPAY_API_KEY || !token) {
     logger.warn({ adapter: 'bank_transfer' }, 'payment.bank_transfer.webhook.missing_auth');
@@ -52,16 +69,19 @@ async function handler(req: NextRequest): Promise<Response> {
       { adapter: 'bank_transfer', reason: preVerify.reason },
       'payment.bank_transfer.webhook.unmatched — 200 no-op',
     );
-    return NextResponse.json({ message: 'ok' }, { status: 200 });
+    return sepayAck();
   }
 
-  return processPaymentWebhook({
+  const res = await processPaymentWebhook({
     rawBody,
     gateway,
     adapter: 'bank_transfer',
     proto,
     host,
   });
+
+  // Re-emit 2xx in SePay's ack shape; let non-2xx through so SePay retries.
+  return res.status >= 200 && res.status < 300 ? sepayAck() : res;
 }
 
 export const POST = withErrorHandler(handler);

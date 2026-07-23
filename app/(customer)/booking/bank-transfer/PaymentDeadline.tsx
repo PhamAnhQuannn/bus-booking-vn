@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * PaymentDeadline — live countdown to the 30-minute bank-transfer payment window
+ * PaymentDeadline — live countdown to the 15-minute bank-transfer payment window
  * (lib/jobs/reconcilePayments.ts RECONCILE_THRESHOLD_MINUTES).
  *
  * Audit F21: R1 showed this as a static clock time at the bottom of the page,

@@ -39,7 +39,7 @@ interface BankTransferPageProps {
 // sweeper resolves it (lib/jobs/reconcilePayments.ts RECONCILE_THRESHOLD_MINUTES).
 // Kept as a display-only mirror here — not imported cross-domain, keep in sync
 // if the sweeper threshold changes.
-const PAYMENT_WINDOW_MINUTES = 30;
+const PAYMENT_WINDOW_MINUTES = 15;
 
 function formatVND(amount: number): string {
   return (

@@ -12,10 +12,10 @@
  *
  * THRESHOLD
  * ─────────
- * Only bookings created longer ago than RECONCILE_THRESHOLD_MINUTES (30 min) are
- * considered. The hold TTL is shorter than this, so by 30 min a genuinely-paying
- * customer's IPN has either landed (→ paid) or is never coming (→ expire). A
- * fresh booking still mid-checkout is below threshold and skipped.
+ * Only bookings created longer ago than RECONCILE_THRESHOLD_MINUTES (15 min) are
+ * considered. The hold TTL (10 min) is shorter than this, so by 15 min a
+ * genuinely-paying customer's IPN has either landed (→ paid) or is never coming
+ * (→ expire). A fresh booking still mid-checkout is below threshold and skipped.
  *
  * PER-BOOKING BRANCHES (each documented at its site below):
  *   (a) a confirming PaymentEvent exists (status paid, amount >= totalVnd,
@@ -59,7 +59,7 @@ import type { JobCore } from './types';
  * Bookings created more than this many minutes ago are candidates. > hold TTL so
  * a still-checking-out customer is never swept. Documented const, not magic.
  */
-export const RECONCILE_THRESHOLD_MINUTES = 30;
+export const RECONCILE_THRESHOLD_MINUTES = 15;
 
 /**
  * Conservative ± window (minutes) around hold creation for the degraded
