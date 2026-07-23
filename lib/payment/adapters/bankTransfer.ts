@@ -21,6 +21,7 @@ import type {
   CreatePaymentResult,
   VerifyWebhookResult,
 } from '../gateway';
+import { BOOKING_REF_REGEX } from '@/lib/booking';
 
 interface SepayWebhookPayload {
   id: number;
@@ -102,6 +103,15 @@ function createBankTransferAdapter(): PaymentGateway {
       //     `bookingRef` column is case-sensitive text, so the rebuilt ref MUST use the
       //     `BB-` prefix — a lowercase `bb-` never findUnique-matches the stored row.
       const orderRef = `BB-${match[1]}-${match[2].toLowerCase()}-${match[3].toLowerCase()}`;
+
+      // Guardrail: the rebuilt ref MUST equal the canonical format generateBookingRef
+      // stores (uppercase `BB-` + lowercase segments — BOOKING_REF_REGEX). The
+      // downstream lookup is a case-sensitive findUnique, so a malformed/wrong-case ref
+      // would silently miss. Asserting the canonical regex here is the one check that
+      // would have caught the `bb-`/`BB-` case bug at the adapter's first commit.
+      if (!BOOKING_REF_REGEX.test(orderRef)) {
+        return { ok: false, reason: 'no_booking_ref_in_memo' };
+      }
 
       return {
         ok: true,

@@ -128,6 +128,16 @@ describe('bankTransfer adapter — verifyWebhook', () => {
     expect(result.event.orderRef).toBe('BB-2026-c64f-v372');
   });
 
+  it('normalises an UPPERCASED + hyphen-stripped memo to the canonical BB- ref', () => {
+    // Worst case: the bank both uppercases the memo AND strips separators.
+    const payload = { ...validPayload, content: 'BB2026C64FV372 CKN 458949' };
+    const result = adapter.verifyWebhook(JSON.stringify(payload));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.event.orderRef).toBe('BB-2026-c64f-v372');
+  });
+
   it('extracts bookingRef when the memo uses spaces as separators', () => {
     const payload = { ...validPayload, content: 'Thanh toan BB 2026 abcd ef01' };
     const result = adapter.verifyWebhook(JSON.stringify(payload));
