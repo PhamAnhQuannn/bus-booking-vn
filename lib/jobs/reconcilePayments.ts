@@ -32,7 +32,10 @@
  * was garbled so the webhook could not link it to its booking, matchDegraded()
  * recovers it by amount + receiving-account (the PaymentEvent.adapter, our proxy
  * for "which account the money landed in" — there is no separate account column)
- * + a conservative time-window around hold creation. Exact amount only.
+ * + a conservative time-window around hold creation. Exact amount only. Those
+ * predicates are NOT unique to one booking, so a match is trusted only after a
+ * compare-and-set CLAIM on the orphan row (Bug B) — otherwise two same-fare
+ * bookings would both bank the same transfer. The claim makes the match one-shot.
  *
  * CONCURRENCY (Mistake Log 043 run-lock + 011/095 row-claim):
  *   - The whole tick runs under the 'reconcile-payments' advisory lock (runJob /
@@ -117,24 +120,35 @@ interface RecoveredEvent {
  * The PaymentEvent table stores neither amount nor status as columns, so we read
  * them from the persisted body.
  *
- * Both the MoMo and stub adapters sign a body with `amount` and `resultCode`,
- * and BOTH treat `resultCode === 0` as success (momo: classifyMomoStatus 0→paid;
- * stub: STUB_SUCCESS_CODE === 0). A non-zero code is a failure/pending/unknown —
- * none of which are confirming, so we only need the success boolean. A non-JSON
- * or shapeless body yields success=false and is never a confirmation.
+ * THE BODY SHAPE IS PER-ADAPTER — dispatch on the stored `adapter` column.
+ *
+ * MoMo and stub both sign a body with `amount` and `resultCode`, and BOTH treat
+ * `resultCode === 0` as success (momo: classifyMomoStatus 0→paid; stub:
+ * STUB_SUCCESS_CODE === 0). SePay shares NEITHER field — it sends `transferAmount`
+ * and has no result code at all, which is Bug B: this function used to assume the
+ * MoMo shape universally, so every bank_transfer event recovered as { 0, false }
+ * and no transfer could ever be confirmed by the sweeper. The SePay parse lives in
+ * its own adapter (recoverSepayEvent) to keep native field names behind the adapter
+ * boundary. A non-JSON or shapeless body yields success=false and is never a
+ * confirmation.
  */
 function recoverEvent(
-  row: { id: string; bookingId: string | null; adapter: string; providerTxnId: string; currency: string; rawBody: string; receivedAt: Date }
+  row: { id: string; bookingId: string | null; adapter: string; providerTxnId: string; currency: string; rawBody: string; receivedAt: Date },
+  recoverSepayEvent: (rawBody: string) => { amount: number; success: boolean }
 ): RecoveredEvent {
   let amount = 0;
   let success = false;
-  try {
-    const parsed = JSON.parse(row.rawBody) as Record<string, unknown>;
-    const rawAmount = Number(parsed.amount ?? 0);
-    amount = Number.isFinite(rawAmount) && rawAmount >= 0 ? rawAmount : 0;
-    success = Number(parsed.resultCode ?? -1) === 0;
-  } catch {
-    // Non-JSON / shapeless body → not a confirmation.
+  if (row.adapter === 'bank_transfer') {
+    ({ amount, success } = recoverSepayEvent(row.rawBody));
+  } else {
+    try {
+      const parsed = JSON.parse(row.rawBody) as Record<string, unknown>;
+      const rawAmount = Number(parsed.amount ?? 0);
+      amount = Number.isFinite(rawAmount) && rawAmount >= 0 ? rawAmount : 0;
+      success = Number(parsed.resultCode ?? -1) === 0;
+    } catch {
+      // Non-JSON / shapeless body → not a confirmation.
+    }
   }
   return {
     paymentEventId: row.id,
@@ -193,9 +207,8 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
   const { renderTemplate } = await import('@/lib/notification');
   const { logger } = await import('@/lib/logger');
   const { legalPredecessors } = await import('@/lib/booking');
-  const { applyPaidStatusTransition, appendBookingPaidLedger } = await import(
-    '@/lib/payment'
-  );
+  const { applyPaidStatusTransition, appendBookingPaidLedger, recoverSepayEvent } =
+    await import('@/lib/payment');
   const { refundOut } = await import('@/lib/ledger');
 
   const now = opts?.now ?? new Date();
@@ -267,7 +280,7 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
          )
     `);
 
-    const events = rawEvents.map((e) => recoverEvent(e));
+    const events = rawEvents.map((e) => recoverEvent(e, recoverSepayEvent));
     const linked = events.filter((e) => e.bookingId === booking.id);
     // Receiving accounts this booking could legitimately have been paid into:
     // the rail it was created with (paymentMethod) plus any adapter that already
@@ -283,7 +296,35 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
 
     // Degraded match (SYS06): no linked confirmation, try the orphan window.
     if (!confirming) {
-      confirming = matchDegraded(booking, events, usedAdapters);
+      const degradedMatch = matchDegraded(booking, events, usedAdapters);
+      if (degradedMatch) {
+        // Bug B: CLAIM the orphan before trusting it. A degraded match is made on
+        // (exact amount + adapter + window) only — nothing about those three is
+        // unique to one booking, so two stuck bookings at the same fare in
+        // overlapping windows would BOTH match the same real transfer and each
+        // credit the operator ledger. This whole tick runs inside ONE transaction
+        // (withAdvisoryLock), so the compare-and-set below is also what stops the
+        // second booking in the same loop: after this UPDATE the row no longer
+        // satisfies `bookingId IS NULL`, and the next candidate's events query —
+        // same tx, same connection, reads its own uncommitted write — won't see it.
+        // No in-memory exclusion set needed.
+        const claimed = await tx.$executeRaw(Prisma.sql`
+          UPDATE "PaymentEvent"
+          SET "bookingId" = ${booking.id}::uuid
+          WHERE "id" = ${degradedMatch.paymentEventId}::uuid
+            AND "bookingId" IS NULL
+        `);
+        if ((claimed as number) > 0) {
+          confirming = degradedMatch;
+        } else {
+          // Lost the claim (another booking took it, here or in a concurrent tick).
+          // Fall through to the expire check — this booking has no payment.
+          logger.info(
+            { bookingRef: booking.bookingRef, paymentEventId: degradedMatch.paymentEventId },
+            'reconcile.degraded_claim_lost — orphan already claimed by another booking'
+          );
+        }
+      }
     }
 
     if (confirming) {

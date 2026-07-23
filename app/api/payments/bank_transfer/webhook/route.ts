@@ -18,15 +18,20 @@
  * be retried).
  *
  * When the memo contains no recognisable bookingRef, the adapter returns
- * { ok: false, reason: 'no_booking_ref_in_memo' }. We ack 200 (not 400) so
- * SePay doesn't retry — the transfer is real, we just can't match it. The
- * reconciliation sweeper handles unmatched transfers.
+ * { ok: false, reason: 'no_booking_ref_in_memo', unmatched: { providerTxnId } }.
+ * We ack 200 (not 400) so SePay doesn't retry — the transfer is real, we just
+ * can't match it — and record it as an ORPHAN PaymentEvent (Bug B) so the
+ * reconciliation sweeper can degrade-match it by amount + adapter + time window.
  */
 
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { getBankTransferAdapter, processPaymentWebhook } from '@/lib/payment';
+import {
+  getBankTransferAdapter,
+  processPaymentWebhook,
+  recordUnmatchedPaymentEvent,
+} from '@/lib/payment';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { logger } from '@/lib/logger';
 import { getEnv } from '@/lib/config';
@@ -65,6 +70,18 @@ async function handler(req: NextRequest): Promise<Response> {
 
   const preVerify = gateway.verifyWebhook(rawBody);
   if (!preVerify.ok && preVerify.reason === 'no_booking_ref_in_memo') {
+    // Bug B: this short-circuit never reaches processPaymentWebhook, so the orphan
+    // row has to be written here. It is also the COMMON unmatched case — the memo
+    // the customer never typed, or one the bank mangled past EXTRACT_REGEX. Without
+    // it the transfer leaves zero DB trace and the reconcile sweeper (which the
+    // header comment promises handles these) has nothing to degrade-match.
+    if (preVerify.unmatched) {
+      await recordUnmatchedPaymentEvent({
+        adapter: 'bank_transfer',
+        providerTxnId: preVerify.unmatched.providerTxnId,
+        rawBody,
+      });
+    }
     logger.info(
       { adapter: 'bank_transfer', reason: preVerify.reason },
       'payment.bank_transfer.webhook.unmatched — 200 no-op',

@@ -415,15 +415,24 @@ model ConsentRecord {
 }
 
 model PaymentEvent {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  bookingId     String   @db.Uuid
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Bug B (2026-07-23): NULLABLE. A bank-transfer webhook whose memo carries no
+  /// resolvable bookingRef is recorded as an ORPHAN row (bookingId NULL) instead of
+  /// being dropped, so the reconcile sweeper's degraded match (SYS06) can recover it
+  /// by amount + adapter + time window and then CAS-claim it (sets bookingId). An
+  /// orphan row is the ONLY evidence that money arrived for an unmatchable transfer —
+  /// never delete one without reconciling it against the bank statement first.
+  bookingId     String?  @db.Uuid
   adapter       String
   providerTxnId String
   currency      String   @default("VND")
   rawBody       String   @db.Text
   receivedAt    DateTime @default(now())
 
-  booking Booking @relation(fields: [bookingId], references: [id])
+  // onDelete declared explicitly (matches the deployed FK from 20260518161139) so
+  // widening the column to nullable doesn't let Prisma diff drift to SET NULL —
+  // a deleted booking's event must NOT become a sweepable orphan.
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: Restrict)
 
   @@unique([adapter, providerTxnId])
   @@index([bookingId])

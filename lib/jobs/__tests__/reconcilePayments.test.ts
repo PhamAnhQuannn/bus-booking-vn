@@ -9,6 +9,7 @@
  *   (c) underpaid success → NOT paid; expired once the hold has lapsed
  *   (d) monotonic guard — applyPaidStatusTransition rowcount 0 → no side-effects
  *   (e) degraded match — a memo-less (unlinked) event on amount+account+window pays
+ *   (e2) Bug B — the SAME path for a real SePay body, plus the CAS-claim race
  *   (f) below-threshold rows are excluded by the claim (none returned → no work)
  */
 
@@ -29,13 +30,32 @@ const {
   mockLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock('@/lib/payment', () => ({
-  applyPaidStatusTransition: mockApplyPaid,
-  appendBookingPaidLedger: mockAppendLedger,
-}));
+// `recoverSepayEvent` is supplied REAL (deep import — the barrel would drag
+// server-only + the db client). The whole point of Bug B's regression guard is that
+// the sweeper runs the ACTUAL SePay parser against an ACTUAL adapter-produced body;
+// a stubbed parser would re-encode whatever assumption the test author had, which is
+// exactly how the MoMo-shaped parse survived unnoticed.
+vi.mock('@/lib/payment', async () => {
+  const real = await vi.importActual<typeof import('../../payment/adapters/bankTransfer')>(
+    '@/lib/payment/adapters/bankTransfer'
+  );
+  return {
+    applyPaidStatusTransition: mockApplyPaid,
+    appendBookingPaidLedger: mockAppendLedger,
+    recoverSepayEvent: real.recoverSepayEvent,
+  };
+});
 vi.mock('@/lib/notification', () => ({ renderTemplate: mockRenderTemplate }));
 vi.mock('@/lib/logger', () => ({ logger: mockLogger }));
-vi.mock('@/lib/booking', () => ({ legalPredecessors: mockLegalPredecessors }));
+// BOOKING_REF_REGEX comes from the REAL leaf module: the bank_transfer adapter
+// imports it through this barrel, and the adapter is loaded for real above.
+// Deep-importing the leaf keeps the db client out of the unit graph (Mistake Log 092b).
+vi.mock('@/lib/booking', async () => {
+  const refs = await vi.importActual<typeof import('../../booking/bookingRef')>(
+    '@/lib/booking/bookingRef'
+  );
+  return { legalPredecessors: mockLegalPredecessors, BOOKING_REF_REGEX: refs.BOOKING_REF_REGEX };
+});
 // Prisma.sql / Prisma.join are passthroughs — the stub tx ignores the SQL and
 // returns staged rows by call order.
 vi.mock('@prisma/client', () => ({
@@ -48,6 +68,7 @@ vi.mock('next/server', () => ({ after: vi.fn() }));
 vi.mock('@/lib/ledger', () => ({ refundOut: vi.fn() }));
 
 import { reconcilePayments, matchDegraded } from '../reconcilePayments';
+import { getBankTransferAdapter } from '../../payment/adapters/bankTransfer';
 
 const NOW = new Date('2026-06-03T12:00:00.000Z');
 // Created 40 min ago — comfortably past the 15-min threshold.
@@ -274,6 +295,98 @@ describe('reconcilePayments (e) degraded match', () => {
     ).toBeNull();
     // not a success
     expect(matchDegraded(booking as never, [{ ...ok, success: false }], used)).toBeNull();
+  });
+});
+
+describe('reconcilePayments (e2) degraded match — SePay bank transfer (Bug B)', () => {
+  // ONE producer, two consumers. This constant is fed to the REAL adapter to prove
+  // it is exactly what the webhook route would have persisted, and the SAME string is
+  // then staged as the stored rawBody the sweeper re-reads. Nothing about the SePay
+  // wire shape is hand-asserted twice — the trap that hid Bug A and Bug B.
+  const GROSS = 200000;
+  const sepayPayload = {
+    id: 987654,
+    gateway: 'Sacombank',
+    transactionDate: '2026-06-03 11:25:00',
+    accountNumber: '030027766656',
+    subAccount: null,
+    transferType: 'in',
+    transferAmount: GROSS,
+    accumulated: 5_000_000,
+    code: null,
+    content: 'CK tu NGUYEN VAN A khong ghi noi dung', // no bookingRef at all
+    referenceCode: 'FT26154000001',
+    description: 'Chuyen tien',
+  };
+  const sepayRawBody = JSON.stringify(sepayPayload);
+
+  it('pays a stuck bank_transfer booking from the orphan the adapter would have produced', async () => {
+    // 1. The REAL adapter must classify this body as unmatched-but-recordable —
+    //    i.e. this exact string is what recordUnmatchedPaymentEvent stores.
+    const verified = getBankTransferAdapter().verifyWebhook(sepayRawBody);
+    expect(verified.ok).toBe(false);
+    if (verified.ok) return;
+    expect(verified.reason).toBe('no_booking_ref_in_memo');
+    expect(verified.unmatched).toEqual({ providerTxnId: String(sepayPayload.id) });
+
+    // 2. The sweeper re-reads that same stored body and must recover it.
+    //    Against the pre-fix MoMo-shaped recoverEvent this yields {0,false} → no match.
+    const orphan = eventRow({
+      id: 'pe-sepay-orphan',
+      bookingId: null,
+      adapter: 'bank_transfer',
+      providerTxnId: verified.unmatched!.providerTxnId,
+      rawBody: sepayRawBody,
+      receivedAt: new Date(CREATED_AT.getTime() + 5 * 60_000),
+    });
+    const tx = makeTx(
+      [baseBooking({ paymentMethod: 'bank_transfer', totalVnd: GROSS })],
+      [[orphan]]
+    );
+    const res = await reconcilePayments(tx as never, { now: NOW });
+
+    expect(mockApplyPaid).toHaveBeenCalledWith(
+      tx,
+      baseBooking().id,
+      String(sepayPayload.id)
+    );
+    expect(mockAppendLedger).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({ adapter: 'bank_transfer', grossVnd: GROSS })
+    );
+    expect(res).toEqual({ rowsAffected: 1, status: 'success' });
+  });
+
+  it('does NOT pay when the CAS claim loses — the orphan already belongs to another booking', async () => {
+    const orphan = eventRow({
+      id: 'pe-sepay-orphan',
+      bookingId: null,
+      adapter: 'bank_transfer',
+      providerTxnId: String(sepayPayload.id),
+      rawBody: sepayRawBody,
+      receivedAt: new Date(CREATED_AT.getTime() + 5 * 60_000),
+    });
+    const tx = makeTx(
+      [
+        baseBooking({
+          paymentMethod: 'bank_transfer',
+          totalVnd: GROSS,
+          holdExpiresAt: new Date(NOW.getTime() - 60_000),
+        }),
+      ],
+      [[orphan]]
+    );
+    // First $executeRaw is the claim → 0 rows (another booking got there first).
+    // Second is the expire UPDATE → 1 row.
+    tx.$executeRaw.mockReset();
+    tx.$executeRaw.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
+
+    const res = await reconcilePayments(tx as never, { now: NOW });
+
+    expect(mockApplyPaid).not.toHaveBeenCalled();
+    expect(mockAppendLedger).not.toHaveBeenCalled();
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(2); // claim (lost) + expire
+    expect(res).toEqual({ rowsAffected: 1, status: 'success' }); // expired, not paid
   });
 });
 
