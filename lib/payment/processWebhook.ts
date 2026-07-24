@@ -162,6 +162,7 @@ export async function processPaymentWebhook(
       status: true,
       buyerName: true,
       buyerPhone: true,
+      buyerEmail: true,
       ticketCount: true,
       totalVnd: true,
       customPickupRequested: true,
@@ -383,6 +384,13 @@ export async function processPaymentWebhook(
               operatorPayload.customPickup = booking.pickupDetail;
             }
 
+            // Bug B / email-first: the customer confirmation goes by EMAIL (bank
+            // transfer is the live rail and email is the customer channel). buyerEmail
+            // is required at booking (Issue 042); fall back to SMS only for legacy
+            // pre-042 rows with a null email.
+            const customerChannel = booking.buyerEmail ? 'email' : 'sms';
+            const customerRecipient = booking.buyerEmail ?? booking.buyerPhone;
+
             // Issue 058: enqueue ONLY (status='pending'). No in-process send —
             // the dispatch-notifications cron delivers these with retry/backoff.
             // The pre-rendered body is stored in `payload` so the dispatcher
@@ -391,7 +399,8 @@ export async function processPaymentWebhook(
               createNotificationLog({
                 bookingId: booking.id,
                 template: 'customerBookingPaid',
-                recipient: booking.buyerPhone,
+                channel: customerChannel,
+                recipient: customerRecipient,
                 payload: renderTemplate('customerBookingPaid', customerPayload),
                 status: 'pending',
               }),
