@@ -367,6 +367,16 @@ const envSchema = z.object({
   SHADOW_DATABASE_URL: z.string().url().optional(),
 
 }).superRefine((env, ctx) => {
+  // Real email mode (EMAIL_PROVIDER=resend) must carry the API key — fail fast at
+  // boot. Email is gated on EMAIL_PROVIDER alone, independent of NOTIFY_STUB, so
+  // email can go live while SMS stays stubbed.
+  if (env.EMAIL_PROVIDER === 'resend' && !env.RESEND_API_KEY) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['RESEND_API_KEY'],
+      message: 'RESEND_API_KEY is required when EMAIL_PROVIDER=resend',
+    });
+  }
   // Real eSMS mode (NOTIFY_STUB=false) must carry credentials — fail fast at boot.
   if (!env.NOTIFY_STUB) {
     for (const key of ['ESMS_API_KEY', 'ESMS_SECRET_KEY', 'ESMS_BRANDNAME'] as const) {

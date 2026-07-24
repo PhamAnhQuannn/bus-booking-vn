@@ -19,6 +19,10 @@ export type SmsTemplate =
   | 'operatorNewBooking'
   | 'customerBookingPaid'
   | 'customerBookingExpired'
+  // Bug B: unmatched bank-transfer notices (email channel in practice).
+  | 'customerPaymentReview'
+  | 'customerPaymentUnverified'
+  | 'opsUnmatchedPayment'
   | 'otpCode'
   | 'manualBookingPaid'
   | 'manualBookingCash'
@@ -81,6 +85,15 @@ export function clearTestOtpSink(): void {
   _testOtpSink.clear();
 }
 
+/**
+ * Customer-facing support contacts used in notification copy. The hotline is a
+ * placeholder until a real support line is provisioned; the ops/support inbox is
+ * the shared hotro@lenxevn.com address (also the recipient of opsUnmatchedPayment).
+ */
+export const SUPPORT_EMAIL = 'hotro@lenxevn.com';
+export const SUPPORT_HOTLINE = '1900 xxxx';
+export const OPS_EMAIL = 'hotro@lenxevn.com';
+
 export function renderTemplate(template: SmsTemplate, payload: Record<string, string | number>): string {
   switch (template) {
     case 'bookingPendingCash':
@@ -97,8 +110,9 @@ export function renderTemplate(template: SmsTemplate, payload: Record<string, st
         (payload.customPickup ? ` Diem don rieng: ${payload.customPickup}. Goi xac nhan.` : '')
       );
     case 'customerBookingPaid':
+      // Method-neutral: bank transfer (VietQR) is the live rail; MoMo is not in use.
       return (
-        `BusBookVN: Thanh toan MoMo thanh cong. ${payload.ticketCount} ve, chuyen ` +
+        `BusBookVN: Thanh toan thanh cong. ${payload.ticketCount} ve, chuyen ` +
         `${payload.route} ${payload.departureAt}. Ma: ${payload.bookingRef}. ` +
         `Xac nhan: ${payload.confirmationUrl}`
       );
@@ -108,6 +122,31 @@ export function renderTemplate(template: SmsTemplate, payload: Record<string, st
       return (
         `BusBookVN: Dat cho ${payload.bookingRef} (chuyen ${payload.route} ` +
         `${payload.departureAt}) da het han do chua thanh toan. Vui long dat lai neu can.`
+      );
+    case 'customerPaymentReview':
+      // Bug B: a transfer arrived but its memo could not be matched to this booking,
+      // so it is held for manual reconciliation. Reassure the customer instead of
+      // leaving them in silence — they DID pay; we just can't auto-match it yet.
+      return (
+        `BusBookVN: Chung toi da nhan duoc mot khoan chuyen khoan cho dat cho ` +
+        `${payload.bookingRef} nhung dang doi chieu. Chung toi se xac nhan trong vong 24h. ` +
+        `Ho tro: ${payload.supportEmail} / ${payload.hotline}.`
+      );
+    case 'customerPaymentUnverified':
+      // Bug B: the hold lapsed (24h) with no manual resolution. NEVER tell a customer
+      // whose money we detected that they "didn't pay" — point them to support.
+      return (
+        `BusBookVN: Chung toi chua doi chieu duoc thanh toan cho dat cho ${payload.bookingRef} ` +
+        `(chuyen ${payload.route} ${payload.departureAt}). Vui long lien he ${payload.supportEmail} ` +
+        `hoac ${payload.hotline} de duoc ho tro.`
+      );
+    case 'opsUnmatchedPayment':
+      // Bug B: internal alert to the ops inbox on every held booking — the interim
+      // substitute for an operator reconciliation screen. Reconcile against the bank
+      // statement: the money arrived but no memo matched this booking.
+      return (
+        `BBVN OPS: Chuyen khoan chua khop dat cho ${payload.bookingRef} — ` +
+        `${payload.amountVnd}d, ma GD ${payload.providerTxnId}. Doi chieu sao ke va xu ly.`
       );
     case 'otpCode':
       return `BusBookVN: Ma xac thuc cua ban la ${payload.code}. Het han sau ${payload.expiryMinutes} phut. Khong chia se ma nay.`;

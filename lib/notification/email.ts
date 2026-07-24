@@ -21,6 +21,11 @@ import type { Resend } from 'resend';
 export type EmailTemplate =
   | 'otpCode'
   | 'customerBookingPaid'
+  // Bug B: unmatched bank-transfer lifecycle (email is the customer channel).
+  | 'customerBookingExpired'
+  | 'customerPaymentReview'
+  | 'customerPaymentUnverified'
+  | 'opsUnmatchedPayment'
   | 'operatorNewBooking'
   | 'bookingReminder24h'
   | 'payout_scheduled'
@@ -80,6 +85,10 @@ const STUB_PROVIDER_REF_PREFIX = 'stub_email_';
 const SUBJECTS: Record<string, string> = {
   otpCode: 'BusBookVN — Mã xác thực OTP',
   customerBookingPaid: 'BusBookVN — Xac nhan thanh toan',
+  customerBookingExpired: 'BusBookVN — Dat cho da het han',
+  customerPaymentReview: 'BusBookVN — Dang doi chieu thanh toan',
+  customerPaymentUnverified: 'BusBookVN — Can ho tro thanh toan',
+  opsUnmatchedPayment: 'BBVN OPS — Chuyen khoan chua khop',
   operatorNewBooking: 'BusBookVN — Khach dat ve moi',
   bookingReminder24h: 'BusBookVN — Nhac nho chuyen di',
   payout_scheduled: 'BusBookVN — Lich chi tra',
@@ -111,8 +120,17 @@ export function renderEmailSubject(template: string): string {
   return SUBJECTS[template] ?? 'BusBookVN';
 }
 
-function notifyStubbed(): boolean {
-  return process.env.NOTIFY_STUB !== 'false';
+/**
+ * Email sending is gated on EMAIL_PROVIDER alone, NOT on NOTIFY_STUB. NOTIFY_STUB
+ * governs SMS (eSMS) — coupling email to it would force eSMS credentials at boot
+ * just to send email (env.ts superRefine). Keeping them independent lets email go
+ * live (EMAIL_PROVIDER=resend + RESEND_API_KEY) while SMS stays stubbed.
+ */
+function emailStubbed(): boolean {
+  // Read process.env directly (like the former notifyStubbed) rather than getEnv():
+  // the stub gate must not trigger full-schema validation, which throws in bare
+  // unit contexts. The real send path below still goes through getEnv().
+  return process.env.EMAIL_PROVIDER !== 'resend';
 }
 
 // ---------------------------------------------------------------------------
@@ -170,7 +188,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
       : JSON.stringify(input.payload);
   const bodyLen = body.length;
 
-  if (notifyStubbed()) {
+  if (emailStubbed()) {
     const externalRef = `${STUB_PROVIDER_REF_PREFIX}${Date.now().toString(36)}`;
     logger.info(
       { template, externalRef, subjectLen: subject.length, bodyLen, recipientLen: to.length },
@@ -179,13 +197,6 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
     return { ok: true, externalRef };
   }
 
-  if (getEnv().EMAIL_PROVIDER === 'resend') {
-    return sendViaResend(to, subject, body, template);
-  }
-
-  logger.warn(
-    { template, recipientLen: to.length },
-    'email.real.not-wired — NOTIFY_STUB=false but no real email provider is configured',
-  );
-  return { ok: false, error: 'real_email_provider_not_wired' };
+  // EMAIL_PROVIDER === 'resend' (env guarantees RESEND_API_KEY via superRefine).
+  return sendViaResend(to, subject, body, template);
 }

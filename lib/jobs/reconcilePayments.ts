@@ -120,6 +120,9 @@ interface StuckBookingRow {
   confirmationToken: string;
   buyerName: string;
   buyerPhone: string;
+  /** Customer email — the notification channel for booking outcomes (required at
+   * booking since Issue 042; null only for legacy pre-042 rows). */
+  buyerEmail: string | null;
   ticketCount: number;
   totalVnd: number;
   /** The rail the booking was created with — the receiving account a degraded
@@ -244,7 +247,9 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
   // of the DB client (mirrors charterExpirySweeper / generateTrips).
   const { Prisma } = await import('@prisma/client');
   const { after } = await import('next/server');
-  const { renderTemplate } = await import('@/lib/notification');
+  const { renderTemplate, SUPPORT_EMAIL, SUPPORT_HOTLINE, OPS_EMAIL } = await import(
+    '@/lib/notification'
+  );
   const { logger } = await import('@/lib/logger');
   const { legalPredecessors } = await import('@/lib/booking');
   const { applyPaidStatusTransition, appendBookingPaidLedger, recoverSepayEvent } =
@@ -262,6 +267,7 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
            b."confirmationToken",
            b."buyerName",
            b."buyerPhone",
+           b."buyerEmail",
            b."ticketCount",
            b."totalVnd",
            b."paymentMethod"::text       AS "paymentMethod",
@@ -398,10 +404,13 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
         const operatorRecipient =
           booking.operatorNotificationPhone ?? booking.operatorContactPhone;
 
+        // Email-first: customer confirmation goes by email (buyerEmail required at
+        // booking; SMS fallback only for legacy pre-042 null-email rows).
         await enqueuePendingNotification(tx, logger, {
           bookingId: booking.id,
           template: 'customerBookingPaid',
-          recipient: booking.buyerPhone,
+          channel: booking.buyerEmail ? 'email' : 'sms',
+          recipient: booking.buyerEmail ?? booking.buyerPhone,
           payload: renderTemplate('customerBookingPaid', {
             ticketCount: booking.ticketCount,
             route: routeLabel,
@@ -456,11 +465,44 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
     // DID arrive would destroy the only path to resolving it by hand. Past that bound
     // the hold MUST end (an unbounded hold starves this sweeper and freezes seats), so
     // it falls through to the normal expiry below with an escalated log.
+    //
+    // Set when a lapsed hold is being expired, so the expiry branch below sends the
+    // "we couldn't verify your payment" notice instead of the false "you didn't pay".
+    let suspectedUnresolved = false;
+
     if (!confirming) {
       const suspected = matchDegraded(booking, events, usedAdapters);
       if (suspected) {
+        // Alert the ops inbox on every held booking — the interim substitute for an
+        // operator reconciliation screen. unique(bookingId, template) makes this fire
+        // ONCE across the many ticks a booking is held, whether it is held now or was
+        // already past the window on first sight.
+        await enqueuePendingNotification(tx, logger, {
+          bookingId: booking.id,
+          channel: 'email',
+          template: 'opsUnmatchedPayment',
+          recipient: OPS_EMAIL,
+          payload: renderTemplate('opsUnmatchedPayment', {
+            bookingRef: booking.bookingRef,
+            amountVnd: booking.totalVnd,
+            providerTxnId: suspected.providerTxnId,
+          }),
+        });
+
         const heldForMs = now.getTime() - booking.createdAt.getTime();
         if (heldForMs < SUSPECTED_HOLD_MAX_AGE_MINUTES * 60_000) {
+          // Reassure the customer: money arrived, we're matching it (fires once).
+          await enqueuePendingNotification(tx, logger, {
+            bookingId: booking.id,
+            channel: booking.buyerEmail ? 'email' : 'sms',
+            template: 'customerPaymentReview',
+            recipient: booking.buyerEmail ?? booking.buyerPhone,
+            payload: renderTemplate('customerPaymentReview', {
+              bookingRef: booking.bookingRef,
+              supportEmail: SUPPORT_EMAIL,
+              hotline: SUPPORT_HOTLINE,
+            }),
+          });
           logger.warn(
             {
               bookingRef: booking.bookingRef,
@@ -476,6 +518,7 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
         // booking (below) rather than holding forever — see the constant's comment.
         // Escalated to error: this is the one place a booking that PROBABLY received
         // money gets closed, and the orphan PaymentEvent stays on file as evidence.
+        suspectedUnresolved = true;
         logger.error(
           {
             bookingRef: booking.bookingRef,
@@ -523,18 +566,36 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
         dateStyle: 'short',
         timeStyle: 'short',
       });
+      // A booking held on a suspected (but never matched) payment gets a DIFFERENT
+      // notice — never tell someone whose money we detected that they "didn't pay".
+      const expiryTemplate = suspectedUnresolved
+        ? 'customerPaymentUnverified'
+        : 'customerBookingExpired';
+      const expiryPayload: Record<string, string | number> = suspectedUnresolved
+        ? {
+            bookingRef: booking.bookingRef,
+            route: routeLabel,
+            departureAt: departureLabel,
+            supportEmail: SUPPORT_EMAIL,
+            hotline: SUPPORT_HOTLINE,
+          }
+        : {
+            bookingRef: booking.bookingRef,
+            route: routeLabel,
+            departureAt: departureLabel,
+          };
       await enqueuePendingNotification(tx, logger, {
         bookingId: booking.id,
-        template: 'customerBookingExpired',
-        recipient: booking.buyerPhone,
-        payload: renderTemplate('customerBookingExpired', {
-          bookingRef: booking.bookingRef,
-          route: routeLabel,
-          departureAt: departureLabel,
-        }),
+        channel: booking.buyerEmail ? 'email' : 'sms',
+        template: expiryTemplate,
+        recipient: booking.buyerEmail ?? booking.buyerPhone,
+        payload: renderTemplate(expiryTemplate, expiryPayload),
       });
       expiredCount += 1;
-      logger.info({ bookingRef: booking.bookingRef }, 'reconcile.booking_expired');
+      logger.info(
+        { bookingRef: booking.bookingRef, suspectedUnresolved },
+        'reconcile.booking_expired'
+      );
     }
   }
 
