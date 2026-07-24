@@ -136,7 +136,7 @@ Vercel auto-detects cron schedules from `vercel.json`. Verify:
 
 3. Crons use `CRON_SECRET` as Bearer token — Vercel injects this automatically
 
-> **Note:** Vercel Cron is the Phase 1 mechanism. The Supercronic sidecar referenced in GL-006 is only relevant for the FPT Cloud Docker backup deployment path — see `deployment-fpt-cloud-setup.md`.
+> **Note:** Vercel Cron is the Phase 1 mechanism. The Supercronic sidecar referenced in GL-006 applied only to the FPT Cloud Docker backup deployment path, which was dropped on 2026-07-10 (deployment is Vercel-only).
 
 ---
 
