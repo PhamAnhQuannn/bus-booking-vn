@@ -126,13 +126,19 @@ export const generateTicketPdfs: JobCore = async (_tx, opts?: JobOpts) => {
   return { rowsAffected: generated, status: 'success' };
 };
 
-/** Vietnam-local (UTC+7) short datetime for the ticket email. Mirrors
- *  processWebhook.formatDepartureForSms. Input is an ISO string. */
+/** Vietnam-local (UTC+7) datetime for the ticket email. Explicit fields (not
+ *  dateStyle:'short', which yields an ugly 2-digit year like "11/6/26") so the
+ *  ticket shows a full 4-digit year with leading zeros, e.g. "05:00 11/06/2026".
+ *  Input is an ISO string. */
 function formatDepartureVn(iso: string): string {
   return new Date(iso).toLocaleString('vi-VN', {
     timeZone: 'Asia/Ho_Chi_Minh',
-    dateStyle: 'short',
-    timeStyle: 'short',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
   });
 }
 

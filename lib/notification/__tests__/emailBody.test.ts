@@ -56,9 +56,9 @@ describe('renderEmailBody', () => {
     expect(html).not.toContain('🚌');
   });
 
-  it('respects PUBLIC_BASE_URL override for absolute links', () => {
-    const prev = process.env.PUBLIC_BASE_URL;
-    process.env.PUBLIC_BASE_URL = 'https://staging.lenxevn.com/';
+  it('respects NEXT_PUBLIC_BASE_URL override for absolute links', () => {
+    const prev = process.env.NEXT_PUBLIC_BASE_URL;
+    process.env.NEXT_PUBLIC_BASE_URL = 'https://staging.lenxevn.com/';
     try {
       const { html } = renderEmailBody(
         'ticketReady',
@@ -69,8 +69,8 @@ describe('renderEmailBody', () => {
       expect(html).not.toContain('lenxevn.com//api');
       expect(html).toContain('https://staging.lenxevn.com/brand/logo-horizontal-white.png');
     } finally {
-      if (prev === undefined) delete process.env.PUBLIC_BASE_URL;
-      else process.env.PUBLIC_BASE_URL = prev;
+      if (prev === undefined) delete process.env.NEXT_PUBLIC_BASE_URL;
+      else process.env.NEXT_PUBLIC_BASE_URL = prev;
     }
   });
 

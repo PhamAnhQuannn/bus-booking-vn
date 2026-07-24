@@ -15,7 +15,7 @@
  * blocked by a formatting bug (mirrors the "never throw" contract of the adapters).
  *
  * Links: cron-enqueued rows (ticketReady, reconcile) carry relative/bare URLs
- * because a cron has no request host. We resolve them against PUBLIC_BASE_URL
+ * because a cron has no request host. We resolve them against NEXT_PUBLIC_BASE_URL
  * (default https://lenxevn.com) so the buttons are clickable in a mail client.
  */
 
@@ -24,11 +24,14 @@ import { SUPPORT_EMAIL } from '@/lib/notification/esms';
 const BRAND = '#ea580c'; // primary orange (matches the site --primary token)
 const BRAND_DARK = '#c2410c';
 
-/** Public site origin for absolute links. Read from process.env directly (not
- *  getEnv) so this module never triggers full env-schema validation in unit
- *  contexts — same rationale as email.ts emailStubbed(). */
+/** Public site origin for absolute links. Reuses the repo's existing
+ *  NEXT_PUBLIC_BASE_URL (lib/storage/storage.ts) rather than a parallel var.
+ *  Read from process.env directly (not getEnv) so this module never triggers
+ *  full env-schema validation in unit contexts — same rationale as email.ts
+ *  emailStubbed(). Default is the prod origin (NOT storage's localhost default):
+ *  an email link must never point at localhost. */
 function publicBaseUrl(): string {
-  return (process.env.PUBLIC_BASE_URL?.replace(/\/+$/, '') || 'https://lenxevn.com');
+  return (process.env.NEXT_PUBLIC_BASE_URL?.replace(/\/+$/, '') || 'https://lenxevn.com');
 }
 
 /** Resolve a possibly-relative URL/token to an absolute https URL. */
