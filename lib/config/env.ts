@@ -339,7 +339,7 @@ const envSchema = z.object({
   /** Resend API key (real branch only). NEVER log this value. */
   RESEND_API_KEY: z.string().optional(),
   /** Sender address for transactional email. */
-  EMAIL_FROM: z.string().default('noreply@busbookvn.com'),
+  EMAIL_FROM: z.string().default('noreply@lenxevn.com'),
 
   // ---------------------------------------------------------------------------
   // Self-hosted Redis (Issue 083 — ioredis).
@@ -367,6 +367,7 @@ const envSchema = z.object({
   SHADOW_DATABASE_URL: z.string().url().optional(),
 
 }).superRefine((env, ctx) => {
+  // (EMAIL_PROVIDER=resend requires RESEND_API_KEY — enforced below, Issue 080.)
   // Real eSMS mode (NOTIFY_STUB=false) must carry credentials — fail fast at boot.
   if (!env.NOTIFY_STUB) {
     for (const key of ['ESMS_API_KEY', 'ESMS_SECRET_KEY', 'ESMS_BRANDNAME'] as const) {

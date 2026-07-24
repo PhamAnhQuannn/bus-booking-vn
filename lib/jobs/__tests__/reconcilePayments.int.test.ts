@@ -218,6 +218,7 @@ beforeAll(async () => {
         holdId,
         buyerName: 'Recon BT',
         buyerPhone: phone,
+        buyerEmail: 'recon-bt@test.invalid',
         ticketCount: 1,
         totalVnd: total,
         paymentMethod: 'bank_transfer',
@@ -366,6 +367,17 @@ describe('Issue 095 AC5 — reconcile-payments sweeper', () => {
       where: { adapter: 'bank_transfer', providerTxnId: BT_SOLO_TXN },
     });
     expect(orphan?.bookingId).toBeNull();
+
+    // Email-first: the held booking enqueued a customer "we're verifying" email
+    // (to buyerEmail) and an ops alert (to the shared inbox). Real rows, real channel.
+    const notices = await prisma.notificationLog.findMany({
+      where: { bookingId: BT_SOLO_BOOKING_ID },
+      select: { template: true, channel: true, recipient: true },
+    });
+    const review = notices.find((n) => n.template === 'customerPaymentReview');
+    const ops = notices.find((n) => n.template === 'opsUnmatchedPayment');
+    expect(review).toMatchObject({ channel: 'email', recipient: 'recon-bt@test.invalid' });
+    expect(ops).toMatchObject({ channel: 'email', recipient: 'hotro@lenxevn.com' });
   });
 
   it('one transfer pays NEITHER of two same-amount bookings (wrong-payee guard)', async () => {

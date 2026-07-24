@@ -27,6 +27,56 @@ describe('renderTemplate', () => {
     expect(body).toContain('0901234567');
     expect(body).toContain('BB-2026-abcd-1234');
   });
+
+  it('customerBookingPaid is method-neutral (no hardcoded MoMo)', () => {
+    const body = renderTemplate('customerBookingPaid', {
+      ticketCount: 1,
+      route: 'Hanoi → Sapa',
+      departureAt: '18/05 06:00',
+      bookingRef: 'BB-2026-abcd-1234',
+      confirmationUrl: 'https://example.com/c/xyz',
+    });
+    expect(body).not.toContain('MoMo');
+    expect(body).toContain('Thanh toan thanh cong');
+    expect(body).toContain('BB-2026-abcd-1234');
+  });
+});
+
+describe('renderTemplate — Bug B unmatched-payment templates', () => {
+  const base = {
+    bookingRef: 'BB-2026-abcd-1234',
+    route: 'Hanoi → Sapa',
+    departureAt: '18/05 06:00',
+    supportEmail: 'hotro@lenxevn.com',
+    hotline: '1900 xxxx',
+  };
+
+  it('customerPaymentReview reassures without claiming non-payment', () => {
+    const body = renderTemplate('customerPaymentReview', base);
+    expect(body).toContain('BB-2026-abcd-1234');
+    expect(body).toContain('24h');
+    expect(body).toContain('hotro@lenxevn.com');
+    expect(body).not.toMatch(/chua thanh toan|het han/); // never "unpaid/expired"
+  });
+
+  it('customerPaymentUnverified points to support, not "you didn\'t pay"', () => {
+    const body = renderTemplate('customerPaymentUnverified', base);
+    expect(body).toContain('BB-2026-abcd-1234');
+    expect(body).toContain('hotro@lenxevn.com');
+    expect(body).toContain('1900 xxxx');
+    expect(body).not.toContain('chua thanh toan');
+  });
+
+  it('opsUnmatchedPayment carries ref + amount + txn for reconciliation', () => {
+    const body = renderTemplate('opsUnmatchedPayment', {
+      bookingRef: 'BB-2026-abcd-1234',
+      amountVnd: 261000,
+      providerTxnId: '99887766',
+    });
+    expect(body).toContain('BB-2026-abcd-1234');
+    expect(body).toContain('261000');
+    expect(body).toContain('99887766');
+  });
 });
 
 describe('renderTemplate — manual booking templates', () => {

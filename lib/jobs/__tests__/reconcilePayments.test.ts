@@ -47,7 +47,12 @@ vi.mock('@/lib/payment', async () => {
     recoverSepayEvent: real.recoverSepayEvent,
   };
 });
-vi.mock('@/lib/notification', () => ({ renderTemplate: mockRenderTemplate }));
+vi.mock('@/lib/notification', () => ({
+  renderTemplate: mockRenderTemplate,
+  SUPPORT_EMAIL: 'hotro@lenxevn.com',
+  SUPPORT_HOTLINE: '1900 xxxx',
+  OPS_ALERT_EMAIL: 'hotro@lenxevn.com',
+}));
 vi.mock('@/lib/logger', () => ({ logger: mockLogger }));
 // BOOKING_REF_REGEX comes from the REAL leaf module: the bank_transfer adapter
 // imports it through this barrel, and the adapter is loaded for real above.
@@ -279,9 +284,13 @@ describe('reconcilePayments (e) degraded match — SUSPICION ONLY, never pays', 
 
     expect(mockApplyPaid).not.toHaveBeenCalled();
     expect(mockAppendLedger).not.toHaveBeenCalled();
-    // No claim UPDATE and no expire UPDATE — the sweeper never writes here at all.
+    // No claim UPDATE and no expire UPDATE — the sweeper never moves money or state here.
     expect(tx.$executeRaw).not.toHaveBeenCalled();
-    expect(tx.notificationLog.create).not.toHaveBeenCalled();
+    // But it DOES notify: an ops alert + a "we're verifying" customer notice (each once).
+    const heldTemplates = (tx.notificationLog.create.mock.calls as Array<[{ data: { template: string } }]>)
+      .map((c) => c[0].data.template)
+      .sort();
+    expect(heldTemplates).toEqual(['customerPaymentReview', 'opsUnmatchedPayment']);
     expect(res).toEqual({ rowsAffected: 0, status: 'success' });
     expect(mockLogger.warn).toHaveBeenCalledWith(
       expect.objectContaining({ paymentEventId: 'pe-orphan', providerTxnId: 'txn-orphan' }),
@@ -381,7 +390,11 @@ describe('reconcilePayments (e2) degraded match — SePay bank transfer (Bug B)'
     // Never expired either: the hold HAS lapsed, so without the suspicion branch this
     // row would go terminal and become unfixable by hand.
     expect(tx.$executeRaw).not.toHaveBeenCalled();
-    expect(tx.notificationLog.create).not.toHaveBeenCalled();
+    // Notifies: ops alert + "we're verifying" customer notice.
+    const heldTemplates = (tx.notificationLog.create.mock.calls as Array<[{ data: { template: string } }]>)
+      .map((c) => c[0].data.template)
+      .sort();
+    expect(heldTemplates).toEqual(['customerPaymentReview', 'opsUnmatchedPayment']);
     expect(res).toEqual({ rowsAffected: 0, status: 'success' });
     expect(mockLogger.warn).toHaveBeenCalledWith(
       expect.objectContaining({ providerTxnId: String(sepayPayload.id), amountVnd: GROSS }),
@@ -429,6 +442,13 @@ describe('reconcilePayments (e2) degraded match — SePay bank transfer (Bug B)'
       expect.objectContaining({ providerTxnId: String(sepayPayload.id) }),
       expect.stringContaining('unmatched_payment_unresolved')
     );
+    // Notices: ops alert + the "couldn't verify" customer message — NOT the false
+    // "expired because unpaid" (customerBookingExpired) that this branch used to send.
+    const lapseTemplates = (tx.notificationLog.create.mock.calls as Array<[{ data: { template: string } }]>)
+      .map((c) => c[0].data.template)
+      .sort();
+    expect(lapseTemplates).toEqual(['customerPaymentUnverified', 'opsUnmatchedPayment']);
+    expect(lapseTemplates).not.toContain('customerBookingExpired');
   });
 
   it('still expires a stuck bank_transfer booking when NO orphan fits it', async () => {
