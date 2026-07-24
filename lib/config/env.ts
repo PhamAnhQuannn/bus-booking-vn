@@ -339,7 +339,7 @@ const envSchema = z.object({
   /** Resend API key (real branch only). NEVER log this value. */
   RESEND_API_KEY: z.string().optional(),
   /** Sender address for transactional email. */
-  EMAIL_FROM: z.string().default('noreply@busbookvn.com'),
+  EMAIL_FROM: z.string().default('noreply@lenxevn.com'),
 
   // ---------------------------------------------------------------------------
   // Self-hosted Redis (Issue 083 — ioredis).

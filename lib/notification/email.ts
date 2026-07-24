@@ -154,7 +154,7 @@ async function sendViaResend(
   body: string,
   template: string,
 ): Promise<SendEmailResult> {
-  const from = getEnv().EMAIL_FROM ?? 'noreply@busbookvn.com';
+  const from = getEnv().EMAIL_FROM ?? 'noreply@lenxevn.com';
   try {
     const client = await getResendClient();
     const { data, error } = await client.emails.send({
