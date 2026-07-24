@@ -16,6 +16,7 @@
 
 import { logger } from '@/lib/logger';
 import { getEnv } from '@/lib/core/config';
+import { renderEmailBody } from '@/lib/notification/emailBody';
 import type { Resend } from 'resend';
 
 export type EmailTemplate =
@@ -151,7 +152,8 @@ async function getResendClient(): Promise<Resend> {
 async function sendViaResend(
   to: string,
   subject: string,
-  body: string,
+  html: string,
+  text: string,
   template: string,
 ): Promise<SendEmailResult> {
   const from = getEnv().EMAIL_FROM ?? 'noreply@lenxevn.com';
@@ -161,7 +163,8 @@ async function sendViaResend(
       from,
       to,
       subject,
-      text: body,
+      html,
+      text,
     });
     if (error) {
       logger.error({ template, err: error.message }, 'email.resend.api-error');
@@ -182,21 +185,19 @@ async function sendViaResend(
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
   const { to, template } = input;
   const subject = renderEmailSubject(template);
-  const body =
-    typeof input.payload === 'string'
-      ? input.payload
-      : JSON.stringify(input.payload);
-  const bodyLen = body.length;
+  // Render a branded HTML body + plain-text fallback from the stored payload
+  // (SMS line, or a structured JSON blob for templates like `ticketReady`).
+  const { html, text } = renderEmailBody(template, input.payload, subject);
 
   if (emailStubbed()) {
     const externalRef = `${STUB_PROVIDER_REF_PREFIX}${Date.now().toString(36)}`;
     logger.info(
-      { template, externalRef, subjectLen: subject.length, bodyLen, recipientLen: to.length },
+      { template, externalRef, subjectLen: subject.length, bodyLen: text.length, recipientLen: to.length },
       'email.stub.dispatch',
     );
     return { ok: true, externalRef };
   }
 
   // EMAIL_PROVIDER === 'resend' (env guarantees RESEND_API_KEY via superRefine).
-  return sendViaResend(to, subject, body, template);
+  return sendViaResend(to, subject, html, text, template);
 }

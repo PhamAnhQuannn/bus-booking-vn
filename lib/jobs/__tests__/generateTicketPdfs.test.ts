@@ -2,7 +2,7 @@
  * Unit tests for generateTicketPdfs (Issue 074).
  *
  * Mocks prisma (claim raw query + updateMany), renderTicketPdf, putObject,
- * createNotificationLog, mintTicketToken. Asserts: claims paid-without-key rows,
+ * createNotificationLog. Asserts: claims paid-without-key rows,
  * renders + uploads each, stamps the key, enqueues a 'ticketReady' email; skips
  * the email when buyerEmail is null; counts only rows whose guarded stamp won.
  */
@@ -24,7 +24,6 @@ const {
   mockRenderPdf,
   mockPutObject,
   mockCreateNotificationLog,
-  mockMintToken,
 } = vi.hoisted(() => ({
   mockQueryRaw: vi.fn(),
   mockTransaction: vi.fn(),
@@ -33,7 +32,6 @@ const {
   mockRenderPdf: vi.fn(),
   mockPutObject: vi.fn(),
   mockCreateNotificationLog: vi.fn(),
-  mockMintToken: vi.fn(),
 }));
 
 vi.mock('@/lib/core/db/client', () => ({
@@ -59,7 +57,6 @@ vi.mock('@/lib/storage', () => ({ putObject: mockPutObject }));
 vi.mock('@/lib/core/db/notificationLogRepo', () => ({
   createNotificationLog: mockCreateNotificationLog,
 }));
-vi.mock('@/lib/ticketing/ticketToken', () => ({ mintTicketToken: mockMintToken }));
 // getCustomerBookingDetail exposes customerBookingDetailSelect (a const object).
 vi.mock('@/lib/booking/getCustomerBookingDetail', () => ({
   customerBookingDetailSelect: {},
@@ -100,7 +97,6 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockRenderPdf.mockResolvedValue(Buffer.from('%PDF-1.4'));
   mockPutObject.mockResolvedValue(undefined);
-  mockMintToken.mockResolvedValue('signed.lookup.token');
   mockUpdateMany.mockResolvedValue({ count: 1 });
   mockCreateNotificationLog.mockResolvedValue({});
 });
@@ -132,7 +128,8 @@ describe('generateTicketPdfs', () => {
       data: { ticketPdfKey: 'ticket_pdf/BB-2026-b1.pdf', ticketPdfGeneratedAt: now },
     });
 
-    // Email enqueued (channel email, ticketReady, pending) with verify + ticket links.
+    // Email enqueued (channel email, ticketReady, pending) with the enriched
+    // ticket-detail payload the branded email renders as labeled rows.
     expect(mockCreateNotificationLog).toHaveBeenCalledTimes(1);
     const enq = mockCreateNotificationLog.mock.calls[0][0];
     expect(enq).toMatchObject({
@@ -143,11 +140,22 @@ describe('generateTicketPdfs', () => {
       status: 'pending',
     });
     const payload = JSON.parse(enq.payload);
-    expect(payload).toEqual({
+    expect(payload).toMatchObject({
       bookingRef: 'BB-2026-b1',
-      verifyUrl: '/verify/signed.lookup.token',
+      buyerName: 'Nguyen Van A',
+      route: 'Hanoi → Hue',
+      ticketCount: '1',
+      vehicle: '29B-12345',
+      operator: 'Test Bus Co',
+      amount: '150.000đ',
       ticketUrl: '/api/bookings/b1/ticket',
     });
+    // departureAt is VN-local (UTC+7): 2026-06-10T22:00Z → 11/06/2026 05:00.
+    // Assert via contains to stay robust to ICU date/time ordering + separators.
+    expect(payload.departureAt).toContain('11/06/2026');
+    expect(payload.departureAt).toContain('05:00');
+    // Staff-facing verify link is no longer sent to the customer.
+    expect(payload).not.toHaveProperty('verifyUrl');
   });
 
   it('skips the email enqueue when buyerEmail is null (still renders + uploads)', async () => {
