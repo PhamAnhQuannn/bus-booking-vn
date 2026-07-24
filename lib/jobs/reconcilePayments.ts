@@ -28,8 +28,10 @@
  *       032 parks): NEVER mark paid; treat as genuinely unpaid and expire it
  *       once the hold has lapsed (falls into branch (b)).
  *   (d) an ORPHAN payment merely FITS the booking (degraded match, below): hold
- *       it in `awaiting_payment` for manual reconciliation — never pay, never
- *       expire.
+ *       it in `awaiting_payment` for manual reconciliation — never pay. The hold
+ *       is bounded by SUSPECTED_HOLD_MAX_AGE_MINUTES; past that it expires via
+ *       (b) with an escalated log, because a permanent hold starves this sweeper
+ *       and freezes seats.
  *
  * DEGRADED MATCH (SYS06 bank transfer) — SUSPICION ONLY, NEVER A PAYMENT.
  * When a transfer's memo is unusable the webhook cannot link it to a booking and
@@ -86,6 +88,31 @@ export const DEGRADED_MATCH_WINDOW_MINUTES = 30;
 
 /** Bound work per tick so a backlog can't hold the lock indefinitely. */
 const CLAIM_LIMIT = 200;
+
+/**
+ * How long a booking may be HELD on a suspected-but-unproven payment (branch (d))
+ * before it expires like any other unpaid booking.
+ *
+ * The hold must be bounded, because every input to matchDegraded is immutable: the
+ * booking stays `awaiting_payment`, the orphan is never claimed, and the window is
+ * anchored on a fixed holdCreatedAt — so an unbounded hold is PERMANENT. That would
+ * be its own outage:
+ *   - the candidate query is `ORDER BY createdAt ASC LIMIT CLAIM_LIMIT`, and held
+ *     rows are the oldest, so they consume the whole budget and the sweeper stops
+ *     reaching newer bookings — reintroducing the very bug this file fixes;
+ *   - `rowsAffected` counts only paid+expired, so a fully starved tick reports
+ *     success with 0 and looks exactly like an idle healthy one;
+ *   - createCashBooking counts `awaiting_payment` toward seat capacity with NO time
+ *     bound (unlike the online path's PSP_WINDOW_MINUTES), so each held booking
+ *     freezes a seat against walk-up sales.
+ * And false holds are expected, not exceptional: SePay notifies on EVERY credit to
+ * the account, so one unrelated deposit at a round fare fits every same-fare stuck
+ * booking in its window.
+ *
+ * 24h gives a human a full day to act on the warning; after that the booking expires
+ * and the orphan PaymentEvent remains on file as the evidence that money arrived.
+ */
+export const SUSPECTED_HOLD_MAX_AGE_MINUTES = 24 * 60;
 
 interface StuckBookingRow {
   id: string;
@@ -430,16 +457,33 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
     if (!confirming) {
       const suspected = matchDegraded(booking, events, usedAdapters);
       if (suspected) {
-        logger.warn(
+        const heldForMs = now.getTime() - booking.createdAt.getTime();
+        if (heldForMs < SUSPECTED_HOLD_MAX_AGE_MINUTES * 60_000) {
+          logger.warn(
+            {
+              bookingRef: booking.bookingRef,
+              paymentEventId: suspected.paymentEventId,
+              providerTxnId: suspected.providerTxnId,
+              amountVnd: booking.totalVnd,
+            },
+            'reconcile.unmatched_payment_suspected — held for manual review, NOT auto-paid'
+          );
+          continue;
+        }
+        // Hold window elapsed with no human resolution. Expire like any other unpaid
+        // booking (below) rather than holding forever — see the constant's comment.
+        // Escalated to error: this is the one place a booking that PROBABLY received
+        // money gets closed, and the orphan PaymentEvent stays on file as evidence.
+        logger.error(
           {
             bookingRef: booking.bookingRef,
             paymentEventId: suspected.paymentEventId,
             providerTxnId: suspected.providerTxnId,
             amountVnd: booking.totalVnd,
+            heldForHours: Math.floor(heldForMs / 3_600_000),
           },
-          'reconcile.unmatched_payment_suspected — held for manual review, NOT auto-paid'
+          'reconcile.unmatched_payment_unresolved — hold window elapsed, expiring booking; orphan PaymentEvent remains as evidence'
         );
-        continue;
       }
     }
 

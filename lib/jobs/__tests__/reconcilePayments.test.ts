@@ -69,7 +69,11 @@ vi.mock('@prisma/client', () => ({
 vi.mock('next/server', () => ({ after: vi.fn() }));
 vi.mock('@/lib/ledger', () => ({ refundOut: vi.fn() }));
 
-import { reconcilePayments, matchDegraded } from '../reconcilePayments';
+import {
+  reconcilePayments,
+  matchDegraded,
+  SUSPECTED_HOLD_MAX_AGE_MINUTES,
+} from '../reconcilePayments';
 import { getBankTransferAdapter } from '../../payment/adapters/bankTransfer';
 
 const NOW = new Date('2026-06-03T12:00:00.000Z');
@@ -382,6 +386,48 @@ describe('reconcilePayments (e2) degraded match — SePay bank transfer (Bug B)'
     expect(mockLogger.warn).toHaveBeenCalledWith(
       expect.objectContaining({ providerTxnId: String(sepayPayload.id), amountVnd: GROSS }),
       expect.stringContaining('unmatched_payment_suspected')
+    );
+  });
+
+  it('EXPIRES a held booking once the hold window elapses (the hold must be bounded)', async () => {
+    // The hold's inputs are all immutable, so without this bound it is permanent —
+    // and permanent holds are the oldest rows in an `ORDER BY createdAt ASC LIMIT
+    // 200` candidate query, so they starve the sweeper and reintroduce Bug B. Same
+    // orphan as the case above; only the booking's age differs.
+    const orphan = eventRow({
+      id: 'pe-sepay-orphan',
+      bookingId: null,
+      adapter: 'bank_transfer',
+      providerTxnId: String(sepayPayload.id),
+      rawBody: sepayRawBody,
+      receivedAt: new Date(CREATED_AT.getTime() + 5 * 60_000),
+    });
+    const staleCreatedAt = new Date(
+      NOW.getTime() - (SUSPECTED_HOLD_MAX_AGE_MINUTES + 60) * 60_000
+    );
+    const tx = makeTx(
+      [
+        baseBooking({
+          paymentMethod: 'bank_transfer',
+          totalVnd: GROSS,
+          createdAt: staleCreatedAt,
+          holdCreatedAt: staleCreatedAt,
+          holdExpiresAt: new Date(NOW.getTime() - 60_000),
+        }),
+      ],
+      // Orphan must still sit inside the ±30min window around the NEW anchor,
+      // otherwise matchDegraded rejects it and this proves nothing about the bound.
+      [[{ ...orphan, receivedAt: new Date(staleCreatedAt.getTime() + 5 * 60_000) }]]
+    );
+    const res = await reconcilePayments(tx as never, { now: NOW });
+
+    expect(mockApplyPaid).not.toHaveBeenCalled(); // still never pays on a guess
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(1); // the expire UPDATE ran
+    expect(res).toEqual({ rowsAffected: 1, status: 'success' });
+    // The one place a probably-paid booking gets closed — must not be silent.
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ providerTxnId: String(sepayPayload.id) }),
+      expect.stringContaining('unmatched_payment_unresolved')
     );
   });
 
