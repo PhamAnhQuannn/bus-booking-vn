@@ -102,7 +102,6 @@ export const generateTicketPdfs: JobCore = async (_tx, opts?: JobOpts) => {
     //    Skip when there's no buyerEmail — there is nowhere to deliver. The PDF
     //    is still generated + downloadable via the ticket route.
     if (row.buyerEmail) {
-      const token = await mintToken(row.bookingRef, row.confirmationToken);
       await createNotificationLog({
         bookingId: row.id,
         channel: 'email',
@@ -110,7 +109,13 @@ export const generateTicketPdfs: JobCore = async (_tx, opts?: JobOpts) => {
         recipient: row.buyerEmail,
         payload: JSON.stringify({
           bookingRef: row.bookingRef,
-          verifyUrl: `/verify/${token}`,
+          buyerName: detail.buyerName ?? '',
+          route: `${detail.route.origin} → ${detail.route.destination}`,
+          departureAt: formatDepartureVn(detail.departureAt),
+          ticketCount: String(detail.ticketCount),
+          vehicle: detail.busLicensePlate,
+          operator: detail.operator.legalName,
+          amount: formatVnd(detail.totalVnd),
           ticketUrl: `/api/bookings/${row.id}/ticket`,
         }),
         status: 'pending',
@@ -121,10 +126,20 @@ export const generateTicketPdfs: JobCore = async (_tx, opts?: JobOpts) => {
   return { rowsAffected: generated, status: 'success' };
 };
 
-/** Mint the public verify-page token for the email link (same token the QR carries). */
-async function mintToken(bookingRef: string, confirmationToken: string): Promise<string> {
-  const { mintTicketToken } = await import('@/lib/ticketing');
-  return mintTicketToken({ bookingRef, confirmationToken });
+/** Vietnam-local (UTC+7) short datetime for the ticket email. Mirrors
+ *  processWebhook.formatDepartureForSms. Input is an ISO string. */
+function formatDepartureVn(iso: string): string {
+  return new Date(iso).toLocaleString('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    dateStyle: 'short',
+    timeStyle: 'short',
+  });
+}
+
+/** VND minor-unit is not used here — totalVnd is already whole đồng. Group with
+ *  vi-VN thousands separators and suffix the đồng sign. */
+function formatVnd(amount: number): string {
+  return `${amount.toLocaleString('vi-VN')}đ`;
 }
 
 /**
