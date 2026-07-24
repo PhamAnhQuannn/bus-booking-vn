@@ -8,7 +8,7 @@ export {
   sendSmsBody,
   SUPPORT_EMAIL,
   SUPPORT_HOTLINE,
-  OPS_EMAIL,
+  OPS_ALERT_EMAIL,
 } from './esms';
 export { dispatchNotifications } from './dispatchNotifications';
 export { sendEmail, renderEmailSubject } from './email';
