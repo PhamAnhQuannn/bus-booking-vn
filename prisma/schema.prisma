@@ -418,8 +418,9 @@ model PaymentEvent {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   /// Bug B (2026-07-23): NULLABLE. A bank-transfer webhook whose memo carries no
   /// resolvable bookingRef is recorded as an ORPHAN row (bookingId NULL) instead of
-  /// being dropped, so the reconcile sweeper's degraded match (SYS06) can recover it
-  /// by amount + adapter + time window and then CAS-claim it (sets bookingId). An
+  /// being dropped. The reconcile sweeper's degraded match (SYS06) uses these orphans
+  /// only as a SUSPICION signal — it never auto-links or pays from one (that would
+  /// mis-award money with a single shared receiving account); resolution is manual. An
   /// orphan row is the ONLY evidence that money arrived for an unmatchable transfer —
   /// never delete one without reconciling it against the bank statement first.
   bookingId     String?  @db.Uuid

@@ -449,11 +449,13 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
     // loop runs oldest-first, an attacker only has to keep a stuck booking alive at a
     // common fare to harvest the next blank-memo transfer.
     //
-    // So the match is a SUSPICION, not a decision. We do not pay, we do not claim the
-    // row, and — critically — we do NOT fall through to expiry:
-    // `payment_failed_expired` is terminal (lib/booking/transitions.ts), so expiring a
-    // booking whose money probably DID arrive destroys the only path to resolving it
-    // by hand. Leave it `awaiting_payment` and flag it for manual reconciliation.
+    // So the match is a SUSPICION, not a decision. We never pay and never claim the
+    // row. While the booking is younger than SUSPECTED_HOLD_MAX_AGE_MINUTES we HOLD
+    // it in `awaiting_payment` (suppressing expiry) and flag it for manual review —
+    // `payment_failed_expired` is terminal, so expiring a booking whose money probably
+    // DID arrive would destroy the only path to resolving it by hand. Past that bound
+    // the hold MUST end (an unbounded hold starves this sweeper and freezes seats), so
+    // it falls through to the normal expiry below with an escalated log.
     if (!confirming) {
       const suspected = matchDegraded(booking, events, usedAdapters);
       if (suspected) {
