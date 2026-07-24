@@ -228,6 +228,13 @@ describe('POST /api/payments/momo/webhook — paid IPN (resultCode=0)', () => {
     const templates = calls.map((c) => c[0].template).sort();
     expect(templates).toEqual(['customerBookingPaid', 'operatorNewBooking']);
 
+    // Email-first (#326): the customer confirmation is enqueued on the EMAIL channel
+    // to the buyer's email, not SMS to the phone. Guards the channel routing on the
+    // webhook path (the reconcile twin is covered separately).
+    const customerCall = calls.find((c) => c[0].template === 'customerBookingPaid')![0];
+    expect(customerCall.channel).toBe('email');
+    expect(customerCall.recipient).toBe(MOCK_BOOKING.buyerEmail);
+
     // Issue 058: both rows are enqueued status='pending' — the cron dispatcher
     // delivers them later. The webhook itself must NOT send anything in-process
     // and must NOT flip the rows to sent.

@@ -247,7 +247,7 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
   // of the DB client (mirrors charterExpirySweeper / generateTrips).
   const { Prisma } = await import('@prisma/client');
   const { after } = await import('next/server');
-  const { renderTemplate, SUPPORT_EMAIL, SUPPORT_HOTLINE, OPS_EMAIL } = await import(
+  const { renderTemplate, SUPPORT_EMAIL, SUPPORT_HOTLINE, OPS_ALERT_EMAIL } = await import(
     '@/lib/notification'
   );
   const { logger } = await import('@/lib/logger');
@@ -481,7 +481,7 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
           bookingId: booking.id,
           channel: 'email',
           template: 'opsUnmatchedPayment',
-          recipient: OPS_EMAIL,
+          recipient: OPS_ALERT_EMAIL,
           payload: renderTemplate('opsUnmatchedPayment', {
             bookingRef: booking.bookingRef,
             amountVnd: booking.totalVnd,

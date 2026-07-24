@@ -92,7 +92,14 @@ export function clearTestOtpSink(): void {
  */
 export const SUPPORT_EMAIL = 'hotro@lenxevn.com';
 export const SUPPORT_HOTLINE = '1900 xxxx';
-export const OPS_EMAIL = 'hotro@lenxevn.com';
+/**
+ * Recipient of the internal opsUnmatchedPayment alert. Distinct name from the
+ * env-configurable `OPS_EMAIL` (lib/config/env.ts, charter-decline) to avoid the
+ * landmine of rotating that env var and expecting THIS alert to follow — it will
+ * not. Wire to env OPS_EMAIL in a follow-up if a single configurable ops inbox is
+ * wanted.
+ */
+export const OPS_ALERT_EMAIL = 'hotro@lenxevn.com';
 
 export function renderTemplate(template: SmsTemplate, payload: Record<string, string | number>): string {
   switch (template) {

@@ -51,7 +51,7 @@ vi.mock('@/lib/notification', () => ({
   renderTemplate: mockRenderTemplate,
   SUPPORT_EMAIL: 'hotro@lenxevn.com',
   SUPPORT_HOTLINE: '1900 xxxx',
-  OPS_EMAIL: 'hotro@lenxevn.com',
+  OPS_ALERT_EMAIL: 'hotro@lenxevn.com',
 }));
 vi.mock('@/lib/logger', () => ({ logger: mockLogger }));
 // BOOKING_REF_REGEX comes from the REAL leaf module: the bank_transfer adapter
