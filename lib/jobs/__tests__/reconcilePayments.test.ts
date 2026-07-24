@@ -8,8 +8,10 @@
  *   (b) stuck + no event + expired hold → payment_failed_expired + 1 notice
  *   (c) underpaid success → NOT paid; expired once the hold has lapsed
  *   (d) monotonic guard — applyPaidStatusTransition rowcount 0 → no side-effects
- *   (e) degraded match — a memo-less (unlinked) event on amount+account+window pays
- *   (e2) Bug B — the SAME path for a real SePay body, plus the CAS-claim race
+ *   (e) degraded match — a memo-less (unlinked) event that FITS on amount+account+
+ *       window HOLDS the booking (no pay, no expire); it never identifies a payer
+ *   (e2) Bug B — the same path driven by a real SePay body, plus the control that
+ *       a booking with no fitting orphan still expires normally
  *   (f) below-threshold rows are excluded by the claim (none returned → no work)
  */
 
@@ -243,10 +245,16 @@ describe('reconcilePayments (d) monotonic guard — already-paid never regressed
   });
 });
 
-describe('reconcilePayments (e) degraded match', () => {
-  it('resolves a memo-less (unlinked) event on amount + account + window', async () => {
+describe('reconcilePayments (e) degraded match — SUSPICION ONLY, never pays', () => {
+  it('holds a booking whose orphan fits on amount + account + window — no pay, no expire', async () => {
     // Linked events: none confirming. An UNLINKED momo event with the exact
     // amount, inside the window, on an adapter the booking used → degraded match.
+    //
+    // (amount + rail + window) does not identify a PAYER — with one shared receiving
+    // account any same-fare booking in the window fits equally. So the match must
+    // flag, never pay. The hold below is EXPIRED, which makes this the load-bearing
+    // assertion: without the suspicion branch this booking would be expired, and
+    // `payment_failed_expired` is terminal — unfixable by hand afterwards.
     const linkedNonConfirming = eventRow({
       id: 'pe-linked',
       providerTxnId: 'txn-linked',
@@ -259,12 +267,22 @@ describe('reconcilePayments (e) degraded match', () => {
       rawBody: JSON.stringify({ amount: 200000, resultCode: 0 }),
       receivedAt: new Date(CREATED_AT.getTime() + 5 * 60_000),
     });
-    const tx = makeTx([baseBooking()], [[linkedNonConfirming, orphan]]);
+    const tx = makeTx(
+      [baseBooking({ holdExpiresAt: new Date(NOW.getTime() - 60_000) })],
+      [[linkedNonConfirming, orphan]]
+    );
     const res = await reconcilePayments(tx as never, { now: NOW });
 
-    expect(mockApplyPaid).toHaveBeenCalledWith(tx, baseBooking().id, 'txn-orphan');
-    expect(mockAppendLedger).toHaveBeenCalledTimes(1);
-    expect(res).toEqual({ rowsAffected: 1, status: 'success' });
+    expect(mockApplyPaid).not.toHaveBeenCalled();
+    expect(mockAppendLedger).not.toHaveBeenCalled();
+    // No claim UPDATE and no expire UPDATE — the sweeper never writes here at all.
+    expect(tx.$executeRaw).not.toHaveBeenCalled();
+    expect(tx.notificationLog.create).not.toHaveBeenCalled();
+    expect(res).toEqual({ rowsAffected: 0, status: 'success' });
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ paymentEventId: 'pe-orphan', providerTxnId: 'txn-orphan' }),
+      expect.stringContaining('unmatched_payment_suspected')
+    );
   });
 
   it('matchDegraded rejects wrong amount / wrong account / outside window', async () => {
@@ -320,7 +338,7 @@ describe('reconcilePayments (e2) degraded match — SePay bank transfer (Bug B)'
   };
   const sepayRawBody = JSON.stringify(sepayPayload);
 
-  it('pays a stuck bank_transfer booking from the orphan the adapter would have produced', async () => {
+  it('detects the orphan the adapter would have produced, and HOLDS the booking instead of expiring it', async () => {
     // 1. The REAL adapter must classify this body as unmatched-but-recordable —
     //    i.e. this exact string is what recordUnmatchedPaymentEvent stores.
     const verified = getBankTransferAdapter().verifyWebhook(sepayRawBody);
@@ -329,8 +347,10 @@ describe('reconcilePayments (e2) degraded match — SePay bank transfer (Bug B)'
     expect(verified.reason).toBe('no_booking_ref_in_memo');
     expect(verified.unmatched).toEqual({ providerTxnId: String(sepayPayload.id) });
 
-    // 2. The sweeper re-reads that same stored body and must recover it.
-    //    Against the pre-fix MoMo-shaped recoverEvent this yields {0,false} → no match.
+    // 2. The sweeper re-reads that same stored body. The B1 parser is what makes the
+    //    orphan legible at all — against the pre-fix MoMo-shaped recoverEvent this
+    //    body yields {0,false}, matchDegraded rejects it at !ev.success, and the
+    //    booking is EXPIRED despite the money having arrived.
     const orphan = eventRow({
       id: 'pe-sepay-orphan',
       bookingId: null,
@@ -340,30 +360,41 @@ describe('reconcilePayments (e2) degraded match — SePay bank transfer (Bug B)'
       receivedAt: new Date(CREATED_AT.getTime() + 5 * 60_000),
     });
     const tx = makeTx(
-      [baseBooking({ paymentMethod: 'bank_transfer', totalVnd: GROSS })],
+      [
+        baseBooking({
+          paymentMethod: 'bank_transfer',
+          totalVnd: GROSS,
+          holdExpiresAt: new Date(NOW.getTime() - 60_000), // lapsed → would expire
+        }),
+      ],
       [[orphan]]
     );
     const res = await reconcilePayments(tx as never, { now: NOW });
 
-    expect(mockApplyPaid).toHaveBeenCalledWith(
-      tx,
-      baseBooking().id,
-      String(sepayPayload.id)
+    // Never paid — (amount + rail + window) cannot prove this money is THIS booking's.
+    expect(mockApplyPaid).not.toHaveBeenCalled();
+    expect(mockAppendLedger).not.toHaveBeenCalled();
+    // Never expired either: the hold HAS lapsed, so without the suspicion branch this
+    // row would go terminal and become unfixable by hand.
+    expect(tx.$executeRaw).not.toHaveBeenCalled();
+    expect(tx.notificationLog.create).not.toHaveBeenCalled();
+    expect(res).toEqual({ rowsAffected: 0, status: 'success' });
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ providerTxnId: String(sepayPayload.id), amountVnd: GROSS }),
+      expect.stringContaining('unmatched_payment_suspected')
     );
-    expect(mockAppendLedger).toHaveBeenCalledWith(
-      tx,
-      expect.objectContaining({ adapter: 'bank_transfer', grossVnd: GROSS })
-    );
-    expect(res).toEqual({ rowsAffected: 1, status: 'success' });
   });
 
-  it('does NOT pay when the CAS claim loses — the orphan already belongs to another booking', async () => {
-    const orphan = eventRow({
-      id: 'pe-sepay-orphan',
+  it('still expires a stuck bank_transfer booking when NO orphan fits it', async () => {
+    // Control for the case above: same booking, but the only orphan in the window is
+    // for a different amount. Nothing fits → normal expiry must still happen, so the
+    // suspicion branch cannot be silently swallowing every expiry.
+    const wrongAmount = eventRow({
+      id: 'pe-other',
       bookingId: null,
       adapter: 'bank_transfer',
-      providerTxnId: String(sepayPayload.id),
-      rawBody: sepayRawBody,
+      providerTxnId: '111',
+      rawBody: JSON.stringify({ ...sepayPayload, id: 111, transferAmount: GROSS + 1 }),
       receivedAt: new Date(CREATED_AT.getTime() + 5 * 60_000),
     });
     const tx = makeTx(
@@ -374,19 +405,13 @@ describe('reconcilePayments (e2) degraded match — SePay bank transfer (Bug B)'
           holdExpiresAt: new Date(NOW.getTime() - 60_000),
         }),
       ],
-      [[orphan]]
+      [[wrongAmount]]
     );
-    // First $executeRaw is the claim → 0 rows (another booking got there first).
-    // Second is the expire UPDATE → 1 row.
-    tx.$executeRaw.mockReset();
-    tx.$executeRaw.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
-
     const res = await reconcilePayments(tx as never, { now: NOW });
 
     expect(mockApplyPaid).not.toHaveBeenCalled();
-    expect(mockAppendLedger).not.toHaveBeenCalled();
-    expect(tx.$executeRaw).toHaveBeenCalledTimes(2); // claim (lost) + expire
-    expect(res).toEqual({ rowsAffected: 1, status: 'success' }); // expired, not paid
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(1); // the expire UPDATE
+    expect(res).toEqual({ rowsAffected: 1, status: 'success' });
   });
 });
 

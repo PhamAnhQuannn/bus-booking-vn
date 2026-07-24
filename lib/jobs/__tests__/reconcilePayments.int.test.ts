@@ -346,43 +346,51 @@ describe('Issue 095 AC5 — reconcile-payments sweeper', () => {
   // ── Bug B ─────────────────────────────────────────────────────────────────
   // These assert against the state left by the single sweep above.
 
-  it('recovers a bank_transfer booking from an orphan SePay event and CLAIMS the row', async () => {
-    // Pre-fix this booking was expired: recoverEvent parsed the SePay body as MoMo,
-    // got { amount: 0, success: false }, and matchDegraded rejected it at !ev.success.
+  it('HOLDS a bank_transfer booking whose orphan fits — not paid, not expired, orphan untouched', async () => {
+    // The orphan fits on (exact amount + rail + window) and this booking's hold has
+    // lapsed, so before the suspicion branch existed it would have been either paid
+    // (wrongly — those predicates identify no payer) or expired to a TERMINAL state.
+    // Correct behaviour is to leave it alone for a human.
     const booking = await prisma.booking.findUnique({ where: { id: BT_SOLO_BOOKING_ID } });
-    expect(booking?.status).toBe('paid');
-    expect(booking?.paymentExternalRef).toBe(BT_SOLO_TXN);
+    expect(booking?.status).toBe('awaiting_payment');
+    expect(booking?.paymentExternalRef).toBeNull();
 
-    // The claim UPDATE actually committed — no mock can show this.
+    // Nothing was credited — a guess must never move money.
+    const entries = await prisma.ledgerEntry.findMany({ where: { bookingId: BT_SOLO_BOOKING_ID } });
+    expect(entries.length).toBe(0);
+
+    // The sweeper is a READER of PaymentEvent: the orphan is still unclaimed, which
+    // is also what keeps its lock order (Booking only) free of the webhook's
+    // PaymentEvent→Booking ordering. No mock can prove this; only the real row can.
     const orphan = await prisma.paymentEvent.findFirst({
       where: { adapter: 'bank_transfer', providerTxnId: BT_SOLO_TXN },
     });
-    expect(orphan?.bookingId).toBe(BT_SOLO_BOOKING_ID);
-
-    const entries = await prisma.ledgerEntry.findMany({ where: { bookingId: BT_SOLO_BOOKING_ID } });
-    expect(entries.map((e) => e.type).sort()).toEqual(['booking_credit', 'platform_fee']);
+    expect(orphan?.bookingId).toBeNull();
   });
 
-  it('one transfer pays exactly ONE of two same-amount bookings (no double credit)', async () => {
+  it('one transfer pays NEITHER of two same-amount bookings (wrong-payee guard)', async () => {
+    // THE regression guard for the theft vector. Two bookings, same fare, overlapping
+    // windows, ONE real transfer with an unusable memo. Nothing in (amount + rail +
+    // window) says which of them paid — and because candidates are processed
+    // oldest-first, any rule that picks a winner is a rule an attacker can aim: keep a
+    // stuck booking alive at a common fare and harvest the next blank-memo transfer.
+    //
+    // So: neither is paid, neither is expired, no ledger entry exists, and the orphan
+    // stays unclaimed. This test fails the moment anyone reintroduces auto-pay.
     const early = await prisma.booking.findUnique({ where: { id: BT_PAIR_EARLY_ID } });
     const late = await prisma.booking.findUnique({ where: { id: BT_PAIR_LATE_ID } });
 
-    // Claimed in candidate order (ORDER BY createdAt ASC); the loser has no payment.
-    expect(early?.status).toBe('paid');
-    expect(late?.status).toBe('payment_failed_expired');
+    expect(early?.status).toBe('awaiting_payment');
+    expect(late?.status).toBe('awaiting_payment');
 
-    // The load-bearing assertion: the operator is credited ONCE for one transfer.
-    // Without the CAS claim both bookings degrade-match the same orphan inside the
-    // same tick's transaction and this returns 2 credits for 150,000₫ of real money.
     const credits = await prisma.ledgerEntry.findMany({
       where: { bookingId: { in: [BT_PAIR_EARLY_ID, BT_PAIR_LATE_ID] }, type: 'booking_credit' },
     });
-    expect(credits.length).toBe(1);
-    expect(credits[0].amount).toBe(BigInt(BT_PAIR_TOTAL));
+    expect(credits.length).toBe(0);
 
     const orphan = await prisma.paymentEvent.findFirst({
       where: { adapter: 'bank_transfer', providerTxnId: BT_PAIR_TXN },
     });
-    expect(orphan?.bookingId).toBe(BT_PAIR_EARLY_ID);
+    expect(orphan?.bookingId).toBeNull();
   });
 });

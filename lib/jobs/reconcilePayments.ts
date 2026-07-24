@@ -27,15 +27,28 @@
  *   (c) only an UNDERPAID / wrong-currency success event exists (the rows issue
  *       032 parks): NEVER mark paid; treat as genuinely unpaid and expire it
  *       once the hold has lapsed (falls into branch (b)).
+ *   (d) an ORPHAN payment merely FITS the booking (degraded match, below): hold
+ *       it in `awaiting_payment` for manual reconciliation — never pay, never
+ *       expire.
  *
- * DEGRADED MATCH (SYS06 bank transfer): when a confirming event's memo/orderRef
- * was garbled so the webhook could not link it to its booking, matchDegraded()
- * recovers it by amount + receiving-account (the PaymentEvent.adapter, our proxy
- * for "which account the money landed in" — there is no separate account column)
- * + a conservative time-window around hold creation. Exact amount only. Those
- * predicates are NOT unique to one booking, so a match is trusted only after a
- * compare-and-set CLAIM on the orphan row (Bug B) — otherwise two same-fare
- * bookings would both bank the same transfer. The claim makes the match one-shot.
+ * DEGRADED MATCH (SYS06 bank transfer) — SUSPICION ONLY, NEVER A PAYMENT.
+ * When a transfer's memo is unusable the webhook cannot link it to a booking and
+ * records it as an ORPHAN PaymentEvent (bookingId NULL). matchDegraded() finds the
+ * orphans that FIT a stuck booking: exact amount, same rail (PaymentEvent.adapter —
+ * our only proxy for "which account the money landed in"; there is no account
+ * column), inside a window around hold creation.
+ *
+ * Those predicates do NOT identify a payer. This deployment uses ONE shared
+ * receiving account, so the rail clue is true of every payment, and any same-fare
+ * booking in the window fits equally well. An earlier revision paid the match after
+ * a compare-and-set claim; the claim made it one-shot but not CORRECT — it simply
+ * awarded the money to whichever booking the oldest-first loop reached first, which
+ * an attacker can arrange by keeping a stuck booking alive at a common fare.
+ *
+ * So a match now only FLAGS the booking (branch (d)) and suppresses its expiry.
+ * Resolution is manual. Nothing here writes to PaymentEvent — the sweeper is a
+ * reader of that table, which is also what keeps its lock order (Booking only)
+ * compatible with the webhook's (PaymentEvent → Booking).
  *
  * CONCURRENCY (Mistake Log 043 run-lock + 011/095 row-claim):
  *   - The whole tick runs under the 'reconcile-payments' advisory lock (runJob /
@@ -291,41 +304,9 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
       ...linked.map((e) => e.adapter),
     ]);
 
-    // (a) Confirming event among the linked events?
-    let confirming = linked.find((e) => isConfirming(e, booking.totalVnd)) ?? null;
-
-    // Degraded match (SYS06): no linked confirmation, try the orphan window.
-    if (!confirming) {
-      const degradedMatch = matchDegraded(booking, events, usedAdapters);
-      if (degradedMatch) {
-        // Bug B: CLAIM the orphan before trusting it. A degraded match is made on
-        // (exact amount + adapter + window) only — nothing about those three is
-        // unique to one booking, so two stuck bookings at the same fare in
-        // overlapping windows would BOTH match the same real transfer and each
-        // credit the operator ledger. This whole tick runs inside ONE transaction
-        // (withAdvisoryLock), so the compare-and-set below is also what stops the
-        // second booking in the same loop: after this UPDATE the row no longer
-        // satisfies `bookingId IS NULL`, and the next candidate's events query —
-        // same tx, same connection, reads its own uncommitted write — won't see it.
-        // No in-memory exclusion set needed.
-        const claimed = await tx.$executeRaw(Prisma.sql`
-          UPDATE "PaymentEvent"
-          SET "bookingId" = ${booking.id}::uuid
-          WHERE "id" = ${degradedMatch.paymentEventId}::uuid
-            AND "bookingId" IS NULL
-        `);
-        if ((claimed as number) > 0) {
-          confirming = degradedMatch;
-        } else {
-          // Lost the claim (another booking took it, here or in a concurrent tick).
-          // Fall through to the expire check — this booking has no payment.
-          logger.info(
-            { bookingRef: booking.bookingRef, paymentEventId: degradedMatch.paymentEventId },
-            'reconcile.degraded_claim_lost — orphan already claimed by another booking'
-          );
-        }
-      }
-    }
+    // (a) Confirming event among the linked events. ONLY a linked event can pay a
+    // booking — an orphan is never promoted to a confirmation (see branch (d)).
+    const confirming = linked.find((e) => isConfirming(e, booking.totalVnd)) ?? null;
 
     if (confirming) {
       // (a) Resolve to paid through the SHARED guarded monotonic path + ledger.
@@ -429,6 +410,37 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
         );
       }
       continue;
+    }
+
+    // (d) SUSPECTED unmatched payment (SYS06 degraded match) — HOLD, never pay.
+    //
+    // matchDegraded finds an orphan payment that FITS this booking on (exact amount
+    // + rail + ±30min window). Those predicates cannot identify WHICH booking the
+    // money belongs to: with a single shared receiving account the rail clue is true
+    // of every payment, and any same-fare booking in the window fits equally well.
+    // Paying on that guess hands one customer's money to another — and because the
+    // loop runs oldest-first, an attacker only has to keep a stuck booking alive at a
+    // common fare to harvest the next blank-memo transfer.
+    //
+    // So the match is a SUSPICION, not a decision. We do not pay, we do not claim the
+    // row, and — critically — we do NOT fall through to expiry:
+    // `payment_failed_expired` is terminal (lib/booking/transitions.ts), so expiring a
+    // booking whose money probably DID arrive destroys the only path to resolving it
+    // by hand. Leave it `awaiting_payment` and flag it for manual reconciliation.
+    if (!confirming) {
+      const suspected = matchDegraded(booking, events, usedAdapters);
+      if (suspected) {
+        logger.warn(
+          {
+            bookingRef: booking.bookingRef,
+            paymentEventId: suspected.paymentEventId,
+            providerTxnId: suspected.providerTxnId,
+            amountVnd: booking.totalVnd,
+          },
+          'reconcile.unmatched_payment_suspected — held for manual review, NOT auto-paid'
+        );
+        continue;
+      }
     }
 
     // (b)/(c) No confirmation. Expire ONLY when the hold has genuinely lapsed.
