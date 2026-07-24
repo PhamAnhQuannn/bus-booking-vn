@@ -2,11 +2,11 @@
 
 export { getMomoAdapter } from './adapters/momo';
 export { getVnpayAdapter } from './adapters/vnpay';
-export { getBankTransferAdapter } from './adapters/bankTransfer';
+export { getBankTransferAdapter, recoverSepayEvent } from './adapters/bankTransfer';
 export { buildStubIpn, createStubAdapter, refundPaymentStub } from './adapters/stub';
 export type { StubOutcome } from './adapters/stub';
 export type { PaymentGateway, CreatePaymentInput } from './gateway';
-export { processPaymentWebhook } from './processWebhook';
+export { processPaymentWebhook, recordUnmatchedPaymentEvent } from './processWebhook';
 export { applyPaidStatusTransition, appendBookingPaidLedger } from './applyPaidTransition';
 export { refundPayment } from './refund';
 export { getGatewayFor } from './select';

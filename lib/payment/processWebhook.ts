@@ -11,8 +11,17 @@
  * PII policy: NEVER log buyer phone, raw webhook body, or secret key.
  * Log only bookingRef, event type, sig-verify outcome.
  *
+ * Bug B (2026-07-23): a bank_transfer payment we cannot resolve to a booking is
+ * recorded as an ORPHAN PaymentEvent (bookingId NULL) via
+ * recordUnmatchedPaymentEvent, not dropped — it is the only DB evidence the money
+ * arrived, and the reconcile sweeper degrade-matches it back to its booking.
+ * Consequently the linked-event write CLAIMS a matching orphan first and only
+ * inserts when there is none — a P2002 inside the tx is unrecoverable (Postgres
+ * aborts the whole transaction), so the ambiguity must be resolved before the write,
+ * not after it.
+ *
  * Transaction logic:
- *   1. INSERT PaymentEvent (idempotent: P2002 conflict → 200 no-op)
+ *   1. CLAIM an orphan PaymentEvent, else INSERT (idempotent: P2002 → 200 no-op)
  *   2. If status === 'paid':
  *      - Currency guard FIRST: if currency !== 'VND', log currency_mismatch and
  *        do NOT transition (audit row stays, booking stays awaiting_payment).
@@ -81,6 +90,50 @@ function formatDepartureForSms(d: Date): string {
   });
 }
 
+/**
+ * Bug B: persist an ORPHAN PaymentEvent (bookingId NULL) for a validated inbound
+ * payment that could not be resolved to a booking.
+ *
+ * Two callers, both bank_transfer: the webhook route's `no_booking_ref_in_memo`
+ * short-circuit (the common case — a VN bank memo the customer never typed or the
+ * bank mangled past recognition) and the `booking_not_found` branch below. Without
+ * this row the money leaves no DB trace at all and the reconcile sweeper's
+ * degraded match has nothing to work with.
+ *
+ * Idempotent via @@unique([adapter, providerTxnId]) — SePay retries a non-acked
+ * delivery up to 7 times, and each retry must be a no-op here.
+ *
+ * NEVER throws. This is a diagnostic write on a path that has already decided to
+ * ack 200; failing it would turn an unmatched-but-recorded transfer into an
+ * unmatched-and-retried one, which is strictly worse.
+ */
+export async function recordUnmatchedPaymentEvent(input: {
+  adapter: string;
+  providerTxnId: string;
+  rawBody: string;
+}): Promise<void> {
+  const { adapter, providerTxnId, rawBody } = input;
+  try {
+    await prisma.paymentEvent.create({
+      data: { bookingId: null, adapter, providerTxnId, currency: 'VND', rawBody },
+    });
+    logger.warn(
+      { adapter, providerTxnId },
+      'payment.webhook.unmatched_recorded — orphan PaymentEvent stored for reconciliation'
+    );
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      // Already recorded (SePay retry) — nothing to do.
+      return;
+    }
+    logger.error(
+      { adapter, providerTxnId, err: err instanceof Error ? err.message : String(err) },
+      'payment.webhook.unmatched_record_failed — money arrived with NO DB trace'
+    );
+    captureException(err, { adapter, providerTxnId, area: 'payment.webhook.unmatched' });
+  }
+}
+
 export async function processPaymentWebhook(
   input: ProcessPaymentWebhookInput
 ): Promise<Response> {
@@ -135,7 +188,17 @@ export async function processPaymentWebhook(
   });
 
   if (!booking) {
-    // Don't leak existence — return 200 to prevent enumeration
+    // Bug B: the money is real and already in the account — record it as an ORPHAN
+    // PaymentEvent so the reconcile sweeper can degrade-match it, instead of leaving
+    // zero DB trace. Scoped to bank_transfer: MoMo/VNPay/card orderRefs are ones we
+    // generated and the PSP echoed back, so an unresolvable ref there is a genuinely
+    // nonexistent booking, not a mistyped memo.
+    if (adapter === 'bank_transfer' && status === 'paid') {
+      await recordUnmatchedPaymentEvent({ adapter, providerTxnId, rawBody });
+    }
+    // Don't leak existence — return 200 to prevent enumeration. Status, body and
+    // headers are identical on every branch above and below, so recording the orphan
+    // adds no new enumeration signal.
     logger.info({ adapter, bookingRef }, 'payment.webhook.booking_not_found — 200 no-op');
     return NextResponse.json({ message: 'ok' }, { status: 200 });
   }
@@ -153,15 +216,39 @@ export async function processPaymentWebhook(
       // INSERT PaymentEvent — idempotent: @@unique([adapter, providerTxnId]).
       // providerTxnId + currency are non-PII reconciliation fields, intentionally
       // loggable (logger redact list reviewed — no new redaction needed).
-      await tx.paymentEvent.create({
-        data: {
-          bookingId: booking.id,
-          adapter,
-          providerTxnId,
-          currency,
-          rawBody, // stored for audit; never logged
-        },
+      // Bug B: CLAIM BEFORE INSERT. Since orphan rows exist, this delivery may
+      // already be on file unlinked — recorded when its ref didn't resolve, and
+      // redelivered (SePay retries) or replayed now that the booking exists. Claiming
+      // first turns that into a normal paid transition instead of a P2002 no-op.
+      //
+      // Claim-then-insert, NOT insert-then-recover: a unique violation aborts the
+      // whole Postgres transaction, so a P2002 caught INSIDE this tx cannot be
+      // recovered from — every subsequent statement fails with "current transaction
+      // is aborted". The UPDATE is an indexed hit on @@unique([adapter, providerTxnId]).
+      //
+      // A row that is already LINKED does not match `bookingId: null`, so a genuine
+      // duplicate delivery still falls through to the create → P2002 → outer catch
+      // → 200 idempotent no-op, exactly as before.
+      const claimedOrphan = await tx.paymentEvent.updateMany({
+        where: { adapter, providerTxnId, bookingId: null },
+        data: { bookingId: booking.id },
       });
+      if (claimedOrphan.count > 0) {
+        logger.info(
+          { adapter, bookingRef, providerTxnId },
+          'payment.webhook.orphan_claimed — previously unmatched payment linked to booking'
+        );
+      } else {
+        await tx.paymentEvent.create({
+          data: {
+            bookingId: booking.id,
+            adapter,
+            providerTxnId,
+            currency,
+            rawBody, // stored for audit; never logged
+          },
+        });
+      }
 
       if (status === 'paid' && currency !== 'VND') {
         // Currency guard (FIRST, before amount): the amount check is VND-denominated

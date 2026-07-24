@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { getBankTransferAdapter, _resetBankTransferAdapter } from '../adapters/bankTransfer';
+import {
+  getBankTransferAdapter,
+  _resetBankTransferAdapter,
+  recoverSepayEvent,
+} from '../adapters/bankTransfer';
 import { BOOKING_REF_REGEX, generateBookingRef } from '@/lib/booking/bookingRef';
 
 vi.mock('@/lib/config', () => ({
@@ -205,6 +209,9 @@ describe('bankTransfer adapter — verifyWebhook', () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.reason).toBe('no_booking_ref_in_memo');
+    // Bug B: the money IS real (inbound, positive) — only the link failed, so the
+    // caller must be handed the txn id to record an orphan PaymentEvent.
+    expect(result.unmatched).toEqual({ providerTxnId: String(validPayload.id) });
   });
 
   it('returns no_booking_ref_in_memo when content is empty', () => {
@@ -214,6 +221,23 @@ describe('bankTransfer adapter — verifyWebhook', () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.reason).toBe('no_booking_ref_in_memo');
+    expect(result.unmatched).toEqual({ providerTxnId: String(validPayload.id) });
+  });
+
+  it('does NOT set unmatched when the payment itself was rejected', () => {
+    // Nothing to reconcile: an outbound transfer is not money arriving, so recording
+    // an orphan would poison the sweeper's amount-window matching.
+    const outbound = adapter.verifyWebhook(
+      JSON.stringify({ ...validPayload, transferType: 'out' })
+    );
+    expect(outbound.ok).toBe(false);
+    if (outbound.ok) return;
+    expect(outbound.unmatched).toBeUndefined();
+
+    const badJson = adapter.verifyWebhook('not json');
+    expect(badJson.ok).toBe(false);
+    if (badJson.ok) return;
+    expect(badJson.unmatched).toBeUndefined();
   });
 
   it('returns invalid_amount when transferAmount is not a number', () => {
@@ -223,5 +247,51 @@ describe('bankTransfer adapter — verifyWebhook', () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.reason).toBe('invalid_amount');
+  });
+
+  describe('recoverSepayEvent — stored-body parse used by the reconcile sweeper', () => {
+    // Bug B: the sweeper used to parse every stored rawBody as MoMo (`amount` +
+    // `resultCode === 0`). SePay has NEITHER field, so every bank transfer recovered
+    // as { 0, false } and no transfer could ever be reconciled. Assertions reference
+    // the payload's own fields, never re-typed literals.
+    it('recovers the transferAmount from a real SePay body', () => {
+      const recovered = recoverSepayEvent(JSON.stringify(validPayload));
+      expect(recovered.amount).toBe(validPayload.transferAmount);
+      expect(recovered.success).toBe(true);
+    });
+
+    it('is NOT fooled by the MoMo shape the old parser expected', () => {
+      // The exact body the pre-fix code was written for: no transferAmount at all.
+      const recovered = recoverSepayEvent(JSON.stringify({ amount: 150000, resultCode: 0 }));
+      expect(recovered).toEqual({ amount: 0, success: false });
+    });
+
+    it('rejects an outbound transfer', () => {
+      const recovered = recoverSepayEvent(
+        JSON.stringify({ ...validPayload, transferType: 'out' })
+      );
+      expect(recovered).toEqual({ amount: 0, success: false });
+    });
+
+    it('rejects a zero amount and a non-JSON body', () => {
+      expect(recoverSepayEvent(JSON.stringify({ ...validPayload, transferAmount: 0 }))).toEqual({
+        amount: 0,
+        success: false,
+      });
+      expect(recoverSepayEvent('not json')).toEqual({ amount: 0, success: false });
+    });
+
+    it('round-trips the body the adapter itself accepted', () => {
+      // One producer, two consumers: the same string the route stores as rawBody must
+      // recover to the same amount verifyWebhook reported.
+      const raw = JSON.stringify(validPayload);
+      const verified = adapter.verifyWebhook(raw);
+      expect(verified.ok).toBe(true);
+      if (!verified.ok) return;
+      expect(recoverSepayEvent(raw)).toEqual({
+        amount: verified.event.amount,
+        success: true,
+      });
+    });
   });
 });

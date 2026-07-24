@@ -27,12 +27,30 @@
  *   (c) only an UNDERPAID / wrong-currency success event exists (the rows issue
  *       032 parks): NEVER mark paid; treat as genuinely unpaid and expire it
  *       once the hold has lapsed (falls into branch (b)).
+ *   (d) an ORPHAN payment merely FITS the booking (degraded match, below): hold
+ *       it in `awaiting_payment` for manual reconciliation — never pay. The hold
+ *       is bounded by SUSPECTED_HOLD_MAX_AGE_MINUTES; past that it expires via
+ *       (b) with an escalated log, because a permanent hold starves this sweeper
+ *       and freezes seats.
  *
- * DEGRADED MATCH (SYS06 bank transfer): when a confirming event's memo/orderRef
- * was garbled so the webhook could not link it to its booking, matchDegraded()
- * recovers it by amount + receiving-account (the PaymentEvent.adapter, our proxy
- * for "which account the money landed in" — there is no separate account column)
- * + a conservative time-window around hold creation. Exact amount only.
+ * DEGRADED MATCH (SYS06 bank transfer) — SUSPICION ONLY, NEVER A PAYMENT.
+ * When a transfer's memo is unusable the webhook cannot link it to a booking and
+ * records it as an ORPHAN PaymentEvent (bookingId NULL). matchDegraded() finds the
+ * orphans that FIT a stuck booking: exact amount, same rail (PaymentEvent.adapter —
+ * our only proxy for "which account the money landed in"; there is no account
+ * column), inside a window around hold creation.
+ *
+ * Those predicates do NOT identify a payer. This deployment uses ONE shared
+ * receiving account, so the rail clue is true of every payment, and any same-fare
+ * booking in the window fits equally well. An earlier revision paid the match after
+ * a compare-and-set claim; the claim made it one-shot but not CORRECT — it simply
+ * awarded the money to whichever booking the oldest-first loop reached first, which
+ * an attacker can arrange by keeping a stuck booking alive at a common fare.
+ *
+ * So a match now only FLAGS the booking (branch (d)) and suppresses its expiry.
+ * Resolution is manual. Nothing here writes to PaymentEvent — the sweeper is a
+ * reader of that table, which is also what keeps its lock order (Booking only)
+ * compatible with the webhook's (PaymentEvent → Booking).
  *
  * CONCURRENCY (Mistake Log 043 run-lock + 011/095 row-claim):
  *   - The whole tick runs under the 'reconcile-payments' advisory lock (runJob /
@@ -70,6 +88,31 @@ export const DEGRADED_MATCH_WINDOW_MINUTES = 30;
 
 /** Bound work per tick so a backlog can't hold the lock indefinitely. */
 const CLAIM_LIMIT = 200;
+
+/**
+ * How long a booking may be HELD on a suspected-but-unproven payment (branch (d))
+ * before it expires like any other unpaid booking.
+ *
+ * The hold must be bounded, because every input to matchDegraded is immutable: the
+ * booking stays `awaiting_payment`, the orphan is never claimed, and the window is
+ * anchored on a fixed holdCreatedAt — so an unbounded hold is PERMANENT. That would
+ * be its own outage:
+ *   - the candidate query is `ORDER BY createdAt ASC LIMIT CLAIM_LIMIT`, and held
+ *     rows are the oldest, so they consume the whole budget and the sweeper stops
+ *     reaching newer bookings — reintroducing the very bug this file fixes;
+ *   - `rowsAffected` counts only paid+expired, so a fully starved tick reports
+ *     success with 0 and looks exactly like an idle healthy one;
+ *   - createCashBooking counts `awaiting_payment` toward seat capacity with NO time
+ *     bound (unlike the online path's PSP_WINDOW_MINUTES), so each held booking
+ *     freezes a seat against walk-up sales.
+ * And false holds are expected, not exceptional: SePay notifies on EVERY credit to
+ * the account, so one unrelated deposit at a round fare fits every same-fare stuck
+ * booking in its window.
+ *
+ * 24h gives a human a full day to act on the warning; after that the booking expires
+ * and the orphan PaymentEvent remains on file as the evidence that money arrived.
+ */
+export const SUSPECTED_HOLD_MAX_AGE_MINUTES = 24 * 60;
 
 interface StuckBookingRow {
   id: string;
@@ -117,24 +160,35 @@ interface RecoveredEvent {
  * The PaymentEvent table stores neither amount nor status as columns, so we read
  * them from the persisted body.
  *
- * Both the MoMo and stub adapters sign a body with `amount` and `resultCode`,
- * and BOTH treat `resultCode === 0` as success (momo: classifyMomoStatus 0→paid;
- * stub: STUB_SUCCESS_CODE === 0). A non-zero code is a failure/pending/unknown —
- * none of which are confirming, so we only need the success boolean. A non-JSON
- * or shapeless body yields success=false and is never a confirmation.
+ * THE BODY SHAPE IS PER-ADAPTER — dispatch on the stored `adapter` column.
+ *
+ * MoMo and stub both sign a body with `amount` and `resultCode`, and BOTH treat
+ * `resultCode === 0` as success (momo: classifyMomoStatus 0→paid; stub:
+ * STUB_SUCCESS_CODE === 0). SePay shares NEITHER field — it sends `transferAmount`
+ * and has no result code at all, which is Bug B: this function used to assume the
+ * MoMo shape universally, so every bank_transfer event recovered as { 0, false }
+ * and no transfer could ever be confirmed by the sweeper. The SePay parse lives in
+ * its own adapter (recoverSepayEvent) to keep native field names behind the adapter
+ * boundary. A non-JSON or shapeless body yields success=false and is never a
+ * confirmation.
  */
 function recoverEvent(
-  row: { id: string; bookingId: string | null; adapter: string; providerTxnId: string; currency: string; rawBody: string; receivedAt: Date }
+  row: { id: string; bookingId: string | null; adapter: string; providerTxnId: string; currency: string; rawBody: string; receivedAt: Date },
+  recoverSepayEvent: (rawBody: string) => { amount: number; success: boolean }
 ): RecoveredEvent {
   let amount = 0;
   let success = false;
-  try {
-    const parsed = JSON.parse(row.rawBody) as Record<string, unknown>;
-    const rawAmount = Number(parsed.amount ?? 0);
-    amount = Number.isFinite(rawAmount) && rawAmount >= 0 ? rawAmount : 0;
-    success = Number(parsed.resultCode ?? -1) === 0;
-  } catch {
-    // Non-JSON / shapeless body → not a confirmation.
+  if (row.adapter === 'bank_transfer') {
+    ({ amount, success } = recoverSepayEvent(row.rawBody));
+  } else {
+    try {
+      const parsed = JSON.parse(row.rawBody) as Record<string, unknown>;
+      const rawAmount = Number(parsed.amount ?? 0);
+      amount = Number.isFinite(rawAmount) && rawAmount >= 0 ? rawAmount : 0;
+      success = Number(parsed.resultCode ?? -1) === 0;
+    } catch {
+      // Non-JSON / shapeless body → not a confirmation.
+    }
   }
   return {
     paymentEventId: row.id,
@@ -193,9 +247,8 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
   const { renderTemplate } = await import('@/lib/notification');
   const { logger } = await import('@/lib/logger');
   const { legalPredecessors } = await import('@/lib/booking');
-  const { applyPaidStatusTransition, appendBookingPaidLedger } = await import(
-    '@/lib/payment'
-  );
+  const { applyPaidStatusTransition, appendBookingPaidLedger, recoverSepayEvent } =
+    await import('@/lib/payment');
   const { refundOut } = await import('@/lib/ledger');
 
   const now = opts?.now ?? new Date();
@@ -267,7 +320,7 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
          )
     `);
 
-    const events = rawEvents.map((e) => recoverEvent(e));
+    const events = rawEvents.map((e) => recoverEvent(e, recoverSepayEvent));
     const linked = events.filter((e) => e.bookingId === booking.id);
     // Receiving accounts this booking could legitimately have been paid into:
     // the rail it was created with (paymentMethod) plus any adapter that already
@@ -278,13 +331,9 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
       ...linked.map((e) => e.adapter),
     ]);
 
-    // (a) Confirming event among the linked events?
-    let confirming = linked.find((e) => isConfirming(e, booking.totalVnd)) ?? null;
-
-    // Degraded match (SYS06): no linked confirmation, try the orphan window.
-    if (!confirming) {
-      confirming = matchDegraded(booking, events, usedAdapters);
-    }
+    // (a) Confirming event among the linked events. ONLY a linked event can pay a
+    // booking — an orphan is never promoted to a confirmation (see branch (d)).
+    const confirming = linked.find((e) => isConfirming(e, booking.totalVnd)) ?? null;
 
     if (confirming) {
       // (a) Resolve to paid through the SHARED guarded monotonic path + ledger.
@@ -388,6 +437,54 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
         );
       }
       continue;
+    }
+
+    // (d) SUSPECTED unmatched payment (SYS06 degraded match) — HOLD, never pay.
+    //
+    // matchDegraded finds an orphan payment that FITS this booking on (exact amount
+    // + rail + ±30min window). Those predicates cannot identify WHICH booking the
+    // money belongs to: with a single shared receiving account the rail clue is true
+    // of every payment, and any same-fare booking in the window fits equally well.
+    // Paying on that guess hands one customer's money to another — and because the
+    // loop runs oldest-first, an attacker only has to keep a stuck booking alive at a
+    // common fare to harvest the next blank-memo transfer.
+    //
+    // So the match is a SUSPICION, not a decision. We do not pay, we do not claim the
+    // row, and — critically — we do NOT fall through to expiry:
+    // `payment_failed_expired` is terminal (lib/booking/transitions.ts), so expiring a
+    // booking whose money probably DID arrive destroys the only path to resolving it
+    // by hand. Leave it `awaiting_payment` and flag it for manual reconciliation.
+    if (!confirming) {
+      const suspected = matchDegraded(booking, events, usedAdapters);
+      if (suspected) {
+        const heldForMs = now.getTime() - booking.createdAt.getTime();
+        if (heldForMs < SUSPECTED_HOLD_MAX_AGE_MINUTES * 60_000) {
+          logger.warn(
+            {
+              bookingRef: booking.bookingRef,
+              paymentEventId: suspected.paymentEventId,
+              providerTxnId: suspected.providerTxnId,
+              amountVnd: booking.totalVnd,
+            },
+            'reconcile.unmatched_payment_suspected — held for manual review, NOT auto-paid'
+          );
+          continue;
+        }
+        // Hold window elapsed with no human resolution. Expire like any other unpaid
+        // booking (below) rather than holding forever — see the constant's comment.
+        // Escalated to error: this is the one place a booking that PROBABLY received
+        // money gets closed, and the orphan PaymentEvent stays on file as evidence.
+        logger.error(
+          {
+            bookingRef: booking.bookingRef,
+            paymentEventId: suspected.paymentEventId,
+            providerTxnId: suspected.providerTxnId,
+            amountVnd: booking.totalVnd,
+            heldForHours: Math.floor(heldForMs / 3_600_000),
+          },
+          'reconcile.unmatched_payment_unresolved — hold window elapsed, expiring booking; orphan PaymentEvent remains as evidence'
+        );
+      }
     }
 
     // (b)/(c) No confirmation. Expire ONLY when the hold has genuinely lapsed.
