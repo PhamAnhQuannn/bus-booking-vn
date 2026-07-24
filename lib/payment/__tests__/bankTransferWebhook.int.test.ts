@@ -17,7 +17,11 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { randomUUID } from 'crypto';
 import { prisma } from '@/lib/core/db/client';
-import { processPaymentWebhook, getBankTransferAdapter } from '@/lib/payment';
+import {
+  processPaymentWebhook,
+  getBankTransferAdapter,
+  recordUnmatchedPaymentEvent,
+} from '@/lib/payment';
 import { generateBookingRef } from '@/lib/booking/bookingRef';
 
 const GROSS = 100_000; // VND — 6% platform fee = 6_000
@@ -31,6 +35,12 @@ let bookingId: string;
 let bookingRef: string; // a REAL generateBookingRef() value: BB-YYYY-xxxx-yyyy
 let providerTxnId: string;
 let feeConfigId: string | null = null;
+
+/** providerTxnIds of orphan rows this file creates — cleaned up by key, not relation. */
+const orphanTxnIds: string[] = [];
+/** Bookings created inside tests (beyond the beforeAll one), for cleanup. */
+const extraBookingIds: string[] = [];
+const allBookingIds = () => [bookingId, ...extraBookingIds];
 
 /**
  * Build the SePay webhook body the way a Vietnamese bank actually delivers it: the
@@ -130,9 +140,12 @@ afterAll(async () => {
     'CREATE TRIGGER "ledger_entry_no_delete" BEFORE DELETE ON "LedgerEntry" FOR EACH ROW EXECUTE FUNCTION "ledger_entry_immutable"()'
   );
 
-  await prisma.paymentEvent.deleteMany({ where: { bookingId } });
-  await prisma.notificationLog.deleteMany({ where: { bookingId } });
-  await prisma.booking.deleteMany({ where: { id: bookingId } });
+  // Orphan rows (bookingId NULL) are unreachable through a `booking` relation
+  // filter — delete them by their own key.
+  await prisma.paymentEvent.deleteMany({ where: { providerTxnId: { in: orphanTxnIds } } });
+  await prisma.paymentEvent.deleteMany({ where: { bookingId: { in: allBookingIds() } } });
+  await prisma.notificationLog.deleteMany({ where: { bookingId: { in: allBookingIds() } } });
+  await prisma.booking.deleteMany({ where: { id: { in: allBookingIds() } } });
   await prisma.trip.deleteMany({ where: { routeId } });
   await prisma.route.delete({ where: { id: routeId } });
   await prisma.bus.deleteMany({ where: { operatorId } });
@@ -179,5 +192,160 @@ describe('bank_transfer webhook round trip (Bug A regression)', () => {
     const byExact = await prisma.booking.findUnique({ where: { bookingRef } });
     expect(byLower).toBeNull();
     expect(byExact?.id).toBe(bookingId);
+  });
+});
+
+/**
+ * Bug B: an unmatchable transfer must leave an ORPHAN PaymentEvent (bookingId NULL)
+ * rather than zero DB trace. These run against real Postgres because the migration
+ * making the column nullable is the thing under test — no mock can prove the column
+ * accepts NULL, and the redelivery case turns on a real unique-constraint violation.
+ */
+describe('bank_transfer webhook — orphan persistence (Bug B)', () => {
+  it('records an orphan when the memo carries no bookingRef at all', async () => {
+    const txnId = String(Date.now() + 1);
+    orphanTxnIds.push(txnId);
+    const rawBody = JSON.stringify({
+      id: Number(txnId),
+      gateway: 'Sacombank',
+      transactionDate: '2026-07-23 14:05:00',
+      accountNumber: '030976167267',
+      subAccount: null,
+      transferType: 'in',
+      transferAmount: GROSS,
+      accumulated: 0,
+      code: null,
+      content: 'CK tu NGUYEN VAN A', // customer never typed the memo
+      referenceCode: 'VN0011911FT26204HJH16',
+      description: 'BankAPINotify',
+    });
+
+    // The REAL adapter decides this is unmatched-but-recordable; the route hands
+    // exactly that providerTxnId to the helper. One producer, two consumers.
+    const verified = getBankTransferAdapter().verifyWebhook(rawBody);
+    expect(verified.ok).toBe(false);
+    if (verified.ok) return;
+    expect(verified.unmatched).toEqual({ providerTxnId: txnId });
+
+    await recordUnmatchedPaymentEvent({
+      adapter: 'bank_transfer',
+      providerTxnId: verified.unmatched!.providerTxnId,
+      rawBody,
+    });
+
+    const orphan = await prisma.paymentEvent.findFirst({
+      where: { adapter: 'bank_transfer', providerTxnId: txnId },
+    });
+    expect(orphan).not.toBeNull();
+    expect(orphan!.bookingId).toBeNull();
+    expect(orphan!.rawBody).toBe(rawBody);
+  });
+
+  it('records an orphan when the ref parses but no such booking exists', async () => {
+    // A REAL generated ref that was never inserted — processPaymentWebhook's
+    // booking_not_found branch. Pre-fix this returned 200 and wrote nothing.
+    const strayRef = generateBookingRef();
+    const txnId = String(Date.now() + 2);
+    orphanTxnIds.push(txnId);
+    const rawBody = JSON.stringify({
+      id: Number(txnId),
+      gateway: 'Sacombank',
+      transactionDate: '2026-07-23 14:06:00',
+      accountNumber: '030976167267',
+      subAccount: null,
+      transferType: 'in',
+      transferAmount: GROSS,
+      accumulated: 0,
+      code: null,
+      content: `${strayRef.replace(/-/g, '')} CKN 999999`,
+      referenceCode: 'VN0011911FT26204HJH17',
+      description: 'BankAPINotify',
+    });
+
+    const res = await processPaymentWebhook({
+      rawBody,
+      gateway: getBankTransferAdapter(),
+      adapter: 'bank_transfer',
+      proto: 'https',
+      host: 'test.invalid',
+    });
+    expect(res.status).toBe(200); // unchanged — no enumeration signal
+
+    const orphan = await prisma.paymentEvent.findFirst({
+      where: { adapter: 'bank_transfer', providerTxnId: txnId },
+    });
+    expect(orphan).not.toBeNull();
+    expect(orphan!.bookingId).toBeNull();
+  });
+
+  it('a redelivery whose ref now resolves CLAIMS the orphan and pays the booking', async () => {
+    // SePay redelivers, or an admin fixes the booking after the fact. Pre-fix the
+    // insert hit @@unique([adapter, providerTxnId]) → P2002 → "already handled" 200
+    // no-op, and the payment could never be applied.
+    const txnId = String(Date.now() + 3);
+    orphanTxnIds.push(txnId);
+    const ref = generateBookingRef();
+    const rawBody = JSON.stringify({
+      id: Number(txnId),
+      gateway: 'Sacombank',
+      transactionDate: '2026-07-23 14:07:00',
+      accountNumber: '030976167267',
+      subAccount: null,
+      transferType: 'in',
+      transferAmount: GROSS,
+      accumulated: 0,
+      code: null,
+      content: `${ref.replace(/-/g, '')} CKN 888888`,
+      referenceCode: 'VN0011911FT26204HJH18',
+      description: 'BankAPINotify',
+    });
+
+    // 1st delivery: booking does not exist yet → orphan.
+    await recordUnmatchedPaymentEvent({ adapter: 'bank_transfer', providerTxnId: txnId, rawBody });
+    const before = await prisma.paymentEvent.findFirst({
+      where: { adapter: 'bank_transfer', providerTxnId: txnId },
+    });
+    expect(before!.bookingId).toBeNull();
+
+    // The booking now exists under that ref.
+    const lateBookingId = randomUUID();
+    extraBookingIds.push(lateBookingId);
+    await prisma.booking.create({
+      data: {
+        id: lateBookingId,
+        bookingRef: ref,
+        confirmationToken: randomUUID().replace(/-/g, '') + 'bx',
+        tripId,
+        buyerName: 'Redelivery Buyer',
+        buyerPhone: '+8490xxxxxx7',
+        ticketCount: 1,
+        totalVnd: GROSS,
+        paymentMethod: 'bank_transfer',
+        status: 'awaiting_payment',
+      },
+    });
+
+    // 2nd delivery of the IDENTICAL body.
+    const res = await processPaymentWebhook({
+      rawBody,
+      gateway: getBankTransferAdapter(),
+      adapter: 'bank_transfer',
+      proto: 'https',
+      host: 'test.invalid',
+    });
+    expect(res.status).toBe(200);
+
+    const row = await prisma.booking.findUnique({
+      where: { id: lateBookingId },
+      select: { status: true },
+    });
+    expect(row?.status).toBe('paid');
+
+    // The orphan was CLAIMED, not duplicated.
+    const events = await prisma.paymentEvent.findMany({
+      where: { adapter: 'bank_transfer', providerTxnId: txnId },
+    });
+    expect(events.length).toBe(1);
+    expect(events[0].bookingId).toBe(lateBookingId);
   });
 });

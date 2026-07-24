@@ -89,10 +89,16 @@ function createBankTransferAdapter(): PaymentGateway {
         return { ok: false, reason: 'not_inbound_transfer' };
       }
 
+      // Bug B: past this point the payment itself is VALIDATED (inbound, positive
+      // amount) — only the booking link can still fail. Every failure below carries
+      // `unmatched` so the caller records an orphan PaymentEvent instead of dropping
+      // the delivery on the floor. See VerifyWebhookResult in ../gateway.ts.
+      const unmatched = { providerTxnId: String(payload.id) };
+
       const memo = payload.content ?? '';
       const match = EXTRACT_REGEX.exec(memo);
       if (!match) {
-        return { ok: false, reason: 'no_booking_ref_in_memo' };
+        return { ok: false, reason: 'no_booking_ref_in_memo', unmatched };
       }
 
       // Rebuild the canonical ref from the captured segments. Two normalisations:
@@ -110,7 +116,7 @@ function createBankTransferAdapter(): PaymentGateway {
       // would silently miss. Asserting the canonical regex here is the one check that
       // would have caught the `bb-`/`BB-` case bug at the adapter's first commit.
       if (!BOOKING_REF_REGEX.test(orderRef)) {
-        return { ok: false, reason: 'no_booking_ref_in_memo' };
+        return { ok: false, reason: 'no_booking_ref_in_memo', unmatched };
       }
 
       return {
@@ -125,6 +131,34 @@ function createBankTransferAdapter(): PaymentGateway {
       };
     },
   };
+}
+
+/**
+ * Bug B: recover { amount, success } from a STORED SePay `PaymentEvent.rawBody`.
+ *
+ * The reconcile sweeper (lib/jobs/reconcilePayments.ts) re-reads persisted webhook
+ * bodies because PaymentEvent stores neither amount nor status as a column. Its
+ * original parser was MoMo-shaped (`amount` + `resultCode === 0`) — SePay sends
+ * `transferAmount` and has NO `resultCode`, so every bank_transfer event recovered
+ * as { 0, false } and the sweeper could never confirm a transfer.
+ *
+ * Lives HERE, not in the job: `gateway.ts` states that native gateway field names
+ * never leak past the adapter boundary, and `transferAmount` is a native SePay name.
+ *
+ * A stored SePay row only exists because verifyWebhook already accepted the delivery
+ * (transferType 'in' + positive transferAmount), so re-checking those two fields IS
+ * the success test — there is no separate result code to consult.
+ */
+export function recoverSepayEvent(rawBody: string): { amount: number; success: boolean } {
+  try {
+    const parsed = JSON.parse(rawBody) as Partial<SepayWebhookPayload>;
+    const amount = Number(parsed.transferAmount ?? 0);
+    const ok = parsed.transferType === 'in' && Number.isFinite(amount) && amount > 0;
+    return { amount: ok ? amount : 0, success: ok };
+  } catch {
+    // Non-JSON / shapeless body → not a confirmation.
+    return { amount: 0, success: false };
+  }
 }
 
 let _adapter: PaymentGateway | null = null;

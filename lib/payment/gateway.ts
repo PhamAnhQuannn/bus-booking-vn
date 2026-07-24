@@ -52,7 +52,22 @@ export interface CanonicalPaymentEvent {
 
 export type VerifyWebhookResult =
   | { ok: true; event: CanonicalPaymentEvent }
-  | { ok: false; reason: string };
+  | {
+      ok: false;
+      reason: string;
+      /**
+       * Bug B: set ONLY when the adapter validated a real inbound payment it could
+       * not resolve to a booking — i.e. the money genuinely arrived but the memo
+       * carries no usable bookingRef. The caller records an ORPHAN PaymentEvent
+       * (bookingId NULL) so the reconcile sweeper can degrade-match it later.
+       *
+       * Populated by the bank_transfer adapter only. MoMo/VNPay/card orderRefs are
+       * program-generated and echoed back by the PSP, so an unresolvable ref there
+       * means the booking genuinely does not exist — recording it would add noise
+       * rows and widen the sweeper's amount-window false-positive surface.
+       */
+      unmatched?: { providerTxnId: string };
+    };
 
 export interface PaymentGateway {
   createPayment(input: CreatePaymentInput): Promise<CreatePaymentResult>;

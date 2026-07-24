@@ -1,0 +1,19 @@
+-- Bug B (2026-07-23): PaymentEvent.bookingId becomes nullable.
+--
+-- A SePay bank transfer whose memo carries no resolvable bookingRef previously left
+-- ZERO trace: the webhook route short-circuited to a 200 ack before any insert, and
+-- this column's NOT NULL made an unlinked row impossible. That made the reconcile
+-- sweeper's degraded-match branch (lib/jobs/reconcilePayments.ts — `bookingId IS NULL`
+-- + amount + adapter + window) dead code in production, so the booking was expired
+-- while the money sat unclaimed in the receiving account.
+--
+-- Orphan rows (bookingId NULL) are now that evidence. The sweeper CAS-claims one by
+-- setting bookingId, which is also what stops a single transfer paying two bookings.
+--
+-- Catalog-only change on PG16: no table rewrite, no backfill, no lock beyond a brief
+-- ACCESS EXCLUSIVE on the catalog row. Safe to deploy ahead of the code.
+--
+-- The FK is deliberately NOT touched: it stays ON DELETE RESTRICT / ON UPDATE CASCADE
+-- (from 20260518161139). SET NULL would silently convert a deleted booking's event
+-- into a sweepable orphan.
+ALTER TABLE "PaymentEvent" ALTER COLUMN "bookingId" DROP NOT NULL;

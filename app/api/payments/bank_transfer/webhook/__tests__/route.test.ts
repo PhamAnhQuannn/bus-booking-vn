@@ -10,6 +10,7 @@ vi.mock('@/lib/payment', () => ({
     verifyWebhook: vi.fn(),
   }),
   processPaymentWebhook: vi.fn(),
+  recordUnmatchedPaymentEvent: vi.fn(),
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -21,7 +22,11 @@ vi.mock('@/lib/withErrorHandler', () => ({
 }));
 
 import { POST } from '../route';
-import { getBankTransferAdapter, processPaymentWebhook } from '@/lib/payment';
+import {
+  getBankTransferAdapter,
+  processPaymentWebhook,
+  recordUnmatchedPaymentEvent,
+} from '@/lib/payment';
 import { getEnv } from '@/lib/config';
 import { logger } from '@/lib/logger';
 
@@ -110,6 +115,32 @@ describe('POST /api/payments/bank_transfer/webhook', () => {
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({ success: true });
     expect(processPaymentWebhook).not.toHaveBeenCalled();
+    // No `unmatched` on the verify result → nothing recordable.
+    expect(recordUnmatchedPaymentEvent).not.toHaveBeenCalled();
+  });
+
+  it('records an orphan PaymentEvent when the adapter reports an unmatched transfer (Bug B)', async () => {
+    // This short-circuit never reaches processPaymentWebhook, so the orphan write
+    // has to happen here — otherwise a real transfer with an unusable memo leaves
+    // zero DB trace and the reconcile sweeper has nothing to degrade-match.
+    const adapter = getBankTransferAdapter();
+    vi.mocked(adapter.verifyWebhook).mockReturnValueOnce({
+      ok: false,
+      reason: 'no_booking_ref_in_memo',
+      unmatched: { providerTxnId: '99' },
+    });
+
+    const res = await POST(makeRequest(validPayload, 'test-sepay-key-abc123', 'Apikey'));
+
+    expect(recordUnmatchedPaymentEvent).toHaveBeenCalledWith({
+      adapter: 'bank_transfer',
+      providerTxnId: '99',
+      rawBody: validPayload,
+    });
+    expect(processPaymentWebhook).not.toHaveBeenCalled();
+    // Ack shape unchanged — SePay must still treat this delivery as final.
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ success: true });
   });
 
   it('delegates to processPaymentWebhook on valid auth + valid payload', async () => {

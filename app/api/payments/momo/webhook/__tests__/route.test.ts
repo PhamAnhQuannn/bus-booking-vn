@@ -203,7 +203,7 @@ describe('POST /api/payments/momo/webhook — paid IPN (resultCode=0)', () => {
     vi.mocked(prisma.$transaction).mockImplementationOnce(async (fn) => {
       // Execute with a fake tx that has the same mocked methods
       const fakeTx = {
-        paymentEvent: { create: vi.fn().mockResolvedValue({}) },
+        paymentEvent: { create: vi.fn().mockResolvedValue({}), updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
         $executeRaw: vi.fn().mockResolvedValue(1), // paid UPDATE + Trip FOR UPDATE lock
         $queryRaw: vi.fn().mockResolvedValue([{ oversold: false }]), // capacity check
       };
@@ -280,7 +280,7 @@ describe('POST /api/payments/momo/webhook — underpaid IPN (money-loss guard)',
     const paymentEventCreate = vi.fn().mockResolvedValue({});
     vi.mocked(prisma.$transaction).mockImplementationOnce(async (fn) => {
       const fakeTx = {
-        paymentEvent: { create: paymentEventCreate },
+        paymentEvent: { create: paymentEventCreate, updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
         $executeRaw: executeRawMock,
       };
       await fn(fakeTx as never);
@@ -312,7 +312,7 @@ describe('POST /api/payments/momo/webhook — underpaid IPN (money-loss guard)',
     const executeRawMock = vi.fn().mockResolvedValue(1);
     vi.mocked(prisma.$transaction).mockImplementationOnce(async (fn) => {
       const fakeTx = {
-        paymentEvent: { create: vi.fn().mockResolvedValue({}) },
+        paymentEvent: { create: vi.fn().mockResolvedValue({}), updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
         $executeRaw: executeRawMock, // paid UPDATE + Trip FOR UPDATE lock
         $queryRaw: vi.fn().mockResolvedValue([{ oversold: false }]), // capacity check
       };
@@ -344,7 +344,7 @@ describe('POST /api/payments/momo/webhook — underpaid IPN (money-loss guard)',
     const executeRawMock = vi.fn().mockResolvedValue(1);
     vi.mocked(prisma.$transaction).mockImplementationOnce(async (fn) => {
       const fakeTx = {
-        paymentEvent: { create: vi.fn().mockResolvedValue({}) },
+        paymentEvent: { create: vi.fn().mockResolvedValue({}), updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
         $executeRaw: executeRawMock, // paid UPDATE + Trip FOR UPDATE lock
         $queryRaw: vi.fn().mockResolvedValue([{ oversold: false }]), // capacity check
       };
@@ -388,7 +388,7 @@ describe('POST /api/payments/momo/webhook — currency mismatch (non-VND success
     const paymentEventCreate = vi.fn().mockResolvedValue({});
     vi.mocked(prisma.$transaction).mockImplementationOnce(async (fn) => {
       const fakeTx = {
-        paymentEvent: { create: paymentEventCreate },
+        paymentEvent: { create: paymentEventCreate, updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
         $executeRaw: executeRawMock,
       };
       await fn(fakeTx as never);
@@ -429,7 +429,7 @@ describe('POST /api/payments/momo/webhook — failed IPN (resultCode=1001)', () 
     const executeRawMock = vi.fn().mockResolvedValue(1);
     vi.mocked(prisma.$transaction).mockImplementationOnce(async (fn) => {
       const fakeTx = {
-        paymentEvent: { create: vi.fn().mockResolvedValue({}) },
+        paymentEvent: { create: vi.fn().mockResolvedValue({}), updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
         $executeRaw: executeRawMock,
       };
       await fn(fakeTx as never);
@@ -462,7 +462,7 @@ describe('POST /api/payments/momo/webhook — monotonic transition guard (issue 
     const executeRawMock = vi.fn().mockResolvedValue(0); // already advanced → 0 rows
     vi.mocked(prisma.$transaction).mockImplementationOnce(async (fn) => {
       const fakeTx = {
-        paymentEvent: { create: vi.fn().mockResolvedValue({}) },
+        paymentEvent: { create: vi.fn().mockResolvedValue({}), updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
         $executeRaw: executeRawMock,
       };
       await fn(fakeTx as never);
