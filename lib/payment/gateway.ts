@@ -71,5 +71,11 @@ export type VerifyWebhookResult =
 
 export interface PaymentGateway {
   createPayment(input: CreatePaymentInput): Promise<CreatePaymentResult>;
-  verifyWebhook(rawBody: string): VerifyWebhookResult;
+  /**
+   * @param opts.expectedAccount when set, the adapter rejects a payment whose
+   *   receiving account does not match (bank_transfer only — reason
+   *   'account_mismatch'). Optional so PSPs without a receiving-account field
+   *   (MoMo/VNPay/card) ignore it.
+   */
+  verifyWebhook(rawBody: string, opts?: { expectedAccount?: string }): VerifyWebhookResult;
 }

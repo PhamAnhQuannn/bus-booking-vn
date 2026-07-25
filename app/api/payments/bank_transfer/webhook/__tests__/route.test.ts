@@ -143,6 +143,29 @@ describe('POST /api/payments/bank_transfer/webhook', () => {
     await expect(res.json()).resolves.toEqual({ success: true });
   });
 
+  it('holds (orphan) + does NOT credit when the transfer lands in a wrong account (Issue 334)', async () => {
+    const adapter = getBankTransferAdapter();
+    vi.mocked(adapter.verifyWebhook).mockReturnValueOnce({
+      ok: false,
+      reason: 'account_mismatch',
+      unmatched: { providerTxnId: '77' },
+    });
+
+    const res = await POST(makeRequest(validPayload, 'test-sepay-key-abc123', 'Apikey'));
+
+    // Money arrived somewhere → recorded as orphan (held, never auto-credited).
+    expect(recordUnmatchedPaymentEvent).toHaveBeenCalledWith({
+      adapter: 'bank_transfer',
+      providerTxnId: '77',
+      rawBody: validPayload,
+    });
+    // Never reaches the credit path.
+    expect(processPaymentWebhook).not.toHaveBeenCalled();
+    // Ack 200 so SePay stops retrying.
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ success: true });
+  });
+
   it('delegates to processPaymentWebhook on valid auth + valid payload', async () => {
     const adapter = getBankTransferAdapter();
     vi.mocked(adapter.verifyWebhook).mockReturnValueOnce({

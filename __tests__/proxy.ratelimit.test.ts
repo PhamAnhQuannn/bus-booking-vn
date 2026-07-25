@@ -92,12 +92,27 @@ describe('proxy rate-limit — Issue 096', () => {
     expect(res.status).toBe(429);
   });
 
-  it('webhook route (CSRF_EXEMPT Set) is NOT rate-limited — flood passes through', async () => {
+  it('HMAC webhook (RATELIMIT_EXEMPT Set) is NOT rate-limited — flood passes through', async () => {
     deny(99);
     const res = await proxy(post('/api/payments/momo/webhook', { ip: '203.0.113.7' }));
     // Exempt: the limiter is never even consulted, and it is not a 429.
     expect(limitMock).not.toHaveBeenCalled();
     expect(res.status).not.toBe(429);
+  });
+
+  it('bank_transfer webhook IS rate-limited (Issue 329 — Apikey, not HMAC)', async () => {
+    deny(3);
+    const res = await proxy(post('/api/payments/bank_transfer/webhook', { ip: '203.0.113.9' }));
+    expect(limitMock).toHaveBeenCalled(); // no longer in the rate-limit-exempt set
+    expect(res.status).toBe(429);
+  });
+
+  it('bank_transfer webhook stays CSRF-exempt (no bb_csrf pair needed) when the limiter allows', async () => {
+    allow();
+    // No CSRF double-submit pair — SePay sends no bb_csrf cookie. Must NOT 403.
+    const res = await proxy(post('/api/payments/bank_transfer/webhook', { ip: '203.0.113.9' }));
+    expect(res.status).not.toBe(429);
+    expect(res.status).not.toBe(403);
   });
 
   it('safe GET /api/* is not rate-limited', async () => {
