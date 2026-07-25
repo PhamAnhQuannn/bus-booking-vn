@@ -176,21 +176,19 @@ describe('reconcilePayments (a) confirming linked event → paid', () => {
     expect(res).toEqual({ rowsAffected: 1, status: 'success' });
   });
 
-  it('also EMAILs the operator on the paid path when contactEmail is set (Issue 328)', async () => {
+  it('routes the operator notice to EMAIL on the paid path when contactEmail is set (Issue 328)', async () => {
     const tx = makeTx([baseBooking({ operatorContactEmail: 'ops@operator.test' })], [[eventRow()]]);
     await reconcilePayments(tx as never, { now: NOW });
 
     const createCalls = tx.notificationLog.create.mock.calls as Array<
       [{ data: { template: string; channel: string; recipient: string } }]
     >;
-    // customer + operator SMS + operator EMAIL = 3 (SMS is stubbed → email is how
-    // the operator actually finds out under the email-first launch).
-    expect(createCalls).toHaveLength(3);
-    const opEmail = createCalls.find(
-      (c) => c[0].data.template === 'operatorNewBooking' && c[0].data.channel === 'email',
-    );
-    expect(opEmail).toBeDefined();
-    expect(opEmail?.[0].data.recipient).toBe('ops@operator.test');
+    // customer + operator = 2 rows. NotificationLog is unique on (bookingId, template),
+    // so the operator notice is ONE row routed to email (not a second same-template row).
+    expect(createCalls).toHaveLength(2);
+    const op = createCalls.find((c) => c[0].data.template === 'operatorNewBooking');
+    expect(op?.[0].data.channel).toBe('email');
+    expect(op?.[0].data.recipient).toBe('ops@operator.test');
   });
 });
 
