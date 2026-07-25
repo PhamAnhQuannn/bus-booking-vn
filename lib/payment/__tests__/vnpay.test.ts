@@ -23,7 +23,7 @@
 
 import { describe, it, expect } from 'vitest';
 import crypto from 'crypto';
-import { createVnpayAdapter, type VnpayConfig } from '../adapters/vnpay';
+import { createVnpayAdapter, recoverVnpayEvent, type VnpayConfig } from '../adapters/vnpay';
 
 const CONFIG: VnpayConfig = {
   tmnCode: 'TESTTMN01',
@@ -234,5 +234,41 @@ describe('VNPay adapter — createPayment', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.payUrl).toContain(`vnp_IpAddr=${encodeURIComponent('203.0.113.7')}`);
+  });
+});
+
+/**
+ * #330 — reconcile sweeper recovery. VNPay persists rawBody as a urlencoded
+ * querystring, so the generic JSON.parse path threw and lost every unmatched
+ * VNPay transfer (Bug B twin). These round-trip a REAL signed transport body
+ * (the exact string processWebhook stores) through recoverVnpayEvent — never a
+ * hand-typed shape, mirroring the SePay regression guard.
+ */
+describe('VNPay adapter — recoverVnpayEvent (#330 sweeper recovery)', () => {
+  it('recovers amount + success from a real paid IPN querystring', () => {
+    const rawBody = signVnpayBody(baseParams());
+    expect(recoverVnpayEvent(rawBody)).toEqual({ amount: 150000, success: true });
+  });
+
+  it('reads vnp_TransactionStatus over vnp_ResponseCode (IPN-authoritative)', () => {
+    // Response says success but the authoritative transaction status is failure.
+    const rawBody = signVnpayBody(
+      baseParams({ vnp_ResponseCode: '00', vnp_TransactionStatus: '24' }),
+    );
+    expect(recoverVnpayEvent(rawBody)).toEqual({ amount: 0, success: false });
+  });
+
+  it('returns { 0, false } for a failed transaction (vnp_ResponseCode=24)', () => {
+    const rawBody = signVnpayBody(
+      baseParams({ vnp_ResponseCode: '24', vnp_TransactionStatus: '24' }),
+    );
+    expect(recoverVnpayEvent(rawBody)).toEqual({ amount: 0, success: false });
+  });
+
+  it('does not throw on a JSON body (wrong adapter shape) → { 0, false }', () => {
+    expect(recoverVnpayEvent('{"amount":150000,"resultCode":0}')).toEqual({
+      amount: 0,
+      success: false,
+    });
   });
 });

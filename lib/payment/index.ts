@@ -1,7 +1,7 @@
 // payment domain public API barrel (SYS20 rule 3).
 
 export { getMomoAdapter } from './adapters/momo';
-export { getVnpayAdapter } from './adapters/vnpay';
+export { getVnpayAdapter, recoverVnpayEvent } from './adapters/vnpay';
 export { getBankTransferAdapter, recoverSepayEvent } from './adapters/bankTransfer';
 export { buildStubIpn, createStubAdapter, refundPaymentStub } from './adapters/stub';
 export type { StubOutcome } from './adapters/stub';

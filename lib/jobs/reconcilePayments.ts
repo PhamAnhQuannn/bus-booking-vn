@@ -173,17 +173,24 @@ interface RecoveredEvent {
  * MoMo shape universally, so every bank_transfer event recovered as { 0, false }
  * and no transfer could ever be confirmed by the sweeper. The SePay parse lives in
  * its own adapter (recoverSepayEvent) to keep native field names behind the adapter
- * boundary. A non-JSON or shapeless body yields success=false and is never a
- * confirmation.
+ * boundary. VNPay is a THIRD shape — a urlencoded querystring, not JSON — parsed by
+ * recoverVnpayEvent (#330); routing it through the JSON branch would throw and lose
+ * every unmatched VNPay transfer. A non-JSON or shapeless body yields success=false
+ * and is never a confirmation.
  */
 function recoverEvent(
   row: { id: string; bookingId: string | null; adapter: string; providerTxnId: string; currency: string; rawBody: string; receivedAt: Date },
-  recoverSepayEvent: (rawBody: string) => { amount: number; success: boolean }
+  recoverSepayEvent: (rawBody: string) => { amount: number; success: boolean },
+  recoverVnpayEvent: (rawBody: string) => { amount: number; success: boolean }
 ): RecoveredEvent {
   let amount = 0;
   let success = false;
   if (row.adapter === 'bank_transfer') {
     ({ amount, success } = recoverSepayEvent(row.rawBody));
+  } else if (row.adapter === 'vnpay') {
+    // VNPay rawBody is a urlencoded querystring, not JSON — its own adapter
+    // parser (#330) keeps native vnp_* field names behind the boundary.
+    ({ amount, success } = recoverVnpayEvent(row.rawBody));
   } else {
     try {
       const parsed = JSON.parse(row.rawBody) as Record<string, unknown>;
@@ -253,7 +260,7 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
   );
   const { logger } = await import('@/lib/logger');
   const { legalPredecessors } = await import('@/lib/booking');
-  const { applyPaidStatusTransition, appendBookingPaidLedger, recoverSepayEvent } =
+  const { applyPaidStatusTransition, appendBookingPaidLedger, recoverSepayEvent, recoverVnpayEvent } =
     await import('@/lib/payment');
   const { refundOut } = await import('@/lib/ledger');
 
@@ -328,7 +335,7 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
          )
     `);
 
-    const events = rawEvents.map((e) => recoverEvent(e, recoverSepayEvent));
+    const events = rawEvents.map((e) => recoverEvent(e, recoverSepayEvent, recoverVnpayEvent));
     const linked = events.filter((e) => e.bookingId === booking.id);
     // Receiving accounts this booking could legitimately have been paid into:
     // the rail it was created with (paymentMethod) plus any adapter that already

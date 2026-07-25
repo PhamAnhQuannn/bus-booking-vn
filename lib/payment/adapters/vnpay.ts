@@ -236,6 +236,26 @@ export function createVnpayAdapter(
   return { createPayment, verifyWebhook };
 }
 
+/**
+ * Recover { amount, success } from a stored VNPay PaymentEvent.rawBody for the
+ * reconcile sweeper (lib/jobs/reconcilePayments.ts). VNPay persists rawBody as a
+ * urlencoded querystring — NOT JSON — so the generic MoMo/stub `JSON.parse` path
+ * throws on it (Bug B twin, #330). We do NOT re-verify the HMAC: the row only
+ * exists because verifyWebhook already passed at ingest. Native `vnp_*` field
+ * names stay behind this adapter boundary (gateway.ts), mirroring recoverSepayEvent.
+ * Reads the same fields as verifyWebhook: IPN-authoritative vnp_TransactionStatus
+ * (falling back to vnp_ResponseCode), and vnp_Amount is in the smallest unit ×100.
+ */
+export function recoverVnpayEvent(rawBody: string): { amount: number; success: boolean } {
+  const parsed = new URLSearchParams(rawBody);
+  const responseCode = parsed.get('vnp_ResponseCode') ?? '99';
+  const transactionStatus = parsed.get('vnp_TransactionStatus');
+  const classifyCode = transactionStatus !== null ? transactionStatus : responseCode;
+  const amount = Math.floor(Number(parsed.get('vnp_Amount') ?? 0) / 100);
+  const ok = classifyVnpayStatus(classifyCode) === 'paid' && Number.isFinite(amount) && amount > 0;
+  return { amount: ok ? amount : 0, success: ok };
+}
+
 let _vnpayAdapter: PaymentGateway | null = null;
 
 export function getVnpayAdapter(): PaymentGateway {
