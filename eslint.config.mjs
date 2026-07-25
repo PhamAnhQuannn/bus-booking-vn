@@ -3,6 +3,7 @@ import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 import boundaries from "eslint-plugin-boundaries";
 import importX from "eslint-plugin-import-x";
+import { createTypeScriptImportResolver } from "eslint-import-resolver-typescript";
 
 // SYS20 import-boundary lint (Issue 038 scaffolded at 'warn'; Issue 092 / Wave 8 flips to 'error').
 // Domain folders under lib/ — a sibling-domain import from lib/core is a rule-4 violation.
@@ -94,9 +95,15 @@ const eslintConfig = defineConfig([
       ],
     },
   },
-  // SYS20 rule 3 (barrel) + no-cycle — issue 092b: ENFORCED at 'error' (Stage 3).
-  // The Stage-2 sweep brought cross-domain reach-ins + cycles to zero; both rules
-  // are now hard gates (run in CI via `pnpm lint`).
+  // SYS20 rule 3 (barrel) — issue 092b: ENFORCED at 'error' (boundaries/entry-point).
+  //
+  // no-cycle: issue #333 found the "cycles at zero" claim was VACUOUS — import-x's
+  // ExportMap skips dependency files whose extension is not in `import-x/extensions`
+  // (default [.js,.mjs,.cjs]), so in this all-TypeScript tree it never walked a
+  // single .ts edge and could not see any cycle. With the extensions + resolver-next
+  // settings below the rule now works, and it reveals 11 pre-existing cross-domain
+  // barrel cycles (booking↔payment↔ledger). It is kept at 'warn' until those are
+  // burned down (follow-up issue), then flipped back to 'error'.
   // TODO(092b follow-up): boundaries/entry-point is deprecated in v6 — migrate to
   // boundaries/dependencies (object selectors) at a convenient point. It functions
   // correctly here; the migration is cosmetic (removes the deprecation notice).
@@ -115,10 +122,19 @@ const eslintConfig = defineConfig([
         { type: "components", pattern: "components", mode: "folder" },
       ],
       "boundaries/ignore": ["**/__tests__/**", "**/*.test.{ts,tsx}", "app/dev/**"],
-      "import-x/resolver": {
-        typescript: { project: "./tsconfig.json" },
-        node: true,
-      },
+      // import-x@4 needs the resolver-next API: the legacy `import-x/resolver`
+      // object form does not load the TS resolver here, so `@/*` path aliases
+      // never resolve (issue #333: a deliberate lib/payment cycle produced zero
+      // output).
+      "import-x/resolver-next": [
+        createTypeScriptImportResolver({ project: "./tsconfig.json" }),
+      ],
+      // no-cycle walks the dependency graph via ExportMap, which SKIPS any
+      // dependency file whose extension is not in this set — and import-x's
+      // default is only [.js,.mjs,.cjs]. Without .ts/.tsx here, every TS import
+      // is silently dropped from the graph, so no-cycle can never see a cycle in
+      // this (all-TypeScript) codebase (issue #333 root cause).
+      "import-x/extensions": [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"],
     },
     rules: {
       // Cross-domain imports may only enter a lib-<domain> through its index barrel.
@@ -155,7 +171,9 @@ const eslintConfig = defineConfig([
           ],
         },
       ],
-      "import-x/no-cycle": ["error", { maxDepth: Infinity, ignoreExternal: true }],
+      // 'warn' (not 'error') until the 11 pre-existing barrel cycles are resolved
+      // — see the block comment above and issue #333.
+      "import-x/no-cycle": ["warn", { maxDepth: Infinity, ignoreExternal: true }],
     },
   },
   // Override default ignores of eslint-config-next.
