@@ -179,6 +179,7 @@ export async function processPaymentWebhook(
                   legalName: true,
                   contactPhone: true,
                   notificationPhone: true,
+                  contactEmail: true,
                 },
               },
             },
@@ -411,6 +412,22 @@ export async function processPaymentWebhook(
                 payload: renderTemplate('operatorNewBooking', operatorPayload),
                 status: 'pending',
               }),
+              // Issue 328: SMS is stubbed under NOTIFY_STUB, so operators were blind
+              // to new bookings under the email-first launch. Also email the operator
+              // (contactEmail is NOT NULL). The email renderer wraps the same body in
+              // the branded shell. Keep the SMS row for when eSMS goes live.
+              ...(operator.contactEmail
+                ? [
+                    createNotificationLog({
+                      bookingId: booking.id,
+                      template: 'operatorNewBooking',
+                      channel: 'email' as const,
+                      recipient: operator.contactEmail,
+                      payload: renderTemplate('operatorNewBooking', operatorPayload),
+                      status: 'pending',
+                    }),
+                  ]
+                : []),
             ]);
           }
         }

@@ -132,6 +132,7 @@ interface StuckBookingRow {
   operatorId: string;
   operatorContactPhone: string;
   operatorNotificationPhone: string | null;
+  operatorContactEmail: string;
   origin: string;
   destination: string;
   departureAt: Date;
@@ -275,6 +276,7 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
            t."operatorId"            AS "operatorId",
            op."contactPhone"         AS "operatorContactPhone",
            op."notificationPhone"    AS "operatorNotificationPhone",
+           op."contactEmail"         AS "operatorContactEmail",
            r."origin"                AS "origin",
            r."destination"           AS "destination",
            t."departureAt"           AS "departureAt",
@@ -438,6 +440,17 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
           recipient: operatorRecipient,
           payload: renderTemplate('operatorNewBooking', operatorPayload),
         });
+        // Issue 328: also email the operator (SMS is stubbed under NOTIFY_STUB, so
+        // operators were blind under the email-first launch). Mirrors the webhook path.
+        if (booking.operatorContactEmail) {
+          await enqueuePendingNotification(tx, logger, {
+            bookingId: booking.id,
+            template: 'operatorNewBooking',
+            channel: 'email',
+            recipient: booking.operatorContactEmail,
+            payload: renderTemplate('operatorNewBooking', operatorPayload),
+          });
+        }
 
         paidCount += 1;
         logger.info(
