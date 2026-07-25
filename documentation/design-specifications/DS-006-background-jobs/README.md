@@ -930,11 +930,19 @@ Each e-invoice submission must carry the correct per-operator tax identity (MST/
 
 | Integration | Env Var | Stub Behavior | Real Behavior |
 |-------------|---------|---------------|---------------|
-| Notifications | `NOTIFY_STUB=true` | Logged but not sent | eSMS/Resend live dispatch |
+| SMS (eSMS) | `NOTIFY_STUB=true` | Logged but not sent | eSMS live dispatch |
+| Email (Resend) | `EMAIL_PROVIDER=stub` (default) | Logged but not sent | `EMAIL_PROVIDER=resend` + `RESEND_API_KEY` |
 | E-Invoice | `EINVOICE_ENABLED=stub` | Log only | MISA meInvoice API |
 | Payments | `PAYMENTS_STUB=true` | Local stub gateway | MoMo/VNPay live |
 
 Stub modes allow background jobs to run in development without external service dependencies.
+
+> **SMS and email are gated by SEPARATE flags** (Issue #326). `NOTIFY_STUB` controls
+> SMS only; email is controlled by `EMAIL_PROVIDER`. This keeps them independent —
+> email can go live without forcing eSMS credentials, and vice versa. Caveat: an env
+> with `NOTIFY_STUB=false` (real SMS) but `EMAIL_PROVIDER` unset **silently stubs
+> email** (logged, marked `sent`, never delivered). `getEnv()` emits a boot warn
+> (`env.email.silently_stubbed`) for exactly this combination (Issue #337).
 
 **Source:** ADR-020 D5.
 

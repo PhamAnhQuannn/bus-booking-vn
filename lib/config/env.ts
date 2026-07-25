@@ -579,6 +579,19 @@ export function getEnv(): AppEnv {
     throw new Error(`Environment configuration error:\n${messages}`);
   }
   _env = result.data;
+  // Boot warn (once — _env is cached): email is gated on EMAIL_PROVIDER alone,
+  // decoupled from NOTIFY_STUB (see EMAIL_PROVIDER schema + email.ts). So a real
+  // env (NOTIFY_STUB=false → real eSMS) with EMAIL_PROVIDER unset SILENTLY stubs
+  // email (INFO log, marked 'sent') instead of failing loudly. Surface it here
+  // rather than let real customer email vanish. Not a hard error — SMS-only
+  // deployments are legitimate; the operator must opt into real email explicitly.
+  // console.warn (not logger) keeps this foundational module dependency-free,
+  // matching the plain `throw` above.
+  if (!_env.NOTIFY_STUB && _env.EMAIL_PROVIDER !== 'resend') {
+    console.warn(
+      'env.email.silently_stubbed: NOTIFY_STUB=false (real SMS) but EMAIL_PROVIDER is not "resend" — email notifications are STUBBED (logged, marked sent, never delivered). Set EMAIL_PROVIDER=resend + RESEND_API_KEY to send real email.',
+    );
+  }
   return _env;
 }
 
