@@ -68,7 +68,28 @@ async function handler(req: NextRequest): Promise<Response> {
   const rawBody = await req.text();
   const gateway = getBankTransferAdapter();
 
-  const preVerify = gateway.verifyWebhook(rawBody);
+  const preVerify = gateway.verifyWebhook(rawBody, { expectedAccount: env.VIETQR_ACCOUNT_NUMBER });
+
+  // Issue 334: transfer landed in an account that is NOT our configured VietQR
+  // receiving account. Not our money — never credit. Record it as an orphan (money
+  // arrived somewhere) + warn loudly so a genuine account-format mismatch is visible,
+  // then ack 200 so SePay stops retrying. The reconcile suspicion-hold never
+  // auto-credits an orphan, so a foreign account stays held for manual review.
+  if (!preVerify.ok && preVerify.reason === 'account_mismatch') {
+    if (preVerify.unmatched) {
+      await recordUnmatchedPaymentEvent({
+        adapter: 'bank_transfer',
+        providerTxnId: preVerify.unmatched.providerTxnId,
+        rawBody,
+      });
+    }
+    logger.warn(
+      { adapter: 'bank_transfer', reason: preVerify.reason },
+      'payment.bank_transfer.webhook.account_mismatch — held, not credited',
+    );
+    return sepayAck();
+  }
+
   if (!preVerify.ok && preVerify.reason === 'no_booking_ref_in_memo') {
     // Bug B: this short-circuit never reaches processPaymentWebhook, so the orphan
     // row has to be written here. It is also the COMMON unmatched case — the memo

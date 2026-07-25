@@ -73,7 +73,7 @@ function createBankTransferAdapter(): PaymentGateway {
       };
     },
 
-    verifyWebhook(rawBody: string): VerifyWebhookResult {
+    verifyWebhook(rawBody: string, opts?: { expectedAccount?: string }): VerifyWebhookResult {
       let payload: SepayWebhookPayload;
       try {
         payload = JSON.parse(rawBody);
@@ -94,6 +94,18 @@ function createBankTransferAdapter(): PaymentGateway {
       // `unmatched` so the caller records an orphan PaymentEvent instead of dropping
       // the delivery on the floor. See VerifyWebhookResult in ../gateway.ts.
       const unmatched = { providerTxnId: String(payload.id) };
+
+      // Issue 334: the transfer must land in OUR receiving account. SePay reports the
+      // destination `accountNumber`; if it isn't the configured VietQR account this is
+      // not our money (misconfig or spoof) — do NOT credit. Carry `unmatched` so the
+      // caller HOLDS it as an orphan (reconcile suspicion-hold, never auto-credits)
+      // rather than dropping it, so a mere account-format quirk stays recoverable.
+      if (
+        opts?.expectedAccount &&
+        String(payload.accountNumber ?? '').trim() !== opts.expectedAccount.trim()
+      ) {
+        return { ok: false, reason: 'account_mismatch', unmatched };
+      }
 
       const memo = payload.content ?? '';
       const match = EXTRACT_REGEX.exec(memo);

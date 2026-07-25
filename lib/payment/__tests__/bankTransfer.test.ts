@@ -109,6 +109,31 @@ describe('bankTransfer adapter — verifyWebhook', () => {
     expect(result.event.status).toBe('paid');
   });
 
+  // Issue 334: receiving-account validation (opt-in via opts.expectedAccount).
+  it('proceeds when the transfer lands in the expected account', () => {
+    const result = adapter.verifyWebhook(JSON.stringify(validPayload), {
+      expectedAccount: validPayload.accountNumber,
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it('rejects (account_mismatch + unmatched) when the account is not ours', () => {
+    const result = adapter.verifyWebhook(JSON.stringify(validPayload), {
+      expectedAccount: '999999999',
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('account_mismatch');
+    // Carries unmatched so the caller HOLDS it as an orphan (never drops the money).
+    expect(result.unmatched?.providerTxnId).toBe('12345');
+  });
+
+  it('skips the account check when no expectedAccount is passed (back-compat)', () => {
+    const wrongAccount = { ...validPayload, accountNumber: 'totally-different' };
+    const result = adapter.verifyWebhook(JSON.stringify(wrongAccount));
+    expect(result.ok).toBe(true); // no opts → not checked
+  });
+
   it('normalises segment case but keeps the canonical uppercase BB- prefix', () => {
     const payload = { ...validPayload, content: 'Pay BB-2026-AbCd-EfGh ticket' };
     const result = adapter.verifyWebhook(JSON.stringify(payload));

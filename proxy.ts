@@ -66,13 +66,24 @@ const SID_COOKIE = 'bb_sid'; // anonymous funnel session id (no PII)
 const SID_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-// Exact-path exemptions (CSRF)
+// Exact-path exemptions (CSRF) — all PSP webhooks (SePay sends no bb_csrf cookie).
 const CSRF_EXEMPT = new Set([
   '/api/payments/momo/webhook',
   '/api/payments/zalopay/webhook',
   '/api/payments/card/webhook',
   '/api/payments/vnpay/webhook',
   '/api/payments/bank_transfer/webhook',
+]);
+// Rate-limit exemptions (Issue 329) — a SUBSET of CSRF_EXEMPT. Only the HMAC-body-
+// verified PSP webhooks skip the edge rate-limit; bank_transfer (SePay) authenticates
+// with a STATIC Apikey and is NOT HMAC-signed, so it stays rate-limited to blunt an
+// unauthenticated flood. It remains CSRF-exempt (above). SePay treats a 429 as a
+// retryable delivery (Fibonacci backoff) and the reconcile sweeper is the backstop.
+const RATELIMIT_EXEMPT = new Set([
+  '/api/payments/momo/webhook',
+  '/api/payments/zalopay/webhook',
+  '/api/payments/card/webhook',
+  '/api/payments/vnpay/webhook',
 ]);
 // Prefix exemptions (CSRF) — routes where the CSRF cookie is unavailable pre-auth
 const CSRF_EXEMPT_PREFIXES = [
@@ -293,10 +304,10 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     return nextWithRid();
   }
 
-  // Exempt HMAC-verified webhook (exact match). This SAME exact-match Set gates
-  // BOTH the CSRF exemption AND the rate-limit exemption (Issue 096) — webhooks
-  // authenticate via HMAC and must not be edge-rate-limited. No second exempt list.
-  if (CSRF_EXEMPT.has(pathname)) {
+  // HMAC-verified webhooks skip BOTH gates (Issue 096) — they authenticate via HMAC
+  // and burst legitimately. Issue 329: bank_transfer (Apikey, not HMAC) is NOT in
+  // this set, so it falls through to the rate-limit below while still skipping CSRF.
+  if (RATELIMIT_EXEMPT.has(pathname)) {
     return nextWithRid();
   }
 
@@ -330,8 +341,13 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Exempt pre-auth operator routes from CSRF (prefix match) — still rate-limited above.
-  if (CSRF_EXEMPT_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+  // Skip CSRF for: the bank_transfer webhook (Issue 329 — rate-limited above but
+  // SePay sends no bb_csrf cookie) and the pre-auth operator routes (prefix match).
+  // Both are past the rate-limit at this point.
+  if (
+    CSRF_EXEMPT.has(pathname) ||
+    CSRF_EXEMPT_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+  ) {
     return nextWithRid();
   }
 
