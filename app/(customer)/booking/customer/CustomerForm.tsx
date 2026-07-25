@@ -7,6 +7,7 @@ import { useBookingStore } from '@/lib/state';
 import { useHoldTimerStore } from '@/lib/state';
 import { createHoldRequest } from '@/lib/api';
 import { validatePickupSelection } from '@/lib/booking/pickupSelection';
+import { suggestEmail } from '@/lib/booking/emailSuggest';
 import { getDisplayName } from '@/lib/auth/clientSession';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,7 +27,10 @@ const clientSchema = z.object({
     .string()
     .trim()
     .min(1, 'Vui lòng nhập số điện thoại')
-    .regex(/^(0|\+84)[35789][0-9]{8}$/, 'Số điện thoại không hợp lệ'),
+    .regex(
+      /^(0|\+84)[35789][0-9]{8}$/,
+      'Số điện thoại không hợp lệ. Nhập số di động Việt Nam 10 chữ số bắt đầu bằng 0 hoặc +84, VD: 0912345678.',
+    ),
   buyerEmail: z
     .string()
     .trim()
@@ -43,7 +47,7 @@ type FormState =
   | { status: 'sold_out' }
   | { status: 'rate_limited'; retryAfter: number }
   | { status: 'error'; message: string }
-  | { status: 'field_errors'; errors: Record<string, string> };
+  | { status: 'field_errors'; errors: Record<string, string>; suggestion?: string };
 
 type FormData = {
   buyerName: string;
@@ -57,6 +61,13 @@ export function CustomerForm() {
   const { startTimer } = useHoldTimerStore();
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const buyerNameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+
+  // Typo-suggestion state ("did you mean gmail.com?") + soft-gate acknowledgement.
+  // emailAckRef holds the exact value the user already chose to keep despite a
+  // suggestion, so a second submit of that same value proceeds.
+  const [emailSuggestion, setEmailSuggestion] = useState<string | null>(null);
+  const emailAckRef = useRef<string | null>(null);
 
   const [pickupKind, setPickupKind] = useState<'station' | 'custom'>('station');
   const [pickupDetail, setPickupDetail] = useState('');
@@ -94,6 +105,24 @@ export function CustomerForm() {
 
       if (!tripId || !ticketCount) {
         return { status: 'error', message: 'Thông tin chuyến xe bị thiếu. Vui lòng chọn lại.' };
+      }
+
+      // Soft-gate on a likely email typo. The ticket is delivered by email, so a
+      // wrong domain means the customer never gets it. Nudge ONCE: if the email
+      // looks like a typo and the user hasn't already chosen to keep this exact
+      // value, show the suggestion and stop. A second submit of the same value
+      // (emailAckRef matches) proceeds — real-but-unusual domains still get through.
+      const emailValue = parsed.data.buyerEmail;
+      const suggestion = suggestEmail(emailValue);
+      if (suggestion && emailAckRef.current !== emailValue) {
+        emailAckRef.current = emailValue;
+        return {
+          status: 'field_errors',
+          errors: {
+            buyerEmail: `Email có thể bị sai. Có phải bạn muốn nhập ${suggestion}? Kiểm tra lại, hoặc nhấn "Tiếp tục" lần nữa để giữ ${emailValue}.`,
+          },
+          suggestion,
+        };
       }
 
       const pickupCheck = validatePickupSelection({ kind: pickupKind, detail: pickupDetail });
@@ -155,6 +184,17 @@ export function CustomerForm() {
   const fieldErrors =
     state.status === 'field_errors' ? state.errors : {};
 
+  // Suggestion to surface: from the blur check, or from a submit-time soft-gate.
+  const activeSuggestion =
+    emailSuggestion ?? (state.status === 'field_errors' ? state.suggestion : undefined);
+
+  function acceptSuggestion() {
+    if (!activeSuggestion || !emailRef.current) return;
+    emailRef.current.value = activeSuggestion;
+    emailAckRef.current = activeSuggestion; // now a correct address; won't re-nudge
+    setEmailSuggestion(null);
+  }
+
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-4">
       <div>
@@ -188,6 +228,7 @@ export function CustomerForm() {
           required
           ref={phoneInputRef}
           disabled={isPending}
+          placeholder="VD: 0912345678"
           aria-describedby={fieldErrors.buyerPhone ? 'buyerPhone-error' : undefined}
         />
         {fieldErrors.buyerPhone && (
@@ -206,12 +247,32 @@ export function CustomerForm() {
           name="buyerEmail"
           type="email"
           required
+          ref={emailRef}
           disabled={isPending}
+          // Compute the "did you mean" hint while TYPING, not on blur. An onBlur
+          // toggle fires as the user mouses-down on "Tiếp tục", removing the hint
+          // paragraph and reflowing the button out from under the cursor between
+          // mousedown and mouseup — the click lands on nothing and submit silently
+          // no-ops. onChange keeps the layout stable by the click moment.
+          onChange={(e) => setEmailSuggestion(suggestEmail(e.target.value))}
           aria-describedby={fieldErrors.buyerEmail ? 'buyerEmail-error' : undefined}
         />
         {fieldErrors.buyerEmail && (
           <p id="buyerEmail-error" className="text-destructive text-sm mt-1">
             {fieldErrors.buyerEmail}
+          </p>
+        )}
+        {activeSuggestion && (
+          <p className="text-sm mt-1 text-warning-foreground">
+            Có phải bạn muốn nhập{' '}
+            <button
+              type="button"
+              onClick={acceptSuggestion}
+              className="font-semibold underline underline-offset-2 text-primary-strong"
+            >
+              {activeSuggestion}
+            </button>
+            ?
           </p>
         )}
       </div>

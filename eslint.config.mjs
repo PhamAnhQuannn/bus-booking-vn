@@ -145,6 +145,7 @@ const eslintConfig = defineConfig([
                 "safeReturnTo.{ts,tsx}", // lib/auth — pure redirect sanitizer
                 "consent.{ts,tsx}", // lib/booking — checkout consent constants
               "pickupSelection.{ts,tsx}", // lib/booking — pure pickup validator (client + server)
+                "emailSuggest.{ts,tsx}", // lib/booking — pure email typo suggester (client)
                 "statusLabels.{ts,tsx}", // lib/op — pure status/label display maps
                 "formatRelativeVi.{ts,tsx}", // lib/op — pure relative-time formatter
               ],
