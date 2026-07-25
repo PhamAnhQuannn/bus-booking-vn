@@ -10,6 +10,6 @@ export {
   SUPPORT_HOTLINE,
   OPS_ALERT_EMAIL,
 } from './esms';
-export { dispatchNotifications } from './dispatchNotifications';
+export { dispatchNotifications, MAX_ATTEMPTS } from './dispatchNotifications';
 export { sendEmail, renderEmailSubject } from './email';
 export type { SendEmailInput, SendEmailResult, EmailTemplate } from './email';

@@ -219,9 +219,19 @@ export default async function AdminOverviewPage() {
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <MetricCard
-            label="Thông báo thất bại"
-            value={vnd.format(failures.failedNotifications)}
-            hint="SMS / email không gửi được"
+            label="Thông báo lỗi — cần xử lý"
+            value={vnd.format(failures.deadNotifications)}
+            hint="SMS / email hết lượt thử lại"
+          />
+          <MetricCard
+            label="Thông báo lỗi — đang thử lại"
+            value={vnd.format(failures.retryingNotifications)}
+            hint="sẽ tự gửi lại theo lịch"
+          />
+          <MetricCard
+            label="Giao dịch chưa khớp"
+            value={vnd.format(failures.orphanPayments)}
+            hint="chuyển khoản chưa gán được đơn"
           />
           <MetricCard
             label="Chi trả thất bại"
