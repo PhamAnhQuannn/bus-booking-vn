@@ -145,16 +145,51 @@ check_g5_date_now_rsc() {
 check_g6_client_barrel() {
   echo "--- G6: use-client server barrel imports ---"
   local hits=""
-  local BARRELS="@/lib/auth @/lib/booking @/lib/payment @/lib/notification @/lib/admin @/lib/onboarding"
+
+  # Issue 348: derive the server-only barrel set dynamically instead of a
+  # hand-maintained list of 6. The old hardcoded list left ledger/op/trips —
+  # the exact 2026-06-04 operator-portal-outage domains — with zero coverage.
+  # A domain barrel is "server-only" (client files must NOT barrel-import it) if
+  # it transitively reaches `import 'server-only'` or `@/lib/core/db`.
+  #   Pass 1: taint a domain whose own subtree imports a server-only marker.
+  #   Pass 2 (fixpoint): taint a domain whose barrel re-exports an already-
+  #           tainted domain's barrel (e.g. `export ... from '@/lib/payment'`).
+  local domains="" name idx d t barrel changed tainted="" BARRELS=""
+  for idx in lib/*/index.ts; do d=$(dirname "$idx"); domains="$domains ${d#lib/}"; done
+
+  for name in $domains; do
+    if grep -rqE "import[[:space:]]+['\"]server-only['\"]|from[[:space:]]+['\"]@/lib/core/db" "lib/$name" 2>/dev/null \
+       || [ -e "lib/$name/db/client.ts" ]; then
+      tainted="$tainted $name"
+    fi
+  done
+
+  changed=1
+  while [ "$changed" -eq 1 ]; do
+    changed=0
+    for name in $domains; do
+      case " $tainted " in *" $name "*) continue ;; esac
+      for t in $tainted; do
+        if grep -q "from ['\"]@/lib/$t['\"]" "lib/$name/index.ts" 2>/dev/null; then
+          tainted="$tainted $name"; changed=1; break
+        fi
+      done
+    done
+  done
+
+  for name in $tainted; do BARRELS="$BARRELS @/lib/$name"; done
+
+  # Single alternation regex over all tainted barrels — one grep per client file
+  # (looping every barrel per file is ~2k process spawns and times CI out on Windows).
+  local alt
+  alt=$(echo "$tainted" | tr -s ' ' '|' | sed 's/^|//;s/|$//')
 
   while IFS= read -r f; do
-    for barrel in $BARRELS; do
-      local barrel_hits
-      barrel_hits=$(grep -n "from ['\"]${barrel}['\"]" "$f" 2>/dev/null | grep -v 'import type' || true)
-      if [ -n "$barrel_hits" ]; then
-        hits+="$f: $barrel_hits"$'\n'
-      fi
-    done
+    local barrel_hits
+    barrel_hits=$(grep -nE "from ['\"]@/lib/(${alt})['\"]" "$f" 2>/dev/null | grep -v 'import type' || true)
+    if [ -n "$barrel_hits" ]; then
+      hits+="$f: $barrel_hits"$'\n'
+    fi
   done < <(grep -rl --include='*.ts' --include='*.tsx' -m1 "^['\"]use client['\"]" app/ components/ 2>/dev/null || true)
 
   if [ -n "$hits" ]; then
