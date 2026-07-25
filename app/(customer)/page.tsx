@@ -17,7 +17,6 @@ import { ResultsList } from '@/components/search/ResultsList';
 import { ResultsHeading } from '@/components/search/ResultsHeading';
 import { ResultsSkeleton } from '@/components/search/ResultsSkeleton';
 import { PopularTrips } from '@/components/home/PopularTrips';
-import { FeatureHighlights } from '@/components/home/FeatureHighlights';
 import { ContractCarRental } from '@/components/home/ContractCarRental';
 import { PopularDestinations } from '@/components/home/PopularDestinations';
 import { NewsletterBand } from '@/components/home/NewsletterBand';
@@ -390,8 +389,6 @@ async function HeroMarketingView() {
       <PopularTrips prices={prices} durations={durations} />
 
       <OperatorShowcase operators={operators} />
-
-      <FeatureHighlights />
 
       <ContractCarRental />
 
