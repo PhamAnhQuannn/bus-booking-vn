@@ -105,6 +105,11 @@ jobs:
     env:
       DATABASE_URL: postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_dev
       SHADOW_DATABASE_URL: postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_shadow
+      # Production defaults to max:1 (one request per Vercel invocation; Neon's
+      # pooler handles cross-invocation concurrency). The concurrency int tests
+      # (SKIP LOCKED, advisory-lock, concurrent dispatchers) need >1 real pool
+      # connection in a single process to exercise the locking, so raise it here.
+      DATABASE_POOL_MAX: '5'
       # Test-only secret (64 hex) — required by lib/config/env.ts (no default).
       HOLD_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       # Refund/payment PSP is a stub until go-live (#094); without this the refund
@@ -170,6 +175,9 @@ jobs:
     env:
       DATABASE_URL: postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_dev
       PLAYWRIGHT_BASE_URL: http://localhost:3001
+      # See integration-tests: prod defaults to max:1; the app under e2e serves
+      # concurrent requests from one Node process, so raise the pool here.
+      DATABASE_POOL_MAX: '5'
       # Test-only secret (64 hex) — required by lib/config/env.ts (no default).
       HOLD_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       # Route online payments through the local stub gateway for e2e.
@@ -251,6 +259,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_dev
       PLAYWRIGHT_BASE_URL: http://localhost:3001
+      DATABASE_POOL_MAX: '5'
       HOLD_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       PAYMENTS_STUB: 'true'
       JWT_SECRET: ci-test-jwt-secret-not-for-production-use-0123456789ab
