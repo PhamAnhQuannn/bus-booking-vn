@@ -179,6 +179,7 @@ export async function processPaymentWebhook(
                   legalName: true,
                   contactPhone: true,
                   notificationPhone: true,
+                  contactEmail: true,
                 },
               },
             },
@@ -404,10 +405,16 @@ export async function processPaymentWebhook(
                 payload: renderTemplate('customerBookingPaid', customerPayload),
                 status: 'pending',
               }),
+              // Issue 328: route the operator notice to EMAIL — SMS is stubbed under
+              // NOTIFY_STUB, so operators were blind under the email-first launch.
+              // ONE row per (bookingId, template) — NotificationLog is unique on that
+              // pair, so a second same-template row would P2002. Mirrors the customer
+              // notice channel selection above. Falls back to SMS if no contactEmail.
               createNotificationLog({
                 bookingId: booking.id,
                 template: 'operatorNewBooking',
-                recipient: operatorRecipient,
+                channel: operator.contactEmail ? 'email' : 'sms',
+                recipient: operator.contactEmail ?? operatorRecipient,
                 payload: renderTemplate('operatorNewBooking', operatorPayload),
                 status: 'pending',
               }),

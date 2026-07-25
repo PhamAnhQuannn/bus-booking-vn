@@ -175,6 +175,21 @@ describe('reconcilePayments (a) confirming linked event → paid', () => {
     expect(tx.$executeRaw).not.toHaveBeenCalled();
     expect(res).toEqual({ rowsAffected: 1, status: 'success' });
   });
+
+  it('routes the operator notice to EMAIL on the paid path when contactEmail is set (Issue 328)', async () => {
+    const tx = makeTx([baseBooking({ operatorContactEmail: 'ops@operator.test' })], [[eventRow()]]);
+    await reconcilePayments(tx as never, { now: NOW });
+
+    const createCalls = tx.notificationLog.create.mock.calls as Array<
+      [{ data: { template: string; channel: string; recipient: string } }]
+    >;
+    // customer + operator = 2 rows. NotificationLog is unique on (bookingId, template),
+    // so the operator notice is ONE row routed to email (not a second same-template row).
+    expect(createCalls).toHaveLength(2);
+    const op = createCalls.find((c) => c[0].data.template === 'operatorNewBooking');
+    expect(op?.[0].data.channel).toBe('email');
+    expect(op?.[0].data.recipient).toBe('ops@operator.test');
+  });
 });
 
 describe('reconcilePayments (b) no event + expired hold → payment_failed_expired', () => {

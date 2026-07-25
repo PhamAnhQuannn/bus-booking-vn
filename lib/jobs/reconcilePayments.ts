@@ -132,6 +132,7 @@ interface StuckBookingRow {
   operatorId: string;
   operatorContactPhone: string;
   operatorNotificationPhone: string | null;
+  operatorContactEmail: string;
   origin: string;
   destination: string;
   departureAt: Date;
@@ -275,6 +276,7 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
            t."operatorId"            AS "operatorId",
            op."contactPhone"         AS "operatorContactPhone",
            op."notificationPhone"    AS "operatorNotificationPhone",
+           op."contactEmail"         AS "operatorContactEmail",
            r."origin"                AS "origin",
            r."destination"           AS "destination",
            t."departureAt"           AS "departureAt",
@@ -432,10 +434,15 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
         if (booking.customPickupRequested && booking.pickupDetail) {
           operatorPayload.customPickup = booking.pickupDetail;
         }
+        // Issue 328: route the operator notice to EMAIL (SMS is stubbed under
+        // NOTIFY_STUB → operators were blind under the email-first launch). ONE row —
+        // NotificationLog is unique on (bookingId, template), so a second same-template
+        // row P2002s (and inside this tx would abort it). Mirrors the webhook path.
         await enqueuePendingNotification(tx, logger, {
           bookingId: booking.id,
           template: 'operatorNewBooking',
-          recipient: operatorRecipient,
+          channel: booking.operatorContactEmail ? 'email' : 'sms',
+          recipient: booking.operatorContactEmail ?? operatorRecipient,
           payload: renderTemplate('operatorNewBooking', operatorPayload),
         });
 
