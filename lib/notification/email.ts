@@ -68,6 +68,14 @@ export interface SendEmailInput {
    * a string; a structured payload is accepted for direct callers.
    */
   payload: string | Record<string, string | number>;
+  /**
+   * Optional idempotency token. Forwarded to Resend as the `Idempotency-Key`
+   * header so a redelivery of the same NotificationLog row (a cron re-run after
+   * a crash between send and the status='sent' write) does not send a duplicate.
+   * The dispatcher passes the NotificationLog row id, mirroring the eSMS
+   * `requestId` on the SMS channel. Ignored by the stub path.
+   */
+  idempotencyKey?: string;
 }
 
 export interface SendEmailResult {
@@ -155,17 +163,21 @@ async function sendViaResend(
   html: string,
   text: string,
   template: string,
+  idempotencyKey?: string,
 ): Promise<SendEmailResult> {
   const from = getEnv().EMAIL_FROM ?? 'noreply@lenxevn.com';
   try {
     const client = await getResendClient();
-    const { data, error } = await client.emails.send({
-      from,
-      to,
-      subject,
-      html,
-      text,
-    });
+    const { data, error } = await client.emails.send(
+      {
+        from,
+        to,
+        subject,
+        html,
+        text,
+      },
+      idempotencyKey ? { idempotencyKey } : undefined,
+    );
     if (error) {
       logger.error({ template, err: error.message }, 'email.resend.api-error');
       return { ok: false, error: error.message };
@@ -183,7 +195,7 @@ async function sendViaResend(
 // ---------------------------------------------------------------------------
 
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
-  const { to, template } = input;
+  const { to, template, idempotencyKey } = input;
   const subject = renderEmailSubject(template);
   // Render a branded HTML body + plain-text fallback from the stored payload
   // (SMS line, or a structured JSON blob for templates like `ticketReady`).
@@ -199,5 +211,5 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
   }
 
   // EMAIL_PROVIDER === 'resend' (env guarantees RESEND_API_KEY via superRefine).
-  return sendViaResend(to, subject, html, text, template);
+  return sendViaResend(to, subject, html, text, template, idempotencyKey);
 }

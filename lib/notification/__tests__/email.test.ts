@@ -6,13 +6,26 @@
  * always ok:true with a stub externalRef, never throws.
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('@/lib/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { sendEmail, renderEmailSubject } from '../email';
+// Resend-path tests (below) mock the env + the resend SDK. The stub-path tests
+// above do not touch either — emailStubbed() reads process.env.EMAIL_PROVIDER
+// directly and short-circuits before getEnv()/resend are used.
+const emailsSendMock = vi.fn();
+vi.mock('resend', () => ({
+  Resend: class {
+    emails = { send: (...a: unknown[]) => emailsSendMock(...a) };
+  },
+}));
+vi.mock('@/lib/core/config', () => ({
+  getEnv: () => ({ RESEND_API_KEY: 'test_key', EMAIL_FROM: 'noreply@test.dev' }),
+}));
+
+import { sendEmail, renderEmailSubject, _resetResendClient } from '../email';
 
 describe('sendEmail (stub)', () => {
   it('deterministically succeeds with a stub email externalRef', async () => {
@@ -45,5 +58,42 @@ describe('sendEmail (stub)', () => {
   it('renderEmailSubject maps known templates and falls back generically', () => {
     expect(renderEmailSubject('customerBookingPaid')).toContain('BusBookVN');
     expect(renderEmailSubject('totally_unknown')).toBe('BusBookVN');
+  });
+});
+
+describe('sendEmail (resend path — idempotency, #335)', () => {
+  const prevProvider = process.env.EMAIL_PROVIDER;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    _resetResendClient();
+    process.env.EMAIL_PROVIDER = 'resend';
+    emailsSendMock.mockResolvedValue({ data: { id: 'resend_123' }, error: null });
+  });
+  afterEach(() => {
+    process.env.EMAIL_PROVIDER = prevProvider;
+    _resetResendClient();
+  });
+
+  it('forwards idempotencyKey to emails.send as the second options arg', async () => {
+    const res = await sendEmail({
+      to: 'buyer@example.com',
+      template: 'customerBookingPaid',
+      payload: 'rendered body',
+      idempotencyKey: 'log-42',
+    });
+
+    expect(res).toEqual({ ok: true, externalRef: 'resend_123' });
+    expect(emailsSendMock).toHaveBeenCalledTimes(1);
+    const [payload, options] = emailsSendMock.mock.calls[0];
+    expect(payload).toMatchObject({ to: 'buyer@example.com', from: 'noreply@test.dev' });
+    expect(options).toEqual({ idempotencyKey: 'log-42' });
+  });
+
+  it('omits the options arg when no idempotencyKey is provided', async () => {
+    await sendEmail({ to: 'x@y.z', template: 'customerBookingPaid', payload: 'b' });
+
+    const [, options] = emailsSendMock.mock.calls[0];
+    expect(options).toBeUndefined();
   });
 });

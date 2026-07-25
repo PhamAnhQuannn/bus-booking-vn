@@ -101,7 +101,10 @@ async function claimDueRows(now: Date, limit: number): Promise<DueRow[]> {
  */
 async function dispatchRow(row: DueRow): Promise<{ ok: boolean; externalRef?: string; error?: string }> {
   if (row.channel === 'email') {
-    return sendEmail({ to: row.recipient, template: row.template, payload: row.payload });
+    // row.id is the Resend Idempotency-Key so a cron re-run of the same row
+    // (crash between send and the status='sent' write) cannot double-send —
+    // mirrors the eSMS requestId on the sms branch below.
+    return sendEmail({ to: row.recipient, template: row.template, payload: row.payload, idempotencyKey: row.id });
   }
   // channel === 'sms' — row.id is the eSMS RequestId (idempotency key) so a
   // cron re-run of the same row cannot double-send.

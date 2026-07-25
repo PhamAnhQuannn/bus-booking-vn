@@ -119,6 +119,9 @@ describe('dispatchNotifications — success path', () => {
       to: 'a@b.c',
       template: 'customerBookingPaid',
       payload: 'rendered body',
+      // row.id forwarded as the Resend Idempotency-Key (#335) — mirrors the SMS
+      // requestId — so a cron re-run of the same row cannot double-send.
+      idempotencyKey: 'log-e',
     });
     expect(sendSmsBodyMock).not.toHaveBeenCalled();
   });
