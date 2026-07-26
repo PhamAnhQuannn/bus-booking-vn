@@ -154,17 +154,29 @@ check_g6_client_barrel() {
   #   Pass 1: taint a domain whose own subtree imports a server-only marker.
   #   Pass 2 (fixpoint): taint a domain whose barrel re-exports an already-
   #           tainted domain's barrel (e.g. `export ... from '@/lib/payment'`).
-  local domains="" name idx d t barrel changed tainted="" BARRELS=""
+  local domains="" name idx d t changed tainted=""
   for idx in lib/*/index.ts; do d=$(dirname "$idx"); domains="$domains ${d#lib/}"; done
 
   # Domains that are server-only BY CONTRACT but carry no `server-only` import and
-  # never reach lib/core/db, so the marker scan above cannot see them. Each barrel
-  # states the constraint in its own header; keep this list in sync with those.
-  #   config — lib/config/env.ts exports getEnv(), i.e. HOLD_SECRET / JWT_SECRET /
-  #            REFRESH_TOKEN_SECRET / SEPAY_API_KEY / DATABASE_URL.
-  #   geo    — lib/geo/vnAdmin.ts is a ~690KB admin dataset; barrel header says
-  #            "SERVER-SIDE ONLY … Do NOT import this barrel from 'use client'".
-  local EXTRA_SERVER_ONLY="config geo"
+  # never reach lib/core/db, so the marker scan below cannot see them. Each reads
+  # secrets through getEnv() or ships a server-only payload; keep in sync with the
+  # barrel headers.
+  #   config   — lib/config/env.ts exports getEnv(), i.e. HOLD_SECRET / JWT_SECRET /
+  #              REFRESH_TOKEN_SECRET / SEPAY_API_KEY / DATABASE_URL.
+  #   geo      — lib/geo/vnAdmin.ts is a ~690KB admin dataset; barrel header says
+  #              "SERVER-SIDE ONLY … Do NOT import this barrel from 'use client'".
+  #   einvoice — lib/einvoice/misaClient.ts reads getEnv() for the MISA credentials.
+  #   ratelimit— reads UPSTASH_REDIS_REST_TOKEN directly.
+  local EXTRA_SERVER_ONLY="config geo einvoice ratelimit"
+
+  # Domains that MUST end up tainted, asserted BY NAME below. A count floor cannot
+  # say WHICH domain vanished: pass 1 greps each domain independently and this
+  # script runs without `set -e`, so a single grep exiting 2 drops exactly one
+  # domain while the total stays comfortably above any floor. The first six were a
+  # hardcoded literal before #348 and were therefore unconditional — a count-only
+  # guard would be a REGRESSION in guarantee for them. The rest are contract-only
+  # and have no marker that could rediscover them after a rename.
+  local G6_REQUIRED="auth booking payment notification admin onboarding config geo einvoice ratelimit"
 
   for name in $domains; do
     if grep -rqE "import[[:space:]]+['\"]server-only['\"]|from[[:space:]]+['\"]@/lib/core/db" "lib/$name" 2>/dev/null \
@@ -200,17 +212,40 @@ check_g6_client_barrel() {
   # prints PASS with live violations on disk — the same vacuous-gate class as #333.
   # Print the derived set so a silent shrink is visible in CI logs, and hard-fail
   # below a floor rather than degrading quietly.
-  local G6_MIN_TAINTED=20 tainted_count
+  local G6_MIN_TAINTED=20 tainted_count missing=""
   tainted_count=$(echo "$tainted" | wc -w | tr -d '[:space:]')
   echo "      derived server-only barrels ($tainted_count):$tainted"
-  if [ "$tainted_count" -lt "$G6_MIN_TAINTED" ]; then
-    echo "FAIL  G6 barrel derivation collapsed: $tainted_count tainted domain(s), expected >= $G6_MIN_TAINTED."
-    echo "      The check cannot be trusted in this state — fix the derivation, do not lower the floor."
+
+  # (a) Required-NAME assertion. This is the real invariant; the count below is
+  # only a backstop. Catches a partial collapse (one domain lost to a grep
+  # exit-2) and a renamed EXTRA_SERVER_ONLY entry, neither of which moves the
+  # count enough to trip a floor.
+  for name in $G6_REQUIRED; do
+    case " $tainted " in
+      *" $name "*) ;;
+      *) missing="$missing $name" ;;
+    esac
+  done
+  if [ -n "$missing" ]; then
+    echo "FAIL  G6 required server-only domain(s) missing from the derived set:$missing"
+    echo "      Either the derivation regressed, or a domain was renamed/removed."
+    echo "      Fix the derivation, or update G6_REQUIRED deliberately — do not just"
+    echo "      delete the name, which silently drops that barrel's client-leak cover."
     FAILURES=$((FAILURES + 1))
     return
   fi
 
-  for name in $tainted; do BARRELS="$BARRELS @/lib/$name"; done
+  # (b) Count floor — backstop for a TOTAL collapse in domains not on the
+  # required list. At zero the alternation would degenerate to `@/lib/()`, match
+  # nothing, and print PASS with live violations on disk (the #333 class).
+  if [ "$tainted_count" -lt "$G6_MIN_TAINTED" ]; then
+    echo "FAIL  G6 barrel derivation collapsed: $tainted_count tainted domain(s), expected >= $G6_MIN_TAINTED."
+    echo "      The check cannot be trusted in this state — fix the derivation, do not lower"
+    echo "      the floor. (If domains were legitimately consolidated, lower it deliberately"
+    echo "      in the same commit that removes them.)"
+    FAILURES=$((FAILURES + 1))
+    return
+  fi
 
   # Single alternation regex over all tainted barrels — one grep per client file
   # (looping every barrel per file is ~2k process spawns; the per-barrel loop was
