@@ -171,8 +171,27 @@ const eslintConfig = defineConfig([
           ],
         },
       ],
-      // 'warn' (not 'error') until the 11 pre-existing barrel cycles are resolved
-      // — see the block comment above and issue #333.
+      // 'error' — a NEW cycle must FAIL the build, not merely be reported.
+      // `pnpm lint` is bare `eslint` with no --max-warnings (package.json), and
+      // both CI and the pre-commit hook run it, so a globally-'warn' rule detects
+      // without enforcing — which is the same zero-enforcement end state #333 was
+      // filed to fix. The 11 pre-existing cycles are confined to three domains and
+      // are downgraded by the scoped override below.
+      "import-x/no-cycle": ["error", { maxDepth: Infinity, ignoreExternal: true }],
+    },
+  },
+  // The 11 pre-existing barrel cycles all live in booking↔payment↔ledger: report
+  // them, don't block on them. Scoped deliberately narrow so a new cycle in any
+  // OTHER domain (or one crossing into these three from outside) still errors.
+  // Burn-down is tracked by #343 — delete this whole block when it lands.
+  {
+    files: [
+      "lib/booking/**/*.{ts,tsx}",
+      "lib/payment/**/*.{ts,tsx}",
+      "lib/ledger/**/*.{ts,tsx}",
+    ],
+    ignores: ["**/__tests__/**", "**/*.test.{ts,tsx}"],
+    rules: {
       "import-x/no-cycle": ["warn", { maxDepth: Infinity, ignoreExternal: true }],
     },
   },
