@@ -62,10 +62,13 @@ export async function submitStubPayment(outcome: StubOutcome, formData: FormData
     host,
   });
 
-  // VNPay's real redirectUrl is its signature-verifying return route
-  // (/api/payments/vnpay/return), which the browser only reaches WITH signed
-  // vnp_* params VNPay attaches. The stub cannot mint those, so it stands in for
-  // VNPay's return leg directly: the webhook above already set the authoritative
+  // A real VNPay redirectUrl would be its signature-verifying return route, which
+  // the browser only reaches WITH signed vnp_* params VNPay attaches. The stub
+  // cannot mint those, so it stands in for VNPay's return leg directly — and that
+  // route no longer exists (deleted with the unreachable PSP webhook surface;
+  // re-adding one is a security decision, see
+  // app/api/payments/__tests__/webhook-surface.test.ts). The webhook above already
+  // set the authoritative
   // booking state, so we land the browser on the ref-addressed confirmation
   // (success) or error (fail) page — the same destinations the real return route
   // resolves to. Other adapters keep their result-page redirectUrl unchanged.
