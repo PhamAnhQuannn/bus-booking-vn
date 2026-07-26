@@ -119,8 +119,33 @@ describe('dispatchNotifications — success path', () => {
       to: 'a@b.c',
       template: 'customerBookingPaid',
       payload: 'rendered body',
+      // "<row id>:<attemptCount>" as the Resend Idempotency-Key (#335): a cron
+      // re-run of the SAME attempt cannot double-send, because attemptCount is
+      // only incremented once the attempt's outcome is persisted.
+      idempotencyKey: 'log-e:0',
     });
     expect(sendSmsBodyMock).not.toHaveBeenCalled();
+  });
+
+  it('varies the idempotency key per attempt so a retry is not blocked by a cached failure', async () => {
+    // Resend keeps a key for 24h and replays the original response on reuse —
+    // "even if the original returned an error"
+    // (https://resend.com/docs/dashboard/emails/idempotency-keys). Our five
+    // attempts span ~60min of backoff, well inside that window, so reusing a bare
+    // row.id would make attempts 2-5 replay attempt 1's cached FAILURE and turn a
+    // transient error into permanent non-delivery. The key must move with the
+    // attempt. Asserting the SAME row at a LATER attemptCount yields a DIFFERENT
+    // key is the property that actually protects delivery.
+    queryRawMock.mockResolvedValueOnce([
+      row({ id: 'log-e', channel: 'email', recipient: 'a@b.c', attemptCount: 3 }),
+    ]);
+    sendEmailMock.mockResolvedValueOnce({ ok: true, externalRef: 'stub_email_x' });
+
+    await dispatchNotifications({} as never, { now: NOW });
+
+    expect(sendEmailMock).toHaveBeenCalledWith(
+      expect.objectContaining({ idempotencyKey: 'log-e:3' }),
+    );
   });
 });
 
