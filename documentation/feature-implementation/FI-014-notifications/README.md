@@ -276,7 +276,7 @@ Non-blocking banner post-booking. `localStorage` 30-day dismiss.
 
 - **HIGH -- ZNS NOT IMPLEMENTED**: Documented as primary channel; actual primary is eSMS SMS. No Zalo OA verification started. Channel waterfall is currently SMS-only.
 - **HIGH -- Brandname SMS registration**: 2-4 week hard blocker. Must start the process before targeting any go-live date. Requires eSMS dashboard + carrier approval.
-- **HIGH -- NOTIFY_STUB default in production**: Must confirm `NOTIFY_STUB="false"` in production env; accidental stub mode silences all SMS.
+- **HIGH -- NOTIFY_STUB default in production**: Must confirm `NOTIFY_STUB="false"` in production env; accidental stub mode silences all SMS. NOTE (Issue #326): `NOTIFY_STUB` now gates **SMS only** — email is gated independently by `EMAIL_PROVIDER` (`stub` default → logged not sent; `resend` + `RESEND_API_KEY` → live). An env with `NOTIFY_STUB=false` but `EMAIL_PROVIDER` unset silently stubs email; `getEnv()` boot-warns `env.email.silently_stubbed` for that case (Issue #337).
 - **MEDIUM -- OTP dispatch conflict**: Three conflicting descriptions: ADR-012 says `after()`-accelerated, ADR-013 says cron-only for non-OTP, actual code uses inline `sendSms()` in `lib/auth/otp.ts`. Reconciliation needed.
 - **MEDIUM -- Marketing consent flow**: `ConsentRecord.consentType: 'marketing_sms'` exists in schema but no opt-in UI or DNC check implemented.
 - **MEDIUM -- Resend DPA + CDTIA**: Required for email compliance under PDPL 2025; not confirmed as done.
