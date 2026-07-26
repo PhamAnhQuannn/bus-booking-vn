@@ -23,7 +23,7 @@
 
 import { describe, it, expect } from 'vitest';
 import crypto from 'crypto';
-import { createVnpayAdapter, type VnpayConfig } from '../adapters/vnpay';
+import { createVnpayAdapter, recoverVnpayEvent, type VnpayConfig } from '../adapters/vnpay';
 
 const CONFIG: VnpayConfig = {
   tmnCode: 'TESTTMN01',
@@ -234,5 +234,76 @@ describe('VNPay adapter — createPayment', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.payUrl).toContain(`vnp_IpAddr=${encodeURIComponent('203.0.113.7')}`);
+  });
+});
+
+/**
+ * #330 — reconcile sweeper recovery. VNPay persists rawBody as a urlencoded
+ * querystring, so the generic JSON.parse path threw and lost every unmatched
+ * VNPay transfer (Bug B twin). These round-trip a REAL signed transport body
+ * (the exact string processWebhook stores) through recoverVnpayEvent — never a
+ * hand-typed shape, mirroring the SePay regression guard.
+ */
+describe('VNPay adapter — recoverVnpayEvent (#330 sweeper recovery)', () => {
+  it('recovers amount + success from a real paid IPN querystring', () => {
+    const rawBody = signVnpayBody(baseParams());
+    expect(recoverVnpayEvent(rawBody)).toEqual({ amount: 150000, success: true });
+  });
+
+  it('reads vnp_TransactionStatus over vnp_ResponseCode (IPN-authoritative)', () => {
+    // Response says success but the authoritative transaction status is failure.
+    const rawBody = signVnpayBody(
+      baseParams({ vnp_ResponseCode: '00', vnp_TransactionStatus: '24' }),
+    );
+    expect(recoverVnpayEvent(rawBody)).toEqual({ amount: 0, success: false });
+  });
+
+  it('returns { 0, false } for a failed transaction (vnp_ResponseCode=24)', () => {
+    const rawBody = signVnpayBody(
+      baseParams({ vnp_ResponseCode: '24', vnp_TransactionStatus: '24' }),
+    );
+    expect(recoverVnpayEvent(rawBody)).toEqual({ amount: 0, success: false });
+  });
+
+  it('is not fooled by duplicate keys prepended to an already-signed body', () => {
+    // Signature/parser differential. URLSearchParams keeps every duplicate key:
+    // `.get()` returns the FIRST, an entries-loop leaves the LAST. VNPay hands the
+    // customer a fully signed vnp_* set on the return URL, and the IPN route is
+    // CSRF- and rate-limit-exempt, so an attacker can PREPEND duplicates: the
+    // last-wins projection the HMAC covers is untouched, so the signature still
+    // verifies, while a first-wins reader sees the injected values.
+    //
+    // Chain this once used to enable: poisoned body verifies OK -> status '02'
+    // classifies 'pending' -> processWebhook makes no transition but stores the
+    // rawBody verbatim and LINKED -> one sweeper tick later the recovery parser
+    // reads the injected amount/status and pays the booking. Net: a customer whose
+    // VNPay payment FAILED marks their own booking paid without paying.
+    const genuine = signVnpayBody(
+      baseParams({ vnp_TransactionStatus: '02', vnp_ResponseCode: '02' }),
+    );
+    const poisoned = `vnp_Amount=99999900&vnp_TransactionStatus=00&${genuine}`;
+
+    // The signature is genuinely still valid — that is the whole point, and why
+    // HMAC does not mitigate this.
+    const verified = adapter.verifyWebhook(poisoned);
+    expect(verified.ok).toBe(true);
+    if (!verified.ok) return;
+    expect(verified.event.amount).toBe(150000);
+    expect(verified.event.status).toBe('pending');
+
+    // The recovery parser must reach the SAME conclusion as the verifier.
+    expect(recoverVnpayEvent(poisoned)).toEqual({ amount: 0, success: false });
+  });
+
+  // NOTE: this asserts the PARSER's contract — recoverVnpayEvent reads urlencoded
+  // and must not throw on anything else. It does NOT mean a vnpay row with a JSON
+  // body is unrecoverable: PaymentEvent.adapter is the payment METHOD, not the body
+  // FORMAT, and stub-served vnpay rows really are JSON. reconcilePayments therefore
+  // routes on the body shape and sends those to the JSON IPN parser instead.
+  it('does not throw on a JSON body (not this parser\'s format) → { 0, false }', () => {
+    expect(recoverVnpayEvent('{"amount":150000,"resultCode":0}')).toEqual({
+      amount: 0,
+      success: false,
+    });
   });
 });

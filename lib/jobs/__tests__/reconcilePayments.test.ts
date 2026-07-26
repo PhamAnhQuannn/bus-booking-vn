@@ -41,10 +41,17 @@ vi.mock('@/lib/payment', async () => {
   const real = await vi.importActual<typeof import('../../payment/adapters/bankTransfer')>(
     '@/lib/payment/adapters/bankTransfer'
   );
+  // recoverVnpayEvent is deep-imported REAL for the same reason as recoverSepayEvent
+  // (#330): the sweeper must run the ACTUAL VNPay parser against an ACTUAL urlencoded
+  // body, not a stub that could re-encode the author's assumption.
+  const realVnpay = await vi.importActual<typeof import('../../payment/adapters/vnpay')>(
+    '@/lib/payment/adapters/vnpay'
+  );
   return {
     applyPaidStatusTransition: mockApplyPaid,
     appendBookingPaidLedger: mockAppendLedger,
     recoverSepayEvent: real.recoverSepayEvent,
+    recoverVnpayEvent: realVnpay.recoverVnpayEvent,
   };
 });
 vi.mock('@/lib/notification', () => ({
@@ -192,6 +199,91 @@ describe('reconcilePayments (a) confirming linked event → paid', () => {
   });
 });
 
+describe('reconcilePayments (a2) confirming linked VNPay event → paid (#330)', () => {
+  // VNPay persists rawBody as a urlencoded transport querystring — exactly this
+  // shape — NOT JSON. Against the pre-fix recoverEvent, JSON.parse throws on it →
+  // {0,false} → isConfirming false → a booking whose IPN status-transition was lost
+  // gets terminally EXPIRED even though the money arrived. recoverVnpayEvent (real,
+  // supplied through the @/lib/payment mock above) is what makes it legible.
+  const VNPAY_GROSS = 200000;
+  const vnpayRawBody = new URLSearchParams({
+    vnp_Amount: String(VNPAY_GROSS * 100), // VNPay sends the amount ×100
+    vnp_ResponseCode: '00',
+    vnp_TransactionStatus: '00',
+    vnp_TransactionNo: '14200999',
+    vnp_TxnRef: 'BB-2026-abcd-1234',
+  }).toString();
+
+  it('transitions the booking to paid and records the psp_fee on the vnpay rail', async () => {
+    const linked = eventRow({
+      adapter: 'vnpay',
+      providerTxnId: '14200999',
+      rawBody: vnpayRawBody,
+    });
+    // The hold is LAPSED, so the terminal-expire branch is genuinely reachable.
+    // Without this the `$executeRaw` assertion below is vacuous: baseBooking()
+    // defaults holdExpiresAt to null, and a booking with no lapsed hold can never
+    // reach the expire UPDATE regardless of whether the payment was recovered.
+    // A lapsed hold + a confirming-but-unreadable event IS #330's headline
+    // money-loss scenario, so it is the only fixture that proves anything here.
+    const tx = makeTx(
+      [
+        baseBooking({
+          paymentMethod: 'vnpay',
+          totalVnd: VNPAY_GROSS,
+          holdExpiresAt: new Date(NOW.getTime() - 60_000),
+        }),
+      ],
+      [[linked]]
+    );
+    const res = await reconcilePayments(tx as never, { now: NOW });
+
+    expect(mockApplyPaid).toHaveBeenCalledWith(tx, baseBooking().id, '14200999');
+    expect(mockAppendLedger).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({ grossVnd: VNPAY_GROSS, adapter: 'vnpay' })
+    );
+    // NOT expired — the whole point of #330 is the money is recovered, not lost.
+    expect(tx.$executeRaw).not.toHaveBeenCalled();
+    expect(res).toEqual({ rowsAffected: 1, status: 'success' });
+  });
+
+  it('recovers a STUB-served vnpay row, whose rawBody is JSON, not urlencoded', async () => {
+    // PaymentEvent.adapter records the payment METHOD, not the body FORMAT.
+    // Under PAYMENTS_STUB, app/dev/stub-pay persists a JSON stub IPN under
+    // adapter:'vnpay' (STUB_ADAPTERS covers momo/zalopay/card/vnpay; bank_transfer
+    // is the only one it excludes). Dispatching on adapter alone would send this
+    // row to the urlencoded parser, return {0,false}, and terminally expire a
+    // booking the sweeper recovers today — Bug B, reintroduced by its own fix.
+    const stubJsonBody = JSON.stringify({
+      amount: VNPAY_GROSS,
+      resultCode: 0,
+      orderId: 'BB-2026-abcd-1234',
+      transId: '14200999',
+    });
+    const linked = eventRow({
+      adapter: 'vnpay',
+      providerTxnId: '14200999',
+      rawBody: stubJsonBody,
+    });
+    const tx = makeTx(
+      [
+        baseBooking({
+          paymentMethod: 'vnpay',
+          totalVnd: VNPAY_GROSS,
+          holdExpiresAt: new Date(NOW.getTime() - 60_000),
+        }),
+      ],
+      [[linked]]
+    );
+    const res = await reconcilePayments(tx as never, { now: NOW });
+
+    expect(mockApplyPaid).toHaveBeenCalledWith(tx, baseBooking().id, '14200999');
+    expect(tx.$executeRaw).not.toHaveBeenCalled();
+    expect(res).toEqual({ rowsAffected: 1, status: 'success' });
+  });
+});
+
 describe('reconcilePayments (b) no event + expired hold → payment_failed_expired', () => {
   it('runs the guarded expire UPDATE, enqueues the expiry notice, counts 1', async () => {
     const tx = makeTx(
@@ -324,6 +416,7 @@ describe('reconcilePayments (e) degraded match — SUSPICION ONLY, never pays', 
       amount: 200000,
       currency: 'VND',
       success: true,
+      bodyShape: 'json' as const,
       receivedAt: new Date(CREATED_AT.getTime()),
     };
     expect(matchDegraded(booking as never, [ok], used)).toBe(ok);
