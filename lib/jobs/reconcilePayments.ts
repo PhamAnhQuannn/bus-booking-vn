@@ -386,17 +386,22 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
     // payment existed or one existed and could not be parsed. Emit the distinction
     // here. `shape` (not the body — it carries PII) is what tells an operator
     // "parser mismatch" apart from "customer's payment failed".
-    if (!confirming && linked.length > 0) {
-      for (const e of linked) {
+    // Covers ORPHANS (bookingId IS NULL) as well as linked events. Orphans are the
+    // matchDegraded inputs and are exactly Bug B's shape on bank_transfer — the only
+    // rail live today — so instrumenting only the linked half would leave the live
+    // half dark, which is the failure this log exists to prevent.
+    if (!confirming) {
+      for (const e of events) {
         if (e.amount === 0 && !e.success) {
           logger.warn(
             {
               bookingId: booking.id,
               paymentEventId: e.paymentEventId,
               adapter: e.adapter,
+              linked: e.bookingId !== null,
               shape: e.bodyShape,
             },
-            'reconcile.event_unrecoverable — linked payment event yielded no amount; parser/format mismatch or a declined payment'
+            'reconcile.event_unrecoverable — payment event yielded no amount; parser/format mismatch or a declined payment'
           );
         }
       }

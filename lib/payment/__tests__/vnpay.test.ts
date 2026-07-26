@@ -265,6 +265,36 @@ describe('VNPay adapter — recoverVnpayEvent (#330 sweeper recovery)', () => {
     expect(recoverVnpayEvent(rawBody)).toEqual({ amount: 0, success: false });
   });
 
+  it('is not fooled by duplicate keys prepended to an already-signed body', () => {
+    // Signature/parser differential. URLSearchParams keeps every duplicate key:
+    // `.get()` returns the FIRST, an entries-loop leaves the LAST. VNPay hands the
+    // customer a fully signed vnp_* set on the return URL, and the IPN route is
+    // CSRF- and rate-limit-exempt, so an attacker can PREPEND duplicates: the
+    // last-wins projection the HMAC covers is untouched, so the signature still
+    // verifies, while a first-wins reader sees the injected values.
+    //
+    // Chain this once used to enable: poisoned body verifies OK -> status '02'
+    // classifies 'pending' -> processWebhook makes no transition but stores the
+    // rawBody verbatim and LINKED -> one sweeper tick later the recovery parser
+    // reads the injected amount/status and pays the booking. Net: a customer whose
+    // VNPay payment FAILED marks their own booking paid without paying.
+    const genuine = signVnpayBody(
+      baseParams({ vnp_TransactionStatus: '02', vnp_ResponseCode: '02' }),
+    );
+    const poisoned = `vnp_Amount=99999900&vnp_TransactionStatus=00&${genuine}`;
+
+    // The signature is genuinely still valid — that is the whole point, and why
+    // HMAC does not mitigate this.
+    const verified = adapter.verifyWebhook(poisoned);
+    expect(verified.ok).toBe(true);
+    if (!verified.ok) return;
+    expect(verified.event.amount).toBe(150000);
+    expect(verified.event.status).toBe('pending');
+
+    // The recovery parser must reach the SAME conclusion as the verifier.
+    expect(recoverVnpayEvent(poisoned)).toEqual({ amount: 0, success: false });
+  });
+
   // NOTE: this asserts the PARSER's contract — recoverVnpayEvent reads urlencoded
   // and must not throw on anything else. It does NOT mean a vnpay row with a JSON
   // body is unrecoverable: PaymentEvent.adapter is the payment METHOD, not the body

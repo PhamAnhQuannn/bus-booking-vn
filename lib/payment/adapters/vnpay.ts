@@ -67,6 +67,28 @@ function buildQueryString(params: Record<string, string>): string {
     .join('&');
 }
 
+/**
+ * THE single parse of a VNPay transport body. Both the signature-verifying path
+ * and the sweeper-recovery path MUST go through this — never `URLSearchParams.get`.
+ *
+ * SECURITY: `URLSearchParams` keeps every duplicate key. `.get(k)` returns the
+ * FIRST occurrence; this entries-loop leaves the LAST. Two readers disagreeing on
+ * that is a signature/parser differential: an attacker who holds a body VNPay
+ * already signed can PREPEND duplicate keys, leaving the last-wins projection —
+ * and therefore the HMAC — untouched, while a first-wins reader sees the injected
+ * values. Verified: `vnp_Amount=99999900&vnp_TransactionStatus=00&vnp_Amount=15000000&vnp_TransactionStatus=02`
+ * reads as 999999/paid under `.get()` and 150000/failed under this loop. VNPay
+ * hands the customer a fully signed vnp_* set on the return URL, and the IPN route
+ * is CSRF- and rate-limit-exempt, so that body is attacker-reachable.
+ */
+function parseVnpayBody(rawBody: string): Record<string, string> {
+  const parsed: Record<string, string> = {};
+  for (const [key, value] of new URLSearchParams(rawBody).entries()) {
+    parsed[key] = value;
+  }
+  return parsed;
+}
+
 function hmacSha512(secret: string, data: string): string {
   return crypto.createHmac('sha512', secret).update(data).digest('hex');
 }
@@ -98,12 +120,10 @@ export function createVnpayAdapter(
    * NOT JSON.
    */
   const verifyWebhook = (rawBody: string): VerifyWebhookResult => {
-    // Parse as URLSearchParams (handles both POST body and GET query string)
-    const parsed: Record<string, string> = {};
-    const params = new URLSearchParams(rawBody);
-    for (const [key, value] of params.entries()) {
-      parsed[key] = value;
-    }
+    // Handles both POST body and GET query string. See parseVnpayBody — the
+    // duplicate-key resolution here is security-relevant and must not diverge
+    // from the recovery path.
+    const parsed = parseVnpayBody(rawBody);
 
     const receivedHash = parsed['vnp_SecureHash'];
     if (typeof receivedHash !== 'string' || receivedHash.length === 0) {
@@ -247,11 +267,15 @@ export function createVnpayAdapter(
  * (falling back to vnp_ResponseCode), and vnp_Amount is in the smallest unit ×100.
  */
 export function recoverVnpayEvent(rawBody: string): { amount: number; success: boolean } {
-  const parsed = new URLSearchParams(rawBody);
-  const responseCode = parsed.get('vnp_ResponseCode') ?? '99';
-  const transactionStatus = parsed.get('vnp_TransactionStatus');
-  const classifyCode = transactionStatus !== null ? transactionStatus : responseCode;
-  const amount = Math.floor(Number(parsed.get('vnp_Amount') ?? 0) / 100);
+  // MUST use parseVnpayBody, not URLSearchParams.get — see the security note there.
+  // This function reads a body whose HMAC was verified by verifyWebhook; if the two
+  // resolve duplicate keys differently, the bytes that were authenticated are not
+  // the bytes that decide whether a booking gets paid.
+  const parsed = parseVnpayBody(rawBody);
+  const responseCode = parsed['vnp_ResponseCode'] ?? '99';
+  const transactionStatus = parsed['vnp_TransactionStatus'];
+  const classifyCode = transactionStatus !== undefined ? transactionStatus : responseCode;
+  const amount = Math.floor(Number(parsed['vnp_Amount'] ?? 0) / 100);
   const ok = classifyVnpayStatus(classifyCode) === 'paid' && Number.isFinite(amount) && amount > 0;
   return { amount: ok ? amount : 0, success: ok };
 }
