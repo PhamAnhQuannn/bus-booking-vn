@@ -157,11 +157,27 @@ check_g6_client_barrel() {
   local domains="" name idx d t barrel changed tainted="" BARRELS=""
   for idx in lib/*/index.ts; do d=$(dirname "$idx"); domains="$domains ${d#lib/}"; done
 
+  # Domains that are server-only BY CONTRACT but carry no `server-only` import and
+  # never reach lib/core/db, so the marker scan above cannot see them. Each barrel
+  # states the constraint in its own header; keep this list in sync with those.
+  #   config — lib/config/env.ts exports getEnv(), i.e. HOLD_SECRET / JWT_SECRET /
+  #            REFRESH_TOKEN_SECRET / SEPAY_API_KEY / DATABASE_URL.
+  #   geo    — lib/geo/vnAdmin.ts is a ~690KB admin dataset; barrel header says
+  #            "SERVER-SIDE ONLY … Do NOT import this barrel from 'use client'".
+  local EXTRA_SERVER_ONLY="config geo"
+
   for name in $domains; do
     if grep -rqE "import[[:space:]]+['\"]server-only['\"]|from[[:space:]]+['\"]@/lib/core/db" "lib/$name" 2>/dev/null \
        || [ -e "lib/$name/db/client.ts" ]; then
       tainted="$tainted $name"
     fi
+  done
+
+  for name in $EXTRA_SERVER_ONLY; do
+    case " $tainted " in
+      *" $name "*) ;;
+      *) [ -f "lib/$name/index.ts" ] && tainted="$tainted $name" ;;
+    esac
   done
 
   changed=1
@@ -177,10 +193,28 @@ check_g6_client_barrel() {
     done
   done
 
+  # Floor assertion — the derivation is the single point of failure for this check.
+  # This script runs `set -uo pipefail` WITHOUT -e, so a grep exiting 2 (unreadable
+  # path, bad glob, tree moved) silently shrinks $tainted instead of aborting. At
+  # zero the alternation below collapses to `@/lib/()`, which matches nothing and
+  # prints PASS with live violations on disk — the same vacuous-gate class as #333.
+  # Print the derived set so a silent shrink is visible in CI logs, and hard-fail
+  # below a floor rather than degrading quietly.
+  local G6_MIN_TAINTED=20 tainted_count
+  tainted_count=$(echo "$tainted" | wc -w | tr -d '[:space:]')
+  echo "      derived server-only barrels ($tainted_count):$tainted"
+  if [ "$tainted_count" -lt "$G6_MIN_TAINTED" ]; then
+    echo "FAIL  G6 barrel derivation collapsed: $tainted_count tainted domain(s), expected >= $G6_MIN_TAINTED."
+    echo "      The check cannot be trusted in this state — fix the derivation, do not lower the floor."
+    FAILURES=$((FAILURES + 1))
+    return
+  fi
+
   for name in $tainted; do BARRELS="$BARRELS @/lib/$name"; done
 
   # Single alternation regex over all tainted barrels — one grep per client file
-  # (looping every barrel per file is ~2k process spawns and times CI out on Windows).
+  # (looping every barrel per file is ~2k process spawns; the per-barrel loop was
+  # measurably slower in CI, hence the single alternation).
   local alt
   alt=$(echo "$tainted" | tr -s ' ' '|' | sed 's/^|//;s/|$//')
 
