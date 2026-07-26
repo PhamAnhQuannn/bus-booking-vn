@@ -145,16 +145,120 @@ check_g5_date_now_rsc() {
 check_g6_client_barrel() {
   echo "--- G6: use-client server barrel imports ---"
   local hits=""
-  local BARRELS="@/lib/auth @/lib/booking @/lib/payment @/lib/notification @/lib/admin @/lib/onboarding"
+
+  # Issue 348: derive the server-only barrel set dynamically instead of a
+  # hand-maintained list of 6. The old hardcoded list left ledger/op/trips —
+  # the exact 2026-06-04 operator-portal-outage domains — with zero coverage.
+  # A domain barrel is "server-only" (client files must NOT barrel-import it) if
+  # it transitively reaches `import 'server-only'` or `@/lib/core/db`.
+  #   Pass 1: taint a domain whose own subtree imports a server-only marker.
+  #   Pass 2 (fixpoint): taint a domain whose barrel re-exports an already-
+  #           tainted domain's barrel (e.g. `export ... from '@/lib/payment'`).
+  local domains="" name idx d t changed tainted=""
+  for idx in lib/*/index.ts; do d=$(dirname "$idx"); domains="$domains ${d#lib/}"; done
+
+  # Domains that are server-only BY CONTRACT but carry no `server-only` import and
+  # never reach lib/core/db, so the marker scan below cannot see them. Each reads
+  # secrets through getEnv() or ships a server-only payload; keep in sync with the
+  # barrel headers.
+  #   config   — lib/config/env.ts exports getEnv(), i.e. HOLD_SECRET / JWT_SECRET /
+  #              REFRESH_TOKEN_SECRET / SEPAY_API_KEY / DATABASE_URL.
+  #   geo      — lib/geo/vnAdmin.ts is a ~690KB admin dataset; barrel header says
+  #              "SERVER-SIDE ONLY … Do NOT import this barrel from 'use client'".
+  #   einvoice — lib/einvoice/misaClient.ts reads getEnv() for the MISA credentials.
+  #   ratelimit— reads UPSTASH_REDIS_REST_TOKEN directly.
+  local EXTRA_SERVER_ONLY="config geo einvoice ratelimit"
+
+  # Domains that MUST end up tainted, asserted BY NAME below. A count floor cannot
+  # say WHICH domain vanished: pass 1 greps each domain independently and this
+  # script runs without `set -e`, so a single grep exiting 2 drops exactly one
+  # domain while the total stays comfortably above any floor. The first six were a
+  # hardcoded literal before #348 and were therefore unconditional — a count-only
+  # guard would be a REGRESSION in guarantee for them. The rest are contract-only
+  # and have no marker that could rediscover them after a rename.
+  local G6_REQUIRED="auth booking payment notification admin onboarding config geo einvoice ratelimit"
+
+  for name in $domains; do
+    if grep -rqE "import[[:space:]]+['\"]server-only['\"]|from[[:space:]]+['\"]@/lib/core/db" "lib/$name" 2>/dev/null \
+       || [ -e "lib/$name/db/client.ts" ]; then
+      tainted="$tainted $name"
+    fi
+  done
+
+  for name in $EXTRA_SERVER_ONLY; do
+    case " $tainted " in
+      *" $name "*) ;;
+      *) [ -f "lib/$name/index.ts" ] && tainted="$tainted $name" ;;
+    esac
+  done
+
+  changed=1
+  while [ "$changed" -eq 1 ]; do
+    changed=0
+    for name in $domains; do
+      case " $tainted " in *" $name "*) continue ;; esac
+      for t in $tainted; do
+        if grep -q "from ['\"]@/lib/$t['\"]" "lib/$name/index.ts" 2>/dev/null; then
+          tainted="$tainted $name"; changed=1; break
+        fi
+      done
+    done
+  done
+
+  # Floor assertion — the derivation is the single point of failure for this check.
+  # This script runs `set -uo pipefail` WITHOUT -e, so a grep exiting 2 (unreadable
+  # path, bad glob, tree moved) silently shrinks $tainted instead of aborting. At
+  # zero the alternation below collapses to `@/lib/()`, which matches nothing and
+  # prints PASS with live violations on disk — the same vacuous-gate class as #333.
+  # Print the derived set so a silent shrink is visible in CI logs, and hard-fail
+  # below a floor rather than degrading quietly.
+  local G6_MIN_TAINTED=20 tainted_count missing=""
+  tainted_count=$(echo "$tainted" | wc -w | tr -d '[:space:]')
+  echo "      derived server-only barrels ($tainted_count):$tainted"
+
+  # (a) Required-NAME assertion. This is the real invariant; the count below is
+  # only a backstop. Catches a partial collapse (one domain lost to a grep
+  # exit-2) and a renamed EXTRA_SERVER_ONLY entry, neither of which moves the
+  # count enough to trip a floor.
+  for name in $G6_REQUIRED; do
+    case " $tainted " in
+      *" $name "*) ;;
+      *) missing="$missing $name" ;;
+    esac
+  done
+  if [ -n "$missing" ]; then
+    echo "FAIL  G6 required server-only domain(s) missing from the derived set:$missing"
+    echo "      Either the derivation regressed, or a domain was renamed/removed."
+    echo "      Fix the derivation, or update G6_REQUIRED deliberately — do not just"
+    echo "      delete the name, which silently drops that barrel's client-leak cover."
+    FAILURES=$((FAILURES + 1))
+    return
+  fi
+
+  # (b) Count floor — backstop for a TOTAL collapse in domains not on the
+  # required list. At zero the alternation would degenerate to `@/lib/()`, match
+  # nothing, and print PASS with live violations on disk (the #333 class).
+  if [ "$tainted_count" -lt "$G6_MIN_TAINTED" ]; then
+    echo "FAIL  G6 barrel derivation collapsed: $tainted_count tainted domain(s), expected >= $G6_MIN_TAINTED."
+    echo "      The check cannot be trusted in this state — fix the derivation, do not lower"
+    echo "      the floor. (If domains were legitimately consolidated, lower it deliberately"
+    echo "      in the same commit that removes them.)"
+    FAILURES=$((FAILURES + 1))
+    return
+  fi
+
+  # Single alternation regex over all tainted barrels — one grep per client file
+  # (looping every barrel per file is ~2k process spawns; the per-barrel loop was
+  # measurably slower in CI, hence the single alternation).
+  local alt
+  alt=$(echo "$tainted" | tr -s ' ' '|' | sed 's/^|//;s/|$//')
 
   while IFS= read -r f; do
-    for barrel in $BARRELS; do
-      local barrel_hits
-      barrel_hits=$(grep -n "from ['\"]${barrel}['\"]" "$f" 2>/dev/null | grep -v 'import type' || true)
-      if [ -n "$barrel_hits" ]; then
-        hits+="$f: $barrel_hits"$'\n'
-      fi
-    done
+    local barrel_hits
+    barrel_hits=$(grep -nE "from ['\"]@/lib/(${alt})['\"]" "$f" 2>/dev/null | grep -v 'import type' || true)
+    if [ -n "$barrel_hits" ]; then
+      hits+="$f: $barrel_hits"$'\n'
+    fi
   done < <(grep -rl --include='*.ts' --include='*.tsx' -m1 "^['\"]use client['\"]" app/ components/ 2>/dev/null || true)
 
   if [ -n "$hits" ]; then
