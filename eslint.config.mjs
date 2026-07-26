@@ -102,8 +102,10 @@ const eslintConfig = defineConfig([
   // (default [.js,.mjs,.cjs]), so in this all-TypeScript tree it never walked a
   // single .ts edge and could not see any cycle. With the extensions + resolver-next
   // settings below the rule now works, and it reveals 11 pre-existing cross-domain
-  // barrel cycles (booking↔payment↔ledger). It is kept at 'warn' until those are
-  // burned down (follow-up issue), then flipped back to 'error'.
+  // barrel cycles (booking↔payment↔ledger). The rule is at 'error'; those three
+  // domains carry a scoped 'warn' override (see the block after this one) so the
+  // known 11 stay visible without blocking. #343 burns them down; when it lands,
+  // DELETE the override block — the severity here is already correct.
   // TODO(092b follow-up): boundaries/entry-point is deprecated in v6 — migrate to
   // boundaries/dependencies (object selectors) at a convenient point. It functions
   // correctly here; the migration is cosmetic (removes the deprecation notice).
@@ -182,8 +184,23 @@ const eslintConfig = defineConfig([
   },
   // The 11 pre-existing barrel cycles all live in booking↔payment↔ledger: report
   // them, don't block on them. Scoped deliberately narrow so a new cycle in any
-  // OTHER domain (or one crossing into these three from outside) still errors.
+  // OTHER domain still errors — and a cycle with one foot outside these three
+  // errors on the outside file, so containment holds (verified by planting a
+  // lib/notification ↔ lib/booking cycle: 2 errors, exit 1).
+  //
+  // KNOWN LIMITATION: this is scoped by DOMAIN, not by the 11 known cycles, so a
+  // brand-new cycle created wholly inside these three also only warns. Accepted
+  // because master enforced nothing anywhere; #343 removes the need entirely.
   // Burn-down is tracked by #343 — delete this whole block when it lands.
+  //
+  // The `ignores` below is REQUIRED, not decorative. This object declares no
+  // `plugins`, so it relies on the main block's `import-x` registration — which
+  // only applies to files the main block matches. Drop the `ignores` and this
+  // object starts matching __tests__/*.test.* files that the main block excludes,
+  // where `import-x` is unregistered, and ESLint refuses to load the whole config:
+  //   "The 'import-x' plugin is not defined within the same configuration object
+  //    in which the 'import-x/no-cycle' rule is applied."
+  // Keep these two ignore lists in sync with the main block's.
   {
     files: [
       "lib/booking/**/*.{ts,tsx}",
