@@ -29,10 +29,13 @@ const NAV = [
   { href: '/khieu-nai', label: 'Hỗ trợ' },
 ];
 
-/* The mockup's label is "Đăng nhập / Đăng ký", but customer auth is 410-gated in
-   Phase 1 (proxy.ts). The button keeps the mockup's outlined treatment and points at
-   operator login — the only login that exists. */
-const LOGIN = { href: '/op/login', label: 'Đăng nhập / Đăng ký' };
+/* Customer auth is 410-gated in Phase 1 (proxy.ts), so the ONLY login that exists
+   is the operator/admin console. The button is labelled "Đăng nhập nhà xe" (operator
+   login) rather than the mockup's customer "Đăng nhập / Đăng ký" so a real customer
+   isn't sent to an operator admin screen asking for a business login code (#349).
+   Restore the customer "Đăng nhập / Đăng ký" label + CustomerAccountMenu when customer
+   auth is enabled in Phase 2. */
+const LOGIN = { href: '/op/login', label: 'Đăng nhập nhà xe' };
 
 /* Solid CTA fill uses `--primary-strong` (orange-700, ~4.7:1 on white), not
    `--primary` (~3.4:1) — the label is below the AA large-text threshold. */
