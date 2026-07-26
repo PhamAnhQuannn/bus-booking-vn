@@ -71,7 +71,12 @@ describe('sendEmail (resend path — idempotency, #335)', () => {
     emailsSendMock.mockResolvedValue({ data: { id: 'resend_123' }, error: null });
   });
   afterEach(() => {
-    process.env.EMAIL_PROVIDER = prevProvider;
+    // Restore by DELETING when it was unset. `process.env.X = undefined` writes
+    // the literal string "undefined", and z.enum([...]).default('stub') does not
+    // apply to a present-but-invalid value — so a later test in the same worker
+    // calling getEnv() would fail env validation. Order-dependent; green by luck.
+    if (prevProvider === undefined) delete process.env.EMAIL_PROVIDER;
+    else process.env.EMAIL_PROVIDER = prevProvider;
     _resetResendClient();
   });
 

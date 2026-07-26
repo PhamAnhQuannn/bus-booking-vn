@@ -101,10 +101,28 @@ async function claimDueRows(now: Date, limit: number): Promise<DueRow[]> {
  */
 async function dispatchRow(row: DueRow): Promise<{ ok: boolean; externalRef?: string; error?: string }> {
   if (row.channel === 'email') {
-    // row.id is the Resend Idempotency-Key so a cron re-run of the same row
-    // (crash between send and the status='sent' write) cannot double-send —
-    // mirrors the eSMS requestId on the sms branch below.
-    return sendEmail({ to: row.recipient, template: row.template, payload: row.payload, idempotencyKey: row.id });
+    // Resend Idempotency-Key = "<row id>:<attemptCount>", so a cron re-run of the
+    // SAME attempt (crash between the send and the status='sent' write) cannot
+    // double-send, while a genuine retry after a failure gets a fresh key.
+    //
+    // The attempt number is load-bearing, not cosmetic. Per Resend's docs
+    // (https://resend.com/docs/dashboard/emails/idempotency-keys) keys live for
+    // 24h and a replayed key "returns exactly the same status code and body as
+    // the original response — even if the original returned an error". Our five
+    // attempts span ~60min of backoff (2+4+8+16+30), well inside that window, so
+    // a bare row.id would make attempts 2-5 replay attempt 1's cached FAILURE and
+    // turn any transient Resend error into permanent non-delivery.
+    //
+    // Crash-safety is preserved because attemptCount is a persisted column and is
+    // only incremented once the attempt's outcome is written: a re-claim of an
+    // unfinished attempt reads the same value and therefore rebuilds the same key.
+    // cuid ids are alphanumeric, so this stays well under Resend's 256-char limit.
+    return sendEmail({
+      to: row.recipient,
+      template: row.template,
+      payload: row.payload,
+      idempotencyKey: `${row.id}:${row.attemptCount}`,
+    });
   }
   // channel === 'sms' — row.id is the eSMS RequestId (idempotency key) so a
   // cron re-run of the same row cannot double-send.
