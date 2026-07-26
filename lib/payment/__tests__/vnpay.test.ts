@@ -265,7 +265,12 @@ describe('VNPay adapter — recoverVnpayEvent (#330 sweeper recovery)', () => {
     expect(recoverVnpayEvent(rawBody)).toEqual({ amount: 0, success: false });
   });
 
-  it('does not throw on a JSON body (wrong adapter shape) → { 0, false }', () => {
+  // NOTE: this asserts the PARSER's contract — recoverVnpayEvent reads urlencoded
+  // and must not throw on anything else. It does NOT mean a vnpay row with a JSON
+  // body is unrecoverable: PaymentEvent.adapter is the payment METHOD, not the body
+  // FORMAT, and stub-served vnpay rows really are JSON. reconcilePayments therefore
+  // routes on the body shape and sends those to the JSON IPN parser instead.
+  it('does not throw on a JSON body (not this parser\'s format) → { 0, false }', () => {
     expect(recoverVnpayEvent('{"amount":150000,"resultCode":0}')).toEqual({
       amount: 0,
       success: false,

@@ -154,6 +154,11 @@ interface RecoveredEvent {
   currency: string;
   /** True when the stored IPN body carried a success resultCode (0). */
   success: boolean;
+  /**
+   * Shape of the stored body, for diagnostics only. Carried instead of rawBody so
+   * a PII-bearing payload never reaches the log line that reports a parse miss.
+   */
+  bodyShape: 'json' | 'non-json';
   receivedAt: Date;
 }
 
@@ -178,6 +183,37 @@ interface RecoveredEvent {
  * every unmatched VNPay transfer. A non-JSON or shapeless body yields success=false
  * and is never a confirmation.
  */
+/**
+ * MoMo and the local stub gateway share one JSON IPN shape: `{amount, resultCode}`.
+ * A non-JSON or shapeless body is never a confirmation.
+ */
+function recoverJsonIpn(rawBody: string): { amount: number; success: boolean } {
+  try {
+    const parsed = JSON.parse(rawBody) as Record<string, unknown>;
+    const rawAmount = Number(parsed.amount ?? 0);
+    const amount = Number.isFinite(rawAmount) && rawAmount >= 0 ? rawAmount : 0;
+    return { amount, success: Number(parsed.resultCode ?? -1) === 0 };
+  } catch {
+    return { amount: 0, success: false };
+  }
+}
+
+/**
+ * `PaymentEvent.adapter` records the payment METHOD, not the body FORMAT, and the
+ * two diverge under PAYMENTS_STUB: `app/dev/stub-pay/actions.ts` persists a JSON
+ * stub IPN under `adapter:'vnpay'` (its STUB_ADAPTERS set covers momo, zalopay,
+ * card and vnpay — bank_transfer is the only adapter it excludes, which is why
+ * method⇒format happens to hold for SePay alone).
+ *
+ * Dispatching on `adapter` alone would therefore route every stub-served vnpay row
+ * to the urlencoded parser, yield `{0,false}`, and stop the sweeper recovering rows
+ * it recovers today — reintroducing Bug B inside the fix for Bug B. Sniff the body
+ * instead, so the discriminator is the thing that actually determines the format.
+ */
+function isJsonBody(rawBody: string): boolean {
+  return rawBody.trimStart().startsWith('{');
+}
+
 function recoverEvent(
   row: { id: string; bookingId: string | null; adapter: string; providerTxnId: string; currency: string; rawBody: string; receivedAt: Date },
   recoverSepayEvent: (rawBody: string) => { amount: number; success: boolean },
@@ -187,19 +223,12 @@ function recoverEvent(
   let success = false;
   if (row.adapter === 'bank_transfer') {
     ({ amount, success } = recoverSepayEvent(row.rawBody));
-  } else if (row.adapter === 'vnpay') {
-    // VNPay rawBody is a urlencoded querystring, not JSON — its own adapter
+  } else if (row.adapter === 'vnpay' && !isJsonBody(row.rawBody)) {
+    // Real VNPay rawBody is a urlencoded querystring, not JSON — its own adapter
     // parser (#330) keeps native vnp_* field names behind the boundary.
     ({ amount, success } = recoverVnpayEvent(row.rawBody));
   } else {
-    try {
-      const parsed = JSON.parse(row.rawBody) as Record<string, unknown>;
-      const rawAmount = Number(parsed.amount ?? 0);
-      amount = Number.isFinite(rawAmount) && rawAmount >= 0 ? rawAmount : 0;
-      success = Number(parsed.resultCode ?? -1) === 0;
-    } catch {
-      // Non-JSON / shapeless body → not a confirmation.
-    }
+    ({ amount, success } = recoverJsonIpn(row.rawBody));
   }
   return {
     paymentEventId: row.id,
@@ -209,6 +238,7 @@ function recoverEvent(
     amount,
     currency: row.currency,
     success,
+    bodyShape: isJsonBody(row.rawBody) ? 'json' : 'non-json',
     receivedAt: row.receivedAt,
   };
 }
@@ -349,6 +379,28 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
     // (a) Confirming event among the linked events. ONLY a linked event can pay a
     // booking — an orphan is never promoted to a confirmation (see branch (d)).
     const confirming = linked.find((e) => isConfirming(e, booking.totalVnd)) ?? null;
+
+    // Bug B was invisible for its whole life because an UNREADABLE stored body and
+    // a genuinely-declined payment are indistinguishable downstream: both yield
+    // success=false, and `reconcile.booking_expired` logs identically whether no
+    // payment existed or one existed and could not be parsed. Emit the distinction
+    // here. `shape` (not the body — it carries PII) is what tells an operator
+    // "parser mismatch" apart from "customer's payment failed".
+    if (!confirming && linked.length > 0) {
+      for (const e of linked) {
+        if (e.amount === 0 && !e.success) {
+          logger.warn(
+            {
+              bookingId: booking.id,
+              paymentEventId: e.paymentEventId,
+              adapter: e.adapter,
+              shape: e.bodyShape,
+            },
+            'reconcile.event_unrecoverable — linked payment event yielded no amount; parser/format mismatch or a declined payment'
+          );
+        }
+      }
+    }
 
     if (confirming) {
       // (a) Resolve to paid through the SHARED guarded monotonic path + ledger.

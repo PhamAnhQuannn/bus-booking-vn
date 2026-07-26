@@ -220,8 +220,20 @@ describe('reconcilePayments (a2) confirming linked VNPay event → paid (#330)',
       providerTxnId: '14200999',
       rawBody: vnpayRawBody,
     });
+    // The hold is LAPSED, so the terminal-expire branch is genuinely reachable.
+    // Without this the `$executeRaw` assertion below is vacuous: baseBooking()
+    // defaults holdExpiresAt to null, and a booking with no lapsed hold can never
+    // reach the expire UPDATE regardless of whether the payment was recovered.
+    // A lapsed hold + a confirming-but-unreadable event IS #330's headline
+    // money-loss scenario, so it is the only fixture that proves anything here.
     const tx = makeTx(
-      [baseBooking({ paymentMethod: 'vnpay', totalVnd: VNPAY_GROSS })],
+      [
+        baseBooking({
+          paymentMethod: 'vnpay',
+          totalVnd: VNPAY_GROSS,
+          holdExpiresAt: new Date(NOW.getTime() - 60_000),
+        }),
+      ],
       [[linked]]
     );
     const res = await reconcilePayments(tx as never, { now: NOW });
@@ -232,6 +244,41 @@ describe('reconcilePayments (a2) confirming linked VNPay event → paid (#330)',
       expect.objectContaining({ grossVnd: VNPAY_GROSS, adapter: 'vnpay' })
     );
     // NOT expired — the whole point of #330 is the money is recovered, not lost.
+    expect(tx.$executeRaw).not.toHaveBeenCalled();
+    expect(res).toEqual({ rowsAffected: 1, status: 'success' });
+  });
+
+  it('recovers a STUB-served vnpay row, whose rawBody is JSON, not urlencoded', async () => {
+    // PaymentEvent.adapter records the payment METHOD, not the body FORMAT.
+    // Under PAYMENTS_STUB, app/dev/stub-pay persists a JSON stub IPN under
+    // adapter:'vnpay' (STUB_ADAPTERS covers momo/zalopay/card/vnpay; bank_transfer
+    // is the only one it excludes). Dispatching on adapter alone would send this
+    // row to the urlencoded parser, return {0,false}, and terminally expire a
+    // booking the sweeper recovers today — Bug B, reintroduced by its own fix.
+    const stubJsonBody = JSON.stringify({
+      amount: VNPAY_GROSS,
+      resultCode: 0,
+      orderId: 'BB-2026-abcd-1234',
+      transId: '14200999',
+    });
+    const linked = eventRow({
+      adapter: 'vnpay',
+      providerTxnId: '14200999',
+      rawBody: stubJsonBody,
+    });
+    const tx = makeTx(
+      [
+        baseBooking({
+          paymentMethod: 'vnpay',
+          totalVnd: VNPAY_GROSS,
+          holdExpiresAt: new Date(NOW.getTime() - 60_000),
+        }),
+      ],
+      [[linked]]
+    );
+    const res = await reconcilePayments(tx as never, { now: NOW });
+
+    expect(mockApplyPaid).toHaveBeenCalledWith(tx, baseBooking().id, '14200999');
     expect(tx.$executeRaw).not.toHaveBeenCalled();
     expect(res).toEqual({ rowsAffected: 1, status: 'success' });
   });
@@ -369,6 +416,7 @@ describe('reconcilePayments (e) degraded match — SUSPICION ONLY, never pays', 
       amount: 200000,
       currency: 'VND',
       success: true,
+      bodyShape: 'json' as const,
       receivedAt: new Date(CREATED_AT.getTime()),
     };
     expect(matchDegraded(booking as never, [ok], used)).toBe(ok);
