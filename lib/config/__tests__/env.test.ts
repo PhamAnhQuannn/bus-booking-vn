@@ -65,12 +65,52 @@ describe('getEnv — email-stub boot warn (#337)', () => {
     expect(warned()).toBe(false);
   });
 
-  it('does NOT warn when NOTIFY_STUB=true (SMS also stubbed — consistent)', () => {
+  // Regression guard for the review finding on this PR: the warn was originally
+  // ANDed with `!NOTIFY_STUB`, and this case asserted SILENCE for it. But
+  // NOTIFY_STUB defaults to 'true' and prod sets "true", so that combination is
+  // the ONLY one that exists — the gate was unreachable everywhere, and a green
+  // test was ratifying it (CLAUDE.md 2026-07-23: "a test that asserts ambiguity
+  // resolves somehow is not a safety test"). Email is decoupled from SMS (#326),
+  // so a stubbed SMS channel says nothing about whether email is delivered.
+  it('warns when NOTIFY_STUB=true and EMAIL_PROVIDER is unset (prod flag combo)', () => {
     Object.assign(process.env, BASE, { NOTIFY_STUB: 'true' });
     delete process.env.EMAIL_PROVIDER;
 
     getEnv();
 
+    expect(warned()).toBe(true);
+  });
+
+  it('warns when EMAIL_PROVIDER is explicitly "stub" (the shape .env files use)', () => {
+    Object.assign(process.env, BASE, { NOTIFY_STUB: 'true', EMAIL_PROVIDER: 'stub' });
+
+    getEnv();
+
+    expect(warned()).toBe(true);
+  });
+
+  it('does NOT warn when EMAIL_PROVIDER=resend regardless of NOTIFY_STUB', () => {
+    Object.assign(process.env, BASE, {
+      NOTIFY_STUB: 'true',
+      EMAIL_PROVIDER: 'resend',
+      RESEND_API_KEY: 're_test',
+    });
+
+    getEnv();
+
     expect(warned()).toBe(false);
+  });
+
+  it('warns only once — the parsed env is cached', () => {
+    Object.assign(process.env, BASE, { NOTIFY_STUB: 'true' });
+    delete process.env.EMAIL_PROVIDER;
+
+    getEnv();
+    getEnv();
+
+    const calls = warnSpy.mock.calls.filter((c: unknown[]) =>
+      String(c[0]).includes('env.email.silently_stubbed'),
+    );
+    expect(calls).toHaveLength(1);
   });
 });

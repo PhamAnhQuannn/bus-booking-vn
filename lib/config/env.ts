@@ -149,8 +149,10 @@ const envSchema = z.object({
   // channel adapters record + log the dispatch with no network I/O. Flip to
   // "false" to route SMS through the real eSMS.vn HTTP adapter; the superRefine
   // below then REQUIRES the ESMS_* creds so a real-mode deploy fails fast at
-  // boot rather than at first OTP send. Email has no real provider yet, so a
-  // real-mode deploy still stubs email (see lib/notification/email.ts).
+  // boot rather than at first OTP send. NOTE: this flag governs SMS ONLY —
+  // #326 decoupled email, which is gated on EMAIL_PROVIDER (Resend is wired).
+  // NOTIFY_STUB=true does NOT stub email, and NOTIFY_STUB=false does not enable
+  // it (see lib/notification/email.ts + the boot warn in getEnv).
   // ---------------------------------------------------------------------------
 
   /** Route all notification channels (sms/email) through the local no-network stub. Default on. */
@@ -330,7 +332,9 @@ const envSchema = z.object({
 
   // ---------------------------------------------------------------------------
   // Transactional email provider (Issue 080 — Resend).
-  // EMAIL_PROVIDER="stub" (default) → NOTIFY_STUB covers; no real send.
+  // EMAIL_PROVIDER="stub" (default) → no real send. This is INDEPENDENT of
+  //   NOTIFY_STUB (#326): leaving it at the default silently stubs email even
+  //   when SMS is live, so getEnv() warns about it at first parse.
   // EMAIL_PROVIDER="resend" → Resend API; RESEND_API_KEY required.
   // ---------------------------------------------------------------------------
 
@@ -579,17 +583,24 @@ export function getEnv(): AppEnv {
     throw new Error(`Environment configuration error:\n${messages}`);
   }
   _env = result.data;
-  // Boot warn (once — _env is cached): email is gated on EMAIL_PROVIDER alone,
-  // decoupled from NOTIFY_STUB (see EMAIL_PROVIDER schema + email.ts). So a real
-  // env (NOTIFY_STUB=false → real eSMS) with EMAIL_PROVIDER unset SILENTLY stubs
-  // email (INFO log, marked 'sent') instead of failing loudly. Surface it here
-  // rather than let real customer email vanish. Not a hard error — SMS-only
-  // deployments are legitimate; the operator must opt into real email explicitly.
+  // Warn once per process (_env is cached): email delivery is gated on
+  // EMAIL_PROVIDER ALONE — #326 decoupled it from NOTIFY_STUB (see the
+  // EMAIL_PROVIDER schema + email.ts). Anything other than 'resend' SILENTLY
+  // stubs email: it emits an INFO log and marks the notification 'sent' while
+  // nothing is delivered. Not a hard error — the operator must opt into real
+  // email explicitly — but it must be visible.
+  //
+  // The condition is deliberately NOT ANDed with NOTIFY_STUB. NOTIFY_STUB
+  // defaults to 'true' and prod sets it to "true" (eSMS brandname is still an
+  // unstarted blocker, FI-014), so a `!NOTIFY_STUB &&` guard is unreachable in
+  // every environment that exists — it would suppress the warn in exactly the
+  // configuration that kills mail. Re-coupling the two here would also undo #326.
+  //
   // console.warn (not logger) keeps this foundational module dependency-free,
   // matching the plain `throw` above.
-  if (!_env.NOTIFY_STUB && _env.EMAIL_PROVIDER !== 'resend') {
+  if (_env.EMAIL_PROVIDER !== 'resend') {
     console.warn(
-      'env.email.silently_stubbed: NOTIFY_STUB=false (real SMS) but EMAIL_PROVIDER is not "resend" — email notifications are STUBBED (logged, marked sent, never delivered). Set EMAIL_PROVIDER=resend + RESEND_API_KEY to send real email.',
+      'env.email.silently_stubbed: EMAIL_PROVIDER is not "resend" — email notifications are STUBBED (logged, marked sent, never delivered). Set EMAIL_PROVIDER=resend + RESEND_API_KEY to send real email.',
     );
   }
   return _env;
