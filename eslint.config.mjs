@@ -3,6 +3,7 @@ import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 import boundaries from "eslint-plugin-boundaries";
 import importX from "eslint-plugin-import-x";
+import { createTypeScriptImportResolver } from "eslint-import-resolver-typescript";
 
 // SYS20 import-boundary lint (Issue 038 scaffolded at 'warn'; Issue 092 / Wave 8 flips to 'error').
 // Domain folders under lib/ — a sibling-domain import from lib/core is a rule-4 violation.
@@ -94,9 +95,17 @@ const eslintConfig = defineConfig([
       ],
     },
   },
-  // SYS20 rule 3 (barrel) + no-cycle — issue 092b: ENFORCED at 'error' (Stage 3).
-  // The Stage-2 sweep brought cross-domain reach-ins + cycles to zero; both rules
-  // are now hard gates (run in CI via `pnpm lint`).
+  // SYS20 rule 3 (barrel) — issue 092b: ENFORCED at 'error' (boundaries/entry-point).
+  //
+  // no-cycle: issue #333 found the "cycles at zero" claim was VACUOUS — import-x's
+  // ExportMap skips dependency files whose extension is not in `import-x/extensions`
+  // (default [.js,.mjs,.cjs]), so in this all-TypeScript tree it never walked a
+  // single .ts edge and could not see any cycle. With the extensions + resolver-next
+  // settings below the rule now works, and it reveals 11 pre-existing cross-domain
+  // barrel cycles (booking↔payment↔ledger). The rule is at 'error'; those three
+  // domains carry a scoped 'warn' override (see the block after this one) so the
+  // known 11 stay visible without blocking. #343 burns them down; when it lands,
+  // DELETE the override block — the severity here is already correct.
   // TODO(092b follow-up): boundaries/entry-point is deprecated in v6 — migrate to
   // boundaries/dependencies (object selectors) at a convenient point. It functions
   // correctly here; the migration is cosmetic (removes the deprecation notice).
@@ -115,10 +124,19 @@ const eslintConfig = defineConfig([
         { type: "components", pattern: "components", mode: "folder" },
       ],
       "boundaries/ignore": ["**/__tests__/**", "**/*.test.{ts,tsx}", "app/dev/**"],
-      "import-x/resolver": {
-        typescript: { project: "./tsconfig.json" },
-        node: true,
-      },
+      // import-x@4 needs the resolver-next API: the legacy `import-x/resolver`
+      // object form does not load the TS resolver here, so `@/*` path aliases
+      // never resolve (issue #333: a deliberate lib/payment cycle produced zero
+      // output).
+      "import-x/resolver-next": [
+        createTypeScriptImportResolver({ project: "./tsconfig.json" }),
+      ],
+      // no-cycle walks the dependency graph via ExportMap, which SKIPS any
+      // dependency file whose extension is not in this set — and import-x's
+      // default is only [.js,.mjs,.cjs]. Without .ts/.tsx here, every TS import
+      // is silently dropped from the graph, so no-cycle can never see a cycle in
+      // this (all-TypeScript) codebase (issue #333 root cause).
+      "import-x/extensions": [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"],
     },
     rules: {
       // Cross-domain imports may only enter a lib-<domain> through its index barrel.
@@ -155,7 +173,43 @@ const eslintConfig = defineConfig([
           ],
         },
       ],
+      // 'error' — a NEW cycle must FAIL the build, not merely be reported.
+      // `pnpm lint` is bare `eslint` with no --max-warnings (package.json), and
+      // both CI and the pre-commit hook run it, so a globally-'warn' rule detects
+      // without enforcing — which is the same zero-enforcement end state #333 was
+      // filed to fix. The 11 pre-existing cycles are confined to three domains and
+      // are downgraded by the scoped override below.
       "import-x/no-cycle": ["error", { maxDepth: Infinity, ignoreExternal: true }],
+    },
+  },
+  // The 11 pre-existing barrel cycles all live in booking↔payment↔ledger: report
+  // them, don't block on them. Scoped deliberately narrow so a new cycle in any
+  // OTHER domain still errors — and a cycle with one foot outside these three
+  // errors on the outside file, so containment holds (verified by planting a
+  // lib/notification ↔ lib/booking cycle: 2 errors, exit 1).
+  //
+  // KNOWN LIMITATION: this is scoped by DOMAIN, not by the 11 known cycles, so a
+  // brand-new cycle created wholly inside these three also only warns. Accepted
+  // because master enforced nothing anywhere; #343 removes the need entirely.
+  // Burn-down is tracked by #343 — delete this whole block when it lands.
+  //
+  // The `ignores` below is REQUIRED, not decorative. This object declares no
+  // `plugins`, so it relies on the main block's `import-x` registration — which
+  // only applies to files the main block matches. Drop the `ignores` and this
+  // object starts matching __tests__/*.test.* files that the main block excludes,
+  // where `import-x` is unregistered, and ESLint refuses to load the whole config:
+  //   "The 'import-x' plugin is not defined within the same configuration object
+  //    in which the 'import-x/no-cycle' rule is applied."
+  // Keep these two ignore lists in sync with the main block's.
+  {
+    files: [
+      "lib/booking/**/*.{ts,tsx}",
+      "lib/payment/**/*.{ts,tsx}",
+      "lib/ledger/**/*.{ts,tsx}",
+    ],
+    ignores: ["**/__tests__/**", "**/*.test.{ts,tsx}"],
+    rules: {
+      "import-x/no-cycle": ["warn", { maxDepth: Infinity, ignoreExternal: true }],
     },
   },
   // Override default ignores of eslint-config-next.
