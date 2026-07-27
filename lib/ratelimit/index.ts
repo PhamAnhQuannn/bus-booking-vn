@@ -10,6 +10,7 @@
 import type { Ratelimit as UpstashRatelimitClient } from '@upstash/ratelimit';
 import type Redis from 'ioredis';
 import { logger } from '@/lib/logger';
+import { resolveRatelimitBackend } from '@/lib/config';
 
 export interface RatelimitResult {
   allowed: boolean;
@@ -105,16 +106,46 @@ export class UpstashRatelimit implements Ratelimit {
     return this.rl;
   }
 
+  /**
+   * FAILS OPEN, matching IoRedisRatelimit below — deliberately, and the deliberation
+   * matters because it is the opposite of what consumeJti does one module over.
+   *
+   * A rate limiter is a throttle, not an authorisation gate: if it cannot reach
+   * Upstash the safe move is to let traffic through, because proxy.ts awaits this
+   * call for EVERY non-safe /api/* request before routing. Without the catch, one
+   * Upstash REST timeout 500s the whole surface — holds, bookings, login, and the
+   * SePay webhook, which is not rate-limit-exempt. SePay then marks the delivery
+   * failed and retries on Fibonacci backoff over ~5h while real customer money sits
+   * unconfirmed. Bank transfer is the only live rail, so an Upstash hiccup would be
+   * a revenue outage.
+   *
+   * The cost of failing open is that abuse throttling is off for the duration of an
+   * Upstash outage (including the per-session hold caps that ride this limiter).
+   * Degraded, not breached — no authentication decision is made here.
+   *
+   * Replay guards must NOT copy this: see consumeJti in lib/auth/otpProof.ts, which
+   * fails CLOSED for exactly the same outage.
+   */
   async limit(identifier: string): Promise<RatelimitResult> {
-    const client = await this.getClient();
-    const result = await client.limit(identifier);
-    const now = Date.now();
-    const retryAfterSecs = result.success ? 0 : Math.max(0, Math.ceil((result.reset - now) / 1000));
-    return {
-      allowed: result.success,
-      remaining: result.remaining,
-      retryAfter: retryAfterSecs,
-    };
+    try {
+      const client = await this.getClient();
+      const result = await client.limit(identifier);
+      const now = Date.now();
+      const retryAfterSecs = result.success
+        ? 0
+        : Math.max(0, Math.ceil((result.reset - now) / 1000));
+      return {
+        allowed: result.success,
+        remaining: result.remaining,
+        retryAfter: retryAfterSecs,
+      };
+    } catch (err) {
+      // Drop the memoised client so the next request rebuilds it (mirrors the
+      // ioredis branch) — a bad client should not be cached past the incident.
+      this.rl = null;
+      logger.error({ err, identifier }, 'ratelimit.upstash.limit_failed — fail-open');
+      return { allowed: true, remaining: 0, retryAfter: 0 };
+    }
   }
 }
 
@@ -215,19 +246,21 @@ export class IoRedisRatelimit implements Ratelimit {
  * - REDIS_PROVIDER=ioredis         → IoRedisRatelimit (self-hosted Redis)
  * - REDIS_PROVIDER=upstash (or Upstash env vars set) → UpstashRatelimit
  * - Default (no provider / no vars) → InMemoryRatelimit
+ *
+ * The choice itself lives in resolveRatelimitBackend (lib/config/env.ts) so the
+ * boot warning about in-memory-in-production is computed from the SAME predicate
+ * this factory uses. Re-deriving it there would let the two drift, and a warning
+ * that fires when the backend is actually fine is worse than none.
  */
 export function createRatelimit(options: InMemoryRatelimitOptions): Ratelimit {
-  const provider = process.env.REDIS_PROVIDER;
-
-  if (provider === 'ioredis') {
-    return new IoRedisRatelimit(options);
+  switch (resolveRatelimitBackend()) {
+    case 'ioredis':
+      return new IoRedisRatelimit(options);
+    case 'upstash':
+      return new UpstashRatelimit(options);
+    default:
+      return new InMemoryRatelimit(options);
   }
-
-  if (provider === 'upstash' || (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)) {
-    return new UpstashRatelimit(options);
-  }
-
-  return new InMemoryRatelimit(options);
 }
 
 /** Default shared ratelimit: 60 requests/min/IP */

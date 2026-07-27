@@ -11,6 +11,7 @@
 import { SignJWT, jwtVerify } from 'jose';
 import crypto from 'crypto';
 import type IORedisType from 'ioredis';
+import { logger } from '@/lib/logger';
 
 const OTP_PROOF_TTL_SECONDS = 300; // 5 minutes
 
@@ -77,25 +78,48 @@ async function consumeJtiViaIoRedis(jti: string, ttlSec: number): Promise<boolea
   }
 }
 
+/**
+ * Single-use claim on a jti. Returns true only when THIS call won the claim.
+ *
+ * FAILS CLOSED — the deliberate opposite of the rate limiter in
+ * lib/ratelimit/index.ts, which fails open on the same Upstash outage. That one
+ * is a throttle; this one is a replay guard, and "Redis is unreachable" is not
+ * evidence a proof is unused. Returning true on error would let an attacker
+ * replay an OTP proof or a TOTP code during exactly the network blip that makes
+ * them retry.
+ *
+ * The catch is what makes that posture deliberate rather than accidental. Before
+ * it, an Upstash error propagated: verifyOtpProof's outer catch happened to
+ * swallow it into a rejection, but verifyLoginTotp (lib/auth/adminTotp.ts) has no
+ * catch of its own, so the same blip surfaced as an unhandled 500 on admin TOTP
+ * verify — fail-closed by crash, with a stack trace instead of a clean denial.
+ */
 export async function consumeJti(jti: string, ttlSec: number): Promise<boolean> {
   const provider = process.env.REDIS_PROVIDER;
 
-  if (provider === 'ioredis') {
-    return consumeJtiViaIoRedis(jti, ttlSec);
+  try {
+    if (provider === 'ioredis') {
+      return await consumeJtiViaIoRedis(jti, ttlSec);
+    }
+
+    const url = process.env.UPSTASH_REDIS_REST_URL;
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+    if (provider === 'upstash' || (url && token)) {
+      const { Redis } = await import('@upstash/redis');
+      const redis = new Redis({ url: url!, token: token! });
+      const key = `otpproof:consumed:${jti}`;
+      const result = await redis.set(key, '1', { nx: true, ex: ttlSec });
+      return result === 'OK';
+    }
+
+    return memConsumeJti(jti, ttlSec * 1000);
+  } catch (err) {
+    // Logged via lib/logger (not console) so the redact list applies. No jti in the
+    // line — it is a single-use credential.
+    logger.error({ err, provider }, 'auth.consume_jti.failed — fail-closed, denying');
+    return false;
   }
-
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-
-  if (provider === 'upstash' || (url && token)) {
-    const { Redis } = await import('@upstash/redis');
-    const redis = new Redis({ url: url!, token: token! });
-    const key = `otpproof:consumed:${jti}`;
-    const result = await redis.set(key, '1', { nx: true, ex: ttlSec });
-    return result === 'OK';
-  }
-
-  return memConsumeJti(jti, ttlSec * 1000);
 }
 
 // ---------------------------------------------------------------------------
