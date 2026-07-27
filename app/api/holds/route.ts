@@ -22,8 +22,16 @@ import { validatePickupSelection } from '@/lib/booking';
 import {
   HoldCapExceededError,
   SessionSeatCapExceededError,
+  SeatMapBusyError,
   SESSION_SEAT_CAP,
 } from '@/lib/core/db/holdErrors';
+
+/**
+ * Seconds to advertise on a contended seat map. Deliberately short and deliberately
+ * NOT HOLD_TTL_MINUTES: contention clears when the competing transaction commits.
+ * This is an estimate, not a tuned value — revisit after a real load test (#362).
+ */
+const SEAT_MAP_BUSY_RETRY_AFTER_SECONDS = '2';
 import { buildSetCookieHeader } from '@/lib/security';
 import { holdsRatelimit, holdsAnonRatelimit } from '@/lib/ratelimit';
 import { clientIp } from '@/lib/core/http/clientIp';
@@ -137,6 +145,16 @@ async function handler(req: NextRequest): Promise<Response> {
       return NextResponse.json(
         { error: 'HOLD_CAP_EXCEEDED' },
         { status: 429, headers: { 'Retry-After': capRetryAfter } }
+      );
+    }
+    // Contention, NOT a cap — and the Retry-After reflects that. Seconds, not the
+    // hold TTL: the seat map frees as soon as the competing transaction commits,
+    // whereas a cap only frees when this caller's own holds expire (#362).
+    if (e instanceof SeatMapBusyError) {
+      logger.warn({ tripId, ticketCount }, 'hold.denied.seat_map_busy — trip lock contended');
+      return NextResponse.json(
+        { error: 'SEAT_MAP_BUSY' },
+        { status: 429, headers: { 'Retry-After': SEAT_MAP_BUSY_RETRY_AFTER_SECONDS } }
       );
     }
     throw e;

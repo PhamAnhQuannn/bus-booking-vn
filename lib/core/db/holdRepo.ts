@@ -12,8 +12,10 @@
  *      the per-phone CONCURRENT_HOLD_CAP count is race-safe (Issue 098).
  *   1a. Counts active holds for the phone INSIDE the phone lock; throws
  *       HoldCapExceededError when count >= CONCURRENT_HOLD_CAP.
- *   2. Acquires pg_advisory_xact_lock(hashtext('hold:' || tripId)) — serialises
- *      concurrent attempts for the same trip inside a single DB transaction.
+ *   2. Acquires pg_TRY_advisory_xact_lock(hashtext('hold:' || tripId)) — serialises
+ *      concurrent attempts for the same trip. TRY, not blocking (#362): the whole
+ *      transaction is retried from outside on contention, so a waiter never pins a
+ *      pooled connection. Throws SeatMapBusyError once TRIP_LOCK_ATTEMPTS is exhausted.
  *   3. Conditionally INSERTs a new Hold only if
  *      (capacity - active-hold sum - confirmed-booking sum) >= ticketCount.
  *      (Issue 040: the blockedSeats term was removed — block-seats is retired.
@@ -37,17 +39,22 @@
 import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
+import { withBoundedRetry } from '@/lib/core/retry';
 import {
   CONCURRENT_HOLD_CAP,
   SESSION_SEAT_CAP,
+  TRIP_LOCK_ATTEMPTS,
+  TRIP_LOCK_BACKOFF_BASE_MS,
   HoldCapExceededError,
   SessionSeatCapExceededError,
+  SeatMapBusyError,
 } from './holdErrors';
 export {
   CONCURRENT_HOLD_CAP,
   SESSION_SEAT_CAP,
   HoldCapExceededError,
   SessionSeatCapExceededError,
+  SeatMapBusyError,
 } from './holdErrors';
 
 export const HOLD_TTL_MINUTES = 10;
@@ -106,7 +113,16 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
 
   type InsertRow = { id: string; expiresAt: Date };
 
-  const rows = await prisma.$transaction(async (tx) => {
+  // The retry wraps the ENTIRE transaction, not a loop inside it. Advisory locks are
+  // xact-scoped and release only on commit/rollback, and a Prisma interactive
+  // transaction cannot be partially rolled back (2026-07-23 P2002 entry) — so a failed
+  // try-lock must throw out of the callback, let the tx roll back, and be re-attempted
+  // from scratch. Retrying inside the tx produces `25P02 current transaction is aborted`.
+  //
+  // Because the sleep happens out here, a waiting retry holds no transaction and
+  // therefore no pooled connection. That is the whole reason the blocking lock had to go.
+  const rows = await withBoundedRetry(
+    () => prisma.$transaction(async (tx) => {
     // 0. Session-level advisory lock (#359) — OUTERMOST, before phone and trip, because a
     // session is the coarsest scope (one session spans many phones). Skipped entirely when
     // no session was supplied, which is why the order stays consistent: a call without a
@@ -145,11 +161,27 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
       throw new HoldCapExceededError();
     }
 
-    // 2. Acquire advisory lock for this trip (serialises concurrent requests).
-    // pg_advisory_xact_lock returns void — use $executeRaw (returns affected row count).
-    await tx.$executeRaw(
-      Prisma.sql`SELECT pg_advisory_xact_lock(hashtext('hold:' || ${tripId}))`
+    // 2. Trip lock — the ONLY one of the three that is a TRY-lock (#362).
+    //
+    // This is the contended one: on a viral trip hundreds of buyers hash to this single
+    // key, and with the blocking variant each waiter pinned a pooled connection for the
+    // full queue wait. At DATABASE_POOL_MAX=1 (the Neon-correct value) one blocked hold
+    // leaves the warm instance with ZERO free connections — a per-instance outage, not
+    // slowness.
+    //
+    // Session and phone locks stay BLOCKING on purpose. They are per-caller, so
+    // contention on them means one person double-clicked; that should wait a few ms, not
+    // get a retry-storm treatment. Converting them too would add two more places a
+    // legitimate double-submit is spuriously rejected, for no connection benefit.
+    //
+    // A try-lock never waits, so it can never be the blocking half of a deadlock cycle —
+    // the session → phone → trip ordering above is still what keeps the other two safe.
+    const lockRows = await tx.$queryRaw<{ locked: boolean }[]>(
+      Prisma.sql`SELECT pg_try_advisory_xact_lock(hashtext('hold:' || ${tripId})) AS locked`
     );
+    if (!lockRows[0]?.locked) {
+      throw new SeatMapBusyError();
+    }
 
     // 3. Conditional INSERT — only if available seats >= ticketCount
     const inserted = await tx.$queryRaw<InsertRow[]>(
@@ -210,8 +242,16 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
       `
     );
 
-    return inserted;
-  });
+      return inserted;
+    }),
+    {
+      attempts: TRIP_LOCK_ATTEMPTS,
+      baseMs: TRIP_LOCK_BACKOFF_BASE_MS,
+      // ONLY contention is retried. The two caps are terminal decisions about this
+      // caller — retrying them would just burn attempts and return the same answer.
+      retryOn: (err) => err instanceof SeatMapBusyError,
+    }
+  );
 
   if (!rows || rows.length === 0) {
     return null; // sold out or trip unavailable

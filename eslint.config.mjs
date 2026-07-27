@@ -222,6 +222,14 @@ const eslintConfig = defineConfig([
     // Generated test artifacts (gitignored, not source):
     "playwright-report/**",
     "test-results/**",
+    // Claude Code harness tooling — CommonJS Node scripts for the agent runtime, not
+    // app source. `.claude/` is gitignored (.gitignore:53) yet ESLint does not read
+    // .gitignore, so these were being linted against the app's ESM/TypeScript rules and
+    // failing `no-require-imports` — a category error that blocks the pre-commit hook
+    // for changes that never touch them. Skill/agent markdown under .claude/ is
+    // unaffected (ESLint does not lint .md).
+    ".claude/hooks/**",
+    ".claude/scripts/**",
     "coverage/**",
   ]),
 ]);

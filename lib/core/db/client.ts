@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
+import { resolveDatabasePoolMax } from './poolConfig';
 
 // Prisma client singleton -- reuse across hot reloads (dev) AND warm invocations (prod serverless)
 
@@ -19,7 +20,11 @@ function createPrismaClient(): PrismaClient {
   // serves concurrent requests, and the SKIP-LOCKED/advisory-lock tests) must
   // set DATABASE_POOL_MAX>1. connectionTimeoutMillis is 10s to absorb Neon
   // autoscale/cold-start latency before a queued acquire fails.
-  const max = Number(process.env.DATABASE_POOL_MAX) || 1;
+  // #363: one resolver shared with the Zod schema, so client.ts and the config can no
+  // longer disagree about the default (they used to: 5 here vs 1 there). Deliberately
+  // NOT getEnv() — that would validate the whole environment just to build the DB
+  // client, breaking every unit test that transitively imports this module.
+  const max = resolveDatabasePoolMax();
   const pool = new Pool({
     connectionString,
     max,

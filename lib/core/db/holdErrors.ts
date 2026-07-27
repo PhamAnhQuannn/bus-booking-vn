@@ -36,3 +36,25 @@ export class SessionSeatCapExceededError extends Error {
     this.name = 'SessionSeatCapExceededError';
   }
 }
+
+/**
+ * Thrown by createHold when the trip's advisory lock stayed contended across every
+ * bounded retry (#362).
+ *
+ * Semantically the OPPOSITE of the two caps above, and the distinction has to survive
+ * all the way to the UI: a cap means "you are holding your allowance" and only clears
+ * when the caller's own holds expire; this means "the seat map is busy right now" and
+ * clears in seconds. Telling a contended buyer they hold too many seats — when they
+ * hold none — is the failure mode this separate type exists to prevent.
+ */
+export class SeatMapBusyError extends Error {
+  constructor() {
+    super('SEAT_MAP_BUSY');
+    this.name = 'SeatMapBusyError';
+  }
+}
+
+/** Attempts (including the first) createHold makes before surfacing SeatMapBusyError. */
+export const TRIP_LOCK_ATTEMPTS = 3;
+/** First backoff ceiling in ms; doubles per attempt, then full-jittered. */
+export const TRIP_LOCK_BACKOFF_BASE_MS = 40;

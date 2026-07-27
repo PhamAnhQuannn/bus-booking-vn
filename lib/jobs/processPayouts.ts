@@ -41,6 +41,17 @@ interface DuePayout {
   net: bigint;
 }
 
+/**
+ * Bound the work one tick claims (#364), mirroring reconcilePayments' CLAIM_LIMIT.
+ *
+ * FOR UPDATE SKIP LOCKED stops concurrent invocations double-claiming, but it does not
+ * bound how many rows ONE tick takes. A completion spike (holiday weekend, T+3 alignment)
+ * could due hundreds of payouts into a single long-held transaction — and the whole tick
+ * runs inside one $transaction under the job advisory lock, so that lock is held for the
+ * entire batch. It gets worse the moment settlePayout stops being a no-network stub.
+ */
+const CLAIM_LIMIT = 200;
+
 export const processPayouts: JobCore = async (tx, opts) => {
   const now = opts?.now ?? new Date();
 
@@ -50,6 +61,8 @@ export const processPayouts: JobCore = async (tx, opts) => {
       FROM "Payout"
       WHERE status = 'requested'::"PayoutStatus"
         AND "scheduledAt" <= NOW()
+      ORDER BY "scheduledAt" ASC
+      LIMIT ${CLAIM_LIMIT}
       FOR UPDATE SKIP LOCKED
     `
   );
