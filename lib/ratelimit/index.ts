@@ -291,3 +291,24 @@ export const adminLoginRatelimit = createRatelimit({ limit: 10, windowMs: 60_000
  * Mirrors opLoginLockout — account-level brake against credential-stuffing.
  */
 export const adminLoginLockout = createRatelimit({ limit: 5, windowMs: 15 * 60_000 });
+
+/**
+ * Seat-hold throttle for a known browser session: 8 attempts/min. Keyed `hold:<bb_sid>`.
+ *
+ * A real buyer makes one or two hold attempts per booking; 8 leaves room for retries and
+ * seat-map fiddling. Keyed on the session rather than the IP because Vietnamese mobile
+ * carriers and shared household Wi-Fi put many unrelated buyers behind one CGNAT egress
+ * address — an IP-keyed hold limit would starve real customers during peak (#359).
+ */
+export const holdsRatelimit = createRatelimit({ limit: 8, windowMs: 60_000 });
+
+/**
+ * Seat-hold throttle for a caller with NO bb_sid: 3 attempts/min/IP. Keyed `hold-anon:<ip>`.
+ *
+ * Deliberately tighter than the session bucket. bb_sid is minted on any safe-method
+ * request, and proxy.ts returns that minting response directly rather than forwarding, so
+ * a real browser always has one by the time it POSTs a hold — it browsed first. A client
+ * that never issues a GET is a script. This bucket is IP-keyed by necessity (there is no
+ * session to key on); the CGNAT concern is bounded because legitimate traffic is not in it.
+ */
+export const holdsAnonRatelimit = createRatelimit({ limit: 3, windowMs: 60_000 });

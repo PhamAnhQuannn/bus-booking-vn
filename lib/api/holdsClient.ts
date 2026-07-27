@@ -30,7 +30,16 @@ export interface HoldSuccess {
 
 export interface HoldError {
   ok: false;
-  code: 'SOLD_OUT' | 'TOO_MANY_REQUESTS' | 'INVALID' | 'PICKUP_INVALID' | 'NETWORK_ERROR';
+  code:
+    | 'SOLD_OUT'
+    | 'TOO_MANY_REQUESTS'
+    // #359: distinct from a throttle — the caller is at their allowance and must wait for
+    // their own holds to expire (or complete a booking), not merely retry.
+    | 'SESSION_SEAT_CAP_EXCEEDED'
+    | 'HOLD_CAP_EXCEEDED'
+    | 'INVALID'
+    | 'PICKUP_INVALID'
+    | 'NETWORK_ERROR';
   retryAfter?: number; // seconds (for 429)
 }
 
@@ -63,6 +72,14 @@ export async function createHoldRequest(body: HoldRequestBody): Promise<HoldResu
 
   if (res.status === 429) {
     const retryAfter = Number(res.headers.get('Retry-After') ?? '60');
+    // Three different things return 429 and they need different copy. A throttle clears in
+    // seconds; a seat/hold cap only clears when the caller's OWN holds expire, so telling
+    // someone at their allowance to "try again in 60s" is simply wrong (#359).
+    const body = await res.json().catch(() => null);
+    const code = body?.error;
+    if (code === 'SESSION_SEAT_CAP_EXCEEDED' || code === 'HOLD_CAP_EXCEEDED') {
+      return { ok: false, code, retryAfter };
+    }
     return { ok: false, code: 'TOO_MANY_REQUESTS', retryAfter };
   }
 

@@ -46,6 +46,7 @@ type FormState =
   | { status: 'submitting' }
   | { status: 'sold_out' }
   | { status: 'rate_limited'; retryAfter: number }
+  | { status: 'hold_cap' }
   | { status: 'error'; message: string }
   | { status: 'field_errors'; errors: Record<string, string>; suggestion?: string };
 
@@ -150,6 +151,14 @@ export function CustomerForm() {
         }
         if (result.code === 'TOO_MANY_REQUESTS') {
           return { status: 'rate_limited', retryAfter: result.retryAfter ?? 60 };
+        }
+        // #359: at the seat/hold allowance, not throttled. "Try again in 60s" would be a
+        // lie — the allowance only frees when this buyer's own holds expire.
+        if (
+          result.code === 'SESSION_SEAT_CAP_EXCEEDED' ||
+          result.code === 'HOLD_CAP_EXCEEDED'
+        ) {
+          return { status: 'hold_cap' };
         }
         if (result.code === 'PICKUP_INVALID') {
           return { status: 'field_errors', errors: { pickup: 'Điểm đón không hợp lệ. Vui lòng chọn lại.' } };
@@ -351,6 +360,13 @@ export function CustomerForm() {
       {state.status === 'rate_limited' && (
         <div role="alert" className="bg-warning border border-warning-border rounded p-3 text-warning-foreground">
           Quá nhiều yêu cầu. Vui lòng thử lại sau {state.retryAfter} giây.
+        </div>
+      )}
+
+      {state.status === 'hold_cap' && (
+        <div role="alert" className="bg-warning border border-warning-border rounded p-3 text-warning-foreground">
+          Bạn đang giữ nhiều chỗ cùng lúc. Vui lòng hoàn tất thanh toán cho các chỗ đã giữ,
+          hoặc đợi chúng hết hạn rồi thử lại. Cần đặt nhiều chỗ hơn? Vui lòng liên hệ nhà xe.
         </div>
       )}
 

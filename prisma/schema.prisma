@@ -257,11 +257,17 @@ model Hold {
   pickupDetail    String?
   /// true ⇔ pickupKind=custom. Derived in SQL at INSERT. SQL-only CHECK enforces pickupDetail ≥5 chars when true.
   customPickupRequested Boolean        @default(false)
+  /// #359: anonymous funnel session (bb_sid) that created this hold. Nullable — pre-#359
+  /// rows have none, and a client that sends no cookie legitimately has none. Used ONLY to
+  /// bound seats per session (SESSION_SEAT_CAP); carries no PII and is never shown to users.
+  sessionId       String?
   trip            Trip                @relation(fields: [tripId], references: [id])
   booking         Booking?
 
   @@index([tripId, status, expiresAt])
   @@index([expiresAt])
+  /// Supports the per-session active-seat SUM in createHold (#359).
+  @@index([sessionId, status, expiresAt])
 }
 
 enum BookingStatus {
