@@ -11,12 +11,20 @@ function createPrismaClient(): PrismaClient {
   if (!connectionString) {
     throw new Error('DATABASE_URL environment variable is not set');
   }
-  const max = Number(process.env.DATABASE_POOL_MAX) || 5;
+  // Default max:1 is intentional for Vercel's one-request-per-invocation model —
+  // Neon's pooler handles cross-invocation concurrency, so each warm instance
+  // needs only a single physical connection. Consequence: `Promise.all([...])`
+  // query fan-out serializes on that one connection (sum, not max, of latencies).
+  // Multi-connection contexts (local dev, CI integration/e2e where one process
+  // serves concurrent requests, and the SKIP-LOCKED/advisory-lock tests) must
+  // set DATABASE_POOL_MAX>1. connectionTimeoutMillis is 10s to absorb Neon
+  // autoscale/cold-start latency before a queued acquire fails.
+  const max = Number(process.env.DATABASE_POOL_MAX) || 1;
   const pool = new Pool({
     connectionString,
     max,
     idleTimeoutMillis: 10_000,
-    connectionTimeoutMillis: 3_000,
+    connectionTimeoutMillis: 10_000,
   });
   const adapter = new PrismaPg(pool);
   return new PrismaClient({

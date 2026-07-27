@@ -160,9 +160,9 @@ beforeAll(async () => {
     data: {
       tripId: post.tripId,
       operatorId: post.operatorId,
-      gross: GROSS,
-      platformFee: FEE,
-      net: NET,
+      gross: BigInt(GROSS),
+      platformFee: BigInt(FEE),
+      net: BigInt(NET),
       status: 'paid',
       scheduledAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
       settledAt: new Date(),

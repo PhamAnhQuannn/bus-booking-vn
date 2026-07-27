@@ -28,7 +28,7 @@ import { getEffectiveFeeRate } from '@/lib/ledger';
 
 export interface OperatorPayoutHistoryItem {
   id: string;
-  net: number;
+  net: string;
   status: PayoutStatus;
   scheduledAt: Date;
   settledAt: Date | null;
@@ -152,7 +152,7 @@ export async function getOperatorDetail(
     currentFeePpm,
     payoutHistory: payouts.map((p) => ({
       id: p.id,
-      net: p.net,
+      net: p.net.toString(),
       status: p.status,
       scheduledAt: p.scheduledAt,
       settledAt: p.settledAt,
