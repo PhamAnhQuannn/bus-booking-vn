@@ -10,7 +10,7 @@
 import type { Ratelimit as UpstashRatelimitClient } from '@upstash/ratelimit';
 import type Redis from 'ioredis';
 import { logger } from '@/lib/logger';
-import { resolveRatelimitBackend } from '@/lib/config';
+import { resolveRatelimitBackend } from '@/lib/core/http/ratelimitBackend';
 
 export interface RatelimitResult {
   allowed: boolean;
@@ -247,10 +247,10 @@ export class IoRedisRatelimit implements Ratelimit {
  * - REDIS_PROVIDER=upstash (or Upstash env vars set) → UpstashRatelimit
  * - Default (no provider / no vars) → InMemoryRatelimit
  *
- * The choice itself lives in resolveRatelimitBackend (lib/config/env.ts) so the
- * boot warning about in-memory-in-production is computed from the SAME predicate
- * this factory uses. Re-deriving it there would let the two drift, and a warning
- * that fires when the backend is actually fine is worse than none.
+ * The choice itself lives in resolveRatelimitBackend (lib/core/http) so the boot
+ * warning about in-memory-in-production is computed from the SAME predicate this
+ * factory uses. Re-deriving it there would let the two drift, and a warning that
+ * fires when the backend is actually fine is worse than none.
  */
 export function createRatelimit(options: InMemoryRatelimitOptions): Ratelimit {
   switch (resolveRatelimitBackend()) {

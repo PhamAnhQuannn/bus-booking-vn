@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+import { resolveRatelimitBackend } from '@/lib/core/http/ratelimitBackend';
 
 const envSchema = z.object({
   /**
@@ -619,35 +620,6 @@ export function getEnv(): AppEnv {
     );
   }
   return _env;
-}
-
-/**
- * Which rate-limit backend the runtime will actually use.
- *
- * The single source of truth for that choice: lib/ratelimit's createRatelimit
- * switches on this, and getEnv's in-memory-in-production warning tests it. Two
- * copies of the predicate would drift, and a warning that fires while the backend
- * is genuinely fine is worse than no warning at all.
- *
- * Reads raw process.env rather than the parsed schema because consumeJti
- * (lib/auth/otpProof.ts) resolves its own client from the same raw vars, and
- * because the Upstash-vars-present fallback below has no schema equivalent.
- */
-export function resolveRatelimitBackend(): 'ioredis' | 'upstash' | 'memory' {
-  const provider = process.env.REDIS_PROVIDER;
-
-  if (provider === 'ioredis') return 'ioredis';
-
-  // Note the asymmetry with REDIS_PROVIDER: having both Upstash REST vars is enough
-  // on its own, even when REDIS_PROVIDER is unset or 'memory'.
-  if (
-    provider === 'upstash' ||
-    (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
-  ) {
-    return 'upstash';
-  }
-
-  return 'memory';
 }
 
 /** Reset cached env (test helper only). */
