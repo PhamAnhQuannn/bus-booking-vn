@@ -10,11 +10,21 @@ leave the column" is how a nullable column re-armed the wrong-payee bug.
 
 ## Why these could not ship separately
 
-`createHold` used to take the trip advisory lock with the **blocking**
+`createHold` used to take its advisory locks with the **blocking**
 `pg_advisory_xact_lock`. PR #301 changes the pool default from 5 to 1. At `pool=1` a
 single blocked hold leaves the warm instance with **zero** free connections, so the
 instance serves nothing until `connectionTimeoutMillis`. Shipping #301 alone converts a
-degraded path into a per-instance outage. The bounded lock is what makes `pool=1` safe.
+degraded path into a per-instance outage. The bounded locks are what make `pool=1` safe.
+
+All **three** locks — session, phone, trip — are try-locks, and the claim above is only
+true because of that. Advisory locks are global while the pool is per-instance, so the
+outage shape needs just one contended key held by another instance; it does not care
+which key. An earlier draft bounded only the trip lock, on the reasoning that session and
+phone are per-caller. Phase 1 has no customer auth, so `customerPhone` is attacker-chosen
+and `bb_sid` is an unsigned client-mintable cookie — leaving either blocking would have
+left the same outage reachable through a key an attacker picks, and this document's claim
+would have been true only of trip contention. The invariant to preserve on any future
+edit: **no request holds a pooled connection while waiting for a lock.**
 
 **Therefore: never revert the lock change while leaving `pool=1` deployed.** That
 combination is strictly worse than either version alone and is the one ordering that must
@@ -41,9 +51,23 @@ Both migrations are **forward-compatible with the previous code**:
 - `Hold.sessionId` is nullable; pre-#359 code never writes or reads it. Rows created
   during the rolled-back window simply have `NULL`, which the seat cap treats as "no
   session to attribute" if the code is rolled forward again.
-- The `Payout` columns are wider than the old code expects. The old code reads them as
-  JS `number` via Prisma — safe for any realistic VND value, and it never writes a value
-  that would not have fit in `INT` anyway.
+- The `Payout` columns are wider than the old code expects. Every VALUE written during
+  the rolled-forward window still fits in `INT4` — nothing in the payout path can produce
+  a VND amount near 2^31 — so no data is lost by reverting the code.
+
+  **Not verified: whether the old Prisma client can READ an `int8` column it declares as
+  `Int`.** Prisma deserialises against its own generated schema, so a widened column is a
+  client/DB type mismatch, and it may throw rather than coerce. Nobody has run it. Do NOT
+  discover this during an incident — before relying on this path, point a build of the
+  previous commit at a migrated database and run one payout read:
+
+  ```
+  pnpm prisma generate && node -e "require('./lib/core/db/client').prisma.payout.findFirst().then(console.log)"
+  ```
+
+  If it throws, the code-only revert is not available and you are in the
+  "schema must also be rolled back" path below. This bullet exists because an earlier
+  draft asserted the read was safe without anyone having tried it.
 - Index changes are transparent to both versions. Dropping `Hold_expiresAt_idx` in favour
   of `Hold_status_expiresAt_idx` only affects plan choice; the sweeper's query filters on
   both columns, so the composite serves it strictly better.

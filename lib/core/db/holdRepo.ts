@@ -128,9 +128,12 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
     // no session was supplied, which is why the order stays consistent: a call without a
     // session simply starts at the phone lock, it never takes these out of sequence.
     if (sessionId) {
-      await tx.$executeRaw(
-        Prisma.sql`SELECT pg_advisory_xact_lock(hashtext('hold-session:' || ${sessionId}))`
+      const sessionLock = await tx.$queryRaw<{ locked: boolean }[]>(
+        Prisma.sql`SELECT pg_try_advisory_xact_lock(hashtext('hold-session:' || ${sessionId})) AS locked`
       );
+      if (!sessionLock[0]?.locked) {
+        throw new SeatMapBusyError();
+      }
 
       // 0a. Seat cap for this session. SUM(ticketCount), not COUNT(*) — the whole point is
       // that five holds of ten seats is 50 seats, which a hold COUNT cannot see.
@@ -147,9 +150,12 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
     // 1. Phone-level advisory lock — serialises all hold attempts from this phone
     // across every trip, making the cap count check race-safe (Issue 098).
     // Must be acquired BEFORE the trip lock to maintain a consistent lock order.
-    await tx.$executeRaw(
-      Prisma.sql`SELECT pg_advisory_xact_lock(hashtext('hold-phone:' || ${customerPhone}))`
+    const phoneLock = await tx.$queryRaw<{ locked: boolean }[]>(
+      Prisma.sql`SELECT pg_try_advisory_xact_lock(hashtext('hold-phone:' || ${customerPhone})) AS locked`
     );
+    if (!phoneLock[0]?.locked) {
+      throw new SeatMapBusyError();
+    }
 
     // 1a. Concurrent-hold cap: count ACTIVE non-expired holds for this phone.
     // Running inside the phone lock ensures no concurrent hold can slip in between
@@ -161,21 +167,38 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
       throw new HoldCapExceededError();
     }
 
-    // 2. Trip lock — the ONLY one of the three that is a TRY-lock (#362).
+    // 2. Trip lock — a TRY-lock, like the two above it (#362).
     //
-    // This is the contended one: on a viral trip hundreds of buyers hash to this single
+    // This is the most contended: on a viral trip hundreds of buyers hash to this single
     // key, and with the blocking variant each waiter pinned a pooled connection for the
     // full queue wait. At DATABASE_POOL_MAX=1 (the Neon-correct value) one blocked hold
     // leaves the warm instance with ZERO free connections — a per-instance outage, not
     // slowness.
     //
-    // Session and phone locks stay BLOCKING on purpose. They are per-caller, so
-    // contention on them means one person double-clicked; that should wait a few ms, not
-    // get a retry-storm treatment. Converting them too would add two more places a
-    // legitimate double-submit is spuriously rejected, for no connection benefit.
+    // ALL THREE are try-locks, and that uniformity is the point. An earlier draft kept
+    // session and phone blocking, reasoning they are per-caller so contention means one
+    // person double-clicked. That reasoning does not survive Phase 1's threat model:
+    // there is no customer auth, so `customerPhone` is entirely attacker-chosen (its own
+    // validator says so) and `bb_sid` is an unsigned cookie the client can mint. Neither
+    // is per-caller in any enforceable sense, and no hold rate limiter is keyed on phone.
     //
-    // A try-lock never waits, so it can never be the blocking half of a deadlock cycle —
-    // the session → phone → trip ordering above is still what keeps the other two safe.
+    // The failure mode is the same one the trip lock was converted for, because advisory
+    // locks are GLOBAL while the pool is PER-INSTANCE: an attacker firing concurrent
+    // holds that all share one phone (or one forged sid) has each instance block its only
+    // connection waiting on a lock some other instance holds. Fixing that for the trip
+    // key alone would have left two attacker-controlled keys with the identical shape —
+    // and the rollback doc's claim that "the bounded lock is what makes pool=1 safe"
+    // would have been true only of trip contention.
+    //
+    // So the invariant is now unconditional, and matches what withBoundedRetry's own
+    // docblock already claimed: no request EVER holds a pooled connection while waiting
+    // for a lock. The cost is that a genuine double-submit gets a jittered retry instead
+    // of a short wait, which the retry budget absorbs; if it somehow exhausts, a 429 with
+    // Retry-After is a defensible answer to a double-click.
+    //
+    // A try-lock never waits, so it can never be the blocking half of a deadlock cycle.
+    // The session → phone → trip ordering is kept anyway: it costs nothing and keeps the
+    // acquisition order reviewable if any of these ever goes back to blocking.
     const lockRows = await tx.$queryRaw<{ locked: boolean }[]>(
       Prisma.sql`SELECT pg_try_advisory_xact_lock(hashtext('hold:' || ${tripId})) AS locked`
     );

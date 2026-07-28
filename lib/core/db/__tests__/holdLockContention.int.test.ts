@@ -220,3 +220,69 @@ describe('bounded trip-lock under contention (#362)', () => {
     expect(agg._sum.ticketCount ?? 0).toBeLessThanOrEqual(CAPACITY);
   });
 });
+
+/**
+ * The other two locks, which an earlier draft left BLOCKING on the reasoning that they
+ * are per-caller so contention means a double-click.
+ *
+ * Phase 1 has no customer auth: `customerPhone` is entirely attacker-chosen and `bb_sid`
+ * is an unsigned cookie the client can mint, so neither is per-caller in any enforceable
+ * sense — and no hold rate limiter is keyed on phone. Advisory locks are GLOBAL while the
+ * connection pool is PER-INSTANCE, so concurrent holds sharing one phone (or one forged
+ * sid) reproduce the trip lock's exact failure: each instance blocks its only connection
+ * (DATABASE_POOL_MAX=1) waiting on a lock another instance holds.
+ *
+ * Same cross-connection shape as the trip gate above, for the same reason: firing N
+ * concurrent calls in-process is vacuous at pool=1, because the pool serialises them
+ * before any lock is reached.
+ *
+ * These fail against a blocking implementation — 'timeout' instead of 'busy'.
+ */
+describe.each([
+  {
+    lock: 'phone',
+    key: 'hold-phone:',
+    keyValue: '+8490xxxxxx7',
+    args: { customerPhone: '+8490xxxxxx7', sessionId: 'sess-phone-gate' },
+  },
+  {
+    lock: 'session',
+    key: 'hold-session:',
+    keyValue: 'sess-contended-gate',
+    args: { customerPhone: '+8490xxxxxx6', sessionId: 'sess-contended-gate' },
+  },
+])('bounded $lock-lock under contention', ({ key, keyValue, args }) => {
+  it('declines with SeatMapBusyError instead of pinning the connection', async () => {
+    const holder = new Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
+    const held = await holder.connect();
+
+    try {
+      await held.query('BEGIN');
+      await held.query(`SELECT pg_advisory_xact_lock(hashtext('${key}' || $1))`, [keyValue]);
+
+      const started = Date.now();
+      const outcome = await Promise.race([
+        createHold({
+          tripId,
+          ticketCount: 1,
+          customerName: 'Contended Buyer',
+          ...args,
+        }).then(
+          () => 'resolved' as const,
+          (err) => (err instanceof SeatMapBusyError ? ('busy' as const) : Promise.reject(err))
+        ),
+        new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), 3_000)),
+      ]);
+      const elapsed = Date.now() - started;
+
+      // 'timeout' IS the regression: the call was queued on the lock rather than declining,
+      // holding a pooled connection for the whole wait.
+      expect(outcome).toBe('busy');
+      expect(elapsed).toBeLessThan(3_000);
+    } finally {
+      await held.query('ROLLBACK');
+      held.release();
+      await holder.end();
+    }
+  });
+});

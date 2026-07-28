@@ -49,23 +49,70 @@ interface DuePayout {
  * could due hundreds of payouts into a single long-held transaction — and the whole tick
  * runs inside one $transaction under the job advisory lock, so that lock is held for the
  * entire batch. It gets worse the moment settlePayout stops being a no-network stub.
+ *
+ * A bounded budget is only safe if every row it claims can actually PROGRESS. The
+ * unverified-account guard below skips its row without changing `status` or
+ * `scheduledAt`, so a skipped payout stays permanently in the candidate set — and
+ * `ORDER BY scheduledAt ASC` sorts the oldest, most-stuck rows FIRST. One operator who
+ * never verifies their account and accumulates CLAIM_LIMIT due payouts would therefore
+ * consume the entire budget every tick, forever, and every other operator's genuinely
+ * due payouts would never be reached. `rowsAffected` would read 0 — indistinguishable
+ * from idle. That is the 2026-07-24 "permanent hold starves a bounded work queue"
+ * pattern from the mistake log, and adding the LIMIT is what would have armed it.
+ *
+ * So the candidate query excludes unpayable rows in SQL rather than claiming and then
+ * skipping them. The JS guard stays as a race-guard (verification can be revoked between
+ * the SELECT and the update), and the stuck rows are counted separately so they remain
+ * observable instead of becoming invisible.
  */
 const CLAIM_LIMIT = 200;
 
 export const processPayouts: JobCore = async (tx, opts) => {
   const now = opts?.now ?? new Date();
 
+  // EXISTS, not a join: only "Payout" is in the FROM list, so FOR UPDATE locks exactly
+  // the rows this tick claims and nothing in "PayoutAccount".
   const due = await tx.$queryRaw<DuePayout[]>(
     Prisma.sql`
-      SELECT id, "operatorId", net
-      FROM "Payout"
-      WHERE status = 'requested'::"PayoutStatus"
-        AND "scheduledAt" <= NOW()
-      ORDER BY "scheduledAt" ASC
+      SELECT p.id, p."operatorId", p.net
+      FROM "Payout" p
+      WHERE p.status = 'requested'::"PayoutStatus"
+        AND p."scheduledAt" <= NOW()
+        AND EXISTS (
+          SELECT 1 FROM "PayoutAccount" pa
+          WHERE pa."operatorId" = p."operatorId"
+            AND pa."verifiedAt" IS NOT NULL
+        )
+      ORDER BY p."scheduledAt" ASC
       LIMIT ${CLAIM_LIMIT}
       FOR UPDATE SKIP LOCKED
     `
   );
+
+  // Due but unpayable — deliberately NOT claimed above (see CLAIM_LIMIT). Counted so the
+  // backlog stays visible: excluding these rows from the budget is what keeps the sweeper
+  // live, but it would otherwise make a stuck operator silently invisible, which is how
+  // the starvation this guards against would have gone unnoticed in the first place.
+  const [blocked] = await tx.$queryRaw<{ count: bigint }[]>(
+    Prisma.sql`
+      SELECT COUNT(*) AS count
+      FROM "Payout" p
+      WHERE p.status = 'requested'::"PayoutStatus"
+        AND p."scheduledAt" <= NOW()
+        AND NOT EXISTS (
+          SELECT 1 FROM "PayoutAccount" pa
+          WHERE pa."operatorId" = p."operatorId"
+            AND pa."verifiedAt" IS NOT NULL
+        )
+    `
+  );
+  const blockedCount = Number(blocked?.count ?? 0);
+  if (blockedCount > 0) {
+    logger.warn(
+      { blockedCount },
+      'processPayouts.due_but_payout_account_unverified'
+    );
+  }
 
   // Lazy import keeps this core free of a module-level `@/lib/core/db/client` load:
   // unit tests that import the cron route (which imports this core) must not
@@ -80,8 +127,13 @@ export const processPayouts: JobCore = async (tx, opts) => {
   let processed = 0;
   let skipped = 0;
   for (const payout of due) {
-    // Issue 078: only send to a verified payout account. Unverified → skip,
-    // leaving the row `requested` for a later sweep (no status change, no debit).
+    // Issue 078: only send to a verified payout account. Unverified → skip, leaving the
+    // row `requested` for a later sweep (no status change, no debit).
+    //
+    // Now a RACE-guard rather than the primary filter: the candidate query already
+    // excludes unverified accounts, so this only fires if verification was revoked
+    // between that SELECT and here. Kept because the consequence of getting it wrong is
+    // paying money to an unverified account.
     if (!(await isPayoutAccountVerified(tx, payout.operatorId))) {
       skipped += 1;
       continue;
@@ -153,9 +205,10 @@ export const processPayouts: JobCore = async (tx, opts) => {
     processed += 1;
   }
 
-  // Issue 078: a skipped (unverified-account) payout is left `requested` for retry —
-  // surface the count so an operator stuck unverified is observable, but it does not
-  // count toward rowsAffected (nothing was settled for those).
+  // Issue 078: a skipped payout is left `requested` for retry — it does not count toward
+  // rowsAffected (nothing was settled). Post-#364 this should be ~0, since the candidate
+  // query pre-filters; a non-zero value means verification was revoked mid-tick, which is
+  // worth seeing on its own rather than folded into the backlog warning above.
   if (skipped > 0) {
     logger.info({ skipped, processed }, 'processPayouts.skipped_unverified_payout_account');
   }
