@@ -116,6 +116,95 @@ describe('getEnv — email-stub boot warn (#337)', () => {
 });
 
 /**
+ * Boot warn when production would silently rate-limit in memory.
+ *
+ * createRatelimit() falls back to InMemoryRatelimit — a per-instance Map — when no
+ * Redis backend resolves. On Vercel that means the limit is really "per lambda
+ * instance": N warm instances give N× the configured budget and every cold start
+ * resets the counter, with no error and nothing logged. Warn rather than throw, so a
+ * lost env var degrades loudly instead of failing the deploy of a live site.
+ */
+describe('getEnv — in-memory rate limiting in production', () => {
+  function ratelimitWarned(): boolean {
+    return warnSpy.mock.calls.some((c: unknown[]) =>
+      String(c[0]).includes('env.ratelimit.in_memory_in_production'),
+    );
+  }
+
+  // NODE_ENV=production turns on the superRefine block requiring every secret, so
+  // this base carries them — the warning under test is unrelated to any of them.
+  const PROD = {
+    ...BASE,
+    NOTIFY_STUB: 'true',
+    EMAIL_PROVIDER: 'resend',
+    RESEND_API_KEY: 're_x',
+    DATABASE_URL: 'postgresql://u:p@localhost:5432/d',
+    JWT_SECRET: 'j'.repeat(32),
+    JWT_OPERATOR_SECRET: 'o'.repeat(32),
+    JWT_ADMIN_SECRET: 'a'.repeat(32),
+    TOTP_ENCRYPTION_KEY: 'b'.repeat(64),
+    BANK_ENCRYPTION_KEY: 'c'.repeat(64),
+    CRON_SECRET: 'cron-secret-value',
+    REFRESH_TOKEN_SECRET: 'r'.repeat(32),
+    TICKET_SECRET: 't'.repeat(32),
+  };
+
+  function clearRedisEnv() {
+    for (const k of ['REDIS_PROVIDER', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN']) {
+      delete process.env[k];
+    }
+  }
+
+  it('warns in production when no Redis backend resolves', () => {
+    Object.assign(process.env, PROD, { NODE_ENV: 'production' });
+    clearRedisEnv();
+
+    getEnv();
+
+    expect(ratelimitWarned()).toBe(true);
+  });
+
+  it('does NOT warn when REDIS_PROVIDER=upstash', () => {
+    Object.assign(process.env, PROD, {
+      NODE_ENV: 'production',
+      REDIS_PROVIDER: 'upstash',
+      UPSTASH_REDIS_REST_URL: 'https://fake.upstash.io',
+      UPSTASH_REDIS_REST_TOKEN: 'fake-token',
+    });
+
+    getEnv();
+
+    expect(ratelimitWarned()).toBe(false);
+  });
+
+  it('does NOT warn when the Upstash vars are set but REDIS_PROVIDER says "memory"', () => {
+    // The false-positive this warning must not produce. createRatelimit picks Upstash
+    // whenever BOTH REST vars are present, regardless of REDIS_PROVIDER — so reading
+    // the schema field alone would warn while the backend is genuinely fine. Both the
+    // factory and this warning go through resolveRatelimitBackend for that reason.
+    Object.assign(process.env, PROD, {
+      NODE_ENV: 'production',
+      REDIS_PROVIDER: 'memory',
+      UPSTASH_REDIS_REST_URL: 'https://fake.upstash.io',
+      UPSTASH_REDIS_REST_TOKEN: 'fake-token',
+    });
+
+    getEnv();
+
+    expect(ratelimitWarned()).toBe(false);
+  });
+
+  it('does NOT warn outside production (dev/CI run in memory by design)', () => {
+    Object.assign(process.env, PROD, { NODE_ENV: 'test' });
+    clearRedisEnv();
+
+    getEnv();
+
+    expect(ratelimitWarned()).toBe(false);
+  });
+});
+
+/**
  * VNPAY_HASH_SECRET must not resolve to a value nobody set.
  *
  * It used to default to a literal committed in this public repo, and the guard that

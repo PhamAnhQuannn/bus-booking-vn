@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+import { resolveRatelimitBackend } from '@/lib/core/http/ratelimitBackend';
 
 const envSchema = z.object({
   /**
@@ -625,6 +626,21 @@ export function getEnv(): AppEnv {
   if (_env.EMAIL_PROVIDER !== 'resend') {
     console.warn(
       'env.email.silently_stubbed: EMAIL_PROVIDER is not "resend" — email notifications are STUBBED (logged, marked sent, never delivered). Set EMAIL_PROVIDER=resend + RESEND_API_KEY to send real email.',
+    );
+  }
+  // Same shape, same reason: a misconfiguration that degrades silently rather than
+  // failing. createRatelimit() falls back to InMemoryRatelimit when no Redis backend
+  // resolves — a per-instance Map. On Vercel that means the limit is really "per
+  // lambda instance", so N warm instances give an attacker N× the configured budget,
+  // and every cold start resets the counter. Nothing errors, nothing logs, and the
+  // rate limiting simply is not there.
+  //
+  // A warn rather than a boot error on purpose: refusing to boot would turn a lost
+  // env var into a failed deploy on a live site. Escalate to a hard requirement once
+  // the Vercel Production value is confirmed set.
+  if (process.env.NODE_ENV === 'production' && resolveRatelimitBackend() === 'memory') {
+    console.warn(
+      'env.ratelimit.in_memory_in_production: no Redis backend resolved — rate limiting is PER-INSTANCE and effectively absent across serverless instances. Set REDIS_PROVIDER=upstash + UPSTASH_REDIS_REST_URL/TOKEN.',
     );
   }
   return _env;
