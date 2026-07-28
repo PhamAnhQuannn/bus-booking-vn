@@ -99,7 +99,20 @@ async function claimDueRows(now: Date, limit: number): Promise<DueRow[]> {
  * Dispatch a single claimed row through its channel adapter, passing the
  * already-rendered body string stored in NotificationLog.payload (no re-render).
  */
-async function dispatchRow(row: DueRow): Promise<{ ok: boolean; externalRef?: string; error?: string }> {
+export interface DispatchOutcome {
+  ok: boolean;
+  externalRef?: string;
+  error?: string;
+  /**
+   * Failure kind, when `ok` is false (#368). `rejected` = the vendor answered and
+   * refused (definitively not sent). `unknown` = no answer (timeout/socket reset), so
+   * the message may or may not have been accepted. Currently OBSERVED but not yet acted
+   * on — see the idempotency-key note in dispatchRow.
+   */
+  outcome?: 'rejected' | 'unknown';
+}
+
+async function dispatchRow(row: DueRow): Promise<DispatchOutcome> {
   if (row.channel === 'email') {
     // Resend Idempotency-Key = "<row id>:<attemptCount>", so a cron re-run of the
     // SAME attempt (crash between the send and the status='sent' write) cannot
@@ -117,6 +130,21 @@ async function dispatchRow(row: DueRow): Promise<{ ok: boolean; externalRef?: st
     // only incremented once the attempt's outcome is written: a re-claim of an
     // unfinished attempt reads the same value and therefore rebuilds the same key.
     // cuid ids are alphanumeric, so this stays well under Resend's 256-char limit.
+    //
+    // KNOWN RESIDUAL (#368), deliberately not fixed here. attemptCount advances on
+    // EVERY failure, so an `unknown` outcome (timeout, socket reset — Resend may
+    // already have accepted the message) also gets a fresh key on the next attempt,
+    // and that sends a real duplicate. The trade favours delivery over
+    // duplicate-avoidance, which is right for a ticket confirmation, but it should be
+    // a decision rather than an accident.
+    //
+    // Fixing it needs the PREVIOUS attempt's outcome at claim time, i.e. a persisted
+    // column — the salt would advance only on `rejected`. sendViaResend now returns
+    // that discriminator and it is carried through DispatchOutcome and logged, so the
+    // information exists; only the column and the salt change remain. Scheduled with
+    // the other schema work rather than bolted onto an unrelated column: overloading
+    // `externalRef` (vendor message id) or `lastError` (operator-visible text) with
+    // retry control state is the dual-meaning trap the mistake log already records.
     return sendEmail({
       to: row.recipient,
       template: row.template,
@@ -126,6 +154,15 @@ async function dispatchRow(row: DueRow): Promise<{ ok: boolean; externalRef?: st
   }
   // channel === 'sms' — row.id is the eSMS RequestId (idempotency key) so a
   // cron re-run of the same row cannot double-send.
+  //
+  // NOTE the asymmetry with the email branch above, which salts by attemptCount: this
+  // passes a BARE row.id, so every eSMS retry replays one key. That is only correct if
+  // eSMS does NOT cache and replay failed responses the way Resend does (Resend replays
+  // a key's original response for 24h, errors included — which is exactly why the email
+  // key needs the salt). No vendor-doc citation exists for eSMS's behaviour here, so
+  // this is currently an assumption, not a verified contract. eSMS is stubbed under
+  // NOTIFY_STUB and unverified against the live rail; transcribe the real semantics
+  // from eSMS's docs before it goes live, per the 2026-07-21 webhook-contract rule.
   return sendSmsBody({ to: row.recipient, template: row.template, body: row.payload, requestId: row.id });
 }
 
@@ -136,11 +173,17 @@ export const dispatchNotifications: JobCore = async (_tx, opts?: JobOpts) => {
   let delivered = 0;
 
   for (const row of rows) {
-    let result: { ok: boolean; externalRef?: string; error?: string };
+    let result: DispatchOutcome;
     try {
       result = await dispatchRow(row);
     } catch (err) {
-      result = { ok: false, error: err instanceof Error ? err.message : String(err) };
+      // A throw that escaped the adapter is an unknown outcome by definition — we never
+      // saw the vendor's answer.
+      result = {
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+        outcome: 'unknown',
+      };
     }
 
     if (result.ok) {
@@ -171,7 +214,16 @@ export const dispatchNotifications: JobCore = async (_tx, opts?: JobOpts) => {
         },
       });
       logger.warn(
-        { logId: row.id, channel: row.channel, template: row.template, attempt: nextAttempt },
+        {
+          logId: row.id,
+          channel: row.channel,
+          template: row.template,
+          attempt: nextAttempt,
+          // #368: 'unknown' means the next attempt re-keys and may send a REAL duplicate.
+          // Surfacing it makes the residual measurable — if these are rare in practice
+          // the column fix stays low priority; if they are common it is urgent.
+          outcome: result.outcome ?? 'unspecified',
+        },
         'notify.dispatch.failed'
       );
       // Issue 061 (AC5): alert on a dispatch failure. Additive + non-throwing;
