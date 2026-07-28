@@ -292,7 +292,7 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
   const { legalPredecessors } = await import('@/lib/core/booking');
   const { applyPaidStatusTransition, appendBookingPaidLedger, recoverSepayEvent, recoverVnpayEvent } =
     await import('@/lib/payment');
-  const { refundOut } = await import('@/lib/ledger');
+  const { refundOut } = await import('@/lib/payment');
 
   const now = opts?.now ?? new Date();
   const thresholdAt = new Date(now.getTime() - RECONCILE_THRESHOLD_MINUTES * 60_000);

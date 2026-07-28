@@ -42,8 +42,8 @@
  */
 
 import { prisma } from '@/lib/core/db/client';
-import { appendLedgerEntry } from './ledgerRepo';
-import { refundPayment } from '@/lib/payment';
+import { appendLedgerEntry } from '@/lib/ledger';
+import { refundPayment } from './refund';
 import { logger } from '@/lib/logger';
 
 export type RefundReason =

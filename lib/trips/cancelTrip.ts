@@ -18,7 +18,7 @@ import { TripServiceError } from './errors';
 import type { TripDto } from './tripDto';
 import { toTripDto } from './toTripDto';
 import { randomUUID } from 'crypto';
-import { refundOut } from '@/lib/ledger';
+import { refundOut } from '@/lib/payment';
 import { logger } from '@/lib/logger';
 
 export interface CancelTripResult {

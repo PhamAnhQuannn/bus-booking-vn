@@ -16,7 +16,10 @@ const { mockRefund, mockAudit, stepUpComposed, authOptions } = vi.hoisted(() => 
   authOptions: { value: undefined as unknown },
 }));
 
-vi.mock('@/lib/ledger/refund', () => ({
+// #343: refundOut moved lib/ledger/refund.ts -> lib/payment/refundOut.ts. Note the
+// filename: lib/payment/refund.ts already existed (refundPayment, the PSP call), so
+// mocking './refund' here would stub the wrong module and let the REAL refundOut run.
+vi.mock('@/lib/payment/refundOut', () => ({
   refundOut: mockRefund,
   RefundOutError: class RefundOutError extends Error {
     code: string;
@@ -44,7 +47,7 @@ vi.mock('@/lib/auth/requireStepUp', () => ({
 
 import { POST } from '../route';
 import { NextRequest } from 'next/server';
-import { RefundOutError } from '@/lib/ledger';
+import { RefundOutError } from '@/lib/payment';
 
 function makeRequest(body: unknown): NextRequest {
   return new NextRequest('http://localhost/api/admin/finance/refund-out', {

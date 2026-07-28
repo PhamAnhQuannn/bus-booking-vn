@@ -24,14 +24,14 @@ vi.mock('@/lib/core/db/client', () => {
 });
 
 // Issue 051: cancelTrip now triggers refundOut per paid booking post-commit.
-vi.mock('@/lib/ledger', () => ({
+vi.mock('@/lib/payment', () => ({
   refundOut: vi.fn().mockResolvedValue({ refunded: true, alreadyDone: false }),
 }));
 
 import { cancelTrip } from '../cancelTrip';
 import { TripServiceError } from '../errors';
 import { prisma } from '@/lib/core/db/client';
-import { refundOut } from '@/lib/ledger';
+import { refundOut } from '@/lib/payment';
 
 const p = prisma as unknown as {
   $transaction: Mock;

@@ -23,12 +23,14 @@ const {
   mockAppendLedger,
   mockRenderTemplate,
   mockLegalPredecessors,
+  mockRefundOut,
   mockLogger,
 } = vi.hoisted(() => ({
   mockApplyPaid: vi.fn(),
   mockAppendLedger: vi.fn(),
   mockRenderTemplate: vi.fn(),
   mockLegalPredecessors: vi.fn(),
+  mockRefundOut: vi.fn(),
   mockLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
@@ -52,6 +54,11 @@ vi.mock('@/lib/payment', async () => {
     appendBookingPaidLedger: mockAppendLedger,
     recoverSepayEvent: real.recoverSepayEvent,
     recoverVnpayEvent: realVnpay.recoverVnpayEvent,
+    // #343: refundOut moved from lib/ledger to lib/payment (it calls the PSP, then
+    // writes its ledger entries — the same shape as appendBookingPaidLedger beside it).
+    // The sweeper's dynamic import follows it here, so the mock must too: left on
+    // '@/lib/ledger' it stops intercepting and the REAL refund rail runs in a unit test.
+    refundOut: mockRefundOut,
   };
 });
 vi.mock('@/lib/notification', () => ({
@@ -78,7 +85,7 @@ vi.mock('@prisma/client', () => ({
   },
 }));
 vi.mock('next/server', () => ({ after: vi.fn() }));
-vi.mock('@/lib/ledger', () => ({ refundOut: vi.fn() }));
+// lib/ledger no longer owns refundOut (#343); nothing from that barrel is used here.
 
 import {
   reconcilePayments,
