@@ -1,8 +1,13 @@
 /**
  * getManifest — boarding manifest for a trip (Issue 014 AC6).
  *
- * Returns rows: { name, phone, ticketCount, pickupKind, pickupAreaLabel, pickupDetail, contactStatus,
- *                 paymentStatus, manualFlag }.
+ * Returns rows: { name, phone, ticketCount, pickupKind, pickupDetail, customPickupRequested,
+ *                 contactStatus, paymentStatus, pickedUpAt, escalatedAt, ... } — see
+ *                 ManifestRow below for the authoritative shape.
+ *
+ * (#366: this list previously named `pickupAreaLabel`, a field of the OperatorPickupArea
+ * subsystem that was removed in issue 104 and no longer exists anywhere. It also omitted
+ * `customPickupRequested`, which does. Comment drift, not a code defect.)
  * AC6: NO seatNumber field in output.
  *
  * Tenant-isolated via Trip.operatorId join.
