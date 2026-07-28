@@ -92,12 +92,17 @@ describe('proxy rate-limit — Issue 096', () => {
     expect(res.status).toBe(429);
   });
 
-  it('HMAC webhook (RATELIMIT_EXEMPT Set) is NOT rate-limited — flood passes through', async () => {
+  it('NOTHING is rate-limit exempt — a deleted PSP webhook path is limited like any other', async () => {
+    // The RATELIMIT_EXEMPT Set is gone along with the momo/zalopay/card/vnpay routes
+    // it covered. Those routes resolved a stub-backed gateway whose signing key
+    // defaults to a literal published in this repo, so exempting them from the edge
+    // limiter meant an unauthenticated, unthrottled "mark this booking paid" surface.
+    // This path now 404s at routing; the point here is that the edge no longer waves
+    // any /api/payments/* path past the limiter.
     deny(99);
     const res = await proxy(post('/api/payments/momo/webhook', { ip: '203.0.113.7' }));
-    // Exempt: the limiter is never even consulted, and it is not a 429.
-    expect(limitMock).not.toHaveBeenCalled();
-    expect(res.status).not.toBe(429);
+    expect(limitMock).toHaveBeenCalledWith('203.0.113.7');
+    expect(res.status).toBe(429);
   });
 
   it('bank_transfer webhook IS rate-limited (Issue 329 — Apikey, not HMAC)', async () => {

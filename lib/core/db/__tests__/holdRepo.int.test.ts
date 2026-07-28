@@ -6,12 +6,13 @@
  *
  * Tests:
  *  1. Single insert succeeds when seats are available.
- *  2. 20 parallel inserts on a capacity-1 trip → exactly 1 succeeds, 19 return null.
+ *  2. 20 parallel inserts on a capacity-1 trip → exactly one hold exists afterwards.
  */
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { prisma } from '@/lib/core/db/client';
 import { createHold } from '../holdRepo';
+import { SeatMapBusyError, RequestInFlightError } from '../holdErrors';
 
 // ---------------------------------------------------------------------------
 // Test fixtures
@@ -134,27 +135,49 @@ describe('createHold', () => {
   });
 
   it('20 parallel inserts on capacity-1 trip → exactly 1 succeeds', async () => {
+    // DISTINCT phones, deliberately. This test's subject is the CAPACITY guard, and the
+    // shared phone number it used to pass was incidental — worse, it meant every caller
+    // queued on the per-phone lock, so most never reached the capacity check at all. Once
+    // that lock became a try-lock (#362) the shared phone made 19 callers bail on
+    // self-contention instead, which is a truthful outcome but tests nothing about
+    // capacity. Distinct phones put the contention where the guard actually lives.
     const N = 20;
-    const results = await Promise.all(
+    const results = await Promise.allSettled(
       Array.from({ length: N }, (_, i) =>
         createHold({
           tripId: tripId_one,
           ticketCount: 1,
-          customerPhone: '0912345678',
+          customerPhone: `09123456${String(i).padStart(2, '0')}`,
           customerName: `Parallel User ${i + 1}`,
         })
       )
     );
 
-    const successes = results.filter((r) => r !== null);
-    const failures = results.filter((r) => r === null);
-
+    const successes = results.filter((r) => r.status === 'fulfilled' && r.value !== null);
     expect(successes.length).toBe(1);
-    expect(failures.length).toBe(N - 1);
 
-    // Confirm the successful holdId is unique
-    const holdId = successes[0]!.holdId;
-    expect(typeof holdId).toBe('string');
-    expect(holdId.length).toBeGreaterThan(0);
+    // Everything else must be either a clean sold-out (null) or a contention decline.
+    // Nothing may fail for any OTHER reason — that is what would hide a real bug.
+    const unexpected = results.filter(
+      (r) =>
+        r.status === 'rejected' &&
+        !(r.reason instanceof SeatMapBusyError) &&
+        !(r.reason instanceof RequestInFlightError)
+    );
+    expect(
+      unexpected.map((r) => (r as PromiseRejectedResult).reason?.message ?? 'unknown')
+    ).toEqual([]);
+
+    // THE safety property, and the reason the assertion above is not enough: "exactly one
+    // caller got a truthy result" is a consistency property about return values. What
+    // actually must hold is that the capacity-1 trip carries exactly ONE active hold row —
+    // which is what an oversell would violate (2026-07-23 mistake-log entry).
+    const rows = await prisma.hold.findMany({
+      where: { tripId: tripId_one, status: 'active' },
+      select: { id: true, ticketCount: true },
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].ticketCount).toBe(1);
+    expect(rows[0].id).toBe((successes[0] as PromiseFulfilledResult<{ holdId: string }>).value.holdId);
   });
 });

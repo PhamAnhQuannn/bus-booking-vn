@@ -79,7 +79,27 @@ export class RequestInFlightError extends Error {
   }
 }
 
-/** Attempts (including the first) createHold makes before surfacing SeatMapBusyError. */
-export const TRIP_LOCK_ATTEMPTS = 3;
+/**
+ * Attempts (including the first) createHold makes before surfacing a contention error.
+ *
+ * The name is historical: this was sized in #362 for the TRIP lock alone. It is now the
+ * shared budget for all three try-locks, so one retry is consumed whichever lock was
+ * contended.
+ *
+ * Raised 3 → 6 on evidence, not intuition. At 3, the existing cap integration tests
+ * started failing the moment session and phone became try-locks: with N=6 parallel holds
+ * from ONE phone, the callers that lost the phone-lock race exhausted their retries and
+ * surfaced RequestInFlightError instead of the HoldCapExceededError they had come for.
+ * The cap was never breached — that is a message-quality failure, not a safety one — but
+ * "you are at your hold limit" is the answer the caller actually needs, and they only get
+ * it by reaching the cap check.
+ *
+ * 6 covers a caller contending with CONCURRENT_HOLD_CAP of their own in-flight requests,
+ * which is the worst self-contention the caps themselves permit. Cheap, because
+ * withBoundedRetry sleeps OUTSIDE the transaction: a waiting retry holds no pooled
+ * connection, so the extra attempts cost latency on an already-degraded path and nothing
+ * else. Full jitter keeps the ceiling from being reached in the common case.
+ */
+export const TRIP_LOCK_ATTEMPTS = 6;
 /** First backoff ceiling in ms; doubles per attempt, then full-jittered. */
 export const TRIP_LOCK_BACKOFF_BASE_MS = 40;
