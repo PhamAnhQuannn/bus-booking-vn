@@ -1,11 +1,12 @@
 /**
- * /booking/confirmation?ref=<bookingRef> — VNPay success return destination.
+ * /booking/confirmation?ref=<bookingRef> — ref-addressed success destination.
  *
- * The VNPay return route (app/api/payments/vnpay/return/route.ts) redirects the
- * browser here after a successful (responseCode=00, signature-valid) payment.
- * The IPN webhook is the authoritative state transition; this page just resolves
- * the booking ref to its confirmation token and forwards to the canonical result
- * page (which polls/shows the paid state).
+ * Reached today from the dev stub-pay flow (app/dev/stub-pay/actions.ts), which
+ * stands in for a PSP's browser return leg. The VNPay return route that used to
+ * redirect here was deleted along with the rest of the unreachable PSP webhook
+ * surface. A payment webhook, not this page, is the authoritative state
+ * transition; this page just resolves the booking ref to its confirmation token
+ * and forwards to the canonical result page (which polls/shows the paid state).
  *
  * Distinct from /booking/confirmation/[token] (the token-addressed variant).
  */
