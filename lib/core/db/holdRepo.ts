@@ -2,20 +2,33 @@
  * Hold repository — atomic seat-reservation via advisory lock + conditional INSERT.
  *
  * createHold():
- *   0. Acquires pg_advisory_xact_lock(hashtext('hold-phone:' || customerPhone)) —
+ *   0. Acquires pg_advisory_xact_lock(hashtext('hold-session:' || sessionId)) when a
+ *      session is supplied — serialises concurrent attempts from the same browser
+ *      session across ALL phones and trips so the SESSION_SEAT_CAP sum is race-safe (#359).
+ *   0a. SUMs active seats for the session INSIDE the session lock; throws
+ *       SessionSeatCapExceededError when adding ticketCount would exceed SESSION_SEAT_CAP.
+ *   1. Acquires pg_advisory_xact_lock(hashtext('hold-phone:' || customerPhone)) —
  *      serialises concurrent attempts from the same phone across ALL trips so that
  *      the per-phone CONCURRENT_HOLD_CAP count is race-safe (Issue 098).
- *   0a. Counts active holds for the phone INSIDE the phone lock; throws
+ *   1a. Counts active holds for the phone INSIDE the phone lock; throws
  *       HoldCapExceededError when count >= CONCURRENT_HOLD_CAP.
- *   1. Acquires pg_advisory_xact_lock(hashtext('hold:' || tripId)) — serialises
+ *   2. Acquires pg_advisory_xact_lock(hashtext('hold:' || tripId)) — serialises
  *      concurrent attempts for the same trip inside a single DB transaction.
- *   2. Conditionally INSERTs a new Hold only if
+ *   3. Conditionally INSERTs a new Hold only if
  *      (capacity - active-hold sum - confirmed-booking sum) >= ticketCount.
  *      (Issue 040: the blockedSeats term was removed — block-seats is retired.
  *      Trip.blockedSeats column is dropped in a later wave; until then, not read.)
- *   3. Returns { holdId, expiresAt } on success, null when sold-out.
+ *   4. Returns { holdId, expiresAt } on success, null when sold-out.
  *
- * Lock ordering: phone lock ALWAYS acquired before trip lock to prevent deadlocks.
+ * Lock ordering: session → phone → trip, ALWAYS in that order, to prevent deadlocks.
+ * The session lock is newest and sits OUTERMOST because it is the coarsest scope (one
+ * session spans many phones); inserting it anywhere else would create a lock-order
+ * inversion against concurrent calls that supply no session.
+ *
+ * Why the phone cap is not enough on its own (#359): ticketCount is per-hold and capped
+ * at 10, so CONCURRENT_HOLD_CAP × 10 = 50 seats from one unverified phone — a 45-seat
+ * trip locked in five requests. Phase 1 has no customer auth, so the phone is
+ * attacker-chosen. The session cap bounds SEATS; the phone cap stays as defence in depth.
  *
  * Uses Prisma.$queryRaw (template-tag, parameterised) — never $queryRawUnsafe.
  * HOLD_TTL_MINUTES: 10-minute hold window (leaves 2-min buffer inside the 12-min cookie).
@@ -24,8 +37,18 @@
 import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
-import { CONCURRENT_HOLD_CAP, HoldCapExceededError } from './holdErrors';
-export { CONCURRENT_HOLD_CAP, HoldCapExceededError } from './holdErrors';
+import {
+  CONCURRENT_HOLD_CAP,
+  SESSION_SEAT_CAP,
+  HoldCapExceededError,
+  SessionSeatCapExceededError,
+} from './holdErrors';
+export {
+  CONCURRENT_HOLD_CAP,
+  SESSION_SEAT_CAP,
+  HoldCapExceededError,
+  SessionSeatCapExceededError,
+} from './holdErrors';
 
 export const HOLD_TTL_MINUTES = 10;
 /**
@@ -47,6 +70,14 @@ export interface CreateHoldInput {
   /** Issue 107: traveler pickup selection (already validated + resolved by the caller). */
   pickupKind?: 'station' | 'custom';
   pickupDetail?: string | null;
+  /**
+   * #359: anonymous funnel session (bb_sid) making the request, when the caller sent one.
+   * Null/undefined skips the session seat cap — a caller with no cookie cannot be
+   * attributed to a session, and lumping every such caller into one shared bucket would
+   * let one script starve every cookie-less user behind the same CGNAT egress. The route
+   * layer rate-limits that population separately instead.
+   */
+  sessionId?: string | null;
 }
 
 export interface HoldResult {
@@ -67,6 +98,7 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
     customerEmail = null,
     pickupKind = 'station',
     pickupDetail = null,
+    sessionId = null,
   } = input;
 
   const holdId = randomUUID();
@@ -75,14 +107,35 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
   type InsertRow = { id: string; expiresAt: Date };
 
   const rows = await prisma.$transaction(async (tx) => {
-    // 0. Phone-level advisory lock — serialises all hold attempts from this phone
+    // 0. Session-level advisory lock (#359) — OUTERMOST, before phone and trip, because a
+    // session is the coarsest scope (one session spans many phones). Skipped entirely when
+    // no session was supplied, which is why the order stays consistent: a call without a
+    // session simply starts at the phone lock, it never takes these out of sequence.
+    if (sessionId) {
+      await tx.$executeRaw(
+        Prisma.sql`SELECT pg_advisory_xact_lock(hashtext('hold-session:' || ${sessionId}))`
+      );
+
+      // 0a. Seat cap for this session. SUM(ticketCount), not COUNT(*) — the whole point is
+      // that five holds of ten seats is 50 seats, which a hold COUNT cannot see.
+      const agg = await tx.hold.aggregate({
+        _sum: { ticketCount: true },
+        where: { sessionId, status: 'active', expiresAt: { gt: new Date() } },
+      });
+      const heldSeats = agg._sum.ticketCount ?? 0;
+      if (heldSeats + ticketCount > SESSION_SEAT_CAP) {
+        throw new SessionSeatCapExceededError();
+      }
+    }
+
+    // 1. Phone-level advisory lock — serialises all hold attempts from this phone
     // across every trip, making the cap count check race-safe (Issue 098).
     // Must be acquired BEFORE the trip lock to maintain a consistent lock order.
     await tx.$executeRaw(
       Prisma.sql`SELECT pg_advisory_xact_lock(hashtext('hold-phone:' || ${customerPhone}))`
     );
 
-    // 0a. Concurrent-hold cap: count ACTIVE non-expired holds for this phone.
+    // 1a. Concurrent-hold cap: count ACTIVE non-expired holds for this phone.
     // Running inside the phone lock ensures no concurrent hold can slip in between
     // the count and the INSERT for the same phone.
     const activeCount = await tx.hold.count({
@@ -92,16 +145,16 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
       throw new HoldCapExceededError();
     }
 
-    // 1. Acquire advisory lock for this trip (serialises concurrent requests).
+    // 2. Acquire advisory lock for this trip (serialises concurrent requests).
     // pg_advisory_xact_lock returns void — use $executeRaw (returns affected row count).
     await tx.$executeRaw(
       Prisma.sql`SELECT pg_advisory_xact_lock(hashtext('hold:' || ${tripId}))`
     );
 
-    // 2. Conditional INSERT — only if available seats >= ticketCount
+    // 3. Conditional INSERT — only if available seats >= ticketCount
     const inserted = await tx.$queryRaw<InsertRow[]>(
       Prisma.sql`
-        INSERT INTO "Hold" (id, "tripId", "ticketCount", "customerPhone", "customerName", "customerEmail", "expiresAt", status, "createdAt", "pickupKind", "pickupDetail", "customPickupRequested")
+        INSERT INTO "Hold" (id, "tripId", "ticketCount", "customerPhone", "customerName", "customerEmail", "expiresAt", status, "createdAt", "pickupKind", "pickupDetail", "customPickupRequested", "sessionId")
         SELECT
           ${holdId},
           ${tripId},
@@ -114,7 +167,8 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
           NOW(),
           ${pickupKind}::"PickupKind",
           ${pickupDetail},
-          (${pickupKind}::"PickupKind" = 'custom'::"PickupKind")
+          (${pickupKind}::"PickupKind" = 'custom'::"PickupKind"),
+          ${sessionId}
         WHERE (
           SELECT
             b.capacity

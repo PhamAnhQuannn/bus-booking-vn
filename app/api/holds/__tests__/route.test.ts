@@ -6,7 +6,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // --- Mock modules before importing route ---
-vi.mock('@/lib/core/db/holdRepo', () => ({
+// importOriginal-spread, not a bare object: the route also imports HOLD_TTL_MINUTES from
+// here, and a partial mock would resolve it to undefined at module load. That is the same
+// barrel/partial-mock failure the 2026-06-03 mistake-log entry describes.
+vi.mock('@/lib/core/db/holdRepo', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/core/db/holdRepo')>()),
   createHold: vi.fn(),
 }));
 
@@ -18,23 +22,32 @@ vi.mock('@/lib/security/holdCookie', () => ({
   COOKIE_MAX_AGE: 720,
 }));
 
+// vi.hoisted — vi.mock factories are hoisted above const declarations, so a plain
+// top-level const would be in the TDZ when the factory runs.
+const { holdsLimitMock, holdsAnonLimitMock, sessionIdMock } = vi.hoisted(() => ({
+  holdsLimitMock: vi.fn(async () => ({ allowed: true, remaining: 7, retryAfter: 0 })),
+  holdsAnonLimitMock: vi.fn(async () => ({ allowed: true, remaining: 2, retryAfter: 0 })),
+  sessionIdMock: vi.fn<() => string | null>(() => null),
+}));
+
 vi.mock('@/lib/ratelimit', () => ({
   ratelimit: {
     limit: vi.fn(async () => ({ allowed: true, remaining: 59, retryAfter: 0 })),
   },
+  holdsRatelimit: { limit: holdsLimitMock },
+  holdsAnonRatelimit: { limit: holdsAnonLimitMock },
 }));
 
 // Funnel tracking is fire-and-forget; mock so importing the route doesn't pull in
 // the real Prisma client (no DATABASE_URL in unit env).
 vi.mock('@/lib/analytics/track', () => ({
   track: vi.fn(),
-  sessionIdFromRequest: vi.fn(() => null),
+  sessionIdFromRequest: () => sessionIdMock(),
 }));
 
 import { POST } from '../route';
-import { createHold } from '@/lib/core/db/holdRepo';
-import { ratelimit } from '@/lib/ratelimit';
-import { HoldCapExceededError } from '@/lib/core/db/holdErrors';
+import { createHold, HOLD_TTL_MINUTES } from '@/lib/core/db/holdRepo';
+import { HoldCapExceededError, SessionSeatCapExceededError } from '@/lib/core/db/holdErrors';
 import { NextRequest } from 'next/server';
 
 // Helper to build a NextRequest with JSON body
@@ -65,6 +78,11 @@ const MOCK_HOLD_RESULT = {
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.HOLD_SECRET = 'a'.repeat(64);
+  // Default: no bb_sid, so the route takes the tighter anon bucket. Individual tests
+  // opt into a session where that is what they are exercising.
+  sessionIdMock.mockReturnValue(null);
+  holdsLimitMock.mockResolvedValue({ allowed: true, remaining: 7, retryAfter: 0 });
+  holdsAnonLimitMock.mockResolvedValue({ allowed: true, remaining: 2, retryAfter: 0 });
 });
 
 describe('POST /api/holds', () => {
@@ -192,10 +210,60 @@ describe('POST /api/holds', () => {
 
     expect(res.status).toBe(429);
     expect(json.error).toBe('HOLD_CAP_EXCEEDED');
+    // #359: without this the client fabricates a 60s retry and shows throttle copy for a
+    // cap that only clears when the caller's own holds expire.
+    expect(res.headers.get('Retry-After')).toBe(String(HOLD_TTL_MINUTES * 60));
+  });
+
+  it('returns 429 SESSION_SEAT_CAP_EXCEEDED with Retry-After (#359)', async () => {
+    vi.mocked(createHold).mockRejectedValueOnce(new SessionSeatCapExceededError());
+
+    const req = makeRequest(VALID_BODY);
+    const res = await POST(req);
+    const json = await res.json();
+
+    expect(res.status).toBe(429);
+    expect(json.error).toBe('SESSION_SEAT_CAP_EXCEEDED');
+    expect(res.headers.get('Retry-After')).toBe(String(HOLD_TTL_MINUTES * 60));
+  });
+
+  it('keys the limiter on bb_sid when a session is present, not the IP (#359)', async () => {
+    // CGNAT: Vietnamese mobile carriers put many unrelated buyers behind one egress IP,
+    // so an IP-keyed hold limit would starve real customers at peak.
+    sessionIdMock.mockReturnValue('sess-abc');
+    vi.mocked(createHold).mockResolvedValueOnce(MOCK_HOLD_RESULT);
+
+    await POST(makeRequest(VALID_BODY));
+
+    expect(holdsLimitMock).toHaveBeenCalledWith('hold:sess-abc');
+    expect(holdsAnonLimitMock).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the tighter anon IP bucket when bb_sid is absent (#359)', async () => {
+    // A real browser always has bb_sid by the time it POSTs — proxy.ts mints it on any
+    // safe-method request. A client that never issued a GET is a script.
+    sessionIdMock.mockReturnValue(null);
+    vi.mocked(createHold).mockResolvedValueOnce(MOCK_HOLD_RESULT);
+
+    await POST(makeRequest(VALID_BODY));
+
+    expect(holdsAnonLimitMock).toHaveBeenCalledWith(expect.stringMatching(/^hold-anon:/));
+    expect(holdsLimitMock).not.toHaveBeenCalled();
+  });
+
+  it('threads the session into createHold so the seat cap can be enforced (#359)', async () => {
+    sessionIdMock.mockReturnValue('sess-xyz');
+    vi.mocked(createHold).mockResolvedValueOnce(MOCK_HOLD_RESULT);
+
+    await POST(makeRequest(VALID_BODY));
+
+    expect(createHold).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: 'sess-xyz' })
+    );
   });
 
   it('returns 429 TOO_MANY_REQUESTS when rate limited', async () => {
-    vi.mocked(ratelimit.limit).mockResolvedValueOnce({
+    holdsAnonLimitMock.mockResolvedValueOnce({
       allowed: false,
       remaining: 0,
       retryAfter: 30,
@@ -211,7 +279,7 @@ describe('POST /api/holds', () => {
   });
 
   it('does not call createHold when rate limited', async () => {
-    vi.mocked(ratelimit.limit).mockResolvedValueOnce({
+    holdsAnonLimitMock.mockResolvedValueOnce({
       allowed: false,
       remaining: 0,
       retryAfter: 30,
