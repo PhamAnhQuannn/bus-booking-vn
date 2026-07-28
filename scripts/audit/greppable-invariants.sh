@@ -91,12 +91,19 @@ check_g3_json_cron() {
 # Mistake Log Issue 016: currency math must use BigInt.
 # Excludes BigInt(Math.round(...)) which is the correct coercion pattern,
 # comments, and PSP adapter amount parsing (integer division, not currency math).
+#
+# Scope note: this used to also grep lib/payouts/, which has not existed since payouts
+# folded into lib/ledger post-091. The clause silently contributed nothing — grep's
+# error went to /dev/null and the `|| true` swallowed the status — so the check looked
+# broader than it was. A dead path inside a money-safety script is worse than no path:
+# it reads as coverage. lib/ledger/ owns calcPayout, settlePayout, retryPayout and
+# getPayoutReport, so the real surface is still covered.
 check_g4_money_math() {
   echo "--- G4: Math.round/floor in money modules ---"
   local hits
   hits=$(grep -rn --include='*.ts' \
     -e 'Math\.round' -e 'Math\.floor' -e 'Math\.ceil' \
-    lib/payouts/ lib/ledger/ lib/payment/ \
+    lib/ledger/ lib/payment/ \
     2>/dev/null \
     | grep -v '__tests__/' \
     | grep -v '\.test\.ts' \

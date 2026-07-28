@@ -135,9 +135,9 @@ The shared test toolkit lives under `test/helpers/`:
 
 The command surface is:
 
-- `pnpm test:unit` for unit Vitest.
+- `pnpm test` for unit Vitest.
 - `pnpm test:cov` for coverage with `coverage/lcov.info`.
-- `pnpm vitest:int` or `pnpm test:int` for integration runs after `scripts/test/prepare-int-db.ts` seeds the DB.
+- `pnpm vitest:int` for integration runs after `scripts/test/prepare-int-db.ts` seeds the DB.
 - `pnpm test:e2e` for Playwright.
 
 `scripts/test/prepare-int-db.ts` is intentionally separate so local runs and CI both execute the same migrate-and-seed path before integration tests.

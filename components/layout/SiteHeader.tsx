@@ -263,18 +263,30 @@ export function SiteHeader() {
             </div>
           </div>
 
-          {/* Mobile action cluster — login CTA + drawer trigger, both right-aligned */}
+          {/*
+            Mobile action cluster — drawer trigger only (#369 / #349).
+
+            There used to be a second button here: an icon-only, solid-orange pill
+            linking to /op/login. Two problems, both on the viewport that carries almost
+            all Vietnamese traffic:
+
+            1. The "Đăng nhập nhà xe" relabel that #349 shipped renders only at xl and
+               above. Below that the label existed solely as aria-label, so a sighted
+               customer tapped an unlabelled orange button — the most prominent control
+               in the header — and landed on "Đăng nhập — Quản trị viên / VD: PB-0001".
+            2. #349 asked for two remedies and only got one. The second was to stop
+               giving an operator-only action top-level placement on a customer-facing
+               site. This is that half.
+
+            Labelling it in place was the alternative, but the header's own measurements
+            (see the xl:flex comment above) show the label already wraps at 1024px; a
+            17-character pill beside a hamburger at 390px is worse, not better.
+
+            Operators lose nothing but one tap: the drawer below carries the same link
+            with its label visible, which is where an unlabelled icon should have been
+            sending people all along.
+          */}
           <div className="flex items-center gap-2 xl:hidden">
-            <Link
-              href={LOGIN.href}
-              aria-label={LOGIN.label}
-              className={cn(
-                'inline-flex size-11 items-center justify-center rounded-full',
-                CTA_CLASS
-              )}
-            >
-              <LogInIcon className="size-5" />
-            </Link>
             <Dialog.Trigger
               aria-label="Mở menu điều hướng"
               className="inline-flex size-11 items-center justify-center rounded-md outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50"

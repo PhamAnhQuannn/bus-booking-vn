@@ -9,6 +9,16 @@ FAILURES=0
 WARNINGS=0
 
 # ---------- A1: tempPasswordPlain leak ----------
+# HISTORICAL — kept deliberately as regression insurance, NOT as live coverage.
+#
+# The OperatorUser.tempPasswordPlain column was dropped in migration
+# 20260615000000_drop_temp_password_plain, so this check can no longer fire on the
+# original defect and its allowlist names call sites that no longer write the column.
+# It is retained because a future change re-introducing a plaintext-credential column
+# under the same name should still trip an alarm.
+#
+# Read its perpetual PASS as "the column is still gone", not "plaintext credentials are
+# still being checked for" — a green that can never go red is not evidence (#333).
 check_temp_password_plain() {
   echo "--- A1: tempPasswordPlain leak ---"
   local hits
