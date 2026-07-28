@@ -203,3 +203,48 @@ describe('getEnv — in-memory rate limiting in production', () => {
     expect(ratelimitWarned()).toBe(false);
   });
 });
+
+/**
+ * VNPAY_HASH_SECRET must not resolve to a value nobody set.
+ *
+ * It used to default to a literal committed in this public repo, and the guard that
+ * rejected that default lived inside `if (env.VNPAY_ENABLED)` — so leaving VNPay
+ * disabled (the permanent Phase-1 state) was exactly the configuration in which the
+ * published secret went unchallenged. Any reader could then sign a valid vnp_* IPN.
+ * The default is gone; these tests pin that it stays gone.
+ */
+describe('getEnv — VNPAY_HASH_SECRET has no published default', () => {
+  const REAL_PAYMENTS = {
+    ...BASE,
+    PAYMENTS_STUB: 'false',
+    NOTIFY_STUB: 'true',
+    SEPAY_API_KEY: 'k'.repeat(32),
+    VIETQR_ACCOUNT_NUMBER: '030976167267',
+    DIRECT_URL: 'postgresql://u:p@localhost:5432/d',
+  };
+
+  it('leaves VNPAY_HASH_SECRET undefined when unset — never a repo literal', () => {
+    Object.assign(process.env, REAL_PAYMENTS);
+    delete process.env.VNPAY_HASH_SECRET;
+    delete process.env.VNPAY_ENABLED;
+
+    expect(getEnv().VNPAY_HASH_SECRET).toBeUndefined();
+  });
+
+  it('still requires a real secret when VNPAY_ENABLED=true', () => {
+    Object.assign(process.env, REAL_PAYMENTS, { VNPAY_ENABLED: 'true' });
+    delete process.env.VNPAY_HASH_SECRET;
+
+    expect(() => getEnv()).toThrow(/VNPAY_HASH_SECRET/);
+  });
+
+  it('boots in bank-transfer-only prod config without any VNPAY_* vars set', () => {
+    // The live Vercel shape: SePay + cash, no PSP credentials of any kind.
+    Object.assign(process.env, REAL_PAYMENTS);
+    for (const k of ['VNPAY_HASH_SECRET', 'VNPAY_ENABLED', 'VNPAY_TMN_CODE', 'VNPAY_RETURN_URL']) {
+      delete process.env[k];
+    }
+
+    expect(() => getEnv()).not.toThrow();
+  });
+});

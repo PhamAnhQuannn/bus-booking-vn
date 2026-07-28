@@ -284,14 +284,11 @@ if cookieToken is empty OR headerToken is empty OR !compareTokens(cookie, header
 
 ### CSRF-exempt paths
 
-**Exact-match exemptions** (skip BOTH CSRF and rate-limit):
+**Exact-match exemptions** (skip CSRF only — nothing skips the rate-limit):
 
 | Path | Reason |
 |---|---|
-| `/api/payments/momo/webhook` | HMAC body verification |
-| `/api/payments/zalopay/webhook` | HMAC body verification |
-| `/api/payments/card/webhook` | HMAC body verification |
-| `/api/payments/vnpay/webhook` | HMAC body verification |
+| `/api/payments/bank_transfer/webhook` | SePay sends no `bb_csrf` cookie |
 
 **Prefix exemptions** (skip CSRF only, still rate-limited):
 
@@ -403,30 +400,33 @@ const log = loggerForRequest(rid); // pino child logger bound to { requestId }
 
 ## 11. Webhook Exemptions
 
-Payment provider webhook paths are exempt from BOTH rate-limiting and CSRF
-enforcement. A single exact-match `Set` (`CSRF_EXEMPT`) gates both exemptions
-(no second exempt list).
+One payment webhook path is exempt from CSRF enforcement. **Nothing is exempt from
+the edge rate-limit** — the `RATELIMIT_EXEMPT` Set was removed.
 
 ### Exempt paths
 
 | Path | Provider |
 |---|---|
-| `/api/payments/momo/webhook` | MoMo |
-| `/api/payments/zalopay/webhook` | ZaloPay |
-| `/api/payments/card/webhook` | Card gateway |
-| `/api/payments/vnpay/webhook` | VNPay |
+| `/api/payments/bank_transfer/webhook` | SePay (CSRF only — still rate-limited) |
 
 ### Rationale
 
-Webhooks authenticate via HMAC body verification at the route handler level.
-They cannot carry CSRF cookies or headers (they originate from external payment
-servers). They must not be edge-rate-limited because payment notifications are
-time-sensitive and volume is controlled by the PSP, not the client.
+SePay originates from an external server and cannot carry a CSRF cookie or header,
+so it skips the double-submit check; it authenticates with a static `Apikey` bearer
+compared in constant time at the route handler. It is NOT rate-limit exempt: a
+static key is not a body signature, so edge throttling is what blunts an
+unauthenticated flood. SePay treats a 429 as a retryable delivery (Fibonacci
+backoff) and the 15-minute reconcile sweeper is the backstop.
+
+The momo / zalopay / card / vnpay webhook routes that used to sit in both exempt
+lists were **deleted**. None was reachable by a real PSP, yet each resolved a
+gateway whose signing key defaults to a literal published in this repo — making
+them unauthenticated, unthrottled "mark this booking paid" endpoints.
 
 ### Exact-match enforcement
 
-The exemption uses `Set.has(pathname)` (exact match), not prefix matching. A
-path like `/api/payments/momo/webhook-fake` is NOT exempt.
+The exemption uses `Set.has(pathname)` (exact match), not prefix matching. A path
+like `/api/payments/bank_transfer/webhook-fake` is NOT exempt.
 
 ---
 
