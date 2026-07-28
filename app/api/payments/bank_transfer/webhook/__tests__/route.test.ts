@@ -17,6 +17,10 @@ vi.mock('@/lib/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+vi.mock('@/lib/observability', () => ({
+  captureException: vi.fn(),
+}));
+
 vi.mock('@/lib/withErrorHandler', () => ({
   withErrorHandler: (handler: (...args: unknown[]) => unknown) => handler,
 }));
@@ -29,6 +33,7 @@ import {
 } from '@/lib/payment';
 import { getEnv } from '@/lib/config';
 import { logger } from '@/lib/logger';
+import { captureException } from '@/lib/observability';
 
 function makeRequest(body: string, token?: string, scheme = 'Bearer'): NextRequest {
   const headers: Record<string, string> = {
@@ -72,13 +77,29 @@ describe('POST /api/payments/bank_transfer/webhook', () => {
     expect(logger.warn).toHaveBeenCalled();
   });
 
-  it('returns 401 when bearer token is invalid', async () => {
+  it('returns 401 when bearer token is invalid, and escalates it', async () => {
+    // error + captureException, not warn (#361). The static key is the entire
+    // perimeter — SePay offers no body signature — and SePay only ever presents the
+    // correct key, so a wrong one is a misconfiguration or a probe, never routine.
     const res = await POST(makeRequest(validPayload, 'wrong-token'));
     expect(res.status).toBe(401);
-    expect(logger.warn).toHaveBeenCalledWith(
-      { adapter: 'bank_transfer' },
-      'payment.bank_transfer.webhook.invalid_bearer',
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ adapter: 'bank_transfer' }),
+      expect.stringContaining('payment.bank_transfer.webhook.invalid_bearer'),
     );
+    expect(captureException).toHaveBeenCalled();
+  });
+
+  it('never logs the presented token (leaks key material / its length)', async () => {
+    await POST(makeRequest(validPayload, 'wrong-token-abcdef'));
+
+    const logged = JSON.stringify([
+      ...vi.mocked(logger.error).mock.calls,
+      ...vi.mocked(logger.warn).mock.calls,
+      ...vi.mocked(captureException).mock.calls,
+    ]);
+    expect(logged).not.toContain('wrong-token-abcdef');
+    expect(logged).not.toContain('test-sepay-key-abc123');
   });
 
   it('returns 401 when SEPAY_API_KEY is not configured', async () => {

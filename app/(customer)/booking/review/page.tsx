@@ -12,7 +12,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { verifyCookieValue } from '@/lib/security';
 import { getHoldDetails } from '@/lib/booking';
-import { getEnv } from '@/lib/config';
+import { isVnpaySelectable } from '@/lib/payment';
 import { ReviewClient } from './ReviewClient';
 
 // Transient checkout step gated by the bb_hold cookie — never indexed.
@@ -49,11 +49,11 @@ export default async function ReviewPage({ searchParams }: ReviewPageProps) {
     redirect('/');
   }
 
-  // Only offer VNPay when it is actually usable: the stub handles it in dev
-  // (PAYMENTS_STUB) OR the real adapter is enabled (VNPAY_ENABLED). When both are
-  // off, vnpay would route to the stub-pay page which refuses — so hide it.
-  const env = getEnv();
-  const showVnpay = env.PAYMENTS_STUB || env.VNPAY_ENABLED;
+  // Only offer VNPay when it can actually be COMPLETED. Shares one predicate with
+  // the initiate route's server-side gate (lib/payment/vnpaySelectable.ts) so the
+  // two cannot drift — offering a method the API then rejects is a dead end, and
+  // offering real VNPay is worse, since its webhook and return routes are deleted.
+  const showVnpay = isVnpaySelectable();
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-8">

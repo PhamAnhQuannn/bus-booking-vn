@@ -1,7 +1,9 @@
 /**
  * /dev/stub-pay — local fake-gateway pay page (Phase 1, no real PSP).
  *
- * Reachable only when PAYMENTS_STUB is on; 404s otherwise. Stands in for the
+ * Reachable only off-production AND with PAYMENTS_STUB on; 404s otherwise. The
+ * NODE_ENV half matters independently — see the header of ./actions.ts for why
+ * the env flag alone was never a sufficient gate. Stands in for the
  * hosted MoMo/ZaloPay/Card checkout: shows the order summary and two buttons —
  * "Pay success" / "Pay fail" — each submitting the shared submitStubPayment
  * server action, which signs an IPN and runs it through processPaymentWebhook.
@@ -36,7 +38,7 @@ function formatVND(amount: number): string {
 }
 
 export default async function StubPayPage({ searchParams }: StubPayPageProps) {
-  if (!getEnv().PAYMENTS_STUB) {
+  if (process.env.NODE_ENV === 'production' || !getEnv().PAYMENTS_STUB) {
     notFound();
   }
 

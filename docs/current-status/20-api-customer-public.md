@@ -63,11 +63,6 @@ All webhook routes are CSRF-exempt (HMAC verification). Wrapped in `withErrorHan
 
 | Method | Path | Auth | Request | Success | Error statuses | Lib functions | Notable |
 |--------|------|------|---------|---------|----------------|---------------|---------|
-| POST | `/api/payments/momo/webhook` | Webhook HMAC (via MoMo adapter) | Raw body text | Delegated to `processPaymentWebhook` | Delegated | `getMomoAdapter()`, `processPaymentWebhook()` | CSRF-exempt; resultCode mapping sourced from Issue 004 AC verbatim |
-| GET/POST | `/api/payments/vnpay/webhook` | HMAC signature via `verifyWebhook()` | GET: query params; POST: URL-encoded form body | 200 `{ RspCode: '00', Message: 'Confirm Success' }` | 200 `{ RspCode: '97' }` (bad sig), `{ RspCode: '01' }` (unknown order), `{ RspCode: '99' }` (error) | `getVnpayAdapter()`, `processPaymentWebhook()`, `prisma.booking.findUnique()` | CSRF-exempt; VNPay v2.1.0 format mandatory; always HTTP 200 (RspCode discriminates); dual GET+POST handling; IPN is authoritative state source |
-| GET | `/api/payments/vnpay/return` | HMAC signature via `verifyWebhook()` | Query: vnp_* params | 302 redirect to `/booking/confirmation`, `/booking/payment-pending`, or `/booking/payment-error` | (always 302) | `getVnpayAdapter()` | Browser-only UX redirect; NOT authoritative (IPN is); rejects tampered/zero-amount URLs |
-| POST | `/api/payments/zalopay/webhook` | Webhook HMAC (via ZaloPay adapter) | Raw body text | Delegated to `processPaymentWebhook` | Delegated | `getGatewayFor('zalopay')`, `processPaymentWebhook()` | CSRF-exempt; stub adapter locally, real PSP in Phase 2 |
-| POST | `/api/payments/card/webhook` | Webhook HMAC (via card adapter) | Raw body text | Delegated to `processPaymentWebhook` | Delegated | `getGatewayFor('card')`, `processPaymentWebhook()` | CSRF-exempt; stub adapter locally, real PSP in Phase 2 |
 
 ---
 

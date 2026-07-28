@@ -10,6 +10,7 @@
 import type { Ratelimit as UpstashRatelimitClient } from '@upstash/ratelimit';
 import type Redis from 'ioredis';
 import { logger } from '@/lib/logger';
+import { resolveRatelimitBackend } from '@/lib/core/http/ratelimitBackend';
 
 export interface RatelimitResult {
   allowed: boolean;
@@ -26,6 +27,22 @@ export interface InMemoryRatelimitOptions {
   limit: number;
   /** Window size in milliseconds */
   windowMs: number;
+  /**
+   * Deny instead of allow when the backing store is unreachable. Default false
+   * (fail open) — correct for THROTTLES, where the alternative is turning a Redis
+   * blip into a site-wide outage.
+   *
+   * Set true only for limiters that are a security control rather than a throttle:
+   * the account-level consecutive-failure lockouts, which are the primary defense
+   * against distributed credential stuffing on publicly enumerable operator
+   * usernames and admin emails. For those, "Redis is down" must not mean "unlimited
+   * password guesses" — the honest failure is to refuse the attempt.
+   *
+   * The blast radius of failing closed is deliberately narrow: these limiters are
+   * consumed ONLY after credentials have already been rejected, so a correct
+   * password still gets in during an outage. Only the wrong-credential path stops.
+   */
+  failClosed?: boolean;
 }
 
 interface WindowEntry {
@@ -79,11 +96,21 @@ export class InMemoryRatelimit implements Ratelimit {
 export class UpstashRatelimit implements Ratelimit {
   private readonly maxRequests: number;
   private readonly windowMs: number;
+  private readonly failClosed: boolean;
   private rl: UpstashRatelimitClient | null = null;
 
   constructor(options: InMemoryRatelimitOptions) {
     this.maxRequests = options.limit;
     this.windowMs = options.windowMs;
+    this.failClosed = options.failClosed ?? false;
+  }
+
+  /** Result to return when the store is unreachable — see InMemoryRatelimitOptions.failClosed. */
+  private onStoreFailure(): RatelimitResult {
+    if (this.failClosed) {
+      return { allowed: false, remaining: 0, retryAfter: Math.ceil(this.windowMs / 1000) };
+    }
+    return { allowed: true, remaining: 0, retryAfter: 0 };
   }
 
   private async getClient() {
@@ -105,16 +132,60 @@ export class UpstashRatelimit implements Ratelimit {
     return this.rl;
   }
 
+  /**
+   * FAILS OPEN, matching IoRedisRatelimit below — deliberately, and the deliberation
+   * matters because it is the opposite of what consumeJti does one module over.
+   *
+   * A rate limiter is a throttle, not an authorisation gate: if it cannot reach
+   * Upstash the safe move is to let traffic through, because proxy.ts awaits this
+   * call for EVERY non-safe /api/* request before routing. Without the catch, one
+   * Upstash REST timeout 500s the whole surface — holds, bookings, login, and the
+   * SePay webhook, which is not rate-limit-exempt. SePay then marks the delivery
+   * failed and retries on Fibonacci backoff over ~5h while real customer money sits
+   * unconfirmed. Bank transfer is the only live rail, so an Upstash hiccup would be
+   * a revenue outage.
+   *
+   * The cost of failing open is that abuse throttling is off for the duration of an
+   * Upstash outage (including the per-session hold caps that ride this limiter).
+   * Degraded, not breached — no authentication decision is made HERE.
+   *
+   * That last clause is only true of throttles, which is why it is not the whole
+   * story. Three limiters built by this same factory ARE security controls:
+   * adminLoginLockout, opLoginLockout and adminTotpLockout, the account-level
+   * consecutive-failure brakes. Failing those open would hand an attacker unlimited
+   * password/TOTP guesses for the duration of an outage against publicly enumerable
+   * operator usernames — so they pass `failClosed: true` and this catch denies for
+   * them instead. Deciding fail-open per LIMITER rather than per BACKEND is the
+   * point: the property belongs to what the limiter protects, not to Redis.
+   *
+   * Replay guards must NOT copy the fail-open default either: see consumeJti in
+   * lib/auth/otpProof.ts, which fails CLOSED for exactly the same outage.
+   */
   async limit(identifier: string): Promise<RatelimitResult> {
-    const client = await this.getClient();
-    const result = await client.limit(identifier);
-    const now = Date.now();
-    const retryAfterSecs = result.success ? 0 : Math.max(0, Math.ceil((result.reset - now) / 1000));
-    return {
-      allowed: result.success,
-      remaining: result.remaining,
-      retryAfter: retryAfterSecs,
-    };
+    try {
+      const client = await this.getClient();
+      const result = await client.limit(identifier);
+      const now = Date.now();
+      const retryAfterSecs = result.success
+        ? 0
+        : Math.max(0, Math.ceil((result.reset - now) / 1000));
+      return {
+        allowed: result.success,
+        remaining: result.remaining,
+        retryAfter: retryAfterSecs,
+      };
+    } catch (err) {
+      // Drop the memoised client so the next request rebuilds it (mirrors the
+      // ioredis branch) — a bad client should not be cached past the incident.
+      this.rl = null;
+      logger.error(
+        { err, identifier, failClosed: this.failClosed },
+        this.failClosed
+          ? 'ratelimit.upstash.limit_failed — fail-CLOSED (security lockout)'
+          : 'ratelimit.upstash.limit_failed — fail-open'
+      );
+      return this.onStoreFailure();
+    }
   }
 }
 
@@ -127,10 +198,20 @@ export class IoRedisRatelimit implements Ratelimit {
   private readonly windowMs: number;
   private client: Redis | null = null;
   private _connecting: Promise<Redis> | null = null;
+  private readonly failClosed: boolean;
 
   constructor(options: InMemoryRatelimitOptions) {
     this.maxRequests = options.limit;
     this.windowMs = options.windowMs;
+    this.failClosed = options.failClosed ?? false;
+  }
+
+  /** Result to return when the store is unreachable — see InMemoryRatelimitOptions.failClosed. */
+  private onStoreFailure(): RatelimitResult {
+    if (this.failClosed) {
+      return { allowed: false, remaining: 0, retryAfter: Math.ceil(this.windowMs / 1000) };
+    }
+    return { allowed: true, remaining: 0, retryAfter: 0 };
   }
 
   private async getClient(): Promise<Redis> {
@@ -178,8 +259,11 @@ export class IoRedisRatelimit implements Ratelimit {
     try {
       redis = await this.getClient();
     } catch (err) {
-      logger.error({ err, identifier }, 'ratelimit.ioredis.getClient_failed — fail-open');
-      return { allowed: true, remaining: 0, retryAfter: 0 };
+      logger.error(
+        { err, identifier, failClosed: this.failClosed },
+        'ratelimit.ioredis.getClient_failed'
+      );
+      return this.onStoreFailure();
     }
     try {
       const result = await redis.eval(
@@ -202,8 +286,11 @@ export class IoRedisRatelimit implements Ratelimit {
     } catch (err) {
       this.client = null;
       this._connecting = null;
-      logger.error({ err, identifier }, 'ratelimit.ioredis.eval_failed — fail-open, will reconnect');
-      return { allowed: true, remaining: 0, retryAfter: 0 };
+      logger.error(
+        { err, identifier, failClosed: this.failClosed },
+        'ratelimit.ioredis.eval_failed — will reconnect'
+      );
+      return this.onStoreFailure();
     }
   }
 }
@@ -215,19 +302,21 @@ export class IoRedisRatelimit implements Ratelimit {
  * - REDIS_PROVIDER=ioredis         → IoRedisRatelimit (self-hosted Redis)
  * - REDIS_PROVIDER=upstash (or Upstash env vars set) → UpstashRatelimit
  * - Default (no provider / no vars) → InMemoryRatelimit
+ *
+ * The choice itself lives in resolveRatelimitBackend (lib/core/http) so the boot
+ * warning about in-memory-in-production is computed from the SAME predicate this
+ * factory uses. Re-deriving it there would let the two drift, and a warning that
+ * fires when the backend is actually fine is worse than none.
  */
 export function createRatelimit(options: InMemoryRatelimitOptions): Ratelimit {
-  const provider = process.env.REDIS_PROVIDER;
-
-  if (provider === 'ioredis') {
-    return new IoRedisRatelimit(options);
+  switch (resolveRatelimitBackend()) {
+    case 'ioredis':
+      return new IoRedisRatelimit(options);
+    case 'upstash':
+      return new UpstashRatelimit(options);
+    default:
+      return new InMemoryRatelimit(options);
   }
-
-  if (provider === 'upstash' || (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)) {
-    return new UpstashRatelimit(options);
-  }
-
-  return new InMemoryRatelimit(options);
 }
 
 /** Default shared ratelimit: 60 requests/min/IP */
@@ -259,7 +348,11 @@ export const adminTotpRatelimit = createRatelimit({ limit: 10, windowMs: 60_000 
  * but a correct code is accepted before the lockout limiter is consumed, so a legitimate
  * admin is unaffected unless they've already burned 5 wrong codes.
  */
-export const adminTotpLockout = createRatelimit({ limit: 5, windowMs: 15 * 60_000 });
+export const adminTotpLockout = createRatelimit({
+  limit: 5,
+  windowMs: 15 * 60_000,
+  failClosed: true,
+});
 
 /**
  * Operator login per-IP throttle: 10 attempts/min/IP — tighter than the generic
@@ -277,7 +370,11 @@ export const opLoginRatelimit = createRatelimit({ limit: 10, windowMs: 60_000 })
  * before the lockout counter is consumed, so a legitimate operator is unaffected
  * unless they have already burned 5 wrong attempts.
  */
-export const opLoginLockout = createRatelimit({ limit: 5, windowMs: 15 * 60_000 });
+export const opLoginLockout = createRatelimit({
+  limit: 5,
+  windowMs: 15 * 60_000,
+  failClosed: true,
+});
 
 /**
  * Admin login per-IP throttle: 10 attempts/min/IP — mirrors opLoginRatelimit.
@@ -290,7 +387,11 @@ export const adminLoginRatelimit = createRatelimit({ limit: 10, windowMs: 60_000
  * Keyed `admin-login-fail:<email>`, consumed ONLY on INVALID_CREDENTIALS.
  * Mirrors opLoginLockout — account-level brake against credential-stuffing.
  */
-export const adminLoginLockout = createRatelimit({ limit: 5, windowMs: 15 * 60_000 });
+export const adminLoginLockout = createRatelimit({
+  limit: 5,
+  windowMs: 15 * 60_000,
+  failClosed: true,
+});
 
 /**
  * Seat-hold throttle for a known browser session: 8 attempts/min. Keyed `hold:<bb_sid>`.

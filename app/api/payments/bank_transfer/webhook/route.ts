@@ -34,6 +34,8 @@ import {
 } from '@/lib/payment';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { logger } from '@/lib/logger';
+import { captureException } from '@/lib/observability';
+import { clientIp } from '@/lib/core/http/clientIp';
 import { getEnv } from '@/lib/config';
 import crypto from 'crypto';
 
@@ -61,7 +63,25 @@ async function handler(req: NextRequest): Promise<Response> {
   const expected = Buffer.from(env.SEPAY_API_KEY, 'utf8');
   const received = Buffer.from(token, 'utf8');
   if (expected.length !== received.length || !crypto.timingSafeEqual(expected, received)) {
-    logger.warn({ adapter: 'bank_transfer' }, 'payment.bank_transfer.webhook.invalid_bearer');
+    // error + captureException, not warn. A static API key is the ENTIRE perimeter
+    // here — SePay offers no body signature to fall back on (see the header note),
+    // so a leaked key means unlimited forged 'paid' events. SePay itself only ever
+    // presents the correct key, so a well-formed request bearing a WRONG one is
+    // never routine: it is a misconfiguration or someone probing. That deserves to
+    // page rather than settle into the warn stream. Deliberately paired with the
+    // key-rotation runbook (documentation/runbooks/sepay-api-key-rotation.md) —
+    // an alert nobody has a response for is not a control.
+    //
+    // Never log the presented token: a near-miss would leak key material, and a
+    // hit-by-length probe would confirm the key's length.
+    logger.error(
+      { adapter: 'bank_transfer', ip: clientIp(req.headers) },
+      'payment.bank_transfer.webhook.invalid_bearer — wrong API key presented; investigate for key leak',
+    );
+    captureException(new Error('SePay webhook: invalid API key presented'), {
+      adapter: 'bank_transfer',
+      area: 'payment.webhook.auth',
+    });
     return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
   }
 

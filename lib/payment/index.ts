@@ -10,4 +10,5 @@ export { processPaymentWebhook, recordUnmatchedPaymentEvent } from './processWeb
 export { applyPaidStatusTransition, appendBookingPaidLedger } from './applyPaidTransition';
 export { refundPayment } from './refund';
 export { getGatewayFor } from './select';
+export { isVnpaySelectable } from './vnpaySelectable';
 export type { OnlinePaymentMethod } from './select';

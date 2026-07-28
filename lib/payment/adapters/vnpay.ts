@@ -287,6 +287,15 @@ export function getVnpayAdapter(): PaymentGateway {
 
   const env = getEnv();
 
+  // VNPAY_HASH_SECRET has no default (it used to default to a literal published in
+  // this repo). Refuse to build a signer rather than sign with a placeholder: an
+  // adapter keyed on a guessable secret verifies attacker-forged IPNs. Only the
+  // VNPAY_ENABLED path reaches here, and that path's superRefine already requires
+  // a real secret — so this throw is the belt to that braces.
+  if (!env.VNPAY_HASH_SECRET) {
+    throw new Error('VNPAY_HASH_SECRET is not configured — refusing to build the VNPay adapter');
+  }
+
   _vnpayAdapter = createVnpayAdapter({
     tmnCode: env.VNPAY_TMN_CODE,
     hashSecret: env.VNPAY_HASH_SECRET,
