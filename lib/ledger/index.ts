@@ -52,14 +52,11 @@ export {
   type OperatorBalance,
 } from './balance';
 
-// Issue 051: refund-out rail — refundOut writes refund_debit + refund_out (idempotent).
-export {
-  refundOut,
-  RefundOutError,
-  type RefundOutInput,
-  type RefundOutResult,
-  type RefundReason,
-} from './refund';
+// #343: the refund-out rail moved to lib/payment. It calls the PSP and THEN writes its
+// two ledger entries, which is the same shape as appendBookingPaidLedger — already in
+// lib/payment. Keeping refundOut here forced lib/ledger to import lib/payment for
+// refundPayment, and that was the last ledger<->payment barrel cycle. Import it from
+// '@/lib/payment'.
 
 // Issue 050: ledger-domain constants (withdrawal floor, settlement delay).
 // Issue 123: VNPAY_MDR_PPM — VNPay MDR rate for the psp_fee platform-float entry.

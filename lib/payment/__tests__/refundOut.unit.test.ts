@@ -25,7 +25,10 @@ vi.mock('@/lib/core/db/client', () => {
   };
 });
 
-vi.mock('../ledgerRepo', () => ({
+// #343: refundOut moved to lib/payment, so appendLedgerEntry is now a CROSS-domain
+// import through the lib/ledger barrel — mock the barrel, not the old sibling path.
+// A vi.mock left on a stale specifier does not error, it simply never intercepts.
+vi.mock('@/lib/ledger', () => ({
   appendLedgerEntry: vi.fn().mockResolvedValue({ id: 'le-1', created: true }),
 }));
 
@@ -38,9 +41,9 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 import { prisma } from '@/lib/core/db/client';
-import { appendLedgerEntry } from '../ledgerRepo';
-import { refundPayment } from '@/lib/payment';
-import { refundOut, RefundOutError } from '../refund';
+import { appendLedgerEntry } from '@/lib/ledger';
+import { refundPayment } from '@/lib/payment/refund';
+import { refundOut, RefundOutError } from '../refundOut';
 
 const bookingFind = prisma.booking.findUnique as unknown as Mock;
 const ledgerFind = prisma.ledgerEntry.findUnique as unknown as Mock;

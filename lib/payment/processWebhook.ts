@@ -50,8 +50,8 @@ import { logger } from '@/lib/logger';
 import { captureException } from '@/lib/observability';
 import { track, sessionIdForBooking } from '@/lib/analytics';
 import type { PaymentGateway } from './gateway';
-import { legalPredecessors } from '@/lib/booking';
-import { refundOut } from '@/lib/ledger';
+import { legalPredecessors } from '@/lib/core/booking';
+import { refundOut } from './refundOut';
 import {
   applyPaidStatusTransition,
   appendBookingPaidLedger,

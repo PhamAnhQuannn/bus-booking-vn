@@ -101,11 +101,10 @@ const eslintConfig = defineConfig([
   // ExportMap skips dependency files whose extension is not in `import-x/extensions`
   // (default [.js,.mjs,.cjs]), so in this all-TypeScript tree it never walked a
   // single .ts edge and could not see any cycle. With the extensions + resolver-next
-  // settings below the rule now works, and it reveals 11 pre-existing cross-domain
-  // barrel cycles (booking↔payment↔ledger). The rule is at 'error'; those three
-  // domains carry a scoped 'warn' override (see the block after this one) so the
-  // known 11 stay visible without blocking. #343 burns them down; when it lands,
-  // DELETE the override block — the severity here is already correct.
+  // settings below the rule now works. It revealed 11 pre-existing cross-domain barrel
+  // cycles (booking↔payment↔ledger), which #343 burned down to ZERO; the scoped 'warn'
+  // override those three domains carried has been deleted and the rule blocks
+  // unconditionally.
   // TODO(092b follow-up): boundaries/entry-point is deprecated in v6 — migrate to
   // boundaries/dependencies (object selectors) at a convenient point. It functions
   // correctly here; the migration is cosmetic (removes the deprecation notice).
@@ -174,42 +173,17 @@ const eslintConfig = defineConfig([
         },
       ],
       // 'error' — a NEW cycle must FAIL the build, not merely be reported.
-      // `pnpm lint` is bare `eslint` with no --max-warnings (package.json), and
-      // both CI and the pre-commit hook run it, so a globally-'warn' rule detects
-      // without enforcing — which is the same zero-enforcement end state #333 was
-      // filed to fix. The 11 pre-existing cycles are confined to three domains and
-      // are downgraded by the scoped override below.
+      // `pnpm lint` is bare `eslint` with no --max-warnings (package.json), and both
+      // CI and the pre-commit hook run it, so a globally-'warn' rule detects without
+      // enforcing — the same zero-enforcement end state #333 was filed to fix.
+      //
+      // #343: the scoped 'warn' override for booking/payment/ledger is DELETED. Those
+      // 11 cycles are gone (bookingRef + the transition map moved to lib/core; refundOut
+      // moved to lib/payment), so the count is 0 and the rule now genuinely blocks
+      // everywhere. Do not re-add a domain-scoped downgrade to land a cycle — that
+      // recreates the hole, and it was scoped by DOMAIN rather than by the known
+      // offenders, so it silently covered new cycles too.
       "import-x/no-cycle": ["error", { maxDepth: Infinity, ignoreExternal: true }],
-    },
-  },
-  // The 11 pre-existing barrel cycles all live in booking↔payment↔ledger: report
-  // them, don't block on them. Scoped deliberately narrow so a new cycle in any
-  // OTHER domain still errors — and a cycle with one foot outside these three
-  // errors on the outside file, so containment holds (verified by planting a
-  // lib/notification ↔ lib/booking cycle: 2 errors, exit 1).
-  //
-  // KNOWN LIMITATION: this is scoped by DOMAIN, not by the 11 known cycles, so a
-  // brand-new cycle created wholly inside these three also only warns. Accepted
-  // because master enforced nothing anywhere; #343 removes the need entirely.
-  // Burn-down is tracked by #343 — delete this whole block when it lands.
-  //
-  // The `ignores` below is REQUIRED, not decorative. This object declares no
-  // `plugins`, so it relies on the main block's `import-x` registration — which
-  // only applies to files the main block matches. Drop the `ignores` and this
-  // object starts matching __tests__/*.test.* files that the main block excludes,
-  // where `import-x` is unregistered, and ESLint refuses to load the whole config:
-  //   "The 'import-x' plugin is not defined within the same configuration object
-  //    in which the 'import-x/no-cycle' rule is applied."
-  // Keep these two ignore lists in sync with the main block's.
-  {
-    files: [
-      "lib/booking/**/*.{ts,tsx}",
-      "lib/payment/**/*.{ts,tsx}",
-      "lib/ledger/**/*.{ts,tsx}",
-    ],
-    ignores: ["**/__tests__/**", "**/*.test.{ts,tsx}"],
-    rules: {
-      "import-x/no-cycle": ["warn", { maxDepth: Infinity, ignoreExternal: true }],
     },
   },
   // Override default ignores of eslint-config-next.

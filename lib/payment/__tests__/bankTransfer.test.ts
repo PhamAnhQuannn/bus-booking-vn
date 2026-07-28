@@ -4,7 +4,7 @@ import {
   _resetBankTransferAdapter,
   recoverSepayEvent,
 } from '../adapters/bankTransfer';
-import { BOOKING_REF_REGEX, generateBookingRef } from '@/lib/booking/bookingRef';
+import { BOOKING_REF_REGEX, generateBookingRef } from '@/lib/core/id';
 
 vi.mock('@/lib/config', () => ({
   getEnv: () => ({

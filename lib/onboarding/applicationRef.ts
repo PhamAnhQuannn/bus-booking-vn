@@ -6,7 +6,7 @@
  *   XXXXXX = 6 random base36 chars (uppercase), drawn from crypto.randomBytes
  *
  * Shown to the applicant on the confirmation page and in the pending email.
- * Mirrors lib/booking/bookingRef.ts: the DB unique index is the source of truth,
+ * Mirrors lib/core/id/bookingRef.ts: the DB unique index is the source of truth,
  * so callers retry on collision (P2002) up to N times before surfacing an error.
  * Uppercase (vs bookingRef's lowercase) so it reads cleanly over the phone /
  * in an email and never collides with a booking ref by eye.

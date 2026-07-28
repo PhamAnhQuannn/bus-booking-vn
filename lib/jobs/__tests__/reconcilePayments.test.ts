@@ -23,12 +23,14 @@ const {
   mockAppendLedger,
   mockRenderTemplate,
   mockLegalPredecessors,
+  mockRefundOut,
   mockLogger,
 } = vi.hoisted(() => ({
   mockApplyPaid: vi.fn(),
   mockAppendLedger: vi.fn(),
   mockRenderTemplate: vi.fn(),
   mockLegalPredecessors: vi.fn(),
+  mockRefundOut: vi.fn(),
   mockLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
@@ -52,6 +54,11 @@ vi.mock('@/lib/payment', async () => {
     appendBookingPaidLedger: mockAppendLedger,
     recoverSepayEvent: real.recoverSepayEvent,
     recoverVnpayEvent: realVnpay.recoverVnpayEvent,
+    // #343: refundOut moved from lib/ledger to lib/payment (it calls the PSP, then
+    // writes its ledger entries — the same shape as appendBookingPaidLedger beside it).
+    // The sweeper's dynamic import follows it here, so the mock must too: left on
+    // '@/lib/ledger' it stops intercepting and the REAL refund rail runs in a unit test.
+    refundOut: mockRefundOut,
   };
 });
 vi.mock('@/lib/notification', () => ({
@@ -61,15 +68,14 @@ vi.mock('@/lib/notification', () => ({
   OPS_ALERT_EMAIL: 'hotro@lenxevn.com',
 }));
 vi.mock('@/lib/logger', () => ({ logger: mockLogger }));
-// BOOKING_REF_REGEX comes from the REAL leaf module: the bank_transfer adapter
-// imports it through this barrel, and the adapter is loaded for real above.
-// Deep-importing the leaf keeps the db client out of the unit graph (Mistake Log 092b).
-vi.mock('@/lib/booking', async () => {
-  const refs = await vi.importActual<typeof import('../../booking/bookingRef')>(
-    '@/lib/booking/bookingRef'
-  );
-  return { legalPredecessors: mockLegalPredecessors, BOOKING_REF_REGEX: refs.BOOKING_REF_REGEX };
-});
+// #343: legalPredecessors now lives in lib/core/booking, so the mock follows it. The
+// production dynamic import in reconcilePayments points here too — a mock left on
+// '@/lib/booking' would silently stop intercepting and the real map would run.
+vi.mock('@/lib/core/booking', () => ({ legalPredecessors: mockLegalPredecessors }));
+// BOOKING_REF_REGEX is NOT mocked: the bank_transfer adapter (loaded for real above)
+// now imports it from lib/core/id, a pure crypto+Intl leaf with no Prisma in its graph.
+// The barrel mock that used to be needed here existed only to keep the db client out
+// of the unit graph (Mistake Log 092b) — moving the leaf to core removed the reason.
 // Prisma.sql / Prisma.join are passthroughs — the stub tx ignores the SQL and
 // returns staged rows by call order.
 vi.mock('@prisma/client', () => ({
@@ -79,7 +85,7 @@ vi.mock('@prisma/client', () => ({
   },
 }));
 vi.mock('next/server', () => ({ after: vi.fn() }));
-vi.mock('@/lib/ledger', () => ({ refundOut: vi.fn() }));
+// lib/ledger no longer owns refundOut (#343); nothing from that barrel is used here.
 
 import {
   reconcilePayments,

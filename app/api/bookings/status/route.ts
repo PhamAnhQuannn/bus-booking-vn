@@ -12,7 +12,7 @@ export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/core/db/client';
-import { BOOKING_REF_REGEX } from '@/lib/booking';
+import { BOOKING_REF_REGEX } from '@/lib/core/id';
 
 export async function GET(req: NextRequest): Promise<Response> {
   const ref = req.nextUrl.searchParams.get('ref') ?? '';
