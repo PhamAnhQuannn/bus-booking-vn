@@ -54,6 +54,31 @@ export class SeatMapBusyError extends Error {
   }
 }
 
+/**
+ * Thrown by createHold when the caller's OWN session or phone lock stayed contended
+ * across every bounded retry.
+ *
+ * Split out from SeatMapBusyError for the reason that type's own docblock gives. Once
+ * the session and phone locks became try-locks too, all three contention sources threw
+ * SeatMapBusyError — and its user-facing copy says "many people are booking this trip
+ * right now". For a session/phone conflict that is false: the only party contending is
+ * the caller themselves, via a double-click, two open tabs, or a retried submit. Nobody
+ * else is booking the trip.
+ *
+ * That is the same class of lie the caps-vs-busy split was created to avoid, just on a
+ * different axis, so it gets the same treatment: a distinct type carrying "your own
+ * request is still in flight — try again", which is both true and actionable.
+ *
+ * Like SeatMapBusyError this clears in milliseconds, so it is retryable; unlike a cap it
+ * has nothing to do with the caller's allowance.
+ */
+export class RequestInFlightError extends Error {
+  constructor() {
+    super('REQUEST_IN_FLIGHT');
+    this.name = 'RequestInFlightError';
+  }
+}
+
 /** Attempts (including the first) createHold makes before surfacing SeatMapBusyError. */
 export const TRIP_LOCK_ATTEMPTS = 3;
 /** First backoff ceiling in ms; doubles per attempt, then full-jittered. */

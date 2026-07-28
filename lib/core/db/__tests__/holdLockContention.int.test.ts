@@ -29,7 +29,7 @@ import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { Pool } from 'pg';
 import { prisma } from '@/lib/core/db/client';
 import { createHold } from '../holdRepo';
-import { SeatMapBusyError } from '../holdErrors';
+import { SeatMapBusyError, RequestInFlightError } from '../holdErrors';
 
 let operatorId: string;
 let busId: string;
@@ -172,8 +172,15 @@ describe('bounded trip-lock under contention (#362)', () => {
 
     const elapsed = Date.now() - started;
 
+    // Both contention types are expected here: the phone fixture reuses `i % 10`, so at
+    // CONCURRENCY > 10 two callers share a phone and contend on THAT lock rather than the
+    // trip's. Accepting only SeatMapBusyError would make this flake exactly when the
+    // collision happens.
     const unexpected = results.filter(
-      (r) => r.status === 'rejected' && !(r.reason instanceof SeatMapBusyError)
+      (r) =>
+        r.status === 'rejected' &&
+        !(r.reason instanceof SeatMapBusyError) &&
+        !(r.reason instanceof RequestInFlightError)
     );
     expect(
       unexpected.map((r) => (r as PromiseRejectedResult).reason?.message ?? 'unknown')
@@ -208,8 +215,15 @@ describe('bounded trip-lock under contention (#362)', () => {
       )
     );
 
+    // Both contention types are expected here: the phone fixture reuses `i % 10`, so at
+    // CONCURRENCY > 10 two callers share a phone and contend on THAT lock rather than the
+    // trip's. Accepting only SeatMapBusyError would make this flake exactly when the
+    // collision happens.
     const unexpected = results.filter(
-      (r) => r.status === 'rejected' && !(r.reason instanceof SeatMapBusyError)
+      (r) =>
+        r.status === 'rejected' &&
+        !(r.reason instanceof SeatMapBusyError) &&
+        !(r.reason instanceof RequestInFlightError)
     );
     expect(unexpected).toHaveLength(0);
 
@@ -237,6 +251,13 @@ describe('bounded trip-lock under contention (#362)', () => {
  * before any lock is reached.
  *
  * These fail against a blocking implementation — 'timeout' instead of 'busy'.
+ *
+ * They also pin the ERROR TYPE, which is not incidental. Session/phone contention is the
+ * caller contending with THEMSELVES (double-click, second tab), so it raises
+ * RequestInFlightError, not SeatMapBusyError — whose user-facing copy says "many people
+ * are booking this trip right now". For a solo double-clicker that is simply false, and
+ * it is the same class of lie the cap-vs-busy split already exists to prevent. Asserting
+ * `instanceof RequestInFlightError` is what stops a future edit collapsing them again.
  */
 describe.each([
   {
@@ -269,7 +290,12 @@ describe.each([
           ...args,
         }).then(
           () => 'resolved' as const,
-          (err) => (err instanceof SeatMapBusyError ? ('busy' as const) : Promise.reject(err))
+          (err) =>
+            // NOT SeatMapBusyError: see the header — the copy for that error would be a
+            // false statement about other buyers.
+            err instanceof RequestInFlightError
+              ? ('busy' as const)
+              : Promise.reject(err)
         ),
         new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), 3_000)),
       ]);

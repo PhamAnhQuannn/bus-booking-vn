@@ -16,6 +16,9 @@
  *      concurrent attempts for the same trip. TRY, not blocking (#362): the whole
  *      transaction is retried from outside on contention, so a waiter never pins a
  *      pooled connection. Throws SeatMapBusyError once TRIP_LOCK_ATTEMPTS is exhausted.
+ *      Locks 0 and 1 are try-locks too, but throw RequestInFlightError instead — that is
+ *      the caller contending with THEMSELVES (double-click, second tab), not with other
+ *      buyers, and the user-facing copy has to differ accordingly.
  *   3. Conditionally INSERTs a new Hold only if
  *      (capacity - active-hold sum - confirmed-booking sum) >= ticketCount.
  *      (Issue 040: the blockedSeats term was removed — block-seats is retired.
@@ -48,6 +51,7 @@ import {
   HoldCapExceededError,
   SessionSeatCapExceededError,
   SeatMapBusyError,
+  RequestInFlightError,
 } from './holdErrors';
 export {
   CONCURRENT_HOLD_CAP,
@@ -55,6 +59,7 @@ export {
   HoldCapExceededError,
   SessionSeatCapExceededError,
   SeatMapBusyError,
+  RequestInFlightError,
 } from './holdErrors';
 
 export const HOLD_TTL_MINUTES = 10;
@@ -132,7 +137,8 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
         Prisma.sql`SELECT pg_try_advisory_xact_lock(hashtext('hold-session:' || ${sessionId})) AS locked`
       );
       if (!sessionLock[0]?.locked) {
-        throw new SeatMapBusyError();
+        // The caller's own session, not the trip — see RequestInFlightError.
+        throw new RequestInFlightError();
       }
 
       // 0a. Seat cap for this session. SUM(ticketCount), not COUNT(*) — the whole point is
@@ -154,7 +160,8 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
       Prisma.sql`SELECT pg_try_advisory_xact_lock(hashtext('hold-phone:' || ${customerPhone})) AS locked`
     );
     if (!phoneLock[0]?.locked) {
-      throw new SeatMapBusyError();
+      // The caller's own phone, not the trip — see RequestInFlightError.
+      throw new RequestInFlightError();
     }
 
     // 1a. Concurrent-hold cap: count ACTIVE non-expired holds for this phone.
@@ -272,7 +279,11 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
       baseMs: TRIP_LOCK_BACKOFF_BASE_MS,
       // ONLY contention is retried. The two caps are terminal decisions about this
       // caller — retrying them would just burn attempts and return the same answer.
-      retryOn: (err) => err instanceof SeatMapBusyError,
+      // Both contention errors are retryable and share the budget: they differ only in
+      // what they mean to the CALLER (someone else's demand vs your own in-flight request),
+      // not in how the server should react.
+      retryOn: (err) =>
+        err instanceof SeatMapBusyError || err instanceof RequestInFlightError,
     }
   );
 

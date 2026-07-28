@@ -23,6 +23,7 @@ import {
   HoldCapExceededError,
   SessionSeatCapExceededError,
   SeatMapBusyError,
+  RequestInFlightError,
   SESSION_SEAT_CAP,
 } from '@/lib/core/db/holdErrors';
 
@@ -154,6 +155,17 @@ async function handler(req: NextRequest): Promise<Response> {
       logger.warn({ tripId, ticketCount }, 'hold.denied.seat_map_busy — trip lock contended');
       return NextResponse.json(
         { error: 'SEAT_MAP_BUSY' },
+        { status: 429, headers: { 'Retry-After': SEAT_MAP_BUSY_RETRY_AFTER_SECONDS } }
+      );
+    }
+    // Same 429 shape, deliberately DIFFERENT code: the caller is contending with their
+    // own in-flight request (double-click, second tab), not with other buyers. Reporting
+    // "many people are booking this trip" to a solo user would be false — the exact
+    // class of lie the caps-vs-busy split already exists to prevent.
+    if (e instanceof RequestInFlightError) {
+      logger.info({ tripId, ticketCount }, 'hold.denied.request_in_flight — self-contention');
+      return NextResponse.json(
+        { error: 'REQUEST_IN_FLIGHT' },
         { status: 429, headers: { 'Retry-After': SEAT_MAP_BUSY_RETRY_AFTER_SECONDS } }
       );
     }

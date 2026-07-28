@@ -40,6 +40,7 @@ export interface HoldError {
     // #362: the seat map is contended right now. Distinct from the caps above — this
     // caller may be holding nothing at all, so cap copy would be simply false.
     | 'SEAT_MAP_BUSY'
+    | 'REQUEST_IN_FLIGHT'
     | 'INVALID'
     | 'PICKUP_INVALID'
     | 'NETWORK_ERROR';
@@ -83,7 +84,8 @@ export async function createHoldRequest(body: HoldRequestBody): Promise<HoldResu
     if (
       code === 'SESSION_SEAT_CAP_EXCEEDED' ||
       code === 'HOLD_CAP_EXCEEDED' ||
-      code === 'SEAT_MAP_BUSY'
+      code === 'SEAT_MAP_BUSY' ||
+      code === 'REQUEST_IN_FLIGHT'
     ) {
       return { ok: false, code, retryAfter };
     }

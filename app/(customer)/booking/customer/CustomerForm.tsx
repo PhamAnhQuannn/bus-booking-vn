@@ -48,6 +48,7 @@ type FormState =
   | { status: 'rate_limited'; retryAfter: number }
   | { status: 'hold_cap' }
   | { status: 'seat_map_busy' }
+  | { status: 'request_in_flight' }
   | { status: 'error'; message: string }
   | { status: 'field_errors'; errors: Record<string, string>; suggestion?: string };
 
@@ -166,6 +167,12 @@ export function CustomerForm() {
         // form stays filled in so it is one tap.
         if (result.code === 'SEAT_MAP_BUSY') {
           return { status: 'seat_map_busy' };
+        }
+        // Self-contention, not demand. Same 429, deliberately different copy: telling a
+        // solo buyer who double-clicked that "many people are booking this trip" is
+        // false, and it is the same class of lie the cap-vs-busy split already avoids.
+        if (result.code === 'REQUEST_IN_FLIGHT') {
+          return { status: 'request_in_flight' };
         }
         if (result.code === 'PICKUP_INVALID') {
           return { status: 'field_errors', errors: { pickup: 'Điểm đón không hợp lệ. Vui lòng chọn lại.' } };
@@ -373,6 +380,12 @@ export function CustomerForm() {
       {state.status === 'seat_map_busy' && (
         <div role="alert" className="bg-warning border border-warning-border rounded p-3 text-warning-foreground">
           Chuyến này đang có nhiều người đặt cùng lúc. Vui lòng bấm “Tiếp tục” để thử lại.
+        </div>
+      )}
+
+      {state.status === 'request_in_flight' && (
+        <div role="alert" className="bg-warning border border-warning-border rounded p-3 text-warning-foreground">
+          Yêu cầu trước của bạn đang được xử lý. Vui lòng đợi giây lát rồi bấm “Tiếp tục”.
         </div>
       )}
 
