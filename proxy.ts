@@ -37,13 +37,12 @@
  *
  *    CSRF Exempt:
  *      - GET / HEAD / OPTIONS (safe methods)
- *      - /api/payments/{momo,zalopay,card}/webhook (HMAC body verification used instead)
+ *      - /api/payments/bank_transfer/webhook (SePay sends no bb_csrf cookie)
  *      - /api/op/auth/refresh (uses HttpOnly refresh cookie; no JS-readable CSRF token)
  *      - /api/admin/auth/refresh (Issue 056 — HttpOnly refresh cookie; no JS-readable CSRF token)
- *    Webhooks (the CSRF_EXEMPT exact-match Set) are exempt from BOTH gates — they
- *    authenticate via HMAC and must not be rate-limited at the edge (Issue 096 reuses
- *    that SAME Set, no second exempt list). The CSRF prefix-exempt pre-auth routes are
- *    only CSRF-exempt; they are STILL rate-limited.
+ *    NOTHING is rate-limit exempt. Every non-safe /api/* request is limited at the
+ *    edge, webhooks included. The CSRF prefix-exempt pre-auth routes are only
+ *    CSRF-exempt; they are STILL rate-limited.
  *    Admin login + TOTP POSTs are NOT exempt — they ride the bb_csrf double-submit
  *    like operator login (the /admin/login GET issues bb_csrf via this layer).
  *    On first GET: issues bb_csrf cookie (non-HttpOnly, SameSite=Lax) if absent.
@@ -66,25 +65,19 @@ const SID_COOKIE = 'bb_sid'; // anonymous funnel session id (no PII)
 const SID_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-// Exact-path exemptions (CSRF) — all PSP webhooks (SePay sends no bb_csrf cookie).
-const CSRF_EXEMPT = new Set([
-  '/api/payments/momo/webhook',
-  '/api/payments/zalopay/webhook',
-  '/api/payments/card/webhook',
-  '/api/payments/vnpay/webhook',
-  '/api/payments/bank_transfer/webhook',
-]);
-// Rate-limit exemptions (Issue 329) — a SUBSET of CSRF_EXEMPT. Only the HMAC-body-
-// verified PSP webhooks skip the edge rate-limit; bank_transfer (SePay) authenticates
-// with a STATIC Apikey and is NOT HMAC-signed, so it stays rate-limited to blunt an
-// unauthenticated flood. It remains CSRF-exempt (above). SePay treats a 429 as a
-// retryable delivery (Fibonacci backoff) and the reconcile sweeper is the backstop.
-const RATELIMIT_EXEMPT = new Set([
-  '/api/payments/momo/webhook',
-  '/api/payments/zalopay/webhook',
-  '/api/payments/card/webhook',
-  '/api/payments/vnpay/webhook',
-]);
+// Exact-path exemptions (CSRF) — bank_transfer (SePay) sends no bb_csrf cookie.
+//
+// This Set has exactly ONE entry on purpose. The momo/zalopay/card/vnpay webhook
+// routes were DELETED: none of them was ever reachable by a real PSP (no credentials
+// are configured and none will be), yet all four resolved a gateway whose signing key
+// defaults to a literal published in this repo — so any reader could forge a signed
+// "paid" IPN naming a bookingRef and mark that booking paid. Adding a path back here
+// re-opens that surface; do not, without a real PSP integration behind it.
+const CSRF_EXEMPT = new Set(['/api/payments/bank_transfer/webhook']);
+// There is deliberately NO rate-limit exemption list. The only webhook left is SePay,
+// which authenticates with a STATIC Apikey and is NOT HMAC-signed, so it stays
+// rate-limited to blunt an unauthenticated flood. SePay treats a 429 as a retryable
+// delivery (Fibonacci backoff) and the reconcile sweeper is the backstop.
 // Prefix exemptions (CSRF) — routes where the CSRF cookie is unavailable pre-auth
 const CSRF_EXEMPT_PREFIXES = [
   '/api/op/auth/refresh',
@@ -304,12 +297,9 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     return nextWithRid();
   }
 
-  // HMAC-verified webhooks skip BOTH gates (Issue 096) — they authenticate via HMAC
-  // and burst legitimately. Issue 329: bank_transfer (Apikey, not HMAC) is NOT in
-  // this set, so it falls through to the rate-limit below while still skipping CSRF.
-  if (RATELIMIT_EXEMPT.has(pathname)) {
-    return nextWithRid();
-  }
+  // No webhook skips the rate-limit gate any more. The four HMAC-verified PSP webhook
+  // routes that used to be exempt here (momo/zalopay/card/vnpay) are deleted; SePay,
+  // the only remaining webhook, authenticates with a static Apikey and stays limited.
 
   // Both rate-limit and CSRF only apply to /api/* state-changing routes.
   // Non-/api/* non-safe requests (e.g. server actions on app pages) pass through.

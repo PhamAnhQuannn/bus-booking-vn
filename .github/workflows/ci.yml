@@ -70,7 +70,7 @@ jobs:
           DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
 
       - name: Run unit tests
-        run: pnpm test:unit
+        run: pnpm test
 
       - name: Run coverage
         run: pnpm test:cov

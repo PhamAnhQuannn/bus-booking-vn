@@ -20,4 +20,5 @@ export {
   type RefundReason,
 } from './refundOut';
 export { getGatewayFor } from './select';
+export { isVnpaySelectable } from './vnpaySelectable';
 export type { OnlinePaymentMethod } from './select';

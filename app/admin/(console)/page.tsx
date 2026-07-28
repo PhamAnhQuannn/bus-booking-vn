@@ -17,11 +17,16 @@
  *   Action: approvals   yes          yes      yes
  *   Action: disputes    yes          yes      no       (finance-sensitive)
  *   Action: failedPayout yes         yes      no       (finance-sensitive)
- *   Failure alerts      yes          yes      yes      (operational health)
+ *   Alerts: notify      yes          yes      yes      (operational health)
+ *   Alerts: money-flow  yes          yes      no       (orphan payments, failed payouts)
  *   Infra health        yes          yes      yes
  * Rationale: SUPPORT triages operators/customers/notifications but does not see
  * money figures (GMV/revenue) or money-flow failures (disputes/payouts). The target
  * tabs (065–070) enforce the same role split; this is the Overview's mirror of it.
+ *
+ * #371: the "Failure alerts yes/yes/yes" row used to contradict that rationale — the
+ * orphan-payment and failed-payout tiles ARE money-flow failures and rendered for
+ * SUPPORT. Split into two rows so the matrix states what the code does.
  */
 
 import Link from 'next/link';
@@ -29,7 +34,7 @@ import Link from 'next/link';
 import { requireAdminPage } from '@/lib/auth';
 import { getAdminMetrics } from '@/lib/analytics';
 import { getActionQueue } from '@/lib/admin';
-import { getFailureAlerts } from '@/lib/admin';
+import { getFailureAlerts, redactErrorText } from '@/lib/admin';
 import { getDefaultDateRange } from '@/lib/op';
 import {
   Card,
@@ -60,6 +65,9 @@ function maskRecipient(recipient: string): string {
   if (recipient.length <= 4) return '••••';
   return `${recipient.slice(0, 2)}••••${recipient.slice(-2)}`;
 }
+
+// redactErrorText lives in lib/admin so the PII-scrubbing regexes are unit-testable —
+// a scrubber nobody exercises is the kind that silently stops matching.
 
 interface MetricCardProps {
   label: string;
@@ -228,16 +236,32 @@ export default async function AdminOverviewPage() {
             value={vnd.format(failures.retryingNotifications)}
             hint="sẽ tự gửi lại theo lịch"
           />
-          <MetricCard
-            label="Giao dịch chưa khớp"
-            value={vnd.format(failures.orphanPayments)}
-            hint="chuyển khoản chưa gán được đơn"
-          />
-          <MetricCard
-            label="Chi trả thất bại"
-            value={vnd.format(failures.failedPayouts)}
-            hint="giải ngân bị lỗi"
-          />
+          {/*
+            Money-flow failures are finance-only, matching the action queue above and the
+            matrix at the top of this file. They sat OUTSIDE this gate while the rationale
+            said SUPPORT "does not see money-flow failures (disputes/payouts)" — the two
+            money tiles here are exactly that, so the code contradicted its own comment.
+
+            This ternary is the page's ENTIRE RBAC: requireAdminPage() enforces auth and
+            TOTP but takes no role, so anything rendered outside it has no fallback gate at
+            any layer. Giving the guard a role parameter is the durable fix and is deferred
+            (11 admin pages, each with its own hand-typed role literal) — see
+            issues/131-admin-page-role-guard.md for the trigger.
+          */}
+          {canSeeFinance ? (
+            <>
+              <MetricCard
+                label="Giao dịch chưa khớp"
+                value={vnd.format(failures.orphanPayments)}
+                hint="chuyển khoản chưa gán được đơn"
+              />
+              <MetricCard
+                label="Chi trả thất bại"
+                value={vnd.format(failures.failedPayouts)}
+                hint="giải ngân bị lỗi"
+              />
+            </>
+          ) : null}
         </div>
 
         {failures.recent.length > 0 ? (
@@ -255,7 +279,9 @@ export default async function AdminOverviewPage() {
                       <span className="font-medium">{f.template}</span>{' '}
                       <span className="text-muted-foreground">{maskRecipient(f.recipient)}</span>
                       {f.lastError ? (
-                        <span className="block truncate text-xs text-destructive">{f.lastError}</span>
+                        <span className="block truncate text-xs text-destructive">
+                          {redactErrorText(f.lastError)}
+                        </span>
                       ) : null}
                     </span>
                     <time

@@ -2,9 +2,10 @@
  * POST /api/holds
  *
  * Creates a seat hold for a trip. Pipeline:
- * 1. Rate-limit by IP (429 + Retry-After on breach)
+ * 1. Rate-limit — session-keyed when bb_sid is present, tighter IP-keyed when it is not (#359)
  * 2. Parse + validate JSON body with holdInputSchema (400 on breach)
- * 3. Atomic createHold() — advisory-lock + conditional INSERT (409 SOLD_OUT if no seats)
+ * 3. Atomic createHold() — advisory-lock + conditional INSERT (409 SOLD_OUT if no seats),
+ *    enforcing the per-session seat cap and the per-phone hold cap
  * 4. Set bb_hold HttpOnly cookie (HMAC-signed)
  * 5. Return 200 { holdId, expiresAt }
  *
@@ -16,11 +17,15 @@ export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { holdInputSchema } from '@/lib/core/validation/hold';
-import { createHold } from '@/lib/core/db/holdRepo';
+import { createHold, HOLD_TTL_MINUTES } from '@/lib/core/db/holdRepo';
 import { validatePickupSelection } from '@/lib/booking';
-import { HoldCapExceededError } from '@/lib/core/db/holdErrors';
+import {
+  HoldCapExceededError,
+  SessionSeatCapExceededError,
+  SESSION_SEAT_CAP,
+} from '@/lib/core/db/holdErrors';
 import { buildSetCookieHeader } from '@/lib/security';
-import { ratelimit } from '@/lib/ratelimit';
+import { holdsRatelimit, holdsAnonRatelimit } from '@/lib/ratelimit';
 import { clientIp } from '@/lib/core/http/clientIp';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { getOrCreateRequestId, loggerForRequest } from '@/lib/observability';
@@ -29,11 +34,21 @@ import { track, sessionIdFromRequest } from '@/lib/analytics';
 async function handler(req: NextRequest): Promise<Response> {
   const logger = loggerForRequest(getOrCreateRequestId(req.headers));
 
-  // ---- 1. Rate limit by IP ----
+  // ---- 1. Rate limit — session-keyed when we have a session, IP-keyed when we don't ----
+  // The generic 60/min/IP edge limit is irrelevant to seat squatting: the phone cap allows
+  // 5 holds × 10 seats = 50 seats, so a whole 45-seat trip locks in FIVE requests. This
+  // limiter is about the rate; the seat cap in createHold is about the ceiling (#359).
   const ip = clientIp(req.headers);
+  const sessionId = sessionIdFromRequest(req);
 
-  const rl = await ratelimit.limit(ip);
+  const rl = sessionId
+    ? await holdsRatelimit.limit(`hold:${sessionId}`)
+    : await holdsAnonRatelimit.limit(`hold-anon:${ip}`);
   if (!rl.allowed) {
+    logger.warn(
+      { keyed: sessionId ? 'session' : 'anon-ip', retryAfter: rl.retryAfter },
+      'hold.denied.rate_limited'
+    );
     return new Response(
       JSON.stringify({ error: 'TOO_MANY_REQUESTS' }),
       {
@@ -99,11 +114,30 @@ async function handler(req: NextRequest): Promise<Response> {
       customerEmail: buyerEmail,
       pickupKind: pickup.pickupKind,
       pickupDetail: pickup.pickupDetail,
+      sessionId,
     });
   } catch (e) {
+    // Both caps carry Retry-After. Without it the client falls back to a fabricated 60s
+    // (lib/api/holdsClient.ts) and cannot tell a cap from a throttle. A cap clears when the
+    // caller's own holds expire, so HOLD_TTL_MINUTES is the honest wait — not a guess.
+    const capRetryAfter = String(HOLD_TTL_MINUTES * 60);
+
+    if (e instanceof SessionSeatCapExceededError) {
+      logger.warn(
+        { tripId, ticketCount, cap: SESSION_SEAT_CAP },
+        'hold.denied.session_seat_cap — session already holds its seat allowance'
+      );
+      return NextResponse.json(
+        { error: 'SESSION_SEAT_CAP_EXCEEDED' },
+        { status: 429, headers: { 'Retry-After': capRetryAfter } }
+      );
+    }
     if (e instanceof HoldCapExceededError) {
-      logger.warn({ tripId }, 'Hold cap exceeded for phone');
-      return NextResponse.json({ error: 'HOLD_CAP_EXCEEDED' }, { status: 429 });
+      logger.warn({ tripId }, 'hold.denied.phone_hold_cap');
+      return NextResponse.json(
+        { error: 'HOLD_CAP_EXCEEDED' },
+        { status: 429, headers: { 'Retry-After': capRetryAfter } }
+      );
     }
     throw e;
   }
@@ -120,7 +154,7 @@ async function handler(req: NextRequest): Promise<Response> {
 
   // Funnel: hold_created (fire-and-forget)
   void track('hold_created', {
-    sessionId: sessionIdFromRequest(req),
+    sessionId,
     tripId,
     context: { holdId, ticketCount },
   });

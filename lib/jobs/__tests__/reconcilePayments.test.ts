@@ -628,3 +628,86 @@ describe('reconcilePayments (f) below-threshold / no candidates', () => {
     expect(res).toEqual({ rowsAffected: 0, status: 'success' });
   });
 });
+
+describe('reconcilePayments (g) unrecoverable-orphan logging (#376)', () => {
+  /** An orphan: bookingId IS NULL, and a body the recoverer cannot get an amount from. */
+  function orphanEventRow(id: string) {
+    return eventRow({
+      id,
+      bookingId: null,
+      adapter: 'bank_transfer',
+      providerTxnId: `orphan-${id}`,
+      rawBody: 'not-parseable-by-any-adapter',
+    });
+  }
+
+  function unrecoverableWarns() {
+    return mockLogger.warn.mock.calls.filter((c) =>
+      String(c[1]).includes('reconcile.event_unrecoverable')
+    );
+  }
+
+  it('logs ONE line per orphan per tick, not one per candidate booking it matches', async () => {
+    // The regression: rawEvents matches an orphan to every candidate whose anchor falls
+    // inside the ±30-minute window, so the SAME orphan was re-logged once per booking —
+    // up to CLAIM_LIMIT (200) identical lines a tick, every tick, for as long as the
+    // orphan sits unclaimed. Three candidates all seeing the same orphan is the shape.
+    const orphan = orphanEventRow('pe-orphan-1');
+    const tx = makeTx(
+      [
+        baseBooking({ id: 'b-1', bookingRef: 'BB-2026-aaaa-0001' }),
+        baseBooking({ id: 'b-2', bookingRef: 'BB-2026-aaaa-0002' }),
+        baseBooking({ id: 'b-3', bookingRef: 'BB-2026-aaaa-0003' }),
+      ],
+      [[orphan], [orphan], [orphan]]
+    );
+
+    await reconcilePayments(tx as never, { now: NOW });
+
+    const warns = unrecoverableWarns();
+    expect(warns).toHaveLength(1);
+    expect(warns[0][0]).toMatchObject({
+      paymentEventId: 'pe-orphan-1',
+      linked: false,
+    });
+    // An orphan belongs to no booking — naming whichever candidate was in scope when it
+    // was seen would invent a link that does not exist.
+    expect(warns[0][0]).not.toHaveProperty('bookingId');
+  });
+
+  it('de-duplicates by paymentEventId but still reports DISTINCT orphans', async () => {
+    const tx = makeTx(
+      [baseBooking({ id: 'b-1' }), baseBooking({ id: 'b-2' })],
+      [
+        [orphanEventRow('pe-orphan-1'), orphanEventRow('pe-orphan-2')],
+        [orphanEventRow('pe-orphan-1')],
+      ]
+    );
+
+    await reconcilePayments(tx as never, { now: NOW });
+
+    const ids = unrecoverableWarns().map((c) => (c[0] as { paymentEventId: string }).paymentEventId);
+    expect(ids.sort()).toEqual(['pe-orphan-1', 'pe-orphan-2']);
+  });
+
+  it('still logs a LINKED unrecoverable event per booking, with its bookingId', async () => {
+    // The linked half is unchanged: those events belong to exactly one booking, so
+    // per-booking logging is correct there and the bookingId is real.
+    const linkedBad = eventRow({
+      id: 'pe-linked-1',
+      adapter: 'bank_transfer',
+      rawBody: 'not-parseable-by-any-adapter',
+    });
+    const tx = makeTx([baseBooking({ id: 'b-1' })], [[linkedBad]]);
+
+    await reconcilePayments(tx as never, { now: NOW });
+
+    const warns = unrecoverableWarns();
+    expect(warns).toHaveLength(1);
+    expect(warns[0][0]).toMatchObject({
+      bookingId: 'b-1',
+      paymentEventId: 'pe-linked-1',
+      linked: true,
+    });
+  });
+});

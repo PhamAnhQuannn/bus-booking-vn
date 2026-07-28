@@ -82,6 +82,21 @@ export interface SendEmailResult {
   ok: boolean;
   externalRef?: string;
   error?: string;
+  /**
+   * How a failure failed — present only when `ok` is false (#368).
+   *
+   * `rejected` — the vendor answered and refused. The email was definitively NOT sent,
+   *   so the next attempt must use a FRESH idempotency key: Resend replays a reused key
+   *   for 24h and would hand back this same cached failure forever (that is why #335
+   *   salts the key with attemptCount at all).
+   * `unknown` — no answer: timeout, socket reset, thrown client error. Resend may or may
+   *   not have accepted the message. Reusing the key here is what makes the retry safe;
+   *   a fresh key would send a SECOND real email.
+   *
+   * The distinction already existed as two branches in sendViaResend and was flattened
+   * into a bare `ok:false`, which silently chose "duplicate" for every unknown outcome.
+   */
+  outcome?: 'rejected' | 'unknown';
 }
 
 const STUB_PROVIDER_REF_PREFIX = 'stub_email_';
@@ -179,14 +194,19 @@ async function sendViaResend(
       idempotencyKey ? { idempotencyKey } : undefined,
     );
     if (error) {
+      // Vendor answered and refused: definitively not sent. Safe — required, even — to
+      // retry under a fresh idempotency key.
       logger.error({ template, err: error.message }, 'email.resend.api-error');
-      return { ok: false, error: error.message };
+      return { ok: false, error: error.message, outcome: 'rejected' };
     }
     logger.info({ template, externalRef: data?.id }, 'email.resend.sent');
     return { ok: true, externalRef: data?.id };
   } catch (err) {
+    // No answer — timeout, socket reset, thrown client error. Resend may already have
+    // accepted the message, so this must NOT be re-keyed: reusing the key lets Resend
+    // dedupe the retry, whereas a fresh key sends a second real email to a customer.
     logger.error({ template, err }, 'email.resend.exception');
-    return { ok: false, error: 'resend_exception' };
+    return { ok: false, error: 'resend_exception', outcome: 'unknown' };
   }
 }
 
