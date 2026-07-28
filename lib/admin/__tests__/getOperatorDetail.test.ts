@@ -74,7 +74,7 @@ describe('getOperatorDetail', () => {
       payouts: [
         {
           id: 'po_1',
-          net: 5000,
+          net: BigInt(5000),
           status: 'paid',
           scheduledAt: new Date('2026-05-01T00:00:00Z'),
           settledAt: new Date('2026-05-02T00:00:00Z'),
@@ -94,7 +94,7 @@ describe('getOperatorDetail', () => {
     expect(detail!.balance).toEqual({ pending: BigInt(100), available: BigInt(200), paidOut: BigInt(50) });
     expect(detail!.currentFeePpm).toBe(60000);
     expect(detail!.payoutHistory).toHaveLength(1);
-    expect(detail!.payoutHistory[0]).toMatchObject({ id: 'po_1', net: 5000, status: 'paid' });
+    expect(detail!.payoutHistory[0]).toMatchObject({ id: 'po_1', net: '5000', status: 'paid' });
 
     // Fee rate resolved for this operator at `now`.
     expect(mockFeeRate).toHaveBeenCalledWith('op_1', now);

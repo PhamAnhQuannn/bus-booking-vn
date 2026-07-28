@@ -37,6 +37,10 @@ export interface HoldError {
     // their own holds to expire (or complete a booking), not merely retry.
     | 'SESSION_SEAT_CAP_EXCEEDED'
     | 'HOLD_CAP_EXCEEDED'
+    // #362: the seat map is contended right now. Distinct from the caps above — this
+    // caller may be holding nothing at all, so cap copy would be simply false.
+    | 'SEAT_MAP_BUSY'
+    | 'REQUEST_IN_FLIGHT'
     | 'INVALID'
     | 'PICKUP_INVALID'
     | 'NETWORK_ERROR';
@@ -77,7 +81,12 @@ export async function createHoldRequest(body: HoldRequestBody): Promise<HoldResu
     // someone at their allowance to "try again in 60s" is simply wrong (#359).
     const body = await res.json().catch(() => null);
     const code = body?.error;
-    if (code === 'SESSION_SEAT_CAP_EXCEEDED' || code === 'HOLD_CAP_EXCEEDED') {
+    if (
+      code === 'SESSION_SEAT_CAP_EXCEEDED' ||
+      code === 'HOLD_CAP_EXCEEDED' ||
+      code === 'SEAT_MAP_BUSY' ||
+      code === 'REQUEST_IN_FLIGHT'
+    ) {
       return { ok: false, code, retryAfter };
     }
     return { ok: false, code: 'TOO_MANY_REQUESTS', retryAfter };
