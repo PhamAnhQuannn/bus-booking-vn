@@ -15,6 +15,7 @@ export {
   type CharterDispatchItem,
 } from './getCharterDispatchQueue';
 export { getFailureAlerts } from './getFailureAlerts';
+export { redactErrorText } from './redactErrorText';
 export { getLedgerView } from './getLedgerView';
 export { getOpenReports, getModeratedItems } from './getModerationQueue';
 export { getOperatorDetail } from './getOperatorDetail';

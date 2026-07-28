@@ -59,6 +59,11 @@ export const loggerOptions: LoggerOptions = {
       'customerPhone',
       'customerName',
       'customerEmail',
+      // Vendor error strings echo the address they failed on — Resend puts the
+      // recipient into error.message (lib/notification/email.ts), so logging
+      // lastError unredacted re-leaks the value '*.recipient' below already masks.
+      'lastError',
+      '*.lastError',
       'bb_hold',
       'HOLD_SECRET',
       'phone',

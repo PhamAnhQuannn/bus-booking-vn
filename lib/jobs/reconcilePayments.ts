@@ -336,6 +336,13 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
   let paidCount = 0;
   let expiredCount = 0;
 
+  /**
+   * Unrecoverable ORPHAN events seen anywhere in this tick, de-duplicated by
+   * paymentEventId (#376). Logged once after the candidate loop instead of once per
+   * candidate booking that happens to fall inside the orphan's ±30-minute match window.
+   */
+  const unrecoverableOrphans = new Map<string, RecoveredEvent>();
+
   for (const booking of candidates) {
     // Load every PaymentEvent we might match: those already linked to THIS
     // booking, plus orphan/cross-linked ones for the degraded bank-transfer
@@ -393,16 +400,31 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
     if (!confirming) {
       for (const e of events) {
         if (e.amount === 0 && !e.success) {
-          logger.warn(
-            {
-              bookingId: booking.id,
-              paymentEventId: e.paymentEventId,
-              adapter: e.adapter,
-              linked: e.bookingId !== null,
-              shape: e.bodyShape,
-            },
-            'reconcile.event_unrecoverable — payment event yielded no amount; parser/format mismatch or a declined payment'
-          );
+          if (e.bookingId === null) {
+            // ORPHAN: deferred to one line per TICK, not one per booking (#376).
+            //
+            // rawEvents matches orphans by a ±DEGRADED_MATCH_WINDOW_MINUTES window around
+            // each candidate's anchor, so ONE unrecoverable orphan is re-logged once per
+            // candidate booking whose anchor falls in its window — up to CLAIM_LIMIT (200)
+            // identical lines per tick. Orphans are never claimed or consumed (round 2
+            // removed the CAS claim) and are exactly the rows matchDegraded skips on
+            // !ev.success, so the same row re-logs every 15 minutes for as long as new
+            // stuck bookings drift into its window — bounded only by the 24h hold, i.e.
+            // ~96 ticks. That is how a signal added to catch a parser mismatch becomes
+            // noise and then gets ignored.
+            unrecoverableOrphans.set(e.paymentEventId, e);
+          } else {
+            logger.warn(
+              {
+                bookingId: booking.id,
+                paymentEventId: e.paymentEventId,
+                adapter: e.adapter,
+                linked: true,
+                shape: e.bodyShape,
+              },
+              'reconcile.event_unrecoverable — payment event yielded no amount; parser/format mismatch or a declined payment'
+            );
+          }
         }
       }
     }
@@ -668,6 +690,21 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
         'reconcile.booking_expired'
       );
     }
+  }
+
+  // One line per unrecoverable orphan per tick (#376). No bookingId: an orphan by
+  // definition belongs to none, and naming whichever candidate happened to be in scope
+  // when it was seen would invent a link that does not exist.
+  for (const e of unrecoverableOrphans.values()) {
+    logger.warn(
+      {
+        paymentEventId: e.paymentEventId,
+        adapter: e.adapter,
+        linked: false,
+        shape: e.bodyShape,
+      },
+      'reconcile.event_unrecoverable — orphan payment event yielded no amount; parser/format mismatch or a declined payment'
+    );
   }
 
   return { rowsAffected: paidCount + expiredCount, status: 'success' };
