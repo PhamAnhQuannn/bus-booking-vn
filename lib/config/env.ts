@@ -196,12 +196,24 @@ const envSchema = z.object({
    * Dev-only — never used by a real PSP.
    *
    * This default is published in a public repo, so it is only safe while nothing
-   * reachable signs or verifies with it. That holds because: the momo/zalopay/card/
-   * vnpay webhook routes are deleted, and POST /api/bookings/initiate accepts only
-   * bank_transfer | vnpay (vnpay itself gated on PAYMENTS_STUB || VNPAY_ENABLED) —
-   * so getGatewayFor() never returns a stub adapter on a production request path.
-   * Re-adding a webhook route for a stub-backed method breaks that invariant and
-   * makes this key a live signing key; see app/api/payments/__tests__/webhook-surface.test.ts.
+   * reachable signs or verifies with it. Two independent things hold that line, and
+   * BOTH are load-bearing:
+   *
+   *   1. No HTTP route verifies a stub signature. The momo/zalopay/card/vnpay
+   *      webhook routes are deleted, and POST /api/bookings/initiate accepts only
+   *      bank_transfer | vnpay. Guarded by
+   *      app/api/payments/__tests__/webhook-surface.test.ts and by the e2e spec
+   *      e2e/momo-booking.spec.ts, which asserts the deleted paths answer nothing.
+   *   2. The one remaining thing that SIGNS with this key — the /dev/stub-pay
+   *      server action — is gated off production, not merely off PAYMENTS_STUB.
+   *
+   * Note what is deliberately NOT claimed: that getGatewayFor() never returns a
+   * stub adapter. It does, whenever PAYMENTS_STUB is on — including for vnpay. The
+   * invariant is about REACHABILITY, not about which adapter resolves. An earlier
+   * draft of this comment asserted the stronger version and was simply wrong.
+   *
+   * Re-adding a webhook route for a stub-backed method, or relaxing the /dev gate
+   * back to an env flag, makes this a live signing key again.
    */
   STUB_PAYMENT_SECRET: z
     .string()

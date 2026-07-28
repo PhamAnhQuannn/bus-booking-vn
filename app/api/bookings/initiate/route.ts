@@ -25,7 +25,7 @@ import { initiateOnlineBooking } from '@/lib/booking';
 import { CONSENT_VERSION } from '@/lib/booking';
 import { extractHoldCookie } from '@/lib/security';
 import { getCustomerOptional } from '@/lib/auth';
-import { getEnv } from '@/lib/config';
+import { isVnpaySelectable } from '@/lib/payment';
 import { ratelimit } from '@/lib/ratelimit';
 import { clientIp } from '@/lib/core/http/clientIp';
 import { withErrorHandler } from '@/lib/withErrorHandler';
@@ -83,17 +83,15 @@ async function handler(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: 'consent_required' }, { status: 422 });
   }
 
-  // Server-side VNPay availability gate — MIRRORS the UI's `showVnpay`
-  // (app/(customer)/booking/review/page.tsx): VNPay is only usable when the stub
-  // handles it (PAYMENTS_STUB) OR real VNPay is enabled (VNPAY_ENABLED). Without
-  // this, a direct API call with paymentMethod='vnpay' in the bank-transfer-only
-  // prod config would route to the stub adapter → /dev/stub-pay (which 404s when
-  // PAYMENTS_STUB is off) after creating an orphan booking + consuming the hold.
-  if (paymentMethod === 'vnpay') {
-    const env = getEnv();
-    if (!env.PAYMENTS_STUB && !env.VNPAY_ENABLED) {
-      return NextResponse.json({ error: 'INVALID' }, { status: 400 });
-    }
+  // Server-side VNPay availability gate. Shares ONE predicate with the UI's
+  // `showVnpay` (app/(customer)/booking/review/page.tsx) — see
+  // lib/payment/vnpaySelectable.ts for why VNPAY_ENABLED is deliberately NOT part
+  // of it: VNPay's webhook and return routes are deleted, so real VNPay would take
+  // the customer's money with no route left to confirm the booking. Without this
+  // gate a direct API call with paymentMethod='vnpay' creates an orphan booking and
+  // consumes the hold before dead-ending.
+  if (paymentMethod === 'vnpay' && !isVnpaySelectable()) {
+    return NextResponse.json({ error: 'INVALID' }, { status: 400 });
   }
 
   const verified = extractHoldCookie(req.headers.get('cookie'));
