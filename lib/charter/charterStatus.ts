@@ -327,6 +327,23 @@ export async function transitionCharterRequest(
     const m: { ref: string; contactPhone: string; contactEmail: string; operatorName: string | null } =
       matchNotify;
     const payload = JSON.stringify({ ref: m.ref, operatorName: m.operatorName });
+
+    // CONSTRAINT BOUNDARY — read before copying this two-enqueue-same-template shape.
+    //
+    // NotificationLog is @@unique([bookingId, template]) and channel is NOT in the key.
+    // Two rows sharing a template are legal HERE only because charter rows carry a NULL
+    // bookingId, and NULL is distinct from NULL under a Postgres unique index — so these
+    // two never collide.
+    //
+    // On a Booking-LINKED path the same shape is issue #328: the second insert hits
+    // P2002, and inside a $transaction that aborts the ENTIRE transaction
+    // (25P02 current transaction is aborted), turning a duplicate-notice bug into a
+    // total sweep/webhook failure. Unit tests will not catch it — they mock
+    // notificationLog.create, and the constraint only exists in the real DB.
+    //
+    // To reach a second channel on a booking-linked notice, SET `channel` on the single
+    // row (see reconcilePayments' `channel: contactEmail ? 'email' : 'sms'`). Never
+    // enqueue a parallel same-template row.
     await createNotificationLog({
       channel: 'sms',
       template: 'charterMatched',
