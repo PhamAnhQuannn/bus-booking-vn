@@ -30,7 +30,7 @@ import { randomUUID } from 'node:crypto';
 import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import { uuidv7 } from 'uuidv7';
-import { generateBookingRef } from '@/lib/booking/bookingRef';
+import { generateBookingRef } from '@/lib/core/id';
 import { generateConfirmationToken } from '@/lib/booking/confirmationToken';
 import { CONSENT_TYPES } from '@/lib/booking/consent';
 import { bookingDetailSelect, type BookingFullDetails } from '@/lib/booking/bookingSelects';

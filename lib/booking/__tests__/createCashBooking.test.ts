@@ -16,7 +16,7 @@ vi.mock('@/lib/payment/applyPaidTransition', () => ({
   appendBookingPaidLedger: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock('@/lib/booking/bookingRef', () => ({
+vi.mock('@/lib/core/id', () => ({
   generateBookingRef: vi.fn().mockReturnValue('BB-2026-abcd-efgh'),
 }));
 

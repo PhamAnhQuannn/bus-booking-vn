@@ -18,7 +18,7 @@
 
 import { test, expect, type APIRequestContext } from '@playwright/test';
 import crypto from 'crypto';
-import { BOOKING_REF_REGEX } from '../lib/booking/bookingRef';
+import { BOOKING_REF_REGEX } from '../lib/core/id';
 import { primeCsrf } from './helpers/csrf';
 
 // VNPay sandbox hash secret — the env default in lib/config/env.ts for test/dev.

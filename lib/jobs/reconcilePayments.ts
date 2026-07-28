@@ -289,7 +289,7 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
     '@/lib/notification'
   );
   const { logger } = await import('@/lib/logger');
-  const { legalPredecessors } = await import('@/lib/booking');
+  const { legalPredecessors } = await import('@/lib/core/booking');
   const { applyPaidStatusTransition, appendBookingPaidLedger, recoverSepayEvent, recoverVnpayEvent } =
     await import('@/lib/payment');
   const { refundOut } = await import('@/lib/ledger');

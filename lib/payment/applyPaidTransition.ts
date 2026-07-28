@@ -25,7 +25,7 @@
  */
 
 import { Prisma } from '@prisma/client';
-import { legalPredecessors } from '@/lib/booking';
+import { legalPredecessors } from '@/lib/core/booking';
 import {
   appendLedgerEntry,
   getEffectiveFeeRate,

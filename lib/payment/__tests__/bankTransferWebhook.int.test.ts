@@ -22,7 +22,7 @@ import {
   getBankTransferAdapter,
   recordUnmatchedPaymentEvent,
 } from '@/lib/payment';
-import { generateBookingRef } from '@/lib/booking/bookingRef';
+import { generateBookingRef } from '@/lib/core/id';
 
 const GROSS = 100_000; // VND — 6% platform fee = 6_000
 const EXPECTED_FEE = BigInt(6_000);

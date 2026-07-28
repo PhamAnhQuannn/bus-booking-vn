@@ -61,15 +61,14 @@ vi.mock('@/lib/notification', () => ({
   OPS_ALERT_EMAIL: 'hotro@lenxevn.com',
 }));
 vi.mock('@/lib/logger', () => ({ logger: mockLogger }));
-// BOOKING_REF_REGEX comes from the REAL leaf module: the bank_transfer adapter
-// imports it through this barrel, and the adapter is loaded for real above.
-// Deep-importing the leaf keeps the db client out of the unit graph (Mistake Log 092b).
-vi.mock('@/lib/booking', async () => {
-  const refs = await vi.importActual<typeof import('../../booking/bookingRef')>(
-    '@/lib/booking/bookingRef'
-  );
-  return { legalPredecessors: mockLegalPredecessors, BOOKING_REF_REGEX: refs.BOOKING_REF_REGEX };
-});
+// #343: legalPredecessors now lives in lib/core/booking, so the mock follows it. The
+// production dynamic import in reconcilePayments points here too — a mock left on
+// '@/lib/booking' would silently stop intercepting and the real map would run.
+vi.mock('@/lib/core/booking', () => ({ legalPredecessors: mockLegalPredecessors }));
+// BOOKING_REF_REGEX is NOT mocked: the bank_transfer adapter (loaded for real above)
+// now imports it from lib/core/id, a pure crypto+Intl leaf with no Prisma in its graph.
+// The barrel mock that used to be needed here existed only to keep the db client out
+// of the unit graph (Mistake Log 092b) — moving the leaf to core removed the reason.
 // Prisma.sql / Prisma.join are passthroughs — the stub tx ignores the SQL and
 // returns staged rows by call order.
 vi.mock('@prisma/client', () => ({

@@ -14,7 +14,7 @@
 import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import { uuidv7 } from 'uuidv7';
-import { generateBookingRef } from './bookingRef';
+import { generateBookingRef } from '@/lib/core/id';
 import { generateConfirmationToken } from './confirmationToken';
 import { appendBookingPaidLedger } from '@/lib/payment';
 

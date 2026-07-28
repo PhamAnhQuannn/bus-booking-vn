@@ -21,7 +21,7 @@ import type {
   CreatePaymentResult,
   VerifyWebhookResult,
 } from '../gateway';
-import { BOOKING_REF_REGEX } from '@/lib/booking';
+import { BOOKING_REF_REGEX } from '@/lib/core/id';
 
 interface SepayWebhookPayload {
   id: number;
@@ -117,7 +117,7 @@ function createBankTransferAdapter(): PaymentGateway {
       //  1. Separators: the memo may arrive without them (BB2026c64fv372) — we insert
       //     the hyphens.
       //  2. Case: generateBookingRef stores an UPPERCASE `BB-` prefix with lowercase
-      //     base36 segments (see lib/booking/bookingRef.ts + BOOKING_REF_REGEX). The DB
+      //     base36 segments (see lib/core/id/bookingRef.ts + BOOKING_REF_REGEX). The DB
       //     `bookingRef` column is case-sensitive text, so the rebuilt ref MUST use the
       //     `BB-` prefix — a lowercase `bb-` never findUnique-matches the stored row.
       const orderRef = `BB-${match[1]}-${match[2].toLowerCase()}-${match[3].toLowerCase()}`;

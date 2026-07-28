@@ -35,7 +35,14 @@ describe('renderTicketPdf', () => {
     expect(pdf.length).toBeGreaterThan(0);
     // Valid PDF header.
     expect(pdf.subarray(0, 5).toString('latin1')).toBe('%PDF-');
-  }, 30_000);
+    // 60s, raised from 30s (#374). This is the only test in the repo that performs a
+    // REAL @react-pdf render — every other ticket-PDF test mocks it — and it is CPU
+    // bound, so under full-suite parallel load it competes with every other worker.
+    // Measured across runs on the same code: 0.8s in isolation, 10.6s under load, and
+    // occasionally past 30s. A 37x spread is starvation, not a fixed init cost, so the
+    // budget has to cover the worst case rather than the median. Raising it is the
+    // honest lever here: nothing hangs, and a retry would only hide a genuine slowdown.
+  }, 60_000);
 
   it('the QR matrix for the booking token is a non-trivial square', () => {
     // The component builds from this same matrix (one <Rect> per dark module).

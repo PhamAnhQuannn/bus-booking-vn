@@ -50,7 +50,7 @@ import { logger } from '@/lib/logger';
 import { captureException } from '@/lib/observability';
 import { track, sessionIdForBooking } from '@/lib/analytics';
 import type { PaymentGateway } from './gateway';
-import { legalPredecessors } from '@/lib/booking';
+import { legalPredecessors } from '@/lib/core/booking';
 import { refundOut } from '@/lib/ledger';
 import {
   applyPaidStatusTransition,
