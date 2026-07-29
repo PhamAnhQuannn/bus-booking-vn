@@ -228,15 +228,46 @@ def _vlog(raw_dir):
     """
     p = os.path.join(raw_dir, "quan_vlog.json")
     if not os.path.exists(p):
-        return {}, []
+        return {}, [], {}
     try:
-        rows = json.load(io.open(p, encoding="utf-8"))
+        raw = json.load(io.open(p, encoding="utf-8"))
     except Exception:
-        return {}, []
-    dem = {fold(r["ten"]): r["so_video_nhac"] for r in rows}
+        return {}, [], {}
+    # Hai dang: list = phien ban 1, dict = tu phien ban 2 tro di.
+    rows = raw if isinstance(raw, list) else raw.get("quan", [])
+    pb = 1 if isinstance(raw, list) else int(raw.get("phien_ban", 1))
+    # Dem theo KENH, khong theo video. Mot kenh dang nhieu video, hoac mot
+    # content farm reup cung mot danh sach "Top 10 quán ăn Đà Lạt", tu thoa
+    # nguong ma khong co ai doc lap xac nhan — nen so video do do LON, con so
+    # kenh moi do do DOC LAP. File cu chi co `so_video_nhac`, nen doc du phong
+    # de bo dung khong sap khi gap ban truoc khi sua.
+    def _n(r):
+        return r.get("so_kenh_nhac", r.get("so_video_nhac", 0))
+
+    dem = {fold(r["ten"]): _n(r) for r in rows}
     pc = [r for r in rows if r.get("the_phong_cach")]
-    pc.sort(key=lambda r: -r["so_video_nhac"])
-    return dem, pc
+    pc.sort(key=lambda r: -_n(r))
+    # mon -> [quan vlog nhac cho mon do]. Day la phan thu duoc tu khop DONG
+    # XUAT HIEN: quan ma TEN KHONG chua tu mon nen khong the vao `mon_an_dalat
+    # .json` bang doi chieu ten, vi du "Quán Cô Ba" ban banh can.
+    #
+    # ⚠ CHI TIN GAN MON TU PHIEN BAN >= 2. File phien ban 1 tinh `mon_lien_quan`
+    # bang chuoi con TRAN, nen no gan `Bánh căn` cho `Bánh canh Xuân An` — bo
+    # dau thi "banh canh xuan an" chua "banh can". Do la mot CAU SAI trong tai
+    # lieu ("quan nay ban banh can"), khac han mot con so lech mot don vi.
+    # Van ban vlog khong duoc luu nen khong the tinh lai ngoai tuyen; chi mot
+    # lan chay moi sua duoc. Trong khi cho, bo han cot nay thay vi in cai sai.
+    # So KENH thi van dung: no la mot tin hieu co nguong >=2, lech mot don vi
+    # khong dao nguoc ket luan, con gan mon sai thi khang dinh mot dieu khong
+    # co that.
+    theo_mon = {}
+    if pb >= 2:
+        for r in rows:
+            for mon in r.get("mon_lien_quan") or []:
+                theo_mon.setdefault(mon, []).append(r)
+    for v in theo_mon.values():
+        v.sort(key=lambda r: -_n(r))
+    return dem, pc, theo_mon
 
 
 def tai_phong_cach(raw_dir):
@@ -272,7 +303,7 @@ def tai_mon_an(raw_dir):
     if not os.path.exists(p):
         return []
     d = json.load(io.open(p, encoding="utf-8"))
-    vlog, _ = _vlog(raw_dir)
+    vlog, _, vlog_mon = _vlog(raw_dir)
     theo_nhom = {}
     for mon, v in d.items():
         # Chap nhan ca hai dang de bo dung khong sap neu doc file cu.
@@ -297,10 +328,25 @@ def tai_mon_an(raw_dir):
             _da.add(k)
             _q.append(q)
         quan = _q
+        # ── Quan vlog khuyen ma DOI CHIEU TEN khong bao gio cham tới ─────────
+        # `mon_an_dalat.json` chi chua quan co TU MON TRONG TEN. Do duoc tren
+        # 5.543 co so an uong Overture: cach do gan mon cho 897 quan (16%).
+        # Con lai la nhung quan mang ten nguoi hoac thuong hieu — "Quán Cô Ba"
+        # ban banh can, "Tiệm nướng Cư Xá" — va khong luat doi chieu ten nao
+        # tim ra chung, vi ten khong noi ho ban gi.
+        # Khop DONG XUAT HIEN trong van ban vlog tra loi dung cho trong do. Xep
+        # LEN DAU vi day la loi khuyen bien tap that, khong phai suy ra tu do
+        # tin cay ban do; danh dau `chi_tu_vlog` de nguoi doc biet nguon khac.
+        _co = {fold(q["ten"]) for q in quan}
+        _them = [r for r in vlog_mon.get(mon, []) if fold(r["ten"]) not in _co]
+        quan = [{"ten": r["ten"], "dien_thoai": r.get("dien_thoai"),
+                 "dia_chi": r.get("dia_chi"), "chi_tu_vlog": True}
+                for r in _them] + quan
         theo_nhom.setdefault(nhom, []).append(
             (mon, len(quan),
              [{"ten": q["ten"], "dien_thoai": q.get("dien_thoai"),
                "dia_chi": q.get("dia_chi"),
+               "chi_tu_vlog": q.get("chi_tu_vlog", False),
                # None, khong phai 0 — quan khong co trong quan_vlog.json nghia la
                # CHUA QUET DEN, khong phai "khong vlog nao nhac".
                "vlog": vlog.get(fold(q["ten"]))}

@@ -476,20 +476,22 @@ if _MON:
         H(f"{_nhom.upper()} — {len(_rows)} món", 3)
         TBL(["Món", "Số quán", "Gợi ý (ưu tiên quán có số gọi)"],
             [[_m, str(_sl),
-              " · ".join(q["ten"][:26] + (f" ({q['vlog']} vlog)" if q.get("vlog") else "")
+              " · ".join(q["ten"][:26] + (f" ({q['vlog']} kênh)" if q.get("vlog") else "")
                          for q in _q[:3])]
              for _m, _sl, _q in _rows], widths=[3.6, 1.6, 10.6])
     if _co_vlog:
-        P("(N vlog) — số video du lịch tiếng Việt nhắc tên quán, ngưỡng ≥2 video khác "
-          "nhau. Quán không có ghi chú nghĩa là chưa quét đến, không phải không được "
-          "nhắc.", italic=True, size=8.5, color=GREY)
+        P("(N kênh) — số kênh du lịch tiếng Việt KHÁC NHAU nhắc tên quán, ngưỡng ≥2 "
+          "kênh. Đếm theo kênh chứ không theo video, vì một kênh đăng nhiều video "
+          "không phải nhiều lời khuyên độc lập. Quán không có ghi chú nghĩa là chưa "
+          "quét đến, không phải không được nhắc.", italic=True, size=8.5, color=GREY)
 
 if _PC:
     H("QUÁN CÓ PHONG CÁCH ĐẶC BIỆT", 2)
     P(f"{len(_PC)} quán được vlog nhắc kèm một cách làm riêng. Thẻ lấy từ bộ từ vựng "
       "cố định, không phải mô tả tự do.", italic=True, size=9, color=GREY)
-    TBL(["Quán", "Phong cách", "Vlog", "Điện thoại"],
-        [[_q["ten"][:34], ", ".join(_q["the_phong_cach"]), str(_q["so_video_nhac"]),
+    TBL(["Quán", "Phong cách", "Kênh nhắc", "Điện thoại"],
+        [[_q["ten"][:34], ", ".join(_q["the_phong_cach"]),
+          str(_q.get("so_kenh_nhac", _q.get("so_video_nhac", 0))),
           _q.get("dien_thoai") or ""] for _q in _PC], widths=[5.0, 5.4, 1.4, 3.0])
 
 # Ba truong mua/gio/thoi luong trong tren ca 28 hoat dong. Cho thieu + viec can

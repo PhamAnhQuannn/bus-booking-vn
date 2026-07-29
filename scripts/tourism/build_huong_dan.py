@@ -717,14 +717,15 @@ if _MON:
         w("| Món | Số quán | Gợi ý (ưu tiên quán có số gọi) |\n|---|---:|---|\n")
         for _mon, _sl, _quan in _rows:
             _g = " · ".join(
-                q["ten"] + (f" ({q['vlog']} vlog)" if q.get("vlog") else "")
+                q["ten"] + (f" ({q['vlog']} kênh)" if q.get("vlog") else "")
                 for q in _quan[:3])
             w(f"| {_mon} | {_sl} | {_g} |\n")
         w("\n")
     if _co_vlog:
-        w("*`(N vlog)` — số video du lịch tiếng Việt nhắc tên quán này, ngưỡng ≥2 "
-          "video khác nhau. Quán không có ghi chú nghĩa là chưa quét đến, không "
-          "phải không được nhắc.*\n\n")
+        w("*`(N kênh)` — số kênh du lịch tiếng Việt **khác nhau** nhắc tên quán "
+          "này, ngưỡng ≥2 kênh. Đếm theo kênh chứ không theo video, vì một kênh "
+          "đăng nhiều video không phải nhiều lời khuyên độc lập. Quán không có "
+          "ghi chú nghĩa là chưa quét đến, không phải không được nhắc.*\n\n")
 
 # Quan co PHONG CACH DAC BIET — moi ngay mot mon, khong menu, gia truyen, quan cu.
 # Bo HAN khoi khi chua co du lieu; khong in tieu de rong.
@@ -732,10 +733,11 @@ if _PC:
     w("\n### Nhóm: QUÁN CÓ PHONG CÁCH ĐẶC BIỆT\n\n")
     w(f"*{len(_PC)} quán được vlog nhắc kèm một cách làm riêng. Thẻ lấy từ bộ từ "
       "vựng cố định, không phải mô tả tự do.*\n\n")
-    w("| Quán | Phong cách | Vlog | Điện thoại |\n|---|---|---:|---|\n")
+    w("| Quán | Phong cách | Kênh nhắc | Điện thoại |\n|---|---|---:|---|\n")
     for _q in _PC:
         w(f"| {_q['ten']} | {', '.join(_q['the_phong_cach'])} | "
-          f"{_q['so_video_nhac']} | {_q.get('dien_thoai') or ''} |\n")
+          f"{_q.get('so_kenh_nhac', _q.get('so_video_nhac', 0))} | "
+          f"{_q.get('dien_thoai') or ''} |\n")
     w("\n")
 
 # Ba truong mua/gio/thoi luong trong tren ca 28 hoat dong. KHONG viet ve chung o

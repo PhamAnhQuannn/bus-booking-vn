@@ -52,9 +52,40 @@ OUT = os.path.join(RAW, "quan_vlog.json")
 S_API = "https://www.googleapis.com/youtube/v3/search"
 V_API = "https://www.googleapis.com/youtube/v3/videos"
 
+
+def luu_json(path, obj):
+    """Ghi qua file tam roi os.replace — thay the file cu bang MOT phep toan.
+
+    `json.dump` ghi thang vao file dich, nen mot lan ngat giua luc ghi de lai
+    file JSON hong. Lan sau `json.load` that bai, roi `except: cu = []` lam MOC
+    SO SANH im lang tut ve rong — khien MOI ket qua trong nhu cai thien va vo
+    hieu hoa dung ban va chong ghi de o duoi. Bien the tinh vi hon cua chinh
+    loi ma ban va do sinh ra de chan.
+    """
+    tmp = path + ".tmp"
+    with io.open(tmp, "w", encoding="utf-8") as f:
+        json.dump(obj, f, ensure_ascii=False, indent=1)
+    os.replace(tmp, path)
+
 MAX_KQ = 25              # video moi truy van
-MIN_VIDEO = 2            # nguong bang chung: >=2 video KHAC NHAU
+MIN_KENH = 2             # nguong bang chung: >=2 KENH khac nhau
 MIN_TEN = 8              # do dai ten co so toi thieu (sau khi bo dau)
+
+# ── HAI HAN MUC, KHONG PHAI MOT ────────────────────────────────────────────
+# Ngay 28/07 bo nay chet giua duong voi
+#     429 Quota exceeded for quota metric 'Search Queries'
+# trong khi script in `3.400/10.000` va tuong minh con du 66%. Sai vi co HAI
+# han muc doc lap va script chi dem MOT:
+#     don vi/ngay   10.000   search.list ton 100, videos.list ton 1
+#     lenh search   ~100     search.list ton 1 luot, videos.list ton 0
+# Voi bo 33 truy van thi don vi la 3.400/10.000 (du) nhung lenh search la
+# 33/100 — con nguyen nhan chet that su la CHAY BA LAN trong cung ngay lan voi
+# tham do, tong ~99 lenh. Vi script khong dem lenh, no KHONG BAO GIO co the
+# canh bao truoc buc tuong da lam mat 72 dong.
+TRAN_DON_VI = 10_000
+TRAN_LENH_SEARCH = 100
+# Han muc reset NUA DEM PACIFIC = 14:00-15:00 gio Viet Nam. Chay luc 00:00 gio
+# VN la chay giua chu ky da troi 9-10 tieng. Len lich SAU 15:00 gio VN.
 # Vi sao 8 chu khong phai 10: `MIN_TEN = 10` loai "kem phung" (9 ky tu) — quan
 # kem lau nam that cua Da Lat, va la ca kiem chuan tu tham do ban dau. No cung
 # bo 284 co so an uong khac co ten 8-9 ky tu: "Quán NiNô", "Bò Lê Lết",
@@ -98,6 +129,17 @@ du lich tour hoa dau tay cho dem khu hoa binh cao nguyen goc viet nam mien
 ngoi review top best good delicious street shop store house home garden villa
 so cua hang dac san sieu thi trung tam gia re moi cu lon nho""".split())
 
+# KINH NGU — phai nam trong CHUNG, va viec no THIEU la mot lo that.
+# Da do: ca 10 tu duoi deu lot qua `co_ten_rieng` va duoc tinh la token dac
+# trung. Nghia la "Quán Cô" (neu ton tai) se dat tieu chuan chi nho chu `co`.
+# Nang hon: 6/8 quan giu lai o lan chay dau dung dung khuon nay — `Dì Đinh`,
+# `cô Chín`, `Bà Hùng`, `Cô Sinh` — nen luat loc thu hai LONG hon toi tuong va
+# co the gan cong cho sai quan.
+# Them vao thi 4 quan do VAN SONG, vi moi cai con mot ten rieng thuc su ben
+# canh kinh ngu: dinh · chin · hung · sinh. Do la kiem chung rang viec them
+# nay that chat dung cho ma khong cat mat gi.
+CHUNG |= set("co di ba chu anh chi ong bac muoi thay".split())
+
 
 def fold(s):
     s = (s or "").lower().replace("đ", "d")
@@ -140,6 +182,24 @@ AN_UONG = {
 # ── Luat 3: ten co so phai co token NGOAI bo tu MON + tu chung ─────────────
 # Sinh tu chinh nhan mon trong mon_an_dalat.json, khong viet tay.
 MON_TU = set()
+# MON_NHAN[nhan_da_bo_dau] = nhan goc. Dung cho khop DONG XUAT HIEN o duoi —
+# mot thu khac han bo tu MON_TU, nen giu rieng.
+MON_NHAN = {}
+
+
+# ⚠ NHAN LA TEN QUAN, KHONG PHAI TEN MON — va no XOA chinh quan do.
+# `Chè hé` nam trong 30 "mon" cua sweep_monan.py. Do la loi cua toi o Phase T:
+# Che He la mot QUAN che lau nam co that o Da Lat, khong phai mot loai mon. Hau
+# qua do duoc: token `he` vao MON_TU, nen `Quán Chè Hé` chi con {quan, che, he}
+# = toan tu mon + tu chung -> `co_ten_rieng` tra False -> quan bi loai khoi tu
+# dien TRUOC KHI doi chieu. Mot trong nhung quan noi tieng nhat cua ca danh sach
+# bi chinh nhan cua no lam bien mat.
+# Nghich dao cua bay cu: truoc day mot ten DUNG BANG ten mon khop moi vlog; o
+# day mot ten mon dung bang ten quan lai giet quan. Ca hai deu vi mot chuoi
+# dong thoi la ten chung va ten rieng.
+# Cung phai sua o sweep_monan.py (Che He nen la mot QUAN cua nhom `Chè`, khong
+# phai mot nhan mon) — ghi vao viec con treo, khong sua len o day.
+NHAN_LA_TEN_QUAN = {"chè hé"}
 
 
 def nap_tu_mon(raw_dir):
@@ -148,7 +208,13 @@ def nap_tu_mon(raw_dir):
     if not os.path.exists(p):
         return
     for label in json.load(io.open(p, encoding="utf-8")):
+        if label.strip().lower() in NHAN_LA_TEN_QUAN:
+            continue
         MON_TU |= {w for w in fold(label).split() if len(w) > 1}
+        # Bo phan trong ngoac: "Dâu tây (vườn / quán)" -> "dau tay".
+        n = fold(label.split("(")[0].split("·")[0])
+        if len(n) > 3:
+            MON_NHAN[n] = label
 
 
 def co_ten_rieng(ten_folded):
@@ -224,30 +290,181 @@ if os.path.exists(_p):
             | {fold(x["ten"]) for x in _nh.get("dong_cua_ngoai_danh_sach", [])})
 
 don_vi_dung = 0
+lenh_search = 0
 
 
 def goi(api, params):
-    global don_vi_dung
+    global don_vi_dung, lenh_search
     u = api + "?" + urllib.parse.urlencode(dict(params, key=khoa))
     with urllib.request.urlopen(u, timeout=40) as r:
-        don_vi_dung += 100 if api == S_API else 1
+        if api == S_API:
+            don_vi_dung += 100
+            lenh_search += 1        # <- han muc THU HAI, truoc day khong dem
+        else:
+            don_vi_dung += 1
         return json.load(r)
 
 
-# nhac[ten_folded] = {video_id, ...}  — dem theo VIDEO, khong theo lan xuat hien.
-# Mot video nhac hai lan van la MOT bang chung.
-nhac = defaultdict(set)
+def ly_do_403(body):
+    """403 KHONG dong nhat la het han muc.
+
+    Ngay 28/07 khoa bi thu hoi va tra `API key expired`; script coi no la het
+    han muc nen loi khuyen la "cho mai" — sai, cho mai khong sua duoc khoa da
+    thu hoi. Ly do thuc nam o error.errors[0].reason.
+    """
+    try:
+        e = json.loads(body)["error"]
+        r = (e.get("errors") or [{}])[0].get("reason") or ""
+        return r, e.get("message", "")[:120]
+    except Exception:
+        return "", body[:120]
+
+
+# `quotaExceeded`/`rateLimitExceeded` -> mai lai co. Con lai -> khoa co van de.
+LY_DO_HAN_MUC = {"quotaExceeded", "dailyLimitExceeded", "rateLimitExceeded",
+                 "userRateLimitExceeded"}
+
+# ── SO LENH DA DUNG HOM NAY, LUU QUA CAC LAN CHAY ──────────────────────────
+# Mot lan chay khong biet gi ve lan chay truoc, nen han muc theo ngay la vo
+# hinh voi no. Do la ly do thuc su bo nay chet 28/07: khong lan nao vuot 100,
+# nhung ba lan cong lai thi vuot.
+# Ranh gioi ngay tinh theo UTC-8 chu khong phai UTC-7: reset that la nua dem
+# Pacific (UTC-7 mua he), nen UTC-8 lam bo dem doi them 1 tieng moi reset —
+# lech ve phia THAN TRONG, khong bao gio reset som hon thuc te.
+NHAT_KY = os.path.join(RAW, "yt_lenh_theo_ngay.json")
+ngay_pacific = time.strftime("%Y-%m-%d", time.gmtime(time.time() - 8 * 3600))
+_nk = {}
+if os.path.exists(NHAT_KY):
+    try:
+        _nk = json.load(io.open(NHAT_KY, encoding="utf-8"))
+    except Exception:
+        _nk = {}
+da_dung_hom_nay = int(_nk.get(ngay_pacific, 0))
+
+
+def ghi_nhat_ky():
+    _nk[ngay_pacific] = da_dung_hom_nay + lenh_search
+    luu_json(NHAT_KY, {k: _nk[k] for k in sorted(_nk)[-14:]})
+
+
+def tim_cum(hay, kim):
+    """Vi tri cua `kim` trong `hay` VOI BIEN TU o ca hai dau.
+
+    ⚠ Ban dau ca hai cho — khop ten quan va khop mon — dung `kim in hay` tran.
+    Lan chay that lo ngay hau qua: `Bánh canh Xuân An` duoc gan mon `Bánh căn`,
+    vi bo dau thi "banh canh xuan an" CHUA "banh can" lam tien to. Cung ho voi
+    bay `bar`/`barber`, `sup`/`súp`, `che`/`chè` da ghi trong so nhieu lan —
+    lan nay no quay lai o BUOC GAN MON chu khong o buoc loc hang muc.
+    Rui ro doi xung ben ten quan: mot vlog noi "chè hẻm" ("che hem") se khop
+    `Quán Chè Hé` ("che he") neu khong co bien tu.
+    Van ban da bo dau nen chi con [0-9a-z ] — bien tu la ky tu khong alnum.
+    """
+    i = hay.find(kim)
+    while i >= 0:
+        truoc = hay[i - 1] if i else " "
+        sau = hay[i + len(kim)] if i + len(kim) < len(hay) else " "
+        if not truoc.isalnum() and not sau.isalnum():
+            yield i
+        i = hay.find(kim, i + 1)
+
+
+def mon_gan(txt, ten, cua_so=120):
+    """Mon nao xuat hien GAN ten quan trong doan van nay.
+
+    ĐÂY LA THAY DOI DO PHU LON NHAT CUA CA DUONG ONG. Truoc day mot quan chi
+    duoc gan mon khi TEN NO CHUA TU MON. Khop dong xuat hien khong doi ten chua
+    gi: no doc VUNG VAN BAN quanh cho ten xuat hien, nen bat duoc "Quán Cô Ba"
+    ban banh can va "Tiệm nướng Cư Xá".
+
+    SO DO LAI TREN 5.543 co so an uong Overture — va no KHONG khop con so toi
+    da viet trong ke hoach (754 / 14% / tang 7 lan). Ba thuoc do khac nhau, toi
+    da tron chung:
+        897  (16%)  quan gan duoc mon o mon_an_dalat.json — khop CA CUM mon co
+                    bien tu. Day moi la moc dung de so sanh
+        2.790 (50%) ten chua BAT KY token mon nao — long hon nhieu
+        4.974 (90%) ten du dac trung de doi chieu = TRAN cach moi
+    Nen muc tang that la 897 -> toi da 4.974, tuc ~5,5 lan, khong phai 7 lan.
+    Con so 754 la mot thuoc do thu tu tu mot buoc khac han; ghi lai o day de
+    khong ai (ke ca toi) dan lai no.
+
+    Phai lam TRONG CUNG LUOT TAI, vi van ban vlog khong duoc luu.
+    """
+    ra = set()
+    for i in tim_cum(txt, ten):
+        d = txt[max(0, i - cua_so): i + len(ten) + cua_so]
+        ra |= {nhan for mf, nhan in MON_NHAN.items()
+               if next(tim_cum(d, mf), None) is not None}
+    return ra
+
+
+# nhac_kenh[ten] = {channel_id, ...}   <- NGUONG DEM TREN DAY
+# nhac_video[ten] = {video_id, ...}    <- in ra de thay chenh lech
+#
+# Truoc day nguong dem `videoId`, va do la SAI DON VI. `search.list` thien lech
+# ve noi dung nhoi tu khoa kieu "Top 10 quán ăn Đà Lạt" — dung loai ma nguong
+# >=2 sinh ra de loai. Mot kenh dang nhieu video, hoac content farm reup cung
+# mot danh sach, deu tu thoa >=2 ma khong co ai DOC LAP xac nhan. `channelId`
+# co san trong phan hoi videos.list nen sua khong ton them han muc.
+nhac_kenh = defaultdict(set)
+nhac_video = defaultdict(set)
 tu_truy_van = defaultdict(set)
 the_cua = defaultdict(set)
+mon_cua = defaultdict(set)
 loi = []
+dung_het = False
 
 NHOM = [("A · theo món", [f"quán {m} Đà Lạt ngon" for m in TV_MON]),
         ("B · ăn vặt chung", TV_CHUNG),
         ("C · phong cách đặc biệt", TV_PHONG_CACH)]
 
+# ── MOC SO SANH DOC TRUOC KHI TIEU HAN MUC ─────────────────────────────────
+# Doc o day, khong doc o cuoi: mot file hong phat hien sau vong goi API nghia
+# la da tieu ca ngay han muc roi moi tu choi luu. Han muc theo ngay khong hoan
+# lai duoc, nen moi phep kiem co the lam huy bo lan chay phai chay TRUOC.
+cu = None
+if os.path.exists(OUT):
+    try:
+        cu = json.load(io.open(OUT, encoding="utf-8"))
+    except Exception as e:
+        # KHONG duoc coi la "chua co moc". Mot file khong doc duoc la mot file
+        # HONG, khac han mot file khong ton tai — va gop hai truong hop lam mot
+        # chinh la cach ban va chong ghi de tu vo hieu hoa minh: `except: cu=[]`
+        # lam moc tut ve rong, roi MOI ket qua trong nhu cai thien.
+        print(f"DUNG — {OUT} tồn tại nhưng KHÔNG đọc được ({type(e).__name__}).")
+        print("Không biết lần chạy trước thu được bao nhiêu, nên không thể so"
+              " sánh để chặn ghi đè.")
+        print("Sửa hoặc đổi tên file đó rồi chạy lại. Chưa tiêu hạn mức nào.")
+        sys.exit(1)
+    # Hai dang: list = phien ban 1, dict = tu phien ban 2 tro di.
+    cu_hang = cu if isinstance(cu, list) else cu.get("quan", [])
+    cu_pb = 1 if isinstance(cu, list) else int(cu.get("phien_ban", 1))
+    print(f"mốc so sánh: {len(cu_hang)} quán (phiên bản {cu_pb})"
+          f" trong {os.path.basename(OUT)}")
+
+du_kien = sum(len(t) for _, t in NHOM)
+print(f"dự kiến {du_kien} lệnh search · {du_kien * 100 + du_kien} đơn vị")
+if da_dung_hom_nay:
+    print(f"⚠ khoá này đã dùng {da_dung_hom_nay} lệnh search HÔM NAY (ngày Pacific"
+          f" {ngay_pacific}) theo {os.path.basename(NHAT_KY)}")
+    print(f"  còn ~{TRAN_LENH_SEARCH - da_dung_hom_nay}/{TRAN_LENH_SEARCH} lệnh."
+          " Nguyên nhân thật của lần cạn hạn mức 28/07 không phải 33 > 100 —")
+    print("  mà là chạy sweep BA LẦN cùng ngày lẫn với thăm dò, tổng ~99 lệnh.")
+if da_dung_hom_nay + du_kien > TRAN_LENH_SEARCH:
+    print(f"\nDỪNG: {da_dung_hom_nay} + {du_kien} vượt trần {TRAN_LENH_SEARCH}"
+          " lệnh/ngày.\nHạn mức cấp lại sau 15:00 giờ Việt Nam. Không chạy dở"
+          " để rồi mất kết quả.")
+    sys.exit(0)
+print()
+
 for ten_nhom, truy_vans in NHOM:
+    if dung_het:
+        break
     print(f"── {ten_nhom} · {len(truy_vans)} truy vấn ──")
     for q in truy_vans:
+        if lenh_search >= TRAN_LENH_SEARCH - da_dung_hom_nay:
+            print("   (dừng: cạn ngân sách lệnh search của ngày)")
+            dung_het = True
+            break
         try:
             d = goi(S_API, {"part": "snippet", "type": "video", "maxResults": MAX_KQ,
                             "q": q, "relevanceLanguage": "vi"})
@@ -258,43 +475,60 @@ for ten_nhom, truy_vans in NHOM:
             d2 = goi(V_API, {"part": "snippet", "id": ",".join(ids)})
             n_khop = 0
             for it in d2.get("items", []):
-                vid = it["id"]
+                vid, kenh = it["id"], it["snippet"].get("channelId")
                 sn = it["snippet"]
-                # Van ban chi ton tai trong bien nay. Khong ghi ra dau.
-                txt = fold(sn.get("title", "") + " " + sn.get("description", ""))
-                if not txt:
+                # KHOP TUNG TRUONG RIENG, KHONG GOP CHUOI.
+                # Da tu kiem va loi CO THAT:
+                #   title "Review quán bánh căn" + desc "Lệ phí gửi xe khá rẻ"
+                #   gop  -> "...quan banh can le phi gui xe..."  khop "Bánh Căn Lệ"
+                #   khop rieng title = False · khop rieng description = False
+                # Nen "Bánh Căn Lệ" o 9 video co the mot phan la ao. Loi cau
+                # truc, tai dien voi moi ten ket thuc bang am trung tu mo dau
+                # mo ta. Van ban chi ton tai trong bien nay, khong ghi ra dau.
+                truong = [t for t in (fold(sn.get("title", "")),
+                                      fold(sn.get("description", ""))) if t]
+                if not truong:
                     continue
                 the_video = {t for t, cums in THE.items()
-                             if any(fold(c) in txt for c in cums)}
+                             for tr in truong if any(fold(c) in tr for c in cums)}
                 for n in biz:
-                    # HAI dieu kien cung luc: ten co trong van ban VA ten co
-                    # token rieng so voi truy van. Thieu dieu kien thu hai thi
-                    # co so co ten dung bang ten mon se khop MOI vlog ve mon do
-                    # — do la cach "Sua Dau Nanh" leo len 38 video o lan chay
-                    # dau, va "Bánh tráng nướng" leo len 59.
-                    if n in txt:
-                        nhac[n].add(vid)
-                        tu_truy_van[n].add(q)
-                        the_cua[n] |= the_video
-                        n_khop += 1
+                    tr_khop = [t for t in truong
+                               if next(tim_cum(t, n), None) is not None]
+                    if not tr_khop:
+                        continue
+                    nhac_kenh[n].add(kenh)
+                    nhac_video[n].add(vid)
+                    tu_truy_van[n].add(q)
+                    the_cua[n] |= the_video
+                    for t in tr_khop:
+                        mon_cua[n] |= mon_gan(t, n)
+                    n_khop += 1
             print(f"   {q[:44]:46s} {len(ids):2d} video · {n_khop} lượt khớp")
         except urllib.error.HTTPError as e:
-            body = e.read().decode("utf-8", "replace")[:120]
-            loi.append((q, e.code))
-            print(f"   {q[:44]:46s} LỖI {e.code}")
+            body = e.read().decode("utf-8", "replace")
+            reason, msg = ly_do_403(body)
+            loi.append((q, e.code, reason))
+            print(f"   {q[:44]:46s} LỖI {e.code} · {reason or '?'}")
             if e.code in (403, 429):
-                print(f"      {body}\n      Hết hạn mức — DỪNG.")
+                print(f"      {msg}")
+                if reason in LY_DO_HAN_MUC or not reason:
+                    print("      Hết hạn mức ngày — DỪNG. Cấp lại sau 15:00 giờ VN.")
+                else:
+                    print("      KHÔNG phải hết hạn mức — KHOÁ có vấn đề"
+                          f" ({reason}). Chờ mai KHÔNG sửa được;"
+                          " tạo lại khoá ở console.cloud.google.com.")
+                dung_het = True
                 break
         except Exception as e:
-            loi.append((q, type(e).__name__))
+            loi.append((q, type(e).__name__, ""))
             print(f"   {q[:44]:46s} LỖI {type(e).__name__}")
         time.sleep(0.3)
     print()
 
 # ── Loc theo nguong va xuat ─────────────────────────────────────────────────
 out = []
-for n, vids in nhac.items():
-    if len(vids) < MIN_VIDEO:
+for n, kenhs in nhac_kenh.items():
+    if len(kenhs) < MIN_KENH:
         continue
     r = biz[n]
     if fold(r["name"]) in DONG:
@@ -303,11 +537,24 @@ for n, vids in nhac.items():
         "ten": r["name"], "hang_muc": r.get("category"),
         "dia_chi": r.get("address"), "dien_thoai": (r.get("phones") or [None])[0],
         "lat": r["lat"], "lon": r["lon"],
-        "so_video_nhac": len(vids),
+        "so_kenh_nhac": len(kenhs),
+        "so_video_nhac": len(nhac_video[n]),
+        "mon_lien_quan": sorted(mon_cua[n]),
+        "ten_chua_tu_mon": any(w in MON_TU for w in n.split()),
         "the_phong_cach": sorted(the_cua[n]),
         "truy_van": sorted(tu_truy_van[n]),
     })
-out.sort(key=lambda x: -x["so_video_nhac"])
+out.sort(key=lambda x: (-x["so_kenh_nhac"], -x["so_video_nhac"]))
+
+# ── DAU PHIEN BAN, vi mot file cu KHONG the tu noi no sai o dau ─────────────
+# File sinh TRUOC ban va bien tu chua `mon_lien_quan` tinh bang chuoi con tran,
+# nen no da gan `Bánh căn` cho `Bánh canh Xuân An` ("banh canh" chua "banh can").
+# Do la mot cau SAI trong tai lieu, khong phai mot con so lech. Van ban vlog
+# khong duoc luu nen KHONG THE tinh lai ngoai tuyen — chi lan chay moi sua duoc.
+# Nen bo dung phai biet file thuoc phien ban nao; suy doan tu su hien dien cua
+# mot truong la khong du, vi truong van o do va van sai.
+PHIEN_BAN = 2      # 2 = khop theo tung truong + bien tu (tim_cum)
+goi_ra = {"phien_ban": PHIEN_BAN, "quan": out}
 
 # ── MOT LAN CHAY DO KHONG DUOC GHI DE MOT LAN CHAY DU ──────────────────────
 # Loi that da xay ra: lan chay dau thu 72 quan. Lan sau het han muc o truy van
@@ -318,36 +565,43 @@ out.sort(key=lambda x: -x["so_video_nhac"])
 # Cung ho voi luat da ghi trong so: "bo loc quyet dinh GIU gi, khong bao gio
 # quyet dinh LUU gi". O day: mot ket qua NGHEO HON khong duoc thay ket qua giau
 # hon chi vi no moi hon.
-cu = []
-if os.path.exists(OUT):
-    try:
-        cu = json.load(io.open(OUT, encoding="utf-8"))
-    except Exception:
-        cu = []
-
-if loi and len(out) < len(cu):
+if loi and cu is not None and len(out) < len(cu_hang) and cu_pb >= PHIEN_BAN:
+    # `cu_pb >= PHIEN_BAN`: mot moc thuoc phien ban CU HON khong duoc thang, du
+    # nhieu dong hon. Nhieu dong sai khong tot hon it dong dung — va dong cu
+    # mang gan mon tinh bang chuoi con tran, tuc mot cau sai trong tai lieu.
     bak = OUT.replace(".json", f".dorang-{len(out)}quan.json")
-    json.dump(out, io.open(bak, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    luu_json(bak, goi_ra)
     print(f"⚠ Lần chạy này DỞ ({len(loi)} truy vấn lỗi) và chỉ thu {len(out)} quán, ít hơn")
-    print(f"  {len(cu)} quán đã có. KHÔNG ghi đè. Kết quả dở lưu riêng ở:")
+    print(f"  {len(cu_hang)} quán đã có. KHÔNG ghi đè. Kết quả dở lưu riêng ở:")
     print(f"  {bak}")
     print(f"  Chạy lại đủ khi hạn mức ngày được cấp lại.")
-    out = cu
+    out = cu_hang
 else:
-    json.dump(out, io.open(OUT, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    if cu is not None and cu_pb < PHIEN_BAN and len(out) < len(cu_hang):
+        print(f"⚠ Ghi đè {len(cu_hang)} dòng phiên bản {cu_pb} bằng {len(out)} dòng"
+              f" phiên bản {PHIEN_BAN}: ÍT hơn nhưng ĐÚNG hơn (khớp theo từng"
+              " trường + biên từ). Dòng cũ mang gán món tính bằng chuỗi con tràn.")
+    luu_json(OUT, goi_ra)
+ghi_nhat_ky()
 
-duoi_nguong = sum(1 for v in nhac.values() if len(v) < MIN_VIDEO)
+duoi_nguong = sum(1 for v in nhac_kenh.values() if len(v) < MIN_KENH)
+moi = [r for r in out if not r["ten_chua_tu_mon"] and r["mon_lien_quan"]]
 print("═" * 62)
-print(f"{len(out)} quán đạt ngưỡng ≥{MIN_VIDEO} video · "
-      f"{duoi_nguong} quán chỉ 1 video (đã loại, KHÔNG hạ ngưỡng để lấp)")
-print(f"đơn vị hạn mức đã dùng: {don_vi_dung:,}/10.000".replace(",", "."))
+print(f"{len(out)} quán đạt ngưỡng ≥{MIN_KENH} KÊNH · "
+      f"{duoi_nguong} quán chỉ 1 kênh (đã loại, KHÔNG hạ ngưỡng để lấp)")
+print(f"hạn mức: {lenh_search} lệnh search (+{da_dung_hom_nay} đã dùng hôm nay)"
+      f" / {TRAN_LENH_SEARCH} · {don_vi_dung:,}/{TRAN_DON_VI:,} đơn vị"
+      .replace(",", "."))
+print(f"khớp đồng xuất hiện: {len(moi)} quán gắn được món dù TÊN KHÔNG chứa từ"
+      " món — đây là phần thu thêm so với cách khớp theo tên")
 if loi:
     print(f"lỗi: {len(loi)} truy vấn — {loi[:3]}")
 print()
-print(f"{'Quán':40s}{'Video':>6s}  Thẻ phong cách")
+print(f"{'Quán':38s}{'Kênh':>5s}{'Video':>6s}  Món gần · Thẻ")
 for r in out[:30]:
-    print(f"{r['ten'][:38]:40s}{r['so_video_nhac']:6d}  "
-          + (", ".join(r["the_phong_cach"]) or "—"))
+    ghi = " · ".join(filter(None, [", ".join(r["mon_lien_quan"][:3]),
+                                   ", ".join(r["the_phong_cach"])])) or "—"
+    print(f"{r['ten'][:36]:38s}{r['so_kenh_nhac']:5d}{r['so_video_nhac']:6d}  {ghi}")
 
 pc = [r for r in out if r["the_phong_cach"]]
 print(f"\n{len(pc)} quán có thẻ phong cách:")
