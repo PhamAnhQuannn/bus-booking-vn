@@ -14,6 +14,7 @@ from collections import Counter, defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import hoat_dong_data as _hoat_dong   # mot nguon chon loc, hai nguon dinh dang
+import an_ngu_data as _an_ngu
 
 RAW, OUT = sys.argv[1], sys.argv[2]
 TRIP_OUT = sys.argv[3] if len(sys.argv) > 3 else None
@@ -662,32 +663,87 @@ if _MON:
 # san bang chi so va danh sach so dien thoai can goi. Cung mot ly do 1.336 dong
 # truong chua xac minh bi bo han thay vi in kem loi giai thich.
 
-# =============================================== 4-8 chi muc (sinh tu dong)
-w("\n---\n\n## 4. Bảng so sánh\n\n")
+# =============================================== 4. LUU TRU & AN UONG
+_LT = _an_ngu.tai_luu_tru(RAW)
+_AU = _an_ngu.tai_an_uong(RAW)
+
+if _LT or _AU:
+    w("\n---\n\n## 4. LƯU TRÚ & ĂN UỐNG\n\n")
+
+if _LT:
+    w("### 4.1 Lưu trú\n\n")
+    # Day la nhom DUY NHAT trong ca tai lieu co GIA THAT — tu dang ky luu tru
+    # cua Cuc Du lich Quoc gia, khong phai tu blog. Nen gia ghi thang.
+    w(f"*{_LT['tong']} cơ sở trong đăng ký lưu trú nhà nước · "
+      f"**{_LT['nha_nuoc']} đã thẩm định**, {_LT['tu_dang_ky']} tự đăng ký · "
+      f"{_LT['co_gia']} cơ sở có giá công bố · {_LT['co_dien_thoai']} có số gọi.*\n\n")
+    w("**Giá là giá phòng/đêm do cơ sở công bố với cơ quan quản lý** — đổi theo mùa, "
+      "gọi xác nhận trước khi báo khách.\n\n")
+    for _b in _LT["bac"]:
+        if not _b["co_so"]:
+            continue
+        w(f"**{_b['ten']}** — {_b['tong']} cơ sở"
+          + (f", dưới đây {len(_b['co_so'])}" if _b["tong"] > len(_b["co_so"]) else "")
+          + "\n\n")
+        w("| Cơ sở | Giá/đêm | Phòng | Điện thoại | Địa chỉ |\n|---|---|---:|---|---|\n")
+        for _c in _b["co_so"]:
+            w(f"| {_c['ten']} | {_c['gia']} | {_c['so_phong'] or ''} | "
+              f"{_c['dien_thoai'] or ''} | {(_c['dia_chi'] or '').split(',')[0]} |\n")
+        w("\n")
+    if _LT["dong_cua"]:
+        w("**Đã đóng cửa — không giới thiệu:** "
+          + " · ".join(f"{r['ten']} ({r['ngay']})" for r in _LT["dong_cua"]) + "\n\n")
+
+if _AU:
+    w("### 4.2 Ăn uống\n\n")
+    w(f"*{_AU['tong_mo']:,} quán còn hoạt động · {_AU['co_dien_thoai']:,} có số gọi. "
+      "Món đặc trưng xem mục 3.*\n\n".replace(",", "."))
+    for _n in _AU["nhom"]:
+        w(f"**{_n['ten']}** — {_n['tong']} quán"
+          + (f", dưới đây {len(_n['quan'])}" if _n["tong"] > len(_n["quan"]) else "")
+          + "\n\n")
+        for _q in _n["quan"]:
+            _m = f" · {', '.join(_q['mon'])}" if _q["mon"] else ""
+            w(f"- {_q['ten']}"
+              + (f" — {_q['dien_thoai']}" if _q["dien_thoai"] else "")
+              + _m + "\n")
+        w("\n")
+    # Muc quan trong nhat cua ca chuong nay. Thac khong dong cua; quan an thi co.
+    if _AU["dong_cua"]:
+        w("#### ⚠ Đã đóng cửa — KHÔNG giới thiệu\n\n")
+        w(f"*{_AU['tong_dong']} quán đã đóng, dưới đây {len(_AU['dong_cua'])} gần nhất. "
+          "Nhiều quán trong số này vẫn còn trong các hướng dẫn cũ.*\n\n")
+        w("| Ngày đóng | Quán |\n|---|---|\n")
+        for _r in _AU["dong_cua"]:
+            w(f"| {_r['ngay']} | {_r['ten']} |\n")
+        w("\n")
+
+# =============================================== 5-13 chi muc (sinh tu dong)
+w("\n---\n\n## 5. Bảng so sánh\n\n")
 w("*Sinh tự động từ mục 2 — không sửa tay, sửa ở mục 2 rồi chạy lại.*\n\n")
 w("| ID | Điểm | Loại | Khu vực | Km | Phút | Vé | Nguồn |\n|---|---|---|---|---:|---:|---|---:|\n")
 for r in picked:
     w(f"| {r['id']} | {r['name']} | {r['loai_vn']} | {r['area']} | "
       f"{r['km']:.1f} | {r['min']:.0f} | {r.get('fee') or UNV} | {len(r['src'])} |\n")
 
-w("\n## 5. Theo loại hình\n\n")
+w("\n## 6. Theo loại hình\n\n")
 for k, v in sorted(Counter(r["loai_vn"] for r in picked).items(), key=lambda x: -x[1]):
     w(f"**{k}** ({v}): " + " · ".join(f"{r['id']} {r['name']}"
                                       for r in picked if r["loai_vn"] == k) + "\n\n")
 
-w("## 6. Theo khu vực\n\n")
+w("## 7. Theo khu vực\n\n")
 for a in sorted({r["area"] for r in picked}):
     lst = [r for r in picked if r["area"] == a]
     w(f"**{a}** ({len(lst)}): " + " · ".join(f"{r['id']} {r['name']}" for r in lst) + "\n\n")
 
-w("## 7. Theo khoảng cách từ hồ Xuân Hương\n\n")
+w("## 8. Theo khoảng cách từ hồ Xuân Hương\n\n")
 for lo, hi, lab in ((0, 5, "Dưới 5 km"), (5, 10, "5 – 10 km"),
                     (10, 20, "10 – 20 km"), (20, 9e9, "Trên 20 km")):
     lst = [r for r in picked if lo <= r["km"] < hi]
     w(f"**{lab}** ({len(lst)}): " + (" · ".join(f"{r['id']} {r['name']} ({r['min']:.0f}′)"
                                                 for r in lst) or "—") + "\n\n")
 
-w("## 8. Theo thời điểm thăm\n\n")
+w("## 9. Theo thời điểm thăm\n\n")
 w(f"Bình minh · buổi sáng · buổi chiều · hoàng hôn · buổi tối: **{UNV}** — "
   "trường “thời điểm tốt trong ngày” chưa xác minh cho bất kỳ điểm nào. "
   "Không được xếp lịch theo giờ dựa trên suy đoán.\n\n")
@@ -698,7 +754,7 @@ for lab in ("trong nhà", "có mái", "hỗn hợp"):
         w(f"- **{lab}**: " + " · ".join(f"{r['id']} {r['name']}" for r in lst) + "\n")
 w("\n")
 
-w("## 9. Tuyến gợi ý theo khu vực\n\n")
+w("## 10. Tuyến gợi ý theo khu vực\n\n")
 w("*Thứ tự trong mỗi khu dựng bằng thuật toán láng giềng gần nhất trên ma trận OSRM, "
   "xuất phát từ điểm gần trung tâm nhất.*\n\n")
 if mat:
@@ -720,7 +776,7 @@ if mat:
 else:
     w(f"{UNV} — chưa có ma trận OSRM.\n\n")
 
-w("## 10. Ma trận thời gian giữa các điểm (phút)\n\n")
+w("## 11. Ma trận thời gian giữa các điểm (phút)\n\n")
 if mat:
     w("| | " + " | ".join(r["id"] for r in picked) + " |\n")
     w("|---|" + "---|" * len(picked) + "\n")
@@ -732,7 +788,7 @@ if mat:
         w(f"| **{r['id']}** | " + " | ".join(cells) + " |\n")
     w("\n")
 
-w("## 11. Danh sách rút gọn\n\n")
+w("## 12. Danh sách rút gọn\n\n")
 w("⚠ Xếp hạng dưới đây dựa trên **mức độ hiện diện trên bản đồ**, KHÔNG phải chất lượng "
   "trải nghiệm — thứ đó chưa có dữ liệu. Dùng làm gợi ý thứ tự gọi xác minh, "
   "không dùng làm lời khuyên “nơi này hay hơn nơi kia”.\n\n")
@@ -741,7 +797,7 @@ for lab, seg in (("Ưu tiên xác minh trước", rank[:8]), ("Nhóm hai", rank[
                  ("Nhóm ba", rank[20:])):
     w(f"**{lab}** ({len(seg)}): " + " · ".join(f"{r['id']} {r['name']}" for r in seg) + "\n\n")
 
-w("## 12. Sổ kiểm chứng — việc cần làm\n\n")
+w("## 13. Sổ kiểm chứng — việc cần làm\n\n")
 n_tel = sum(1 for r in picked if r.get("tel"))
 w(f"| Chỉ số | Giá trị |\n|---|---|\n")
 w(f"| Điểm trong hồ sơ | {len(picked)} |\n")
@@ -851,17 +907,17 @@ Phương án trời mưa: đổi ___ sang ___ (tra mục 7 của hướng dẫn)
 ### Ngày 2 — <khu vực>
 ### Ngày 3 — <khu vực>
 
-## 4. Báo giá đã gửi khách — CHỈ THÊM DÒNG, KHÔNG SỬA DÒNG CŨ
+## 5. Báo giá đã gửi khách — CHỈ THÊM DÒNG, KHÔNG SỬA DÒNG CŨ
 | Ngày giờ | Nội dung | Số tiền | Hiệu lực đến |
 |---|---|---|---|
 |  |  |  |  |
 
-## 5. Đánh giá riêng cho khách này
+## 6. Đánh giá riêng cho khách này
 | Điểm (ID) | Mức quan tâm | Quyết định | Lý do |
 |---|---|---|---|
 |  | [cao/vừa/thấp] | [đi / cân nhắc / bỏ / dự phòng] |  |
 
-## 6. Câu đang chờ khách trả lời
+## 7. Câu đang chờ khách trả lời
 - [ ]
 """)
     t.close()

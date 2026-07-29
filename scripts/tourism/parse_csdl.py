@@ -38,6 +38,25 @@ for r in rows:
             kind = k
             break
 
+    # 42/1.230 ban ghi co truong `name` rong o JSON goc — va do lai la nhom
+    # cao cap (TTC Ngoc Lan, cac resort ho Tuyen Lam), tuc nhung co so quan
+    # trong nhat lai vo danh. Ten VAN nam trong chuoi text, ngay truoc "Địa chỉ:":
+    #     "Khách sạn TTC Ngọc Lan Khách sạn Địa chỉ: 42 Nguyễn Chí Thanh..."
+    # Cat den "Địa chỉ:" roi bo tu chi LOAI lap lai o cuoi.
+    if not name:
+        m = re.match(r"^(.{3,120}?)\s*Địa chỉ:", t)
+        if m:
+            cand = m.group(1).strip()
+            # Bo BAT KY tu chi loai nao o duoi, dai truoc ngan sau. Cat theo
+            # `kind` (loai khop dau tien trong text) la khong du: text ghi
+            # "Khách sạn nghỉ dưỡng Terracotta Đà Lạt Khách sạn Địa chỉ:" —
+            # kind la "Khách sạn nghỉ dưỡng" nhung duoi lai la "Khách sạn".
+            for k in sorted(KINDS, key=len, reverse=True):
+                if cand.endswith(k):
+                    cand = cand[: -len(k)].strip()
+                    break
+            name = cand
+
     m = re.search(r"Địa chỉ:\s*(.+?)(?=\s*(?:Số phòng|Giá|Điện thoại|Fax|Email|Website|Thông tin)\b|$)", t)
     addr = m.group(1).strip(" ,") if m else ""
 
@@ -52,6 +71,11 @@ for r in rows:
         m = re.search(rf"Giá:\s*({NUM})", t)
         if m:
             lo = hi = money(m.group(1))
+    # Gia tran nho hon gia san = nguon ghi thieu phan nghin. Ladophar ghi
+    # "250.000 - 350", tuc 350.000 bi cat. KHONG doan lai thanh 350.000 — bo
+    # gia tran va giu gia san. Doan mot chu so o day la bia mot muc gia.
+    if lo and hi and hi < lo:
+        hi = None
 
     tel = ""
     m = re.search(r"Điện thoại(?:\s*(?:cố định|di động))?:\s*([\d\s().+-]{6,25})", t)

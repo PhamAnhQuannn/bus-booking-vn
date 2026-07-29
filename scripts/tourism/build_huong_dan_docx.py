@@ -19,6 +19,7 @@ from docx.oxml import OxmlElement
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import hoat_dong_data as _hoat_dong   # CUNG module chon loc voi ban .md
+import an_ngu_data as _an_ngu
 
 RAW, OUT = sys.argv[1], sys.argv[2]
 G = json.load(io.open(os.path.join(RAW, "guide_data.json"), encoding="utf-8"))
@@ -434,33 +435,84 @@ if _MON:
 # Ba truong mua/gio/thoi luong trong tren ca 28 hoat dong. Cho thieu + viec can
 # lam thuoc muc 12, khong thuoc giua chuong tra cuu.
 
-# ==================================================== 4-12 chi muc
+# ==================================================== 4. LUU TRU & AN UONG
+_LT = _an_ngu.tai_luu_tru(RAW)
+_AU = _an_ngu.tai_an_uong(RAW)
+
+if _LT or _AU:
+    doc.add_page_break()
+    H("4. Lưu trú & ăn uống", 1)
+
+if _LT:
+    H("4.1 Lưu trú", 2)
+    # Nhom DUY NHAT trong ca tai lieu co GIA THAT — tu dang ky luu tru cua Cuc
+    # Du lich Quoc gia, khong phai tu blog. Nen gia ghi thang.
+    P(f"{_LT['tong']} cơ sở trong đăng ký lưu trú nhà nước · {_LT['nha_nuoc']} đã thẩm "
+      f"định, {_LT['tu_dang_ky']} tự đăng ký · {_LT['co_gia']} cơ sở có giá công bố · "
+      f"{_LT['co_dien_thoai']} có số gọi.", italic=True, size=9, color=GREY)
+    P("Giá là giá phòng/đêm do cơ sở công bố với cơ quan quản lý — đổi theo mùa, gọi "
+      "xác nhận trước khi báo khách.", bold=True, size=9)
+    for _b in _LT["bac"]:
+        if not _b["co_so"]:
+            continue
+        H(f"{_b['ten']} — {_b['tong']} cơ sở", 3)
+        TBL(["Cơ sở", "Giá/đêm", "Phòng", "Điện thoại", "Địa chỉ"],
+            [[_c["ten"][:38], _c["gia"], str(_c["so_phong"] or ""),
+              _c["dien_thoai"] or "", (_c["dia_chi"] or "").split(",")[0][:26]]
+             for _c in _b["co_so"]], widths=[5.4, 3.4, 1.4, 2.8, 3.6])
+    if _LT["dong_cua"]:
+        _pd = doc.add_paragraph()
+        _rd = _pd.add_run("Đã đóng cửa — không giới thiệu: "
+                          + " · ".join(f"{r['ten']} ({r['ngay']})" for r in _LT["dong_cua"]))
+        _rd.bold = True
+        _rd.font.size = Pt(9)
+        _rd.font.color.rgb = RED
+
+if _AU:
+    H("4.2 Ăn uống", 2)
+    P(f"{_AU['tong_mo']:,} quán còn hoạt động · {_AU['co_dien_thoai']:,} có số gọi. "
+      "Món đặc trưng xem mục 3.".replace(",", "."), italic=True, size=9, color=GREY)
+    for _n in _AU["nhom"]:
+        H(f"{_n['ten']} — {_n['tong']} quán", 3)
+        for _q in _n["quan"]:
+            B(_q["ten"] + (f" — {_q['dien_thoai']}" if _q["dien_thoai"] else "")
+              + (f" · {', '.join(_q['mon'])}" if _q["mon"] else ""))
+    # Muc quan trong nhat cua chuong nay. Thac khong dong cua; quan an thi co.
+    if _AU["dong_cua"]:
+        H("⚠ Đã đóng cửa — KHÔNG giới thiệu", 3)
+        P(f"{_AU['tong_dong']} quán đã đóng, dưới đây {len(_AU['dong_cua'])} gần nhất. "
+          "Nhiều quán trong số này vẫn còn trong các hướng dẫn cũ.",
+          bold=True, size=9, color=RED)
+        TBL(["Ngày đóng", "Quán"],
+            [[_r["ngay"], _r["ten"][:52]] for _r in _AU["dong_cua"]], widths=[3.0, 12.0])
+
+# ==================================================== 5-13 chi muc
 doc.add_page_break()
-H("4. Bảng so sánh", 1)
+H("5. Bảng so sánh", 1)
 P("Sinh tự động từ mục 2 — không sửa tay.", italic=True, size=9, color=GREY)
 TBL(["ID", "Điểm", "Loại", "Khu vực", "Km", "Phút", "Vé", "Nguồn"],
     [[r["id"], r["name"][:34], r["loai_vn"], r["area"][:20], f"{r['km']:.1f}",
       f"{r['min']:.0f}", r.get("fee") or UNV, len(r["src"])] for r in picked],
     widths=[1.4, 5.0, 3.0, 3.2, 1.2, 1.2, 1.6, 1.2], size=8)
 
-H("5. Theo loại hình", 1)
+H("6. Theo loại hình", 1)
 for k, v in sorted(Counter(r["loai_vn"] for r in picked).items(), key=lambda x: -x[1]):
     P(f"{k} ({v}): " + " · ".join(f"{r['id']} {r['name']}" for r in picked
                                   if r["loai_vn"] == k), size=9)
 
-H("6. Theo khu vực", 1)
+H("7. Theo khu vực", 1)
 for a in sorted({r["area"] for r in picked}):
     lst = [r for r in picked if r["area"] == a]
     P(f"{a} ({len(lst)}): " + " · ".join(f"{r['id']} {r['name']}" for r in lst), size=9)
 
-H("7. Theo khoảng cách từ hồ Xuân Hương", 1)
+H("8. Theo khoảng cách từ hồ Xuân Hương", 1)
 for lo, hi, lab in ((0, 5, "Dưới 5 km"), (5, 10, "5 – 10 km"),
                     (10, 20, "10 – 20 km"), (20, 9e9, "Trên 20 km")):
     lst = [r for r in picked if lo <= r["km"] < hi]
     P(f"{lab} ({len(lst)}): " + (" · ".join(f"{r['id']} {r['name']} ({r['min']:.0f}′)"
                                             for r in lst) or "—"), size=9)
 
-H("8. Theo thời điểm thăm", 1)
+H("9. Theo thời điểm thăm", 1)
 p = doc.add_paragraph()
 r_ = p.add_run("Bình minh · sáng · chiều · hoàng hôn · tối: ")
 r_.font.size = Pt(9.5)
@@ -476,7 +528,7 @@ for lab in ("trong nhà", "có mái", "hỗn hợp"):
     if lst:
         P(f"  {lab}: " + " · ".join(f"{r['id']} {r['name']}" for r in lst), size=9)
 
-H("9. Tuyến gợi ý theo khu vực", 1)
+H("10. Tuyến gợi ý theo khu vực", 1)
 P("Thứ tự dựng bằng thuật toán láng giềng gần nhất trên ma trận OSRM, xuất phát từ điểm gần "
   "trung tâm nhất.", italic=True, size=9, color=GREY)
 if mat:
@@ -496,7 +548,7 @@ if mat:
         P(f"{a} — {len(route)} điểm · di chuyển giữa các điểm ~{tot:.0f} phút", bold=True, size=9.5)
         P("   " + " → ".join(f"{x['id']} {x['name']}" for x in route), size=9)
 
-H("10. Ma trận thời gian giữa các điểm (phút)", 1)
+H("11. Ma trận thời gian giữa các điểm (phút)", 1)
 if mat:
     ids = mat["ids"]
     TBL([""] + [i.replace("DL-", "") for i in ids],
@@ -505,7 +557,7 @@ if mat:
           else f"{mat['durations'][i][j]/60:.0f}" for j in range(len(ids))]
          for i in range(len(ids))], size=6)
 
-H("11. Danh sách rút gọn", 1)
+H("12. Danh sách rút gọn", 1)
 P("⚠ Xếp hạng dựa trên mức độ hiện diện trên bản đồ, KHÔNG phải chất lượng trải nghiệm — thứ đó "
   "chưa có dữ liệu. Dùng làm thứ tự gọi xác minh, không dùng làm lời khuyên “nơi này hay hơn "
   "nơi kia”.", bold=True, color=RED)
@@ -514,7 +566,7 @@ for lab, seg in (("Ưu tiên xác minh trước", rank[:8]), ("Nhóm hai", rank[
                  ("Nhóm ba", rank[20:])):
     P(f"{lab} ({len(seg)}): " + " · ".join(f"{r['id']} {r['name']}" for r in seg), size=9)
 
-H("12. Sổ kiểm chứng — việc cần làm", 1)
+H("13. Sổ kiểm chứng — việc cần làm", 1)
 n_tel = sum(1 for r in picked if r.get("tel"))
 TBL(["Chỉ số", "Giá trị"],
     [["Điểm trong hồ sơ", len(picked)],
