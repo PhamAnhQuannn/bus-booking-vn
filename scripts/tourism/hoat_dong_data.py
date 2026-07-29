@@ -216,6 +216,9 @@ def tai(raw_dir):
 THU_TU_NHOM = ["đặc sản Đà Lạt", "món phổ thông", "đặc sản mang về"]
 
 
+_DA_CANH_BAO = False
+
+
 def _vlog(raw_dir):
     """Quan nao vlog thuc su khuyen — tu `quan_vlog.json`.
 
@@ -265,6 +268,13 @@ def _vlog(raw_dir):
         for r in rows:
             for mon in r.get("mon_lien_quan") or []:
                 theo_mon.setdefault(mon, []).append(r)
+    elif any(r.get("mon_lien_quan") for r in rows) and not _DA_CANH_BAO:
+        globals()["_DA_CANH_BAO"] = True      # _vlog co hai loi vao; canh bao mot lan
+        # NOI RA. Mot cot bien mat khong tieng dong thi khong the phan biet voi
+        # "chua co du lieu" — va nguoi doc bo dung se ket luan sai ve cai nao.
+        print(f"  ⚠ {os.path.basename(p)} là phiên bản {pb}: BỎ gán món"
+              " (tính bằng chuỗi con tràn, sai). Giữ số kênh."
+              " Chạy lại sweep_youtube_quan.py để có phiên bản 2.")
     for v in theo_mon.values():
         v.sort(key=lambda r: -_n(r))
     return dem, pc, theo_mon
@@ -305,10 +315,25 @@ def tai_mon_an(raw_dir):
     d = json.load(io.open(p, encoding="utf-8"))
     vlog, _, vlog_mon = _vlog(raw_dir)
     theo_nhom = {}
+    # ⚠ KHONG co bo dem tuong thich o day, va do la co y.
+    # Ban truoc chap nhan ca dang cu (`quan = v if not dict`) roi gan mac dinh
+    # `nhom = "món phổ thông"`. Bo dem do TAI TAO chinh loi ma docstring tren mo
+    # ta: chay bo dung tren mot ban `mon_an_dalat.json` cu thi MOI dac san Da Lat
+    # roi vao nhom "mon co o moi thanh pho", im lang, khong dong log nao — dung
+    # cai ket qua ma viec chia nhom sinh ra de tranh.
+    # File nay nam trong `.tourism-data/raw/` (gitignored) va do mot script khac
+    # sinh ra, tuc no chinh la loai hien vat de cu nhat. Nen dung HAN va noi ro
+    # phai chay lai cai gi; mot lan dung on ao thi sua duoc, con mot tai lieu in
+    # sai 30 dong thi khong ai thay.
+    _sai = [m for m, v in d.items() if not isinstance(v, dict) or "nhom" not in v]
+    if _sai:
+        raise SystemExit(
+            f"{p}: {len(_sai)}/{len(d)} món thiếu khoá 'nhom' (dạng cũ, ví dụ"
+            f" {_sai[:3]}).\nChạy lại:  python scripts/tourism/sweep_monan.py"
+            f" {raw_dir}\nKhông dựng bằng dạng cũ: mọi đặc sản Đà Lạt sẽ bị xếp"
+            " vào nhóm 'món phổ thông' mà không báo gì.")
     for mon, v in d.items():
-        # Chap nhan ca hai dang de bo dung khong sap neu doc file cu.
-        quan = v["quan"] if isinstance(v, dict) else v
-        nhom = v.get("nhom", "món phổ thông") if isinstance(v, dict) else "món phổ thông"
+        quan, nhom = v["quan"], v["nhom"]
         if not quan:
             continue
         # Quan duoc vlog nhac len TRUOC — do la loi khuyen that, khong phai
