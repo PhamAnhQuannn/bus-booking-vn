@@ -693,14 +693,26 @@ for _a in _HD:
         w("*Không cần đơn vị tổ chức — tự đi được.*\n\n")
 
 # Am thuc la mot NHOM HOAT DONG, khong phai chuong rieng.
+#
+# BA KHOI, khong phai mot bang phang. Xep tren toan bo theo so quan DAO NGUOC
+# cau tra loi cho "an gi o Da Lat": dan dau se la Lẩu 172, Phở 89, Ốc 60 — mon
+# co o moi thanh pho Viet Nam — con kem bo 7 va trung nuong 2 nam cuoi.
+#
+# `nhom` la PHAN DOAN BIEN TAP, khong phai so do. Noi ro dieu do trong tai lieu.
 if _MON:
-    w("\n### Nhóm: ẨM THỰC — MÓN ĐẶC TRƯNG\n\n")
-    w(f"*{sum(m[1] for m in _MON)} quán trên {len(_MON)} món.*\n\n")
-    w("| Món | Số quán | Gợi ý |\n|---|---:|---|\n")
-    for _mon, _sl, _quan in _MON:
-        _g = " · ".join(q["ten"] for q in _quan[:3])
-        w(f"| {_mon} | {_sl} | {_g} |\n")
-    w("\n")
+    _tong_q = sum(n for _, rows in _MON for _, n, _ in rows)
+    _tong_m = sum(len(rows) for _, rows in _MON)
+    w(f"\n### Nhóm: ẨM THỰC — {_tong_q} quán trên {_tong_m} món\n\n")
+    w("*Chia nhóm là phán đoán biên tập, không phải số đo: “đặc sản” nghĩa là món "
+      "gắn với Đà Lạt, “phổ thông” nghĩa là món có ở mọi thành phố và cũng có ở đây. "
+      "Trong từng nhóm xếp theo số cơ sở bán.*\n\n")
+    for _nhom, _rows in _MON:
+        w(f"**{_nhom.upper()}** — {len(_rows)} món\n\n")
+        w("| Món | Số quán | Gợi ý (ưu tiên quán có số gọi) |\n|---|---:|---|\n")
+        for _mon, _sl, _quan in _rows:
+            _g = " · ".join(q["ten"] for q in _quan[:3])
+            w(f"| {_mon} | {_sl} | {_g} |\n")
+        w("\n")
 
 # Ba truong mua/gio/thoi luong trong tren ca 28 hoat dong. KHONG viet ve chung o
 # day: muc 3 la muc tra cuu, con cho thieu + viec can lam thuoc muc 12, noi da co

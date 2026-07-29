@@ -459,13 +459,20 @@ for _a in _HD:
     if not _a["don_vi"]:
         P("Không cần đơn vị tổ chức — tự đi được.", italic=True, size=9, color=GREY)
 
+# BA KHOI, khong phai mot bang phang — xep tren toan bo theo so quan dao nguoc
+# cau tra loi cho "an gi o Da Lat". `nhom` la phan doan bien tap, khong phai so do.
 if _MON:
-    H("ẨM THỰC — MÓN ĐẶC TRƯNG", 2)
-    P(f"{sum(m[1] for m in _MON)} quán trên {len(_MON)} món.",
-      italic=True, size=9, color=GREY)
-    TBL(["Món", "Số quán", "Gợi ý"],
-        [[_m, str(_sl), " · ".join(q["ten"][:26] for q in _q[:3])]
-         for _m, _sl, _q in _MON], widths=[3.2, 1.6, 11.0])
+    _tong_q = sum(n for _, rows in _MON for _, n, _ in rows)
+    _tong_m = sum(len(rows) for _, rows in _MON)
+    H(f"ẨM THỰC — {_tong_q} quán trên {_tong_m} món", 2)
+    P("Chia nhóm là phán đoán biên tập, không phải số đo: “đặc sản” nghĩa là món gắn "
+      "với Đà Lạt, “phổ thông” nghĩa là món có ở mọi thành phố và cũng có ở đây. "
+      "Trong từng nhóm xếp theo số cơ sở bán.", italic=True, size=9, color=GREY)
+    for _nhom, _rows in _MON:
+        H(f"{_nhom.upper()} — {len(_rows)} món", 3)
+        TBL(["Món", "Số quán", "Gợi ý (ưu tiên quán có số gọi)"],
+            [[_m, str(_sl), " · ".join(q["ten"][:26] for q in _q[:3])]
+             for _m, _sl, _q in _rows], widths=[3.6, 1.6, 10.6])
 
 # Ba truong mua/gio/thoi luong trong tren ca 28 hoat dong. Cho thieu + viec can
 # lam thuoc muc 12, khong thuoc giua chuong tra cuu.

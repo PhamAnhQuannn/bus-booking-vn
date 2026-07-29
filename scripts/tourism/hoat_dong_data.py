@@ -212,22 +212,51 @@ def tai(raw_dir):
     return out, tk
 
 
+# Thu tu in ba nhom. "Ăn gi o Da Lat" phai tra loi bang DAC SAN truoc.
+THU_TU_NHOM = ["đặc sản Đà Lạt", "món phổ thông", "đặc sản mang về"]
+
+
 def tai_mon_an(raw_dir):
     """Am thuc la mot NHOM HOAT DONG, khong phai mot chuong rieng.
 
-    Tra ve [(ten_mon, so_quan, [quan da cat gon])]. Khong in 2.155 quan ca phe —
-    chi neu tong so va cach loc.
+    Tra ve [(ten_nhom, [(ten_mon, so_quan, [quan])])] — ba nhom, xep trong tung
+    nhom theo so co so.
+
+    ⚠ HINH DANG DU LIEU DA DOI, va ban doc nay tung khong doi theo:
+        sweep_monan.py ghi   {món: {"nhom": ..., "quan": [...]}}
+        ban cu doc           for mon, quan in d.items()  ->  len(quan)
+    `len()` tren dict do ra 2 (dem khoa), nen MOI mon hien "2 quán" trong tai
+    lieu — khong sap, khong bao loi, chi in sai 30 dong. Do dung:
+        len(d['Bánh tráng nướng']) = 2      dang muon = 24
+    Cung lop loi so da ghi: hinh dang du lieu doi thi phai sua MOI cho doc no
+    trong cung mot commit.
+
+    Vi sao xep theo SO CO SO trong tung nhom la hop le, con xep tren toan bo thi
+    khong: xep tren toan bo thi Lẩu 172, Phở 89, Ốc 60 dan dau — mon co o moi
+    thanh pho Viet Nam — con kem bo 7 va trung nuong 2 nam cuoi. NHOM lam viec
+    tach dac san khoi mon pho thong; trong mot nhom da dong nhat thi so co so la
+    thuoc do hop ly.
     """
     p = os.path.join(raw_dir, "mon_an_dalat.json")
     if not os.path.exists(p):
         return []
     d = json.load(io.open(p, encoding="utf-8"))
-    out = []
-    for mon, quan in d.items():
+    theo_nhom = {}
+    for mon, v in d.items():
+        # Chap nhan ca hai dang de bo dung khong sap neu doc file cu.
+        quan = v["quan"] if isinstance(v, dict) else v
+        nhom = v.get("nhom", "món phổ thông") if isinstance(v, dict) else "món phổ thông"
         if not quan:
             continue
-        out.append((mon, len(quan),
-                    [{"ten": q["ten"], "dien_thoai": q.get("dien_thoai"),
-                      "dia_chi": q.get("dia_chi")} for q in quan[:MAX_QUAN_MON]]))
-    out.sort(key=lambda x: -x[1])
+        theo_nhom.setdefault(nhom, []).append(
+            (mon, len(quan),
+             [{"ten": q["ten"], "dien_thoai": q.get("dien_thoai"),
+               "dia_chi": q.get("dia_chi")} for q in quan[:MAX_QUAN_MON]]))
+    out = []
+    for nhom in THU_TU_NHOM:
+        rows = theo_nhom.pop(nhom, [])
+        if rows:
+            out.append((nhom, sorted(rows, key=lambda x: -x[1])))
+    for nhom, rows in theo_nhom.items():        # nhom la khong luong truoc
+        out.append((nhom, sorted(rows, key=lambda x: -x[1])))
     return out
