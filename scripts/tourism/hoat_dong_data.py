@@ -81,9 +81,56 @@ def _ten_hop_le(ten_hd, ten_dd):
     return any(_co_tu(ten_dd, k) for k in can)
 
 
+def _tour_web(raw_dir):
+    """Ket qua doc website don vi to chuc, gan theo HOAT DONG.
+
+    Chi lay don vi DA XAC MINH duoc danh tinh. Truong gia ten la
+    `khoang_gia_don_vi` — day la khoang tren TOAN BO goi cua don vi, khong phai
+    gia mot tour cu the: trang liet ke nhieu tour va bo trich chay theo truong
+    tren ca trang nen khong quy duoc gia ve tung tour.
+    """
+    p_ts = os.path.join(raw_dir, "tour_sites_sach.json")
+    p_dv = os.path.join(raw_dir, "dv_trai_nghiem.json")
+    if not (os.path.exists(p_ts) and os.path.exists(p_dv)):
+        return {}, 0
+    sites = json.load(io.open(p_ts, encoding="utf-8"))
+    dvs = {d["id"]: d for d in json.load(io.open(p_dv, encoding="utf-8"))}
+    theo_hd = {}
+    for s in sites:
+        d = dvs.get(s["id"], {})
+        # Ten tour tu trang quang cao co nhieu ban hoan vi cua cung mot tour
+        # ("Tour săn mây hot nhất Đà Lạt" / "Tour săn mây Đà Lạt hot nhất").
+        # Khu theo tap tu de khong in ba lan cung mot thu.
+        _seen, ten_tour = set(), []
+        for t in s["ten_tour"]:
+            k = frozenset(fold(t).split())
+            if k in _seen:
+                continue
+            _seen.add(k)
+            ten_tour.append(t)
+        for hd in d.get("hoat_dong", []):
+            theo_hd.setdefault(hd, []).append({
+                "ten": s["ten"], "url": s["url"],
+                "khoang_gia_don_vi": s["khoang_gia_don_vi"],
+                "ten_tour": ten_tour[:4],
+            })
+    # So ten mien khong con phan giai — phat hien ve chat luong du lieu, khong
+    # phai loi ky thuat: don vi tour nho o Da Lat song tren Facebook, khong song
+    # tren website. Phai dem tu file GOC: `tour_sites_sach.json` da loc bo hang
+    # loi tu truoc nen dem o day luon ra 0.
+    p_goc = os.path.join(raw_dir, "tour_sites.json")
+    chet = tong = 0
+    if os.path.exists(p_goc):
+        goc = json.load(io.open(p_goc, encoding="utf-8"))
+        tong = len(goc)
+        chet = sum(1 for s in goc if s.get("loi"))
+    return theo_hd, (chet, tong)
+
+
 def tai(raw_dir):
     """Doc va cat gon. Tra ve (danh_sach_hoat_dong, thong_ke)."""
     acts = json.load(io.open(os.path.join(raw_dir, "hoat_dong.json"), encoding="utf-8"))
+    tour_web, _ = _tour_web(raw_dir)
     picked = json.load(io.open(os.path.join(raw_dir, "guide_data.json"),
                                encoding="utf-8"))["picked"]
     # ten (da bo dau) -> ma DL-xx, de nguoi doc lat ve muc chi tiet
@@ -140,6 +187,7 @@ def tai(raw_dir):
             "noi": noi[:MAX_NOI],
             "don_vi": [{"ten": c["ten"], "dien_thoai": c.get("dien_thoai"),
                         "facebook": c.get("facebook")} for c in don_vi[:MAX_DON_VI]],
+            "tour_web": tour_web.get(h["ten"], []),
             # CO Y trong — chua nguon nao noi ve chung. Xem `thong_ke['thieu']`.
             "mua": h.get("mua"), "gio_trong_ngay": h.get("gio_trong_ngay"),
             "thoi_luong": h.get("thoi_luong"),
@@ -151,10 +199,13 @@ def tai(raw_dir):
     out.sort(key=lambda x: (THU_TU.index(x["nhom"]) if x["nhom"] in THU_TU else 99,
                             -x["tong_noi"] - x["tong_don_vi"]))
 
+    _, (_chet, _tong_web) = _tour_web(raw_dir)
     tk = {
         "so_hoat_dong": len(out),
         "so_nhom": len({x["nhom"] for x in out}),
         "bo_nhieu_ten": bo_nhieu,
+        "so_don_vi_co_web": sum(1 for x in out if x["tour_web"]),
+        "ten_mien_chet": _chet, "tong_website_thu": _tong_web,
         "thieu": [k for k in ("mua", "gio_trong_ngay", "thoi_luong")
                   if not any(x[k] for x in out)],
     }

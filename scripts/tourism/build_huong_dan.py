@@ -632,6 +632,17 @@ for _a in _HD:
               + (f" — {_d['dien_thoai']}" if _d.get("dien_thoai") else " — chưa có số")
               + "\n")
         w("\n")
+    if _a.get("tour_web"):
+        w("**Đã đọc trang tour** (đã xác minh trang đúng là của đơn vị đó):\n\n")
+        for _t in _a["tour_web"]:
+            w(f"- {_t['ten']} — {_t['url']}\n")
+            if _t["khoang_gia_don_vi"]:
+                w(f"  - Khoảng giá **của cả đơn vị**: {_t['khoang_gia_don_vi']} "
+                  "— *không phải giá một tour cụ thể; trang liệt kê nhiều tour nên "
+                  "không quy được giá về từng tour*\n")
+            for _n in _t["ten_tour"]:
+                w(f"  - {_n}\n")
+        w("\n")
     if not _a["don_vi"]:
         w("*Không cần đơn vị tổ chức — tự đi được.*\n\n")
 
@@ -660,11 +671,17 @@ if _HDTK["thieu"]:
         "hoạt động diễn ra quanh năm.\n\n")
     w("- **Giờ trong ngày** suy ra được từ giờ mặt trời mọc (đã tính cho 36 điểm "
       "ở mục 2, trường *hướng bình minh*); chưa ghép vào đây.\n")
-    w("- **Thời lượng** phải lấy từ trang tour của đơn vị tổ chức. Đã thử 14 website: "
-      "**7 tên miền không còn phân giải**, và các trang còn lại liệt kê nhiều tour "
-      "trên một trang nên không quy được thời lượng về từng tour.\n")
-    w("- **Mùa** — không nguồn nào trong 14 website nêu mùa. Mùa hoa (cỏ hồng, mai "
-      "anh đào, dã quỳ) cần nguồn tỉnh Lâm Đồng hoặc gọi điện. **Để trống, không đoán.**\n\n")
+    w(f"- **Thời lượng** phải lấy từ trang tour của đơn vị tổ chức. Đã thử "
+      f"{_HDTK['tong_website_thu']} website: **{_HDTK['ten_mien_chet']} tên miền không "
+      "còn phân giải**, và các trang còn lại liệt kê nhiều tour trên một trang nên "
+      "không quy được thời lượng về từng tour.\n")
+    w(f"- **Mùa** — không nguồn nào trong {_HDTK['tong_website_thu']} website nêu mùa. "
+      "Mùa hoa (cỏ hồng, mai anh đào, dã quỳ) cần nguồn tỉnh Lâm Đồng hoặc gọi điện. "
+      "**Để trống, không đoán.**\n\n")
+    w(f"**Đơn vị tour nhỏ ở Đà Lạt sống trên Facebook, không sống trên website** — "
+      f"{_HDTK['ten_mien_chet']}/{_HDTK['tong_website_thu']} tên miền đã chết, gồm "
+      "`canyoningdalat.com`, `dalatjeep.com`, `toursanmaydalat.com`. Trước khi tra "
+      "một đơn vị, tra trang Facebook của họ chứ đừng tra tên miền.\n\n")
 
 # =============================================== 4-8 chi muc (sinh tu dong)
 w("\n---\n\n## 4. Bảng so sánh\n\n")

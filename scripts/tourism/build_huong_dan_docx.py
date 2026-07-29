@@ -410,7 +410,21 @@ for _a in _HD:
         for _d in _a["don_vi"]:
             B(_d["ten"] + (f" — {_d['dien_thoai']}" if _d.get("dien_thoai")
                            else " — chưa có số"))
-    else:
+    if _a.get("tour_web"):
+        P("Đã đọc trang tour (đã xác minh trang đúng là của đơn vị đó):",
+          bold=True, size=9)
+        for _t in _a["tour_web"]:
+            B(f"{_t['ten']} — {_t['url']}")
+            if _t["khoang_gia_don_vi"]:
+                _pp = doc.add_paragraph(style="List Bullet 2")
+                _rr = _pp.add_run(f"Khoảng giá của cả đơn vị: {_t['khoang_gia_don_vi']}"
+                                  " — không phải giá một tour cụ thể; trang liệt kê "
+                                  "nhiều tour nên không quy được giá về từng tour")
+                _rr.font.size = Pt(8.5)
+                _rr.font.color.rgb = AMBER
+            for _n in _t["ten_tour"]:
+                doc.add_paragraph(_n, style="List Bullet 2")
+    if not _a["don_vi"]:
         P("Không cần đơn vị tổ chức — tự đi được.", italic=True, size=9, color=GREY)
 
 if _MON:
@@ -437,11 +451,21 @@ if _HDTK["thieu"]:
     _r.font.color.rgb = RED
     B("Giờ trong ngày — suy ra được từ giờ mặt trời mọc (đã tính cho 36 điểm ở mục 2); "
       "chưa ghép vào đây.")
-    B("Thời lượng — phải lấy từ trang tour. Đã thử 14 website: 7 tên miền không còn "
-      "phân giải, các trang còn lại liệt kê nhiều tour trên một trang nên không quy "
-      "được thời lượng về từng tour.")
-    B("Mùa — không nguồn nào trong 14 website nêu mùa. Mùa hoa (cỏ hồng, mai anh đào, "
-      "dã quỳ) cần nguồn tỉnh Lâm Đồng hoặc gọi điện. Để trống, không đoán.")
+    B(f"Thời lượng — phải lấy từ trang tour. Đã thử {_HDTK['tong_website_thu']} website: "
+      f"{_HDTK['ten_mien_chet']} tên miền không còn phân giải, các trang còn lại liệt kê "
+      "nhiều tour trên một trang nên không quy được thời lượng về từng tour.")
+    B(f"Mùa — không nguồn nào trong {_HDTK['tong_website_thu']} website nêu mùa. Mùa hoa "
+      "(cỏ hồng, mai anh đào, dã quỳ) cần nguồn tỉnh Lâm Đồng hoặc gọi điện. Để trống, "
+      "không đoán.")
+    _p2 = doc.add_paragraph()
+    _r2 = _p2.add_run(f"Đơn vị tour nhỏ ở Đà Lạt sống trên Facebook, không sống trên "
+                      f"website — {_HDTK['ten_mien_chet']}/{_HDTK['tong_website_thu']} "
+                      "tên miền đã chết, gồm canyoningdalat.com, dalatjeep.com, "
+                      "toursanmaydalat.com. Trước khi tra một đơn vị, tra trang Facebook "
+                      "của họ chứ đừng tra tên miền.")
+    _r2.bold = True
+    _r2.font.size = Pt(9)
+    _r2.font.color.rgb = AMBER
 
 # ==================================================== 4-12 chi muc
 doc.add_page_break()
