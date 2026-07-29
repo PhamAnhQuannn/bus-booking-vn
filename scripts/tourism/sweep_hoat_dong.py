@@ -105,10 +105,9 @@ ACTS = [
      ["botanical_garden"], ["Công viên / Vườn hoa"]),
 
     ("Giao lưu cồng chiêng", "văn hoá", ["cồng chiêng"], [], []),
-    ("Tham quan bảo tàng / triển lãm", "văn hoá", [], ["art_gallery", "museum"],
-     ["Bảo tàng", "Nghệ thuật / Triển lãm"]),
+    ("Tham quan bảo tàng · dinh thự · di tích", "văn hoá", [], ["art_gallery", "museum"],
+     ["Bảo tàng", "Nghệ thuật / Triển lãm", "Dinh thự / Di tích"]),
     ("Viếng chùa / nhà thờ", "văn hoá", [], [], ["Chùa / Thiền viện", "Nhà thờ"]),
-    ("Tham quan dinh thự / di tích", "văn hoá", [], [], ["Dinh thự / Di tích"]),
 
     # KHONG lay loai "Chợ / Mua sắm" — no gom ca sieu thi va trung tam thuong
     # mai (GO! Đà Lạt), khong phai cho dem an vat.

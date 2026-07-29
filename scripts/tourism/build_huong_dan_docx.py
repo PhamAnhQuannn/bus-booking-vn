@@ -17,6 +17,9 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import hoat_dong_data as _hoat_dong   # CUNG module chon loc voi ban .md
+
 RAW, OUT = sys.argv[1], sys.argv[2]
 G = json.load(io.open(os.path.join(RAW, "guide_data.json"), encoding="utf-8"))
 picked, NEAR, mat = G["picked"], G["near"], G["matrix"]
@@ -210,8 +213,11 @@ B("KHÔNG thay [CHƯA XÁC MINH] bằng một giá trị thường gặp. “Gi�
   "dạng của một giờ mở cửa, không phải giờ mở cửa của nơi này.")
 B("KHÔNG suy ra giá vé, giờ mở cửa, thời lượng thăm hay mức độ dễ đi lại từ loại hình. "
   "Chỉ ba suy diễn được duyệt: trong nhà/ngoài trời, link bản đồ, điểm lân cận.")
-B("KHÔNG viết mô tả, “lý do nên đến”, “điểm nhấn”, “hoạt động” — tài liệu cố ý KHÔNG sinh "
-  "những mục đó vì mọi chữ trong đó sẽ là bịa.")
+B("KHÔNG viết mô tả, “lý do nên đến” hay “điểm nhấn” — tài liệu cố ý KHÔNG sinh "
+  "những mục đó vì mọi chữ trong đó sẽ là bịa. Mục 3 có liệt kê hoạt động, và đó "
+  "không phải ngoại lệ: mỗi hoạt động ở đó gắn với một cơ sở, một điểm trong danh "
+  "mục, hoặc một đơn vị tổ chức cụ thể. Được nói “ở Đà Lạt có hái dâu tại vườn, đây "
+  "là các vườn”; không được nói “Đà Lạt lãng mạn, hợp cho các cặp đôi”.")
 P("Nhịp độ mặc định (chuyến thư giãn): tối đa 4 điểm/ngày · tối đa 2 giờ di chuyển/ngày · "
   "mỗi ngày chừa một khoảng trống.", bold=True)
 P("Bay flycam: mặc định COI NHƯ BỊ CẤM trừ khi có xác nhận ngược lại. Sai theo hướng an toàn "
@@ -373,33 +379,97 @@ for r in picked:
     rr.font.size = Pt(8.5)
     rr.font.color.rgb = RED
 
-# ==================================================== 3-11 chi muc
+# ==================================================== 3. HOAT DONG
+# Cung mot module chon loc voi ban .md — `hoat_dong_data.tai()`. Neu viet lai
+# logic cat gon o day thi hai ban se lech nhau va khong ai biet cho toi khi doc
+# canh nhau; du an da dinh dung lop loi do (hai bo trich cung payload VNPay).
+_HD, _HDTK = _hoat_dong.tai(RAW)
+_MON = _hoat_dong.tai_mon_an(RAW)
+
 doc.add_page_break()
-H("3. Bảng so sánh", 1)
+H("3. Hoạt động — làm gì ở Đà Lạt", 1)
+P(f"{_HDTK['so_hoat_dong']} hoạt động, {_HDTK['so_nhom']} nhóm. Mỗi hoạt động đều có "
+  "ít nhất một bằng chứng vật chất — một cơ sở đang hoạt động, một điểm trong danh "
+  "mục, hoặc một đơn vị tổ chức. Mã DL-xx dẫn về mục chi tiết ở mục 2.",
+  italic=True, size=9, color=GREY)
+
+_nhom_hien = None
+for _a in _HD:
+    if _a["nhom"] != _nhom_hien:
+        _nhom_hien = _a["nhom"]
+        H(_nhom_hien.upper(), 2)
+    H(_a["ten"], 3)
+    if _a["noi"]:
+        P(f"Làm ở đâu — {_a['tong_noi']} nơi, in {len(_a['noi'])}:", bold=True, size=9)
+        for _n in _a["noi"]:
+            B((f"[{_n['ma']}] " if _n["ma"] else "") + _n["ten"]
+              + (f" — {_n['khu_vuc']}" if _n.get("khu_vuc") else ""))
+    if _a["don_vi"]:
+        P(f"Đơn vị tổ chức — {_a['tong_don_vi']} đơn vị, in {len(_a['don_vi'])}:",
+          bold=True, size=9)
+        for _d in _a["don_vi"]:
+            B(_d["ten"] + (f" — {_d['dien_thoai']}" if _d.get("dien_thoai")
+                           else " — chưa có số"))
+    else:
+        P("Không cần đơn vị tổ chức — tự đi được.", italic=True, size=9, color=GREY)
+
+if _MON:
+    H("ẨM THỰC — MÓN ĐẶC TRƯNG", 2)
+    P(f"{sum(m[1] for m in _MON)} quán khớp theo tên món trên {len(_MON)} món. Khớp giữ "
+      "nguyên dấu và đòi biên từ — bỏ dấu thì “sữa chua” khớp “sửa chữa”.",
+      italic=True, size=9, color=GREY)
+    TBL(["Món", "Số quán", "Gợi ý (theo độ tin cậy dữ liệu)"],
+        [[_m, str(_sl), " · ".join(q["ten"][:26] for q in _q[:3])]
+         for _m, _sl, _q in _MON], widths=[3.2, 1.6, 11.0])
+
+# Ba truong trong. In ra la trong, kem ly do — KHONG in bang cheo mua x hoat dong
+# khi moi o deu rong: mot bang trang trong nhu du lieu bi mat.
+if _HDTK["thieu"]:
+    _ten_vn = {"mua": "mùa trong năm", "gio_trong_ngay": "giờ trong ngày",
+               "thoi_luong": "thời lượng"}
+    H("Chưa có: " + ", ".join(_ten_vn[k] for k in _HDTK["thieu"]), 2)
+    _p = doc.add_paragraph()
+    _r = _p.add_run(f"Ba trường này trống trên toàn bộ {_HDTK['so_hoat_dong']} hoạt động, "
+                    "và trống vì chưa nguồn nào nói về chúng — không phải vì hoạt động "
+                    "diễn ra quanh năm.")
+    _r.bold = True
+    _r.font.size = Pt(9)
+    _r.font.color.rgb = RED
+    B("Giờ trong ngày — suy ra được từ giờ mặt trời mọc (đã tính cho 36 điểm ở mục 2); "
+      "chưa ghép vào đây.")
+    B("Thời lượng — phải lấy từ trang tour. Đã thử 14 website: 7 tên miền không còn "
+      "phân giải, các trang còn lại liệt kê nhiều tour trên một trang nên không quy "
+      "được thời lượng về từng tour.")
+    B("Mùa — không nguồn nào trong 14 website nêu mùa. Mùa hoa (cỏ hồng, mai anh đào, "
+      "dã quỳ) cần nguồn tỉnh Lâm Đồng hoặc gọi điện. Để trống, không đoán.")
+
+# ==================================================== 4-12 chi muc
+doc.add_page_break()
+H("4. Bảng so sánh", 1)
 P("Sinh tự động từ mục 2 — không sửa tay.", italic=True, size=9, color=GREY)
 TBL(["ID", "Điểm", "Loại", "Khu vực", "Km", "Phút", "Vé", "Nguồn"],
     [[r["id"], r["name"][:34], r["loai_vn"], r["area"][:20], f"{r['km']:.1f}",
       f"{r['min']:.0f}", r.get("fee") or UNV, len(r["src"])] for r in picked],
     widths=[1.4, 5.0, 3.0, 3.2, 1.2, 1.2, 1.6, 1.2], size=8)
 
-H("4. Theo loại hình", 1)
+H("5. Theo loại hình", 1)
 for k, v in sorted(Counter(r["loai_vn"] for r in picked).items(), key=lambda x: -x[1]):
     P(f"{k} ({v}): " + " · ".join(f"{r['id']} {r['name']}" for r in picked
                                   if r["loai_vn"] == k), size=9)
 
-H("5. Theo khu vực", 1)
+H("6. Theo khu vực", 1)
 for a in sorted({r["area"] for r in picked}):
     lst = [r for r in picked if r["area"] == a]
     P(f"{a} ({len(lst)}): " + " · ".join(f"{r['id']} {r['name']}" for r in lst), size=9)
 
-H("6. Theo khoảng cách từ hồ Xuân Hương", 1)
+H("7. Theo khoảng cách từ hồ Xuân Hương", 1)
 for lo, hi, lab in ((0, 5, "Dưới 5 km"), (5, 10, "5 – 10 km"),
                     (10, 20, "10 – 20 km"), (20, 9e9, "Trên 20 km")):
     lst = [r for r in picked if lo <= r["km"] < hi]
     P(f"{lab} ({len(lst)}): " + (" · ".join(f"{r['id']} {r['name']} ({r['min']:.0f}′)"
                                             for r in lst) or "—"), size=9)
 
-H("7. Theo thời điểm thăm", 1)
+H("8. Theo thời điểm thăm", 1)
 p = doc.add_paragraph()
 r_ = p.add_run("Bình minh · sáng · chiều · hoàng hôn · tối: ")
 r_.font.size = Pt(9.5)
@@ -415,7 +485,7 @@ for lab in ("trong nhà", "có mái", "hỗn hợp"):
     if lst:
         P(f"  {lab}: " + " · ".join(f"{r['id']} {r['name']}" for r in lst), size=9)
 
-H("8. Tuyến gợi ý theo khu vực", 1)
+H("9. Tuyến gợi ý theo khu vực", 1)
 P("Thứ tự dựng bằng thuật toán láng giềng gần nhất trên ma trận OSRM, xuất phát từ điểm gần "
   "trung tâm nhất.", italic=True, size=9, color=GREY)
 if mat:
@@ -435,7 +505,7 @@ if mat:
         P(f"{a} — {len(route)} điểm · di chuyển giữa các điểm ~{tot:.0f} phút", bold=True, size=9.5)
         P("   " + " → ".join(f"{x['id']} {x['name']}" for x in route), size=9)
 
-H("9. Ma trận thời gian giữa các điểm (phút)", 1)
+H("10. Ma trận thời gian giữa các điểm (phút)", 1)
 if mat:
     ids = mat["ids"]
     TBL([""] + [i.replace("DL-", "") for i in ids],
@@ -444,7 +514,7 @@ if mat:
           else f"{mat['durations'][i][j]/60:.0f}" for j in range(len(ids))]
          for i in range(len(ids))], size=6)
 
-H("10. Danh sách rút gọn", 1)
+H("11. Danh sách rút gọn", 1)
 P("⚠ Xếp hạng dựa trên mức độ hiện diện trên bản đồ, KHÔNG phải chất lượng trải nghiệm — thứ đó "
   "chưa có dữ liệu. Dùng làm thứ tự gọi xác minh, không dùng làm lời khuyên “nơi này hay hơn "
   "nơi kia”.", bold=True, color=RED)
@@ -453,7 +523,7 @@ for lab, seg in (("Ưu tiên xác minh trước", rank[:8]), ("Nhóm hai", rank[
                  ("Nhóm ba", rank[20:])):
     P(f"{lab} ({len(seg)}): " + " · ".join(f"{r['id']} {r['name']}" for r in seg), size=9)
 
-H("11. Sổ kiểm chứng — việc cần làm", 1)
+H("12. Sổ kiểm chứng — việc cần làm", 1)
 n_tel = sum(1 for r in picked if r.get("tel"))
 TBL(["Chỉ số", "Giá trị"],
     [["Điểm trong hồ sơ", len(picked)],
