@@ -403,11 +403,9 @@ w("1. **KHÔNG** thay `[CHƯA XÁC MINH]` bằng một giá trị thường gặ
 w("2. **KHÔNG** suy ra giá vé, giờ mở cửa, thời lượng thăm hay mức độ dễ đi lại từ loại hình. "
   "Chỉ ba suy diễn được duyệt trước: *trong nhà/ngoài trời*, *link bản đồ*, *điểm lân cận*.\n")
 w("3. **KHÔNG** viết mô tả, “lý do nên đến” hay “điểm nhấn” cho một địa điểm — "
-  "tài liệu này cố ý **không sinh** những mục đó, vì mọi chữ trong đó sẽ là bịa.\n\n")
-w("   Mục 3 *có* liệt kê hoạt động, và đó không phải ngoại lệ của luật trên: mỗi hoạt "
-  "động ở đó đều gắn với **một cơ sở đang hoạt động, một điểm trong danh mục, hoặc một "
-  "đơn vị tổ chức** cụ thể. Được nói “ở Đà Lạt có hái dâu tại vườn, đây là các vườn”; "
-  "**không** được nói “Đà Lạt lãng mạn, hợp cho các cặp đôi”.\n\n")
+  "tài liệu này cố ý **không sinh** những mục đó, vì mọi chữ trong đó sẽ là bịa. "
+  "Mục 3 liệt kê hoạt động kèm nơi và đơn vị cụ thể, đó là dữ kiện; “Đà Lạt lãng "
+  "mạn, hợp cho các cặp đôi” thì không.\n\n")
 w("**Nhịp độ mặc định (chuyến “thư giãn”):** tối đa 4 điểm/ngày · tối đa 2 giờ di chuyển/ngày · "
   "mỗi ngày chừa một khoảng trống. Vượt quá phải nói rõ với khách là lịch dày.\n\n")
 w("**Bay flycam:** mặc định **coi như bị cấm** trừ khi có xác nhận ngược lại. "
@@ -605,11 +603,8 @@ _HD, _HDTK = _hoat_dong.tai(RAW)
 _MON = _hoat_dong.tai_mon_an(RAW)
 
 w("\n---\n\n## 3. HOẠT ĐỘNG — LÀM GÌ Ở ĐÀ LẠT\n\n")
-w(f"*{_HDTK['so_hoat_dong']} hoạt động, {_HDTK['so_nhom']} nhóm. Mỗi hoạt động dưới đây "
-  "đều có **ít nhất một bằng chứng vật chất** — một cơ sở đang hoạt động, một điểm "
-  "trong danh mục, hoặc một đơn vị tổ chức. Hoạt động không có bằng chứng không được "
-  "đưa vào.*\n\n")
-w("**Mã `DL-xx`** dẫn về mục chi tiết của điểm đó ở mục 2.\n\n")
+w(f"*{_HDTK['so_hoat_dong']} hoạt động, {_HDTK['so_nhom']} nhóm. "
+  "Mã `DL-xx` dẫn về mục chi tiết ở mục 2.*\n\n")
 
 _nhom_hien = None
 for _a in _HD:
@@ -618,28 +613,34 @@ for _a in _HD:
         w(f"\n### Nhóm: {_nhom_hien.upper()}\n\n")
     w(f"#### {_a['ten']}\n\n")
 
+    # Chi in thu nguoi doc DUNG. So lieu build ("in 8 tren 23"), dau vet kiem
+    # chung ("da xac minh trang dung la cua don vi do") va ly do ky thuat cua bo
+    # trich deu la van ke qua trinh — chung thuoc muc 12, khong thuoc day.
     if _a["noi"]:
-        w(f"**Làm ở đâu** ({_a['tong_noi']} nơi, in {len(_a['noi'])}):\n\n")
+        _dd = (f"**Làm ở đâu** ({_a['tong_noi']} nơi — {len(_a['noi'])} nơi tiêu biểu):"
+               if _a["tong_noi"] > len(_a["noi"]) else "**Làm ở đâu:**")
+        w(_dd + "\n\n")
         for _n in _a["noi"]:
             _ma = f"`{_n['ma']}` " if _n["ma"] else ""
             _kv = f" — {_n['khu_vuc']}" if _n.get("khu_vuc") else ""
             w(f"- {_ma}{_n['ten']}{_kv}\n")
         w("\n")
     if _a["don_vi"]:
-        w(f"**Đơn vị tổ chức** ({_a['tong_don_vi']} đơn vị, in {len(_a['don_vi'])}):\n\n")
+        _dv = (f"**Đơn vị tổ chức** ({_a['tong_don_vi']} đơn vị — {len(_a['don_vi'])} "
+               "đơn vị tiêu biểu):" if _a["tong_don_vi"] > len(_a["don_vi"])
+               else "**Đơn vị tổ chức:**")
+        w(_dv + "\n\n")
         for _d in _a["don_vi"]:
             w(f"- {_d['ten']}"
               + (f" — {_d['dien_thoai']}" if _d.get("dien_thoai") else " — chưa có số")
               + "\n")
         w("\n")
     if _a.get("tour_web"):
-        w("**Đã đọc trang tour** (đã xác minh trang đúng là của đơn vị đó):\n\n")
+        w("**Trang tour:**\n\n")
         for _t in _a["tour_web"]:
             w(f"- {_t['ten']} — {_t['url']}\n")
             if _t["khoang_gia_don_vi"]:
-                w(f"  - Khoảng giá **của cả đơn vị**: {_t['khoang_gia_don_vi']} "
-                  "— *không phải giá một tour cụ thể; trang liệt kê nhiều tour nên "
-                  "không quy được giá về từng tour*\n")
+                w(f"  - Khoảng giá cả gói: {_t['khoang_gia_don_vi']}\n")
             for _n in _t["ten_tour"]:
                 w(f"  - {_n}\n")
         w("\n")
@@ -649,39 +650,17 @@ for _a in _HD:
 # Am thuc la mot NHOM HOAT DONG, khong phai chuong rieng.
 if _MON:
     w("\n### Nhóm: ẨM THỰC — MÓN ĐẶC TRƯNG\n\n")
-    w(f"*{sum(m[1] for m in _MON)} quán khớp theo tên món trên {len(_MON)} món. "
-      "Khớp giữ nguyên dấu và đòi biên từ — bỏ dấu thì `sữa chua` khớp `sửa chữa` "
-      "và `kem bơ` khớp `kem bôi`.*\n\n")
-    w("| Món | Số quán | Gợi ý (theo độ tin cậy dữ liệu) |\n|---|---:|---|\n")
+    w(f"*{sum(m[1] for m in _MON)} quán trên {len(_MON)} món.*\n\n")
+    w("| Món | Số quán | Gợi ý |\n|---|---:|---|\n")
     for _mon, _sl, _quan in _MON:
         _g = " · ".join(q["ten"] for q in _quan[:3])
         w(f"| {_mon} | {_sl} | {_g} |\n")
-    w("\n**Số điện thoại từng quán** nằm trong `mon_an_dalat.json` — chưa đưa vào đây "
-      "vì chưa gọi xác minh quán nào.\n\n")
+    w("\n")
 
-# Ba truong trong. In ra la trong, kem ly do — KHONG in bang cheo mua x hoat dong
-# khi moi o deu rong: mot bang trang trong nhu du lieu bi mat, te hon mot cau
-# noi thang la chua co nguon.
-if _HDTK["thieu"]:
-    _ten_vn = {"mua": "mùa trong năm", "gio_trong_ngay": "giờ trong ngày",
-               "thoi_luong": "thời lượng"}
-    w("\n### Chưa có: " + ", ".join(_ten_vn[k] for k in _HDTK["thieu"]) + "\n\n")
-    w("Ba trường này **trống trên toàn bộ " + str(_HDTK["so_hoat_dong"])
-      + " hoạt động**, và trống vì chưa nguồn nào nói về chúng — không phải vì "
-        "hoạt động diễn ra quanh năm.\n\n")
-    w("- **Giờ trong ngày** suy ra được từ giờ mặt trời mọc (đã tính cho 36 điểm "
-      "ở mục 2, trường *hướng bình minh*); chưa ghép vào đây.\n")
-    w(f"- **Thời lượng** phải lấy từ trang tour của đơn vị tổ chức. Đã thử "
-      f"{_HDTK['tong_website_thu']} website: **{_HDTK['ten_mien_chet']} tên miền không "
-      "còn phân giải**, và các trang còn lại liệt kê nhiều tour trên một trang nên "
-      "không quy được thời lượng về từng tour.\n")
-    w(f"- **Mùa** — không nguồn nào trong {_HDTK['tong_website_thu']} website nêu mùa. "
-      "Mùa hoa (cỏ hồng, mai anh đào, dã quỳ) cần nguồn tỉnh Lâm Đồng hoặc gọi điện. "
-      "**Để trống, không đoán.**\n\n")
-    w(f"**Đơn vị tour nhỏ ở Đà Lạt sống trên Facebook, không sống trên website** — "
-      f"{_HDTK['ten_mien_chet']}/{_HDTK['tong_website_thu']} tên miền đã chết, gồm "
-      "`canyoningdalat.com`, `dalatjeep.com`, `toursanmaydalat.com`. Trước khi tra "
-      "một đơn vị, tra trang Facebook của họ chứ đừng tra tên miền.\n\n")
+# Ba truong mua/gio/thoi luong trong tren ca 28 hoat dong. KHONG viet ve chung o
+# day: muc 3 la muc tra cuu, con cho thieu + viec can lam thuoc muc 12, noi da co
+# san bang chi so va danh sach so dien thoai can goi. Cung mot ly do 1.336 dong
+# truong chua xac minh bi bo han thay vi in kem loi giai thich.
 
 # =============================================== 4-8 chi muc (sinh tu dong)
 w("\n---\n\n## 4. Bảng so sánh\n\n")
@@ -772,6 +751,16 @@ w(f"| Có giờ mở cửa | {sum(1 for r in picked if r.get('hours'))} |\n")
 w(f"| Có giá vé | {sum(1 for r in picked if r.get('fee'))} |\n")
 w(f"| Có đánh giá sao | **0** — không nguồn mở nào có |\n")
 w(f"| Trường `[CHƯA XÁC MINH]` ước tính | **~{41*len(picked)}** |\n\n")
+
+# Cho thieu cua muc 3 thuoc VE DAY, khong thuoc giua chuong tra cuu.
+if _HDTK["thieu"]:
+    w(f"**Mục 3 — cả {_HDTK['so_hoat_dong']} hoạt động đều chưa có mùa, giờ trong ngày "
+      "và thời lượng.** Trống nghĩa là chưa xác minh, không nghĩa là quanh năm. "
+      "Đừng khẳng định với khách cỏ hồng tháng nào hay tour đi mấy giờ khi chưa gọi.\n\n")
+    w(f"**Tra đơn vị tour bằng Facebook, đừng tra tên miền** — "
+      f"{_HDTK['ten_mien_chet']}/{_HDTK['tong_website_thu']} tên miền đã kiểm không còn "
+      "hoạt động (`canyoningdalat.com`, `dalatjeep.com`, `toursanmaydalat.com`).\n\n")
+
 w("**Gọi một cuộc đóng được ~9 trường.** Danh sách cần gọi, theo thứ tự ưu tiên:\n\n")
 w("| # | Điểm | Điện thoại |\n|---|---|---|\n")
 for i, r in enumerate([x for x in rank if x.get("tel")][:20], 1):

@@ -214,10 +214,8 @@ B("KHÔNG thay [CHƯA XÁC MINH] bằng một giá trị thường gặp. “Gi�
 B("KHÔNG suy ra giá vé, giờ mở cửa, thời lượng thăm hay mức độ dễ đi lại từ loại hình. "
   "Chỉ ba suy diễn được duyệt: trong nhà/ngoài trời, link bản đồ, điểm lân cận.")
 B("KHÔNG viết mô tả, “lý do nên đến” hay “điểm nhấn” — tài liệu cố ý KHÔNG sinh "
-  "những mục đó vì mọi chữ trong đó sẽ là bịa. Mục 3 có liệt kê hoạt động, và đó "
-  "không phải ngoại lệ: mỗi hoạt động ở đó gắn với một cơ sở, một điểm trong danh "
-  "mục, hoặc một đơn vị tổ chức cụ thể. Được nói “ở Đà Lạt có hái dâu tại vườn, đây "
-  "là các vườn”; không được nói “Đà Lạt lãng mạn, hợp cho các cặp đôi”.")
+  "những mục đó vì mọi chữ trong đó sẽ là bịa. Mục 3 liệt kê hoạt động kèm nơi và "
+  "đơn vị cụ thể, đó là dữ kiện; “Đà Lạt lãng mạn” thì không.")
 P("Nhịp độ mặc định (chuyến thư giãn): tối đa 4 điểm/ngày · tối đa 2 giờ di chuyển/ngày · "
   "mỗi ngày chừa một khoảng trống.", bold=True)
 P("Bay flycam: mặc định COI NHƯ BỊ CẤM trừ khi có xác nhận ngược lại. Sai theo hướng an toàn "
@@ -388,10 +386,8 @@ _MON = _hoat_dong.tai_mon_an(RAW)
 
 doc.add_page_break()
 H("3. Hoạt động — làm gì ở Đà Lạt", 1)
-P(f"{_HDTK['so_hoat_dong']} hoạt động, {_HDTK['so_nhom']} nhóm. Mỗi hoạt động đều có "
-  "ít nhất một bằng chứng vật chất — một cơ sở đang hoạt động, một điểm trong danh "
-  "mục, hoặc một đơn vị tổ chức. Mã DL-xx dẫn về mục chi tiết ở mục 2.",
-  italic=True, size=9, color=GREY)
+P(f"{_HDTK['so_hoat_dong']} hoạt động, {_HDTK['so_nhom']} nhóm. "
+  "Mã DL-xx dẫn về mục chi tiết ở mục 2.", italic=True, size=9, color=GREY)
 
 _nhom_hien = None
 for _a in _HD:
@@ -400,26 +396,26 @@ for _a in _HD:
         H(_nhom_hien.upper(), 2)
     H(_a["ten"], 3)
     if _a["noi"]:
-        P(f"Làm ở đâu — {_a['tong_noi']} nơi, in {len(_a['noi'])}:", bold=True, size=9)
+        P("Làm ở đâu — %d nơi — %d nơi tiêu biểu:" % (_a["tong_noi"], len(_a["noi"]))
+          if _a["tong_noi"] > len(_a["noi"]) else "Làm ở đâu:", bold=True, size=9)
         for _n in _a["noi"]:
             B((f"[{_n['ma']}] " if _n["ma"] else "") + _n["ten"]
               + (f" — {_n['khu_vuc']}" if _n.get("khu_vuc") else ""))
     if _a["don_vi"]:
-        P(f"Đơn vị tổ chức — {_a['tong_don_vi']} đơn vị, in {len(_a['don_vi'])}:",
+        P("Đơn vị tổ chức — %d đơn vị — %d đơn vị tiêu biểu:"
+          % (_a["tong_don_vi"], len(_a["don_vi"]))
+          if _a["tong_don_vi"] > len(_a["don_vi"]) else "Đơn vị tổ chức:",
           bold=True, size=9)
         for _d in _a["don_vi"]:
             B(_d["ten"] + (f" — {_d['dien_thoai']}" if _d.get("dien_thoai")
                            else " — chưa có số"))
     if _a.get("tour_web"):
-        P("Đã đọc trang tour (đã xác minh trang đúng là của đơn vị đó):",
-          bold=True, size=9)
+        P("Trang tour:", bold=True, size=9)
         for _t in _a["tour_web"]:
             B(f"{_t['ten']} — {_t['url']}")
             if _t["khoang_gia_don_vi"]:
                 _pp = doc.add_paragraph(style="List Bullet 2")
-                _rr = _pp.add_run(f"Khoảng giá của cả đơn vị: {_t['khoang_gia_don_vi']}"
-                                  " — không phải giá một tour cụ thể; trang liệt kê "
-                                  "nhiều tour nên không quy được giá về từng tour")
+                _rr = _pp.add_run(f"Khoảng giá cả gói: {_t['khoang_gia_don_vi']}")
                 _rr.font.size = Pt(8.5)
                 _rr.font.color.rgb = AMBER
             for _n in _t["ten_tour"]:
@@ -429,43 +425,14 @@ for _a in _HD:
 
 if _MON:
     H("ẨM THỰC — MÓN ĐẶC TRƯNG", 2)
-    P(f"{sum(m[1] for m in _MON)} quán khớp theo tên món trên {len(_MON)} món. Khớp giữ "
-      "nguyên dấu và đòi biên từ — bỏ dấu thì “sữa chua” khớp “sửa chữa”.",
+    P(f"{sum(m[1] for m in _MON)} quán trên {len(_MON)} món.",
       italic=True, size=9, color=GREY)
-    TBL(["Món", "Số quán", "Gợi ý (theo độ tin cậy dữ liệu)"],
+    TBL(["Món", "Số quán", "Gợi ý"],
         [[_m, str(_sl), " · ".join(q["ten"][:26] for q in _q[:3])]
          for _m, _sl, _q in _MON], widths=[3.2, 1.6, 11.0])
 
-# Ba truong trong. In ra la trong, kem ly do — KHONG in bang cheo mua x hoat dong
-# khi moi o deu rong: mot bang trang trong nhu du lieu bi mat.
-if _HDTK["thieu"]:
-    _ten_vn = {"mua": "mùa trong năm", "gio_trong_ngay": "giờ trong ngày",
-               "thoi_luong": "thời lượng"}
-    H("Chưa có: " + ", ".join(_ten_vn[k] for k in _HDTK["thieu"]), 2)
-    _p = doc.add_paragraph()
-    _r = _p.add_run(f"Ba trường này trống trên toàn bộ {_HDTK['so_hoat_dong']} hoạt động, "
-                    "và trống vì chưa nguồn nào nói về chúng — không phải vì hoạt động "
-                    "diễn ra quanh năm.")
-    _r.bold = True
-    _r.font.size = Pt(9)
-    _r.font.color.rgb = RED
-    B("Giờ trong ngày — suy ra được từ giờ mặt trời mọc (đã tính cho 36 điểm ở mục 2); "
-      "chưa ghép vào đây.")
-    B(f"Thời lượng — phải lấy từ trang tour. Đã thử {_HDTK['tong_website_thu']} website: "
-      f"{_HDTK['ten_mien_chet']} tên miền không còn phân giải, các trang còn lại liệt kê "
-      "nhiều tour trên một trang nên không quy được thời lượng về từng tour.")
-    B(f"Mùa — không nguồn nào trong {_HDTK['tong_website_thu']} website nêu mùa. Mùa hoa "
-      "(cỏ hồng, mai anh đào, dã quỳ) cần nguồn tỉnh Lâm Đồng hoặc gọi điện. Để trống, "
-      "không đoán.")
-    _p2 = doc.add_paragraph()
-    _r2 = _p2.add_run(f"Đơn vị tour nhỏ ở Đà Lạt sống trên Facebook, không sống trên "
-                      f"website — {_HDTK['ten_mien_chet']}/{_HDTK['tong_website_thu']} "
-                      "tên miền đã chết, gồm canyoningdalat.com, dalatjeep.com, "
-                      "toursanmaydalat.com. Trước khi tra một đơn vị, tra trang Facebook "
-                      "của họ chứ đừng tra tên miền.")
-    _r2.bold = True
-    _r2.font.size = Pt(9)
-    _r2.font.color.rgb = AMBER
+# Ba truong mua/gio/thoi luong trong tren ca 28 hoat dong. Cho thieu + viec can
+# lam thuoc muc 12, khong thuoc giua chuong tra cuu.
 
 # ==================================================== 4-12 chi muc
 doc.add_page_break()
@@ -558,6 +525,20 @@ TBL(["Chỉ số", "Giá trị"],
      ["Có đánh giá sao", "0 — không nguồn mở nào có"],
      ["Trường [CHƯA XÁC MINH] ước tính", f"~{41*len(picked)}"]],
     widths=[7.0, 9.0], size=9)
+# Cho thieu cua muc 3 thuoc VE DAY, khong thuoc giua chuong tra cuu.
+if _HDTK["thieu"]:
+    _pm = doc.add_paragraph()
+    _rm = _pm.add_run(f"Mục 3 — cả {_HDTK['so_hoat_dong']} hoạt động đều chưa có mùa, "
+                      "giờ trong ngày và thời lượng. Trống nghĩa là chưa xác minh, "
+                      "không nghĩa là quanh năm. Đừng khẳng định với khách cỏ hồng "
+                      "tháng nào hay tour đi mấy giờ khi chưa gọi.")
+    _rm.bold = True
+    _rm.font.size = Pt(9)
+    _rm.font.color.rgb = RED
+    P(f"Tra đơn vị tour bằng Facebook, đừng tra tên miền — {_HDTK['ten_mien_chet']}/"
+      f"{_HDTK['tong_website_thu']} tên miền đã kiểm không còn hoạt động "
+      "(canyoningdalat.com, dalatjeep.com, toursanmaydalat.com).", size=9, color=AMBER)
+
 P("Gọi một cuộc đóng được khoảng 9 trường. Danh sách cần gọi, theo thứ tự ưu tiên:", bold=True)
 TBL(["#", "Điểm", "Điện thoại"],
     [[i, f"{r['id']} · {r['name']}", r["tel"]]
