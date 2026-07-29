@@ -56,6 +56,17 @@ def _tien(n):
     return f"{n:,}".replace(",", ".") + "₫" if n else None
 
 
+def tai_lan_can(raw_dir):
+    """Khoi khach san + quan an gan cho tung diem den, do `gan_lan_can.py` sinh.
+
+    Dung chung cho ca hai bo dung. Khong dinh dang o day.
+    """
+    p = os.path.join(raw_dir, "lan_can.json")
+    if not os.path.exists(p):
+        return {}
+    return json.load(io.open(p, encoding="utf-8"))
+
+
 def tai_luu_tru(raw_dir):
     p = os.path.join(raw_dir, "luu_tru.json")
     if not os.path.exists(p):

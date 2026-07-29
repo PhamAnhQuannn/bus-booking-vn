@@ -116,6 +116,17 @@ xe-dau-keo-hop-tac-lien-he.txt
 .tourism-data/
 documentation/tourism/
 
+# Tai lieu .docx do scripts/tourism sinh ra. Khong commit vi hai ly do:
+# (1) day la output, tai tao duoc tu scripts + .tourism-data/;
+# (2) noi dung dan xuat tu chinh du lieu PII da bi loai o tren — so dien thoai
+#     that cua ho kinh doanh nho nam trong cac ban huong dan nay.
+docs/*.docx
+
+# Anh chup kiem tra ad-hoc o thu muc goc. prod-e2e-1-qr.png la ma QR thanh toan
+# tu mot lan chay e2e tren PROD, co the ma hoa so tai khoan that.
+/prod-e2e-*.png
+/validate-*.png
+
 # Python bytecode
 __pycache__/
 *.pyc

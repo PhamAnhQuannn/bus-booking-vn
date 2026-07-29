@@ -31,6 +31,12 @@
 | Admin Roles | [personas/admin-personas.md](personas/admin-personas.md) — ops manager, finance, compliance, support |
 | Investor KPIs | [personas/investor-kpis.md](personas/investor-kpis.md) — growth/unit economics/engagement/operational/financial metrics, Series A readiness |
 
+## Tour Product Discovery (July 2026)
+
+| Document | File |
+|----------|------|
+| Tour Planning + AI Suggestion — Customer Discovery | [tour-discovery/README.md](tour-discovery/README.md) — 5 trip-organizer personas + adversarial seat; 12-category worry taxonomy; V1 scope boundary (marketplace, family beachhead, transport-anchored) |
+
 ## Domain Model
 
 | Document | File |

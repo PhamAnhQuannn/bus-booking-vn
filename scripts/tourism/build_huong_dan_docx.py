@@ -22,6 +22,7 @@ import hoat_dong_data as _hoat_dong   # CUNG module chon loc voi ban .md
 import an_ngu_data as _an_ngu
 
 RAW, OUT = sys.argv[1], sys.argv[2]
+_LAN_CAN = _an_ngu.tai_lan_can(RAW)
 G = json.load(io.open(os.path.join(RAW, "guide_data.json"), encoding="utf-8"))
 picked, NEAR, mat = G["picked"], G["near"], G["matrix"]
 BUILD_DATE = G["build_date"]
@@ -368,12 +369,46 @@ for r in picked:
              for i, (oid, dkm, tmin) in enumerate(NEAR[r["id"]], 1)],
             widths=[1.0, 7.0, 4.0, 2.0, 2.0])
 
-    n_unv = 41 - sum(bool(r.get(k)) for k in ("addr", "tel", "web", "hours", "fee"))
+    # ── Khach san & quan an GAN diem nay ────────────────────────────────────
+    # So luong BIEN, khong phai 3 co dinh: chi 24/36 diem lap du 3 bac va 9 diem
+    # khong co co so luu tru dang ky nao trong 5 km. Quan an nhom theo LOAI MON
+    # chu khong theo bac gia — 0/5.559 quan co gia, va mot tieu de bac gia tu no
+    # la mot khang dinh du kien. Khong in `Đánh giá`/`Tiện nghi`: 0 du lieu, va
+    # rao can la giay phep luu tru; da noi mot lan o muc 0.
+    _lc = _LAN_CAN.get(r["id"], {})
+    if _lc.get("bac_khach_san"):
+        P(f"A.14 — Khách sạn gần (trong 5 km · {_lc['tong_ks_trong_bk']} cơ sở có giá "
+          "công bố · danh sách đầy đủ ở mục 4)", bold=True, size=9.5)
+        for _b in _lc["bac_khach_san"]:
+            # In ca vung TOAN THANH PHO: bac cao cap chi co 7 co so co toa do tren
+            # toan Da Lat, nen cung mot ten lap lai o nhieu diem den la bat buoc.
+            P(f"{_b['ten']} — {_b['tong']} trong bán kính, {_b['tong_thanh_pho']} "
+              "toàn Đà Lạt", italic=True, size=9, color=GREY)
+            for _h in _b["khach_san"]:
+                B(f"{_h['ten']} — {_h['gia']}/đêm · cách {_h['khoang_cach']}"
+                  + (f" · {_h['so_phong']} phòng" if _h["so_phong"] else "")
+                  + (f" · {_h['dien_thoai']}" if _h["dien_thoai"] else "")
+                  + (f" · {_h['dia_chi']}" if _h["dia_chi"] else "")
+                  + (" · thẩm định nhà nước" if _h["tham_dinh"] == "nhà nước" else ""))
+    elif _lc.get("khong_co_khach_san"):
+        P("A.14 — Khách sạn gần", bold=True, size=9.5)
+        P(_lc["khong_co_khach_san"] + " Xem mục 4 để chọn theo bậc giá.",
+          size=9, color=AMBER)
+
+    if _lc.get("loai_quan"):
+        P(f"A.15 — Quán ăn gần (trong 2 km · {_lc['tong_quan_trong_bk']} quán còn "
+          "hoạt động)", bold=True, size=9.5)
+        for _l in _lc["loai_quan"]:
+            P(f"{_l['ten']} — {_l['tong']} quán", italic=True, size=9, color=GREY)
+            for _q in _l["quan"]:
+                B(f"{_q['ten']} — cách {_q['khoang_cach']}"
+                  + (f" · {_q['dien_thoai']}" if _q["dien_thoai"] else "")
+                  + (f" · {_q['dia_chi']}" if _q["dia_chi"] else "")
+                  + (f" · {', '.join(_q['mon'])}" if _q["mon"] else ""))
+
     pv = doc.add_paragraph()
-    rr = pv.add_run(f"Kiểm chứng: CHƯA GỌI · khoảng {n_unv} trường còn [CHƯA XÁC MINH] · "
-                    f"gọi {r.get('tel') or 'CHƯA CÓ SỐ'} để đóng ~9 trường "
-                    "(giờ mở, ngày mở, giá vé, phí gửi xe, đặt trước, thời lượng, flycam, "
-                    "nhà vệ sinh, lối xe lăn)")
+    rr = pv.add_run(f"Kiểm chứng: CHƯA GỌI · gọi {r.get('tel') or 'CHƯA CÓ SỐ'} để đóng "
+                    "giờ mở cửa, giá vé, thời lượng thăm và điều kiện đi lại.")
     rr.bold = True
     rr.font.size = Pt(8.5)
     rr.font.color.rgb = RED

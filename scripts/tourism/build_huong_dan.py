@@ -49,6 +49,8 @@ def vn_only(s):
     s = __import__("re").sub(r"\s{2,}", " ", s)
     return s.strip(" ,-·/")
 
+_LAN_CAN = _an_ngu.tai_lan_can(RAW)
+
 rows = [r for r in load("merged_dalat.json", []) if r["nhom"] == "chinh"]
 csdl = load("csdl_parsed.json", [])
 
@@ -589,11 +591,53 @@ for r in picked:
     else:
         w(f"{UNV} — chưa có ma trận thời gian.\n\n")
 
-    nunv = 41 - sum([bool(r.get("addr")), bool(r.get("tel")), bool(r.get("web")),
-                     bool(r.get("hours")), bool(r.get("fee"))])
-    w(f"**Kiểm chứng:** CHƯA GỌI · khoảng **{nunv} trường** còn `[CHƯA XÁC MINH]` · "
-      f"gọi số {r.get('tel') or 'CHƯA CÓ SỐ'} để đóng ~9 trường (giờ mở, ngày mở, "
-      "giá vé, phí gửi xe, đặt trước, thời lượng, flycam, nhà vệ sinh, lối xe lăn)\n\n")
+    # ── Khach san & quan an GAN diem nay ────────────────────────────────────
+    # Khung founder dua ra doi 3 bac gia x 3 khach san va 3 bac gia x 3 quan.
+    # Ba diem thay doi, moi diem co ly do do duoc:
+    #   1. SO LUONG BIEN, khong phai 3 co dinh — chi 24/36 diem lap du 3 bac, va
+    #      9 diem khong co co so luu tru dang ky nao trong 5 km.
+    #   2. Quan an nhom theo LOAI MON, khong theo bac gia — 0/5.559 quan co gia,
+    #      va mot tieu de bac gia tu no la mot khang dinh du kien.
+    #   3. Khong in `Đánh giá` va `Tiện nghi` — 0 du lieu, va rao can la giay
+    #      phep luu tru. Da noi mot lan o muc 0.
+    _lc = _LAN_CAN.get(r["id"], {})
+    if _lc.get("bac_khach_san"):
+        w(f"**A.14 — Khách sạn gần** *(trong 5 km · {_lc['tong_ks_trong_bk']} cơ sở "
+          "có giá công bố · danh sách đầy đủ ở mục 4)*\n\n")
+        for _b in _lc["bac_khach_san"]:
+            # In ca vung TOAN THANH PHO: bac cao cap chi co 7 co so co toa do
+            # tren toan Da Lat, nen cung mot ten lap lai o nhieu diem den la BAT
+            # BUOC ve mat so hoc. Noi con so ra thi nguoi doc hieu ngay.
+            w(f"*{_b['ten']}* — {_b['tong']} trong bán kính, "
+              f"{_b['tong_thanh_pho']} toàn Đà Lạt\n\n")
+            for _h in _b["khach_san"]:
+                w(f"- **{_h['ten']}** — {_h['gia']}/đêm · cách {_h['khoang_cach']}"
+                  + (f" · {_h['so_phong']} phòng" if _h["so_phong"] else "")
+                  + (f" · {_h['dien_thoai']}" if _h["dien_thoai"] else "")
+                  + (f" · {_h['dia_chi']}" if _h["dia_chi"] else "")
+                  + (" · thẩm định nhà nước" if _h["tham_dinh"] == "nhà nước" else "")
+                  + "\n")
+            w("\n")
+    elif _lc.get("khong_co_khach_san"):
+        # Noi ra khoang trong, khong in khoi rong.
+        w(f"**A.14 — Khách sạn gần**\n\n{_lc['khong_co_khach_san']} "
+          "Xem mục 4 để chọn theo bậc giá.\n\n")
+
+    if _lc.get("loai_quan"):
+        w(f"**A.15 — Quán ăn gần** *(trong 2 km · {_lc['tong_quan_trong_bk']} quán "
+          "còn hoạt động)*\n\n")
+        for _l in _lc["loai_quan"]:
+            w(f"*{_l['ten']}* — {_l['tong']} quán\n\n")
+            for _q in _l["quan"]:
+                w(f"- **{_q['ten']}** — cách {_q['khoang_cach']}"
+                  + (f" · {_q['dien_thoai']}" if _q["dien_thoai"] else "")
+                  + (f" · {_q['dia_chi']}" if _q["dia_chi"] else "")
+                  + (f" · {', '.join(_q['mon'])}" if _q["mon"] else "")
+                  + "\n")
+            w("\n")
+
+    w(f"**Kiểm chứng:** CHƯA GỌI · gọi số {r.get('tel') or 'CHƯA CÓ SỐ'} để đóng "
+      "giờ mở cửa, giá vé, thời lượng thăm và điều kiện đi lại.\n\n")
     w("---\n")
 
 # =============================================== 3. HOAT DONG
