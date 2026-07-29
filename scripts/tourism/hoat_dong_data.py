@@ -216,6 +216,37 @@ def tai(raw_dir):
 THU_TU_NHOM = ["đặc sản Đà Lạt", "món phổ thông", "đặc sản mang về"]
 
 
+def _vlog(raw_dir):
+    """Quan nao vlog thuc su khuyen — tu `quan_vlog.json`.
+
+    Tra ve (dem_theo_ten, danh_sach_co_the_phong_cach).
+
+    File nay co the RONG hoac gan rong: han muc YouTube la 100 luot tim/NGAY va
+    mot lan chay dut giua duong la binh thuong. Cot vlog vi vay phai chiu duoc
+    thieu du lieu — quan khong co thi DE TRONG, khong ghi 0. Ghi 0 la noi
+    "khong vlog nao nhac", con su that la "chua quet den".
+    """
+    p = os.path.join(raw_dir, "quan_vlog.json")
+    if not os.path.exists(p):
+        return {}, []
+    try:
+        rows = json.load(io.open(p, encoding="utf-8"))
+    except Exception:
+        return {}, []
+    dem = {fold(r["ten"]): r["so_video_nhac"] for r in rows}
+    pc = [r for r in rows if r.get("the_phong_cach")]
+    pc.sort(key=lambda r: -r["so_video_nhac"])
+    return dem, pc
+
+
+def tai_phong_cach(raw_dir):
+    """Quan co THE PHONG CACH — moi ngay mot mon, khong menu, gia truyen…
+
+    Tra ve [] khi chua co du lieu. Bo dung se bo han khoi, khong in tieu de rong.
+    """
+    return _vlog(raw_dir)[1]
+
+
 def tai_mon_an(raw_dir):
     """Am thuc la mot NHOM HOAT DONG, khong phai mot chuong rieng.
 
@@ -241,6 +272,7 @@ def tai_mon_an(raw_dir):
     if not os.path.exists(p):
         return []
     d = json.load(io.open(p, encoding="utf-8"))
+    vlog, _ = _vlog(raw_dir)
     theo_nhom = {}
     for mon, v in d.items():
         # Chap nhan ca hai dang de bo dung khong sap neu doc file cu.
@@ -248,10 +280,31 @@ def tai_mon_an(raw_dir):
         nhom = v.get("nhom", "món phổ thông") if isinstance(v, dict) else "món phổ thông"
         if not quan:
             continue
+        # Quan duoc vlog nhac len TRUOC — do la loi khuyen that, khong phai
+        # suy ra tu do tin cay du lieu ban do.
+        quan = sorted(quan, key=lambda q: (-vlog.get(fold(q["ten"]), 0),
+                                           not q.get("dien_thoai")))
+        # Khu TRUNG TEN y het. Overture giu nhieu dong cho cung mot quan:
+        # `Lẩu gà lá é` co 14 dong trung ten tren 56, nen goi y 3 quan se in
+        # cung mot ten ba lan. Chi nhanh co ten KHAC ("Chi Nhánh … Tao Ngộ",
+        # "… Siêu Hẻm Ánh Sáng") thi giu — do la dia chi khac that.
+        # Da sap xep truoc nen ban giu lai la ban co vlog / co so dien thoai.
+        _da, _q = set(), []
+        for q in quan:
+            k = fold(q["ten"])
+            if k in _da:
+                continue
+            _da.add(k)
+            _q.append(q)
+        quan = _q
         theo_nhom.setdefault(nhom, []).append(
             (mon, len(quan),
              [{"ten": q["ten"], "dien_thoai": q.get("dien_thoai"),
-               "dia_chi": q.get("dia_chi")} for q in quan[:MAX_QUAN_MON]]))
+               "dia_chi": q.get("dia_chi"),
+               # None, khong phai 0 — quan khong co trong quan_vlog.json nghia la
+               # CHUA QUET DEN, khong phai "khong vlog nao nhac".
+               "vlog": vlog.get(fold(q["ten"]))}
+              for q in quan[:MAX_QUAN_MON]]))
     out = []
     for nhom in THU_TU_NHOM:
         rows = theo_nhom.pop(nhom, [])

@@ -419,6 +419,7 @@ for r in picked:
 # canh nhau; du an da dinh dung lop loi do (hai bo trich cung payload VNPay).
 _HD, _HDTK = _hoat_dong.tai(RAW)
 _MON = _hoat_dong.tai_mon_an(RAW)
+_PC = _hoat_dong.tai_phong_cach(RAW)
 
 doc.add_page_break()
 H("3. Hoạt động — làm gì ở Đà Lạt", 1)
@@ -468,11 +469,28 @@ if _MON:
     P("Chia nhóm là phán đoán biên tập, không phải số đo: “đặc sản” nghĩa là món gắn "
       "với Đà Lạt, “phổ thông” nghĩa là món có ở mọi thành phố và cũng có ở đây. "
       "Trong từng nhóm xếp theo số cơ sở bán.", italic=True, size=9, color=GREY)
+    # Cot "vlog" chi hien khi co du lieu — han muc YouTube theo NGAY nen file
+    # co the rong hoac mot phan; in cot toan trong trong nhu du lieu bi mat.
+    _co_vlog = any(q.get("vlog") for _, rows in _MON for _, _, qs in rows for q in qs)
     for _nhom, _rows in _MON:
         H(f"{_nhom.upper()} — {len(_rows)} món", 3)
         TBL(["Món", "Số quán", "Gợi ý (ưu tiên quán có số gọi)"],
-            [[_m, str(_sl), " · ".join(q["ten"][:26] for q in _q[:3])]
+            [[_m, str(_sl),
+              " · ".join(q["ten"][:26] + (f" ({q['vlog']} vlog)" if q.get("vlog") else "")
+                         for q in _q[:3])]
              for _m, _sl, _q in _rows], widths=[3.6, 1.6, 10.6])
+    if _co_vlog:
+        P("(N vlog) — số video du lịch tiếng Việt nhắc tên quán, ngưỡng ≥2 video khác "
+          "nhau. Quán không có ghi chú nghĩa là chưa quét đến, không phải không được "
+          "nhắc.", italic=True, size=8.5, color=GREY)
+
+if _PC:
+    H("QUÁN CÓ PHONG CÁCH ĐẶC BIỆT", 2)
+    P(f"{len(_PC)} quán được vlog nhắc kèm một cách làm riêng. Thẻ lấy từ bộ từ vựng "
+      "cố định, không phải mô tả tự do.", italic=True, size=9, color=GREY)
+    TBL(["Quán", "Phong cách", "Vlog", "Điện thoại"],
+        [[_q["ten"][:34], ", ".join(_q["the_phong_cach"]), str(_q["so_video_nhac"]),
+          _q.get("dien_thoai") or ""] for _q in _PC], widths=[5.0, 5.4, 1.4, 3.0])
 
 # Ba truong mua/gio/thoi luong trong tren ca 28 hoat dong. Cho thieu + viec can
 # lam thuoc muc 12, khong thuoc giua chuong tra cuu.

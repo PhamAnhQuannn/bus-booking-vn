@@ -646,6 +646,7 @@ for r in picked:
 # bang toa do. Bang so sanh la cong cu tra cuu, den sau.
 _HD, _HDTK = _hoat_dong.tai(RAW)
 _MON = _hoat_dong.tai_mon_an(RAW)
+_PC = _hoat_dong.tai_phong_cach(RAW)
 
 w("\n---\n\n## 3. HOẠT ĐỘNG — LÀM GÌ Ở ĐÀ LẠT\n\n")
 w(f"*{_HDTK['so_hoat_dong']} hoạt động, {_HDTK['so_nhom']} nhóm. "
@@ -706,13 +707,36 @@ if _MON:
     w("*Chia nhóm là phán đoán biên tập, không phải số đo: “đặc sản” nghĩa là món "
       "gắn với Đà Lạt, “phổ thông” nghĩa là món có ở mọi thành phố và cũng có ở đây. "
       "Trong từng nhóm xếp theo số cơ sở bán.*\n\n")
+    # Cot "vlog nhac" CHI hien khi co du lieu. Han muc YouTube la 100 luot
+    # tim/NGAY nen file `quan_vlog.json` co the rong hoac chi mot phan — in mot
+    # cot toan trong thi trong nhu du lieu bi mat, con in 0 thi noi sai ("khong
+    # vlog nao nhac" thay vi "chua quet den").
+    _co_vlog = any(q.get("vlog") for _, rows in _MON for _, _, qs in rows for q in qs)
     for _nhom, _rows in _MON:
         w(f"**{_nhom.upper()}** — {len(_rows)} món\n\n")
         w("| Món | Số quán | Gợi ý (ưu tiên quán có số gọi) |\n|---|---:|---|\n")
         for _mon, _sl, _quan in _rows:
-            _g = " · ".join(q["ten"] for q in _quan[:3])
+            _g = " · ".join(
+                q["ten"] + (f" ({q['vlog']} vlog)" if q.get("vlog") else "")
+                for q in _quan[:3])
             w(f"| {_mon} | {_sl} | {_g} |\n")
         w("\n")
+    if _co_vlog:
+        w("*`(N vlog)` — số video du lịch tiếng Việt nhắc tên quán này, ngưỡng ≥2 "
+          "video khác nhau. Quán không có ghi chú nghĩa là chưa quét đến, không "
+          "phải không được nhắc.*\n\n")
+
+# Quan co PHONG CACH DAC BIET — moi ngay mot mon, khong menu, gia truyen, quan cu.
+# Bo HAN khoi khi chua co du lieu; khong in tieu de rong.
+if _PC:
+    w("\n### Nhóm: QUÁN CÓ PHONG CÁCH ĐẶC BIỆT\n\n")
+    w(f"*{len(_PC)} quán được vlog nhắc kèm một cách làm riêng. Thẻ lấy từ bộ từ "
+      "vựng cố định, không phải mô tả tự do.*\n\n")
+    w("| Quán | Phong cách | Vlog | Điện thoại |\n|---|---|---:|---|\n")
+    for _q in _PC:
+        w(f"| {_q['ten']} | {', '.join(_q['the_phong_cach'])} | "
+          f"{_q['so_video_nhac']} | {_q.get('dien_thoai') or ''} |\n")
+    w("\n")
 
 # Ba truong mua/gio/thoi luong trong tren ca 28 hoat dong. KHONG viet ve chung o
 # day: muc 3 la muc tra cuu, con cho thieu + viec can lam thuoc muc 12, noi da co
