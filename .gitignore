@@ -101,3 +101,21 @@ awake-status-report.md
 
 # Personal logistics research notes (local-only; not part of the app)
 xe-dau-keo-hop-tac-lien-he.txt
+
+# ── Kho du lieu du lich (Da Lat va cac diem den sau) ─────────────────────────
+# KHONG commit. Ly do la PII, khong phai dung luong:
+#   documentation/tourism/  chua 416 so di dong VIET NAM THAT (375 + 41) cua ho
+#   .tourism-data/          chua 14.328 so
+# Voi ho kinh doanh nho (vuon dau mot nguoi, tiem thue xe may), "so doanh
+# nghiep" CHINH LA so di dong ca nhan. Repo nay duoc chuyen cong khai trong luc
+# /ship de lay CI mien phi, nen commit = cong bo. `.gitleaks.toml` da co luat
+# bat dung mau nay; allowlist 14k so that la vo hieu hoa chinh luat do.
+#
+# Du lieu nam o .tourism-data/raw/ (o day, ben ngoai thu muc tam cua phien lam
+# viec). Cach tai tao: xem scripts/tourism/README.md
+.tourism-data/
+documentation/tourism/
+
+# Python bytecode
+__pycache__/
+*.pyc
