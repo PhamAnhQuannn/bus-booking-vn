@@ -368,3 +368,19 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_CONFIG: .gitleaks.toml
+
+  # ---- 9. Python syntax (no other job looks at a .py file) ----
+  python-syntax:
+    name: Python Syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # No pip install: the checker uses only the stdlib `ast` module, so this
+      # job stays as cheap as the grep-based audits above it.
+      - name: Parse every .py file
+        run: python scripts/audit/python-syntax.py
