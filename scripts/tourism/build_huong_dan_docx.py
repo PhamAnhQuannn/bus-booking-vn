@@ -28,6 +28,7 @@ khong phai doc 1.336 dong [CHƯA XÁC MINH].
 ═══════════════════════════════════════════════════════════════════════════════
 """
 import json, os, sys, io
+import re as _re
 from collections import Counter, defaultdict
 from docx import Document
 from docx.shared import Pt, Cm, RGBColor
@@ -35,6 +36,7 @@ from docx.enum.text import WD_BREAK
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
+from docx.opc.constants import RELATIONSHIP_TYPE as _RT
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import hoat_dong_data as _hoat_dong   # CUNG module chon loc voi ban .md
@@ -204,8 +206,59 @@ def B(t):
     doc.add_paragraph(t, style="List Bullet")
 
 
+LINK = RGBColor(0x0B, 0x4F, 0xA0)
+_URL = _re.compile(r"https?://\S+")
+
+
+def them_lien_ket(par, url, chu=None):
+    """Chen mot HYPERLINK THAT vao doan van (python-docx khong co san ham nay).
+
+    Truoc khi co ham nay, MOI URL trong ban .docx deu la chu tran: trich dan
+    Wikipedia, cac dong Facebook o phu luc. Ban .docx la ban cho NGUOI doc soat
+    — mot URL khong bam duoc trong ban danh cho nguoi la mot lien ket chet.
+
+    `relate_to` cap mot rId trong phan quan he cua tai liệu. Neu no khong cap
+    duoc thi DUNG HAN: im lang tra ve chu tran se tao ra dung cai benh ma so loi
+    da ghi — mot co che chet nam canh mot loi chu thich noi rang no dang chay.
+    """
+    rid = par.part.relate_to(url, _RT.HYPERLINK, is_external=True)
+    if not rid:
+        raise SystemExit(f"DUNG — khong cap duoc rId cho lien ket: {url}")
+    h = OxmlElement("w:hyperlink")
+    h.set(qn("r:id"), rid)
+    run = OxmlElement("w:r")
+    pr = OxmlElement("w:rPr")
+    for ten, khoa, gia in (("w:color", "w:val", "0B4FA0"),
+                           ("w:u", "w:val", "single"),
+                           ("w:sz", "w:val", "19")):
+        el = OxmlElement(ten)
+        el.set(qn(khoa), gia)
+        pr.append(el)
+    run.append(pr)
+    t = OxmlElement("w:t")
+    t.text = chu or url
+    run.append(t)
+    h.append(run)
+    par._p.append(h)
+
+
 def value_run(par, text):
     """To mau theo muc tin cay. Day la ly do ban .docx ton tai."""
+    # URL -> lien ket that. Dat TRUOC nhanh UNV vi mot o chi chua URL thi khong
+    # bao gio bat dau bang UNV, con o vua co chu vua co URL thi van di duong duoi.
+    m = _URL.search(text)
+    if m and not text.startswith(UNV):
+        truoc, sau = text[:m.start()], text[m.end():]
+        if truoc:
+            r = par.add_run(truoc)
+            r.font.size = Pt(9.5)
+            r.font.color.rgb = INK
+        them_lien_ket(par, m.group(0))
+        if sau:
+            r = par.add_run(sau)
+            r.font.size = Pt(9.5)
+            r.font.color.rgb = INK
+        return
     if text.startswith(UNV):
         r = par.add_run(UNV)
         r.bold = True
@@ -544,19 +597,23 @@ def khoi_khu_vuc(kv):
     for b in v["bac_khach_san"]:
         P(f"{b['ten']} — {b['tong']} cơ sở trong khu vực, {b['tong_thanh_pho']} "
           "trên toàn Đà Lạt", italic=True, size=9, color=GREY)
-        TBL(["Khách sạn", "Giá/đêm", "Cách", "Gần", "Phòng", "Điện thoại", "Thẩm định"],
+        # Cot `Địa chỉ` — cung mot thay doi voi ban .md, cung phep cat o dau phay.
+        # Tong be rong giu nguyen 16.0 cm, thu hep cac cot cu de nhuong cho.
+        TBL(["Khách sạn", "Giá/đêm", "Cách", "Gần", "Phòng", "Điện thoại",
+             "Địa chỉ", "Thẩm định"],
             [[h["ten"][:30], h["gia"] or "", h["khoang_cach"], h["gan_diem"],
-              str(h["so_phong"] or ""), h["dien_thoai"] or "", h["tham_dinh"] or ""]
+              str(h["so_phong"] or ""), h["dien_thoai"] or "",
+              (h.get("dia_chi") or "").split(",")[0][:24], h["tham_dinh"] or ""]
              for h in b["khach_san"]],
-            widths=[4.4, 2.6, 1.5, 1.4, 1.2, 2.6, 2.3], size=8)
+            widths=[3.6, 2.3, 1.2, 1.2, 1.0, 2.4, 2.5, 1.8], size=8)
     if v["loai_quan"]:
         P(f"Quán ăn — {v['tong_quan']} quán còn mở trong khu vực",
           italic=True, size=9, color=GREY)
-        TBL(["Loại", "Quán", "Cách", "Gần", "Điện thoại"],
+        TBL(["Loại", "Quán", "Cách", "Gần", "Điện thoại", "Địa chỉ"],
             [[l["ten"], q["ten"][:32], q["khoang_cach"], q["gan_diem"],
-              q["dien_thoai"] or ""]
+              q["dien_thoai"] or "", (q.get("dia_chi") or "").split(",")[0][:26]]
              for l in v["loai_quan"] for q in l["quan"]],
-            widths=[3.0, 5.4, 1.5, 1.4, 2.7], size=8)
+            widths=[2.6, 4.2, 1.3, 1.2, 2.4, 4.3], size=8)
 
 
 cur_area = None
@@ -692,6 +749,9 @@ for r in picked:
               if r.get("min") is not None else UNV),
              # "Tu khach san" da chuyen len muc 0 — cung mot cau cho ca 36 diem.
              ("f", "Đường chính gần nhất", ev(r["id"], "duong_gan_nhat")),
+             # Cung ham sinh URL voi ban .md; `value_run` bien no thanh lien ket
+             # THAT o day, vi day la ban cho nguoi doc soat bam vao.
+             ("f", "Bản đồ", _an_ngu.lien_ket_ban_do(r["lat"], r["lon"])),
              ("f", "Tình trạng đường", UNV),
              ("f", "Phương tiện tới được", UNV),
              ("f", "Bãi đỗ xe", UNV),

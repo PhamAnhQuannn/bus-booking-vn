@@ -98,13 +98,49 @@ KHOI = [("phu luc nghien cuu", "Trang Facebook", 1),
         # duoc bao la phai bat; moi khoi noi dung moi phai them mot dong o day,
         # neu khong no nam ngoai vung phu.
         ("mo ta Wikipedia", "trích nguyên văn", 20),
-        ("ghi cong CC BY-SA", "CC BY-SA 4.0", 1)]
+        ("ghi cong CC BY-SA", "CC BY-SA 4.0", 1),
+        # Link ban do — mot trong ba suy dien duoc muc 0 cho phep, va la cai duy
+        # nhat trong ba tung khong duoc sinh ra. 36/36 diem co toa do nen con so
+        # nay phai dung bang so diem; tut xuong la mot the mat link.
+        ("link ban do", "google.com/maps", 36)]
 for ten, chuoi, toi_thieu in KHOI:
     a, b = md.count(chuoi), dx.count(chuoi)
     if a == 0 or b == 0:
         sai(f"khoi '{ten}' chi co o mot ban", f".md={a}", f".docx={b}")
     elif a < toi_thieu or b < toi_thieu:
         sai(f"khoi '{ten}' it hon mong doi ({toi_thieu})", f".md={a}", f".docx={b}")
+
+# ── 3a. TIEU DE COT cua cac bang du lieu phai GIONG HET ───────────────────
+# Them mot cot vao mot bo dung ma quen bo dung kia la kieu lech de xay ra nhat:
+# danh sach tieu de va tuple dong duoc viet RIENG trong tung bo dung (bang khu
+# vuc: build_huong_dan.py:716 va build_huong_dan_docx.py:547), du du lieu den tu
+# cung mot ham chon loc. Muc 3 khong bat duoc — no dem chuoi con, ma "Địa chỉ"
+# da co san o bang toan thanh pho lan trong the tung diem, nen mot cot moi bi bo
+# quen o mot ban van chim trong con so tong.
+#
+# Chi doi chieu cac bang co o dau tien nam trong CHOT_BANG: cac bang the diem
+# (ban .docx dung bang cho moi the, ban .md dung khoi ```) va ma tran thoi gian
+# (nhan rut gon o ban .docx) khac nhau MOT CACH CO CHU DICH, khong phai lech.
+CHOT_BANG = {"Khách sạn", "Loại", "Cơ sở"}
+
+
+def _tieu_de_md(txt):
+    ra, dong = [], txt.split("\n")
+    for i, l in enumerate(dong[:-1]):
+        if l.startswith("|") and re.match(r"^\|[\s\-:|]+\|$", dong[i + 1] or ""):
+            ra.append(tuple(c.strip() for c in l.strip("|").split("|")))
+    return ra
+
+
+_md_td = [t for t in _tieu_de_md(md) if t and t[0] in CHOT_BANG]
+_dx_td = [tuple(c.text.strip() for c in t.rows[0].cells)
+          for t in d.tables if t.rows]
+_dx_td = [t for t in _dx_td if t and t[0] in CHOT_BANG]
+from collections import Counter as _Counter
+_a, _b = _Counter(_md_td), _Counter(_dx_td)
+for _t in sorted(set(_a) | set(_b)):
+    if _a[_t] != _b[_t]:
+        sai(f"tieu de cot lech: {' | '.join(_t)}", f".md={_a[_t]}", f".docx={_b[_t]}")
 
 # ── 3b. CANH BAO: so luong phai BANG NHAU, khong chi "cung co mat" ────────
 # Muc 3 chi hoi "co o ca hai ban khong" va "co du toi thieu khong", nen mot ban

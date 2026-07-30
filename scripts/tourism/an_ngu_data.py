@@ -62,6 +62,23 @@ def _tien(n):
     return f"{n:,}".replace(",", ".") + "₫" if n else None
 
 
+def lien_ket_ban_do(lat, lon):
+    """Toa do -> link ban do. Mot ham, hai bo dung — khong viet lai trong tung ban.
+
+    Muc 0 cho phep DUNG BA suy dien, va "link bản đồ từ toạ độ" la mot trong ba;
+    nhung ca hai bo dung deu chua tung sinh no, tuc quy tac hua mot thu tai lieu
+    khong lam. 36/36 diem co toa do nen khong can nhanh du phong.
+
+    THU TU: `lat,lon`. Cho duy nhat trong du an nay dung thu tu nguoc la URL cua
+    OSRM (`build_huong_dan.py`, `{lon},{lat}`) — chep nham cho do se dat moi diem
+    sang mot vi tri khac hoan toan ma link VAN mo duoc, nen khong co gi bao loi.
+    Vi vay ca hai bo dung deu duoc kiem bang phep doc nguoc toa do tu chinh URL.
+    """
+    if lat is None or lon is None:
+        return None
+    return f"https://www.google.com/maps/search/?api=1&query={lat:.6f},{lon:.6f}"
+
+
 def tai_lan_can(raw_dir):
     """Khoi khach san + quan an gan cho tung diem den, do `gan_lan_can.py` sinh.
 

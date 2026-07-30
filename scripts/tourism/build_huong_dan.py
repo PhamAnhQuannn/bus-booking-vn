@@ -713,19 +713,24 @@ def khoi_khu_vuc(kv):
     for b in v["bac_khach_san"]:
         w(f"*{b['ten']}* — {b['tong']} cơ sở trong khu vực, "
           f"{b['tong_thanh_pho']} trên toàn Đà Lạt\n\n")
-        w("| Khách sạn | Giá/đêm | Cách | Gần | Phòng | Điện thoại | Thẩm định |\n")
-        w("|---|---|---|---|---:|---|---|\n")
+        # `Địa chỉ` da nam san trong lan_can_khu_vuc.json (gan_lan_can.py:244) va
+        # bi bo o buoc in — nguoi doc thay "cach DL-02 350 m" ma khong biet cho do
+        # o dau. Cat o dau phay dau nhu bang toan thanh pho (muc 6.1) de vua cot.
+        w("| Khách sạn | Giá/đêm | Cách | Gần | Phòng | Điện thoại | Địa chỉ | Thẩm định |\n")
+        w("|---|---|---|---|---:|---|---|---|\n")
         for h in b["khach_san"]:
             w(f"| {h['ten']} | {h['gia'] or ''} | {h['khoang_cach']} | {h['gan_diem']} "
-              f"| {h['so_phong'] or ''} | {h['dien_thoai'] or ''} | {h['tham_dinh']} |\n")
+              f"| {h['so_phong'] or ''} | {h['dien_thoai'] or ''} "
+              f"| {(h.get('dia_chi') or '').split(',')[0]} | {h['tham_dinh']} |\n")
         w("\n")
     if v["loai_quan"]:
         w(f"*Quán ăn* — {v['tong_quan']} quán còn mở trong khu vực\n\n")
-        w("| Loại | Quán | Cách | Gần | Điện thoại |\n|---|---|---|---|---|\n")
+        w("| Loại | Quán | Cách | Gần | Điện thoại | Địa chỉ |\n|---|---|---|---|---|---|\n")
         for l in v["loai_quan"]:
             for q in l["quan"]:
                 w(f"| {l['ten']} | {q['ten']} | {q['khoang_cach']} | {q['gan_diem']} "
-                  f"| {q['dien_thoai'] or ''} |\n")
+                  f"| {q['dien_thoai'] or ''} "
+                  f"| {(q.get('dia_chi') or '').split(',')[0]} |\n")
         w("\n")
 
 
@@ -900,6 +905,11 @@ for r in picked:
         w(f"Từ hồ Xuân Hương    : {UNV}\n")
     # Dong "Tu khach san" da chuyen len muc 0 — no la cung mot cau cho ca 36.
     w(f"Đường chính gần nhất : {ev(r['id'], 'duong_gan_nhat')}\n")
+    # In THANG, khong boc trong cu phap link markdown: dong nay nam trong khoi
+    # ``` nen GFM khong phan tich link o day — `[x](y)` chi lam ban doc thay
+    # nguyen ky tu ngoac. Ban .md la ban cua TAC NHAN, doc URL tran duoc; ban
+    # .docx moi la ban cho nguoi doc soat va o do link duoc gan that.
+    w(f"Bản đồ               : {_an_ngu.lien_ket_ban_do(r['lat'], r['lon'])}\n")
     w(f"Tình trạng đường     : {UNV}\n")
     w(f"Phương tiện tới được : {UNV}\n")
     w(f"Bãi đỗ xe            : {UNV}\n")
