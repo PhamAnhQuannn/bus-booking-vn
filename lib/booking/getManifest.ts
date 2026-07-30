@@ -6,8 +6,12 @@
  *                 ManifestRow below for the authoritative shape.
  *
  * (#366: this list previously named `pickupAreaLabel`, a field of the OperatorPickupArea
- * subsystem that was removed in issue 104 and no longer exists anywhere. It also omitted
- * `customPickupRequested`, which does. Comment drift, not a code defect.)
+ * subsystem removed in issue 104. No code references it: zero occurrences in `schema.prisma`,
+ * and the only occurrence in any TypeScript source under `lib/`, `app/` or `components/` is
+ * this sentence. That is the extent of what was checked, and the claim is deliberately no
+ * broader — past-tense mentions still exist in migrations and in `lib/geo/data/PROVENANCE.md`,
+ * which is correct, since those describe history. The list also omitted
+ * `customPickupRequested`, which does exist. Comment drift, not a code defect.)
  * AC6: NO seatNumber field in output.
  *
  * Tenant-isolated via Trip.operatorId join.
