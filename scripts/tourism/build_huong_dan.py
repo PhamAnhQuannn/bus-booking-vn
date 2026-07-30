@@ -396,6 +396,11 @@ if _sua_loai:
     for _i, _t, _cu, _moi in _sua_loai:
         print(f"     {_i} {_t[:34]:36s} {_cu} -> {_moi}")
 
+# Thu hang theo do day du cua du lieu. Tinh o day vi `_score` co san ngay sau
+# buoc chon, va CA HAI cho dung no — bang chon nhanh o dau tai lieu va thu tu
+# goi dien o muc cuoi. Mot phep tinh, hai cho dung.
+rank = sorted(picked, key=lambda r: -r["_score"])
+
 # ------------------------------------------------- ma tran OSRM giua cac diem
 CACHE = os.path.join(RAW, "osrm_selected.json")
 mat = None
@@ -530,12 +535,32 @@ w("1. **KHÔNG** thay `[CHƯA XÁC MINH]` bằng một giá trị thường gặ
   "là hình dạng của một giờ mở cửa, không phải giờ mở cửa của nơi này.\n")
 w("2. **KHÔNG** suy ra giá vé, giờ mở cửa, thời lượng thăm hay mức độ dễ đi lại từ loại hình. "
   "Chỉ ba suy diễn được duyệt trước: *trong nhà/ngoài trời*, *link bản đồ*, *điểm lân cận*.\n")
-w("3. **KHÔNG** viết mô tả, “lý do nên đến” hay “điểm nhấn” cho một địa điểm — "
-  "tài liệu này cố ý **không sinh** những mục đó, vì mọi chữ trong đó sẽ là bịa. "
+# Luat 3 phai HEP LAI, khong bo. Ban cu viet "tai lieu nay co y khong sinh mo
+# ta" — dung khi mo ta chi co the la chu tu viet ra. Gio co 28 doan TRICH NGUYEN
+# VAN tu Wikipedia kem nguon va ngay, va do la mot thu khac han: khong phai chu
+# cua tai lieu nay. Neu de nguyen cau cu thi muc 0 tu mau thuan voi chinh cac
+# the ngay ben duoi — dung lop loi da ghi trong so ngay 29/07.
+w("3. **KHÔNG tự viết** mô tả, “lý do nên đến” hay “điểm nhấn” cho một địa điểm. "
+  "Đoạn mô tả in trong hồ sơ (nếu có) là **trích nguyên văn từ Wikipedia tiếng Việt**, "
+  "kèm nguồn, liên kết và ngày — đọc cho khách thì dẫn nguồn, và **không sửa lời**. "
   f"Mục {S_HOATDONG} liệt kê hoạt động kèm nơi và đơn vị cụ thể, đó là dữ kiện; “Đà Lạt lãng "
   "mạn, hợp cho các cặp đôi” thì không.\n\n")
 w("**Nhịp độ mặc định (chuyến “thư giãn”):** tối đa 4 điểm/ngày · tối đa 2 giờ di chuyển/ngày · "
   "mỗi ngày chừa một khoảng trống. Vượt quá phải nói rõ với khách là lịch dày.\n\n")
+# ── Ba quy tac ap cho CA 36 ho so, noi mot lan o day ───────────────────────
+# Truoc day ba dong nay in lai trong tung ho so — 108 dong khong mang thong tin
+# rieng cho diem nao.
+w("**Ba điều dưới đây áp cho cả 36 hồ sơ, không nhắc lại ở từng điểm:**\n\n")
+w("1. Mỗi hồ sơ **chỉ nêu những trường KHÔNG mang dấu** `[CHƯA XÁC MINH]`. "
+  "Trường vắng mặt nghĩa là chưa xác minh được — nói với khách đúng như vậy, "
+  "đừng suy ra.\n")
+w("2. **Khoảng cách từ khách sạn của khách** không có trong tài liệu này: nó "
+  "thuộc hồ sơ chuyến đi và chỉ tính được khi biết khách ở đâu.\n")
+w("3. Khoảng cách và thời gian đường bộ là **ước lượng trong điều kiện bình "
+  "thường**, chưa tính chỗ đậu xe, tắc đường hay giờ cao điểm. Cột `Rộng` ở "
+  "mục 2 là **đường chim bay**, còn `Km từ trung tâm` và bảng điểm lân cận là "
+  "**đường bộ thật** theo OSRM — hai thước đo khác nhau.\n\n")
+
 w("**Bay flycam:** mặc định **coi như bị cấm** trừ khi có xác nhận ngược lại. "
   "Sai theo hướng an toàn thì mất một tấm ảnh; sai theo hướng kia thì khách bị phạt.\n\n")
 
@@ -593,6 +618,27 @@ for _a in sorted({r["area"] for r in picked}):
 w("\n⚠ Khu vực có dấu ⚠ ở cột *Rộng* thì các điểm trong đó cách nhau xa hơn bán kính "
   "5 km dùng để tìm cơ sở gần — chúng **không dùng chung một thị trường lưu trú**, "
   "nên đừng gộp vào một đêm nghỉ.\n\n")
+
+# ── BANG CHON NHANH — dat NGAY DAU, khong o cuoi ───────────────────────────
+# Bang so sanh day du van o muc 7, nhung no nam o ~92% chieu dai tai lieu: nguoi
+# doc phai di qua gan het moi thay duoc cai bang duy nhat cho so sanh dong-doi.
+# Bang nay la 16 dong dau cua chinh no, dat ngay sau tong quan khu vuc.
+# Thu tu theo `_score` — DO DAY DU CUA DU LIEU, khong phai chat luong trai
+# nghiem. Phai noi ro, neu khong nguoi doc se hieu la xep hang "noi nao dang di
+# hon", va do la dieu tai lieu nay khong biet.
+_TOP = 16
+w("---\n\n## 2b. Chọn nhanh — 16 điểm có dữ liệu đầy đủ nhất\n\n")
+w("⚠ **Xếp theo độ đầy đủ của DỮ LIỆU, không phải chất lượng trải nghiệm.** "
+  "Điểm đứng đầu là điểm ta biết rõ nhất, không phải điểm đáng đi nhất — thứ đó "
+  f"chưa có dữ liệu. Bảng đầy đủ 36 điểm ở mục {S_SOSANH}.\n\n")
+w("| ID | Điểm | Loại | Khu vực | Km | Phút | Vé | Mưa | Mô tả |\n"
+  "|---|---|---|---|---:|---:|---|---|---|\n")
+for _r in rank[:_TOP]:
+    _mua = INDOOR.get(_r["loai_vn"], ("ngoài trời",))[0]
+    w(f"| {_r['id']} | {_r['name'][:30]} | {_r['loai_vn']} | {_r['area']} | "
+      f"{_r['km']:.1f} | {_r['min']:.0f} | {_r.get('fee') or '—'} | {_mua} | "
+      + ("có" if has(_r["id"], "mo_ta_wikipedia") else "—") + " |\n")
+w("\n")
 
 # ============================== 3. dia hinh: ngam canh / san may / chup anh
 # Lop nay do Phase L thu thap (SRTM 30 m + cong thuc thien van) va CHUA TUNG
@@ -694,8 +740,8 @@ for r in picked:
     srcs = "+".join(r["src"])
     _muc[0] = 0          # bo dem tieu muc reset o moi ho so
     w(f"\n#### {r['id']} · {r['name']}\n\n")
-    w("> *Chỉ nêu những trường KHÔNG mang dấu `[CHƯA XÁC MINH]`. Trường mang dấu đó: "
-      "nói với khách là chưa xác minh được.*\n\n")
+    # Cau nhac "chi neu truong da xac minh" da chuyen len muc 0 — no giong y
+    # nhau o ca 36 ho so nen 36 ban sao khong them thong tin nao.
 
     # ── MO TA: trich nguyen van, ngoai khoi ``` de doc duoc nhu van xuoi ────
     # Khong dien dat lai. Van ban Wikipedia la CC BY-SA 4.0: ghi cong thi du,
@@ -810,7 +856,7 @@ for r in picked:
           "\n")
     else:
         w(f"Từ hồ Xuân Hương    : {UNV}\n")
-    w(f"Từ khách sạn         : → thuộc hồ sơ chuyến đi, tính khi biết khách ở đâu\n")
+    # Dong "Tu khach san" da chuyen len muc 0 — no la cung mot cau cho ca 36.
     w(f"Đường chính gần nhất : {ev(r['id'], 'duong_gan_nhat')}\n")
     w(f"Tình trạng đường     : {UNV}\n")
     w(f"Phương tiện tới được : {UNV}\n")
@@ -832,7 +878,7 @@ for r in picked:
     for f_ in ("Điểm chụp đẹp", "Giờ chụp đẹp", "Ngắm bình minh/hoàng hôn",
                "Phí chụp ảnh", "Lưu ý chụp ảnh"):
         w(f"{f_:<20}: {UNV}\n")
-    w("Bay flycam          : COI NHƯ BỊ CẤM cho tới khi có xác nhận ngược lại\n")
+    # Dong flycam da chuyen len muc 0: quy tac giong nhau cho ca 36 diem.
     w("```\n\n")
 
     w(sec("Điểm lân cận") + " *(thời gian đường bộ thật, không phải đường chim bay)*\n\n")
@@ -1107,9 +1153,9 @@ if mat:
 # khuyen di choi — va muc 13 ngay duoi da dung dung thu hang do lam thu tu goi
 # dien, la viec that su cua no. Giu o phu luc de khong ai doc nham thanh
 # "noi nay hay hon noi kia".
-# Thu hang VAN duoc tinh o day — muc 9 duoi dung no lam THU TU GOI DIEN, la
-# cong dung dung cua no. Chi bo phan IN ra thanh mot muc rieng.
-rank = sorted(picked, key=lambda r: -r["_score"])
+# Thu hang VAN duoc tinh, nhung o ngay sau buoc chon (`rank = ...`), khong o day
+# — muc kiem chung duoi dung no lam THU TU GOI DIEN va bang chon nhanh o dau tai
+# lieu dung cung mot thu tu. Mot phep tinh, hai cho dung.
 
 w(f"## {S_KIEMCHUNG}. Sổ kiểm chứng — việc cần làm\n\n")
 n_tel = sum(1 for r in picked if r.get("tel"))

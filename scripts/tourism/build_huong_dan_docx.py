@@ -79,6 +79,29 @@ BUILD_DATE = G["build_date"]
 byid = {r["id"]: r for r in picked}
 UNV = "[CHƯA XÁC MINH]"
 
+# Trong nha / ngoai troi suy tu loai hinh — mot trong ba suy dien duoc duyet.
+# Truoc day bang nay nam TRONG vong lap the (bien `from_cat`), nen hai bang so
+# sanh khong dung duoc, va bang so sanh cua ban .docx vi vay THIEU cot Mua ma
+# ban .md co. Dua ra day de mot bang phuc vu ca ba cho.
+INDOOR_CAT = {
+    "Bảo tàng": "trong nhà", "Nghệ thuật / Triển lãm": "trong nhà",
+    "Chợ / Mua sắm": "có mái", "Nhà thờ": "có mái",
+    "Chùa / Thiền viện": "hỗn hợp", "Dinh thự / Di tích": "hỗn hợp",
+    "Khu vui chơi": "hỗn hợp", "Thác nước": "ngoài trời", "Hồ / Đập": "ngoài trời",
+    "Công viên / Vườn hoa": "ngoài trời", "Điểm ngắm cảnh": "ngoài trời",
+    "Núi / Đèo / Đường mòn": "ngoài trời", "Nông trại / Vườn": "ngoài trời",
+    "Cáp treo": "ngoài trời",
+}
+
+# Thu hang den TU build_huong_dan.py qua khoa `xep_hang` — khong tu tinh lai.
+# Tinh o day vi CA bang chon nhanh (dau tai lieu) va thu tu goi dien (cuoi tai
+# lieu) deu dung no.
+_xh = {pid: i for i, pid in enumerate(G.get("xep_hang") or [])}
+if not _xh:
+    raise SystemExit("guide_data.json thieu khoa 'xep_hang' — chay"
+                     " build_huong_dan.py truoc de sinh lai.")
+rank = sorted(picked, key=lambda r: _xh.get(r["id"], 10 ** 6))
+
 # ── SO MUC: mot cho duy nhat, giong ban .md ────────────────────────────────
 # Lan renumber thu ba trong mot phien; hai lan truoc deu sot tham chieu, mot
 # lan sot ngay trong file nay ("muc 2" trong khi ban .md da la "muc 3").
@@ -354,11 +377,20 @@ B("KHÔNG thay [CHƯA XÁC MINH] bằng một giá trị thường gặp. “Gi�
   "dạng của một giờ mở cửa, không phải giờ mở cửa của nơi này.")
 B("KHÔNG suy ra giá vé, giờ mở cửa, thời lượng thăm hay mức độ dễ đi lại từ loại hình. "
   "Chỉ ba suy diễn được duyệt: trong nhà/ngoài trời, link bản đồ, điểm lân cận.")
-B("KHÔNG viết mô tả, “lý do nên đến” hay “điểm nhấn” — tài liệu cố ý KHÔNG sinh "
+B("KHÔNG TỰ VIẾT mô tả, “lý do nên đến” hay “điểm nhấn”. Đoạn mô tả trong hồ sơ (nếu có) là TRÍCH NGUYÊN VĂN từ Wikipedia tiếng Việt, kèm nguồn và ngày — dẫn nguồn khi đọc cho khách, và KHÔNG sửa lời. Tài liệu cố ý KHÔNG sinh "
   "những mục đó vì mọi chữ trong đó sẽ là bịa. Mục 3 liệt kê hoạt động kèm nơi và "
   "đơn vị cụ thể, đó là dữ kiện; “Đà Lạt lãng mạn” thì không.")
 P("Nhịp độ mặc định (chuyến thư giãn): tối đa 4 điểm/ngày · tối đa 2 giờ di chuyển/ngày · "
   "mỗi ngày chừa một khoảng trống.", bold=True)
+# ── Ba quy tac ap cho CA 36 ho so, noi mot lan ──────────────────────────
+P("Ba điều dưới đây áp cho cả 36 hồ sơ, không nhắc lại ở từng điểm:", bold=True, size=9.5)
+B("Mỗi hồ sơ chỉ nêu những trường KHÔNG mang dấu [CHƯA XÁC MINH]. Trường vắng mặt "
+  "nghĩa là chưa xác minh được — nói với khách đúng như vậy, đừng suy ra.")
+B("Khoảng cách từ khách sạn của khách không có trong tài liệu này: nó thuộc hồ sơ "
+  "chuyến đi và chỉ tính được khi biết khách ở đâu.")
+B("Khoảng cách và thời gian đường bộ là ước lượng trong điều kiện bình thường, chưa "
+  "tính chỗ đậu xe hay tắc đường. Cột Rộng ở mục 2 là ĐƯỜNG CHIM BAY, còn Km từ trung "
+  "tâm và bảng điểm lân cận là ĐƯỜNG BỘ THẬT theo OSRM — hai thước đo khác nhau.")
 P("Bay flycam: mặc định COI NHƯ BỊ CẤM trừ khi có xác nhận ngược lại. Sai theo hướng an toàn "
   "thì mất một tấm ảnh; sai theo hướng kia thì khách bị phạt.", bold=True, color=RED)
 
@@ -410,6 +442,22 @@ TBL(["Khu vực", "Điểm", "Km từ trung tâm", "Rộng", "Lưu trú trong kh
 P("⚠ Khu vực có dấu ⚠ ở cột Rộng thì các điểm trong đó cách nhau xa hơn bán kính 5 km "
   "dùng để tìm cơ sở gần — chúng KHÔNG dùng chung một thị trường lưu trú, nên đừng "
   "gộp vào một đêm nghỉ.", size=8.5, color=AMBER)
+
+# ── Bang chon nhanh: 16 dong dau cua bang so sanh, dat NGAY DAU ───────────
+# Bang day du van o muc 7 nhung nam o ~92% chieu dai tai lieu.
+_TOP = 16
+doc.add_page_break()
+H(f"{S_KHUVUC}b. Chọn nhanh — 16 điểm có dữ liệu đầy đủ nhất", 1)
+P("⚠ Xếp theo độ đầy đủ của DỮ LIỆU, không phải chất lượng trải nghiệm. Điểm đứng đầu "
+  "là điểm ta biết rõ nhất, không phải điểm đáng đi nhất — thứ đó chưa có dữ liệu. "
+  f"Bảng đầy đủ 36 điểm ở mục {S_SOSANH}.", bold=True, size=9, color=RED)
+TBL(["ID", "Điểm", "Loại", "Khu vực", "Km", "Phút", "Vé", "Mưa", "Mô tả"],
+    [[r["id"], r["name"][:26], r["loai_vn"], r["area"][:16], f"{r['km']:.1f}",
+      f"{r['min']:.0f}", str(r.get("fee") or "—")[:14],
+      INDOOR_CAT.get(r["loai_vn"], "ngoài trời"),
+      "có" if has(r["id"], "mo_ta_wikipedia") else "—"]
+     for r in rank[:_TOP]],
+    widths=[1.4, 4.0, 2.6, 2.4, 1.1, 1.1, 1.6, 1.4, 1.2], size=8)
 
 # Lop nay do Phase L thu thap (SRTM 30 m) va CHUA TUNG duoc in: do_cao 36/36,
 # do_nho 36/36, huong_mo 26/36 nam trong enrichment.json tu 28/07. Lan thu nam
@@ -550,9 +598,8 @@ for r in picked:
     if has(r["id"], "wifi"):
         spec.append(("f", "Wifi", ev(r["id"], "wifi")))
     ind = None
-    for lab, note in INDOOR_NOTE.items():
-        pass
-    from_cat = {"Bảo tàng": "trong nhà", "Nghệ thuật / Triển lãm": "trong nhà",
+    from_cat = INDOOR_CAT if False else {
+                "Bảo tàng": "trong nhà", "Nghệ thuật / Triển lãm": "trong nhà",
                 "Chợ / Mua sắm": "có mái", "Nhà thờ": "có mái",
                 "Chùa / Thiền viện": "hỗn hợp", "Dinh thự / Di tích": "hỗn hợp",
                 "Khu vui chơi": "hỗn hợp", "Thác nước": "ngoài trời", "Hồ / Đập": "ngoài trời",
@@ -599,7 +646,7 @@ for r in picked:
              ("f", "Từ hồ Xuân Hương",
               f"{r['km']:.1f} km · {r['min']:.0f} phút"
               if r.get("min") is not None else UNV),
-             ("f", "Từ khách sạn", "→ thuộc hồ sơ chuyến đi, tính khi biết khách ở đâu"),
+             # "Tu khach san" da chuyen len muc 0 — cung mot cau cho ca 36 diem.
              ("f", "Đường chính gần nhất", ev(r["id"], "duong_gan_nhat")),
              ("f", "Tình trạng đường", UNV),
              ("f", "Phương tiện tới được", UNV),
@@ -608,7 +655,7 @@ for r in picked:
     for f_ in ("Điểm chụp đẹp", "Giờ chụp đẹp", "Ngắm bình minh / hoàng hôn",
                "Phí chụp ảnh", "Lưu ý chụp ảnh"):
         spec.append(("f", f_, UNV))
-    spec.append(("f", "Bay flycam", "COI NHƯ BỊ CẤM cho tới khi có xác nhận ngược lại"))
+    # Dong flycam da chuyen len muc 0: quy tac giong nhau cho ca 36 diem.
     for _lab, _k in (("Năm khánh thành", "nam_khanh_thanh"), ("Năm xây dựng", "nam_xay_dung"),
                      ("Kiến trúc", "kien_truc"), ("Xếp hạng di tích", "xep_hang_di_tich"),
                      ("Tôn giáo", "ton_giao"), ("Diện tích", "dien_tich")):
@@ -787,10 +834,12 @@ if _AU:
 doc.add_page_break()
 H(f"{S_SOSANH}. Bảng so sánh", 1)
 P(f"Sinh tự động từ mục {S_DIEMDEN} — không sửa tay.", italic=True, size=9, color=GREY)
-TBL(["ID", "Điểm", "Loại", "Khu vực", "Km", "Phút", "Vé", "Nguồn"],
-    [[r["id"], r["name"][:34], r["loai_vn"], r["area"][:20], f"{r['km']:.1f}",
-      f"{r['min']:.0f}", r.get("fee") or UNV, len(r["src"])] for r in picked],
-    widths=[1.4, 5.0, 3.0, 3.2, 1.2, 1.2, 1.6, 1.2], size=8)
+# Cot "Mua" khop ban .md — truoc day ban .docx thieu han cot nay.
+TBL(["ID", "Điểm", "Loại", "Khu vực", "Km", "Phút", "Vé", "Mưa", "Nguồn"],
+    [[r["id"], r["name"][:30], r["loai_vn"], r["area"][:18], f"{r['km']:.1f}",
+      f"{r['min']:.0f}", r.get("fee") or UNV,
+      INDOOR_CAT.get(r["loai_vn"], "ngoài trời"), len(r["src"])] for r in picked],
+    widths=[1.4, 4.4, 2.8, 2.8, 1.1, 1.1, 1.5, 1.4, 1.1], size=8)
 
 # DA CAT muc 6 "Theo loai hinh" · 7 "Theo khu vuc" · 8 "Theo khoang cach"
 # · 9 "Theo thoi diem tham" — ca bon la cach SAP XEP LAI cung 36 diem. `loai_vn`
@@ -847,12 +896,6 @@ if mat:
 # -conf))` trong khi ban .md xep theo `-_score` — va `_score` bi bo loc
 # `startswith("_")` chan lai nen khong bao gio den duoc file nay. Ket qua: hai
 # ban tai lieu bat dong ve THU TU GOI DIEN xac minh, tu hang thu 9 tro di.
-_xh = {pid: i for i, pid in enumerate(G.get("xep_hang") or [])}
-if not _xh:
-    raise SystemExit("guide_data.json thieu khoa 'xep_hang' — chay"
-                     " build_huong_dan.py truoc de sinh lai.")
-rank = sorted(picked, key=lambda r: _xh.get(r["id"], 10 ** 6))
-
 H(f"{S_KIEMCHUNG}. Sổ kiểm chứng — việc cần làm", 1)
 n_tel = sum(1 for r in picked if r.get("tel"))
 TBL(["Chỉ số", "Giá trị"],
