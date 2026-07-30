@@ -16,7 +16,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import hoat_dong_data as _hoat_dong   # mot nguon chon loc, hai nguon dinh dang
 import an_ngu_data as _an_ngu
 
-RAW, OUT = sys.argv[1], sys.argv[2]
+# Duong ra co MAC DINH — cung ly do nhu ban .docx: khi ten file la lua chon cua
+# tung lan goi thi hai phien lam viec song song se sinh ra hai ban khac nhau.
+OUT_MAC_DINH = "documentation/tourism/destinations/da-lat/huong-dan-diem-den.md"
+RAW = sys.argv[1]
+OUT = sys.argv[2] if len(sys.argv) > 2 else OUT_MAC_DINH
 TRIP_OUT = sys.argv[3] if len(sys.argv) > 3 else None
 BUILD_DATE = "28/07/2026"
 UNV = "[CHƯA XÁC MINH]"

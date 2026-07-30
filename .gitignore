@@ -120,7 +120,12 @@ documentation/tourism/
 # (1) day la output, tai tao duoc tu scripts + .tourism-data/;
 # (2) noi dung dan xuat tu chinh du lieu PII da bi loai o tren — so dien thoai
 #     that cua ho kinh doanh nho nam trong cac ban huong dan nay.
-docs/*.docx
+#
+# `docs/**/*.docx` chu khong phai `docs/*.docx`: mau mot dau sao chi khop MOT
+# cap, nen `docs/archive/*.docx` KHONG bi ignore — cac ban cu don vao thu muc
+# con se thanh file duoc theo doi, mang theo dung so dien thoai that ma luat nay
+# sinh ra de chan. Dang de quy phu ca `docs/archive/`.
+docs/**/*.docx
 
 # Anh chup kiem tra ad-hoc o thu muc goc. prod-e2e-1-qr.png la ma QR thanh toan
 # tu mot lan chay e2e tren PROD, co the ma hoa so tai khoan that.

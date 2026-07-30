@@ -21,7 +21,16 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import hoat_dong_data as _hoat_dong   # CUNG module chon loc voi ban .md
 import an_ngu_data as _an_ngu
 
-RAW, OUT = sys.argv[1], sys.argv[2]
+# Duong ra co MAC DINH, va do la de chan mot loi da xay ra: ten file tung la
+# lua chon cua tung lan goi, nen hai phien lam viec song song da sinh ra
+# `-v4.docx` va `-v5.docx` ben canh `-v3.docx`. Ket qua la so phien ban NGUOC
+# voi do moi — v5 dung 14:59 truoc khi cac ban va vao, v3 dung 16:55 sau do —
+# va nguoi doc mo file so cao nhat lai thay ban cu nhat, thieu han lop mon.
+# Mot duong mac dinh nghia la goi khong tham so thi GHI DE ban chinh thay vi
+# them mot so moi.
+OUT_MAC_DINH = "docs/Huong-Dan-Da-Lat.docx"
+RAW = sys.argv[1]
+OUT = sys.argv[2] if len(sys.argv) > 2 else OUT_MAC_DINH
 _LAN_CAN = _an_ngu.tai_lan_can(RAW)
 G = json.load(io.open(os.path.join(RAW, "guide_data.json"), encoding="utf-8"))
 picked, NEAR, mat = G["picked"], G["near"], G["matrix"]
