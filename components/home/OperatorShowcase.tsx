@@ -1,22 +1,19 @@
 import Link from 'next/link';
-import { Star } from 'lucide-react';
 
 import type { PublicOperator } from '@/lib/home';
 import { searchHref } from '@/lib/search';
-import {
-  PLACEHOLDER_OPERATORS,
-  placeholderRating,
-  placeholderRouteCount,
-} from './homePlaceholders';
 
 /**
- * OperatorShowcase — "Nhà xe đối tác uy tín" row. Rebuilt 2026-07-21 to the mockup's
- * compact horizontal card (docs/design/mockup-home.png S5): initials chip left, then
- * name / rating / route-count stacked to its right.
+ * OperatorShowcase — "Nhà xe đối tác uy tín" row.
  *
- * The mockup shows five partner cards. At launch we have 1-2 real operators, so the row
- * is padded with PLACEHOLDER_OPERATORS to keep the designed layout. Both the padding and
- * the per-card rating/route-count are invented — see homePlaceholders.ts.
+ * Shows exactly the operators that exist. Nothing is padded and nothing is invented.
+ *
+ * 2026-07-30: this used to pad the row to the mockup's five cards with fabricated
+ * partner brands, and to render a star rating and a "N+ tuyến" total on every card.
+ * All three were placeholders. The ratings in particular were a hash of the operator's
+ * DB id, so a genuine partner was shown a fabricated score under a heading that calls
+ * them "uy tín" (reputable). There is no Review model in the schema to replace them
+ * with, so the elements are gone rather than emptied.
  */
 
 interface ShowcaseCard {
@@ -24,8 +21,6 @@ interface ShowcaseCard {
   display: string;
   initials: string;
   href: string | null;
-  /** Real operators keep their DB summary line; padded ones fall back to a province. */
-  subline: string | null;
 }
 
 function toInitials(name: string): string {
@@ -43,7 +38,6 @@ function toCard(op: PublicOperator): ShowcaseCard {
     href: op.topRoute
       ? searchHref(op.topRoute.origin, op.topRoute.destination, { operatorId: op.id })
       : null,
-    subline: op.provinceName,
   };
 }
 
@@ -55,15 +49,6 @@ function OperatorCard({ card }: { card: ShowcaseCard }) {
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold leading-tight">{card.display}</p>
-        {/* PLACEHOLDER rating + route count — no Review model, no per-operator
-            route total surfaced. See homePlaceholders.ts. */}
-        <span className="mt-1 flex items-center gap-1 text-sm">
-          <Star className="size-3.5 shrink-0 fill-primary text-primary" aria-hidden="true" />
-          <span className="font-medium">{placeholderRating(card.key)}</span>
-        </span>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {placeholderRouteCount(card.key)}+ tuyến
-        </p>
       </div>
     </>
   );
@@ -81,36 +66,33 @@ function OperatorCard({ card }: { card: ShowcaseCard }) {
   return <div className={cls.replace(' hover:shadow-e2 motion-safe:hover:-translate-y-0.5', '')}>{content}</div>;
 }
 
+/**
+ * Column cap. The grid used to be a fixed 5 columns because padding guaranteed five
+ * cards; without padding a lone real operator would render as one narrow card stranded
+ * in a five-column track. Cap the track count at the number of cards we actually have.
+ */
+const COLUMN_CLASS: Record<number, string> = {
+  1: 'grid-cols-1 sm:grid-cols-2',
+  2: 'grid-cols-1 sm:grid-cols-2',
+  3: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
+  4: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4',
+};
+
 export function OperatorShowcase({ operators }: { operators: PublicOperator[] }) {
-  const real = operators.map(toCard);
-  // Pad to the mockup's 5 columns. Padding entries are clearly fictional brands —
-  // never real competitor names (see homePlaceholders.ts).
-  const padded: ShowcaseCard[] = PLACEHOLDER_OPERATORS.slice(0, Math.max(0, 5 - real.length)).map(
-    (p) => ({
-      key: p.id,
-      display: p.name,
-      initials: toInitials(p.name),
-      href: null,
-      subline: p.province,
-    }),
-  );
-  const cards = [...real, ...padded].slice(0, 5);
+  const cards = operators.map(toCard);
 
   if (cards.length === 0) return null;
 
+  const columns =
+    COLUMN_CLASS[cards.length] ?? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5';
+
   return (
     <section className="mx-auto w-full max-w-7xl px-4 py-8 lg:py-10">
-      <div className="mb-6 flex items-end justify-between gap-4">
+      <div className="mb-6">
         <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Nhà xe đối tác uy tín</h2>
-        <Link
-          href="/"
-          className="text-sm font-medium text-primary-strong outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
-        >
-          Xem tất cả
-        </Link>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className={`grid gap-4 ${columns}`}>
         {cards.map((card) => (
           <OperatorCard key={card.key} card={card} />
         ))}
