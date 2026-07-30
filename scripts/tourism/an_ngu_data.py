@@ -91,6 +91,117 @@ def tai_lan_can_khu_vuc(raw_dir):
     return json.load(io.open(p, encoding="utf-8"))
 
 
+# ── XUAT XU + DIA HINH: chon o DAY, khong o trong bo dung ──────────────────
+# Hai ham duoi day ton tai vi mot loi da xay ra that: khoi phu luc xuat xu duoc
+# viet TRUC TIEP trong build_huong_dan.py, nen no khong bao gio den duoc ban
+# .docx. Ket qua do duoc: 32 link Facebook, 21 luot check-in, 4 ti le de xuat va
+# ca bang thu hang co trong ban .md va BANG KHONG trong ban .docx — trong khi
+# nam truong do da bi bo khoi the cua CA HAI ban. Ban .docx mat trang du lieu.
+# Dung lop loi ma quy tac "mot nguon chon loc, hai nguon dinh dang" sinh ra de
+# chan, va no vo hinh cho tan khi so hai file bang tay.
+
+# Nam truong XUAT XU. Chung tra loi "tin duoc khong", khong tra loi "di dau".
+NGHIEN_CUU = [("trang_facebook", "Trang Facebook"),
+              ("email_facebook", "Email (Facebook)"),
+              ("luot_checkin", "Lượt check-in"),
+              ("nguoi_theo_doi", "Người theo dõi FB"),
+              ("ty_le_gioi_thieu", "Tỉ lệ đề xuất (FB)")]
+
+# `canh_bao_website` KHONG nam trong danh sach tren, va day la ly do: no noi
+# rang cai URL in NGAY BEN DUOI no khong phai trang cua dia diem nay. Doi no
+# sang phu luc thi the con lai mot URL sai khong co gi danh dau. Mot loi canh
+# bao phai nam canh thu no canh bao.
+
+
+def _enr(raw_dir):
+    p = os.path.join(raw_dir, "enrichment.json")
+    if not os.path.exists(p):
+        return {}
+    out = {}
+    for e in json.load(io.open(p, encoding="utf-8")):
+        out.setdefault(e["id"], {}).setdefault(e["field"], e)
+    return out
+
+
+def tai_nghien_cuu(raw_dir):
+    """Phu luc xuat xu + thu hang chat luong du lieu.
+
+    Tra ve {"hang": [(id, ten, nhan, gia_tri)], "so_diem": n,
+            "xep_hang": [(nhan_nhom, [(id, ten)])]}
+    """
+    gp = os.path.join(raw_dir, "guide_data.json")
+    if not os.path.exists(gp):
+        return None
+    G = json.load(io.open(gp, encoding="utf-8"))
+    ten = {r["id"]: r["name"] for r in G["picked"]}
+    enr = _enr(raw_dir)
+    hang, co = [], set()
+    for r in G["picked"]:
+        for f, nhan in NGHIEN_CUU:
+            e = enr.get(r["id"], {}).get(f)
+            if e:
+                hang.append((r["id"], r["name"], nhan, str(e["value"])))
+                co.add(r["id"])
+    # Thu hang den TU guide_data.json — cung mot thu tu ma muc 9 dung lam thu tu
+    # goi dien. Khong tu tinh lai o day, va khong bo dung nao duoc tu tinh lai.
+    xh = [pid for pid in (G.get("xep_hang") or []) if pid in ten]
+    nhom = [("Ưu tiên xác minh trước", xh[:8]), ("Nhóm hai", xh[8:20]),
+            ("Nhóm ba", xh[20:])]
+    return {"hang": hang, "so_diem": len(co), "tong": len(G["picked"]),
+            "xep_hang": [(lab, [(i, ten[i]) for i in seg]) for lab, seg in nhom
+                         if seg]}
+
+
+def tai_dia_hinh(raw_dir):
+    """Lop dia hinh Phase L: do cao, do nho, huong mo. 36/36 va chua tung in.
+
+    KHONG tra ve `huong_binh_minh`. Truong do co 36/36 nhung gia tri GIONG NHAU
+    o ca 36 dong — "khoảng 114° so với hướng Bắc (tháng 12)" — vi phuong vi mat
+    troi moc la ham cua vi do va ngay, va ca 36 diem cung mot vi do. Nen no
+    khong phan biet duoc diem nao voi diem nao: mot cot lap lai mot gia tri 36
+    lan doc nhu du lieu ma khong mang thong tin nao. Do dung la bay da ghi trong
+    so loi (ti le lap day cao tren mot truong co gia tri mac dinh khong phan
+    biet duoc voi gia tri that). No thuoc muc 1, mot dong cho ca thanh pho.
+    """
+    gp = os.path.join(raw_dir, "guide_data.json")
+    if not os.path.exists(gp):
+        return None
+    G = json.load(io.open(gp, encoding="utf-8"))
+    enr = _enr(raw_dir)
+
+    def val(pid, f):
+        e = enr.get(pid, {}).get(f)
+        return str(e["value"]) if e else None
+
+    def so(v):
+        try:
+            return float(str(v).split()[0].replace(".", "").replace(",", "."))
+        except Exception:
+            return -1e9
+
+    rows = []
+    for r in G["picked"]:
+        cao = val(r["id"], "do_cao")
+        if not cao:
+            continue
+        rows.append({"id": r["id"], "ten": r["name"], "do_cao": cao,
+                     "do_nho": (val(r["id"], "do_nho") or "").split(" so với")[0],
+                     "huong_mo": val(r["id"], "huong_mo")})
+    rows.sort(key=lambda x: -so(x["do_cao"]))
+    # Mot dong SAI da biet, va no phai duoc danh dau chu khong duoc in tran.
+    # DL-04 luu 1.469 m voi do nho -11 m, tuc THAP hon vung xung quanh: do la
+    # khu cong va ban ve, khong phai dinh 1.951 m cach 4,5 km ve phia bac. In
+    # tran thi bang nay noi rang diem ngam canh noi tieng nhat Da Lat nam trong
+    # mot cho trung.
+    for x in rows:
+        if x["id"] == "DL-04":
+            x["canh_bao"] = ("toạ độ đang lưu là KHU CỔNG / bãi vé, không phải đỉnh"
+                             " — đỉnh thật ~1.951 m, cách ~4,5 km về phía bắc")
+    return {"hang": rows,
+            "binh_minh": next((val(r["id"], "huong_binh_minh") for r in G["picked"]
+                               if val(r["id"], "huong_binh_minh")), None)}
+
+
 def tai_luu_tru(raw_dir):
     p = os.path.join(raw_dir, "luu_tru.json")
     if not os.path.exists(p):

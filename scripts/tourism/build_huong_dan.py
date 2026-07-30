@@ -23,6 +23,15 @@ RAW = sys.argv[1]
 OUT = sys.argv[2] if len(sys.argv) > 2 else OUT_MAC_DINH
 TRIP_OUT = sys.argv[3] if len(sys.argv) > 3 else None
 BUILD_DATE = "28/07/2026"
+
+# ── SO MUC: mot cho duy nhat ────────────────────────────────────────────────
+# Moi tieu de VA moi tham chieu "xem muc N" deu doc tu day. Doi thu tu muc thi
+# sua o day, khong phai di tim tung cau van.
+S_QUYTAC, S_TONGQUAN, S_DIAHINH, S_DIEMDEN = 0, 1, 3, 4
+S_KHUVUC = 2
+S_HOATDONG, S_ANNGU, S_SOSANH = 5, 6, 7
+S_TUYEN, S_MATRAN, S_KIEMCHUNG = 8, 9, 10
+
 UNV = "[CHƯA XÁC MINH]"
 
 
@@ -437,7 +446,7 @@ w(f"> Hồ sơ chi tiết **{len(picked)} điểm đến** · sinh tự động 
   "nguồn: OpenStreetMap · Overture Maps · Foursquare OS · Wikidata · OSRM · "
   "đăng ký lưu trú Cục Du lịch Quốc gia\n\n")
 
-w("## 0. QUY TẮC ĐỌC — BẮT BUỘC ĐỌC TRƯỚC\n\n")
+w(f"## {S_QUYTAC}. QUY TẮC ĐỌC — BẮT BUỘC ĐỌC TRƯỚC\n\n")
 w("Tài liệu này được viết để **một tác nhân AI đọc và tư vấn cho khách trả tiền**. "
   "Phần lớn các trường CHƯA có dữ liệu xác minh. Ba quy tắc dưới đây là bắt buộc.\n\n")
 w("| Dấu | Nghĩa | Được phép nói gì |\n|---|---|---|\n")
@@ -453,7 +462,7 @@ w("2. **KHÔNG** suy ra giá vé, giờ mở cửa, thời lượng thăm hay m�
   "Chỉ ba suy diễn được duyệt trước: *trong nhà/ngoài trời*, *link bản đồ*, *điểm lân cận*.\n")
 w("3. **KHÔNG** viết mô tả, “lý do nên đến” hay “điểm nhấn” cho một địa điểm — "
   "tài liệu này cố ý **không sinh** những mục đó, vì mọi chữ trong đó sẽ là bịa. "
-  "Mục 4 liệt kê hoạt động kèm nơi và đơn vị cụ thể, đó là dữ kiện; “Đà Lạt lãng "
+  f"Mục {S_HOATDONG} liệt kê hoạt động kèm nơi và đơn vị cụ thể, đó là dữ kiện; “Đà Lạt lãng "
   "mạn, hợp cho các cặp đôi” thì không.\n\n")
 w("**Nhịp độ mặc định (chuyến “thư giãn”):** tối đa 4 điểm/ngày · tối đa 2 giờ di chuyển/ngày · "
   "mỗi ngày chừa một khoảng trống. Vượt quá phải nói rõ với khách là lịch dày.\n\n")
@@ -461,12 +470,20 @@ w("**Bay flycam:** mặc định **coi như bị cấm** trừ khi có xác nh�
   "Sai theo hướng an toàn thì mất một tấm ảnh; sai theo hướng kia thì khách bị phạt.\n\n")
 
 # ============================================================ 1. tong quan
-w("---\n\n## 1. Tổng quan điểm đến\n\n")
+w(f"---\n\n## {S_TONGQUAN}. Tổng quan điểm đến\n\n")
 w("| Mục | Giá trị |\n|---|---|\n")
 w("| Thành phố | Đà Lạt, tỉnh Lâm Đồng |\n")
 w("| Độ cao | ~1.500 m so với mực nước biển |\n")
 w(f"| Số điểm trong hồ sơ này | {len(picked)} |\n")
 w("| Kho dữ liệu đầy đủ | `diem-tham-quan.md` — 1.361 điểm, tra khi cần điểm ngoài danh sách |\n")
+# Phuong vi mat troi moc thuoc VE DAY — mot dong cho ca thanh pho, khong phai
+# mot cot trong bang dia hinh. Truong `huong_binh_menh` co 36/36 nhung GIA TRI
+# GIONG NHAU o ca 36 dong, vi no la ham cua vi do va ngay chu khong cua dia diem.
+# Mot cot lap lai mot gia tri 36 lan doc nhu du lieu ma khong mang thong tin.
+_bm = (_an_ngu.tai_dia_hinh(RAW) or {}).get("binh_minh")
+if _bm:
+    w(f"| Hướng mặt trời mọc | {_bm} — chung cho cả thành phố, không khác nhau "
+      "giữa các điểm |\n")
 w("| Thời tiết theo tháng | " + UNV + " — chưa lấy dữ liệu khí hậu |\n")
 w("| Lịch lễ hội | " + UNV + " |\n")
 w("| Ảnh hưởng Tết | " + UNV + " — cần xác minh, nhiều nơi đóng cửa và giá tăng mạnh |\n")
@@ -483,7 +500,7 @@ w("⚠ Năm hàng cuối là **khoảng trống có thật, không phải lỗi 
 # Moi con so o day rut tu guide_data.json + lan_can_khu_vuc.json — khong suy
 # dien gi, khong co truong nao phai bia.
 _LCKV_TQ = _an_ngu.tai_lan_can_khu_vuc(RAW)
-w("---\n\n## 2. Tổng quan theo khu vực\n\n")
+w(f"---\n\n## {S_KHUVUC}. Tổng quan theo khu vực\n\n")
 w("*Chia ngày theo khu vực, không theo từng điểm: các điểm trong một khu vực đủ gần "
   "để đi liền trong cùng buổi.*\n\n")
 w("| Khu vực | Điểm | Km từ trung tâm | Rộng | Lưu trú trong khu vực |\n"
@@ -494,7 +511,7 @@ for _a in sorted({r["area"] for r in picked}):
     _lo, _hi = min(r["km"] for r in _ps), max(r["km"] for r in _ps)
     _n_ks = sum(len(b["khach_san"]) for b in _kv.get("bac_khach_san") or [])
     if _kv.get("khong_co_khach_san"):
-        _luu = "**không có** — xem mục 5"
+        _luu = f"**không có** — xem mục {S_ANNGU}"
     elif _n_ks:
         _luu = f"{_kv.get('tong_ks', 0)} cơ sở có giá"
     else:
@@ -507,8 +524,35 @@ w("\n⚠ Khu vực có dấu ⚠ ở cột *Rộng* thì các điểm trong đó
   "5 km dùng để tìm cơ sở gần — chúng **không dùng chung một thị trường lưu trú**, "
   "nên đừng gộp vào một đêm nghỉ.\n\n")
 
-# ============================================================ 3. ho so diem
-w("---\n\n## 3. DANH SÁCH ĐIỂM ĐẾN\n\n")
+# ============================== 3. dia hinh: ngam canh / san may / chup anh
+# Lop nay do Phase L thu thap (SRTM 30 m + cong thuc thien van) va CHUA TUNG
+# duoc in ra: do_cao 36/36, do_nho 36/36, huong_mo 26/36 nam trong
+# enrichment.json tu 28/07. Lan thu nam trong du an nay mot lop du lieu duoc thu
+# roi khong ai doc — sau cot `socials`, blob `csdl`, the tien nghi OSM va truong
+# `confidence`.
+_DH = _an_ngu.tai_dia_hinh(RAW)
+if _DH and _DH["hang"]:
+    w(f"---\n\n## {S_DIAHINH}. NGẮM CẢNH · SĂN MÂY · CHỤP ẢNH\n\n")
+    w("*Suy ra từ mô hình độ cao SRTM 30 m — **không phải quan sát thực địa**. "
+      "`Độ nhô` là độ cao của điểm trừ trung vị vùng xung quanh: số dương nghĩa là "
+      "cao hơn cảnh quan quanh nó nên tầm nhìn thoáng, số âm nghĩa là bị che.*\n\n")
+    w("| Điểm | Độ cao | Độ nhô | Hướng mở |\n|---|---:|---:|---|\n")
+    for _x in _DH["hang"]:
+        _c = "  ⚠" if _x.get("canh_bao") else ""
+        w(f"| {_x['id']} · {_x['ten']}{_c} | {_x['do_cao']} | {_x['do_nho'] or ''} "
+          f"| {_x['huong_mo'] or '—'} |\n")
+    w("\n")
+    for _x in _DH["hang"]:
+        if _x.get("canh_bao"):
+            w(f"⚠ **{_x['id']} · {_x['ten']}** — {_x['canh_bao']}. Mọi con số ở dòng "
+              "này nói về khu cổng, không nói về đỉnh.\n\n")
+    # Noi thang ra rang phep kiem cua chinh Phase L van dang truot.
+    w("**Toạ độ Đỉnh Langbiang chưa sửa.** Vì vậy dòng cao nhất bảng này là "
+      f"*{_DH['hang'][0]['ten']}* ({_DH['hang'][0]['do_cao']}), không phải Langbiang — "
+      "đó là hệ quả của toạ độ sai, không phải sự thật về địa hình Đà Lạt.\n\n")
+
+# ============================================================ 4. ho so diem
+w(f"---\n\n## {S_DIEMDEN}. DANH SÁCH ĐIỂM ĐẾN\n\n")
 w("Thứ tự các mục trong mỗi hồ sơ là **cổng lọc trước, mô tả sau**: nhận dạng → khả năng "
   "tiếp cận → kế hoạch thăm → giờ giấc. Một ràng buộc về đi lại loại bỏ địa điểm trước khi "
   "chi tiết chụp ảnh có ý nghĩa gì.\n\n")
@@ -531,7 +575,7 @@ def khoi_khu_vuc(kv):
     if v.get("canh_bao_khoang_cach"):
         w(f"> ⚠ {v['canh_bao_khoang_cach']}\n\n")
     if v.get("khong_co_khach_san"):
-        w(f"{v['khong_co_khach_san']} Xem mục 5 để chọn theo bậc giá.\n\n")
+        w(f"{v['khong_co_khach_san']} Xem mục {S_ANNGU} để chọn theo bậc giá.\n\n")
     for b in v["bac_khach_san"]:
         w(f"*{b['ten']}* — {b['tong']} cơ sở trong khu vực, "
           f"{b['tong_thanh_pho']} trên toàn Đà Lạt\n\n")
@@ -752,9 +796,9 @@ _HD, _HDTK = _hoat_dong.tai(RAW)
 _MON = _hoat_dong.tai_mon_an(RAW)
 _PC = _hoat_dong.tai_phong_cach(RAW)
 
-w("\n---\n\n## 4. HOẠT ĐỘNG — LÀM GÌ Ở ĐÀ LẠT\n\n")
+w(f"\n---\n\n## {S_HOATDONG}. HOẠT ĐỘNG — LÀM GÌ Ở ĐÀ LẠT\n\n")
 w(f"*{_HDTK['so_hoat_dong']} hoạt động, {_HDTK['so_nhom']} nhóm. "
-  "Mã `DL-xx` dẫn về mục chi tiết ở mục 3.*\n\n")
+  f"Mã `DL-xx` dẫn về mục chi tiết ở mục {S_DIEMDEN}.*\n\n")
 
 _nhom_hien = None
 for _a in _HD:
@@ -854,10 +898,10 @@ _LT = _an_ngu.tai_luu_tru(RAW)
 _AU = _an_ngu.tai_an_uong(RAW)
 
 if _LT or _AU:
-    w("\n---\n\n## 5. LƯU TRÚ & ĂN UỐNG\n\n")
+    w(f"\n---\n\n## {S_ANNGU}. LƯU TRÚ & ĂN UỐNG\n\n")
 
 if _LT:
-    w("### 5.1 Lưu trú\n\n")
+    w(f"### {S_ANNGU}.1 Lưu trú\n\n")
     # Day la nhom DUY NHAT trong ca tai lieu co GIA THAT — tu dang ky luu tru
     # cua Cuc Du lich Quoc gia, khong phai tu blog. Nen gia ghi thang.
     w(f"*{_LT['tong']} cơ sở trong đăng ký lưu trú nhà nước · "
@@ -881,9 +925,9 @@ if _LT:
           + " · ".join(f"{r['ten']} ({r['ngay']})" for r in _LT["dong_cua"]) + "\n\n")
 
 if _AU:
-    w("### 5.2 Ăn uống\n\n")
+    w(f"### {S_ANNGU}.2 Ăn uống\n\n")
     w(f"*{_AU['tong_mo']:,} quán còn hoạt động · {_AU['co_dien_thoai']:,} có số gọi. "
-      "Món đặc trưng xem mục 3.*\n\n".replace(",", "."))
+      f"Món đặc trưng xem mục {S_HOATDONG}.*\n\n".replace(",", "."))
     for _n in _AU["nhom"]:
         w(f"**{_n['ten']}** — {_n['tong']} quán"
           + (f", dưới đây {len(_n['quan'])}" if _n["tong"] > len(_n["quan"]) else "")
@@ -906,8 +950,8 @@ if _AU:
         w("\n")
 
 # =============================================== 5-13 chi muc (sinh tu dong)
-w("\n---\n\n## 6. Bảng so sánh\n\n")
-w("*Sinh tự động từ mục 3 — không sửa tay, sửa ở mục 3 rồi chạy lại.*\n\n")
+w(f"\n---\n\n## {S_SOSANH}. Bảng so sánh\n\n")
+w(f"*Sinh tự động từ mục {S_DIEMDEN} — không sửa tay, sửa ở mục {S_DIEMDEN} rồi chạy lại.*\n\n")
 # Cot "Mua" la phan duy nhat cua muc 9 cu co du lieu that (36/36,
 # suy ra tu loai hinh va da duoc duyet). Nhap vao day roi bo muc 9.
 w("| ID | Điểm | Loại | Khu vực | Km | Phút | Vé | Mưa | Nguồn |\n|---|---|---|---|---:|---:|---|---|---:|\n")
@@ -928,7 +972,7 @@ for r in picked:
 #      loai hinh; no thanh mot COT cua bang so sanh ngay tren.
 # Cat bon muc bo ~62 dong va bon tieu de ma khong mat truong nao.
 
-w("## 7. Tuyến gợi ý theo khu vực\n\n")
+w(f"## {S_TUYEN}. Tuyến gợi ý theo khu vực\n\n")
 w("*Thứ tự trong mỗi khu dựng bằng thuật toán láng giềng gần nhất trên ma trận OSRM, "
   "xuất phát từ điểm gần trung tâm nhất.*\n\n")
 if mat:
@@ -950,7 +994,7 @@ if mat:
 else:
     w(f"{UNV} — chưa có ma trận OSRM.\n\n")
 
-w("## 8. Ma trận thời gian trong từng khu vực (phút)\n\n")
+w(f"## {S_MATRAN}. Ma trận thời gian trong từng khu vực (phút)\n\n")
 # Truoc day day la mot bang 36x36 = 1.296 o. No khong vua mot trang doc, va
 # khong ai tra cuu thoi gian giua hai diem o hai dau thanh pho — nguoi ta tra
 # thoi gian giua cac diem TRONG cung mot buoi, tuc trong cung khu vuc.
@@ -959,7 +1003,7 @@ w("## 8. Ma trận thời gian trong từng khu vực (phút)\n\n")
 if mat:
     idx8 = {r["id"]: i for i, r in enumerate(picked)}
     w("*Chia theo khu vực: thời gian giữa các điểm trong cùng một buổi. Cặp ở hai "
-      "khu vực khác nhau thì tra mục 7 (tuyến gợi ý) hoặc tính từ cột Phút ở mục 6.*\n\n")
+      f"khu vực khác nhau thì tra mục {S_TUYEN} (tuyến gợi ý) hoặc tính từ cột Phút ở mục {S_SOSANH}.*\n\n")
     for a in sorted({r["area"] for r in picked}):
         lst = [r for r in picked if r["area"] == a]
         if len(lst) < 2:
@@ -985,7 +1029,7 @@ if mat:
 # cong dung dung cua no. Chi bo phan IN ra thanh mot muc rieng.
 rank = sorted(picked, key=lambda r: -r["_score"])
 
-w("## 9. Sổ kiểm chứng — việc cần làm\n\n")
+w(f"## {S_KIEMCHUNG}. Sổ kiểm chứng — việc cần làm\n\n")
 n_tel = sum(1 for r in picked if r.get("tel"))
 w(f"| Chỉ số | Giá trị |\n|---|---|\n")
 w(f"| Điểm trong hồ sơ | {len(picked)} |\n")
@@ -998,7 +1042,7 @@ w(f"| Trường `[CHƯA XÁC MINH]` ước tính | **~{41*len(picked)}** |\n\n")
 
 # Cho thieu cua muc 3 thuoc VE DAY, khong thuoc giua chuong tra cuu.
 if _HDTK["thieu"]:
-    w(f"**Mục 4 — cả {_HDTK['so_hoat_dong']} hoạt động đều chưa có mùa, giờ trong ngày "
+    w(f"**Mục {S_HOATDONG} — cả {_HDTK['so_hoat_dong']} hoạt động đều chưa có mùa, giờ trong ngày "
       "và thời lượng.** Trống nghĩa là chưa xác minh, không nghĩa là quanh năm. "
       "Đừng khẳng định với khách cỏ hồng tháng nào hay tour đi mấy giờ khi chưa gọi.\n\n")
     w(f"**Tra đơn vị tour bằng Facebook, đừng tra tên miền** — "
@@ -1020,33 +1064,25 @@ for i, r in enumerate([x for x in rank if x.get("tel")][:20], 1):
 # BEN DUOI no khong phai trang cua dia diem nay (crazyhouse.vn va vai truong hop
 # khac). Doi no sang phu luc thi the con lai mot URL SAI khong co gi danh dau,
 # cach xa loi canh bao vai trang. Mot loi canh bao phai nam canh thu no canh bao.
-_NGHIEN_CUU = [("trang_facebook", "Trang Facebook"),
-               ("email_facebook", "Email (Facebook)"),
-               ("luot_checkin", "Lượt check-in"),
-               ("nguoi_theo_doi", "Người theo dõi FB"),
-               ("ty_le_gioi_thieu", "Tỉ lệ đề xuất (FB)")]
-_co_nc = [r for r in picked if any(has(r["id"], f) for f, _ in _NGHIEN_CUU)]
-if _co_nc:
+# Chon loc nam o `an_ngu_data.tai_nghien_cuu`, khong o day — ban truoc viet khoi
+# nay truc tiep tai cho va no khong bao gio den duoc ban .docx.
+_NC = _an_ngu.tai_nghien_cuu(RAW)
+if _NC and _NC["hang"]:
     w("\n---\n\n## PHỤ LỤC NGHIÊN CỨU — xuất xứ, không phải thông tin đi chơi\n\n")
     w("*Các trường dưới đây đã được đưa ra khỏi hồ sơ điểm đến: người lập kế hoạch "
       "không dùng chúng, người kiểm chứng nguồn thì cần. Tra theo mã `DL-xx`.*\n\n")
     w("| ID | Điểm | Trường | Giá trị |\n|---|---|---|---|\n")
-    for _r in _co_nc:
-        for _f, _nhan in _NGHIEN_CUU:
-            if has(_r["id"], _f):
-                w(f"| {_r['id']} | {_r['name']} | {_nhan} | {ev(_r['id'], _f)} |\n")
-    w("\n")
-    w(f"*{len(_co_nc)}/{len(picked)} điểm có ít nhất một trường xuất xứ.*\n\n")
+    for _i, _t, _nhan, _gt in _NC["hang"]:
+        w(f"| {_i} | {_t} | {_nhan} | {_gt} |\n")
+    w(f"\n*{_NC['so_diem']}/{_NC['tong']} điểm có ít nhất một trường xuất xứ.*\n\n")
 
-    # Thu hang du lieu — chuyen tu muc 12 cu xuong day.
     w("### Thứ hạng theo mức độ hiện diện trên bản đồ\n\n")
-    w("⚠ Đây là chất lượng **DỮ LIỆU**, không phải chất lượng trải nghiệm. Mục 9 dùng "
+    w(f"⚠ Đây là chất lượng **DỮ LIỆU**, không phải chất lượng trải nghiệm. Mục {S_KIEMCHUNG} dùng "
       "đúng thứ hạng này làm thứ tự gọi điện xác minh — đó là công dụng đúng của nó. "
       "Không dùng làm lời khuyên “nơi này hay hơn nơi kia”.\n\n")
-    for _lab, _seg in (("Ưu tiên xác minh trước", rank[:8]), ("Nhóm hai", rank[8:20]),
-                       ("Nhóm ba", rank[20:])):
+    for _lab, _seg in _NC["xep_hang"]:
         w(f"**{_lab}** ({len(_seg)}): "
-          + " · ".join(f"{x['id']} {x['name']}" for x in _seg) + "\n\n")
+          + " · ".join(f"{_i} {_t}" for _i, _t in _seg) + "\n\n")
 
 w("\n---\n\n## PHỤ LỤC — TÓM TẮT ĐỘ PHỦ (đọc lại trước khi trả lời khách)\n\n")
 w("```\n")
@@ -1144,7 +1180,7 @@ Kiêng ăn          :
 
 Bữa trưa :            Bữa tối :
 Khoảng trống nghỉ :
-Phương án trời mưa: đổi ___ sang ___ (tra cột “Mưa” ở mục 6 của hướng dẫn)
+Phương án trời mưa: đổi ___ sang ___ (tra cột “Mưa” ở mục {S_SOSANH} của hướng dẫn)
 
 ### Ngày 2 — <khu vực>
 ### Ngày 3 — <khu vực>

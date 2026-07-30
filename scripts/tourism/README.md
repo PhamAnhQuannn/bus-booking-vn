@@ -37,7 +37,30 @@ Cột **Cần** ghi thứ không tự có: khoá, tài khoản, hoặc thoả th
 | Facebook công khai | `resolve_facebook.py` → `fb_pages_crawl.mts` → `parse_fb_pages.py` → `emit_fb_enrichment.py` | `fb_pages.json` | — |
 | Lớp hoạt động | `sweep_hoat_dong.py` → `chon_don_vi_trai_nghiem.py` | `hoat_dong.json` | — |
 | Website đơn vị tour | `tour_sites_crawl.mts` → `parse_tour_sites.py` | `tour_sites_sach.json` | — |
-| Dựng tài liệu | `build_huong_dan.py` · `build_huong_dan_docx.py` | `.md` + `.docx` | — |
+| Dựng tài liệu | `build_huong_dan.py` **rồi** `build_huong_dan_docx.py` | `.md` + `.docx` | Thứ tự bắt buộc — xem dưới |
+| Kiểm hai bản khớp nhau | `kiem_parity.py` | exit 0/1 | Chạy sau mỗi lần dựng |
+
+### Thứ tự dựng tài liệu là bắt buộc
+
+`build_huong_dan.py` **ghi** `guide_data.json`; bản `.docx` chỉ **đọc** lại file
+đó. Chạy riêng bản `.docx` sẽ dùng bộ điểm của lần chạy `.md` gần nhất — không
+lỗi, không cảnh báo, chỉ là dữ liệu cũ. Bản `.docx` nay dừng hẳn nếu
+`enrichment.json` hoặc `lan_can*.json` mới hơn `guide_data.json`, nên trường hợp
+im lặng đó đã thành ồn ào; việc tách logic chọn ra `diem_den_data.py` để xoá hẳn
+lớp lỗi này vẫn còn treo.
+
+```bash
+python scripts/tourism/build_huong_dan.py      .tourism-data/raw
+python scripts/tourism/build_huong_dan_docx.py .tourism-data/raw
+python scripts/tourism/kiem_parity.py
+```
+
+**`kiem_parity.py` là bộ chặn duy nhất cho quy tắc "một nguồn chọn lọc, hai
+nguồn định dạng".** Quy tắc đó đã bị phá hai lần, cả hai lần im lặng: khối phụ
+lục xuất xứ chỉ tồn tại ở bản `.md` (32 link Facebook, 21 lượt check-in, bảng
+thứ hạng — bản `.docx` mất trắng), và mục 12/13 xếp hạng bằng hai công thức khác
+nhau nên hai bản bất đồng về thứ tự gọi điện xác minh. Cả hai chỉ lộ ra khi so
+hai file bằng tay.
 
 **`fsq_dalat.json` là file khó lấy lại nhất.** Cần tài khoản HuggingFace đã được
 duyệt cổng dataset, và bước duyệt đó là một thoả thuận thương mại đã ký (điều

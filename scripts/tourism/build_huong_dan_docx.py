@@ -52,11 +52,40 @@ RAW = sys.argv[1]
 OUT = sys.argv[2] if len(sys.argv) > 2 else OUT_MAC_DINH
 _LAN_CAN = _an_ngu.tai_lan_can(RAW)
 _LCKV = _an_ngu.tai_lan_can_khu_vuc(RAW)   # khoi theo KHU VUC, in mot lan
-G = json.load(io.open(os.path.join(RAW, "guide_data.json"), encoding="utf-8"))
+# ── THU TU CHAY LA LOAD-BEARING, va day la cho no de vo im lang ────────────
+# `guide_data.json` do build_huong_dan.py ghi ra; file nay chi DOC. Nen chay
+# rieng bo dung .docx se dung lai bo diem cua lan chay .md gan nhat — khong loi,
+# khong canh bao, chi la du lieu cu. Viec tach logic chon ra `diem_den_data.py`
+# se xoa han lop loi nay va da duoc hoan sang commit rieng (do la thay doi rui
+# ro nhat: DL-xx la id THEO VI TRI nen mot phep sort lech se doi id cua ca 36
+# diem, va 11 script khac gan du lieu theo id do).
+# Trong khi cho: kiem tuoi file. Re, va bien truong hop im lang thanh on ao.
+_gp = os.path.join(RAW, "guide_data.json")
+if not os.path.exists(_gp):
+    raise SystemExit(f"KHONG co {_gp}.\nChay build_huong_dan.py truoc — no sinh ra"
+                     " file nay, ban .docx chi doc lai.")
+for _phu in ("enrichment.json", "lan_can_khu_vuc.json", "lan_can.json"):
+    _pp = os.path.join(RAW, _phu)
+    if os.path.exists(_pp) and os.path.getmtime(_pp) > os.path.getmtime(_gp) + 1:
+        raise SystemExit(
+            f"DUNG — {_phu} moi hon guide_data.json.\n"
+            "Nghia la du lieu nguon da doi nhung bo diem chua duoc chon lai, nen"
+            " ban .docx se\ndung bo diem cu. Chay lai theo dung thu tu:\n"
+            "   python scripts/tourism/build_huong_dan.py .tourism-data/raw\n"
+            "   python scripts/tourism/build_huong_dan_docx.py .tourism-data/raw")
+G = json.load(io.open(_gp, encoding="utf-8"))
 picked, NEAR, mat = G["picked"], G["near"], G["matrix"]
 BUILD_DATE = G["build_date"]
 byid = {r["id"]: r for r in picked}
 UNV = "[CHƯA XÁC MINH]"
+
+# ── SO MUC: mot cho duy nhat, giong ban .md ────────────────────────────────
+# Lan renumber thu ba trong mot phien; hai lan truoc deu sot tham chieu, mot
+# lan sot ngay trong file nay ("muc 2" trong khi ban .md da la "muc 3").
+S_QUYTAC, S_TONGQUAN, S_KHUVUC, S_DIAHINH, S_DIEMDEN = 0, 1, 2, 3, 4
+S_HOATDONG, S_ANNGU, S_SOSANH = 5, 6, 7
+S_TUYEN, S_MATRAN, S_KIEMCHUNG = 8, 9, 10
+
 
 # lop lam giau — doc cung mot file enrichment.json nhu ban .md
 _ep = os.path.join(RAW, "enrichment.json")
@@ -312,7 +341,7 @@ P(f"Hồ sơ chi tiết {len(picked)} điểm đến · sinh tự động ngày 
 P("Nguồn: OpenStreetMap · Overture Maps · Foursquare OS · Wikidata · OSRM · "
   "đăng ký lưu trú Cục Du lịch Quốc gia", italic=True, size=9, color=GREY)
 
-H("0. QUY TẮC ĐỌC — BẮT BUỘC", 1)
+H(f"{S_QUYTAC}. QUY TẮC ĐỌC — BẮT BUỘC", 1)
 P("QUAN TRỌNG — tài liệu này CHỈ liệt kê những trường ĐÃ XÁC MINH. "
   "Một trường KHÔNG xuất hiện trong hồ sơ nghĩa là CHƯA BIẾT, không phải là “không có”. "
   "Không được suy đoán giá trị cho trường vắng mặt.", bold=True, color=RED)
@@ -330,11 +359,14 @@ P("Bay flycam: mặc định COI NHƯ BỊ CẤM trừ khi có xác nhận ngư�
   "thì mất một tấm ảnh; sai theo hướng kia thì khách bị phạt.", bold=True, color=RED)
 
 # ==================================================== 1. tong quan
-H("1. Tổng quan điểm đến", 1)
+H(f"{S_TONGQUAN}. Tổng quan điểm đến", 1)
 TBL(["Mục", "Giá trị"],
     [["Thành phố", "Đà Lạt, tỉnh Lâm Đồng"],
      ["Số điểm trong hồ sơ", str(len(picked))],
      ["Kho dữ liệu đầy đủ", "diem-tham-quan.md — 1.361 điểm"],
+     *([["Hướng mặt trời mọc", (_an_ngu.tai_dia_hinh(RAW) or {}).get("binh_minh")
+         + " — chung cho cả thành phố, không khác nhau giữa các điểm"]]
+       if (_an_ngu.tai_dia_hinh(RAW) or {}).get("binh_minh") else []),
      ["Thời tiết theo tháng", UNV],
      ["Lịch lễ hội", UNV],
      ["Ảnh hưởng Tết", UNV + " — nhiều nơi đóng cửa, giá tăng mạnh"],
@@ -349,7 +381,7 @@ P("⚠ Năm hàng cuối là khoảng trống có thật, không phải lỗi hi
 # truoc day khong muc nao tra loi o cap KHU VUC, la cap nguoi ta thuc su chia
 # ngay. Moi con so rut tu guide_data.json + lan_can_khu_vuc.json.
 doc.add_page_break()
-H("2. Tổng quan theo khu vực", 1)
+H(f"{S_KHUVUC}. Tổng quan theo khu vực", 1)
 P("Chia ngày theo khu vực, không theo từng điểm: các điểm trong một khu vực đủ gần "
   "để đi liền trong cùng buổi.", italic=True, size=9, color=GREY)
 _rows_kv = []
@@ -358,7 +390,7 @@ for _a in sorted({r["area"] for r in picked}):
     _kv = _LCKV.get(_a) or {}
     _n_ks = sum(len(b["khach_san"]) for b in _kv.get("bac_khach_san") or [])
     if _kv.get("khong_co_khach_san"):
-        _luu = "không có — xem mục 5"
+        _luu = f"không có — xem mục {S_ANNGU}"
     elif _n_ks:
         _luu = f"{_kv.get('tong_ks', 0)} cơ sở có giá"
     else:
@@ -375,8 +407,34 @@ P("⚠ Khu vực có dấu ⚠ ở cột Rộng thì các điểm trong đó cá
   "dùng để tìm cơ sở gần — chúng KHÔNG dùng chung một thị trường lưu trú, nên đừng "
   "gộp vào một đêm nghỉ.", size=8.5, color=AMBER)
 
+# Lop nay do Phase L thu thap (SRTM 30 m) va CHUA TUNG duoc in: do_cao 36/36,
+# do_nho 36/36, huong_mo 26/36 nam trong enrichment.json tu 28/07. Lan thu nam
+# trong du an nay mot lop du lieu duoc thu roi khong ai doc.
+# KHONG co cot phuong vi mat troi moc: gia tri giong nhau o ca 36 dong nen no
+# khong phan biet duoc diem nao voi diem nao. No o muc 1, mot dong.
+_DH = _an_ngu.tai_dia_hinh(RAW)
+if _DH and _DH["hang"]:
+    doc.add_page_break()
+    H(f"{S_DIAHINH}. Ngắm cảnh · săn mây · chụp ảnh", 1)
+    P("Suy ra từ mô hình độ cao SRTM 30 m — KHÔNG phải quan sát thực địa. Độ nhô là "
+      "độ cao của điểm trừ trung vị vùng xung quanh: số dương nghĩa là cao hơn cảnh "
+      "quan quanh nó nên tầm nhìn thoáng, số âm nghĩa là bị che.",
+      italic=True, size=9, color=AMBER)
+    TBL(["Điểm", "Độ cao", "Độ nhô", "Hướng mở"],
+        [[f"{x['id']} · {x['ten']}"[:38] + ("  ⚠" if x.get("canh_bao") else ""),
+          x["do_cao"], x["do_nho"] or "", x["huong_mo"] or "—"]
+         for x in _DH["hang"]], widths=[7.0, 2.4, 2.4, 4.2], size=8.5)
+    for x in _DH["hang"]:
+        if x.get("canh_bao"):
+            P(f"⚠ {x['id']} · {x['ten']} — {x['canh_bao']}. Mọi con số ở dòng này nói "
+              "về khu cổng, không nói về đỉnh.", bold=True, size=9, color=RED)
+    P("Toạ độ Đỉnh Langbiang chưa sửa. Vì vậy dòng cao nhất bảng này là "
+      f"{_DH['hang'][0]['ten']} ({_DH['hang'][0]['do_cao']}), không phải Langbiang — "
+      "đó là hệ quả của toạ độ sai, không phải sự thật về địa hình Đà Lạt.",
+      size=9, color=AMBER)
+
 doc.add_page_break()
-H("3. Danh sách điểm đến", 1)
+H(f"{S_DIEMDEN}. Danh sách điểm đến", 1)
 P("Thứ tự các mục trong mỗi hồ sơ là cổng lọc trước, mô tả sau: nhận dạng → khả năng tiếp cận "
   "→ kế hoạch thăm → giờ giấc. Một ràng buộc về đi lại loại bỏ địa điểm trước khi chi tiết "
   "chụp ảnh có ý nghĩa gì.", italic=True)
@@ -408,7 +466,7 @@ def khoi_khu_vuc(kv):
     if v.get("canh_bao_khoang_cach"):
         P("⚠ " + v["canh_bao_khoang_cach"], size=8.5, color=AMBER)
     if v.get("khong_co_khach_san"):
-        P(v["khong_co_khach_san"] + " Xem mục 5 để chọn theo bậc giá.",
+        P(v["khong_co_khach_san"] + f" Xem mục {S_ANNGU} để chọn theo bậc giá.",
           size=9, color=AMBER)
     for b in v["bac_khach_san"]:
         P(f"{b['ten']} — {b['tong']} cơ sở trong khu vực, {b['tong_thanh_pho']} "
@@ -586,9 +644,9 @@ _MON = _hoat_dong.tai_mon_an(RAW)
 _PC = _hoat_dong.tai_phong_cach(RAW)
 
 doc.add_page_break()
-H("4. Hoạt động — làm gì ở Đà Lạt", 1)
+H(f"{S_HOATDONG}. Hoạt động — làm gì ở Đà Lạt", 1)
 P(f"{_HDTK['so_hoat_dong']} hoạt động, {_HDTK['so_nhom']} nhóm. "
-  "Mã DL-xx dẫn về mục chi tiết ở mục 2.", italic=True, size=9, color=GREY)
+  f"Mã DL-xx dẫn về mục chi tiết ở mục {S_DIEMDEN}.", italic=True, size=9, color=GREY)
 
 _nhom_hien = None
 for _a in _HD:
@@ -667,10 +725,10 @@ _AU = _an_ngu.tai_an_uong(RAW)
 
 if _LT or _AU:
     doc.add_page_break()
-    H("5. Lưu trú & ăn uống", 1)
+    H(f"{S_ANNGU}. Lưu trú & ăn uống", 1)
 
 if _LT:
-    H("5.1 Lưu trú", 2)
+    H(f"{S_ANNGU}.1 Lưu trú", 2)
     # Nhom DUY NHAT trong ca tai lieu co GIA THAT — tu dang ky luu tru cua Cuc
     # Du lich Quoc gia, khong phai tu blog. Nen gia ghi thang.
     P(f"{_LT['tong']} cơ sở trong đăng ký lưu trú nhà nước · {_LT['nha_nuoc']} đã thẩm "
@@ -695,9 +753,9 @@ if _LT:
         _rd.font.color.rgb = RED
 
 if _AU:
-    H("5.2 Ăn uống", 2)
+    H(f"{S_ANNGU}.2 Ăn uống", 2)
     P(f"{_AU['tong_mo']:,} quán còn hoạt động · {_AU['co_dien_thoai']:,} có số gọi. "
-      "Món đặc trưng xem mục 3.".replace(",", "."), italic=True, size=9, color=GREY)
+      f"Món đặc trưng xem mục {S_HOATDONG}.".replace(",", "."), italic=True, size=9, color=GREY)
     for _n in _AU["nhom"]:
         H(f"{_n['ten']} — {_n['tong']} quán", 3)
         for _q in _n["quan"]:
@@ -714,8 +772,8 @@ if _AU:
 
 # ==================================================== 5-13 chi muc
 doc.add_page_break()
-H("6. Bảng so sánh", 1)
-P("Sinh tự động từ mục 2 — không sửa tay.", italic=True, size=9, color=GREY)
+H(f"{S_SOSANH}. Bảng so sánh", 1)
+P(f"Sinh tự động từ mục {S_DIEMDEN} — không sửa tay.", italic=True, size=9, color=GREY)
 TBL(["ID", "Điểm", "Loại", "Khu vực", "Km", "Phút", "Vé", "Nguồn"],
     [[r["id"], r["name"][:34], r["loai_vn"], r["area"][:20], f"{r['km']:.1f}",
       f"{r['min']:.0f}", r.get("fee") or UNV, len(r["src"])] for r in picked],
@@ -726,7 +784,7 @@ TBL(["ID", "Điểm", "Loại", "Khu vực", "Km", "Phút", "Vé", "Nguồn"],
 # va `km` da la COT cua bang so sanh; muc 2 gio da nhom theo khu vuc; va truong
 # "thoi diem tot trong ngay" la 0/36. Phan duy nhat co that trong muc 9 — nhom
 # "di duoc khi troi mua" — thanh mot cot cua bang so sanh.
-H("7. Tuyến gợi ý theo khu vực", 1)
+H(f"{S_TUYEN}. Tuyến gợi ý theo khu vực", 1)
 P("Thứ tự dựng bằng thuật toán láng giềng gần nhất trên ma trận OSRM, xuất phát từ điểm gần "
   "trung tâm nhất.", italic=True, size=9, color=GREY)
 if mat:
@@ -746,14 +804,14 @@ if mat:
         P(f"{a} — {len(route)} điểm · di chuyển giữa các điểm ~{tot:.0f} phút", bold=True, size=9.5)
         P("   " + " → ".join(f"{x['id']} {x['name']}" for x in route), size=9)
 
-H("8. Ma trận thời gian trong từng khu vực (phút)", 1)
+H(f"{S_MATRAN}. Ma trận thời gian trong từng khu vực (phút)", 1)
 # Truoc day la mot bang 36x36 = 1.296 o o co chu 6pt — khong vua mot trang doc
 # va khong ai tra thoi gian giua hai diem o hai dau thanh pho. Chia theo khu vuc:
 # chin bang nho, moi bang vua mot trang. Cap xa nhau van con trong osrm_selected.
 if mat:
     _idx8 = {pid: i for i, pid in enumerate(mat["ids"])}
     P("Chia theo khu vực: thời gian giữa các điểm trong cùng một buổi. Cặp ở hai khu "
-      "vực khác nhau thì tra mục 7 (tuyến gợi ý) hoặc cột Phút ở mục 6.",
+      f"vực khác nhau thì tra mục {S_TUYEN} (tuyến gợi ý) hoặc cột Phút ở mục {S_SOSANH}.",
       italic=True, size=9, color=GREY)
     for _a in sorted({r["area"] for r in picked}):
         _lst = [r for r in picked if r["area"] == _a]
@@ -782,7 +840,7 @@ if not _xh:
                      " build_huong_dan.py truoc de sinh lai.")
 rank = sorted(picked, key=lambda r: _xh.get(r["id"], 10 ** 6))
 
-H("9. Sổ kiểm chứng — việc cần làm", 1)
+H(f"{S_KIEMCHUNG}. Sổ kiểm chứng — việc cần làm", 1)
 n_tel = sum(1 for r in picked if r.get("tel"))
 TBL(["Chỉ số", "Giá trị"],
     [["Điểm trong hồ sơ", len(picked)],
@@ -812,6 +870,29 @@ TBL(["#", "Điểm", "Điện thoại"],
     [[i, f"{r['id']} · {r['name']}", r["tel"]]
      for i, r in enumerate([x for x in rank if x.get("tel")][:20], 1)],
     widths=[1.2, 9.0, 5.0], size=9)
+
+# Chon loc nam o `an_ngu_data.tai_nghien_cuu` — CUNG ham ma ban .md goi. Ban
+# truoc khoi nay chi co o ban .md nen ban .docx mat trang: 32 link Facebook, 21
+# luot check-in, 4 ti le de xuat va ca bang thu hang.
+_NC = _an_ngu.tai_nghien_cuu(RAW)
+if _NC and _NC["hang"]:
+    doc.add_page_break()
+    H("Phụ lục nghiên cứu — xuất xứ, không phải thông tin đi chơi", 1)
+    P("Các trường dưới đây đã được đưa ra khỏi hồ sơ điểm đến: người lập kế hoạch "
+      "không dùng chúng, người kiểm chứng nguồn thì cần. Tra theo mã DL-xx.",
+      italic=True, size=9, color=GREY)
+    TBL(["ID", "Điểm", "Trường", "Giá trị"],
+        [[i, t[:26], nhan, gt[:44]] for i, t, nhan, gt in _NC["hang"]],
+        widths=[1.6, 4.6, 3.4, 6.4], size=8)
+    P(f"{_NC['so_diem']}/{_NC['tong']} điểm có ít nhất một trường xuất xứ.",
+      italic=True, size=8.5, color=GREY)
+    H("Thứ hạng theo mức độ hiện diện trên bản đồ", 2)
+    P("⚠ Đây là chất lượng DỮ LIỆU, không phải chất lượng trải nghiệm. Mục "
+      f"{S_KIEMCHUNG} dùng đúng thứ hạng này làm thứ tự gọi điện xác minh — đó là "
+      "công dụng đúng của nó. Không dùng làm lời khuyên “nơi này hay hơn nơi kia”.",
+      bold=True, size=9, color=RED)
+    for lab, seg in _NC["xep_hang"]:
+        P(f"{lab} ({len(seg)}): " + " · ".join(f"{i} {t}" for i, t in seg), size=9)
 
 doc.add_page_break()
 H("Phụ lục — Tóm tắt độ phủ (đọc lại trước khi trả lời khách)", 1)
