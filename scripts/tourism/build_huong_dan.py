@@ -10,6 +10,7 @@ Suy dien chi duoc phep o 3 cho da duyet truoc: trong nha/ngoai troi tu loai hinh
 link ban do tu toa do, diem lan can tu ma tran OSRM. Ngoai ra -> [CHƯA XÁC MINH].
 """
 import json, os, sys, io, time, math, urllib.request
+import re as _re
 from collections import Counter, defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -330,6 +331,71 @@ else:
               ensure_ascii=False, indent=1)
     print(f"  da chot danh sach DL-xx -> {os.path.basename(CHOT)}")
 
+# ── SUA LOAI HINH THEO TEN — sau khi da chon, khong truoc ──────────────────
+# 8/36 diem mang loai chinh `Dinh thự / Di tích` va 7 trong so do sai. Te nhat:
+# `Chùa Linh Phước` — mot ngoi chua — trong khi bon ngoi chua khac dan nhan
+# dung `Chùa / Thiền viện`.
+#
+# NGUYEN NHAN KHONG NAM O BANG QUY DOI. Da kiem: `CROSSWALK` trong
+# build_destinations_md.py xep `Chùa / Thiền viện` o vi tri 2, TRUOC
+# `Dinh thự / Di tích` o vi tri 7, kem san mot chu thich giai thich vi sao.
+# Loi nam mot lop TREN: buoc hop nhat khong gop duoc cac ban ghi cua CUNG mot
+# noi. Ban kinh 150 m + phep khop ten tieng Viet khong noi duoc
+# `Linh Phuoc Pagoda` voi `Chùa Linh Phước - Đà Lạt`, va mot khu chua rong thi
+# cac nguon danh dau cach nhau hon 150 m. Ket qua: BA dong roi nhau cho cung
+# ngoi chua (Langbiang co CHIN dong), va dong thang cuoc chon la manh chi co
+# Overture voi `kinds = ['landmark_and_historical_building']` — dong co thong
+# tin NGHEO NHAT, khong phai dong bi xep sai uu tien.
+#
+# Sua goc (noi lai buoc hop nhat) doi tap 36 -> doi id DL-xx theo vi tri -> phai
+# chay lai ca 11 luot enrich. Nen o day sua theo TEN, la thu khong the sai:
+# ten co chu `chùa` thi do la mot ngoi chua.
+#
+# Dat SAU khi chon va SAU khi chot id: `loai_vn` tham gia vao `EXCLUDE_CAT` va
+# `CAT_TIER`, nen sua truoc khi chon se doi CHINH tap 36 duoc chon.
+# Tach Phat giao va Thien Chua giao thanh hai nhom RIENG — gop lam mot thi ba
+# nha tho DL-05/16/25 dang dung se bi keo sang `Chùa / Thiền viện`.
+LUAT_TEN = [
+    ("Chùa / Thiền viện", ("chùa", "thiền viện", "tịnh xá", "tu viện", "cổ sát")),
+    ("Nhà thờ", ("nhà thờ", "giáo xứ", "thánh đường")),
+    ("Thác nước", ("thác",)),
+    ("Hồ / Đập", ("hồ", "đập")),
+    ("Núi / Đèo / Đường mòn", ("đỉnh", "núi", "đèo")),
+]
+# Bon ten ghep khong co tu khoa nao de bam vao — luat tren khong the voi tro.
+# Bang tay bon dong, moi dong mot ly do.
+LOAI_TAY = {
+    "Khu Du Lịch Lang Biang": "Khu vui chơi",      # khu cong + dich vu, khong phai di tich
+    "Suối Vàng Dalat & Đường Hầm Đất Sét": "Khu vui chơi",   # duong ham dat set la cong trinh tham quan
+    "Làng Cù Lần": "Khu vui chơi",                 # lang du lich dung san, khong phai di tich
+    "Khu Di Tích Dinh Bảo Đại": "Dinh thự / Di tích",        # dung — giu nguyen, ghi ro de khong ai "sua"
+}
+
+
+def _co_tu_ten(ten, tu):
+    """Bien tu o hai dau, GIU NGUYEN DAU. Cung khuon `_co_tu` cua
+    hoat_dong_data.py: bo dau thi `Đỉnh` thanh `dinh`, trung tu `dinh` cua
+    `Dinh thự`, va bay do chinh la thu luat nay sinh ra de tranh."""
+    return _re.search(r"(?<![0-9A-Za-zÀ-ỹ])" + _re.escape(tu)
+                      + r"(?![0-9A-Za-zÀ-ỹ])", ten.lower()) is not None
+
+
+_sua_loai = []
+for r in picked:
+    moi = LOAI_TAY.get(r["name"])
+    if not moi:
+        for nhan, tu_khoa in LUAT_TEN:
+            if any(_co_tu_ten(r["name"], t) for t in tu_khoa):
+                moi = nhan
+                break
+    if moi and moi != r["loai_vn"]:
+        _sua_loai.append((r["id"], r["name"], r["loai_vn"], moi))
+        r["loai_vn"] = moi
+if _sua_loai:
+    print(f"  sua loai hinh theo ten: {len(_sua_loai)} diem")
+    for _i, _t, _cu, _moi in _sua_loai:
+        print(f"     {_i} {_t[:34]:36s} {_cu} -> {_moi}")
+
 # ------------------------------------------------- ma tran OSRM giua cac diem
 CACHE = os.path.join(RAW, "osrm_selected.json")
 mat = None
@@ -444,7 +510,11 @@ def w(s):
 w("# HƯỚNG DẪN ĐIỂM ĐẾN ĐÀ LẠT\n\n")
 w(f"> Hồ sơ chi tiết **{len(picked)} điểm đến** · sinh tự động ngày {BUILD_DATE} · "
   "nguồn: OpenStreetMap · Overture Maps · Foursquare OS · Wikidata · OSRM · "
-  "đăng ký lưu trú Cục Du lịch Quốc gia\n\n")
+  "đăng ký lưu trú Cục Du lịch Quốc gia · "
+  # Wikipedia PHAI co trong dong nay. Truoc day 19 doan mo ta da trich tu
+  # Wikipedia ma khong ghi cong — CC BY-SA 4.0 doi ghi cong kem lien ket, va
+  # dong nguon nay la cho duy nhat nguoi doc thay duoc.
+  "[Wikipedia tiếng Việt](https://vi.wikipedia.org) (CC BY-SA 4.0)\n\n")
 
 w(f"## {S_QUYTAC}. QUY TẮC ĐỌC — BẮT BUỘC ĐỌC TRƯỚC\n\n")
 w("Tài liệu này được viết để **một tác nhân AI đọc và tư vấn cho khách trả tiền**. "
@@ -546,10 +616,12 @@ if _DH and _DH["hang"]:
         if _x.get("canh_bao"):
             w(f"⚠ **{_x['id']} · {_x['ten']}** — {_x['canh_bao']}. Mọi con số ở dòng "
               "này nói về khu cổng, không nói về đỉnh.\n\n")
-    # Noi thang ra rang phep kiem cua chinh Phase L van dang truot.
-    w("**Toạ độ Đỉnh Langbiang chưa sửa.** Vì vậy dòng cao nhất bảng này là "
-      f"*{_DH['hang'][0]['ten']}* ({_DH['hang'][0]['do_cao']}), không phải Langbiang — "
-      "đó là hệ quả của toạ độ sai, không phải sự thật về địa hình Đà Lạt.\n\n")
+    # Noi thang: dong cao nhat bang nay khong phai dinh cao nhat Da Lat.
+    w(f"**Dòng cao nhất bảng này là *{_DH['hang'][0]['ten']}* "
+      f"({_DH['hang'][0]['do_cao']}) — không phải đỉnh cao nhất vùng.** Đỉnh Núi Bà "
+      "(Langbiang) cao **2.138 m** theo cùng mô hình SRTM, nhưng bảng này xếp theo "
+      "toạ độ đang lưu của mỗi điểm, và toạ độ của `DL-04` là khu cổng ở 1.469 m — "
+      "cố ý giữ như vậy vì đó là nơi khách thực sự lái xe tới. Xem ghi chú ⚠ ở trên.\n\n")
 
 # ============================================================ 4. ho so diem
 w(f"---\n\n## {S_DIEMDEN}. DANH SÁCH ĐIỂM ĐẾN\n\n")
@@ -624,6 +696,16 @@ for r in picked:
     w(f"\n#### {r['id']} · {r['name']}\n\n")
     w("> *Chỉ nêu những trường KHÔNG mang dấu `[CHƯA XÁC MINH]`. Trường mang dấu đó: "
       "nói với khách là chưa xác minh được.*\n\n")
+
+    # ── MO TA: trich nguyen van, ngoai khoi ``` de doc duoc nhu van xuoi ────
+    # Khong dien dat lai. Van ban Wikipedia la CC BY-SA 4.0: ghi cong thi du,
+    # nhung SUA lai la tao "Adapted Material" va lam phat sinh nghia vu chia se
+    # tuong tu cho chinh doan da sua. Trich hoac bo, khong co lua chon thu ba.
+    if has(r["id"], "mo_ta_wikipedia"):
+        _e = ENR[r["id"]]["mo_ta_wikipedia"]
+        w(f"> {_e['value']}\n>\n> — *{_e.get('source') or 'Wikipedia tiếng Việt'}"
+          + (f" · [bài gốc]({_e['url']})" if _e.get("url") else "")
+          + f" · trích nguyên văn · {_e.get('date') or ''}*\n\n")
 
     w(sec("Nhận dạng") + "\n\n")
     w("```\n")
@@ -1096,7 +1178,6 @@ w("  - giờ mở cửa      - giá vé      - mức độ dễ đi lại cho ng
 w("```\n\n")
 w("*Tài liệu này chứa dữ liệu từ OpenStreetMap. Dữ liệu © những người đóng góp OpenStreetMap, "
   "theo giấy phép Open Database License — https://openstreetmap.org/copyright*\n")
-import re as _re
 
 # ---------- loc bo moi dong truong chua co du lieu ----------
 # Yeu cau cua chu du an: chi giu truong DA XAC MINH. Chi bo cac dong dang

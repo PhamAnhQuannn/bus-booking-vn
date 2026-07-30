@@ -339,7 +339,11 @@ def TBL(headers, data, widths=None, size=8.5):
 H("HƯỚNG DẪN ĐIỂM ĐẾN ĐÀ LẠT", 0)
 P(f"Hồ sơ chi tiết {len(picked)} điểm đến · sinh tự động ngày {BUILD_DATE}", italic=True, size=11)
 P("Nguồn: OpenStreetMap · Overture Maps · Foursquare OS · Wikidata · OSRM · "
-  "đăng ký lưu trú Cục Du lịch Quốc gia", italic=True, size=9, color=GREY)
+  "đăng ký lưu trú Cục Du lịch Quốc gia · "
+  # Wikipedia PHAI co o day: cac doan mo ta trich nguyen van tu Wikipedia, va
+  # CC BY-SA 4.0 doi ghi cong kem lien ket.
+  "Wikipedia tiếng Việt (CC BY-SA 4.0, https://vi.wikipedia.org)",
+  italic=True, size=9, color=GREY)
 
 H(f"{S_QUYTAC}. QUY TẮC ĐỌC — BẮT BUỘC", 1)
 P("QUAN TRỌNG — tài liệu này CHỈ liệt kê những trường ĐÃ XÁC MINH. "
@@ -495,6 +499,15 @@ for r in picked:
         khoi_khu_vuc(cur_area)
     H(f"{r['id']} · {r['name']}", 3)
     srcs = "+".join(r["src"])
+    # Mo ta trich nguyen van tu Wikipedia — cung nguon voi ban .md.
+    # Khong dien dat lai: sua van ban CC BY-SA 4.0 la tao "Adapted Material" va
+    # lam phat sinh nghia vu chia se tuong tu cho chinh doan da sua.
+    if has(r["id"], "mo_ta_wikipedia"):
+        _e = ENR[r["id"]]["mo_ta_wikipedia"]
+        P(_e["value"], italic=True, size=9.5)
+        P(f"— {_e.get('source') or 'Wikipedia tiếng Việt'} · trích nguyên văn · "
+          f"{_e.get('date') or ''}" + (f" · {_e['url']}" if _e.get("url") else ""),
+          italic=True, size=8, color=GREY)
     spec = [("group", "Nhận dạng"),
             ("f", "Tên", r["name"]),
             ("f", "Tên khác", ", ".join(vn_only(x) for x in (r.get("alt") or []) if vn_only(x)) or UNV),

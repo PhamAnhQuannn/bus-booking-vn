@@ -91,7 +91,14 @@ KHOI = [("phu luc nghien cuu", "Trang Facebook", 1),
         ("khoi khu vuc", "Lưu trú & ăn uống trong khu vực", 9),
         ("tro ve khoi khu vuc", "xem khối đầu khu vực", 36),
         ("canh bao website", "Website đã lưu", 8),
-        ("lop dia hinh", "Độ nhô", 1)]
+        ("lop dia hinh", "Độ nhô", 1),
+        # Them sau khi bo kiem nay BO SOT dung mot lan: 28 doan mo ta Wikipedia
+        # vao ban .md ma khong vao ban .docx, va bo kiem van bao KHOP — vi danh
+        # sach nay khong co dong nao ve mo ta. Mot bo kiem chi bat duoc thu no
+        # duoc bao la phai bat; moi khoi noi dung moi phai them mot dong o day,
+        # neu khong no nam ngoai vung phu.
+        ("mo ta Wikipedia", "trích nguyên văn", 20),
+        ("ghi cong CC BY-SA", "CC BY-SA 4.0", 1)]
 for ten, chuoi, toi_thieu in KHOI:
     a, b = md.count(chuoi), dx.count(chuoi)
     if a == 0 or b == 0:

@@ -193,10 +193,29 @@ def tai_dia_hinh(raw_dir):
     # khu cong va ban ve, khong phai dinh 1.951 m cach 4,5 km ve phia bac. In
     # tran thi bang nay noi rang diem ngam canh noi tieng nhat Da Lat nam trong
     # mot cho trung.
+    # ── DL-04: BA do cao khac nhau, khong phai hai ────────────────────────
+    # Ke hoach ban dau la doi toa do sang dinh. Da do truoc khi doi, va phep do
+    # do CHAN viec doi:
+    #     cong (toa do dang luu) 1.469 m · duong gan nhat "Lang Biang" cach 12 m
+    #                            · OSRM tu ho Xuan Huong 10,5 km / 12 phut
+    #     dinh Nui Ba (12,0473 / 108,4406) 2.138 m theo SRTM · duong gan nhat
+    #                            KHONG TEN cach 892 m · OSRM 24,9 km / 48 phut
+    # Doi sang toa do dinh thi `do_cao` dung nhung `km`/`phut` thanh 24,9 km /
+    # 48 phut — tuc mot con duong di vong quanh nui, khong phai duong khach thuc
+    # su di (khach lai den cong roi len bang xe jeep hoac di bo). Doi mot loi DA
+    # DUOC DANH DAU thanh mot loi KHONG duoc danh dau la tệ hơn.
+    # Nen: giu toa do cong — no dung cho viec di lai — va noi ra ca ba con so.
+    # Tach thanh ba ban ghi (cong / san ngam canh / dinh) van la viec dung, va
+    # van hoan, vi no doi tap 36 diem.
     for x in rows:
         if x["id"] == "DL-04":
-            x["canh_bao"] = ("toạ độ đang lưu là KHU CỔNG / bãi vé, không phải đỉnh"
-                             " — đỉnh thật ~1.951 m, cách ~4,5 km về phía bắc")
+            x["canh_bao"] = (
+                "toạ độ đang lưu là KHU CỔNG / bãi vé ở 1.469 m — đúng cho việc"
+                " đi lại (10,5 km · 12 phút từ hồ Xuân Hương), nhưng KHÔNG phải"
+                " đỉnh. Sân ngắm cảnh cao hơn, lên bằng xe jeep hoặc đi bộ từ"
+                " cổng. Đỉnh Núi Bà thật ở 12,0473 / 108,4406 cao 2.138 m theo"
+                " SRTM, cách 5,07 km về phía bắc, không có đường ô tô tới"
+                " (đường gần nhất cách 892 m)")
     return {"hang": rows,
             "binh_minh": next((val(r["id"], "huong_binh_minh") for r in G["picked"]
                                if val(r["id"], "huong_binh_minh")), None)}
