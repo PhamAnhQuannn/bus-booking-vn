@@ -4,9 +4,28 @@
 Doc raw/guide_data.json do build_huong_dan.py xuat ra — MOT lan chon, MOT lan
 hop nhat, hai dinh dang dau ra. Khong lam lai logic chon/hop nhat o day.
 
-Word lam duoc mot viec Markdown khong lam duoc: TO MAU. Ca gia tri cua tai lieu
-nay nam o cho [CHƯA XÁC MINH] khong the bo qua duoc — mau do lam duoc dieu do,
-chu **in dam** thi khong.
+═══════════════════════════════════════════════════════════════════════════════
+DOCSTRING CU CUA FILE NAY LA SAI, VA DAY LA BAN SUA.
+
+No ghi: "Word lam duoc mot viec Markdown khong lam duoc: TO MAU. Ca gia tri cua
+tai lieu nay nam o cho [CHƯA XÁC MINH] khong the bo qua duoc — mau do lam duoc
+dieu do, chu in dam thi khong."
+
+Co che do DA CHET. `field_table()` bo MOI dong co gia tri bat dau bang UNV
+TRUOC khi render, va `value_run()` chi duoc goi tu trong `field_table()` — nen
+nhanh to do trong `value_run` khong bao gio chay duoc, va vong quet the cua no
+lap tren mot tuple rong. Chinh sach da doi tu "danh dau bang mau" sang "bo han
+dong", va cau tren khong duoc sua theo.
+
+VAY BAN .docx CON DE LAM GI: no la ban cho NGUOI doc soat, khong phai cho tac
+nhan AI (ban .md moi la ban cua tac nhan — muc 0 noi ro the). Mau va bong to
+khong co nghia gi voi mot bo trich van ban, nhung co nghia voi mot nguoi dang
+quet tim cho thieu truoc khi goi dien xac minh o muc 9.
+
+Tin hieu cho thieu gio nam o CAP NHOM, khong o cap dong: moi nhom in mot dong
+xam "— N/M truong da xac minh —". Nguoi doc thay do day cua khoang trong ma
+khong phai doc 1.336 dong [CHƯA XÁC MINH].
+═══════════════════════════════════════════════════════════════════════════════
 """
 import json, os, sys, io
 from collections import Counter, defaultdict
@@ -32,6 +51,7 @@ OUT_MAC_DINH = "docs/Huong-Dan-Da-Lat.docx"
 RAW = sys.argv[1]
 OUT = sys.argv[2] if len(sys.argv) > 2 else OUT_MAC_DINH
 _LAN_CAN = _an_ngu.tai_lan_can(RAW)
+_LCKV = _an_ngu.tai_lan_can_khu_vuc(RAW)   # khoi theo KHU VUC, in mot lan
 G = json.load(io.open(os.path.join(RAW, "guide_data.json"), encoding="utf-8"))
 picked, NEAR, mat = G["picked"], G["near"], G["matrix"]
 BUILD_DATE = G["build_date"]
@@ -88,7 +108,14 @@ def shade(cell, hexcolor):
 
 
 def H(t, lvl=1):
-    return doc.add_heading(t, level=lvl)
+    h = doc.add_heading(t, level=lvl)
+    # Khong de tieu de mac ket mot minh o cuoi trang, cach doi noi dung sang
+    # trang sau. `keep_with_next` la API san cua python-docx, khong can OXML.
+    # Day la cach nhe hon nhieu so voi "moi the mot trang" — the dai ngan khac
+    # nhau nen moi trang mot the vua thua giay vua khong giu duoc loi hua do,
+    # con nguoi soat thi can thay nhieu the cung luc.
+    h.paragraph_format.keep_with_next = True
+    return h
 
 
 def P(t="", bold=False, italic=False, size=10, color=None):
@@ -135,12 +162,48 @@ def value_run(par, text):
         r.font.color.rgb = AMBER if tag.startswith("[SUY RA") else GREY
 
 
+def lap_dong_dau(t):
+    """Lap dong tieu de tren moi trang khi bang tran sang trang sau.
+
+    Khong ap cho `field_table`: bang do co NHIEU dong tieu de nhom rai rac chu
+    khong phai mot dong dau, nen dat co nay se dun moi tieu de nhom len dau moi
+    trang tiep — sai han.
+    """
+    if not t.rows:
+        return
+    trPr = t.rows[0]._tr.get_or_add_trPr()
+    el = OxmlElement("w:tblHeader")
+    el.set(qn("w:val"), "true")
+    trPr.append(el)
+
+
 def field_table(rows_spec):
     """rows_spec: ('group', title) | ('f', nhan, gia tri) | ('note', text)
 
     Chi giu truong DA XAC MINH: moi dong co gia tri [CHƯA XÁC MINH] bi bo, va nhom
     nao khong con dong nao thi bo luon tieu de nhom.
     """
+    # ── DEM truoc khi loc, de con biet da bo bao nhieu ────────────────────
+    # Ly do ton tai cua ban .docx, theo docstring cua chinh no, la TO MAU dong
+    # [CHƯA XÁC MINH] cho khong the bo qua. Nhung dong loc ngay duoi xoa han
+    # nhung dong do TRUOC khi render, va `value_run` chi duoc goi tu ham nay —
+    # nen nhanh to do trong `value_run` khong bao gio chay duoc. Co che ma tai
+    # lieu vien dan de ton tai da chet tu luc chinh sach doi tu "danh dau" sang
+    # "bo han".
+    # Khong dua dong do tro lai (do la quyet dinh co y). Thay vao do dua tin
+    # hieu len MOT CAP: moi nhom ghi ro con bao nhieu tren tong bao nhieu. Doc
+    # gia thay duoc do day cua khoang trong ma khong phai doc 1.336 dong do.
+    tong_nhom, con_nhom, nhom_ht = {}, {}, None
+    for x in rows_spec:
+        if x[0] == "group":
+            nhom_ht = x[1]
+            tong_nhom.setdefault(nhom_ht, 0)
+            con_nhom.setdefault(nhom_ht, 0)
+        elif x[0] == "f" and nhom_ht:
+            tong_nhom[nhom_ht] += 1
+            if not str(x[2]).startswith(UNV):
+                con_nhom[nhom_ht] += 1
+
     kept = [x for x in rows_spec if not (x[0] == "f" and str(x[2]).startswith(UNV))]
     out = []
     for i, x in enumerate(kept):
@@ -149,9 +212,27 @@ def field_table(rows_spec):
             if nxt is None or nxt[0] == "group":
                 continue
         out.append(x)
-    rows_spec = out
+    # Chen dong "con N/M truong" vao cuoi moi nhom con song.
+    with_note, nhom_ht = [], None
+    for i, x in enumerate(out):
+        if x[0] == "group":
+            if nhom_ht and tong_nhom.get(nhom_ht, 0) > con_nhom.get(nhom_ht, 0):
+                with_note.append(("done", f"{con_nhom[nhom_ht]}/{tong_nhom[nhom_ht]}"
+                                          " trường đã xác minh"))
+            nhom_ht = x[1]
+        with_note.append(x)
+    if nhom_ht and tong_nhom.get(nhom_ht, 0) > con_nhom.get(nhom_ht, 0):
+        with_note.append(("done", f"{con_nhom[nhom_ht]}/{tong_nhom[nhom_ht]}"
+                                  " trường đã xác minh"))
+    rows_spec = with_note
+    # Danh so o DAY, sau khi da loc. Dem luc dung spec thi van de lai lo: nhom
+    # "Luu y quan trong" nhan so 5 roi bi xoa vi ca 7 truong con deu 0/36, va moi
+    # ho so hien A.1-A.4 roi nhay sang A.6 — dung cai day so nhay ma viec danh so
+    # lai sinh ra de sua, chi dich mot buoc.
+    _muc[0] = 0
     t = doc.add_table(rows=0, cols=2)
     t.style = "Table Grid"
+    t.autofit = False
     t.alignment = WD_TABLE_ALIGNMENT.LEFT
     for spec in rows_spec:
         cells = t.add_row().cells
@@ -159,10 +240,22 @@ def field_table(rows_spec):
             cells[0].merge(cells[1])
             c = t.rows[-1].cells[0]
             c.text = ""
-            r = c.paragraphs[0].add_run(spec[1])
+            _muc[0] += 1
+            r = c.paragraphs[0].add_run(f"A.{_muc[0]} — {spec[1]}")
             r.bold = True
             r.font.size = Pt(9.5)
             shade(c, "E8EDF3")
+            continue
+        if spec[0] == "done":
+            # Xam nhat, khong phai do: day khong phai canh bao, chi la thuoc do
+            # do day. Do danh cho `note` — thu nguoi doc phai hanh dong.
+            cells[0].merge(cells[1])
+            c = t.rows[-1].cells[0]
+            c.text = ""
+            r = c.paragraphs[0].add_run("— " + spec[1] + " —")
+            r.italic = True
+            r.font.size = Pt(7.5)
+            r.font.color.rgb = GREY
             continue
         if spec[0] == "note":
             cells[0].merge(cells[1])
@@ -189,6 +282,10 @@ def field_table(rows_spec):
 def TBL(headers, data, widths=None, size=8.5):
     t = doc.add_table(rows=1, cols=len(headers))
     t.style = "Light Grid Accent 1"
+    # `autofit` mac dinh True, nghia la Word TINH LAI chieu rong khi mo file va
+    # bo qua moi `cell.width` dat o duoi. Tat no thi cac so kia moi co tac dung.
+    t.autofit = False
+    lap_dong_dau(t)
     for i, h in enumerate(headers):
         c = t.rows[0].cells[i]
         c.text = ""
@@ -248,23 +345,99 @@ P("⚠ Năm hàng cuối là khoảng trống có thật, không phải lỗi hi
   "khách tới bằng gì và đi lại bằng gì thì chưa phải một lịch trình.", bold=True, color=RED)
 
 # ==================================================== 2. ho so tung diem
+# ── muc MOI. Cau hoi thuong gap nhat — "di 3-5 ngay thi chia the nao" —
+# truoc day khong muc nao tra loi o cap KHU VUC, la cap nguoi ta thuc su chia
+# ngay. Moi con so rut tu guide_data.json + lan_can_khu_vuc.json.
 doc.add_page_break()
-H("2. Danh sách điểm đến", 1)
+H("2. Tổng quan theo khu vực", 1)
+P("Chia ngày theo khu vực, không theo từng điểm: các điểm trong một khu vực đủ gần "
+  "để đi liền trong cùng buổi.", italic=True, size=9, color=GREY)
+_rows_kv = []
+for _a in sorted({r["area"] for r in picked}):
+    _ps = [r for r in picked if r["area"] == _a]
+    _kv = _LCKV.get(_a) or {}
+    _n_ks = sum(len(b["khach_san"]) for b in _kv.get("bac_khach_san") or [])
+    if _kv.get("khong_co_khach_san"):
+        _luu = "không có — xem mục 5"
+    elif _n_ks:
+        _luu = f"{_kv.get('tong_ks', 0)} cơ sở có giá"
+    else:
+        _luu = "—"
+    _rong = _kv.get("ban_kinh_khu_vuc", "—")
+    if _kv.get("canh_bao_khoang_cach"):
+        _rong += "  ⚠"
+    _rows_kv.append([_a, str(len(_ps)),
+                     f"{min(r['km'] for r in _ps):.1f} – {max(r['km'] for r in _ps):.1f}",
+                     _rong, _luu])
+TBL(["Khu vực", "Điểm", "Km từ trung tâm", "Rộng", "Lưu trú trong khu vực"],
+    _rows_kv, widths=[4.6, 1.2, 3.2, 2.2, 4.8], size=9)
+P("⚠ Khu vực có dấu ⚠ ở cột Rộng thì các điểm trong đó cách nhau xa hơn bán kính 5 km "
+  "dùng để tìm cơ sở gần — chúng KHÔNG dùng chung một thị trường lưu trú, nên đừng "
+  "gộp vào một đêm nghỉ.", size=8.5, color=AMBER)
+
+doc.add_page_break()
+H("3. Danh sách điểm đến", 1)
 P("Thứ tự các mục trong mỗi hồ sơ là cổng lọc trước, mô tả sau: nhận dạng → khả năng tiếp cận "
   "→ kế hoạch thăm → giờ giấc. Một ràng buộc về đi lại loại bỏ địa điểm trước khi chi tiết "
   "chụp ảnh có ý nghĩa gì.", italic=True)
 
 INDOOR_NOTE = {"trong nhà": "không gian trong nhà", "có mái": "phần lớn có mái che",
                "hỗn hợp": "vừa có mái vừa ngoài trời", "ngoài trời": "địa hình ngoài trời"}
+_muc = [0]
+
+
+def sec(nhan):
+    """Nhan tieu muc, DEM theo tung ho so — giong `sec()` cua ban .md.
+
+    Chuoi cung `A.1/A.11/A.9/A.3/A.4/A.10/A.13` de lai lo `A.2`, `A.5`-`A.8`,
+    `A.12` khong ton tai o BAT KY ho so nao, va nguoi doc ket luan tai lieu bi
+    thieu muc. Dem theo the thi luon lien tuc, ke ca khi mot nhom bi bo loc
+    rong xoa han.
+    """
+    _muc[0] += 1
+    return f"A.{_muc[0]} — {nhan}"
+
+
+def khoi_khu_vuc(kv):
+    """Khach san + quan an cho CA KHU VUC, in mot lan o dau khu vuc."""
+    v = _LCKV.get(kv)
+    if not v:
+        return
+    P(f"Lưu trú & ăn uống trong khu vực — {v['so_diem']} điểm, cách nhau tối đa "
+      f"{v['ban_kinh_khu_vuc']}", bold=True, size=9.5)
+    if v.get("canh_bao_khoang_cach"):
+        P("⚠ " + v["canh_bao_khoang_cach"], size=8.5, color=AMBER)
+    if v.get("khong_co_khach_san"):
+        P(v["khong_co_khach_san"] + " Xem mục 5 để chọn theo bậc giá.",
+          size=9, color=AMBER)
+    for b in v["bac_khach_san"]:
+        P(f"{b['ten']} — {b['tong']} cơ sở trong khu vực, {b['tong_thanh_pho']} "
+          "trên toàn Đà Lạt", italic=True, size=9, color=GREY)
+        TBL(["Khách sạn", "Giá/đêm", "Cách", "Gần", "Phòng", "Điện thoại", "Thẩm định"],
+            [[h["ten"][:30], h["gia"] or "", h["khoang_cach"], h["gan_diem"],
+              str(h["so_phong"] or ""), h["dien_thoai"] or "", h["tham_dinh"] or ""]
+             for h in b["khach_san"]],
+            widths=[4.4, 2.6, 1.5, 1.4, 1.2, 2.6, 2.3], size=8)
+    if v["loai_quan"]:
+        P(f"Quán ăn — {v['tong_quan']} quán còn mở trong khu vực",
+          italic=True, size=9, color=GREY)
+        TBL(["Loại", "Quán", "Cách", "Gần", "Điện thoại"],
+            [[l["ten"], q["ten"][:32], q["khoang_cach"], q["gan_diem"],
+              q["dien_thoai"] or ""]
+             for l in v["loai_quan"] for q in l["quan"]],
+            widths=[3.0, 5.4, 1.5, 1.4, 2.7], size=8)
+
+
 cur_area = None
 for r in picked:
     if r["area"] != cur_area:
         cur_area = r["area"]
         doc.add_page_break()
         H(f"Khu vực: {cur_area}", 2)
+        khoi_khu_vuc(cur_area)
     H(f"{r['id']} · {r['name']}", 3)
     srcs = "+".join(r["src"])
-    spec = [("group", "A.1 — Nhận dạng"),
+    spec = [("group", "Nhận dạng"),
             ("f", "Tên", r["name"]),
             ("f", "Tên khác", ", ".join(vn_only(x) for x in (r.get("alt") or []) if vn_only(x)) or UNV),
             ("f", "Loại hình", r["loai_vn"]
@@ -280,16 +453,17 @@ for r in picked:
                      ("Ảnh (tự do bản quyền)", "anh"),
                      ("Website chính thức", "website_chinh_thuc"),
                      ("⚠ Website đã lưu", "canh_bao_website"),
-                     ("Kiểm tra trang web", "kiem_tra_website"),
-                     ("Trang Facebook", "trang_facebook"),
-                     ("Email (Facebook)", "email_facebook"),
-                     ("Lượt check-in", "luot_checkin"),
-                     ("Người theo dõi FB", "nguoi_theo_doi"),
-                     ("Tỉ lệ đề xuất (FB)", "ty_le_gioi_thieu")):
+                     ("Kiểm tra trang web", "kiem_tra_website")):
+        # Nam truong xuat xu (Trang Facebook, Email FB, Luot check-in, Nguoi
+        # theo doi, Ti le de xuat) da chuyen sang PHU LUC NGHIEN CUU — chung la
+        # xuat xu, khong phai thong tin di choi.
+        # `canh_bao_website` o tren thi KHONG chuyen: no noi rang URL in ngay
+        # duoi no khong phai trang cua dia diem nay. Mot canh bao phai nam canh
+        # thu no canh bao.
         if has(r["id"], _k):
             spec.append(("f", _lab, ev(r["id"], _k)))
     spec += [
-            ("group", "A.11 — Tiện nghi tại chỗ  ·  cổng lọc đầu tiên")]
+            ("group", "Tiện nghi tại chỗ  ·  cổng lọc đầu tiên")]
     _fac = [("Nhà vệ sinh", "nha_ve_sinh"), ("Bãi đỗ xe", "bai_do_xe"),
             ("Chỗ ngồi nghỉ", "cho_ngoi"), ("Hàng ăn", None), ("Hàng nước", "nuoc_uong"),
             ("Quà lưu niệm", "qua_luu_niem"), ("Hướng dẫn viên", None),
@@ -315,7 +489,7 @@ for r in picked:
                 "Núi / Đèo / Đường mòn": "ngoài trời", "Nông trại / Vườn": "ngoài trời",
                 "Cáp treo": "ngoài trời"}
     ind = from_cat.get(r["loai_vn"])
-    spec += [("group", "A.9 — Kế hoạch thăm"),
+    spec += [("group", "Kế hoạch thăm"),
              ("f", "Thời lượng thăm", UNV + " ← không có mục này thì không xếp được lịch một ngày"),
              ("f", "Thời điểm tốt trong ngày", UNV),
              ("f", "Mùa tốt nhất", UNV),
@@ -325,7 +499,7 @@ for r in picked:
              ("f", "Độ khó", UNV),
              ("f", "Phù hợp trẻ nhỏ", UNV),
              ("f", "Phù hợp người cao tuổi", UNV),
-             ("group", "A.3 — Giờ giấc và chi phí"),
+             ("group", "Giờ giấc và chi phí"),
              ("f", "Ngày mở cửa", UNV),
              ("f", "Giờ mở cửa", r["hours"] if r.get("hours")
               else ev(r["id"], "gio_mo_cua")),
@@ -346,11 +520,11 @@ for r in picked:
         if r.get("csdl_gia_max") and r["csdl_gia_max"] != r["csdl_gia_min"]:
             g += "–" + f"{r['csdl_gia_max']:,}".replace(",", ".")
         spec.append(("f", "Giá phòng (lưu trú)", f"{g}₫/đêm"))
-    spec.append(("group", "A.12 — Lưu ý quan trọng"))
+    spec.append(("group", "Lưu ý quan trọng"))
     for f_ in ("Trang phục", "Giày dép", "Lưu ý thời tiết", "An toàn", "Giờ đông khách",
                "Nên mang theo", "Điều cấm"):
         spec.append(("f", f_, UNV))
-    spec += [("group", "A.4 — Vị trí và di chuyển"),
+    spec += [("group", "Vị trí và di chuyển"),
              ("f", "Từ hồ Xuân Hương",
               f"{r['km']:.1f} km · {r['min']:.0f} phút"
               if r.get("min") is not None else UNV),
@@ -359,7 +533,7 @@ for r in picked:
              ("f", "Tình trạng đường", UNV),
              ("f", "Phương tiện tới được", UNV),
              ("f", "Bãi đỗ xe", UNV),
-             ("group", "A.10 — Chụp ảnh")]
+             ("group", "Chụp ảnh")]
     for f_ in ("Điểm chụp đẹp", "Giờ chụp đẹp", "Ngắm bình minh / hoàng hôn",
                "Phí chụp ảnh", "Lưu ý chụp ảnh"):
         spec.append(("f", f_, UNV))
@@ -372,7 +546,7 @@ for r in picked:
     field_table(spec)
 
     if NEAR.get(r["id"]):
-        P("A.13 — Điểm lân cận (thời gian đường bộ thật, không phải đường chim bay)", bold=True, size=9.5)
+        P(sec("Điểm lân cận") + " (thời gian đường bộ thật, không phải đường chim bay)", bold=True, size=9.5)
         TBL(["#", "Điểm", "Loại", "Km", "Phút"],
             [[i, f"{oid} · {byid[oid]['name']}", byid[oid]["loai_vn"], f"{dkm:.1f}", f"{tmin:.0f}"]
              for i, (oid, dkm, tmin) in enumerate(NEAR[r["id"]], 1)],
@@ -384,36 +558,17 @@ for r in picked:
     # chu khong theo bac gia — 0/5.559 quan co gia, va mot tieu de bac gia tu no
     # la mot khang dinh du kien. Khong in `Đánh giá`/`Tiện nghi`: 0 du lieu, va
     # rao can la giay phep luu tru; da noi mot lan o muc 0.
+    # Khoi khach san + quan an KHONG con o day — in mot lan o dau khu vuc.
+    # Truoc day no chiem 1.420 dong tren ca tai lieu, trung vi 43% moi ho so, de
+    # in lai gan nhu cung mot danh sach 36 lan; chi co 52 khach san khac nhau.
     _lc = _LAN_CAN.get(r["id"], {})
-    if _lc.get("bac_khach_san"):
-        P(f"A.14 — Khách sạn gần (trong 5 km · {_lc['tong_ks_trong_bk']} cơ sở có giá "
-          "công bố · danh sách đầy đủ ở mục 4)", bold=True, size=9.5)
-        for _b in _lc["bac_khach_san"]:
-            # In ca vung TOAN THANH PHO: bac cao cap chi co 7 co so co toa do tren
-            # toan Da Lat, nen cung mot ten lap lai o nhieu diem den la bat buoc.
-            P(f"{_b['ten']} — {_b['tong']} trong bán kính, {_b['tong_thanh_pho']} "
-              "toàn Đà Lạt", italic=True, size=9, color=GREY)
-            for _h in _b["khach_san"]:
-                B(f"{_h['ten']} — {_h['gia']}/đêm · cách {_h['khoang_cach']}"
-                  + (f" · {_h['so_phong']} phòng" if _h["so_phong"] else "")
-                  + (f" · {_h['dien_thoai']}" if _h["dien_thoai"] else "")
-                  + (f" · {_h['dia_chi']}" if _h["dia_chi"] else "")
-                  + (" · thẩm định nhà nước" if _h["tham_dinh"] == "nhà nước" else ""))
-    elif _lc.get("khong_co_khach_san"):
-        P("A.14 — Khách sạn gần", bold=True, size=9.5)
-        P(_lc["khong_co_khach_san"] + " Xem mục 4 để chọn theo bậc giá.",
-          size=9, color=AMBER)
-
-    if _lc.get("loai_quan"):
-        P(f"A.15 — Quán ăn gần (trong 2 km · {_lc['tong_quan_trong_bk']} quán còn "
-          "hoạt động)", bold=True, size=9.5)
-        for _l in _lc["loai_quan"]:
-            P(f"{_l['ten']} — {_l['tong']} quán", italic=True, size=9, color=GREY)
-            for _q in _l["quan"]:
-                B(f"{_q['ten']} — cách {_q['khoang_cach']}"
-                  + (f" · {_q['dien_thoai']}" if _q["dien_thoai"] else "")
-                  + (f" · {_q['dia_chi']}" if _q["dia_chi"] else "")
-                  + (f" · {', '.join(_q['mon'])}" if _q["mon"] else ""))
+    _pt = P(sec("Lưu trú & ăn uống") + f" → xem khối đầu khu vực {r['area']}",
+            bold=True, size=9.5)
+    if _lc.get("tong_ks_trong_bk") is not None:
+        P(f"Quanh riêng điểm này: {_lc['tong_ks_trong_bk']} cơ sở lưu trú trong 5 km"
+          f" · {_lc['tong_quan_trong_bk']} quán trong 2 km", size=8.5, color=GREY)
+    if _lc.get("khong_co_khach_san"):
+        P(_lc["khong_co_khach_san"], size=9, color=AMBER)
 
     pv = doc.add_paragraph()
     rr = pv.add_run(f"Kiểm chứng: CHƯA GỌI · gọi {r.get('tel') or 'CHƯA CÓ SỐ'} để đóng "
@@ -431,7 +586,7 @@ _MON = _hoat_dong.tai_mon_an(RAW)
 _PC = _hoat_dong.tai_phong_cach(RAW)
 
 doc.add_page_break()
-H("3. Hoạt động — làm gì ở Đà Lạt", 1)
+H("4. Hoạt động — làm gì ở Đà Lạt", 1)
 P(f"{_HDTK['so_hoat_dong']} hoạt động, {_HDTK['so_nhom']} nhóm. "
   "Mã DL-xx dẫn về mục chi tiết ở mục 2.", italic=True, size=9, color=GREY)
 
@@ -512,10 +667,10 @@ _AU = _an_ngu.tai_an_uong(RAW)
 
 if _LT or _AU:
     doc.add_page_break()
-    H("4. Lưu trú & ăn uống", 1)
+    H("5. Lưu trú & ăn uống", 1)
 
 if _LT:
-    H("4.1 Lưu trú", 2)
+    H("5.1 Lưu trú", 2)
     # Nhom DUY NHAT trong ca tai lieu co GIA THAT — tu dang ky luu tru cua Cuc
     # Du lich Quoc gia, khong phai tu blog. Nen gia ghi thang.
     P(f"{_LT['tong']} cơ sở trong đăng ký lưu trú nhà nước · {_LT['nha_nuoc']} đã thẩm "
@@ -540,7 +695,7 @@ if _LT:
         _rd.font.color.rgb = RED
 
 if _AU:
-    H("4.2 Ăn uống", 2)
+    H("5.2 Ăn uống", 2)
     P(f"{_AU['tong_mo']:,} quán còn hoạt động · {_AU['co_dien_thoai']:,} có số gọi. "
       "Món đặc trưng xem mục 3.".replace(",", "."), italic=True, size=9, color=GREY)
     for _n in _AU["nhom"]:
@@ -559,47 +714,19 @@ if _AU:
 
 # ==================================================== 5-13 chi muc
 doc.add_page_break()
-H("5. Bảng so sánh", 1)
+H("6. Bảng so sánh", 1)
 P("Sinh tự động từ mục 2 — không sửa tay.", italic=True, size=9, color=GREY)
 TBL(["ID", "Điểm", "Loại", "Khu vực", "Km", "Phút", "Vé", "Nguồn"],
     [[r["id"], r["name"][:34], r["loai_vn"], r["area"][:20], f"{r['km']:.1f}",
       f"{r['min']:.0f}", r.get("fee") or UNV, len(r["src"])] for r in picked],
     widths=[1.4, 5.0, 3.0, 3.2, 1.2, 1.2, 1.6, 1.2], size=8)
 
-H("6. Theo loại hình", 1)
-for k, v in sorted(Counter(r["loai_vn"] for r in picked).items(), key=lambda x: -x[1]):
-    P(f"{k} ({v}): " + " · ".join(f"{r['id']} {r['name']}" for r in picked
-                                  if r["loai_vn"] == k), size=9)
-
-H("7. Theo khu vực", 1)
-for a in sorted({r["area"] for r in picked}):
-    lst = [r for r in picked if r["area"] == a]
-    P(f"{a} ({len(lst)}): " + " · ".join(f"{r['id']} {r['name']}" for r in lst), size=9)
-
-H("8. Theo khoảng cách từ hồ Xuân Hương", 1)
-for lo, hi, lab in ((0, 5, "Dưới 5 km"), (5, 10, "5 – 10 km"),
-                    (10, 20, "10 – 20 km"), (20, 9e9, "Trên 20 km")):
-    lst = [r for r in picked if lo <= r["km"] < hi]
-    P(f"{lab} ({len(lst)}): " + (" · ".join(f"{r['id']} {r['name']} ({r['min']:.0f}′)"
-                                            for r in lst) or "—"), size=9)
-
-H("9. Theo thời điểm thăm", 1)
-p = doc.add_paragraph()
-r_ = p.add_run("Bình minh · sáng · chiều · hoàng hôn · tối: ")
-r_.font.size = Pt(9.5)
-r_ = p.add_run(UNV)
-r_.bold = True
-r_.font.color.rgb = RED
-r_ = p.add_run(" — trường “thời điểm tốt trong ngày” chưa xác minh cho bất kỳ điểm nào. "
-               "Không được xếp lịch theo giờ dựa trên suy đoán.")
-r_.font.size = Pt(9.5)
-P("Điểm đi được khi trời mưa (suy ra từ loại hình — đã được duyệt):", bold=True)
-for lab in ("trong nhà", "có mái", "hỗn hợp"):
-    lst = [r for r in picked if from_cat.get(r["loai_vn"]) == lab]
-    if lst:
-        P(f"  {lab}: " + " · ".join(f"{r['id']} {r['name']}" for r in lst), size=9)
-
-H("10. Tuyến gợi ý theo khu vực", 1)
+# DA CAT muc 6 "Theo loai hinh" · 7 "Theo khu vuc" · 8 "Theo khoang cach"
+# · 9 "Theo thoi diem tham" — ca bon la cach SAP XEP LAI cung 36 diem. `loai_vn`
+# va `km` da la COT cua bang so sanh; muc 2 gio da nhom theo khu vuc; va truong
+# "thoi diem tot trong ngay" la 0/36. Phan duy nhat co that trong muc 9 — nhom
+# "di duoc khi troi mua" — thanh mot cot cua bang so sanh.
+H("7. Tuyến gợi ý theo khu vực", 1)
 P("Thứ tự dựng bằng thuật toán láng giềng gần nhất trên ma trận OSRM, xuất phát từ điểm gần "
   "trung tâm nhất.", italic=True, size=9, color=GREY)
 if mat:
@@ -619,25 +746,43 @@ if mat:
         P(f"{a} — {len(route)} điểm · di chuyển giữa các điểm ~{tot:.0f} phút", bold=True, size=9.5)
         P("   " + " → ".join(f"{x['id']} {x['name']}" for x in route), size=9)
 
-H("11. Ma trận thời gian giữa các điểm (phút)", 1)
+H("8. Ma trận thời gian trong từng khu vực (phút)", 1)
+# Truoc day la mot bang 36x36 = 1.296 o o co chu 6pt — khong vua mot trang doc
+# va khong ai tra thoi gian giua hai diem o hai dau thanh pho. Chia theo khu vuc:
+# chin bang nho, moi bang vua mot trang. Cap xa nhau van con trong osrm_selected.
 if mat:
-    ids = mat["ids"]
-    TBL([""] + [i.replace("DL-", "") for i in ids],
-        [[ids[i].replace("DL-", "")] +
-         ["—" if i == j or mat["durations"][i][j] is None
-          else f"{mat['durations'][i][j]/60:.0f}" for j in range(len(ids))]
-         for i in range(len(ids))], size=6)
+    _idx8 = {pid: i for i, pid in enumerate(mat["ids"])}
+    P("Chia theo khu vực: thời gian giữa các điểm trong cùng một buổi. Cặp ở hai khu "
+      "vực khác nhau thì tra mục 7 (tuyến gợi ý) hoặc cột Phút ở mục 6.",
+      italic=True, size=9, color=GREY)
+    for _a in sorted({r["area"] for r in picked}):
+        _lst = [r for r in picked if r["area"] == _a]
+        if len(_lst) < 2:
+            continue
+        P(f"{_a} ({len(_lst)} điểm)", bold=True, size=9.5)
+        TBL([""] + [r["id"].replace("DL-", "") for r in _lst],
+            [[r["id"].replace("DL-", "")] +
+             ["—" if r is o or mat["durations"][_idx8[r["id"]]][_idx8[o["id"]]] is None
+              else f"{mat['durations'][_idx8[r['id']]][_idx8[o['id']]]/60:.0f}"
+              for o in _lst]
+             for r in _lst], size=8)
 
-H("12. Danh sách rút gọn", 1)
-P("⚠ Xếp hạng dựa trên mức độ hiện diện trên bản đồ, KHÔNG phải chất lượng trải nghiệm — thứ đó "
-  "chưa có dữ liệu. Dùng làm thứ tự gọi xác minh, không dùng làm lời khuyên “nơi này hay hơn "
-  "nơi kia”.", bold=True, color=RED)
-rank = sorted(picked, key=lambda r: (-len(r["src"]), -(r.get("conf") or 0)))
-for lab, seg in (("Ưu tiên xác minh trước", rank[:8]), ("Nhóm hai", rank[8:20]),
-                 ("Nhóm ba", rank[20:])):
-    P(f"{lab} ({len(seg)}): " + " · ".join(f"{r['id']} {r['name']}" for r in seg), size=9)
+# DA CHUYEN muc 12 "Danh sach rut gon" -> phu luc: thu hang do do MUC DO HIEN
+# DIEN TREN BAN DO, tuc chat luong DU LIEU, khong phai chat luong trai nghiem.
+# Muc 9 ngay duoi dung dung thu hang do lam THU TU GOI DIEN, la cong dung dung.
+#
+# Thu tu nay den TU build_huong_dan.py qua khoa `xep_hang`, khong tu tinh lai o
+# day. Truoc day dong nay la `sorted(picked, key=lambda r: (-len(r["src"]),
+# -conf))` trong khi ban .md xep theo `-_score` — va `_score` bi bo loc
+# `startswith("_")` chan lai nen khong bao gio den duoc file nay. Ket qua: hai
+# ban tai lieu bat dong ve THU TU GOI DIEN xac minh, tu hang thu 9 tro di.
+_xh = {pid: i for i, pid in enumerate(G.get("xep_hang") or [])}
+if not _xh:
+    raise SystemExit("guide_data.json thieu khoa 'xep_hang' — chay"
+                     " build_huong_dan.py truoc de sinh lai.")
+rank = sorted(picked, key=lambda r: _xh.get(r["id"], 10 ** 6))
 
-H("13. Sổ kiểm chứng — việc cần làm", 1)
+H("9. Sổ kiểm chứng — việc cần làm", 1)
 n_tel = sum(1 for r in picked if r.get("tel"))
 TBL(["Chỉ số", "Giá trị"],
     [["Điểm trong hồ sơ", len(picked)],

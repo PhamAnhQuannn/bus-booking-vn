@@ -19,7 +19,13 @@ from collections import Counter
 
 MAX_MOI_BAC = 10        # co so luu tru in ra moi bac gia
 MAX_MOI_NHOM = 8        # quan an in ra moi nhom
-MAX_DONG_CUA = 14       # so dong cua gan nhat in ra
+# Danh sach DA DONG CUA khong bi cat. Moi danh sach khac trong tai lieu nay la
+# mot MAU co chu dich ("78 co so, duoi day 10") va do la hop ly — nguoi doc chi
+# can vai lua chon. Danh sach dong cua thi nguoc: no khong phai goi y, no la
+# CANH BAO, va mot canh bao bi cat con 14/35 nghia la 21 quan da dong van nam
+# trong phan goi y ma khong co gi danh dau. Gioi thieu mot noi da dong la loi te
+# nhat tai lieu nay co the mac.
+MAX_DONG_CUA = None     # None = in het
 
 # Bac gia phong/dem. Moc lay tu chinh phan bo: trung vi 300.000.
 BAC_GIA = [("Bình dân", 0, 300_000), ("Trung bình", 300_000, 1_000_000),
@@ -62,6 +68,24 @@ def tai_lan_can(raw_dir):
     Dung chung cho ca hai bo dung. Khong dinh dang o day.
     """
     p = os.path.join(raw_dir, "lan_can.json")
+    if not os.path.exists(p):
+        return {}
+    return json.load(io.open(p, encoding="utf-8"))
+
+
+def tai_lan_can_khu_vuc(raw_dir):
+    """Khoi khach san + quan an cho tung KHU VUC, do `gan_lan_can.py` sinh.
+
+    Thay cho `tai_lan_can` o cap ho so: khoi A.14/A.15 lap trong ca 36 ho so
+    chiem 1.420 dong (trung vi 43% moi ho so) trong khi chi co 52 khach san khac
+    nhau tren toan bo — Du Parc lap 12 lan, La Sapinette 11. In mot lan moi khu
+    vuc thay vi mot lan moi diem.
+
+    Moi ban ghi giu `khoang_cach` va `gan_diem` (ma DL-xx gan nhat). Bang toan
+    thanh pho o muc 5 KHONG co cot khoang cach, nen khoang cach khong phai du
+    lieu trung — bo di la mat thong tin, khong phai khu trung lap.
+    """
+    p = os.path.join(raw_dir, "lan_can_khu_vuc.json")
     if not os.path.exists(p):
         return {}
     return json.load(io.open(p, encoding="utf-8"))
