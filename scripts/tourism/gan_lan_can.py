@@ -138,11 +138,26 @@ for p in picked:
     # Diem khong co co so nao trong ban kinh: NOI RA khoang trong, khong in khoi
     # rong. Nam diem thuoc dien nay va do la dac diem that cua dia ly, khong
     # phai thieu du lieu.
+    # HAI trang thai khac nhau, truoc day noi cung mot cau:
+    #   (a) khong co co so nao trong ban ki,
+    #   (b) CO co so trong ban kinh nhung khong cai nao cong bo gia, nen khong
+    #       xep duoc vao bac nao.
+    # `bac_out` rong la dieu kien cua (b), khong phai cua (a) — nen the DL-27
+    # Thac Voi in tieu de "1 cơ sở lưu trú trong 5 km" roi ngay dong duoi noi
+    # "Không có cơ sở lưu trú đăng ký trong 5 km. Gần nhất … 2,4 km", trong khi
+    # 2,4 km NAM TRONG 5 km. Hai dong canh nhau phu dinh nhau, va ca hai deu do
+    # cung mot ham sinh ra.
     khong_co = None
-    if not bac_out:
+    if not trong_bk:
         khong_co = (f"Không có cơ sở lưu trú đăng ký trong {BAN_KINH_KS//1000} km."
                     + (f" Gần nhất: {gan[0][1]['ten']}, cách {km(gan[0][0])}."
                        if gan else ""))
+    elif not bac_out:
+        khong_co = (f"Có {len(trong_bk)} cơ sở lưu trú đăng ký trong "
+                    f"{BAN_KINH_KS//1000} km nhưng KHÔNG cơ sở nào công bố giá, "
+                    "nên không xếp được theo bậc giá."
+                    + (f" Gần nhất: {trong_bk[0][1]['ten']}, "
+                       f"cách {km(trong_bk[0][0])}." if trong_bk else ""))
 
     # ── quan an, nhom theo LOAI MON (khong phai bac gia) ────────────────────
     gan_q = sorted(((hav(p["lat"], p["lon"], q["lat"], q["lon"]), q) for q in qa),
@@ -255,8 +270,10 @@ for kv, ps in kv_diem.items():
                     f" bán kính {BAN_KINH_KS//1000} km dùng để tìm cơ sở gần, nên chúng"
                     " KHÔNG dùng chung một thị trường lưu trú. Xem khối khách sạn"
                     " của từng điểm bên dưới, hoặc tính một đêm nghỉ tại chỗ.")
+    # Cung phan biet nhu o muc tung diem: "khong co co so nao" khac han "co co so
+    # nhung khong cai nao cong bo gia". `bac_out` rong chi chung minh ve sau.
     khong_co = None
-    if not bac_out:
+    if not ks_ro:
         # Gan nhat tren toan thanh pho, tinh tu diem dau khu vuc.
         p0 = ps[0]
         g = sorted(((hav(p0["lat"], p0["lon"], h["lat"], h["lon"]), h) for h in ks),
@@ -265,6 +282,10 @@ for kv, ps in kv_diem.items():
                     f" của bất kỳ điểm nào thuộc khu vực này."
                     + (f" Gần nhất: {g[0][1]['ten']}, cách {km(g[0][0])} tính từ"
                        f" {p0['name']}." if g else ""))
+    elif not bac_out:
+        khong_co = (f"Có {len(ks_ro)} cơ sở lưu trú đăng ký trong "
+                    f"{BAN_KINH_KS//1000} km của khu vực này nhưng KHÔNG cơ sở nào "
+                    "công bố giá, nên không xếp được theo bậc giá.")
     kv_out[kv] = {"so_diem": len(ps), "ban_kinh_khu_vuc": km(sp),
                   "canh_bao_khoang_cach": canh_bao,
                   "bac_khach_san": bac_out, "khong_co_khach_san": khong_co,

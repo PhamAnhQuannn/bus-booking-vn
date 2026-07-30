@@ -142,18 +142,59 @@ def has_kw(name, kws):
 
 NOT_ACT = ["sửa chữa", "sửa xe", "phụ tùng", "vật liệu", "bảo hiểm", "bất động sản",
            "ngân hàng", "xây dựng", "nội thất", "kế toán", "luật sư", "phòng khám",
-           "điện máy", "điện thoại"]
+           "điện máy", "điện thoại",
+           # Do duoc, khong doan: mot nha thau THI CONG spa lot vao nhom Spa qua
+           # tu khoa "spa" ("Thiết kế thi công trọn gói Spa Cafe quán ăn nhà
+           # hàng"), va mot dich vu MAM CUNG lot vao nhom Thue xe may qua hang
+           # muc `motorcycle_rentals` cua Overture.
+           "thiết kế", "thi công", "mâm cúng", "học lái xe", "dạy lái xe"]
+
+# Ten mang dia danh TINH KHAC. Cac hang nay co toa do NAM TRONG Da Lat — do
+# duoc: "Bamboo Village Beach Resort & Spa Mui Ne" cach trung tam Da Lat 1,7 km,
+# "Le Aqua Resort & Spa Phan Thiet" 1,6 km. Mot khu nghi duong bien khong the o
+# do, nen chinh TOA DO sai, va bo loc theo khoang cach khong bao gio bat duoc
+# chung (0/1.114 hang nam ngoai 40 km). Chi con ten lam bang chung.
+TINH_KHAC = ["phan thiet", "phan thiết", "mui ne", "mũi né", "nha trang",
+             "vũng tàu", "vung tau", "phú quốc", "phu quoc", "hóc môn",
+             "hoc mon", "quận 8", "sài gòn"]
+
+# Cam THEO TUNG hoat dong. Tu khoa ten la phep OR voi hang muc, nen mot tu ngan
+# nhu "spa" keo vao ca mot nganh khac: 12 tiem SPA THU CUNG vao nhom "Spa /
+# massage", tat ca deu qua "tên chứa spa". Do la ho "bar"/"barber" o muc NGHIA
+# chu khong phai muc chuoi — bien tu khop dung, dich vu thi khac hen.
+CAM_THEO_HD = {
+    "Spa / massage": ["pet", "pets", "thú cưng", "thu cung", "chó mèo", "cho meo"],
+    # "Khách sạn Đà Lạt gần Chợ Đêm Giá Rẻ" vao nhom nay qua tu khoa "chợ đêm":
+    # mot chuong trinh quang cao khach san dung ten cho dem lam moc dia ly. Mot
+    # quan an vat khong bao gio ten la "Khách sạn". Chi cam o nhom AM THUC —
+    # o nhom thue xe may thi mot homestay co cho thue xe la chuyen binh thuong.
+    "Ăn vặt chợ đêm": ["khách sạn", "khach san", "homestay", "resort", "villa",
+                       "nhà nghỉ", "nha nghi"],
+}
+
+# Ly do phai theo NHOM. Ban dau toi viet mot chuoi ly do co dinh ("thú cưng,
+# không phải spa cho người") cho moi truong hop CAM_THEO_HD, nen khi them luat
+# cho nhom am thuc thi mot KHACH SAN bi ghi so la "thú cưng". Mot so bo loc noi
+# sai ly do con te hon khong ghi ly do: no dan nguoi doc sau di sai huong.
+LY_DO_CAM = {
+    "Spa / massage": "dịch vụ thú cưng, không phải spa cho người",
+    "Ăn vặt chợ đêm": "cơ sở lưu trú, không phải hàng ăn",
+}
 
 ovt = json.load(io.open(os.path.join(RAW, "overture_dalat.json"), encoding="utf-8"))
 places = json.load(io.open(os.path.join(RAW, "merged_dalat.json"), encoding="utf-8"))
 print(f"quét {len(ovt)} cơ sở Overture + {len(places)} địa điểm đã hợp nhất\n")
 
 out = []
+# Bo loc KHONG duoc im lang: mot con so tut xuong ma khong noi ly do doc y het
+# nhu "tim thay it hon", va ca hai deu khong phan biet duoc voi mot loi. In het.
+ly_do_bo, bo_ra = Counter(), []
 for ten, nhom, kws, cats, loai_dd in ACTS:
     catset, seen = set(cats), set()
     co_so, dia_diem, ly_do = [], [], Counter()
 
     # Nguon A — CO SO kinh doanh: ai to chuc, o dau lam duoc
+    cam_hd = CAM_THEO_HD.get(ten, [])
     for r in ovt:
         nm = (r.get("name") or "").strip()
         if not nm or any(b in nm.lower() for b in NOT_ACT):
@@ -162,6 +203,22 @@ for ten, nhom, kws, cats, loai_dd in ACTS:
         kw = has_kw(nm, kws) if kws else None
         if not kw and cat not in catset:
             continue
+        # Loai SAU khi da biet hang nay thuoc nhom nao — khong the loai o NOT_ACT
+        # vi "pet" chi sai voi nhom Spa, con dung binh thuong o cho khac.
+        nl = nm.lower()
+        if cam_hd and has_kw(nm, cam_hd):
+            _vi = LY_DO_CAM.get(ten, "không thuộc nhóm này")
+            ly_do_bo[f"{ten}: {_vi}"] += 1
+            bo_ra.append((ten, nm, _vi))
+            continue
+        if any(t in nl for t in TINH_KHAC):
+            ly_do_bo[f"{ten}: tên mang địa danh tỉnh khác"] += 1
+            bo_ra.append((ten, nm, "tên mang địa danh tỉnh khác"))
+            continue
+        # Hang muc cua Overture nhieu nhieu: trong nhom "Thuê xe máy", cac hang
+        # DUNG lai mang `professional_services` / `hotel` / `grocery_store`, con
+        # hang SAI duy nhat lai mang dung `motorcycle_rentals`. Nen hang muc
+        # KHONG dung lam bo loc — chi ghi nhan de doc so.
         vt = vai_tro(nm, cat)
         if vt == "ban_do":
             ly_do["loại (bán đồ)"] += 1
@@ -220,5 +277,12 @@ if khong:
     print(f"KHÔNG có bằng chứng ({len(khong)}) — không vào tài liệu: {', '.join(khong)}")
 bo = sum(a["bang_chung_tu"].get("loại (bán đồ)", 0) for a in out)
 print(f"loại {bo} cơ sở chỉ bán thiết bị (không tổ chức hoạt động)")
+if bo_ra:
+    print(f"\nloại thêm {len(bo_ra)} cơ sở SAI NHÓM / SAI TỈNH — liệt kê đầy đủ,"
+          " không cắt:")
+    for k, v in ly_do_bo.most_common():
+        print(f"   {v:3d}  {k}")
+    for nh, nm, vi in bo_ra:
+        print(f"      {nh[:26]:28s}{nm[:46]:48s}{vi}")
 print(f"mùa / giờ / thời lượng: 0/{len(out)} — chưa nguồn nào trên đĩa nói về chúng (P3/P6)")
 print(f"saved -> {OUT}")

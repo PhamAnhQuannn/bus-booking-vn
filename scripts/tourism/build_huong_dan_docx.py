@@ -110,11 +110,19 @@ S_HOATDONG, S_ANNGU, S_SOSANH = 5, 6, 7
 S_TUYEN, S_MATRAN, S_KIEMCHUNG = 8, 9, 10
 
 
-# lop lam giau — doc cung mot file enrichment.json nhu ban .md
+# lop lam giau — doc cung mot file enrichment.json nhu ban .md, va CUNG mot phep
+# loc element-khop-qua-xa (`an_ngu_data.loc_khop_xa`). Neu chi mot ban loc thi
+# ban kia in gio mo cua cua hang xom, va khong co gi bao.
 _ep = os.path.join(RAW, "enrichment.json")
 ENR = {}
+_GIO_LOAI, _ENR_BO = set(), []
 if os.path.exists(_ep):
-    for _e in json.load(io.open(_ep, encoding="utf-8")):
+    _rows, _ENR_BO = _an_ngu.loc_khop_xa(json.load(io.open(_ep, encoding="utf-8")))
+    if _ENR_BO:
+        print(f"  loai {len(_ENR_BO)} dong enrichment tu element OSM khop >= "
+              f"{_an_ngu.BAN_KINH_VAN_HANH} m (khong phai dia diem nay)")
+    _GIO_LOAI = _an_ngu.gio_bi_loai(_ENR_BO)
+    for _e in _rows:
         ENR.setdefault(_e["id"], {}).setdefault(_e["field"], _e)
 
 
@@ -127,6 +135,19 @@ def ev(pid, field, tail=""):
 
 def has(pid, field):
     return field in ENR.get(pid, {})
+
+
+def _canh_bao_dia_chi(pid):
+    """CUNG cach dien dat voi ban .md — xem chu thich o `an_ngu_data.dia_chi_mau_thuan`."""
+    mt = _an_ngu.dia_chi_mau_thuan(pid, ENR, _ENR_BO)
+    if not mt:
+        return ""
+    md, bg, pho, loai = mt
+    return (f"  ⚠ MÂU THUẪN SỐ NHÀ trên đường {pho}: bản mô tả ghi “{md}”, bản ghi "
+            f"bản đồ ghi “{bg}”"
+            + (" — bản ghi bản đồ ĐÃ BỊ LOẠI vì khớp nhầm sang một cơ sở khác, nên "
+               "không còn số nhà nào đã xác minh." if loai else ".")
+            + " CHƯA hoà giải — hỏi lại cổng vào hiện tại trước khi chỉ đường cho khách.")
 
 RED = RGBColor(0xC0, 0x1C, 0x1C)        # chua xac minh — cam noi ra
 AMBER = RGBColor(0xB0, 0x6A, 0x00)      # suy dien — phai rao
@@ -453,7 +474,7 @@ P("⚠ Xếp theo độ đầy đủ của DỮ LIỆU, không phải chất lư
   f"Bảng đầy đủ 36 điểm ở mục {S_SOSANH}.", bold=True, size=9, color=RED)
 TBL(["ID", "Điểm", "Loại", "Khu vực", "Km", "Phút", "Vé", "Mưa", "Mô tả"],
     [[r["id"], r["name"][:26], r["loai_vn"], r["area"][:16], f"{r['km']:.1f}",
-      f"{r['min']:.0f}", str(r.get("fee") or "—")[:14],
+      f"{r['min']:.0f}", _an_ngu.the_fee_ngan(r.get("fee")),
       INDOOR_CAT.get(r["loai_vn"], "ngoài trời"),
       "có" if has(r["id"], "mo_ta_wikipedia") else "—"]
      for r in rank[:_TOP]],
@@ -562,7 +583,15 @@ for r in picked:
             ("f", "Loại hình", r["loai_vn"]
              + (f" (phụ: {', '.join(r['loai_phu'])})" if r.get("loai_phu") else "")
              ),
-            ("f", "Địa chỉ", ev(r["id"], "dia_chi_day_du")),
+            # Canh bao dat TRUOC gia tri, khong sau: `field_table()` bo moi dong
+            # co gia tri BAT DAU bang UNV (`:280`), nen voi XQ Su Quan — noi ban
+            # ghi dia chi da bi loai va gia tri con lai dung la UNV — canh bao
+            # mau thuan se bi xoa cung ca dong, va ban .docx im lang trong khi
+            # ban .md canh bao. Do la dung lop lech-hai-bo-dung ma muc nay ton
+            # tai de chan.
+            ("f", "Địa chỉ", (_canh_bao_dia_chi(r["id"]).strip() + "  "
+                              if _canh_bao_dia_chi(r["id"]) else "")
+             + ev(r["id"], "dia_chi_day_du")),
             ("f", "Điện thoại", r.get("tel") or UNV),
             ("f", "Website", r.get("web") or UNV),
             ("f", "Tình trạng hoạt động", "đang hoạt động")]
@@ -607,6 +636,19 @@ for r in picked:
                 "Núi / Đèo / Đường mòn": "ngoài trời", "Nông trại / Vườn": "ngoài trời",
                 "Cáp treo": "ngoài trời"}
     ind = from_cat.get(r["loai_vn"])
+    # CUNG thu tu uu tien voi ban .md: dong enrichment (co nguon + ngay) thang
+    # `r["hours"]` cua lop hop nhat (khong nguon). Xem chu thich o build_huong_dan.py.
+    _h = r.get("hours")
+    if (r["id"], (_h or "").strip()) in _GIO_LOAI:
+        _h = None
+    _he = ev(r["id"], "gio_mo_cua") if has(r["id"], "gio_mo_cua") else None
+    if _he:
+        _gio = _he
+        if _h and _h.strip() != _he.strip():
+            _gio += (f"  ⚠ lớp bản đồ ghi khác: “{_h}” — hai nguồn CHƯA hoà giải, "
+                     "gọi xác nhận trước khi báo khách")
+    else:
+        _gio = _h if _h else UNV
     spec += [("group", "Kế hoạch thăm"),
              ("f", "Thời lượng thăm", UNV + " ← không có mục này thì không xếp được lịch một ngày"),
              ("f", "Thời điểm tốt trong ngày", UNV),
@@ -619,11 +661,13 @@ for r in picked:
              ("f", "Phù hợp người cao tuổi", UNV),
              ("group", "Giờ giấc và chi phí"),
              ("f", "Ngày mở cửa", UNV),
-             ("f", "Giờ mở cửa", r["hours"] if r.get("hours")
-              else ev(r["id"], "gio_mo_cua")),
+             ("f", "Giờ mở cửa", _gio),
              ("f", "Giờ nhận khách cuối", UNV),
-             ("f", "Giá vé", (str(r["fee"])) if r.get("fee")
-              else UNV + " ← KHÔNG nêu số tiền; nói giá có thể thay đổi"),
+             # `fee` cua OSM khong phai so tien — xem `an_ngu_data.doc_the_fee`.
+             # Chu thich dat TRUOC UNV vi ly do o o "Địa chỉ" ngay tren.
+             ("f", "Giá vé", (f"({_an_ngu.doc_the_fee(r.get('fee'))})  "
+                              if _an_ngu.doc_the_fee(r.get("fee")) else "")
+              + UNV + " ← KHÔNG nêu số tiền; nói giá có thể thay đổi"),
              ("f", "Phí gửi xe", UNV),
              ("f", "Cần đặt trước", ev(r["id"], "can_dat_truoc"))]
     if has(r["id"], "gia_ve_tham_khao"):
@@ -837,7 +881,7 @@ P(f"Sinh tự động từ mục {S_DIEMDEN} — không sửa tay.", italic=True
 # Cot "Mua" khop ban .md — truoc day ban .docx thieu han cot nay.
 TBL(["ID", "Điểm", "Loại", "Khu vực", "Km", "Phút", "Vé", "Mưa", "Nguồn"],
     [[r["id"], r["name"][:30], r["loai_vn"], r["area"][:18], f"{r['km']:.1f}",
-      f"{r['min']:.0f}", r.get("fee") or UNV,
+      f"{r['min']:.0f}", _an_ngu.the_fee_ngan(r.get("fee")),
       INDOOR_CAT.get(r["loai_vn"], "ngoài trời"), len(r["src"])] for r in picked],
     widths=[1.4, 4.4, 2.8, 2.8, 1.1, 1.1, 1.5, 1.4, 1.1], size=8)
 
@@ -902,8 +946,13 @@ TBL(["Chỉ số", "Giá trị"],
     [["Điểm trong hồ sơ", len(picked)],
      ["Có số điện thoại để gọi", f"{n_tel} / {len(picked)}"],
      ["Chưa có số — cần tìm", len(picked) - n_tel],
-     ["Có giờ mở cửa", sum(1 for r in picked if r.get("hours"))],
-     ["Có giá vé", sum(1 for r in picked if r.get("fee"))],
+     # Dem CAI DA IN — CUNG ham voi ban .md.
+     ["Có giờ mở cửa", sum(1 for r in picked
+                           if _an_ngu.co_gio_mo_cua(r, ENR, _GIO_LOAI))],
+     # Cung phep dem voi ban .md: hai the `fee` deu khong phai so tien.
+     ["Có giá vé đã xác minh", "0 — hai thẻ `fee` của OSM đều không phải số tiền"],
+     ["Có giá vé THAM KHẢO (nguồn thương mại, có thể lệch nhau)",
+      sum(1 for r in picked if has(r["id"], "gia_ve_tham_khao"))],
      ["Có đánh giá sao", "0 — không nguồn mở nào có"],
      ["Trường [CHƯA XÁC MINH] ước tính", f"~{41*len(picked)}"]],
     widths=[7.0, 9.0], size=9)

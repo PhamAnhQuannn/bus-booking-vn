@@ -23,7 +23,12 @@ OUT_MAC_DINH = "documentation/tourism/destinations/da-lat/huong-dan-diem-den.md"
 RAW = sys.argv[1]
 OUT = sys.argv[2] if len(sys.argv) > 2 else OUT_MAC_DINH
 TRIP_OUT = sys.argv[3] if len(sys.argv) > 3 else None
-BUILD_DATE = "28/07/2026"
+# Ngay CHAY THAT, khong phai mot chuoi go tay. Ban truoc ghi cung "28/07/2026"
+# trong khi tai lieu da duoc sinh lai nhieu lan sau do va ben trong no co trich
+# dan de ngay 29/07 — tuc trang bia noi sai tuoi cua chinh no. Trong mot tai lieu
+# ma gia tri cot loi la biet ro minh KHONG biet gi, mot ngay thang sai o dong dau
+# tien la loi dat nhat.
+BUILD_DATE = time.strftime("%d/%m/%Y")
 
 # ── SO MUC: mot cho duy nhat ────────────────────────────────────────────────
 # Moi tieu de VA moi tham chieu "xem muc N" deu doc tu day. Doi thu tu muc thi
@@ -480,6 +485,17 @@ json.dump({
 
 # ---------- lop lam giau: cua DUY NHAT de mot truong roi khoi [CHƯA XÁC MINH] ----------
 enr_rows = load("enrichment.json") or []
+# Loc cac dong lay tu element OSM khop qua xa — xem `an_ngu_data.loc_khop_xa`.
+# Bo loc nam trong module chung de ban .docx duoc CUNG mot phep loc; viet o day
+# thi ban kia van in gia tri cua hang xom.
+enr_rows, _enr_bo = _an_ngu.loc_khop_xa(enr_rows)
+if _enr_bo:
+    print(f"  loai {len(_enr_bo)} dong enrichment tu element OSM khop >= "
+          f"{_an_ngu.BAN_KINH_VAN_HANH} m (khong phai dia diem nay):")
+    for _b in sorted(_enr_bo, key=lambda x: (x["id"], x["field"])):
+        print(f"     {_b['id']:<7}{_b['field']:<18}{_b.get('match_m')!s:>5} m  "
+              f"{str(_b['value'])[:46]!r}")
+_GIO_LOAI = _an_ngu.gio_bi_loai(_enr_bo)
 ENR = defaultdict(dict)
 for _e in enr_rows:
     ENR[_e["id"]].setdefault(_e["field"], _e)
@@ -636,7 +652,7 @@ w("| ID | Điểm | Loại | Khu vực | Km | Phút | Vé | Mưa | Mô tả |\n"
 for _r in rank[:_TOP]:
     _mua = INDOOR.get(_r["loai_vn"], ("ngoài trời",))[0]
     w(f"| {_r['id']} | {_r['name'][:30]} | {_r['loai_vn']} | {_r['area']} | "
-      f"{_r['km']:.1f} | {_r['min']:.0f} | {_r.get('fee') or '—'} | {_mua} | "
+      f"{_r['km']:.1f} | {_r['min']:.0f} | {_an_ngu.the_fee_ngan(_r.get('fee'))} | {_mua} | "
       + ("có" if has(_r["id"], "mo_ta_wikipedia") else "—") + " |\n")
 w("\n")
 
@@ -762,6 +778,17 @@ for r in picked:
       + (f"  (phụ: {', '.join(r['loai_phu'])})" if r.get("loai_phu") else "")
       + "\n")
     w(f"Địa chỉ             : {ev(r['id'], 'dia_chi_day_du')}\n")
+    # Mot so nha in ra nhu su that NGAY DUOI mot doan trich noi so khac la loi ma
+    # nguoi doc khong the tu phat hien — ca hai deu co ve co nguon. Hien ca hai.
+    _mt = _an_ngu.dia_chi_mau_thuan(r["id"], ENR, _enr_bo)
+    if _mt:
+        _md, _bg, _pho, _loai = _mt
+        w(f"                      ⚠ MÂU THUẪN SỐ NHÀ trên đường {_pho}: bản mô tả "
+          f"ghi “{_md}”, bản ghi bản đồ ghi “{_bg}”"
+          + (" — bản ghi bản đồ ĐÃ BỊ LOẠI vì khớp nhầm sang một cơ sở khác, nên "
+             "không còn số nhà nào đã xác minh.\n" if _loai else ".\n")
+          + "                        CHƯA hoà giải — hỏi lại cổng vào hiện tại trước khi "
+          "chỉ đường cho khách.\n")
     if has(r["id"], "email"):
         w(f"Email               : {ev(r['id'], 'email')}\n")
     if has(r["id"], "anh"):
@@ -817,17 +844,32 @@ for r in picked:
 
     w(sec("Giờ giấc và chi phí") + "\n\n")
     w("```\n")
+    # `r["hours"]` den tu lop hop nhat: khong nguon, khong ngay. Dong enrichment
+    # thi co nguon + URL + ngay. Ban truoc uu tien `r["hours"]`, tuc gia tri
+    # KHONG co xuat xu thang gia tri CO xuat xu — va do la ly do the DL-32 in mot
+    # chuoi OSM trong khi chinh dong enrichment cua no la canh bao rang hai trang
+    # cua bao tang ghi hai gio khac nhau. Canh bao do bien mat, im lang.
     hrs = r.get("hours")
+    if (r["id"], (hrs or "").strip()) in _GIO_LOAI:
+        hrs = None
+    hrs_e = ev(r["id"], "gio_mo_cua") if has(r["id"], "gio_mo_cua") else None
     w(f"Ngày mở cửa         : {UNV}\n")
-    if hrs:
+    if hrs_e:
+        w(f"Giờ mở cửa          : {hrs_e}\n")
+        if hrs and hrs.strip() != hrs_e.strip():
+            w(f"                      ⚠ lớp bản đồ ghi khác: “{hrs}” — hai nguồn "
+              "CHƯA hoà giải, gọi xác nhận trước khi báo khách\n")
+    elif hrs:
         w(f"Giờ mở cửa          : {hrs}\n")
     else:
         w("Giờ mở cửa          : "
-          + ev(r["id"], "gio_mo_cua", "   ← KHÔNG nêu giờ cụ thể; đề nghị khách gọi trước") + "\n")
+          + UNV + "   ← KHÔNG nêu giờ cụ thể; đề nghị khách gọi trước\n")
     w(f"Giờ nhận khách cuối : {UNV}\n")
-    fee = r.get("fee")
-    w(f"Giá vé              : {fee}\n" if fee
-      else f"Giá vé              : {UNV}   ← KHÔNG nêu số tiền; nói giá có thể thay đổi\n")
+    # `fee` cua OSM khong phai so tien — xem `an_ngu_data.doc_the_fee`.
+    _fee = _an_ngu.doc_the_fee(r.get("fee"))
+    w(f"Giá vé              : {UNV}   ← KHÔNG nêu số tiền; nói giá có thể thay đổi\n")
+    if _fee:
+        w(f"                      ({_fee})\n")
     if has(r["id"], "gia_ve_tham_khao"):
         w(f"Giá vé THAM KHẢO    : {ev(r['id'], 'gia_ve_tham_khao')}\n")
     if has(r["id"], "khoang_gia_facebook"):
@@ -1086,7 +1128,7 @@ w("| ID | Điểm | Loại | Khu vực | Km | Phút | Vé | Mưa | Nguồn |\n|-
 for r in picked:
     _mua = INDOOR.get(r["loai_vn"], ("ngoài trời",))[0]
     w(f"| {r['id']} | {r['name']} | {r['loai_vn']} | {r['area']} | "
-      f"{r['km']:.1f} | {r['min']:.0f} | {r.get('fee') or UNV} | {_mua} | "
+      f"{r['km']:.1f} | {r['min']:.0f} | {_an_ngu.the_fee_ngan(r.get('fee'))} | {_mua} | "
       f"{len(r['src'])} |\n")
 
 # ── DA CAT: muc 6 "Theo loai hinh" · 7 "Theo khu vuc" · 8 "Theo khoang cach"
@@ -1163,8 +1205,15 @@ w(f"| Chỉ số | Giá trị |\n|---|---|\n")
 w(f"| Điểm trong hồ sơ | {len(picked)} |\n")
 w(f"| Có số điện thoại để gọi | **{n_tel}** / {len(picked)} |\n")
 w(f"| Chưa có số — cần tìm | {len(picked)-n_tel} |\n")
-w(f"| Có giờ mở cửa | {sum(1 for r in picked if r.get('hours'))} |\n")
-w(f"| Có giá vé | {sum(1 for r in picked if r.get('fee'))} |\n")
+# Dem CAI DA IN — cung ham voi ban .docx, xem `an_ngu_data.co_gio_mo_cua`.
+w("| Có giờ mở cửa | "
+  f"{sum(1 for r in picked if _an_ngu.co_gio_mo_cua(r, ENR, _GIO_LOAI))} |\n")
+# Dem so tien DA XAC MINH. Truoc day dem `r['fee']`, ma ca hai gia tri `fee`
+# trong du lieu ("yes", "10000") deu khong phai so tien — bang tu kiem bao co 2
+# muc gia trong khi tai lieu co 0.
+w(f"| Có giá vé đã xác minh | **0** — hai thẻ `fee` của OSM đều không phải số tiền |\n")
+w("| Có giá vé THAM KHẢO (nguồn thương mại, có thể lệch nhau) | "
+  f"{sum(1 for r in picked if has(r['id'], 'gia_ve_tham_khao'))} |\n")
 w(f"| Có đánh giá sao | **0** — không nguồn mở nào có |\n")
 w(f"| Trường `[CHƯA XÁC MINH]` ước tính | **~{41*len(picked)}** |\n\n")
 

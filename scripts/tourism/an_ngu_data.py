@@ -14,7 +14,7 @@ BAT DOI XUNG GIUA HAI NHOM, va no quyet dinh in gi:
   AN UONG  Khong gia, khong danh gia, tu bat ky nguon hop le nao. Nen gia tri
            nam o: CON MO KHONG · BAN MON GI · GOI SO NAO.
 """
-import json, io, os, unicodedata
+import json, io, os, re, unicodedata
 from collections import Counter
 
 MAX_MOI_BAC = 10        # co so luu tru in ra moi bac gia
@@ -113,12 +113,231 @@ NGHIEN_CUU = [("trang_facebook", "Trang Facebook"),
 # bao phai nam canh thu no canh bao.
 
 
+# ── KHOP OSM THEO TOA DO: "gan" KHONG co nghia la "cung mot noi" ───────────
+# `enrich_osm_ondisk.best_match` lay element OSM GAN NHAT trong 300 m va KHONG
+# doi ten khop — phep thu ten o do chi NOI RONG ban kinh len 600 m khi ten trung,
+# no khong bao gio BAT buoc trung. Nen mot diem khong co element rieng se lang
+# le nhan danh tinh cua hang xom. Do dem duoc, va da ra tai lieu:
+#
+#   DL-15 Ho Xuan Huong  <- "Coffee One Day"   113 m : ten, dia chi, VA gio mo
+#                                                      cua "06:00-24:00" — mot
+#                                                      cai ho co gio mo cua.
+#   DL-33 Dinh Bao Dai   <- "Lam Dong Museum"  183 m : gio mo cua cua BAO TANG.
+#   DL-35 Dinh Bao Dai 1 <- mot tien ich trong khuon vien 211 m : gio, web, wifi.
+#   DL-31 Lang Cu Lan    <- mot POI trong pho  114 m : "12 Lu Gia", "24/7", gmail.
+#   DL-14 Chua Linh Phuoc<- mot KHACH SAN       50 m : "Room: 19; Price: 48-198
+#                                                      USD/night", hang sao, wifi.
+#   DL-01 XQ Su Quan     <- element cach        89 m : so nha "258" — CHINH la
+#                                                      ve "258" trong mau thuan
+#                                                      dia chi voi Wikipedia
+#                                                      ("80A"). Va `dia_chi_day_du`
+#                                                      trong nhu nguon THU HAI
+#                                                      xac nhan 258, nhung no la
+#                                                      so nha CUA CHINH element do
+#                                                      cong voi Nominatim doc
+#                                                      nguoc toa do CUA CHINH TA
+#                                                      — mot goc, in hai lan.
+#
+# Khoang cach mot minh KHONG tach duoc dung/sai: "Datanla Fall" o 0 m va "Valley
+# of Love" o 215 m deu dung (ten dich khac ngu he, khong so chuoi duoc), con
+# khach san o dung 50 m thi sai. Cai tach duoc la LOAI TRUONG:
+#
+#   - Truong VAN HANH (gio, dia chi, lien he, wifi, hang sao, ten tieng Viet) mo
+#     ta mot CO SO dang hoat dong. Lay tu 50 m tro len la lay cua co so khac.
+#   - Ten dich (`ten_en`), QID Wikidata, Commons van chap nhan xa, vi tam mot ho
+#     hay mot thac lech vai tram met giua cac nguon la binh thuong.
+#
+# Va phan xet theo ELEMENT, khong theo tung dong: mot element la MOT thuc the.
+# Neu no cap mot truong van hanh tu qua xa thi no khong phai diem nay, nen ten
+# cua no cung khong phai — do la cach "Lam Dong Museum" bi loai khoi DL-33 trong
+# khi "Valley of Love" o xa hon van duoc giu cho DL-02.
+BAN_KINH_VAN_HANH = 50          # met
+
+TRUONG_VAN_HANH = {"gio_mo_cua", "gia_ve", "dia_chi_osm", "phuong_xa", "email",
+                   "facebook", "dien_thoai_osm", "website_osm", "mo_ta_osm",
+                   "wifi", "hang_sao_tu_khai", "nam_xay_dung", "kien_truc",
+                   "ton_giao", "osm_check_date", "ten_vi", "ten_khac"}
+
+
+def loc_khop_xa(rows):
+    """Bo moi dong den tu mot element OSM khop QUA XA. -> (giu, bo)
+
+    Khong im lang: nguoi goi PHAI in `bo`. Mot bo loc giau di thu no cat chinh
+    la loi da ghi trong so loi — so lieu tut ma khong ai biet tai sao.
+    """
+    xau = set()
+    for e in rows:
+        if e.get("source") != "OpenStreetMap" or not e.get("url"):
+            continue
+        if e["field"] in TRUONG_VAN_HANH and (e.get("match_m") or 0) >= BAN_KINH_VAN_HANH:
+            xau.add((e["id"], e["url"]))
+    # `dia_chi_day_du` (pass 9) DUNG LEN TU `dia_chi_osm` — `enrich_diachi.py:92`
+    # doc thang truong do lam so nha va ten duong, chi lay duong cua Nominatim khi
+    # OSM khong co. Nen loai element sai ma giu ban dich cua no thi chua loai gi:
+    # ho Xuan Huong van mang dia chi quan ca phe, va Lang Cu Lan — cach trung tam
+    # 20 km — van mang mot dia chi trong pho. Loai theo CA CHUOI DAN XUAT.
+    id_dia_chi_hong = {e["id"] for e in rows
+                       if e["field"] == "dia_chi_osm" and (e["id"], e.get("url") or "") in xau}
+    giu, bo = [], []
+    for e in rows:
+        kh = (e["id"], e.get("url") or "")
+        hong = (e.get("source") == "OpenStreetMap" and e.get("url") and kh in xau)
+        if e["field"] == "dia_chi_day_du" and e["id"] in id_dia_chi_hong:
+            hong = True
+        (bo if hong else giu).append(e)
+    return giu, bo
+
+
+_SO_TRUOC_PHO = re.compile(r"(?:so\s+)?(\d+\s*[a-z]?(?:/\d+[a-z]?)?)\s*,?\s*(?:duong\s+)?$")
+
+
+def _so_nha(text, pho):
+    """So nha dung NGAY TRUOC ten pho trong `text`. None neu khong tim thay.
+
+    Doc de SO SANH, khong de XUAT BAN — mot duong tinh sai chi lam hien mot canh
+    bao thua, con bo qua thi tai lieu tiep tuc khang dinh mot so nha co the sai.
+    """
+    f, p = fold(text), fold(pho)
+    if not p or p not in f:
+        return None
+    m = _SO_TRUOC_PHO.search(f[:f.index(p)])
+    # `fold()` ha chu thuong de so sanh; so nha Viet Nam viet hoa chu cai duoi
+    # ("80A", "31C"). In lai dang da ha chu la sua so nha cua nguon.
+    return re.sub(r"\s+", "", m.group(1)).upper() if m else None
+
+
+def _pho_tran(s):
+    """'258 Mai Anh Đào' -> 'Mai Anh Đào'. Dang tran cua `dia_chi_osm`, khong co
+    chu 'đường'. Tra None neu khong bat dau bang so nha."""
+    m = re.match(r"^\s*\d+\s*[A-Za-z]?(?:/\d+[A-Za-z]?)?\s+(.+)$", s or "")
+    return m.group(1).strip() if m else None
+
+
+def dia_chi_mau_thuan(pid, enr, bo=None):
+    """Mo ta va ban ghi co noi HAI so nha khac nhau tren CUNG mot pho khong?
+
+    -> None | (so_theo_mo_ta, so_theo_ban_ghi, ten_pho, da_loai)
+
+    Ba diem dang mac: XQ Su Quan 80A/258 Mai Anh Dao, Nha tho Con Ga 13/15 Tran
+    Phu, Chua Tau 385/31C Khe Sanh. Ca ba deu in mot so nha nhu su that ngay duoi
+    mot doan trich noi so khac. Chi so sanh khi TEN PHO trung — hai pho khac nhau
+    la hai dia chi khac nhau, khong phai mot mau thuan.
+
+    `bo` = cac dong da bi `loc_khop_xa` loai. Phai doc CA chung, vi voi XQ Su Quan
+    chinh ban ghi ban do la ben bi loai: neu chi doc phan con lai thi the mat luon
+    dong dia chi va KHONG noi gi — nguoi doc thay mot doan trich ghi "80A" va mot
+    khoang trong, khong biet rang da co mot so nha khac bi bac bo. Im lang o day
+    con te hon mot canh bao.
+    """
+    e = enr.get(pid) or {}
+    mo = e.get("mo_ta_wikipedia")
+    if not mo:
+        return None
+    # Thu lan luot, KHONG lay "cai dau tien tim thay": `dia_chi_osm` o dang tran
+    # ("258 Mai Anh Đào") khong co chu "đường", nen neu no duoc thu truoc thi phep
+    # tach ten pho hong va ca ham im lang — dung cai bay da lam XQ Su Quan khong
+    # ra canh bao o lan chay dau.
+    ung = [(e.get("dia_chi_day_du"), False), (e.get("dia_chi_osm"), False)]
+    if bo:
+        ung += [(x, True) for f in ("dia_chi_day_du", "dia_chi_osm")
+                for x in bo if x["id"] == pid and x["field"] == f]
+    for dia, da_loai in ung:
+        if not dia:
+            continue
+        dv = str(dia["value"])
+        m = re.search(r"đường\s+([^,]+)", dv)
+        pho = m.group(1).strip() if m else _pho_tran(dv)
+        if not pho:
+            continue
+        a, b = _so_nha(str(mo["value"]), pho), _so_nha(dv, pho)
+        if a and b and a != b:
+            return (a, b, pho, da_loai)
+    return None
+
+
+# ── THE `fee` CUA OSM KHONG PHAI MOT SO TIEN ───────────────────────────────
+# `fee=yes` nghia la "CO thu phi", khong noi bao nhieu. In thang no ra o o
+# "Giá vé" bien mot co BOOLEAN thanh mot con so: the DL-23 Crazy House doc ra
+# "Giá vé : yes", va DL-20 Ga Da Lat doc ra "Giá vé : 10000" — khong don vi,
+# khong dau phan cach, khong nguon. Ca hai deu lay thang tu lop hop nhat, vong
+# qua toan bo duong `enrichment.json`/`ev()`, dung lop sai ma `hours` vua mac.
+# Va ca hai deu KHONG mang `[CHƯA XÁC MINH]`, tuc vi pham Quy tac 1 cua chinh
+# muc 0 ("KHONG thay [CHƯA XÁC MINH] bang mot gia tri thuong gap").
+#
+# Khong co gia tri `fee` nao trong du lieu nay la mot so tien da xac minh. Nen
+# ham nay khong bao gio tra ve "day la gia": no chi dich the sang tieng Viet va
+# noi ro do la thong tin gi.
+_FEE_CO = {"yes", "true", "1", "some", "interval"}
+_FEE_KHONG = {"no", "false", "0", "free", "none"}
+
+
+def doc_the_fee(fee):
+    """The OSM `fee`/`charge` -> cau tieng Viet, hoac None neu khong co gi.
+
+    KHONG BAO GIO tra ve mot so tien duoc coi la da xac minh.
+    """
+    s = str(fee or "").strip()
+    if not s:
+        return None
+    t = s.lower()
+    if t in _FEE_CO:
+        return ("CÓ thu phí — thẻ OSM `fee=yes` chỉ nói có thu, KHÔNG nói bao nhiêu; "
+                "hỏi số tiền khi gọi")
+    if t in _FEE_KHONG:
+        return "miễn phí — theo thẻ OSM `fee=no`, chưa gọi xác nhận"
+    if re.fullmatch(r"\d+", t):
+        # Con so tran, khong don vi. Khong tu gan "₫" vao — do la suy dien ve
+        # don vi tien, dung loai suy dien muc 0 cam.
+        return (f"{s} — số trần trên thẻ OSM, KHÔNG ghi đơn vị tiền tệ; "
+                "chưa xác minh, đừng đọc cho khách như một mức giá")
+    return f"{s} — nguyên văn thẻ OSM, chưa xác minh"
+
+
+def the_fee_ngan(fee):
+    """Dang ngan cho o bang. Cung phep dich voi `doc_the_fee`, khong tu viet lai."""
+    s = str(fee or "").strip().lower()
+    if not s:
+        return "—"
+    if s in _FEE_CO:
+        return "có thu phí"
+    if s in _FEE_KHONG:
+        return "miễn phí"
+    return "có thu phí"      # so tran / van ban la: co thu, chua ro bao nhieu
+
+
+def gio_bi_loai(bo):
+    """{(id, gia_tri)} gio mo cua da bi loai — de chan CA duong hop nhat.
+
+    Lop hop nhat (`picked[i]["hours"]`) khong ghi khoang cach khop, nen khong the
+    loc no bang ban kinh. Nhung khi chuoi gio y HET voi mot dong enrichment vua
+    bi loai va cung nguon OSM, thi do la CUNG element sai di theo duong khac —
+    DL-35 la ca do: "Mo-Su 08:00-18:00" ca hai ben, element cach 211 m. Chan
+    tiep bang chinh bang chung da co, khong doan them.
+    """
+    return {(e["id"], str(e["value"]).strip())
+            for e in bo if e["field"] == "gio_mo_cua"}
+
+
+def co_gio_mo_cua(r, enr, gio_loai):
+    """Diem nay CO in dong "Gio mo cua" khong? — dem cai DA IN.
+
+    So kiem chung tung dem `r["hours"]` mot minh, nen no bao 5 trong khi tai lieu
+    that su in 11 the co gio. Mot bang tu kiem bao thieu chinh tai lieu chua no
+    thi khong con la bang kiem. Ca hai bo dung goi HAM NAY, khong tu dem lai.
+    """
+    h = (r.get("hours") or "").strip()
+    if h and (r["id"], h) in gio_loai:
+        h = ""
+    return bool(h) or "gio_mo_cua" in (enr.get(r["id"]) or {})
+
+
 def _enr(raw_dir):
     p = os.path.join(raw_dir, "enrichment.json")
     if not os.path.exists(p):
         return {}
+    rows, _ = loc_khop_xa(json.load(io.open(p, encoding="utf-8")))
     out = {}
-    for e in json.load(io.open(p, encoding="utf-8")):
+    for e in rows:
         out.setdefault(e["id"], {}).setdefault(e["field"], e)
     return out
 
@@ -276,6 +495,20 @@ def tai_an_uong(raw_dir):
                      for r in rows[:MAX_MOI_NHOM]],
         })
 
+    # ── DANH SACH DANG MO CO Y KHONG KHU TRUNG TEN ─────────────────────────
+    # Mot ban ra soat bao rang "5.559 quán còn hoạt động" bi thoi phong vi 86
+    # nhom ten trung nhau (116 dong thua) — "Lẩu Gà Lá É Tao Ngộ" x10, "Napoli
+    # Coffee" x6 — va de nghi khu trung nhu danh sach da dong cua.
+    #
+    # Do khoang cach truoc khi lam thi ket luan LAT NGUOC: cac hang cung ten
+    # cach nhau 277 m den 29 km (napoli coffee trai 24 km, son lam quan 29 km),
+    # va so cap cung ten gan hon 50 m la **0**; duoi 100 m chi co 2 cap. Day la
+    # CHUOI VA CHI NHANH that, khong phai ban ghi lap. Khu trung theo ten se xoa
+    # chi nhanh that va lam con so THAP hon su that.
+    #
+    # Danh sach da dong cua thi nguoc lai: no khu trung (duoi day) vi mot quan
+    # xuat hien hai lan duoi hai cach viet ten se doc nhu hai quan cung dong mot
+    # ngay. Hai danh sach, hai muc dich, hai luat — co chu dich.
     dong = [{"ten": r["ten"], "ngay": r["da_dong_cua"]}
             for r in d["quan"] if r.get("da_dong_cua")]
     dong += [{"ten": r["ten"], "ngay": r["da_dong_cua"]}

@@ -106,6 +106,29 @@ for ten, chuoi, toi_thieu in KHOI:
     elif a < toi_thieu or b < toi_thieu:
         sai(f"khoi '{ten}' it hon mong doi ({toi_thieu})", f".md={a}", f".docx={b}")
 
+# ── 3b. CANH BAO: so luong phai BANG NHAU, khong chi "cung co mat" ────────
+# Muc 3 chi hoi "co o ca hai ban khong" va "co du toi thieu khong", nen mot ban
+# in 3 canh bao con ban kia in 2 van duoc bao KHOP. Do khong phai gia dinh — no
+# vua xay ra: canh bao mau thuan so nha cua XQ Su Quan co trong .md va KHONG co
+# trong .docx, vi `field_table()` bo moi dong co gia tri bat dau bang UNV, ma
+# dia chi cua diem do dung la UNV sau khi ban ghi ban do bi loai. Bo kiem cu
+# doc "3 va 2, ca hai deu >= 1" la dat.
+#
+# Canh bao la lop noi dung KHONG duoc phep lech mot don vi: mot canh bao thieu
+# la mot khang dinh sai duoc doc nhu su that o dung mot ban.
+CANH_BAO = ["MÂU THUẪN SỐ NHÀ",
+            "lớp bản đồ ghi khác",
+            "HAI TRANG CỦA CÙNG BẢO TÀNG",
+            "ĐÃ BỊ LOẠI vì khớp nhầm",
+            "CÓ thu phí",
+            "số trần trên thẻ OSM",
+            "KHÔNG cơ sở nào công bố giá",
+            "Website đã lưu"]
+for chuoi in CANH_BAO:
+    a, b = md.count(chuoi), dx.count(chuoi)
+    if a != b:
+        sai(f"so canh bao '{chuoi[:34]}' KHAC NHAU", f".md={a}", f".docx={b}")
+
 # ── 4. thu tu goi dien — dung thu hai ban tung bat dong ───────────────────
 md_goi = re.findall(r"\| \d+ \| (DL-\d\d) ·", md.split("theo thứ tự ưu tiên")[-1])
 dx_goi = []
