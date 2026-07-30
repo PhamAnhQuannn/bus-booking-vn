@@ -1100,6 +1100,17 @@ if _LT:
             w(f"| {_c['ten']} | {_c['gia']} | {_c['so_phong'] or ''} | "
               f"{_c['dien_thoai'] or ''} | {(_c['dia_chi'] or '').split(',')[0]} |\n")
         w("\n")
+    # Khoi "khong cong bo gia" — xem chu thich o `an_ngu_data.tai_luu_tru`.
+    if _LT.get("khong_gia"):
+        w(f"**Không công bố giá** — {_LT['khong_gia_tong']} cơ sở đã đăng ký "
+          f"({_LT['khong_gia_co_dt']} có số gọi). Không có giá KHÔNG phải là "
+          "không có chỗ: hỏi giá khi gọi.\n\n")
+        w("| Cơ sở | Địa chỉ | Điện thoại | Thẩm định |\n|---|---|---|---|\n")
+        for _c in _LT["khong_gia"]:
+            _ten = _c["ten"] + (f" *({_c['loai']})*" if _c["loai"] else "")
+            w(f"| {_ten} | {(_c['dia_chi'] or '').split(',')[0]} | "
+              f"{_c['dien_thoai'] or ''} | {_c['tham_dinh']} |\n")
+        w("\n")
     if _LT["dong_cua"]:
         w("**Đã đóng cửa — không giới thiệu:** "
           + " · ".join(f"{r['ten']} ({r['ngay']})" for r in _LT["dong_cua"]) + "\n\n")

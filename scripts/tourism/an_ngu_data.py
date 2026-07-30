@@ -479,6 +479,22 @@ def tai_luu_tru(raw_dir):
             } for r in rows[:MAX_MOI_BAC]],
         })
 
+    # ── Co so KHONG cong bo gia ────────────────────────────────────────────
+    # Muc nay xep theo BAC GIA, nen mot co so khong co gia thi khong thuoc bac
+    # nao va bien mat hoan toan: 207 tren 420 — gan mot nua danh sach luu tru da
+    # dang ky cua thanh pho — khong xuat hien o bat ky dau trong tai lieu, va
+    # khong dong nao noi rang chung ton tai. Chung KHONG thieu thong tin lien he:
+    # 207/207 co dia chi, 201/207 co dien thoai, 188 mang dau tham dinh nha nuoc.
+    # Thieu gia la ly do de GOI HOI, khong phai ly do de giau di.
+    #
+    # KHONG co cot "Loai": do duoc trong chinh nhom nay, 188/207 la "Khách sạn"
+    # — 91% mot gia tri, dung cai bay "ti le lap day cao nhung khong phan biet
+    # duoc gi" da ghi trong so loi. Chi gan nhan cho 19 dong KHAC "Khách sạn",
+    # la cho nhan do thuc su mang tin.
+    khong_gia = [r for r in cs if not r["gia_min"]]
+    khong_gia.sort(key=lambda r: (r["tham_dinh"] != "nhà nước", r["ten"]))
+    kg_loai = Counter((r.get("loai") or "(không ghi)") for r in khong_gia)
+
     tt = Counter(r["tham_dinh"] for r in d["co_so"])
     dong = [r for r in d["co_so"] if r.get("da_dong_cua")] + d.get("dong_cua_ngoai_dang_ky", [])
     dong.sort(key=lambda r: r["da_dong_cua"], reverse=True)
@@ -488,6 +504,16 @@ def tai_luu_tru(raw_dir):
         "co_so_phong": sum(1 for r in cs if r["so_phong"]),
         "co_dien_thoai": sum(1 for r in cs if r["dien_thoai"]),
         "bac": bac,
+        "khong_gia": [{
+            "ten": r["ten"],
+            # Nhan loai CHI khi khac "Khách sạn" — xem chu thich tren.
+            "loai": (r.get("loai") if (r.get("loai") or "") != "Khách sạn" else None),
+            "dia_chi": r["dia_chi"], "dien_thoai": r["dien_thoai"],
+            "tham_dinh": r["tham_dinh"],
+        } for r in khong_gia],
+        "khong_gia_tong": len(khong_gia),
+        "khong_gia_co_dt": sum(1 for r in khong_gia if r["dien_thoai"]),
+        "khong_gia_loai": kg_loai.most_common(),
         "dong_cua": [{"ten": r["ten"], "ngay": r["da_dong_cua"]} for r in dong],
     }
 

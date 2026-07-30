@@ -908,6 +908,16 @@ if _LT:
             [[_c["ten"][:38], _c["gia"], str(_c["so_phong"] or ""),
               _c["dien_thoai"] or "", (_c["dia_chi"] or "").split(",")[0][:26]]
              for _c in _b["co_so"]], widths=[5.4, 3.4, 1.4, 2.8, 3.6])
+    # Khoi "khong cong bo gia" — CUNG du lieu, cung cach dien dat voi ban .md.
+    if _LT.get("khong_gia"):
+        H(f"Không công bố giá — {_LT['khong_gia_tong']} cơ sở đã đăng ký", 3)
+        P(f"{_LT['khong_gia_co_dt']} cơ sở có số gọi. Không có giá KHÔNG phải là "
+          "không có chỗ: hỏi giá khi gọi.", size=9, color=GREY)
+        TBL(["Cơ sở", "Địa chỉ", "Điện thoại", "Thẩm định"],
+            [[_c["ten"][:38] + (f" ({_c['loai']})" if _c["loai"] else ""),
+              (_c["dia_chi"] or "").split(",")[0][:30],
+              _c["dien_thoai"] or "", _c["tham_dinh"] or ""]
+             for _c in _LT["khong_gia"]], widths=[6.0, 5.0, 2.8, 2.2])
     if _LT["dong_cua"]:
         _pd = doc.add_paragraph()
         _rd = _pd.add_run("Đã đóng cửa — không giới thiệu: "

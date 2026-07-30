@@ -102,7 +102,11 @@ KHOI = [("phu luc nghien cuu", "Trang Facebook", 1),
         # Link ban do — mot trong ba suy dien duoc muc 0 cho phep, va la cai duy
         # nhat trong ba tung khong duoc sinh ra. 36/36 diem co toa do nen con so
         # nay phai dung bang so diem; tut xuong la mot the mat link.
-        ("link ban do", "google.com/maps", 36)]
+        ("link ban do", "google.com/maps", 36),
+        # Khoi 207 co so khong cong bo gia. Cot cua no da duoc muc 3a phu (tieu
+        # de bat dau bang "Cơ sở"), dong nay phu truong hop khac: ca khoi bien
+        # mat khoi mot ban.
+        ("khoi khong cong bo gia", "Không công bố giá", 1)]
 for ten, chuoi, toi_thieu in KHOI:
     a, b = md.count(chuoi), dx.count(chuoi)
     if a == 0 or b == 0:
