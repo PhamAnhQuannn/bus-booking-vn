@@ -41,7 +41,12 @@ from PIL import Image
 NAVBAR_STRIP = (0.00, 1.00, 0.000, 0.125)  # x0,x1,y0,y1 — E1
 LEFT_THIRD = (0.00, 0.33, 0.150, 0.640)  # D5, matches the session's gutter box
 TEXT_REGION = (0.23, 0.66, 0.250, 0.830)  # E2
-BUS_REGION = (0.58, 0.95, 0.080, 0.560)  # C-group, visual check only
+# C-group, visual check only. y1 was 0.560, which sits ABOVE the window band:
+# the exported crop showed the roofline and nothing else, so four of the five
+# questions printed beside it (wheels? whole vehicle? dark trim?) could not be
+# answered from the image the tool itself produced. The bus floor is 0.79
+# (scripts/hero-cut.py BUS_FLOOR_Y), so the box has to reach past it.
+BUS_REGION = (0.58, 0.95, 0.080, 0.840)
 
 # --- Variant table -----------------------------------------------------------
 # The original plan assumed ONE 3:2 asset. It was superseded: the hero ships four

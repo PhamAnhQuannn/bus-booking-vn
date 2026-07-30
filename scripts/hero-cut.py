@@ -44,6 +44,10 @@ BUS_FLOOR_Y = 0.79
 
 # Output quality. 88 is where this photograph stops gaining visible detail.
 JPEG_Q = 88
+# WebP q80 is roughly JPEG q88 perceptually on this material, at ~60% of the
+# bytes. Only the 2x tiers are WebP -- the 1x files stay JPEG because they double
+# as the CSS cascade fallback for browsers that cannot parse image-set().
+WEBP_Q = 80
 
 
 def cut(master, box_aspect, out_w, anchor_x=None, y_range=None):
@@ -102,21 +106,40 @@ def main():
     # at 767.
     jobs.append(("landing-golden-1280.jpg", 0.55, 768,
                  0.615, (0.18, 1.0),
-                 "mobile: lifted so the bus clears the search card"))
+                 "mobile 1x: lifted so the bus clears the search card"))
+    # One 2x file covers the whole mobile range including DPR3: the widest
+    # mobile box is 752 CSS px (at viewport 767, just under the md breakpoint),
+    # so 752*2 = 1504, and the tallest DPR3 case is 430*3 = 1245. 1536 clears
+    # both, which is why there is no separate 3x tier here.
+    jobs.append(("landing-golden-1280@2x.webp", 0.55, 1536,
+                 0.615, (0.18, 1.0),
+                 "mobile 2x: covers 752@2x (1504) and 430@3x (1245)"))
 
     # --- md, 768-1023. Box h/w 0.830 -> aspect 1.205. -----------------------
     # cover shows 67.9% of width and the bus spans 22.5%, so there is room to
     # keep the skyline too. Window 0.30-0.979.
     jobs.append(("landing-golden-md-1536.jpg", 1.205, 1536,
                  0.30, None,
-                 "md: whole bus + skyline"))
+                 "md 1x: whole bus + skyline"))
+    # md box tops out at 1008 CSS px, so DPR2 wants 2016.
+    jobs.append(("landing-golden-md-1536@2x.webp", 1.205, 2048,
+                 0.30, None,
+                 "md 2x: covers 1008@2x (2016)"))
 
     # --- lg, 1024-1919. Full master, positioned in CSS. ---------------------
     # No crop. The CSS uses `cover` at `50% 48%` - see page.tsx for why the old
     # right-anchor is gone.
     jobs.append(("landing-golden-1920.jpg", W / H, 1920,
                  0.0, None,
-                 "lg: full master, CSS positions it"))
+                 "lg 1x: full master, CSS positions it"))
+    # lg spans a box of 1009-1904 CSS px, so DPR2 at the very top wants 3808.
+    # 3072 is a deliberate compromise: it covers 1536@2x exactly (the common
+    # Retina laptop) and leaves a 1.24x residual upscale at the extreme top of
+    # the range, against 1.70x today. Going to 3808 would cost ~800KB for the
+    # last slice of the range.
+    jobs.append(("landing-golden-1920@2x.webp", W / H, 3072,
+                 0.0, None,
+                 "lg 2x: covers 1536@2x; 1.24x residual at the top of the range"))
 
     # --- 3xl, >=1920. Box aspect 2.617; crop to match. ----------------------
     # Position-only tuning has an empty valid range past ~2090px of box width,
@@ -127,7 +150,15 @@ def main():
     # wheels. y0 = 145 sits mid-range -> 0.154-0.833.
     jobs.append(("landing-golden-3840.jpg", 2.617, 2560,
                  0.0, (0.154, 0.833),
-                 "3xl: cropped to box aspect; band re-derived for this master"))
+                 "3xl 1x: cropped to box aspect; band re-derived for this master"))
+    # 3xl starts at a box of 1905 CSS px, so DPR2 wants 3810 -- that is a 4K
+    # panel at 200% scaling, much the commonest way a 4K display is actually
+    # driven. A 4K panel at 100% (box 3825, DPR1) falls back to the 2560 file
+    # and takes a 1.49x upscale; that configuration is rare enough not to be
+    # worth another ~600KB variant.
+    jobs.append(("landing-golden-3840@2x.webp", 2.617, 3840,
+                 0.0, (0.154, 0.833),
+                 "3xl 2x: covers 1905@2x (3810), i.e. 4K at 200% scaling"))
 
     # --- contract-rental thumbnail, NOT a hero variant. ----------------------
     # components/home/ContractCarRental.tsx paints a 288x128 (aspect 2.25)
@@ -141,6 +172,7 @@ def main():
                  "contract-rental thumb: landscape, bus + road + coast"))
 
     os.makedirs(a.out, exist_ok=True)
+    written = []
     for name, aspect, out_w, ax, yr, note in jobs:
         img, (x0, y0, cw, ch) = cut(m, aspect, out_w, ax, yr)
         fx0, fx1 = x0 / W, (x0 + cw) / W
@@ -153,10 +185,32 @@ def main():
         print(f"    out {img.size[0]}x{img.size[1]}  aspect {img.size[0]/img.size[1]:.4f}"
               f"  upscale {out_w/cw:.2f}x")
         print(f"    whole bus inside crop: {'YES' if bus_in else 'NO'}")
+        # Hard failure, not a note. This was printed and never checked, so a
+        # crop that lost the vehicle would have been written to public/hero/ and
+        # only noticed by eye -- which is exactly how a wrong asset ships.
+        if not bus_in:
+            print(f"    ABORT: {name} does not contain the whole bus")
+            return 1
         if not a.dry_run:
-            img.save(os.path.join(a.out, name), quality=JPEG_Q, optimize=True)
+            dest = os.path.join(a.out, name)
+            # Write to a temp file and swap. A direct save over the destination
+            # means an interrupt mid-write leaves a corrupt asset, and two runs
+            # without a commit in between destroy the first run's output with no
+            # recovery path.
+            tmp = dest + ".tmp"
+            if name.lower().endswith(".webp"):
+                img.save(tmp, format="WEBP", quality=WEBP_Q, method=6)
+            else:
+                img.save(tmp, format="JPEG", quality=JPEG_Q, optimize=True)
+            os.replace(tmp, dest)
+            written.append((name, img.size, os.path.getsize(dest)))
     if a.dry_run:
         print("\n(dry run - nothing written)")
+    else:
+        total = sum(b for _, _, b in written)
+        print(f"\n  wrote {len(written)} files, {total:,} bytes total")
+        for nm, sz, b in written:
+            print(f"    {nm:34s} {sz[0]:5d}x{sz[1]:<5d} {b:9,d}")
     return 0
 
 
