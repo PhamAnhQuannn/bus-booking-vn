@@ -23,5 +23,15 @@
 
 Vietnam's 2025 reform moves toward a 2-tier (province → commune) structure. This snapshot is the
 **legacy 3-tier** model by product decision (issue 103). To swap datasets, replace this file with the
-same `{provinces, districts, wards}` shape and keep `lib/geo/vnAdmin.ts` unchanged. Booking rows
-snapshot the resolved label (`pickupAreaLabel`) so a future swap does not orphan historical pickups.
+same `{provinces, districts, wards}` shape and keep `lib/geo/vnAdmin.ts` unchanged.
+
+> **Removed 2026-07-30.** This section used to end: *"Booking rows snapshot the resolved label
+> (`pickupAreaLabel`) so a future swap does not orphan historical pickups."* That safeguard no
+> longer exists — migration `20260622100000_remove_pickup_area_system` dropped
+> `Hold.pickupAreaLabel` and `Booking.pickupAreaLabel` along with the rest of the
+> OperatorPickupArea subsystem. (That subsystem was **added** by issue 104 and **removed** by
+> PR #125; issue 104 removed the older route-scoped `PickupPoint`, which is a different thing.)
+> The sentence was not merely naming a dead column; it
+> asserted a **safety property** that a dataset swap could rely on, and nothing has replaced it.
+> Anyone re-versioning this dataset must decide afresh what happens to historical pickup labels —
+> `Booking.pickupDetail` is now free text with no link back to this file.

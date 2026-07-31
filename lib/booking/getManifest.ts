@@ -1,8 +1,18 @@
 /**
  * getManifest — boarding manifest for a trip (Issue 014 AC6).
  *
- * Returns rows: { name, phone, ticketCount, pickupKind, pickupAreaLabel, pickupDetail, contactStatus,
- *                 paymentStatus, manualFlag }.
+ * Returns rows: { name, phone, ticketCount, pickupKind, pickupDetail, customPickupRequested,
+ *                 contactStatus, paymentStatus, pickedUpAt, escalatedAt, ... } — see
+ *                 ManifestRow below for the authoritative shape.
+ *
+ * (#366: this list previously named `pickupAreaLabel`, a field of the OperatorPickupArea
+ * subsystem — added in issue 104, removed by PR #125 (migration
+ * `20260622100000_remove_pickup_area_system`). No code references it: zero occurrences in `schema.prisma`,
+ * and the only occurrence in any TypeScript source under `lib/`, `app/` or `components/` is
+ * this sentence. That is the extent of what was checked, and the claim is deliberately no
+ * broader — past-tense mentions still exist in migrations and in `lib/geo/data/PROVENANCE.md`,
+ * which is correct, since those describe history. The list also omitted
+ * `customPickupRequested`, which does exist. Comment drift, not a code defect.)
  * AC6: NO seatNumber field in output.
  *
  * Tenant-isolated via Trip.operatorId join.
