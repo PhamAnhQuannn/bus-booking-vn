@@ -21,6 +21,14 @@ interface ShowcaseCard {
   display: string;
   initials: string;
   href: string | null;
+  /**
+   * Second line. `routesSummary` is the operator's own free-text route list from
+   * their application ("Hà Nội – Sài Gòn"); `provinceName` is the fallback. Both
+   * come from getPublicOperators() and are real. docs/design/mockup-home-spec.md:222
+   * specifies this slot as REDUCE→routesSummary — the invented "N+ tuyến" that used
+   * to sit here was meant to be replaced by this, not simply dropped.
+   */
+  subline: string | null;
 }
 
 function toInitials(name: string): string {
@@ -38,6 +46,7 @@ function toCard(op: PublicOperator): ShowcaseCard {
     href: op.topRoute
       ? searchHref(op.topRoute.origin, op.topRoute.destination, { operatorId: op.id })
       : null,
+    subline: op.routesSummary ?? op.provinceName,
   };
 }
 
@@ -49,6 +58,9 @@ function OperatorCard({ card }: { card: ShowcaseCard }) {
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold leading-tight">{card.display}</p>
+        {card.subline && (
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">{card.subline}</p>
+        )}
       </div>
     </>
   );
@@ -66,33 +78,34 @@ function OperatorCard({ card }: { card: ShowcaseCard }) {
   return <div className={cls.replace(' hover:shadow-e2 motion-safe:hover:-translate-y-0.5', '')}>{content}</div>;
 }
 
-/**
- * Column cap. The grid used to be a fixed 5 columns because padding guaranteed five
- * cards; without padding a lone real operator would render as one narrow card stranded
- * in a five-column track. Cap the track count at the number of cards we actually have.
- */
-const COLUMN_CLASS: Record<number, string> = {
-  1: 'grid-cols-1 sm:grid-cols-2',
-  2: 'grid-cols-1 sm:grid-cols-2',
-  3: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
-  4: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4',
-};
-
 export function OperatorShowcase({ operators }: { operators: PublicOperator[] }) {
   const cards = operators.map(toCard);
 
   if (cards.length === 0) return null;
 
-  const columns =
-    COLUMN_CLASS[cards.length] ?? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5';
-
+  /**
+   * Bound the CARD, not the track count.
+   *
+   * The first attempt capped columns with a lookup keyed on card count and got the
+   * n=1 case — the live case — wrong: `sm:grid-cols-2` caps at two, so a single
+   * operator rendered as a ~616px card holding ~210px of ink beside a ~616px hole,
+   * under a comment claiming the track was capped at the card count.
+   *
+   * `auto-fill` with a max track width is the honest version: tracks size
+   * themselves, one card occupies one card's worth of space, and there is no
+   * per-count table that can drift out of agreement with its own description as
+   * the operator list grows.
+   */
   return (
     <section className="mx-auto w-full max-w-7xl px-4 py-8 lg:py-10">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Nhà xe đối tác uy tín</h2>
+        <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+          {/* Plural "uy tín" over a single card overclaims a roster of one. */}
+          {cards.length === 1 ? 'Nhà xe đối tác' : 'Nhà xe đối tác uy tín'}
+        </h2>
       </div>
 
-      <div className={`grid gap-4 ${columns}`}>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-4">
         {cards.map((card) => (
           <OperatorCard key={card.key} card={card} />
         ))}

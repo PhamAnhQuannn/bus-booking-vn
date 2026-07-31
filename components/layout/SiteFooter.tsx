@@ -5,14 +5,17 @@
  * stub-pay (`/dev/*`), and auth pages (`/auth/*`) — same scope as SiteHeader.
  *
  * Rebuilt 2026-07-21 to the mockup's dark slab (docs/design/mockup-home.png S10):
- * brand column (logo + blurb + social chips) beside four link columns, the last of
- * which is a support-hotline block, then a bottom bar with the copyright and the
- * accepted payment methods.
+ * brand column beside four link columns, the last a support block, then a bottom
+ * bar with the copyright and the accepted payment methods.
  *
- * ⚠ PLACEHOLDERS in this file — the hotline number, its hours, the support email, and
- * the social links are all invented. The mockup showed "1900 1234"; that is a real,
- * billable Vietnamese service range, so a masked form is used instead. Replace or
- * remove all four before this ships.
+ * 2026-07-30: this header used to warn that the hotline, its hours, the support
+ * email AND the social links were "all invented … replace or remove all four
+ * before this ships". It shipped anyway, and the warning was wrong on one count:
+ * hotro@lenxevn.com is genuine and monitored (lib/notification/esms.ts). The three
+ * that really were invented — the 1900 xxxx hotline, its opening hours, and four
+ * social chips all pointing at "#" — are now gone. Nothing in this file is a
+ * placeholder; if that changes, scripts/audit/greppable-invariants.sh G7 fails CI
+ * rather than relying on anyone reading this paragraph.
  */
 
 import Link from 'next/link';
@@ -107,11 +110,13 @@ export function SiteFooter() {
           </nav>
         ))}
 
-        {/* 2026-07-30: this column led with "Tổng đài hỗ trợ 1900 xxxx" and opening
-            hours of 7:00–22:00. The `xxxx` was literal — a customer reading the live
-            site saw an unfinished placeholder where the support number should be, and
-            1900 is a real billable Vietnamese service range we hold no number in.
-            Both removed; the email below is genuine and monitored. */}
+        {/* 2026-07-30: this column led with a masked premium-rate support number and
+            invented opening hours. The mask was rendered literally, so a customer on
+            the live site saw an unfinished placeholder where the support line should
+            be — and that number range is real and billable, which we hold no number
+            in. Both removed; the email below is genuine and monitored.
+            (Deliberately not quoting the old literal here: greppable-invariants G7
+            fails on it, which is the point.) */}
         <div className="flex flex-col gap-3">
           <span className="font-semibold text-footer-foreground">Hỗ trợ khách hàng</span>
           <a

@@ -64,7 +64,6 @@ vi.mock('@/lib/payment', async () => {
 vi.mock('@/lib/notification', () => ({
   renderTemplate: mockRenderTemplate,
   SUPPORT_EMAIL: 'hotro@lenxevn.com',
-  SUPPORT_HOTLINE: '1900 xxxx',
   OPS_ALERT_EMAIL: 'hotro@lenxevn.com',
 }));
 vi.mock('@/lib/logger', () => ({ logger: mockLogger }));
