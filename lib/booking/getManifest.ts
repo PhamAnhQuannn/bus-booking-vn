@@ -6,7 +6,8 @@
  *                 ManifestRow below for the authoritative shape.
  *
  * (#366: this list previously named `pickupAreaLabel`, a field of the OperatorPickupArea
- * subsystem removed in issue 104. No code references it: zero occurrences in `schema.prisma`,
+ * subsystem — added in issue 104, removed by PR #125 (migration
+ * `20260622100000_remove_pickup_area_system`). No code references it: zero occurrences in `schema.prisma`,
  * and the only occurrence in any TypeScript source under `lib/`, `app/` or `components/` is
  * this sentence. That is the extent of what was checked, and the claim is deliberately no
  * broader — past-tense mentions still exist in migrations and in `lib/geo/data/PROVENANCE.md`,
