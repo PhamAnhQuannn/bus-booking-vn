@@ -10,11 +10,12 @@ That left the .py files under scripts/ with no gate of any kind.
 The cost was paid on 2026-07-29: a commit changed the output shape of
 scripts/tourism/sweep_monan.py and broke three readers. `ast.parse` had been run
 by hand on the changed file and passed, so "it parses" was mistaken for "it
-works" and the break shipped. A syntax gate would not have caught that
-particular defect -- it was semantic -- but it is the floor below which nothing
-else can be built, and the same session's mistake log records THREE separate
-Python breakages in one day from line-oriented regex edits orphaning
-continuation lines. Those are exactly what this catches.
+works" and the break shipped. This script would NOT have caught that -- it was a
+semantic break, not a syntax error. Of the three Python breakages the mistake log
+records from one day, it catches TWO: the regex line-deletion that orphaned a
+continuation line, and the mangled f-string. The third was a string replace that
+silently matched nothing, which no parser can see. This is the floor, not the
+ceiling, and it is worth having only because the floor was missing entirely.
 
 DESIGN NOTE -- why a zero-file result is a FAILURE
 --------------------------------------------------
@@ -24,22 +25,55 @@ extension setting excluded every .ts file, so "0 cycles" meant "the rule never
 ran" rather than "the tree is clean". A gate that emits nothing is not evidence
 of health.
 
-So this script exits non-zero if it finds no files to check -- counting files
-OTHER than itself. The self-exclusion matters: `root` is derived from this
-file's own path, so the glob always matches at least this script. A bare
-`checked == 0` guard could therefore never fire, which would have made it the
-very thing this paragraph warns about. Verified by injecting a broken file and
-watching the gate fail, then removing it and watching it pass.
+So this script exits non-zero if the file list comes back holding nothing but
+this script itself. That is reachable -- `git ls-files` can legitimately return
+one entry, and a reviewer reproduced the guard firing by pointing the checker at
+a tree containing only itself. The self-exclusion is what makes it meaningful:
+the checker is always in its own file list, so a bare `checked == 0` test would
+be weaker, though not strictly dead.
+
+It also refuses to fall back to a filesystem walk when git is unavailable. A
+fallback would be the fail-open path: it would quietly scan gitignored trees,
+including the full repo copies under .claude/worktrees/.
+
+KNOWN LIMIT -- untracked files are not checked
+----------------------------------------------
+Asking git means a brand-new .py is invisible until `git add`. In CI that costs
+nothing: the runner checks out tracked files and nothing else, so coverage is
+identical. Locally it means running this before staging a new file reports OK
+without having looked at it. Accepted deliberately -- the alternative is scanning
+gitignored worktrees, which is worse -- but worth knowing before trusting a local
+green. Wiring this into the pre-commit hook (against the staged blob, as
+scripts/audit/secret-scan-staged.sh intends to do) would close the gap.
 """
 
 from __future__ import annotations
 
 import ast
 import pathlib
+import subprocess
 import sys
 
-# Directories that are never ours to parse.
-SKIP_PARTS = {"node_modules", "__pycache__", ".venv", "venv", ".git", ".next"}
+
+def tracked_py_files(root: pathlib.Path) -> list[pathlib.Path]:
+    """Ask git, not the filesystem.
+
+    An `rglob` walks whatever happens to be on disk. That is wrong twice over:
+    `.claude/` is gitignored but would still be walked, and `.claude/worktrees/`
+    holds entire second copies of this repository — so a developer with a worktree
+    open would silently double every count. It also cannot see the difference
+    between a file the project owns and a stray scratch file.
+
+    `git ls-files` answers the question the docstring actually asks: every TRACKED
+    .py file. A non-zero exit (not a repo, git missing) is a hard failure rather
+    than a silent fallback to the glob -- see the note about fail-open above.
+    """
+    out = subprocess.run(
+        ["git", "-C", str(root), "ls-files", "-z", "--", "*.py"],
+        capture_output=True,
+        check=True,
+    ).stdout
+    return [root / name.decode("utf-8") for name in out.split(b"\0") if name]
 
 
 def main() -> int:
@@ -49,15 +83,29 @@ def main() -> int:
     checked = 0
     others = 0
 
-    for path in sorted(root.rglob("*.py")):
-        if SKIP_PARTS & set(path.parts):
-            continue
+    try:
+        candidates = tracked_py_files(root)
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError) as exc:
+        print(f"python-syntax: FAIL -- could not list tracked files via git: {exc}")
+        print("  Refusing to fall back to a filesystem walk: it would scan")
+        print("  gitignored trees (.claude/worktrees/ holds full repo copies).")
+        return 1
+
+    for path in sorted(candidates):
+        if not path.is_file():
+            continue  # tracked but deleted in the working tree
         checked += 1
         if path != self_path:
             others += 1
         try:
-            source = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError) as exc:
+            # read_bytes, not read_text: ast.parse handles a UTF-8 BOM and a PEP 263
+            # coding cookie itself, both of which CPython runs happily and
+            # read_text(encoding="utf-8") rejects. That is not theoretical here --
+            # PowerShell's `>` and Out-File default to UTF-8-WITH-BOM on this
+            # project's primary platform, so any agent rewriting a .py through
+            # redirection manufactures a file this script would have called broken.
+            source = path.read_bytes()
+        except OSError as exc:
             failures.append(f"{path.relative_to(root)}: unreadable -- {exc}")
             continue
         try:
@@ -65,6 +113,10 @@ def main() -> int:
         except SyntaxError as exc:
             where = f"{path.relative_to(root)}:{exc.lineno or 0}"
             failures.append(f"{where}: {exc.msg}")
+        except ValueError as exc:
+            # Source containing a null byte, and similar. Not a SyntaxError, but
+            # not parseable either -- report rather than crash with a traceback.
+            failures.append(f"{path.relative_to(root)}: not parseable -- {exc}")
 
     if others == 0:
         print("python-syntax: FAIL -- the glob matched only this script.")
