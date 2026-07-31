@@ -48,7 +48,6 @@ describe('renderTemplate — Bug B unmatched-payment templates', () => {
     route: 'Hanoi → Sapa',
     departureAt: '18/05 06:00',
     supportEmail: 'hotro@lenxevn.com',
-    hotline: '1900 xxxx',
   };
 
   it('customerPaymentReview reassures without claiming non-payment', () => {
@@ -63,9 +62,23 @@ describe('renderTemplate — Bug B unmatched-payment templates', () => {
     const body = renderTemplate('customerPaymentUnverified', base);
     expect(body).toContain('BB-2026-abcd-1234');
     expect(body).toContain('hotro@lenxevn.com');
-    expect(body).toContain('1900 xxxx');
     expect(body).not.toContain('chua thanh toan');
   });
+
+  // 2026-07-30 regression: both of these reach the buyer AFTER their money has
+  // left their account, and both used to print a `1900 xxxx` placeholder hotline
+  // as the thing to call. This asserts the placeholder cannot come back — it
+  // previously took the inverse form (`toContain('1900 xxxx')`), so the suite was
+  // actively holding the defect in place.
+  it.each(['customerPaymentReview', 'customerPaymentUnverified'] as const)(
+    '%s carries no placeholder hotline',
+    (template) => {
+      const body = renderTemplate(template, base);
+      expect(body).not.toContain('1900');
+      expect(body).not.toContain('xxxx');
+      expect(body).toContain('hotro@lenxevn.com'); // a real contact still reaches them
+    },
+  );
 
   it('opsUnmatchedPayment carries ref + amount + txn for reconciliation', () => {
     const body = renderTemplate('opsUnmatchedPayment', {
