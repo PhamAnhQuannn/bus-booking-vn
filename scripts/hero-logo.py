@@ -63,7 +63,25 @@ LOGO = os.path.join(REPO, "public", "brand", "logo-horizontal-white.png")
 # Work box around the flank artwork, kept strictly INSIDE the orange panel.
 # A taller box clipped the darker window band above and the seam below, and the
 # panel fit then had to model two surfaces at once (grain sigma 6.79 vs 3.16).
-BOX = (5200, 2312, 5530, 2534)  # x0, y0, x1, y1
+#
+# x1 stays at 5530 even though the decal now reaches 5632. Widening it to 5650 to
+# "cover the whole decal" was tried and made things WORSE: the fit degraded (grain
+# sigma 3.16 -> 4.01) and the illumination it produced stopped tracking the paint
+# (correlation with the real falloff dropped 0.976 -> 0.568) while overshooting
+# into the clamp. The narrow box is better conditioned; its shape is right and
+# only its amplitude is short, which MODULATION_GAIN corrects.
+#
+# y1 stops at 2498 to stay ABOVE the panel seam (y 2502-2519), whose dark line
+# would otherwise drag the fit -- the robust pass rejects only positive residuals,
+# so a dark seam survives it.
+BOX = (5200, 2312, 5530, 2498)  # x0, y0, x1, y1  -- where the panel is FITTED
+
+# ...but the old artwork reaches y 2522, BELOW that. Fitting and erasing must
+# therefore use different regions: shrinking BOX to 2498 left the artwork's lower
+# fragments (x[5283,5329] y[2507,2522]) outside the erase mask, and they survived
+# as a stray light shape under the monogram. The panel model is simply evaluated
+# down here rather than fitted here.
+ERASE_BOX = (5200, 2312, 5530, 2534)
 
 # Measured plane gradients (see module docstring).
 TOP_SLOPE = 9.0 / 69.0
@@ -72,20 +90,119 @@ CAP_REF_X = 5379.0   # centre x of the first cap glyph
 CAP_AT_REF = 68.0    # its measured cap height
 
 # Destination anchor: left edge of the artwork block being replaced.
-# The real lockup is wider per unit cap height than the AI one (6.9x vs 4.0x)
-# because of the mark plus the "BUS BOOKING" rule, so it cannot both match the
-# old cap height AND fit the old footprint. 360 keeps the decal close to the
-# artwork it replaces (272 wide) without shrinking the wordmark to illegibility,
-# and leaves clear margin before the rear vent at x~5706.
+#
+# Size and centre are SOLVED against the panel's real boundaries, not chosen.
+# The usable band is only ~225px tall and both of its edges slope:
+#
+#   panel top (orange/window)   y 2265 @ x5220  ->  2332 @ x5640
+#   horizontal panel seam       y 2502 @ x5240  ->  2519 @ x5660
+#
+# and the panel top descends FASTER (0.1595/px) than the decal's own top edge
+# (TOP_SLOPE 0.1304/px), so clearance shrinks left-to-right and the binding
+# corner is the top-RIGHT one. Solving for the largest width keeping >=10px at
+# all four corners gives W=410, cy=2390: top 26/14, bottom 13/23.
+#
+# W=430 looked fine on the left and left only 2.9px at the top right. The
+# previous W=360/cy=2413 cleared the seam by 3.0px, i.e. the decal was sitting
+# ON the panel seam -- a line running through the base of the monogram, which is
+# part of why it read as "broken".
+#
+# The rear vent is NOT a constraint: measured at x[5712,5753] y[2560,2680], it is
+# both right of and below the decal.
 DEST_X = 5222
-DEST_W = 360
-ART_CY = 2413  # centre of the artwork block y[2323,2503]
+DEST_W = 410
+ART_CY = 2390
 
-# The flank is in shadow: its existing white livery ink renders at RGB
-# (151, 149, 151), NOT 255. Compositing at full white made the lockup read as a
-# sticker lying on the paint rather than sprayed into it. Measured on the eroded
-# CORE of the old artwork so anti-aliased edge pixels do not drag it down.
-INK_LEVEL = 150.0
+# Panel boundaries, measured. Used to ASSERT containment after the quad is built,
+# because the margins are 13-26px and a later constant change would eat them
+# silently.
+def panel_top_at(x):
+    return 2265.0 + (2332.0 - 2265.0) / (5640.0 - 5220.0) * (x - 5220.0)
+
+
+def panel_seam_at(x):
+    return 2502.0 + (2519.0 - 2502.0) / (5660.0 - 5240.0) * (x - 5240.0)
+
+
+MIN_MARGIN = 10.0
+
+# The wordmark's "BUS BOOKING" rule and its flanking dashes are ERASED before
+# warping. Measured on the source: they land 2.0-2.9 CSS px tall at every
+# breakpoint (mobile 2.22, md 1.96, lg 2.14, 3xl 2.86), which cannot be drawn --
+# 10 of the lockup's 26 components are thinner than one CSS pixel on screen, the
+# thinnest 0.34px, and they alias into the grey smear under BBVN. For the rule to
+# reach a legible 8px the decal would have to span ~292 CSS px, about 65% of the
+# whole visible bus.
+#
+# Erase by ALPHA within the wordmark column, never by cropping the canvas: the
+# mark spans y[0,287], nearly the full height, so a crop would behead it.
+#   MARK      x[0,296]    y[0,287]
+#   WORDMARK  x[321,681]  y[113,246], with a clean row gap at y[212,228]
+TAGLINE_X0 = 321
+TAGLINE_Y0 = 228
+
+# The flank is in shadow, so the decal is NOT full white -- compositing at 255
+# made the lockup read as a sticker lying on the paint rather than sprayed into
+# it. But 150, taken from the eroded core of the old artwork, was too dark: it
+# left the decal dimmer than the vehicle's own paintwork and, worse, gave it no
+# separation in the red channel.
+#
+#     decal   rgb(151.9, 143.3, 140.2)
+#     orange  rgb(154.0,  60.0,   3.9)
+#             R  -2.0     G +83.3   B +136.3
+#
+# The decal's red was IDENTICAL to the orange it sits on, so the logo separated
+# only through green and blue and read grey rather than white. Raising the level
+# fixes brightness and separation together, because all three channels scale.
+#
+# WHERE THE CEILING ACTUALLY IS. An earlier pass set this to 165 on the grounds
+# that "the brightest white bodywork is 162.3" -- but that figure was the MEAN of
+# a detected blob, dragged down by shaded and anti-aliased edge pixels, and it
+# badly understated the real whites. Measured against the whole frame instead:
+#
+#     frame luma   p50 139.9 | p75 187.2 | p90 204.8 | p95 209.6 | p99 232.0
+#     white pixels on the bus itself, p99: 250.0
+#
+# At 165 the decal sat near the frame's 60th PERCENTILE, i.e. darker than most of
+# the image, which is why it kept reading grey however the numbers were framed.
+#
+# Chosen off a rendered ladder (172/190/210/230 composited and compared at true
+# render scale) rather than from a formula, after three formula-driven guesses in
+# a row missed. Measured on the decal, with the frame percentile it lands at:
+#
+#     INK   mark   wordmark   mean   Rsep   frame pct
+#     172   169.1     155.5   165.0  +17.5     61%   <- judged too dark
+#     190   186.2     171.2   181.6  +34.3     70%
+#     210   205.1     188.6   200.0  +53.0     86%   <- chosen
+#     230   223.9     206.0   218.5  +71.6     98%   <- judged too bright
+#
+# 210 sits above most of the image but below the vehicle's own 250 peak white.
+# 190 is deliberately not used: at p70 it is close to the 172 already called dark.
+#
+# Note the alpha-0.94 composite: the rendered result lands ~4% BELOW this
+# constant, the remaining 6% being orange panel showing through.
+#     0.94 * 210 + 0.06 * 81 (panel) = 202
+INK_LEVEL = 210.0
+
+# Amplitude of the illumination modulation. See the modulation block in main()
+# for why a gain is needed at all rather than using the fitted surface directly.
+#
+# Calibrated by sweep against the real paint, which swings 25.6% across the
+# decal's own band. Resulting ink swing / correlation with that falloff:
+#     gain 2.0 -> 17.4%  (+0.967)
+#     gain 2.5 -> 21.7%  (+0.966)
+#     gain 3.0 -> 26.0%  (+0.966)
+# Correlation is flat across the sweep because gain scales amplitude only; the
+# shape comes from the fitted surface and is already right.
+#
+# 2.0 rather than the paint-matching 3.0, on purpose. The paint dims left-to-
+# right and the BBVN wordmark sits on the RIGHT, so a full-strength match
+# penalises exactly the element carrying the brand name:
+#     gain 3.0 -> mark 151.0, wordmark 133.1
+#     gain 2.0 -> mark 164.6, wordmark 151.5   (at INK_LEVEL 165)
+# 17% is still a real lighting response and keeps the decal sitting in the
+# photograph; going below ~1.5 flattens it back into a sticker.
+MODULATION_GAIN = 2.0
 
 # Master this script's constants were measured against.
 EXPECT_SIZE = (6688, 3764)
@@ -120,24 +237,62 @@ def panel_model_and_mask(img, iters=4, thresh=7.0):
 
     keep = np.ones(h * w, bool)
     model = np.zeros_like(sub)
+    coefs = [None, None, None]
     for _ in range(iters):
         for c in range(3):
             coef, *_ = np.linalg.lstsq(A[keep], sub[:, :, c].ravel()[keep], rcond=None)
+            coefs[c] = coef
             model[:, :, c] = (A @ coef).reshape(h, w)
         keep = (sub - model).mean(2).ravel() < thresh
 
-    ink = (~keep).reshape(h, w).astype(np.uint8)
+    # Detect over ERASE_BOX, not over the fit box. The old artwork reaches y 2522
+    # while the fit deliberately stops at 2498 to stay above the panel seam, so
+    # detecting only where we fitted leaves the artwork's lower fragments behind.
+    ex0, ey0, ex1, ey1 = ERASE_BOX
+    esub = img[ey0:ey1, ex0:ex1].astype(np.float64)
+    eh, ew = esub.shape[:2]
+    eyy, exx = np.mgrid[ey0:ey1, ex0:ex1]
+    emodel = illumination(coefs, exx.astype(np.float64), eyy.astype(np.float64))
+    ink = ((esub - emodel).mean(2) >= thresh).astype(np.uint8)
     ink = cv2.morphologyEx(ink, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8))
     full = np.zeros(img.shape[:2], np.uint8)
-    full[y0:y1, x0:x1] = ink
-    return full, model
+    full[ey0:ey1, ex0:ex1] = ink
+    return full, model, coefs
 
 
-def reconstruct(img, mask, model, rng):
-    """Replace flagged pixels with the fitted panel plus matched grain."""
+def illumination(coefs, xs, ys):
+    """Evaluate the fitted panel surface at arbitrary MASTER coordinates.
+
+    The enlarged decal reaches x 5632 and y 2291, outside BOX, so the model has
+    to be evaluated beyond the region it was fitted on. The fit is NOT widened to
+    cover it: BOX is deliberately confined to clean paint, and stretching it over
+    the window band above would make the quadratic model two surfaces at once
+    (that mistake previously showed up as grain sigma 6.79 vs 3.16).
+
+    Extrapolation is modest -- about 31% past the box in x, 9% in y -- and a
+    smooth quadratic tolerates that. The caller still clamps the result.
+    """
     x0, y0, x1, y1 = BOX
+    w, h = x1 - x0, y1 - y0
+    xn = (xs - x0) / w - 0.5
+    yn = (ys - y0) / h - 0.5
+    A = _poly_basis(xn.ravel(), yn.ravel())
+    out = np.stack([(A @ c).reshape(xs.shape) for c in coefs], axis=-1)
+    return out
+
+
+def reconstruct(img, mask, coefs, rng):
+    """Replace flagged pixels with the fitted panel plus matched grain.
+
+    Works over ERASE_BOX, which extends below the fit box to cover the whole of
+    the old artwork, so the panel surface is EVALUATED here rather than reused
+    from the fit.
+    """
+    x0, y0, x1, y1 = ERASE_BOX
     out = img.copy()
     sub = out[y0:y1, x0:x1].astype(np.float64)
+    yy, xx = np.mgrid[y0:y1, x0:x1]
+    model = illumination(coefs, xx.astype(np.float64), yy.astype(np.float64))
     grow = cv2.dilate((mask[y0:y1, x0:x1] > 0).astype(np.uint8),
                       np.ones((9, 9), np.uint8)) > 0
     clean = ~grow
@@ -174,6 +329,29 @@ def dest_quad():
     print(f"    plane cap height {h_left:.1f} (x={DEST_X}) -> {h_right:.1f} "
           f"(x={DEST_X + DEST_W}), foreshorten {shrink:.3f}")
     print(f"    quad height {hl:.1f} -> {hr:.1f}")
+
+    # Containment. The clean band is ~225px tall between a sloping panel edge and
+    # a sloping seam, and the decal is 197px of it -- these margins are 13-26px,
+    # small enough that a later tweak to DEST_W or ART_CY could push the decal
+    # into the window glass or across the seam without anyone noticing on screen,
+    # where the whole lockup is under 100 CSS px wide.
+    xl, xr = DEST_X, DEST_X + DEST_W
+    gaps = {
+        "top-left": top_l - panel_top_at(xl),
+        "top-right": top_r - panel_top_at(xr),
+        "bottom-left": panel_seam_at(xl) - (top_l + hl),
+        "bottom-right": panel_seam_at(xr) - (top_r + hr),
+    }
+    print("    panel-band margins: "
+          + "  ".join(f"{k} {v:.0f}px" for k, v in gaps.items()))
+    tight = {k: v for k, v in gaps.items() if v < MIN_MARGIN}
+    if tight:
+        raise SystemExit(
+            f"REFUSING: decal is within {MIN_MARGIN:.0f}px of the panel edge at "
+            + ", ".join(f"{k} ({v:.1f}px)" for k, v in tight.items())
+            + ". Re-solve DEST_W/ART_CY against panel_top_at/panel_seam_at."
+        )
+
     return np.float32([
         [DEST_X, top_l],
         [DEST_X + DEST_W, top_r],
@@ -199,11 +377,15 @@ def main():
         return 1
 
     rng = np.random.default_rng(20260730)
-    mask, model = panel_model_and_mask(src)
+    mask, model, coefs = panel_model_and_mask(src)
     print(f"    artwork ink pixels: {int(mask.sum())}")
-    cleaned = reconstruct(src, mask, model, rng)
+    cleaned = reconstruct(src, mask, coefs, rng)
 
     logo = np.asarray(Image.open(LOGO).convert("RGBA")).astype(np.float32)
+    before = int((logo[:, :, 3] > 25).sum())
+    logo[TAGLINE_Y0:, TAGLINE_X0:, 3] = 0.0
+    print(f"    tagline erased: ink pixels {before} -> "
+          f"{int((logo[:, :, 3] > 25).sum())}")
     lh, lw = logo.shape[:2]
     M = cv2.getPerspectiveTransform(
         np.float32([[0, 0], [lw, 0], [lw, lh], [0, lh]]), dest_quad())
@@ -225,7 +407,36 @@ def main():
     print(f"    white-ink core rgb={ink_px.mean(0).round(1).tolist()} "
           f"level={ink_px.mean():.0f} tint={tint.round(3).tolist()}")
 
-    ink = warped[:, :, :3] / 255.0 * tint[None, None, :] * INK_LEVEL
+    # Modulate the ink by the panel's own illumination. A FLAT ink level is what
+    # made the decal read as a sticker: measured, the panel varies 13.5% in
+    # luminance across the decal's width and the generator's own painted logo
+    # varied 21.4%, while a flat INK_LEVEL varied 0.5%. Real paint on a shaded
+    # surface tracks the light; anything that doesn't is read as lying on top.
+    #
+    # INK_LEVEL stays the MEAN target, so overall density is unchanged and only
+    # the falloff is added.
+    ys, xs = np.mgrid[0:H, 0:W]
+    lit = illumination(coefs, xs.astype(np.float64), ys.astype(np.float64))
+    lit_lum = 0.299 * lit[:, :, 0] + 0.587 * lit[:, :, 1] + 0.114 * lit[:, :, 2]
+    hot = warped[:, :, 3] > 0
+    ref = float(lit_lum[hot].mean()) if hot.any() else 1.0
+    # The fitted surface has the right SHAPE but too little amplitude over the
+    # decal, because the decal's right third sits outside BOX and is
+    # extrapolated. Gain restores the magnitude without touching the shape.
+    # Calibrated against the real paint: clean panel inside the decal's own band
+    # falls 83.7 -> 64.3, a 25.6% swing, and unmodulated ink swings 0.6%.
+    # (The 13.5% quoted while diagnosing this was sampled BELOW the seam, on a
+    # different panel -- wrong surface, too small a number.)
+    #
+    # Clamped because `lit` is extrapolated outside BOX; a runaway quadratic must
+    # not be able to blow out or black out the decal.
+    shade = 1.0 + MODULATION_GAIN * (lit_lum / max(ref, 1e-6) - 1.0)
+    shade = np.clip(shade, 0.80, 1.20)[:, :, None]
+    print(f"    illumination modulation across the decal: "
+          f"{shade[hot].min():.3f} .. {shade[hot].max():.3f} "
+          f"({(shade[hot].max() / shade[hot].min() - 1) * 100:.1f}% range)")
+
+    ink = warped[:, :, :3] / 255.0 * tint[None, None, :] * INK_LEVEL * shade
     alpha = (warped[:, :, 3:4] / 255.0) * 0.94  # just under full, so it sits in the paint
     out = np.clip(cleaned.astype(np.float32) * (1 - alpha) + ink * alpha, 0, 255).astype(np.uint8)
 
