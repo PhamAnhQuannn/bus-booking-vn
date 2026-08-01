@@ -54,9 +54,18 @@ def parse(text):
     d["dia_chi_fb"] = g(text, r"\n([^\n]{10,200},\s*(?:Vietnam|Việt Nam))\n")
 
     # Dien thoai: uu tien DONG CHI CHUA SO — do la truong co cau truc cua
-    # Facebook. Bat trong doan van la sai: trang Doi Che Cau Dat viet
-    # "Liên hệ: 0868.000.444 hoặc 02636.279.368" o phan gioi thieu, va so
-    # dau tien khong phai so tong dai; truong co cau truc ben duoi moi la.
+    # Facebook. Bat trong doan van la sai: mot trang trong bo du lieu viet
+    # "Liên hệ: 08xx.xxx.xxx hoặc 0263x.xxx.xxx" o phan gioi thieu, va so dau
+    # tien khong phai so tong dai; truong co cau truc ben duoi moi la.
+    #
+    # ⚠ Comment nay TUNG chua so di dong THAT cua mot doanh nghiep co ten, va
+    # da duoc commit (a852fd5, 28/07). No lot qua gitleaks vi quy tac PII cua
+    # du an la `\+84[35789]\d{8}` — dang `08xx.xxx.xxx` co so 0 dau va dau cham
+    # nen khong khop. Vi du minh hoa trong comment phai dung so da che; du lieu
+    # that thuoc `.tourism-data/` (da gitignore), khong thuoc ma nguon.
+    #
+    # (Ban dau chinh dong tren nay viet lai nguyen so that trong luc giai thich
+    # vi sao no lot — bat duoc o lan quet cuoi truoc khi commit.)
     d["dien_thoai_fb"] = (g(text, r"\n((?:\+84|0)[\d\s().-]{8,16})\n")
                           or g(text, r"(?:\+84|0)[\d\s().-]{8,14}"))
 

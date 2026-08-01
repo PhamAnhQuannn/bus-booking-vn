@@ -41,11 +41,19 @@ CONTAMINATED = {
     "DL-31": ("https://www.youtube.com/@langculan.official", "kênh YouTube, không phải web chính thức"),
 }
 
-# Du lieu THAT lay duoc tu trang chinh chu
+# Du lieu THAT lay duoc tu trang chinh chu.
+#
+# ⚠ KHONG dat SO DIEN THOAI vao bang nay. Day la bang dien TAY nam trong ma
+# nguon duoc theo doi, con so lien he thuoc lop du lieu o `.tourism-data/` (da
+# gitignore). Dong DL-23 truoc day mang so tong dai that cua Crazy House, chep
+# tu crazyhouse.vn; no lot moi bo quet vi `+84` roi den `263` — dau so vung,
+# nam ngoai `[35789]` cua luat PII — va con co khoang trang chen giua.
+# Hom nay bang giu mot so tong dai; lan ghi tiep cho mot homestay se la so di
+# dong ca nhan, va khong co gi trong repo nhan ra dieu do.
 OFFICIAL_FACTS = [
     ("DL-32", "gio_mo_cua", "07:30 – 17:30", "baotanglamdong.com.vn",
      "https://baotanglamdong.com.vn/", "trích nguyên văn “Giờ mở cửa: 07:30 - 17:30”"),
-    ("DL-23", "can_dat_truoc", "có bán vé trước qua ticket.crazyhouse.vn · ĐT (+84) 263 3822 070",
+    ("DL-23", "can_dat_truoc", "có bán vé trước qua ticket.crazyhouse.vn",
      "crazyhouse.vn", "https://www.crazyhouse.vn/", "trang chính chủ"),
 ]
 

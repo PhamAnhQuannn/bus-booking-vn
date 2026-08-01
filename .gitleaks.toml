@@ -46,6 +46,14 @@ paths = [
   '''e2e/.*''',
   # Smoke crawl scripts log in with the seed phone verbatim (cannot be x-masked); the
   # QA report docs they emit print that seed phone. Fabricated seed data, not real PII.
+  #
+  # ⚠ THIS EXEMPTION IS NOT A LICENCE TO PASTE REAL CONTACT DATA INTO A REPORT.
+  # The justification above was true when written and stopped being true: tourism QA
+  # reports began quoting live business phones and street addresses read off the
+  # `.tourism-data/` corpus — the exact PII class the ignore rules exist to keep out —
+  # and the scanner stayed green the whole time because of this very line. Masked on
+  # 2026-08-01. Real values belong in `.tourism-data/` (gitignored); a report needs the
+  # SHAPE (`08xx.xxx.xxx`), never the number.
   '''scripts/smoke/.*''',
   '''docs/qa/.*''',
   # .env.example contains only placeholder values ("replace-with-32-byte-hex"),

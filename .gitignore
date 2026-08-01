@@ -127,9 +127,26 @@ documentation/tourism/
 # sinh ra de chan. Dang de quy phu ca `docs/archive/`.
 docs/**/*.docx
 
+# ── MOI dau ra cua scripts/tourism/ deu KHONG commit ────────────────────────
+# Quy tac tong, dat sau ba dong tren mot cach co chu dich: `.tourism-data/`,
+# `documentation/tourism/` va `docs/**/*.docx` la ba NOI da biet, con luat nay
+# la ve LOAI. Moi file du lieu do duong ong tourism sinh ra — du no roi xuong
+# thu muc nao — deu (a) tai tao duoc tu scripts + du lieu tho, va (b) dan xuat
+# tu chinh lop PII o tren.
+#
+# Sinh ra tu mot lo hong that: `scripts/tourism/diem_den_chot.json` (khoa chot
+# ID diem den) tung duoc COMMIT vi no roi vao thu muc script chu khong phai thu
+# muc du lieu — ba dong ignore theo-noi khong bat duoc no. File tam cua cac lan
+# do dac (`scratch_out*.txt`) cung the: chung chua ten quan, dia chi va so dien
+# thoai that, va khong khop bat ky mau ignore nao.
+.tourism-data/build/
+scripts/tourism/*.json
+/scratch_out*.txt
+
 # Anh chup kiem tra ad-hoc o thu muc goc. prod-e2e-1-qr.png la ma QR thanh toan
 # tu mot lan chay e2e tren PROD, co the ma hoa so tai khoan that.
 /prod-e2e-*.png
+/mcp-*.png
 /validate-*.png
 
 # Python bytecode
