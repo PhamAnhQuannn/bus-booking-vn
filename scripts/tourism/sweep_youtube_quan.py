@@ -47,43 +47,25 @@ import json, os, sys, io, re, time, unicodedata
 import urllib.parse, urllib.request, urllib.error
 from collections import Counter, defaultdict
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Loi dung chung voi moi bo quet YouTube khac. Moi ten duoi day tung nam TRONG
+# file nay; chuyen ra vi bo quet LUU TRU can y het, va mot quy tac dung chung
+# boi hai bo quet ma nam trong tung bo quet thi mot ben se lech trong im lang.
+from yt_chung import (S_API, V_API, MAX_KQ, MIN_KENH, MIN_TEN,
+                      TRAN_DON_VI, TRAN_LENH_SEARCH, chi_phi,
+                      luu_json, fold, tim_cum, co_ten_rieng, doc_khoa,
+                      ly_do_403, LY_DO_HAN_MUC,
+                      ngay_pacific, doc_nhat_ky, ghi_nhat_ky)
+
 RAW = sys.argv[1]
 OUT = os.path.join(RAW, "quan_vlog.json")
-S_API = "https://www.googleapis.com/youtube/v3/search"
-V_API = "https://www.googleapis.com/youtube/v3/videos"
 
+# Dinh nghia SOM: moc so sanh o duoi doc `PHIEN_BAN` truoc khi tieu han muc,
+# nen hang so nay phai co truoc khoi do. Truoc day no nam gan cho ghi file,
+# tuc SAU noi dung — mot NameError chi lo ra khi chua co file dau ra.
+PHIEN_BAN = 2      # 2 = khop theo tung truong + bien tu (tim_cum)
 
-def luu_json(path, obj):
-    """Ghi qua file tam roi os.replace — thay the file cu bang MOT phep toan.
-
-    `json.dump` ghi thang vao file dich, nen mot lan ngat giua luc ghi de lai
-    file JSON hong. Lan sau `json.load` that bai, roi `except: cu = []` lam MOC
-    SO SANH im lang tut ve rong — khien MOI ket qua trong nhu cai thien va vo
-    hieu hoa dung ban va chong ghi de o duoi. Bien the tinh vi hon cua chinh
-    loi ma ban va do sinh ra de chan.
-    """
-    tmp = path + ".tmp"
-    with io.open(tmp, "w", encoding="utf-8") as f:
-        json.dump(obj, f, ensure_ascii=False, indent=1)
-    os.replace(tmp, path)
-
-MAX_KQ = 25              # video moi truy van
-MIN_KENH = 2             # nguong bang chung: >=2 KENH khac nhau
-MIN_TEN = 8              # do dai ten co so toi thieu (sau khi bo dau)
-
-# ── HAI HAN MUC, KHONG PHAI MOT ────────────────────────────────────────────
-# Ngay 28/07 bo nay chet giua duong voi
-#     429 Quota exceeded for quota metric 'Search Queries'
-# trong khi script in `3.400/10.000` va tuong minh con du 66%. Sai vi co HAI
-# han muc doc lap va script chi dem MOT:
-#     don vi/ngay   10.000   search.list ton 100, videos.list ton 1
-#     lenh search   ~100     search.list ton 1 luot, videos.list ton 0
-# Voi bo 33 truy van thi don vi la 3.400/10.000 (du) nhung lenh search la
-# 33/100 — con nguyen nhan chet that su la CHAY BA LAN trong cung ngay lan voi
-# tham do, tong ~99 lenh. Vi script khong dem lenh, no KHONG BAO GIO co the
-# canh bao truoc buc tuong da lam mat 72 dong.
-TRAN_DON_VI = 10_000
-TRAN_LENH_SEARCH = 100
+# HAI han muc + moc reset: xem `yt_chung.chi_phi` va `yt_chung.ngay_pacific`.
 # Han muc reset NUA DEM PACIFIC = 14:00-15:00 gio Viet Nam. Chay luc 00:00 gio
 # VN la chay giua chu ky da troi 9-10 tieng. Len lich SAU 15:00 gio VN.
 # Vi sao 8 chu khong phai 10: `MIN_TEN = 10` loai "kem phung" (9 ky tu) — quan
@@ -139,12 +121,6 @@ so cua hang dac san sieu thi trung tam gia re moi cu lon nho""".split())
 # canh kinh ngu: dinh · chin · hung · sinh. Do la kiem chung rang viec them
 # nay that chat dung cho ma khong cat mat gi.
 CHUNG |= set("co di ba chu anh chi ong bac muoi thay".split())
-
-
-def fold(s):
-    s = (s or "").lower().replace("đ", "d")
-    s = unicodedata.normalize("NFD", s)
-    return " ".join("".join(c for c in s if unicodedata.category(c) != "Mn").split())
 
 
 def dac_trung(ten_folded):
@@ -217,40 +193,11 @@ def nap_tu_mon(raw_dir):
             MON_NHAN[n] = label
 
 
-def co_ten_rieng(ten_folded):
-    """Ten co so con >=1 token NGOAI bo tu mon va tu chung?
-
-    Ban dau toi viet luat nay THEO TRUY VAN — "ten phai co token khong xuat hien
-    trong truy van tim ra no". Kiem ngoai tuyen thi no van de lot ke te nhat:
-        Bánh tráng nướng 52 · Sua Dau Nanh 33 · Lau Ga La E 33 · Banh Mi Xiu Mai 30
-    Vi mot co so ten dung bang ten mon con khop CA TRUY VAN CHUNG ("ăn vặt Đà
-    Lạt"), va so voi truy van do thi "banh trang nuong" CO token rieng. Dung
-    any() tren nhieu truy van la tu mo cua hau.
-
-    Nen luat phai DOC LAP VOI TRUY VAN: bo tu mon la co dinh, khong phu thuoc
-    cau tim. Token con lai chinh la ten nguoi / thuong hieu — thu bien mot cai
-    ten chung thanh mot dia chi cu the:
-        "Bánh tráng nướng"        -> toan tu mon            -> LOAI
-        "Bánh Căn Lệ"             -> `le` ngoai bo          -> GIU
-        "Bánh Tráng nướng Dì Đinh"-> `di`, `dinh` ngoai bo  -> GIU
-        "Lẩu Gà Lá É Tao Ngộ"     -> `tao`, `ngo` ngoai bo  -> GIU
-    """
-    return any(w not in MON_TU and w not in CHUNG
-               for w in ten_folded.split() if len(w) > 1)
-
-
-def doc_khoa():
-    k = os.environ.get("YOUTUBE_API_KEY")
-    if k and k.strip():
-        return k.strip(), "biến môi trường"
-    for p in (".env.tourism.local", ".env.local"):
-        if os.path.exists(p):
-            for line in io.open(p, encoding="utf-8"):
-                if line.startswith("YOUTUBE_API_KEY"):
-                    v = line.partition("=")[2].strip().strip("'\"")
-                    if v:
-                        return v, p
-    return None, None
+# `co_ten_rieng` o `yt_chung` — luat chung, tap tu-chung thi rieng tung lop.
+# Voi lop AN UONG tap do la MON_TU | CHUNG: "Bánh tráng nướng" toan tu mon nen
+# LOAI, con "Bánh Căn Lệ" con `le` nen GIU.
+def co_ten_rieng_an_uong(ten_folded):
+    return co_ten_rieng(ten_folded, MON_TU | CHUNG)
 
 
 khoa, nguon = doc_khoa()
@@ -271,7 +218,7 @@ for r in ovt:
     if str(r.get("category") or "") not in AN_UONG:
         bo_hangmuc.append(r["name"])
         continue
-    if not co_ten_rieng(n):
+    if not co_ten_rieng_an_uong(n):
         bo_chung.append(r["name"])
         continue
     biz.setdefault(n, r)
@@ -297,75 +244,25 @@ def goi(api, params):
     global don_vi_dung, lenh_search
     u = api + "?" + urllib.parse.urlencode(dict(params, key=khoa))
     with urllib.request.urlopen(u, timeout=40) as r:
-        if api == S_API:
-            don_vi_dung += 100
-            lenh_search += 1        # <- han muc THU HAI, truoc day khong dem
-        else:
-            don_vi_dung += 1
+        dv, ls = chi_phi(api)       # HAI han muc — xem yt_chung.chi_phi
+        don_vi_dung += dv
+        lenh_search += ls
         return json.load(r)
 
 
-def ly_do_403(body):
-    """403 KHONG dong nhat la het han muc.
-
-    Ngay 28/07 khoa bi thu hoi va tra `API key expired`; script coi no la het
-    han muc nen loi khuyen la "cho mai" — sai, cho mai khong sua duoc khoa da
-    thu hoi. Ly do thuc nam o error.errors[0].reason.
-    """
-    try:
-        e = json.loads(body)["error"]
-        r = (e.get("errors") or [{}])[0].get("reason") or ""
-        return r, e.get("message", "")[:120]
-    except Exception:
-        return "", body[:120]
-
-
-# `quotaExceeded`/`rateLimitExceeded` -> mai lai co. Con lai -> khoa co van de.
-LY_DO_HAN_MUC = {"quotaExceeded", "dailyLimitExceeded", "rateLimitExceeded",
-                 "userRateLimitExceeded"}
-
-# ── SO LENH DA DUNG HOM NAY, LUU QUA CAC LAN CHAY ──────────────────────────
-# Mot lan chay khong biet gi ve lan chay truoc, nen han muc theo ngay la vo
-# hinh voi no. Do la ly do thuc su bo nay chet 28/07: khong lan nao vuot 100,
-# nhung ba lan cong lai thi vuot.
-# Ranh gioi ngay tinh theo UTC-8 chu khong phai UTC-7: reset that la nua dem
-# Pacific (UTC-7 mua he), nen UTC-8 lam bo dem doi them 1 tieng moi reset —
-# lech ve phia THAN TRONG, khong bao gio reset som hon thuc te.
+# `ly_do_403`, `LY_DO_HAN_MUC`, `tim_cum` va logic nhat ky ngay o `yt_chung` —
+# ca bon tung nam o day, chuyen ra vi bo quet LUU TRU can y het.
+#
+# ⚠ `ngay_pacific` o `yt_chung` la HAM, con bien cuc bo cu cung ten la CHUOI.
+# Dat ten khac (`NGAY`) de mot ben khong am tham che ben kia.
 NHAT_KY = os.path.join(RAW, "yt_lenh_theo_ngay.json")
-ngay_pacific = time.strftime("%Y-%m-%d", time.gmtime(time.time() - 8 * 3600))
-_nk = {}
-if os.path.exists(NHAT_KY):
-    try:
-        _nk = json.load(io.open(NHAT_KY, encoding="utf-8"))
-    except Exception:
-        _nk = {}
-da_dung_hom_nay = int(_nk.get(ngay_pacific, 0))
+NGAY = ngay_pacific()
+_nk = doc_nhat_ky(NHAT_KY)
+da_dung_hom_nay = int(_nk.get(NGAY, 0))
 
 
-def ghi_nhat_ky():
-    _nk[ngay_pacific] = da_dung_hom_nay + lenh_search
-    luu_json(NHAT_KY, {k: _nk[k] for k in sorted(_nk)[-14:]})
-
-
-def tim_cum(hay, kim):
-    """Vi tri cua `kim` trong `hay` VOI BIEN TU o ca hai dau.
-
-    ⚠ Ban dau ca hai cho — khop ten quan va khop mon — dung `kim in hay` tran.
-    Lan chay that lo ngay hau qua: `Bánh canh Xuân An` duoc gan mon `Bánh căn`,
-    vi bo dau thi "banh canh xuan an" CHUA "banh can" lam tien to. Cung ho voi
-    bay `bar`/`barber`, `sup`/`súp`, `che`/`chè` da ghi trong so nhieu lan —
-    lan nay no quay lai o BUOC GAN MON chu khong o buoc loc hang muc.
-    Rui ro doi xung ben ten quan: mot vlog noi "chè hẻm" ("che hem") se khop
-    `Quán Chè Hé` ("che he") neu khong co bien tu.
-    Van ban da bo dau nen chi con [0-9a-z ] — bien tu la ky tu khong alnum.
-    """
-    i = hay.find(kim)
-    while i >= 0:
-        truoc = hay[i - 1] if i else " "
-        sau = hay[i + len(kim)] if i + len(kim) < len(hay) else " "
-        if not truoc.isalnum() and not sau.isalnum():
-            yield i
-        i = hay.find(kim, i + 1)
+def ghi_nhat_ky_hom_nay():
+    ghi_nhat_ky(NHAT_KY, _nk, NGAY, lenh_search)
 
 
 def mon_gan(txt, ten, cua_so=120):
@@ -422,6 +319,11 @@ NHOM = [("A · theo món", [f"quán {m} Đà Lạt ngon" for m in TV_MON]),
 # la da tieu ca ngay han muc roi moi tu choi luu. Han muc theo ngay khong hoan
 # lai duoc, nen moi phep kiem co the lam huy bo lan chay phai chay TRUOC.
 cu = None
+# Khoi tao NGOAI khoi `if`: hai bien nay tung chi duoc gan BEN TRONG no, nen
+# khi chua co file thi chung khong ton tai. Dieu kien chan ghi de cu che loi do
+# bang short-circuit `cu is not None`; bo short-circuit di la ra NameError.
+# Moc mac dinh = rong, phien ban = hien tai — dung nghia "chua co gi".
+cu_hang, cu_pb = [], PHIEN_BAN
 if os.path.exists(OUT):
     try:
         cu = json.load(io.open(OUT, encoding="utf-8"))
@@ -445,7 +347,7 @@ du_kien = sum(len(t) for _, t in NHOM)
 print(f"dự kiến {du_kien} lệnh search · {du_kien * 100 + du_kien} đơn vị")
 if da_dung_hom_nay:
     print(f"⚠ khoá này đã dùng {da_dung_hom_nay} lệnh search HÔM NAY (ngày Pacific"
-          f" {ngay_pacific}) theo {os.path.basename(NHAT_KY)}")
+          f" {NGAY}) theo {os.path.basename(NHAT_KY)}")
     print(f"  còn ~{TRAN_LENH_SEARCH - da_dung_hom_nay}/{TRAN_LENH_SEARCH} lệnh."
           " Nguyên nhân thật của lần cạn hạn mức 28/07 không phải 33 > 100 —")
     print("  mà là chạy sweep BA LẦN cùng ngày lẫn với thăm dò, tổng ~99 lệnh.")
@@ -553,7 +455,6 @@ out.sort(key=lambda x: (-x["so_kenh_nhac"], -x["so_video_nhac"]))
 # khong duoc luu nen KHONG THE tinh lai ngoai tuyen — chi lan chay moi sua duoc.
 # Nen bo dung phai biet file thuoc phien ban nao; suy doan tu su hien dien cua
 # mot truong la khong du, vi truong van o do va van sai.
-PHIEN_BAN = 2      # 2 = khop theo tung truong + bien tu (tim_cum)
 goi_ra = {"phien_ban": PHIEN_BAN, "quan": out}
 
 # ── MOT LAN CHAY DO KHONG DUOC GHI DE MOT LAN CHAY DU ──────────────────────
@@ -565,7 +466,12 @@ goi_ra = {"phien_ban": PHIEN_BAN, "quan": out}
 # Cung ho voi luat da ghi trong so: "bo loc quyet dinh GIU gi, khong bao gio
 # quyet dinh LUU gi". O day: mot ket qua NGHEO HON khong duoc thay ket qua giau
 # hon chi vi no moi hon.
-if loi and cu is not None and len(out) < len(cu_hang) and cu_pb >= PHIEN_BAN:
+# ⚠ `cu is not None` tung nam trong dieu kien nay va la mot lo hong: khi CHUA
+# co file thi khong co moc so sanh nen no ghi thang, va mot lan chay dut giua
+# duong luc do de lai file chinh NGHEO — roi chinh file do thanh moc cho lan
+# sau. Dung lop loi ban ve nay sinh ra de chan, chi dich sang bien "lan dau".
+# Coi "chua co file" la moc 0 dong thi 0 <= 0 va lo hong bien mat.
+if loi and len(out) <= len(cu_hang) and cu_pb >= PHIEN_BAN:
     # `cu_pb >= PHIEN_BAN`: mot moc thuoc phien ban CU HON khong duoc thang, du
     # nhieu dong hon. Nhieu dong sai khong tot hon it dong dung — va dong cu
     # mang gan mon tinh bang chuoi con tran, tuc mot cau sai trong tai lieu.
@@ -576,13 +482,15 @@ if loi and cu is not None and len(out) < len(cu_hang) and cu_pb >= PHIEN_BAN:
     print(f"  {bak}")
     print(f"  Chạy lại đủ khi hạn mức ngày được cấp lại.")
     out = cu_hang
+    da_luu_vao = bak
 else:
     if cu is not None and cu_pb < PHIEN_BAN and len(out) < len(cu_hang):
         print(f"⚠ Ghi đè {len(cu_hang)} dòng phiên bản {cu_pb} bằng {len(out)} dòng"
               f" phiên bản {PHIEN_BAN}: ÍT hơn nhưng ĐÚNG hơn (khớp theo từng"
               " trường + biên từ). Dòng cũ mang gán món tính bằng chuỗi con tràn.")
     luu_json(OUT, goi_ra)
-ghi_nhat_ky()
+    da_luu_vao = OUT
+ghi_nhat_ky_hom_nay()
 
 duoi_nguong = sum(1 for v in nhac_kenh.values() if len(v) < MIN_KENH)
 moi = [r for r in out if not r["ten_chua_tu_mon"] and r["mon_lien_quan"]]
@@ -607,5 +515,10 @@ pc = [r for r in out if r["the_phong_cach"]]
 print(f"\n{len(pc)} quán có thẻ phong cách:")
 for t, c in Counter(t for r in out for t in r["the_phong_cach"]).most_common():
     print(f"   {c:3d}  {t}")
-print(f"\nsaved -> {OUT}")
+# In DUONG DAN THAT SU da ghi, khong phai `OUT` co dinh. Khi ban ve chong ghi
+# de bat, du lieu di sang file phu va file chinh KHONG doi — in "saved -> OUT"
+# luc do la noi nguoc voi viec vua lam, va nguoi doc log se tin la file chinh
+# da cap nhat. Nghich dao cua su co 29/07: ban ve giu duoc du lieu, con loi
+# nhan thi bao la no khong giu.
+print(f"\nsaved -> {da_luu_vao}")
 print("raw/ chỉ chứa tên cơ sở, số video, thẻ — không tên kênh, tiêu đề, mô tả, ID video.")

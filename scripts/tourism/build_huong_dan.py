@@ -16,6 +16,7 @@ from collections import Counter, defaultdict
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import hoat_dong_data as _hoat_dong   # mot nguon chon loc, hai nguon dinh dang
 import an_ngu_data as _an_ngu
+import xep_hang as _xep_hang          # nguong xep hang — MOT nguon, khong go tay
 
 # Duong ra co MAC DINH — cung ly do nhu ban .docx: khi ten file la lua chon cua
 # tung lan goi thi hai phien lam viec song song se sinh ra hai ban khac nhau.
@@ -33,10 +34,13 @@ BUILD_DATE = time.strftime("%d/%m/%Y")
 # ── SO MUC: mot cho duy nhat ────────────────────────────────────────────────
 # Moi tieu de VA moi tham chieu "xem muc N" deu doc tu day. Doi thu tu muc thi
 # sua o day, khong phai di tim tung cau van.
-S_QUYTAC, S_TONGQUAN, S_DIAHINH, S_DIEMDEN = 0, 1, 3, 4
-S_KHUVUC = 2
-S_HOATDONG, S_ANNGU, S_SOSANH = 5, 6, 7
-S_TUYEN, S_MATRAN, S_KIEMCHUNG = 8, 9, 10
+# S_XEPHANG dat NGAY SAU muc 0: quy uoc cho moi tai lieu, ke ca cac tinh sau
+# nay — nguoi doc mo file ra la thay ngay cach doc thu tu, thay vi doc het danh
+# sach roi moi gap mot chu thich o cuoi noi rang bang khong sap theo chat luong.
+S_QUYTAC, S_XEPHANG = 0, 1
+S_TONGQUAN, S_KHUVUC, S_DIAHINH, S_DIEMDEN = 2, 3, 4, 5
+S_HOATDONG, S_ANNGU, S_SOSANH = 6, 7, 8
+S_TUYEN, S_MATRAN, S_KIEMCHUNG = 9, 10, 11
 
 UNV = "[CHƯA XÁC MINH]"
 
@@ -315,7 +319,21 @@ print(f"chon {len(picked)} diem  |  chot tay {sum(1 for r in picked if r['_allow
 # Bo dem OSRM ngay duoi da tu bao ve dung cach nay (`c.get("ids") == ...`);
 # enrichment va lan_can thi chua. Chot danh sach lai thanh mot file vang va so
 # sanh moi lan chay: id doi cho la LOI NGHIEM TRONG, khong phai canh bao.
-CHOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "diem_den_chot.json")
+# File chot phai nam trong THU MUC DU LIEU, khong phai thu muc script. Duong dan
+# cu (`os.path.dirname(__file__)`) la mot qua bom hen gio cho luot mo rong 63
+# tinh: moi tinh chay cung script nay, nen tat ca se doc/ghi CHUNG mot file chot.
+# Tinh thu hai se thay danh sach id cua tinh thu nhat, bao "DUNG — danh sach da
+# doi" va thoat 1 — hoac te hon, neu chay lan dau thi ghi de file chot cua tinh
+# kia va vo hieu hoa bo bao ve cho ca hai.
+#
+# Duong dan cu van duoc doc mot lan de di doi file da co, neu khong lan chay
+# ke tiep se coi nhu chua chot va ghi lai — mat luon phep so sanh.
+CHOT = os.path.join(RAW, "diem_den_chot.json")
+_CHOT_CU = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        "diem_den_chot.json")
+if os.path.exists(_CHOT_CU) and not os.path.exists(CHOT):
+    os.replace(_CHOT_CU, CHOT)
+    print(f"  da di doi file chot -> {CHOT}")
 _hien_tai = [[r["id"], r["name"]] for r in picked]
 if os.path.exists(CHOT):
     _vang = json.load(io.open(CHOT, encoding="utf-8"))
@@ -574,11 +592,39 @@ w("2. **Khoảng cách từ khách sạn của khách** không có trong tài li
   "thuộc hồ sơ chuyến đi và chỉ tính được khi biết khách ở đâu.\n")
 w("3. Khoảng cách và thời gian đường bộ là **ước lượng trong điều kiện bình "
   "thường**, chưa tính chỗ đậu xe, tắc đường hay giờ cao điểm. Cột `Rộng` ở "
-  "mục 2 là **đường chim bay**, còn `Km từ trung tâm` và bảng điểm lân cận là "
+  f"mục {S_KHUVUC} là **đường chim bay**, còn `Km từ trung tâm` và bảng điểm lân cận là "
   "**đường bộ thật** theo OSRM — hai thước đo khác nhau.\n\n")
 
 w("**Bay flycam:** mặc định **coi như bị cấm** trừ khi có xác nhận ngược lại. "
   "Sai theo hướng an toàn thì mất một tấm ảnh; sai theo hướng kia thì khách bị phạt.\n\n")
+
+# ============================================== XEP HANG — dat DAU tien
+# CUNG vi tri, CUNG nguon nguong voi ban .docx. Neu mot ban co muc nay ma ban
+# kia khong thi khong co gi bao — dung loi 30/07.
+w(f"\n---\n\n## {S_XEPHANG}. XẾP HẠNG THEO ĐÁNH GIÁ — ĐỌC MỤC NÀY TRƯỚC\n\n")
+w("**" + _xep_hang.mo_ta_nguong() + "**\n\n")
+w("Cận dưới Wilson trả lời *“với bằng chứng đang có, chất lượng thật thấp nhất "
+  "có thể là bao nhiêu”*. Nên một nơi đạt điểm tuyệt đối với vài chục lượt "
+  "KHÔNG chắc hơn một nơi kém hơn chút ít với vài trăm lượt — xếp theo điểm thô "
+  "sẽ cho hạng cao nhất cho cơ sở ÍT khách nhất, tức đảo ngược đúng thứ người "
+  "ta muốn biết.\n\n")
+w("**Hai trạng thái âm KHÔNG được gộp:**\n\n")
+w("- **“— dưới chuẩn”** là một KẾT LUẬN: đủ đánh giá để nói, và kết quả không đạt.\n")
+w(f"- **“chưa đủ đánh giá”** (dưới {_xep_hang.SAN_TOI_THIEU} lượt) là một KHOẢNG "
+  "TRỐNG: chưa nói được gì. Một quán mới mở tốt thật nằm ở nhóm này, không phải "
+  "nhóm trên. Đừng đọc nó thành “dở”.\n\n")
+w("**Tài liệu này KHÔNG in điểm, số lượt hay hạng của bất kỳ cơ sở nào.** "
+  "Điều khoản Google Places cho lưu `place_id` vĩnh viễn nhưng cấm lưu mọi nội "
+  "dung khác, và không có ngoại lệ cho dữ liệu suy ra từ chúng. Lý do thứ hai "
+  "độc lập với giấy phép: một thứ hạng in ra giấy sẽ cũ đi mà KHÔNG có gì trong "
+  "tờ giấy báo rằng nó đã sai. Bảng được tính LẠI mỗi lần chạy:\n\n")
+w("```\n"
+  "python scripts/tourism/xep_hang_song.py .tourism-data/raw quan_hxh      # quán ăn\n"
+  "python scripts/tourism/xep_hang_song.py .tourism-data/raw luu_tru_hxh   # lưu trú\n"
+  "```\n\n")
+w("Hoặc mở liên kết ở cột `Bản đồ` của từng bảng — trang Google hiện ra là chính "
+  "cơ sở đó, kèm điểm và số lượt của hôm nay.\n\n")
+w("**Các bảng bên dưới sắp theo KHOẢNG CÁCH, không theo chất lượng.**\n\n")
 
 # ============================================================ 1. tong quan
 w(f"---\n\n## {S_TONGQUAN}. Tổng quan điểm đến\n\n")
@@ -643,7 +689,7 @@ w("\n⚠ Khu vực có dấu ⚠ ở cột *Rộng* thì các điểm trong đó
 # nghiem. Phai noi ro, neu khong nguoi doc se hieu la xep hang "noi nao dang di
 # hon", va do la dieu tai lieu nay khong biet.
 _TOP = 16
-w("---\n\n## 2b. Chọn nhanh — 16 điểm có dữ liệu đầy đủ nhất\n\n")
+w(f"---\n\n## {S_KHUVUC}b. Chọn nhanh — 16 điểm có dữ liệu đầy đủ nhất\n\n")
 w("⚠ **Xếp theo độ đầy đủ của DỮ LIỆU, không phải chất lượng trải nghiệm.** "
   "Điểm đứng đầu là điểm ta biết rõ nhất, không phải điểm đáng đi nhất — thứ đó "
   f"chưa có dữ liệu. Bảng đầy đủ 36 điểm ở mục {S_SOSANH}.\n\n")
@@ -1115,8 +1161,79 @@ if _LT:
         w("**Đã đóng cửa — không giới thiệu:** "
           + " · ".join(f"{r['ten']} ({r['ngay']})" for r in _LT["dong_cua"]) + "\n\n")
 
+# ── 3.2 luu tru quanh Ho Xuan Huong ────────────────────────────────────────
+# Truoc day la mot FILE RIENG (`Khach-San-Ho-Xuan-Huong.docx`). Gop vao day vi
+# no la mot lat cat cua cung lop luu tru, va vi mot bo dung thu ba cho cung mot
+# lop du lieu la mot cho nua de hai ban lech nhau.
+_LH = _an_ngu.tai_luu_tru_quanh_ho(RAW)
+if _LH:
+    _an_ngu.gan_place_id(_LH["trong"], RAW, "place_id_hxh.json")
+    _lo, _hi = _LH["gia"]
+    _nlh = sum(1 for r in _LH["trong"] if r["place_id"])
+    _xlh = sum(1 for r in _LH["trong"] if r["so_nha_lech"])
+    _dolh = _an_ngu.do_pho_khong_dinh_vi(RAW, _LH["khong_toa_do"])
+    w(f"### {S_ANNGU}.2 Lưu trú quanh Hồ Xuân Hương — bảng giá "
+      f"{_lo:,}–{_hi:,}₫\n\n".replace(",", "."))
+    w("**“3 sao” ở đây là QUY ƯỚC GIÁ của tài liệu, KHÔNG phải hạng sao nhà nước.**\n\n")
+    w(f"- Quy ước: giá phòng thấp nhất cơ sở công bố nằm trong {_lo:,}–{_hi:,}₫/đêm.\n"
+      .replace(",", "."))
+    w("- Hạng sao chính thức KHÔNG có trong dữ liệu: 0/420 cơ sở mang hạng sao, và "
+      "nguồn công bố nó (đăng ký Cục Du lịch Quốc gia) trả lỗi 403 từ 31/07/2026. "
+      "Đừng nói với khách đây là khách sạn 3 sao được xếp hạng.\n")
+    w(f"- Nhãn giá chỉ ràng buộc PHÒNG RẺ NHẤT: {_LH['vuot_tran']}/{_LH['tong_bang_gia']} "
+      f"cơ sở có phòng đắt hơn {_hi:,}₫. Cột giá in cả hai đầu — HỎI GIÁ PHÒNG CỤ "
+      f"THỂ khi gọi.\n\n".replace(",", "."))
+    w(f"*{len(_LH['trong'])} cơ sở trong {_LH['ban_kinh']:,} m quanh hồ, sắp theo "
+      f"khoảng cách (đường chim bay tới mép hồ). {_nlh} có liên kết bản đồ.*\n\n"
+      .replace(",", "."))
+    if _xlh:
+        w(f"**⚠ {_xlh} dòng có dấu ⚠ ở cột Địa chỉ:** số nhà trong đăng ký chưa "
+          "khớp số nhà trên bản đồ, dù tên và vị trí đều khớp. Hỏi lại khi gọi.\n\n")
+    w("| Khách sạn | Địa chỉ | Cách hồ | Giá/đêm | Phòng | Điện thoại | Bản đồ |\n"
+      "|---|---|---:|---|---:|---|---|\n")
+    for _r in _LH["trong"]:
+        _u = _an_ngu.lien_ket_place_id(_r["place_id"])
+        w(f"| {_r['ten']} | " + ("⚠ " if _r["so_nha_lech"] else "")
+          + f"{_r['dia_chi'] or '—'} | {_r['m']:.0f} | {_r['gia'] or '—'} | "
+          + f"{_r['so_phong'] or '—'} | {_r['dien_thoai'] or '—'} | "
+          + (f"[Mở]({_u})" if _u else "chưa phân giải") + " |\n")
+    w(f"\n#### {len(_LH['khong_toa_do'])} cơ sở có địa chỉ nhưng CHƯA đo được "
+      "khoảng cách\n\n")
+    w("**Cùng bảng giá, có địa chỉ đầy đủ, nhưng dữ liệu chưa có toạ độ nên không "
+      "nói được chúng cách hồ bao xa.** Có mặt ở đây để gọi điện được — KHÔNG phải "
+      "vì đã xác minh là gần hồ.\n\n")
+    w(f"*Đã thử suy vị trí theo TÊN PHỐ và phép đo bác bỏ: đối chiếu với "
+      f"{_dolh['tham_chieu']:,} bản ghi có cả địa chỉ lẫn toạ độ trên "
+      f"{_dolh['so_pho']:,} phố, chỉ {_dolh['trong']}/{len(_LH['khong_toa_do'])} "
+      f"địa chỉ nằm trên phố mà mọi bản ghi đều trong bán kính; {_dolh['vat']} phố "
+      f"vắt qua ranh giới. Phố Đà Lạt dài hàng km nên tên phố không định vị được "
+      f"một toà nhà.*\n\n".replace(",", "."))
+    w("| Khách sạn | Địa chỉ | Giá/đêm | Phòng | Điện thoại |\n|---|---|---|---:|---|\n")
+    for _r in _LH["khong_toa_do"]:
+        w(f"| {_r['ten']} | {_r['dia_chi'] or '—'} | {_r['gia'] or '—'} | "
+          f"{_r['so_phong'] or '—'} | {_r['dien_thoai'] or '—'} |\n")
+    # Quy tac xep hang da chuyen len muc S_XEPHANG (ngay sau muc 0). Chi con
+    # mot dong tro ve — mot quy tac noi o hai cho la mot quy tac se troi.
+    w(f"\n**Bảng trên sắp theo khoảng cách, KHÔNG theo chất lượng.** Cách xếp "
+      f"theo đánh giá và câu lệnh chạy bảng: xem mục {S_XEPHANG}.\n\n")
+    w("#### Phạm vi — danh sách quanh hồ KHÔNG vét hết\n\n")
+    w("| Mục | Số |\n|---|---:|\n")
+    for _n, _v in (("Cơ sở lưu trú còn hoạt động (toàn thành phố)", f"{_LH['tong_hoat_dong']:,}"),
+                   ("…trong đó có công bố giá", f"{_LH['tong_co_gia']:,}"),
+                   (f"…giá phòng thấp nhất trong {_lo:,}–{_hi:,}₫", f"{_LH['tong_bang_gia']:,}"),
+                   ("…có toạ độ để đo khoảng cách", f"{_LH['co_toa_do']:,}"),
+                   (f"…trong {_LH['ban_kinh']:,} m quanh hồ → bảng trên", f"{len(_LH['trong']):,}"),
+                   ("Có địa chỉ nhưng không có toạ độ → bảng dưới", f"{len(_LH['khong_toa_do']):,}"),
+                   ("Có liên kết bản đồ", f"{_nlh}/{len(_LH['trong'])}")):
+        w(f"| {_n} | {_v} |\n".replace(",", "."))
+    w(f"\n*Hai khoảng trống người đọc phải biết: "
+      f"{_LH['tong_hoat_dong'] - _LH['tong_co_gia']:,} cơ sở đang hoạt động KHÔNG "
+      f"công bố giá nên không lọt vào bất kỳ bảng giá nào; và "
+      f"{len(_LH['khong_toa_do']):,} cơ sở ở bảng dưới có thể gần hồ hơn nhiều cơ "
+      f"sở ở bảng trên — chưa ai đo.*\n\n".replace(",", "."))
+
 if _AU:
-    w(f"### {S_ANNGU}.2 Ăn uống\n\n")
+    w(f"### {S_ANNGU}.3 Ăn uống\n\n")
     w(f"*{_AU['tong_mo']:,} quán còn hoạt động · {_AU['co_dien_thoai']:,} có số gọi. "
       f"Món đặc trưng xem mục {S_HOATDONG}.*\n\n".replace(",", "."))
     for _n in _AU["nhom"]:
@@ -1138,6 +1255,55 @@ if _AU:
         w("| Ngày đóng | Quán |\n|---|---|\n")
         for _r in _AU["dong_cua"]:
             w(f"| {_r['ngay']} | {_r['ten']} |\n")
+        w("\n")
+
+# ── 3.3 quan an quanh Ho Xuan Huong ────────────────────────────────────────
+# CUNG ham chon loc va CUNG phep gop place_id voi ban .docx. Neu muc nay chi co
+# o mot ban thi khong co gi bao — do dung la loi 30/07, khi phu luc xuat xu chi
+# ton tai o ban .md va ban .docx mat trang 32 lien ket ma khong ai biet.
+_QH = _an_ngu.tai_quan_an_quanh_ho(RAW)
+if _QH:
+    _an_ngu.gan_place_id(_QH["trong"], RAW, "place_id_quan_hxh.json")
+    _nl = sum(1 for r in _QH["trong"] if r["place_id"])
+    _nx = sum(1 for r in _QH["trong"] if r["so_nha_lech"])
+    w(f"### {S_ANNGU}.4 Quán ăn quanh Hồ Xuân Hương\n\n")
+    w(f"*Đủ {len(_QH['trong'])} quán còn hoạt động trong {_QH['ban_kinh']} m quanh hồ — "
+      f"danh sách này KHÔNG cắt bớt, khác các danh sách gợi ý ở mục {S_ANNGU}.2. "
+      f"{_QH['co_dia_chi']} có địa chỉ · {_QH['co_dien_thoai']} có số gọi · "
+      f"{_nl} có liên kết bản đồ.*\n\n")
+    w("**Sắp theo khoảng cách tới hồ, KHÔNG theo đánh giá.**\n\n")
+    w("*Tài liệu không chứa điểm đánh giá hay số lượt đánh giá của Google: điều khoản "
+      "chỉ cho lưu place_id, và một thứ hạng in ra giấy sẽ cũ đi mà không có gì trong "
+      "tờ giấy báo rằng nó đã sai. Mở liên kết ở cột Bản đồ để thấy điểm và số lượt "
+      "HIỆN TẠI.*\n\n")
+    if _nx:
+        w(f"**⚠ {_nx} dòng có dấu ⚠ ở cột Địa chỉ:** số nhà trong dữ liệu của ta chưa "
+          "khớp số nhà trên bản đồ, dù tên và vị trí đều khớp. Hỏi lại khi gọi.\n\n")
+    w("| Quán | Địa chỉ | Cách hồ | Loại | Điện thoại | Bản đồ |\n"
+      "|---|---|---:|---|---|---|\n")
+    for _r in _QH["trong"]:
+        _u = _an_ngu.lien_ket_place_id(_r["place_id"])
+        w(f"| {_r['ten']} | " + ("⚠ " if _r["so_nha_lech"] else "")
+          + f"{_r['dia_chi'] or '—'} | {_r['m']:.0f} | "
+          + f"{(_r['hang_muc'] or '—').replace('_', ' ')} | {_r['dien_thoai'] or '—'} | "
+          + (f"[Mở]({_u})" if _u else "chưa phân giải") + " |\n")
+    w(f"\n*{len(_QH['trong'])-_nl} quán chưa có liên kết: luật nhận đòi tên khớp theo "
+      "biên từ VÀ vị trí khớp trong 100 m. Chỉ một trục đúng thì không nhận — một liên "
+      "kết dẫn khách tới nhầm chỗ tệ hơn hẳn một ô trống.*\n\n")
+    # Quy tac xep hang VAO file; con so KHONG vao file. Nguong doc tu
+    # `xep_hang.mo_ta_nguong()` chu khong go tay, de tai lieu va code khong bao
+    # gio noi hai con so khac nhau.
+    w(f"**Bảng trên sắp theo khoảng cách, KHÔNG theo chất lượng.** Cách xếp "
+      f"theo đánh giá và câu lệnh chạy bảng: xem mục {S_XEPHANG}.\n\n")
+
+    _tr = _an_ngu.nhom_trung_co_so(_QH["trong"])
+    if _tr:
+        w(f"**⚠ {sum(len(g) for g in _tr)} dòng ở trên là {len(_tr)} cơ sở**, không phải "
+          f"{sum(len(g) for g in _tr)} cơ sở — các dòng trong mỗi nhóm dưới đây trỏ về "
+          "CÙNG một địa điểm trên Google (cùng place_id). Chúng không bị xoá vì bản ghi "
+          "gốc của chúng khác nhau và chưa biết bản nào đúng, nhưng đừng gọi hai lần:\n\n")
+        for _g in _tr:
+            w("- " + " = ".join(_g) + "\n")
         w("\n")
 
 # =============================================== 5-13 chi muc (sinh tu dong)

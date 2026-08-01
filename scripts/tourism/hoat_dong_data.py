@@ -217,6 +217,78 @@ THU_TU_NHOM = ["đặc sản Đà Lạt", "món phổ thông", "đặc sản man
 
 
 _DA_CANH_BAO = False
+_DA_BAO_DIA_DANH = False
+
+
+# ── Loai DIA DANH bi nham la co so ──────────────────────────────────────────
+# Nguong >=2 KENH do DO NOI BAT; no khong noi gi ve DANH TINH. Mot vlog noi
+# "quan banh can o Nha Chung" la noi CON DUONG, con matcher doi chieu tu dien
+# lai gan cau do vao mot co so ten dung bang "Nhà Chung". Do duoc trong ban
+# chay 30/07: `Nhà Chung` (6 kenh) nam o "8 Hẻm 6 Đường Nhà Chung", `Phù Đổng`
+# (5 kenh) o "37 Đường Phù Đổng Thiên Vương" — TEN nam trong chinh DIA CHI cua
+# no. Va "Nhà Chung" ngoai doi la ca mot hem banh can nhieu hang, khong phai
+# mot quan; dem kenh o do la dem danh tieng CON DUONG.
+#
+# Ho loi voi `Chè hé` (mot cua hang bi thu vao tap tu-mon) va `Đà Lạt` (ten
+# thanh pho nam trong hang tram ten co so): mot chuoi vua la danh tu rieng vua
+# la ten mot LOAI/NOI. Khac o cho lan nay no den o tang dia danh.
+#
+# Hai phep thu, deu HEP co y:
+#   1. fold(ten) la chuoi con cua fold(dia_chi) -> ten trung ten duong. Hep vi
+#      `Bánh căn Nhà Chung` ("banh can nha chung") KHONG nam trong "1 duong nha
+#      chung" nen no SONG — dung vay, no co tu phan biet rieng.
+#   2. ten dung bang "phường N". Phep 1 khong bat duoc: `Phường 7` khong co dia
+#      chi, con `Phường 9` dia chi la "ĐƯỜNG Lữ Gia".
+#
+# KHONG bo im lang. Mot dong bien mat khong tieng dong thi khong phan biet
+# duoc voi "chua quet den", va nguoi doc bo dung se ket luan sai ve cai nao.
+_PHUONG = re.compile(r"^phuong\s*\d+$")
+
+# ── Phep thu 3: TEN LA MOT CUM TU CHUNG, khong phai danh tu rieng ──────────
+# Hai phep tren bat ten DUONG va ten PHUONG, nhung de lot mot lop khac: ten
+# ghep hoan toan tu tu chi LOAI + DIA DANH + TINH TU. Do duoc trong ban 30/07:
+#   Khám phá Đà Lạt · Ẩm thực Việt · Hương Vị Đà Lạt · ĐÀ LẠT XƯA · Quan Xua
+#   · Phở Hà Nội
+# Chung khop moi vlog noi ve chu de do, dung ly do ma `Bánh tráng nướng` bi
+# loai o buoc thu thap — chi khac la bo tu-chung cua buoc do khong chua
+# `kham`, `pha`, `viet`, `xua`, `ha noi`, nen chung song sot toi day.
+#
+# ⚠ Co MAT MAT co y: mot quan CO THAT ten `Phở Hà Nội` cung bi loai. Chap nhan,
+# vi mot cai ten khong phan biet duoc thi so kenh gan cho no khong the quy cho
+# rieng no. Day la lua chon giong het lua chon da lam voi `Bánh tráng nướng`.
+#
+# ⚠ KHONG duoc bo danh tu rieng vao tap nay. Su co `Chè hé` (mot cua hang bi
+# thu vao tap tu-mon roi bi chinh tap do xoa khoi tu dien) la ly do tap duoi
+# chi chua tu chi LOAI, DIA DANH va TINH TU — khong chua ten nguoi, ten hieu.
+_TU_CHUNG_TEN = set("""
+quan tiem nha hang bep bar pub cafe ca phe coffee kem che chao pho bun mi com
+banh lau nuong hai san chay do an am thuc huong vi mon ngon dac san
+kham pha du lich review top tong hop diem danh goi y
+da lat dalat lam dong viet nam vietnam ha noi sai gon ho chi minh hue
+nha trang da nang mien tay mien trung mien bac mien nam pho co
+xua co moi ngon re sach dep nho lon binh dan sang trong noi tieng
+""".split())
+
+
+def _ten_toan_tu_chung(t):
+    """Ten khong con token nao NGOAI tap tu chung -> khong phai danh tu rieng."""
+    tok = [w for w in t.split() if len(w) > 1]
+    return bool(tok) and all(w in _TU_CHUNG_TEN for w in tok)
+
+
+def _la_dia_danh(r):
+    """Tra ve LY DO (chuoi) neu dong nay KHONG phai mot co so, nguoc lai False."""
+    t = fold(r.get("ten"))
+    if not t:
+        return False
+    if _PHUONG.match(t):
+        return "tên là tên phường"
+    a = fold(r.get("dia_chi"))
+    if a and t in a:
+        return "tên nằm trong chính địa chỉ của nó"
+    if _ten_toan_tu_chung(t):
+        return "tên toàn từ chung, không có danh từ riêng"
+    return False
 
 
 def _vlog(raw_dir):
@@ -239,6 +311,19 @@ def _vlog(raw_dir):
     # Hai dang: list = phien ban 1, dict = tu phien ban 2 tro di.
     rows = raw if isinstance(raw, list) else raw.get("quan", [])
     pb = 1 if isinstance(raw, list) else int(raw.get("phien_ban", 1))
+    giu, bo = [], []
+    for r in rows:
+        ly = _la_dia_danh(r)
+        if ly:
+            bo.append((r, ly))
+        else:
+            giu.append(r)
+    if bo and not _DA_BAO_DIA_DANH:
+        globals()["_DA_BAO_DIA_DANH"] = True   # _vlog co hai loi vao; bao mot lan
+        print(f"  ⚠ loại {len(bo)}/{len(rows)} dòng là ĐỊA DANH, không phải cơ sở:")
+        for r, ly in bo:
+            print(f"      {r['ten']} ({r.get('so_kenh_nhac', 0)} kênh) — {ly}")
+    rows = giu
     # Dem theo KENH, khong theo video. Mot kenh dang nhieu video, hoac mot
     # content farm reup cung mot danh sach "Top 10 quán ăn Đà Lạt", tu thoa
     # nguong ma khong co ai doc lap xac nhan — nen so video do do LON, con so
@@ -286,6 +371,48 @@ def tai_phong_cach(raw_dir):
     Tra ve [] khi chua co du lieu. Bo dung se bo han khoi, khong in tieu de rong.
     """
     return _vlog(raw_dir)[1]
+
+
+# ── HAI NGUONG KHAC NHAU, KHONG DUOC NHAP MOT ──────────────────────────────
+# >=2 kenh la cong HIEN DIEN: "cho nay co that va co nguoi la nhac toi". Du de
+# liet ke trong bang mon — day la mot danh sach DO PHU.
+# >=3 kenh la cong XEP HANG: du de noi cho A duoc nhac nhieu hon cho B.
+#
+# Vi sao phai tach: do phan bo tren ban chay 30/07, sau khi loc, 14 dong nam
+# dung o day (2 kenh) va 17 dong o tren. Nghia la nua duoi KHONG phan biet
+# duoc gi — xep hang chung theo thu tu nao cung la thu tu ngau nhien deo mac
+# ao xep hang. Cat o >=3 cho 17 dong, roi thang vao khoang 10-20 ma khong phai
+# cat cho tron so.
+#
+# KHONG nang nguong cua `_vlog`: lam vay se rut ruot bang mon, tuc bien mot
+# quyet dinh ve XEP HANG thanh mot mat mat ve DO PHU.
+NGUONG_XEP_HANG = 3
+
+
+def tai_top_quan(raw_dir, nguong=NGUONG_XEP_HANG):
+    """Quan du bang chung de XEP HANG — khac voi quan du de liet ke.
+
+    Tra ve list da sap giam dan theo so kenh doc lap. Moi dong da qua bo loc
+    `_la_dia_danh` (dia danh, ten phuong, ten toan tu chung).
+
+    ⚠ Day KHONG phai "quan ngon nhat". No la "quan duoc nhieu kenh doc lap
+    nhac toi nhat" — mot phat bieu ve DO PHU CUA NGUOI QUAY VLOG, khong phai
+    ve chat luong mon an. Nhan trong tai lieu phai noi dung dieu do.
+    """
+    p = os.path.join(raw_dir, "quan_vlog.json")
+    if not os.path.exists(p):
+        return []
+    try:
+        raw = json.load(io.open(p, encoding="utf-8"))
+    except Exception:
+        return []
+    rows = raw if isinstance(raw, list) else raw.get("quan", [])
+    if (1 if isinstance(raw, list) else int(raw.get("phien_ban", 1))) < 2:
+        return []          # phien ban 1 mang gan mon tinh bang chuoi con tran
+    ra = [r for r in rows
+          if not _la_dia_danh(r) and r.get("so_kenh_nhac", 0) >= nguong]
+    ra.sort(key=lambda r: (-r["so_kenh_nhac"], -r.get("so_video_nhac", 0), r["ten"]))
+    return ra
 
 
 def tai_mon_an(raw_dir):

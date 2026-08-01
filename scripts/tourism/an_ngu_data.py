@@ -14,7 +14,7 @@ BAT DOI XUNG GIUA HAI NHOM, va no quyet dinh in gi:
   AN UONG  Khong gia, khong danh gia, tu bat ky nguon hop le nao. Nen gia tri
            nam o: CON MO KHONG · BAN MON GI · GOI SO NAO.
 """
-import json, io, os, re, unicodedata
+import json, io, math, os, re, unicodedata
 from collections import Counter
 
 MAX_MOI_BAC = 10        # co so luu tru in ra moi bac gia
@@ -30,6 +30,21 @@ MAX_DONG_CUA = None     # None = in het
 # Bac gia phong/dem. Moc lay tu chinh phan bo: trung vi 300.000.
 BAC_GIA = [("Bình dân", 0, 300_000), ("Trung bình", 300_000, 1_000_000),
            ("Cao cấp", 1_000_000, 10**12)]
+
+# ── Vong loc quanh Ho Xuan Huong ───────────────────────────────────────────
+# GIA_3SAO la QUY UOC CUA TAI LIEU do nguoi dung dat, KHONG phai hang sao.
+# Hang sao chinh thuc khong ton tai trong du lieu nay: do duoc 0/420 co so mang
+# no, va nguon cong bo no (dang ky Cuc Du lich) tra 403 tu 31/07 nen khong lay
+# them duoc. Moi noi in ra chu "3 sao" PHAI kem chu "quy uoc gia" — mot nguong
+# gia dung tran se duoc doc thanh mot xep hang cua co quan quan ly.
+#
+# Ap vao `gia_min` (gia phong THAP NHAT dang ky cong bo), khong phai ca khoang:
+# dang ky cong bo mot khoang, va 114/153 dong trong bang nay co `gia_max` vuot
+# 450k (Tamy 350k-950k, Doi Mong Mo 400k-3.000k). Vi vay ham tra ve CA HAI dau
+# gia — in mot so 350.000d cho noi co phong 950.000d la noi sai gia.
+HXH = (11.940921, 108.439407)      # DL-15 Ho Xuan Huong, tam vong loc
+BAN_KINH_HO = 1000                 # m
+GIA_3SAO = (200_000, 450_000)
 
 # Gom hang muc Overture thanh nhom nguoi doc hieu duoc.
 NHOM_QUAN = [
@@ -516,6 +531,249 @@ def tai_luu_tru(raw_dir):
         "khong_gia_loai": kg_loai.most_common(),
         "dong_cua": [{"ten": r["ten"], "ngay": r["da_dong_cua"]} for r in dong],
     }
+
+
+def _met(la1, lo1, la2, lo2):
+    """Duong chim bay, met. Du chinh xac o pham vi mot thanh pho."""
+    return math.hypot((la1 - la2) * 111320,
+                      (lo1 - lo2) * 111320 * math.cos(math.radians(la1)))
+
+
+def _khoang_gia(r):
+    """Chuoi khoang gia. LUON hai dau khi co hai dau — xem chu thich GIA_3SAO."""
+    lo, hi = r.get("gia_min"), r.get("gia_max")
+    if not lo:
+        return None
+    return _tien(lo) + ("–" + _tien(hi) if hi and hi != lo else "")
+
+
+def tai_luu_tru_quanh_ho(raw_dir, tam=HXH, ban_kinh=BAN_KINH_HO, gia=GIA_3SAO):
+    """Co so luu tru trong bang gia quy uoc, quanh mot tam — CHON, khong dinh dang.
+
+    Tra ve HAI danh sach roi, va do la diem chinh cua ham nay:
+
+      `trong`         co toa do rieng VA cach `tam` <= `ban_kinh`. Da do that.
+      `khong_toa_do`  co dia chi day du nhung KHONG co toa do, nen khong the do.
+
+    Vi sao khong gop lam mot: da thu suy vi tri cua nhom hai theo TEN PHO —
+    "dong nay o pho ma moi co so da do deu nam trong 1 km, vay no cung the".
+    Doi chieu voi rieng `luu_tru.json` (1-16 dong/pho) cho 23/54 dong "toan bo
+    trong 1 km", trong nhu cuu duoc. Doi chieu voi `luu_tru` + `nha_hang` =
+    5.408 dong co ca dia chi lan toa do (891 pho) thi chi con 1: pho Da Lat dai
+    hang km va 45/54 pho vat qua ranh gioi — `Trần Phú` 203-15.082 m,
+    `Phan Đình Phùng` 187-21.070 m, `Bùi Thị Xuân` 167-4.136 m.
+
+    Ket luan: TEN PHO KHONG DINH VI DUOC MOT TOA NHA, va con so 23 kia la ao
+    giac mau nho. Nen nhom hai duoc tra ve NGUYEN VEN de nguoi doc con goi dien
+    duoc — nhung khong bao gio mang mot khoang cach, that hay uoc.
+    """
+    p = os.path.join(raw_dir, "luu_tru.json")
+    if not os.path.exists(p):
+        return None
+    d = json.load(io.open(p, encoding="utf-8"))
+    lo, hi = gia
+    cs = [r for r in d["co_so"]
+          if not r.get("da_dong_cua") and r.get("gia_min")
+          and lo <= r["gia_min"] <= hi]
+
+    def _ra(r, m=None):
+        o = {"ten": r["ten"], "loai": r.get("loai"), "dia_chi": r.get("dia_chi"),
+             "dien_thoai": r.get("dien_thoai"), "so_phong": r.get("so_phong"),
+             "tham_dinh": r.get("tham_dinh"), "gia_min": r.get("gia_min"),
+             "gia_max": r.get("gia_max"), "gia": _khoang_gia(r),
+             "lat": r.get("lat"), "lon": r.get("lon")}
+        if m is not None:
+            o["m"] = m
+        return o
+
+    co_td = [r for r in cs if r.get("lat")]
+    trong = [_ra(r, _met(tam[0], tam[1], r["lat"], r["lon"])) for r in co_td]
+    trong = [r for r in trong if r["m"] <= ban_kinh]
+    trong.sort(key=lambda r: r["m"])
+    khong_td = [_ra(r) for r in cs if not r.get("lat")]
+    khong_td.sort(key=lambda r: r["ten"])
+    return {
+        "trong": trong,
+        "khong_toa_do": khong_td,
+        "tong_bang_gia": len(cs),
+        "co_toa_do": len(co_td),
+        "khong_td_co_dia_chi": sum(1 for r in khong_td if r["dia_chi"]),
+        # So co so co phong DAT HON tran bang gia. Can de tai lieu noi ra rang
+        # nhan gia chi rang buoc phong re nhat.
+        "vuot_tran": sum(1 for r in cs if (r.get("gia_max") or 0) > hi),
+        "ban_kinh": ban_kinh, "gia": gia, "tam": tam,
+        "tong_hoat_dong": sum(1 for r in d["co_so"] if not r.get("da_dong_cua")),
+        "tong_co_gia": sum(1 for r in d["co_so"]
+                           if not r.get("da_dong_cua") and r.get("gia_min")),
+    }
+
+
+BAN_KINH_QUAN = 500        # m — KHAC `BAN_KINH_HO` cua lop luu tru, xem ben duoi
+
+
+def tai_quan_an_quanh_ho(raw_dir, tam=HXH, ban_kinh=BAN_KINH_QUAN):
+    """Quan an quanh mot tam — CHON, khong dinh dang.
+
+    BAN KINH RIENG, khong dung chung voi lop luu tru. `BAN_KINH_HO` = 1.000 m
+    phuc vu 67 co so luu tru; cung ban kinh do o lop quan an cho 1.457 dong,
+    tuc mot bang 40 trang. Hai lop khac mat do nen khac ban kinh — va vi the
+    day la hang RIENG, khong phai mot tham so tien tay sua vao hang kia.
+
+    Tra ve `trong` sap theo khoang cach. Khong cat bot: khac muc 3.2 (moi nhom
+    8 quan lam MAU co chu dich), muc nay la danh sach de TIM MOT CHO CU THE
+    quanh ho, nen cat mot nua se bo mat dung cai quan nguoi doc dang tim ma
+    khong co gi bao rang no ton tai.
+    """
+    p = os.path.join(raw_dir, "nha_hang.json")
+    if not os.path.exists(p):
+        return None
+    d = json.load(io.open(p, encoding="utf-8"))
+    mo = [r for r in d["quan"] if not r.get("da_dong_cua")]
+    trong = []
+    for r in mo:
+        if not r.get("lat"):
+            continue
+        m = _met(tam[0], tam[1], r["lat"], r["lon"])
+        if m > ban_kinh:
+            continue
+        trong.append({"ten": r["ten"], "dia_chi": r.get("dia_chi"),
+                      "dien_thoai": r.get("dien_thoai"),
+                      "hang_muc": r.get("hang_muc"), "mon": r.get("mon") or [],
+                      "lat": r["lat"], "lon": r["lon"], "m": m})
+    trong.sort(key=lambda r: r["m"])
+    return {
+        "trong": trong, "tong_mo": len(mo), "ban_kinh": ban_kinh, "tam": tam,
+        "co_dia_chi": sum(1 for r in trong if r["dia_chi"]),
+        "co_dien_thoai": sum(1 for r in trong if r["dien_thoai"]),
+        "theo_hang_muc": Counter(r["hang_muc"] for r in trong).most_common(),
+    }
+
+
+def gan_place_id(rows, raw_dir, ten_file):
+    """Gan `place_id` · `so_nha_lech` · `ly_do_chua_phan_giai` vao tung dong.
+
+    MOT phep gop, moi bo dung goi no. Neu moi bo dung tu doc file place_id thi
+    mot ben co the doc nham file khac hoac bo qua co `so_nha_lech`, va hai ban
+    tai lieu se noi khac nhau ve cung mot quan — dung lop loi 30/07.
+
+    Sua tai cho, va tra ve chinh `rows` de goi long nhau duoc.
+
+    KHI FILE CHUA TON TAI van phai dat DU ba khoa. Ban dau ham nay `return rows`
+    ngay, va bo dung do thang `KeyError: 'place_id'` — mot buoc lam giau chua
+    chay bien thanh mot cu no thay vi mot cot rong. Thieu du lieu la trang thai
+    binh thuong cua duong ong nay; no phai in ra "chua phan giai", khong phai
+    dung ca ban dung.
+    """
+    p = os.path.join(raw_dir, ten_file)
+    if not os.path.exists(p):
+        for r in rows:
+            r["place_id"], r["so_nha_lech"] = None, False
+            r["ly_do_chua_phan_giai"] = f"chưa chạy phân giải ({ten_file})"
+        return rows
+    d = json.load(io.open(p, encoding="utf-8"))
+    pid = {r["ten"]: r for r in d.get("co_so", [])}
+    ly = {r["ten"]: r.get("ly_do") for r in d.get("chua_phan_giai", [])}
+    for r in rows:
+        g = pid.get(r["ten"])
+        r["place_id"] = g["place_id"] if g else None
+        r["so_nha_lech"] = bool(g and g.get("so_nha_lech"))
+        r["ly_do_chua_phan_giai"] = None if g else ly.get(r["ten"])
+    return rows
+
+
+def nhom_trung_co_so(rows):
+    """Cac nhom dong CHUNG mot `place_id` — tuc chung MOT co so tren Google.
+
+    KHONG gop chung lai. Dedup theo ten da tung suyt xoa co so that trong du an
+    nay (`Napoli Coffee` 6 dong cach nhau toi 24 km — chuoi chi nhanh, khong
+    phai ban trung). Nhung `place_id` giong het la mot truc KHAC HAN ten: no la
+    dinh danh cua Google cho MOT dia diem, nen hai dong mang cung id thi that su
+    tro ve cung mot cho.
+
+    Van khong xoa dong nao, vi ban ghi Overture cua chung khac nhau (ten khac,
+    toa do lech vai chuc met) va ta khong biet ban nao dung. Chi NOI RA, de
+    nguoi doc khong goi ba cuoc dien thoai toi cung mot quan.
+    """
+    theo = {}
+    for r in rows:
+        if r.get("place_id"):
+            theo.setdefault(r["place_id"], []).append(r["ten"])
+    return [v for v in theo.values() if len(v) > 1]
+
+
+def lien_ket_place_id(pid):
+    """place_id -> URL tro DUNG co so. Khac han link toa do, vi link toa do chi
+    tha mot ghim xuong mot diem va Google se gan no cho bat ky thu gi gan do."""
+    return f"https://www.google.com/maps/place/?q=place_id:{pid}" if pid else None
+
+
+_SO_NHA = re.compile(
+    r"^(?:so|lo|kqh|khu quy hoach|khoanh|phan khu[^,]*|kcv|to|thon|khu)\b"
+    r"|^[0-9]+[a-z]?(?:\s*[/-]\s*[0-9]+[a-z]?)*\b|^[a-z][0-9]+\b|^[a-z]\b")
+
+
+def _ten_pho(s):
+    """"38/12 Trần Phú, Đà Lạt…" -> "tran phu". Bo so nha, lo, ky hieu quy hoach."""
+    p = fold((s or "").split(",")[0])
+    for _ in range(4):
+        q = _SO_NHA.sub("", p).strip(" -/")
+        if q == p:
+            break
+        p = q
+    p = re.sub(r"\b(duong|pho)\b", " ", p)
+    return " ".join(p.split())
+
+
+def do_pho_khong_dinh_vi(raw_dir, rows, tam=HXH, ban_kinh=BAN_KINH_HO, toi_thieu=3):
+    """Do xem TEN PHO co du de xep mot dia chi vao trong/ngoai ban kinh khong.
+
+    Ham nay ton tai de mot ket luan PHU DINH duoc in kem so do duoc, thay vi
+    mot cau khang dinh suong. No khong loc gi va khong duoc dung de loc.
+
+    Cach do: dung moi ban ghi co CA dia chi lan toa do (luu_tru + nha_hang) lam
+    tham chieu, gom theo ten pho, roi hoi tung pho: mọi ban ghi tren pho do co
+    cung nam trong ban kinh khong. Neu co thi ten pho dinh vi duoc; neu pho vat
+    qua ranh gioi thi khong.
+
+    `toi_thieu` la diem chinh. Voi 1-2 mau moi pho, ket qua "toan bo trong ban
+    kinh" chi noi rang mau qua it de thay dau kia cua pho — do la ao giac mau
+    nho, va lan do dau tien no cho 23/54 dong "cuu duoc" truoc khi mo rong tham
+    chieu len 5.408 dong keo no ve 1.
+    """
+    tc = {}
+    for ten_file, khoa in (("luu_tru", "co_so"), ("nha_hang", "quan")):
+        p = os.path.join(raw_dir, ten_file + ".json")
+        if not os.path.exists(p):
+            continue
+        for r in json.load(io.open(p, encoding="utf-8"))[khoa]:
+            if r.get("lat") and r.get("dia_chi"):
+                ph = _ten_pho(r["dia_chi"])
+                if ph:
+                    tc.setdefault(ph, []).append(
+                        _met(tam[0], tam[1], r["lat"], r["lon"]))
+    trong = vat = ngoai = it = 0
+    vd = []
+    for r in rows:
+        v = tc.get(_ten_pho(r.get("dia_chi")), [])
+        if len(v) < toi_thieu:
+            it += 1
+            continue
+        lo, hi = min(v), max(v)
+        if hi <= ban_kinh:
+            trong += 1
+        elif lo > ban_kinh:
+            ngoai += 1
+        else:
+            vat += 1
+            vd.append((_ten_pho(r["dia_chi"]), len(v), lo, hi))
+    vd.sort(key=lambda x: -(x[3] - x[2]))
+    ten_da_co = []
+    for t, n, lo, hi in vd:
+        if t not in [x[0] for x in ten_da_co]:
+            ten_da_co.append((t, n, lo, hi))
+    return {"tham_chieu": sum(len(v) for v in tc.values()), "so_pho": len(tc),
+            "trong": trong, "vat": vat, "ngoai": ngoai, "it_mau": it,
+            "vi_du": ten_da_co[:3], "toi_thieu": toi_thieu}
 
 
 def tai_an_uong(raw_dir):

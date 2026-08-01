@@ -39,6 +39,9 @@ Cột **Cần** ghi thứ không tự có: khoá, tài khoản, hoặc thoả th
 | Website đơn vị tour | `tour_sites_crawl.mts` → `parse_tour_sites.py` | `tour_sites_sach.json` | — |
 | Dựng tài liệu | `build_huong_dan.py` **rồi** `build_huong_dan_docx.py` | `.md` + `.docx` | Thứ tự bắt buộc — xem dưới |
 | Kiểm hai bản khớp nhau | `kiem_parity.py` | exit 0/1 | Chạy sau mỗi lần dựng |
+| Liên kết Google Maps | `sweep_google_placeid.py <raw> [--bo hxh\|quanhxh]` | `place_id*.json` | ⚠ `GOOGLE_MAPS_API_KEY`; **chỉ lưu `place_id`** |
+| Xếp hạng (in ra chat) | `xep_hang_song.py <raw> quan_hxh\|luu_tru_hxh` | **không ghi file** | Tính lại mỗi lần chạy — xem dưới |
+| Kiểm công thức xếp hạng | `test_xep_hang.py` | exit 0/1 | Offline, 0 quota |
 
 ### Thứ tự dựng tài liệu là bắt buộc
 
@@ -54,6 +57,24 @@ python scripts/tourism/build_huong_dan.py      .tourism-data/raw
 python scripts/tourism/build_huong_dan_docx.py .tourism-data/raw
 python scripts/tourism/kiem_parity.py
 ```
+
+### `docs/` giữ ĐÚNG BA bản giao
+
+`Diem-Den-Da-Lat.docx` · `Nha-Hang-Da-Lat.docx` · `Khach-San-Da-Lat.docx`, dựng
+bằng `--tai-lieu diemden|nhahang|khachsan`. Số mục **cấp 1 và cấp 2 đều được
+cấp phát lại theo từng tài liệu** (`muc_con()`), nên bản khách sạn in `2.1/2.2`
+chứ không phải `6.1/6.2` — không để lỗ hổng số làm người đọc tưởng thiếu nội dung.
+
+Bản **gộp** ghi ra `.tourism-data/build/Huong-Dan-Da-Lat.docx`, **không** nằm
+trong `docs/`: nó không phải bản giao, nó là **mốc neo của `kiem_parity.py`** —
+chỉ bản gộp mới đánh số giống bản `.md`, nên ba bản tách không so trực tiếp với
+`.md` được.
+
+**Chạy cả hai trong CÙNG một lượt, không tách ra.** `kiem_parity.py` từ chối so
+nội dung khi hai file cách nhau quá 300 giây (`LECH BUILD`) — nên dựng lại một
+bản rồi để bản kia nguyên vì "nó vẫn đúng" sẽ khiến bộ chặn đỏ vĩnh viễn, và
+một bộ chặn đỏ vĩnh viễn thì không ai đọc nữa. Nếu bản `.docx` ghi hỏng (Word
+đang mở file → `PermissionError`), đóng Word rồi chạy lại **cả hai**.
 
 **`kiem_parity.py` là bộ chặn duy nhất cho quy tắc "một nguồn chọn lọc, hai
 nguồn định dạng".** Quy tắc đó đã bị phá hai lần, cả hai lần im lặng: khối phụ
@@ -117,5 +138,23 @@ bài đăng sau khi cắt.
 - **Không lưu điểm đánh giá** từ Google Places (chỉ được lưu `place_id`) hay
   TripAdvisor (chỉ được lưu Location ID). Tỉ lệ đề xuất của Facebook nằm ở trường
   riêng `ty_le_gioi_thieu`, không bao giờ ánh xạ vào `Đánh giá của khách`.
+  Tài liệu phát **liên kết `place_id`** để người đọc thấy điểm hiện tại trên bề
+  mặt Google — một thứ hạng in ra giấy sẽ cũ đi mà không có gì báo rằng nó sai.
+  Google **không** phát số review theo từng mức sao ở bất kỳ tầng giá nào; chỉ có
+  điểm trung bình, tổng số lượt, một MẪU review và tóm tắt AI.
+- **Xếp hạng: quy tắc vào file, con số KHÔNG vào file.** `xep_hang.py` giữ ngưỡng
+  (cận dưới Wilson 95%: A ≥ 4,7 · B ≥ 4,4 · C ≥ 4,0, sàn 30 lượt) và **không có
+  I/O** nên test được offline với 0 quota. `xep_hang_song.py` gọi Google, in bảng
+  ra màn hình, **không mở handle ghi nào**. Tài liệu `.md`/`.docx` chỉ chứa quy
+  tắc + câu lệnh, không chứa điểm/số lượt/hạng.
+  **Ngưỡng là TUYỆT ĐỐI, không neo vào một quán mốc** — bản neo-vào-mốc đã bị bỏ
+  sau khi đo: giữ nguyên 172 quán, chỉ đổi quán mốc thì hạng A đi từ 12 lên 27,
+  vì `n₀` là giá trị cực đại của một phân phối lệch nặng. Quán mốc chỉ dùng để
+  **định cỡ ngưỡng một lần**, rồi ngưỡng đóng băng thành hằng dùng chung.
+  Hai trạng thái âm phải phân biệt: `—` *dưới chuẩn* (một kết luận) khác `None`
+  *chưa đủ đánh giá* (một khoảng trống).
+- **Không có hạng sao khách sạn.** 0/420 cơ sở mang nó, và nguồn công bố (đăng ký
+  Cục Du lịch) trả 403 từ 31/07/2026. Mọi nhãn kiểu "3 sao" trong tài liệu là
+  **quy ước giá** (`an_ngu_data.GIA_3SAO`) và phải được nói rõ như vậy tại chỗ.
 - **Giá từ nguồn thương mại vào `gia_tham_khao`, kèm mọi giá trị mâu thuẫn.**
   Ba nguồn từng lệch nhau 3 lần cho cùng một địa điểm.

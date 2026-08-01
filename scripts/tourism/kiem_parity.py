@@ -22,12 +22,55 @@ nen no khong the lech theo cung mot loi voi thu no dang kiem.
 Chay:  python scripts/tourism/kiem_parity.py [duong-md] [duong-docx]
 """
 import io
+import os
 import re
 import sys
+import time
 
 MD = sys.argv[1] if len(sys.argv) > 1 else \
     "documentation/tourism/destinations/da-lat/huong-dan-diem-den.md"
-DOCX = sys.argv[2] if len(sys.argv) > 2 else "docs/Huong-Dan-Da-Lat.docx"
+# Ban GOP, khong nam trong `docs/` — xem chu thich `_CAU_HINH` trong
+# `build_huong_dan_docx.py`. `docs/` chi giu ba ban giao, va ba ban do danh so
+# muc lai theo tung tai lieu nen khong so truc tiep voi ban .md duoc.
+DOCX = sys.argv[2] if len(sys.argv) > 2 else ".tourism-data/build/Huong-Dan-Da-Lat.docx"
+
+# ── 0. DIEU KIEN TIEN QUYET: hai file phai tu CUNG MOT lan build ───────────
+# 31/07: `build_huong_dan.py` ghi xong `.md`, roi `build_huong_dan_docx.py`
+# chet vi Word dang giu file (`PermissionError`), nen `.docx` tren dia van la
+# ban HOM TRUOC. Bo kiem nay doc cap file lech mot ngay va bao KHOP, exit 0.
+# Do duoc luc do: `Nhà Chung` 3 (.md) / 1 (.docx), `Bánh Căn Lệ` 3/1,
+# `Lẩu Gà Lá É Tao Ngộ` 6/2.
+#
+# No khong bi danh lua bang gi tinh vi — no khong co khai niem "do tuoi" de ma
+# hoi. Khi hai dau vao khong tu cung mot lan build thi MOI ket luan sau do vo
+# nghia, ke ca ket luan "khop"; nen day la DIEU KIEN TIEN QUYET — dung truoc,
+# exit 1, khong so noi dung — chu khong phai mot muc lech thu bay.
+LECH_TOI_DA = 300     # giay. Du cho hai bo dung chay noi nhau, khong du cho
+                      # hai lan build khac nhau.
+
+
+def _khac_gio(t):
+    return time.strftime("%d/%m %H:%M:%S", time.localtime(t))
+
+
+_t_md, _t_dx = os.path.getmtime(MD), os.path.getmtime(DOCX)
+if abs(_t_md - _t_dx) > LECH_TOI_DA:
+    print(f"{MD}\n{DOCX}\n")
+    print("LECH BUILD — hai file khong tu cung mot lan build, cach nhau"
+          f" {abs(_t_md - _t_dx) / 60:.0f} phut:")
+    print(f"      .md   {_khac_gio(_t_md)}")
+    print(f"      .docx {_khac_gio(_t_dx)}")
+    print("\nKhong so noi dung: mot bo dung da that bai hoac chua chay lai."
+          " Chay lai CA HAI roi kiem lai.")
+    sys.exit(1)
+
+# Noi ro bo kiem nay so gi va KHONG so gi. "KHOP" tran trui doc thanh "hai tai
+# lieu dong y", trong khi nghia that la "may thu toi nhin thi dong y" — va lop
+# am thuc (quan, mon, cot vlog) hien nam NGOAI pham vi, nen mot thay doi nam
+# tron trong do di qua bo kiem nay ma khong ai biet.
+PHAM_VI = ("tieu de muc cap 1 · day so cap 1 · tap tham chieu `mục N` ·"
+           " danh sach goi dien · day so A.x moi the · vang mat truong danh gia")
+KHONG_SO = "lop AM THUC (quan an, mon, cot vlog) — CHUA co trong bo kiem nay"
 
 loi = []
 
@@ -216,7 +259,9 @@ for nhan, txt in (("md", md), ("docx", dx)):
 print(f"{MD}\n{DOCX}\n")
 print(f"muc cap 1: {len(md_h)} / {len(dx_h)}   ·   tham chieu: {md_ref}")
 if not loi:
-    print("\nKHOP — hai ban dau ra khong lech o diem nao duoc kiem.")
+    print(f"\nda so   : {PHAM_VI}")
+    print(f"KHONG so: {KHONG_SO}")
+    print("\nKHOP — hai ban dau ra khong lech o CAC DIEM TREN.")
     sys.exit(0)
 print(f"\nLECH {len(loi)} diem:\n")
 for muc, a, b, _ in loi:
