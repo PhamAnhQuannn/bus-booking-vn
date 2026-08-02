@@ -3,10 +3,14 @@
 import json, os, sys, math, unicodedata, io
 from collections import Counter, defaultdict
 
-RAW = sys.argv[1]
-OUT = sys.argv[2]
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from places_dalat import PLACES, AREA_NAMES
+from duong_dan_ra import kiem_loi_ra
+
+RAW = sys.argv[1]
+# Chan truoc khi ghi: danh sach nay mang ten, dia chi va so dien thoai that, nen
+# no phai roi vao mot thu muc da duoc gitignore. Xem duong_dan_ra.py.
+OUT = kiem_loi_ra(sys.argv[2])
 
 
 def load(fn):

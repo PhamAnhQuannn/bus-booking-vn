@@ -17,13 +17,17 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import hoat_dong_data as _hoat_dong   # mot nguon chon loc, hai nguon dinh dang
 import an_ngu_data as _an_ngu
 import xep_hang as _xep_hang          # nguong xep hang — MOT nguon, khong go tay
+import duong_dan_ra as _duong_dan_ra  # chan ghi ra ngoai vung da gitignore
 
 # Duong ra co MAC DINH — cung ly do nhu ban .docx: khi ten file la lua chon cua
 # tung lan goi thi hai phien lam viec song song se sinh ra hai ban khac nhau.
 OUT_MAC_DINH = "documentation/tourism/destinations/da-lat/huong-dan-diem-den.md"
 RAW = sys.argv[1]
-OUT = sys.argv[2] if len(sys.argv) > 2 else OUT_MAC_DINH
-TRIP_OUT = sys.argv[3] if len(sys.argv) > 3 else None
+# Chan truoc khi ghi. Ban huong dan mang so dien thoai that cua tung co so, nen
+# no phai roi vao mot thu muc da duoc gitignore. Mac dinh o tren luon dat; chi
+# co ban ghi de tren dong lenh moi co the sai. Xem duong_dan_ra.py.
+OUT = _duong_dan_ra.kiem_loi_ra(sys.argv[2] if len(sys.argv) > 2 else OUT_MAC_DINH)
+TRIP_OUT = _duong_dan_ra.kiem_loi_ra(sys.argv[3]) if len(sys.argv) > 3 else None
 # Ngay CHAY THAT, khong phai mot chuoi go tay. Ban truoc ghi cung "28/07/2026"
 # trong khi tai lieu da duoc sinh lai nhieu lan sau do va ben trong no co trich
 # dan de ngay 29/07 — tuc trang bia noi sai tuoi cua chinh no. Trong mot tai lieu

@@ -398,3 +398,13 @@ jobs:
         run: python scripts/tourism/test_xep_hang.py
         env:
           PYTHONIOENCODING: utf-8
+
+      # The output-path guard decides where the tourism pipeline may write, and
+      # everything it blocks carries real phone numbers. It must be exercised in
+      # BOTH directions — a guard that rejects everything passes a rejection-only
+      # test. Runs from the repo root because the guard resolves relative paths
+      # against cwd, exactly as open() does.
+      - name: Output-path guard tests (scripts/tourism/duong_dan_ra.py)
+        run: python scripts/tourism/test_duong_dan_ra.py
+        env:
+          PYTHONIOENCODING: utf-8
