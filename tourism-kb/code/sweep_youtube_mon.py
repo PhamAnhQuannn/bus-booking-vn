@@ -60,7 +60,7 @@ thu muc lam viec va cong cu doc file day noi dung vao transcript.
 Han muc: 10.000 don vi/ngay, `search.list` ton 100 -> 100 luot/ngay. Bo nay
 dung ~30 luot. Co bo nho dem `yt_mon.json` nen chay lai khong goi lai.
 
-Chay:  python scripts/tourism/sweep_youtube_mon.py <thu-muc-raw>
+Chay:  python tourism-kb/code/sweep_youtube_mon.py <thu-muc-raw>
 """
 import json, os, sys, io, time, urllib.parse, urllib.request, urllib.error
 

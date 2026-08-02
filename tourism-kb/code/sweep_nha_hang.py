@@ -25,7 +25,7 @@ BAY DA GAP KHI DO: loc hang muc bang CHUOI CON keo vao 109 hieu cat toc, vi
 "bar" nam trong "barber". Cung ho voi "sup"/"súp", "tour"/"tourist". Nen o day
 dung TAP LIET KE RO, khong dung chuoi con.
 
-Chay:  python scripts/tourism/sweep_nha_hang.py <thu-muc-raw>
+Chay:  python tourism-kb/code/sweep_nha_hang.py <thu-muc-raw>
 """
 import json, os, sys, io, re, math, unicodedata
 from collections import Counter

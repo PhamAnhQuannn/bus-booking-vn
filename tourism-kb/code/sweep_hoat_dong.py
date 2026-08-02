@@ -39,7 +39,7 @@ BAY TIENG VIET (chep tu sweep_monan.py, o day con nang hon vi tu ngan):
     "sup" nam trong "súp"/"supermarket" · "tour" nam trong "tourist"/"Tourism"
 Nen: so khop GIU NGUYEN DAU + doi bien tu o hai dau.
 
-Chay:  python scripts/tourism/sweep_hoat_dong.py <thu-muc-raw>
+Chay:  python tourism-kb/code/sweep_hoat_dong.py <thu-muc-raw>
 """
 import json, os, sys, io, re
 from collections import Counter

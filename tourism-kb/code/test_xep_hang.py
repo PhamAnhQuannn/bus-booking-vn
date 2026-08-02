@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Kiem `xep_hang.py` bang so BIA — khong goi mang, khong ton quota, chay offline.
 
-Chay:  PYTHONIOENCODING=utf-8 python scripts/tourism/test_xep_hang.py
+Chay:  PYTHONIOENCODING=utf-8 python tourism-kb/code/test_xep_hang.py
 """
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

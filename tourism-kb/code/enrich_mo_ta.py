@@ -27,7 +27,7 @@ TRICH NGUYEN VAN, KHONG DIEN DAT LAI. Van ban Wikipedia la CC BY-SA 4.0:
 KHONG DUNG `mo_ta_osm`. No co 2/36 va mot trong hai la du lieu SAI:
 "Room: 19; Price: 48-198 USD/night" gan cho Chùa Linh Phước — mot ngoi chua.
 
-Chay:  python scripts/tourism/enrich_mo_ta.py <thu-muc-raw>
+Chay:  python tourism-kb/code/enrich_mo_ta.py <thu-muc-raw>
 """
 import io
 import json
@@ -38,7 +38,7 @@ import time
 import urllib.parse
 import urllib.request
 
-RAW = sys.argv[1] if len(sys.argv) > 1 else ".tourism-data/raw"
+RAW = sys.argv[1] if len(sys.argv) > 1 else "tourism-kb/raw"
 API = "https://vi.wikipedia.org/w/api.php"
 UA = "BusBookingKB/0.1 (tourism knowledge base; contact via repo)"
 

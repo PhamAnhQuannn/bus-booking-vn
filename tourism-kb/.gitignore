@@ -1,0 +1,27 @@
+# tourism-kb/.gitignore — luat ignore rieng cho san pham Tourism KB.
+#
+# NOI DUNG LA PII, KHONG PHAI DUNG LUONG. raw/ + wiki/ + output/ deu la du lieu
+# SINH RA, tai tao duoc tu code/ + raw tho, va deu dan xuat tu ~14.328 so di
+# dong Viet Nam THAT cua ho kinh doanh nho (voi ho mot nguoi, "so doanh nghiep"
+# CHINH LA so ca nhan). Repo nay chuyen CONG KHAI trong luc /ship de lay CI mien
+# phi, nen commit dong nghia voi cong bo.
+#
+# Chi code/ (script) duoc theo doi. Danh sach nay phai noi CUNG MOT DIEU voi
+# THU_MUC_CHO_PHEP trong code/duong_dan_ra.py va voi G8 trong
+# ../scripts/audit/greppable-invariants.sh — sua mot ben ma quen ben kia thi
+# guard PII tro thanh vo nghia. Xem CLAUDE.md.
+#
+# (Gitignore KHONG cho phep chu thich cuoi dong — moi luat mot dong rieng.)
+
+# Du lieu tho + trung gian; raw/build/ giu moc neo parity .docx.
+raw/
+
+# Tai lieu ban giao (.md, TRANG-THAI.md).
+wiki/
+
+# Ba ban phat hanh .docx + output/archive/.
+output/
+
+# Output sinh ra roi vao thu muc script — lop lot cua diem_den_chot.json (tung
+# bi COMMIT vi no roi vao thu muc code chu khong phai thu muc du lieu).
+code/*.json

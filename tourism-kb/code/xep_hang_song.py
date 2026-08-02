@@ -27,8 +27,8 @@ la cua ta, luu tu do), con CON SO thi o day, tinh lai moi lan chay.
 ═══════════════════════════════════════════════════════════════════════════════
 
 Chay:
-  PYTHONIOENCODING=utf-8 python scripts/tourism/xep_hang_song.py <raw> quan_hxh
-  PYTHONIOENCODING=utf-8 python scripts/tourism/xep_hang_song.py <raw> luu_tru_hxh
+  PYTHONIOENCODING=utf-8 python tourism-kb/code/xep_hang_song.py <raw> quan_hxh
+  PYTHONIOENCODING=utf-8 python tourism-kb/code/xep_hang_song.py <raw> luu_tru_hxh
 """
 import json, os, sys, io, time
 import urllib.request, urllib.error

@@ -394,8 +394,8 @@ jobs:
       # behind it — 15 of them, pure arithmetic, no network and no API quota —
       # and until now nothing ran them, so they were documentation rather than a
       # test. Same job because it needs the same Python and no dependencies.
-      - name: Ranking unit tests (scripts/tourism/xep_hang.py)
-        run: python scripts/tourism/test_xep_hang.py
+      - name: Ranking unit tests (tourism-kb/code/xep_hang.py)
+        run: python tourism-kb/code/test_xep_hang.py
         env:
           PYTHONIOENCODING: utf-8
 
@@ -404,7 +404,7 @@ jobs:
       # BOTH directions — a guard that rejects everything passes a rejection-only
       # test. Runs from the repo root because the guard resolves relative paths
       # against cwd, exactly as open() does.
-      - name: Output-path guard tests (scripts/tourism/duong_dan_ra.py)
-        run: python scripts/tourism/test_duong_dan_ra.py
+      - name: Output-path guard tests (tourism-kb/code/duong_dan_ra.py)
+        run: python tourism-kb/code/test_duong_dan_ra.py
         env:
           PYTHONIOENCODING: utf-8

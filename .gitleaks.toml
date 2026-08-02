@@ -65,7 +65,7 @@ paths = [
   # `vn-mobile-number`. It was added so QA reports could quote the fabricated seed phone — but
   # that number is allowlisted as a LITERAL above (`\+84901230001`), which is global, so the path
   # entry bought nothing its stated purpose needed. What it did buy was silence: tourism QA
-  # reports began quoting live business phones and street addresses read off the `.tourism-data/`
+  # reports began quoting live business phones and street addresses read off the `tourism-kb/raw/`
   # corpus — the exact PII class the ignore rules exist to keep out — and the scanner stayed green
   # the whole time because of this line.
   #

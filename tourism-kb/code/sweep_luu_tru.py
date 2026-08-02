@@ -22,7 +22,7 @@ BAY KHOP TEN O NHOM NAY: gan nhu moi ten deu mo dau bang tu chi LOAI
 thi moi khach san deu giong moi khach san. Va so khop phai GIU NGUYEN DAU +
 doi bien tu, dung bai hoc `sữa chua`/`sửa chữa`.
 
-Chay:  python scripts/tourism/sweep_luu_tru.py <thu-muc-raw>
+Chay:  python tourism-kb/code/sweep_luu_tru.py <thu-muc-raw>
 """
 import json, os, sys, io, re, math, unicodedata
 from collections import Counter

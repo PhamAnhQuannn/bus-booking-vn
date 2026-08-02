@@ -32,7 +32,7 @@ Va: chua tung LOC QUAN DA DONG CUA. Hien may la 0 trung, nhung do la may chu
 khong phai thiet ke — dung cung lo da sua o lop nha hang.
 ─────────────────────────────────────────────────────────────────────────────
 
-Chay:  python scripts/tourism/sweep_monan.py <thu-muc-raw>
+Chay:  python tourism-kb/code/sweep_monan.py <thu-muc-raw>
 """
 import json, os, sys, io, re, unicodedata
 from collections import Counter

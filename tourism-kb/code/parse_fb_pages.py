@@ -10,7 +10,7 @@ MOT bo trich duy nhat. Script duyet chi tai va luu; moi hieu biet ve dinh dang
 trang nam o day. Hai bo trich cho cung mot byte la cach sinh ra lech — du an
 nay da dinh dung mot lan (parser VNPay, 26/07).
 
-Chay:  python scripts/tourism/parse_fb_pages.py <thu-muc-raw>
+Chay:  python tourism-kb/code/parse_fb_pages.py <thu-muc-raw>
 Doc    raw/pages/fb-*.txt + raw/fb_targets.json + raw/fb_pages.json (URL)
 Ghi    raw/fb_pages.json
 """
@@ -80,7 +80,7 @@ def parse(text):
     # da duoc commit (a852fd5, 28/07). No lot qua gitleaks vi quy tac PII cua
     # du an la `\+84[35789]\d{8}` — dang `08xx.xxx.xxx` co so 0 dau va dau cham
     # nen khong khop. Vi du minh hoa trong comment phai dung so da che; du lieu
-    # that thuoc `.tourism-data/` (da gitignore), khong thuoc ma nguon.
+    # that thuoc `tourism-kb/raw/` (da gitignore), khong thuoc ma nguon.
     #
     # (Ban dau chinh dong tren nay viet lai nguyen so that trong luc giai thich
     # vi sao no lot — bat duoc o lan quet cuoi truoc khi commit.)

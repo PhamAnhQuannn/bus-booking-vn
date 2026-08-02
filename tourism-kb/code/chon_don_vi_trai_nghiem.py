@@ -11,7 +11,7 @@ Phase O da do: no cho dung TEN hoat dong ("Đơn vị tổ chức Tour Săn Mây
 Tham Quan, Xe Hợp Đồng") nhung khong cho lich trinh. Trang tour tren website moi
 liet ke "Tour 1 ngày · đón 4h30 · 1.400.000đ" — dung thu can lap.
 
-Chay:  python scripts/tourism/chon_don_vi_trai_nghiem.py <thu-muc-raw>
+Chay:  python tourism-kb/code/chon_don_vi_trai_nghiem.py <thu-muc-raw>
 Ghi    raw/dv_trai_nghiem.json     (day du)
        raw/fb_targets_dv.json      (dung lai fb_pages_crawl.mts khong sua gi)
 """

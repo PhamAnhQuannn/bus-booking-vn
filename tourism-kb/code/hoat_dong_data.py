@@ -448,7 +448,7 @@ def tai_mon_an(raw_dir):
     # ta: chay bo dung tren mot ban `mon_an_dalat.json` cu thi MOI dac san Da Lat
     # roi vao nhom "mon co o moi thanh pho", im lang, khong dong log nao — dung
     # cai ket qua ma viec chia nhom sinh ra de tranh.
-    # File nay nam trong `.tourism-data/raw/` (gitignored) va do mot script khac
+    # File nay nam trong `tourism-kb/raw/` (gitignored) va do mot script khac
     # sinh ra, tuc no chinh la loai hien vat de cu nhat. Nen dung HAN va noi ro
     # phai chay lai cai gi; mot lan dung on ao thi sua duoc, con mot tai lieu in
     # sai 30 dong thi khong ai thay.
@@ -456,7 +456,7 @@ def tai_mon_an(raw_dir):
     if _sai:
         raise SystemExit(
             f"{p}: {len(_sai)}/{len(d)} món thiếu khoá 'nhom' (dạng cũ, ví dụ"
-            f" {_sai[:3]}).\nChạy lại:  python scripts/tourism/sweep_monan.py"
+            f" {_sai[:3]}).\nChạy lại:  python tourism-kb/code/sweep_monan.py"
             f" {raw_dir}\nKhông dựng bằng dạng cũ: mọi đặc sản Đà Lạt sẽ bị xếp"
             " vào nhóm 'món phổ thông' mà không báo gì.")
     for mon, v in d.items():

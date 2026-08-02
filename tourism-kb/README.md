@@ -3,10 +3,27 @@
 Bộ script dựng cơ sở tri thức tư vấn chuyến đi. Độc lập với ứng dụng đặt vé xe;
 không import gì từ `lib/`, không chạm cơ sở dữ liệu.
 
+## Kiến trúc — mô hình memory-architecture
+
+Cả tính năng nằm trong `tourism-kb/`, tách hẳn khỏi app đặt vé xe:
+
+    tourism-kb/
+    ├── CLAUDE.md   ← mem: doctrine + nhật ký lỗi (nested, tự nạp trong subtree này)
+    ├── README.md   ← tài liệu pipeline này
+    ├── code/       ← ctx: toàn bộ script (được theo dõi git — subtree DUY NHẤT được commit)
+    ├── raw/        ← raw: dữ liệu thô + trung gian + raw/build/ (gitignored)
+    ├── wiki/       ← wiki: tài liệu bàn giao .md + TRANG-THAI.md (gitignored)
+    └── output/     ← output: ba bản phát hành .docx + output/archive/ (gitignored)
+
+`raw` = sự thật gốc bất biến · `wiki` = tri thức có cấu trúc và liên kết ·
+`output` = bản dùng được cho người đọc (tác nhân AI) · `code` = pipeline (quy
+tắc/khuôn mẫu) · `CLAUDE.md` = trí nhớ. Xem `CLAUDE.md` cho doctrine + bốn guard.
+
 ## Dữ liệu nằm ở đâu, và vì sao không nằm trong git
 
-    .tourism-data/raw/          ← toàn bộ dữ liệu (gitignored)
-    documentation/tourism/      ← tài liệu bàn giao (gitignored)
+    tourism-kb/raw/     ← toàn bộ dữ liệu thô + trung gian (gitignored)
+    tourism-kb/wiki/    ← tài liệu bàn giao (gitignored)
+    tourism-kb/output/  ← ba bản phát hành .docx (gitignored)
 
 **Không commit, lý do là PII chứ không phải dung lượng.** Tài liệu bàn giao chứa
 **416 số di động Việt Nam thật**, kho dữ liệu chứa **14.328 số**. Với hộ kinh
@@ -53,20 +70,20 @@ im lặng đó đã thành ồn ào; việc tách logic chọn ra `diem_den_data
 lớp lỗi này vẫn còn treo.
 
 ```bash
-python scripts/tourism/build_huong_dan.py      .tourism-data/raw
-python scripts/tourism/build_huong_dan_docx.py .tourism-data/raw
-python scripts/tourism/kiem_parity.py
+python tourism-kb/code/build_huong_dan.py      tourism-kb/raw
+python tourism-kb/code/build_huong_dan_docx.py tourism-kb/raw
+python tourism-kb/code/kiem_parity.py
 ```
 
-### `docs/` giữ ĐÚNG BA bản giao
+### `output/` giữ ĐÚNG BA bản giao
 
 `Diem-Den-Da-Lat.docx` · `Nha-Hang-Da-Lat.docx` · `Khach-San-Da-Lat.docx`, dựng
 bằng `--tai-lieu diemden|nhahang|khachsan`. Số mục **cấp 1 và cấp 2 đều được
 cấp phát lại theo từng tài liệu** (`muc_con()`), nên bản khách sạn in `2.1/2.2`
 chứ không phải `6.1/6.2` — không để lỗ hổng số làm người đọc tưởng thiếu nội dung.
 
-Bản **gộp** ghi ra `.tourism-data/build/Huong-Dan-Da-Lat.docx`, **không** nằm
-trong `docs/`: nó không phải bản giao, nó là **mốc neo của `kiem_parity.py`** —
+Bản **gộp** ghi ra `tourism-kb/raw/build/Huong-Dan-Da-Lat.docx`, **không** nằm
+trong `output/`: nó không phải bản giao, nó là **mốc neo của `kiem_parity.py`** —
 chỉ bản gộp mới đánh số giống bản `.md`, nên ba bản tách không so trực tiếp với
 `.md` được.
 
@@ -98,10 +115,10 @@ hai trang của chính họ** (trang chủ 07:30–17:30, trang vé 08:00–17:0
 
 ```bash
 # Python — đặt PYTHONIOENCODING trên Windows, nếu không sẽ lỗi mã hoá tiếng Việt
-PYTHONIOENCODING=utf-8 python scripts/tourism/<script>.py .tourism-data/raw
+PYTHONIOENCODING=utf-8 python tourism-kb/code/<script>.py tourism-kb/raw
 
 # TypeScript — Playwright, không đăng nhập
-pnpm tsx scripts/tourism/<script>.mts .tourism-data/raw
+pnpm tsx tourism-kb/code/<script>.mts tourism-kb/raw
 ```
 
 `fb_pages_crawl.mts` nhận `FB_LIMIT=2` để thử bộ trích trên 2 trang trước khi

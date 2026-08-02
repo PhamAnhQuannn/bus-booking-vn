@@ -59,8 +59,8 @@ BA BO GOI, chon bang `--bo`:
   hxh                  luu tru quanh Ho Xuan Huong 1 km     -> place_id_hxh.json
   quanhxh              quan an quanh Ho Xuan Huong 500 m    -> place_id_quan_hxh.json
 
-Chay:  PYTHONIOENCODING=utf-8 python scripts/tourism/sweep_google_placeid.py <thu-muc-raw>
-       PYTHONIOENCODING=utf-8 python scripts/tourism/sweep_google_placeid.py <thu-muc-raw> --bo hxh
+Chay:  PYTHONIOENCODING=utf-8 python tourism-kb/code/sweep_google_placeid.py <thu-muc-raw>
+       PYTHONIOENCODING=utf-8 python tourism-kb/code/sweep_google_placeid.py <thu-muc-raw> --bo hxh
 """
 import json, os, sys, io, math, re, time
 import urllib.request, urllib.error

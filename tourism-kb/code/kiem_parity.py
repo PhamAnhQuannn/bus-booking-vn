@@ -19,7 +19,7 @@ Ca hai chi lo ra khi so hai file BANG TAY. Bo kiem nay lam viec do tu dong.
 No doc DUY NHAT hai file dau ra — khong import bo dung, khong doc du lieu goc —
 nen no khong the lech theo cung mot loi voi thu no dang kiem.
 
-Chay:  python scripts/tourism/kiem_parity.py [duong-md] [duong-docx]
+Chay:  python tourism-kb/code/kiem_parity.py [duong-md] [duong-docx]
 """
 import io
 import os
@@ -28,11 +28,12 @@ import sys
 import time
 
 MD = sys.argv[1] if len(sys.argv) > 1 else \
-    "documentation/tourism/destinations/da-lat/huong-dan-diem-den.md"
-# Ban GOP, khong nam trong `docs/` — xem chu thich `_CAU_HINH` trong
-# `build_huong_dan_docx.py`. `docs/` chi giu ba ban giao, va ba ban do danh so
-# muc lai theo tung tai lieu nen khong so truc tiep voi ban .md duoc.
-DOCX = sys.argv[2] if len(sys.argv) > 2 else ".tourism-data/build/Huong-Dan-Da-Lat.docx"
+    "tourism-kb/wiki/destinations/da-lat/huong-dan-diem-den.md"
+# Ban GOP, nam trong thu muc build noi bo (`tourism-kb/raw/build/`), khong trong
+# `tourism-kb/output/` — xem chu thich `_CAU_HINH` trong `build_huong_dan_docx.py`.
+# output/ chi giu ba ban giao, va ba ban do danh so muc lai theo tung tai lieu
+# nen khong so truc tiep voi ban .md duoc.
+DOCX = sys.argv[2] if len(sys.argv) > 2 else "tourism-kb/raw/build/Huong-Dan-Da-Lat.docx"
 
 # ── 0. DIEU KIEN TIEN QUYET: hai file phai tu CUNG MOT lan build ───────────
 # 31/07: `build_huong_dan.py` ghi xong `.md`, roi `build_huong_dan_docx.py`

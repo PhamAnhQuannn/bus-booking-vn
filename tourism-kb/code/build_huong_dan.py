@@ -21,7 +21,7 @@ import duong_dan_ra as _duong_dan_ra  # chan ghi ra ngoai vung da gitignore
 
 # Duong ra co MAC DINH — cung ly do nhu ban .docx: khi ten file la lua chon cua
 # tung lan goi thi hai phien lam viec song song se sinh ra hai ban khac nhau.
-OUT_MAC_DINH = "documentation/tourism/destinations/da-lat/huong-dan-diem-den.md"
+OUT_MAC_DINH = "tourism-kb/wiki/destinations/da-lat/huong-dan-diem-den.md"
 RAW = sys.argv[1]
 # Chan truoc khi ghi. Ban huong dan mang so dien thoai that cua tung co so, nen
 # no phai roi vao mot thu muc da duoc gitignore. Mac dinh o tren luon dat; chi
@@ -623,8 +623,8 @@ w("**Tài liệu này KHÔNG in điểm, số lượt hay hạng của bất k�
   "độc lập với giấy phép: một thứ hạng in ra giấy sẽ cũ đi mà KHÔNG có gì trong "
   "tờ giấy báo rằng nó đã sai. Bảng được tính LẠI mỗi lần chạy:\n\n")
 w("```\n"
-  "python scripts/tourism/xep_hang_song.py .tourism-data/raw quan_hxh      # quán ăn\n"
-  "python scripts/tourism/xep_hang_song.py .tourism-data/raw luu_tru_hxh   # lưu trú\n"
+  "python tourism-kb/code/xep_hang_song.py tourism-kb/raw quan_hxh      # quán ăn\n"
+  "python tourism-kb/code/xep_hang_song.py tourism-kb/raw luu_tru_hxh   # lưu trú\n"
   "```\n\n")
 w("Hoặc mở liên kết ở cột `Bản đồ` của từng bảng — trang Google hiện ra là chính "
   "cơ sở đó, kèm điểm và số lượt của hôm nay.\n\n")

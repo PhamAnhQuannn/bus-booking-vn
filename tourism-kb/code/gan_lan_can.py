@@ -26,7 +26,7 @@ bon ket luan, va do luong xac nhan ca bon:
 
 4. `Rating` = 0 o ca ba cap. Khong tinh o day, khong in o dau.
 
-Chay:  python scripts/tourism/gan_lan_can.py <thu-muc-raw>
+Chay:  python tourism-kb/code/gan_lan_can.py <thu-muc-raw>
 """
 import json, os, sys, io, math
 from collections import Counter

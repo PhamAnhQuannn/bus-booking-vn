@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """Kiem `duong_dan_ra.py` bang duong dan bia — khong ghi file, khong goi mang.
 
-Chay:  PYTHONIOENCODING=utf-8 python scripts/tourism/test_duong_dan_ra.py
+Chay:  PYTHONIOENCODING=utf-8 python tourism-kb/code/test_duong_dan_ra.py
 
 PHAI CHAY TU GOC REPO. `duoc_phep` giai duong dan tuong doi theo cwd, dung y
 nhu `open()` se lam, nen chay tu thu muc khac thi moi duong dan tuong doi tro
 thanh mot dich khac. Lan chay dau tien cua chinh phep kiem nay bao SAI ca bay
-truong hop "duoc phep" chi vi no duoc goi tu `scripts/tourism/` — code dung, phep
+truong hop "duoc phep" chi vi no duoc goi tu `tourism-kb/code/` — code dung, phep
 kiem sai. Do la ly do co dong `_bat_buoc_goc()` ben duoi: mot phep kiem im lang
 chay sai cho se bao lai ket qua cua mot cau hoi khac.
 """
@@ -14,7 +14,7 @@ import os
 import sys
 
 _GOC = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(_GOC, "scripts", "tourism"))
+sys.path.insert(0, os.path.join(_GOC, "tourism-kb", "code"))
 import duong_dan_ra as D  # noqa: E402
 
 
@@ -30,31 +30,40 @@ _bat_buoc_goc()
 # (duong dan, co duoc phep khong, vi sao)
 TRUONG_HOP = [
     # ── Duoc phep ─────────────────────────────────────────────────────────
-    (".tourism-data/raw/x.json", True, "kho du lieu tho"),
-    (".tourism-data/build/Huong-Dan-Da-Lat.docx", True, "ban gop, ngoai docs/"),
-    (".tourism-data", True, "chinh thu muc goc du lieu"),
-    ("documentation/tourism/destinations/da-lat/huong-dan-diem-den.md", True,
+    ("tourism-kb/raw/x.json", True, "kho du lieu tho"),
+    ("tourism-kb/raw/build/Huong-Dan-Da-Lat.docx", True, "ban gop, moc neo parity"),
+    ("tourism-kb/raw", True, "chinh thu muc goc du lieu"),
+    ("tourism-kb/wiki/destinations/da-lat/huong-dan-diem-den.md", True,
      "dau ra mac dinh cua build_huong_dan.py"),
-    ("docs/Diem-Den-Da-Lat.docx", True, "mot trong ba ban phat hanh"),
-    ("docs/Nha-Hang-Da-Lat.docx", True, "mot trong ba ban phat hanh"),
-    ("docs/Khach-San-Da-Lat.docx", True, "mot trong ba ban phat hanh"),
-    ("docs/Huong-Dan-Da-Lat.md", True, "ban .md tuong ung, da ignore theo ten"),
+    ("tourism-kb/wiki", True, "chinh thu muc ban giao"),
+    ("tourism-kb/output/Diem-Den-Da-Lat.docx", True, "mot trong ba ban phat hanh"),
+    ("tourism-kb/output/Nha-Hang-Da-Lat.docx", True, "mot trong ba ban phat hanh"),
+    ("tourism-kb/output/Khach-San-Da-Lat.docx", True, "mot trong ba ban phat hanh"),
+    ("tourism-kb/output", True, "chinh thu muc phat hanh"),
 
-    # ── Bi tu choi: dung tam duong dan do duoc 2026-08-01 la commit duoc ──
-    ("docs/tourism-guide.md", False, "docs/ nhung sai tien to"),
+    # ── Bi tu choi: docs/ KHONG con carve-out ─────────────────────────────
+    # Sau khi don ve tourism-kb/, output/ la thu muc rieng cua tourism nen
+    # carve-out `docs/{Huong-Dan|Diem-Den|...}-*` bi bo han. Ban phat hanh ghi
+    # nham vao docs/ phai bi chan — docs/ nay la 240+ tai lieu that cua du an.
+    ("docs/Diem-Den-Da-Lat.docx", False, "carve-out docs/ da bi bo — phai o output/"),
+    ("docs/Huong-Dan-Da-Lat.md", False, "carve-out docs/ da bi bo"),
+    ("docs/tourism-guide.md", False, "docs/ tai lieu that"),
     ("docs/qa/dalat-data.md", False, "docs/qa la 168 bao cao that"),
     ("docs/design/dalat.md", False, "docs/design la tai lieu that"),
-    ("scripts/tourism/out.md", False, "lop lot cua diem_den_chot.json"),
-    ("documentation/dalat.md", False, "documentation/ nhung ngoai tourism/"),
-    ("documentation/tourism-v2/x.md", False, "gan giong nhung khong phai"),
+
+    # ── Bi tu choi: dung tam duong dan do duoc 2026-08-01 la commit duoc ──
+    ("tourism-kb/code/out.md", False, "lop lot cua diem_den_chot.json — ghi vao code/"),
+    ("scripts/tourism/out.md", False, "thu muc cu da khong con la vung du lieu"),
+    ("documentation/dalat.md", False, "documentation/ nhung ngoai vung tourism"),
+    ("documentation/tourism/x.md", False, "thu muc cu, du lieu nay da chuyen sang wiki/"),
     ("issues/dalat-quan.md", False, "ngoai vung hoan toan"),
     ("bao-cao.md", False, "goc repo"),
 
     # ── Bi tu choi: di vong ───────────────────────────────────────────────
-    (".tourism-data/../docs/sneak.md", False, ".. di ra khoi vung cho phep"),
-    ("documentation/tourism/../../issues/x.md", False, ".. hai cap"),
+    ("tourism-kb/raw/../docs/sneak.md", False, ".. di ra khoi vung cho phep"),
+    ("tourism-kb/wiki/../../issues/x.md", False, ".. hai cap"),
     ("../outside-repo.md", False, "ngoai repo"),
-    (os.path.join(_GOC, "docs", "Diem-Den-Da-Lat.docx"), True,
+    (os.path.join(_GOC, "tourism-kb", "output", "Diem-Den-Da-Lat.docx"), True,
      "duong dan tuyet doi trong vung van duoc"),
     (os.path.join(_GOC, "issues", "x.md"), False,
      "duong dan tuyet doi ngoai vung van bi chan"),
@@ -85,8 +94,8 @@ except SystemExit as e:
 # ...va phai TRA VE duong dan khi hop le, de goi long nhau duoc:
 #     OUT = kiem_loi_ra(sys.argv[2])
 try:
-    tra_ve = D.kiem_loi_ra("docs/Diem-Den-Da-Lat.docx")
-    if tra_ve == "docs/Diem-Den-Da-Lat.docx":
+    tra_ve = D.kiem_loi_ra("tourism-kb/output/Diem-Den-Da-Lat.docx")
+    if tra_ve == "tourism-kb/output/Diem-Den-Da-Lat.docx":
         print("  OK  kiem_loi_ra() tra ve duong dan khi hop le")
     else:
         loi.append("kiem_loi_ra() tra ve {!r}".format(tra_ve))
@@ -97,9 +106,9 @@ except SystemExit:
 # ── Moi noi duoc PHEP ghi phai la noi da duoc gitignore ────────────────────
 # Day la gia dinh trung tam cua ca thay doi nay: "cho phep" phai keo theo "da
 # ignore". Hom nay dung, nhung dung nho HAI danh sach tinh co khop nhau —
-# `THU_MUC_CHO_PHEP` trong duong_dan_ra.py va cac luat trong `.gitignore`. Them
-# mot goc vao mot ben ma quen ben kia thi guard se vui ve cho ghi tai lieu day so
-# dien thoai vao mot duong dan DUOC THEO DOI, dung cai no sinh ra de chan.
+# `THU_MUC_CHO_PHEP` trong duong_dan_ra.py va cac luat trong `tourism-kb/.gitignore`.
+# Them mot goc vao mot ben ma quen ben kia thi guard se vui ve cho ghi tai lieu
+# day so dien thoai vao mot duong dan DUOC THEO DOI, dung cai no sinh ra de chan.
 #
 # Thong diep loi cua module da bao "sua ca hai cung luc", nhung do la mot chu
 # thich chu khong phai mot phep kiem — va so chu thich het dung trong du an nay
@@ -110,16 +119,14 @@ import subprocess  # noqa: E402
 # do, va ly do thu hai da lam do CI mot lan:
 #   1. Guard cho phep GHI FILE vao day, nen cau hoi dung la "mot file o day co bi
 #      ignore khong", chu khong phai "thu muc nay co bi ignore khong".
-#   2. Luat trong .gitignore la `documentation/tourism/` — co dau `/` cuoi, tuc
-#      chi khop THU MUC. `git check-ignore documentation/tourism` chi khop khi
-#      git BIET do la thu muc, ma no chi biet khi thu muc ton tai tren dia. Tren
-#      may dev thu muc co that nen tra ve 0; tren CI vua checkout xong thi khong
-#      (chinh vi no bi ignore), nen tra ve 1 va phep kiem bao sai o dung noi
-#      khong co gi sai. Duong dan file thi khop du thu muc co ton tai hay khong.
+#   2. Luat trong .gitignore la `raw/` — co dau `/` cuoi, tuc chi khop THU MUC.
+#      `git check-ignore tourism-kb/raw` chi khop khi git BIET do la thu muc, ma
+#      no chi biet khi thu muc ton tai tren dia. Tren may dev thu muc co that nen
+#      tra ve 0; tren CI vua checkout xong thi khong (chinh vi no bi ignore), nen
+#      tra ve 1 va phep kiem bao sai o dung noi khong co gi sai. Duong dan file
+#      thi khop du thu muc co ton tai hay khong.
 print()
-_can_ignore = [g + "/zzprobe.txt" for g in D.THU_MUC_CHO_PHEP] + [
-    "docs/" + t + "Da-Lat.docx" for t in D.TIEN_TO_DOCS
-]
+_can_ignore = [g + "/zzprobe.txt" for g in D.THU_MUC_CHO_PHEP]
 for _p in _can_ignore:
     _rc = subprocess.run(["git", "check-ignore", "-q", _p],
                          cwd=_GOC, stdout=subprocess.DEVNULL,

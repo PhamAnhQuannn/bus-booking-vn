@@ -45,7 +45,7 @@ kenh CUNG MOT chu so huu), vua vo hieu ve do luong — `sweep_youtube_mon.py` da
 thu ho phuong phap nay va ghi ket qua trong khung: KET QUA: TIN HIEU NAY
 KHONG DUNG DUOC.
 
-Chay:  PYTHONIOENCODING=utf-8 python scripts/tourism/sweep_youtube_luutru.py <thu-muc-raw>
+Chay:  PYTHONIOENCODING=utf-8 python tourism-kb/code/sweep_youtube_luutru.py <thu-muc-raw>
 """
 import json, os, sys, io, time
 import urllib.parse, urllib.request, urllib.error

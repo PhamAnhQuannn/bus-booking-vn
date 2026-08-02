@@ -8,7 +8,7 @@
  * ba truong dang trong: thoi_luong, gio_trong_ngay, gia.
  *
  * Chay:
- *   pnpm tsx scripts/tourism/tour_sites_crawl.mts <thu-muc-raw>
+ *   pnpm tsx tourism-kb/code/tour_sites_crawl.mts <thu-muc-raw>
  *
  * Doc  raw/dv_trai_nghiem.json
  * Ghi  raw/tour_sites.json + raw/pages/web-<id>-<n>.txt (bang chung)

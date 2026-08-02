@@ -52,7 +52,7 @@ import duong_dan_ra as _duong_dan_ra # chan ghi ra ngoai vung da gitignore
 # va nguoi doc mo file so cao nhat lai thay ban cu nhat, thieu han lop mon.
 # Mot duong mac dinh nghia la goi khong tham so thi GHI DE ban chinh thay vi
 # them mot so moi.
-OUT_MAC_DINH = "docs/Huong-Dan-Da-Lat.docx"
+OUT_MAC_DINH = "tourism-kb/raw/build/Huong-Dan-Da-Lat.docx"
 RAW = sys.argv[1]
 
 # ── BA TAI LIEU, MOT BO DUNG ───────────────────────────────────────────────
@@ -91,21 +91,22 @@ if TAI_LIEU not in _HOP_LE:
 # lieu (3.1/3.2 thay vi 6.1/6.2), nen so ban .md voi chung se bao lech o moi
 # tieu de — dung theo thiet ke, sai theo phep kiem.
 #
-# Nen ban gop chuyen sang thu muc dung cu, khong nam trong `docs/`.
+# Nen ban gop chuyen sang thu muc build noi bo (tourism-kb/raw/build/), khong
+# nam trong tourism-kb/output/ (noi chi giu ba ban phat hanh).
 _CAU_HINH = {
-    "tatca":    (".tourism-data/build/Huong-Dan-Da-Lat.docx",
+    "tatca":    ("tourism-kb/raw/build/Huong-Dan-Da-Lat.docx",
                  "HƯỚNG DẪN ĐIỂM ĐẾN ĐÀ LẠT", None),
-    "diemden":  ("docs/Diem-Den-Da-Lat.docx", "ĐIỂM THAM QUAN ĐÀ LẠT",
+    "diemden":  ("tourism-kb/output/Diem-Den-Da-Lat.docx", "ĐIỂM THAM QUAN ĐÀ LẠT",
                  "Điểm tham quan · công viên · hoạt động ngoài trời"),
-    "nhahang":  ("docs/Nha-Hang-Da-Lat.docx", "NHÀ HÀNG & QUÁN ĂN ĐÀ LẠT",
+    "nhahang":  ("tourism-kb/output/Nha-Hang-Da-Lat.docx", "NHÀ HÀNG & QUÁN ĂN ĐÀ LẠT",
                  "Quán ăn · cà phê · đặc sản theo món"),
-    "khachsan": ("docs/Khach-San-Da-Lat.docx", "KHÁCH SẠN & LƯU TRÚ ĐÀ LẠT",
+    "khachsan": ("tourism-kb/output/Khach-San-Da-Lat.docx", "KHÁCH SẠN & LƯU TRÚ ĐÀ LẠT",
                  "Cơ sở lưu trú đã đăng ký, theo phân khúc giá"),
 }
 _OUT_TL, TIEU_DE, PHU_DE = _CAU_HINH[TAI_LIEU]
-# Chan truoc khi ghi. Bon dich mac dinh o tren deu dat (ba ban trong `docs/` khop
-# luat ignore theo ten, ban gop nam trong `.tourism-data/build/`); chi co ban ghi
-# de tren dong lenh moi co the sai. Xem duong_dan_ra.py.
+# Chan truoc khi ghi. Bon dich mac dinh o tren deu dat (ba ban trong
+# `tourism-kb/output/`, ban gop trong `tourism-kb/raw/build/` — deu da ignore);
+# chi co ban ghi de tren dong lenh moi co the sai. Xem duong_dan_ra.py.
 OUT = _duong_dan_ra.kiem_loi_ra(
     sys.argv[2] if len(sys.argv) > 2 and not sys.argv[2].startswith("--") else _OUT_TL)
 
@@ -137,8 +138,8 @@ for _phu in ("enrichment.json", "lan_can_khu_vuc.json", "lan_can.json"):
             f"DUNG — {_phu} moi hon guide_data.json.\n"
             "Nghia la du lieu nguon da doi nhung bo diem chua duoc chon lai, nen"
             " ban .docx se\ndung bo diem cu. Chay lai theo dung thu tu:\n"
-            "   python scripts/tourism/build_huong_dan.py .tourism-data/raw\n"
-            "   python scripts/tourism/build_huong_dan_docx.py .tourism-data/raw")
+            "   python tourism-kb/code/build_huong_dan.py tourism-kb/raw\n"
+            "   python tourism-kb/code/build_huong_dan_docx.py tourism-kb/raw")
 G = json.load(io.open(_gp, encoding="utf-8"))
 picked, NEAR, mat = G["picked"], G["near"], G["matrix"]
 BUILD_DATE = G["build_date"]
@@ -530,7 +531,7 @@ if phat("nhahang", "khachsan"):
       size=9, color=GREY)
     for _lenh, _mo in (("quan_hxh", "quán ăn"), ("luu_tru_hxh", "cơ sở lưu trú")):
         _p = P("")
-        _r = _p.add_run(f"python scripts/tourism/xep_hang_song.py .tourism-data/raw {_lenh}")
+        _r = _p.add_run(f"python tourism-kb/code/xep_hang_song.py tourism-kb/raw {_lenh}")
         _r.font.name, _r.font.size = "Consolas", Pt(9)
         _r2 = _p.add_run(f"   → {_mo}")
         _r2.font.size, _r2.italic = Pt(9), True

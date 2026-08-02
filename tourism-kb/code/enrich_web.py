@@ -44,7 +44,7 @@ CONTAMINATED = {
 # Du lieu THAT lay duoc tu trang chinh chu.
 #
 # ⚠ KHONG dat SO DIEN THOAI vao bang nay. Day la bang dien TAY nam trong ma
-# nguon duoc theo doi, con so lien he thuoc lop du lieu o `.tourism-data/` (da
+# nguon duoc theo doi, con so lien he thuoc lop du lieu o `tourism-kb/raw/` (da
 # gitignore). Dong DL-23 truoc day mang so tong dai that cua Crazy House, chep
 # tu crazyhouse.vn; no lot moi bo quet vi `+84` roi den `263` — dau so vung,
 # nam ngoai `[35789]` cua luat PII — va con co khoang trang chen giua.

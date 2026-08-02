@@ -7,7 +7,7 @@
  * nguoi DA dang nhap.
  *
  * Chay:
- *   pnpm tsx scripts/tourism/fb_pages_crawl.mts <thu-muc-raw>
+ *   pnpm tsx tourism-kb/code/fb_pages_crawl.mts <thu-muc-raw>
  *
  * Doc  raw/fb_targets.json  (sinh boi resolve_facebook.py)
  * Ghi  raw/fb_pages.json    + raw/pages/fb-<id>.txt (bang chung)

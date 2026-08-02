@@ -41,7 +41,7 @@ RANH GIOI PDPL (giu nguyen tu Phase N va O):
 Van ban vlog chi ton tai trong bo nho du lau de doi chieu roi bo — cung nguyen
 tac Phase O cat vung bai dang TRUOC khi doc thay vi loc sau.
 
-Chay:  python scripts/tourism/sweep_youtube_quan.py <thu-muc-raw>
+Chay:  python tourism-kb/code/sweep_youtube_quan.py <thu-muc-raw>
 """
 import json, os, sys, io, re, time, unicodedata
 import urllib.parse, urllib.request, urllib.error

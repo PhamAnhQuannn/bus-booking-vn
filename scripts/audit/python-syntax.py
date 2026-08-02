@@ -8,7 +8,7 @@ ESLint (JS/TS only), `pnpm tsc` is TypeScript, and the test runner is Vitest.
 That left the .py files under scripts/ with no gate of any kind.
 
 The cost was paid on 2026-07-29: a commit changed the output shape of
-scripts/tourism/sweep_monan.py and broke three readers. `ast.parse` had been run
+tourism-kb/code/sweep_monan.py and broke three readers. `ast.parse` had been run
 by hand on the changed file and passed, so "it parses" was mistaken for "it
 works" and the break shipped. This script would NOT have caught that -- it was a
 semantic break, not a syntax error. Of the three Python breakages the mistake log

@@ -21,7 +21,7 @@ NEN:
   BO    gio don, thoi luong — khong quy duoc ve tung tour
   BO    tat ca gia tri cua site chua xac minh duoc danh tinh
 
-Chay:  python scripts/tourism/parse_tour_sites.py <thu-muc-raw>
+Chay:  python tourism-kb/code/parse_tour_sites.py <thu-muc-raw>
 """
 import json, os, sys, io, re
 
