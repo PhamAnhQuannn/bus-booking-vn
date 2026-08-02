@@ -106,8 +106,18 @@ except SystemExit:
 # du de khong tin vao chu thich nua. Bien no thanh phep kiem.
 import subprocess  # noqa: E402
 
+# Hoi bang mot duong dan FILE ben trong moi goc, khong phai chinh cai goc. Hai ly
+# do, va ly do thu hai da lam do CI mot lan:
+#   1. Guard cho phep GHI FILE vao day, nen cau hoi dung la "mot file o day co bi
+#      ignore khong", chu khong phai "thu muc nay co bi ignore khong".
+#   2. Luat trong .gitignore la `documentation/tourism/` — co dau `/` cuoi, tuc
+#      chi khop THU MUC. `git check-ignore documentation/tourism` chi khop khi
+#      git BIET do la thu muc, ma no chi biet khi thu muc ton tai tren dia. Tren
+#      may dev thu muc co that nen tra ve 0; tren CI vua checkout xong thi khong
+#      (chinh vi no bi ignore), nen tra ve 1 va phep kiem bao sai o dung noi
+#      khong co gi sai. Duong dan file thi khop du thu muc co ton tai hay khong.
 print()
-_can_ignore = list(D.THU_MUC_CHO_PHEP) + [
+_can_ignore = [g + "/zzprobe.txt" for g in D.THU_MUC_CHO_PHEP] + [
     "docs/" + t + "Da-Lat.docx" for t in D.TIEN_TO_DOCS
 ]
 for _p in _can_ignore:
