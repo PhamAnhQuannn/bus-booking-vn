@@ -82,10 +82,14 @@ awake-status-report.md
 .mcp.json
 .playwright-mcp/
 
-# Root-level QA crawl artifacts (numbered screenshots/snapshots/logs)
+# Root-level QA crawl artifacts (numbered screenshots/snapshots/logs).
+# NOTE: these patterns are intentionally unanchored so audit/NN-*.png etc. at
+# depth are also swept. The one place numbered .md files are deliberately kept
+# is the archived project-status snapshot, re-included below.
 [0-9][0-9]-*.png
 [0-9][0-9]-*.md
 [0-9][0-9]-*.log
+!docs/archive/current-status/**
 
 # Loose landing/hero verification screenshots (scratch, regenerated on demand).
 # Anchored with a leading / so they only match at the repo root - an unanchored
