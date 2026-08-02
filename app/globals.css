@@ -72,9 +72,21 @@
 }
 
 :root {
-  /* Warm-tinted neutrals (mood-board: warm > clinical) — pairs with orange brand.
-     Cards/popovers stay pure white for contrast against the warm page. */
-  --background: oklch(0.99 0.004 80);
+  /* Light-orange page field — primary at ~6% over white (#fef3ec), the same tint
+     mockup-home-spec.md picked for its S7 panel. Cards/popovers stay pure WHITE,
+     and that is now load-bearing rather than decorative: white-on-field is the
+     page's separation mechanism (1.09 apart, against 1.03 on the old near-white
+     field, which is what landing-page-scan §2.1 called 2,600px of undifferentiated
+     scroll). Every neutral below is tinted into the same hue family — a warm-grey
+     `--muted` measures 1.01 against this field, i.e. invisible.
+     Floors re-checked on this field: muted-foreground 5.04, text-primary 3.28
+     (graphics floor 3.0), primary-strong 4.79. Do not raise the chroma further
+     without re-measuring: one step deeper (#fce7d4) drops text-primary to 2.99.
+     A pure-white field was tried and reverted: it is legible (every floor rises,
+     muted-foreground 5.50 / primary-strong 5.22) but card-vs-page collapses to
+     1.00, because `--card` is also pure white — the homepage's borderless
+     `bg-card` blocks were left with a 1px shadow edge measuring 1.15. */
+  --background: oklch(0.971 0.015 55);
   --foreground: oklch(0.205 0.012 55);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -91,11 +103,15 @@
      `--primary`, so op/admin surfaces sharing components/ui/button.tsx are
      unaffected unless they explicitly opt in. */
   --primary-strong: oklch(0.553 0.195 38.4);
-  --secondary: oklch(0.965 0.006 75);
+  /* One shared value across secondary/muted/accent (#faece0), deeper than the
+     field so bands, hovers and table stripes still read: 1.06 against the page,
+     matching the 1.03 these had before. muted-foreground on it is 4.75 and
+     primary-strong 4.51 — the latter is a bare pass, so do not darken this. */
+  --secondary: oklch(0.95 0.022 62);
   --secondary-foreground: oklch(0.205 0.012 55);
-  --muted: oklch(0.965 0.006 75);
+  --muted: oklch(0.95 0.022 62);
   --muted-foreground: oklch(0.52 0.012 70);
-  --accent: oklch(0.965 0.006 75);
+  --accent: oklch(0.95 0.022 62);
   --accent-foreground: oklch(0.205 0.012 55);
   --destructive: oklch(0.577 0.245 27.325);
   /* Status tokens — bg/foreground/border match Tailwind green-50/900/200 + amber-50/900/200
@@ -106,8 +122,10 @@
   --warning: oklch(0.987 0.022 95.277);
   --warning-foreground: oklch(0.414 0.112 45.904);
   --warning-border: oklch(0.924 0.12 95.746);
-  --border: oklch(0.91 0.008 75);
-  --input: oklch(0.91 0.008 75);
+  /* Tinted with the field so the stroke does not read grey on orange. Still
+     decorative — 1.24 against the page, against 1.20 before. */
+  --border: oklch(0.9 0.02 60);
+  --input: oklch(0.9 0.02 60);
   --ring: oklch(0.646 0.222 41.116);
   /* Teal info accent (design-language v1.0 §1) — informational chips/links + chart series.
      Orange stays the single ACTION accent; teal is informational only. */
@@ -130,7 +148,9 @@
   --footer-muted: oklch(0.775 0.003 264);
   --footer-chip: oklch(0.33 0.003 264);
   --footer-hairline: oklch(0.31 0.003 264);
-  --sidebar: oklch(0.985 0 0);
+  /* Warmed off pure neutral: the operator rail was the only chroma-free surface
+     left, and it read cold sitting next to the tinted page field. */
+  --sidebar: oklch(0.985 0.006 60);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.646 0.222 41.116);
   --sidebar-primary-foreground: oklch(0.985 0 0);
