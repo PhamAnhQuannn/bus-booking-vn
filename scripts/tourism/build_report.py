@@ -7,9 +7,12 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from places_dalat import PLACES, AREA_NAMES
+from duong_dan_ra import kiem_loi_ra
 
 RAW = sys.argv[1]
-OUT = sys.argv[2]
+# Chan truoc khi ghi: bao cao nay dan xuat tu du lieu co so dien thoai that,
+# nen no phai roi vao mot thu muc da duoc gitignore. Xem duong_dan_ra.py.
+OUT = kiem_loi_ra(sys.argv[2])
 osrm = json.load(open(os.path.join(RAW, "osrm_matrix.json"), encoding="utf-8"))
 D, T = osrm["distances"], osrm["durations"]
 idx = {p[0]: i for i, p in enumerate(PLACES)}

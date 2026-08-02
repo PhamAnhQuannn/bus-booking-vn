@@ -10,8 +10,13 @@ from statistics import median
 from docx import Document
 from docx.shared import Pt, Cm
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from duong_dan_ra import kiem_loi_ra
+
 RAW = sys.argv[1]
-OUT = sys.argv[2]
+# Chan truoc khi ghi: bao cao nay dan xuat tu du lieu co so dien thoai that,
+# nen no phai roi vao mot thu muc da duoc gitignore. Xem duong_dan_ra.py.
+OUT = kiem_loi_ra(sys.argv[2])
 
 
 def load(fn, default=None):

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Greppable invariants G1-G6 (KG-14) — CI-runnable, exit nonzero on FAIL.
+# Greppable invariants G1-G8 (KG-14) — CI-runnable, exit nonzero on FAIL.
 # Codifies lessons from CLAUDE.md Mistake Log into automated grep checks.
 # Works on Ubuntu (CI) and Git Bash (Windows dev).
 set -uo pipefail
@@ -316,6 +316,70 @@ check_g7_placeholder_contacts() {
   fi
 }
 
+# ---------- G8: No tourism-generated artifact is TRACKED ----------
+# The tourism pipeline generates data carrying REAL Vietnamese mobile numbers —
+# 14,328 under .tourism-data/, 416 under documentation/tourism/. For a one-person
+# business the "business number" IS a personal mobile, and this repo is toggled
+# PUBLIC during /ship to get free CI, so committing means publishing.
+#
+# Everything below is already in .gitignore. This check exists because .gitignore
+# does not stop `git add -f`, and because every output path in the pipeline comes
+# from argv (5 build_* take sys.argv[2], 6 sweeps take sys.argv[1], ~25 more join
+# onto RAW), so no ignore pattern can cover every target a caller might name.
+#
+# Deliberately queries `git ls-files` — the INDEX, not the worktree. The question
+# is "could this be pushed", not "does this exist on disk". Every artifact is
+# expected to exist locally; none is expected to be tracked.
+#
+# Deliberately NO content fingerprint. A DL-\d\d style match fires on CLAUDE.md
+# and on the QA reports that legitimately discuss those ids, and a gate with false
+# positives is a gate someone switches off. PII in an oddly-named file is covered
+# by gitleaks, which scans docs/qa/** again since that path exemption was removed.
+#
+# Companion layer: scripts/tourism/duong_dan_ra.py refuses to WRITE outside the
+# ignored roots. That one stops the file being born in the wrong place; this one
+# stops any file reaching a push. Neither subsumes the other.
+check_g8_tourism_artifacts() {
+  echo "--- G8: tourism-generated artifacts tracked in git ---"
+  local hits=""
+
+  # 1. Anything under the two data roots. Catches `git add -f` directly.
+  hits="$hits$(git ls-files -- '.tourism-data' 'documentation/tourism' 2>/dev/null || true)"
+
+  # 2. Any .docx anywhere. Every .docx in this repo is a generated guide; there is
+  #    no hand-authored Word document, so the extension alone is decisive.
+  hits="$hits
+$(git ls-files -- '*.docx' 2>/dev/null || true)"
+
+  # 3. Guide basenames in ANY directory, not just docs/. The .gitignore rules are
+  #    anchored (`/docs/Huong-Dan-*`), so a guide copied to docs/archive/ or to the
+  #    repo root would not be ignored — this is the by-location failure that let
+  #    nine older .docx back in when they were moved into a subdirectory.
+  hits="$hits
+$(git ls-files \
+    -- '*Huong-Dan-*' '*Diem-Den-*' '*Nha-Hang-*' '*Khach-San-*' 2>/dev/null || true)"
+
+  # 4. JSON inside the script directory. This is the diem_den_chot.json class:
+  #    generated output that landed among the scripts rather than in the data
+  #    directory, so all three by-location rules walked straight past it.
+  hits="$hits
+$(git ls-files -- 'scripts/tourism/*.json' 2>/dev/null || true)"
+
+  hits=$(printf '%s\n' "$hits" | grep -v '^[[:space:]]*$' | sort -u || true)
+
+  if [ -n "$hits" ]; then
+    echo "FAIL  tourism-generated artifact(s) are TRACKED and would be published:"
+    printf '%s\n' "$hits" | sed 's/^/        /'
+    echo "      These carry real business phone numbers. Untrack, do not just delete:"
+    echo "        git rm --cached <file>"
+    echo "      They belong in .tourism-data/ or documentation/tourism/, both ignored."
+    echo "      Regenerate from scripts/tourism/ on the target machine instead of committing."
+    FAILURES=$((FAILURES + 1))
+  else
+    echo "PASS"
+  fi
+}
+
 # ---------- Run all checks ----------
 check_g1_operator_id_body
 check_g2_self_fetch
@@ -324,10 +388,11 @@ check_g4_money_math
 check_g5_date_now_rsc
 check_g6_client_barrel
 check_g7_placeholder_contacts
+check_g8_tourism_artifacts
 
 # ---------- Summary ----------
 echo ""
-echo "=== Greppable Invariants (G1-G7) ==="
+echo "=== Greppable Invariants (G1-G8) ==="
 echo "Failures: $FAILURES"
 echo "Warnings: $WARNINGS"
 exit $((FAILURES > 0 ? 1 : 0))

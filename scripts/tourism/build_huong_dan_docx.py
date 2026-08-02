@@ -43,6 +43,7 @@ import hoat_dong_data as _hoat_dong   # CUNG module chon loc voi ban .md
 import an_ngu_data as _an_ngu
 import docx_chung as _dx             # may dinh dang Word dung chung
 import xep_hang as _xep_hang         # nguong xep hang — MOT nguon, khong go tay
+import duong_dan_ra as _duong_dan_ra # chan ghi ra ngoai vung da gitignore
 
 # Duong ra co MAC DINH, va do la de chan mot loi da xay ra: ten file tung la
 # lua chon cua tung lan goi, nen hai phien lam viec song song da sinh ra
@@ -102,7 +103,11 @@ _CAU_HINH = {
                  "Cơ sở lưu trú đã đăng ký, theo phân khúc giá"),
 }
 _OUT_TL, TIEU_DE, PHU_DE = _CAU_HINH[TAI_LIEU]
-OUT = sys.argv[2] if len(sys.argv) > 2 and not sys.argv[2].startswith("--") else _OUT_TL
+# Chan truoc khi ghi. Bon dich mac dinh o tren deu dat (ba ban trong `docs/` khop
+# luat ignore theo ten, ban gop nam trong `.tourism-data/build/`); chi co ban ghi
+# de tren dong lenh moi co the sai. Xem duong_dan_ra.py.
+OUT = _duong_dan_ra.kiem_loi_ra(
+    sys.argv[2] if len(sys.argv) > 2 and not sys.argv[2].startswith("--") else _OUT_TL)
 
 
 def phat(*tai_lieu):
