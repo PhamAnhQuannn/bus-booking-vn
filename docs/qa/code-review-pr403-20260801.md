@@ -88,7 +88,8 @@ silently doubles the LCP download. Checked mechanically rather than by eye:
 - **Those queries match the Tailwind breakpoints the layers actually switch on.** `md`/`lg` are the
   defaults (768/1024) and `--breakpoint-3xl: 120rem` = **1920px**, matching `(min-width: 1920px)`.
   A mismatch here would preload one asset and display another.
-- **Each class-based fallback URL is that layer's 1× candidate** — all four `bg-[url(...)]` values
+- **Each class-based fallback URL is that layer's 1× candidate** — all four arbitrary-value
+  background-image classes on those layers
   are the JPEGs, so a browser without `image-set()` support fetches a file that was already
   preloaded rather than a fifth one.
 - **The two-declaration technique is correct and correctly explained.** React's `style` is a JS
