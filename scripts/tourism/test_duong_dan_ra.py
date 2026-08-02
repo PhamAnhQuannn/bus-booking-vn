@@ -94,6 +94,33 @@ except SystemExit:
     loi.append("kiem_loi_ra() thoat tren mot duong dan HOP LE")
     print("  SAI kiem_loi_ra() thoat tren duong dan hop le")
 
+# ── Moi noi duoc PHEP ghi phai la noi da duoc gitignore ────────────────────
+# Day la gia dinh trung tam cua ca thay doi nay: "cho phep" phai keo theo "da
+# ignore". Hom nay dung, nhung dung nho HAI danh sach tinh co khop nhau —
+# `THU_MUC_CHO_PHEP` trong duong_dan_ra.py va cac luat trong `.gitignore`. Them
+# mot goc vao mot ben ma quen ben kia thi guard se vui ve cho ghi tai lieu day so
+# dien thoai vao mot duong dan DUOC THEO DOI, dung cai no sinh ra de chan.
+#
+# Thong diep loi cua module da bao "sua ca hai cung luc", nhung do la mot chu
+# thich chu khong phai mot phep kiem — va so chu thich het dung trong du an nay
+# du de khong tin vao chu thich nua. Bien no thanh phep kiem.
+import subprocess  # noqa: E402
+
+print()
+_can_ignore = list(D.THU_MUC_CHO_PHEP) + [
+    "docs/" + t + "Da-Lat.docx" for t in D.TIEN_TO_DOCS
+]
+for _p in _can_ignore:
+    _rc = subprocess.run(["git", "check-ignore", "-q", _p],
+                         cwd=_GOC, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL).returncode
+    if _rc == 0:
+        print("  OK  da gitignore: {}".format(_p))
+    else:
+        loi.append("{} duoc phep ghi nhung KHONG bi gitignore "
+                   "(git check-ignore tra ve {})".format(_p, _rc))
+        print("  SAI KHONG bi gitignore: {}".format(_p))
+
 print()
 if loi:
     print("{} PHEP KIEM SAI:".format(len(loi)))
