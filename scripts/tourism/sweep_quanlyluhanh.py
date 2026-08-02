@@ -14,14 +14,26 @@ PROV = "68, 60, 67"  # Lam Dong sau sap nhap 2025
 
 s = requests.Session()
 s.headers["User-Agent"] = UA
-s.verify = False
-try:
-    import urllib3
-    urllib3.disable_warnings()
-except Exception:
-    pass
 
-BASES = ["https://www.quanlyluhanh.vn/search/", "https://103.139.202.245/search/"]
+# CHUNG THUC TLS BAT BUOC. Khong dat `s.verify = False`, khong goi
+# `urllib3.disable_warnings()`, khong them dia chi IP tran vao BASES.
+#
+# Ba thu do tung cung ton tai o day va chung cung co: mot URL dang IP tran khong
+# bao gio khop chung chi cua ten mien, nen no CHI chay duoc khi da tat kiem tra —
+# va viec tat canh bao khien nguoi chay khong he biet. Bo mot thu ma giu hai thu
+# kia thi khong sua duoc gi.
+#
+# Vi sao dieu do nghiem trong o DUNG file nay: docstring o tren noi ro muc dich —
+# tra loi "cong ty nay co giay phep that khong". Ta ghi lai ho so DANG KY NHA NUOC
+# roi trinh bay nhu mot dau hieu chinh danh. Khong chung thuc TLS nghia la bat ky
+# ai nam tren duong truyen cung co the tra ve mot danh sach gia, va duong ong nay
+# se luu no xuong dia nhu giay phep that. Chinh thuoc tinh ma du lieu nay hua hen
+# la thu bi danh mat o tang van chuyen.
+#
+# Neu mot ngay chung chi that su khong hop le: GHIM chung chi
+# (`s.verify = "/duong/dan/cert.pem"`) va ghi ro ly do + ngay ngay tai day.
+# Tuyet doi khong quay lai `verify = False`.
+BASES = ["https://www.quanlyluhanh.vn/search/"]
 
 rows, seen = [], set()
 base_ok = None

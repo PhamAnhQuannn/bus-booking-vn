@@ -127,6 +127,27 @@ documentation/tourism/
 # sinh ra de chan. Dang de quy phu ca `docs/archive/`.
 docs/**/*.docx
 
+# Ban huong dan do scripts/tourism sinh ra, chan theo TEN chu khong theo duoi.
+#
+# Vi sao khong dung `docs/**/*.md`: `docs/` dang giu hon 240 file .md that su cua
+# du an (docs/qa/ 168 bao cao review, docs/current-status/, docs/working-track/).
+# Mot luat theo duoi file se nuot het chung. Ten thi rieng biet, va no chan MOI
+# dinh dang — .md hom nay, .pdf hay .html mai sau.
+#
+# Lo hong that su co: `docs/**/*.docx` chan ban Word, nhung `build_huong_dan.py`
+# va `build_destinations_md.py` xuat .md, va `docs/Huong-Dan-Da-Lat.md` KHONG bi
+# chan. Mac dinh chung ghi vao `documentation/tourism/` (da ignore) — nhung ca ba
+# script build deu nhan `OUT = sys.argv[2]`, tuc DUONG DAN TUY Y. Chi mot lan goi
+# tro vao `docs/` la co mot ban huong dan day so dien thoai that duoc theo doi.
+#
+# Luat ignore khong the phu het mot `argv[2]` tuy y. Cach chua ben vung la chan
+# ngay trong script: tu choi ghi ra ngoai `documentation/tourism/` va
+# `.tourism-data/`. Chua lam — xem muc "deferred".
+/docs/Huong-Dan-*
+/docs/Diem-Den-*
+/docs/Nha-Hang-*
+/docs/Khach-San-*
+
 # ── MOI dau ra cua scripts/tourism/ deu KHONG commit ────────────────────────
 # Quy tac tong, dat sau ba dong tren mot cach co chu dich: `.tourism-data/`,
 # `documentation/tourism/` va `docs/**/*.docx` la ba NOI da biet, con luat nay

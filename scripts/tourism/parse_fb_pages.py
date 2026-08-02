@@ -29,6 +29,24 @@ if os.path.exists(OUT):
     prev = {r["id"]: r for r in json.load(io.open(OUT, encoding="utf-8"))}
 
 
+def che_sdt(s):
+    """Che so dien thoai truoc khi in ra man hinh.
+
+    stdout khong phai noi kin. No bi chuyen huong vao file (`> scratch_out.txt`),
+    dan vao bao cao, dan vao issue. `.gitignore` phai them han luat
+    `/scratch_out*.txt` CHINH VI mot file kieu vay tung chua ten quan, dia chi va
+    so dien thoai that — nen day khong phai lo xa, day la duong da di qua mot lan.
+
+    Cai chan doan nay can biet HAI NGUON CO LECH NHAU KHONG, khong can biet con
+    so. Giu 4 ky tu dau va 1 ky tu cuoi la du de doi chieu bang mat ma khong
+    cong bo so.
+    """
+    if not s:
+        return "—"
+    s = str(s)
+    return s if len(s) <= 5 else f"{s[:4]}{'x' * (len(s) - 5)}{s[-1]}"
+
+
 def g(text, pattern, flags=0):
     m = re.search(pattern, text, flags)
     if not m:
@@ -131,13 +149,13 @@ khop = [r for r in rows if r["dien_thoai_khop_overture"] is True]
 lech = [r for r in rows if r["dien_thoai_khop_overture"] is False]
 print(f"\ndoi chieu dien thoai voi Overture: {len(khop)} khop, {len(lech)} lech")
 for r in lech:
-    print(f"  LECH {r['id']} {r['ten']}: fb={r['dien_thoai_fb']}"
-          f" ovt={targets.get(r['id'],{}).get('dien_thoai_overture')}")
+    print(f"  LECH {r['id']} {r['ten']}: fb={che_sdt(r['dien_thoai_fb'])}"
+          f" ovt={che_sdt(targets.get(r['id'],{}).get('dien_thoai_overture'))}")
 
 nghi = [r for r in rows if r["chuyen_huong_id_khac"]]
 if nghi:
     print(f"\n⚠ {len(nghi)} trang chuyen huong sang ID khac — XEM TAY:")
     for r in nghi:
         print(f"  {r['id']} {r['ten']} · theo doi={r['so_nguoi_theo_doi']}"
-              f" · web={r['website_fb']}")
+              f" · web={'co' if r['website_fb'] else '—'}")
 print(f"\nsaved -> {OUT}")
