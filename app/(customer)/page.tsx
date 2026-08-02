@@ -387,6 +387,10 @@ async function HeroMarketingView() {
               "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
           }}
         />
+        {/* Không còn lớp fade trắng ở đáy hero. Nó từng tồn tại để dải trust bên
+            dưới (panel trắng, chromeless) tan vào nền trang. Giờ dải là một băng
+            TỐI nằm ĐÈ lên chính đáy ảnh (kiểu Vexere), nên phải còn ảnh ở đó để
+            phủ — fade trắng sẽ xoá mất thứ mà băng cần phản chiếu. */}
 
         {/* 570px at lg, down from 640. The height is not a free choice: it sets
             the photo box, and the cover floor is 200 * box_h / box_w, so every
@@ -394,8 +398,13 @@ async function HeroMarketingView() {
             a crop showing under half the master; 570 drops the floor to ~129.7%.
             Content measures 539px, so this leaves ~30px of padding budget — tight
             by design. Anything that grows the content (longer copy, a locale
-            change) will overflow here before it overflows anywhere else. */}
-        <div className="relative mx-auto flex w-full max-w-[1920px] flex-col gap-6 px-4 pt-12 pb-16 sm:px-8 sm:pt-16 sm:pb-20 lg:min-h-[570px] lg:pt-14 lg:pb-8 xl:px-[104px]">
+            change) will overflow here before it overflows anywhere else.
+
+            CẬP NHẬT: băng trust giờ nằm ĐÈ đáy hero, cao ~56px. lg:pb-8 (32px)
+            nhỏ hơn nên thẻ tìm kiếm sẽ bị băng che 24px — phải nâng pb lên 72px
+            (56 băng + 16 thở) và cộng đúng phần chênh đó vào min-h: 570 + 40 =
+            610. Ngân sách 30px nói trên đã bị tiêu hết, không còn chỗ dư. */}
+        <div className="relative mx-auto flex w-full max-w-[1920px] flex-col gap-6 px-4 pt-12 pb-16 sm:px-8 sm:pt-16 sm:pb-20 lg:min-h-[610px] lg:pt-14 lg:pb-[72px] xl:px-[104px]">
           <div className="relative isolate flex max-w-[680px] flex-col items-start gap-4 text-left 2xl:max-w-[760px]">
             {/* Mobile-only legibility scrim, sized to a MEASURED contrast floor
                 (scripts/smoke/hero-wash-capture.mjs + the solve beside it).
@@ -447,31 +456,68 @@ async function HeroMarketingView() {
             </Card>
           </div>
         </div>
-      </section>
+        {/* Bang trust dat DE len day anh hero, theo mau Vexere. Do tren anh cua ho:
+            lay cap mau ngay tren/duoi bien bang tai 4 vi tri x, moi kenh deu x0.5
+            -> do la lop phu DEN alpha ~50%, KHONG phai kinh mo. Bang chung khong
+            blur: bien thien cua may ben duoi bang van giu khac biet giua cac x
+            (94 / 32 / 84); blur se san phang. Cao 69px anh / 1.25 = ~55px CSS,
+            noi dung mot dong, khong mo ta.
 
-      {/* The tint lives on this full-bleed wrapper rather than on the section itself:
-          the section carries max-w-[1920px], so tinting it would leave untinted
-          gutters at 3xl. */}
-      <div className="border-b border-border bg-muted">
-        <section aria-label="Điểm nổi bật" className="relative z-10 mx-auto w-full max-w-[1920px] px-4 py-6 sm:px-8 sm:py-8 xl:px-[104px]">
-          <ul className="grid list-none grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {FEATURES.map(({ icon: Icon, title, sub }) => (
-              <li
-                key={title}
-                className="flex items-start gap-3 rounded-2xl border border-border bg-card p-5 shadow-e1 xl:p-6"
-              >
-                <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary xl:size-12">
-                  <Icon className="size-5 xl:size-6" aria-hidden="true" />
-                </span>
-                <span className="flex flex-col gap-0.5">
-                  <span className="text-sm font-semibold text-foreground xl:text-base">{title}</span>
-                  <span className="text-sm text-muted-foreground 2xl:text-base">{sub}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      </div>
+            Alpha o day KHONG lay 0.5 cua ho. Chu trang can 4.5:1 nen nen sau phu
+            phai <= ~118. Ho phu troi xanh 252 -> 126, tuc chinh ho chi dat ~3.9:1.
+            Day hero cua ta co mat bien hoang hon rat sang, nen alpha phai do tren
+            render that roi chot; 0.6 chi la diem khoi dau.
+
+            Duoi lg: bang nam trong luong (static), luoi 2 cot. Tu lg: absolute de
+            day hero. Mot markup, hai vi tri — khong nuoi hai bang mau.
+
+            CANH SANG 1px o mep tren la thu giu cho bang ton tai o nua PHAI. Anh
+            hero toi dan sang phai (nhua duong): luminance ngay tren bang di tu
+            0.419 (x=280) xuong 0.023 (x=1360). Phu den la phep NHAN, nen o dau
+            phai 0.4 x 0.023 = 0.009 va bien bang-vs-anh chi con 1.07:1 — bang
+            tan vao mat duong. Da chung minh khong ton tai bang don-luminance nao
+            tach duoc ca hai dau (can dong thoi <= 0.106 va >= 0.169: vo nghiem),
+            va backdrop-blur/brightness/saturate deu vo dung vi deu la toan tu
+            nhan tren vung gan don sac. Nen loi ra chi co: doi SAC, hoac ve CANH.
+            Chon ve canh de giu nguyen dien mao.
+
+            Doi tuong so sanh cua canh la LONG BANG, khong phai anh — nho vay no
+            deu o moi x: 2.98:1 (x=280) va 3.74:1 (x=1360), tuc manh nhat dung
+            cho bac tu nhien da chet. Chu trang giu 6.92:1 vi duong 1px khong nam
+            sau chu.
+
+            Dung inset shadow, KHONG dung border-t: chieu cao bang la intrinsic
+            (py-3 + 20px noi dung = 44px), them border se doi len 45px va pha con
+            so lg:pb-[72px] da tinh cho hero.
+
+            Alpha 0.52 la TRAN CUNG, khong phai khau vi — va con so nay den tu
+            mot lan do SAI phai sua. Ban dau uoc anh goc sang nhat duoi bang la
+            (248,185,130) lay tu mot mau tai x=280, tinh ra 0.45 con du bien.
+            Quet TOAN dai tren render thi diem sang nhat that o x=180 (gan mat
+            bien hoang hon), anh goc (251,222,185) — sang hon nhieu o kenh G/B.
+            Tai alpha 0.45 chu trang chi con 4.15:1, THUNG san 4.5.
+
+            Quet lai tren anh goc dung: 0.45 -> 4.15 · 0.48 -> 4.58 · 0.50 -> 4.87
+            · 0.52 -> 5.19 · 0.60 -> 6.84. Chon 0.52 de con bien ~0.7 cho sai so
+            do va cho anh hero neu doi crop. Bai hoc: uoc diem cuc tri tu MOT mau
+            thi se hut; phai quet toan vung.
+
+            Icon la TRANG chu khong phai cam, va do la he qua cua viec lam bang
+            sang len: icon cam tren nua trai (nen hoang hon cam) tut 2.29 -> 1.45,
+            tuc cam-tren-cam gan nhu tan bien. Trang cho 5.20 o nua trai va 17.97
+            o nua phai, deu bang chu. Doi lai: bang mat diem nhan cam duy nhat. */}
+        <ul
+          aria-label="Điểm nổi bật"
+          className="relative z-10 grid list-none grid-cols-2 gap-x-6 gap-y-2 bg-black/52 px-4 py-3 text-white sm:px-8 lg:absolute lg:inset-x-0 lg:bottom-0 lg:grid-cols-4 lg:gap-0 lg:px-12 lg:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.4)]"
+        >
+          {FEATURES.map(({ icon: Icon, title }) => (
+            <li key={title} className="flex items-center justify-center gap-2">
+              <Icon className="size-4 shrink-0" aria-hidden="true" />
+              <span className="text-sm font-medium">{title}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <PopularTrips prices={prices} durations={durations} />
 
