@@ -18,6 +18,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CheckCircle2, CalendarPlus } from 'lucide-react';
 import { getBookingByConfirmationToken } from '@/lib/booking';
+import { bookingStatusDisplay } from '@/lib/op/statusLabels';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -68,26 +69,6 @@ function buildCalendarHref(opts: { ref: string; origin: string; destination: str
   return `data:text/calendar;charset=utf-8,${encodeURIComponent(ics)}`;
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  awaiting_payment: 'Chờ thanh toán',
-  paid: 'Đã thanh toán',
-  completed: 'Hoàn tất',
-  cancelled: 'Đã hủy',
-  trip_cancelled: 'Chuyến đã hủy',
-  no_show: 'Không có mặt',
-  payment_failed_expired: 'Thanh toán thất bại',
-};
-
-const STATUS_VARIANT: Record<string, 'success' | 'pending' | 'danger' | 'neutral'> = {
-  awaiting_payment: 'pending',
-  paid: 'success',
-  completed: 'success',
-  cancelled: 'neutral',
-  trip_cancelled: 'danger',
-  no_show: 'danger',
-  payment_failed_expired: 'danger',
-};
-
 export default async function ConfirmationPage({ params }: ConfirmationPageProps) {
   const { token } = await params;
 
@@ -109,8 +90,8 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
             <CheckCircle2 className="size-8" aria-hidden="true" />
           </span>
           <h1 className="text-2xl font-bold">Đặt vé thành công</h1>
-          <Badge variant={STATUS_VARIANT[booking.status] ?? 'neutral'}>
-            {STATUS_LABEL[booking.status] ?? booking.status}
+          <Badge variant={bookingStatusDisplay(booking.status).variant}>
+            {bookingStatusDisplay(booking.status).label}
           </Badge>
         </header>
 
