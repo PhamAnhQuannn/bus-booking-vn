@@ -19,7 +19,6 @@ import { ResultsSkeleton } from '@/components/search/ResultsSkeleton';
 import { PopularTrips } from '@/components/home/PopularTrips';
 import { ContractCarRental } from '@/components/home/ContractCarRental';
 import { PopularDestinations } from '@/components/home/PopularDestinations';
-import { NewsletterBand } from '@/components/home/NewsletterBand';
 import { OperatorShowcase } from '@/components/home/OperatorShowcase';
 import { POPULAR_ROUTES, routeKey } from '@/components/home/popularRoutes';
 import { Card, CardContent } from '@/components/ui/card';
@@ -58,7 +57,12 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
 const FEATURES = [
   { icon: CreditCard, title: 'Thanh toán đơn giản', sub: 'Chuyển khoản VietQR hoặc tiền mặt khi lên xe' },
   { icon: MailCheck, title: 'Xác nhận qua email', sub: 'Thông tin chuyến đi được gửi đến email của bạn' },
-  { icon: Bus, title: 'Nhiều nhà xe uy tín', sub: 'Hợp tác cùng nhiều nhà xe chất lượng trên toàn quốc' },
+  // 2026-07-30: was "Nhiều nhà xe uy tín" / "Hợp tác cùng nhiều nhà xe chất lượng trên
+  // toàn quốc". That asserts a nationwide partner network; at launch there is one
+  // operator, so it was simply untrue. Replaced with a claim the platform can actually
+  // back: every operator is reviewed and approved (PENDING_REVIEW → APPROVED) before any
+  // of its trips become bookable.
+  { icon: Bus, title: 'Nhà xe được xác minh', sub: 'Mỗi nhà xe đều được duyệt trước khi mở bán vé' },
   { icon: MapPin, title: 'Đón trả tận nơi', sub: 'Đón tại nhà hoặc khách sạn, trả đúng điểm bạn cần' },
 ];
 
@@ -523,7 +527,11 @@ async function HeroMarketingView() {
 
       <PopularDestinations />
 
-      <NewsletterBand />
+      {/* 2026-07-30: <NewsletterBand /> was mounted here. It rendered an email field
+          and a "Đăng ký" button with no action, no handler and no backend — it took a
+          customer's address and silently discarded it. Collecting personal data you
+          cannot act on is worse than not asking, and under PDPL it is collection
+          without purpose. Re-mount it when a newsletter actually exists. */}
     </main>
   );
 }

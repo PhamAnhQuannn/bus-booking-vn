@@ -1,761 +1,487 @@
 {
- "generated": "2026-07-23T23:22:26.287Z",
- "mode": "pr",
- "pr": 324,
- "branch": "fix/bank-transfer-reconcile-orphan",
- "headSha": "0435fe17c3fdb868fc82bbc5d18e30eeefa75649",
- "stats": {
-  "files": 669,
-  "modules": 41,
-  "module_edges": 154,
-  "file_edges": 1984
- },
- "modules": [
-  "app",
-  "components",
-  "lib/account",
-  "lib/admin",
-  "lib/analytics",
-  "lib/api",
-  "lib/audit",
-  "lib/auth",
-  "lib/booking",
-  "lib/catalog",
-  "lib/charter",
-  "lib/config",
-  "lib/core",
-  "lib/einvoice",
-  "lib/flags",
-  "lib/format",
-  "lib/geo",
-  "lib/home",
-  "lib/jobs",
-  "lib/ledger",
-  "lib/logger",
-  "lib/notification",
-  "lib/observability",
-  "lib/onboarding",
-  "lib/op",
-  "lib/payment",
-  "lib/places",
-  "lib/ratelimit",
-  "lib/reports",
-  "lib/search",
-  "lib/security",
-  "lib/seo",
-  "lib/staff",
-  "lib/state",
-  "lib/storage",
-  "lib/stores",
-  "lib/text",
-  "lib/ticketing",
-  "lib/trips",
-  "lib/utils",
-  "lib/withErrorHandler"
- ],
- "edges": [
-  {
-   "from": "app",
-   "to": "lib/booking"
-  },
-  {
-   "from": "app",
-   "to": "components"
-  },
-  {
-   "from": "app",
-   "to": "lib/auth"
-  },
-  {
-   "from": "app",
-   "to": "lib/utils"
-  },
-  {
-   "from": "app",
-   "to": "lib/config"
-  },
-  {
-   "from": "app",
-   "to": "lib/state"
-  },
-  {
-   "from": "app",
-   "to": "lib/api"
-  },
-  {
-   "from": "app",
-   "to": "lib/trips"
-  },
-  {
-   "from": "app",
-   "to": "lib/security"
-  },
-  {
-   "from": "app",
-   "to": "lib/core"
-  },
-  {
-   "from": "app",
-   "to": "lib/charter"
-  },
-  {
-   "from": "app",
-   "to": "lib/analytics"
-  },
-  {
-   "from": "app",
-   "to": "lib/search"
-  },
-  {
-   "from": "app",
-   "to": "lib/places"
-  },
-  {
-   "from": "app",
-   "to": "lib/home"
-  },
-  {
-   "from": "app",
-   "to": "lib/seo"
-  },
-  {
-   "from": "app",
-   "to": "lib/format"
-  },
-  {
-   "from": "app",
-   "to": "lib/text"
-  },
-  {
-   "from": "app",
-   "to": "lib/admin"
-  },
-  {
-   "from": "app",
-   "to": "lib/ledger"
-  },
-  {
-   "from": "app",
-   "to": "lib/op"
-  },
-  {
-   "from": "app",
-   "to": "lib/flags"
-  },
-  {
-   "from": "app",
-   "to": "lib/withErrorHandler"
-  },
-  {
-   "from": "app",
-   "to": "lib/account"
-  },
-  {
-   "from": "app",
-   "to": "lib/ratelimit"
-  },
-  {
-   "from": "app",
-   "to": "lib/audit"
-  },
-  {
-   "from": "app",
-   "to": "lib/onboarding"
-  },
-  {
-   "from": "app",
-   "to": "lib/storage"
-  },
-  {
-   "from": "app",
-   "to": "lib/notification"
-  },
-  {
-   "from": "app",
-   "to": "lib/logger"
-  },
-  {
-   "from": "app",
-   "to": "lib/jobs"
-  },
-  {
-   "from": "app",
-   "to": "lib/observability"
-  },
-  {
-   "from": "app",
-   "to": "lib/geo"
-  },
-  {
-   "from": "app",
-   "to": "lib/catalog"
-  },
-  {
-   "from": "app",
-   "to": "lib/staff"
-  },
-  {
-   "from": "app",
-   "to": "lib/payment"
-  },
-  {
-   "from": "app",
-   "to": "lib/reports"
-  },
-  {
-   "from": "app",
-   "to": "lib/ticketing"
-  },
-  {
-   "from": "components",
-   "to": "lib/auth"
-  },
-  {
-   "from": "components",
-   "to": "lib/utils"
-  },
-  {
-   "from": "components",
-   "to": "lib/state"
-  },
-  {
-   "from": "components",
-   "to": "lib/home"
-  },
-  {
-   "from": "components",
-   "to": "lib/search"
-  },
-  {
-   "from": "components",
-   "to": "lib/format"
-  },
-  {
-   "from": "components",
-   "to": "lib/op"
-  },
-  {
-   "from": "components",
-   "to": "lib/text"
-  },
-  {
-   "from": "components",
-   "to": "lib/trips"
-  },
-  {
-   "from": "components",
-   "to": "lib/core"
-  },
-  {
-   "from": "components",
-   "to": "lib/stores"
-  },
-  {
-   "from": "lib/account",
-   "to": "lib/core"
-  },
-  {
-   "from": "lib/account",
-   "to": "lib/auth"
-  },
-  {
-   "from": "lib/account",
-   "to": "lib/notification"
-  },
-  {
-   "from": "lib/account",
-   "to": "lib/ratelimit"
-  },
-  {
-   "from": "lib/admin",
-   "to": "lib/auth"
-  },
-  {
-   "from": "lib/admin",
-   "to": "lib/audit"
-  },
-  {
-   "from": "lib/admin",
-   "to": "lib/core"
-  },
-  {
-   "from": "lib/admin",
-   "to": "lib/staff"
-  },
-  {
-   "from": "lib/admin",
-   "to": "lib/notification"
-  },
-  {
-   "from": "lib/admin",
-   "to": "lib/onboarding"
-  },
-  {
-   "from": "lib/admin",
-   "to": "lib/ledger"
-  },
-  {
-   "from": "lib/analytics",
-   "to": "lib/core"
-  },
-  {
-   "from": "lib/analytics",
-   "to": "lib/logger"
-  },
-  {
-   "from": "lib/api",
-   "to": "lib/booking"
-  },
-  {
-   "from": "lib/api",
-   "to": "lib/auth"
-  },
-  {
-   "from": "lib/api",
-   "to": "lib/catalog"
-  },
-  {
-   "from": "lib/api",
-   "to": "lib/ledger"
-  },
-  {
-   "from": "lib/api",
-   "to": "lib/staff"
-  },
-  {
-   "from": "lib/api",
-   "to": "lib/trips"
-  },
-  {
-   "from": "lib/auth",
-   "to": "lib/core"
-  },
-  {
-   "from": "lib/auth",
-   "to": "lib/booking"
-  },
-  {
-   "from": "lib/auth",
-   "to": "lib/notification"
-  },
-  {
-   "from": "lib/auth",
-   "to": "lib/ratelimit"
-  },
-  {
-   "from": "lib/booking",
-   "to": "lib/core"
-  },
-  {
-   "from": "lib/booking",
-   "to": "lib/logger"
-  },
-  {
-   "from": "lib/booking",
-   "to": "lib/ticketing"
-  },
-  {
-   "from": "lib/booking",
-   "to": "lib/payment"
-  },
-  {
-   "from": "lib/booking",
-   "to": "lib/onboarding"
-  },
-  {
-   "from": "lib/catalog",
-   "to": "lib/core"
-  },
-  {
-   "from": "lib/catalog",
-   "to": "lib/places"
-  },
-  {
-   "from": "lib/charter",
-   "to": "lib/onboarding"
-  },
-  {
-   "from": "lib/charter",
-   "to": "lib/audit"
-  },
-  {
-   "from": "lib/charter",
-   "to": "lib/core"
-  },
-  {
-   "from": "lib/charter",
-   "to": "lib/places"
-  },
-  {
-   "from": "lib/charter",
-   "to": "lib/logger"
-  },
-  {
-   "from": "lib/core",
-   "to": "lib/config"
-  },
-  {
-   "from": "lib/core",
-   "to": "lib/logger"
-  },
-  {
-   "from": "lib/einvoice",
-   "to": "lib/logger"
-  },
-  {
-   "from": "lib/einvoice",
-   "to": "lib/core"
-  },
-  {
-   "from": "lib/flags",
-   "to": "lib/core"
-  },
-  {
-   "from": "lib/flags",
-   "to": "lib/audit"
-  },
-  {
-   "from": "lib/home",
-   "to": "lib/core"
-  },
-  {
-   "from": "lib/home",
-   "to": "lib/onboarding"
-  },
-  {
-   "from": "lib/jobs",
-   "to": "lib/trips"
-  },
-  {
-   "from": "lib/jobs",
-   "to": "lib/core"
-  },
-  {
-   "from": "lib/jobs",
-   "to": "lib/charter"
-  },
-  {
-   "from": "lib/jobs",
-   "to": "lib/notification"
-  },
-  {
-   "from": "lib/jobs",
-   "to": "lib/booking"
-  },
-  {
-   "from": "lib/jobs",
-   "to": "lib/storage"
-  },
-  {
-   "from": "lib/jobs",
-   "to": "lib/ticketing"
-  },
-  {
-   "from": "lib/jobs",
-   "to": "lib/ledger"
-  },
-  {
-   "from": "lib/jobs",
-   "to": "lib/observability"
-  },
-  {
-   "from": "lib/jobs",
-   "to": "lib/logger"
-  },
-  {
-   "from": "lib/jobs",
-   "to": "lib/onboarding"
-  },
-  {
-   "from": "lib/jobs",
-   "to": "lib/payment"
-  },
-  {
-   "from": "lib/jobs",
-   "to": "lib/account"
-  },
-  {
-   "from": "lib/ledger",
-   "to": "lib/core"
-  },
-  {
-   "from": "lib/ledger",
-   "to": "lib/audit"
-  },
-  {
-   "from": "lib/ledger",
-   "to": "lib/logger"
-  },
-  {
-   "from": "lib/ledger",
-   "to": "lib/payment"
-  },
-  {
-   "from": "lib/ledger",
-   "to": "lib/config"
-  },
-  {
-   "from": "lib/ledger",
-   "to": "lib/onboarding"
-  },
-  {
-   "from": "lib/notification",
-   "to": "lib/core"
-  },
-  {
-   "from": "lib/notification",
-   "to": "lib/logger"
-  },
-  {
-   "from": "lib/notification",
-   "to": "lib/observability"
-  },
-  {
-   "from": "lib/notification",
-   "to": "lib/jobs"
-  },
-  {
-   "from": "lib/notification",
-   "to": "lib/config"
-  },
-  {
-   "from": "lib/observability",
-   "to": "lib/logger"
-  },
-  {
-   "from": "lib/observability",
-   "to": "lib/config"
-  },
-  {
-   "from": "lib/onboarding",
-   "to": "lib/storage"
-  },
-  {
-   "from": "lib/onboarding",
-   "to": "lib/core"
-  },
-  {
-   "from": "lib/onboarding",
-   "to": "lib/audit"
-  },
-  {
-   "from": "lib/onboarding",
-   "to": "lib/security"
-  },
-  {
-   "from": "lib/op",
-   "to": "lib/core"
-  },
-  {
-   "from": "lib/op",
-   "to": "lib/auth"
-  },
-  {
-   "from": "lib/op",
-   "to": "lib/catalog"
-  },
-  {
-   "from": "lib/op",
-   "to": "lib/staff"
-  },
-  {
-   "from": "lib/op",
-   "to": "lib/booking"
-  },
-  {
-   "from": "lib/op",
-   "to": "lib/trips"
-  },
-  {
-   "from": "lib/payment",
-   "to": "lib/booking"
-  },
-  {
-   "from": "lib/payment",
-   "to": "lib/config"
-  },
-  {
-   "from": "lib/payment",
-   "to": "lib/logger"
-  },
-  {
-   "from": "lib/payment",
-   "to": "lib/ledger"
-  },
-  {
-   "from": "lib/payment",
-   "to": "lib/core"
-  },
-  {
-   "from": "lib/payment",
-   "to": "lib/notification"
-  },
-  {
-   "from": "lib/payment",
-   "to": "lib/observability"
-  },
-  {
-   "from": "lib/payment",
-   "to": "lib/analytics"
-  },
-  {
-   "from": "lib/places",
-   "to": "lib/core"
-  },
-  {
-   "from": "lib/ratelimit",
-   "to": "lib/logger"
-  },
-  {
-   "from": "lib/reports",
-   "to": "lib/core"
-  },
-  {
-   "from": "lib/reports",
-   "to": "lib/ledger"
-  },
-  {
-   "from": "lib/search",
-   "to": "lib/trips"
-  },
-  {
-   "from": "lib/search",
-   "to": "lib/core"
-  },
-  {
-   "from": "lib/staff",
-   "to": "lib/core"
-  },
-  {
-   "from": "lib/staff",
-   "to": "lib/auth"
-  },
-  {
-   "from": "lib/staff",
-   "to": "lib/notification"
-  },
-  {
-   "from": "lib/storage",
-   "to": "lib/config"
-  },
-  {
-   "from": "lib/storage",
-   "to": "lib/audit"
-  },
-  {
-   "from": "lib/ticketing",
-   "to": "lib/core"
-  },
-  {
-   "from": "lib/trips",
-   "to": "lib/core"
-  },
-  {
-   "from": "lib/trips",
-   "to": "lib/ledger"
-  },
-  {
-   "from": "lib/trips",
-   "to": "lib/logger"
-  },
-  {
-   "from": "lib/trips",
-   "to": "lib/onboarding"
-  },
-  {
-   "from": "lib/trips",
-   "to": "lib/places"
-  },
-  {
-   "from": "lib/withErrorHandler",
-   "to": "lib/logger"
-  }
- ],
- "sccs": [
-  [
-   "lib/auth",
-   "lib/account",
-   "lib/trips",
-   "lib/jobs",
-   "lib/notification",
-   "lib/ledger",
-   "lib/payment",
-   "lib/booking"
-  ]
- ],
- "top_importees": [
-  {
-   "module": "lib/core",
-   "importer_files": 225,
-   "pct_of_source": 33.6
-  },
-  {
-   "module": "lib/auth",
-   "importer_files": 188,
-   "pct_of_source": 28.1
-  },
-  {
-   "module": "components",
-   "importer_files": 145,
-   "pct_of_source": 21.7
-  },
-  {
-   "module": "lib/withErrorHandler",
-   "importer_files": 107,
-   "pct_of_source": 16
-  },
-  {
-   "module": "app",
-   "importer_files": 64,
-   "pct_of_source": 9.6
-  },
-  {
-   "module": "lib/booking",
-   "importer_files": 55,
-   "pct_of_source": 8.2
-  },
-  {
-   "module": "lib/utils",
-   "importer_files": 53,
-   "pct_of_source": 7.9
-  },
-  {
-   "module": "lib/trips",
-   "importer_files": 44,
-   "pct_of_source": 6.6
-  },
-  {
-   "module": "lib/op",
-   "importer_files": 44,
-   "pct_of_source": 6.6
-  },
-  {
-   "module": "lib/logger",
-   "importer_files": 38,
-   "pct_of_source": 5.7
-  },
-  {
-   "module": "lib/ledger",
-   "importer_files": 36,
-   "pct_of_source": 5.4
-  },
-  {
-   "module": "lib/admin",
-   "importer_files": 35,
-   "pct_of_source": 5.2
-  }
- ],
- "layer_map": {
-  "ui": [
-   "app/**",
-   "components/**"
+  "generated": "2026-07-29T19:45:17.193Z",
+  "mode": "local",
+  "branch": "docs/post-merge-mistake-log-and-pickup-comment-drift",
+  "files": 953,
+  "edges": 2507,
+  "value_edge_cycles": 0,
+  "type_only_closed_sccs": [
+    [
+      "lib/notification/esmsClient.ts",
+      "lib/notification/esms.ts"
+    ],
+    [
+      "lib/booking/initiateOnlineBooking.ts",
+      "lib/jobs/sendReminders.ts",
+      "lib/account/resetPassword.ts",
+      "lib/account/forgotPassword.ts",
+      "lib/account/customerOtp.ts",
+      "lib/auth/sendOtp.ts",
+      "lib/auth/operatorOtp.ts",
+      "lib/auth/operatorLoginOtp.ts",
+      "lib/auth/operatorAuthService.ts",
+      "lib/auth/authService.ts",
+      "lib/auth/index.ts",
+      "lib/account/changePassword.ts",
+      "lib/account/index.ts",
+      "lib/jobs/retentionSweeper.ts",
+      "lib/jobs/reconcilePayments.ts",
+      "lib/jobs/generateTrips.ts",
+      "lib/jobs/generateTicketPdfs.ts",
+      "lib/jobs/dispatchNotifications.ts",
+      "lib/trips/cancelTrip.ts",
+      "lib/trips/index.ts",
+      "lib/jobs/autoCompleteTrips.ts",
+      "lib/jobs/index.ts",
+      "lib/notification/dispatchNotifications.ts",
+      "lib/notification/index.ts",
+      "lib/payment/processWebhook.ts",
+      "lib/payment/index.ts",
+      "lib/booking/createCashBooking.ts",
+      "lib/booking/index.ts"
+    ],
+    [
+      "app/op/(console)/routes/RouteEditDialog.tsx",
+      "app/op/(console)/routes/RoutesClient.tsx"
+    ]
   ],
-  "domain": [
-   "lib/<domain>/**"
+  "domain_sccs": [
+    [
+      "lib/config",
+      "lib/core"
+    ],
+    [
+      "lib/auth",
+      "lib/account",
+      "lib/trips",
+      "lib/jobs",
+      "lib/notification",
+      "lib/payment",
+      "lib/booking"
+    ]
   ],
-  "core": [
-   "lib/core/**",
-   "lib/utils/**"
-  ]
- }
+  "domain_edges": [
+    {
+      "from": "app",
+      "to": [
+        "lib/booking",
+        "components",
+        "lib/auth",
+        "lib/core",
+        "lib/config",
+        "lib/state",
+        "lib/api",
+        "lib/trips",
+        "lib/security",
+        "lib/payment",
+        "lib/charter",
+        "lib/analytics",
+        "lib/search",
+        "lib/places",
+        "lib/home",
+        "lib/seo",
+        "lib/format",
+        "lib/text",
+        "lib/admin",
+        "lib/ledger",
+        "lib/op",
+        "lib/flags",
+        "lib/account",
+        "lib/ratelimit",
+        "lib/audit",
+        "lib/onboarding",
+        "lib/storage",
+        "lib/notification",
+        "lib/jobs",
+        "lib/observability",
+        "lib/geo",
+        "lib/catalog",
+        "lib/staff",
+        "lib/reports",
+        "lib/ticketing"
+      ]
+    },
+    {
+      "from": "components",
+      "to": [
+        "lib/auth",
+        "lib/core",
+        "lib/state",
+        "lib/home",
+        "lib/search",
+        "lib/format",
+        "lib/op",
+        "lib/text",
+        "lib/trips",
+        "lib/stores"
+      ]
+    },
+    {
+      "from": "lib/account",
+      "to": [
+        "lib/core",
+        "lib/auth",
+        "lib/notification",
+        "lib/ratelimit"
+      ]
+    },
+    {
+      "from": "lib/admin",
+      "to": [
+        "lib/auth",
+        "lib/audit",
+        "lib/core",
+        "lib/staff",
+        "lib/notification",
+        "lib/onboarding",
+        "lib/ledger"
+      ]
+    },
+    {
+      "from": "lib/analytics",
+      "to": [
+        "lib/core"
+      ]
+    },
+    {
+      "from": "lib/api",
+      "to": [
+        "lib/booking",
+        "lib/auth",
+        "lib/catalog",
+        "lib/ledger",
+        "lib/staff",
+        "lib/trips"
+      ]
+    },
+    {
+      "from": "lib/auth",
+      "to": [
+        "lib/core",
+        "lib/booking",
+        "lib/notification",
+        "lib/ratelimit"
+      ]
+    },
+    {
+      "from": "lib/booking",
+      "to": [
+        "lib/core",
+        "lib/ticketing",
+        "lib/payment",
+        "lib/onboarding"
+      ]
+    },
+    {
+      "from": "lib/catalog",
+      "to": [
+        "lib/core",
+        "lib/places"
+      ]
+    },
+    {
+      "from": "lib/charter",
+      "to": [
+        "lib/onboarding",
+        "lib/audit",
+        "lib/core",
+        "lib/places"
+      ]
+    },
+    {
+      "from": "lib/config",
+      "to": [
+        "lib/core"
+      ]
+    },
+    {
+      "from": "lib/core",
+      "to": [
+        "lib/config"
+      ]
+    },
+    {
+      "from": "lib/einvoice",
+      "to": [
+        "lib/core"
+      ]
+    },
+    {
+      "from": "lib/flags",
+      "to": [
+        "lib/core",
+        "lib/audit"
+      ]
+    },
+    {
+      "from": "lib/home",
+      "to": [
+        "lib/core",
+        "lib/onboarding"
+      ]
+    },
+    {
+      "from": "lib/jobs",
+      "to": [
+        "lib/trips",
+        "lib/core",
+        "lib/charter",
+        "lib/notification",
+        "lib/booking",
+        "lib/storage",
+        "lib/ledger",
+        "lib/observability",
+        "lib/onboarding",
+        "lib/payment",
+        "lib/account"
+      ]
+    },
+    {
+      "from": "lib/ledger",
+      "to": [
+        "lib/core",
+        "lib/audit",
+        "lib/config",
+        "lib/onboarding"
+      ]
+    },
+    {
+      "from": "lib/notification",
+      "to": [
+        "lib/core",
+        "lib/observability",
+        "lib/jobs",
+        "lib/config"
+      ]
+    },
+    {
+      "from": "lib/observability",
+      "to": [
+        "lib/core",
+        "lib/config"
+      ]
+    },
+    {
+      "from": "lib/onboarding",
+      "to": [
+        "lib/storage",
+        "lib/core",
+        "lib/audit",
+        "lib/security"
+      ]
+    },
+    {
+      "from": "lib/op",
+      "to": [
+        "lib/core",
+        "lib/auth",
+        "lib/catalog",
+        "lib/staff",
+        "lib/booking",
+        "lib/trips"
+      ]
+    },
+    {
+      "from": "lib/payment",
+      "to": [
+        "lib/core",
+        "lib/config",
+        "lib/ledger",
+        "lib/notification",
+        "lib/observability",
+        "lib/analytics"
+      ]
+    },
+    {
+      "from": "lib/places",
+      "to": [
+        "lib/core"
+      ]
+    },
+    {
+      "from": "lib/ratelimit",
+      "to": [
+        "lib/core"
+      ]
+    },
+    {
+      "from": "lib/reports",
+      "to": [
+        "lib/core",
+        "lib/ledger"
+      ]
+    },
+    {
+      "from": "lib/search",
+      "to": [
+        "lib/trips",
+        "lib/core"
+      ]
+    },
+    {
+      "from": "lib/staff",
+      "to": [
+        "lib/core",
+        "lib/auth",
+        "lib/notification"
+      ]
+    },
+    {
+      "from": "lib/storage",
+      "to": [
+        "lib/config",
+        "lib/audit"
+      ]
+    },
+    {
+      "from": "lib/ticketing",
+      "to": [
+        "lib/core"
+      ]
+    },
+    {
+      "from": "lib/trips",
+      "to": [
+        "lib/core",
+        "lib/payment",
+        "lib/ledger",
+        "lib/onboarding",
+        "lib/places"
+      ]
+    }
+  ],
+  "top_imported": [
+    {
+      "module": "lib/core/db/client.ts",
+      "importers": 252
+    },
+    {
+      "module": "lib/auth/index.ts",
+      "importers": 136
+    },
+    {
+      "module": "lib/withErrorHandler.ts",
+      "importers": 104
+    },
+    {
+      "module": "components/ui/button.tsx",
+      "importers": 66
+    },
+    {
+      "module": "components/ui/card.tsx",
+      "importers": 62
+    },
+    {
+      "module": "lib/utils.ts",
+      "importers": 52
+    },
+    {
+      "module": "components/ui/badge.tsx",
+      "importers": 43
+    },
+    {
+      "module": "components/ui/alert.tsx",
+      "importers": 43
+    },
+    {
+      "module": "lib/auth/csrfClient.ts",
+      "importers": 39
+    },
+    {
+      "module": "lib/logger.ts",
+      "importers": 39
+    },
+    {
+      "module": "lib/booking/index.ts",
+      "importers": 37
+    },
+    {
+      "module": "components/ui/label.tsx",
+      "importers": 36
+    }
+  ],
+  "layer_map": {
+    "ui": [
+      "app/**",
+      "components/**"
+    ],
+    "domain": [
+      "lib/<domain>/**"
+    ],
+    "core": [
+      "lib/core/**"
+    ]
+  },
+  "gate": {
+    "rule": "import-x/no-cycle",
+    "severity": "error",
+    "resolver": "resolver-next/createTypeScriptImportResolver",
+    "extensions": [
+      ".ts",
+      ".tsx",
+      ".mts",
+      ".cts",
+      ".js",
+      ".jsx",
+      ".mjs",
+      ".cjs"
+    ],
+    "scoped_warn_override": "deleted",
+    "verified_enforcing": true
+  },
+  "previous": {
+    "generated": "2026-07-23T23:22:26.287Z",
+    "mode": "pr",
+    "pr": 324,
+    "branch": "fix/bank-transfer-reconcile-orphan",
+    "headSha": "0435fe17c3fdb868fc82bbc5d18e30eeefa75649",
+    "stats": {
+      "files": 669,
+      "modules": 41,
+      "module_edges": 154,
+      "file_edges": 1984
+    },
+    "sccs": [
+      [
+        "lib/auth",
+        "lib/account",
+        "lib/trips",
+        "lib/jobs",
+        "lib/notification",
+        "lib/ledger",
+        "lib/payment",
+        "lib/booking"
+      ]
+    ],
+    "note": "edge counts not directly comparable - different lexer inclusion rules (this run counts export-from re-exports and dynamic import())."
+  },
+  "drift": {
+    "ledger_left_scc": true,
+    "prior_scc_size": 8,
+    "current_scc_size": 7,
+    "new_cycles": 0,
+    "new_boundary_crossing_edges": 0,
+    "current_main_scc": [
+      "lib/auth",
+      "lib/account",
+      "lib/trips",
+      "lib/jobs",
+      "lib/notification",
+      "lib/payment",
+      "lib/booking"
+    ],
+    "prior_main_scc": [
+      "lib/auth",
+      "lib/account",
+      "lib/trips",
+      "lib/jobs",
+      "lib/notification",
+      "lib/ledger",
+      "lib/payment",
+      "lib/booking"
+    ],
+    "domains_removed": [
+      "lib/ledger"
+    ]
+  }
 }

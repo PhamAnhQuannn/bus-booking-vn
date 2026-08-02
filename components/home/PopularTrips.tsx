@@ -3,8 +3,8 @@
 /**
  * PopularTrips — horizontal scroll-snap carousel of popular intercity routes on the
  * landing page. Rebuilt 2026-07-21 to the mockup's data card (docs/design/mockup-home.png
- * S4): destination photo on top, then route pair → duration + from-price → rating +
- * "Tìm vé". Clicking anywhere on the card pre-fills the search form via
+ * S4): destination photo on top, then route pair → duration + from-price → "Tìm vé".
+ * Clicking anywhere on the card pre-fills the search form via
  * /?origin=…&destination=…. Images live in public/destinations/<slug>.jpg and use a
  * plain <img> (native lazy-load; avoids the Turbopack `/public` url() drop seen with
  * CSS backgrounds).
@@ -12,13 +12,12 @@
 
 import { useRef } from 'react';
 import Link from 'next/link';
-import { ArrowRight, ChevronLeft, ChevronRight, Clock, Star } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 
 import { searchHref } from '@/lib/search';
 import { formatVnd } from '@/lib/format';
 import { POPULAR_ROUTES, routeKey } from './popularRoutes';
 import { CardImage } from './CardImage';
-import { placeholderRating, placeholderReviewCount } from './homePlaceholders';
 
 /** "450" → "7h 30m", "120" → "2h 00m". Mirrors the mockup's duration format. */
 function formatDuration(minutes: number): string {
@@ -62,12 +61,9 @@ export function PopularTrips({
       <div className="mb-6 flex items-end justify-between gap-4">
         <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Tuyến đường phổ biến</h2>
         <div className="flex items-center gap-3">
-          <Link
-            href="/"
-            className="text-sm font-medium text-primary-strong outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
-          >
-            Xem tất cả
-          </Link>
+          {/* 2026-07-30: a "Xem tất cả" link pointed at "/" — it reloaded this same
+              page. No route-index page exists to point it at, so it is gone until
+              one does. */}
           {useCarousel && (
             <div className="hidden gap-2 md:flex">
               <button
@@ -148,18 +144,10 @@ export function PopularTrips({
                     )}
                   </div>
 
-                  <div className="mt-auto flex items-center justify-between gap-2">
-                    {/* PLACEHOLDER rating — no Review model exists. See homePlaceholders.ts. */}
-                    <span className="flex items-center gap-1.5 text-sm">
-                      <Star
-                        className="size-4 shrink-0 fill-primary text-primary"
-                        aria-hidden="true"
-                      />
-                      <span className="font-medium">{placeholderRating(r.slug)}</span>
-                      <span className="text-muted-foreground">
-                        ({placeholderReviewCount(r.slug)})
-                      </span>
-                    </span>
+                  {/* 2026-07-30: a star rating and "(1.2k)" review count sat here. Both
+                      were hashes of the route slug — there is no Review model. Removed
+                      rather than emptied. */}
+                  <div className="mt-auto flex items-center justify-end gap-2">
                     <span className="inline-flex h-9 items-center rounded-lg border border-primary/20 px-4 text-sm font-medium text-primary-strong transition-colors group-hover:bg-primary/5">
                       Tìm vé
                     </span>

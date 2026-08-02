@@ -368,3 +368,33 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_CONFIG: .gitleaks.toml
+
+  # ---- 9. Python syntax (no other job looks at a .py file) ----
+  # NB: this FAILS THE RUN, it does not block a merge. `master` is unprotected
+  # (`protected: false`, zero required status checks), so no job in this file
+  # gates anything — a red run is a signal, not a barrier. Calling it a "gate"
+  # would overstate what it can do.
+  python-syntax:
+    name: Python Syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # No pip install: the checker uses only the stdlib `ast` module, so this
+      # job stays as cheap as the grep-based audits above it.
+      - name: Parse every .py file
+        run: python scripts/audit/python-syntax.py
+
+      # `ast.parse` proves a file is syntactically valid and nothing more. The
+      # ranking module is the one piece of tourism logic with real assertions
+      # behind it — 15 of them, pure arithmetic, no network and no API quota —
+      # and until now nothing ran them, so they were documentation rather than a
+      # test. Same job because it needs the same Python and no dependencies.
+      - name: Ranking unit tests (scripts/tourism/xep_hang.py)
+        run: python scripts/tourism/test_xep_hang.py
+        env:
+          PYTHONIOENCODING: utf-8

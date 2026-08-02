@@ -8,8 +8,10 @@
  * SERVER-SIDE ONLY: the static import pulls a ~690 KB dataset, so this must NOT be
  * imported from 'use client' components (it would bloat the browser bundle). Client
  * code reads the tiers on demand via GET /api/geo (see components/geo/AdminUnitPicker).
- * Server components, route handlers, and server-side validation (createOperatorPickupArea)
- * use it directly.
+ * Server components, route handlers, and server-side validation use it directly.
+ * (#366: this named `createOperatorPickupArea` as the example caller — that function went
+ * with the OperatorPickupArea subsystem, added in issue 104 and removed by PR #125, and no
+ * longer exists.)
  */
 
 import tree from '@/lib/geo/data/vn-admin-tree.json';

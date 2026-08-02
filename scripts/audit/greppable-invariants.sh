@@ -277,6 +277,45 @@ check_g6_client_barrel() {
   fi
 }
 
+# ---------- G7: no placeholder contact data in shipped code ----------
+#
+# WHY THIS IS A CI CHECK AND NOT A COMMENT
+#
+# components/home/homePlaceholders.ts carried a header reading, verbatim: "Every one
+# of them must be replaced with real data (or the element removed) before this ships
+# to production." It shipped to production. Customers saw a `1900 xxxx` support
+# hotline, five invented bus operators and hash-generated 4.5-4.9 star ratings on
+# lenxevn.com. The same literal ALSO sat in lib/notification/esms.ts, printed into
+# the payment-failure email a buyer receives after their money has left their
+# account, and survived the first cleanup because that pass fixed the footer and
+# never grepped for siblings.
+#
+# A comment cannot fail a build. This can. Scoped to shipped code — app/, components/,
+# lib/ — so docs, tests, issues and QA reports may still quote the strings.
+check_g7_placeholder_contacts() {
+  echo -n "G7  no placeholder hotline/contact literals in shipped code ... "
+  local hits
+  # Match the masked hotline only inside a STRING LITERAL — '1900 xxxx' / "1900 xxxx"
+  # / `1900 xxxx`. Matching bare text also flagged lib/notification/esmsClient.ts's
+  # doc comment explaining the E.164 "+84xxxxxxxxx" format, which is a correct
+  # comment about a real format and not a placeholder anyone can ship. A check that
+  # cries wolf on accurate documentation gets silenced, so it is scoped to literals.
+  # PLACEHOLDER_* exports are matched anywhere: that prefix has no innocent use.
+  hits=$(grep -rnE "['\"\`][^'\"\`]*1900[[:space:]]*x{3,}|PLACEHOLDER_(HOTLINE|OPERATORS|SUPPORT|RATING|REVIEW)" \
+    --include='*.ts' --include='*.tsx' app/ components/ lib/ 2>/dev/null \
+    | grep -v '__tests__' \
+    | grep -vE '^[^:]+:[0-9]+:[[:space:]]*(\*|//|/\*)' \
+    || true)
+  if [ -n "$hits" ]; then
+    echo "FAIL  placeholder contact data reachable from shipped code:"
+    echo "$hits"
+    echo "      Replace with a real value or delete the element. Do not mask it."
+    FAILURES=$((FAILURES + 1))
+  else
+    echo "PASS"
+  fi
+}
+
 # ---------- Run all checks ----------
 check_g1_operator_id_body
 check_g2_self_fetch
@@ -284,10 +323,11 @@ check_g3_json_cron
 check_g4_money_math
 check_g5_date_now_rsc
 check_g6_client_barrel
+check_g7_placeholder_contacts
 
 # ---------- Summary ----------
 echo ""
-echo "=== Greppable Invariants (G1-G6) ==="
+echo "=== Greppable Invariants (G1-G7) ==="
 echo "Failures: $FAILURES"
 echo "Warnings: $WARNINGS"
 exit $((FAILURES > 0 ? 1 : 0))

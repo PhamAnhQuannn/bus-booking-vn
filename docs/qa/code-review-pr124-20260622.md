@@ -78,8 +78,10 @@ Comment (lines 30-33) still references "VS Code devtunnel origin"—accurate, do
 ### Phase 5: Metadata Scrubbing (Minor)
 
 docs/qa/traveler-smoke-2026-06-22.md:185
-- Changed: hold created for +84932133894 → hold created for +8490xxxxxxx
-- Context: QA run log entry, single real-looking phone masked
+- Changed: hold created for +8490xxxxxx4 → hold created for +8490xxxxxxx
+- Context: QA run log entry, single real-looking phone masked. The original value is
+  deliberately NOT reproduced here — a report about a redaction must not re-publish what it
+  redacted. Masked 2026-08-01; see docs/qa/code-review-pr399-20260801.md.
 
 issues/prd-pickup-areas.md:3
 - Removed: C:\Users\mrimp\.claude\plans\now-a-new-feature-twinkling-puzzle.md (Windows user path)

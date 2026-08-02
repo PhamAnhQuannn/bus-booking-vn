@@ -14,7 +14,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Dialog } from '@base-ui/react/dialog';
-import { ChevronDown, LogInIcon, MenuIcon, XIcon } from 'lucide-react';
+import { LogInIcon, MenuIcon, XIcon } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
 import { cn } from '@/lib/utils';
 
@@ -220,32 +220,11 @@ export function SiteHeader() {
               })}
             </nav>
             <div className="ml-auto flex items-center gap-5">
-              {/* Language pill — visual only. There is no i18n in the app; it renders
-                  because the reference has it, and it stays inert + aria-hidden so
-                  assistive tech is never told a control exists.
-                  ⚠ The chevron is restored for visual fidelity with the reference,
-                  but it does promise a dropdown that does not exist — a known
-                  misleading affordance for sighted users. Resolve when i18n ships
-                  or the pill becomes real.
-                  h-11 matches the button: the reference sizes the two within 1px,
-                  where ours had the pill 18% shorter. */}
-              <span
-                aria-hidden="true"
-                className="inline-flex h-11 select-none items-center gap-1.5 rounded-full bg-card px-3 text-sm font-medium text-foreground"
-              >
-                {/* Vietnam flag, not a globe — the reference shows a red disc with a
-                    yellow star. Lucide ships no such icon, so it is inlined rather
-                    than adding an asset. */}
-                <svg viewBox="0 0 16 16" className="size-4 shrink-0" aria-hidden="true">
-                  <circle cx="8" cy="8" r="8" fill="#DA251D" />
-                  <path
-                    fill="#FF0"
-                    d="M8 3.2l1.176 3.62h3.806l-3.079 2.237 1.176 3.62L8 10.44l-3.079 2.237 1.176-3.62L3.018 6.82h3.806z"
-                  />
-                </svg>
-                VI
-                <ChevronDown className="size-3.5 text-muted-foreground" />
-              </span>
+              {/* 2026-07-30: an inert "VI" language pill sat here — a flag, the label,
+                  and a chevron promising a dropdown that did not exist. The app has no
+                  i18n and is Vietnamese-only, so the control could never do anything.
+                  Its own comment already called it "a known misleading affordance".
+                  Restore it alongside real i18n, not before. */}
               <Link
                 href={LOGIN.href}
                 className={cn(

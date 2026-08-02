@@ -2,13 +2,14 @@
 
 /**
  * PopularDestinations — "Điểm đến được yêu thích" photo row (docs/design/mockup-home.png
- * S8). Five destination cards: photo on top, name and a daily-departure count in a plain
- * white strip below it (not overlaid on the photo — that is what separates this card from
- * the old PopularTrips tile).
+ * S8). Five destination cards: photo on top, name in a plain white strip below it (not
+ * overlaid on the photo — that is what separates this card from the old PopularTrips tile).
  *
- * The per-day counts are PLACEHOLDER values (see homePlaceholders.ts). The real figure is
- * derivable from upcoming trips but lands at ~1-5/day at launch scale, well below a
- * credible display floor.
+ * 2026-07-30: each card also carried a "N+ chuyến/ngày" departure count. Those were
+ * placeholders in the 80-110 band while the real figure is ~1-5/day at launch scale —
+ * an order of magnitude out, on the customer-facing homepage. The count is derivable,
+ * but showing a true "2 chuyến/ngày" was not the intent of the design either, so the
+ * line is removed until the real number is worth showing.
  *
  * The mockup's fifth card is Phú Quốc; there is no public/destinations/phu-quoc.jpg, so
  * Vũng Tàu takes that slot.
@@ -20,7 +21,6 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { searchHref } from '@/lib/search';
 import { CardImage } from './CardImage';
-import { placeholderTripsPerDay } from './homePlaceholders';
 
 interface Destination {
   name: string;
@@ -52,12 +52,8 @@ export function PopularDestinations() {
       <div className="mb-6 flex items-end justify-between gap-4">
         <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Điểm đến được yêu thích</h2>
         <div className="flex items-center gap-3">
-          <Link
-            href="/"
-            className="text-sm font-medium text-primary-strong outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
-          >
-            Xem tất cả
-          </Link>
+          {/* 2026-07-30: a "Xem tất cả" link pointed at "/" — same page. Removed until
+              a destination-index page exists. */}
           <div className="hidden gap-2 md:flex">
             <button
               type="button"
@@ -100,10 +96,6 @@ export function PopularDestinations() {
               </div>
               <div className="flex flex-col gap-0.5">
                 <span className="text-base font-semibold leading-tight">{d.name}</span>
-                {/* PLACEHOLDER daily departures — see homePlaceholders.ts. */}
-                <span className="text-xs text-muted-foreground">
-                  {placeholderTripsPerDay(d.slug)}+ chuyến/ngày
-                </span>
               </div>
             </Link>
           </li>

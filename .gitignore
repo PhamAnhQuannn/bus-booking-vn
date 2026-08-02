@@ -101,3 +101,75 @@ awake-status-report.md
 
 # Personal logistics research notes (local-only; not part of the app)
 xe-dau-keo-hop-tac-lien-he.txt
+
+# ── Kho du lieu du lich (Da Lat va cac diem den sau) ─────────────────────────
+# KHONG commit. Ly do la PII, khong phai dung luong:
+#   documentation/tourism/  chua 416 so di dong VIET NAM THAT (375 + 41) cua ho
+#   .tourism-data/          chua 14.328 so
+# Voi ho kinh doanh nho (vuon dau mot nguoi, tiem thue xe may), "so doanh
+# nghiep" CHINH LA so di dong ca nhan. Repo nay duoc chuyen cong khai trong luc
+# /ship de lay CI mien phi, nen commit = cong bo. `.gitleaks.toml` da co luat
+# bat dung mau nay; allowlist 14k so that la vo hieu hoa chinh luat do.
+#
+# Du lieu nam o .tourism-data/raw/ (o day, ben ngoai thu muc tam cua phien lam
+# viec). Cach tai tao: xem scripts/tourism/README.md
+.tourism-data/
+documentation/tourism/
+
+# Tai lieu .docx do scripts/tourism sinh ra. Khong commit vi hai ly do:
+# (1) day la output, tai tao duoc tu scripts + .tourism-data/;
+# (2) noi dung dan xuat tu chinh du lieu PII da bi loai o tren — so dien thoai
+#     that cua ho kinh doanh nho nam trong cac ban huong dan nay.
+#
+# `docs/**/*.docx` chu khong phai `docs/*.docx`: mau mot dau sao chi khop MOT
+# cap, nen `docs/archive/*.docx` KHONG bi ignore — cac ban cu don vao thu muc
+# con se thanh file duoc theo doi, mang theo dung so dien thoai that ma luat nay
+# sinh ra de chan. Dang de quy phu ca `docs/archive/`.
+docs/**/*.docx
+
+# Ban huong dan do scripts/tourism sinh ra, chan theo TEN chu khong theo duoi.
+#
+# Vi sao khong dung `docs/**/*.md`: `docs/` dang giu hon 240 file .md that su cua
+# du an (docs/qa/ 168 bao cao review, docs/current-status/, docs/working-track/).
+# Mot luat theo duoi file se nuot het chung. Ten thi rieng biet, va no chan MOI
+# dinh dang — .md hom nay, .pdf hay .html mai sau.
+#
+# Lo hong that su co: `docs/**/*.docx` chan ban Word, nhung `build_huong_dan.py`
+# va `build_destinations_md.py` xuat .md, va `docs/Huong-Dan-Da-Lat.md` KHONG bi
+# chan. Mac dinh chung ghi vao `documentation/tourism/` (da ignore) — nhung ca ba
+# script build deu nhan `OUT = sys.argv[2]`, tuc DUONG DAN TUY Y. Chi mot lan goi
+# tro vao `docs/` la co mot ban huong dan day so dien thoai that duoc theo doi.
+#
+# Luat ignore khong the phu het mot `argv[2]` tuy y. Cach chua ben vung la chan
+# ngay trong script: tu choi ghi ra ngoai `documentation/tourism/` va
+# `.tourism-data/`. Chua lam — xem muc "deferred".
+/docs/Huong-Dan-*
+/docs/Diem-Den-*
+/docs/Nha-Hang-*
+/docs/Khach-San-*
+
+# ── MOI dau ra cua scripts/tourism/ deu KHONG commit ────────────────────────
+# Quy tac tong, dat sau ba dong tren mot cach co chu dich: `.tourism-data/`,
+# `documentation/tourism/` va `docs/**/*.docx` la ba NOI da biet, con luat nay
+# la ve LOAI. Moi file du lieu do duong ong tourism sinh ra — du no roi xuong
+# thu muc nao — deu (a) tai tao duoc tu scripts + du lieu tho, va (b) dan xuat
+# tu chinh lop PII o tren.
+#
+# Sinh ra tu mot lo hong that: `scripts/tourism/diem_den_chot.json` (khoa chot
+# ID diem den) tung duoc COMMIT vi no roi vao thu muc script chu khong phai thu
+# muc du lieu — ba dong ignore theo-noi khong bat duoc no. File tam cua cac lan
+# do dac (`scratch_out*.txt`) cung the: chung chua ten quan, dia chi va so dien
+# thoai that, va khong khop bat ky mau ignore nao.
+.tourism-data/build/
+scripts/tourism/*.json
+/scratch_out*.txt
+
+# Anh chup kiem tra ad-hoc o thu muc goc. prod-e2e-1-qr.png la ma QR thanh toan
+# tu mot lan chay e2e tren PROD, co the ma hoa so tai khoan that.
+/prod-e2e-*.png
+/mcp-*.png
+/validate-*.png
+
+# Python bytecode
+__pycache__/
+*.pyc

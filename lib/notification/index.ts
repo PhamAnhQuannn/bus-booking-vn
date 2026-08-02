@@ -7,7 +7,7 @@ export {
   sendSms,
   sendSmsBody,
   SUPPORT_EMAIL,
-  SUPPORT_HOTLINE,
+
   OPS_ALERT_EMAIL,
 } from './esms';
 export { dispatchNotifications, MAX_ATTEMPTS } from './dispatchNotifications';

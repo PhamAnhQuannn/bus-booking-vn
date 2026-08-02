@@ -19,6 +19,18 @@ regexes = [
   # Already path-allowlisted in those locations; allowlisting the literal also covers the commit
   # HISTORY that gitleaks-action scans (the value was introduced before its HEAD x-mask).
   '''\+84901230001''',
+  # Fabricated numbers quoted inside QA reports that DISCUSS placeholder detection. Both are
+  # unmistakably synthetic by shape — a repeating run and a descending run — and both must stay
+  # readable, because a report explaining "+84909999999 was replaced by +8490xxxxxx9" is unusable
+  # if the example it names is itself masked. Allowlisted as LITERALS, not by path: every OTHER
+  # number under docs/qa/ is now scanned. See the paths block below for why that changed.
+  '''\+84909999999''',
+  '''\+84987654321''',
+  # Elided JWT in a QA transcript showing a login response SHAPE. `eyJhbGciOiJIUzI1NiJ9` is
+  # base64 of the literal header `{"alg":"HS256"}` — identical in every HS256 token ever issued —
+  # and it is truncated at `...`, so there is no payload and no signature. Surfaced once the
+  # docs/qa path exemption was removed; allowlisted as a value, which is the point of that change.
+  '''eyJhbGciOiJIUzI1NiJ9\.\.\.''',
   # MoMo PUBLIC sandbox/test credentials — published in MoMo's official integration docs and
   # used by every integrator (the go-live guide labels them "(test)" and warns against real keys).
   # generic-api-key flags the access/secret key shapes in docs/momo-go-live.md; these are not secrets.
@@ -44,10 +56,26 @@ paths = [
   '''.*__tests__.*''',
   '''.*\.test\.ts$''',
   '''e2e/.*''',
-  # Smoke crawl scripts log in with the seed phone verbatim (cannot be x-masked); the
-  # QA report docs they emit print that seed phone. Fabricated seed data, not real PII.
+  # Smoke crawl scripts log in with the seed phone verbatim (cannot be x-masked).
   '''scripts/smoke/.*''',
-  '''docs/qa/.*''',
+  #
+  # `docs/qa/.*` USED TO BE HERE AND WAS REMOVED ON 2026-08-01. Why it must not come back:
+  #
+  # A gitleaks `paths` entry disables EVERY rule for the matched tree, including this file's own
+  # `vn-mobile-number`. It was added so QA reports could quote the fabricated seed phone — but
+  # that number is allowlisted as a LITERAL above (`\+84901230001`), which is global, so the path
+  # entry bought nothing its stated purpose needed. What it did buy was silence: tourism QA
+  # reports began quoting live business phones and street addresses read off the `.tourism-data/`
+  # corpus — the exact PII class the ignore rules exist to keep out — and the scanner stayed green
+  # the whole time because of this line.
+  #
+  # It was not hypothetical. `docs/qa/code-review-pr124-20260622.md:81` carried a real-looking
+  # +84 mobile from 2026-06-25 to 2026-08-01 in a repo that is toggled PUBLIC during `/ship`. PR
+  # #124 had masked that number at its source; the report DOCUMENTING the redaction re-published
+  # it, and this allowlist is the only reason no gate ever said so.
+  #
+  # Rule: allowlist a fabricated VALUE, never a whole directory. A directory exemption is a
+  # standing promise about every file anyone will ever add to it.
   # .env.example contains only placeholder values ("replace-with-32-byte-hex"),
   # never real secrets. generic-api-key flags SECRET= and KEY= var names.
   '''\.env\.example''',
