@@ -172,10 +172,36 @@ async function SearchResultsView({
 }
 
 async function HeroMarketingView() {
-  preload('/hero/landing-golden-1280.jpg', { as: 'image', media: '(max-width: 767px)' });
-  preload('/hero/landing-golden-md-1536.jpg', { as: 'image', media: '(min-width: 768px) and (max-width: 1023px)' });
-  preload('/hero/landing-golden-1920.jpg', { as: 'image', media: '(min-width: 1024px) and (max-width: 1919px)' });
-  preload('/hero/landing-golden-3840.jpg', { as: 'image', media: '(min-width: 1920px)' });
+  // `imageSrcSet` mirrors each layer's `image-set()` exactly, so the preload
+  // scanner fetches the same candidate the CSS will later pick. Density
+  // descriptors need no `imageSizes`.
+  //
+  // Deliberately NO `type`: a link carries one MIME for the whole srcset, and
+  // this srcset is mixed JPEG + WebP, so any value would be wrong for one of
+  // them. Format is not negotiated here either -- `image-set()`'s `type()` has
+  // an open WebKit bug and is unsupported in Safari, so the format is fixed per
+  // candidate and only DENSITY is negotiated.
+  preload('/hero/landing-golden-1280.jpg', {
+    as: 'image',
+    media: '(max-width: 767px)',
+    imageSrcSet: '/hero/landing-golden-1280.jpg 1x, /hero/landing-golden-1280@2x.webp 2x',
+  });
+  preload('/hero/landing-golden-md-1536.jpg', {
+    as: 'image',
+    media: '(min-width: 768px) and (max-width: 1023px)',
+    imageSrcSet:
+      '/hero/landing-golden-md-1536.jpg 1x, /hero/landing-golden-md-1536@2x.webp 2x',
+  });
+  preload('/hero/landing-golden-1920.jpg', {
+    as: 'image',
+    media: '(min-width: 1024px) and (max-width: 1919px)',
+    imageSrcSet: '/hero/landing-golden-1920.jpg 1x, /hero/landing-golden-1920@2x.webp 2x',
+  });
+  preload('/hero/landing-golden-3840.jpg', {
+    as: 'image',
+    media: '(min-width: 1920px)',
+    imageSrcSet: '/hero/landing-golden-3840.jpg 1x, /hero/landing-golden-3840@2x.webp 2x',
+  });
   const [places, activeRoutes, operators] = await Promise.all([
     getSearchablePlaces(),
     getActiveRoutes(),
@@ -216,10 +242,22 @@ async function HeroMarketingView() {
             was 36% and could not fit at any position, so this crop framed only
             the vehicle's front. The current bus is 22.5%, which fits inside that
             window with margin. All four variants come from scripts/hero-cut.py. */}
+        {/* Two declarations, on purpose, and they must stay at DIFFERENT cascade
+            levels. React's `style` is a JS object, so a duplicate
+            `backgroundImage` key is impossible — the usual "plain url() first,
+            image-set() second" fallback cannot be written inline. So the class
+            carries the 1x fallback and the inline style carries the density
+            set: inline wins wherever `image-set()` parses, and where it does not
+            the whole declaration is dropped and the class shows through.
+            Keep the multi-URL value OUT of the Tailwind arbitrary value — that
+            is the escaping trap, and it has no reason to move. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 bg-cover bg-center md:hidden lg:-top-21"
-          style={{ backgroundImage: "url('/hero/landing-golden-1280.jpg')" }}
+          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 bg-[url('/hero/landing-golden-1280.jpg')] bg-cover bg-center md:hidden lg:-top-21"
+          style={{
+            backgroundImage:
+              "image-set(url('/hero/landing-golden-1280.jpg') 1x, url('/hero/landing-golden-1280@2x.webp') 2x)",
+          }}
         />
         {/* md box measures 885x734 at 900 (h/w 0.830). cover shows 67.9% of the
             asset's width and the bus spans 22.5%, so the whole vehicle fits with
@@ -228,8 +266,11 @@ async function HeroMarketingView() {
             nothing to pan. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 hidden bg-cover bg-center md:block lg:hidden"
-          style={{ backgroundImage: "url('/hero/landing-golden-md-1536.jpg')" }}
+          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 hidden bg-[url('/hero/landing-golden-md-1536.jpg')] bg-cover bg-center md:block lg:hidden"
+          style={{
+            backgroundImage:
+              "image-set(url('/hero/landing-golden-md-1536.jpg') 1x, url('/hero/landing-golden-md-1536@2x.webp') 2x)",
+          }}
         />
         {/* lg and 3xl use `cover`, not a percentage zoom. The old asset was 2:1
             and needed 138% merely to cover, which is why only ~50% of it was
@@ -264,8 +305,11 @@ async function HeroMarketingView() {
             60.4%. 48% sits mid-window. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 hidden bg-cover bg-[position:50%_48%] lg:-top-21 lg:block 3xl:hidden"
-          style={{ backgroundImage: "url('/hero/landing-golden-1920.jpg')" }}
+          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 hidden bg-[url('/hero/landing-golden-1920.jpg')] bg-cover bg-[position:50%_48%] lg:-top-21 lg:block 3xl:hidden"
+          style={{
+            backgroundImage:
+              "image-set(url('/hero/landing-golden-1920.jpg') 1x, url('/hero/landing-golden-1920@2x.webp') 2x)",
+          }}
         />
         {/* 3xl gets its OWN crop rather than another position value, because
             position alone has an empty solution here: at 2560 the full master
@@ -286,12 +330,24 @@ async function HeroMarketingView() {
             against tree tops. Re-check on the render if it ever looks wrong. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 -top-21 hidden bg-cover bg-[position:50%_100%] 3xl:block"
-          style={{ backgroundImage: "url('/hero/landing-golden-3840.jpg')" }}
+          className="pointer-events-none absolute inset-x-0 bottom-0 -top-21 hidden bg-[url('/hero/landing-golden-3840.jpg')] bg-cover bg-[position:50%_100%] 3xl:block"
+          style={{
+            backgroundImage:
+              "image-set(url('/hero/landing-golden-3840.jpg') 1x, url('/hero/landing-golden-3840@2x.webp') 2x)",
+          }}
         />
+        {/* Mobile wash. Was 85/40/70, which put ~40-55% white over the whole
+            vehicle — the bus was hazed out by roughly half-opacity paint, and
+            that was a bigger contributor to "the bus looks blurry" on a phone
+            than resolution was.
+
+            Text legibility no longer depends on this layer: the headline and
+            subcopy carry their own measured scrim (see below), so this only has
+            to keep the photograph from competing, not carry a contrast floor.
+            Halving it takes the visible bus from ~53% white down to ~20%. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 bg-gradient-to-b from-white/85 via-white/40 to-white/70 md:hidden lg:-top-21"
+          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 bg-gradient-to-b from-white/45 via-white/10 to-white/30 md:hidden lg:-top-21"
         />
         {/* Legibility wash, sized to the contrast floor rather than by feel.
             It used to run alpha 0.82 -> 0.66 across x=0-30%, which erased the
@@ -340,7 +396,34 @@ async function HeroMarketingView() {
             by design. Anything that grows the content (longer copy, a locale
             change) will overflow here before it overflows anywhere else. */}
         <div className="relative mx-auto flex w-full max-w-[1920px] flex-col gap-6 px-4 pt-12 pb-16 sm:px-8 sm:pt-16 sm:pb-20 lg:min-h-[570px] lg:pt-14 lg:pb-8 xl:px-[104px]">
-          <div className="flex max-w-[680px] flex-col items-start gap-4 text-left 2xl:max-w-[760px]">
+          <div className="relative isolate flex max-w-[680px] flex-col items-start gap-4 text-left 2xl:max-w-[760px]">
+            {/* Mobile-only legibility scrim, sized to a MEASURED contrast floor
+                (scripts/smoke/hero-wash-capture.mjs + the solve beside it).
+                Measured on the 390px render against the darkest 2% of photo
+                under each text box:
+
+                  h1 line 1  rgba(28,22,18)   needs 3:1   -> 33.0% white
+                  h1 line 2  rgba(202,53,0)   needs 3:1   -> 69.2% white  <- binding
+                  subcopy    rgba(27,22,17,.8) needs 4.5:1 -> 55.6% white
+
+                The old full-hero wash gave the middle of the hero only ~40%, so
+                the orange headline line sat at 2.1:1 and the subcopy at 4.45:1 —
+                both under their floors. Raising the whole wash to 69% would have
+                fixed that by fogging the entire photograph, including the bus.
+                A local scrim buys the same contrast over the text ONLY, which is
+                what lets the wash below come down.
+
+                70% here composites with the reduced wash to ~73-78% over the
+                text band — clear of the 69.2% floor with margin.
+
+                It is absolutely positioned rather than padding on the parent so
+                that adding it shifts NOTHING; `isolate` on the parent keeps the
+                negative z-index inside this stacking context instead of dropping
+                the scrim behind the photo layers. */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -inset-x-4 -inset-y-3 -z-10 rounded-2xl bg-white/70 backdrop-blur-[2px] md:hidden"
+            />
             <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-white/80 px-3.5 py-1.5 text-sm font-medium text-primary-strong backdrop-blur">
               <BusFront className="size-4" aria-hidden="true" />
               Đặt vé dễ dàng – Đi xe an toàn
