@@ -1,2 +1,7 @@
 #!/usr/bin/env sh
+# Quet bi mat TRUOC — nhanh nhat, va hau qua nang nhat neu lot.
+# CI cung co gitleaks (ci.yml job 8) nhung no chi chay SAU khi da push; luc do
+# bi mat da nam trong lich su git va phai rewrite history moi go duoc.
+sh scripts/audit/secret-scan-staged.sh || exit 1
+
 pnpm lint && pnpm tsc --noEmit
