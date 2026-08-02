@@ -1,22 +1,19 @@
 import Link from 'next/link';
-import { Star } from 'lucide-react';
 
 import type { PublicOperator } from '@/lib/home';
 import { searchHref } from '@/lib/search';
-import {
-  PLACEHOLDER_OPERATORS,
-  placeholderRating,
-  placeholderRouteCount,
-} from './homePlaceholders';
 
 /**
- * OperatorShowcase — "Nhà xe đối tác uy tín" row. Rebuilt 2026-07-21 to the mockup's
- * compact horizontal card (docs/design/mockup-home.png S5): initials chip left, then
- * name / rating / route-count stacked to its right.
+ * OperatorShowcase — "Nhà xe đối tác uy tín" row.
  *
- * The mockup shows five partner cards. At launch we have 1-2 real operators, so the row
- * is padded with PLACEHOLDER_OPERATORS to keep the designed layout. Both the padding and
- * the per-card rating/route-count are invented — see homePlaceholders.ts.
+ * Shows exactly the operators that exist. Nothing is padded and nothing is invented.
+ *
+ * 2026-07-30: this used to pad the row to the mockup's five cards with fabricated
+ * partner brands, and to render a star rating and a "N+ tuyến" total on every card.
+ * All three were placeholders. The ratings in particular were a hash of the operator's
+ * DB id, so a genuine partner was shown a fabricated score under a heading that calls
+ * them "uy tín" (reputable). There is no Review model in the schema to replace them
+ * with, so the elements are gone rather than emptied.
  */
 
 interface ShowcaseCard {
@@ -24,7 +21,13 @@ interface ShowcaseCard {
   display: string;
   initials: string;
   href: string | null;
-  /** Real operators keep their DB summary line; padded ones fall back to a province. */
+  /**
+   * Second line. `routesSummary` is the operator's own free-text route list from
+   * their application ("Hà Nội – Sài Gòn"); `provinceName` is the fallback. Both
+   * come from getPublicOperators() and are real. docs/design/mockup-home-spec.md:222
+   * specifies this slot as REDUCE→routesSummary — the invented "N+ tuyến" that used
+   * to sit here was meant to be replaced by this, not simply dropped.
+   */
   subline: string | null;
 }
 
@@ -43,7 +46,7 @@ function toCard(op: PublicOperator): ShowcaseCard {
     href: op.topRoute
       ? searchHref(op.topRoute.origin, op.topRoute.destination, { operatorId: op.id })
       : null,
-    subline: op.provinceName,
+    subline: op.routesSummary ?? op.provinceName,
   };
 }
 
@@ -55,15 +58,9 @@ function OperatorCard({ card }: { card: ShowcaseCard }) {
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold leading-tight">{card.display}</p>
-        {/* PLACEHOLDER rating + route count — no Review model, no per-operator
-            route total surfaced. See homePlaceholders.ts. */}
-        <span className="mt-1 flex items-center gap-1 text-sm">
-          <Star className="size-3.5 shrink-0 fill-primary text-primary" aria-hidden="true" />
-          <span className="font-medium">{placeholderRating(card.key)}</span>
-        </span>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {placeholderRouteCount(card.key)}+ tuyến
-        </p>
+        {card.subline && (
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">{card.subline}</p>
+        )}
       </div>
     </>
   );
@@ -82,35 +79,33 @@ function OperatorCard({ card }: { card: ShowcaseCard }) {
 }
 
 export function OperatorShowcase({ operators }: { operators: PublicOperator[] }) {
-  const real = operators.map(toCard);
-  // Pad to the mockup's 5 columns. Padding entries are clearly fictional brands —
-  // never real competitor names (see homePlaceholders.ts).
-  const padded: ShowcaseCard[] = PLACEHOLDER_OPERATORS.slice(0, Math.max(0, 5 - real.length)).map(
-    (p) => ({
-      key: p.id,
-      display: p.name,
-      initials: toInitials(p.name),
-      href: null,
-      subline: p.province,
-    }),
-  );
-  const cards = [...real, ...padded].slice(0, 5);
+  const cards = operators.map(toCard);
 
   if (cards.length === 0) return null;
 
+  /**
+   * Bound the CARD, not the track count.
+   *
+   * The first attempt capped columns with a lookup keyed on card count and got the
+   * n=1 case — the live case — wrong: `sm:grid-cols-2` caps at two, so a single
+   * operator rendered as a ~616px card holding ~210px of ink beside a ~616px hole,
+   * under a comment claiming the track was capped at the card count.
+   *
+   * `auto-fill` with a max track width is the honest version: tracks size
+   * themselves, one card occupies one card's worth of space, and there is no
+   * per-count table that can drift out of agreement with its own description as
+   * the operator list grows.
+   */
   return (
     <section className="mx-auto w-full max-w-7xl px-4 py-8 lg:py-10">
-      <div className="mb-6 flex items-end justify-between gap-4">
-        <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Nhà xe đối tác uy tín</h2>
-        <Link
-          href="/"
-          className="text-sm font-medium text-primary-strong outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
-        >
-          Xem tất cả
-        </Link>
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+          {/* Plural "uy tín" over a single card overclaims a roster of one. */}
+          {cards.length === 1 ? 'Nhà xe đối tác' : 'Nhà xe đối tác uy tín'}
+        </h2>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-4">
         {cards.map((card) => (
           <OperatorCard key={card.key} card={card} />
         ))}

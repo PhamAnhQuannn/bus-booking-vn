@@ -5,25 +5,31 @@
  * stub-pay (`/dev/*`), and auth pages (`/auth/*`) — same scope as SiteHeader.
  *
  * Rebuilt 2026-07-21 to the mockup's dark slab (docs/design/mockup-home.png S10):
- * brand column (logo + blurb + social chips) beside four link columns, the last of
- * which is a support-hotline block, then a bottom bar with the copyright and the
- * accepted payment methods.
+ * brand column beside four link columns, the last a support block, then a bottom
+ * bar with the copyright and the accepted payment methods.
  *
- * ⚠ PLACEHOLDERS in this file — the hotline number, its hours, the support email, and
- * the social links are all invented. The mockup showed "1900 1234"; that is a real,
- * billable Vietnamese service range, so a masked form is used instead. Replace or
- * remove all four before this ships.
+ * 2026-07-30: this header used to warn that the hotline, its hours, the support
+ * email AND the social links were "all invented … replace or remove all four
+ * before this ships". It shipped anyway, and the warning was wrong on one count:
+ * hotro@lenxevn.com is genuine and monitored (lib/notification/esms.ts). The three
+ * that really were invented — the 1900 xxxx hotline, its opening hours, and four
+ * social chips all pointing at "#" — are now gone. Nothing in this file is a
+ * placeholder; if that changes, scripts/audit/greppable-invariants.sh G7 fails CI
+ * rather than relying on anyone reading this paragraph.
  */
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { AtSign, Mail, MessageCircle, Music2, Phone, Share2 } from 'lucide-react';
+import { Mail } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
-import {
-  PLACEHOLDER_HOTLINE,
-  PLACEHOLDER_HOTLINE_HOURS,
-  PLACEHOLDER_SUPPORT_EMAIL,
-} from '@/components/home/homePlaceholders';
+
+/**
+ * Real, monitored support address. 2026-07-30: this used to sit in
+ * components/home/homePlaceholders.ts alongside a fabricated `1900 xxxx` hotline and
+ * its opening hours. That file is deleted; the one genuine value moved here, to the
+ * only component that renders it.
+ */
+const SUPPORT_EMAIL = 'hotro@lenxevn.com';
 
 // 2026-06-06: customer accounts paused (guest-only). "Tài khoản" removed; "Đăng nhập"
 // now points at the operator login (/op/login) — only operators log in. "Trở thành
@@ -56,16 +62,9 @@ const FOOTER_COLUMNS = [
   },
 ] as const;
 
-/* ⚠ PLACEHOLDER — no real profiles are known. Parked on '#' rather than linked to
-   pages that may not be ours. Icons are generic rather than brand marks: lucide
-   dropped its brand glyphs, and a real Facebook/YouTube mark would imply an account
-   that does not exist. */
-const SOCIALS = [
-  { icon: Share2, label: 'Facebook' },
-  { icon: MessageCircle, label: 'Zalo' },
-  { icon: AtSign, label: 'YouTube' },
-  { icon: Music2, label: 'TikTok' },
-];
+/* 2026-07-30: four social chips (Facebook / Zalo / YouTube / TikTok) rendered here,
+   every one of them href="#". No such profiles exist, so the icons advertised
+   channels a customer could not reach. Gone until real accounts exist. */
 
 /* Only the methods Phase 1 actually accepts. The mockup showed VISA / Mastercard /
    MoMo / ZaloPay — advertising schemes we do not take would fail customers at
@@ -96,19 +95,6 @@ export function SiteFooter() {
             BBVN – Nền tảng đặt vé xe khách trực tuyến. Đặt vé nhanh chóng, giá tốt, hỗ trợ
             tận tình.
           </p>
-          <ul className="mt-2 flex list-none gap-2 p-0">
-            {SOCIALS.map(({ icon: Icon, label }) => (
-              <li key={label}>
-                <a
-                  href="#"
-                  aria-label={label}
-                  className="inline-flex size-9 items-center justify-center rounded-full bg-footer-chip text-footer-foreground outline-none transition-opacity hover:opacity-80 focus-visible:ring-3 focus-visible:ring-ring/50"
-                >
-                  <Icon className="size-4" aria-hidden="true" />
-                </a>
-              </li>
-            ))}
-          </ul>
         </div>
 
         {FOOTER_COLUMNS.map((col) => (
@@ -124,18 +110,22 @@ export function SiteFooter() {
           </nav>
         ))}
 
-        {/* Hotline column — ⚠ placeholder contact details, see file header. */}
+        {/* 2026-07-30: this column led with a masked premium-rate support number and
+            invented opening hours. The mask was rendered literally, so a customer on
+            the live site saw an unfinished placeholder where the support line should
+            be — and that number range is real and billable, which we hold no number
+            in. Both removed; the email below is genuine and monitored.
+            (Deliberately not quoting the old literal here: greppable-invariants G7
+            fails on it, which is the point.) */}
         <div className="flex flex-col gap-3">
-          <span className="font-semibold text-footer-foreground">Tổng đài hỗ trợ</span>
-          <span className="flex items-center gap-2 text-xl font-bold text-primary">
-            <Phone className="size-5 shrink-0" aria-hidden="true" />
-            {PLACEHOLDER_HOTLINE}
-          </span>
-          <span className="text-footer-muted">{PLACEHOLDER_HOTLINE_HOURS}</span>
-          <span className="flex items-center gap-2 text-primary">
+          <span className="font-semibold text-footer-foreground">Hỗ trợ khách hàng</span>
+          <a
+            href={`mailto:${SUPPORT_EMAIL}`}
+            className="flex items-center gap-2 text-primary outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
             <Mail className="size-4 shrink-0" aria-hidden="true" />
-            {PLACEHOLDER_SUPPORT_EMAIL}
-          </span>
+            {SUPPORT_EMAIL}
+          </a>
         </div>
       </div>
 

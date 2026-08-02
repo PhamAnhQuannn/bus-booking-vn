@@ -86,12 +86,18 @@ export function clearTestOtpSink(): void {
 }
 
 /**
- * Customer-facing support contacts used in notification copy. The hotline is a
- * placeholder until a real support line is provisioned; the ops/support inbox is
- * the shared hotro@lenxevn.com address (also the recipient of opsUnmatchedPayment).
+ * Customer-facing support contact used in notification copy — the shared
+ * hotro@lenxevn.com inbox (also the recipient of opsUnmatchedPayment).
+ *
+ * 2026-07-30: a placeholder support hotline sat beside this and was interpolated
+ * into customerPaymentReview and customerPaymentUnverified. Both go to the buyer,
+ * and both fire at the worst moment the platform has — their money has left their
+ * account and we cannot yet match it. Telling someone in that position to ring a
+ * number that does not exist is worse than telling them nothing, and 1900 is a
+ * real, billable Vietnamese service range we hold no number in. Removed rather
+ * than masked; restore a real line here and in both templates together. #350.
  */
 export const SUPPORT_EMAIL = 'hotro@lenxevn.com';
-export const SUPPORT_HOTLINE = '1900 xxxx';
 /**
  * Recipient of the internal opsUnmatchedPayment alert. Distinct name from the
  * env-configurable `OPS_EMAIL` (lib/config/env.ts, charter-decline) to avoid the
@@ -137,7 +143,7 @@ export function renderTemplate(template: SmsTemplate, payload: Record<string, st
       return (
         `BusBookVN: Chung toi da nhan duoc mot khoan chuyen khoan cho dat cho ` +
         `${payload.bookingRef} nhung dang doi chieu. Chung toi se xac nhan trong vong 24h. ` +
-        `Ho tro: ${payload.supportEmail} / ${payload.hotline}.`
+        `Ho tro: ${payload.supportEmail}.`
       );
     case 'customerPaymentUnverified':
       // Bug B: the hold lapsed (24h) with no manual resolution. NEVER tell a customer
@@ -145,7 +151,7 @@ export function renderTemplate(template: SmsTemplate, payload: Record<string, st
       return (
         `BusBookVN: Chung toi chua doi chieu duoc thanh toan cho dat cho ${payload.bookingRef} ` +
         `(chuyen ${payload.route} ${payload.departureAt}). Vui long lien he ${payload.supportEmail} ` +
-        `hoac ${payload.hotline} de duoc ho tro.`
+        `de duoc ho tro.`
       );
     case 'opsUnmatchedPayment':
       // Bug B: internal alert to the ops inbox on every held booking — the interim
