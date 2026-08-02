@@ -15,7 +15,7 @@ interface EmptyStateProps {
   action?:
     | { label: string; href: string }
     | { label: string; onClick: () => void }
-  /** `inline` = bare flex column (used inside DataTable empty row).
+  /** `inline` = bare flex column (used inside a table empty row).
    *  `card` = wrapped in <Card> for standalone page-level empty states. */
   variant?: "inline" | "card"
   className?: string
