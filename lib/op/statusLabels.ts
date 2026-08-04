@@ -18,7 +18,10 @@ const BOOKING_STATUS: Record<BookingStatus, StatusDisplay> = {
   awaiting_payment: { variant: "pending", label: "Chờ thanh toán" },
   paid: { variant: "success", label: "Đã thanh toán" },
   completed: { variant: "success", label: "Hoàn tất" },
-  cancelled: { variant: "danger", label: "Đã hủy" },
+  // Issue 028 consolidation: a customer-initiated cancellation is a terminal-but-
+  // benign state, not an error — neutral, not danger. trip_cancelled/no_show below
+  // stay danger (system/other-party fault). Single source for customer + operator.
+  cancelled: { variant: "neutral", label: "Đã hủy" },
   trip_cancelled: { variant: "danger", label: "Chuyến đã hủy" },
   no_show: { variant: "danger", label: "Vắng mặt" },
   payment_failed_expired: { variant: "danger", label: "Thanh toán thất bại" },

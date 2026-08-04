@@ -16,7 +16,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { authFetch, ensureAuthenticated } from '@/lib/auth/clientSession';
-import { STATUS_LABEL, STATUS_VARIANT } from '../bookingStatus';
+import { bookingStatusDisplay } from '@/lib/op/statusLabels';
 import type { CustomerBookingDetail } from '@/lib/booking';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -174,7 +174,7 @@ export default function BookingDetailPage() {
             <h1 className="text-2xl font-bold">
               {booking.route.origin} → {booking.route.destination}
             </h1>
-            <Badge variant={STATUS_VARIANT[booking.status]}>{STATUS_LABEL[booking.status]}</Badge>
+            <Badge variant={bookingStatusDisplay(booking.status).variant}>{bookingStatusDisplay(booking.status).label}</Badge>
           </div>
           <div className="font-mono text-sm text-muted-foreground">{booking.bookingRef}</div>
 

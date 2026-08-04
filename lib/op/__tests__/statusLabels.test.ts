@@ -27,7 +27,10 @@ describe("statusLabels", () => {
   it("uses pending variant for unpaid bookings, success for paid", () => {
     expect(bookingStatusDisplay("awaiting_payment").variant).toBe("pending")
     expect(bookingStatusDisplay("paid").variant).toBe("success")
-    expect(bookingStatusDisplay("cancelled").variant).toBe("danger")
+    // Issue 028 consolidation: customer-initiated cancellation is terminal-but-benign
+    // → neutral (not danger). trip_cancelled/no_show stay danger.
+    expect(bookingStatusDisplay("cancelled").variant).toBe("neutral")
+    expect(bookingStatusDisplay("trip_cancelled").variant).toBe("danger")
   })
 
   it("appends (đóng bán) only on a sales-closed scheduled trip", () => {

@@ -120,7 +120,7 @@ if [ "$FOUND" -eq 1 ]; then
   Neu la SO DI DONG:
     Khong the "thu hoi" mot so dien thoai — chi co the khong cong bo
     no. Che bang mau `+8490xxxxxx<N>`, hoac de gia tri that o
-    `.tourism-data/` (da gitignore). Mot bao cao can cai HINH DANG
+    `tourism-kb/raw/` (da gitignore). Mot bao cao can cai HINH DANG
     cua so, khong bao gio can chinh con so.
 
     Dung them ca thu muc vao allowlist cua .gitleaks.toml de di qua:

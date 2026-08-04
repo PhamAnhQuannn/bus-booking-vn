@@ -20,7 +20,7 @@ interface PageHeaderProps {
   badge?: ReactNode
   /** Right-aligned action cluster (Button group, CSV link, etc.). */
   actions?: ReactNode
-  /** Optional second row for filter chips / FilterBar. */
+  /** Optional second row for filter chips. */
   filters?: ReactNode
   /** Mobile back-affordance for detail pages (href to parent list). */
   backHref?: string

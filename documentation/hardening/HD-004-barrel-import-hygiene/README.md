@@ -1,6 +1,6 @@
 # HD-004: Barrel Import Hygiene
 
-> Status: NOT_STARTED | References: ADR-016, SI-003 §2.5 (A3), SI-004, Mistake Log Issue 092b
+> Status: DONE | References: ADR-016, SI-003 §2.5 (A3), SI-004, Mistake Log Issue 092b
 
 ## Purpose
 
@@ -44,7 +44,7 @@ Verify that the barrel-import architecture (ADR-016) is fully enforced: cross-do
 This audit is **fully CI-enforced** via:
 1. `pnpm lint` (ESLint boundaries + import-x rules)
 2. `scripts/audit/data-leak-grep.sh` check A3
-3. `scripts/audit/invariants.sh` check G6 — if script not yet implemented, run manual equivalent:
+3. `scripts/audit/greppable-invariants.sh` check G6 — if script not yet implemented, run manual equivalent:
    ```bash
    grep -rln "from ['\"]@/lib/auth['\"]" app/ components/ | xargs head -1 | grep "use client"
    # Must return zero lines. Repeat for @/lib/booking and @/lib/payment barrels.

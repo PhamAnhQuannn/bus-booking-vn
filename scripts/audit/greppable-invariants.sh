@@ -318,14 +318,15 @@ check_g7_placeholder_contacts() {
 
 # ---------- G8: No tourism-generated artifact is TRACKED ----------
 # The tourism pipeline generates data carrying REAL Vietnamese mobile numbers —
-# 14,328 under .tourism-data/, 416 under documentation/tourism/. For a one-person
+# 14,328 under tourism-kb/raw/, 416 under tourism-kb/wiki/. For a one-person
 # business the "business number" IS a personal mobile, and this repo is toggled
 # PUBLIC during /ship to get free CI, so committing means publishing.
 #
-# Everything below is already in .gitignore. This check exists because .gitignore
-# does not stop `git add -f`, and because every output path in the pipeline comes
-# from argv (5 build_* take sys.argv[2], 6 sweeps take sys.argv[1], ~25 more join
-# onto RAW), so no ignore pattern can cover every target a caller might name.
+# Everything below is already in .gitignore (via tourism-kb/.gitignore). This
+# check exists because .gitignore does not stop `git add -f`, and because every
+# output path in the pipeline comes from argv (5 build_* take sys.argv[2], 6
+# sweeps take sys.argv[1], ~25 more join onto RAW), so no ignore pattern can
+# cover every target a caller might name.
 #
 # Deliberately queries `git ls-files` — the INDEX, not the worktree. The question
 # is "could this be pushed", not "does this exist on disk". Every artifact is
@@ -336,34 +337,35 @@ check_g7_placeholder_contacts() {
 # positives is a gate someone switches off. PII in an oddly-named file is covered
 # by gitleaks, which scans docs/qa/** again since that path exemption was removed.
 #
-# Companion layer: scripts/tourism/duong_dan_ra.py refuses to WRITE outside the
+# Companion layer: tourism-kb/code/duong_dan_ra.py refuses to WRITE outside the
 # ignored roots. That one stops the file being born in the wrong place; this one
 # stops any file reaching a push. Neither subsumes the other.
 check_g8_tourism_artifacts() {
   echo "--- G8: tourism-generated artifacts tracked in git ---"
   local hits=""
 
-  # 1. Anything under the two data roots. Catches `git add -f` directly.
-  hits="$hits$(git ls-files -- '.tourism-data' 'documentation/tourism' 2>/dev/null || true)"
+  # 1. Anything under the three ignored tourism-kb roots. Catches `git add -f`
+  #    directly. (code/ is the one tracked subtree and is deliberately NOT listed.)
+  hits="$hits$(git ls-files -- 'tourism-kb/raw' 'tourism-kb/wiki' 'tourism-kb/output' 2>/dev/null || true)"
 
   # 2. Any .docx anywhere. Every .docx in this repo is a generated guide; there is
   #    no hand-authored Word document, so the extension alone is decisive.
   hits="$hits
 $(git ls-files -- '*.docx' 2>/dev/null || true)"
 
-  # 3. Guide basenames in ANY directory, not just docs/. The .gitignore rules are
-  #    anchored (`/docs/Huong-Dan-*`), so a guide copied to docs/archive/ or to the
-  #    repo root would not be ignored — this is the by-location failure that let
+  # 3. Guide basenames in ANY directory, not just tourism-kb/output/. A guide
+  #    copied out of the ignored roots (to docs/, docs/archive/, or the repo
+  #    root) would not be ignored — this is the by-location failure that let
   #    nine older .docx back in when they were moved into a subdirectory.
   hits="$hits
 $(git ls-files \
     -- '*Huong-Dan-*' '*Diem-Den-*' '*Nha-Hang-*' '*Khach-San-*' 2>/dev/null || true)"
 
-  # 4. JSON inside the script directory. This is the diem_den_chot.json class:
+  # 4. JSON inside the code directory. This is the diem_den_chot.json class:
   #    generated output that landed among the scripts rather than in the data
   #    directory, so all three by-location rules walked straight past it.
   hits="$hits
-$(git ls-files -- 'scripts/tourism/*.json' 2>/dev/null || true)"
+$(git ls-files -- 'tourism-kb/code/*.json' 2>/dev/null || true)"
 
   hits=$(printf '%s\n' "$hits" | grep -v '^[[:space:]]*$' | sort -u || true)
 
@@ -372,8 +374,8 @@ $(git ls-files -- 'scripts/tourism/*.json' 2>/dev/null || true)"
     printf '%s\n' "$hits" | sed 's/^/        /'
     echo "      These carry real business phone numbers. Untrack, do not just delete:"
     echo "        git rm --cached <file>"
-    echo "      They belong in .tourism-data/ or documentation/tourism/, both ignored."
-    echo "      Regenerate from scripts/tourism/ on the target machine instead of committing."
+    echo "      They belong in tourism-kb/{raw,wiki,output}/, all ignored."
+    echo "      Regenerate from tourism-kb/code/ on the target machine instead of committing."
     FAILURES=$((FAILURES + 1))
   else
     echo "PASS"

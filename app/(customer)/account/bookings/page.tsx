@@ -13,7 +13,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { authFetch, ensureAuthenticated } from '@/lib/auth/clientSession';
-import { STATUS_LABEL, STATUS_VARIANT } from './bookingStatus';
+import { bookingStatusDisplay } from '@/lib/op/statusLabels';
 import type { CustomerBookingRow } from '@/lib/booking';
 import { Ticket, ArrowRight } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -188,7 +188,7 @@ export default function BookingsHistoryPage() {
                     <strong className="text-base">
                       {b.route.origin} → {b.route.destination}
                     </strong>
-                    <Badge variant={STATUS_VARIANT[b.status]}>{STATUS_LABEL[b.status]}</Badge>
+                    <Badge variant={bookingStatusDisplay(b.status).variant}>{bookingStatusDisplay(b.status).label}</Badge>
                   </div>
                   <div className="px-4 text-sm text-muted-foreground">
                     {dateFmt.format(new Date(b.departureAt))}
