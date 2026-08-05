@@ -17,18 +17,26 @@
  */
 
 /**
- * 1 is correct for Vercel + Neon: the pooler handles cross-invocation concurrency, so a
- * warm instance needs a single physical connection. Total connections = concurrent
- * instances × pool_max, which is what exhausts Neon's ceiling when this is set high.
+ * 2 is the floor for correctness, not just headroom. Total connections = concurrent
+ * instances × pool_max vs Neon's ceiling, so this stays low — but it can NOT be 1:
  *
- * Multi-connection contexts must raise it — local dev, and CI integration/e2e where ONE
- * process drives genuinely concurrent transactions (Promise.all fan-out, the 20-parallel
- * oversell race, SKIP LOCKED and advisory-lock contention). At 1 those deadlock against
- * themselves and surface as "Unable to start a transaction in the given time", which
- * reads like a code bug and is not one. `vitest.integration.config.ts` sets it for that
- * reason; CI sets it explicitly in each job env.
+ * The outbox-pattern crons run a core that opens its OWN `prisma.$transaction` while
+ * `withAdvisoryLock` still holds one pooled connection for the lock tx (notify-dispatch
+ * → dispatchNotifications.claimDueRows; ticket-pdf → generateTicketPdfs batch claim).
+ * At pool_max=1 the inner tx can never get a 2nd connection → it waits the full
+ * `connectionTimeoutMillis` and fails ("timeout exceeded when trying to connect" /
+ * "Unable to start a transaction"), so those jobs deadlock 100% (observed in prod:
+ * notify-dispatch 45/45 failed, ticket-pdf never generated → putObject/R2 never ran).
+ * Co-scheduled every-minute crons also starved the single connection intermittently.
+ *
+ * 2 gives the outbox jobs their lock-tx + one work-tx, and also relieves the
+ * `Promise.all` query fan-out that serializes at 1 (the PR #301 perf review recommended
+ * 2..3 for exactly this). Prod runs the Neon PgBouncer pooler, so extra pg.Pool
+ * connections are cheap client connections, not scarce Postgres backends. The cleaner
+ * long-term fix is claim-then-dispatch OUTSIDE the lock tx (see dispatchNotifications
+ * docblock); until then the pattern requires ≥2. CI/integration already run higher.
  */
-export const DEFAULT_DATABASE_POOL_MAX = 1;
+export const DEFAULT_DATABASE_POOL_MAX = 2;
 
 const MIN_POOL_MAX = 1;
 const MAX_POOL_MAX = 50;
