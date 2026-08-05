@@ -14,6 +14,8 @@
     "vitest:int": "tsx scripts/test/prepare-int-db.ts && vitest run --config vitest.integration.config.ts",
     "test:all": "vitest run && tsx scripts/test/prepare-int-db.ts && vitest run --config vitest.integration.config.ts",
     "test:e2e": "playwright test",
+    "smoke:local": "tsx scripts/smoke/smoke-local.mts",
+    "smoke:prod": "tsx scripts/smoke/smoke-prod.mts",
     "admin:create-operator": "tsx --env-file=.env.production scripts/admin/createOperator.ts",
     "admin:disable-operator": "tsx --env-file=.env.production scripts/admin/disableOperator.ts",
     "admin:reset-operator-admin-password": "tsx --env-file=.env.production scripts/admin/resetOperatorAdminPassword.ts",
