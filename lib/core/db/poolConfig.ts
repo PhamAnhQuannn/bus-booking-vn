@@ -48,3 +48,23 @@ export function resolveDatabasePoolMax(): number {
   }
   return Math.min(MAX_POOL_MAX, Math.max(MIN_POOL_MAX, parsed));
 }
+
+/**
+ * pg pool connection-acquire budget. 10s absorbs Neon autoscale/cold-start latency
+ * before a queued acquire fails.
+ */
+export const CONNECTION_TIMEOUT_MS = 10_000;
+
+/**
+ * Prisma interactive-transaction `maxWait` — the time allowed to ACQUIRE + start a tx
+ * (get a pooled connection, BEGIN). Prisma's default is 2000ms, which the first query
+ * after a Neon autosuspend cold-start can exceed → "Unable to start a transaction in
+ * the given time". Set at the client level (lib/core/db/client.ts) so it covers every
+ * interactive $transaction — crons AND request paths (booking/payment/ledger).
+ *
+ * INVARIANT: TX_MAX_WAIT_MS > CONNECTION_TIMEOUT_MS. maxWait is the OUTER budget that
+ * must fully contain the pool's connection-acquire; if they were equal, a cold-start
+ * that consumes the pool's whole 10s could still trip maxWait right as the connection
+ * arrives. 15s nests cleanly and stays ≪ Vercel's default 300s function budget.
+ */
+export const TX_MAX_WAIT_MS = 15_000;

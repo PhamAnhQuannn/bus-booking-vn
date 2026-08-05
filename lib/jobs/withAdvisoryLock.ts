@@ -30,6 +30,10 @@ export async function withAdvisoryLock(
   core: JobCore,
   opts?: { timeout?: number }
 ): Promise<JobResult> {
+  // maxWait (tx-acquire budget) comes from the client-level transactionOptions in
+  // lib/core/db/client.ts (TX_MAX_WAIT_MS) — it must exceed the pool's
+  // connectionTimeoutMillis so a cold-start acquire can complete. Only the
+  // run-duration `timeout` is set per-call here.
   const txOpts = opts?.timeout ? { timeout: opts.timeout } : undefined;
   return prisma.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<{ locked: boolean }[]>(
