@@ -47,7 +47,7 @@ Verify that all API endpoints return consistent error envelopes (ADR-015), all s
 - [ ] Structured JSON logs on stdout (ADR-007)
 - [ ] PII redaction covers all sensitive fields (`otpProof`, `tempPassword`, `accessToken`, `refreshToken`)
 - [ ] Payment pipeline errors logged with `paymentId`, `bookingRef`, `provider`, `resultCode`
-- [ ] Cron job responses include `{ job, status, rowsAffected, durationMs }` (DS-006 §2.3)
+- [ ] Cron job responses include `{ status, rowsAffected }` (DS-006 §2.3; `jobName`/timing live in JobRunLog)
 - [ ] Missed-cron alert path defined (ADR-007 P4)
 
 ## Verdict

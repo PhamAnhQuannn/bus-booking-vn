@@ -19,8 +19,14 @@ OUT="$OUT_DIR/bbvn-$STAMP.dump"
 
 # -F c = custom format (compressed, selective restore). --no-owner/--no-privileges keep it
 # portable across roles (Neon role != local bbvn role).
+# NOTE: passing the conninfo URI as an argv exposes the password in `ps`. Acceptable for a local,
+# single-user run; for a hardened setup use discrete PGHOST/PGUSER/PGPASSWORD env (or a service file),
+# or the container form in scripts/backup-ondemand.sh which passes the secret via `-e` by name.
 pg_dump "$DATABASE_URL" -F c --no-owner --no-privileges -f "$OUT"
 echo "backup written: $OUT ($(wc -c < "$OUT") bytes)"
 
-# RPO = 24h: schedule this daily (cron / GitHub Action) IF supplementing Neon PITR with an
-# off-Neon copy. Neon PITR alone already gives sub-minute RPO within its retention window.
+# RPO = 24h: schedule this daily to supplement Neon PITR with an off-Neon copy. Neon PITR alone gives
+# sub-minute RPO within its retention window.
+# ⚠️ PII: the dump holds customer data. Write it ONLY to a PRIVATE destination (your machine / private
+# bucket). NEVER to a GitHub Actions artifact — the repo goes public during /ship and artifacts are
+# downloadable on public repos.

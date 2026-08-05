@@ -15,7 +15,7 @@ Verify that all cron jobs and background tasks are resilient: idempotent re-entr
 
 ### Cron Response Contract (DS-006 Section 2.3)
 
-- [ ] Every cron endpoint returns: `{ job, status, rowsAffected, durationMs }`
+- [ ] Every cron endpoint returns: `{ status, rowsAffected }` (`jobName` + timing persisted in JobRunLog)
 - [ ] No cron returns raw strings or unstructured responses
 - [ ] HTTP 200 for successful execution (even if zero rows affected)
 - [ ] HTTP 500 only for unexpected errors (not "nothing to process")

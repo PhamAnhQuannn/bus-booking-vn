@@ -377,7 +377,7 @@ Confirm `pnpm prisma migrate deploy` completed without errors. Check the `_prism
 
 ### 11.4 Cron Endpoint Health
 
-Fire one cron endpoint (`/api/cron/sweep-holds`) with the `Authorization: Bearer <CRON_SECRET>` header and verify the response shape matches the DS-006 Section 2.3 contract: `{ job, status: 'success'|'failed'|'skipped_locked', rowsAffected, durationMs }`.
+Fire one cron endpoint LOCALLY (never prod — invoking a cron executes the real job) with the `Authorization: Bearer <CRON_SECRET>` header and verify the response shape matches the DS-006 Section 2.3 contract: `{ status: 'success'|'failed'|'skipped_locked', rowsAffected }`. (`sweep-holds` is the documented legacy exception: `{ mode, expiredCount, status? }`.) `jobName` + timing are persisted in JobRunLog, not the HTTP response.
 
 ### 11.5 Rollback Trigger Definition
 

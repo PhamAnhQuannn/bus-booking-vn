@@ -31,7 +31,14 @@ $out   = Join-Path $OutDir "bbvn-$stamp.dump"
 if (Test-Path $out) { Write-Host "already backed up today -> $out (skip)"; exit 0 }   # once/day guard
 
 # -F c custom format; --no-owner/--no-privileges keep it portable across roles.
+# NOTE: $ErrorActionPreference='Stop' does NOT trap native-exe exit codes in PS 5.1 — check explicitly,
+# else a failed/partial dump is reported as success (and the once/day guard then blocks a retry).
 pg_dump $url -F c --no-owner --no-privileges -f $out
+if ($LASTEXITCODE -ne 0) {
+  Remove-Item $out -Force -ErrorAction SilentlyContinue   # drop the partial/corrupt file
+  Write-Error "pg_dump failed (exit $LASTEXITCODE) — no valid backup written."
+  exit 1
+}
 $size = (Get-Item $out).Length
 Write-Host "backup written: $out ($size bytes)"
 

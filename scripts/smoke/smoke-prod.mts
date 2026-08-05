@@ -1,9 +1,9 @@
-// smoke:prod — READ-ONLY profile. Imports NO cron/holds/otp checks (HG-B/HG-C).
-// Safe against any target: only GET asserts + security headers + operator page-load crawl.
-// Per E4, default target is local; may be pointed at a prod hostname (read-only) with care.
+// smoke:prod — STRICTLY READ-ONLY profile. Pure GET only, safe against ANY target incl. a real
+// prod hostname. Imports NO cron/holds/otp AND NO operator-crawl: the operator crawl drives a real
+// login POST (/api/auth/login) which consumes rate-limit budget, increments the PB-0001 lockout
+// counter, and can dispatch an OTP — so it is localhost-only (smoke:local). This profile mutates nothing.
 import { httpAsserts } from './http-asserts.mjs';
 import { headersCheck } from './headers-check.mjs';
-import { operatorCrawl } from './operator-crawl.mjs';
 import type { Check } from './http-asserts.mjs';
 
 const BASE_URL = process.env.BASE_URL ?? 'http://localhost:3001';
@@ -12,7 +12,6 @@ async function main() {
   const checks: Check[] = [];
   checks.push(...await httpAsserts(BASE_URL));
   checks.push(...await headersCheck(BASE_URL));
-  checks.push(...await operatorCrawl(BASE_URL));
 
   let pass = 0, fail = 0, warn = 0;
   for (const c of checks) {

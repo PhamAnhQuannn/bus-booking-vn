@@ -19,13 +19,17 @@ OUT="$OUT_DIR/bbvn-prod-$STAMP.dump"
 
 mkdir -p "$OUT_DIR"
 
-# Dump inside the container (URL in env, not argv); custom format; portable across roles.
-docker exec -e PGURL="$BBVN_PROD_DATABASE_URL" "$CONTAINER" sh -c \
-  'pg_dump "$PGURL" -F c --no-owner --no-privileges -f /tmp/bbvn-prod.dump'
+# Always wipe the container-side PII dump on exit — even if `docker cp` fails (set -e) partway.
+trap 'docker exec "$CONTAINER" rm -f /tmp/bbvn-prod.dump 2>/dev/null || true' EXIT
+
+# Dump inside the container. Pass the secret by NAME (docker inherits the value from this shell's env)
+# so the prod URL never appears on the host `docker` argv (visible in `ps`). Inside, pg_dump reads it
+# from the container env, not argv either.
+docker exec -e BBVN_PROD_DATABASE_URL "$CONTAINER" sh -c \
+  'pg_dump "$BBVN_PROD_DATABASE_URL" -F c --no-owner --no-privileges -f /tmp/bbvn-prod.dump'
 
 # Copy out (MSYS_NO_PATHCONV stops Git-Bash mangling the container-side /tmp path on Windows).
 MSYS_NO_PATHCONV=1 docker cp "$CONTAINER:/tmp/bbvn-prod.dump" "$OUT"
-docker exec "$CONTAINER" rm -f /tmp/bbvn-prod.dump
 
 echo "backup written: $OUT ($(wc -c < "$OUT") bytes)"
 echo "restore with: scripts/restore.sh \"$OUT\"  (into a NON-primary target DB)"

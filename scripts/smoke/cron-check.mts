@@ -11,7 +11,8 @@ export async function cronCheck(baseUrl: string, cronSecret: string | undefined)
   if (host !== 'localhost' && host !== '127.0.0.1') {
     throw new Error(`cron-check REFUSES non-localhost target "${host}" — invoking cron executes real jobs (HG-B)`);
   }
-  if (!cronSecret) return [{ name: 'cron-check', ok: false, detail: 'CRON_SECRET not set (local dev)' }];
+  // Unconfigured ≠ contract broken → optional (WARN), don't fail the suite for a missing local env var.
+  if (!cronSecret) return [{ name: 'cron-check (skipped)', ok: false, optional: true, detail: 'CRON_SECRET not set' }];
 
   const out: Check[] = [];
   const auth = { Authorization: `Bearer ${cronSecret}` };

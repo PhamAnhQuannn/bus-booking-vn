@@ -10,7 +10,10 @@ const CONTRACT_FIELDS = [
 
 export async function httpAsserts(baseUrl: string): Promise<Check[]> {
   const out: Check[] = [];
-  const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+  // Vietnam business date (Asia/Ho_Chi_Minh, UTC+7) — trip search filters by local date, so a naive
+  // UTC "tomorrow" can miss/skew near 00:00–07:00 UTC. Shift +7h before taking the date.
+  const VN_OFFSET_MS = 7 * 3600_000;
+  const tomorrow = new Date(Date.now() + VN_OFFSET_MS + 86_400_000).toISOString().slice(0, 10);
   const q = new URLSearchParams({ origin: 'Hà Nội', destination: 'TP.HCM', date: tomorrow, ticketCount: '1' });
   const url = `${baseUrl}/api/trips/search?${q}`;
 
