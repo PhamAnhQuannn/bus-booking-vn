@@ -50,20 +50,22 @@ All cron routes live under `/api/cron/**` and are authenticated via a **cron sec
 
 ### 2.3 Response Contract
 
-All cron routes return a uniform JSON response:
+Cron routes return the job core's result as JSON — the durable contract is `{status, rowsAffected}`:
 
 ```json
 {
-  "job": "<jobName>",
   "status": "success",
-  "rowsAffected": 42,
-  "durationMs": 1250
+  "rowsAffected": 42
 }
 ```
 
 On failure, `status` is `"failed"` with an `errorMessage` field. On lock contention (all rows locked by a concurrent invocation), `status` is `"skipped_locked"`.
 
-**Source:** 03-api-contract §10.
+`jobName` and timing (`startedAt`/`endedAt`) are **not** in the HTTP response — they are persisted per invocation in the `JobRunLog` row (`{jobName, startedAt, endedAt, status, rowsAffected, errorMessage}`), which is the authoritative audit record. Verify cron health by READING `JobRunLog`, not by invoking the endpoint (invocation executes the real job).
+
+> **Exception:** `/api/cron/sweep-holds` predates this contract and returns `{mode, expiredCount, status}`. Left as-is (legacy); its `JobRunLog` row still follows the standard shape.
+
+Corrected 2026-08-04 to match shipped code (was `{job, status, rowsAffected, durationMs}` — those fields never existed uniformly). **Source:** 03-api-contract §10; `lib/jobs/runJob.ts`.
 
 ---
 

@@ -46,9 +46,9 @@ Define and verify the production smoke test suite that runs post-deploy to valid
 
 ### Cron Endpoint Smoke (DS-006)
 
-- [ ] `/api/cron/sweep-holds` responds with correct contract shape
-- [ ] At least 3 cron endpoints verified with `Authorization: Bearer <CRON_SECRET>`
-- [ ] Response matches DS-006 §2.3 contract: `{ job, status, rowsAffected, durationMs }`
+- [ ] Cron health verified by READING `JobRunLog` rows from real scheduled runs (do NOT invoke endpoints against prod — invocation executes the real job, e.g. process-payouts settles real payouts)
+- [ ] Latest `JobRunLog` row per job has `status='success'` and the DS-006 §2.3 contract `{ status, rowsAffected }` (corrected 2026-08-04 from the stale `{ job, status, rowsAffected, durationMs }`)
+- [ ] Cron response-shape assertions run LOCAL-only (localhost + disposable DB) — see `scripts/smoke/cron-check.mts`
 
 ### Security Headers Smoke
 
