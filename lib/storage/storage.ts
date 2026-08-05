@@ -53,7 +53,10 @@ function getS3(): S3Client {
   const env = getEnv();
   _s3 = new S3Client({
     region: env.STORAGE_REGION ?? 'auto',
-    ...(env.STORAGE_ENDPOINT ? { endpoint: env.STORAGE_ENDPOINT } : {}),
+    // A custom endpoint means an S3-compatible store (Cloudflare R2, MinIO, …) — these require
+    // PATH-style addressing (bucket in the path), not the AWS virtual-hosted `bucket.host` style,
+    // which has no DNS on R2/MinIO. Real AWS S3 (no endpoint) keeps the vhost default.
+    ...(env.STORAGE_ENDPOINT ? { endpoint: env.STORAGE_ENDPOINT, forcePathStyle: true } : {}),
     ...(env.STORAGE_ACCESS_KEY && env.STORAGE_SECRET_KEY
       ? {
           credentials: {
