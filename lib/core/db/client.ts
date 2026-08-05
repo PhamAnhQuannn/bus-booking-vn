@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
-import { resolveDatabasePoolMax, CONNECTION_TIMEOUT_MS, TX_MAX_WAIT_MS } from './poolConfig';
+import { resolveDatabasePoolMax, CONNECTION_TIMEOUT_MS, TX_MAX_WAIT_MS, TX_TIMEOUT_MS } from './poolConfig';
 
 // Prisma client singleton -- reuse across hot reloads (dev) AND warm invocations (prod serverless)
 
@@ -34,11 +34,11 @@ function createPrismaClient(): PrismaClient {
   const adapter = new PrismaPg(pool);
   return new PrismaClient({
     adapter,
-    // Client-level maxWait so EVERY interactive $transaction (crons + request paths)
-    // survives a Neon cold-start acquire. Must exceed connectionTimeoutMillis — see
-    // TX_MAX_WAIT_MS invariant in poolConfig.ts. Run-duration `timeout` stays at
-    // Prisma's default so per-call timeouts (e.g. ticket-pdf 120s) still override.
-    transactionOptions: { maxWait: TX_MAX_WAIT_MS },
+    // Client-level maxWait + timeout so EVERY interactive $transaction (crons + request
+    // paths) survives a Neon cold-start: maxWait covers the ACQUIRE, timeout covers the
+    // cold-start-inflated RUN (see poolConfig.ts). Per-call opts override (e.g.
+    // generate-ticket-pdfs passes timeout:120_000 via runJob, which takes precedence).
+    transactionOptions: { maxWait: TX_MAX_WAIT_MS, timeout: TX_TIMEOUT_MS },
     log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
   });
 }

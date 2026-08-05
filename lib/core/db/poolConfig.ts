@@ -68,3 +68,17 @@ export const CONNECTION_TIMEOUT_MS = 10_000;
  * arrives. 15s nests cleanly and stays ≪ Vercel's default 300s function budget.
  */
 export const TX_MAX_WAIT_MS = 15_000;
+
+/**
+ * Prisma interactive-transaction `timeout` — the time a tx may RUN once started, before
+ * the commit is rejected ("A commit cannot be executed on an expired transaction").
+ * Prisma's default is 5000ms. After a Neon autosuspend cold-start the first tx's queries
+ * run slow enough to inflate otherwise-millisecond work past 5s (observed in prod:
+ * dispatch-notifications committed at 5023ms and failed). This is the sibling knob to
+ * TX_MAX_WAIT_MS: maxWait covers the ACQUIRE, timeout covers the RUN. Set at the client
+ * level so every interactive $transaction survives a cold-start-inflated run; jobs that
+ * legitimately do more work override per-call (e.g. generate-ticket-pdfs passes 120_000
+ * via runJob, which takes precedence over this client default). 15s ≪ Vercel's 300s
+ * function budget.
+ */
+export const TX_TIMEOUT_MS = 15_000;
