@@ -1,6 +1,12 @@
 # GL-003: Backup & Disaster Recovery Plan
 
-**Status:** READY
+> ⚠️ **SUPERSEDED 2026-08-04 by [`docs/ops/backup-restore.md`](../ops/backup-restore.md).**
+> This document is FPT-Cloud-based (pg_dump → FPT Object Storage, `docker-compose.prod.yml`,
+> GHCR image rollback) and predates the 2026-07-10 move to **Vercel + Neon only** (FPT removed).
+> Its RPO/RTO (6h/2h) is also superseded by the decided **24h/1h**. Kept for history; do not action.
+> Current backup/DR = `docs/ops/backup-restore.md`; current rollback = `docs/ops/runbooks/rollback.md`.
+
+**Status:** SUPERSEDED (was READY)
 **Date:** 2026-07-03
 **References:** SI-006, ADR-020
 

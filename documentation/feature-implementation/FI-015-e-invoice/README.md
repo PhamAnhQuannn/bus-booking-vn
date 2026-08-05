@@ -78,7 +78,7 @@ The BusBooking platform issues VAT invoices on behalf of operators (Decree 123/2
 | GET | `/booking/confirmation/[token]` | Public (token-gated) | Renders EInvoice card when `status = 'issued'` or `'sent'`. Shows invoice number, issue date, operator name, MST, route, plate, VAT breakdown | 200, 404 |
 | GET | `/op/invoices` | Operator JWT | Invoice list with status badges. `needsReview = true` shows amber badge with missing fields checklist. Failed invoices show "Thu lai" retry button | 200 |
 | POST | `/api/admin/einvoice/:id/retry` | Admin JWT | Retry blocked invoice. Re-resolves transport fields (MST now available). Transitions `blocked -> pending` | 200, 422, 404 |
-| GET | `/api/cron/einvoice-submission` | Cron secret | Every 5 min. Predicate: `EInvoice.status = 'pending' AND needsReview = false`. Uses `FOR UPDATE SKIP LOCKED`. Response: `{ job, status, rowsAffected, durationMs }` | 200 |
+| GET | `/api/cron/einvoice-submission` | Cron secret | Every 5 min. Predicate: `EInvoice.status = 'pending' AND needsReview = false`. Uses `FOR UPDATE SKIP LOCKED`. Response: `{ status, rowsAffected }` | 200 |
 
 ### MISA meInvoice Integration
 
