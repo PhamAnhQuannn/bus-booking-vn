@@ -329,7 +329,7 @@ const envSchema = z.object({
    */
   DIRECT_URL: z.string().url().optional(),
 
-  /** Max connections per pg.Pool instance (default 1 — PgBouncer handles pooling). */
+  /** Max connections per pg.Pool instance (default 2 — outbox crons need ≥2; see poolConfig.ts). */
   // Default imported, not re-typed: client.ts and this schema disagreeing (5 vs 1) is
   // exactly the #363 split-brain. lib/core/db/poolConfig.ts owns the value and the clamp.
   DATABASE_POOL_MAX: z.coerce

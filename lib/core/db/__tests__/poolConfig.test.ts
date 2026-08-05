@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CONNECTION_TIMEOUT_MS, TX_MAX_WAIT_MS, TX_TIMEOUT_MS } from '../poolConfig';
+import { CONNECTION_TIMEOUT_MS, TX_MAX_WAIT_MS, TX_TIMEOUT_MS, DEFAULT_DATABASE_POOL_MAX } from '../poolConfig';
 
 describe('transaction / pool timeout budgets', () => {
   // Regression guard for the cold-start fix: Prisma's tx-acquire maxWait is the OUTER
@@ -23,5 +23,13 @@ describe('transaction / pool timeout budgets', () => {
     expect(CONNECTION_TIMEOUT_MS).toBe(10_000);
     expect(TX_MAX_WAIT_MS).toBe(15_000);
     expect(TX_TIMEOUT_MS).toBe(15_000);
+  });
+
+  // The outbox-pattern crons (notify-dispatch, ticket-pdf) open an inner
+  // prisma.$transaction while withAdvisoryLock holds the lock-tx connection, so the pool
+  // MUST offer at least 2 connections or they self-deadlock ("timeout exceeded when
+  // trying to connect"). A revert to 1 reintroduces the prod notify/ticket-pdf outage.
+  it('DEFAULT_DATABASE_POOL_MAX is at least 2 (outbox jobs need a 2nd connection)', () => {
+    expect(DEFAULT_DATABASE_POOL_MAX).toBeGreaterThanOrEqual(2);
   });
 });

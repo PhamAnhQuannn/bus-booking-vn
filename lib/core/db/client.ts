@@ -12,14 +12,14 @@ function createPrismaClient(): PrismaClient {
   if (!connectionString) {
     throw new Error('DATABASE_URL environment variable is not set');
   }
-  // Default max:1 is intentional for Vercel's one-request-per-invocation model —
-  // Neon's pooler handles cross-invocation concurrency, so each warm instance
-  // needs only a single physical connection. Consequence: `Promise.all([...])`
-  // query fan-out serializes on that one connection (sum, not max, of latencies).
-  // Multi-connection contexts (local dev, CI integration/e2e where one process
-  // serves concurrent requests, and the SKIP-LOCKED/advisory-lock tests) must
-  // set DATABASE_POOL_MAX>1. connectionTimeoutMillis is 10s to absorb Neon
-  // autoscale/cold-start latency before a queued acquire fails.
+  // Default max is 2 (see poolConfig.ts): the outbox-pattern crons (notify-dispatch,
+  // ticket-pdf) open an inner prisma.$transaction while withAdvisoryLock holds one
+  // pooled connection, so a 1-connection pool deadlocks them; 2 also relieves the
+  // `Promise.all([...])` query fan-out that would otherwise serialize on one connection
+  // (sum, not max, of latencies). Total connections = instances × pool_max stays low,
+  // and prod's Neon PgBouncer pooler makes these cheap client connections.
+  // connectionTimeoutMillis is 10s to absorb Neon autoscale/cold-start latency before a
+  // queued acquire fails.
   // #363: one resolver shared with the Zod schema, so client.ts and the config can no
   // longer disagree about the default (they used to: 5 here vs 1 there). Deliberately
   // NOT getEnv() — that would validate the whole environment just to build the DB
