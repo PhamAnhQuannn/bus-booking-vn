@@ -25,12 +25,25 @@ import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import type { JobCore, JobResult } from './types';
 
+/**
+ * Max time Prisma waits to ACQUIRE and start the interactive transaction (its
+ * `maxWait`). Prisma's default is 2000ms, which the first query after a Neon
+ * autosuspend cold-start can exceed → "Unable to start a transaction in the
+ * given time". 10s absorbs the cold-start and stays ≤ the pg pool's
+ * connectionTimeoutMillis (10s) so the pool still wins the connect race, and
+ * well under Vercel's default function maxDuration (300s).
+ */
+const JOB_TX_MAX_WAIT_MS = 10_000;
+
 export async function withAdvisoryLock(
   jobName: string,
   core: JobCore,
   opts?: { timeout?: number }
 ): Promise<JobResult> {
-  const txOpts = opts?.timeout ? { timeout: opts.timeout } : undefined;
+  const txOpts = {
+    maxWait: JOB_TX_MAX_WAIT_MS,
+    ...(opts?.timeout ? { timeout: opts.timeout } : {}),
+  };
   return prisma.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<{ locked: boolean }[]>(
       Prisma.sql`SELECT pg_try_advisory_xact_lock(hashtext(${jobName})) AS locked`
