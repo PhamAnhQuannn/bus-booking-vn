@@ -20,7 +20,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Mail } from 'lucide-react';
+import { Mail, Phone } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
 
 /**
@@ -30,6 +30,20 @@ import { Logo } from '@/components/brand/Logo';
  * only component that renders it.
  */
 const SUPPORT_EMAIL = 'hotro@lenxevn.com';
+
+/**
+ * Real support hotline comes from NEXT_PUBLIC_SUPPORT_PHONE (set in Vercel), NOT a
+ * source literal: a real VN mobile is PII and the pre-commit secret scan normalises
+ * 0… → +84… and blocks it. The env value is baked into the client bundle at build (the
+ * number is public on the page anyway) but never lands in git. Unset (local/dev) → the
+ * phone row is simply hidden.
+ */
+const SUPPORT_PHONE = process.env.NEXT_PUBLIC_SUPPORT_PHONE?.trim();
+// Group a 10-digit VN mobile as "0976 167 267"; show as-is otherwise.
+const SUPPORT_PHONE_DISPLAY =
+  SUPPORT_PHONE && /^\d{10}$/.test(SUPPORT_PHONE)
+    ? `${SUPPORT_PHONE.slice(0, 4)} ${SUPPORT_PHONE.slice(4, 7)} ${SUPPORT_PHONE.slice(7)}`
+    : SUPPORT_PHONE;
 
 // 2026-06-06: customer accounts paused (guest-only). "Tài khoản" removed; "Đăng nhập"
 // now points at the operator login (/op/login) — only operators log in. "Trở thành
@@ -119,6 +133,15 @@ export function SiteFooter() {
             fails on it, which is the point.) */}
         <div className="flex flex-col gap-3">
           <span className="font-semibold text-footer-foreground">Hỗ trợ khách hàng</span>
+          {SUPPORT_PHONE && (
+            <a
+              href={`tel:${SUPPORT_PHONE}`}
+              className="flex items-center gap-2 text-primary outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <Phone className="size-4 shrink-0" aria-hidden="true" />
+              {SUPPORT_PHONE_DISPLAY}
+            </a>
+          )}
           <a
             href={`mailto:${SUPPORT_EMAIL}`}
             className="flex items-center gap-2 text-primary outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
