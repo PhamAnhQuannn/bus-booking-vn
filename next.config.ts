@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const isProd = process.env.NODE_ENV === 'production';
 const hasSentry = !!process.env.NEXT_PUBLIC_SENTRY_DSN;
@@ -52,4 +53,13 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Sentry source-map upload so prod stack traces symbolicate to real files/functions/lines
+// instead of minified chunks. org/project/authToken are resolved from SENTRY_ORG /
+// SENTRY_PROJECT / SENTRY_AUTH_TOKEN (Vercel Production, build scope) — no literals here. A
+// missing token warns + SKIPS upload (local `pnpm build` + CI stay green, never abort). On the
+// Turbopack path (Next 16 default) this auto-enables productionBrowserSourceMaps, sets
+// deleteSourcemapsAfterUpload=true, and strips sourceMappingURL comments, so maps are uploaded
+// then removed — never publicly served. Debug IDs handle symbolication (no release-name match
+// needed). instrumentation.ts / instrumentation-client.ts remain the sole Sentry.init() sites —
+// withSentryConfig only touches the build pipeline, so there is no double-init.
+export default withSentryConfig(nextConfig, {});
