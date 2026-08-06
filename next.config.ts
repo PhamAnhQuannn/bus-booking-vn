@@ -16,7 +16,9 @@ const securityHeaders = [
     value: [
       "default-src 'self'",
       `script-src 'self' 'unsafe-inline'${isProd ? '' : " 'unsafe-eval'"}`,
-      `connect-src 'self'${hasSentry ? ' https://*.ingest.sentry.io' : ''}${isProd ? '' : ' ws://localhost:* http://localhost:*'}`,
+      // *.sentry.io (not *.ingest.sentry.io): regionalized DSNs use an extra label,
+      // e.g. o<org>.ingest.us.sentry.io / .de.sentry.io, which *.ingest.sentry.io does NOT match.
+      `connect-src 'self'${hasSentry ? ' https://*.sentry.io' : ''}${isProd ? '' : ' ws://localhost:* http://localhost:*'}`,
       "img-src 'self' data: blob: https://img.vietqr.io",
       "style-src 'self' 'unsafe-inline'",
       "font-src 'self'",
