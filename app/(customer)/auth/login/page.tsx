@@ -47,7 +47,15 @@ function LoginPageInner() {
       });
       const json = await res.json();
       if (!res.ok) {
-        setError('Email hoặc mật khẩu không đúng.');
+        // Surface throttle/lockout distinctly so a locked-out user knows to wait (QA F2);
+        // everything else stays the uniform credential message (no account enumeration).
+        if (res.status === 429 && json.error === 'LOCKED_OUT') {
+          setError('Tài khoản tạm khóa sau nhiều lần đăng nhập sai. Vui lòng thử lại sau 15 phút.');
+        } else if (res.status === 429 && json.error === 'RATE_LIMITED') {
+          setError('Quá nhiều yêu cầu. Vui lòng thử lại sau ít phút.');
+        } else {
+          setError('Email hoặc mật khẩu không đúng.');
+        }
         return;
       }
       setAccessToken(json.accessToken);

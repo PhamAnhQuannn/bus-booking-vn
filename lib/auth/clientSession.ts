@@ -127,6 +127,10 @@ function attemptRefresh(): Promise<string | null> {
       }
       const json = await res.json();
       setAccessToken(json.accessToken);
+      // Rehydrate name/email so a hard reload restores the real account menu, not the
+      // "Khách hàng" fallback (QA F1). Only overwrite when the refresh carries them.
+      if ('displayName' in json) setDisplayName(json.displayName ?? null);
+      if ('customerEmail' in json || 'email' in json) setCustomerEmail(json.email ?? null);
       return json.accessToken as string;
     } catch {
       return null; // network error — don't clear session, token may still be valid

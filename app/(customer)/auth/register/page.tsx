@@ -165,7 +165,7 @@ function RegisterPageInner() {
       });
       const json = await res.json();
       if (!res.ok) {
-        setError(json.error === 'invalid_credentials' ? 'Email đã được đăng ký.' : 'Đăng ký thất bại.');
+        setError(json.error === 'EMAIL_TAKEN' ? 'Email đã được đăng ký.' : 'Đăng ký thất bại.');
         return;
       }
       setAccessToken(json.accessToken);

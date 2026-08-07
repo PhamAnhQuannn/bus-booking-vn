@@ -237,18 +237,29 @@ describe('authService.verifyOtp', () => {
 // refresh
 // ---------------------------------------------------------------------------
 describe('authService.refresh', () => {
-  it('returns new tokens on valid refresh', async () => {
+  it('returns new tokens + rehydrated displayName/email on valid refresh (F1)', async () => {
     mockVerifyRefreshToken.mockReturnValue({ payload: {}, hash: 'old-hash' });
     mockRotateRefresh.mockResolvedValue({
       access: 'new-access',
       refreshToken: 'new-refresh',
       refreshHash: 'new-hash',
       csrf: 'new-csrf',
+      customerId: 'cust-1',
+    });
+    mockPrisma.customer.findFirst.mockResolvedValue({
+      displayName: 'Test User',
+      email: 'test@example.com',
     });
 
     const result = await refresh('valid-token');
     expect(result.accessToken).toBe('new-access');
     expect(result.refreshToken).toBe('new-refresh');
+    // F1: the refresh response carries the owner's name/email so a hard reload restores them.
+    expect(result.displayName).toBe('Test User');
+    expect(result.email).toBe('test@example.com');
+    expect(mockPrisma.customer.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ id: 'cust-1', deletedAt: null }) })
+    );
   });
 
   it('throws REFRESH_INVALID when token is malformed', async () => {

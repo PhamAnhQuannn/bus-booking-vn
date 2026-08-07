@@ -32,6 +32,7 @@ export interface SessionTokens {
   refreshToken: string;
   refreshHash: string;
   csrf: string;
+  customerId: string;
 }
 
 export interface CreateSessionResult extends SessionTokens {
@@ -98,7 +99,13 @@ export async function rotateRefresh(
     const access = await signAccess({ sub: session.customerId, role: 'customer' });
     const csrf = generateCsrf();
 
-    return { access, refreshToken: newRefreshToken, refreshHash: newRefreshHash, csrf };
+    return {
+      access,
+      refreshToken: newRefreshToken,
+      refreshHash: newRefreshHash,
+      csrf,
+      customerId: session.customerId,
+    };
   });
 }
 
@@ -135,7 +142,7 @@ export async function createSession(
   const access = await signAccess({ sub: customerId, role: 'customer' });
   const csrf = generateCsrf();
 
-  return { access, refreshToken, refreshHash, csrf, family };
+  return { access, refreshToken, refreshHash, csrf, family, customerId };
 }
 
 // ---------------------------------------------------------------------------

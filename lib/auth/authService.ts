@@ -227,9 +227,14 @@ export async function verifyOtp(rawEmail: string, code: string): Promise<VerifyO
 // refresh
 // ---------------------------------------------------------------------------
 
-export async function refresh(
-  rawToken: string
-): Promise<{ accessToken: string; refreshToken: string; refreshHash: string; csrf: string }> {
+export async function refresh(rawToken: string): Promise<{
+  accessToken: string;
+  refreshToken: string;
+  refreshHash: string;
+  csrf: string;
+  displayName: string | null;
+  email: string | null;
+}> {
   const verified = verifyRefreshToken(rawToken);
   if (!verified) throw new AuthServiceError('REFRESH_INVALID');
 
@@ -246,11 +251,20 @@ export async function refresh(
     throw new AuthServiceError('SESSION_REUSE');
   }
 
+  // Rehydrate the client's display name / email on a full page load — SessionBootstrap only
+  // has the refresh cookie, so without this the account menu falls back to "Khách hàng" (QA F1).
+  const customer = await prisma.customer.findFirst({
+    where: { id: result.customerId, deletedAt: null },
+    select: { displayName: true, email: true },
+  });
+
   return {
     accessToken: result.access,
     refreshToken: result.refreshToken,
     refreshHash: result.refreshHash,
     csrf: result.csrf,
+    displayName: customer?.displayName ?? null,
+    email: customer?.email ?? null,
   };
 }
 
