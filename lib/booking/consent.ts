@@ -15,7 +15,7 @@
  */
 
 /** Current consent text version. Bump when the CONSENT_TEXT copy changes. */
-export const CONSENT_VERSION = '2026-07';
+export const CONSENT_VERSION = '2026-08';
 
 /** Documented ConsentRecord.consentType union. */
 export const CONSENT_TYPES = {
@@ -28,7 +28,7 @@ export type ConsentType = (typeof CONSENT_TYPES)[keyof typeof CONSENT_TYPES];
 /** VN consent copy shown at checkout. Keyed by the camelCase client field name. */
 export const CONSENT_TEXT = {
   noRefund:
-    'Tôi đã đọc và đồng ý với Chính sách hủy vé và hoàn tiền. Tôi hiểu rằng mức hoàn tiền phụ thuộc vào thời điểm hủy vé.',
+    'Tôi đã đọc và đồng ý với Chính sách hủy vé và hoàn tiền. Tôi hiểu rằng vé đã thanh toán không được hủy hoặc hoàn tiền theo yêu cầu, trừ trường hợp nhà xe hủy chuyến.',
   piiStorage:
     'Tôi đồng ý cho BBVN lưu trữ thông tin cá nhân (tên, số điện thoại, email) để xử lý đặt vé và liên hệ, theo Chính sách bảo mật.',
 } as const;

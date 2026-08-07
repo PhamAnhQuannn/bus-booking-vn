@@ -344,9 +344,10 @@ check_g8_tourism_artifacts() {
   echo "--- G8: tourism-generated artifacts tracked in git ---"
   local hits=""
 
-  # 1. Anything under the three ignored tourism-kb roots. Catches `git add -f`
+  # 1. Anything under the four ignored tourism-kb roots. Catches `git add -f`
   #    directly. (code/ is the one tracked subtree and is deliberately NOT listed.)
-  hits="$hits$(git ls-files -- 'tourism-kb/raw' 'tourism-kb/wiki' 'tourism-kb/output' 2>/dev/null || true)"
+  #    export/ = PII-bearing JSON handed to the planner; never tracked.
+  hits="$hits$(git ls-files -- 'tourism-kb/raw' 'tourism-kb/wiki' 'tourism-kb/output' 'tourism-kb/export' 2>/dev/null || true)"
 
   # 2. Any .docx anywhere. Every .docx in this repo is a generated guide; there is
   #    no hand-authored Word document, so the extension alone is decisive.

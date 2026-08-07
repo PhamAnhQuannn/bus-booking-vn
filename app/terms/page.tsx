@@ -10,7 +10,7 @@ export default function TermsPage() {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-10">
       <h1 className="text-2xl font-bold">Điều khoản dịch vụ</h1>
-      <p className="text-sm text-muted-foreground">Cập nhật: Tháng 7, 2026</p>
+      <p className="text-sm text-muted-foreground">Cập nhật: Tháng 8, 2026</p>
 
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold">1. Giới thiệu</h2>
@@ -135,7 +135,7 @@ export default function TermsPage() {
         </p>
       </section>
 
-      <p className="text-xs text-muted-foreground">Phiên bản: 2026-07</p>
+      <p className="text-xs text-muted-foreground">Phiên bản: 2026-08</p>
 
       <nav className="flex flex-wrap gap-x-4 gap-y-1 border-t border-border pt-4 text-sm" aria-label="Chính sách liên quan">
         <span className="text-muted-foreground">Liên quan:</span>
