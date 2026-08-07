@@ -76,12 +76,12 @@ beforeEach(() => {
 });
 
 describe('POST /api/auth/register', () => {
-  it('returns 200 with accessToken and customer on success', async () => {
+  it('returns 201 with accessToken and customer on success', async () => {
     const otpProof = await makeOtpProof();
     const body = { email: TEST_EMAIL, otpProof, password: 'Password1' };
     const res = await POST(makeRequest(body));
     const json = await res.json();
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(201); // DS-003 §6.1: register creates a Customer
     expect(json.accessToken).toBe('access-token');
     expect(json.customer.id).toBe('cust-1');
   });
@@ -117,7 +117,7 @@ describe('POST /api/auth/register', () => {
     // Same proof (same jti) used twice: first registration succeeds, replay is rejected.
     const otpProof = await makeOtpProof(TEST_EMAIL, 300, 'fixed-replay-jti');
     const first = await POST(makeRequest({ email: TEST_EMAIL, otpProof, password: 'Password1' }));
-    expect(first.status).toBe(200);
+    expect(first.status).toBe(201);
 
     const second = await POST(makeRequest({ email: TEST_EMAIL, otpProof, password: 'Password1' }));
     const json = await second.json();
@@ -132,16 +132,15 @@ describe('POST /api/auth/register', () => {
     expect(json.error).toBe('otp_proof_invalid');
   });
 
-  it('returns 409 without revealing email existence on EMAIL_TAKEN', async () => {
+  it('returns 409 EMAIL_TAKEN when the email is already registered', async () => {
+    // DS-003 §6.1 / FI-016: register deliberately surfaces EMAIL_TAKEN (FD-012 → "Email đã được
+    // đăng ký") — unlike login, which stays uniform. The AC-verbatim code is EMAIL_TAKEN.
     mockRegister.mockRejectedValue(new AuthServiceError('EMAIL_TAKEN'));
     const otpProof = await makeOtpProof();
     const res = await POST(makeRequest({ email: TEST_EMAIL, otpProof, password: 'Password1' }));
     const json = await res.json();
     expect(res.status).toBe(409);
-    expect(json.error).toBe('invalid_credentials');
-    // Must not mention "email" or "taken" in body
-    const text = JSON.stringify(json);
-    expect(text).not.toContain('taken');
+    expect(json.error).toBe('EMAIL_TAKEN');
   });
 
   it('returns 400 for invalid body (missing otpProof)', async () => {

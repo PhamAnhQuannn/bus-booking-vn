@@ -107,7 +107,9 @@ check_client_server_barrel() {
 # ---------- A4: sameSite lax baseline ----------
 check_samesite_lax_baseline() {
   echo "--- A4: sameSite lax baseline ---"
-  local BASELINE=14
+  # 14 → 16 (ADR-021 / DS-033): the Google OAuth flow adds two sameSite=lax cookies —
+  # `bb_goauth` (start route: signed state + PKCE verifier) and `bb_rt` (callback: refresh).
+  local BASELINE=16
   local count
   count=$(grep -rn --include='*.ts' -i 'sameSite.*lax' app/api/ \
     | grep -v '__tests__/' \

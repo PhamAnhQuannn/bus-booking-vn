@@ -9,14 +9,16 @@
  *   L2  existing email   → reject if inactive (suspended/deleted); else reject if the
  *                          Google email is unverified (L2′, no takeover, HD-012 L1); else
  *                          link `sub` to that Customer + stamp emailVerifiedAt.
- *   L3  new              → create Customer (passwordHash null) + Account; claim guest
- *                          bookings ONLY when the Google email is verified.
+ *   L3  new              → reject if the Google email is unverified (L3′, no email-squat
+ *                          takeover, HD-012 L1); else create Customer (passwordHash null) +
+ *                          Account + claim guest bookings.
  *
  * Every session-minting branch enforces `checkCustomerActive` (P3, matching password
- * login P8) AND verified-email-only claiming (the ProvenEmail IDOR guard):
+ * login P8) AND verified-email-only handling (the ProvenEmail IDOR guard):
  * - a suspended/deleted customer must not mint a session via Google (L1/L2/L3-race);
- * - a new customer's emailVerifiedAt is set only when Google asserts email_verified, and
- *   an unverified email never inherits guest bookings (asProvenEmail stays for proven only).
+ * - an unverified Google email neither links to an existing row (L2′) nor creates a new
+ *   one (L3′), so Customer.email is always a Google-proven address and asProvenEmail is
+ *   only ever handed a proven email.
  */
 
 import { prisma } from '@/lib/core/db/client';
@@ -97,6 +99,17 @@ export async function resolveGoogleLogin(identity: GoogleIdentityInput): Promise
   }
 
   // L3 — new customer + link + guest-booking backfill, atomically.
+  //
+  // L3′ (HD-012 L1, mirrors L2′): a brand-new Google identity must have a Google-VERIFIED
+  // email before we create a Customer keyed to it. Creating Customer.email from an UNVERIFIED
+  // address lets an attacker squat a victim's email (Google can assert email_verified:false
+  // for some Workspace domains); the real owner's later verified sign-in then matches that
+  // row by email in L2 and links into the squatter's account — a shared-account takeover.
+  // Refuse instead, exactly as L2′ refuses to link an unverified email to an existing row.
+  if (!identity.emailVerified) {
+    return { ok: false, reason: 'email_conflict' };
+  }
+
   let customerId: string;
   try {
     customerId = await prisma.$transaction(async (tx) => {
@@ -104,18 +117,16 @@ export async function resolveGoogleLogin(identity: GoogleIdentityInput): Promise
         data: {
           email,
           passwordHash: null,
-          emailVerifiedAt: identity.emailVerified ? now : null,
+          emailVerifiedAt: now, // guaranteed verified by the L3′ guard above
         },
         select: { id: true, email: true },
       });
       await tx.account.create({
         data: { customerId: created.id, provider: PROVIDER, providerAccountId: identity.sub, email },
       });
-      // Claim guest bookings ONLY for a Google-VERIFIED email: asProvenEmail must never
-      // brand an unproven address (IDOR guard, provenEmail.ts) — mirrors the L2′ refusal.
-      // An unverified new sign-in still gets an account (emailVerifiedAt already null); it
-      // simply does not inherit anyone's guest bookings.
-      if (created.email && identity.emailVerified) {
+      // Claim guest bookings for this now-verified email. asProvenEmail must never brand an
+      // unproven address (IDOR guard, provenEmail.ts); the L3′ guard makes email proven here.
+      if (created.email) {
         await backfillGuestBookingsByEmail(tx, created.id, asProvenEmail(created.email));
       }
       return created.id;

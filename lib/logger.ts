@@ -132,6 +132,13 @@ export const loggerOptions: LoggerOptions = {
       // is the safe failure mode (no current caller logs a business `state`).
       'state',
       '*.state',
+      // Google OAuth subject — the stable pseudonymous user id (OIDC `sub`, persisted as
+      // Account.providerAccountId). Not a secret, but a durable identity linkage; redact so
+      // an accidentally-logged identity object can't leak it.
+      'sub',
+      '*.sub',
+      'providerAccountId',
+      '*.providerAccountId',
     ],
     censor: '[REDACTED]',
   },

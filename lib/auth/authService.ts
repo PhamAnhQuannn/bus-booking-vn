@@ -159,10 +159,21 @@ export async function login(input: LoginInput): Promise<AuthResult> {
     }
   }
 
-  await prisma.customer.update({
-    where: { id: customer.id },
-    data: { lastLoginAt: new Date(), ...(upgradedHash ? { passwordHash: upgradedHash } : {}) },
-  });
+  try {
+    await prisma.customer.update({
+      // When upgrading the hash, guard on the value we just verified so a concurrent
+      // changePassword committed between the read and here isn't silently clobbered — the
+      // update then misses (P2025) instead of overwriting the new hash. When not upgrading,
+      // the where is just { id } and never misses. Best-effort: the session is already
+      // minted, so a lost rehash race (or transient write) must not fail the login.
+      where: upgradedHash
+        ? { id: customer.id, passwordHash: customer.passwordHash }
+        : { id: customer.id },
+      data: { lastLoginAt: new Date(), ...(upgradedHash ? { passwordHash: upgradedHash } : {}) },
+    });
+  } catch {
+    // ignore — rehash + lastLoginAt are best-effort; login proceeds on the minted session.
+  }
 
   return {
     accessToken: session.access,

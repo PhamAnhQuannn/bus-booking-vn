@@ -412,6 +412,19 @@ const envSchema = z.object({
    */
   GOAUTH_COOKIE_SECRET: z.string().min(32).optional(),
 
+  /**
+   * P19 argon2id opt-in. Default OFF → password hashing uses scrypt (the pre-P19 baseline).
+   * The native `argon2` addon segfaults on some Linux/Node runners (CI, seed under tsx) and a
+   * segfault is uncatchable, so lib/auth/password.ts skips the argon2 import entirely when this
+   * is not 'true'. Flip to 'true' only in an env verified to load argon2 (a Vercel Linux
+   * preview); rehash-on-verify then upgrades scrypt→argon2id on the next login. Read directly
+   * from process.env in password.ts (dependency-free); declared here for documentation + validation.
+   */
+  AUTH_ARGON2_ENABLED: z
+    .string()
+    .default('false')
+    .transform((v) => v === 'true'),
+
   // ---------------------------------------------------------------------------
   // Self-hosted Redis (Issue 083 — ioredis).
   // REDIS_PROVIDER unset/memory → InMemoryRatelimit + in-memory JTI store.

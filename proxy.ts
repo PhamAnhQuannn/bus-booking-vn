@@ -192,7 +192,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   // Google OAuth routes self-gate on GOOGLE_OAUTH_ENABLED (404 when off) — the interim
   // middleware 410 block was removed once the /api/auth/google/{start,callback} routes
   // landed (DS-033 / STEP 8). The /api/auth/otp/test-peek endpoint keeps its own
-  // NODE_ENV/OTP_PEEK_ENABLED guard (never enabled in production).
+  // NODE_ENV + peek-flag guard in the route handler (never enabled in production).
 
   // -------------------------------------------------------------------------
   // Layer 1 — Operator forced-redirect guard

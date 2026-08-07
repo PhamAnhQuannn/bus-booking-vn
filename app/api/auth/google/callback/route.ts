@@ -54,11 +54,14 @@ async function handler(req: NextRequest): Promise<Response> {
   }
 
   const origin = originOf(req);
-  const errorRedirect = (reason: string) =>
-    clearGoauth(NextResponse.redirect(new URL(`/auth/login?error=${reason}`, origin)));
+  // FD-012 §2A.4: every callback failure redirects with the SINGLE value `?error=google` (the
+  // login page's inline alert keys on it). Never surface the specific reason in the URL —
+  // `inactive`/`email_conflict` would leak account state (suspended/deleted vs email-taken).
+  const errorRedirect = () =>
+    clearGoauth(NextResponse.redirect(new URL('/auth/login?error=google', origin)));
 
   const rl = await customerLoginRatelimit.limit(`google-callback:${clientIp(req.headers)}`);
-  if (!rl.allowed) return errorRedirect('rate_limited');
+  if (!rl.allowed) return errorRedirect();
 
   const goauth = readGoauthCookie(req.headers.get('cookie'));
   const code = req.nextUrl.searchParams.get('code');
@@ -66,7 +69,7 @@ async function handler(req: NextRequest): Promise<Response> {
 
   // CSRF: returned state must match the signed cookie.
   if (!goauth || !code || !state || state !== goauth.state) {
-    return errorRedirect('oauth');
+    return errorRedirect();
   }
 
   let idToken: string;
@@ -74,18 +77,18 @@ async function handler(req: NextRequest): Promise<Response> {
     const tokens = await getGoogleClient().validateAuthorizationCode(code, goauth.verifier);
     idToken = tokens.idToken();
   } catch {
-    return errorRedirect('oauth');
+    return errorRedirect();
   }
 
   const identity = await verifyGoogleIdToken(idToken);
-  if (!identity) return errorRedirect('oauth');
+  if (!identity) return errorRedirect();
 
   const resolved = await resolveGoogleLogin({
     sub: identity.sub,
     email: identity.email,
     emailVerified: identity.emailVerified,
   });
-  if (!resolved.ok) return errorRedirect(resolved.reason);
+  if (!resolved.ok) return errorRedirect();
 
   const session = await createCustomerSession(resolved.customerId);
 

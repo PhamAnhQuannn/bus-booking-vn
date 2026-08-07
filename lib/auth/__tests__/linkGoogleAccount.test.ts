@@ -101,26 +101,17 @@ describe('resolveGoogleLogin', () => {
     expect(mockBackfill).toHaveBeenCalledWith(mockPrisma, 'cust-new', 'trip@example.com');
   });
 
-  it('L3: a new customer from an UNVERIFIED Google email gets a null emailVerifiedAt', async () => {
+  it("L3': REFUSES an unverified Google email (no email-squat takeover, HD-012 L1)", async () => {
     mockPrisma.account.findUnique.mockResolvedValue(null);
     mockPrisma.customer.findFirst.mockResolvedValue(null);
-    mockPrisma.customer.create.mockResolvedValue({ id: 'cust-new', email: 'trip@example.com' });
-
-    await resolveGoogleLogin({ ...IDENTITY, emailVerified: false });
-
-    const createArg = mockPrisma.customer.create.mock.calls[0][0] as { data: { emailVerifiedAt: unknown } };
-    expect(createArg.data.emailVerifiedAt).toBeNull();
-  });
-
-  it('L3: an UNVERIFIED Google email does NOT inherit guest bookings (H2 — ProvenEmail IDOR guard)', async () => {
-    mockPrisma.account.findUnique.mockResolvedValue(null);
-    mockPrisma.customer.findFirst.mockResolvedValue(null);
-    mockPrisma.customer.create.mockResolvedValue({ id: 'cust-new', email: 'trip@example.com' });
 
     const res = await resolveGoogleLogin({ ...IDENTITY, emailVerified: false });
 
-    expect(res).toEqual({ ok: true, customerId: 'cust-new', created: true });
-    expect(mockPrisma.account.create).toHaveBeenCalled(); // account still created
-    expect(mockBackfill).not.toHaveBeenCalled(); // but no guest-booking claim
+    // Mirrors L2': an unverified email must not create a Customer keyed to it, or an attacker
+    // could squat a victim's address and later have the owner's verified sign-in linked in (L2).
+    expect(res).toEqual({ ok: false, reason: 'email_conflict' });
+    expect(mockPrisma.customer.create).not.toHaveBeenCalled();
+    expect(mockPrisma.account.create).not.toHaveBeenCalled();
+    expect(mockBackfill).not.toHaveBeenCalled();
   });
 });
