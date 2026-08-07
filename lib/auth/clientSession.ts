@@ -20,12 +20,20 @@ interface SessionState {
   accessToken: string | null;
   displayName: string | null;
   customerEmail: string | null;
+  /**
+   * False until the first refresh attempt settles (QA DD-4). Distinguishes
+   * "we don't know yet" from "known guest", so the header can show a neutral
+   * placeholder on first paint instead of flashing the guest CTA at a
+   * returning signed-in user (and letting a fast click mis-navigate them).
+   */
+  resolved: boolean;
 }
 
 const useSessionStore = create<SessionState>(() => ({
   accessToken: null,
   displayName: null,
   customerEmail: null,
+  resolved: false,
 }));
 
 // ---- proactive refresh timer -----------------------------------------------
@@ -68,7 +76,8 @@ export function getAccessToken(): string | null {
 }
 
 export function setAccessToken(t: string | null): void {
-  useSessionStore.setState({ accessToken: t });
+  // Any explicit set means the state is now known (login/register path resolves here too).
+  useSessionStore.setState({ accessToken: t, resolved: true });
   if (t) {
     scheduleProactiveRefresh(t);
   } else {
@@ -94,13 +103,30 @@ export function setCustomerEmail(p: string | null): void {
 
 export function clearSession(): void {
   clearRefreshTimer();
-  useSessionStore.setState({ accessToken: null, displayName: null, customerEmail: null });
+  useSessionStore.setState({
+    accessToken: null,
+    displayName: null,
+    customerEmail: null,
+    resolved: true,
+  });
 }
 
 // ---- reactive hooks ---------------------------------------------------------
 
 export function useIsSignedIn(): boolean {
   return useSessionStore((s) => s.accessToken !== null);
+}
+
+export type AuthStatus = 'unknown' | 'guest' | 'authed';
+
+/**
+ * Tri-state sign-in status (QA DD-4). 'unknown' until the bootstrap refresh
+ * settles — render a neutral placeholder for it, never the guest CTA.
+ */
+export function useAuthStatus(): AuthStatus {
+  return useSessionStore((s) =>
+    !s.resolved ? 'unknown' : s.accessToken !== null ? 'authed' : 'guest',
+  );
 }
 
 export function useDisplayName(): string | null {
@@ -136,6 +162,9 @@ function attemptRefresh(): Promise<string | null> {
       return null; // network error — don't clear session, token may still be valid
     } finally {
       inFlight = null;
+      // The attempt has settled (success, 401-clear, or network error) — mark the
+      // state known so the header stops showing the placeholder (DD-4).
+      useSessionStore.setState({ resolved: true });
     }
   })();
   return inFlight;

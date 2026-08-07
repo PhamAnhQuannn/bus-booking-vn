@@ -17,7 +17,7 @@ import { Dialog } from '@base-ui/react/dialog';
 import { LogInIcon, MenuIcon, XIcon } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
 import { CustomerAccountMenu } from '@/components/auth/CustomerAccountMenu';
-import { useIsSignedIn } from '@/lib/auth/clientSession';
+import { useAuthStatus } from '@/lib/auth/clientSession';
 import { cn } from '@/lib/utils';
 
 /* Nav mirrors the mockup's five items (docs/design/mockup-home.png S1). */
@@ -48,7 +48,7 @@ const barHeight = () => (window.innerWidth >= 1024 ? BAR_H_PX.lg : BAR_H_PX.base
 
 export function SiteHeader() {
   const pathname = usePathname();
-  const signedIn = useIsSignedIn();
+  const authStatus = useAuthStatus();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   /* True only while a hero photograph is actually behind the bar. Three states
@@ -125,7 +125,7 @@ export function SiteHeader() {
     <Dialog.Root open={drawerOpen} onOpenChange={setDrawerOpen}>
       <header
         className={cn(
-          'sticky top-0 z-40 transition-[background-color,box-shadow] duration-200',
+          'sticky top-0 z-chrome transition-[background-color,box-shadow] duration-200',
           // Bottom feather: bleeds the header surface 48px down over whatever sits
           // below, so the bar has no hard edge against the hero photo. Starts at full
           // `from-background` — any alpha step at the bar's own bottom edge would
@@ -226,7 +226,15 @@ export function SiteHeader() {
                   i18n and is Vietnamese-only, so the control could never do anything.
                   Its own comment already called it "a known misleading affordance".
                   Restore it alongside real i18n, not before. */}
-              {signedIn ? (
+              {authStatus === 'unknown' ? (
+                // Neutral placeholder while the bootstrap refresh resolves (DD-4):
+                // never the guest CTA, and not clickable, so a returning signed-in
+                // user can't be mis-navigated to /auth/login mid-load.
+                <div
+                  aria-hidden="true"
+                  className="h-11 w-32 animate-pulse rounded-full bg-muted motion-reduce:animate-none"
+                />
+              ) : authStatus === 'authed' ? (
                 <CustomerAccountMenu />
               ) : (
                 <Link
@@ -283,9 +291,9 @@ export function SiteHeader() {
 
       {/* Mobile drawer */}
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/50 transition-opacity duration-200 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 xl:hidden" />
+        <Dialog.Backdrop className="fixed inset-0 z-overlay-backdrop bg-black/50 transition-opacity duration-200 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 xl:hidden" />
         <Dialog.Popup
-          className="fixed inset-y-0 right-0 z-50 flex w-72 flex-col bg-background shadow-lg transition-transform duration-200 ease-out outline-none data-[ending-style]:translate-x-full data-[ending-style]:duration-150 data-[starting-style]:translate-x-full xl:hidden"
+          className="fixed inset-y-0 right-0 z-overlay-panel flex w-72 flex-col bg-background shadow-lg transition-transform duration-200 ease-out outline-none data-[ending-style]:translate-x-full data-[ending-style]:duration-150 data-[starting-style]:translate-x-full xl:hidden"
         >
           <div className="flex h-14 items-center justify-between border-b border-border px-4">
             <Dialog.Title>
@@ -321,7 +329,12 @@ export function SiteHeader() {
             })}
           </nav>
           <div className="flex justify-center border-t border-border px-2 py-2">
-            {signedIn ? (
+            {authStatus === 'unknown' ? (
+              <div
+                aria-hidden="true"
+                className="h-11 w-full animate-pulse rounded-full bg-muted motion-reduce:animate-none"
+              />
+            ) : authStatus === 'authed' ? (
               // QA-H2: close the drawer when the account menu navigates or logs out —
               // the header lives in the root layout, so the drawer wouldn't otherwise
               // close over the destination.

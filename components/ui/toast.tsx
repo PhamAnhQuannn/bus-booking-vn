@@ -23,7 +23,7 @@ function Toaster() {
   const { toasts } = useToast()
   return (
     <ToastPrimitive.Portal>
-      <ToastPrimitive.Viewport className="fixed right-0 bottom-0 z-[100] mx-auto flex w-full max-w-sm flex-col gap-2 p-4 sm:right-4 sm:bottom-4">
+      <ToastPrimitive.Viewport className="fixed right-0 bottom-0 z-toast mx-auto flex w-full max-w-sm flex-col gap-2 p-4 sm:right-4 sm:bottom-4">
         {toasts.map((toast) => {
           const variant = TYPE_TO_VARIANT[toast.type ?? "info"] ?? "info"
           return (

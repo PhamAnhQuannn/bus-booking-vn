@@ -26,11 +26,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 // ---- helpers ---------------------------------------------------------------
 
+// A5/AX-4: status outcomes must be announced. Success is polite (role=status),
+// errors interrupt (role=alert) — matching the auth pages' live-region contract.
 function OkText({ children }: { children: React.ReactNode }) {
-  return <p className="text-sm text-success-foreground">{children}</p>;
+  return (
+    <p role="status" aria-live="polite" className="text-sm text-success-foreground">
+      {children}
+    </p>
+  );
 }
 function ErrText({ children }: { children: React.ReactNode }) {
-  return <p className="text-sm text-destructive">{children}</p>;
+  return (
+    <p role="alert" aria-live="assertive" className="text-sm text-destructive">
+      {children}
+    </p>
+  );
 }
 
 // ---- sub-form: change display name -----------------------------------------

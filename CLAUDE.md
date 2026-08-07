@@ -63,6 +63,10 @@ Distilled from the codebase Mistake Log. Full per-lesson post-mortems live in `~
 - MUST NOT self-fetch own API routes. Extract a lib function; call in-process from both the route handler and the server component.
 - RSC render bodies must be pure — no `Date.now()`, `Math.random()`. Extract to module-scope helpers.
 
+### Overlays & Z-Index
+- Stacked surfaces use the shared `z-<name>` scale (`app/globals.css` `--z-index-*`: `z-chrome` < `z-banner` < `z-overlay-backdrop` < `z-overlay-panel` < `z-popover` < `z-toast`), NEVER a bare `z-40`/`z-50`/`z-[100]` literal — bare literals is how DD-1 (dropdown clipped behind the sticky header) slipped in.
+- Base UI `Menu`/`Select`/`Popover` z-index goes on the `Positioner` (the positioned ancestor), not the `Popup` child — a z on the Popup is trapped inside the Positioner's `z:auto` stacking context and paints under the header.
+
 ### Transactions & Concurrency
 - Read-then-write patterns MUST use `prisma.$transaction(async (tx) => ...)` (callback form, not array form) with `SELECT ... FOR UPDATE` on the gating row.
 - Timestamp columns for state transitions (`departedAt`, `completedAt`, `cancelledAt`) MUST update the status enum in the same `tx.model.update` call.

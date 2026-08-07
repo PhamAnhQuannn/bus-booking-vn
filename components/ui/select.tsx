@@ -54,7 +54,7 @@ function SelectContent({
     <SelectPrimitive.Portal>
       <SelectPrimitive.Positioner
         sideOffset={4}
-        className="z-50 outline-none"
+        className="z-popover outline-none"
       >
         <SelectPrimitive.Popup
           data-slot="select-content"

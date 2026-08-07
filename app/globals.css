@@ -69,6 +69,21 @@
   --shadow-e2: 0 2px 8px -2px oklch(0.3 0.03 60 / 0.12), 0 1px 2px oklch(0.3 0.03 60 / 0.06);
   --shadow-e3: 0 8px 24px -4px oklch(0.3 0.03 60 / 0.14);
   --shadow-e4: 0 16px 48px -8px oklch(0.3 0.03 60 / 0.18);
+  /* Shared z-index scale (GL-1 / DD-1). Single source of truth for every stacked
+     surface — use the `z-<name>` utility, NEVER a bare `z-40`/`z-50` literal, so
+     the layering order stays greppable and can't drift. Overlay ordering: sticky
+     chrome (header) < first-visit banner (cookie) < modal backdrop < modal panel
+     (drawer/dialog) < popover (menus/select — must clear the sticky header, which
+     was the DD-1 dropdown-clip bug) < toast. For a Base UI Menu/Select the z-index
+     MUST sit on the `Positioner` (the positioned ancestor), not the `Popup` child —
+     a z on the Popup is trapped inside the Positioner's `z:auto` stacking context. */
+  --z-index-raised: 10;
+  --z-index-chrome: 40;
+  --z-index-banner: 45;
+  --z-index-overlay-backdrop: 50;
+  --z-index-overlay-panel: 60;
+  --z-index-popover: 70;
+  --z-index-toast: 100;
 }
 
 :root {
