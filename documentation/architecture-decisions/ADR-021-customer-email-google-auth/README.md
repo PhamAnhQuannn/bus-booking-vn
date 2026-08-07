@@ -30,7 +30,7 @@ Two facts drive this decision now:
    entry, **"Sign in with Google"** (one tap, no password, email pre-verified).
 
 2. **The code already diverged from D1.** `lib/auth/authService.ts` implements email+password
-   `register`/`login` (scrypt via `lib/auth/password.ts`; argon2id is the planned P19 upgrade); customer OTP was moved from SMS to
+   `register`/`login` (argon2id primary via `lib/auth/password.ts`, scrypt fallback; native `argon2` addon pending G-BUILD confirmation); customer OTP was moved from SMS to
    **email via Resend** (commit `686ec85`); the `Customer.passwordHash` column D1 flagged as
    "residual / IMPLEMENTED_DIFFERENTLY" is in fact the load-bearing credential store. The written
    spec, not the code, is the thing out of date.
@@ -71,14 +71,14 @@ contact/booking data**, no longer an auth credential.
 
 | Option | Pros | Cons |
 |--------|------|------|
-| **Email + password (+ verify)** | Already implemented (scrypt today; argon2id planned, P19); zero per-login delivery cost; works offline; universally understood | Password reset flow needed (already built); requires email verification to prevent squatting |
+| **Email + password (+ verify)** | Already implemented (argon2id primary in code, scrypt fallback; G-BUILD pending); zero per-login delivery cost; works offline; universally understood | Password reset flow needed (already built); requires email verification to prevent squatting |
 | Passwordless email-OTP | No password to forget; code path exists (Resend) | Per-login email dependency + latency; weaker for repeat logins; two credential systems if combined |
 | Phone-OTP (ADR-003 D1) | Original decision | Per-login SMS cost; SMS brandname a hard blocker; phone no longer the anchor |
 
 **Choice**: **Email + password**, with a **verification link** sent on registration.
 
 **Reasons**:
-- `authService.register`/`login` + `password.ts` (scrypt today; argon2id planned P19, with scrypt fallback + rehash-on-verify), forgot/reset
+- `authService.register`/`login` + `password.ts` (argon2id primary in code, scrypt fallback + rehash-on-verify; native addon pending G-BUILD), forgot/reset
   routes (`/api/auth/forgot-password`, `/api/auth/reset-password`) already exist and are wired into
   `proxy.ts` CSRF-exempt prefixes — this is an un-gate + verification add, not new construction.
 - Email verification (`emailVerifiedAt`) closes the account-squatting / silent-takeover gap and is a
@@ -89,8 +89,10 @@ contact/booking data**, no longer an auth credential.
 
 **Password rules**: unchanged from the operator baseline — the hand-rolled `lib/auth/password.ts` is
 the authoritative hasher for all realms and supersedes the ADR-003 D9 bcrypt-cost-12 "handled by
-Better Auth" line (Better Auth was never adopted). The **current** hasher is **scrypt**; **argon2id**
-is the planned upgrade (P19) with scrypt fallback + rehash-on-verify.
+Better Auth" line (Better Auth was never adopted). The primary hasher **in code** is **argon2id** (P19,
+native `argon2` dependency); **scrypt** remains the fallback, verifies legacy `scrypt$` hashes, and
+rehash-on-verify upgrades scrypt→argon2id on login. A Vercel Linux preview build (**G-BUILD**) must
+confirm the native addon before release; if it fails, the fallback is to bump scrypt cost N.
 
 ---
 

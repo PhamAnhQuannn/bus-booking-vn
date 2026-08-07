@@ -46,7 +46,7 @@ describe('resolveGoogleLogin', () => {
 
   it('L2: links a verified Google email to an existing customer', async () => {
     mockPrisma.account.findUnique.mockResolvedValue(null);
-    mockPrisma.customer.findFirst.mockResolvedValue({ id: 'cust-2', emailVerifiedAt: null });
+    mockPrisma.customer.findFirst.mockResolvedValue({ id: 'cust-2', emailVerifiedAt: null, suspendedAt: null });
 
     const res = await resolveGoogleLogin({ ...IDENTITY, emailVerified: true });
 
@@ -62,11 +62,25 @@ describe('resolveGoogleLogin', () => {
 
   it("L2': refuses to link an UNVERIFIED Google email to an existing account (no takeover)", async () => {
     mockPrisma.account.findUnique.mockResolvedValue(null);
-    mockPrisma.customer.findFirst.mockResolvedValue({ id: 'cust-2', emailVerifiedAt: null });
+    mockPrisma.customer.findFirst.mockResolvedValue({ id: 'cust-2', emailVerifiedAt: null, suspendedAt: null });
 
     const res = await resolveGoogleLogin({ ...IDENTITY, emailVerified: false });
 
     expect(res).toEqual({ ok: false, reason: 'email_conflict' });
+    expect(mockPrisma.account.create).not.toHaveBeenCalled();
+  });
+
+  it('L2: rejects a SUSPENDED customer — no session via Google (H1)', async () => {
+    mockPrisma.account.findUnique.mockResolvedValue(null);
+    mockPrisma.customer.findFirst.mockResolvedValue({
+      id: 'cust-susp',
+      emailVerifiedAt: new Date(),
+      suspendedAt: new Date(),
+    });
+
+    const res = await resolveGoogleLogin({ ...IDENTITY, emailVerified: true });
+
+    expect(res).toEqual({ ok: false, reason: 'inactive' });
     expect(mockPrisma.account.create).not.toHaveBeenCalled();
   });
 
@@ -96,5 +110,17 @@ describe('resolveGoogleLogin', () => {
 
     const createArg = mockPrisma.customer.create.mock.calls[0][0] as { data: { emailVerifiedAt: unknown } };
     expect(createArg.data.emailVerifiedAt).toBeNull();
+  });
+
+  it('L3: an UNVERIFIED Google email does NOT inherit guest bookings (H2 — ProvenEmail IDOR guard)', async () => {
+    mockPrisma.account.findUnique.mockResolvedValue(null);
+    mockPrisma.customer.findFirst.mockResolvedValue(null);
+    mockPrisma.customer.create.mockResolvedValue({ id: 'cust-new', email: 'trip@example.com' });
+
+    const res = await resolveGoogleLogin({ ...IDENTITY, emailVerified: false });
+
+    expect(res).toEqual({ ok: true, customerId: 'cust-new', created: true });
+    expect(mockPrisma.account.create).toHaveBeenCalled(); // account still created
+    expect(mockBackfill).not.toHaveBeenCalled(); // but no guest-booking claim
   });
 });

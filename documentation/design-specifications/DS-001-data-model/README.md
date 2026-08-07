@@ -18,7 +18,7 @@ This document is the authoritative data model reference for the BusBooking platf
 | phone | String | Yes | -- | `@unique`. Set to NULL on soft-delete. Partial unique index `Customer_email_key` is on email, not phone; Postgres allows multiple NULLs on `@unique`. Use `findFirst` (not `findUnique`) when filtering with `deletedAt: null`. |
 | email | String | Yes | -- | **Identity anchor (ADR-021 D1).** Partial unique index `Customer_email_key` WHERE email IS NOT NULL (SQL-only, migration `20260519003311_issue_007_auth`) |
 | emailVerifiedAt | DateTime | Yes | -- | **ADR-021/DS-033.** Non-null once email proven (OTP-verified at registration, or Google `email_verified=true`). Gates safe OAuth auto-linking (DS-033 L1) |
-| passwordHash | String | Yes | -- | scrypt (`lib/auth/password.ts`; argon2id planned P19). **Load-bearing** (ADR-021). Null = OAuth-only or not-yet-password customer |
+| passwordHash | String | Yes | -- | argon2id primary (`lib/auth/password.ts`, P19), scrypt fallback + legacy verifier; native addon pending G-BUILD. **Load-bearing** (ADR-021). Null = OAuth-only or not-yet-password customer |
 | displayName | String | Yes | -- | |
 | createdAt | DateTime | No | `@default(now())` | |
 | updatedAt | DateTime | No | `@updatedAt` | |

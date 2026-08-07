@@ -54,7 +54,7 @@ Key business constraints driving auth decisions (sourced from `documentation/bus
 > (with email verification) **plus "Sign in with Google" (OAuth/OIDC)**. Phone-OTP is retired as the
 > primary customer auth path; **email becomes the identity anchor** and phone becomes optional
 > contact/booking-merge data. This resolves the `IMPLEMENTED_DIFFERENTLY` note above: `passwordHash`
-> is **load-bearing**, not residual (scrypt via `lib/auth/password.ts`; argon2id planned P19), and null now legitimately
+> is **load-bearing**, not residual (argon2id primary via `lib/auth/password.ts`, scrypt fallback; native addon pending G-BUILD), and null now legitimately
 > means an OAuth-only or not-yet-password customer. The email-vs-SMS OTP-channel ambiguity (D6, below)
 > is also retired for customers by this reversal. See ADR-021 for rationale, the `Account` model
 > (DS-033), and the CDTIA consequence of Google (US) OIDC. D2 (operator), D3 (admin), D4 (session),
@@ -269,8 +269,8 @@ Key business constraints driving auth decisions (sourced from `documentation/bus
 - Only operator and admin realms use passwords; customer is OTP-only
 
 > **AMENDMENT** (2026-08-06 → [ADR-021](../ADR-021-customer-email-google-auth/README.md))
-> Better Auth was never adopted (D8 stays PLANNED). The authoritative hasher is the hand-rolled
-> **scrypt** in `lib/auth/password.ts`, for ALL realms (argon2id is the planned P19 upgrade, with scrypt fallback + rehash-on-verify). Per ADR-021 D1/D2 the
+> Better Auth was never adopted (D8 stays PLANNED). The authoritative hasher lives in the hand-rolled
+> `lib/auth/password.ts`, for ALL realms: **argon2id** (P19) is the primary hasher in code, **scrypt** the fallback + legacy `scrypt$` verifier with rehash-on-verify (a Vercel Linux **G-BUILD** must confirm the native addon before release). Per ADR-021 D1/D2 the
 > **customer realm now uses passwords too** (email+password) — "customer is OTP-only" no longer holds.
 
 ---

@@ -98,4 +98,22 @@ describe('resolveGoogleLogin (int, DS-033)', () => {
     const res = await resolveGoogleLogin({ sub, email, emailVerified: true });
     expect(res).toEqual({ ok: false, reason: 'inactive' });
   });
+
+  it('rejects a SUSPENDED customer via L2 (existing email, no prior link) — no session, no link (H1)', async () => {
+    const email = 'g-susp@example.test';
+    const sub = 'int-sub-susp';
+    createdSubs.add(sub);
+    const c = await prisma.customer.create({
+      data: { email, passwordHash: 'scrypt$x$y', suspendedAt: new Date() },
+    });
+    createdCustomerIds.add(c.id);
+
+    const res = await resolveGoogleLogin({ sub, email, emailVerified: true });
+    expect(res).toEqual({ ok: false, reason: 'inactive' });
+    // no Account link was created for the suspended customer
+    const acct = await prisma.account.findUnique({
+      where: { provider_providerAccountId: { provider: 'google', providerAccountId: sub } },
+    });
+    expect(acct).toBeNull();
+  });
 });

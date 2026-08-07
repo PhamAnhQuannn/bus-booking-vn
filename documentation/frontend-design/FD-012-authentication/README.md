@@ -16,7 +16,7 @@ Frontend UX specification for authentication across the three platform realms (c
 
 | Realm | Identity | Credential | MFA | Session TTL (Access) | Session TTL (Refresh) |
 |-------|----------|------------|-----|---------------------|-----------------------|
-| **Customer** | **Email** (ADR-021) | **Password (scrypt; argon2id planned) or Google OAuth** | None | 15 min | 30 days |
+| **Customer** | **Email** (ADR-021) | **Password (argon2id primary, scrypt fallback; G-BUILD pending) or Google OAuth** | None | 15 min | 30 days |
 | **Operator** | Email + username | Password + OTP step-up | OTP for sensitive ops | 15 min | Work-shift scoped |
 | **Admin** | Email | Password + TOTP | Authenticator app (mandatory) | 15 min | Short-lived |
 

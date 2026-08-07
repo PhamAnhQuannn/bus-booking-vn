@@ -5,7 +5,7 @@
 > **AMENDMENT** (2026-08-06 → [ADR-021](../../architecture-decisions/ADR-021-customer-email-google-auth/README.md)):
 > Customer auth is now **email+password + Google OAuth** (not phone-OTP). Note: **the planned auth provider was
 > never adopted** (ADR-003 D8 stays PLANNED), so the "Provider" column below is
-> aspirational — in reality **we own every primitive** (hand-rolled `jose`/scrypt; argon2id planned P19). The new OAuth
+> aspirational — in reality **we own every primitive** (hand-rolled `jose`; argon2id primary hasher in code, scrypt fallback — native addon pending G-BUILD). The new OAuth
 > attack surface is catalogued in **§OAuth (Google Sign-In)** at the end of this document.
 
 ## Purpose

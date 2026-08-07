@@ -353,7 +353,7 @@ Register a new customer with email + password. The email is already proven by th
 |-------|-----|------|----------|-------|
 | `email` | body | string | Yes | Lowercased/trimmed. Unique (`Customer_email_key`) → 409 `EMAIL_TAKEN` on P2002 |
 | `otpProof` | body | string | Yes | Proof the email OTP was verified (see `/api/auth/verify-email`); its email must match `email`. Gates `emailVerifiedAt = now()` |
-| `password` | body | string | Yes | scrypt-hashed server-side (argon2id is the planned P19 upgrade) |
+| `password` | body | string | Yes | Hashed server-side: argon2id (P19) primary in code, scrypt fallback (native addon pending G-BUILD) |
 | `displayName` | body | string | No | |
 
 **Response (201):** `{ accessToken, customer }` + `bb_rt` refresh cookie set.

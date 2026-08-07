@@ -50,7 +50,7 @@ Two changes relevant here:
 - `emailVerifiedAt DateTime?` — set to `now()` when the email is proven: at registration via the
   email OTP (the code sent to the email proves ownership) or when Google asserts `email_verified=true`.
   Gates safe OAuth auto-linking.
-- `passwordHash` (hashed with **scrypt** today; **argon2id** is the planned upgrade, P19) is **nullable
+- `passwordHash` (hashed with **argon2id** (P19) primary in code, **scrypt** fallback + legacy verifier; native addon pending G-BUILD) is **nullable
   and legitimately null** for OAuth-only customers (resolves the ADR-003
   D1 "IMPLEMENTED_DIFFERENTLY" note — the column is load-bearing, and null now means "no password
   credential, OAuth or unverified-signup only").
@@ -70,12 +70,18 @@ Resolution order in `GET /api/auth/google/callback`, after `id_token` validation
 1. **Known link** — `Account.findUnique({ provider:'google', providerAccountId: sub })`.
    → Load its `Customer`. If that Customer is `deletedAt`/`suspendedAt`, reject (fail like
    `requireCustomerAuth`).
-2. **Link to existing email** — else `Customer.findFirst({ email, deletedAt: null })`
-   **AND `email_verified === true`** → create `Account` linking `sub` to that Customer; set
-   `emailVerifiedAt = now()` if not already set.
+2. **Link to existing email** — else `Customer.findFirst({ email, deletedAt: null })`. **Reject if the
+   customer is `suspendedAt`** (inactive — the same active-account gate as step 1 and password login;
+   a suspended account must not mint a session via Google either). Else, **AND `email_verified === true`**
+   → create `Account` linking `sub` to that Customer; set `emailVerifiedAt = now()` if not already set.
+   (An unverified email → reject, no takeover.)
 3. **New customer** — else create `Customer { email, passwordHash: null, emailVerifiedAt: email_verified
-   ? now() : null }` + `Account`, then `backfillGuestBookingsByEmail(tx, customerId, email)`.
-   (Tightening: an unverified Google email must not silently mark the new account's email as proven.)
+   ? now() : null }` + `Account`. Backfill guest bookings **only when `email_verified === true`** —
+   `backfillGuestBookingsByEmail` brands the email as `ProvenEmail`, so an unverified address must NOT
+   claim another user's guest bookings (IDOR guard; an unverified new sign-in still gets an account, it
+   just inherits nothing). A P2002 race (concurrent first sign-in) re-resolves the now-existing link
+   idempotently (active-checked) instead of surfacing a 500.
+   (Tightening vs the original spec: emailVerifiedAt + the backfill are both gated on `email_verified`.)
 
 **Invariants**
 - **L1 — No unverified auto-link.** Step 2 requires `email_verified === true`. An unverified Google

@@ -5,14 +5,18 @@
  * Returns a discriminated result; the create/link/backfill writes happen in ONE
  * prisma.$transaction (L3 — no partial link possible).
  *
- *   L1  known link              → the linked Customer (reject if inactive).
- *   L2  existing verified email → link `sub` to that Customer; stamp emailVerifiedAt.
- *   L2′ existing email, Google-unverified → reject (no account takeover, HD-012 L1).
- *   L3  new                     → create Customer (passwordHash null) + Account + backfill.
+ *   L1  known link       → reject if inactive; else the linked Customer.
+ *   L2  existing email   → reject if inactive (suspended/deleted); else reject if the
+ *                          Google email is unverified (L2′, no takeover, HD-012 L1); else
+ *                          link `sub` to that Customer + stamp emailVerifiedAt.
+ *   L3  new              → create Customer (passwordHash null) + Account; claim guest
+ *                          bookings ONLY when the Google email is verified.
  *
- * Tightening vs DS-033 §3 line 76: a new customer's emailVerifiedAt is set only when
- * Google asserts email_verified — an unverified Google email must not silently mark the
- * new account's email as proven.
+ * Every session-minting branch enforces `checkCustomerActive` (P3, matching password
+ * login P8) AND verified-email-only claiming (the ProvenEmail IDOR guard):
+ * - a suspended/deleted customer must not mint a session via Google (L1/L2/L3-race);
+ * - a new customer's emailVerifiedAt is set only when Google asserts email_verified, and
+ *   an unverified email never inherits guest bookings (asProvenEmail stays for proven only).
  */
 
 import { prisma } from '@/lib/core/db/client';
@@ -52,12 +56,18 @@ export async function resolveGoogleLogin(identity: GoogleIdentityInput): Promise
     return { ok: true, customerId: c.id, created: false };
   }
 
-  // L2 — existing email. Only link when Google asserts the email is verified.
+  // L2 — existing email. Reject inactive first (a suspended/deleted customer must not mint
+  // a session via Google any more than via password login — P8 / assertCustomerActive P3),
+  // then require Google to have verified the email before linking.
   const existingByEmail = await prisma.customer.findFirst({
     where: { email, deletedAt: null },
-    select: { id: true, emailVerifiedAt: true },
+    select: { id: true, emailVerifiedAt: true, suspendedAt: true },
   });
   if (existingByEmail) {
+    // deletedAt already excluded by the where; check suspendedAt explicitly.
+    if (!checkCustomerActive({ suspendedAt: existingByEmail.suspendedAt, deletedAt: null }).active) {
+      return { ok: false, reason: 'inactive' };
+    }
     if (!identity.emailVerified) {
       return { ok: false, reason: 'email_conflict' }; // L2′ — no takeover
     }
@@ -87,22 +97,55 @@ export async function resolveGoogleLogin(identity: GoogleIdentityInput): Promise
   }
 
   // L3 — new customer + link + guest-booking backfill, atomically.
-  const customerId = await prisma.$transaction(async (tx) => {
-    const created = await tx.customer.create({
-      data: {
-        email,
-        passwordHash: null,
-        emailVerifiedAt: identity.emailVerified ? now : null,
-      },
-      select: { id: true, email: true },
+  let customerId: string;
+  try {
+    customerId = await prisma.$transaction(async (tx) => {
+      const created = await tx.customer.create({
+        data: {
+          email,
+          passwordHash: null,
+          emailVerifiedAt: identity.emailVerified ? now : null,
+        },
+        select: { id: true, email: true },
+      });
+      await tx.account.create({
+        data: { customerId: created.id, provider: PROVIDER, providerAccountId: identity.sub, email },
+      });
+      // Claim guest bookings ONLY for a Google-VERIFIED email: asProvenEmail must never
+      // brand an unproven address (IDOR guard, provenEmail.ts) — mirrors the L2′ refusal.
+      // An unverified new sign-in still gets an account (emailVerifiedAt already null); it
+      // simply does not inherit anyone's guest bookings.
+      if (created.email && identity.emailVerified) {
+        await backfillGuestBookingsByEmail(tx, created.id, asProvenEmail(created.email));
+      }
+      return created.id;
     });
-    await tx.account.create({
-      data: { customerId: created.id, provider: PROVIDER, providerAccountId: identity.sub, email },
-    });
-    if (created.email) {
-      await backfillGuestBookingsByEmail(tx, created.id, asProvenEmail(created.email));
+  } catch (err) {
+    // Concurrent first-time sign-in won the race → P2002 on the Account provider+sub
+    // unique (or the Customer email index). Re-resolve idempotently instead of a 500.
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      const link = await prisma.account.findUnique({
+        where: {
+          provider_providerAccountId: { provider: PROVIDER, providerAccountId: identity.sub },
+        },
+        select: { customer: { select: { id: true, suspendedAt: true, deletedAt: true } } },
+      });
+      if (link) {
+        if (
+          !checkCustomerActive({
+            suspendedAt: link.customer.suspendedAt,
+            deletedAt: link.customer.deletedAt,
+          }).active
+        ) {
+          return { ok: false, reason: 'inactive' };
+        }
+        return { ok: true, customerId: link.customer.id, created: false };
+      }
+      // The race created a Customer with this email but linked to a DIFFERENT sub (or not
+      // linked yet) → treat as a conflict rather than hijacking it.
+      return { ok: false, reason: 'email_conflict' };
     }
-    return created.id;
-  });
+    throw err;
+  }
   return { ok: true, customerId, created: true };
 }

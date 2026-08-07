@@ -6,7 +6,7 @@
 
 > **AMENDMENT** (2026-08-06 → [ADR-021](../../architecture-decisions/ADR-021-customer-email-google-auth/README.md) / [FI-016](../FI-016-google-oauth/README.md))
 > The **customer realm** described below as "OTP-only passwordless via phone" is **superseded**:
-> customer auth is now **email + password** (scrypt, already implemented in `lib/auth/authService.ts`; argon2id planned P19)
+> customer auth is now **email + password** (argon2id primary + scrypt fallback in `lib/auth/authService.ts`; native addon pending G-BUILD)
 > **+ "Sign in with Google" (OAuth/OIDC)**. Identity anchor = **email**; phone = optional contact.
 > A new **`Account`** model links Google `sub` → Customer (DS-033). The Phase-1 `410` gate
 > (`proxy.ts` ~192-216 + `app/api/auth/login/route.ts:44`) is lifted per FI-016. The
@@ -246,7 +246,7 @@ OTP TTL: 5 minutes. Auth max attempts: 5. Account management max attempts: 3.
 
 ## Known Gaps & Open Questions
 
-- **RESOLVED (2026-08-06, ADR-021): passwordHash column** -- No longer "residual". Customer auth is email+password (scrypt; argon2id planned P19) + Google OAuth; `passwordHash` is the load-bearing credential (null = OAuth-only customer). Column stays. See [ADR-021](../../architecture-decisions/ADR-021-customer-email-google-auth/README.md) / [FI-016](../FI-016-google-oauth/README.md).
+- **RESOLVED (2026-08-06, ADR-021): passwordHash column** -- No longer "residual". Customer auth is email+password (argon2id primary, scrypt fallback; native addon pending G-BUILD) + Google OAuth; `passwordHash` is the load-bearing credential (null = OAuth-only customer). Column stays. See [ADR-021](../../architecture-decisions/ADR-021-customer-email-google-auth/README.md) / [FI-016](../FI-016-google-oauth/README.md).
 - **RESOLVED (P17 #438, 2026-08-07): Per-realm signing secrets** -- ADR-003 D10 fully implemented: access tokens (pre-existing) AND refresh tokens now use per-realm secrets `REFRESH_TOKEN_SECRET_{CUSTOMER,OPERATOR,ADMIN}` (env.ts Zod schema + per-realm mint/verify in refreshToken.ts / operatorSession.ts / adminSession.ts). CUTOVER rollout.
 - **HIGH -- PLANNED: Better Auth migration** -- ADR-003 D8 chose Better Auth as auth provider. Current hand-rolled auth (password hashing, session management, token rotation, TOTP) must be migrated to Better Auth plugins. Better Auth handles: bcrypt cost 12, DB-backed sessions, refresh rotation with reuse detection, brute-force rate limiting, TOTP replay protection + backup codes. Migration eliminates the two HALT blockers below.
 - **HIGH -- PARTIALLY_IMPLEMENTED: Admin TOTP** -- TOTP is implemented but: (1) no replay protection (same code can be reused within 30-second window -- no SETNX), (2) backup codes not implemented (Mitigations section mentions them but no code exists). Both resolved by Better Auth `twoFactor()` plugin (ADR-003 D8). HALT-level blockers until Better Auth migration completes.
