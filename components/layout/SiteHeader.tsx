@@ -130,6 +130,15 @@ export function SiteHeader() {
     return () => mq.removeEventListener('change', sync);
   }, [drawerOpen]);
 
+  // DD-8: in-drawer links already close on click (forward nav). Browser
+  // back/forward fire `popstate` instead, which those handlers can't catch — so
+  // close the drawer here too, or it lingers over the destination page.
+  useEffect(() => {
+    const onPop = () => setDrawerOpen(false);
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
   if (pathname.startsWith('/op') || pathname.startsWith('/dev') || pathname.startsWith('/auth') || pathname.startsWith('/admin'))
     return null;
 
@@ -306,9 +315,9 @@ export function SiteHeader() {
 
       {/* Mobile drawer */}
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-overlay-backdrop bg-black/50 transition-opacity duration-200 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 xl:hidden" />
+        <Dialog.Backdrop className="fixed inset-0 z-overlay-backdrop bg-black/50 transition-opacity duration-200 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none xl:hidden" />
         <Dialog.Popup
-          className="fixed inset-y-0 right-0 z-overlay-panel flex w-72 flex-col bg-background shadow-lg transition-transform duration-200 ease-out outline-none data-[ending-style]:translate-x-full data-[ending-style]:duration-150 data-[starting-style]:translate-x-full xl:hidden"
+          className="fixed inset-y-0 right-0 z-overlay-panel flex w-72 flex-col bg-background shadow-lg transition-transform duration-200 ease-out outline-none data-[ending-style]:translate-x-full data-[ending-style]:duration-150 data-[starting-style]:translate-x-full motion-reduce:transition-none xl:hidden"
         >
           <div className="flex h-14 items-center justify-between border-b border-border px-4">
             <Dialog.Title>

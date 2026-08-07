@@ -56,9 +56,17 @@ export default function RootLayout({
       className={`${beVietnam.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
+        {/* AX-10: skip link — first focusable element, visually hidden until focused
+            so keyboard users can jump past the header nav on every page (WCAG 2.4.1). */}
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-toast focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:shadow-e2 focus:outline-none focus:ring-3 focus:ring-ring/50"
+        >
+          Bỏ qua tới nội dung chính
+        </a>
         <SessionBootstrap />
         <SiteHeader />
-        <div className="flex flex-1 flex-col">{children}</div>
+        <div id="main" tabIndex={-1} className="flex flex-1 flex-col outline-none">{children}</div>
         <SiteFooter />
         <CookieConsent />
         {/* Dev mode loads an external debug script (va.vercel-scripts.com) that our CSP blocks — prod-only. */}

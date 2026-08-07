@@ -74,10 +74,16 @@ export function CustomerAccountMenu({ onNavigate }: { onNavigate?: () => void })
           <Menu.Popup
             className={cn(
               'min-w-44 rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-e3 outline-none',
-              'transition-[transform,opacity] duration-200 ease-out data-[ending-style]:opacity-0 data-[starting-style]:opacity-0'
+              'transition-[transform,opacity] duration-200 ease-out data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none'
             )}
           >
-            <div className="px-2 py-1.5 text-xs text-muted-foreground sm:hidden">{name}</div>
+            {/* AX-3: a bare <div> is an invalid direct child of role=menu. A
+                Menu.Group (role=group) with a GroupLabel is the allowed structure. */}
+            <Menu.Group className="sm:hidden">
+              <Menu.GroupLabel className="px-2 py-1.5 text-xs text-muted-foreground">
+                {name}
+              </Menu.GroupLabel>
+            </Menu.Group>
             <Menu.Item
               render={
                 <Link
@@ -104,6 +110,9 @@ export function CustomerAccountMenu({ onNavigate }: { onNavigate?: () => void })
             <Menu.Item
               onClick={handleLogout}
               disabled={pending}
+              // DD-6: keep the popup mounted on click so the "Đang đăng xuất…"
+              // pending label actually renders (default closeOnClick unmounts it).
+              closeOnClick={false}
               className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-destructive outline-none transition-colors hover:bg-destructive/10 data-[highlighted]:bg-destructive/10 disabled:opacity-50"
             >
               <LogOutIcon aria-hidden="true" className="size-4" />
