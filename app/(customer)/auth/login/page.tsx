@@ -11,6 +11,7 @@ import { setAccessToken, setDisplayName, setCustomerEmail } from '@/lib/auth/cli
 import { readCsrfToken } from '@/lib/auth/csrfClient';
 import { safeReturnTo } from '@/lib/auth/safeReturnTo';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,7 +30,10 @@ function LoginPageInner() {
   const searchParams = useSearchParams();
   const returnTo = safeReturnTo(searchParams.get('returnTo'));
 
-  const [error, setError] = useState('');
+  // FD-012 §2A.4: a Google callback failure redirects to /auth/login?error=google.
+  const [error, setError] = useState(
+    searchParams.get('error') === 'google' ? 'Đăng nhập Google thất bại. Thử lại.' : ''
+  );
   const [loading, setLoading] = useState(false);
 
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
@@ -91,6 +95,7 @@ function LoginPageInner() {
               {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
             </Button>
           </form>
+          <GoogleSignInButton returnTo={returnTo} />
           <div className="flex flex-col gap-1 text-sm">
             <Link
               href="/auth/forgot-password"

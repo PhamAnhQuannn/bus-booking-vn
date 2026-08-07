@@ -14,6 +14,7 @@ import { readCsrfToken } from '@/lib/auth/csrfClient';
 import { setAccessToken, setDisplayName, setCustomerEmail } from '@/lib/auth/clientSession';
 import { safeReturnTo } from '@/lib/auth/safeReturnTo';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -207,6 +208,7 @@ function RegisterPageInner() {
               <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="w-full">
                 {loading ? 'Đang gửi...' : 'Gửi mã OTP'}
               </Button>
+              <GoogleSignInButton returnTo={returnTo} />
             </form>
           )}
 
