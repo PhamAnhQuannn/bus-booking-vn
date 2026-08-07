@@ -33,6 +33,11 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   output: 'standalone',
+  // argon2 is a native addon (P19 password hashing). Mark it external so webpack does
+  // not try to bundle the `.node` binary; Next then requires it at runtime and includes
+  // it in the standalone trace. Its import in lib/auth/password.ts is a normal dynamic
+  // import so file-tracing sees it.
+  serverExternalPackages: ['argon2'],
   // 2026-06-06: allow the VS Code devtunnel origin in `next dev` so cross-origin
   // /_next assets, HMR, and server actions are not blocked when the app is reached
   // through the forwarded HTTPS tunnel. Dev-only key; ignored in production builds.
