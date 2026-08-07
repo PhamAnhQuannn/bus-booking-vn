@@ -107,12 +107,75 @@ describe('logger redactPaths', () => {
     }
   });
 
+  it('masks Google OAuth secrets/tokens (ADR-021)', async () => {
+    const { loggerOptions } = await import('../logger');
+    const redactPaths = Array.isArray(loggerOptions.redact)
+      ? loggerOptions.redact
+      : (loggerOptions.redact as { paths: string[] }).paths;
+
+    const required = [
+      'GOOGLE_CLIENT_SECRET',
+      'id_token',
+      '*.id_token',
+      'access_token',
+      '*.access_token',
+      'refresh_token',
+      '*.refresh_token',
+      'code_verifier',
+      '*.code_verifier',
+      'state',
+      '*.state',
+    ];
+    for (const field of required) {
+      expect(redactPaths, `missing OAuth redact path: ${field}`).toContain(field);
+    }
+  });
+
   it('redact path count does not regress below baseline', async () => {
     const { loggerOptions } = await import('../logger');
     const redactPaths = Array.isArray(loggerOptions.redact)
       ? loggerOptions.redact
       : (loggerOptions.redact as { paths: string[] }).paths;
-    expect(redactPaths.length).toBeGreaterThanOrEqual(45);
+    expect(redactPaths.length).toBeGreaterThanOrEqual(63);
+  });
+
+  it('redacts Google OAuth id_token/access_token/code_verifier/state in pino output', async () => {
+    const { Writable } = await import('stream');
+    const pino = await import('pino');
+    const { loggerOptions } = await import('../logger');
+
+    const chunks: string[] = [];
+    const sink = new Writable({
+      write(chunk, _enc, cb) {
+        chunks.push(chunk.toString());
+        cb();
+      },
+    });
+
+    const testLogger = pino.default({ ...loggerOptions, level: 'info' }, sink);
+    testLogger.info(
+      {
+        id_token: 'IDTOK_SECRET',
+        code_verifier: 'PKCE_SECRET',
+        state: 'STATE_SECRET',
+        tokens: { access_token: 'ACCESS_SECRET', refresh_token: 'REFRESH_SECRET' },
+      },
+      'oauth redaction'
+    );
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const output = chunks.join('');
+    expect(output).toContain('[REDACTED]');
+    for (const secret of [
+      'IDTOK_SECRET',
+      'PKCE_SECRET',
+      'STATE_SECRET',
+      'ACCESS_SECRET',
+      'REFRESH_SECRET',
+    ]) {
+      expect(output).not.toContain(secret);
+    }
   });
 
   it('redacts buyerPhone and buyerName to [REDACTED] in pino stream output', async () => {

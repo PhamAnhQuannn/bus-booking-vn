@@ -29,9 +29,9 @@ const SESSION_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000;
 
 function getRefreshSecret(): Buffer {
   const raw =
-    process.env.REFRESH_TOKEN_SECRET ??
-    (process.env.NODE_ENV === 'test' ? 'b'.repeat(32) : null);
-  if (!raw) throw new Error('REFRESH_TOKEN_SECRET not configured');
+    process.env.REFRESH_TOKEN_SECRET_ADMIN ??
+    (process.env.NODE_ENV === 'test' ? 'd'.repeat(32) : null);
+  if (!raw) throw new Error('REFRESH_TOKEN_SECRET_ADMIN not configured');
   return Buffer.from(raw, 'utf8');
 }
 

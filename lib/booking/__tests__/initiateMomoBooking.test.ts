@@ -36,10 +36,6 @@ vi.mock('@/lib/core/db/client', () => ({
   },
 }));
 
-vi.mock('@/lib/booking/attachGuestBooking', () => ({
-  attachGuestBooking: vi.fn().mockResolvedValue(undefined),
-}));
-
 // ---------------------------------------------------------------------------
 // Imports (after mocks)
 // ---------------------------------------------------------------------------

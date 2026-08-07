@@ -1,30 +1,31 @@
 /**
  * POST /api/auth/login
- * Body: { username, password, scope: 'operator' }
  *
- * Phase 1: Only operator login is active.
- * Customer auth is 410-gated (guest-only booking).
+ * Dispatches on `scope`:
+ *   - scope === 'operator' → operator login (username+password, optional email 2FA).
+ *       Response: { accessToken, operator, requiresPasswordChange } + bb_op_access (15m)
+ *       + bb_op_refresh (30d); OR { otpRequired, loginChallenge, maskedEmail } when 2FA.
+ *   - otherwise → customer login (email+password, P1/ADR-021).
+ *       Response: { accessToken, customer } + bb_rt (30d). Access token is a Bearer held
+ *       in client memory (clientSession), refresh lives in the bb_rt HttpOnly cookie.
  *
- * Operator (scope='operator'):
- *   Step 1 (password only, operator has no email):
- *     Response: { accessToken, operator, requiresPasswordChange }
- *     + Set-Cookie bb_op_access (15min) + bb_op_refresh (30d)
- *
- *   Step 1 (password OK, operator has email → 2FA):
- *     Response: { otpRequired: true, loginChallenge, maskedEmail }
- *     No cookies set. Client must POST /api/auth/login/verify-otp next.
- *
- * 401 invalid_credentials on wrong credentials.
+ * 401 invalid_credentials on wrong credentials (uniform, anti-enumeration — a suspended
+ * or unknown customer looks identical). 429 RATE_LIMITED / LOCKED_OUT under the limiters.
  */
 
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { operatorLoginInput } from '@/lib/core/validation/auth';
-import { operatorLogin, AuthServiceError } from '@/lib/auth';
+import { operatorLoginInput, loginInput } from '@/lib/core/validation/auth';
+import { operatorLogin, login, AuthServiceError } from '@/lib/auth';
 import { clientIp } from '@/lib/core/http/clientIp';
-import { opLoginRatelimit, opLoginLockout } from '@/lib/ratelimit';
+import {
+  opLoginRatelimit,
+  opLoginLockout,
+  customerLoginRatelimit,
+  customerLoginLockout,
+} from '@/lib/ratelimit';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 const REFRESH_COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days in seconds
@@ -39,15 +40,57 @@ async function handler(req: NextRequest): Promise<Response> {
   }
 
   const rawScope = (body as Record<string, unknown>)?.scope;
+  return rawScope === 'operator'
+    ? handleOperatorLogin(req, body)
+    : handleCustomerLogin(req, body);
+}
 
-  // Phase 1: customer auth is 410-gated (guest-only booking)
-  if (rawScope !== 'operator') {
+async function handleCustomerLogin(req: NextRequest, body: unknown): Promise<Response> {
+  const ipRl = await customerLoginRatelimit.limit(`customer-login:${clientIp(req.headers)}`);
+  if (!ipRl.allowed) {
     return NextResponse.json(
-      { error: 'customer_accounts_disabled' },
-      { status: 410 }
+      { error: 'RATE_LIMITED' },
+      { status: 429, headers: { 'Retry-After': String(ipRl.retryAfter) } }
     );
   }
 
+  const parsed = loginInput.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'INVALID' }, { status: 400 });
+  }
+
+  const lockoutKey = `customer-login-fail:${parsed.data.email.trim().toLowerCase()}`;
+
+  let result;
+  try {
+    result = await login(parsed.data);
+  } catch (err) {
+    if (err instanceof AuthServiceError && err.code === 'INVALID_CREDENTIALS') {
+      const lk = await customerLoginLockout.limit(lockoutKey);
+      if (!lk.allowed) {
+        return NextResponse.json(
+          { error: 'LOCKED_OUT' },
+          { status: 429, headers: { 'Retry-After': String(lk.retryAfter) } }
+        );
+      }
+      return NextResponse.json({ error: 'invalid_credentials' }, { status: 401 });
+    }
+    throw err;
+  }
+
+  const cookieStore = await cookies();
+  cookieStore.set('bb_rt', result.refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: REFRESH_COOKIE_MAX_AGE,
+  });
+
+  return NextResponse.json({ accessToken: result.accessToken, customer: result.customer });
+}
+
+async function handleOperatorLogin(req: NextRequest, body: unknown): Promise<Response> {
   const ipRl = await opLoginRatelimit.limit(`op-login:${clientIp(req.headers)}`);
   if (!ipRl.allowed) {
     return NextResponse.json(

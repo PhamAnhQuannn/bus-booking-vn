@@ -8,10 +8,12 @@
 import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import { consume } from './otp';
-import { hash as hashPassword, verify as verifyPassword, dummyVerify } from './password';
+import { hash as hashPassword, verify as verifyPassword, dummyVerify, needsRehash } from './password';
 import { createSession, rotateRefresh, revokeSession } from './session';
 import { verify as verifyRefreshToken } from './refreshToken';
 import { backfillGuestBookingsByEmail } from '@/lib/booking';
+import { asProvenEmail } from '@/lib/core/validation/provenEmail';
+import { checkCustomerActive } from './assertCustomerActive';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -70,11 +72,21 @@ export async function register(input: RegisterInput): Promise<AuthResult> {
   try {
     customer = await prisma.$transaction(async (tx) => {
       const created = await tx.customer.create({
-        data: { email, passwordHash, displayName: input.displayName ?? null },
+        // emailVerifiedAt: the caller (POST /api/auth/register) gates on a single-use
+        // OTP proof matching this email before register() runs, so ownership is proven
+        // at creation time (P13). No separate verification-link step for the password path.
+        data: {
+          email,
+          passwordHash,
+          displayName: input.displayName ?? null,
+          emailVerifiedAt: new Date(),
+        },
         select: { id: true, email: true, displayName: true },
       });
       if (created.email) {
-        await backfillGuestBookingsByEmail(tx, created.id, created.email);
+        // Email ownership was proven upstream (the register route validates an OTP
+        // proof matching this email), so it is safe to brand as ProvenEmail (P22).
+        await backfillGuestBookingsByEmail(tx, created.id, asProvenEmail(created.email));
       }
       return created;
     });
@@ -109,10 +121,19 @@ export async function login(input: LoginInput): Promise<AuthResult> {
 
   const customer = await prisma.customer.findFirst({
     where: { email, deletedAt: null },
-    select: { id: true, email: true, displayName: true, passwordHash: true },
+    select: { id: true, email: true, displayName: true, passwordHash: true, suspendedAt: true },
   });
 
-  if (!customer || !customer.passwordHash) {
+  // P8: a suspended customer must not mint a session even with the right password.
+  // Fold it into the pre-verify guard (with dummyVerify for timing parity) and keep
+  // the error uniform as INVALID_CREDENTIALS — never leak suspension state pre-auth.
+  // Uses the shared checkCustomerActive so this can't drift from requireCustomerAuth
+  // (deletedAt is already excluded by the `where` above, so pass it as null).
+  if (
+    !customer ||
+    !customer.passwordHash ||
+    !checkCustomerActive({ suspendedAt: customer.suspendedAt, deletedAt: null }).active
+  ) {
     await dummyVerify();
     throw new AuthServiceError('INVALID_CREDENTIALS');
   }
@@ -123,9 +144,24 @@ export async function login(input: LoginInput): Promise<AuthResult> {
   }
 
   const session = await createSession(customer.id, null);
+
+  // Rehash-on-verify (P19): upgrade a legacy scrypt hash to argon2id on a successful
+  // login. Best-effort — never block login if the upgrade or its write fails. Only
+  // persist when the new hash is actually argon2 (argon2 unavailable → hash() returns
+  // scrypt → needsRehash still true → skip, no pointless churn).
+  let upgradedHash: string | undefined;
+  if (needsRehash(customer.passwordHash)) {
+    try {
+      const rehashed = await hashPassword(input.password);
+      if (!needsRehash(rehashed)) upgradedHash = rehashed;
+    } catch {
+      // ignore — login proceeds on the existing hash
+    }
+  }
+
   await prisma.customer.update({
     where: { id: customer.id },
-    data: { lastLoginAt: new Date() },
+    data: { lastLoginAt: new Date(), ...(upgradedHash ? { passwordHash: upgradedHash } : {}) },
   });
 
   return {
@@ -134,6 +170,31 @@ export async function login(input: LoginInput): Promise<AuthResult> {
     refreshHash: session.refreshHash,
     csrf: session.csrf,
     customer: { id: customer.id, email: customer.email, displayName: customer.displayName },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// createCustomerSession — OAuth callback session mint (DS-033 L4)
+// ---------------------------------------------------------------------------
+
+/**
+ * Mint a customer session for an already-authenticated identity (Google OAuth callback).
+ * Mirrors the tail of login(): createSession + stamp lastLoginAt. The caller sets bb_rt;
+ * the access token is re-minted via /api/auth/refresh on landing (a 302 has no body).
+ */
+export async function createCustomerSession(
+  customerId: string
+): Promise<{ accessToken: string; refreshToken: string; refreshHash: string; csrf: string }> {
+  const session = await createSession(customerId, null);
+  await prisma.customer.update({
+    where: { id: customerId },
+    data: { lastLoginAt: new Date() },
+  });
+  return {
+    accessToken: session.access,
+    refreshToken: session.refreshToken,
+    refreshHash: session.refreshHash,
+    csrf: session.csrf,
   };
 }
 

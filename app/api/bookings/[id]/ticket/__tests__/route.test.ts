@@ -30,6 +30,7 @@ vi.mock('@/lib/core/db/client', () => ({
       findUnique: vi.fn(async (a: { where: { id: string } }) => ({
         id: a.where.id,
         suspendedAt: null,
+        deletedAt: null,
       })),
     },
     booking: { findUnique: mockFindUnique },

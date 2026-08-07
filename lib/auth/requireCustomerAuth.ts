@@ -20,19 +20,21 @@
  * verification (expired, tampered, or operator-scoped — verifyAccess rejects
  * scope='operator').
  *
- * SUSPENSION GATE (Issue 066): a single DB lookup on the Customer row after the
- * token verifies — a customer with `suspendedAt !== null` (admin-suspended) is
- * rejected with 403 ACCOUNT_SUSPENDED. Suspension also revokes all sessions at
- * suspend time (lib/admin/suspendCustomer.ts) so the refresh-token path dies too;
- * this gate is the access-token backstop for any short-lived access JWT still in
- * flight at suspend time. A deleted/forged id matches zero rows → 401 (the row is
- * absent, so we cannot confirm an active account).
+ * ACTIVE-ACCOUNT GATE (Issue 066 + P4): a single DB lookup on the Customer row
+ * after the token verifies, delegated to `checkCustomerActive`. A customer with
+ * `suspendedAt !== null` (admin-suspended) → 403 ACCOUNT_SUSPENDED; a customer with
+ * `deletedAt !== null` (soft-deleted) → 401 (indistinguishable from nonexistent).
+ * Suspension/deletion also revoke all sessions (lib/admin/suspendCustomer.ts /
+ * lib/account/anonymizeCustomer.ts) so the refresh path dies too; this gate is the
+ * access-token backstop for any short-lived access JWT still in flight. A forged id
+ * matches zero rows → 401.
  */
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/core/db/client';
 import { verifyAccess } from './jwt';
+import { checkCustomerActive } from './assertCustomerActive';
 
 /** Context the HOF threads to the wrapped handler. */
 export interface CustomerAuthContext {
@@ -62,17 +64,22 @@ export function requireCustomerAuth(): HOF {
         return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
       }
 
-      // Suspension gate (Issue 066): re-read the Customer row to enforce admin
-      // suspension on any access token still live at suspend time. A missing row
-      // (deleted/forged id) → 401; a suspended row → 403 ACCOUNT_SUSPENDED.
+      // Active-account gate (Issue 066 + P4): re-read the Customer row to enforce
+      // admin suspension AND soft-deletion on any access token still live at
+      // suspend/delete time. A missing row (forged id) → 401; a deleted row → 401
+      // (indistinguishable from nonexistent); a suspended row → 403 ACCOUNT_SUSPENDED.
       const customer = await prisma.customer.findUnique({
         where: { id: payload.sub },
-        select: { id: true, suspendedAt: true },
+        select: { id: true, suspendedAt: true, deletedAt: true },
       });
       if (!customer) {
         return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
       }
-      if (customer.suspendedAt !== null) {
+      const status = checkCustomerActive(customer);
+      if (!status.active) {
+        if (status.reason === 'deleted') {
+          return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
+        }
         return NextResponse.json({ error: 'ACCOUNT_SUSPENDED' }, { status: 403 });
       }
 
@@ -91,10 +98,21 @@ export function requireCustomerAuth(): HOF {
  * or invalid token simply means "treat as guest". Used to stamp Booking.customerId
  * at creation when the buyer is logged in (Issue 031), which both pre-fills the
  * account link and removes the phone-match attach spoof vector.
+ *
+ * Active-account gate (QA-H3): re-reads the Customer row and returns null (treat as
+ * guest) for a suspended/soft-deleted customer, so a still-live access token can NOT
+ * attribute a fresh booking to an account that was suspended or erased. Same
+ * `checkCustomerActive` predicate as requireCustomerAuth — never throws.
  */
 export async function getCustomerOptional(req: NextRequest): Promise<string | null> {
   const token = extractBearer(req.headers.get('authorization'));
   if (!token) return null;
   const payload = await verifyAccess(token);
-  return payload ? payload.sub : null;
+  if (!payload) return null;
+  const customer = await prisma.customer.findUnique({
+    where: { id: payload.sub },
+    select: { suspendedAt: true, deletedAt: true },
+  });
+  if (!customer || !checkCustomerActive(customer).active) return null;
+  return payload.sub;
 }

@@ -3,6 +3,7 @@ import { Be_Vietnam_Pro, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
+import { SessionBootstrap } from "@/components/auth/SessionBootstrap";
 import { CookieConsent } from "@/components/CookieConsent";
 import { Analytics } from "@vercel/analytics/next";
 import { SITE_URL } from "@/lib/seo";
@@ -55,6 +56,7 @@ export default function RootLayout({
       className={`${beVietnam.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
+        <SessionBootstrap />
         <SiteHeader />
         <div className="flex flex-1 flex-col">{children}</div>
         <SiteFooter />

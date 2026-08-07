@@ -189,38 +189,10 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     return res;
   };
 
-  // -------------------------------------------------------------------------
-  // Layer 0.5 — Customer auth gate (Phase 1: guest-only, no customer sign-in)
-  // Customer auth code stays in the codebase for Phase 2 enablement; this
-  // gate blocks all customer auth routes at the edge. Remove this block and
-  // restore SiteHeader customer login link when ready to enable.
-  // -------------------------------------------------------------------------
-  const CUSTOMER_AUTH_BLOCKED_PREFIXES = [
-    '/auth/',
-    '/account/',
-    '/api/auth/register',
-    '/api/auth/otp/',
-    '/api/auth/forgot-password',
-    '/api/auth/reset-password',
-    '/api/auth/refresh',
-    '/api/account',
-  ];
-  if (
-    CUSTOMER_AUTH_BLOCKED_PREFIXES.some((p) => pathname.startsWith(p)) ||
-    pathname === '/auth' ||
-    pathname === '/account'
-  ) {
-    return withRid(
-      NextResponse.json({ error: 'customer_accounts_disabled' }, { status: 410 })
-    );
-  }
-  if (pathname === '/api/auth/login' && requestMethod === 'POST') {
-    // Allow operator login (scope='operator') through; block customer login.
-    // The route handler checks the body, but we can't read it in Edge middleware.
-    // Instead, let the route handle scope discrimination — this gate only blocks
-    // the page-level routes and the registration/OTP/account APIs above.
-    // Customer login is effectively unusable because /auth/login page is 410'd.
-  }
+  // Google OAuth routes self-gate on GOOGLE_OAUTH_ENABLED (404 when off) — the interim
+  // middleware 410 block was removed once the /api/auth/google/{start,callback} routes
+  // landed (DS-033 / STEP 8). The /api/auth/otp/test-peek endpoint keeps its own
+  // NODE_ENV/OTP_PEEK_ENABLED guard (never enabled in production).
 
   // -------------------------------------------------------------------------
   // Layer 1 — Operator forced-redirect guard

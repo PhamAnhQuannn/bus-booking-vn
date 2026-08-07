@@ -13,3 +13,5 @@ export {
 export { dispatchNotifications, MAX_ATTEMPTS } from './dispatchNotifications';
 export { sendEmail, renderEmailSubject } from './email';
 export type { SendEmailInput, SendEmailResult, EmailTemplate } from './email';
+export type { SendSmsInput, SendSmsResult, SmsTemplate } from './esms';
+export { logNotificationDispatchFailure } from './logDispatchFailure';

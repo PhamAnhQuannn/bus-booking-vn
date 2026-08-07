@@ -44,7 +44,7 @@ async function handler(req: NextRequest, { customerId }: { customerId: string })
   const { newPhone, code } = parsed.data;
 
   // Verify OTP for the new phone number
-  const otpResult = await verifyCustomerAccountOtp(newPhone, code);
+  const otpResult = await verifyCustomerAccountOtp(newPhone, code, 'phone');
 
   if (otpResult.status === 'locked_out') {
     return NextResponse.json({ error: 'OTP_LOCKED_OUT' }, { status: 429 });

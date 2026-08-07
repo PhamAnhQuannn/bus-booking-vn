@@ -20,8 +20,9 @@
  *
  * generateFamily() → crypto.randomUUID()
  *
- * Secret: process.env.REFRESH_TOKEN_SECRET (required in production).
- * Test fallback: 'b'.repeat(32) when NODE_ENV === 'test'.
+ * Secret: process.env.REFRESH_TOKEN_SECRET_CUSTOMER (required in production; P17 per-realm split).
+ * Test fallback: 'c'.repeat(32) when NODE_ENV === 'test' (distinct per realm — a cross-realm bug
+ * then fails the HMAC loudly instead of silently passing under a shared secret).
  */
 
 import crypto from 'crypto';
@@ -50,9 +51,9 @@ export interface VerifyResult {
 
 function getSecret(): Buffer {
   const raw =
-    process.env.REFRESH_TOKEN_SECRET ??
-    (process.env.NODE_ENV === 'test' ? 'b'.repeat(32) : null);
-  if (!raw) throw new Error('REFRESH_TOKEN_SECRET not configured');
+    process.env.REFRESH_TOKEN_SECRET_CUSTOMER ??
+    (process.env.NODE_ENV === 'test' ? 'c'.repeat(32) : null);
+  if (!raw) throw new Error('REFRESH_TOKEN_SECRET_CUSTOMER not configured');
   return Buffer.from(raw, 'utf8');
 }
 

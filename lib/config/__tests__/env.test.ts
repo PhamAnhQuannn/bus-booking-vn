@@ -145,7 +145,9 @@ describe('getEnv — in-memory rate limiting in production', () => {
     TOTP_ENCRYPTION_KEY: 'b'.repeat(64),
     BANK_ENCRYPTION_KEY: 'c'.repeat(64),
     CRON_SECRET: 'cron-secret-value',
-    REFRESH_TOKEN_SECRET: 'r'.repeat(32),
+    REFRESH_TOKEN_SECRET_CUSTOMER: 'r'.repeat(32),
+    REFRESH_TOKEN_SECRET_OPERATOR: 's'.repeat(32),
+    REFRESH_TOKEN_SECRET_ADMIN: 'u'.repeat(32),
     TICKET_SECRET: 't'.repeat(32),
   };
 
@@ -246,5 +248,52 @@ describe('getEnv — VNPAY_HASH_SECRET has no published default', () => {
     }
 
     expect(() => getEnv()).not.toThrow();
+  });
+});
+
+describe('getEnv — Google OAuth guard (ADR-021 / P5)', () => {
+  it('throws when GOOGLE_OAUTH_ENABLED=true and creds/base-url are missing', () => {
+    Object.assign(process.env, BASE, { GOOGLE_OAUTH_ENABLED: 'true' });
+    for (const k of ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'NEXT_PUBLIC_BASE_URL']) {
+      delete process.env[k];
+    }
+    expect(() => getEnv()).toThrow(
+      /GOOGLE_CLIENT_ID|GOOGLE_CLIENT_SECRET|NEXT_PUBLIC_BASE_URL/
+    );
+  });
+
+  it('parses when GOOGLE_OAUTH_ENABLED=true and all four are set', () => {
+    Object.assign(process.env, BASE, {
+      GOOGLE_OAUTH_ENABLED: 'true',
+      GOOGLE_CLIENT_ID: 'cid.apps.googleusercontent.com',
+      GOOGLE_CLIENT_SECRET: 'secret',
+      NEXT_PUBLIC_BASE_URL: 'https://lenxevn.com',
+      GOAUTH_COOKIE_SECRET: 'g'.repeat(32),
+    });
+    expect(() => getEnv()).not.toThrow();
+  });
+
+  it('throws when GOOGLE_OAUTH_ENABLED=true but GOAUTH_COOKIE_SECRET is missing', () => {
+    Object.assign(process.env, BASE, {
+      GOOGLE_OAUTH_ENABLED: 'true',
+      GOOGLE_CLIENT_ID: 'cid.apps.googleusercontent.com',
+      GOOGLE_CLIENT_SECRET: 'secret',
+      NEXT_PUBLIC_BASE_URL: 'https://lenxevn.com',
+    });
+    delete process.env.GOAUTH_COOKIE_SECRET;
+    expect(() => getEnv()).toThrow(/GOAUTH_COOKIE_SECRET/);
+  });
+
+  it('parses when Google OAuth is disabled (default) — no regression', () => {
+    Object.assign(process.env, BASE);
+    for (const k of ['GOOGLE_OAUTH_ENABLED', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET']) {
+      delete process.env[k];
+    }
+    expect(() => getEnv()).not.toThrow();
+  });
+
+  it('rejects a non-URL NEXT_PUBLIC_BASE_URL', () => {
+    Object.assign(process.env, BASE, { NEXT_PUBLIC_BASE_URL: 'not-a-url' });
+    expect(() => getEnv()).toThrow(/NEXT_PUBLIC_BASE_URL/);
   });
 });

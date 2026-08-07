@@ -41,7 +41,7 @@ describe('POST /api/account/phone/init', () => {
     const json = await res.json();
     expect(res.status).toBe(200);
     expect(json.ok).toBe(true);
-    expect(mockSendOtp).toHaveBeenCalledWith('+84901234567');
+    expect(mockSendOtp).toHaveBeenCalledWith('+84901234567', 'phone');
   });
 
   it('returns 429 LOCKED_OUT when locked', async () => {

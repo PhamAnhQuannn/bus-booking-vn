@@ -1,7 +1,7 @@
 /**
  * Zod schemas for auth endpoints.
  *
- * email: trimmed, valid format, max 254 chars.
+ * email: trimmed, lowercased, valid format, max 254 chars.
  * phoneNumber: VN local (0...) and international (+84...) formats.
  * password: 8–128 chars, ≥1 letter, ≥1 digit.
  * otpCode: exactly 6 digits.
@@ -9,7 +9,10 @@
 
 import { z } from 'zod';
 
-const emailSchema = z.string().trim().email().max(254);
+// .toLowerCase() before .email() so a mixed-case address (User@Example.com) both
+// validates and normalises to one canonical form — the account key must be
+// case-stable, and Google may return a differently-cased email than the user typed.
+const emailSchema = z.string().trim().toLowerCase().email().max(254);
 
 const phoneSchema = z.string().trim().regex(/^(0|\+84)[35789][0-9]{8}$/);
 

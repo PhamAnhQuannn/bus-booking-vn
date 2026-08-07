@@ -20,6 +20,7 @@ beforeEach(() => {
   findUnique.mockImplementation(async (args: { where: { id: string } }) => ({
     id: args.where.id,
     suspendedAt: null,
+    deletedAt: null,
   }));
 });
 afterEach(() => {
@@ -105,7 +106,7 @@ describe('requireCustomerAuth', () => {
     const { signAccess } = await import('../jwt');
     const { requireCustomerAuth } = await import('../requireCustomerAuth');
     const token = await signAccess({ sub: 'cust-susp', role: 'customer' });
-    findUnique.mockResolvedValueOnce({ id: 'cust-susp', suspendedAt: new Date() });
+    findUnique.mockResolvedValueOnce({ id: 'cust-susp', suspendedAt: new Date(), deletedAt: null });
 
     const handler = vi.fn();
     const wrapped = requireCustomerAuth()(handler);
@@ -115,11 +116,42 @@ describe('requireCustomerAuth', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
-  it('returns 401 when the customer row no longer exists (deleted id)', async () => {
+  it('returns 401 when the customer row no longer exists (forged id)', async () => {
     const { signAccess } = await import('../jwt');
     const { requireCustomerAuth } = await import('../requireCustomerAuth');
     const token = await signAccess({ sub: 'cust-gone', role: 'customer' });
     findUnique.mockResolvedValueOnce(null);
+
+    const handler = vi.fn();
+    const wrapped = requireCustomerAuth()(handler);
+    const res = await wrapped(reqWithAuth(`Bearer ${token}`));
+    expect(res.status).toBe(401);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 when the customer is soft-deleted, even with a live token (P4)', async () => {
+    const { signAccess } = await import('../jwt');
+    const { requireCustomerAuth } = await import('../requireCustomerAuth');
+    const token = await signAccess({ sub: 'cust-del', role: 'customer' });
+    findUnique.mockResolvedValueOnce({ id: 'cust-del', suspendedAt: null, deletedAt: new Date() });
+
+    const handler = vi.fn();
+    const wrapped = requireCustomerAuth()(handler);
+    const res = await wrapped(reqWithAuth(`Bearer ${token}`));
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: 'UNAUTHORIZED' });
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('prefers 401 (deleted) over 403 (suspended) when both flags are set', async () => {
+    const { signAccess } = await import('../jwt');
+    const { requireCustomerAuth } = await import('../requireCustomerAuth');
+    const token = await signAccess({ sub: 'cust-both', role: 'customer' });
+    findUnique.mockResolvedValueOnce({
+      id: 'cust-both',
+      suspendedAt: new Date(),
+      deletedAt: new Date(),
+    });
 
     const handler = vi.fn();
     const wrapped = requireCustomerAuth()(handler);
@@ -172,5 +204,29 @@ describe('getCustomerOptional (Issue 031)', () => {
       operatorId: 'org-1',
     });
     expect(await getCustomerOptional(reqWithAuth(`Bearer ${opToken}`))).toBeNull();
+  });
+
+  it('returns null (treat as guest) for a suspended customer with a live token (QA-H3)', async () => {
+    const { signAccess } = await import('../jwt');
+    const { getCustomerOptional } = await import('../requireCustomerAuth');
+    const token = await signAccess({ sub: 'cust-susp', role: 'customer' });
+    findUnique.mockResolvedValueOnce({ id: 'cust-susp', suspendedAt: new Date(), deletedAt: null });
+    expect(await getCustomerOptional(reqWithAuth(`Bearer ${token}`))).toBeNull();
+  });
+
+  it('returns null (treat as guest) for a soft-deleted customer with a live token (QA-H3)', async () => {
+    const { signAccess } = await import('../jwt');
+    const { getCustomerOptional } = await import('../requireCustomerAuth');
+    const token = await signAccess({ sub: 'cust-del', role: 'customer' });
+    findUnique.mockResolvedValueOnce({ id: 'cust-del', suspendedAt: null, deletedAt: new Date() });
+    expect(await getCustomerOptional(reqWithAuth(`Bearer ${token}`))).toBeNull();
+  });
+
+  it('returns null when the customer row is gone (QA-H3)', async () => {
+    const { signAccess } = await import('../jwt');
+    const { getCustomerOptional } = await import('../requireCustomerAuth');
+    const token = await signAccess({ sub: 'cust-gone', role: 'customer' });
+    findUnique.mockResolvedValueOnce(null);
+    expect(await getCustomerOptional(reqWithAuth(`Bearer ${token}`))).toBeNull();
   });
 });

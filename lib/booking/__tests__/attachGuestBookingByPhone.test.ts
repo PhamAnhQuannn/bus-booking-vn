@@ -9,6 +9,7 @@ import {
   backfillGuestBookingsForCustomer,
   backfillGuestBookingsByEmail,
 } from '../attachGuestBookingByPhone';
+import { asProvenEmail } from '@/lib/core/validation/provenEmail';
 import type { Prisma } from '@prisma/client';
 
 function makeTx(opts: {
@@ -97,9 +98,10 @@ describe('backfillGuestBookingsForCustomer', () => {
 describe('backfillGuestBookingsByEmail', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('claims unowned bookings matching the normalized email', async () => {
+  it('claims unowned bookings matching the normalized (lowercased) email', async () => {
     const { tx, updateMany } = makeTx({ updateCount: 3 });
-    const count = await backfillGuestBookingsByEmail(tx, 'cust-1', 'Buyer@Example.COM');
+    // asProvenEmail lowercases + trims — the branded value is what the query uses.
+    const count = await backfillGuestBookingsByEmail(tx, 'cust-1', asProvenEmail('Buyer@Example.COM'));
 
     expect(count).toBe(3);
     expect(updateMany).toHaveBeenCalledWith({
@@ -108,9 +110,9 @@ describe('backfillGuestBookingsByEmail', () => {
     });
   });
 
-  it('trims whitespace from email before querying', async () => {
+  it('uses the trimmed email from asProvenEmail', async () => {
     const { tx, updateMany } = makeTx({ updateCount: 1 });
-    await backfillGuestBookingsByEmail(tx, 'cust-1', '  test@example.com  ');
+    await backfillGuestBookingsByEmail(tx, 'cust-1', asProvenEmail('  test@example.com  '));
 
     expect(updateMany).toHaveBeenCalledWith({
       where: { buyerEmail: 'test@example.com', customerId: null },
@@ -120,7 +122,12 @@ describe('backfillGuestBookingsByEmail', () => {
 
   it('returns 0 when no guest bookings match', async () => {
     const { tx } = makeTx({ updateCount: 0 });
-    const count = await backfillGuestBookingsByEmail(tx, 'cust-1', 'nobody@example.com');
+    const count = await backfillGuestBookingsByEmail(tx, 'cust-1', asProvenEmail('nobody@example.com'));
     expect(count).toBe(0);
+  });
+
+  it('rejects a bare (unproven) string at compile time — IDOR guard', () => {
+    // @ts-expect-error backfillGuestBookingsByEmail requires a ProvenEmail, not a raw string.
+    void ((tx: Prisma.TransactionClient) => backfillGuestBookingsByEmail(tx, 'cust-1', 'attacker@evil.com'));
   });
 });

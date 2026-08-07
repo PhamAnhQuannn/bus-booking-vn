@@ -21,13 +21,25 @@ const JTI_REQUIRED_PURPOSES: Set<OtpProofPurpose> = new Set([
   'otp_proof',
   'reset_password',
   'phone_change',
+  // P18: a login challenge is exactly the kind of security-sensitive token that must
+  // be single-use — the login flow still re-verifies the OTP code, so this adds
+  // defense-in-depth for ~zero UX cost (no legitimate client replays a challenge).
+  'op_login',
 ]);
 
-function getJwtSecret(): Uint8Array {
+// P18: operator-realm purposes are signed/verified with the OPERATOR secret, not the
+// customer access-token secret (JWT_SECRET). Previously all purposes used JWT_SECRET,
+// so a customer-realm key compromise could forge operator login/reset proofs.
+const OPERATOR_PURPOSES: Set<OtpProofPurpose> = new Set(['op_login', 'op_pwd_reset']);
+
+function getSecretForPurpose(purpose: OtpProofPurpose): Uint8Array {
+  const isOperator = OPERATOR_PURPOSES.has(purpose);
+  // Distinct test fallbacks per realm ('a' customer / 'b' operator) mirror
+  // lib/auth/jwt.ts's REALM_TEST_FALLBACKS so a cross-realm test bug fails loudly.
   const raw =
-    process.env.JWT_SECRET ??
-    (process.env.NODE_ENV === 'test' ? 'a'.repeat(32) : null);
-  if (!raw) throw new Error('JWT_SECRET not configured');
+    (isOperator ? process.env.JWT_OPERATOR_SECRET : process.env.JWT_SECRET) ??
+    (process.env.NODE_ENV === 'test' ? (isOperator ? 'b' : 'a').repeat(32) : null);
+  if (!raw) throw new Error(`${isOperator ? 'JWT_OPERATOR_SECRET' : 'JWT_SECRET'} not configured`);
   return new TextEncoder().encode(raw);
 }
 
@@ -142,7 +154,7 @@ export async function issueOtpProof(identifier: string, purpose: OtpProofPurpose
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(`${OTP_PROOF_TTL_SECONDS}s`)
-    .sign(getJwtSecret());
+    .sign(getSecretForPurpose(purpose));
 }
 
 /**
@@ -154,7 +166,7 @@ export async function verifyOtpProof(
   purpose: OtpProofPurpose
 ): Promise<OtpProofPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, getJwtSecret(), {
+    const { payload } = await jwtVerify(token, getSecretForPurpose(purpose), {
       algorithms: ['HS256'],
     });
     if (payload['purpose'] !== purpose || typeof payload['jti'] !== 'string') {

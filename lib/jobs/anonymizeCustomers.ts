@@ -47,8 +47,14 @@ export const anonymizeCustomers: JobCore = async (tx, opts) => {
   for (const row of candidates) {
     await tx.customer.update({
       where: { id: row.id },
-      data: { email: null, passwordHash: null },
+      // QA-M2: clear emailVerifiedAt alongside email/passwordHash so the scrubbed row
+      // carries no orphan verification timestamp.
+      data: { email: null, passwordHash: null, emailVerifiedAt: null },
     });
+
+    // DS-033: purge any residual OAuth links (deleteAccount already unlinks at delete
+    // time; this is a defensive sweep for rows predating that path). Idempotent.
+    await tx.account.deleteMany({ where: { customerId: row.id } });
 
     await tx.$executeRaw(Prisma.sql`
       UPDATE "NotificationLog" nl

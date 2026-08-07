@@ -1,16 +1,20 @@
 /**
  * Unit tests for POST /api/auth/login.
- * Phase 1: customer auth is 410-gated; only operator login is active.
+ * Dispatches on `scope`: operator (username+password, optional 2FA) or customer
+ * (email+password, ADR-021).
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const {
   mockOperatorLogin,
+  mockCustomerLogin,
   mockCookieStore,
   AuthServiceError,
   mockOpLoginRatelimit,
   mockOpLoginLockout,
+  mockCustomerLoginRatelimit,
+  mockCustomerLoginLockout,
 } = vi.hoisted(() => {
   class AuthServiceError extends Error {
     code: string;
@@ -23,19 +27,24 @@ const {
   const mockCookieStore = { set: vi.fn(), get: vi.fn(), has: vi.fn(), delete: vi.fn() };
   return {
     mockOperatorLogin: vi.fn(),
+    mockCustomerLogin: vi.fn(),
     mockCookieStore,
     AuthServiceError,
     mockOpLoginRatelimit: { limit: vi.fn() },
     mockOpLoginLockout: { limit: vi.fn() },
+    mockCustomerLoginRatelimit: { limit: vi.fn() },
+    mockCustomerLoginLockout: { limit: vi.fn() },
   };
 });
 
 vi.mock('@/lib/auth/operatorAuthService', () => ({ operatorLogin: mockOperatorLogin }));
-vi.mock('@/lib/auth/authService', () => ({ AuthServiceError }));
+vi.mock('@/lib/auth/authService', () => ({ AuthServiceError, login: mockCustomerLogin }));
 vi.mock('@/lib/ratelimit', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/ratelimit')>()),
   opLoginRatelimit: mockOpLoginRatelimit,
   opLoginLockout: mockOpLoginLockout,
+  customerLoginRatelimit: mockCustomerLoginRatelimit,
+  customerLoginLockout: mockCustomerLoginLockout,
 }));
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => mockCookieStore) }));
 
@@ -67,31 +76,82 @@ const OP_AUTH_RESULT = {
   requiresPasswordChange: false,
 };
 
+const CUST_AUTH_RESULT = {
+  accessToken: 'cust-access-token',
+  refreshToken: 'cust-refresh-token',
+  refreshHash: 'cust-hash',
+  csrf: 'cust-csrf',
+  customer: { id: 'cust-1', email: 'test@example.com', displayName: 'Trav Eler' },
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockOperatorLogin.mockResolvedValue(OP_AUTH_RESULT);
+  mockCustomerLogin.mockResolvedValue(CUST_AUTH_RESULT);
   mockOpLoginRatelimit.limit.mockResolvedValue(ALLOW);
   mockOpLoginLockout.limit.mockResolvedValue(ALLOW);
+  mockCustomerLoginRatelimit.limit.mockResolvedValue(ALLOW);
+  mockCustomerLoginLockout.limit.mockResolvedValue(ALLOW);
 });
 
 describe('POST /api/auth/login', () => {
-  describe('customer scope (Phase 1: 410-gated)', () => {
-    it('returns 410 when scope is absent', async () => {
+  describe('customer scope (email+password)', () => {
+    it('returns 200 with accessToken + customer and sets bb_rt on valid credentials', async () => {
       const res = await POST(makeRequest({ email: 'test@example.com', password: 'Password1' }));
       const json = await res.json();
-      expect(res.status).toBe(410);
-      expect(json.error).toBe('customer_accounts_disabled');
-      expect(mockOperatorLogin).not.toHaveBeenCalled();
+      expect(res.status).toBe(200);
+      expect(json.accessToken).toBe('cust-access-token');
+      expect(json.customer).toEqual(CUST_AUTH_RESULT.customer);
+      expect(mockCustomerLogin).toHaveBeenCalledWith({ email: 'test@example.com', password: 'Password1' });
+      const setCalls = mockCookieStore.set.mock.calls;
+      const rt = setCalls.find((c: unknown[]) => c[0] === 'bb_rt');
+      expect(rt).toBeDefined();
+      expect(rt![2]).toMatchObject({ httpOnly: true, sameSite: 'lax', path: '/' });
     });
 
-    it('returns 410 when scope is explicitly "customer"', async () => {
-      const res = await POST(makeRequest({ email: 'test@example.com', password: 'Password1', scope: 'customer' }));
-      expect(res.status).toBe(410);
+    it('does NOT set operator cookies on customer login', async () => {
+      await POST(makeRequest({ email: 'test@example.com', password: 'Password1' }));
+      const names = mockCookieStore.set.mock.calls.map((c: string[]) => c[0]);
+      expect(names).not.toContain('bb_op_access');
+      expect(names).not.toContain('bb_op_refresh');
     });
 
-    it('returns 410 for unknown scope values', async () => {
-      const res = await POST(makeRequest({ email: 'test@example.com', password: 'Password1', scope: 'admin' }));
-      expect(res.status).toBe(410);
+    it('returns 401 invalid_credentials on bad credentials', async () => {
+      mockCustomerLogin.mockRejectedValue(new AuthServiceError('INVALID_CREDENTIALS'));
+      const res = await POST(makeRequest({ email: 'test@example.com', password: 'wrongpass1' }));
+      const json = await res.json();
+      expect(res.status).toBe(401);
+      expect(json.error).toBe('invalid_credentials');
+    });
+
+    it('returns 400 INVALID for a malformed email', async () => {
+      const res = await POST(makeRequest({ email: 'not-an-email', password: 'Password1' }));
+      expect(res.status).toBe(400);
+      expect(mockCustomerLogin).not.toHaveBeenCalled();
+    });
+
+    it('returns 429 RATE_LIMITED when the per-IP throttle is exhausted', async () => {
+      mockCustomerLoginRatelimit.limit.mockResolvedValue(DENY);
+      const res = await POST(makeRequest({ email: 'test@example.com', password: 'Password1' }));
+      const json = await res.json();
+      expect(res.status).toBe(429);
+      expect(json.error).toBe('RATE_LIMITED');
+      expect(mockCustomerLogin).not.toHaveBeenCalled();
+    });
+
+    it('returns 429 LOCKED_OUT once the per-email lockout is exhausted', async () => {
+      mockCustomerLogin.mockRejectedValue(new AuthServiceError('INVALID_CREDENTIALS'));
+      mockCustomerLoginLockout.limit.mockResolvedValue(DENY);
+      const res = await POST(makeRequest({ email: 'Test@Example.com', password: 'wrongpass1' }));
+      const json = await res.json();
+      expect(res.status).toBe(429);
+      expect(json.error).toBe('LOCKED_OUT');
+      expect(mockCustomerLoginLockout.limit).toHaveBeenCalledWith('customer-login-fail:test@example.com');
+    });
+
+    it('does NOT consume the lockout on a successful login', async () => {
+      await POST(makeRequest({ email: 'test@example.com', password: 'Password1' }));
+      expect(mockCustomerLoginLockout.limit).not.toHaveBeenCalled();
     });
   });
 

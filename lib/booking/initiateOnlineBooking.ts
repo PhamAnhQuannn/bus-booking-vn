@@ -28,7 +28,6 @@ import {
   type OnlineBookingMethod,
 } from '@/lib/booking/bookingRepo';
 import { getGatewayFor } from '@/lib/payment';
-import { attachGuestBooking } from './attachGuestBooking';
 import { isBookable } from '@/lib/onboarding';
 import type { PaymentGateway } from '@/lib/payment';
 import { logger } from '@/lib/logger';
@@ -123,7 +122,6 @@ export async function initiateOnlineBooking(
   // Idempotency check — if booking already exists, return it
   const alreadyExisting = await getBookingByHoldId(holdId);
   if (alreadyExisting) {
-    await attachGuestBooking(alreadyExisting.id);
     return {
       ok: true,
       bookingId: alreadyExisting.id,
@@ -166,7 +164,6 @@ export async function initiateOnlineBooking(
     if (!existing) {
       return { ok: false, error: 'ref_collision' };
     }
-    await attachGuestBooking(existing.id);
     return {
       ok: true,
       bookingId: existing.id,
@@ -238,8 +235,6 @@ export async function initiateOnlineBooking(
       gatewayMessage: gatewayResult.error,
     };
   }
-
-  await attachGuestBooking(bookingId);
 
   return {
     ok: true,

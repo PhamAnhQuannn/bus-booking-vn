@@ -503,7 +503,15 @@ describe('POST /api/bookings/initiate — rate limit', () => {
 describe('POST /api/bookings/initiate — customerId stamping (Issue 031)', () => {
   it('threads the signed-in customerId to the online orchestrator when a Bearer token is present', async () => {
     const { signAccess } = await import('@/lib/auth');
+    const { prisma } = await import('@/lib/core/db/client');
     const token = await signAccess({ sub: 'cust-online', role: 'customer' });
+
+    // getCustomerOptional now re-reads the Customer row (QA-H3 active-account gate);
+    // supply an active row so the id is threaded.
+    vi.mocked(prisma.customer.findUnique).mockResolvedValueOnce({
+      suspendedAt: null,
+      deletedAt: null,
+    } as never);
 
     allowRatelimit();
     matchCookie();

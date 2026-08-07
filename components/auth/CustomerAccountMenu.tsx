@@ -9,12 +9,13 @@ import { readCsrfToken } from '@/lib/auth/csrfClient';
 import { clearSession, useDisplayName } from '@/lib/auth/clientSession';
 import { cn } from '@/lib/utils';
 
-export function CustomerAccountMenu() {
+export function CustomerAccountMenu({ onNavigate }: { onNavigate?: () => void }) {
   const router = useRouter();
   const displayName = useDisplayName();
   const [pending, setPending] = React.useState(false);
 
   async function handleLogout() {
+    onNavigate?.();
     setPending(true);
     try {
       await fetch('/api/auth/logout', {
@@ -70,6 +71,7 @@ export function CustomerAccountMenu() {
               render={
                 <Link
                   href="/account/bookings"
+                  onClick={() => onNavigate?.()}
                   className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none transition-colors hover:bg-muted data-[highlighted]:bg-muted"
                 />
               }
@@ -80,6 +82,7 @@ export function CustomerAccountMenu() {
               render={
                 <Link
                   href="/account/settings"
+                  onClick={() => onNavigate?.()}
                   className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none transition-colors hover:bg-muted data-[highlighted]:bg-muted"
                 />
               }

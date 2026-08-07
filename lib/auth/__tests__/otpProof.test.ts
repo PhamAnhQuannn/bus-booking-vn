@@ -9,9 +9,21 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { SignJWT } from 'jose';
 import { issueOtpProof, verifyOtpProof } from '../otpProof';
 
-// In test env, JWT_SECRET is undefined → falls back to 'a'.repeat(32)
+// In test env: customer purposes fall back to JWT_SECRET='a'*32, operator purposes
+// (op_login/op_pwd_reset) to JWT_OPERATOR_SECRET='b'*32 (P18 realm split).
+const CUSTOMER_SECRET = 'a'.repeat(32);
+const OPERATOR_SECRET = 'b'.repeat(32);
+
+async function signRaw(secret: string, claims: Record<string, unknown>): Promise<string> {
+  return new SignJWT(claims)
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime('300s')
+    .sign(new TextEncoder().encode(secret));
+}
 
 describe('issueOtpProof / verifyOtpProof', () => {
   it('returns { email, jti } for valid otp_proof', async () => {
@@ -63,6 +75,27 @@ describe('issueOtpProof / verifyOtpProof', () => {
     // op_pwd_reset does NOT consume jti — but jti is still present in payload
     const second = await verifyOtpProof(token, 'op_pwd_reset');
     expect(second).not.toBeNull(); // replay allowed for operator flow
+  });
+
+  it('op_login proof is one-shot: second verify returns null (P18)', async () => {
+    const token = await issueOtpProof('op-user-1', 'op_login');
+    expect(await verifyOtpProof(token, 'op_login')).not.toBeNull();
+    expect(await verifyOtpProof(token, 'op_login')).toBeNull(); // replay blocked
+  });
+
+  it('rejects an op_login proof signed with the CUSTOMER secret (P18 realm split)', async () => {
+    const token = await signRaw(CUSTOMER_SECRET, { email: 'op-user-1', purpose: 'op_login', jti: 'p18a' });
+    expect(await verifyOtpProof(token, 'op_login')).toBeNull();
+  });
+
+  it('rejects an op_pwd_reset proof signed with the CUSTOMER secret (P18 realm split)', async () => {
+    const token = await signRaw(CUSTOMER_SECRET, { phone: '+84901234560', purpose: 'op_pwd_reset', jti: 'p18b' });
+    expect(await verifyOtpProof(token, 'op_pwd_reset')).toBeNull();
+  });
+
+  it('rejects a customer otp_proof signed with the OPERATOR secret (P18 realm split)', async () => {
+    const token = await signRaw(OPERATOR_SECRET, { email: 'c@x.com', purpose: 'otp_proof', jti: 'p18c' });
+    expect(await verifyOtpProof(token, 'otp_proof')).toBeNull();
   });
 
   it('issues distinct jti per call', async () => {
