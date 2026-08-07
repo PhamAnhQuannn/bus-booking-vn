@@ -1,21 +1,27 @@
 # HD-012: Auth Attack Surface Catalog
 
-> Status: NOT_STARTED | References: ADR-003, ADR-008, FI-001, FI-011, HD-001, HD-005, HD-006
+> Status: NOT_STARTED | References: ADR-003, ADR-021, ADR-008, FI-001, FI-011, FI-016, DS-033, HD-001, HD-005, HD-006
+
+> **AMENDMENT** (2026-08-06 → [ADR-021](../../architecture-decisions/ADR-021-customer-email-google-auth/README.md)):
+> Customer auth is now **email+password + Google OAuth** (not phone-OTP). Note: **the planned auth provider was
+> never adopted** (ADR-003 D8 stays PLANNED), so the "Provider" column below is
+> aspirational — in reality **we own every primitive** (hand-rolled `jose`/scrypt; argon2id planned P19). The new OAuth
+> attack surface is catalogued in **§OAuth (Google Sign-In)** at the end of this document.
 
 ## Purpose
 
-Comprehensive enumeration of authentication and authorization attack vectors across the three-realm bus booking platform (customer, operator, admin). Maps 50+ specific attacks to defenses, identifies which are handled by the auth provider (Better Auth — ADR-003 D8) vs our application code, and provides CI-gatable verification checks.
+Comprehensive enumeration of authentication and authorization attack vectors across the three-realm bus booking platform (customer, operator, admin). Maps 50+ specific attacks to defenses, identifies which are handled by the planned auth provider (ADR-003 D8, not yet adopted) vs our application code, and provides CI-gatable verification checks.
 
 ## Skill Invocation
 
 - **Primary**: `/security-review` + `/threat-model` — auth flow vulnerability assessment
 - **Supplementary**: `/pii-inventory` — data exposure verification
 
-## Better Auth Coverage Map
+## Auth Primitive Coverage Map
 
-Better Auth (ADR-003 D8) handles identity primitives. Our app handles business authz. This split determines which attack categories need our testing vs which are provider-covered.
+The planned auth provider (ADR-003 D8, not yet adopted) would handle identity primitives; today these are hand-rolled. Our app handles business authz. This split determines which attack categories need our testing vs which are provider-covered.
 
-| Category | Provider (Better Auth) | App (Our Code) |
+| Category | Provider | App (Our Code) |
 |----------|----------------------|----------------|
 | 1. IDOR | — | **We own entirely** |
 | 2. Broken auth (tokens) | Token signing, rotation, reuse detection, alg:none rejection | Realm routing, per-realm secret split |
@@ -71,12 +77,12 @@ Change an ID in URL or request body to access someone else's resource.
 - [ ] 2.1 XSS steals access token — cookies must be HttpOnly (XSS can't read)
 - [ ] 2.2 XSS steals CSRF token — `bb_csrf` intentionally non-HttpOnly (only protects CSRF, not XSS)
 - [ ] 2.3 Stolen refresh token — limited to TTL window (30d customer, 7d operator, 24h admin)
-- [ ] 2.4 Refresh token reuse after rotation — reuse detection revokes entire family (Better Auth)
+- [ ] 2.4 Refresh token reuse after rotation — reuse detection revokes entire family
 - [ ] 2.5 Access token used after logout — 15-min window accepted risk; logout revokes refresh family
 
 **Token Forging & Manipulation:**
 
-- [ ] 2.6 `alg: none` JWT forgery — Better Auth rejects; verify allowlist `["HS256"]` only
+- [ ] 2.6 `alg: none` JWT forgery — verify allowlist `["HS256"]` only
 - [ ] 2.7 Brute-force weak signing secret — secrets must be >= 32 bytes random
 - [ ] 2.8 Cross-realm token reuse — separate signing secrets per realm (D10)
 - [ ] 2.9 Tamper JWT `operatorId` claim — signature verification prevents; operatorId from session, not body
@@ -84,17 +90,17 @@ Change an ID in URL or request body to access someone else's resource.
 
 **OTP Attacks:**
 
-- [ ] 2.11 OTP brute-force (000000-999999) — 3 attempts -> 15-min lockout (Better Auth)
-- [ ] 2.12 OTP replay — consumed on first verify (Better Auth OTP plugin)
+- [ ] 2.11 OTP brute-force (000000-999999) — 3 attempts -> 15-min lockout
+- [ ] 2.12 OTP replay — consumed on first verify
 - [ ] 2.13 SMS bombing — rate limit: 5 sends / 15 min per phone
 - [ ] 2.14 OTP interception (SIM swap, SS7) — residual risk accepted for Phase 1
 - [ ] 2.15 Phone enumeration — same response regardless of registration status
 
 **TOTP Attacks (Admin):**
 
-- [ ] 2.16 TOTP replay within 30s window — SETNX on jti (Better Auth twoFactor plugin)
+- [ ] 2.16 TOTP replay within 30s window — SETNX on jti
 - [ ] 2.17 TOTP secret theft from DB — encrypted at rest (AES-256-GCM)
-- [ ] 2.18 No TOTP backup — 10 single-use backup codes generated at setup (Better Auth)
+- [ ] 2.18 No TOTP backup — 10 single-use backup codes generated at setup
 
 ### Category 3: Broken Authorization (Privilege Escalation)
 
@@ -157,9 +163,9 @@ Change an ID in URL or request body to access someone else's resource.
 
 ### Category 8: Session & Cookie Attacks
 
-- [ ] 8.1 Session fixation — new tokens minted on login (Better Auth)
-- [ ] 8.2 Cookie not cleared on logout — logout deletes cookies + revokes refresh family (Better Auth)
-- [ ] 8.3 Password change doesn't invalidate sessions — revoke all refresh tokens for user (Better Auth)
+- [ ] 8.1 Session fixation — new tokens minted on login
+- [ ] 8.2 Cookie not cleared on logout — logout deletes cookies + revokes refresh family
+- [ ] 8.3 Password change doesn't invalidate sessions — revoke all refresh tokens for user
 - [ ] 8.4 Cookie accessible from subdomain — `Domain` not set (defaults to exact origin)
 
 ### Category 9: Missing Auth Entirely
@@ -219,14 +225,38 @@ Change an ID in URL or request body to access someone else's resource.
 - [ ] Verify password change invalidates other sessions
 - [ ] Verify CSRF token required on all state-changing requests
 
+## OAuth (Google Sign-In) — Attack Surface (ADR-021 / DS-033 / FI-016)
+
+Hand-rolled OAuth 2.0 + OIDC via `arctic`. We own every check below.
+
+| # | Attack | Vector | Defense (must verify) |
+|---|--------|--------|-----------------------|
+| O1 | **CSRF on callback** | Attacker replays a callback with their own `code` to log victim into attacker's account, or forges `state` | `state` generated at `/start`, stored in signed HttpOnly cookie `bb_goauth`, constant-time compared at `/callback`; reject on mismatch/missing |
+| O2 | **Auth-code interception** | Code stolen in transit / via referrer | PKCE `code_verifier` (S256) — code exchange fails without the verifier bound to `bb_goauth` |
+| O3 | **id_token forgery / alg confusion** | Attacker mints a fake `id_token` (alg:none, wrong key) | Verify signature against **Google JWKS**; assert `iss=https://accounts.google.com`, `aud=GOOGLE_CLIENT_ID`, `exp` not passed; reject `alg:none` |
+| O4 | **Account takeover by email-linking** | Attacker's Google account asserts a victim's email → auto-links to victim's password account | **L1 (DS-033)**: link to existing email ONLY when `email_verified===true`; never auto-link unverified email |
+| O5 | **Open redirect via returnTo** | Callback redirect to attacker-controlled URL | Pass through `lib/auth/safeReturnTo.ts` (same-origin path allowlist); default `/account/bookings` |
+| O6 | **Duplicate/hijacked link** | Second Customer claims same Google `sub` | `@@unique([provider, providerAccountId])`; P2002 treated as idempotent already-linked |
+| O7 | **Secret / token leakage in logs** | `GOOGLE_CLIENT_SECRET`, `id_token`, `access_token`, `code_verifier`, `state` in structured logs | Add all to `lib/logger.ts` redact `paths` (note: snake_case `access_token` not covered today; `accessToken` is) |
+| O8 | **Suspended/deleted customer via OAuth** | Google login revives a suspended/soft-deleted account | Callback applies the same `suspendedAt`/`deletedAt` gate as `requireCustomerAuth`; anonymization job must purge/unlink `Account` (FI-013) |
+| O9 | **Cookie scope / fixation** | `bb_goauth` readable/long-lived | HttpOnly, `SameSite=Lax`, `secure` in prod, ~10-min TTL, cleared on callback |
+| O10 | **CDTIA / residency** | Cross-border transfer of email to Google (US) not covered | Google added to CDTIA scope (`guides/cdtia-data-residency-guide.md`) — compliance, not code |
+| O11 | **Auth `code`/`state` in platform request logs** | `?code=`/`?state=` query params on `GET /api/auth/google/callback` can leak into platform request logs (Vercel/access logs capture query strings) | Treat `code`/`state` as secrets — short-lived + single-use (code exchanged once, `state` cleared on callback); never echo them into app logs; their one-time/short TTL bounds exposure |
+
+**CI-gatable checks**: grep that `google/callback` calls `safeReturnTo`; unit test rejects wrong
+`aud`/`iss`/expired/`alg:none` id_token; unit test refuses link on `email_verified=false`; redaction
+test asserts the O7 keys never appear in serialized logs.
+
 ## Verdict
 
-**PASS** when: all automated checks return zero violations, integration tests pass for all cross-tenant and cross-realm scenarios, and manual pentest checklist completed with no findings.
+**PASS** when: all automated checks return zero violations, integration tests pass for all cross-tenant and cross-realm scenarios, the OAuth checks O1-O10 above pass, and manual pentest checklist completed with no findings.
 
 ## Cross-References
 
-- ADR-003 -- auth architecture (three realms, Better Auth, per-realm secrets)
-- ADR-003 D8 -- Better Auth provider decision + coverage map
+- ADR-003 -- auth architecture (three realms, planned auth provider, per-realm secrets)
+- ADR-003 D8 -- auth provider decision + coverage map (NB: planned provider never adopted — see amendment)
+- ADR-021 -- customer email+password + Google OAuth (reverses D1); DS-033 -- OAuth account linking
+- FI-016 -- Google Sign-In implementation synthesis
 - ADR-008 -- security posture (defense-in-depth, data classification)
 - FI-001 -- core auth implementation
 - HD-001 -- security review (Layer 2 auth checks)

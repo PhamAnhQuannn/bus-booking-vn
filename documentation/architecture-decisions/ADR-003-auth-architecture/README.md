@@ -49,6 +49,17 @@ Key business constraints driving auth decisions (sourced from `documentation/bus
 > - **Status**: `IMPLEMENTED_DIFFERENTLY`
 > - **Tracking**: Remove unused `passwordHash` column from Customer model or document its intended future use.
 
+> **AMENDMENT** (2026-08-06 → [ADR-021](../ADR-021-customer-email-google-auth/README.md))
+> **D1 is REVERSED for the customer realm.** Customer authentication is now **email + password**
+> (with email verification) **plus "Sign in with Google" (OAuth/OIDC)**. Phone-OTP is retired as the
+> primary customer auth path; **email becomes the identity anchor** and phone becomes optional
+> contact/booking-merge data. This resolves the `IMPLEMENTED_DIFFERENTLY` note above: `passwordHash`
+> is **load-bearing**, not residual (scrypt via `lib/auth/password.ts`; argon2id planned P19), and null now legitimately
+> means an OAuth-only or not-yet-password customer. The email-vs-SMS OTP-channel ambiguity (D6, below)
+> is also retired for customers by this reversal. See ADR-021 for rationale, the `Account` model
+> (DS-033), and the CDTIA consequence of Google (US) OIDC. D2 (operator), D3 (admin), D4 (session),
+> D5 (CSRF), D10 (per-realm secrets), D11 (customer refresh TTL) are UNCHANGED and reused.
+
 ---
 
 ### 2. Operator Authentication — Password + OTP Hybrid
@@ -122,9 +133,9 @@ Key business constraints driving auth decisions (sourced from `documentation/bus
 
 > **IMPLEMENTATION STATUS** (2026-06-21)
 > - **Documented**: Three independent session lifecycles with realm-isolated tokens. Per-realm signing secrets for both access and refresh tokens (D10).
-> - **Actual**: Single `REFRESH_TOKEN_SECRET` env var shared across all three realms. Access tokens already use per-realm secrets. Refresh layer uses one shared secret.
-> - **Status**: `PLANNED` — D10 decides per-realm refresh secrets. Migration to Better Auth (D8) will implement this as part of the auth provider integration.
-> - **Tracking**: Generate per-realm refresh secrets during Better Auth migration. Interim: refresh endpoints validate realm claim.
+> - **Actual**: Per-realm refresh secrets `REFRESH_TOKEN_SECRET_{CUSTOMER,OPERATOR,ADMIN}` (P17 #438). Access tokens already used per-realm secrets; the refresh layer now matches — each realm signs/verifies with its own secret, so a cross-realm refresh token fails HMAC → null.
+> - **Status**: `RESOLVED` (P17, 2026-08-07) — CUTOVER rollout (no dual-secret grace). Independent of the still-deferred Better Auth migration (D8).
+> - **Tracking**: Done. A leaked refresh secret is blast-contained to one realm.
 
 ---
 
@@ -169,6 +180,12 @@ Key business constraints driving auth decisions (sourced from `documentation/bus
 - eSMS aggregator recommended for SMS to avoid per-carrier integration (regulatory/telecom-sms.md)
 
 > **Phase 1 Scope**: eSMS (SMS) only. Zalo ZNS integration deferred to Phase 2 — ZNS template approval and OA verification add lead time incompatible with beachhead launch timeline. SMS provides universal reach for 1-3 operator launch corridor. Better Auth OTP plugin (D8) wires to eSMS via custom adapter.
+
+> **AMENDMENT** (2026-08-06 → [ADR-021](../ADR-021-customer-email-google-auth/README.md))
+> This channel decision applied to **customer OTP login**, which ADR-021 retires as the primary
+> customer auth path. The code had already moved customer OTP from SMS to **email (Resend, commit
+> `686ec85`)**; ADR-021 supersedes the question entirely — customer auth is email+password + Google,
+> not OTP. eSMS/ZNS remains relevant for operator OTP step-up and transactional notifications only.
 
 ---
 
@@ -250,6 +267,11 @@ Key business constraints driving auth decisions (sourced from `documentation/bus
 **Reasons**:
 - ~250ms hash time balances security vs login latency
 - Only operator and admin realms use passwords; customer is OTP-only
+
+> **AMENDMENT** (2026-08-06 → [ADR-021](../ADR-021-customer-email-google-auth/README.md))
+> Better Auth was never adopted (D8 stays PLANNED). The authoritative hasher is the hand-rolled
+> **scrypt** in `lib/auth/password.ts`, for ALL realms (argon2id is the planned P19 upgrade, with scrypt fallback + rehash-on-verify). Per ADR-021 D1/D2 the
+> **customer realm now uses passwords too** (email+password) — "customer is OTP-only" no longer holds.
 
 ---
 

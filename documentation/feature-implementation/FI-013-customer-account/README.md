@@ -1,8 +1,21 @@
 # FI-013: Customer Account (Tai khoan khach hang)
 
 > **Status:** DOCUMENTED
-> **Last Updated:** 2026-06-20
-> **Related:** ADR-008, ADR-014, DS-001, DS-015, FD-019
+> **Last Updated:** 2026-08-06
+> **Related:** ADR-008, ADR-014, ADR-021, DS-001, DS-033, DS-015, FD-019, FI-016
+
+> **AMENDMENT** (2026-08-06 → [ADR-021](../../architecture-decisions/ADR-021-customer-email-google-auth/README.md))
+> Customer identity is now **email-anchored** (email+password + Google OAuth), not phone-OTP.
+> Implications for this feature:
+> - **Guest→account merge is email-first**: `backfillGuestBookingsByEmail` runs inside
+>   `authService.register` (and the Google callback) linking prior guest bookings by buyer email;
+>   `backfillGuestBookingsByPhone` remains for phone-matched bookings.
+> - **Google-linked accounts**: profile/settings shows "Đã liên kết Google" (linked-provider state);
+>   an OAuth-only customer has no password (offer "set a password" from settings).
+> - **Deletion / anonymization must also remove `Account` rows** (DS-033) — the `onDelete: Cascade`
+>   FK handles this on customer hard-delete; the soft-delete/anonymization job must additionally unlink
+>   or purge `Account` so a re-login can't silently resurrect a deleted identity.
+> - `emailVerifiedAt` (DS-033) participates in the profile/verification state.
 
 ## Overview
 
@@ -231,6 +244,7 @@ This feature does not have a single dedicated state machine. The relevant state 
 |-------------|------------|---------|-----------|
 | eSMS.vn | Phone number | OTP + transactional SMS | Contract performance |
 | Resend | Email address | Transactional email | Contract performance |
+| Google LLC (US) | Email + Google `sub` | OIDC identity ("Sign in with Google") | Contract performance |
 | MISA meInvoice | Name, booking details | E-invoice issuance | Legal obligation |
 | VNPay / MoMo | Phone (hashed in some flows) | Payment processing | Contract performance |
 | Cloudflare | Request IP, user agent | CDN | Legitimate interest |
@@ -284,6 +298,6 @@ This feature does not have a single dedicated state machine. The relevant state 
 - **MEDIUM -- Right to object (PDPL Art. 13) processing halt mechanism NOT designed** -- DSAR type=OBJECTION exists in enum but processing halt mechanism is undesigned (DS-015 section 11).
 - **LOW -- Child data protection (PDPL Art. 20)** -- Age is not currently collected. Under-16 stricter rules (parental consent) apply -- not addressed (DS-015 section 11).
 - **LOW -- 3-day remote cancellation right (CPL 2023 Art. 29)** -- Legal opinion pending on whether bus ticket = "service already performed" exemption. No `paid -> cancelled` customer-initiated booking transition exists. Deferred to risk-register.
-- **LOW -- ADR-003 IMPLEMENTATION STATUS: passwordHash column** -- Customer.passwordHash exists in schema despite OTP-only customer auth decision. Column unused but creates misleading schema signal.
+- **LOW -- ADR-003 IMPLEMENTATION STATUS: passwordHash column** -- Customer.passwordHash exists in schema despite OTP-only customer auth decision (superseded by ADR-021: email+password is now the primary factor). Column unused but creates misleading schema signal.
 - **MEDIUM -- 72-hour cooling-off cancellation endpoint NOT_IMPLEMENTED** -- DS-015 describes it but no API endpoint is specified for cancelling a deletion request during the 72-hour window.
 - **MEDIUM -- Admin DSAR management UI out of scope** -- Admin processing UI for DSAR requests is not covered by FD-019 and requires a separate admin FI spec.

@@ -22,3 +22,4 @@
 | [ADR-018: Testing Strategy](ADR-018-testing-strategy/) | ACCEPTED | Test pyramid, real DB integration tests, mock hygiene, error code coverage, timezone rules |
 | [ADR-019: State Machine Enforcement](ADR-019-state-machines/) | ACCEPTED — PARTIALLY_IMPLEMENTED | 8 state machines, LEGAL_TRANSITIONS maps, row locking, timestamp+status coupling, discriminated results |
 | [ADR-020: Deployment & Infrastructure](ADR-020-deployment/) | ACCEPTED — HOSTING PIVOT 2026-06-21 | Vercel Pro sin1 primary + Neon + Upstash; Vercel Cron, env validation, stub/real mode, staged evolution |
+| [ADR-021: Customer Email+Password + Google OAuth](ADR-021-customer-email-google-auth/) | ACCEPTED — amends ADR-003 D1 | Reverses phone-OTP-only: customer auth = email+password + "Sign in with Google" (hand-rolled arctic, `Account` model); CDTIA flag for Google (US) |

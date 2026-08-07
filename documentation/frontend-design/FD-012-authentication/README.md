@@ -1,6 +1,14 @@
-# DS-029 Authentication & Account Security
+# FD-012 Authentication & Account Security
+
+> **Related:** ADR-003, ADR-021, DS-001, DS-033, DS-003, FI-001, FI-016, FD-019
 
 Frontend UX specification for authentication across the three platform realms (customer, operator, admin), session management, and security feedback patterns.
+
+> **AMENDMENT** (2026-08-06 → [ADR-021](../../architecture-decisions/ADR-021-customer-email-google-auth/README.md)):
+> The **customer** realm UX is now **email + password** (+ email verification) **and "Đăng nhập với
+> Google"** — see the new **§2A** below. The phone-OTP screens in §2 are **superseded** for customer
+> login (retained for reference). Auth-state header (§9) shows `CustomerAccountMenu` when signed in.
+> (This H1 previously read "DS-029" in error — corrected.)
 
 ---
 
@@ -8,13 +16,57 @@ Frontend UX specification for authentication across the three platform realms (c
 
 | Realm | Identity | Credential | MFA | Session TTL (Access) | Session TTL (Refresh) |
 |-------|----------|------------|-----|---------------------|-----------------------|
-| **Customer** | Phone number | 6-digit OTP (passwordless) | None | 15 min | Long-lived (weeks) |
+| **Customer** | **Email** (ADR-021) | **Password (scrypt; argon2id planned) or Google OAuth** | None | 15 min | 30 days |
 | **Operator** | Email + username | Password + OTP step-up | OTP for sensitive ops | 15 min | Work-shift scoped |
 | **Admin** | Email | Password + TOTP | Authenticator app (mandatory) | 15 min | Short-lived |
 
 ---
 
-## 2. Customer OTP Flow
+## 2A. Customer Email + Google Flow (ADR-021 — authoritative)
+
+Route group `app/(customer)/auth/*`, `AuthSplitLayout` (orange gradient left, form right). All POST
+mutations carry `X-CSRF-Token` via `readCsrfToken()` from `@/lib/auth/csrfClient` (never the barrel).
+
+### 2A.1 Register — `/auth/register`
+| Element | Spec |
+|---------|------|
+| Fields | Email (`type="email"`, autocomplete `email`); a "Gửi mã" action emails an OTP code; OTP code field (proves email ownership → `otpProof`, see §2A.3); Password (`type="password"`, autocomplete `new-password`, strength hint ≥8 chars); Display name (optional); consent checkboxes (FD-019) |
+| Primary CTA | "Tạo tài khoản" → `POST /api/auth/register` with `{ email, otpProof, password }` |
+| Google | "Đăng nhập với Google" button (§2A.4) also creates an account |
+| On success | Session active; the email is already verified (`emailVerifiedAt = now()`, proven by the registration OTP — no verification link is sent). Lands on `/account/bookings` |
+| Errors | 409 `EMAIL_TAKEN` → "Email đã được đăng ký. Đăng nhập?"; 422 weak password → password rule copy |
+
+### 2A.2 Login — `/auth/login`
+| Element | Spec |
+|---------|------|
+| Fields | Email; Password; "Quên mật khẩu?" link → `/auth/forgot-password` |
+| Primary CTA | "Đăng nhập" → `POST /api/auth/login` |
+| Google | "Đăng nhập với Google" (§2A.4) |
+| Errors | 401 → "Email hoặc mật khẩu không đúng" (no account-existence leak); 429 lockout → countdown |
+
+### 2A.3 Email OTP (registration ownership proof)
+The email is proven by an OTP **code** sent during registration, not a click-through link. "Gửi mã"
+emails the code; entering it calls `POST /api/auth/verify-email` (`{ email, code }`) → returns
+`otpProof`, which the register call consumes to set `emailVerifiedAt = now()`. States: success ("Email
+đã được xác minh"), wrong/expired code ("Mã không đúng hoặc đã hết hạn" + resend → `/resend`). Because
+ownership is proven at register, there is no post-registration verification-link step.
+
+### 2A.4 "Đăng nhập với Google" button
+| Element | Spec |
+|---------|------|
+| Placement | Below the primary CTA on both login + register, separated by an "hoặc" divider |
+| Visual | Full-width outline button, Google "G" mark + "Đăng nhập với Google". Follows Google branding guidelines |
+| Action | Plain link/navigation to `GET /api/auth/google/start` (browser redirect — no fetch/CSRF) |
+| Loading | Disabled + spinner on click ("Đang chuyển tới Google…") |
+| Error return | Callback failure → redirect to `/auth/login?error=google` → inline alert "Đăng nhập Google thất bại. Thử lại." |
+
+### 2A.5 Forgot / reset password
+`/auth/forgot-password` → `POST /api/auth/forgot-password` (always 200, no email-existence leak);
+`/auth/reset-password?token=…` → `POST /api/auth/reset-password`. Existing screens; unchanged by ADR-021.
+
+---
+
+## 2. Customer OTP Flow  _(SUPERSEDED for customer login — ADR-021; reference only)_
 
 ### 2.1 Phone Entry Screen
 
@@ -213,12 +265,15 @@ Playwright tests extract CSRF token via `request.storageState()` and include `X-
 
 ## 9. Auth State Indicators
 
-### 9.1 Customer Portal
+### 9.1 Customer Portal (ADR-021)
 
 | State | Header display |
 |-------|---------------|
-| Guest | "Dang nhap" link |
-| Authenticated | Phone (masked `****1234`) + "Tai khoan" dropdown (My bookings, Log out) |
+| Guest | "Đăng nhập / Đăng ký" link → `/auth/login` (NOT `/op/login` — Phase-1 restore, FI-016) |
+| Authenticated | `CustomerAccountMenu`: displayName or email + dropdown (My bookings → `/account/bookings`, Settings, Log out). Reads client session (`lib/auth/clientSession`) |
+
+Restore point: `components/layout/SiteHeader.tsx` (comments ~3-11, 32-38) + re-link
+`components/auth/CustomerAccountMenu.tsx` (component already exists). See FI-016 un-gate checklist.
 
 ### 9.2 Operator Portal
 
@@ -257,7 +312,7 @@ Playwright tests extract CSRF token via `request.storageState()` and include `X-
 
 | Document | Relevance |
 |----------|-----------|
-| [ADR-003 Auth Architecture](../../architecture-decisions/ADR-003-auth-architecture/) | Three-realm auth decisions, OTP-only customer, password+OTP operator, password+TOTP admin |
+| [ADR-003 Auth Architecture](../../architecture-decisions/ADR-003-auth-architecture/) | Three-realm auth decisions, OTP-only customer (superseded by ADR-021: email+password is now the primary factor), password+OTP operator, password+TOTP admin |
 | [ADR-008 Security Posture](../../architecture-decisions/ADR-008-security-posture/) | CSRF double-submit, rate limiting, Edge middleware security layers |
 | [FD-004 Form Design](../FD-004-form-design/) | `AuthSplitLayout`, input validation patterns, CSRF deep-import rule |
 | [FD-010 Error & Loading States](../FD-010-error-loading-states/) | Toast notifications, error boundary patterns |

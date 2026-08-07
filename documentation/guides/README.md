@@ -28,6 +28,7 @@
 | [11-setup-misa.md](11-setup-misa.md) | E-invoice (Decree 123/2020) | ERC obtained + tax registration |
 | [12-setup-momo.md](12-setup-momo.md) | MoMo e-wallet payment | Multi-payment Phase 2 |
 | [13-setup-vnpay.md](13-setup-vnpay.md) | VNPay domestic card/ATM — **code active, offered alongside bank transfer** | Set `VNPAY_ENABLED=true` + real creds. ⚠️ requires real SePay + VietQR too (coupling — `PAYMENTS_STUB=false` forces both). See the guide's HITL checklist. |
+| [14-setup-google-oauth.md](14-setup-google-oauth.md) | "Sign in with Google" (OAuth/OIDC) for customer login (ADR-021) | Customer auth 410 gate lifted; `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` + consent screen. ⚠️ Google (US) → add to CDTIA scope. |
 
 ## Supplementary
 

@@ -24,7 +24,7 @@ UI/UX specifications for the BusBooking platform. Originally numbered DS-018–0
 
 | FD | DS | Title | Scope |
 |----|-----|-------|-------|
-| [FD-012](FD-012-authentication/) | DS-029 | Authentication & Account Security | 3 auth realms (customer OTP, operator password+TOTP, admin TOTP), lockout, session expiry, CSRF |
+| [FD-012](FD-012-authentication/) | FD-012 | Authentication & Account Security | 3 auth realms (customer email+password + Google OAuth per ADR-021, operator password+TOTP, admin TOTP), lockout, session expiry, CSRF |
 | [FD-013](FD-013-search-results/) | DS-030 | Search & Results UX | Route autocomplete, trip card anatomy, sort/filter, SEO URLs, empty state, trust signals |
 | [FD-014](FD-014-hold-timer/) | DS-031 | Hold Timer & Seat Selection | 10-min countdown, expiry handling, per-phone hold cap, timer persistence |
 | [FD-015](FD-015-payment-checkout/) | DS-032 | Booking Review & Payment Checkout | Guest vs auth, price transparency, PSP selection (bank transfer/cash/MoMo/VNPay), payment failure recovery |

@@ -11,7 +11,9 @@ rotation fails the deploy fast rather than at first request.
 | `JWT_SECRET` | customer session JWT (HS256) | ≥32 chars | No — invalidates live customer sessions (Phase 1: no customer auth, low impact) |
 | `JWT_OPERATOR_SECRET` | operator session JWT | ≥32 chars | No — operators re-login |
 | `JWT_ADMIN_SECRET` | admin session JWT | ≥32 chars | No — admin re-login |
-| `REFRESH_TOKEN_SECRET` | refresh-token HMAC (all realms) | ≥32 chars | No — forces re-auth |
+| `REFRESH_TOKEN_SECRET_CUSTOMER` | customer refresh-token HMAC (P17) | ≥32 chars | No — customers re-login |
+| `REFRESH_TOKEN_SECRET_OPERATOR` | operator refresh-token HMAC (P17) | ≥32 chars | No — operators re-login |
+| `REFRESH_TOKEN_SECRET_ADMIN` | admin refresh-token HMAC (P17) | ≥32 chars | No — admins re-login |
 | `TOTP_ENCRYPTION_KEY` | AES-256-GCM for admin TOTP secret at rest | 64 hex | **Careful** — must re-encrypt stored TOTP secrets (see procedure) |
 | `BANK_ENCRYPTION_KEY` | AES-256-GCM for PayoutAccount.accountNumber | 64 hex | **Careful** — must re-encrypt stored account numbers |
 | `CRON_SECRET` | Bearer auth on cron routes | ≥16 chars | Yes — update Vercel Cron config same time |

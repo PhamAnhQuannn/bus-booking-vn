@@ -1,8 +1,18 @@
 # FI-001: Core Authentication (Xac thuc nguoi dung)
 
 > **Status:** DOCUMENTED
-> **Last Updated:** 2026-06-20
-> **Related:** ADR-003, ADR-008, DS-001, DS-003, FD-012
+> **Last Updated:** 2026-08-06
+> **Related:** ADR-003, ADR-021, ADR-008, DS-001, DS-033, DS-003, FD-012, FI-016
+
+> **AMENDMENT** (2026-08-06 → [ADR-021](../../architecture-decisions/ADR-021-customer-email-google-auth/README.md) / [FI-016](../FI-016-google-oauth/README.md))
+> The **customer realm** described below as "OTP-only passwordless via phone" is **superseded**:
+> customer auth is now **email + password** (scrypt, already implemented in `lib/auth/authService.ts`; argon2id planned P19)
+> **+ "Sign in with Google" (OAuth/OIDC)**. Identity anchor = **email**; phone = optional contact.
+> A new **`Account`** model links Google `sub` → Customer (DS-033). The Phase-1 `410` gate
+> (`proxy.ts` ~192-216 + `app/api/auth/login/route.ts:44`) is lifted per FI-016. The
+> `passwordHash` "IMPLEMENTED_DIFFERENTLY / remove column" item is **resolved**: the column is
+> load-bearing (null = OAuth-only). Operator/admin sections are unchanged. Read customer-realm rows
+> below through this amendment; the implementation checklist lives in FI-016.
 
 ## Overview
 
@@ -147,7 +157,7 @@ Implicit states derived from `OtpAttempt` row fields (no explicit status enum).
 
 7. **otpProof JWT Single-Use** -- `jti` claim consumed via Redis SETNX. TTL: 5 minutes. `purpose: 'register' | 'login'` claim prevents cross-purpose replay. Must be in logger redact list to prevent leaking through structured logs. Enforcement: `lib/auth/otpProof.ts`.
 
-8. **Realm Isolation** -- Tokens from one realm are invalid in another (separate JWT secrets per realm for access tokens). KNOWN GAP: single `REFRESH_TOKEN_SECRET` shared across all three realms -- refresh endpoints must validate the realm claim (PARTIALLY_IMPLEMENTED).
+8. **Realm Isolation** -- Tokens from one realm are invalid in another: separate JWT secrets per realm for access tokens AND per-realm refresh secrets `REFRESH_TOKEN_SECRET_{CUSTOMER,OPERATOR,ADMIN}` (P17 #438, RESOLVED — a cross-realm refresh token fails HMAC → null).
 
 ## Frontend Surfaces
 
@@ -236,8 +246,8 @@ OTP TTL: 5 minutes. Auth max attempts: 5. Account management max attempts: 3.
 
 ## Known Gaps & Open Questions
 
-- **HIGH -- IMPLEMENTED_DIFFERENTLY: passwordHash column** -- Customer model has `passwordHash` column despite OTP-only decision. Column exists but is never used in any auth flow. Resolution needed: remove column or document intended future use.
-- **HIGH -- PLANNED: Per-realm signing secrets** -- ADR-003 D10 decided separate JWT signing secrets per realm (customer, operator, admin) for both access and refresh tokens. Current code uses single `REFRESH_TOKEN_SECRET`. Migration: generate 3 new secrets, update env.ts Zod schema, update token mint/verify per realm. Must complete before go-live.
+- **RESOLVED (2026-08-06, ADR-021): passwordHash column** -- No longer "residual". Customer auth is email+password (scrypt; argon2id planned P19) + Google OAuth; `passwordHash` is the load-bearing credential (null = OAuth-only customer). Column stays. See [ADR-021](../../architecture-decisions/ADR-021-customer-email-google-auth/README.md) / [FI-016](../FI-016-google-oauth/README.md).
+- **RESOLVED (P17 #438, 2026-08-07): Per-realm signing secrets** -- ADR-003 D10 fully implemented: access tokens (pre-existing) AND refresh tokens now use per-realm secrets `REFRESH_TOKEN_SECRET_{CUSTOMER,OPERATOR,ADMIN}` (env.ts Zod schema + per-realm mint/verify in refreshToken.ts / operatorSession.ts / adminSession.ts). CUTOVER rollout.
 - **HIGH -- PLANNED: Better Auth migration** -- ADR-003 D8 chose Better Auth as auth provider. Current hand-rolled auth (password hashing, session management, token rotation, TOTP) must be migrated to Better Auth plugins. Better Auth handles: bcrypt cost 12, DB-backed sessions, refresh rotation with reuse detection, brute-force rate limiting, TOTP replay protection + backup codes. Migration eliminates the two HALT blockers below.
 - **HIGH -- PARTIALLY_IMPLEMENTED: Admin TOTP** -- TOTP is implemented but: (1) no replay protection (same code can be reused within 30-second window -- no SETNX), (2) backup codes not implemented (Mitigations section mentions them but no code exists). Both resolved by Better Auth `twoFactor()` plugin (ADR-003 D8). HALT-level blockers until Better Auth migration completes.
 - **HIGH -- NOT_IMPLEMENTED: HTTP Security Headers** -- Zero security headers configured in production (`next.config.ts` has no `headers()` function). HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy all absent. Must add before Issue 094 go-live.

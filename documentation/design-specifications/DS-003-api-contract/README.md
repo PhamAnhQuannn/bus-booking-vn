@@ -64,7 +64,7 @@ Each realm has independent token secrets, cookie namespaces, and session tables.
 
 | Realm | Login Method | Access JWT TTL | Refresh Token TTL | Cookie Prefix |
 |-------|-------------|----------------|-------------------|---------------|
-| Customer | Phone OTP (passwordless) | 15 min | 7 days | `bb_` |
+| Customer | Email + password, or Google OAuth (ADR-021; was phone OTP) | 15 min | 30 days | `bb_` |
 | Operator | Username + password (+ OTP step-up) | 15 min | 7 days | `bb_op_` |
 | Admin | Email + password + TOTP MFA | 15 min | 24 hours | `bb_admin_` |
 
@@ -335,7 +335,76 @@ Idempotent re-calls (e.g., cancel an already-cancelled trip) return HTTP 200 wit
 
 ### 6.1 Auth -- Customer Realm
 
-#### `POST /api/auth/otp/send`
+> **AMENDMENT** (2026-08-06 → [ADR-021](../../architecture-decisions/ADR-021-customer-email-google-auth/README.md)):
+> Customer auth is now **email + password** (+ email verification) **and "Sign in with Google"**.
+> The phone-OTP endpoints below (`/api/auth/otp/*`) are **retired as the primary customer login path**
+> (ADR-021 D1/D2) and demoted to at most secondary/step-up; they no longer gate register/login.
+> `register`/`login` now take **email + password** (see the revised entries), plus:
+> `POST /api/auth/verify-email` (+ `/resend`), and the OAuth pair
+> `GET /api/auth/google/start` / `GET /api/auth/google/callback`. Full flow: [FI-016](../../feature-implementation/FI-016-google-oauth/README.md); linking model: [DS-033](../DS-033-oauth-account-linking/README.md).
+
+#### `POST /api/auth/register` (email + password — ADR-021)
+
+Register a new customer with email + password. The email is already proven by the registration OTP
+(`otpProof`) — the code emailed during the registration flow proves ownership — so
+`Customer.emailVerifiedAt` is set to `now()` at register. No separate verification link is sent.
+
+| Field | In | Type | Required | Notes |
+|-------|-----|------|----------|-------|
+| `email` | body | string | Yes | Lowercased/trimmed. Unique (`Customer_email_key`) → 409 `EMAIL_TAKEN` on P2002 |
+| `otpProof` | body | string | Yes | Proof the email OTP was verified (see `/api/auth/verify-email`); its email must match `email`. Gates `emailVerifiedAt = now()` |
+| `password` | body | string | Yes | scrypt-hashed server-side (argon2id is the planned P19 upgrade) |
+| `displayName` | body | string | No | |
+
+**Response (201):** `{ accessToken, customer }` + `bb_rt` refresh cookie set.
+**Errors:** 409 `EMAIL_TAKEN`, 422 (validation / bad `otpProof`), 429 (rate limit).
+**Side effect:** `backfillGuestBookingsByEmail` links guest bookings by email.
+
+#### `POST /api/auth/login` (email + password — ADR-021)
+
+| Field | In | Type | Required | Notes |
+|-------|-----|------|----------|-------|
+| `email` | body | string | Yes | |
+| `password` | body | string | Yes | |
+
+**Response (200):** `{ accessToken, customer }` + `bb_rt` cookie. **Errors:** 401 `invalid_credentials`
+(timing-safe `dummyVerify` on unknown email), 429 (`customerLoginLockout`).
+_(The pre-existing `scope!=='operator'` → 410 in the shared login route is removed on un-gate — FI-016.)_
+
+#### `POST /api/auth/verify-email` (ADR-021)
+
+Verify the email OTP **code** sent during registration → return an `otpProof` the `register` call
+consumes to set `Customer.emailVerifiedAt = now()`. This is an OTP code, not a click-through link.
+
+| Field | In | Type | Required | Notes |
+|-------|-----|------|----------|-------|
+| `email` | body | string | Yes | The email the OTP was sent to |
+| `code` | body | string | Yes | The OTP code emailed to `email`; single-use, TTL-bound |
+
+**Response (200):** `{ otpProof }`. **Errors:** 400 (invalid/expired code), 429 (rate limit).
+Companion: `POST /api/auth/verify-email/resend` (rate-limited) → re-sends the OTP code → 200 / 429.
+
+#### `GET /api/auth/google/start` (ADR-021 / DS-033)
+
+Begin Google OAuth. Builds the authorization URL (`openid email profile`), sets a short-lived signed
+HttpOnly cookie `bb_goauth` carrying `state` + PKCE `code_verifier`, and 302s to Google.
+**Response (302):** `Location: https://accounts.google.com/...`. Safe method → CSRF double-submit N/A.
+
+#### `GET /api/auth/google/callback` (ADR-021 / DS-033)
+
+| Field | In | Type | Required | Notes |
+|-------|-----|------|----------|-------|
+| `code` | query | string | Yes | Google authorization code |
+| `state` | query | string | Yes | Must equal the `bb_goauth` cookie `state` |
+
+Validates `state`, exchanges `code` (+ verifier), validates `id_token` (`iss`/`aud`/`exp` + Google JWKS),
+resolves/links `Customer` (DS-033 L1–L4), mints a customer session, sets `bb_rt`.
+**Response (302):** `Location: <safeReturnTo>` (default `/account/bookings`). On invalid state/token →
+302 to an auth error page. Reuses `lib/auth/safeReturnTo.ts` (open-redirect guard).
+
+---
+
+#### `POST /api/auth/otp/send` _(retired as primary — ADR-021)_
 
 Send OTP to Vietnamese phone number.
 
@@ -368,7 +437,10 @@ Verify OTP code. Returns `otpProof` JWT on success.
 
 **Errors:** 422 (invalid code, `attemptCount` incremented), 403 (lockout: 3 failures → 15-min sentinel)
 
-#### `POST /api/auth/register`
+> _The phone-OTP `register`/`login` variants below are **SUPERSEDED by the email+password + Google
+> endpoints above** (ADR-021). Retained for historical reference only._
+
+#### ~~`POST /api/auth/register`~~ (phone-OTP — SUPERSEDED, ADR-021)
 
 Register new customer account with verified phone.
 
@@ -381,7 +453,7 @@ Register new customer account with verified phone.
 
 **Side effect:** Guest bookings matching phone are backfilled via `attachGuestBookingByPhone`.
 
-#### `POST /api/auth/login`
+#### ~~`POST /api/auth/login`~~ (phone-OTP — SUPERSEDED, ADR-021)
 
 Login with verified phone.
 

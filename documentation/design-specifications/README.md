@@ -39,6 +39,7 @@ Data model, API contract, and system design specifications for the BusBooking pl
 | Spec | Status | Scope |
 |------|--------|-------|
 | [DS-017: Deployment Portability](DS-017-deployment-portability/) | NEW | Vercel Pro sin1 deployment contract, Vercel Cron, env validation, cost comparison |
+| [DS-033: OAuth Account Linking](DS-033-oauth-account-linking/) | NEW (ADR-021) | `Account` model (Google `sub`→Customer), linking rules, `emailVerifiedAt`, PKCE state cookie, migration |
 
 ### Customer Experience
 
@@ -61,7 +62,7 @@ Data model, API contract, and system design specifications for the BusBooking pl
 | [DS-026 / FD-009: State Management](../frontend-design/FD-009-state-management/) | NEW | Zustand stores catalog, persistence, hydration patterns, state boundaries |
 | [DS-027 / FD-010: Error & Loading States](../frontend-design/FD-010-error-loading-states/) | NEW | Error boundaries, loading skeletons, empty states, API error→UI mapping, toasts |
 | [DS-028 / FD-011: Data Fetching](../frontend-design/FD-011-data-fetching/) | NEW | RSC vs client, self-fetch prohibition, Suspense streaming, cache, auth context |
-| [DS-029 / FD-012: Authentication](../frontend-design/FD-012-authentication/) | NEW | 3 auth realms (customer OTP, operator TOTP, admin TOTP), lockout, session expiry, CSRF |
+| [FD-012: Authentication](../frontend-design/FD-012-authentication/) | NEW | 3 auth realms (customer email+password + Google OAuth per ADR-021, operator TOTP, admin TOTP), lockout, session expiry, CSRF |
 | [DS-030 / FD-013: Search & Results UX](../frontend-design/FD-013-search-results/) | NEW | Route autocomplete, trip card anatomy, sort/filter, SEO URLs, trust signals |
 | [DS-031 / FD-014: Hold Timer](../frontend-design/FD-014-hold-timer/) | NEW | 10-min countdown, expiry handling, per-phone hold cap, timer persistence |
 | [DS-032 / FD-015: Payment Checkout](../frontend-design/FD-015-payment-checkout/) | NEW | Guest vs auth, PSP selection (bank transfer/cash/MoMo/VNPay), payment failure recovery |
