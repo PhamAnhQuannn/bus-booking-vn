@@ -45,8 +45,13 @@ export function CustomerAccountMenu({ onNavigate }: { onNavigate?: () => void })
   return (
     <Menu.Root>
       <Menu.Trigger
+        // aria-label carries the full name at every width: below `sm` the visible
+        // name span is hidden (avatar + chevron are aria-hidden), so without this the
+        // trigger had no accessible name on mobile (AX-1). min-h-11 meets the 44px
+        // tap-target floor the rest of the header already keeps (AX-tap).
+        aria-label={`Tài khoản: ${name}`}
         className={cn(
-          'inline-flex items-center gap-2 rounded-full border border-border bg-background px-2 py-1 text-sm font-medium outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:bg-muted'
+          'inline-flex min-h-11 items-center gap-2 rounded-full border border-border bg-background px-2 py-1 text-sm font-medium outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:bg-muted'
         )}
       >
         <span
@@ -55,14 +60,20 @@ export function CustomerAccountMenu({ onNavigate }: { onNavigate?: () => void })
         >
           {initials}
         </span>
-        <span className="hidden max-w-32 truncate sm:inline">{name}</span>
+        {/* title gives a truncated long name a hover/AT fallback (DD-5). */}
+        <span title={name} className="hidden max-w-32 truncate sm:inline">
+          {name}
+        </span>
         <ChevronDownIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
       </Menu.Trigger>
       <Menu.Portal>
-        <Menu.Positioner sideOffset={6} align="end">
+        {/* z-popover on the Positioner (the positioned ancestor), NOT the Popup —
+            a z on the Popup is trapped in the Positioner's z:auto stacking context
+            and paints under the sticky header (the DD-1 clip bug). */}
+        <Menu.Positioner sideOffset={6} align="end" className="z-popover outline-none">
           <Menu.Popup
             className={cn(
-              'z-50 min-w-44 rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-e3 outline-none',
+              'min-w-44 rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-e3 outline-none',
               'transition-[transform,opacity] duration-200 ease-out data-[ending-style]:opacity-0 data-[starting-style]:opacity-0'
             )}
           >

@@ -99,7 +99,7 @@ function LoginPageInner() {
           <div className="flex flex-col gap-1 text-sm">
             <Link
               href="/auth/forgot-password"
-              className="text-primary underline-offset-4 hover:underline"
+              className="text-primary-strong underline-offset-4 hover:underline"
             >
               Quên mật khẩu?
             </Link>
@@ -107,7 +107,7 @@ function LoginPageInner() {
               Chưa có tài khoản?{' '}
               <Link
                 href="/auth/register"
-                className="text-primary underline-offset-4 hover:underline"
+                className="text-primary-strong underline-offset-4 hover:underline"
               >
                 Đăng ký
               </Link>
@@ -117,7 +117,7 @@ function LoginPageInner() {
             Bạn là nhà xe?{' '}
             <Link
               href="/op/login"
-              className="font-medium text-primary underline-offset-4 hover:underline"
+              className="font-medium text-primary-strong underline-offset-4 hover:underline"
             >
               Đăng nhập nhà xe
             </Link>

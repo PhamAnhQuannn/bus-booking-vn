@@ -215,7 +215,7 @@ export default function ForgotPasswordPage() {
           </form>
           <Link
             href="/auth/login"
-            className="text-sm text-primary underline-offset-4 hover:underline"
+            className="text-sm text-primary-strong underline-offset-4 hover:underline"
           >
             Quay lại đăng nhập
           </Link>

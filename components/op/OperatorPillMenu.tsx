@@ -63,10 +63,10 @@ export function OperatorPillMenu({ name, role }: OperatorPillMenuProps) {
         <ChevronDownIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
       </Menu.Trigger>
       <Menu.Portal>
-        <Menu.Positioner sideOffset={6} align="end">
+        <Menu.Positioner sideOffset={6} align="end" className="z-popover outline-none">
           <Menu.Popup
             className={cn(
-              "z-50 min-w-44 rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-e3 outline-none",
+              "min-w-44 rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-e3 outline-none",
               "transition-[transform,opacity] duration-200 ease-out data-[ending-style]:opacity-0 data-[starting-style]:opacity-0"
             )}
           >

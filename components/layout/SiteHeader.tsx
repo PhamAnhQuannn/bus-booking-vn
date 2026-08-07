@@ -115,6 +115,21 @@ export function SiteHeader() {
     };
   }, [pathname]);
 
+  // DD-2: the drawer + backdrop are `xl:hidden`, but Base UI's modal Dialog keeps
+  // its body scroll-lock while `open`. Resizing/rotating past xl with the drawer
+  // open would hide all drawer UI yet freeze the page with no way to close it — so
+  // close it the moment the layout reaches xl (where the inline nav takes over).
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const mq = window.matchMedia('(min-width: 1280px)');
+    const sync = () => {
+      if (mq.matches) setDrawerOpen(false);
+    };
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, [drawerOpen]);
+
   if (pathname.startsWith('/op') || pathname.startsWith('/dev') || pathname.startsWith('/auth') || pathname.startsWith('/admin'))
     return null;
 

@@ -165,11 +165,11 @@ function ResetPasswordPageInner() {
           <div className="flex flex-col gap-1 text-sm">
             <Link
               href="/auth/forgot-password"
-              className="text-primary underline-offset-4 hover:underline"
+              className="text-primary-strong underline-offset-4 hover:underline"
             >
               Yêu cầu mã OTP mới
             </Link>
-            <Link href="/auth/login" className="text-primary underline-offset-4 hover:underline">
+            <Link href="/auth/login" className="text-primary-strong underline-offset-4 hover:underline">
               Đăng nhập
             </Link>
           </div>
