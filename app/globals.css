@@ -29,6 +29,7 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-destructive-strong: var(--destructive-strong);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-success-border: var(--success-border);
@@ -129,6 +130,12 @@
   --accent: oklch(0.95 0.022 62);
   --accent-foreground: oklch(0.205 0.012 55);
   --destructive: oklch(0.577 0.245 27.325);
+  /* Darker destructive for TEXT sitting on the pale `bg-destructive/10` tint
+     (destructive Button variant, delete-account). Measured live: plain
+     --destructive text on that tint is 4.01:1 (AX-11 fail); this drop to L≈0.505
+     clears 4.5:1. `--destructive` itself is unchanged so the solid fills / badges
+     / borders that rely on its exact hue are unaffected. */
+  --destructive-strong: oklch(0.505 0.21 27.3);
   /* Status tokens — bg/foreground/border match Tailwind green-50/900/200 + amber-50/900/200
      so the Phase 6 customer-page migration off the raw green/amber utilities is pixel-equivalent. */
   --success: oklch(0.982 0.018 155.826);
@@ -193,6 +200,7 @@
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
+  --destructive-strong: oklch(0.704 0.191 22.216);
   /* Dark status tokens — out of scope for Phase A (no toggle yet); kept coherent for completeness. */
   --success: oklch(0.27 0.05 152);
   --success-foreground: oklch(0.92 0.05 152);

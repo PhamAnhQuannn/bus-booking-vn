@@ -21,8 +21,19 @@ import { useRouter } from 'next/navigation';
 import { authFetch, ensureAuthenticated, clearSession, setDisplayName } from '@/lib/auth/clientSession';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { OtpCodeInput } from '@/components/auth/OtpCodeInput';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 
 // ---- helpers ---------------------------------------------------------------
 
@@ -92,7 +103,7 @@ function ChangeNameForm() {
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="displayName">Tên mới</Label>
-            <Input id="displayName" type="text" name="displayName" required minLength={4} maxLength={100} />
+            <Input id="displayName" type="text" name="displayName" required minLength={4} maxLength={100} autoComplete="name" />
           </div>
           {status === 'ok' && <OkText>Đã cập nhật tên hiển thị.</OkText>}
           {status === 'err' && <ErrText>{errMsg}</ErrText>}
@@ -162,15 +173,15 @@ function ChangePasswordForm() {
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="currentPassword">Mật khẩu hiện tại</Label>
-            <Input id="currentPassword" type="password" name="currentPassword" required />
+            <Input id="currentPassword" type="password" name="currentPassword" required autoComplete="current-password" />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="newPassword">Mật khẩu mới</Label>
-            <Input id="newPassword" type="password" name="newPassword" required minLength={8} />
+            <Input id="newPassword" type="password" name="newPassword" required minLength={8} autoComplete="new-password" />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="confirmPassword">Xác nhận mật khẩu mới</Label>
-            <Input id="confirmPassword" type="password" name="confirmPassword" required minLength={8} />
+            <Input id="confirmPassword" type="password" name="confirmPassword" required minLength={8} autoComplete="new-password" />
           </div>
           {status === 'ok' && <OkText>Đã đổi mật khẩu. Vui lòng đăng nhập lại.</OkText>}
           {status === 'err' && <ErrText>{errMsg}</ErrText>}
@@ -269,16 +280,7 @@ function ChangePhoneForm() {
           <form onSubmit={handleConfirm} className="flex flex-col gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="phone-otp">Mã OTP (6 chữ số)</Label>
-              <Input
-                id="phone-otp"
-                type="text"
-                name="code"
-                required
-                maxLength={6}
-                pattern="[0-9]{6}"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-              />
+              <OtpCodeInput id="phone-otp" required />
             </div>
             {status === 'ok' && <OkText>Đã đổi số điện thoại thành công.</OkText>}
             {status === 'err' && <ErrText>{errMsg}</ErrText>}
@@ -313,7 +315,7 @@ function ChangePhoneForm() {
         <form onSubmit={handleInit} className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="newPhone">Số điện thoại mới</Label>
-            <Input id="newPhone" type="tel" name="newPhone" required placeholder="0901234567" />
+            <Input id="newPhone" type="tel" name="newPhone" required autoComplete="tel" placeholder="0901234567" />
           </div>
           {status === 'ok' && <OkText>Đã đổi số điện thoại thành công.</OkText>}
           {status === 'err' && <ErrText>{errMsg}</ErrText>}
@@ -330,7 +332,7 @@ function ChangePhoneForm() {
 
 function DeleteAccountForm() {
   const router = useRouter();
-  const [confirmed, setConfirmed] = useState(false);
+  const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<'idle' | 'err'>('idle');
   const [errMsg, setErrMsg] = useState('');
   const [loading, setLoading] = useState(false);
@@ -370,26 +372,51 @@ function DeleteAccountForm() {
         <p className="text-sm text-muted-foreground">
           Thao tác này không thể hoàn tác. Tất cả dữ liệu cá nhân sẽ bị xóa.
         </p>
-        {!confirmed ? (
-          <Button variant="destructive" className="self-start" onClick={() => setConfirmed(true)}>
-            Xóa tài khoản
-          </Button>
-        ) : (
-          <div className="flex flex-col gap-3">
-            <p className="text-sm font-semibold text-destructive">
-              Bạn có chắc chắn muốn xóa tài khoản?
-            </p>
+        {/* AC-1: the confirm lives in a focus-trapped modal, not an in-place swap
+            a fast double-tap could hit. Esc/backdrop/Hủy all cancel. */}
+        <Dialog
+          open={open}
+          onOpenChange={(next) => {
+            setOpen(next);
+            if (!next) setStatus('idle');
+          }}
+        >
+          <DialogTrigger
+            render={(p) => (
+              <Button {...p} type="button" variant="destructive" className="self-start">
+                Xóa tài khoản
+              </Button>
+            )}
+          />
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Xóa tài khoản?</DialogTitle>
+              <DialogDescription>
+                Thao tác này không thể hoàn tác. Tất cả dữ liệu cá nhân của bạn sẽ bị xóa vĩnh viễn.
+              </DialogDescription>
+            </DialogHeader>
             {status === 'err' && <ErrText>{errMsg}</ErrText>}
-            <div className="flex gap-2">
-              <Button variant="destructive" disabled={loading} onClick={handleDelete}>
+            <DialogFooter>
+              <DialogClose
+                render={(p) => (
+                  <Button {...p} type="button" variant="outline" disabled={loading}>
+                    Hủy
+                  </Button>
+                )}
+              />
+              {/* AC-2: scoped solid destructive — the strongest affordance for the
+                  highest-risk, irreversible action (not the pale outline weight). */}
+              <Button
+                type="button"
+                onClick={handleDelete}
+                disabled={loading}
+                className="bg-destructive text-white hover:bg-destructive/90 focus-visible:border-destructive/40 focus-visible:ring-3 focus-visible:ring-destructive/40"
+              >
                 {loading ? 'Đang xóa...' : 'Xác nhận xóa'}
               </Button>
-              <Button variant="outline" disabled={loading} onClick={() => setConfirmed(false)}>
-                Hủy
-              </Button>
-            </div>
-          </div>
-        )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
@@ -419,7 +446,7 @@ export default function AccountSettingsPage() {
   return (
     <main className="mx-auto flex w-full max-w-xl flex-col gap-6 px-4 py-10">
       <nav aria-label="breadcrumb" className="text-sm text-muted-foreground">
-        <ol className="flex items-center gap-1.5">
+        <ol className="flex flex-wrap items-center gap-1.5">
           <li><Link href="/" className="underline-offset-4 hover:text-foreground hover:underline">Trang chủ</Link></li>
           <li aria-hidden="true">/</li>
           <li><Link href="/account/bookings" className="underline-offset-4 hover:text-foreground hover:underline">Lịch sử đặt vé</Link></li>
