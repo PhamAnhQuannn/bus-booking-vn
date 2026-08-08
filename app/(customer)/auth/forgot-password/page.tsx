@@ -125,7 +125,7 @@ export default function ForgotPasswordPage() {
   if (step === 'done') {
     return (
       <AuthSplitLayout audience="customer" title="Đặt lại mật khẩu thành công">
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-7">
             <p className="text-sm text-muted-foreground">Mật khẩu của bạn đã được cập nhật.</p>
             <Button size="lg" className="h-12 w-full text-base" onClick={() => router.push('/auth/login')}>
               Đăng nhập
@@ -142,7 +142,7 @@ export default function ForgotPasswordPage() {
         title="Đặt lại mật khẩu"
         subtitle="Nhập mã OTP đã gửi đến email của bạn và mật khẩu mới."
       >
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-7">
             <form onSubmit={handleReset} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="code">Mã OTP (6 chữ số)</Label>
@@ -205,7 +205,7 @@ export default function ForgotPasswordPage() {
       title="Quên mật khẩu"
       subtitle="Nhập email đã đăng ký. Chúng tôi sẽ gửi mã OTP để đặt lại mật khẩu."
     >
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-7">
           <form onSubmit={handleRequestOtp} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="email">Địa chỉ email</Label>
