@@ -52,7 +52,11 @@ function FormStatus({
   errMessage: string;
 }) {
   return (
+    // key flips with the tone so a status→alert change mounts a FRESH node instead
+    // of mutating role/aria-live in place (which isn't reliably announced by every
+    // screen reader). Auth pages use a fixed tone, so they need no key.
     <FormError
+      key={status === 'err' ? 'err' : 'ok'}
       tone={status === 'err' ? 'error' : 'success'}
       message={status === 'ok' ? okMessage : status === 'err' ? errMessage : ''}
     />
@@ -341,9 +345,15 @@ function DeleteAccountForm() {
   async function handleDelete() {
     setStatus('idle');
     setLoading(true);
+    // Bound the DELETE with a timeout: the dialog is un-dismissable while loading,
+    // so a stalled request must not trap the user forever — on abort the catch runs,
+    // loading clears, and the guard releases so the dialog is closable + error shows.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
     try {
       const res = await authFetch('/api/account/delete', {
         method: 'DELETE',
+        signal: controller.signal,
       });
       if (res.ok) {
         // Clear token + cached display name — account is gone
@@ -358,6 +368,7 @@ function DeleteAccountForm() {
       setErrMsg('Lỗi kết nối.');
       setStatus('err');
     } finally {
+      clearTimeout(timeout);
       setLoading(false);
     }
   }
