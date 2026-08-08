@@ -15,12 +15,11 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
 import { FormError } from '@/components/auth/FormError';
-import { authLinkClass } from '@/components/auth/authLinkClass';
+import { authLinkClass, authFieldClass } from '@/components/auth/authLinkClass';
 import { OtpCodeInput } from '@/components/auth/OtpCodeInput';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
 
 type Step = 'email' | 'reset' | 'done';
 
@@ -126,14 +125,12 @@ export default function ForgotPasswordPage() {
   if (step === 'done') {
     return (
       <AuthSplitLayout audience="customer" title="Đặt lại mật khẩu thành công">
-        <Card className="shadow-e3">
-          <CardContent className="flex flex-col gap-4">
+        <div className="flex flex-col gap-6">
             <p className="text-sm text-muted-foreground">Mật khẩu của bạn đã được cập nhật.</p>
-            <Button size="lg" className="w-full" onClick={() => router.push('/auth/login')}>
+            <Button size="lg" className="h-12 w-full text-base" onClick={() => router.push('/auth/login')}>
               Đăng nhập
             </Button>
-          </CardContent>
-        </Card>
+        </div>
       </AuthSplitLayout>
     );
   }
@@ -145,12 +142,11 @@ export default function ForgotPasswordPage() {
         title="Đặt lại mật khẩu"
         subtitle="Nhập mã OTP đã gửi đến email của bạn và mật khẩu mới."
       >
-        <Card className="shadow-e3">
-          <CardContent className="flex flex-col gap-4">
+        <div className="flex flex-col gap-6">
             <form onSubmit={handleReset} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="code">Mã OTP (6 chữ số)</Label>
-                <OtpCodeInput id="code" required autoFocus />
+                <OtpCodeInput id="code" required autoFocus className={authFieldClass} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="newPassword">Mật khẩu mới</Label>
@@ -162,6 +158,7 @@ export default function ForgotPasswordPage() {
                   minLength={8}
                   autoComplete="new-password"
                   aria-invalid={mismatch || undefined}
+                  className={authFieldClass}
                 />
               </div>
               <div className="flex flex-col gap-1.5">
@@ -175,10 +172,11 @@ export default function ForgotPasswordPage() {
                   autoComplete="new-password"
                   aria-invalid={mismatch || undefined}
                   aria-describedby={mismatch ? 'forgot-reset-error' : undefined}
+                  className={authFieldClass}
                 />
               </div>
               <FormError id="forgot-reset-error" message={error} />
-              <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="w-full">
+              <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="h-12 w-full text-base">
                 {loading ? 'Đang xử lý...' : 'Đặt lại mật khẩu'}
               </Button>
             </form>
@@ -195,8 +193,7 @@ export default function ForgotPasswordPage() {
             >
               Dùng email khác
             </Button>
-          </CardContent>
-        </Card>
+        </div>
       </AuthSplitLayout>
     );
   }
@@ -208,23 +205,21 @@ export default function ForgotPasswordPage() {
       title="Quên mật khẩu"
       subtitle="Nhập email đã đăng ký. Chúng tôi sẽ gửi mã OTP để đặt lại mật khẩu."
     >
-      <Card className="shadow-e3">
-        <CardContent className="flex flex-col gap-4">
+      <div className="flex flex-col gap-6">
           <form onSubmit={handleRequestOtp} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="email">Địa chỉ email</Label>
-              <Input id="email" type="email" name="email" required autoComplete="email" placeholder="you@example.com" />
+              <Input id="email" type="email" name="email" required autoComplete="email" placeholder="you@example.com" className={authFieldClass} />
             </div>
             <FormError message={error} />
-            <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="w-full">
+            <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="h-12 w-full text-base">
               {loading ? 'Đang gửi...' : 'Gửi mã OTP'}
             </Button>
           </form>
           <Link href="/auth/login" className={`${authLinkClass} text-sm`}>
             Quay lại đăng nhập
           </Link>
-        </CardContent>
-      </Card>
+      </div>
     </AuthSplitLayout>
   );
 }

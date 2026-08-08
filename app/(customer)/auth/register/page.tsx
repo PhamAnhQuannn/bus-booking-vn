@@ -16,12 +16,11 @@ import { safeReturnTo } from '@/lib/auth/safeReturnTo';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { FormError } from '@/components/auth/FormError';
-import { authLinkClass } from '@/components/auth/authLinkClass';
+import { authLinkClass, authFieldClass } from '@/components/auth/authLinkClass';
 import { OtpCodeInput } from '@/components/auth/OtpCodeInput';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 type Step = 'email' | 'otp' | 'details';
@@ -185,8 +184,7 @@ function RegisterPageInner() {
 
   return (
     <AuthSplitLayout audience="customer" title="Đăng ký" subtitle={STEP_SUBTITLE[step]}>
-      <Card className="shadow-e3">
-        <CardContent className="flex flex-col gap-4">
+      <div className="flex flex-col gap-6">
           <StepDots current={STEP_INDEX[step]} />
           {/* AX-7: announce step advances to screen-readers (StepDots is aria-hidden). */}
           <p className="sr-only" aria-live="polite">
@@ -206,10 +204,11 @@ function RegisterPageInner() {
                   required
                   autoComplete="email"
                   placeholder="you@example.com"
+                  className={authFieldClass}
                 />
               </div>
               <FormError message={error} />
-              <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="w-full">
+              <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="h-12 w-full text-base">
                 {loading ? 'Đang gửi...' : 'Gửi mã OTP'}
               </Button>
               <GoogleSignInButton returnTo={returnTo} />
@@ -223,10 +222,10 @@ function RegisterPageInner() {
               </p>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="code">Mã OTP</Label>
-                <OtpCodeInput id="code" required autoFocus />
+                <OtpCodeInput id="code" required autoFocus className={authFieldClass} />
               </div>
               <FormError message={error} />
-              <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="w-full">
+              <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="h-12 w-full text-base">
                 {loading ? 'Đang xác minh...' : 'Xác minh'}
               </Button>
               <Button
@@ -256,14 +255,15 @@ function RegisterPageInner() {
                   minLength={8}
                   autoComplete="new-password"
                   autoFocus
+                  className={authFieldClass}
                 />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="displayName">Tên hiển thị (tuỳ chọn)</Label>
-                <Input id="displayName" type="text" name="displayName" autoComplete="name" />
+                <Input id="displayName" type="text" name="displayName" autoComplete="name" className={authFieldClass} />
               </div>
               <FormError message={error} />
-              <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="w-full">
+              <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="h-12 w-full text-base">
                 {loading ? 'Đang đăng ký...' : 'Đăng ký'}
               </Button>
             </form>
@@ -275,8 +275,7 @@ function RegisterPageInner() {
               Đăng nhập
             </Link>
           </p>
-        </CardContent>
-      </Card>
+      </div>
     </AuthSplitLayout>
   );
 }
