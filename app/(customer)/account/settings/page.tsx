@@ -345,11 +345,14 @@ function DeleteAccountForm() {
   async function handleDelete() {
     setStatus('idle');
     setLoading(true);
-    // Bound the DELETE with a timeout: the dialog is un-dismissable while loading,
-    // so a stalled request must not trap the user forever — on abort the catch runs,
-    // loading clears, and the guard releases so the dialog is closable + error shows.
+    // Bound the DELETE with a generous timeout: the dialog is un-dismissable while
+    // loading, so a stalled request must not trap the user forever — on abort the
+    // catch runs, loading clears, and the guard releases so the dialog is closable +
+    // the error shows. 30s (not a tight 10s) so a slow-but-committed deletion isn't
+    // falsely reported as a connection error; and DELETE is idempotent, so if an
+    // aborted request did commit server-side, a retry returns 200 and completes.
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
+    const timeout = setTimeout(() => controller.abort(), 30000);
     try {
       const res = await authFetch('/api/account/delete', {
         method: 'DELETE',
