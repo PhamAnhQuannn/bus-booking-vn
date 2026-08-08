@@ -109,7 +109,7 @@ function ResetPasswordPageInner() {
   if (done) {
     return (
       <AuthSplitLayout audience="customer" title="Thành công">
-        <div className="flex flex-col gap-7">
+        <div className="flex flex-col gap-6">
             <p className="text-sm text-muted-foreground">Mật khẩu của bạn đã được cập nhật.</p>
             <Button size="lg" className="h-12 w-full text-base" onClick={() => router.push('/auth/login')}>
               Đăng nhập
@@ -121,7 +121,7 @@ function ResetPasswordPageInner() {
 
   return (
     <AuthSplitLayout audience="customer" title="Đặt lại mật khẩu">
-      <div className="flex flex-col gap-7">
+      <div className="flex flex-col gap-6">
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="email">Địa chỉ email</Label>

@@ -97,45 +97,31 @@ export function AuthSplitLayout({
       {/* Brand panel — desktop only */}
       <aside
         className={cn(
-          // c.panel is the ALWAYS-opaque base (orange for customer, dark gradient for
-          // operator): if the hero photo below fails to load, white copy still has an
-          // opaque brand backing instead of the translucent scrims over the page field.
-          // `isolate` makes the aside a stacking context so the -z photo/scrim layers
-          // paint ABOVE this base (else the opaque base would hide the photo).
-          'relative isolate hidden flex-col justify-between overflow-hidden p-12 lg:flex lg:p-16',
-          c.panel
+          'relative hidden flex-col justify-between overflow-hidden p-12 lg:flex lg:p-16',
+          !c.photo && c.panel
         )}
       >
         {c.photo ? (
           <>
-            {/* Full-bleed travel photo as a CSS background (not an <img>): an <img>
-                inside this `hidden lg:flex` aside is still fetched on mobile even though
-                the panel is display:none — a background-image on a display:none subtree
-                is NOT fetched, so sub-lg visits pay 0 bytes for it. */}
-            <div
+            {/* Full-bleed travel photo (app convention: plain <img>, not next/image). */}
+            <img
+              src={c.photo}
+              srcSet={`/hero/landing-golden-md-1536.jpg 1536w, /hero/landing-golden-1920.jpg 1920w, /hero/landing-golden-3840.jpg 3840w`}
+              sizes="58vw"
+              alt=""
               aria-hidden="true"
-              className="absolute inset-0 -z-20 bg-cover bg-center"
-              style={{
-                backgroundImage:
-                  "image-set(url('/hero/landing-golden-md-1536.jpg') 1x, url('/hero/landing-golden-md-1536@2x.webp') 2x)",
-              }}
+              className="absolute inset-0 -z-20 size-full object-cover"
             />
             {/* Directional orange scrim: stronger over the copy (left), lighter over the
-                bus/landscape (right) so the photograph keeps its depth. */}
+                bus/landscape (right) so the photograph keeps its depth; a modest dark band
+                only at the bottom keeps the fineprint + bullets ≥AA. */}
             <div
               aria-hidden="true"
-              className="absolute inset-0 -z-10 bg-gradient-to-r from-primary/85 via-primary/70 to-primary/50"
-            />
-            {/* Left-anchored darkening: all brand copy is left-aligned, so this lifts the
-                white headline/bullets/fineprint clear of AA (≥4.5:1) on the copy side while
-                the right (bus/landscape) stays bright. */}
-            <div
-              aria-hidden="true"
-              className="absolute inset-0 -z-10 bg-gradient-to-r from-black/55 via-black/25 to-transparent"
+              className="absolute inset-0 -z-10 bg-gradient-to-r from-primary/85 via-primary/65 to-primary/45"
             />
             <div
               aria-hidden="true"
-              className="absolute inset-0 -z-10 bg-gradient-to-t from-black/40 to-transparent"
+              className="absolute inset-0 -z-10 bg-gradient-to-t from-black/45 via-transparent to-black/10"
             />
           </>
         ) : (

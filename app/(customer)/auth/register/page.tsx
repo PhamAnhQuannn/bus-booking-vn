@@ -184,7 +184,7 @@ function RegisterPageInner() {
 
   return (
     <AuthSplitLayout audience="customer" title="Đăng ký" subtitle={STEP_SUBTITLE[step]}>
-      <div className="flex flex-col gap-7">
+      <div className="flex flex-col gap-6">
           <StepDots current={STEP_INDEX[step]} />
           {/* AX-7: announce step advances to screen-readers (StepDots is aria-hidden). */}
           <p className="sr-only" aria-live="polite">
