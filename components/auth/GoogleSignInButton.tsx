@@ -48,7 +48,9 @@ export function GoogleSignInButton({ returnTo }: { returnTo?: string }) {
   }
 
   return (
-    <>
+    // Divider + button are ONE unit (alternate login) — grouped so they read as a pair,
+    // not two independent siblings of the outer form column (proximity fix).
+    <div className="flex flex-col gap-4">
       {/* AX-12: only the rule lines are decorative — the word "hoặc" must reach
           screen-readers as a real separator, so aria-hidden goes on the spans. */}
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -60,7 +62,7 @@ export function GoogleSignInButton({ returnTo }: { returnTo?: string }) {
         type="button"
         variant="outline"
         size="lg"
-        className="w-full gap-2"
+        className="h-12 w-full gap-2 text-base"
         onClick={go}
         disabled={loading}
         aria-busy={loading}
@@ -74,6 +76,6 @@ export function GoogleSignInButton({ returnTo }: { returnTo?: string }) {
           </>
         )}
       </Button>
-    </>
+    </div>
   );
 }

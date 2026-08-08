@@ -13,11 +13,10 @@ import { safeReturnTo } from '@/lib/auth/safeReturnTo';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { FormError } from '@/components/auth/FormError';
-import { authLinkClass } from '@/components/auth/authLinkClass';
+import { authLinkClass, authFieldClass } from '@/components/auth/authLinkClass';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
 
 export default function LoginPage() {
   return (
@@ -76,43 +75,50 @@ function LoginPageInner() {
   }
 
   return (
-    <AuthSplitLayout audience="customer" title="Đăng nhập">
-      <Card className="shadow-e3">
-        <CardContent className="flex flex-col gap-4">
-          <form onSubmit={handleLogin} method="post" className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="email">Địa chỉ email</Label>
-              <Input id="email" type="email" name="email" required autoComplete="email" placeholder="you@example.com" />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="password">Mật khẩu</Label>
-              <Input id="password" type="password" name="password" required autoComplete="current-password" />
-            </div>
-            <FormError message={error} />
-            <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="w-full">
-              {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
-            </Button>
-          </form>
-          <GoogleSignInButton returnTo={returnTo} />
-          <div className="flex flex-col gap-1 text-sm">
-            <Link href="/auth/forgot-password" className={authLinkClass}>
-              Quên mật khẩu?
-            </Link>
-            <p className="text-muted-foreground">
-              Chưa có tài khoản?{' '}
-              <Link href="/auth/register" className={authLinkClass}>
-                Đăng ký
-              </Link>
-            </p>
+    <AuthSplitLayout audience="customer" eyebrow="Chào mừng trở lại" title="Đăng nhập">
+      {/* Two-tier spacing: within-zone tight, ~28px between zones. Zones read as
+          credentials+CTA · alternate login (divider+Google) · account help · operator. */}
+      <div className="flex flex-col gap-7">
+        <form onSubmit={handleLogin} method="post" className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="email">Địa chỉ email</Label>
+            <Input id="email" type="email" name="email" required autoComplete="email" placeholder="you@example.com" className={authFieldClass} />
           </div>
-          <div className="mt-1 border-t border-border pt-4 text-sm text-muted-foreground">
-            Bạn là nhà xe?{' '}
-            <Link href="/op/login" className={`${authLinkClass} font-medium`}>
-              Đăng nhập nhà xe
-            </Link>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="password">Mật khẩu</Label>
+            <Input id="password" type="password" name="password" required autoComplete="current-password" className={authFieldClass} />
           </div>
-        </CardContent>
-      </Card>
+          {/* -my-2 pulls the CTA up toward the credentials: the reserved (no-shift)
+              error line stays, but its empty-state void no longer detaches the button. */}
+          <FormError message={error} className="-my-2" />
+          <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="h-12 w-full text-base">
+            {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+          </Button>
+        </form>
+        <GoogleSignInButton returnTo={returnTo} />
+        <div className="flex flex-col gap-2 text-base">
+          <Link href="/auth/forgot-password" className={authLinkClass}>
+            Quên mật khẩu?
+          </Link>
+          <p className="text-muted-foreground">
+            Chưa có tài khoản?{' '}
+            <Link href="/auth/register" className={authLinkClass}>
+              Đăng ký
+            </Link>
+          </p>
+        </div>
+        {/* Operator door — a rule (section break) + one tinted 44px link, not a boxed
+            card: clearly a separate portal, but visually secondary (no double border). */}
+        <div className="flex items-center justify-between gap-3 border-t border-border pt-5">
+          <span className="text-sm text-muted-foreground">Bạn là nhà xe?</span>
+          <Link
+            href="/op/login"
+            className="inline-flex h-11 items-center rounded-lg border border-primary/40 bg-primary/5 px-4 text-sm font-medium text-foreground outline-none transition-colors hover:bg-primary/10 focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            Đăng nhập nhà xe →
+          </Link>
+        </div>
+      </div>
     </AuthSplitLayout>
   );
 }

@@ -15,12 +15,11 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
 import { FormError } from '@/components/auth/FormError';
-import { authLinkClass } from '@/components/auth/authLinkClass';
+import { authLinkClass, authFieldClass } from '@/components/auth/authLinkClass';
 import { OtpCodeInput } from '@/components/auth/OtpCodeInput';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
 
 export default function ResetPasswordPage() {
   return (
@@ -110,22 +109,19 @@ function ResetPasswordPageInner() {
   if (done) {
     return (
       <AuthSplitLayout audience="customer" title="Thành công">
-        <Card className="shadow-e3">
-          <CardContent className="flex flex-col gap-4">
+        <div className="flex flex-col gap-7">
             <p className="text-sm text-muted-foreground">Mật khẩu của bạn đã được cập nhật.</p>
-            <Button size="lg" className="w-full" onClick={() => router.push('/auth/login')}>
+            <Button size="lg" className="h-12 w-full text-base" onClick={() => router.push('/auth/login')}>
               Đăng nhập
             </Button>
-          </CardContent>
-        </Card>
+        </div>
       </AuthSplitLayout>
     );
   }
 
   return (
     <AuthSplitLayout audience="customer" title="Đặt lại mật khẩu">
-      <Card className="shadow-e3">
-        <CardContent className="flex flex-col gap-4">
+      <div className="flex flex-col gap-7">
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="email">Địa chỉ email</Label>
@@ -137,11 +133,12 @@ function ResetPasswordPageInner() {
                 autoComplete="email"
                 defaultValue={prefillEmail}
                 placeholder="you@example.com"
+                className={authFieldClass}
               />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="code">Mã OTP (6 chữ số)</Label>
-              <OtpCodeInput id="code" required />
+              <OtpCodeInput id="code" required className={authFieldClass} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="newPassword">Mật khẩu mới</Label>
@@ -153,6 +150,7 @@ function ResetPasswordPageInner() {
                 minLength={8}
                 autoComplete="new-password"
                 aria-invalid={mismatch || undefined}
+                className={authFieldClass}
               />
             </div>
             <div className="flex flex-col gap-1.5">
@@ -166,10 +164,11 @@ function ResetPasswordPageInner() {
                 autoComplete="new-password"
                 aria-invalid={mismatch || undefined}
                 aria-describedby={mismatch ? 'reset-error' : undefined}
+                className={authFieldClass}
               />
             </div>
             <FormError id="reset-error" message={error} />
-            <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="w-full">
+            <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="h-12 w-full text-base">
               {loading ? 'Đang xử lý...' : 'Đặt lại mật khẩu'}
             </Button>
           </form>
@@ -181,8 +180,7 @@ function ResetPasswordPageInner() {
               Đăng nhập
             </Link>
           </div>
-        </CardContent>
-      </Card>
+      </div>
     </AuthSplitLayout>
   );
 }
