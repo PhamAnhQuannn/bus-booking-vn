@@ -12,6 +12,7 @@ import { readCsrfToken } from '@/lib/auth/csrfClient';
 import { safeReturnTo } from '@/lib/auth/safeReturnTo';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
+import { FormError } from '@/components/auth/FormError';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -80,17 +81,13 @@ function LoginPageInner() {
           <form onSubmit={handleLogin} method="post" className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="email">Địa chỉ email</Label>
-              <Input id="email" type="email" name="email" required placeholder="you@example.com" />
+              <Input id="email" type="email" name="email" required autoComplete="email" placeholder="you@example.com" />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="password">Mật khẩu</Label>
-              <Input id="password" type="password" name="password" required />
+              <Input id="password" type="password" name="password" required autoComplete="current-password" />
             </div>
-            {error && (
-              <p className="text-sm text-destructive" role="alert" aria-live="assertive">
-                {error}
-              </p>
-            )}
+            <FormError message={error} />
             <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="w-full">
               {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
             </Button>
@@ -99,7 +96,7 @@ function LoginPageInner() {
           <div className="flex flex-col gap-1 text-sm">
             <Link
               href="/auth/forgot-password"
-              className="text-primary-strong underline-offset-4 hover:underline"
+              className="inline-flex min-h-11 w-fit items-center text-primary-strong underline-offset-4 hover:underline"
             >
               Quên mật khẩu?
             </Link>
@@ -107,7 +104,7 @@ function LoginPageInner() {
               Chưa có tài khoản?{' '}
               <Link
                 href="/auth/register"
-                className="text-primary-strong underline-offset-4 hover:underline"
+                className="inline-flex min-h-11 items-center text-primary-strong underline-offset-4 hover:underline"
               >
                 Đăng ký
               </Link>
@@ -117,7 +114,7 @@ function LoginPageInner() {
             Bạn là nhà xe?{' '}
             <Link
               href="/op/login"
-              className="font-medium text-primary-strong underline-offset-4 hover:underline"
+              className="inline-flex min-h-11 items-center font-medium text-primary-strong underline-offset-4 hover:underline"
             >
               Đăng nhập nhà xe
             </Link>

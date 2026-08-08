@@ -13,14 +13,17 @@ import { cn } from '@/lib/utils';
 export function FormError({
   message,
   tone = 'error',
+  id,
   className,
 }: {
   message?: string | null;
   tone?: 'error' | 'success';
+  id?: string;
   className?: string;
 }) {
   return (
     <p
+      id={id}
       role={tone === 'error' ? 'alert' : 'status'}
       aria-live={tone === 'error' ? 'assertive' : 'polite'}
       className={cn(

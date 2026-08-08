@@ -49,10 +49,12 @@ export function GoogleSignInButton({ returnTo }: { returnTo?: string }) {
 
   return (
     <>
-      <div className="flex items-center gap-3 text-xs text-muted-foreground" aria-hidden="true">
-        <span className="h-px flex-1 bg-border" />
-        hoặc
-        <span className="h-px flex-1 bg-border" />
+      {/* AX-12: only the rule lines are decorative — the word "hoặc" must reach
+          screen-readers as a real separator, so aria-hidden goes on the spans. */}
+      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <span aria-hidden="true" className="h-px flex-1 bg-border" />
+        <span>hoặc</span>
+        <span aria-hidden="true" className="h-px flex-1 bg-border" />
       </div>
       <Button
         type="button"

@@ -14,6 +14,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
+import { FormError } from '@/components/auth/FormError';
+import { OtpCodeInput } from '@/components/auth/OtpCodeInput';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,6 +28,7 @@ export default function ForgotPasswordPage() {
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
+  const [mismatch, setMismatch] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // ---- Step 1: request OTP ---------------------------------------------------
@@ -60,6 +63,7 @@ export default function ForgotPasswordPage() {
   async function handleReset(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
+    setMismatch(false);
     setLoading(true);
     const fd = new FormData(e.currentTarget);
     const code = fd.get('code') as string;
@@ -67,6 +71,7 @@ export default function ForgotPasswordPage() {
     const confirmPassword = fd.get('confirmPassword') as string;
     if (newPassword !== confirmPassword) {
       setError('Mật khẩu xác nhận không khớp.');
+      setMismatch(true);
       setLoading(false);
       return;
     }
@@ -144,30 +149,34 @@ export default function ForgotPasswordPage() {
             <form onSubmit={handleReset} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="code">Mã OTP (6 chữ số)</Label>
-                <Input
-                  id="code"
-                  type="text"
-                  name="code"
-                  required
-                  maxLength={6}
-                  pattern="[0-9]{6}"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                />
+                <OtpCodeInput id="code" required autoFocus />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="newPassword">Mật khẩu mới</Label>
-                <Input id="newPassword" type="password" name="newPassword" required minLength={8} />
+                <Input
+                  id="newPassword"
+                  type="password"
+                  name="newPassword"
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  aria-invalid={mismatch || undefined}
+                />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="confirmPassword">Xác nhận mật khẩu mới</Label>
-                <Input id="confirmPassword" type="password" name="confirmPassword" required minLength={8} />
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  name="confirmPassword"
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  aria-invalid={mismatch || undefined}
+                  aria-describedby={mismatch ? 'forgot-reset-error' : undefined}
+                />
               </div>
-              {error && (
-                <p className="text-sm text-destructive" role="alert" aria-live="assertive">
-                  {error}
-                </p>
-              )}
+              <FormError id="forgot-reset-error" message={error} />
               <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="w-full">
                 {loading ? 'Đang xử lý...' : 'Đặt lại mật khẩu'}
               </Button>
@@ -176,10 +185,11 @@ export default function ForgotPasswordPage() {
               type="button"
               variant="link"
               size="sm"
-              className="self-start px-0"
+              className="min-h-11 w-fit justify-start self-start px-0 text-primary-strong"
               onClick={() => {
                 setStep('email');
                 setError('');
+                setMismatch(false);
               }}
             >
               Dùng email khác
@@ -202,20 +212,16 @@ export default function ForgotPasswordPage() {
           <form onSubmit={handleRequestOtp} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="email">Địa chỉ email</Label>
-              <Input id="email" type="email" name="email" required placeholder="you@example.com" />
+              <Input id="email" type="email" name="email" required autoComplete="email" placeholder="you@example.com" />
             </div>
-            {error && (
-              <p className="text-sm text-destructive" role="alert" aria-live="assertive">
-                {error}
-              </p>
-            )}
+            <FormError message={error} />
             <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="w-full">
               {loading ? 'Đang gửi...' : 'Gửi mã OTP'}
             </Button>
           </form>
           <Link
             href="/auth/login"
-            className="text-sm text-primary-strong underline-offset-4 hover:underline"
+            className="inline-flex min-h-11 w-fit items-center text-sm text-primary-strong underline-offset-4 hover:underline"
           >
             Quay lại đăng nhập
           </Link>
