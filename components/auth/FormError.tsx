@@ -8,7 +8,12 @@ import { cn } from '@/lib/utils';
  *
  * tone="error"   → role="alert"  + aria-live="assertive" (interrupts).
  * tone="success" → role="status" + aria-live="polite".
- * An empty/absent message renders an invisible spacer of the same height.
+ * An empty/absent message renders as an empty line that still reserves height
+ * (`min-h-5`). It is deliberately NOT hidden with `visibility:hidden` — that would
+ * pull the live region out of the accessibility tree while empty, and a region
+ * that flips from out-of-tree to visible-with-content in one render is not
+ * reliably announced by every screen reader (review #4). Staying mounted and empty
+ * keeps the announcement dependable.
  */
 export function FormError({
   message,
@@ -29,7 +34,6 @@ export function FormError({
       className={cn(
         'min-h-5 text-sm',
         tone === 'error' ? 'text-destructive' : 'text-success-foreground',
-        !message && 'invisible',
         className,
       )}
     >

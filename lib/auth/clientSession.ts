@@ -137,34 +137,58 @@ export function useDisplayName(): string | null {
 
 let inFlight: Promise<string | null> | null = null;
 
+/** Per-attempt timeout: a hung refresh must not leave the header stuck on the
+ *  'unknown' placeholder forever (review #2). AbortController settles the fetch. */
+const REFRESH_TIMEOUT_MS = 8000;
+/** Retry only on network error/abort, with linear backoff, before giving up. */
+const REFRESH_MAX_ATTEMPTS = 3;
+const REFRESH_BACKOFF_MS = 800;
+
 function attemptRefresh(): Promise<string | null> {
   if (inFlight) return inFlight;
 
   inFlight = (async () => {
     try {
-      const res = await fetch('/api/auth/refresh', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'X-CSRF-Token': readCsrfToken() },
-      });
-      if (!res.ok) {
-        clearSession();
-        return null;
+      for (let attempt = 1; attempt <= REFRESH_MAX_ATTEMPTS; attempt++) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), REFRESH_TIMEOUT_MS);
+        try {
+          const res = await fetch('/api/auth/refresh', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'X-CSRF-Token': readCsrfToken() },
+            signal: controller.signal,
+          });
+          if (!res.ok) {
+            clearSession(); // resolves the tri-state to 'guest'
+            return null;
+          }
+          const json = await res.json();
+          setAccessToken(json.accessToken); // resolves the tri-state to 'authed'
+          // Rehydrate name/email so a hard reload restores the real account menu, not the
+          // "Khách hàng" fallback (QA F1). Only overwrite when the refresh carries them.
+          if ('displayName' in json) setDisplayName(json.displayName ?? null);
+          if ('customerEmail' in json || 'email' in json) setCustomerEmail(json.email ?? null);
+          return json.accessToken as string;
+        } catch {
+          // Network error / timeout — the token may still be valid, so do NOT clear
+          // the session or resolve to 'guest' yet: doing so on a transient blip would
+          // flash the guest CTA at a signed-in user (review #1). Retry a few times
+          // (staying 'unknown'); only after the outage looks sustained do we give up
+          // and resolve to 'guest'.
+          if (attempt < REFRESH_MAX_ATTEMPTS) {
+            await new Promise((r) => setTimeout(r, attempt * REFRESH_BACKOFF_MS));
+            continue;
+          }
+          useSessionStore.setState({ resolved: true });
+          return null;
+        } finally {
+          clearTimeout(timeout);
+        }
       }
-      const json = await res.json();
-      setAccessToken(json.accessToken);
-      // Rehydrate name/email so a hard reload restores the real account menu, not the
-      // "Khách hàng" fallback (QA F1). Only overwrite when the refresh carries them.
-      if ('displayName' in json) setDisplayName(json.displayName ?? null);
-      if ('customerEmail' in json || 'email' in json) setCustomerEmail(json.email ?? null);
-      return json.accessToken as string;
-    } catch {
-      return null; // network error — don't clear session, token may still be valid
+      return null;
     } finally {
       inFlight = null;
-      // The attempt has settled (success, 401-clear, or network error) — mark the
-      // state known so the header stops showing the placeholder (DD-4).
-      useSessionStore.setState({ resolved: true });
     }
   })();
   return inFlight;

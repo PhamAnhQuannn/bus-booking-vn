@@ -16,6 +16,7 @@ import { safeReturnTo } from '@/lib/auth/safeReturnTo';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { FormError } from '@/components/auth/FormError';
+import { authLinkClass } from '@/components/auth/authLinkClass';
 import { OtpCodeInput } from '@/components/auth/OtpCodeInput';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -270,10 +271,7 @@ function RegisterPageInner() {
 
           <p className="text-sm text-muted-foreground">
             Đã có tài khoản?{' '}
-            <Link
-              href="/auth/login"
-              className="inline-flex min-h-11 items-center text-primary-strong underline-offset-4 hover:underline"
-            >
+            <Link href="/auth/login" className={authLinkClass}>
               Đăng nhập
             </Link>
           </p>

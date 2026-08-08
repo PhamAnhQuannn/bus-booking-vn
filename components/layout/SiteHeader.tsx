@@ -7,7 +7,7 @@
  *
  * Customer auth is live (ADR-021): guests see "Đăng nhập / Đăng ký" → /auth/login;
  * signed-in customers see the CustomerAccountMenu (bookings / settings / logout).
- * Sign-in state comes from the client session store (useIsSignedIn).
+ * Sign-in state comes from the client session store (useAuthStatus tri-state).
  */
 
 import { useEffect, useState } from 'react';

@@ -22,6 +22,7 @@ import { authFetch, ensureAuthenticated, clearSession, setDisplayName } from '@/
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { OtpCodeInput } from '@/components/auth/OtpCodeInput';
+import { FormError } from '@/components/auth/FormError';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -37,20 +38,24 @@ import {
 
 // ---- helpers ---------------------------------------------------------------
 
-// A5/AX-4: status outcomes must be announced. Success is polite (role=status),
-// errors interrupt (role=alert) — matching the auth pages' live-region contract.
-function OkText({ children }: { children: React.ReactNode }) {
+// A5/AX-4: status outcomes must be announced. Reuses the shared FormError live
+// region (success = role=status/polite, error = role=alert/assertive) so the line
+// also reserves height and the submit button doesn't shift when it appears/clears
+// (review #10). One line per form, tone + message driven by the form status.
+function FormStatus({
+  status,
+  okMessage,
+  errMessage,
+}: {
+  status: 'idle' | 'ok' | 'err';
+  okMessage?: string;
+  errMessage: string;
+}) {
   return (
-    <p role="status" aria-live="polite" className="text-sm text-success-foreground">
-      {children}
-    </p>
-  );
-}
-function ErrText({ children }: { children: React.ReactNode }) {
-  return (
-    <p role="alert" aria-live="assertive" className="text-sm text-destructive">
-      {children}
-    </p>
+    <FormError
+      tone={status === 'err' ? 'error' : 'success'}
+      message={status === 'ok' ? okMessage : status === 'err' ? errMessage : ''}
+    />
   );
 }
 
@@ -105,8 +110,7 @@ function ChangeNameForm() {
             <Label htmlFor="displayName">Tên mới</Label>
             <Input id="displayName" type="text" name="displayName" required minLength={4} maxLength={100} autoComplete="name" />
           </div>
-          {status === 'ok' && <OkText>Đã cập nhật tên hiển thị.</OkText>}
-          {status === 'err' && <ErrText>{errMsg}</ErrText>}
+          <FormStatus status={status} okMessage="Đã cập nhật tên hiển thị." errMessage={errMsg} />
           <Button type="submit" disabled={loading} className="self-start">
             {loading ? 'Đang lưu...' : 'Lưu tên'}
           </Button>
@@ -183,8 +187,7 @@ function ChangePasswordForm() {
             <Label htmlFor="confirmPassword">Xác nhận mật khẩu mới</Label>
             <Input id="confirmPassword" type="password" name="confirmPassword" required minLength={8} autoComplete="new-password" />
           </div>
-          {status === 'ok' && <OkText>Đã đổi mật khẩu. Vui lòng đăng nhập lại.</OkText>}
-          {status === 'err' && <ErrText>{errMsg}</ErrText>}
+          <FormStatus status={status} okMessage="Đã đổi mật khẩu. Vui lòng đăng nhập lại." errMessage={errMsg} />
           <Button type="submit" disabled={loading} className="self-start">
             {loading ? 'Đang xử lý...' : 'Đổi mật khẩu'}
           </Button>
@@ -282,8 +285,7 @@ function ChangePhoneForm() {
               <Label htmlFor="phone-otp">Mã OTP (6 chữ số)</Label>
               <OtpCodeInput id="phone-otp" required />
             </div>
-            {status === 'ok' && <OkText>Đã đổi số điện thoại thành công.</OkText>}
-            {status === 'err' && <ErrText>{errMsg}</ErrText>}
+            <FormStatus status={status} okMessage="Đã đổi số điện thoại thành công." errMessage={errMsg} />
             <div className="flex gap-2">
               <Button type="submit" disabled={loading}>
                 {loading ? 'Đang xác nhận...' : 'Xác nhận'}
@@ -317,8 +319,7 @@ function ChangePhoneForm() {
             <Label htmlFor="newPhone">Số điện thoại mới</Label>
             <Input id="newPhone" type="tel" name="newPhone" required autoComplete="tel" placeholder="0901234567" />
           </div>
-          {status === 'ok' && <OkText>Đã đổi số điện thoại thành công.</OkText>}
-          {status === 'err' && <ErrText>{errMsg}</ErrText>}
+          <FormStatus status={status} okMessage="Đã đổi số điện thoại thành công." errMessage={errMsg} />
           <Button type="submit" disabled={loading} className="self-start">
             {loading ? 'Đang gửi OTP...' : 'Gửi mã OTP'}
           </Button>
@@ -377,6 +378,10 @@ function DeleteAccountForm() {
         <Dialog
           open={open}
           onOpenChange={(next) => {
+            // Don't let Esc/backdrop/X close the dialog while the DELETE is in
+            // flight (review #3): otherwise a failed delete resolves into a closed
+            // dialog and the error is never shown, so the user thinks it succeeded.
+            if (loading) return;
             setOpen(next);
             if (!next) setStatus('idle');
           }}
@@ -395,7 +400,7 @@ function DeleteAccountForm() {
                 Thao tác này không thể hoàn tác. Tất cả dữ liệu cá nhân của bạn sẽ bị xóa vĩnh viễn.
               </DialogDescription>
             </DialogHeader>
-            {status === 'err' && <ErrText>{errMsg}</ErrText>}
+            <FormStatus status={status} errMessage={errMsg} />
             <DialogFooter>
               <DialogClose
                 render={(p) => (
@@ -404,14 +409,9 @@ function DeleteAccountForm() {
                   </Button>
                 )}
               />
-              {/* AC-2: scoped solid destructive — the strongest affordance for the
+              {/* AC-2: solid destructive — the strongest affordance for the
                   highest-risk, irreversible action (not the pale outline weight). */}
-              <Button
-                type="button"
-                onClick={handleDelete}
-                disabled={loading}
-                className="bg-destructive text-white hover:bg-destructive/90 focus-visible:border-destructive/40 focus-visible:ring-3 focus-visible:ring-destructive/40"
-              >
+              <Button type="button" variant="destructiveSolid" onClick={handleDelete} disabled={loading}>
                 {loading ? 'Đang xóa...' : 'Xác nhận xóa'}
               </Button>
             </DialogFooter>

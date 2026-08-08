@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
 import { FormError } from '@/components/auth/FormError';
+import { authLinkClass } from '@/components/auth/authLinkClass';
 import { OtpCodeInput } from '@/components/auth/OtpCodeInput';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -219,10 +220,7 @@ export default function ForgotPasswordPage() {
               {loading ? 'Đang gửi...' : 'Gửi mã OTP'}
             </Button>
           </form>
-          <Link
-            href="/auth/login"
-            className="inline-flex min-h-11 w-fit items-center text-sm text-primary-strong underline-offset-4 hover:underline"
-          >
+          <Link href="/auth/login" className={`${authLinkClass} text-sm`}>
             Quay lại đăng nhập
           </Link>
         </CardContent>

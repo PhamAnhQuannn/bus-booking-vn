@@ -13,6 +13,7 @@ import { safeReturnTo } from '@/lib/auth/safeReturnTo';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { FormError } from '@/components/auth/FormError';
+import { authLinkClass } from '@/components/auth/authLinkClass';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -94,28 +95,19 @@ function LoginPageInner() {
           </form>
           <GoogleSignInButton returnTo={returnTo} />
           <div className="flex flex-col gap-1 text-sm">
-            <Link
-              href="/auth/forgot-password"
-              className="inline-flex min-h-11 w-fit items-center text-primary-strong underline-offset-4 hover:underline"
-            >
+            <Link href="/auth/forgot-password" className={authLinkClass}>
               Quên mật khẩu?
             </Link>
             <p className="text-muted-foreground">
               Chưa có tài khoản?{' '}
-              <Link
-                href="/auth/register"
-                className="inline-flex min-h-11 items-center text-primary-strong underline-offset-4 hover:underline"
-              >
+              <Link href="/auth/register" className={authLinkClass}>
                 Đăng ký
               </Link>
             </p>
           </div>
           <div className="mt-1 border-t border-border pt-4 text-sm text-muted-foreground">
             Bạn là nhà xe?{' '}
-            <Link
-              href="/op/login"
-              className="inline-flex min-h-11 items-center font-medium text-primary-strong underline-offset-4 hover:underline"
-            >
+            <Link href="/op/login" className={`${authLinkClass} font-medium`}>
               Đăng nhập nhà xe
             </Link>
           </div>

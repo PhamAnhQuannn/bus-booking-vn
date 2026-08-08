@@ -15,6 +15,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
 import { FormError } from '@/components/auth/FormError';
+import { authLinkClass } from '@/components/auth/authLinkClass';
 import { OtpCodeInput } from '@/components/auth/OtpCodeInput';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -173,16 +174,10 @@ function ResetPasswordPageInner() {
             </Button>
           </form>
           <div className="flex flex-col gap-1 text-sm">
-            <Link
-              href="/auth/forgot-password"
-              className="inline-flex min-h-11 w-fit items-center text-primary-strong underline-offset-4 hover:underline"
-            >
+            <Link href="/auth/forgot-password" className={authLinkClass}>
               Yêu cầu mã OTP mới
             </Link>
-            <Link
-              href="/auth/login"
-              className="inline-flex min-h-11 w-fit items-center text-primary-strong underline-offset-4 hover:underline"
-            >
+            <Link href="/auth/login" className={authLinkClass}>
               Đăng nhập
             </Link>
           </div>
