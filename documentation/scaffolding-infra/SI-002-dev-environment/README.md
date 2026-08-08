@@ -117,7 +117,7 @@ Key behavior:
 |-------|--------------|------|
 | Database | `DATABASE_URL`, `DIRECT_URL` | PgBouncer pooled and direct PG respectively |
 | Redis | `REDIS_PROVIDER`, `REDIS_URL` | `memory` provider for single-node dev; `ioredis` + `REDIS_URL` for Docker Redis |
-| Auth and Signing | `JWT_SECRET`, `CSRF_SECRET`, `HOLD_SECRET`, `CRON_SECRET`, `REFRESH_TOKEN_SECRET`, `TOTP_ENCRYPTION_KEY` | 6 distinct secrets; all must be set even in local dev. `REFRESH_TOKEN_SECRET` is shared across all three realms (FI-001 Known Gap: per-realm split pending). `TOTP_ENCRYPTION_KEY` encrypts admin TOTP secrets at rest (AES-256-GCM) |
+| Auth and Signing | `JWT_SECRET`, `CSRF_SECRET`, `HOLD_SECRET`, `CRON_SECRET`, `REFRESH_TOKEN_SECRET_{CUSTOMER,OPERATOR,ADMIN}`, `TOTP_ENCRYPTION_KEY` | all must be set even in local dev. Refresh tokens use one secret PER REALM (P17 #438) so a leak is blast-contained to that realm. `TOTP_ENCRYPTION_KEY` encrypts admin TOTP secrets at rest (AES-256-GCM) |
 | Payments | `PAYMENTS_STUB`, `MOMO_*`, `VNPAY_*` | Stub mode bypasses real PSP (Section 5.1) |
 | Payments (SePay/VietQR) | `SEPAY_API_KEY`, `VIETQR_BANK_BIN`, `VIETQR_ACCOUNT_NUMBER`, `VIETQR_ACCOUNT_NAME`, `VIETQR_TEMPLATE` | Bank-transfer webhook + QR generation (DS-013). Stub-bypassed when `PAYMENTS_STUB=true` |
 | Payments (ZaloPay) | `ZALOPAY_APP_ID`, `ZALOPAY_KEY1`, `ZALOPAY_KEY2`, `ZALOPAY_ENDPOINT`, `ZALOPAY_ENABLED` | P2 feature (DS-008). Not required for local dev |
@@ -425,4 +425,4 @@ Replace `<your_CRON_SECRET>` with the value from `.env.local`. Manual curl invoc
 | KG-05 | `HOLD_SWEEPER_MODE` defaults to `'update'` (active sweep). Dev overrides to `'count'`. Verify production does not override. | No | IMPLEMENTED | DS-006 §23, FI-005, FI-006 |
 | KG-06 | Sentry SDK not yet integrated — `SENTRY_DSN` accepted by Zod but unused | No | NOT_IMPLEMENTED | ADR-007 D1 |
 | KG-07 | 3 cron jobs not yet implemented: `paymentReconSweeper`, `operatorLicenseAlert`, `piiAnonymization` | Medium | NOT_IMPLEMENTED | ADR-012, SI-006 §5.2 |
-| KG-08 | Shared `REFRESH_TOKEN_SECRET` across all three auth realms — per-realm split pending | No (security hardening) | PARTIALLY_IMPLEMENTED | FI-001 |
+| KG-08 | Per-realm refresh secrets `REFRESH_TOKEN_SECRET_{CUSTOMER,OPERATOR,ADMIN}` (was a single shared secret) | No (security hardening) | RESOLVED (P17 #438) | FI-001 |

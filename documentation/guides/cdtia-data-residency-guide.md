@@ -20,6 +20,7 @@
 | SePay (payment) | Vietnam | **No** | Vietnam-hosted |
 | Cloudflare CDN/DNS | Edge (global) | **No** | No PII stored; pass-through only |
 | **Resend (email)** | **US** | **YES** | Deferred; stub mode for now |
+| **Google LLC (OIDC identity)** | **US** | **YES** | "Sign in with Google" — receives email + Google `sub` at sign-in (ADR-021) |
 
 **Bottom line:** CDTIA filing is required. All core infrastructure (Vercel, Neon, Upstash) is hosted in Singapore. Follow the filing steps in Part 4.
 
@@ -129,6 +130,7 @@ Contents:
    - Upstash Inc. (Redis) — Singapore
    - Cloudflare Inc. (object storage) — global
    - Resend Inc. (email, if activated) — United States
+   - Google LLC (OIDC identity provider — receives customer email + Google account id/`sub` at sign-in; purpose = customer authentication "Sign in with Google") — United States
    - Data processing role: processor (not controller)
 
 4. Destination country assessment

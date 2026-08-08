@@ -14,6 +14,10 @@ import { readCsrfToken } from '@/lib/auth/csrfClient';
 import { setAccessToken, setDisplayName, setCustomerEmail } from '@/lib/auth/clientSession';
 import { safeReturnTo } from '@/lib/auth/safeReturnTo';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
+import { FormError } from '@/components/auth/FormError';
+import { authLinkClass } from '@/components/auth/authLinkClass';
+import { OtpCodeInput } from '@/components/auth/OtpCodeInput';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -165,7 +169,7 @@ function RegisterPageInner() {
       });
       const json = await res.json();
       if (!res.ok) {
-        setError(json.error === 'invalid_credentials' ? 'Email đã được đăng ký.' : 'Đăng ký thất bại.');
+        setError(json.error === 'EMAIL_TAKEN' ? 'Email đã được đăng ký.' : 'Đăng ký thất bại.');
         return;
       }
       setAccessToken(json.accessToken);
@@ -184,6 +188,10 @@ function RegisterPageInner() {
       <Card className="shadow-e3">
         <CardContent className="flex flex-col gap-4">
           <StepDots current={STEP_INDEX[step]} />
+          {/* AX-7: announce step advances to screen-readers (StepDots is aria-hidden). */}
+          <p className="sr-only" aria-live="polite">
+            {STEP_SUBTITLE[step]}
+          </p>
 
           {step === 'email' && (
             <form onSubmit={handleSendOtp} className="flex flex-col gap-4">
@@ -196,43 +204,28 @@ function RegisterPageInner() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  autoComplete="email"
                   placeholder="you@example.com"
                 />
               </div>
-              {error && (
-                <p className="text-sm text-destructive" role="alert" aria-live="assertive">
-                  {error}
-                </p>
-              )}
+              <FormError message={error} />
               <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="w-full">
                 {loading ? 'Đang gửi...' : 'Gửi mã OTP'}
               </Button>
+              <GoogleSignInButton returnTo={returnTo} />
             </form>
           )}
 
           {step === 'otp' && (
             <form onSubmit={handleVerifyOtp} className="flex flex-col gap-4">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm break-words text-muted-foreground">
                 Nhập mã 6 chữ số đã gửi đến {email}
               </p>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="code">Mã OTP</Label>
-                <Input
-                  id="code"
-                  type="text"
-                  name="code"
-                  maxLength={6}
-                  required
-                  inputMode="numeric"
-                  pattern="[0-9]{6}"
-                  autoComplete="one-time-code"
-                />
+                <OtpCodeInput id="code" required autoFocus />
               </div>
-              {error && (
-                <p className="text-sm text-destructive" role="alert" aria-live="assertive">
-                  {error}
-                </p>
-              )}
+              <FormError message={error} />
               <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="w-full">
                 {loading ? 'Đang xác minh...' : 'Xác minh'}
               </Button>
@@ -240,7 +233,9 @@ function RegisterPageInner() {
                 type="button"
                 variant="link"
                 size="sm"
-                className="self-center"
+                // AU-5: 44px tap floor. AU-7: fixed min-width + tabular-nums so the
+                // countdown label doesn't jitter the button width each second.
+                className="min-h-11 w-fit min-w-40 justify-center self-center tabular-nums text-primary-strong"
                 disabled={loading || resendIn > 0}
                 onClick={handleResend}
               >
@@ -253,17 +248,21 @@ function RegisterPageInner() {
             <form onSubmit={handleRegister} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="password">Mật khẩu</Label>
-                <Input id="password" type="password" name="password" required minLength={8} />
+                <Input
+                  id="password"
+                  type="password"
+                  name="password"
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  autoFocus
+                />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="displayName">Tên hiển thị (tuỳ chọn)</Label>
-                <Input id="displayName" type="text" name="displayName" />
+                <Input id="displayName" type="text" name="displayName" autoComplete="name" />
               </div>
-              {error && (
-                <p className="text-sm text-destructive" role="alert" aria-live="assertive">
-                  {error}
-                </p>
-              )}
+              <FormError message={error} />
               <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="w-full">
                 {loading ? 'Đang đăng ký...' : 'Đăng ký'}
               </Button>
@@ -272,10 +271,7 @@ function RegisterPageInner() {
 
           <p className="text-sm text-muted-foreground">
             Đã có tài khoản?{' '}
-            <Link
-              href="/auth/login"
-              className="text-primary underline-offset-4 hover:underline"
-            >
+            <Link href="/auth/login" className={authLinkClass}>
               Đăng nhập
             </Link>
           </p>

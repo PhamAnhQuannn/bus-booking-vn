@@ -117,7 +117,7 @@ export function DatePicker({
       {name != null && <input type="hidden" name={name} value={current ?? ''} />}
 
       <Popover.Portal>
-        <Popover.Positioner sideOffset={6} className="z-50 outline-none">
+        <Popover.Positioner sideOffset={6} className="z-popover outline-none">
           <Popover.Popup className="origin-[var(--transform-origin)] rounded-xl border border-border bg-popover p-4 text-popover-foreground shadow-e4 transition-[transform,scale,opacity] duration-200 ease-out data-[ending-style]:scale-[0.96] data-[ending-style]:opacity-0 data-[ending-style]:duration-150 data-[starting-style]:scale-[0.96] data-[starting-style]:opacity-0">
             <Calendar
               selected={current || undefined}

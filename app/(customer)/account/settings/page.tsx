@@ -21,16 +21,46 @@ import { useRouter } from 'next/navigation';
 import { authFetch, ensureAuthenticated, clearSession, setDisplayName } from '@/lib/auth/clientSession';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { OtpCodeInput } from '@/components/auth/OtpCodeInput';
+import { FormError } from '@/components/auth/FormError';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 
 // ---- helpers ---------------------------------------------------------------
 
-function OkText({ children }: { children: React.ReactNode }) {
-  return <p className="text-sm text-success-foreground">{children}</p>;
-}
-function ErrText({ children }: { children: React.ReactNode }) {
-  return <p className="text-sm text-destructive">{children}</p>;
+// A5/AX-4: status outcomes must be announced. Reuses the shared FormError live
+// region (success = role=status/polite, error = role=alert/assertive) so the line
+// also reserves height and the submit button doesn't shift when it appears/clears
+// (review #10). One line per form, tone + message driven by the form status.
+function FormStatus({
+  status,
+  okMessage,
+  errMessage,
+}: {
+  status: 'idle' | 'ok' | 'err';
+  okMessage?: string;
+  errMessage: string;
+}) {
+  return (
+    // key flips with the tone so a status→alert change mounts a FRESH node instead
+    // of mutating role/aria-live in place (which isn't reliably announced by every
+    // screen reader). Auth pages use a fixed tone, so they need no key.
+    <FormError
+      key={status === 'err' ? 'err' : 'ok'}
+      tone={status === 'err' ? 'error' : 'success'}
+      message={status === 'ok' ? okMessage : status === 'err' ? errMessage : ''}
+    />
+  );
 }
 
 // ---- sub-form: change display name -----------------------------------------
@@ -82,10 +112,9 @@ function ChangeNameForm() {
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="displayName">Tên mới</Label>
-            <Input id="displayName" type="text" name="displayName" required minLength={4} maxLength={100} />
+            <Input id="displayName" type="text" name="displayName" required minLength={4} maxLength={100} autoComplete="name" />
           </div>
-          {status === 'ok' && <OkText>Đã cập nhật tên hiển thị.</OkText>}
-          {status === 'err' && <ErrText>{errMsg}</ErrText>}
+          <FormStatus status={status} okMessage="Đã cập nhật tên hiển thị." errMessage={errMsg} />
           <Button type="submit" disabled={loading} className="self-start">
             {loading ? 'Đang lưu...' : 'Lưu tên'}
           </Button>
@@ -152,18 +181,17 @@ function ChangePasswordForm() {
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="currentPassword">Mật khẩu hiện tại</Label>
-            <Input id="currentPassword" type="password" name="currentPassword" required />
+            <Input id="currentPassword" type="password" name="currentPassword" required autoComplete="current-password" />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="newPassword">Mật khẩu mới</Label>
-            <Input id="newPassword" type="password" name="newPassword" required minLength={8} />
+            <Input id="newPassword" type="password" name="newPassword" required minLength={8} autoComplete="new-password" />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="confirmPassword">Xác nhận mật khẩu mới</Label>
-            <Input id="confirmPassword" type="password" name="confirmPassword" required minLength={8} />
+            <Input id="confirmPassword" type="password" name="confirmPassword" required minLength={8} autoComplete="new-password" />
           </div>
-          {status === 'ok' && <OkText>Đã đổi mật khẩu. Vui lòng đăng nhập lại.</OkText>}
-          {status === 'err' && <ErrText>{errMsg}</ErrText>}
+          <FormStatus status={status} okMessage="Đã đổi mật khẩu. Vui lòng đăng nhập lại." errMessage={errMsg} />
           <Button type="submit" disabled={loading} className="self-start">
             {loading ? 'Đang xử lý...' : 'Đổi mật khẩu'}
           </Button>
@@ -259,19 +287,9 @@ function ChangePhoneForm() {
           <form onSubmit={handleConfirm} className="flex flex-col gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="phone-otp">Mã OTP (6 chữ số)</Label>
-              <Input
-                id="phone-otp"
-                type="text"
-                name="code"
-                required
-                maxLength={6}
-                pattern="[0-9]{6}"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-              />
+              <OtpCodeInput id="phone-otp" required />
             </div>
-            {status === 'ok' && <OkText>Đã đổi số điện thoại thành công.</OkText>}
-            {status === 'err' && <ErrText>{errMsg}</ErrText>}
+            <FormStatus status={status} okMessage="Đã đổi số điện thoại thành công." errMessage={errMsg} />
             <div className="flex gap-2">
               <Button type="submit" disabled={loading}>
                 {loading ? 'Đang xác nhận...' : 'Xác nhận'}
@@ -303,10 +321,9 @@ function ChangePhoneForm() {
         <form onSubmit={handleInit} className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="newPhone">Số điện thoại mới</Label>
-            <Input id="newPhone" type="tel" name="newPhone" required placeholder="0901234567" />
+            <Input id="newPhone" type="tel" name="newPhone" required autoComplete="tel" placeholder="0901234567" />
           </div>
-          {status === 'ok' && <OkText>Đã đổi số điện thoại thành công.</OkText>}
-          {status === 'err' && <ErrText>{errMsg}</ErrText>}
+          <FormStatus status={status} okMessage="Đã đổi số điện thoại thành công." errMessage={errMsg} />
           <Button type="submit" disabled={loading} className="self-start">
             {loading ? 'Đang gửi OTP...' : 'Gửi mã OTP'}
           </Button>
@@ -320,7 +337,7 @@ function ChangePhoneForm() {
 
 function DeleteAccountForm() {
   const router = useRouter();
-  const [confirmed, setConfirmed] = useState(false);
+  const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<'idle' | 'err'>('idle');
   const [errMsg, setErrMsg] = useState('');
   const [loading, setLoading] = useState(false);
@@ -328,9 +345,18 @@ function DeleteAccountForm() {
   async function handleDelete() {
     setStatus('idle');
     setLoading(true);
+    // Bound the DELETE with a generous timeout: the dialog is un-dismissable while
+    // loading, so a stalled request must not trap the user forever — on abort the
+    // catch runs, loading clears, and the guard releases so the dialog is closable +
+    // the error shows. 30s (not a tight 10s) so a slow-but-committed deletion isn't
+    // falsely reported as a connection error; and DELETE is idempotent, so if an
+    // aborted request did commit server-side, a retry returns 200 and completes.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
     try {
       const res = await authFetch('/api/account/delete', {
         method: 'DELETE',
+        signal: controller.signal,
       });
       if (res.ok) {
         // Clear token + cached display name — account is gone
@@ -345,6 +371,7 @@ function DeleteAccountForm() {
       setErrMsg('Lỗi kết nối.');
       setStatus('err');
     } finally {
+      clearTimeout(timeout);
       setLoading(false);
     }
   }
@@ -360,26 +387,50 @@ function DeleteAccountForm() {
         <p className="text-sm text-muted-foreground">
           Thao tác này không thể hoàn tác. Tất cả dữ liệu cá nhân sẽ bị xóa.
         </p>
-        {!confirmed ? (
-          <Button variant="destructive" className="self-start" onClick={() => setConfirmed(true)}>
-            Xóa tài khoản
-          </Button>
-        ) : (
-          <div className="flex flex-col gap-3">
-            <p className="text-sm font-semibold text-destructive">
-              Bạn có chắc chắn muốn xóa tài khoản?
-            </p>
-            {status === 'err' && <ErrText>{errMsg}</ErrText>}
-            <div className="flex gap-2">
-              <Button variant="destructive" disabled={loading} onClick={handleDelete}>
+        {/* AC-1: the confirm lives in a focus-trapped modal, not an in-place swap
+            a fast double-tap could hit. Esc/backdrop/Hủy all cancel. */}
+        <Dialog
+          open={open}
+          onOpenChange={(next) => {
+            // Don't let Esc/backdrop/X close the dialog while the DELETE is in
+            // flight (review #3): otherwise a failed delete resolves into a closed
+            // dialog and the error is never shown, so the user thinks it succeeded.
+            if (loading) return;
+            setOpen(next);
+            if (!next) setStatus('idle');
+          }}
+        >
+          <DialogTrigger
+            render={(p) => (
+              <Button {...p} type="button" variant="destructive" className="self-start">
+                Xóa tài khoản
+              </Button>
+            )}
+          />
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Xóa tài khoản?</DialogTitle>
+              <DialogDescription>
+                Thao tác này không thể hoàn tác. Tất cả dữ liệu cá nhân của bạn sẽ bị xóa vĩnh viễn.
+              </DialogDescription>
+            </DialogHeader>
+            <FormStatus status={status} errMessage={errMsg} />
+            <DialogFooter>
+              <DialogClose
+                render={(p) => (
+                  <Button {...p} type="button" variant="outline" disabled={loading}>
+                    Hủy
+                  </Button>
+                )}
+              />
+              {/* AC-2: solid destructive — the strongest affordance for the
+                  highest-risk, irreversible action (not the pale outline weight). */}
+              <Button type="button" variant="destructiveSolid" onClick={handleDelete} disabled={loading}>
                 {loading ? 'Đang xóa...' : 'Xác nhận xóa'}
               </Button>
-              <Button variant="outline" disabled={loading} onClick={() => setConfirmed(false)}>
-                Hủy
-              </Button>
-            </div>
-          </div>
-        )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
@@ -409,7 +460,7 @@ export default function AccountSettingsPage() {
   return (
     <main className="mx-auto flex w-full max-w-xl flex-col gap-6 px-4 py-10">
       <nav aria-label="breadcrumb" className="text-sm text-muted-foreground">
-        <ol className="flex items-center gap-1.5">
+        <ol className="flex flex-wrap items-center gap-1.5">
           <li><Link href="/" className="underline-offset-4 hover:text-foreground hover:underline">Trang chủ</Link></li>
           <li aria-hidden="true">/</li>
           <li><Link href="/account/bookings" className="underline-offset-4 hover:text-foreground hover:underline">Lịch sử đặt vé</Link></li>

@@ -72,10 +72,10 @@ export function AdminAccountMenu({ email, role }: AdminAccountMenuProps) {
         <ChevronDownIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
       </Menu.Trigger>
       <Menu.Portal>
-        <Menu.Positioner sideOffset={6} align="start">
+        <Menu.Positioner sideOffset={6} align="start" className="z-popover outline-none">
           <Menu.Popup
             className={cn(
-              "z-50 min-w-52 rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-e3 outline-none",
+              "min-w-52 rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-e3 outline-none",
               "transition-[transform,opacity] duration-200 ease-out data-[ending-style]:opacity-0 data-[starting-style]:opacity-0"
             )}
           >

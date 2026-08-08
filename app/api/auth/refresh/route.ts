@@ -1,7 +1,8 @@
 /**
  * POST /api/auth/refresh
  * No body — reads bb_rt cookie.
- * Response: { accessToken } + new Set-Cookie bb_rt on rotation.
+ * Response: { accessToken, displayName, email } + new Set-Cookie bb_rt on rotation.
+ * (displayName/email let SessionBootstrap rehydrate the account menu on a full reload — QA F1.)
  */
 
 export const runtime = 'nodejs';
@@ -44,7 +45,11 @@ async function handler(_req: NextRequest): Promise<Response> {
     maxAge: REFRESH_COOKIE_MAX_AGE,
   });
 
-  return NextResponse.json({ accessToken: result.accessToken });
+  return NextResponse.json({
+    accessToken: result.accessToken,
+    displayName: result.displayName,
+    email: result.email,
+  });
 }
 
 export const POST = withErrorHandler(handler);

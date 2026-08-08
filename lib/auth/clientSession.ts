@@ -20,12 +20,20 @@ interface SessionState {
   accessToken: string | null;
   displayName: string | null;
   customerEmail: string | null;
+  /**
+   * False until the first refresh attempt settles (QA DD-4). Distinguishes
+   * "we don't know yet" from "known guest", so the header can show a neutral
+   * placeholder on first paint instead of flashing the guest CTA at a
+   * returning signed-in user (and letting a fast click mis-navigate them).
+   */
+  resolved: boolean;
 }
 
 const useSessionStore = create<SessionState>(() => ({
   accessToken: null,
   displayName: null,
   customerEmail: null,
+  resolved: false,
 }));
 
 // ---- proactive refresh timer -----------------------------------------------
@@ -68,7 +76,8 @@ export function getAccessToken(): string | null {
 }
 
 export function setAccessToken(t: string | null): void {
-  useSessionStore.setState({ accessToken: t });
+  // Any explicit set means the state is now known (login/register path resolves here too).
+  useSessionStore.setState({ accessToken: t, resolved: true });
   if (t) {
     scheduleProactiveRefresh(t);
   } else {
@@ -94,13 +103,30 @@ export function setCustomerEmail(p: string | null): void {
 
 export function clearSession(): void {
   clearRefreshTimer();
-  useSessionStore.setState({ accessToken: null, displayName: null, customerEmail: null });
+  useSessionStore.setState({
+    accessToken: null,
+    displayName: null,
+    customerEmail: null,
+    resolved: true,
+  });
 }
 
 // ---- reactive hooks ---------------------------------------------------------
 
 export function useIsSignedIn(): boolean {
   return useSessionStore((s) => s.accessToken !== null);
+}
+
+export type AuthStatus = 'unknown' | 'guest' | 'authed';
+
+/**
+ * Tri-state sign-in status (QA DD-4). 'unknown' until the bootstrap refresh
+ * settles — render a neutral placeholder for it, never the guest CTA.
+ */
+export function useAuthStatus(): AuthStatus {
+  return useSessionStore((s) =>
+    !s.resolved ? 'unknown' : s.accessToken !== null ? 'authed' : 'guest',
+  );
 }
 
 export function useDisplayName(): string | null {
@@ -111,26 +137,52 @@ export function useDisplayName(): string | null {
 
 let inFlight: Promise<string | null> | null = null;
 
+/** Timeout so a hung refresh can't leave the header stuck on the 'unknown'
+ *  placeholder forever. AbortController settles the fetch. */
+const REFRESH_TIMEOUT_MS = 8000;
+
 function attemptRefresh(): Promise<string | null> {
   if (inFlight) return inFlight;
 
   inFlight = (async () => {
+    // SINGLE attempt only — NEVER retry. /api/auth/refresh ROTATES the refresh
+    // token, so re-POSTing after a stalled/aborted attempt re-sends the old
+    // (already-revoked) bb_rt and trips server-side reuse detection, which
+    // cascade-revokes the whole session family (force-logout on every device).
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REFRESH_TIMEOUT_MS);
     try {
       const res = await fetch('/api/auth/refresh', {
         method: 'POST',
         credentials: 'include',
         headers: { 'X-CSRF-Token': readCsrfToken() },
+        signal: controller.signal,
       });
+      if (res.status === 401) {
+        clearSession(); // definitively logged out → resolves the tri-state to 'guest'
+        return null;
+      }
       if (!res.ok) {
-        clearSession();
+        // Transient server error (5xx): the bb_rt cookie is still valid, so do NOT
+        // clear the session. Just resolve the tri-state so the header stops showing
+        // the placeholder; a later action / reload will refresh again.
+        useSessionStore.setState({ resolved: true });
         return null;
       }
       const json = await res.json();
-      setAccessToken(json.accessToken);
+      setAccessToken(json.accessToken); // resolves the tri-state to 'authed'
+      // Rehydrate name/email so a hard reload restores the real account menu, not the
+      // "Khách hàng" fallback (QA F1). Only overwrite when the refresh carries them.
+      if ('displayName' in json) setDisplayName(json.displayName ?? null);
+      if ('customerEmail' in json || 'email' in json) setCustomerEmail(json.email ?? null);
       return json.accessToken as string;
     } catch {
-      return null; // network error — don't clear session, token may still be valid
+      // Network error / timeout / malformed body — the token may still be valid, so
+      // don't clear the session; just resolve so the UI doesn't hang. Single attempt.
+      useSessionStore.setState({ resolved: true });
+      return null;
     } finally {
+      clearTimeout(timeout);
       inFlight = null;
     }
   })();

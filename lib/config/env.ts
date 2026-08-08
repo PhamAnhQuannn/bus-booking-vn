@@ -137,6 +137,9 @@ const envSchema = z.object({
   /** VietQR image template variant. */
   VIETQR_TEMPLATE: z.string().default('compact2'),
 
+  /** Gemini API key cho chat planner (aistudio.google.com, free tier). Đọc server-side. */
+  GEMINI_API_KEY: z.string().optional(),
+
   // ---------------------------------------------------------------------------
   // Local fake-gateway stub (Phase 1 — run all online-payment stories with no
   // real PSP credentials). When PAYMENTS_STUB="true", getGatewayFor('momo')
@@ -381,6 +384,48 @@ const envSchema = z.object({
   EMAIL_FROM: z.string().default('noreply@lenxevn.com'),
 
   // ---------------------------------------------------------------------------
+  // Public site origin + Google OAuth (ADR-021 — customer auth).
+  // NEXT_PUBLIC_BASE_URL is the single origin for server-minted links/redirects
+  // (email links, the OAuth redirect_uri). It is also read raw by
+  // lib/notification/emailBody.ts + lib/storage/storage.ts (they keep the raw
+  // process.env read to avoid pulling full schema validation into their unit tests);
+  // declaring it here is what makes a production boot fail fast when it is missing
+  // while Google OAuth is enabled. Distinct from NEXT_PUBLIC_SITE_URL (SEO metadataBase).
+  // ---------------------------------------------------------------------------
+
+  /** Public site origin, e.g. https://lenxevn.com. Drives the OAuth redirect_uri. */
+  NEXT_PUBLIC_BASE_URL: z.string().url().optional(),
+
+  /** Enables "Sign in with Google" (customer realm). Mirrors MOMO_ENABLED/VNPAY_ENABLED. */
+  GOOGLE_OAUTH_ENABLED: z
+    .string()
+    .default('false')
+    .transform((v) => v === 'true'),
+  /** Google OAuth 2.0 Web client id. Required when GOOGLE_OAUTH_ENABLED=true. */
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  /** Google OAuth 2.0 client secret. Required when GOOGLE_OAUTH_ENABLED=true. NEVER log this value. */
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  /**
+   * HMAC-SHA256 secret for the bb_goauth handshake cookie (OAuth state + PKCE
+   * verifier). Must be ≥32 chars. Required when GOOGLE_OAUTH_ENABLED=true. Distinct
+   * from HOLD_SECRET / JWT_SECRET so an OAuth-cookie key leak is blast-contained.
+   */
+  GOAUTH_COOKIE_SECRET: z.string().min(32).optional(),
+
+  /**
+   * P19 argon2id opt-in. Default OFF → password hashing uses scrypt (the pre-P19 baseline).
+   * The native `argon2` addon segfaults on some Linux/Node runners (CI, seed under tsx) and a
+   * segfault is uncatchable, so lib/auth/password.ts skips the argon2 import entirely when this
+   * is not 'true'. Flip to 'true' only in an env verified to load argon2 (a Vercel Linux
+   * preview); rehash-on-verify then upgrades scrypt→argon2id on the next login. Read directly
+   * from process.env in password.ts (dependency-free); declared here for documentation + validation.
+   */
+  AUTH_ARGON2_ENABLED: z
+    .string()
+    .default('false')
+    .transform((v) => v === 'true'),
+
+  // ---------------------------------------------------------------------------
   // Self-hosted Redis (Issue 083 — ioredis).
   // REDIS_PROVIDER unset/memory → InMemoryRatelimit + in-memory JTI store.
   // REDIS_PROVIDER="ioredis"   → IoRedisRatelimit + ioredis JTI consume.
@@ -397,10 +442,16 @@ const envSchema = z.object({
   UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
 
   /**
-   * HMAC-SHA256 secret for refresh-token signing (customer + operator + admin realms).
-   * Must be at least 32 characters. Required in production; test fallback to 'b'.repeat(32).
+   * HMAC-SHA256 secrets for refresh-token signing — one PER REALM (P17 #438). Each realm signs
+   * and verifies ONLY with its own secret, so a leaked refresh secret is blast-contained to that
+   * realm (a token signed under another realm's secret fails HMAC → null). Each ≥32 chars, all
+   * required in production. Test fallbacks: customer 'c'*32 / operator 'o'*32 / admin 'd'*32.
+   * CUTOVER (no dual-secret grace): the former shared REFRESH_TOKEN_SECRET is retired — set all
+   * three before deploy; existing operator/admin sessions re-login once.
    */
-  REFRESH_TOKEN_SECRET: z.string().min(32).optional(),
+  REFRESH_TOKEN_SECRET_CUSTOMER: z.string().min(32).optional(),
+  REFRESH_TOKEN_SECRET_OPERATOR: z.string().min(32).optional(),
+  REFRESH_TOKEN_SECRET_ADMIN: z.string().min(32).optional(),
 
   /** Shadow database URL for Prisma migrations (prisma.config.ts). */
   SHADOW_DATABASE_URL: z.string().url().optional(),
@@ -549,6 +600,40 @@ const envSchema = z.object({
       });
     }
   }
+  // Google OAuth enabled → creds + base URL required (fail fast at boot). Env-value
+  // driven, so it covers production regardless of NODE_ENV.
+  if (env.GOOGLE_OAUTH_ENABLED) {
+    if (!env.GOOGLE_CLIENT_ID) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['GOOGLE_CLIENT_ID'],
+        message: 'GOOGLE_CLIENT_ID is required when GOOGLE_OAUTH_ENABLED=true',
+      });
+    }
+    if (!env.GOOGLE_CLIENT_SECRET) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['GOOGLE_CLIENT_SECRET'],
+        message: 'GOOGLE_CLIENT_SECRET is required when GOOGLE_OAUTH_ENABLED=true',
+      });
+    }
+    if (!env.NEXT_PUBLIC_BASE_URL) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['NEXT_PUBLIC_BASE_URL'],
+        message:
+          'NEXT_PUBLIC_BASE_URL is required when GOOGLE_OAUTH_ENABLED=true (drives the OAuth redirect_uri)',
+      });
+    }
+    if (!env.GOAUTH_COOKIE_SECRET) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['GOAUTH_COOKIE_SECRET'],
+        message:
+          'GOAUTH_COOKIE_SECRET (≥32 chars) is required when GOOGLE_OAUTH_ENABLED=true (signs the bb_goauth handshake cookie)',
+      });
+    }
+  }
   // Upstash provider must carry REST credentials.
   if (env.REDIS_PROVIDER === 'upstash') {
     if (!env.UPSTASH_REDIS_REST_URL) {
@@ -567,7 +652,7 @@ const envSchema = z.object({
     }
   }
   if (process.env.NODE_ENV === 'production') {
-    for (const key of ['JWT_SECRET', 'JWT_OPERATOR_SECRET', 'JWT_ADMIN_SECRET', 'TOTP_ENCRYPTION_KEY', 'BANK_ENCRYPTION_KEY', 'DATABASE_URL', 'CRON_SECRET', 'REFRESH_TOKEN_SECRET', 'TICKET_SECRET'] as const) {
+    for (const key of ['JWT_SECRET', 'JWT_OPERATOR_SECRET', 'JWT_ADMIN_SECRET', 'TOTP_ENCRYPTION_KEY', 'BANK_ENCRYPTION_KEY', 'DATABASE_URL', 'CRON_SECRET', 'REFRESH_TOKEN_SECRET_CUSTOMER', 'REFRESH_TOKEN_SECRET_OPERATOR', 'REFRESH_TOKEN_SECRET_ADMIN', 'TICKET_SECRET'] as const) {
       if (!env[key]) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

@@ -21,6 +21,7 @@
 | 13 | [FI-013: Customer Account](FI-013-customer-account/README.md) | Profile, booking history, consent, DSAR, account deletion | ADR-008, DS-015, FD-019 |
 | 14 | [FI-014: Notifications](FI-014-notifications/README.md) | SMS/email dispatch, templates, notification log, cron jobs | ADR-013, DS-006, FD-029 |
 | 15 | [FI-015: E-Invoice](FI-015-e-invoice/README.md) | MISA integration, Decree 70/2025, tax compliance | ADR-014, DS-012, FD-023 |
+| 16 | [FI-016: Customer Email Auth Un-Gate + Google Sign-In](FI-016-google-oauth/README.md) | Lift 410 gate, email+password (OTP-verified email), Google OAuth (arctic), `Account` migration, header account menu | ADR-021, DS-033, DS-003, FD-012, FI-001 |
 
 ## Cross-Cutting Concerns
 

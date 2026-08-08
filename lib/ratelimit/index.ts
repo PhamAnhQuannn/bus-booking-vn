@@ -377,6 +377,26 @@ export const opLoginLockout = createRatelimit({
 });
 
 /**
+ * Customer login per-IP throttle: 10 attempts/min/IP — mirrors opLoginRatelimit.
+ * Keyed `customer-login:<ip>`.
+ */
+export const customerLoginRatelimit = createRatelimit({ limit: 10, windowMs: 60_000 });
+
+/**
+ * Customer login consecutive-failure lockout: 5 bad attempts per 15 min per email.
+ * Keyed `customer-login-fail:<email>`, consumed ONLY on INVALID_CREDENTIALS.
+ * Mirrors opLoginLockout/adminLoginLockout — the account-level brake against
+ * credential-stuffing (customer emails are commonly reused/leaked across other
+ * breaches, so this is the primary defense; the generic 60/min/IP edge limit is
+ * meaningless across a botnet). failClosed so a Redis blip denies rather than opens.
+ */
+export const customerLoginLockout = createRatelimit({
+  limit: 5,
+  windowMs: 15 * 60_000,
+  failClosed: true,
+});
+
+/**
  * Admin login per-IP throttle: 10 attempts/min/IP — mirrors opLoginRatelimit.
  * Keyed `admin-login:<ip>`.
  */

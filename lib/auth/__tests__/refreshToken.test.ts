@@ -5,12 +5,12 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 beforeEach(() => {
-  delete process.env.REFRESH_TOKEN_SECRET;
+  delete process.env.REFRESH_TOKEN_SECRET_CUSTOMER;
   // NODE_ENV is already 'test' in vitest — no assignment needed
 });
 
 afterEach(() => {
-  delete process.env.REFRESH_TOKEN_SECRET;
+  delete process.env.REFRESH_TOKEN_SECRET_CUSTOMER;
 });
 
 describe('refreshToken', () => {

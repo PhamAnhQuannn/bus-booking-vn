@@ -51,7 +51,7 @@ import { rotateRefresh, createSession, revokeSession } from '../session';
 
 beforeEach(() => {
   vi.clearAllMocks();
-  delete process.env.REFRESH_TOKEN_SECRET;
+  delete process.env.REFRESH_TOKEN_SECRET_CUSTOMER;
 
   // By default, $transaction calls the callback with mockTx
   mockPrisma.$transaction.mockImplementation(

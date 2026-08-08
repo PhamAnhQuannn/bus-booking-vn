@@ -50,3 +50,29 @@ a dedicated bankCrypto DB round-trip test is optional, non-blocking.
 ## Gate (P0.10)
 **P1 RED FLAGS: 0** — BANK_ENCRYPTION_KEY present + PAYMENTS_STUB=false. Phase 0 PASS.
 Advisory 🟡: STORAGE_STUB=true in prod (Phase-2 concern). Cron-spec drift → task #10 (doc-only fix).
+
+---
+
+## 2026-08-05 Update — storage + cron transactions RESOLVED
+
+Verified against prod (Neon `JobRunLog`/`StoredObject`, read-only via `docker exec -e`; secret read→shredded)
+after deploying `e452409` (all three fixes below).
+
+- ✅ **STORAGE_STUB** now `false` in prod — Cloudflare R2 live (user provisioned + rotated creds). Adapter
+  validated against real R2 (2 PASS) + full local MinIO job E2E. **R2 write confirmed in prod**:
+  `StoredObject WHERE purpose='ticket_pdf'` has rows written by the (now-healthy) `generate-ticket-pdfs`
+  cron → `putObject`→R2 succeeds live. The prior 🟡 is cleared.
+- ✅ **Cron DB transactions** — three cold-start / pool defects found by prod-log + `JobRunLog` observation
+  and fixed (client-level knobs in `lib/core/db/`):
+  - **#417** `maxWait: 15_000` — was "Unable to start a transaction" (Prisma 2000ms acquire default < Neon
+    cold-start).
+  - **#418** `timeout: 15_000` — was "A commit cannot be executed on an expired transaction" (5023ms >
+    5000ms run default on cold-start).
+  - **#419** `DEFAULT_DATABASE_POOL_MAX` 1→2 — the real outage: outbox crons (`notify-dispatch`,
+    `ticket-pdf`) open an inner tx while `withAdvisoryLock` holds the only pooled connection →
+    self-deadlock at pool=1 ("timeout exceeded when trying to connect"). Was `notify-dispatch` 45/45 fail,
+    `ticket-pdf` 0 success (⇒ R2 never ran), `hold-expiry` ~47% starvation.
+- **Post-fix prod window (22:01–22:06 UTC):** `notify-dispatch` 7/7, `ticket-pdf` 3/3, `hold-expiry` 6/6,
+  all others success — **zero failures**. Notifications now deliver; ticket PDFs generate to R2.
+- Follow-up (non-blocking): cleaner outbox fix = claim-then-dispatch OUTSIDE the lock tx (would let pool
+  return to 1); tracked in the dispatchNotifications docblock, not required now.

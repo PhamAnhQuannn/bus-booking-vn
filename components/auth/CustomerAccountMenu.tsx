@@ -9,12 +9,13 @@ import { readCsrfToken } from '@/lib/auth/csrfClient';
 import { clearSession, useDisplayName } from '@/lib/auth/clientSession';
 import { cn } from '@/lib/utils';
 
-export function CustomerAccountMenu() {
+export function CustomerAccountMenu({ onNavigate }: { onNavigate?: () => void }) {
   const router = useRouter();
   const displayName = useDisplayName();
   const [pending, setPending] = React.useState(false);
 
   async function handleLogout() {
+    onNavigate?.();
     setPending(true);
     try {
       await fetch('/api/auth/logout', {
@@ -44,8 +45,13 @@ export function CustomerAccountMenu() {
   return (
     <Menu.Root>
       <Menu.Trigger
+        // aria-label carries the full name at every width: below `sm` the visible
+        // name span is hidden (avatar + chevron are aria-hidden), so without this the
+        // trigger had no accessible name on mobile (AX-1). min-h-11 meets the 44px
+        // tap-target floor the rest of the header already keeps (AX-tap).
+        aria-label={`Tài khoản: ${name}`}
         className={cn(
-          'inline-flex items-center gap-2 rounded-full border border-border bg-background px-2 py-1 text-sm font-medium outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:bg-muted'
+          'inline-flex min-h-11 items-center gap-2 rounded-full border border-border bg-background px-2 py-1 text-sm font-medium outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:bg-muted'
         )}
       >
         <span
@@ -54,22 +60,35 @@ export function CustomerAccountMenu() {
         >
           {initials}
         </span>
-        <span className="hidden max-w-32 truncate sm:inline">{name}</span>
+        {/* title gives a truncated long name a hover/AT fallback (DD-5). */}
+        <span title={name} className="hidden max-w-32 truncate sm:inline">
+          {name}
+        </span>
         <ChevronDownIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
       </Menu.Trigger>
       <Menu.Portal>
-        <Menu.Positioner sideOffset={6} align="end">
+        {/* z-popover on the Positioner (the positioned ancestor), NOT the Popup —
+            a z on the Popup is trapped in the Positioner's z:auto stacking context
+            and paints under the sticky header (the DD-1 clip bug). */}
+        <Menu.Positioner sideOffset={6} align="end" className="z-popover outline-none">
           <Menu.Popup
             className={cn(
-              'z-50 min-w-44 rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-e3 outline-none',
-              'transition-[transform,opacity] duration-200 ease-out data-[ending-style]:opacity-0 data-[starting-style]:opacity-0'
+              'min-w-44 rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-e3 outline-none',
+              'transition-[transform,opacity] duration-200 ease-out data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none'
             )}
           >
-            <div className="px-2 py-1.5 text-xs text-muted-foreground sm:hidden">{name}</div>
+            {/* AX-3: a bare <div> is an invalid direct child of role=menu. A
+                Menu.Group (role=group) with a GroupLabel is the allowed structure. */}
+            <Menu.Group className="sm:hidden">
+              <Menu.GroupLabel className="px-2 py-1.5 text-xs text-muted-foreground">
+                {name}
+              </Menu.GroupLabel>
+            </Menu.Group>
             <Menu.Item
               render={
                 <Link
                   href="/account/bookings"
+                  onClick={() => onNavigate?.()}
                   className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none transition-colors hover:bg-muted data-[highlighted]:bg-muted"
                 />
               }
@@ -80,6 +99,7 @@ export function CustomerAccountMenu() {
               render={
                 <Link
                   href="/account/settings"
+                  onClick={() => onNavigate?.()}
                   className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none transition-colors hover:bg-muted data-[highlighted]:bg-muted"
                 />
               }
@@ -90,6 +110,9 @@ export function CustomerAccountMenu() {
             <Menu.Item
               onClick={handleLogout}
               disabled={pending}
+              // DD-6: keep the popup mounted on click so the "Đang đăng xuất…"
+              // pending label actually renders (default closeOnClick unmounts it).
+              closeOnClick={false}
               className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-destructive outline-none transition-colors hover:bg-destructive/10 data-[highlighted]:bg-destructive/10 disabled:opacity-50"
             >
               <LogOutIcon aria-hidden="true" className="size-4" />

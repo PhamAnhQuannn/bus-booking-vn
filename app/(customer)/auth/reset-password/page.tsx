@@ -14,6 +14,9 @@ import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
+import { FormError } from '@/components/auth/FormError';
+import { authLinkClass } from '@/components/auth/authLinkClass';
+import { OtpCodeInput } from '@/components/auth/OtpCodeInput';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,11 +37,13 @@ function ResetPasswordPageInner() {
 
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
+  const [mismatch, setMismatch] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
+    setMismatch(false);
     setLoading(true);
     const fd = new FormData(e.currentTarget);
     const email = fd.get('email') as string;
@@ -48,6 +53,7 @@ function ResetPasswordPageInner() {
 
     if (newPassword !== confirmPassword) {
       setError('Mật khẩu xác nhận không khớp.');
+      setMismatch(true);
       setLoading(false);
       return;
     }
@@ -128,48 +134,50 @@ function ResetPasswordPageInner() {
                 type="email"
                 name="email"
                 required
+                autoComplete="email"
                 defaultValue={prefillEmail}
                 placeholder="you@example.com"
               />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="code">Mã OTP (6 chữ số)</Label>
-              <Input
-                id="code"
-                type="text"
-                name="code"
-                required
-                maxLength={6}
-                pattern="[0-9]{6}"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-              />
+              <OtpCodeInput id="code" required />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="newPassword">Mật khẩu mới</Label>
-              <Input id="newPassword" type="password" name="newPassword" required minLength={8} />
+              <Input
+                id="newPassword"
+                type="password"
+                name="newPassword"
+                required
+                minLength={8}
+                autoComplete="new-password"
+                aria-invalid={mismatch || undefined}
+              />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="confirmPassword">Xác nhận mật khẩu mới</Label>
-              <Input id="confirmPassword" type="password" name="confirmPassword" required minLength={8} />
+              <Input
+                id="confirmPassword"
+                type="password"
+                name="confirmPassword"
+                required
+                minLength={8}
+                autoComplete="new-password"
+                aria-invalid={mismatch || undefined}
+                aria-describedby={mismatch ? 'reset-error' : undefined}
+              />
             </div>
-            {error && (
-              <p className="text-sm text-destructive" role="alert" aria-live="assertive">
-                {error}
-              </p>
-            )}
+            <FormError id="reset-error" message={error} />
             <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="w-full">
               {loading ? 'Đang xử lý...' : 'Đặt lại mật khẩu'}
             </Button>
           </form>
           <div className="flex flex-col gap-1 text-sm">
-            <Link
-              href="/auth/forgot-password"
-              className="text-primary underline-offset-4 hover:underline"
-            >
+            <Link href="/auth/forgot-password" className={authLinkClass}>
               Yêu cầu mã OTP mới
             </Link>
-            <Link href="/auth/login" className="text-primary underline-offset-4 hover:underline">
+            <Link href="/auth/login" className={authLinkClass}>
               Đăng nhập
             </Link>
           </div>

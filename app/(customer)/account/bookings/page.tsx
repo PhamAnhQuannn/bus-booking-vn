@@ -125,6 +125,17 @@ export default function BookingsHistoryPage() {
     void load(tab, null);
   }, [tab, load]);
 
+  // AX-8: ArrowLeft/Right roving between the two tabs (WAI-ARIA tabs pattern).
+  function onTabKeyDown(e: React.KeyboardEvent) {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    e.preventDefault();
+    const order = ['upcoming', 'past'] as const;
+    const idx = order.indexOf(tab);
+    const next = order[(idx + (e.key === 'ArrowRight' ? 1 : -1) + order.length) % order.length];
+    setTab(next);
+    document.getElementById(`bookings-tab-${next}`)?.focus();
+  }
+
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 py-8">
       <nav aria-label="breadcrumb" className="text-sm text-muted-foreground">
@@ -134,23 +145,30 @@ export default function BookingsHistoryPage() {
           <li aria-current="page" className="font-medium text-foreground">Lịch sử đặt vé</li>
         </ol>
       </nav>
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <h1 className="text-2xl font-bold">Lịch sử đặt vé</h1>
         <Link
           href="/account/settings"
-          className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          className="shrink-0 text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
         >
           Cài đặt tài khoản
         </Link>
       </div>
 
-      <div className="flex gap-2 border-b border-border" role="tablist">
+      <div className="flex gap-2 border-b border-border" role="tablist" aria-label="Lọc lịch sử đặt vé">
         {(['upcoming', 'past'] as const).map((t) => (
           <button
             key={t}
+            type="button"
+            id={`bookings-tab-${t}`}
             role="tab"
             aria-selected={tab === t}
+            aria-controls="bookings-tabpanel"
+            // AX-8: roving tabindex — only the active tab is in the tab order;
+            // ArrowLeft/Right move selection + focus between tabs.
+            tabIndex={tab === t ? 0 : -1}
             onClick={() => setTab(t)}
+            onKeyDown={onTabKeyDown}
             className={cn(
               'border-b-2 px-4 py-2 text-sm font-medium transition-colors',
               tab === t
@@ -163,53 +181,61 @@ export default function BookingsHistoryPage() {
         ))}
       </div>
 
-      {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
+      <div
+        id="bookings-tabpanel"
+        role="tabpanel"
+        aria-labelledby={`bookings-tab-${tab}`}
+        tabIndex={0}
+        className="flex flex-col gap-4 outline-none"
+      >
+        {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
 
-      {/* First-load skeletons match the card shape so the layout doesn't jump. */}
-      {loading && rows.length === 0 && (
-        <ul className="flex list-none flex-col gap-3 p-0" aria-hidden="true">
-          {[0, 1, 2].map((i) => (
-            <li key={i}>
-              <BookingCardSkeleton />
-            </li>
-          ))}
-        </ul>
-      )}
+        {/* First-load skeletons match the card shape so the layout doesn't jump. */}
+        {loading && rows.length === 0 && (
+          <ul className="flex list-none flex-col gap-3 p-0" aria-hidden="true">
+            {[0, 1, 2].map((i) => (
+              <li key={i}>
+                <BookingCardSkeleton />
+              </li>
+            ))}
+          </ul>
+        )}
 
-      {!loading && rows.length === 0 && !error && <EmptyBookings tab={tab} />}
+        {!loading && rows.length === 0 && !error && <EmptyBookings tab={tab} />}
 
-      {rows.length > 0 && (
-        <ul className="flex list-none flex-col gap-3 p-0">
-          {rows.map((b) => (
-            <li key={b.id}>
-              <Link href={`/account/bookings/${b.id}`} className="block">
-                <Card className="gap-2 py-4 shadow-e1 transition-all hover:shadow-e2 motion-safe:hover:-translate-y-0.5">
-                  <div className="flex items-center justify-between gap-2 px-4">
-                    <strong className="text-base">
-                      {b.route.origin} → {b.route.destination}
-                    </strong>
-                    <Badge variant={bookingStatusDisplay(b.status).variant}>{bookingStatusDisplay(b.status).label}</Badge>
-                  </div>
-                  <div className="px-4 text-sm text-muted-foreground">
-                    {dateFmt.format(new Date(b.departureAt))}
-                  </div>
-                  <div className="px-4 text-sm text-muted-foreground">
-                    {b.ticketCount} vé · {vnd(b.totalVnd)} · <span className="font-mono">{b.bookingRef}</span>
-                  </div>
-                </Card>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+        {rows.length > 0 && (
+          <ul className="flex list-none flex-col gap-3 p-0">
+            {rows.map((b) => (
+              <li key={b.id}>
+                <Link href={`/account/bookings/${b.id}`} className="block">
+                  <Card className="gap-2 py-4 shadow-e1 transition-all hover:shadow-e2 motion-safe:hover:-translate-y-0.5">
+                    <div className="flex items-center justify-between gap-2 px-4">
+                      <strong className="text-base">
+                        {b.route.origin} → {b.route.destination}
+                      </strong>
+                      <Badge variant={bookingStatusDisplay(b.status).variant}>{bookingStatusDisplay(b.status).label}</Badge>
+                    </div>
+                    <div className="px-4 text-sm text-muted-foreground">
+                      {dateFmt.format(new Date(b.departureAt))}
+                    </div>
+                    <div className="px-4 text-sm text-muted-foreground">
+                      {b.ticketCount} vé · {vnd(b.totalVnd)} · <span className="font-mono">{b.bookingRef}</span>
+                    </div>
+                  </Card>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
 
-      {/* Load-more: skeleton while appending, button otherwise. */}
-      {loading && rows.length > 0 && <BookingCardSkeleton />}
-      {nextCursor && !loading && (
-        <Button variant="outline" className="self-start" onClick={() => void load(tab, nextCursor)}>
-          Tải thêm
-        </Button>
-      )}
+        {/* Load-more: skeleton while appending, button otherwise. */}
+        {loading && rows.length > 0 && <BookingCardSkeleton />}
+        {nextCursor && !loading && (
+          <Button variant="outline" className="self-start" onClick={() => void load(tab, nextCursor)}>
+            Tải thêm
+          </Button>
+        )}
+      </div>
     </main>
   );
 }

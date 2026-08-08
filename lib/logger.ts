@@ -44,6 +44,12 @@
  * - accountNumber              — payout-account bank number — sensitive PII (Issue 078)
  * - *.accountNumber            — nested payout-account number; a leaked bank account
  *   number is a real, direct harm (Issue 078)
+ * - GOOGLE_CLIENT_SECRET       — Google OAuth client secret (ADR-021)
+ * - id_token / *.id_token      — Google OIDC id_token (PII claims + bearer-adjacent)
+ * - access_token / *          — Google token-exchange (snake_case; camelCase already covered)
+ * - refresh_token / *         — Google token-exchange refresh token
+ * - code_verifier / *         — Google OAuth PKCE verifier
+ * - state / *                 — Google OAuth CSRF state (broad key; over-redaction is safe)
  */
 
 import pino, { type LoggerOptions } from 'pino';
@@ -110,8 +116,29 @@ export const loggerOptions: LoggerOptions = {
       'MISA_API_KEY',            // e-invoice: MISA meInvoice API key (never log)
       'RESEND_API_KEY',          // email: Resend transactional email API key (never log)
       'SEPAY_API_KEY',           // bank transfer: SePay webhook bearer token (never log)
+      'GEMINI_API_KEY',          // planner chat: Gemini Generative Language API key (never log)
       'VNPAY_HASH_SECRET',       // VNPay: HMAC-SHA512 signing secret (never log)
       'VNPAY_TMN_CODE',          // VNPay: merchant terminal code (never log)
+      'GOOGLE_CLIENT_SECRET',    // Google OAuth: client secret (never log)
+      'id_token',                // Google OAuth: OIDC id_token (PII-bearing claims + bearer-adjacent)
+      '*.id_token',
+      'access_token',            // Google OAuth: token-exchange response (snake_case; camelCase accessToken already covered)
+      '*.access_token',
+      'refresh_token',           // Google OAuth: token-exchange response (not persisted, but may transit logs)
+      '*.refresh_token',
+      'code_verifier',           // Google OAuth: PKCE verifier
+      '*.code_verifier',
+      // Google OAuth CSRF state — broad key name, intentionally redacted; over-redaction
+      // is the safe failure mode (no current caller logs a business `state`).
+      'state',
+      '*.state',
+      // Google OAuth subject — the stable pseudonymous user id (OIDC `sub`, persisted as
+      // Account.providerAccountId). Not a secret, but a durable identity linkage; redact so
+      // an accidentally-logged identity object can't leak it.
+      'sub',
+      '*.sub',
+      'providerAccountId',
+      '*.providerAccountId',
     ],
     censor: '[REDACTED]',
   },

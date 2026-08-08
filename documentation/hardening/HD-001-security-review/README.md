@@ -21,7 +21,7 @@ Comprehensive security audit of the BenXe platform before first production deplo
 
 ### Layer 2: Authentication & Authorization (ADR-003, ADR-008 D5)
 
-- [ ] Customer: OTP-only auth flow working end-to-end
+- [ ] Customer: OTP-only auth flow working end-to-end (superseded by ADR-021: email+password is now the primary factor)
 - [ ] Operator: password + OTP auth flow working
 - [ ] Admin: password + TOTP auth flow working
 - [ ] Admin TOTP: replay protection via SETNX jti with 30s TTL (FI-001 HALT blocker)
@@ -41,6 +41,12 @@ Comprehensive security audit of the BenXe platform before first production deplo
 - [ ] `select` whitelists = exactly UI contract fields, no filter columns leaked
 
 ### Layer 4: HTTP Security Headers (ADR-008 D4)
+
+> **Note:** a baseline security-header set already ships via `next.config.ts` (`headers()` on `/(.*)`):
+> `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`,
+> `Permissions-Policy: camera=(), microphone=(), geolocation=()`, `Content-Security-Policy` (with
+> `frame-ancestors 'none'`, `form-action 'self'`, `base-uri 'self'`), and `Strict-Transport-Security`
+> (production only). `poweredByHeader` is disabled. These checkboxes are verification, not net-new work.
 
 - [ ] HSTS with preload (production only)
 - [ ] CSP with PSP-specific `connect-src` per environment

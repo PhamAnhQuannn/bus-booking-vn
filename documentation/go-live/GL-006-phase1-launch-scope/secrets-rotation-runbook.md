@@ -6,7 +6,7 @@ Production secrets rotation procedures for BusBookVN Phase 1.
 
 | Interval | Secrets |
 |----------|---------|
-| 90 days | JWT_SECRET, JWT_OPERATOR_SECRET, JWT_ADMIN_SECRET, REFRESH_TOKEN_SECRET, TOTP_ENCRYPTION_KEY, BANK_ENCRYPTION_KEY, DATABASE_URL password |
+| 90 days | JWT_SECRET, JWT_OPERATOR_SECRET, JWT_ADMIN_SECRET, REFRESH_TOKEN_SECRET_CUSTOMER, REFRESH_TOKEN_SECRET_OPERATOR, REFRESH_TOKEN_SECRET_ADMIN, TOTP_ENCRYPTION_KEY, BANK_ENCRYPTION_KEY, DATABASE_URL password |
 | 180 days | HOLD_SECRET, CRON_SECRET, REDIS password |
 | On breach | All secrets in affected category immediately |
 
@@ -47,9 +47,9 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 ## 2. Refresh Token Secret
 
-**Secret:** `REFRESH_TOKEN_SECRET`
+**Secrets (per realm, P17 #438):** `REFRESH_TOKEN_SECRET_CUSTOMER` / `REFRESH_TOKEN_SECRET_OPERATOR` / `REFRESH_TOKEN_SECRET_ADMIN`
 
-**Impact:** All refresh tokens invalidated. Users must re-login (not just re-auth).
+**Impact:** Rotating a realm's secret invalidates only that realm's refresh tokens; those users must re-login (not just re-auth). Blast-contained per realm.
 
 **Procedure:**
 

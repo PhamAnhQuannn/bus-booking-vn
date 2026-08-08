@@ -143,4 +143,30 @@ describe('deleteAccount', () => {
     await prisma.session.deleteMany({ where: { customerId: c2.id } });
     await prisma.customer.delete({ where: { id: c2.id } }).catch(() => {});
   });
+
+  it('DS-033: purges linked OAuth Account rows on delete (no orphaned identity re-grant)', async () => {
+    // A "deleted" account whose Google link survived would let the same Google identity
+    // re-authenticate into it (L1). deleteAccount must remove the Account rows.
+    const ph3 = await hashPassword('TestPass4!');
+    const c3 = await prisma.customer.create({
+      data: { phone: '+8490xxxxxx8', passwordHash: ph3, displayName: 'Linked User' },
+    });
+    await prisma.account.create({
+      data: {
+        customerId: c3.id,
+        provider: 'google',
+        providerAccountId: 'sub-purge-' + c3.id,
+        email: 'linked@example.dev',
+      },
+    });
+
+    await deleteAccount(c3.id);
+
+    const links = await prisma.account.findMany({ where: { customerId: c3.id } });
+    expect(links.length).toBe(0);
+
+    // Cleanup
+    await prisma.session.deleteMany({ where: { customerId: c3.id } });
+    await prisma.customer.delete({ where: { id: c3.id } }).catch(() => {});
+  });
 });

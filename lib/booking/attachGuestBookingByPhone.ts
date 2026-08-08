@@ -27,6 +27,7 @@
 
 import type { Prisma } from '@prisma/client';
 import { normalizePhone, PhoneNormalizeError } from '@/lib/core/validation/phone';
+import type { ProvenEmail } from '@/lib/core/validation/provenEmail';
 import { logger } from '@/lib/logger';
 
 export async function attachGuestBookingByPhone(
@@ -100,17 +101,22 @@ export async function backfillGuestBookingsForCustomer(
 }
 
 /**
- * backfillGuestBookingsByEmail — at register time, claim any pre-existing
+ * backfillGuestBookingsByEmail — at register/OAuth-link time, claim any pre-existing
  * guest bookings whose buyerEmail matches the new customer's email.
+ *
+ * Takes a `ProvenEmail` (P22): the caller MUST have proven ownership first (OTP proof
+ * for password register; verified id_token for Google). This is the IDOR guard —
+ * a raw request-body string can't reach here.
  */
 export async function backfillGuestBookingsByEmail(
   tx: Prisma.TransactionClient,
   customerId: string,
-  email: string
+  email: ProvenEmail
 ): Promise<number> {
-  const normalized = email.trim().toLowerCase();
+  // `email` is already normalised (asProvenEmail lowercases + trims) and matches the
+  // lowercased Booking.buyerEmail.
   const result = await tx.booking.updateMany({
-    where: { buyerEmail: normalized, customerId: null },
+    where: { buyerEmail: email, customerId: null },
     data: { customerId },
   });
   if (result.count > 0) {

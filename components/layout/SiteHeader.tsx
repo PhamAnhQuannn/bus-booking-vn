@@ -5,9 +5,9 @@
  * own (console) sidebar shell), the dev stub-pay page (`/dev/*`), and the auth
  * pages (`/auth/*`, which use the full-bleed AuthSplitLayout shell).
  *
- * Phase 1: customer accounts paused (guest-only). "Đăng nhập" points to
- * operator login (/op/login). Restore CustomerAccountMenu + /auth/login when
- * customer auth is enabled in Phase 2.
+ * Customer auth is live (ADR-021): guests see "Đăng nhập / Đăng ký" → /auth/login;
+ * signed-in customers see the CustomerAccountMenu (bookings / settings / logout).
+ * Sign-in state comes from the client session store (useAuthStatus tri-state).
  */
 
 import { useEffect, useState } from 'react';
@@ -16,12 +16,14 @@ import { usePathname } from 'next/navigation';
 import { Dialog } from '@base-ui/react/dialog';
 import { LogInIcon, MenuIcon, XIcon } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
+import { CustomerAccountMenu } from '@/components/auth/CustomerAccountMenu';
+import { useAuthStatus } from '@/lib/auth/clientSession';
 import { cn } from '@/lib/utils';
 
 /* Nav mirrors the mockup's five items (docs/design/mockup-home.png S1). */
 const NAV = [
   { href: '/', label: 'Đặt vé xe' },
-  { href: '/lien-he-dat-xe', label: 'Thuê xe hợp đồng' },
+  { href: '/tro-ly-du-lich', label: 'Trợ lý du lịch' },
   { href: '/op/register', label: 'Nhà xe' },
   // Imperfect mapping: no guide page exists yet; the cancellation/refund policy is
   // the closest real destination. Replace when a real "Hướng dẫn" page ships.
@@ -29,13 +31,8 @@ const NAV = [
   { href: '/khieu-nai', label: 'Hỗ trợ' },
 ];
 
-/* Customer auth is 410-gated in Phase 1 (proxy.ts), so the ONLY login that exists
-   is the operator/admin console. The button is labelled "Đăng nhập nhà xe" (operator
-   login) rather than the mockup's customer "Đăng nhập / Đăng ký" so a real customer
-   isn't sent to an operator admin screen asking for a business login code (#349).
-   Restore the customer "Đăng nhập / Đăng ký" label + CustomerAccountMenu when customer
-   auth is enabled in Phase 2. */
-const LOGIN = { href: '/op/login', label: 'Đăng nhập nhà xe' };
+/* Customer login (ADR-021). Operators reach their console from the "Nhà xe" nav item. */
+const LOGIN = { href: '/auth/login', label: 'Đăng nhập / Đăng ký' };
 
 /* Solid CTA fill uses `--primary-strong` (orange-700, ~4.7:1 on white), not
    `--primary` (~3.4:1) — the label is below the AA large-text threshold. */
@@ -51,6 +48,7 @@ const barHeight = () => (window.innerWidth >= 1024 ? BAR_H_PX.lg : BAR_H_PX.base
 
 export function SiteHeader() {
   const pathname = usePathname();
+  const authStatus = useAuthStatus();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   /* True only while a hero photograph is actually behind the bar. Three states
@@ -117,14 +115,41 @@ export function SiteHeader() {
     };
   }, [pathname]);
 
+  // DD-2: the drawer + backdrop are `xl:hidden`, but Base UI's modal Dialog keeps
+  // its body scroll-lock while `open`. Resizing/rotating past xl with the drawer
+  // open would hide all drawer UI yet freeze the page with no way to close it — so
+  // close it the moment the layout reaches xl (where the inline nav takes over).
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const mq = window.matchMedia('(min-width: 1280px)');
+    const sync = () => {
+      if (mq.matches) setDrawerOpen(false);
+    };
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, [drawerOpen]);
+
+  // DD-8: in-drawer links already close on click (forward nav). Browser
+  // back/forward fire `popstate` instead, which those handlers can't catch — so
+  // close the drawer here too, or it lingers over the destination page.
+  useEffect(() => {
+    const onPop = () => setDrawerOpen(false);
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
   if (pathname.startsWith('/op') || pathname.startsWith('/dev') || pathname.startsWith('/auth') || pathname.startsWith('/admin'))
     return null;
+
+  // App-shell mode trên trợ lý du lịch: bar thấp hơn (56/64) để bớt "marketing" + trả chiều cao cho workspace.
+  const compact = pathname.startsWith('/tro-ly-du-lich');
 
   return (
     <Dialog.Root open={drawerOpen} onOpenChange={setDrawerOpen}>
       <header
         className={cn(
-          'sticky top-0 z-40 transition-[background-color,box-shadow] duration-200',
+          'sticky top-0 z-chrome transition-[background-color,box-shadow] duration-200',
           // Bottom feather: bleeds the header surface 48px down over whatever sits
           // below, so the bar has no hard edge against the hero photo. Starts at full
           // `from-background` — any alpha step at the bar's own bottom edge would
@@ -156,7 +181,7 @@ export function SiteHeader() {
             above its cap and the gutter grows unbounded). */}
         {/* lg:h-21 (84px) = 5.83% of a 1440 viewport, matching the reference bar's
             measured 5.88%. The old h-24 ran ~14% proportionally tall. */}
-        <div className="flex h-18 w-full items-center justify-between gap-4 px-6 lg:h-21">
+        <div className={cn('flex w-full items-center justify-between gap-4 px-6', compact ? 'h-14 lg:h-16' : 'h-18 lg:h-21')}>
           {/* Logo owns the left slot at every breakpoint so its 24px gutter is
               uniform; the hamburger sits in the right-hand mobile cluster.
               h-11 at lg = 44px ≈ 52% of the 84px bar, matching the reference's
@@ -225,20 +250,32 @@ export function SiteHeader() {
                   i18n and is Vietnamese-only, so the control could never do anything.
                   Its own comment already called it "a known misleading affordance".
                   Restore it alongside real i18n, not before. */}
-              <Link
-                href={LOGIN.href}
-                className={cn(
-                  // border-primary/40: the reference's stroke samples (251,113,77),
-                  // far more saturated than /30 composites to. JPEG blur can only
-                  // wash a thin stroke toward its neighbour, so that is a floor.
-                  // bg-card, not a transparent interior: the scrim has faded to
-                  // ~0 this far right, so the label would otherwise sit on raw
-                  // sky pixels. The reference's own button carries a fill too.
-                  'inline-flex h-11 items-center whitespace-nowrap rounded-lg border border-primary/40 bg-card px-5 text-base font-medium text-foreground outline-none transition-colors hover:bg-primary/5 focus-visible:ring-3 focus-visible:ring-ring/50'
-                )}
-              >
-                {LOGIN.label}
-              </Link>
+              {authStatus === 'unknown' ? (
+                // Neutral placeholder while the bootstrap refresh resolves (DD-4):
+                // never the guest CTA, and not clickable, so a returning signed-in
+                // user can't be mis-navigated to /auth/login mid-load.
+                <div
+                  aria-hidden="true"
+                  className="h-11 w-32 animate-pulse rounded-full bg-muted motion-reduce:animate-none"
+                />
+              ) : authStatus === 'authed' ? (
+                <CustomerAccountMenu />
+              ) : (
+                <Link
+                  href={LOGIN.href}
+                  className={cn(
+                    // border-primary/40: the reference's stroke samples (251,113,77),
+                    // far more saturated than /30 composites to. JPEG blur can only
+                    // wash a thin stroke toward its neighbour, so that is a floor.
+                    // bg-card, not a transparent interior: the scrim has faded to
+                    // ~0 this far right, so the label would otherwise sit on raw
+                    // sky pixels. The reference's own button carries a fill too.
+                    'inline-flex h-11 items-center whitespace-nowrap rounded-lg border border-primary/40 bg-card px-5 text-base font-medium text-foreground outline-none transition-colors hover:bg-primary/5 focus-visible:ring-3 focus-visible:ring-ring/50'
+                  )}
+                >
+                  {LOGIN.label}
+                </Link>
+              )}
             </div>
           </div>
 
@@ -278,9 +315,9 @@ export function SiteHeader() {
 
       {/* Mobile drawer */}
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/50 transition-opacity duration-200 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 xl:hidden" />
+        <Dialog.Backdrop className="fixed inset-0 z-overlay-backdrop bg-black/50 transition-opacity duration-200 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none xl:hidden" />
         <Dialog.Popup
-          className="fixed inset-y-0 right-0 z-50 flex w-72 flex-col bg-background shadow-lg transition-transform duration-200 ease-out outline-none data-[ending-style]:translate-x-full data-[ending-style]:duration-150 data-[starting-style]:translate-x-full xl:hidden"
+          className="fixed inset-y-0 right-0 z-overlay-panel flex w-72 flex-col bg-background shadow-lg transition-transform duration-200 ease-out outline-none data-[ending-style]:translate-x-full data-[ending-style]:duration-150 data-[starting-style]:translate-x-full motion-reduce:transition-none xl:hidden"
         >
           <div className="flex h-14 items-center justify-between border-b border-border px-4">
             <Dialog.Title>
@@ -315,18 +352,30 @@ export function SiteHeader() {
               );
             })}
           </nav>
-          <div className="border-t border-border px-2 py-2">
-            <Link
-              href={LOGIN.href}
-              onClick={() => setDrawerOpen(false)}
-              className={cn(
-                'flex h-11 items-center justify-center gap-2 rounded-full px-4 text-sm font-medium',
-                CTA_CLASS
-              )}
-            >
-              <LogInIcon className="size-4" />
-              {LOGIN.label}
-            </Link>
+          <div className="flex justify-center border-t border-border px-2 py-2">
+            {authStatus === 'unknown' ? (
+              <div
+                aria-hidden="true"
+                className="h-11 w-full animate-pulse rounded-full bg-muted motion-reduce:animate-none"
+              />
+            ) : authStatus === 'authed' ? (
+              // QA-H2: close the drawer when the account menu navigates or logs out —
+              // the header lives in the root layout, so the drawer wouldn't otherwise
+              // close over the destination.
+              <CustomerAccountMenu onNavigate={() => setDrawerOpen(false)} />
+            ) : (
+              <Link
+                href={LOGIN.href}
+                onClick={() => setDrawerOpen(false)}
+                className={cn(
+                  'flex h-11 w-full items-center justify-center gap-2 rounded-full px-4 text-sm font-medium',
+                  CTA_CLASS
+                )}
+              >
+                <LogInIcon className="size-4" />
+                {LOGIN.label}
+              </Link>
+            )}
           </div>
         </Dialog.Popup>
       </Dialog.Portal>

@@ -86,3 +86,48 @@ describe('changePassword', () => {
     });
   });
 });
+
+// P14: an OAuth-only customer (passwordHash IS NULL) sets a first password. The
+// current-password verify + reuse check are skipped; sessions are still revoked.
+describe('changePassword — OAuth-only null-hash set-initial (P14)', () => {
+  const OAUTH_EMAIL = 'p14-oauth-setinitial@example.test';
+  let oauthId: string;
+
+  beforeAll(async () => {
+    await prisma.customer.deleteMany({ where: { email: OAUTH_EMAIL } });
+    const c = await prisma.customer.create({
+      data: { email: OAUTH_EMAIL, passwordHash: null, displayName: 'OAuth Only P14' },
+    });
+    oauthId = c.id;
+  });
+
+  afterAll(async () => {
+    await prisma.session.deleteMany({ where: { customerId: oauthId } });
+    await prisma.customer.delete({ where: { id: oauthId } });
+  });
+
+  it('sets the first password when passwordHash is null (currentPassword ignored)', async () => {
+    await expect(changePassword(oauthId, '', 'FirstPass1!')).resolves.not.toThrow();
+    const updated = await prisma.customer.findUnique({
+      where: { id: oauthId },
+      select: { passwordHash: true },
+    });
+    expect(updated?.passwordHash).toBeTruthy();
+  });
+
+  it('revokes all sessions on set-initial', async () => {
+    // customer now has a password from the previous test; add a live session
+    await prisma.session.create({
+      data: {
+        customerId: oauthId,
+        refreshTokenHash: 'test-hash-p14-' + oauthId,
+        tokenFamily: 'test-family-p14',
+        rotationCount: 0,
+        expiresAt: new Date(Date.now() + 86400000),
+      },
+    });
+    await changePassword(oauthId, 'FirstPass1!', 'SecondPass2@');
+    const live = await prisma.session.findMany({ where: { customerId: oauthId, revokedAt: null } });
+    expect(live.length).toBe(0);
+  });
+});

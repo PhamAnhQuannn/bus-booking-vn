@@ -28,6 +28,19 @@ describe('safeReturnTo', () => {
     expect(safeReturnTo('account/bookings')).toBe('/'); // missing leading slash
   });
 
+  it('rejects embedded control characters that URL parsers strip', () => {
+    // `/\t/evil.tld` passes the leading-slash regex but new URL() strips the tab,
+    // collapsing it to `//evil.tld` (protocol-relative, cross-origin).
+    expect(safeReturnTo('/\t/evil.tld')).toBe('/');
+    expect(safeReturnTo('/\n/evil.tld')).toBe('/');
+    expect(safeReturnTo('/\r/evil.tld')).toBe('/');
+    expect(safeReturnTo('/\x00/evil.tld')).toBe('/');
+    // The regression assertion: the sanitized value must resolve same-origin.
+    expect(new URL(safeReturnTo('/\t/evil.tld'), 'https://lenxevn.com').origin).toBe(
+      'https://lenxevn.com'
+    );
+  });
+
   it('returns the fallback for null/undefined/empty', () => {
     expect(safeReturnTo(null)).toBe('/');
     expect(safeReturnTo(undefined)).toBe('/');

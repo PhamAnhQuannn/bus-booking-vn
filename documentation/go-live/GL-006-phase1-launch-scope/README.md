@@ -30,7 +30,7 @@ Split-settlement (DS-009) becomes relevant only when adding **external** operato
 |-----|-------|--------|
 | ADR-001 Stack | IN-SCOPE | Core stack unchanged |
 | ADR-002 NFR Targets | PARTIAL | Target 99.5% uptime + basic latency. Tet surge (2,000 concurrent) deferred |
-| ADR-003 Auth | PARTIAL | Operator password auth + admin TOTP only. Customer auth deferred to Phase 2 (proxy 410 gate active) |
+| ADR-003 Auth | PARTIAL → being lifted | Operator password auth + admin TOTP live. Customer auth 410 gate being **lifted** via **email+password + Google OAuth** (ADR-021 supersedes the phone-OTP D1). Enable requires `EMAIL_PROVIDER=resend` + `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` + `Account` migration (FI-016). CDTIA scope must add Google (US). |
 | ADR-004 Multi-Tenancy | PARTIAL | `withOperatorScope` stays for data isolation. Per-operator fee override unused (single operator) |
 | ADR-005 Payment | PARTIAL | Bank transfer + cash only. Split-settlement, MoMo, VNPay all deferred |
 | ADR-006 Pricing | PARTIAL | Trip pricing active. Commission can be 0% for family operator. Tax withholding deferred |
@@ -116,7 +116,7 @@ Simplified from GL-001. Only items that apply to family operator + bank transfer
 - [ ] eSMS production API key configured
 - [ ] Operator OTP SMS delivery working
 - [ ] Booking confirmation SMS working
-- [ ] Customer OTP: N/A (auth 410-gated; Resend needed for Phase 2)
+- [ ] Customer auth (ADR-021): email+password + Google OAuth. Preconditions to lift the 410 gate — `EMAIL_PROVIDER=resend` (OTP + transactional mail, not a verification link), `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` (`guides/14-setup-google-oauth.md`), `Account` + `emailVerifiedAt` migration (DS-033), CDTIA scope adds Google. Checklist: FI-016. _(Phone/email-OTP retired as primary.)_
 
 ### Data
 

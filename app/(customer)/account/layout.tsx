@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 
 /**
- * Server layout for the parked customer-account surface (guest-only since
- * 2026-06-06; proxy.ts redirects these pages to `/`). The pages themselves are
+ * Server layout for the customer-account surface. The pages themselves are
  * `'use client'` and cannot export metadata, so this server layout applies a
  * no-index directive across the whole `/account/*` subtree as defense-in-depth.
  */

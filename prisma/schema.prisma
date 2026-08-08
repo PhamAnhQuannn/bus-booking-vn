@@ -491,8 +491,15 @@ model Customer {
   id              String           @id @default(cuid())
   /// Nullable: set to NULL on soft-delete/anonymization; Postgres allows multiple NULLs on @unique
   phone           String?          @unique
+  /// Identity anchor (ADR-021). SQL-only partial unique index `Customer_email_key`
+  /// (WHERE email IS NOT NULL AND deletedAt IS NULL) — not expressible in Prisma DSL;
+  /// see migration 20260806120000. The deletedAt clause frees a deleted customer's
+  /// email for fresh re-registration (P2).
   email           String?
   passwordHash    String?
+  /// Non-null once the email is proven (register OTP proof, or Google email_verified).
+  /// Backfilled = createdAt for pre-existing password customers (P13, migration 20260806120000).
+  emailVerifiedAt DateTime?
   displayName     String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
@@ -510,10 +517,36 @@ model Customer {
   /// Issue 081: charter requests submitted by this (logged-in) customer. Guest
   /// charter requests have a null customerId.
   charterRequests CharterRequest[]
+  /// ADR-021/DS-033: linked OAuth providers (Google). Zero or one Google Account.
+  accounts        Account[]
+}
+
+/// DS-033: customer↔OAuth-provider link. One row per (provider, external account).
+/// Stores ONLY the provider subject id — no Google access/refresh/id tokens are
+/// persisted (identity is read once at callback and discarded, ADR-008 minimisation).
+model Account {
+  id                String   @id @default(cuid())
+  customerId        String
+  /// Provider key, lowercase. Phase 1: "google" only.
+  provider          String
+  /// Provider subject id. For Google = the OIDC `sub` claim (stable, opaque).
+  providerAccountId String
+  /// Email asserted by the provider at link time (audit/debug only; the
+  /// authoritative email is Customer.email).
+  email             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  customer          Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([customerId])
 }
 
 model OtpAttempt {
   id           String    @id @default(cuid())
+  /// Exactly one of phone/email is set — enforced by the SQL-only CHECK constraint
+  /// `OtpAttempt_exactly_one_identifier` (migration 20260806130000), not expressible
+  /// in Prisma DSL. Customer OTP is email-only now; phone is legacy for historical rows.
   phone        String?
   email        String?
   codeHash     String

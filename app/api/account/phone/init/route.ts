@@ -35,7 +35,7 @@ async function handler(req: NextRequest, _auth: { customerId: string }): Promise
     return NextResponse.json({ error: 'INVALID' }, { status: 400 });
   }
 
-  const result = await sendCustomerAccountOtp(parsed.data.newPhone);
+  const result = await sendCustomerAccountOtp(parsed.data.newPhone, 'phone');
   if (!result.ok) {
     return NextResponse.json(
       { error: result.reason === 'locked_out' ? 'LOCKED_OUT' : 'RATE_LIMITED', retryAfter: result.retryAfter },

@@ -133,14 +133,14 @@ export default function BookingDetailPage() {
   return (
     <main className="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 py-8">
       <nav aria-label="breadcrumb" className="text-sm text-muted-foreground">
-        <ol className="flex items-center gap-1.5">
-          <li>
+        <ol className="flex flex-wrap items-center gap-1.5">
+          <li className="shrink-0">
             <Link href="/account/bookings" className="underline-offset-4 hover:text-foreground hover:underline">
               Lịch sử đặt vé
             </Link>
           </li>
-          <li aria-hidden="true">/</li>
-          <li aria-current="page" className="font-medium text-foreground">
+          <li aria-hidden="true" className="shrink-0">/</li>
+          <li aria-current="page" className="min-w-0 truncate font-medium text-foreground">
             {booking?.bookingRef ?? 'Chi tiết'}
           </li>
         </ol>
@@ -163,7 +163,12 @@ export default function BookingDetailPage() {
               ))}
             </CardContent>
           </Card>
-          <Skeleton className="h-11 w-36 rounded-full" />
+          {/* AC-3: the real action row has up to two buttons ("Tải vé PDF" +
+              "Gọi nhà xe") — match both so the layout doesn't reflow when loading flips. */}
+          <div className="flex flex-wrap gap-2">
+            <Skeleton className="h-11 w-36 rounded-full" />
+            <Skeleton className="h-11 w-32 rounded-full" />
+          </div>
         </div>
       )}
       {error && <p className="text-sm text-destructive" role="alert">{error}</p>}

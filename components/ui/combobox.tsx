@@ -57,7 +57,7 @@ export function PlaceCombobox({
         {...rest}
       />
       <Autocomplete.Portal>
-        <Autocomplete.Positioner className="z-50 outline-none" sideOffset={6}>
+        <Autocomplete.Positioner className="z-popover outline-none" sideOffset={6}>
           <Autocomplete.Popup className="max-h-64 w-[var(--anchor-width)] min-w-[12rem] overflow-y-auto overscroll-contain rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-e3">
             <Autocomplete.Empty className="px-3 py-2 text-sm text-muted-foreground">
               Không tìm thấy địa điểm — bạn vẫn có thể nhập.

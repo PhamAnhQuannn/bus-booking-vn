@@ -16,8 +16,9 @@ This document is the authoritative data model reference for the BusBooking platf
 |--------|-------------|----------|---------|---------------------|
 | id | String | No | `@default(cuid())` | Primary key |
 | phone | String | Yes | -- | `@unique`. Set to NULL on soft-delete. Partial unique index `Customer_email_key` is on email, not phone; Postgres allows multiple NULLs on `@unique`. Use `findFirst` (not `findUnique`) when filtering with `deletedAt: null`. |
-| email | String | Yes | -- | Partial unique index `Customer_email_key` WHERE email IS NOT NULL (SQL-only) |
-| passwordHash | String | Yes | -- | Optional; customers may be OTP-only |
+| email | String | Yes | -- | **Identity anchor (ADR-021 D1).** Partial unique index `Customer_email_key` WHERE email IS NOT NULL (SQL-only, migration `20260519003311_issue_007_auth`) |
+| emailVerifiedAt | DateTime | Yes | -- | **ADR-021/DS-033.** Non-null once email proven (OTP-verified at registration, or Google `email_verified=true`). Gates safe OAuth auto-linking (DS-033 L1) |
+| passwordHash | String | Yes | -- | argon2id primary (`lib/auth/password.ts`, P19), scrypt fallback + legacy verifier; native addon pending G-BUILD. **Load-bearing** (ADR-021). Null = OAuth-only or not-yet-password customer |
 | displayName | String | Yes | -- | |
 | createdAt | DateTime | No | `@default(now())` | |
 | updatedAt | DateTime | No | `@updatedAt` | |
@@ -25,6 +26,25 @@ This document is the authoritative data model reference for the BusBooking platf
 | deletedAt | DateTime | Yes | -- | Soft-delete timestamp; non-null = account deleted |
 | anonymizedAt | DateTime | Yes | -- | Set together with deletedAt |
 | suspendedAt | DateTime | Yes | -- | Admin suspension; non-null = suspended (fails requireCustomerAuth, sessions revoked) |
+
+> **AMENDMENT** (2026-08-06 → ADR-021/DS-033): customer identity anchor is now **email** (phone
+> becomes optional contact/booking-merge data). Added `emailVerifiedAt`. New **`Account`** entity
+> (below) links Google OAuth `sub` → Customer. `Customer` gains relation `accounts Account[]`.
+
+#### Account (ADR-021 / DS-033 — customer OAuth link)
+
+| Column | Prisma Type | Nullable | Default | Constraints / Notes |
+|--------|-------------|----------|---------|---------------------|
+| id | String | No | `@default(cuid())` | Primary key |
+| customerId | String | No | -- | FK → `Customer.id`, `onDelete: Cascade` |
+| provider | String | No | -- | Lowercase provider key; Phase: `"google"` only |
+| providerAccountId | String | No | -- | Provider subject id (Google OIDC `sub`) |
+| email | String | Yes | -- | Provider-asserted email at link time (audit only; authoritative email is `Customer.email`) |
+| createdAt | DateTime | No | `@default(now())` | |
+| updatedAt | DateTime | No | `@updatedAt` | |
+
+Constraints: `@@unique([provider, providerAccountId])`, `@@index([customerId])`. **No Google tokens
+stored** (identity read once at callback, discarded). Full linking rules + migration: [DS-033](../DS-033-oauth-account-linking/README.md).
 
 #### OtpAttempt
 
@@ -1353,6 +1373,7 @@ escalated  escalated       escalated ──> in_progress
 |------|---------------|----------|------------|
 | T0 | Public / anonymous | FunnelEvent, Place, ContentReport | No special handling |
 | T1 | Basic personal | Customer.phone/email/displayName, Booking.buyerName/buyerPhone/buyerEmail, OtpAttempt.phone, NotificationLog.recipient, CharterRequest.contact* | Log-redacted. 24-month minimum retention |
+| T1 | Basic personal | Account.providerAccountId (Google `sub`), Account.email (optional) | Log-redacted; purged on customer deletion via `onDelete: Cascade` |
 | T2 | Sensitive | PaymentEvent.rawBody, PayoutAccount.accountNumber, AdminUser.totpSecret, LedgerEntry financials, KybDocument evidence | AES-256-GCM encrypt at rest. accountNumber is go-live blocker |
 
 ### 8.3 Retention Periods

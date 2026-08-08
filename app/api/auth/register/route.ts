@@ -51,7 +51,9 @@ async function handler(req: NextRequest): Promise<Response> {
     result = await register({ email, password, displayName });
   } catch (err) {
     if (err instanceof AuthServiceError && err.code === 'EMAIL_TAKEN') {
-      return NextResponse.json({ error: 'invalid_credentials' }, { status: 409 });
+      // DS-003 §6.1 / FI-016: 409 with the AC-verbatim code EMAIL_TAKEN (FD-012 maps it to
+      // "Email đã được đăng ký"). Not `invalid_credentials` — register is not a login path.
+      return NextResponse.json({ error: 'EMAIL_TAKEN' }, { status: 409 });
     }
     throw err;
   }
@@ -65,10 +67,13 @@ async function handler(req: NextRequest): Promise<Response> {
     maxAge: REFRESH_COOKIE_MAX_AGE,
   });
 
-  return NextResponse.json({
-    accessToken: result.accessToken,
-    customer: result.customer,
-  });
+  return NextResponse.json(
+    {
+      accessToken: result.accessToken,
+      customer: result.customer,
+    },
+    { status: 201 }, // DS-003 §6.1: register creates a Customer → 201 Created
+  );
 }
 
 export const POST = withErrorHandler(handler);

@@ -76,12 +76,16 @@ export function AuthSplitLayout({
 }) {
   const c = CONTENT[audience];
 
+  // AU-1: the split starts at lg, not md. At md (768–1023) a 1.1fr_1fr split
+  // squeezed the form column to ~333px — narrower than the phone layout below it.
+  // Below lg the form panel is full-width (comfortable max-w-sm), so it's ≥380px
+  // across the whole iPad-portrait band.
   return (
-    <main className="grid min-h-svh md:grid-cols-[1.1fr_1fr] lg:grid-cols-[1.25fr_1fr]">
+    <main className="grid min-h-svh lg:grid-cols-[1.25fr_1fr]">
       {/* Brand panel — desktop only */}
       <aside
         className={cn(
-          'relative hidden flex-col justify-between overflow-hidden p-10 md:flex lg:p-14',
+          'relative hidden flex-col justify-between overflow-hidden p-10 lg:flex lg:p-14',
           c.panel
         )}
       >
@@ -135,8 +139,8 @@ export function AuthSplitLayout({
       <section className="flex min-h-svh flex-col items-center justify-center px-4 py-10">
         <div className="flex w-full max-w-sm flex-col gap-6">
           {/* mobile brand bar */}
-          <Link href="/" aria-label="Về trang chủ BBVN" className={cn(logoLinkClass, 'md:hidden')}>
-            {/* No lg: step — this bar is md:hidden, so it only renders below md. */}
+          <Link href="/" aria-label="Về trang chủ BBVN" className={cn(logoLinkClass, 'lg:hidden')}>
+            {/* This bar is lg:hidden — it renders below lg, where the brand aside is hidden. */}
             <Logo variant="combo" className="h-14 w-auto" />
           </Link>
           <div className="flex flex-col gap-1.5">

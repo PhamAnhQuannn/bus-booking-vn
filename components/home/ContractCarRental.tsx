@@ -43,13 +43,13 @@ export function ContractCarRental() {
 
           {/* CTA sits beside the copy, not below it — measured off the mockup (S7). */}
           <a
-            href="/lien-he-dat-xe"
+            href="/tro-ly-du-lich"
             className={cn(
               buttonVariants({ size: 'lg' }),
               'shrink-0 gap-2 rounded-lg bg-primary-strong text-primary-foreground hover:bg-primary-strong/90 [a]:hover:bg-primary-strong/90'
             )}
           >
-            Nhận báo giá ngay
+            Lập kế hoạch với trợ lý AI
             <ArrowRight className="size-4" aria-hidden="true" />
           </a>
 

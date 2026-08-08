@@ -4,6 +4,10 @@
  * Requires current password (verified via argon2/scrypt).
  * New password must differ from old (verify(oldHash, newPlain) must return false).
  * On success: hashes new password, revokes ALL sessions (updateMany revokedAt).
+ *
+ * P14 (OAuth): an OAuth-only customer has no passwordHash yet. In that case this is
+ * the FIRST password — the current-password verify + reuse check are skipped (there
+ * is nothing to verify against), but sessions are still revoked (a credential changed).
  */
 
 import { prisma } from '@/lib/core/db/client';
@@ -31,20 +35,25 @@ export async function changePassword(
     select: { id: true, passwordHash: true },
   });
 
-  if (!customer || !customer.passwordHash) {
+  if (!customer) {
     throw new ChangePasswordError('CUSTOMER_NOT_FOUND');
   }
 
-  // Verify current password
-  const currentValid = await verifyPassword(customer.passwordHash, currentPassword);
-  if (!currentValid) {
-    throw new ChangePasswordError('CURRENT_PASSWORD_WRONG');
-  }
+  // P14: null hash → OAuth-only customer setting a first password. Nothing to verify
+  // against, so skip the current-password and reuse checks. The existing-password
+  // path below is byte-unchanged.
+  if (customer.passwordHash !== null) {
+    // Verify current password
+    const currentValid = await verifyPassword(customer.passwordHash, currentPassword);
+    if (!currentValid) {
+      throw new ChangePasswordError('CURRENT_PASSWORD_WRONG');
+    }
 
-  // Reuse check: verify(oldHash, newPlain) returning true means same password
-  const sameAsOld = await verifyPassword(customer.passwordHash, newPassword);
-  if (sameAsOld) {
-    throw new ChangePasswordError('PASSWORD_REUSED');
+    // Reuse check: verify(oldHash, newPlain) returning true means same password
+    const sameAsOld = await verifyPassword(customer.passwordHash, newPassword);
+    if (sameAsOld) {
+      throw new ChangePasswordError('PASSWORD_REUSED');
+    }
   }
 
   const newHash = await hashPassword(newPassword);

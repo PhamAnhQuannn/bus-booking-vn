@@ -40,7 +40,7 @@ export function CookieConsent() {
     <div
       role="region"
       aria-label="Thông báo về cookie"
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 px-4 py-4 shadow-e2 backdrop-blur supports-backdrop-filter:bg-background/80"
+      className="fixed inset-x-0 bottom-0 z-banner border-t border-border bg-background/95 px-4 py-4 shadow-e2 backdrop-blur supports-backdrop-filter:bg-background/80"
     >
       <div className="mx-auto flex w-full max-w-5xl flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
         <p className="text-sm text-muted-foreground">

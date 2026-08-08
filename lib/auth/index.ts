@@ -8,7 +8,21 @@ export {
   verifyAdminRefreshToken,
 } from './adminSession';
 export { beginEnrollment, confirmEnrollment, verifyLoginTotp } from './adminTotp';
-export { login, logout, refresh, register, verifyOtp, AuthServiceError } from './authService';
+export {
+  login,
+  logout,
+  refresh,
+  register,
+  verifyOtp,
+  createCustomerSession,
+  AuthServiceError,
+} from './authService';
+export { getGoogleClient, GOOGLE_OAUTH_SCOPES } from './googleOAuthClient';
+export {
+  resolveGoogleLogin,
+  type GoogleIdentityInput,
+  type ResolveGoogleResult,
+} from './linkGoogleAccount';
 export { readCsrfToken } from './csrfClient';
 export {
   signAccess,
@@ -37,9 +51,22 @@ export {
 } from './operatorSession';
 export { generateCode, generateSalt, hashCode } from './otp';
 export { issueOtpProof, verifyOtpProof } from './otpProof';
+export {
+  GOAUTH_COOKIE_NAME,
+  buildGoauthSetCookieHeader,
+  buildGoauthClearCookieHeader,
+  readGoauthCookie,
+  type GoauthState,
+} from './goauthCookie';
+export { verifyGoogleIdToken, type GoogleIdentity } from './googleIdToken';
 export { hash, verify } from './password';
 export { requireAdminAuth, type AdminAuthContext } from './requireAdminAuth';
 export { requireAdminPage } from './requireAdminPage';
+export {
+  checkCustomerActive,
+  type CustomerActiveCheck,
+  type CustomerActiveResult,
+} from './assertCustomerActive';
 export {
   requireCustomerAuth,
   getCustomerOptional,

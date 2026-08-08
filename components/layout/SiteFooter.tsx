@@ -55,7 +55,7 @@ const FOOTER_COLUMNS = [
   {
     heading: 'Về BBVN',
     links: [
-      { href: '/lien-he-dat-xe', label: 'Liên hệ đặt xe' },
+      { href: '/tro-ly-du-lich', label: 'Trợ lý du lịch' },
       { href: '/terms', label: 'Điều khoản dịch vụ' },
       { href: '/privacy', label: 'Chính sách bảo mật' },
     ],
@@ -90,7 +90,8 @@ const linkClass =
 
 export function SiteFooter() {
   const pathname = usePathname();
-  if (pathname.startsWith('/op') || pathname.startsWith('/dev') || pathname.startsWith('/auth') || pathname.startsWith('/admin'))
+  // /tro-ly-du-lich chiếm trọn viewport (chat+map, cuộn nội bộ) → không footer (P1-3, chống double-scroll).
+  if (pathname.startsWith('/op') || pathname.startsWith('/dev') || pathname.startsWith('/auth') || pathname.startsWith('/admin') || pathname.startsWith('/tro-ly-du-lich'))
     return null;
 
   const year = new Date().getFullYear();

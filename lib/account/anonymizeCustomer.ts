@@ -79,6 +79,11 @@ export async function deleteAccount(customerId: string): Promise<DeleteAccountRe
       data: { revokedAt: now },
     });
 
+    // DS-033: sever OAuth provider links (Google). A soft delete keeps the Customer
+    // row, so Account rows would NOT cascade — delete them explicitly so the Google
+    // `sub` no longer resolves to this (deleted) customer on a future sign-in.
+    await tx.account.deleteMany({ where: { customerId } });
+
     // Issue 090 (AC4): scrub the guest PII snapshot on THIS customer's bookings.
     // Money/audit columns (totalVnd/status/ticketCount/ledger) are RETAINED — only
     // the buyer identifiers are masked. snapshotAnonymizedAt is stamped so the

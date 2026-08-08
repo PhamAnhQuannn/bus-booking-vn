@@ -21,7 +21,7 @@ import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import { normalizePhone } from '@/lib/core/validation/phone';
 import { generateCode, generateSalt, hashCode } from './otp';
-import { sendSms } from '@/lib/notification';
+import { sendSms, stashTestOtp } from '@/lib/notification';
 import { createRatelimit } from '@/lib/ratelimit';
 
 const OTP_TTL_SECONDS = 5 * 60; // 5 minutes
@@ -118,6 +118,14 @@ export async function sendOperatorPasswordResetOtp(rawPhone: string): Promise<Se
         "createdAt"   = NOW()
     `
   );
+
+  // TD2: dev/e2e peek — stash the code into the same sink test-peek reads, so the
+  // operator forgot-password E2E can retrieve it (mirrors operatorLoginOtp). The peek
+  // is dual-guarded (never enabled in production); without this, peek returns nothing
+  // and the E2E either hard-fails (gated) or silently self-skips.
+  if (peekMode) {
+    stashTestOtp(phone, code);
+  }
 
   await sendSms({
     to: phone,

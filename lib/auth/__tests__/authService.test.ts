@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ---- hoisted mocks ----
-const { mockPrisma, mockSession, mockConsume, mockHashPassword, mockVerifyPassword, mockDummyVerify, mockVerifyRefreshToken, mockRotateRefresh, mockRevokeSession } = vi.hoisted(() => {
+const { mockPrisma, mockSession, mockConsume, mockHashPassword, mockVerifyPassword, mockDummyVerify, mockNeedsRehash, mockVerifyRefreshToken, mockRotateRefresh, mockRevokeSession } = vi.hoisted(() => {
   const mockPrisma = {
     customer: {
       create: vi.fn(),
@@ -28,10 +28,11 @@ const { mockPrisma, mockSession, mockConsume, mockHashPassword, mockVerifyPasswo
   const mockHashPassword = vi.fn();
   const mockVerifyPassword = vi.fn();
   const mockDummyVerify = vi.fn();
+  const mockNeedsRehash = vi.fn();
   const mockVerifyRefreshToken = vi.fn();
   const mockRotateRefresh = vi.fn();
   const mockRevokeSession = vi.fn();
-  return { mockPrisma, mockSession, mockConsume, mockHashPassword, mockVerifyPassword, mockDummyVerify, mockVerifyRefreshToken, mockRotateRefresh, mockRevokeSession };
+  return { mockPrisma, mockSession, mockConsume, mockHashPassword, mockVerifyPassword, mockDummyVerify, mockNeedsRehash, mockVerifyRefreshToken, mockRotateRefresh, mockRevokeSession };
 });
 
 vi.mock('@/lib/core/db/client', () => ({ prisma: mockPrisma }));
@@ -45,6 +46,7 @@ vi.mock('../password', () => ({
   hash: mockHashPassword,
   verify: mockVerifyPassword,
   dummyVerify: mockDummyVerify,
+  needsRehash: mockNeedsRehash,
 }));
 vi.mock('../refreshToken', () => ({ verify: mockVerifyRefreshToken }));
 
@@ -62,6 +64,7 @@ const CUSTOMER_STUB = {
   id: 'cust-001',
   email: 'test@example.com',
   displayName: 'Test User',
+  suspendedAt: null,
 };
 
 beforeEach(() => {
@@ -69,6 +72,8 @@ beforeEach(() => {
   mockHashPassword.mockResolvedValue('hashed-password');
   mockVerifyPassword.mockResolvedValue(true);
   mockDummyVerify.mockResolvedValue(undefined);
+  // Mirror the real needsRehash: a non-argon2id hash should be upgraded.
+  mockNeedsRehash.mockImplementation((h: string) => !String(h).startsWith('$argon2'));
   mockSession.createSession.mockResolvedValue(SESSION_STUB);
   mockPrisma.customer.update.mockResolvedValue({});
   mockPrisma.booking.updateMany.mockResolvedValue({ count: 0 });
@@ -96,6 +101,15 @@ describe('authService.register', () => {
         data: expect.objectContaining({ email: 'test@example.com' }),
       })
     );
+  });
+
+  it('stamps emailVerifiedAt on create (email proven via OTP proof upstream — P13)', async () => {
+    mockPrisma.customer.create.mockResolvedValue(CUSTOMER_STUB);
+    await register({ email: 'test@example.com', password: 'Password1' });
+    const arg = mockPrisma.customer.create.mock.calls[0][0] as {
+      data: { emailVerifiedAt: unknown };
+    };
+    expect(arg.data.emailVerifiedAt).toBeInstanceOf(Date);
   });
 
   it('throws EMAIL_TAKEN on Prisma P2002 unique constraint', async () => {
@@ -151,6 +165,43 @@ describe('authService.login', () => {
     await expect(login({ email: 'test@example.com', password: 'whatever' })).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
     expect(mockDummyVerify).toHaveBeenCalledTimes(1);
   });
+
+  it('throws INVALID_CREDENTIALS + dummyVerify for a suspended customer, mints no session (P8)', async () => {
+    mockPrisma.customer.findFirst.mockResolvedValue({
+      ...CUSTOMER_STUB,
+      passwordHash: 'hash',
+      suspendedAt: new Date(),
+    });
+
+    await expect(
+      login({ email: 'test@example.com', password: 'Password1' })
+    ).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
+    expect(mockDummyVerify).toHaveBeenCalledTimes(1);
+    expect(mockSession.createSession).not.toHaveBeenCalled();
+  });
+
+  it('upgrades a legacy scrypt hash to argon2 on successful login (rehash-on-verify, P19)', async () => {
+    mockPrisma.customer.findFirst.mockResolvedValue({ ...CUSTOMER_STUB, passwordHash: 'scrypt$legacy' });
+    mockHashPassword.mockResolvedValue('$argon2id$v=19$upgraded');
+
+    await login({ email: 'test@example.com', password: 'Password1' });
+
+    expect(mockPrisma.customer.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ passwordHash: '$argon2id$v=19$upgraded' }),
+      })
+    );
+  });
+
+  it('does NOT rewrite passwordHash when the stored hash is already argon2 (P19)', async () => {
+    mockPrisma.customer.findFirst.mockResolvedValue({ ...CUSTOMER_STUB, passwordHash: '$argon2id$existing' });
+
+    await login({ email: 'test@example.com', password: 'Password1' });
+
+    const updateArg = mockPrisma.customer.update.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(updateArg.data.passwordHash).toBeUndefined();
+    expect(mockHashPassword).not.toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -186,18 +237,29 @@ describe('authService.verifyOtp', () => {
 // refresh
 // ---------------------------------------------------------------------------
 describe('authService.refresh', () => {
-  it('returns new tokens on valid refresh', async () => {
+  it('returns new tokens + rehydrated displayName/email on valid refresh (F1)', async () => {
     mockVerifyRefreshToken.mockReturnValue({ payload: {}, hash: 'old-hash' });
     mockRotateRefresh.mockResolvedValue({
       access: 'new-access',
       refreshToken: 'new-refresh',
       refreshHash: 'new-hash',
       csrf: 'new-csrf',
+      customerId: 'cust-1',
+    });
+    mockPrisma.customer.findFirst.mockResolvedValue({
+      displayName: 'Test User',
+      email: 'test@example.com',
     });
 
     const result = await refresh('valid-token');
     expect(result.accessToken).toBe('new-access');
     expect(result.refreshToken).toBe('new-refresh');
+    // F1: the refresh response carries the owner's name/email so a hard reload restores them.
+    expect(result.displayName).toBe('Test User');
+    expect(result.email).toBe('test@example.com');
+    expect(mockPrisma.customer.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ id: 'cust-1', deletedAt: null }) })
+    );
   });
 
   it('throws REFRESH_INVALID when token is malformed', async () => {
