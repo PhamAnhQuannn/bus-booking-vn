@@ -18,13 +18,20 @@ describe('holdInputSchema', () => {
   });
 
   describe('tripId', () => {
-    it('rejects non-cuid strings', () => {
-      const result = holdInputSchema.safeParse({ ...base, tripId: 'not-a-cuid' });
-      expect(result.success).toBe(false);
+    // Prisma 7 @default(cuid()) emits cuid2 (no 'c' prefix); the old z.cuid() rejected
+    // it and 400'd every real booking. The schema now accepts any bounded id string.
+    it('accepts a non-cuid-v1 id (Prisma 7 cuid2 shape)', () => {
+      const result = holdInputSchema.safeParse({ ...base, tripId: 'tripidnotcuidvonehere000' });
+      expect(result.success).toBe(true);
     });
 
     it('rejects empty string', () => {
       const result = holdInputSchema.safeParse({ ...base, tripId: '' });
+      expect(result.success).toBe(false);
+    });
+
+    it('rejects an over-long id (>64 chars)', () => {
+      const result = holdInputSchema.safeParse({ ...base, tripId: 'x'.repeat(65) });
       expect(result.success).toBe(false);
     });
   });
