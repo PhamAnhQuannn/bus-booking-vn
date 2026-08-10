@@ -6,8 +6,6 @@ export interface LabelItem {
   category: string | null;
   name: string;
   role: string; // "diem-den" | "an-trua" | "an-toi"
-  gio_mo: string | null;
-  goi_truoc: boolean;
   trai_nghiem?: string | null; // nhãn trải nghiệm (điểm đến)
 }
 
@@ -71,8 +69,6 @@ export function isFreeSite(it: LabelItem): boolean {
   return FREE_TOKENS.some((t) => h.includes(t));
 }
 
-const MEAL_ROLES = new Set(["an-trua", "an-toi"]);
-
 // Category hiển thị: điểm đến ưu tiên nhãn TRẢI NGHIỆM (từ KB); else sửa gán sai landmark + categoryLabel.
 export function displayCategory(it: LabelItem): string {
   if (it.role === "diem-den" && it.trai_nghiem) return it.trai_nghiem;
@@ -81,17 +77,6 @@ export function displayCategory(it: LabelItem): string {
   if (h.includes("cong vien")) return "Công viên";
   if (h.includes("quang truong")) return "Quảng trường";
   return categoryLabel(it.category);
-}
-
-export type BadgeTone = "ok" | "muted";
-export interface ItemBadge { label: string; tone: BadgeTone; hours?: string | null; }
-
-// 1 badge/mục. Điểm đến có giờ → xác minh. Bữa ăn thiếu giờ → gọi trước. Điểm công → miễn phí. Còn lại → chưa xác minh.
-export function itemBadge(it: LabelItem): ItemBadge {
-  if (!it.goi_truoc && it.gio_mo) return { label: "Đã xác minh", tone: "ok", hours: it.gio_mo };
-  if (MEAL_ROLES.has(it.role)) return { label: "Nên gọi trước", tone: "muted" };
-  if (isFreeSite(it)) return { label: "Miễn phí", tone: "muted" };
-  return { label: "Chưa xác minh", tone: "muted" };
 }
 
 // Tên khu từ region_id slug. Map các khu đã biết của 3 thành phố; fallback prettify (không bịa dấu).

@@ -9,7 +9,7 @@
 
 import type { PlannerDto, DtoItem } from '@/trip-planner/lib/planner/itineraryDto';
 import { cityName } from '@/trip-planner/lib/planner/cities';
-import { displayCategory, itemBadge, areaLabel } from '@/trip-planner/lib/planner/labels';
+import { displayCategory, areaLabel } from '@/trip-planner/lib/planner/labels';
 
 type Props = {
   dto: PlannerDto;
@@ -30,38 +30,6 @@ const CARD_CSS = `
 .v5-band{background:#FFF9F2}
 .v5-band.v5-active{box-shadow:inset 3px 0 0 var(--primary,#F0561D)}
 `;
-
-function Badge({ it }: { it: DtoItem }) {
-  const b = itemBadge(it);
-  if (b.tone === 'ok') {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold"
-        style={{ background: 'rgba(46,158,107,.14)', color: '#157347' }}>
-        ✓ Mở <span className="tabular-nums">{b.hours}</span>
-      </span>
-    );
-  }
-  // Thiếu giờ xác minh nhưng có place_id -> link xem giờ LIVE trên Google (ToS: không lưu giờ, chỉ link)
-  if (it.role === 'diem-den' && it.google_place_id) {
-    return (
-      <a
-        href={`https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(it.google_place_id)}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold hover:bg-primary/15"
-        style={{ color: 'var(--primary,#F0561D)' }}
-      >
-        Giờ mở trên Google ↗
-      </a>
-    );
-  }
-  return (
-    <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold" style={{ color: SOFT }}
-      title={b.label === 'Nên gọi trước' ? 'Chưa có giờ mở xác minh — vui lòng gọi trước' : undefined}>
-      {b.label}
-    </span>
-  );
-}
 
 function Row({ it, day, active, onHoverItem }: { it: DtoItem; day: number; active: boolean; onHoverItem: Props['onHoverItem'] }) {
   return (
@@ -90,7 +58,6 @@ function Row({ it, day, active, onHoverItem }: { it: DtoItem; day: number; activ
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs" style={{ color: SOFT }}>
             <span>{displayCategory(it)}</span>
-            <Badge it={it} />
           </div>
         </div>
       </div>
@@ -106,8 +73,7 @@ function havKm(aLat: number, aLon: number, bLat: number, bLon: number): number {
 }
 
 export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleDay }: Props) {
-  let verified = 0, total = 0;
-  dto.days.forEach((d) => d.items.forEach((i) => { total++; if (!i.goi_truoc && i.gio_mo) verified++; }));
+  const totalStops = dto.days.reduce((n, d) => n + d.items.length, 0);
 
   const firstStop = dto.days[0]?.items.find((i) => i.role === 'diem-den');
   let hotelKm: number | null = null;
@@ -174,7 +140,6 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
                   <span className="text-sm font-semibold" style={{ color: INK }}>🍜 {r.name}</span>
                   {r.category ? <span style={{ color: SOFT }}> · {r.category}</span> : null}
                   <div className="flex flex-wrap gap-x-3 gap-y-0.5" style={{ color: SOFT }}>
-                    <span>giờ: {r.goi_truoc ? 'gọi trước' : r.gio_mo}</span>
                     {r.address ? <span>{r.address}</span> : null}
                     {r.phone ? <a href={`tel:${r.phone}`} className="font-semibold text-primary hover:underline">📞 {r.phone}</a> : null}
                     {r.map_url ? <a href={r.map_url} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:underline">Bản đồ →</a> : null}
@@ -220,7 +185,7 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
       <div className="flex flex-wrap items-center gap-2 border-t border-border px-4 py-3 text-[13px]">
         <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold"
           style={{ background: 'rgba(46,158,107,.14)', color: '#157347' }}>
-          ✓ {verified}/{total} điểm đã xác minh giờ
+          {totalStops} điểm · nguồn dữ liệu KB
         </span>
         <span style={{ color: FAINT }}>Thứ tự = mức gợi ý; giá không hiển thị (chỉ thông tin, không đặt hộ).</span>
       </div>

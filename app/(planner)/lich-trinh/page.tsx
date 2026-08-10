@@ -99,11 +99,7 @@ export default async function LichTrinhPage({ searchParams }: { searchParams: Pr
                   <CardTitle as="h3">{r.name}</CardTitle>
                 </CardHeader>
                 <CardContent className="text-sm text-muted-foreground">
-                  <p>
-                    {r.category ?? '—'}
-                    {' · giờ: '}
-                    {r.goi_truoc ? <span className="text-primary-strong">gọi trước</span> : r.gio_mo}
-                  </p>
+                  {r.category ? <p>{r.category}</p> : null}
                   {r.address ? <p>{r.address}</p> : null}
                   {contactLine(r.phone, r.source_ids.length, r.ngay_du_lieu)}
                 </CardContent>
@@ -137,11 +133,7 @@ function PlaceCard({ item }: { item: SlotItem }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="text-sm text-muted-foreground">
-        <p>
-          {item.category ?? '—'}
-          {' · giờ: '}
-          {item.goi_truoc ? <span className="text-primary-strong">gọi trước</span> : item.gio_mo}
-        </p>
+        {item.category ? <p>{item.category}</p> : null}
         {item.address ? <p>{item.address}</p> : null}
         {contactLine(item.phone, item.source_ids.length, item.ngay_du_lieu)}
       </CardContent>

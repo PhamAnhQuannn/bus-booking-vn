@@ -2,6 +2,11 @@ import type { NextConfig } from "next";
 
 const isProd = process.env.NODE_ENV === 'production';
 const hasSentry = !!process.env.NEXT_PUBLIC_SENTRY_DSN;
+// Host của file PMTiles (bản đồ planner) — thêm vào connect-src để browser range-fetch được.
+const tilesOrigin = (() => {
+  try { return process.env.NEXT_PUBLIC_TILES_URL ? new URL(process.env.NEXT_PUBLIC_TILES_URL).origin : ''; }
+  catch { return ''; }
+})();
 
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -16,7 +21,7 @@ const securityHeaders = [
     value: [
       "default-src 'self'",
       `script-src 'self' 'unsafe-inline'${isProd ? '' : " 'unsafe-eval'"}`,
-      `connect-src 'self'${hasSentry ? ' https://*.ingest.sentry.io' : ''}${isProd ? '' : ' ws://localhost:* http://localhost:*'}`,
+      `connect-src 'self'${hasSentry ? ' https://*.ingest.sentry.io' : ''}${tilesOrigin ? ' ' + tilesOrigin : ''}${isProd ? '' : ' ws://localhost:* http://localhost:*'}`,
       "img-src 'self' data: blob: https://img.vietqr.io",
       "style-src 'self' 'unsafe-inline'",
       "font-src 'self'",

@@ -24,10 +24,9 @@ const BUOI: Record<string, string> = { sang: "Sáng", trua: "Trưa", chieu: "Chi
 for (const d of it.days) {
   console.log(`── Ngày ${d.day}  [khu vực: ${d.region_id ?? "?"}] ──`);
   for (const i of d.items as SlotItem[]) {
-    const gio = i.goi_truoc ? "gọi trước" : i.gio_mo;
     console.log(
       `  ${BUOI[i.buoi].padEnd(6)} ${i.role.padEnd(9)} ${i.name}  ` +
-        `[${i.category ?? "?"}] giờ:${gio}  sđt:${mask(i.phone)}  ` +
+        `[${i.category ?? "?"}]  sđt:${mask(i.phone)}  ` +
         `nguồn:${i.source_ids.length}  ngày:${i.ngay_du_lieu ?? "?"}`,
     );
   }
@@ -38,7 +37,7 @@ if (it.hotel) {
 }
 if (it.restaurants.length) {
   console.log("\n🍜 Gợi ý quán ăn (không trong timeline):");
-  it.restaurants.forEach((r) => console.log(`  - ${r.name}  [${r.category ?? "?"}]  giờ:${r.goi_truoc ? "gọi trước" : r.gio_mo}  sđt:${mask(r.phone)}  nguồn:${r.source_ids.length}`));
+  it.restaurants.forEach((r) => console.log(`  - ${r.name}  [${r.category ?? "?"}]  sđt:${mask(r.phone)}  nguồn:${r.source_ids.length}`));
 }
 console.log("\nGhi chú:");
 it.notes.forEach((n) => console.log("  - " + n));

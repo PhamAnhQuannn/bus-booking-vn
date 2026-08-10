@@ -1,11 +1,12 @@
 'use client';
 
 /**
- * PlannerMap — bản đồ Leaflet + protomaps-leaflet (PMTiles tự-host, Canvas 2D, KHÔNG worker).
- * Nhận itinerary qua PROPS (không import engine) → né bẫy 092b. Tile same-origin
- * `/tiles/<slug>.pmtiles` → CSP giữ `connect-src 'self'`, không cần sửa CSP.
+ * PlannerMap — bản đồ Leaflet + protomaps-leaflet (PMTiles, Canvas 2D, KHÔNG worker).
+ * Nhận itinerary qua PROPS (không import engine) → né bẫy 092b. Nền = 1 file PMTiles Việt Nam
+ * (env NEXT_PUBLIC_TILES_URL, host public + range) cho MỌI city; host phải nằm trong CSP connect-src.
+ * Thiếu URL → map vẫn vẽ pin/tuyến (graceful).
  *
- * Doctrine: pin đánh SỐ theo thứ tự (tín hiệu VQS), KHÔNG ★/điểm. Giá không hiển thị.
+ * Doctrine: pin đánh SỐ theo thứ tự (tín hiệu VQS), KHÔNG ★/điểm. Giá + giờ mở không hiển thị.
  * Trang nạp component này qua `dynamic(() => import(...), { ssr:false })` (Leaflet đụng window).
  *
  * Import default (leaflet) + named (leafletLayer) là client-safe; deep-import KIỂU DTO (type-only).
@@ -16,7 +17,7 @@ import L from 'leaflet';
 import { leafletLayer } from 'protomaps-leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { PlannerDto, DtoItem } from '@/trip-planner/lib/planner/itineraryDto';
-import { displayCategory, itemBadge } from '@/trip-planner/lib/planner/labels';
+import { displayCategory } from '@/trip-planner/lib/planner/labels';
 
 type Props = {
   dto: PlannerDto;
@@ -28,19 +29,6 @@ type Props = {
 };
 
 const BUOI: Record<DtoItem['buoi'], string> = { sang: 'Sáng', trua: 'Trưa', chieu: 'Chiều', toi: 'Tối' };
-
-// Đang mở? parse "HH:MM-HH:MM" so với giờ máy. null = không đủ dữ liệu.
-function openNow(gio: string | null): boolean | null {
-  if (!gio) return null;
-  const m = gio.match(/(\d{1,2}):(\d{2})\D+(\d{1,2}):(\d{2})/);
-  if (!m) return null;
-  const now = new Date();
-  const cur = now.getHours() * 60 + now.getMinutes();
-  const s = +m[1] * 60 + +m[2];
-  let e = +m[3] * 60 + +m[4];
-  if (e >= 1440) e = 1439; // "24:00"
-  return cur >= s && cur <= e;
-}
 
 const PIN_CSS = `
 .pm-pin{position:relative;width:30px;height:38px;transform-origin:50% 100%;transition:transform .15s;cursor:pointer}
@@ -106,20 +94,21 @@ export default function PlannerMap({ dto, activeDay, hoveredOrder, selected, onP
     };
   }, []);
 
-  // đổi tile theo slug
+  // nền tile: 1 file PMTiles Việt Nam cho MỌI city (env NEXT_PUBLIC_TILES_URL, host public + range).
+  // Thiếu URL -> map vẫn vẽ pin + tuyến trên nền kem (graceful, không fetch lỗi).
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
-    if (baseRef.current?.slug === dto.slug) return;
-    if (baseRef.current) map.removeLayer(baseRef.current.layer);
+    if (!map || baseRef.current) return;
+    const url = process.env.NEXT_PUBLIC_TILES_URL;
+    if (!url) return;
     const layer = leafletLayer({
-      url: `/tiles/${dto.slug}.pmtiles`,
+      url,
       flavor: 'light',
       attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a> · © <a href="https://protomaps.com">Protomaps</a>',
     }) as unknown as L.Layer;
     layer.addTo(map);
-    baseRef.current = { layer, slug: dto.slug };
-  }, [dto.slug]);
+    baseRef.current = { layer, slug: 'vn' };
+  }, []);
 
   // vẽ pin + route cho ngày active; fit-bounds
   useEffect(() => {
@@ -167,7 +156,6 @@ export default function PlannerMap({ dto, activeDay, hoveredOrder, selected, onP
   }, [selected]);
 
   const sel = selected ? dto.days.find((d) => d.day === selected.day)?.items.find((i) => i.order === selected.order) ?? null : null;
-  const on = sel ? openNow(sel.gio_mo) : null;
 
   return (
     <div className="relative h-full w-full">
@@ -191,18 +179,6 @@ export default function PlannerMap({ dto, activeDay, hoveredOrder, selected, onP
           <div className="p-3.5">
             <h4 className="text-base font-semibold">{sel.name}</h4>
             <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2 text-[13px]">
-              <div>
-                <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Giờ mở</div>
-                {sel.gio_mo ? (
-                  <span className="tabular-nums">
-                    {sel.gio_mo}
-                    {on === true ? <span className="ml-1 font-semibold" style={{ color: '#157347' }}>· Đang mở</span> : null}
-                    {on === false ? <span className="ml-1 text-muted-foreground">· Đã đóng</span> : null}
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground">{itemBadge(sel).label}</span>
-                )}
-              </div>
               {sel.leg_from_prev ? (
                 <div>
                   <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Từ điểm trước</div>

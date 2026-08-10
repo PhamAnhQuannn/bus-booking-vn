@@ -1,6 +1,6 @@
 // DTO client-safe cho trợ lý du lịch: serialize Itinerary (server) -> shape gọn cho card + map.
 // CHỈ import kiểu (type-only) -> KHÔNG kéo graph server (parseIntent/GEMINI key) vào bundle client (bẫy 092b).
-// Doctrine: KHÔNG ★/điểm, KHÔNG giá. Order số = tín hiệu ảnh hưởng (VQS). Thiếu giờ -> goi_truoc.
+// Doctrine: KHÔNG ★/điểm, KHÔNG giá, KHÔNG giờ mở (data thưa -> bỏ). Order số = tín hiệu ảnh hưởng (VQS).
 
 import type { Itinerary, SlotItem } from "./types";
 
@@ -17,12 +17,10 @@ export interface DtoItem {
   buoi: SlotItem["buoi"]; // sang | trua | chieu | toi (KHÔNG clock-time)
   lat: number | null;
   lon: number | null;
-  gio_mo: string | null;
-  goi_truoc: boolean; // true = chưa có giờ xác minh
   map_url: string | null;
   region_id: string | null;
   trai_nghiem: string | null; // nhãn trải nghiệm (điểm đến); null cho nhà hàng/khách sạn
-  google_place_id: string | null; // link giờ mở LIVE trên Google (khi có + thiếu giờ lưu)
+  google_place_id: string | null; // deep-link Google Maps (khi có)
   leg_from_prev: DtoLeg | null;
   nguon: number; // số nguồn (source_ids.length) — provenance, KHÔNG phải điểm
 }
@@ -51,8 +49,6 @@ export interface DtoRestaurant {
   phone: string | null; // giữ (business contact, "gọi trước") — đồng nhất với hotel
   map_url: string | null;
   region_id: string | null;
-  gio_mo: string | null;
-  goi_truoc: boolean;
   nguon: number;
 }
 
@@ -77,8 +73,6 @@ function toItem(it: SlotItem, idx: number): DtoItem {
     buoi: it.buoi,
     lat: it.lat,
     lon: it.lon,
-    gio_mo: it.gio_mo,
-    goi_truoc: it.goi_truoc,
     map_url: it.map_url,
     region_id: it.region_id ?? null,
     trai_nghiem: it.trai_nghiem ?? null,
@@ -118,8 +112,6 @@ export function toPlannerDto(it: Itinerary): PlannerDto {
       phone: r.phone,
       map_url: r.map_url,
       region_id: r.region_id ?? null,
-      gio_mo: r.gio_mo,
-      goi_truoc: r.goi_truoc,
       nguon: r.source_ids?.length ?? 0,
     })),
     notes: it.notes,

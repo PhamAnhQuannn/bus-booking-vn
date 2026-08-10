@@ -294,9 +294,7 @@ export function buildItinerary(req: TripRequest, store?: Store): Itinerary {
       }
     : null;
 
-  const goiTruoc = days.flatMap((d) => d.items).filter((i) => i.goi_truoc).length;
   const notes: string[] = [...planNotes];
-  if (goiTruoc) notes.push(`${goiTruoc} địa điểm chưa có giờ mở xác minh — nên GỌI TRƯỚC khi đến.`);
   if (req.party.elders > 0) notes.push("Có người lớn tuổi: đã ưu tiên điểm ít dốc + có lối tiếp cận khi dữ liệu cho phép.");
   notes.push("Mọi địa điểm truy về nguồn trong bộ dữ liệu; SĐT chưa gọi xác minh (marketplace — thông tin, không đặt hộ).");
 
