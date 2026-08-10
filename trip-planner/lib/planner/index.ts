@@ -8,4 +8,4 @@ export * from "./parseIntent";
 export * from "./cities";
 export * from "./itineraryDto";
 export * from "./slots"; // máy trạng thái slot tất định (client-safe) — chip điền slot không cần Gemini
-export { getStore, CityDataUnavailableError } from "./store"; // server-only: nạp KB (dev đĩa / prod R2 + cache) — caller await
+export { getStore, CityDataUnavailableError, fetchTile } from "./store"; // server-only: nạp KB + proxy tile R2 — caller await

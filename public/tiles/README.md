@@ -2,11 +2,15 @@
 
 Nền vector do `protomaps-leaflet` (Canvas 2D) render trong `trip-planner/components/PlannerMap.tsx`.
 
-**Thay đổi 2026-08-10:** bỏ per-city `/tiles/<slug>.pmtiles` (chỉ có 3 city) → dùng **1 file PMTiles phủ cả
-Việt Nam**, host public (hỗ trợ HTTP range), trỏ qua env `NEXT_PUBLIC_TILES_URL`. Một file phục vụ mọi city;
-browser range-fetch chỉ tile cần. Thiếu env → map vẫn vẽ pin/tuyến (graceful).
+**Thay đổi 2026-08-10:** bỏ per-city `/tiles/<slug>.pmtiles` (chỉ 3 city) → **1 file PMTiles phủ cả Việt Nam**
+(`vietnam.pmtiles`, maxzoom 14, ~457MB), **đã upload R2 private** key `tiles/vietnam.pmtiles`. Serve **same-origin**
+qua `/api/planner/tiles` (proxy Range từ R2, giữ bucket private, CSP `'self'`). 1 file phục vụ mọi city; browser
+range-fetch chỉ tile cần. Env `NEXT_PUBLIC_TILES_URL` chỉ để override sang host ngoài. Lỗi tile → map vẫn vẽ pin.
 
 **Data** © OpenStreetMap (ODbL), basemap © Protomaps.
+
+## Re-cut khi tile cũ (vài lần/năm)
+Build lại + upload lại R2 cùng key `tiles/vietnam.pmtiles`, rồi recycle instance (cache-control immutable):
 
 ## Tạo file VN + host (1 lần)
 Cần `pmtiles` CLI (go-pmtiles). Nguồn = Protomaps daily build.

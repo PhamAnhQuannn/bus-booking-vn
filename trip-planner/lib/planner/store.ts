@@ -83,6 +83,22 @@ async function fetchJson<T>(slug: string, file: string): Promise<T> {
   const body = await out.Body!.transformToString("utf-8");
   return JSON.parse(body) as T;
 }
+
+// Proxy nền bản đồ: stream 1 file PMTiles Việt Nam từ R2 PRIVATE theo HTTP Range (giữ bucket private,
+// same-origin -> CSP 'self'). Route app/api/planner/tiles gọi hàm này. 206 khi có Range, else 200.
+const TILES_KEY = "tiles/vietnam.pmtiles";
+export async function fetchTile(range: string | null): Promise<{ body: ReadableStream; status: number; headers: Record<string, string> }> {
+  const out = await s3().send(new GetObjectCommand({ Bucket: process.env.STORAGE_BUCKET, Key: TILES_KEY, Range: range ?? undefined }));
+  const headers: Record<string, string> = {
+    "Content-Type": "application/octet-stream",
+    "Accept-Ranges": "bytes",
+    "Cache-Control": "public, max-age=2592000, immutable",
+  };
+  if (out.ContentLength != null) headers["Content-Length"] = String(out.ContentLength);
+  if (out.ContentRange) headers["Content-Range"] = out.ContentRange;
+  const body = (out.Body as { transformToWebStream(): ReadableStream }).transformToWebStream();
+  return { body, status: out.ContentRange ? 206 : 200, headers };
+}
 async function loadStoreBlob(slug: string): Promise<Store> {
   const [meta, dd, nh, ks] = await Promise.all([
     fetchJson<KbMeta>(slug, FILES.meta),

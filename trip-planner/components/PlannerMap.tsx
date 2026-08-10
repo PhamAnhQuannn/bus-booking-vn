@@ -2,9 +2,9 @@
 
 /**
  * PlannerMap — bản đồ Leaflet + protomaps-leaflet (PMTiles, Canvas 2D, KHÔNG worker).
- * Nhận itinerary qua PROPS (không import engine) → né bẫy 092b. Nền = 1 file PMTiles Việt Nam
- * (env NEXT_PUBLIC_TILES_URL, host public + range) cho MỌI city; host phải nằm trong CSP connect-src.
- * Thiếu URL → map vẫn vẽ pin/tuyến (graceful).
+ * Nhận itinerary qua PROPS (không import engine) → né bẫy 092b. Nền = 1 file PMTiles Việt Nam cho MỌI
+ * city, mặc định same-origin `/api/planner/tiles` (proxy R2 private, CSP 'self'); env NEXT_PUBLIC_TILES_URL
+ * để override host ngoài. Lỗi tile → map vẫn vẽ pin/tuyến (graceful).
  *
  * Doctrine: pin đánh SỐ theo thứ tự (tín hiệu VQS), KHÔNG ★/điểm. Giá + giờ mở không hiển thị.
  * Trang nạp component này qua `dynamic(() => import(...), { ssr:false })` (Leaflet đụng window).
@@ -94,20 +94,23 @@ export default function PlannerMap({ dto, activeDay, hoveredOrder, selected, onP
     };
   }, []);
 
-  // nền tile: 1 file PMTiles Việt Nam cho MỌI city (env NEXT_PUBLIC_TILES_URL, host public + range).
-  // Thiếu URL -> map vẫn vẽ pin + tuyến trên nền kem (graceful, không fetch lỗi).
+  // nền tile: 1 file PMTiles Việt Nam cho MỌI city. Mặc định same-origin /api/planner/tiles (proxy R2
+  // private, CSP 'self'); env NEXT_PUBLIC_TILES_URL để override host ngoài. Lỗi tile -> chỉ pin/tuyến.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || baseRef.current) return;
-    const url = process.env.NEXT_PUBLIC_TILES_URL;
-    if (!url) return;
-    const layer = leafletLayer({
-      url,
-      flavor: 'light',
-      attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a> · © <a href="https://protomaps.com">Protomaps</a>',
-    }) as unknown as L.Layer;
-    layer.addTo(map);
-    baseRef.current = { layer, slug: 'vn' };
+    const url = process.env.NEXT_PUBLIC_TILES_URL || '/api/planner/tiles';
+    try {
+      const layer = leafletLayer({
+        url,
+        flavor: 'light',
+        attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a> · © <a href="https://protomaps.com">Protomaps</a>',
+      }) as unknown as L.Layer;
+      layer.addTo(map);
+      baseRef.current = { layer, slug: 'vn' };
+    } catch {
+      /* thiếu tile -> map vẫn vẽ pin + tuyến */
+    }
   }, []);
 
   // vẽ pin + route cho ngày active; fit-bounds
