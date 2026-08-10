@@ -60,7 +60,7 @@ type FormData = {
 
 export function CustomerForm() {
   const router = useRouter();
-  const { tripId, ticketCount, setHold, setBuyerInfo } = useBookingStore();
+  const { tripId, ticketCount, boardingPoint, boardingTime, setHold, setBuyerInfo } = useBookingStore();
   const { startTimer } = useHoldTimerStore();
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const buyerNameRef = useRef<HTMLInputElement>(null);
@@ -144,6 +144,8 @@ export function CustomerForm() {
         buyerEmail: parsed.data.buyerEmail,
         pickupKind: pickupCheck.pickupKind,
         pickupDetail: pickupCheck.pickupKind === 'custom' ? pickupCheck.pickupDetail : undefined,
+        boardingPoint: boardingPoint ?? undefined,
+        boardingTime: boardingTime ?? undefined,
       });
 
       if (!result.ok) {

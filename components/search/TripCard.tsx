@@ -3,7 +3,7 @@ import { ArrowRight, Armchair, MapPin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { BookButton } from '@/components/search/BookButton';
 import { formatVnd } from '@/lib/format';
-import { type TripResult } from '@/lib/trips';
+import { type TripResult, type BoardingStop } from '@/lib/trips';
 import { BUS_TYPE_LABEL, formatTime, arrivalIso, durationLabel } from './search-utils';
 
 export type TripCardSize = 'default' | 'expanded';
@@ -20,10 +20,13 @@ export function TripCard({
   trip,
   ticketCount,
   size = 'default',
+  boardingStop,
 }: {
   trip: TripResult;
   ticketCount: number;
   size?: TripCardSize;
+  /** When set, this card represents ONE chosen boarding point of the trip. */
+  boardingStop?: BoardingStop;
 }) {
   const lowSeats = trip.availableSeats <= 5;
   const expanded = size === 'expanded';
@@ -77,21 +80,32 @@ export function TripCard({
         </Badge>
       </div>
 
-      {/* Boarding points (expanded only) — one bus, staggered pickups. */}
-      {expanded && trip.boardingSchedule.length > 0 && (
-        <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
-          <MapPin className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+      {/* Boarding: when this card is ONE chosen pickup point, feature it; otherwise
+          (expanded) list the staggered pickups of the single bus. */}
+      {boardingStop ? (
+        <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+          <MapPin className="size-4 shrink-0 text-primary" aria-hidden="true" />
           <span>
-            Đón:{' '}
-            {trip.boardingSchedule
-              .slice(0, 3)
-              .map((s) => `${s.point} ${s.time}`)
-              .join(' · ')}
-            {trip.boardingSchedule.length > 3
-              ? ` · +${trip.boardingSchedule.length - 3} điểm`
-              : ''}
+            Đón tại {boardingStop.point} · {boardingStop.time}
           </span>
         </p>
+      ) : (
+        expanded &&
+        trip.boardingSchedule.length > 0 && (
+          <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+            <MapPin className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+            <span>
+              Đón:{' '}
+              {trip.boardingSchedule
+                .slice(0, 3)
+                .map((s) => `${s.point} ${s.time}`)
+                .join(' · ')}
+              {trip.boardingSchedule.length > 3
+                ? ` · +${trip.boardingSchedule.length - 3} điểm`
+                : ''}
+            </span>
+          </p>
+        )
       )}
 
       {/* Price + actions */}
@@ -107,7 +121,12 @@ export function TripCard({
           >
             Xem chi tiết
           </Link>
-          <BookButton tripId={trip.tripId} ticketCount={ticketCount} />
+          <BookButton
+            tripId={trip.tripId}
+            ticketCount={ticketCount}
+            boardingPoint={boardingStop?.point}
+            boardingTime={boardingStop?.time}
+          />
         </div>
       </div>
     </article>

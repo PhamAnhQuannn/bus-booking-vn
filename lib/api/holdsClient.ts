@@ -20,6 +20,10 @@ export interface HoldRequestBody {
   /** Issue 107: traveler pickup selection (absent = station). */
   pickupKind?: 'station' | 'custom';
   pickupDetail?: string;
+  /** Chosen boarding point (name + "HH:MM") from the results card. Distinct from
+   *  pickupKind/pickupDetail. */
+  boardingPoint?: string;
+  boardingTime?: string;
 }
 
 export interface HoldSuccess {

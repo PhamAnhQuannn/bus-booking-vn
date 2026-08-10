@@ -73,6 +73,8 @@ export default async function ReviewPage({ searchParams }: ReviewPageProps) {
           operatorLegalName: details.operatorLegalName,
           pickupKind: details.pickupKind,
           pickupDetail: details.pickupDetail,
+          boardingPoint: details.boardingPoint,
+          boardingTime: details.boardingTime,
         }}
       />
     </main>

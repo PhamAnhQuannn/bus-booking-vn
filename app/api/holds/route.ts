@@ -85,8 +85,17 @@ async function handler(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: 'INVALID' }, { status: 400 });
   }
 
-  const { tripId, ticketCount, buyerName, buyerPhone, buyerEmail, pickupKind, pickupDetail } =
-    parsed.data;
+  const {
+    tripId,
+    ticketCount,
+    buyerName,
+    buyerPhone,
+    buyerEmail,
+    pickupKind,
+    pickupDetail,
+    boardingPoint,
+    boardingTime,
+  } = parsed.data;
 
   // ---- 2b. Resolve + validate pickup (Issue 107/111) ----
   // The client-supplied pickupKind selects the branch; the resulting fields are always
@@ -123,6 +132,8 @@ async function handler(req: NextRequest): Promise<Response> {
       customerEmail: buyerEmail,
       pickupKind: pickup.pickupKind,
       pickupDetail: pickup.pickupDetail,
+      boardingPoint: boardingPoint ?? null,
+      boardingTime: boardingTime ?? null,
       sessionId,
     });
   } catch (e) {

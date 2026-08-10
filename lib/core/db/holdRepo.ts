@@ -82,6 +82,10 @@ export interface CreateHoldInput {
   /** Issue 107: traveler pickup selection (already validated + resolved by the caller). */
   pickupKind?: 'station' | 'custom';
   pickupDetail?: string | null;
+  /** Chosen boarding point (name) + local time "HH:MM" from the results card. Distinct
+   *  from pickupKind/pickupDetail. Optional/nullable. */
+  boardingPoint?: string | null;
+  boardingTime?: string | null;
   /**
    * #359: anonymous funnel session (bb_sid) making the request, when the caller sent one.
    * Null/undefined skips the session seat cap — a caller with no cookie cannot be
@@ -110,6 +114,8 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
     customerEmail = null,
     pickupKind = 'station',
     pickupDetail = null,
+    boardingPoint = null,
+    boardingTime = null,
     sessionId = null,
   } = input;
 
@@ -216,7 +222,7 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
     // 3. Conditional INSERT — only if available seats >= ticketCount
     const inserted = await tx.$queryRaw<InsertRow[]>(
       Prisma.sql`
-        INSERT INTO "Hold" (id, "tripId", "ticketCount", "customerPhone", "customerName", "customerEmail", "expiresAt", status, "createdAt", "pickupKind", "pickupDetail", "customPickupRequested", "sessionId")
+        INSERT INTO "Hold" (id, "tripId", "ticketCount", "customerPhone", "customerName", "customerEmail", "expiresAt", status, "createdAt", "pickupKind", "pickupDetail", "customPickupRequested", "boardingPoint", "boardingTime", "sessionId")
         SELECT
           ${holdId},
           ${tripId},
@@ -230,6 +236,8 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
           ${pickupKind}::"PickupKind",
           ${pickupDetail},
           (${pickupKind}::"PickupKind" = 'custom'::"PickupKind"),
+          ${boardingPoint},
+          ${boardingTime},
           ${sessionId}
         WHERE (
           SELECT

@@ -132,6 +132,15 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
                 <dt className="text-muted-foreground">Số vé</dt>
                 <dd>{booking.ticketCount}</dd>
               </div>
+              {booking.boardingPoint ? (
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">Điểm đón</dt>
+                  <dd className="text-right">
+                    {booking.boardingPoint}
+                    {booking.boardingTime ? ` · ${booking.boardingTime}` : ''}
+                  </dd>
+                </div>
+              ) : null}
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Biển số xe</dt>
                 <dd className="font-mono">{trip.bus.licensePlate}</dd>

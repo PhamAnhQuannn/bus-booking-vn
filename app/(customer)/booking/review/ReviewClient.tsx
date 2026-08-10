@@ -32,6 +32,8 @@ export interface HoldDetails {
   operatorLegalName: string;
   pickupKind: 'station' | 'custom';
   pickupDetail: string | null;
+  boardingPoint: string | null;
+  boardingTime: string | null;
 }
 
 interface ReviewClientProps {
@@ -183,7 +185,12 @@ export function ReviewClient({ holdDetails, showVnpay }: ReviewClientProps) {
             <CardTitle as="h2">Điểm đón</CardTitle>
           </CardHeader>
           <CardContent>
-            {holdDetails.pickupKind === 'custom' ? (
+            {holdDetails.boardingPoint ? (
+              <p className="text-sm font-medium" data-testid="review-boarding">
+                Đón tại {holdDetails.boardingPoint}
+                {holdDetails.boardingTime ? ` · ${holdDetails.boardingTime}` : ''}
+              </p>
+            ) : holdDetails.pickupKind === 'custom' ? (
               <p className="text-sm" data-testid="review-pickup">
                 <span className="text-warning font-medium">Điểm đón khác (chờ nhà xe xác nhận): </span>
                 {holdDetails.pickupDetail}

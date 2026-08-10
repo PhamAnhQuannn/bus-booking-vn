@@ -9,9 +9,7 @@ import { searchParamsSchema, searchFiltersSchema } from '@/lib/core/validation/s
 import { track } from '@/lib/analytics';
 import { logger } from '@/lib/logger';
 import { searchTrips, SEARCH_PAGE_LIMIT, parseBoardingSchedule, nearestUpcomingTripDate } from '@/lib/trips';
-import { applyTripFilters, todayVN } from '@/lib/search';
-import { SearchFormWrapper } from '@/components/search/SearchFormWrapper';
-import { SearchForm } from '@/components/search/SearchForm';
+import { applyTripFilters, searchHref, todayVN } from '@/lib/search';
 import { SearchStoreHydrator } from '@/components/search/SearchStoreHydrator';
 import { EmptyState } from '@/components/search/EmptyState';
 import { ResultsList } from '@/components/search/ResultsList';
@@ -22,7 +20,7 @@ import { TripPlannerPromo } from '@/components/home/TripPlannerPromo';
 import { ContractCarRental } from '@/components/home/ContractCarRental';
 import { OperatorShowcase } from '@/components/home/OperatorShowcase';
 import { Card, CardContent } from '@/components/ui/card';
-import { getSearchablePlaces, slugify } from '@/lib/places';
+import { slugify } from '@/lib/places';
 import { getActiveRoutes } from '@/lib/core/db/getActiveRoutes';
 import { getPublicOperators } from '@/lib/home';
 import { organizationLd } from '@/lib/seo';
@@ -104,10 +102,9 @@ async function SearchResultsView({
 
   const cursor = typeof params.cursor === 'string' ? params.cursor : null;
 
-  const [base, page, places] = await Promise.all([
+  const [base, page] = await Promise.all([
     searchTrips({ origin, destination, date, ticketCount, limit: Number.MAX_SAFE_INTEGER }),
     searchTrips({ origin, destination, date, ticketCount, cursor, limit: SEARCH_PAGE_LIMIT }),
-    getSearchablePlaces(),
   ]);
   const baseTrips = base.trips;
   const nextCursor = page.nextCursor;
@@ -155,12 +152,6 @@ async function SearchResultsView({
         <ResultsHeading origin={origin} destination={destination} />
       </div>
 
-      <Card className="shadow-e1">
-        <CardContent className="py-3">
-          <SearchForm places={places} orientation="horizontal" />
-        </CardContent>
-      </Card>
-
       {totalBeforeFilters === 0 ? (
         // Center the empty-state in the leftover height so a short "no trips" page
         // reads as intentional instead of clustering at the top over a big void.
@@ -194,14 +185,10 @@ async function SearchResultsView({
 
 async function HeroMarketingView() {
   // Degrade, don't 500: the homepage is the highest-traffic page and force-dynamic,
-  // so a transient failure in any one loader would otherwise take the whole page down.
+  // so a transient failure in either loader would otherwise take the whole page down.
   // Each section already self-hides on empty data (PopularTrips/OperatorShowcase), so a
-  // failed loader just drops its section — the hero + search form always render.
-  const [places, activeRoutes, operators] = await Promise.all([
-    getSearchablePlaces().catch((err) => {
-      logger.error({ err }, 'HeroMarketingView: getSearchablePlaces failed');
-      return [];
-    }),
+  // failed loader just drops its section — the hero + route CTAs always render.
+  const [activeRoutes, operators] = await Promise.all([
     getActiveRoutes().catch((err) => {
       logger.error({ err }, 'HeroMarketingView: getActiveRoutes failed');
       return [];
@@ -399,7 +386,23 @@ async function HeroMarketingView() {
           <div className="flex w-full flex-col gap-4">
             <Card className="w-full rounded-2xl py-0 text-left shadow-e4">
               <CardContent className="py-4 xl:px-8 xl:py-6">
-                <SearchFormWrapper places={places} />
+                {/* One route per direction (single operator). A CTA per direction goes
+                    straight to that direction's trip list — with one route there is
+                    nothing to search, so we skip the form and hand the rider the list. */}
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  {activeRoutes.map((r) => (
+                    <Link
+                      key={`${r.origin}-${r.destination}`}
+                      href={searchHref(r.origin, r.destination)}
+                      className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-primary-strong px-5 py-3 text-base font-semibold text-white transition-colors hover:bg-primary-strong/90"
+                    >
+                      <BusFront className="size-5 shrink-0" aria-hidden="true" />
+                      <span>
+                        {r.origin} → {r.destination}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
                 <Link
                   href="/tro-ly-du-lich"
                   className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-primary-strong hover:underline"

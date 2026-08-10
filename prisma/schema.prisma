@@ -265,6 +265,11 @@ model Hold {
   /// rows have none, and a client that sends no cookie legitimately has none. Used ONLY to
   /// bound seats per session (SESSION_SEAT_CAP); carries no PII and is never shown to users.
   sessionId       String?
+  /// Chosen boarding point (name) + local time "HH:MM" from the results card. Distinct
+  /// from the station/custom pickup feature (pickupKind/pickupDetail) above. Nullable —
+  /// holds created without a chosen point (or pre-feature rows) have none.
+  boardingPoint   String?
+  boardingTime    String?
   trip            Trip                @relation(fields: [tripId], references: [id])
   booking         Booking?
 
@@ -346,6 +351,10 @@ model Booking {
   pickupDetail         String?
   /// true ⇔ pickupKind=custom. Derived in SQL at INSERT. SQL-only CHECK enforces pickupDetail ≥5 chars when true.
   customPickupRequested Boolean            @default(false)
+  /// Chosen boarding point (name) + local time "HH:MM", copied from the hold. Distinct
+  /// from the station/custom pickup feature above. Nullable.
+  boardingPoint        String?
+  boardingTime         String?
   /// Timestamp when boarding was marked (SET-TRUE-ONLY per SPEC NOTE)
   pickedUpAt           DateTime?
   /// Escalation note set by operator

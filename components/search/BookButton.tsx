@@ -7,15 +7,23 @@ import { useBookingStore } from '@/lib/state';
 interface BookButtonProps {
   tripId: string;
   ticketCount: number;
+  /** Chosen boarding point (name + "HH:MM"), when booking from a per-point card. */
+  boardingPoint?: string | null;
+  boardingTime?: string | null;
 }
 
-export function BookButton({ tripId, ticketCount }: BookButtonProps) {
+export function BookButton({ tripId, ticketCount, boardingPoint, boardingTime }: BookButtonProps) {
   const router = useRouter();
   const setTrip = useBookingStore((s) => s.setTrip);
 
   function handleClick() {
-    setTrip(tripId, ticketCount);
-    router.push(`/booking/customer?tripId=${tripId}&ticketCount=${ticketCount}`);
+    // Store survives client navigation; URL params survive a full reload on
+    // /booking/customer (the store has no persist middleware).
+    setTrip(tripId, ticketCount, boardingPoint ?? null, boardingTime ?? null);
+    const p = new URLSearchParams({ tripId, ticketCount: String(ticketCount) });
+    if (boardingPoint) p.set('boardingPoint', boardingPoint);
+    if (boardingTime) p.set('boardingTime', boardingTime);
+    router.push(`/booking/customer?${p.toString()}`);
   }
 
   return (

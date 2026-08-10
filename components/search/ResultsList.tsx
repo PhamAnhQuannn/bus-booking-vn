@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { SearchFilterRail, SearchToolbar } from '@/components/search/SearchFilters';
 import { OperatorTrustPanel } from '@/components/search/OperatorTrustPanel';
 import { type TripFacets } from '@/lib/search';
-import { type TripResult } from '@/lib/trips';
+import { type TripResult, type BoardingStop } from '@/lib/trips';
 import { TripCard, type TripCardSize } from './TripCard';
 import { formatVnDate, shiftDate } from './search-utils';
 
@@ -66,6 +66,15 @@ export function ResultsList({
     return `/?${p.toString()}`;
   }
 
+  // One card per boarding point of each trip (single bus, staggered pickups → a
+  // rider picks their own pickup point). Trips without a schedule → one plain card.
+  const items = trips.flatMap((trip) =>
+    trip.boardingSchedule.length > 0
+      ? trip.boardingSchedule.map((stop, i) => ({ trip, stop, key: `${trip.tripId}-${i}` }))
+      : [{ trip, stop: undefined as BoardingStop | undefined, key: trip.tripId }],
+  );
+  const itemNoun = trips.some((t) => t.boardingSchedule.length > 0) ? 'điểm đón' : 'chuyến xe';
+
   return (
     <div
       className={
@@ -112,8 +121,7 @@ export function ResultsList({
         <SearchToolbar facets={facets} showFilterSheet={showFilterRail} />
 
         <p className="text-sm text-muted-foreground" aria-live="polite">
-          Hiển thị <strong className="text-foreground">{trips.length}</strong>
-          {trips.length !== totalBeforeFilters ? `/${totalBeforeFilters}` : ''} chuyến xe
+          Hiển thị <strong className="text-foreground">{items.length}</strong> {itemNoun}
         </p>
 
         {trips.length === 0 ? (
@@ -121,10 +129,15 @@ export function ResultsList({
             Không có chuyến nào khớp bộ lọc. Hãy bỏ bớt bộ lọc.
           </p>
         ) : (
-          <ul className="flex flex-col gap-3" aria-label={`${trips.length} chuyến xe`}>
-            {trips.map((trip) => (
-              <li key={trip.tripId}>
-                <TripCard trip={trip} ticketCount={ticketCount} size={cardSize} />
+          <ul className="flex flex-col gap-3" aria-label={`${items.length} ${itemNoun}`}>
+            {items.map(({ trip, stop, key }) => (
+              <li key={key}>
+                <TripCard
+                  trip={trip}
+                  ticketCount={ticketCount}
+                  size={stop ? 'default' : cardSize}
+                  boardingStop={stop}
+                />
               </li>
             ))}
           </ul>
@@ -142,18 +155,6 @@ export function ResultsList({
           </div>
         ) : null}
 
-        {/* Escape hatch on the populated path (EmptyState already has its own):
-            let a customer who doesn't like today's trip try another day or browse routes. */}
-        <p className="pt-1 text-center text-sm text-muted-foreground">
-          Không thấy chuyến ưng ý?{' '}
-          <Link href={buildUrl(nextDate)} className="font-medium text-primary underline-offset-4 hover:underline">
-            Thử ngày khác
-          </Link>{' '}
-          ·{' '}
-          <Link href="/routes" className="font-medium text-primary underline-offset-4 hover:underline">
-            Xem tất cả tuyến
-          </Link>
-        </p>
       </div>
 
       {showTrustPanel && operator && (
