@@ -44,6 +44,11 @@ const SAMPLES = [
   'Đà Nẵng cho gia đình có trẻ nhỏ',
 ];
 
+// Free-text (Gemini) + 3 chip hành động TẠM ẨN cho launch: đường free-text còn bug (lượt đầu 400,
+// nhân đôi card, chip "Thêm ngày" co lịch còn 1). Luồng chip tất định vẫn chạy trọn. Bật lại =
+// đổi true + vá route (drop leading model) + guard rebuild + wire chip. Xem QA/kế hoạch P1.
+const FREE_TEXT_ENABLED = false;
+
 export default function TroLyDuLichPage() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
@@ -227,7 +232,7 @@ export default function TroLyDuLichPage() {
   function initAsk() {
     const a = nextAsk({});
     return a
-      ? [{ role: 'bot' as const, text: 'Chào bạn! Mô tả chuyến đi bằng câu tự nhiên, hoặc chọn thành phố:', options: { slot: a.slot, options: a.options, allowCustom: a.allowCustom } }]
+      ? [{ role: 'bot' as const, text: FREE_TEXT_ENABLED ? 'Chào bạn! Mô tả chuyến đi bằng câu tự nhiên, hoặc chọn thành phố:' : 'Chào bạn! Chọn thành phố để bắt đầu:', options: { slot: a.slot, options: a.options, allowCustom: a.allowCustom } }]
       : [];
   }
   // Câu hỏi đầu (chip thành phố) khi mount — chip = $0; ô nhập vẫn cho mô tả tự do.
@@ -290,7 +295,8 @@ export default function TroLyDuLichPage() {
             <div>
               <h1 className="text-2xl font-bold tracking-tight">Trợ lý du lịch</h1>
               <p className="text-xs text-muted-foreground">
-                Mô tả chuyến đi bằng câu tự nhiên (Đà Lạt · Nha Trang · Đà Nẵng). Lịch trình từ dữ liệu đã xác minh — không bịa giờ, giá.
+                {FREE_TEXT_ENABLED ? 'Mô tả chuyến đi bằng câu tự nhiên. ' : 'Chọn thành phố rồi trả lời vài câu hỏi nhanh. '}
+                Lịch trình từ dữ liệu đã xác minh — không bịa giờ, giá.
               </p>
             </div>
             {messages.length > 0 ? (
@@ -317,12 +323,16 @@ export default function TroLyDuLichPage() {
                     </div>
                   </div>
                 ) : null}
-                <p className="text-sm text-muted-foreground">Thử bắt đầu với:</p>
-                {SAMPLES.map((s) => (
-                  <button key={s} type="button" onClick={() => send(s)} className="rounded-lg border border-border px-3 py-2 text-left text-sm hover:border-primary hover:bg-primary/5">
-                    {s}
-                  </button>
-                ))}
+                {FREE_TEXT_ENABLED ? (
+                  <>
+                    <p className="text-sm text-muted-foreground">Thử bắt đầu với:</p>
+                    {SAMPLES.map((s) => (
+                      <button key={s} type="button" onClick={() => send(s)} className="rounded-lg border border-border px-3 py-2 text-left text-sm hover:border-primary hover:bg-primary/5">
+                        {s}
+                      </button>
+                    ))}
+                  </>
+                ) : null}
               </div>
             ) : null}
 
@@ -356,7 +366,7 @@ export default function TroLyDuLichPage() {
           <div className="shrink-0 px-4 pb-5 pt-3">
             {dto && !activeAsk ? (
               <p className="mb-2 px-1 text-xs leading-relaxed" style={{ color: '#9AA0AC' }}>
-                💡 Bấm pin trên bản đồ hoặc chip <b className="font-semibold">N1–N3</b> để xem từng ngày · gõ câu để chỉnh lịch trình.
+                💡 Bấm pin trên bản đồ hoặc chip <b className="font-semibold">N1–N3</b> để xem từng ngày{FREE_TEXT_ENABLED ? ' · gõ câu để chỉnh lịch trình' : ''}.
               </p>
             ) : null}
             {(activeAsk || dto) ? (
@@ -370,7 +380,7 @@ export default function TroLyDuLichPage() {
                     ))
                   : (
                     <>
-                      {ACTIONS.map(([label, prompt]) => (
+                      {(FREE_TEXT_ENABLED ? ACTIONS : ([] as [string, string][])).map(([label, prompt]) => (
                         <button key={label} type="button" onClick={() => send(prompt)} disabled={loading}
                           className="flex h-[34px] shrink-0 items-center rounded-full border bg-background px-3 text-[13px] font-semibold text-primary hover:bg-primary/10 disabled:opacity-40" style={{ borderColor: '#F5A98A' }}>
                           {label}
@@ -381,18 +391,20 @@ export default function TroLyDuLichPage() {
                   )}
               </div>
             ) : null}
-            <form className="flex items-center gap-2.5 rounded-2xl border border-border bg-background py-2 pl-4 pr-2 shadow-[0_4px_16px_rgba(30,36,51,0.08)] transition-shadow focus-within:border-primary focus-within:shadow-[0_4px_20px_rgba(240,86,29,0.14)]"
-              onSubmit={(e) => { e.preventDefault(); send(input); }}>
-              <input
-                type="text" value={input} onChange={(e) => setInput(e.target.value)}
-                placeholder="Vd: nghỉ dưỡng Đà Lạt cuối tuần cho 2 người"
-                className="h-12 flex-1 border-0 bg-transparent text-[15px] outline-none placeholder:text-muted-foreground"
-              />
-              <button type="submit" disabled={loading || !input.trim()}
-                className="h-12 min-w-[88px] rounded-xl bg-primary text-[15px] font-bold text-primary-foreground hover:opacity-90 disabled:bg-primary/40">
-                Gửi
-              </button>
-            </form>
+            {FREE_TEXT_ENABLED ? (
+              <form className="flex items-center gap-2.5 rounded-2xl border border-border bg-background py-2 pl-4 pr-2 shadow-[0_4px_16px_rgba(30,36,51,0.08)] transition-shadow focus-within:border-primary focus-within:shadow-[0_4px_20px_rgba(240,86,29,0.14)]"
+                onSubmit={(e) => { e.preventDefault(); send(input); }}>
+                <input
+                  type="text" value={input} onChange={(e) => setInput(e.target.value)}
+                  placeholder="Vd: nghỉ dưỡng Đà Lạt cuối tuần cho 2 người"
+                  className="h-12 flex-1 border-0 bg-transparent text-[15px] outline-none placeholder:text-muted-foreground"
+                />
+                <button type="submit" disabled={loading || !input.trim()}
+                  className="h-12 min-w-[88px] rounded-xl bg-primary text-[15px] font-bold text-primary-foreground hover:opacity-90 disabled:bg-primary/40">
+                  Gửi
+                </button>
+              </form>
+            ) : null}
           </div>
         </div>
       </section>

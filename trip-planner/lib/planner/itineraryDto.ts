@@ -85,7 +85,7 @@ function toItem(it: SlotItem, idx: number): DtoItem {
 export function toPlannerDto(it: Itinerary): PlannerDto {
   return {
     slug: it.slug,
-    tripDays: it.request.days,
+    tripDays: it.days.length, // số ngày THỰC dựng (data thưa -> < request); không nói dối header
     party: it.request.party,
     pace: it.request.pace,
     days: it.days.map((d) => ({

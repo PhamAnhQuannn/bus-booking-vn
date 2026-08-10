@@ -122,8 +122,12 @@ function packDays(store: Store, orderedRegs: Reg[], restDays: number, perDay: nu
   let taken = 0;
   for (const reg of orderedRegs) {
     if (taken >= budget) break;
-    let pts = orderLoop(store, reg.pts, reg.centroid);
-    if (taken + pts.length > budget) pts = pts.slice(0, budget - taken); // cap tổng = restDays*perDay
+    // reg.pts đã sort theo SCORE giảm dần (buildDayChunks). Cắt budget theo CHẤT LƯỢNG TRƯỚC, rồi mới
+    // orderLoop xếp tuyến TRONG tập đã chọn (nếu orderLoop trước, tuyến địa lý xoá thứ tự score -> cắt
+    // nhầm điểm tốt; đây là chỗ ưu tiên elder/avoidSteep của scoreDestination phát huy khi cụm > budget).
+    let pts = reg.pts;
+    if (taken + pts.length > budget) pts = pts.slice(0, budget - taken);
+    pts = orderLoop(store, pts, reg.centroid);
     taken += pts.length;
     for (let o = 0; o < pts.length; o += perDay) {
       const block = pts.slice(o, o + perDay); // <= perDay, cùng khu
