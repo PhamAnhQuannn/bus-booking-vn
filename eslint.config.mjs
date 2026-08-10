@@ -165,6 +165,8 @@ const eslintConfig = defineConfig([
                 "emailSuggest.{ts,tsx}", // lib/booking — pure email typo suggester (client)
                 "statusLabels.{ts,tsx}", // lib/op — pure status/label display maps
                 "formatRelativeVi.{ts,tsx}", // lib/op — pure relative-time formatter
+                "cities.{ts,tsx}", // trip-planner/lib/planner — pure city registry (client selector + server)
+                "slots.{ts,tsx}", // trip-planner/lib/planner — máy trạng thái slot tất định (chip client, không Gemini)
               ],
             },
             { target: ["lib-core"], allow: "**" },
