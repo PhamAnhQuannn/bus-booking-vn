@@ -111,6 +111,19 @@ export interface TripResult {
 }
 
 /**
+ * Resolve one typed endpoint to a canonical route-endpoint name: Place.slug first,
+ * then canonicalName/alias, else the raw input. The `??` chain keeps the alias lookup
+ * off the hot path when the slug already matches.
+ */
+async function resolveEndpoint(input: string): Promise<string> {
+  return (
+    (await findCanonicalNameBySlug(input)) ??
+    (await findByNameOrAlias(input))?.canonicalName ??
+    input
+  );
+}
+
+/**
  * Search trips for a route/date, paginated by a stable `(departureAt, id)` seek
  * cursor (Issue 097). Returns at most `limit` rows + a `nextCursor`.
  *
@@ -128,14 +141,13 @@ export async function searchTrips(input: TripSearchInput): Promise<TripSearchPag
   //  2. Place canonicalName OR aliases  — so a boarding town that is an alias of the
   //     route endpoint (e.g. "Nông Cống" → "Thanh Hóa") matches the one physical trip.
   //  3. raw input (backward-compatible).
-  const origin =
-    (await findCanonicalNameBySlug(input.origin)) ??
-    (await findByNameOrAlias(input.origin))?.canonicalName ??
-    input.origin;
-  const destination =
-    (await findCanonicalNameBySlug(input.destination)) ??
-    (await findByNameOrAlias(input.destination))?.canonicalName ??
-    input.destination;
+  // Origin and destination resolve concurrently (each is a slug lookup that only
+  // falls through to the alias lookup on a miss), so a page load pays one round-trip
+  // pair instead of up to four sequential ones.
+  const [origin, destination] = await Promise.all([
+    resolveEndpoint(input.origin),
+    resolveEndpoint(input.destination),
+  ]);
 
   // Convert VN wall-clock date to UTC range
   const [year, month, day] = date.split('-').map(Number);

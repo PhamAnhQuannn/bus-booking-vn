@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { ArrowRight, Bus, BusFront, CreditCard, MailCheck, MapPin, Sparkles } from 'lucide-react';
 import { searchParamsSchema, searchFiltersSchema } from '@/lib/core/validation/search';
 import { track } from '@/lib/analytics';
+import { logger } from '@/lib/logger';
 import { searchTrips, SEARCH_PAGE_LIMIT, parseBoardingSchedule, nearestUpcomingTripDate } from '@/lib/trips';
 import { applyTripFilters, todayVN } from '@/lib/search';
 import { SearchFormWrapper } from '@/components/search/SearchFormWrapper';
@@ -19,7 +20,6 @@ import { ResultsSkeleton } from '@/components/search/ResultsSkeleton';
 import { PopularTrips } from '@/components/home/PopularTrips';
 import { TripPlannerPromo } from '@/components/home/TripPlannerPromo';
 import { ContractCarRental } from '@/components/home/ContractCarRental';
-import { PopularDestinations } from '@/components/home/PopularDestinations';
 import { OperatorShowcase } from '@/components/home/OperatorShowcase';
 import { Card, CardContent } from '@/components/ui/card';
 import { getSearchablePlaces, slugify } from '@/lib/places';
@@ -193,10 +193,23 @@ async function SearchResultsView({
 }
 
 async function HeroMarketingView() {
+  // Degrade, don't 500: the homepage is the highest-traffic page and force-dynamic,
+  // so a transient failure in any one loader would otherwise take the whole page down.
+  // Each section already self-hides on empty data (PopularTrips/OperatorShowcase), so a
+  // failed loader just drops its section — the hero + search form always render.
   const [places, activeRoutes, operators] = await Promise.all([
-    getSearchablePlaces(),
-    getActiveRoutes(),
-    getPublicOperators(),
+    getSearchablePlaces().catch((err) => {
+      logger.error({ err }, 'HeroMarketingView: getSearchablePlaces failed');
+      return [];
+    }),
+    getActiveRoutes().catch((err) => {
+      logger.error({ err }, 'HeroMarketingView: getActiveRoutes failed');
+      return [];
+    }),
+    getPublicOperators().catch((err) => {
+      logger.error({ err }, 'HeroMarketingView: getPublicOperators failed');
+      return [];
+    }),
   ]);
 
   // Popular trips = routes we actually operate, EXPANDED by boarding point so a rider in
@@ -431,7 +444,11 @@ async function HeroMarketingView() {
 
       <TripPlannerPromo />
 
-      <PopularDestinations />
+      {/* 2026-08-10: <PopularDestinations /> was mounted here. Its five cards (Đà Lạt,
+          Nha Trang, Sa Pa, Vũng Tàu, Đà Nẵng) were a hardcoded aspirational list — none
+          is a route we operate, so every card dead-ended in an empty search. The routes
+          we DO run already surface, with real photos, in <PopularTrips /> above. Re-mount
+          this (driven off real destination data) once we serve those destinations. */}
 
       <OperatorShowcase operators={operators} />
 
