@@ -19,7 +19,6 @@ import { authLinkClass, authFieldClass } from '@/components/auth/authLinkClass';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 
 export default function LoginPage() {
@@ -143,14 +142,7 @@ function LoginPageInner() {
               </button>
             </div>
           </div>
-          <div className="flex items-center justify-between gap-3">
-            {/* Cosmetic-only this PR: /api/auth/login hardcodes a 30-day refresh cookie
-                and has no `remember` field, so this does not yet change session lifetime.
-                Follow-up issue tracks wiring real session-duration. */}
-            <Label className="flex items-center gap-2 font-normal text-muted-foreground">
-              <Checkbox name="remember" />
-              Ghi nhớ đăng nhập
-            </Label>
+          <div className="flex items-center justify-end gap-3">
             <Link href="/auth/forgot-password" className={cn(authLinkClass, 'text-sm')}>
               Quên mật khẩu?
             </Link>
@@ -196,8 +188,8 @@ function LoginPageInner() {
         <div className="flex items-start gap-2.5 text-sm text-muted-foreground">
           <Lock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <div>
-            <p className="font-semibold text-foreground">Bảo mật thông tin tuyệt đối</p>
-            <p>Dữ liệu của bạn được mã hóa và bảo vệ theo tiêu chuẩn cao nhất.</p>
+            <p className="font-semibold text-foreground">Bảo mật thông tin</p>
+            <p>Dữ liệu của bạn được mã hóa và bảo vệ.</p>
           </div>
         </div>
       </div>

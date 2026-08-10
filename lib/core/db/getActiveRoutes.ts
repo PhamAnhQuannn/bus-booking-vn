@@ -41,7 +41,7 @@ export async function getActiveRoutes(): Promise<ActiveRoute[]> {
         MIN(t.price)::int                AS "minPrice",
         MIN(r."durationMinutes")::int    AS "minDurationMinutes",
         MIN(t."departureAt")             AS "nextDepartureAt",
-        (array_agg(r."boardingSchedule") FILTER (WHERE r."boardingSchedule" IS NOT NULL))[1] AS "boardingSchedule"
+        (array_agg(r."boardingSchedule" ORDER BY r."operatorId") FILTER (WHERE r."boardingSchedule" IS NOT NULL))[1] AS "boardingSchedule"
       FROM "Route" r
       JOIN "Operator" o ON o.id = r."operatorId"
       JOIN "Trip" t ON t."routeId" = r.id

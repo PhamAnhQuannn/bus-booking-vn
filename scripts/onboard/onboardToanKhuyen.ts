@@ -69,6 +69,7 @@ const PLACE_SOUTH: PlaceSeed = {
     'Sai Gon', 'TP HCM', 'TP. Hồ Chí Minh', 'Hồ Chí Minh', 'Ho Chi Minh',
     'Bàu Bàng', 'Chợ Tân Khai', 'Chơn Thành', 'Bến Cát', 'Mỹ Phước',
     'Sóng Thần', 'Dĩ An', 'Tân Đông Hiệp', 'An Phú',
+    'Ngã tư Miếu Ông Cù', 'Ngã tư 550',
   ],
 };
 
@@ -94,10 +95,14 @@ const BOARDING_SOUTH = [
 ];
 
 async function upsertPlace(tx: Prisma.TransactionClient, p: PlaceSeed): Promise<string> {
+  // Place is a GLOBAL shared registry — MERGE (union) aliases with any already present
+  // (another operator's onboarding may have added some), never overwrite.
+  const existing = await tx.place.findUnique({ where: { slug: p.slug }, select: { aliases: true } });
+  const mergedAliases = [...new Set([...(existing?.aliases ?? []), ...p.aliases])];
   const row = await tx.place.upsert({
     where: { slug: p.slug },
-    update: { canonicalName: p.canonicalName, aliases: p.aliases },
-    create: { canonicalName: p.canonicalName, slug: p.slug, aliases: p.aliases },
+    update: { canonicalName: p.canonicalName, aliases: mergedAliases },
+    create: { canonicalName: p.canonicalName, slug: p.slug, aliases: mergedAliases },
     select: { id: true },
   });
   return row.id;

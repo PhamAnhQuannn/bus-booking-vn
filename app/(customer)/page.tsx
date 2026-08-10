@@ -7,8 +7,8 @@ import Image from 'next/image';
 import { ArrowRight, Bus, BusFront, CreditCard, MailCheck, MapPin, Sparkles } from 'lucide-react';
 import { searchParamsSchema, searchFiltersSchema } from '@/lib/core/validation/search';
 import { track } from '@/lib/analytics';
-import { searchTrips, SEARCH_PAGE_LIMIT, parseBoardingSchedule } from '@/lib/trips';
-import { applyTripFilters, todayVN, searchHref } from '@/lib/search';
+import { searchTrips, SEARCH_PAGE_LIMIT, parseBoardingSchedule, nearestUpcomingTripDate } from '@/lib/trips';
+import { applyTripFilters, todayVN } from '@/lib/search';
 import { SearchFormWrapper } from '@/components/search/SearchFormWrapper';
 import { SearchForm } from '@/components/search/SearchForm';
 import { SearchStoreHydrator } from '@/components/search/SearchStoreHydrator';
@@ -104,21 +104,24 @@ async function SearchResultsView({
 
   const cursor = typeof params.cursor === 'string' ? params.cursor : null;
 
-  const [base, page, places, activeRoutes] = await Promise.all([
+  const [base, page, places] = await Promise.all([
     searchTrips({ origin, destination, date, ticketCount, limit: Number.MAX_SAFE_INTEGER }),
     searchTrips({ origin, destination, date, ticketCount, cursor, limit: SEARCH_PAGE_LIMIT }),
     getSearchablePlaces(),
-    getActiveRoutes(),
   ]);
   const baseTrips = base.trips;
   const nextCursor = page.nextCursor;
 
-  // Return-trip prompt: only when the reverse route actually has bookable trips —
-  // guarded against getActiveRoutes (no dead-end links, per red-team AC).
-  const norm = (s: string) => s.toLowerCase().trim();
-  const reverseExists = activeRoutes.some(
-    (r) => norm(r.origin) === norm(destination) && norm(r.destination) === norm(origin),
-  );
+  // No blank page for a route that runs other days: if the requested day has no trips
+  // (e.g. today's bus already departed), jump to the nearest upcoming date that does.
+  // Forward-only + seat-agnostic → at most one hop (target with no seats stops at itself).
+  if (baseTrips.length === 0) {
+    const near = await nearestUpcomingTripDate(origin, destination, date);
+    if (near && near !== date) {
+      const p = new URLSearchParams({ origin, destination, date: near, ticketCount: String(ticketCount) });
+      redirect(`/?${p.toString()}`);
+    }
+  }
 
   // Single-operator trust panel data — real fields off the first result.
   const operator = baseTrips[0]
@@ -136,8 +139,7 @@ async function SearchResultsView({
   const showPrev = date > todayVNDate;
 
   return (
-    <>
-    <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6">
+    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-6">
       <SearchStoreHydrator
         query={{ origin, destination, date, ticketCount }}
       />
@@ -160,13 +162,17 @@ async function SearchResultsView({
       </Card>
 
       {totalBeforeFilters === 0 ? (
-        <EmptyState
-          origin={origin}
-          destination={destination}
-          date={date}
-          ticketCount={String(ticketCount)}
-          showPrev={showPrev}
-        />
+        // Center the empty-state in the leftover height so a short "no trips" page
+        // reads as intentional instead of clustering at the top over a big void.
+        <div className="flex flex-1 flex-col items-center justify-center gap-6">
+          <EmptyState
+            origin={origin}
+            destination={destination}
+            date={date}
+            ticketCount={String(ticketCount)}
+            showPrev={showPrev}
+          />
+        </div>
       ) : (
         <ResultsList
           trips={trips}
@@ -182,25 +188,7 @@ async function SearchResultsView({
           operator={operator}
         />
       )}
-
-      {reverseExists && (
-        <Link
-          href={searchHref(destination, origin, { date, ticketCount: String(ticketCount) })}
-          className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm shadow-e1 transition-colors hover:border-primary/30 hover:bg-muted"
-        >
-          <span className="text-muted-foreground">
-            Cần vé chiều về?{' '}
-            <span className="font-medium text-foreground">
-              {destination} → {origin}
-            </span>
-          </span>
-          <ArrowRight className="size-4 shrink-0 text-primary" aria-hidden="true" />
-        </Link>
-      )}
     </main>
-
-    <TripPlannerPromo />
-    </>
   );
 }
 
@@ -421,7 +409,7 @@ async function HeroMarketingView() {
           white card needs no photo-overlap contrast math. Renders both title + sub (2 lines). */}
       <section
         aria-label="Điểm nổi bật"
-        className="relative z-10 -mt-8 mb-6 w-full border-b border-border bg-[#FFF6EE] shadow-e2 lg:-mt-12"
+        className="relative z-raised -mt-8 mb-6 w-full border-b border-border bg-[#FFF6EE] shadow-e2 lg:-mt-12"
       >
         <ul className="grid w-full list-none grid-cols-1 gap-5 px-4 py-5 sm:grid-cols-2 sm:px-8 lg:grid-cols-4 lg:gap-0 lg:px-12 lg:py-0">
           {FEATURES.map(({ icon: Icon, title, sub }) => (

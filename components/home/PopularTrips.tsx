@@ -122,7 +122,7 @@ export function PopularTrips({ trips }: { trips: PopularTrip[] }) {
                 className="group flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card shadow-e1 transition-all hover:shadow-e2 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none motion-safe:hover:-translate-y-0.5"
               >
                 <div className="relative aspect-[4/3] w-full overflow-hidden">
-                  <CardImage src={`/destinations/${r.slug}.jpg`} alt={r.destination} />
+                  <CardImage src={`/destinations/${r.slug}.jpg`} alt={r.origin} />
                 </div>
 
                 <div className="flex flex-1 flex-col gap-3 p-4">

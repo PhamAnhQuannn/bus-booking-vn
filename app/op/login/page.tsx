@@ -306,8 +306,8 @@ export default function OpLoginPage() {
         <p className="flex items-start gap-2 text-[13px] text-muted-foreground">
           <ShieldCheck className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <span>
-            <span className="font-medium text-foreground/80">Bảo mật thông tin tuyệt đối.</span> Dữ liệu của bạn
-            được mã hóa và bảo vệ theo tiêu chuẩn cao nhất.
+            <span className="font-medium text-foreground/80">Bảo mật thông tin.</span> Dữ liệu của bạn
+            được mã hóa và bảo vệ.
           </span>
         </p>
       </div>

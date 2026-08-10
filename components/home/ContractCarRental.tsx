@@ -9,6 +9,7 @@
  * The mockup's van cutout has no equivalent asset; the existing hero coach photo stands in.
  */
 
+import Link from 'next/link';
 import { ArrowRight, BadgeCheck, BusFront, Headset, Wallet } from 'lucide-react';
 
 const TRUST = [
@@ -29,17 +30,14 @@ export function ContractCarRental() {
               <span className="text-xs font-bold uppercase tracking-widest text-primary">
                 Thuê xe hợp đồng
               </span>
-              {/* outlined orange CTA pill, temporarily DISABLED (no rental page yet). */}
-              <button
-                type="button"
-                disabled
-                aria-disabled="true"
-                title="Sắp ra mắt"
-                className="inline-flex shrink-0 cursor-not-allowed items-center gap-1.5 rounded-full border border-primary/50 bg-card px-3.5 py-1.5 text-xs font-medium text-primary-strong"
+              {/* outlined orange CTA pill → live contract-rental quote form. */}
+              <Link
+                href="/lien-he-dat-xe"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-primary/50 bg-card px-3.5 py-1.5 text-xs font-medium text-primary-strong transition-colors hover:bg-primary/5"
               >
                 Xem dịch vụ thuê xe
                 <ArrowRight className="size-3.5" aria-hidden="true" />
-              </button>
+              </Link>
             </div>
             <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
               Dịch vụ thuê xe cho mọi nhu cầu
