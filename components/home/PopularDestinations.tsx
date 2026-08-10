@@ -2,8 +2,8 @@
 
 /**
  * PopularDestinations — "Điểm đến được yêu thích" photo row (docs/design/mockup-home.png
- * S8). Five destination cards: photo on top, name in a plain white strip below it (not
- * overlaid on the photo — that is what separates this card from the old PopularTrips tile).
+ * S8). Five destination cards: full-bleed photo with the name overlaid on a bottom gradient
+ * scrim (white text). Plain carousel — no departure counts, no "Xem tất cả" (see below).
  *
  * 2026-07-30: each card also carried a "N+ chuyến/ngày" departure count. Those were
  * placeholders in the 80-110 band while the real figure is ~1-5/day at launch scale —
@@ -48,7 +48,7 @@ export function PopularDestinations() {
   }
 
   return (
-    <section className="mx-auto w-full max-w-7xl px-4 py-8 lg:py-10">
+    <section className="page-container py-3 lg:py-4">
       <div className="mb-6 flex items-end justify-between gap-4">
         <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Điểm đến được yêu thích</h2>
         <div className="flex items-center gap-3">
@@ -89,13 +89,14 @@ export function PopularDestinations() {
             <Link
               href={searchHref(d.from, d.name)}
               aria-label={`Tìm chuyến đi ${d.name}`}
-              className="group flex flex-col gap-2 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="group relative block aspect-video overflow-hidden rounded-xl shadow-e1 ring-1 ring-black/5 outline-none transition-all hover:shadow-e2 focus-visible:ring-3 focus-visible:ring-ring/50"
             >
-              <div className="relative aspect-video w-full overflow-hidden rounded-xl shadow-e1 transition-all group-hover:shadow-e2">
-                <CardImage src={`/destinations/${d.slug}.jpg`} alt={d.name} />
-              </div>
-              <div className="flex flex-col gap-0.5">
-                <span className="text-base font-semibold leading-tight">{d.name}</span>
+              <CardImage src={`/destinations/${d.slug}.jpg`} alt={d.name} />
+              {/* Name overlaid on the photo (gradient scrim for legibility), not a strip below. */}
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent p-3 pt-10">
+                <span className="text-base font-semibold leading-tight text-white drop-shadow-sm">
+                  {d.name}
+                </span>
               </div>
             </Link>
           </li>

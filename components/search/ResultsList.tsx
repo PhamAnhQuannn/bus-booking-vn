@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { SearchFilterRail, SearchToolbar } from '@/components/search/SearchFilters';
+import { OperatorTrustPanel } from '@/components/search/OperatorTrustPanel';
 import { type TripFacets } from '@/lib/search';
 import { type TripResult } from '@/lib/trips';
 import { TripCard, type TripCardSize } from './TripCard';
@@ -16,6 +17,7 @@ export function ResultsList({
   showPrev,
   nextCursor,
   allParams,
+  operator,
 }: {
   trips: TripResult[];
   facets: TripFacets;
@@ -27,11 +29,16 @@ export function ResultsList({
   showPrev: boolean;
   nextCursor: string | null;
   allParams: Record<string, string | string[] | undefined>;
+  operator?: { legalName: string; contactPhone: string };
 }) {
   const showFilterRail =
     facets.operators.length > 1 ||
     facets.busTypes.length > 1 ||
     facets.windows.length > 1;
+
+  // With one operator the filter rail is absent — fill the freed column with a
+  // real operator/trust panel so the page never collapses to a lonely card.
+  const showTrustPanel = !showFilterRail && operator != null;
 
   const cardSize: TripCardSize = totalBeforeFilters < 6 ? 'expanded' : 'default';
 
@@ -60,7 +67,15 @@ export function ResultsList({
   }
 
   return (
-    <div className={showFilterRail ? 'md:grid md:grid-cols-[16rem_1fr] md:gap-6' : ''}>
+    <div
+      className={
+        showFilterRail
+          ? 'md:grid md:grid-cols-[16rem_1fr] md:gap-6'
+          : showTrustPanel
+            ? 'md:grid md:grid-cols-[1fr_16rem] md:gap-6'
+            : ''
+      }
+    >
       {showFilterRail && <SearchFilterRail facets={facets} />}
 
       <div className="flex min-w-0 flex-col gap-4">
@@ -126,7 +141,27 @@ export function ResultsList({
             </Link>
           </div>
         ) : null}
+
+        {/* Escape hatch on the populated path (EmptyState already has its own):
+            let a customer who doesn't like today's trip try another day or browse routes. */}
+        <p className="pt-1 text-center text-sm text-muted-foreground">
+          Không thấy chuyến ưng ý?{' '}
+          <Link href={buildUrl(nextDate)} className="font-medium text-primary underline-offset-4 hover:underline">
+            Thử ngày khác
+          </Link>{' '}
+          ·{' '}
+          <Link href="/routes" className="font-medium text-primary underline-offset-4 hover:underline">
+            Xem tất cả tuyến
+          </Link>
+        </p>
       </div>
+
+      {showTrustPanel && operator && (
+        <OperatorTrustPanel
+          operatorLegalName={operator.legalName}
+          operatorContactPhone={operator.contactPhone}
+        />
+      )}
     </div>
   );
 }

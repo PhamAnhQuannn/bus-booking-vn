@@ -95,7 +95,7 @@ export function SearchForm({
       className={
         horizontal
           ? 'min-h-11 w-full bg-primary-strong text-base font-semibold hover:bg-primary-strong/90 md:mt-0 md:w-auto md:shrink-0 md:px-8'
-          : 'col-span-2 mt-1 min-h-[46px] w-full bg-primary-strong text-base font-semibold hover:bg-primary-strong/90 md:col-span-1 md:mt-0 md:min-h-[58px] md:w-auto md:px-10'
+          : 'col-span-2 mt-1 min-h-[46px] w-full rounded-lg bg-primary-strong text-base font-semibold hover:bg-primary-strong/90 md:col-span-1 md:mt-0 md:min-h-[54px] md:w-auto md:px-10 xl:px-6'
       }
       disabled={isPending}
     >
@@ -123,69 +123,129 @@ export function SearchForm({
         className={
           horizontal
             ? 'flex w-full flex-col gap-3 md:flex-row md:items-end'
-            : 'flex w-full flex-col gap-3'
+            : 'flex w-full flex-col gap-3 xl:flex-row xl:flex-nowrap xl:items-end xl:gap-3'
         }
       >
-        {/* Origin + Destination grouped */}
-        <div className={horizontal ? 'flex flex-col gap-1.5 md:flex-1' : 'flex flex-col gap-1.5'}>
-          <label htmlFor={`${formId}-origin`} className={horizontal ? 'sr-only' : 'text-sm font-medium'}>
-            Điểm xuất phát
-          </label>
-          <label htmlFor={`${formId}-destination`} className="sr-only">
-            Điểm đến
-          </label>
-          <div className="relative flex flex-col gap-2 sm:flex-row sm:gap-2">
-            <div
-              className={`relative overflow-hidden rounded-lg border border-input focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 ${horizontal ? 'flex-1' : 'flex-1 sm:flex-[44] md:min-h-[58px]'}`}
-            >
-              <MapPin className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-              <PlaceCombobox
-                id={`${formId}-origin`}
-                items={places}
-                value={o}
-                onValueChange={setOrigin}
-                placeholder="Nhập điểm xuất phát"
-                className={`border-0 rounded-none pl-9 focus-visible:ring-0 focus-visible:outline-none ${horizontal ? '' : 'md:h-[56px]'}`}
-                required
-                maxLength={50}
-                aria-required="true"
-                aria-invalid={originInvalid || undefined}
-              />
+        {/* Origin + Destination. Two structures:
+            - horizontal (results bar): shared sr-only labels, inline row, swap absolute-overlap.
+            - vertical (landing): 3 bottom-aligned columns, each place a VISIBLE-labelled field,
+              swap in a middle column whose invisible label-spacer keeps the circle on the input band.
+            The two comboboxes are duplicated across branches; only one branch ever renders. */}
+        {horizontal ? (
+          <div className="flex flex-col gap-1.5 md:flex-1">
+            <label htmlFor={`${formId}-origin`} className="sr-only">
+              Điểm xuất phát
+            </label>
+            <label htmlFor={`${formId}-destination`} className="sr-only">
+              Điểm đến
+            </label>
+            <div className="relative flex flex-col gap-2 sm:flex-row sm:gap-2">
+              <div className="relative flex-1 overflow-hidden rounded-lg border border-input focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
+                <MapPin className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <PlaceCombobox
+                  id={`${formId}-origin`}
+                  items={places}
+                  value={o}
+                  onValueChange={setOrigin}
+                  placeholder="Nhập điểm xuất phát"
+                  className="border-0 rounded-none pl-9 focus-visible:ring-0 focus-visible:outline-none"
+                  required
+                  maxLength={50}
+                  aria-required="true"
+                  aria-invalid={originInvalid || undefined}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleSwap}
+                aria-label="Đổi chiều điểm đi và điểm đến"
+                className={`absolute left-1/2 top-1/2 z-10 flex size-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-primary shadow-e2 transition-all duration-300 hover:scale-105 hover:bg-primary/5 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none ${swapped ? 'rotate-180' : ''}`}
+              >
+                <ArrowLeftRight className="size-4 rotate-90 sm:rotate-0" aria-hidden="true" />
+              </button>
+              <div className="relative flex-1 overflow-hidden rounded-lg border border-input focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
+                <MapPin className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <PlaceCombobox
+                  id={`${formId}-destination`}
+                  items={places}
+                  value={d}
+                  onValueChange={setDestination}
+                  placeholder="Nhập điểm đến"
+                  className="border-0 rounded-none pl-9 focus-visible:ring-0 focus-visible:outline-none"
+                  required
+                  maxLength={50}
+                  aria-required="true"
+                  aria-invalid={destInvalid || undefined}
+                />
+              </div>
             </div>
-            <div
-              className={`relative overflow-hidden rounded-lg border border-input focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 ${horizontal ? 'flex-1' : 'flex-1 sm:flex-[56] md:min-h-[58px]'}`}
-            >
-              <MapPin className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-              <PlaceCombobox
-                id={`${formId}-destination`}
-                items={places}
-                value={d}
-                onValueChange={setDestination}
-                placeholder="Nhập điểm đến"
-                className={`border-0 rounded-none pl-9 focus-visible:ring-0 focus-visible:outline-none ${horizontal ? '' : 'md:h-[56px]'}`}
-                required
-                maxLength={50}
-                aria-required="true"
-                aria-invalid={destInvalid || undefined}
-              />
-            </div>
-            <button
-              type="button"
-              onClick={handleSwap}
-              aria-label="Đổi chiều điểm đi và điểm đến"
-              className={`absolute top-1/2 z-10 flex size-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-primary shadow-e2 transition-all duration-300 hover:scale-105 hover:bg-primary/5 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none ${horizontal ? 'left-1/2' : 'left-1/2 sm:left-[44%]'} ${swapped ? 'rotate-180' : ''}`}
-            >
-              <ArrowLeftRight className="size-4 rotate-90 sm:rotate-0" aria-hidden="true" />
-            </button>
           </div>
-        </div>
+        ) : (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3 xl:min-w-0 xl:flex-1">
+            <div className="flex flex-col gap-1.5 sm:flex-1 xl:min-w-0">
+              <label htmlFor={`${formId}-origin`} className="text-sm font-medium">
+                Điểm đi
+              </label>
+              <div className="relative w-full overflow-hidden rounded-lg border border-input focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 md:min-h-[54px]">
+                <MapPin className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <PlaceCombobox
+                  id={`${formId}-origin`}
+                  items={places}
+                  value={o}
+                  onValueChange={setOrigin}
+                  placeholder="Nhập điểm xuất phát"
+                  className="border-0 rounded-none pl-9 focus-visible:ring-0 focus-visible:outline-none md:h-[52px]"
+                  required
+                  maxLength={50}
+                  aria-required="true"
+                  aria-invalid={originInvalid || undefined}
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span aria-hidden="true" className="hidden select-none text-sm font-medium sm:block sm:invisible">
+                .
+              </span>
+              <div className="flex items-center justify-center sm:min-h-[54px]">
+                <button
+                  type="button"
+                  onClick={handleSwap}
+                  aria-label="Đổi chiều điểm đi và điểm đến"
+                  className={`z-10 flex size-11 shrink-0 items-center justify-center rounded-full border border-border bg-card text-primary shadow-e2 transition-all duration-300 hover:scale-105 hover:bg-primary/5 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none ${swapped ? 'rotate-180' : ''}`}
+                >
+                  <ArrowLeftRight className="size-4 rotate-90 sm:rotate-0" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5 sm:flex-1 xl:min-w-0">
+              <label htmlFor={`${formId}-destination`} className="text-sm font-medium">
+                Điểm đến
+              </label>
+              <div className="relative w-full overflow-hidden rounded-lg border border-input focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 md:min-h-[54px]">
+                <MapPin className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <PlaceCombobox
+                  id={`${formId}-destination`}
+                  items={places}
+                  value={d}
+                  onValueChange={setDestination}
+                  placeholder="Nhập điểm đến"
+                  className="border-0 rounded-none pl-9 focus-visible:ring-0 focus-visible:outline-none md:h-[52px]"
+                  required
+                  maxLength={50}
+                  aria-required="true"
+                  aria-invalid={destInvalid || undefined}
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Date + ticket count */}
         <div
           className={
             horizontal
               ? 'grid grid-cols-[3fr_2fr] gap-3 md:w-64 md:shrink-0'
-              : 'grid grid-cols-[3fr_2fr] gap-3 md:grid-cols-[3fr_2fr_auto] md:items-end'
+              : 'grid grid-cols-[3fr_2fr] gap-3 md:grid-cols-[3fr_2fr_auto] md:items-end xl:grid-cols-[minmax(200px,auto)_auto_auto] xl:shrink-0'
           }
         >
           <div className="flex flex-col gap-1.5">
@@ -198,7 +258,7 @@ export function SearchForm({
               min={todayVN}
               onValueChange={setDate}
               placeholder="Chọn ngày đi"
-              className={horizontal ? undefined : 'md:min-h-[58px]'}
+              className={horizontal ? undefined : 'md:min-h-[54px]'}
               aria-required="true"
               aria-invalid={dateInvalid || undefined}
               iconPosition="leading"
@@ -208,7 +268,7 @@ export function SearchForm({
           <div className="flex flex-col gap-1.5">
             <span className={horizontal ? 'sr-only' : 'text-sm font-medium'}>Số vé</span>
             <div
-              className={`flex min-h-[46px] items-center justify-between rounded-lg border border-input px-1 ${horizontal ? '' : 'md:min-h-[58px]'}`}
+              className={`flex min-h-[46px] items-center justify-between rounded-lg border border-input px-1 ${horizontal ? '' : 'md:min-h-[54px]'}`}
             >
               <button
                 type="button"

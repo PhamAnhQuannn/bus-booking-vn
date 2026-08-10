@@ -1,13 +1,17 @@
 'use client';
 
 /**
- * PopularTrips — horizontal scroll-snap carousel of popular intercity routes on the
- * landing page. Rebuilt 2026-07-21 to the mockup's data card (docs/design/mockup-home.png
- * S4): destination photo on top, then route pair → duration + from-price → "Tìm vé".
- * Clicking anywhere on the card pre-fills the search form via
- * /?origin=…&destination=…. Images live in public/destinations/<slug>.jpg and use a
- * plain <img> (native lazy-load; avoids the Turbopack `/public` url() drop seen with
- * CSS backgrounds).
+ * PopularTrips — horizontal scroll-snap carousel of the routes we actually operate on
+ * the landing page. Card (docs/design/mockup-home.png S4): destination photo on top, then
+ * route pair → duration + from-price → "Tìm vé". Clicking anywhere pre-fills the search
+ * form via /?origin=…&destination=…. Images live in public/destinations/<slug>.jpg and use
+ * a plain <img> (native lazy-load; avoids the Turbopack `/public` url() drop seen with CSS
+ * backgrounds); a missing photo degrades to CardImage's neutral fallback tile.
+ *
+ * 2026-08-09: source switched from the hardcoded POPULAR_ROUTES list to REAL open trips.
+ * The RSC (app/(customer)/page.tsx) maps getActiveRoutes() → `trips` (only routes with an
+ * upcoming bookable trip), so every card is a route a customer can actually book — no
+ * dead-end links, and the section self-scales as operators/routes are added.
  */
 
 import { useRef } from 'react';
@@ -16,8 +20,18 @@ import { ArrowRight, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 
 import { searchHref } from '@/lib/search';
 import { formatVnd } from '@/lib/format';
-import { POPULAR_ROUTES, routeKey } from './popularRoutes';
 import { CardImage } from './CardImage';
+
+export interface PopularTrip {
+  origin: string;
+  destination: string;
+  /** public/destinations/<slug>.jpg — slug of the destination (slugify'd server-side). */
+  slug: string;
+  /** Cheapest upcoming fare (VND) — indicative "Từ" teaser. */
+  price: number;
+  /** Shortest route duration in minutes. */
+  duration: number;
+}
 
 /** "450" → "7h 30m", "120" → "2h 00m". Mirrors the mockup's duration format. */
 function formatDuration(minutes: number): string {
@@ -27,28 +41,17 @@ function formatDuration(minutes: number): string {
 }
 
 /**
- * `prices` / `durations` — starting ("Từ") price and shortest duration per route, keyed
- * by routeKey(origin, destination), computed server-side in app/(customer)/page.tsx from
- * getActiveRoutes(). A null/absent price entry means no upcoming bookable trip → the card
- * is dropped entirely. Indicative teaser (cheapest scheduled future trip) — may be sold
- * out, standard OTA "from" semantic.
+ * `trips` — the routes we actually operate, already filtered to those with an upcoming
+ * bookable trip (getActiveRoutes()), each carrying its cheapest fare + shortest duration.
+ * Empty → the section self-hides. `price` is an indicative "Từ" teaser (cheapest scheduled
+ * future trip) — may be sold out, standard OTA "from" semantic.
  */
-export function PopularTrips({
-  prices,
-  durations,
-}: {
-  prices: Record<string, number | null>;
-  durations: Record<string, number | null>;
-}) {
+export function PopularTrips({ trips }: { trips: PopularTrip[] }) {
   const scrollerRef = useRef<HTMLUListElement>(null);
 
-  const liveRoutes = POPULAR_ROUTES.filter(
-    (r) => prices[routeKey(r.origin, r.destination)] != null,
-  );
+  if (trips.length === 0) return null;
 
-  if (liveRoutes.length === 0) return null;
-
-  const useCarousel = liveRoutes.length >= 4;
+  const useCarousel = trips.length >= 4;
 
   function nudge(direction: 1 | -1) {
     const el = scrollerRef.current;
@@ -57,8 +60,8 @@ export function PopularTrips({
   }
 
   return (
-    <section className="mx-auto w-full max-w-7xl px-4 py-8 lg:py-10">
-      <div className="mb-6 flex items-end justify-between gap-4">
+    <section className="page-container pt-10 pb-3 lg:pt-14 lg:pb-4">
+      <div className="mb-8 flex items-end justify-between gap-4">
         <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Tuyến đường phổ biến</h2>
         <div className="flex items-center gap-3">
           {/* 2026-07-30: a "Xem tất cả" link pointed at "/" — it reloaded this same
@@ -97,10 +100,9 @@ export function PopularTrips({
             : 'grid list-none grid-cols-1 gap-4 p-0 sm:grid-cols-2'
         }
       >
-        {liveRoutes.map((r) => {
-          const key = routeKey(r.origin, r.destination);
-          const price = prices[key] ?? null;
-          const duration = durations[key] ?? null;
+        {trips.map((r) => {
+          const price = r.price;
+          const duration = r.duration;
           return (
             <li
               key={`${r.origin}-${r.destination}`}
@@ -117,9 +119,9 @@ export function PopularTrips({
                     ? `Tìm chuyến ${r.origin} đến ${r.destination}, từ ${formatVnd(price)}`
                     : `Tìm chuyến ${r.origin} đến ${r.destination}`
                 }
-                className="group flex h-full flex-col overflow-hidden rounded-xl bg-card shadow-e1 transition-all hover:shadow-e2 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none motion-safe:hover:-translate-y-0.5"
+                className="group flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card shadow-e1 transition-all hover:shadow-e2 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none motion-safe:hover:-translate-y-0.5"
               >
-                <div className="relative aspect-video w-full overflow-hidden">
+                <div className="relative aspect-[4/3] w-full overflow-hidden">
                   <CardImage src={`/destinations/${r.slug}.jpg`} alt={r.destination} />
                 </div>
 

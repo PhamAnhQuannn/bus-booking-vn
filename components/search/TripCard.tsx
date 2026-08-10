@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, Armchair } from 'lucide-react';
+import { ArrowRight, Armchair, MapPin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { BookButton } from '@/components/search/BookButton';
 import { formatVnd } from '@/lib/format';
@@ -7,6 +7,14 @@ import { type TripResult } from '@/lib/trips';
 import { BUS_TYPE_LABEL, formatTime, arrivalIso, durationLabel } from './search-utils';
 
 export type TripCardSize = 'default' | 'expanded';
+
+// Plain-language gloss shown only in the expanded card, where one result carries
+// the page — a first-time booker may not know what "Giường nằm" means.
+const BUS_TYPE_DESC: Record<TripResult['busType'], string> = {
+  coach: 'Ghế ngồi',
+  sleeper: 'Giường nằm · xe khách nằm',
+  limousine: 'Limousine · ghế cao cấp',
+};
 
 export function TripCard({
   trip,
@@ -55,15 +63,36 @@ export function TripCard({
       {/* Badges: bus type + seats-left urgency */}
       <div className="flex flex-wrap items-center gap-2">
         {expanded ? (
-          <span className="text-sm text-muted-foreground">{BUS_TYPE_LABEL[trip.busType]}</span>
+          <span className="text-sm text-muted-foreground">{BUS_TYPE_DESC[trip.busType]}</span>
         ) : (
           <Badge variant="neutral">{BUS_TYPE_LABEL[trip.busType]}</Badge>
         )}
         <Badge variant={lowSeats ? 'pending' : 'neutral'}>
           <Armchair className="size-3.5" aria-hidden="true" />
-          {lowSeats ? `Chỉ còn ${trip.availableSeats} chỗ` : `Còn ${trip.availableSeats} chỗ`}
+          {lowSeats
+            ? `Chỉ còn ${trip.availableSeats} chỗ`
+            : expanded
+              ? `${trip.availableSeats}/${trip.capacity} chỗ trống`
+              : `Còn ${trip.availableSeats} chỗ`}
         </Badge>
       </div>
+
+      {/* Boarding points (expanded only) — one bus, staggered pickups. */}
+      {expanded && trip.boardingSchedule.length > 0 && (
+        <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+          <MapPin className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+          <span>
+            Đón:{' '}
+            {trip.boardingSchedule
+              .slice(0, 3)
+              .map((s) => `${s.point} ${s.time}`)
+              .join(' · ')}
+            {trip.boardingSchedule.length > 3
+              ? ` · +${trip.boardingSchedule.length - 3} điểm`
+              : ''}
+          </span>
+        </p>
+      )}
 
       {/* Price + actions */}
       <div className={`flex items-center justify-between gap-3 border-t border-border/60 ${expanded ? 'mt-2 pt-4' : 'mt-1 pt-3'}`}>

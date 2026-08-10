@@ -1,85 +1,84 @@
 /**
- * ContractCarRental — "Dịch vụ thuê xe hợp đồng". Rebuilt 2026-07-21 to the mockup's
- * tinted panel (docs/design/mockup-home.png S7): a single inset rounded panel carrying an
- * eyebrow, two-line heading, body copy, an inline CTA to the right of the copy, a vehicle
- * photo on the right, and a four-item trust row along the bottom.
+ * ContractCarRental — "Dịch vụ thuê xe hợp đồng". Tinted rounded panel, one horizontal row of
+ * four zones (image #16): [eyebrow + heading + copy] · [outlined CTA pill] · [vehicle photo] ·
+ * [trust as a VERTICAL column on the right]. The CTA is temporarily disabled (no rental page yet).
  *
- * This panel is the page's only mid-band tint — every other section sits on the flat page
- * field, so the tint is what breaks the run rather than alternating section wrappers.
+ * Orange-tinted (`bg-primary/5`) rounded panel — sits last, below the operator showcase, as the
+ * page's warm closing band. On the landing page's white field the tint reads as an accent block.
  *
  * The mockup's van cutout has no equivalent asset; the existing hero coach photo stands in.
  */
 
 import { ArrowRight, BadgeCheck, BusFront, Headset, Wallet } from 'lucide-react';
 
-import { cn } from '@/lib/utils';
-import { buttonVariants } from '@/components/ui/button';
-
 const TRUST = [
   { icon: BusFront, label: 'Xe đời mới, sạch sẽ' },
   { icon: BadgeCheck, label: 'Tài xế kinh nghiệm' },
   { icon: Wallet, label: 'Giá minh bạch' },
-  { icon: Headset, label: 'Hỗ trợ tận tình' },
+  { icon: Headset, label: 'Hỗ trợ tận tâm' },
 ];
 
 export function ContractCarRental() {
   return (
-    <section className="mx-auto w-full max-w-7xl px-4 py-8 lg:py-10">
-      <div className="overflow-hidden rounded-2xl bg-primary/5">
-        <div className="grid grid-cols-1 items-center gap-6 p-6 lg:grid-cols-[1fr_auto_auto] lg:gap-8 lg:p-8">
-          <div className="flex flex-col gap-3">
-            <span className="text-xs font-bold uppercase tracking-widest text-primary">
-              Thuê xe hợp đồng
-            </span>
+    <section className="page-container py-3 lg:py-4">
+      <div className="overflow-hidden rounded-2xl border border-border bg-[#FFF3E9]">
+        <div className="flex flex-col gap-6 p-6 lg:min-h-[220px] lg:flex-row lg:items-stretch lg:gap-6 lg:p-8">
+          {/* Zone 1 — text; the CTA sits on the eyebrow line, right-aligned to the title's right edge. */}
+          <div className="flex flex-col gap-2 lg:justify-center">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-bold uppercase tracking-widest text-primary">
+                Thuê xe hợp đồng
+              </span>
+              {/* outlined orange CTA pill, temporarily DISABLED (no rental page yet). */}
+              <button
+                type="button"
+                disabled
+                aria-disabled="true"
+                title="Sắp ra mắt"
+                className="inline-flex shrink-0 cursor-not-allowed items-center gap-1.5 rounded-full border border-primary/50 bg-card px-3.5 py-1.5 text-xs font-medium text-primary-strong"
+              >
+                Xem dịch vụ thuê xe
+                <ArrowRight className="size-3.5" aria-hidden="true" />
+              </button>
+            </div>
             <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              <span className="block">Dịch vụ thuê xe</span>
-              <span className="block">cho mọi nhu cầu</span>
+              Dịch vụ thuê xe cho mọi nhu cầu
             </h2>
             <p className="max-w-md text-sm text-foreground/80">
-              Xe 4 – 45 chỗ đời mới, phục vụ du lịch, sự kiện, đưa đón sân bay, cưới hỏi,
-              công tác…
+              Xe 4 – 45 chỗ cho nhóm, doanh nghiệp, sự kiện, du lịch, cưới hỏi…
             </p>
           </div>
 
-          {/* CTA sits beside the copy, not below it — measured off the mockup (S7). */}
-          <a
-            href="/tro-ly-du-lich"
-            className={cn(
-              buttonVariants({ size: 'lg' }),
-              'shrink-0 gap-2 rounded-lg bg-primary-strong text-primary-foreground hover:bg-primary-strong/90 [a]:hover:bg-primary-strong/90'
-            )}
-          >
-            Lập kế hoạch với trợ lý AI
-            <ArrowRight className="size-4" aria-hidden="true" />
-          </a>
+          {/* Zone 3 — vehicle photo (xl only): LEFT edge feathers into the cream panel field,
+              RIGHT edge carries the deco (crisp orange rule + glass highlight + rounded corners). */}
+          <div className="relative hidden min-w-0 self-stretch overflow-hidden rounded-r-2xl -my-6 lg:-my-8 lg:block lg:flex-1">
+            {/* eslint-disable-next-line @next/next/no-img-element -- local /public photo; next/image+sharp not used in this app */}
+            <img
+              src="/hero/contract-rental-wide.jpg"
+              alt="Xe hợp đồng BBVN"
+              loading="lazy"
+              decoding="async"
+              className="absolute inset-0 size-full object-cover object-[center_80%] [mask-image:linear-gradient(to_right,transparent,#000_40%)]"
+            />
+            {/* warm brand wash — feathered on the same left axis so it doesn't paint the dissolve zone */}
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-primary-strong/25 via-transparent to-transparent [mask-image:linear-gradient(to_right,transparent,#000_38%)]" />
+            {/* right-edge deco: crisp orange rule at the very edge */}
+            <div className="pointer-events-none absolute inset-y-0 right-0 w-px bg-primary/40" />
+            {/* inner glass highlight, meaningful only on the right half */}
+            <div className="pointer-events-none absolute inset-0 rounded-r-2xl ring-1 ring-inset ring-white/15 [mask-image:linear-gradient(to_right,transparent,#000_50%)]" />
+          </div>
 
-          {/* Purpose-cut to this box's 2.25 aspect (scripts/hero-cut.py). Do NOT
-              point this at a hero variant: it used to use landing-golden-1280,
-              which was fine while that file was landscape, but the mobile hero
-              is now portrait 0.550 and object-cover reduced it to a close-up of
-              the windscreen. A hero recut should not be able to reframe this
-              section. */}
-          {/* eslint-disable-next-line @next/next/no-img-element -- local /public photo; next/image+sharp not used in this app */}
-          <img
-            src="/hero/contract-rental-thumb.jpg"
-            alt="Xe hợp đồng BBVN"
-            loading="lazy"
-            decoding="async"
-            className="hidden h-32 w-72 shrink-0 rounded-xl object-cover xl:block"
-          />
+          {/* Zone 4 — trust column: items spread evenly across the full block height,
+              a hairline divider between each. */}
+          <ul className="flex list-none flex-col self-stretch divide-y divide-border/40 -my-6 lg:-my-8">
+            {TRUST.map(({ icon: Icon, label }) => (
+              <li key={label} className="flex flex-1 items-center gap-2 py-1 text-sm text-foreground/80">
+                <Icon className="size-[18px] shrink-0 text-primary-strong" strokeWidth={2.5} aria-hidden="true" />
+                {label}
+              </li>
+            ))}
+          </ul>
         </div>
-
-        <ul className="grid list-none grid-cols-2 gap-4 border-t border-border/50 p-6 lg:grid-cols-4 lg:gap-0 lg:divide-x lg:divide-border/50 lg:p-0">
-          {TRUST.map(({ icon: Icon, label }) => (
-            <li
-              key={label}
-              className="flex items-center gap-2 text-sm text-foreground/80 lg:justify-center lg:px-4 lg:py-5"
-            >
-              <Icon className="size-4 shrink-0 text-primary" aria-hidden="true" />
-              {label}
-            </li>
-          ))}
-        </ul>
       </div>
     </section>
   );

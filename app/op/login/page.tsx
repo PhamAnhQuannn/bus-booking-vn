@@ -15,14 +15,17 @@
  */
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { ArrowRight, Eye, EyeOff, KeyRound, Lock, ShieldCheck, UserRound, Users } from 'lucide-react';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { cn } from '@/lib/utils';
 
 type Step = 'password' | 'otp';
 
@@ -31,6 +34,7 @@ export default function OpLoginPage() {
   const [step, setStep] = useState<Step>('password');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // OTP step state
   const [loginChallenge, setLoginChallenge] = useState('');
@@ -140,89 +144,173 @@ export default function OpLoginPage() {
   }
 
   return (
-    <AuthSplitLayout audience="operator" title="Đăng nhập — Quản trị viên">
-      <Card className="shadow-e3">
-        <CardContent>
+    <AuthSplitLayout
+      audience="operator"
+      title="Đăng nhập quản trị"
+      subtitle={
+        <span className="inline-flex items-center gap-1.5">
+          <ShieldCheck className="size-4 shrink-0 text-primary" aria-hidden="true" />
+          Dành cho quản trị viên và nhân viên nhà xe
+        </span>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <Card className="gap-5 rounded-2xl p-8 shadow-e3">
           {step === 'password' && (
-            <form onSubmit={handleLogin} method="post" className="grid gap-4">
+            <form onSubmit={handleLogin} method="post" className="grid gap-5">
               <div className="grid gap-1.5">
-                <Label htmlFor="op-login-username">Tên đăng nhập</Label>
-                <Input
-                  id="op-login-username"
-                  type="text"
-                  name="username"
-                  autoCapitalize="characters"
-                  autoComplete="username"
-                  required
-                  placeholder="VD: PB-0001"
-                />
+                <Label htmlFor="op-login-username">Mã quản trị / Tên đăng nhập</Label>
+                <div className="relative">
+                  <UserRound
+                    className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                  <Input
+                    id="op-login-username"
+                    type="text"
+                    name="username"
+                    autoCapitalize="characters"
+                    autoComplete="username"
+                    required
+                    placeholder="Ví dụ: PB-0001"
+                    className="h-11 pl-10"
+                  />
+                </div>
+                <p className="text-[13px] text-muted-foreground">Mã được cấp bởi hệ thống BBVN.</p>
               </div>
+
               <div className="grid gap-1.5">
                 <Label htmlFor="op-login-password">Mật khẩu</Label>
-                <Input id="op-login-password" type="password" name="password" required />
+                <div className="relative">
+                  <Lock
+                    className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                  <Input
+                    id="op-login-password"
+                    type={showPassword ? 'text' : 'password'}
+                    name="password"
+                    autoComplete="current-password"
+                    required
+                    placeholder="Nhập mật khẩu của bạn"
+                    className="h-11 pl-10 pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                    aria-pressed={showPassword}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+                  >
+                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </div>
               </div>
+
+              <div className="flex justify-end">
+                <a
+                  className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+                  href="/op/forgot-password"
+                >
+                  Quên mật khẩu?
+                </a>
+              </div>
+
               {error && (
                 <Alert variant="error">
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
-              <Button type="submit" disabled={loading} aria-busy={loading} className="w-full">
+
+              <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="w-full">
                 {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+                {!loading && <ArrowRight className="size-4" aria-hidden="true" />}
               </Button>
             </form>
           )}
 
           {step === 'otp' && (
-            <form onSubmit={handleOtpVerify} method="post" className="grid gap-4">
+            <form onSubmit={handleOtpVerify} method="post" className="grid gap-5">
               <p className="text-sm text-muted-foreground">
                 Mã xác thực đã được gửi đến <strong>{maskedEmail}</strong>. Vui lòng nhập mã 6 chữ số.
               </p>
               <div className="grid gap-1.5">
                 <Label htmlFor="op-login-otp">Mã xác thực</Label>
-                <Input
-                  id="op-login-otp"
-                  type="text"
-                  name="code"
-                  maxLength={6}
-                  pattern="[0-9]{6}"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  autoFocus
-                  required
-                  placeholder="000000"
-                />
+                <div className="relative">
+                  <KeyRound
+                    className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                  <Input
+                    id="op-login-otp"
+                    type="text"
+                    name="code"
+                    maxLength={6}
+                    pattern="[0-9]{6}"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    autoFocus
+                    required
+                    placeholder="000000"
+                    className="h-11 pl-10 tracking-[0.5em]"
+                  />
+                </div>
               </div>
               {error && (
                 <Alert variant="error">
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
-              <Button type="submit" disabled={loading} aria-busy={loading} className="w-full">
+              <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="w-full">
                 {loading ? 'Đang xác thực...' : 'Xác nhận'}
               </Button>
               <button
                 type="button"
                 className="text-sm text-muted-foreground underline underline-offset-4 hover:text-primary"
-                onClick={() => { setStep('password'); setError(''); }}
+                onClick={() => {
+                  setStep('password');
+                  setError('');
+                }}
               >
                 ← Quay lại đăng nhập
               </button>
             </form>
           )}
+        </Card>
 
-          <p className="mt-4 text-sm">
-            <a className="text-primary underline-offset-4 hover:underline" href="/op/forgot-password">
-              Quên mật khẩu?
-            </a>
-          </p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Chưa có tài khoản?{' '}
-            <a className="text-primary underline-offset-4 hover:underline" href="/op/register">
-              Trở thành đối tác
-            </a>
-          </p>
-        </CardContent>
-      </Card>
+        {/* Partner onboarding — a distinct card so business signup reads as a separate
+            intent from operator authentication (not crowded inside the login card). */}
+        <div className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/[0.06] p-4">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Users className="size-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold">Chưa là đối tác BBVN?</p>
+            <p className="text-[13px] text-muted-foreground">
+              Đăng ký hợp tác để quản lý và phát triển doanh nghiệp cùng BBVN.
+            </p>
+          </div>
+          <Link
+            href="/op/register"
+            className={cn(
+              buttonVariants({ variant: 'outline', size: 'sm' }),
+              'shrink-0 border-primary/40 text-primary hover:bg-primary/10 hover:text-primary'
+            )}
+          >
+            Trở thành đối tác
+            <ArrowRight className="size-4" aria-hidden="true" />
+          </Link>
+        </div>
+
+        {/* Security reassurance footnote — low emphasis. */}
+        <p className="flex items-start gap-2 text-[13px] text-muted-foreground">
+          <ShieldCheck className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <span>
+            <span className="font-medium text-foreground/80">Bảo mật thông tin tuyệt đối.</span> Dữ liệu của bạn
+            được mã hóa và bảo vệ theo tiêu chuẩn cao nhất.
+          </span>
+        </p>
+      </div>
     </AuthSplitLayout>
   );
 }

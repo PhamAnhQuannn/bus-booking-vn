@@ -52,7 +52,8 @@ import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import { searchResultSelect } from '@/lib/core/db/selects';
 import { SEARCH_VISIBLE_STATUSES } from '@/lib/onboarding';
-import { findCanonicalNameBySlug } from '@/lib/places';
+import { findCanonicalNameBySlug, findByNameOrAlias } from '@/lib/places';
+import { parseBoardingSchedule, type BoardingStop } from './boardingSchedule';
 import { fromZonedTime } from 'date-fns-tz';
 import { startOfDay, endOfDay } from 'date-fns';
 import { encodeCursor, decodeCursor } from '@/lib/core/db/searchCursor';
@@ -98,12 +99,15 @@ export interface TripResult {
   departureAt: string;
   price: number;
   availableSeats: number;
+  capacity: number;
   operatorLegalName: string;
+  operatorContactPhone: string;
   operatorId: string;
   busType: 'coach' | 'sleeper' | 'limousine';
   durationMinutes: number;
   routeOrigin: string;
   routeDestination: string;
+  boardingSchedule: BoardingStop[];
 }
 
 /**
@@ -119,13 +123,19 @@ export async function searchTrips(input: TripSearchInput): Promise<TripSearchPag
   const limit = input.limit ?? SEARCH_PAGE_LIMIT;
   const seek = decodeCursor(input.cursor);
 
-  // Issue 262: resolve slug → canonical name so /search?origin=ha-noi works.
-  // If the input matches a Place.slug, use the canonical name for the ILIKE.
-  // Falls through to the raw input when no slug matches (backward-compatible).
+  // Resolve the typed input to a canonical route-endpoint name, then ILIKE below.
+  //  1. Place.slug  (Issue 262: /search?origin=ha-noi)
+  //  2. Place canonicalName OR aliases  — so a boarding town that is an alias of the
+  //     route endpoint (e.g. "Nông Cống" → "Thanh Hóa") matches the one physical trip.
+  //  3. raw input (backward-compatible).
   const origin =
-    (await findCanonicalNameBySlug(input.origin)) ?? input.origin;
+    (await findCanonicalNameBySlug(input.origin)) ??
+    (await findByNameOrAlias(input.origin))?.canonicalName ??
+    input.origin;
   const destination =
-    (await findCanonicalNameBySlug(input.destination)) ?? input.destination;
+    (await findCanonicalNameBySlug(input.destination)) ??
+    (await findByNameOrAlias(input.destination))?.canonicalName ??
+    input.destination;
 
   // Convert VN wall-clock date to UTC range
   const [year, month, day] = date.split('-').map(Number);
@@ -252,12 +262,15 @@ export async function searchTrips(input: TripSearchInput): Promise<TripSearchPag
         departureAt: trip.departureAt.toISOString(),
         price: trip.price,
         availableSeats: available,
+        capacity: trip.bus.capacity,
         operatorLegalName: trip.bus.operator.legalName,
+        operatorContactPhone: trip.bus.operator.contactPhone,
         operatorId: trip.bus.operatorId,
         busType: trip.bus.busType,
         durationMinutes: trip.route.durationMinutes,
         routeOrigin: trip.route.origin,
         routeDestination: trip.route.destination,
+        boardingSchedule: parseBoardingSchedule(trip.route.boardingSchedule),
       });
     }
   }

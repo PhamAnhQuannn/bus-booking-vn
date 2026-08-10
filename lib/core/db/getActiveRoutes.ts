@@ -16,6 +16,9 @@ export interface ActiveRoute {
   minPrice: number;
   minDurationMinutes: number;
   nextDepartureAt: string; // ISO
+  /** Raw Route.boardingSchedule jsonb ([{point,time}] | null). Parse in the app
+   *  layer (parseBoardingSchedule) — lib/core must not depend on lib/trips. */
+  boardingSchedule: unknown;
 }
 
 export async function getActiveRoutes(): Promise<ActiveRoute[]> {
@@ -26,6 +29,7 @@ export async function getActiveRoutes(): Promise<ActiveRoute[]> {
     minPrice: number;
     minDurationMinutes: number;
     nextDepartureAt: Date;
+    boardingSchedule: unknown;
   };
 
   const rows = await prisma.$queryRaw<Row[]>(
@@ -36,7 +40,8 @@ export async function getActiveRoutes(): Promise<ActiveRoute[]> {
         COUNT(DISTINCT r."operatorId")::int AS "operatorCount",
         MIN(t.price)::int                AS "minPrice",
         MIN(r."durationMinutes")::int    AS "minDurationMinutes",
-        MIN(t."departureAt")             AS "nextDepartureAt"
+        MIN(t."departureAt")             AS "nextDepartureAt",
+        (array_agg(r."boardingSchedule") FILTER (WHERE r."boardingSchedule" IS NOT NULL))[1] AS "boardingSchedule"
       FROM "Route" r
       JOIN "Operator" o ON o.id = r."operatorId"
       JOIN "Trip" t ON t."routeId" = r.id
@@ -60,5 +65,6 @@ export async function getActiveRoutes(): Promise<ActiveRoute[]> {
     minPrice: r.minPrice,
     minDurationMinutes: r.minDurationMinutes,
     nextDepartureAt: r.nextDepartureAt.toISOString(),
+    boardingSchedule: r.boardingSchedule,
   }));
 }

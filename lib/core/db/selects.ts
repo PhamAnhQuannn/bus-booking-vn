@@ -36,6 +36,7 @@ export const searchResultSelect = {
       operator: {
         select: {
           legalName: true,
+          contactPhone: true,
         },
       },
     },
@@ -45,6 +46,7 @@ export const searchResultSelect = {
       origin: true,
       destination: true,
       durationMinutes: true,
+      boardingSchedule: true,
     },
   },
 } satisfies Prisma.TripSelect;

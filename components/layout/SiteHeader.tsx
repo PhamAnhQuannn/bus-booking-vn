@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 /* Nav mirrors the mockup's five items (docs/design/mockup-home.png S1). */
 const NAV = [
   { href: '/', label: 'Đặt vé xe' },
-  { href: '/tro-ly-du-lich', label: 'Trợ lý du lịch' },
+  { href: '/tro-ly-du-lich', label: 'Trợ lý du lịch', badge: 'AI' },
   { href: '/op/register', label: 'Nhà xe' },
   // Imperfect mapping: no guide page exists yet; the cancellation/refund policy is
   // the closest real destination. Replace when a real "Hướng dẫn" page ships.
@@ -209,7 +209,7 @@ export function SiteHeader() {
                 the reference's ~17px on an 1828 frame scales to ~13.4px here.
                 This also lands "VI" at nav size and keeps the button label one
                 step larger than the nav, both as measured. */}
-            <nav className="ml-16 flex items-center gap-4 text-sm" aria-label="Điều hướng chính">
+            <nav className="ml-16 flex items-center gap-4 text-lg" aria-label="Điều hướng chính">
               {NAV.map((item) => {
                 // '/' would prefix-match every route, so it needs an exact match.
                 const active =
@@ -240,6 +240,11 @@ export function SiteHeader() {
                     )}
                   >
                     {item.label}
+                    {item.badge && (
+                      <span className="ml-1.5 rounded bg-primary-strong px-1 py-px text-[10px] font-bold uppercase leading-none tracking-wide text-primary-foreground">
+                        {item.badge}
+                      </span>
+                    )}
                   </Link>
                 );
               })}
@@ -270,7 +275,7 @@ export function SiteHeader() {
                     // bg-card, not a transparent interior: the scrim has faded to
                     // ~0 this far right, so the label would otherwise sit on raw
                     // sky pixels. The reference's own button carries a fill too.
-                    'inline-flex h-11 items-center whitespace-nowrap rounded-lg border border-primary/40 bg-card px-5 text-base font-medium text-foreground outline-none transition-colors hover:bg-primary/5 focus-visible:ring-3 focus-visible:ring-ring/50'
+                    'inline-flex h-11 items-center whitespace-nowrap rounded-lg border border-primary/70 bg-card px-5 text-xl font-medium text-primary-strong outline-none transition-colors hover:bg-primary/5 focus-visible:ring-3 focus-visible:ring-ring/50'
                   )}
                 >
                   {LOGIN.label}
@@ -341,13 +346,18 @@ export function SiteHeader() {
                   onClick={() => setDrawerOpen(false)}
                   aria-current={active ? 'page' : undefined}
                   className={cn(
-                    'flex min-h-11 items-center rounded-md px-3 text-sm font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
+                    'flex min-h-11 items-center rounded-md px-3 text-base font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
                     active
                       ? 'font-semibold text-primary-strong'
                       : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
                   {item.label}
+                  {item.badge && (
+                    <span className="ml-1.5 rounded bg-primary-strong px-1 py-px text-[10px] font-bold uppercase leading-none tracking-wide text-primary-foreground">
+                      {item.badge}
+                    </span>
+                  )}
                 </Link>
               );
             })}

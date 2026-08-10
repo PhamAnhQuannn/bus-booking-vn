@@ -151,6 +151,10 @@ model Route {
   /// columns above stay AS-IS as a back-compat shim; this link is additive.
   originPlaceId      String?
   destPlaceId        String?
+  /// Display-only per-direction boarding schedule: JSON array [{point, time "HH:MM"}].
+  /// Nullable + additive; NOT used in any query predicate (this bus makes staggered
+  /// pickups on one physical trip — the times are shown to riders, not booked against).
+  boardingSchedule   Json?
   trips              Trip[]
   operator           Operator                @relation(fields: [operatorId], references: [id], onDelete: Restrict)
   originPlace        Place?                  @relation("RouteOrigin", fields: [originPlaceId], references: [id], onDelete: SetNull)

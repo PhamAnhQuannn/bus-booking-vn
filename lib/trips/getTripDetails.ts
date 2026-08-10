@@ -9,6 +9,7 @@
 
 import { prisma } from '@/lib/core/db/client';
 import { isSearchVisible } from '@/lib/onboarding';
+import { parseBoardingSchedule, type BoardingStop } from './boardingSchedule';
 
 export interface TripDetails {
   tripId: string;
@@ -22,6 +23,7 @@ export interface TripDetails {
   routeDestination: string;
   operatorLegalName: string;
   operatorContactPhone: string;
+  boardingSchedule: BoardingStop[];
 }
 
 export async function getTripDetails(id: string): Promise<TripDetails | null> {
@@ -49,6 +51,7 @@ export async function getTripDetails(id: string): Promise<TripDetails | null> {
           origin: true,
           destination: true,
           durationMinutes: true,
+          boardingSchedule: true,
           // Issue 069: admin moderation flag on the parent route.
           moderatedAt: true,
         },
@@ -99,5 +102,6 @@ export async function getTripDetails(id: string): Promise<TripDetails | null> {
     routeDestination: trip.route.destination,
     operatorLegalName: trip.bus.operator.legalName,
     operatorContactPhone: trip.bus.operator.contactPhone,
+    boardingSchedule: parseBoardingSchedule(trip.route.boardingSchedule),
   };
 }
