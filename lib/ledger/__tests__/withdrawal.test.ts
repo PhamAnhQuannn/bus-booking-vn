@@ -107,6 +107,23 @@ describe('requestWithdrawal — insufficient', () => {
     expect(payoutCreate).not.toHaveBeenCalled();
     expect(append).not.toHaveBeenCalled();
   });
+
+  it('subtracts `reserved` (due pending payout) from available → insufficient (P0-1)', async () => {
+    // settledMinusPaid 500_000 but ALL of it is reserved by a due pending auto-payout
+    // → availableUnderLock = 500_000 − 500_000 = 0. A withdrawal must be rejected so the
+    // same money isn't paid twice (once by the auto-payout, once by the withdrawal).
+    txQueryRaw.mockResolvedValueOnce([]); // FOR UPDATE lock row
+    txQueryRaw.mockResolvedValueOnce([{ available: '500000' }]); // settledEligible − paidOut
+    txQueryRaw.mockResolvedValueOnce([{ reserved: '500000' }]); // committed to a pending payout
+    const res = await requestWithdrawal({
+      operatorId: OP,
+      amountMinor: 200_000,
+      idempotencyKey: KEY,
+    });
+    expect(res).toEqual({ ok: false, reason: 'insufficient_available' });
+    expect(payoutCreate).not.toHaveBeenCalled();
+    expect(append).not.toHaveBeenCalled();
+  });
 });
 
 describe('requestWithdrawal — payout-account guard (Issue 078)', () => {

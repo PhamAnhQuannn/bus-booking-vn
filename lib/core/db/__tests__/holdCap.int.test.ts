@@ -80,6 +80,7 @@ describe('concurrent-hold cap (Issue 098)', () => {
       ticketCount: 1,
       customerPhone: PHONE_CAP_TEST,
       customerName: 'Cap Test User',
+      customerEmail: 'test@example.com',
     });
 
     expect(result).not.toBeNull();
@@ -94,6 +95,7 @@ describe('concurrent-hold cap (Issue 098)', () => {
           ticketCount: 1,
           customerPhone: PHONE_CAP_TEST,
           customerName: 'Cap Test User',
+          customerEmail: 'test@example.com',
         })
       )
     );
@@ -119,6 +121,7 @@ describe('concurrent-hold cap (Issue 098)', () => {
         ticketCount: 1,
         customerPhone: PHONE_CAP_TEST,
         customerName: 'Phone A',
+        customerEmail: 'test@example.com',
       });
       expect(r).not.toBeNull();
     }
@@ -130,6 +133,7 @@ describe('concurrent-hold cap (Issue 098)', () => {
       ticketCount: 1,
       customerPhone: PHONE_OTHER,
       customerName: 'Phone B',
+      customerEmail: 'test@example.com',
     });
     expect(otherResult).not.toBeNull();
   });

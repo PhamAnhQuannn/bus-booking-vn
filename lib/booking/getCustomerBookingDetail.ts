@@ -28,6 +28,8 @@ export const customerBookingDetailSelect = {
   paymentMethod: true,
   status: true,
   createdAt: true,
+  boardingPoint: true,
+  boardingTime: true,
   trip: {
     select: {
       departureAt: true,
@@ -60,6 +62,9 @@ export interface CustomerBookingDetail {
   departureAt: string; // ISO 8601
   busLicensePlate: string;
   operator: { legalName: string; contactPhone: string };
+  /** Chosen boarding point (name) + "HH:MM" from the results card; null pre-feature. */
+  boardingPoint: string | null;
+  boardingTime: string | null;
 }
 
 function toCustomerBookingDetail(row: CustomerBookingDetailRaw): CustomerBookingDetail {
@@ -80,6 +85,8 @@ function toCustomerBookingDetail(row: CustomerBookingDetailRaw): CustomerBooking
       legalName: row.trip.bus.operator.legalName,
       contactPhone: row.trip.bus.operator.contactPhone,
     },
+    boardingPoint: row.boardingPoint,
+    boardingTime: row.boardingTime,
   };
 }
 

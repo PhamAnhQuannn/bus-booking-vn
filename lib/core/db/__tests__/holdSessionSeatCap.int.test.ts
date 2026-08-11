@@ -95,6 +95,7 @@ describe('per-session seat cap (#359)', () => {
       ticketCount: SESSION_SEAT_CAP,
       customerPhone: '+8490xxxxxx1',
       customerName: 'Family Booking',
+      customerEmail: 'test@example.com',
       sessionId: SESSION_A,
     });
 
@@ -109,6 +110,7 @@ describe('per-session seat cap (#359)', () => {
       ticketCount: SESSION_SEAT_CAP,
       customerPhone: '+8490xxxxxx1',
       customerName: 'Squatter One',
+      customerEmail: 'test@example.com',
       sessionId: SESSION_A,
     });
     expect(first).not.toBeNull();
@@ -119,6 +121,7 @@ describe('per-session seat cap (#359)', () => {
         ticketCount: 1,
         customerPhone: '+8490xxxxxx2', // different phone, same session
         customerName: 'Squatter Two',
+        customerEmail: 'test@example.com',
         sessionId: SESSION_A,
       })
     ).rejects.toBeInstanceOf(SessionSeatCapExceededError);
@@ -131,6 +134,7 @@ describe('per-session seat cap (#359)', () => {
         ticketCount: 1,
         customerPhone: `+8490xxxxxx${i % 10}`,
         customerName: `Seat ${i}`,
+        customerEmail: 'test@example.com',
         sessionId: SESSION_A,
       });
       expect(r).not.toBeNull();
@@ -142,6 +146,7 @@ describe('per-session seat cap (#359)', () => {
         ticketCount: 1,
         customerPhone: '+8490xxxxxx9',
         customerName: 'One Too Many',
+        customerEmail: 'test@example.com',
         sessionId: SESSION_A,
       })
     ).rejects.toBeInstanceOf(SessionSeatCapExceededError);
@@ -161,6 +166,7 @@ describe('per-session seat cap (#359)', () => {
           ticketCount: SEATS_EACH,
           customerPhone: `+8490xxxxxx${i % 10}`,
           customerName: `Parallel ${i}`,
+          customerEmail: 'test@example.com',
           sessionId: SESSION_A,
         })
       )
@@ -184,6 +190,7 @@ describe('per-session seat cap (#359)', () => {
       ticketCount: SESSION_SEAT_CAP,
       customerPhone: '+8490xxxxxx1',
       customerName: 'Session A',
+      customerEmail: 'test@example.com',
       sessionId: SESSION_A,
     });
     expect(a).not.toBeNull();
@@ -193,6 +200,7 @@ describe('per-session seat cap (#359)', () => {
       ticketCount: SESSION_SEAT_CAP,
       customerPhone: '+8490xxxxxx2',
       customerName: 'Session B',
+      customerEmail: 'test@example.com',
       sessionId: SESSION_B,
     });
     expect(b).not.toBeNull();
@@ -207,6 +215,7 @@ describe('per-session seat cap (#359)', () => {
       ticketCount: SESSION_SEAT_CAP,
       customerPhone: '+8490xxxxxx1',
       customerName: 'No Session One',
+      customerEmail: 'test@example.com',
       sessionId: null,
     });
     expect(first).not.toBeNull();
@@ -216,6 +225,7 @@ describe('per-session seat cap (#359)', () => {
       ticketCount: 1,
       customerPhone: '+8490xxxxxx2',
       customerName: 'No Session Two',
+      customerEmail: 'test@example.com',
       sessionId: null,
     });
     expect(second).not.toBeNull();

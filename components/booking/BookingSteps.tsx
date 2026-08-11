@@ -2,10 +2,12 @@ import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
- * Booking funnel step indicator. 1 Thông tin → 2 Xác nhận → 3 Thanh toán.
- * `current` is the active 1-based step; earlier steps render done (check).
+ * Booking funnel step indicator. 1 Thông tin → 2 Xác nhận & Thanh toán → 3 Hoàn tất.
+ * Steps 1+2 (info + review/pay) were merged onto one page — the merged checkout
+ * renders `current={2}`. `current` is the active 1-based step; earlier steps
+ * render done (check).
  */
-const STEPS = ['Thông tin', 'Xác nhận', 'Thanh toán'] as const;
+const STEPS = ['Thông tin', 'Xác nhận & Thanh toán', 'Hoàn tất'] as const;
 
 export function BookingSteps({ current }: { current: 1 | 2 | 3 }) {
   return (

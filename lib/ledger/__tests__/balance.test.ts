@@ -27,11 +27,21 @@ import { getOperatorBalance, OPERATOR_BALANCE_TYPES } from '../balance';
 
 const queryRaw = prisma.$queryRaw as unknown as ReturnType<typeof vi.fn>;
 
-/** Mock the aggregate row the bucket SQL returns (Postgres ::text columns). */
-function mockRow(settledEligible: string, pendingSum: string, paidOut: string) {
+/**
+ * Mock the two aggregate rows getOperatorBalance reads in order:
+ *   1. the bucket SQL row (settled_eligible / pending_sum / paid_out)
+ *   2. the RESERVED row (net committed to a due, not-yet-debited pending payout).
+ */
+function mockRow(
+  settledEligible: string,
+  pendingSum: string,
+  paidOut: string,
+  reserved = '0',
+) {
   queryRaw.mockResolvedValueOnce([
     { settled_eligible: settledEligible, pending_sum: pendingSum, paid_out: paidOut },
   ]);
+  queryRaw.mockResolvedValueOnce([{ reserved }]);
 }
 
 describe('getOperatorBalance', () => {
@@ -61,6 +71,17 @@ describe('getOperatorBalance', () => {
     expect(bal.paidOut).toBe(BigInt(1_000_000));
     // available = settledEligible − paidOut = 1,410,000 − 1,000,000.
     expect(bal.available).toBe(BigInt(410_000));
+    expect(bal.pending).toBe(BigInt(0));
+  });
+
+  it('reserves net committed to a due pending payout → available drops by it (P0-1)', async () => {
+    // settlement-eligible 1,410,000; nothing paid out yet; but 410,000 is already
+    // committed to a due `requested` auto-payout (no payout_debit yet).
+    mockRow('1410000', '0', '0', '410000');
+    const bal = await getOperatorBalance('op-1');
+    // available = settledEligible − paidOut − reserved = 1,410,000 − 0 − 410,000.
+    expect(bal.available).toBe(BigInt(1_000_000));
+    expect(bal.paidOut).toBe(BigInt(0)); // reserved is NOT paidOut (not yet disbursed)
     expect(bal.pending).toBe(BigInt(0));
   });
 
@@ -148,7 +169,8 @@ describe('getOperatorBalance', () => {
   });
 
   it('empty ledger (no rows) → all zero', async () => {
-    queryRaw.mockResolvedValueOnce([]);
+    queryRaw.mockResolvedValueOnce([]); // bucket SQL
+    queryRaw.mockResolvedValueOnce([]); // reserved SQL
     const bal = await getOperatorBalance('op-1');
     expect(bal.pending).toBe(BigInt(0));
     expect(bal.available).toBe(BigInt(0));

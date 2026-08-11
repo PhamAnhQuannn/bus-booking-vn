@@ -114,6 +114,7 @@ describe('bounded trip-lock under contention (#362)', () => {
           ticketCount: 1,
           customerPhone: '+8490xxxxxx1',
           customerName: 'Blocked Buyer',
+          customerEmail: 'test@example.com',
           sessionId: 'sess-blocked',
         }).then(
           () => 'resolved' as const,
@@ -147,6 +148,7 @@ describe('bounded trip-lock under contention (#362)', () => {
       ticketCount: 1,
       customerPhone: '+8490xxxxxx1',
       customerName: 'Unblocked Buyer',
+      customerEmail: 'test@example.com',
       sessionId: 'sess-unblocked',
     });
 
@@ -163,6 +165,7 @@ describe('bounded trip-lock under contention (#362)', () => {
           ticketCount: 1,
           customerPhone: `+8490xxxxxx${i % 10}`,
           customerName: `Contender ${i}`,
+          customerEmail: 'test@example.com',
           // Distinct sessions: the session lock must not be what serialises this. The
           // trip lock is the one under test.
           sessionId: `sess-contend-${i}`,
@@ -210,6 +213,7 @@ describe('bounded trip-lock under contention (#362)', () => {
           ticketCount: 10,
           customerPhone: `+8490xxxxxx${i % 10}`,
           customerName: `Oversell ${i}`,
+          customerEmail: 'test@example.com',
           sessionId: `sess-oversell-${i}`,
         })
       )
@@ -287,6 +291,7 @@ describe.each([
           tripId,
           ticketCount: 1,
           customerName: 'Contended Buyer',
+          customerEmail: 'test@example.com',
           ...args,
         }).then(
           () => 'resolved' as const,

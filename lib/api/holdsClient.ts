@@ -30,6 +30,11 @@ export interface HoldSuccess {
   ok: true;
   holdId: string;
   expiresAt: string;
+  /** Boarding point the SERVER kept after validating against the route schedule.
+   *  Null when the chosen point was dropped (stale/mismatched) — the caller compares
+   *  against what it sent to detect a silent drop. */
+  boardingPoint: string | null;
+  boardingTime: string | null;
 }
 
 export interface HoldError {
@@ -71,7 +76,13 @@ export async function createHoldRequest(body: HoldRequestBody): Promise<HoldResu
 
   if (res.status === 200) {
     const data = await res.json();
-    return { ok: true, holdId: data.holdId, expiresAt: data.expiresAt };
+    return {
+      ok: true,
+      holdId: data.holdId,
+      expiresAt: data.expiresAt,
+      boardingPoint: data.boardingPoint ?? null,
+      boardingTime: data.boardingTime ?? null,
+    };
   }
 
   if (res.status === 409) {

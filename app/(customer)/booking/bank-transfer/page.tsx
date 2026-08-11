@@ -14,12 +14,11 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getBookingByRef, getBookingByConfirmationToken } from '@/lib/booking';
+import { PSP_WINDOW_MINUTES } from '@/lib/core/db/pspWindow';
 import { getEnv } from '@/lib/config';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BookingSummaryRail } from '@/components/booking/BookingSummaryRail';
+import { BankTransferDetails } from '@/components/booking/BankTransferDetails';
 import { BankTransferClient } from './BankTransferClient';
-import { CopyButton } from './CopyButton';
-import { QrImage } from './QrImage';
 
 export const metadata: Metadata = {
   title: 'Thanh toán chuyển khoản | BBVN',
@@ -34,21 +33,10 @@ interface BankTransferPageProps {
   }>;
 }
 
-// Payment window a bank-transfer booking stays payable before the reconciliation
-// sweeper resolves it (lib/jobs/reconcilePayments.ts RECONCILE_THRESHOLD_MINUTES).
-// Kept as a display-only mirror here — not imported cross-domain, keep in sync
-// if the sweeper threshold changes.
-const PAYMENT_WINDOW_MINUTES = 15;
-
-function formatVND(amount: number): string {
-  return (
-    new Intl.NumberFormat('vi-VN', {
-      style: 'decimal',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount) + 'đ'
-  );
-}
+// Payment window = the true capacity-protection / expiry bound (PSP_WINDOW_MINUTES,
+// lib/core/db/holdRepo). Imported (lib/core is barrel-exempt) instead of a hand-synced
+// literal so the customer countdown can never drift from when the booking actually dies.
+const PAYMENT_WINDOW_MINUTES = PSP_WINDOW_MINUTES;
 
 export default async function BankTransferPage({ searchParams }: BankTransferPageProps) {
   const sp = await searchParams;
@@ -102,54 +90,21 @@ export default async function BankTransferPage({ searchParams }: BankTransferPag
           </p>
         </header>
 
-        <div className="flex flex-col items-center gap-4">
-          <QrImage src={qrUrl} alt={`Mã QR thanh toán ${bookingRef}`} />
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle as="h2">Thông tin chuyển khoản</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <dl className="flex flex-col gap-3 text-sm">
-              <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">Ngân hàng</dt>
-                <dd className="text-right font-medium">{bankName}</dd>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <dt className="text-muted-foreground">Số tài khoản</dt>
-                <dd className="flex items-center gap-1 font-mono font-medium">
-                  {accountNumber}
-                  <CopyButton value={accountNumber} label="số tài khoản" />
-                </dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">Chủ tài khoản</dt>
-                <dd className="text-right font-medium">{accountName}</dd>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <dt className="text-muted-foreground">Nội dung CK</dt>
-                <dd className="flex items-center gap-1 font-mono font-semibold text-primary">
-                  {bookingRef}
-                  <CopyButton value={bookingRef} label="nội dung chuyển khoản" showLabel />
-                </dd>
-              </div>
-              <div className="mt-1 flex items-center justify-between gap-4 border-t border-border pt-3 text-lg font-semibold">
-                <dt>Số tiền</dt>
-                <dd className="flex items-center gap-1 font-mono text-primary">
-                  {formatVND(amount)}
-                  <CopyButton value={String(amount)} label="số tiền" />
-                </dd>
-              </div>
-            </dl>
-          </CardContent>
-        </Card>
+        <BankTransferDetails
+          bankName={bankName}
+          accountNumber={accountNumber}
+          accountName={accountName}
+          bookingRef={bookingRef}
+          amount={amount}
+          qrUrl={qrUrl}
+        />
 
         <BankTransferClient
           bookingRef={bookingRef}
           confirmationToken={booking.confirmationToken}
           redirectUrl={redirectUrl}
           deadlineIso={deadlineIso}
+          windowMinutes={PAYMENT_WINDOW_MINUTES}
         />
 
         <p className="text-center text-sm text-muted-foreground">

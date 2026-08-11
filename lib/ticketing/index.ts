@@ -7,4 +7,4 @@ export { getTicketVerification } from './getTicketVerification';
 export { mintTicketToken, verifyTicketToken } from './ticketToken';
 
 // qr.ts
-export { ticketQrMatrix } from './qr';
+export { ticketQrMatrix, ticketQrSvg, ticketQrDataUrl } from './qr';

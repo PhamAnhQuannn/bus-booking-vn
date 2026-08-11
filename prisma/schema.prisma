@@ -345,6 +345,10 @@ model Booking {
   status               BookingStatus       @default(awaiting_payment)
   isManual             Boolean             @default(false)
   createdAt            DateTime            @default(now())
+  /// Instant the booking became paid — the receipt/verify timestamp. Set on the
+  /// paid transition (applyPaidStatusTransition) and at cash-booking creation.
+  /// Nullable: awaiting_payment/failed rows and pre-feature paid rows have none.
+  paidAt               DateTime?
   /// Issue 014: operator call-queue contact tracking
   contactStatus        ContactStatus       @default(pending)
   pickupKind           PickupKind          @default(station)
@@ -532,6 +536,8 @@ model Customer {
   charterRequests CharterRequest[]
   /// ADR-021/DS-033: linked OAuth providers (Google). Zero or one Google Account.
   accounts        Account[]
+  /// Redesign v4: lịch sử hội thoại trợ lý du lịch (persist, đồng bộ đa thiết bị).
+  plannerConversations PlannerConversation[]
 }
 
 /// DS-033: customer↔OAuth-provider link. One row per (provider, external account).
@@ -587,6 +593,34 @@ model Session {
 
   @@index([customerId])
   @@index([expiresAt])
+}
+
+/// Redesign v4 — lịch sử hội thoại trợ lý du lịch (persist cho customer đã đăng nhập;
+/// guest dùng localStorage client-side). Owner-scoped: mọi truy vấn lọc theo customerId.
+model PlannerConversation {
+  id         String           @id @default(cuid())
+  customerId String
+  customer   Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  title      String
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  messages   PlannerMessage[]
+
+  @@index([customerId, updatedAt(sort: Desc)])
+}
+
+/// Một lượt lời trong hội thoại. dtoJson = snapshot PlannerDto khi bot message mang lịch trình.
+model PlannerMessage {
+  id             String              @id @default(cuid())
+  conversationId String
+  conversation   PlannerConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  /// 'user' | 'bot'
+  role           String
+  text           String
+  dtoJson        Json?
+  createdAt      DateTime            @default(now())
+
+  @@index([conversationId, createdAt])
 }
 
 // ---------------------------------------------------------------------------
