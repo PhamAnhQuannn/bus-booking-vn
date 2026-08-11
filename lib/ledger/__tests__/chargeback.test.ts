@@ -77,6 +77,7 @@ beforeEach(() => {
   balance.mockResolvedValue({
     pending: BigInt(0),
     available: BigInt(10_000_000),
+    coverable: BigInt(10_000_000),
     paidOut: BigInt(0),
   });
 });
@@ -190,6 +191,7 @@ describe('recordChargeback — insufficient-balance backstop (S15#7)', () => {
     balance.mockResolvedValue({
       pending: BigInt(0),
       available: BigInt(120_000),
+      coverable: BigInt(120_000),
       paidOut: BigInt(0),
     });
 
@@ -213,6 +215,7 @@ describe('recordChargeback — insufficient-balance backstop (S15#7)', () => {
     balance.mockResolvedValue({
       pending: BigInt(0),
       available: BigInt(-30_000), // already in the red
+      coverable: BigInt(-30_000),
       paidOut: BigInt(0),
     });
     const res = await recordChargeback({
@@ -229,6 +232,7 @@ describe('recordChargeback — insufficient-balance backstop (S15#7)', () => {
     balance.mockResolvedValue({
       pending: BigInt(0),
       available: BigInt(200_000),
+      coverable: BigInt(200_000),
       paidOut: BigInt(0),
     });
     const res = await recordChargeback({
@@ -246,6 +250,7 @@ describe('recordChargeback — insufficient-balance backstop (S15#7)', () => {
     balance.mockResolvedValue({
       pending: BigInt(0),
       available: BigInt(120_000),
+      coverable: BigInt(120_000),
       paidOut: BigInt(0),
     });
     await recordChargeback({
