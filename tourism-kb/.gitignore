@@ -22,6 +22,9 @@ wiki/
 # Ba ban phat hanh .docx + output/archive/.
 output/
 
+# Du lieu JSON xuat cho planner (chua SDT that) — khong bao gio commit.
+export/
+
 # Output sinh ra roi vao thu muc script — lop lot cua diem_den_chot.json (tung
 # bi COMMIT vi no roi vao thu muc code chu khong phai thu muc du lieu).
 code/*.json

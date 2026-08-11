@@ -57,6 +57,7 @@ import { parseBoardingSchedule, type BoardingStop } from './boardingSchedule';
 import { fromZonedTime } from 'date-fns-tz';
 import { startOfDay, endOfDay } from 'date-fns';
 import { encodeCursor, decodeCursor } from '@/lib/core/db/searchCursor';
+import { PSP_WINDOW_MINUTES } from '@/lib/core/db/holdRepo';
 export { encodeCursor, decodeCursor } from '@/lib/core/db/searchCursor';
 
 const TZ = 'Asia/Ho_Chi_Minh';
@@ -240,16 +241,24 @@ export async function searchTrips(input: TripSearchInput): Promise<TripSearchPag
 
   // Aggregate paid (or pending-cash) booking ticketCount sums per trip.
   // Mirrors holdRepo's capacity subtraction so search results never show seats
-  // that are reserved by a booking but not by an active hold.
+  // that are reserved by a booking but not by an active hold. Includes Issue-100
+  // awaiting_payment bookings still inside the PSP confirmation window — they
+  // occupy the seat exactly as the hold-repo capacity check counts them.
   type BookingSum = { tripId: string; bookedSeats: bigint };
   const bookingSums = await prisma.$queryRaw<BookingSum[]>(
     Prisma.sql`
       SELECT "tripId", SUM("ticketCount") AS "bookedSeats"
       FROM "Booking"
       WHERE "tripId" = ANY(${tripIds}::text[])
-        AND status IN (
-          'paid'::"BookingStatus",
-          'completed'::"BookingStatus"
+        AND (
+          status IN (
+            'paid'::"BookingStatus",
+            'completed'::"BookingStatus"
+          )
+          OR (
+            status = 'awaiting_payment'::"BookingStatus"
+            AND "createdAt" > NOW() - (${PSP_WINDOW_MINUTES} * INTERVAL '1 minute')
+          )
         )
       GROUP BY "tripId"
     `

@@ -48,6 +48,8 @@ const bookingQueueSelect = {
   isManual: true,
   escalatedAt: true,
   pickupDetail: true,
+  boardingPoint: true,
+  boardingTime: true,
   trip: {
     select: {
       id: true,

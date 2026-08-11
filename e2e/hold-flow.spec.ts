@@ -81,17 +81,17 @@ async function searchForTrips(page: Page) {
 }
 
 test.describe('Hold booking flow', () => {
-  test('complete booking flow: search → customer form → review → timer', async ({ page }, testInfo) => {
-    // Quarantined on mobile-390 (WebKit): the customer-form → /booking/review
-    // navigation intermittently exceeds the 30s timeout under WebKit/mobile in CI
+  test('complete booking flow: search → merged checkout → QR reveal', async ({ page }, testInfo) => {
+    // Quarantined on mobile-390 (WebKit): the merged-checkout confirm
+    // intermittently exceeds the 30s timeout under WebKit/mobile in CI
     // (page.waitForURL hangs on the @base-ui form submit). The full flow is covered
     // on the chromium project here. Tracked: issues/102-mobile-webkit-e2e.md.
     // The full browser submit can't run headless: the phone field is a base-ui masked
     // input that ignores Playwright fill/pressSequentially, so the hold POST rejects on
     // an empty phone. Boarding-point PERSISTENCE is covered by the API test above; this
-    // UI path (review/timer) is verified manually. (Already skipped in CI when the demo
-    // seed was absent — booking against the live single-operator route hits the same
-    // masked-input wall.)
+    // UI path (merged checkout → QR reveal) is verified manually. (Already skipped in CI
+    // when the demo seed was absent — booking against the live single-operator route hits
+    // the same masked-input wall.)
     test.skip(true, 'base-ui masked phone input not drivable headless — boarding covered by API test');
     await searchForTrips(page);
 
@@ -103,9 +103,9 @@ test.describe('Hold booking flow', () => {
     // Click first "Book" button
     await bookButtons.first().click();
 
-    // Should navigate to /booking/customer (or redirect there via store setup)
-    // The layout guard needs tripId in store — normally set by the search result click handler
-    // For e2e, we set the store via localStorage hack or direct navigation with state
+    // Merged checkout: passenger info + trip info + payment + consent on ONE URL
+    // (/booking/customer). The layout guard needs tripId in store OR the URL — set
+    // by the results click handler / carried on the URL.
     await page.waitForURL('**/booking/customer**');
     await expect(page).toHaveURL(/booking\/customer/);
 
@@ -113,23 +113,19 @@ test.describe('Hold booking flow', () => {
     await page.getByLabel(/họ và tên|name/i).fill('Nguyen Van Test');
     await page.getByLabel(/email/i).fill('test@example.com');
     await expect(page.getByLabel(/số điện thoại|phone/i)).toHaveValue('0912345678');
-    await page.getByRole('button', { name: /tiếp tục|continue/i }).click();
 
-    // Should navigate to review
-    await page.waitForURL('**/booking/review**');
-    await expect(page).toHaveURL(/booking\/review/);
+    // Both consents must be accepted before the CTA enables.
+    await page.getByRole('checkbox').first().check();
+    await page.getByRole('checkbox').nth(1).check();
+    await page.getByRole('button', { name: /xác nhận thanh toán/i }).click();
 
-    // Should show hold details with total in VND format
+    // Stays on /booking/customer; the VietQR transfer details reveal inline.
+    await expect(page).toHaveURL(/booking\/customer/);
+    await expect(page.getByText(/thông tin chuyển khoản/i)).toBeVisible();
+
+    // Should show the total in VND format.
     const total = page.getByText(/đ/);
     await expect(total.first()).toBeVisible();
-
-    // Timer should be visible and counting down
-    const timer = page.getByTestId('hold-timer-countdown');
-    await expect(timer).toBeVisible();
-
-    // Read countdown value — should be a MM:SS format
-    const timerText = await timer.textContent();
-    expect(timerText).toMatch(/^\d{2}:\d{2}$/);
   });
 
   test('phone is pre-filled on second visit after successful hold', async ({ page }) => {

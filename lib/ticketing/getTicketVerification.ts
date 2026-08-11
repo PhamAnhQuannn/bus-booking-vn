@@ -21,16 +21,17 @@
  * edit after the QR was printed is reflected at boarding time. The token carries
  * none of these; they always come from the live row.
  *
- * NO PII (this is a PUBLIC, unauthenticated page): the returned view deliberately
- * OMITS buyerName / buyerPhone / buyerEmail. A boarding check needs only the
- * booking ref, the trip, the seat count, the PAID/UNPAID state, the provider txn
- * id (non-PII gateway reference, useful to reconcile a disputed payment), and the
- * live plate. The `select` below never reads the buyer columns, so they cannot
- * leak even by accident.
+ * MINIMAL IDENTITY (product decision 2026-08-11): this page doubles as a payment
+ * RECEIPT reachable by scanning the QR, so it now shows the buyer NAME and a MASKED
+ * phone (last 4 digits only, via redactPhone) plus the payment facts (amount, method,
+ * paid time). It is safe to expose here because the token is a 192-bit capability —
+ * only someone holding the QR can open the page — and the phone is masked. buyerEmail
+ * is still NEVER read. Before this change the view was fully PII-free (Issue 072 AC2).
  */
 
 import { prisma } from '@/lib/core/db/client';
 import { verifyTicketToken } from '@/lib/ticketing/ticketToken';
+import { redactPhone } from '@/lib/audit';
 
 /** Booking statuses that mean money has been received (paid or beyond). */
 const PAID_STATUSES = new Set(['paid', 'completed']);
@@ -46,6 +47,16 @@ export interface TicketVerification {
   ticketCount: number;
   /** Gateway provider transaction id (Booking.paymentExternalRef). Null pre-payment. */
   providerTxnId: string | null;
+  /** Buyer name — shown on the receipt (product decision 2026-08-11). */
+  buyerName: string;
+  /** Buyer phone, MASKED to the last 4 digits (redactPhone). Never the full number. */
+  buyerPhoneMasked: string;
+  /** Total paid, in đồng (Booking.totalVnd). */
+  totalVnd: number;
+  /** Payment method (bank_transfer / cash / vnpay …). */
+  paymentMethod: string;
+  /** ISO 8601 instant the booking was paid; null for unpaid / pre-feature rows. */
+  paidAt: string | null;
   operatorName: string;
   route: { origin: string; destination: string };
   /** ISO 8601; the page formats it in Asia/Ho_Chi_Minh. */
@@ -82,10 +93,16 @@ export async function getTicketVerification(
       status: true,
       ticketCount: true,
       paymentExternalRef: true,
+      // Receipt fields (2026-08-11): amount, method, paid time, buyer name + phone
+      // (phone masked to last 4 in the mapper). buyerEmail is still never read.
+      totalVnd: true,
+      paymentMethod: true,
+      paidAt: true,
+      buyerName: true,
+      buyerPhone: true,
       // Issue 073: boarding state — timestamps only, no PII.
       checkedInAt: true,
       noShowAt: true,
-      // NO buyerName / buyerPhone / buyerEmail — PUBLIC page, PII-free by design.
       trip: {
         select: {
           departureAt: true,
@@ -114,6 +131,11 @@ export async function getTicketVerification(
     isPaid: PAID_STATUSES.has(booking.status),
     ticketCount: booking.ticketCount,
     providerTxnId: booking.paymentExternalRef,
+    buyerName: booking.buyerName,
+    buyerPhoneMasked: redactPhone(booking.buyerPhone),
+    totalVnd: booking.totalVnd,
+    paymentMethod: booking.paymentMethod,
+    paidAt: booking.paidAt ? booking.paidAt.toISOString() : null,
     operatorName: booking.trip.bus.operator.legalName,
     route: {
       origin: booking.trip.route.origin,

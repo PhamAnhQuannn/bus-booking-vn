@@ -25,15 +25,32 @@ import {
   StyleSheet,
   Svg,
   Rect,
+  Font,
   renderToBuffer,
 } from '@react-pdf/renderer';
+import path from 'node:path';
 import type { ReactElement } from 'react';
 import { ticketQrMatrix } from '@/lib/ticketing';
 import { mintTicketToken } from '@/lib/ticketing';
 import type { CustomerBookingDetail } from './getCustomerBookingDetail';
 
+// Register a Unicode-complete Vietnamese-supporting font. The core PDF font
+// (Helvetica) is WinAnsi-only, so every diacritic in a buyer name / route /
+// boarding point (ơ ư đ ệ …) rendered as a missing-glyph box on the one document
+// a passenger shows at boarding. Both weights are registered — a style using
+// fontWeight:'bold' with no bold face registered throws at render time (this runs
+// in the generate-ticket-pdfs cron, so a throw would silently leave tickets
+// ungenerated). Font files: public/fonts/BeVietnamPro-*.ttf (SIL OFL-1.1).
+Font.register({
+  family: 'BeVietnamPro',
+  fonts: [
+    { src: path.join(process.cwd(), 'public/fonts/BeVietnamPro-Regular.ttf'), fontWeight: 'normal' },
+    { src: path.join(process.cwd(), 'public/fonts/BeVietnamPro-Bold.ttf'), fontWeight: 'bold' },
+  ],
+});
+
 const styles = StyleSheet.create({
-  page: { padding: 40, fontSize: 11, fontFamily: 'Helvetica', color: '#1a1a1a' },
+  page: { padding: 40, fontSize: 11, fontFamily: 'BeVietnamPro', color: '#1a1a1a' },
   header: { fontSize: 20, fontWeight: 'bold', marginBottom: 4 },
   ref: { fontSize: 13, color: '#444', marginBottom: 24 },
   section: { marginBottom: 16 },
@@ -83,11 +100,11 @@ function TicketQr({ token }: { token: string }) {
   );
 }
 
-const dateFmt = new Intl.DateTimeFormat('en-GB', {
+const dateFmt = new Intl.DateTimeFormat('vi-VN', {
   timeZone: 'Asia/Ho_Chi_Minh',
   weekday: 'short',
   day: '2-digit',
-  month: 'short',
+  month: '2-digit',
   year: 'numeric',
   hour: '2-digit',
   minute: '2-digit',
@@ -106,47 +123,57 @@ function TicketDocument({
 }) {
   const departure = dateFmt.format(new Date(booking.departureAt));
   return (
-    <Document title={`Ticket ${booking.bookingRef}`}>
+    <Document title={`Vé ${booking.bookingRef}`}>
       <Page size="A5" style={styles.page}>
         <Text style={styles.header}>{booking.operator.legalName}</Text>
-        <Text style={styles.ref}>Booking ref: {booking.bookingRef}</Text>
+        <Text style={styles.ref}>Mã đặt chỗ: {booking.bookingRef}</Text>
 
         <View style={styles.section}>
           <Text style={styles.route}>
             {booking.route.origin} {'→'} {booking.route.destination}
           </Text>
-          <Text style={styles.label}>Departure</Text>
+          <Text style={styles.label}>Khởi hành</Text>
           <Text style={styles.value}>{departure}</Text>
         </View>
 
         <View style={styles.divider} />
 
         <View style={styles.section}>
-          <Text style={styles.label}>Passenger</Text>
+          <Text style={styles.label}>Hành khách</Text>
           <Text style={styles.value}>{booking.buyerName}</Text>
 
-          <Text style={styles.label}>Tickets</Text>
+          <Text style={styles.label}>Số vé</Text>
           <Text style={styles.value}>{booking.ticketCount}</Text>
 
-          <Text style={styles.label}>Bus</Text>
+          {booking.boardingPoint ? (
+            <>
+              <Text style={styles.label}>Điểm lên xe</Text>
+              <Text style={styles.value}>
+                {booking.boardingPoint}
+                {booking.boardingTime ? ` · ${booking.boardingTime}` : ''}
+              </Text>
+            </>
+          ) : null}
+
+          <Text style={styles.label}>Xe</Text>
           <Text style={styles.value}>{booking.busLicensePlate}</Text>
 
-          <Text style={styles.label}>Operator contact</Text>
+          <Text style={styles.label}>Liên hệ nhà xe</Text>
           <Text style={styles.value}>{booking.operator.contactPhone}</Text>
         </View>
 
         <View style={styles.divider} />
 
-        <Text style={styles.label}>Total paid</Text>
+        <Text style={styles.label}>Tổng tiền</Text>
         <Text style={styles.total}>{formatVnd(booking.totalVnd)}</Text>
 
         <View style={styles.qrSection}>
           <TicketQr token={token} />
-          <Text style={styles.qrCaption}>Scan at boarding</Text>
+          <Text style={styles.qrCaption}>Quét khi lên xe</Text>
         </View>
 
         <Text style={styles.footer}>
-          Present this ticket and a matching ID at boarding. Seat assigned at the operator counter.
+          Xuất trình vé này cùng giấy tờ tùy thân khi lên xe. Chỗ ngồi do nhà xe sắp xếp.
         </Text>
       </Page>
     </Document>

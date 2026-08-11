@@ -320,6 +320,28 @@ describe('reconcilePayments (b) no event + expired hold → payment_failed_expir
     expect(tx.notificationLog.create).not.toHaveBeenCalled();
     expect(res).toEqual({ rowsAffected: 0, status: 'success' });
   });
+
+  it('does NOT expire an expired-hold booking still inside the PSP window (R1b — a late bank transfer may yet land)', async () => {
+    // 17 min old: past the 15-min claim threshold, but < the 20-min PSP window — so the
+    // seat is still capacity-protected and a genuine slow transfer could still confirm.
+    // Expiring here would free the seat early AND strand a transfer that lands at min 18.
+    const seventeenMinAgo = new Date(NOW.getTime() - 17 * 60_000);
+    const tx = makeTx(
+      [
+        baseBooking({
+          createdAt: seventeenMinAgo,
+          holdCreatedAt: seventeenMinAgo,
+          holdExpiresAt: new Date(NOW.getTime() - 60_000), // hold lapsed
+        }),
+      ],
+      [[]] // no events
+    );
+    const res = await reconcilePayments(tx as never, { now: NOW });
+
+    expect(tx.$executeRaw).not.toHaveBeenCalled(); // no expire
+    expect(tx.notificationLog.create).not.toHaveBeenCalled();
+    expect(res).toEqual({ rowsAffected: 0, status: 'success' });
+  });
 });
 
 describe('reconcilePayments (c) underpaid success → NOT paid, expired when unpaid', () => {

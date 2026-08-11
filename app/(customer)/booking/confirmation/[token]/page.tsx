@@ -15,9 +15,11 @@
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { CheckCircle2, CalendarPlus } from 'lucide-react';
 import { getBookingByConfirmationToken } from '@/lib/booking';
+import { mintTicketToken, ticketQrDataUrl } from '@/lib/ticketing';
 import { bookingStatusDisplay } from '@/lib/op/statusLabels';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -80,6 +82,22 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
   const { trip } = booking;
 
   const unitPrice = trip.price;
+
+  // Receipt QR shown DIRECTLY on the page (right after payment): scanning it opens the
+  // public /verify receipt. Rendered as an inline SVG data-URI — web isn't subject to
+  // the mail-client image stripping the email path works around, so no hosted PNG
+  // needed. Absolute origin from the request headers so the QR is scannable on
+  // whatever host served the page (devtunnel / prod).
+  const receiptToken = await mintTicketToken({
+    bookingRef: booking.bookingRef,
+    confirmationToken: token,
+  });
+  const hdrs = await headers();
+  const proto = hdrs.get('x-forwarded-proto') ?? 'https';
+  const host = hdrs.get('host') ?? '';
+  const receiptQrDataUrl = host
+    ? ticketQrDataUrl(`${proto}://${host}/verify/${receiptToken}`, { size: 200 })
+    : null;
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col-reverse gap-6 px-4 py-8 md:grid md:grid-cols-[1fr_20rem] md:items-start">
@@ -160,6 +178,23 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
             </dl>
           </CardContent>
         </Card>
+
+        {/* Receipt QR — scannable proof of payment, shown directly on-screen. */}
+        {receiptQrDataUrl ? (
+          <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card px-4 py-5">
+            {/* eslint-disable-next-line @next/next/no-img-element -- inline SVG data-URI, not an optimizable asset */}
+            <img
+              src={receiptQrDataUrl}
+              alt="QR biên nhận"
+              width={180}
+              height={180}
+              className="size-44"
+            />
+            <p className="text-center text-sm text-muted-foreground">
+              Quét mã để xem biên nhận &amp; trạng thái vé
+            </p>
+          </div>
+        ) : null}
 
         {/* Issue 112: pickup is locked at hold; no self-serve edit. Point travelers to the operator. */}
         <p className="text-center text-sm text-muted-foreground" data-testid="pickup-edit-hint">

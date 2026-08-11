@@ -63,22 +63,19 @@ export {
 } from './holdErrors';
 
 export const HOLD_TTL_MINUTES = 10;
-/**
- * Issue 100: PSP payment-confirmation window. A booking in awaiting_payment that was
- * created within this window occupies its seat in the capacity check (the PSP may still
- * confirm and seat the passenger). After the window elapses, the awaiting_payment booking
- * no longer blocks capacity (PSP-abandon self-releases). Must exceed HOLD_TTL_MINUTES so
- * there is no gap between hold expiry and awaiting_payment capacity protection.
- */
-export const PSP_WINDOW_MINUTES = 20;
+// Issue 100 PSP window — single source in the pure leaf module (client/no-DB safe);
+// re-exported here for existing importers (searchTrips, this repo's capacity SQL).
+export { PSP_WINDOW_MINUTES } from './pspWindow';
+import { PSP_WINDOW_MINUTES } from './pspWindow';
 
 export interface CreateHoldInput {
   tripId: string;
   ticketCount: number;
   customerPhone: string;
   customerName: string;
-  /** Issue 042: buyer email captured at hold creation. Optional for back-compat callers. */
-  customerEmail?: string | null;
+  /** Issue 042: buyer email captured at hold creation. Required — every write path
+   *  (POST /api/holds validation) now enforces a valid email for ticket delivery. */
+  customerEmail: string;
   /** Issue 107: traveler pickup selection (already validated + resolved by the caller). */
   pickupKind?: 'station' | 'custom';
   pickupDetail?: string | null;
@@ -111,7 +108,7 @@ export async function createHold(input: CreateHoldInput): Promise<HoldResult | n
     ticketCount,
     customerPhone,
     customerName,
-    customerEmail = null,
+    customerEmail,
     pickupKind = 'station',
     pickupDetail = null,
     boardingPoint = null,

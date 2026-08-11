@@ -12,8 +12,8 @@ import { describe, it, expect } from 'vitest';
 import { renderEmailBody } from '../emailBody';
 
 describe('renderEmailBody', () => {
-  it('ticketReady: renders labeled detail rows + single Xem vé button, not raw JSON', () => {
-    // Same shape generateTicketPdfs.ts now enqueues (relative ticketUrl, cron has no host).
+  it('ticketReady: renders receipt rows + single "Xem biên nhận" button → /verify, not raw JSON', () => {
+    // Same shape generateTicketPdfs.ts now enqueues (relative verify/qr URLs, cron has no host).
     const payload = JSON.stringify({
       bookingRef: 'BB-2026-t315-4316',
       buyerName: 'Nguyễn Văn A',
@@ -22,11 +22,15 @@ describe('renderEmailBody', () => {
       ticketCount: '2',
       vehicle: '29B-123.45',
       operator: 'Nhà xe Demo',
+      paymentMethod: 'Chuyển khoản',
+      paidAt: '10:00 26/07/2026',
       amount: '20.000đ',
+      verifyUrl: '/verify/demo-token',
+      qrUrl: '/verify/demo-token/qr',
       ticketUrl: '/api/bookings/019f962c-e92b-7153-b6f9-4d4e183fa2c3/ticket',
     });
 
-    const { html, text } = renderEmailBody('ticketReady', payload, 'BBVN — Vé điện tử của bạn đã sẵn sàng');
+    const { html, text } = renderEmailBody('ticketReady', payload, 'BBVN — Biên nhận & vé điện tử của bạn đã sẵn sàng');
 
     // No raw JSON leaked into the body.
     expect(html).not.toContain('{"bookingRef"');
@@ -40,17 +44,19 @@ describe('renderEmailBody', () => {
       ['Số vé', '2'],
       ['Xe', '29B-123.45'],
       ['Nhà xe', 'Nhà xe Demo'],
+      ['Phương thức', 'Chuyển khoản'],
       ['Tổng tiền', '20.000đ'],
     ]) {
       expect(html).toContain(label);
       expect(html).toContain(value);
     }
-    // Single customer-facing button → the ticket PDF, absolute URL.
-    expect(html).toContain('<a href="https://lenxevn.com/api/bookings/019f962c-e92b-7153-b6f9-4d4e183fa2c3/ticket"');
-    expect((html.match(/Xem vé/g) ?? []).length).toBe(1);
-    // Staff boarding page ('Xác thực' / /verify) must NOT appear.
-    expect(html).not.toContain('Xác thực');
-    expect(html).not.toContain('/verify/');
+    // Single customer-facing button → the PUBLIC receipt page (verify), absolute URL.
+    expect(html).toContain('<a href="https://lenxevn.com/verify/demo-token"');
+    expect((html.match(/Xem biên nhận/g) ?? []).length).toBe(1);
+    // The auth-gated ticket-PDF button must NOT appear (401 for guests).
+    expect(html).not.toContain('Xem vé');
+    // The QR image (hosted PNG) is embedded.
+    expect(html).toContain('https://lenxevn.com/verify/demo-token/qr');
     // Real logo (remote) in the header, not the emoji.
     expect(html).toContain('/brand/logo-horizontal-white.png');
     expect(html).not.toContain('🚌');
@@ -62,11 +68,11 @@ describe('renderEmailBody', () => {
     try {
       const { html } = renderEmailBody(
         'ticketReady',
-        JSON.stringify({ bookingRef: 'BB-1', ticketUrl: '/api/x' }),
-        'BBVN — Vé',
+        JSON.stringify({ bookingRef: 'BB-1', verifyUrl: '/verify/tok' }),
+        'BBVN — Biên nhận',
       );
-      expect(html).toContain('https://staging.lenxevn.com/api/x'); // trailing slash stripped
-      expect(html).not.toContain('lenxevn.com//api');
+      expect(html).toContain('https://staging.lenxevn.com/verify/tok'); // trailing slash stripped
+      expect(html).not.toContain('lenxevn.com//verify');
       expect(html).toContain('https://staging.lenxevn.com/brand/logo-horizontal-white.png');
     } finally {
       if (prev === undefined) delete process.env.NEXT_PUBLIC_BASE_URL;

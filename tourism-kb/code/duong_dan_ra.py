@@ -11,7 +11,7 @@ ignore chi biet TEN va NOI, con `argv` thi tuy nguoi go.
 Do bang so — chin duong dan hop ly ma mot builder co the bi tro vao, tam duong
 dan trong so do KHONG bi ignore (nen phai chan ngay tai luc GHI):
 
-    tourism-kb/output/Diem-Den-Da-Lat.docx   duoc phep   <- ban phat hanh
+    tourism-kb/output/da-lat/Diem-Den-Da-Lat.docx  duoc phep  <- ban phat hanh
     tourism-kb/raw/x.json                     duoc phep   <- du lieu tho
     docs/tourism-guide.md                      COMMIT DUOC
     docs/qa/dalat-data.md                      COMMIT DUOC
@@ -46,11 +46,12 @@ import sys
 # Khong goi `git rev-parse` — module nay phai chay duoc ca khi khong co git.
 GOC = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Ba thu muc con cua tourism-kb/ duoc ghi thoai mai o moi do sau: du lieu tho +
-# trung gian (raw), tai lieu ban giao (wiki), ban phat hanh .docx (output). Ca ba
-# deu da nam trong .gitignore (qua tourism-kb/.gitignore); danh sach nay va cac
-# luat ignore do phai noi cung mot dieu — sua mot ben thoi la vo hieu hoa guard.
-THU_MUC_CHO_PHEP = ("tourism-kb/raw", "tourism-kb/wiki", "tourism-kb/output")
+# Bon thu muc con cua tourism-kb/ duoc ghi thoai mai o moi do sau: du lieu tho +
+# trung gian (raw), tai lieu ban giao (wiki), ban phat hanh .docx (output), va du
+# lieu xuat cho planner (export — JSON co SDT that). Ca bon deu da nam trong
+# .gitignore (qua tourism-kb/.gitignore); danh sach nay va cac luat ignore do phai
+# noi cung mot dieu — sua mot ben thoi la vo hieu hoa guard.
+THU_MUC_CHO_PHEP = ("tourism-kb/raw", "tourism-kb/wiki", "tourism-kb/output", "tourism-kb/export")
 
 
 def _tuong_doi(duong_dan):
@@ -111,7 +112,8 @@ def kiem_loi_ra(duong_dan):
         "  Ghi vao mot trong nhung noi sau:\n"
         "    tourism-kb/raw/...        (moi du lieu tho va trung gian)\n"
         "    tourism-kb/wiki/...       (tai lieu ban giao)\n"
-        "    tourism-kb/output/...     (ban phat hanh .docx)\n"
+        "    tourism-kb/output/<dia-diem>/...  (ban phat hanh .docx, theo dia diem)\n"
+        "    tourism-kb/export/<dia-diem>/...  (JSON xuat cho planner, co SDT that)\n"
         "\n"
         "  Neu that su can mot noi moi: them luat vao tourism-kb/.gitignore VA\n"
         "  vao THU_MUC_CHO_PHEP trong tourism-kb/code/duong_dan_ra.py cung luc.\n"
