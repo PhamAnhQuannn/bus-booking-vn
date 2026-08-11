@@ -53,6 +53,9 @@ export async function POST(req: NextRequest, routeCtx: RouteContext): Promise<Re
           return NextResponse.json({ error: 'not_found' }, { status: 404 });
         case 'not_failed':
           return NextResponse.json({ error: 'not_failed' }, { status: 409 });
+        case 'withheld':
+          // #518: intentionally withheld (trip revenue fully refunded) — terminal, not retryable.
+          return NextResponse.json({ error: 'withheld' }, { status: 409 });
         default: {
           // Exhaustiveness guard — tsc errors here if a new error variant is added without handling it
           result.error satisfies never;

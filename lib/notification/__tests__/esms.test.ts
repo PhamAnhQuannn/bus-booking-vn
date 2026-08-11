@@ -40,6 +40,31 @@ describe('renderTemplate', () => {
     expect(body).toContain('Thanh toan thanh cong');
     expect(body).toContain('BB-2026-abcd-1234');
   });
+
+  it('customerBookingPaid includes the chosen boarding point when set', () => {
+    const body = renderTemplate('customerBookingPaid', {
+      ticketCount: 1,
+      route: 'Sai Gon - Thanh Hoa',
+      departureAt: '18/05 06:00',
+      bookingRef: 'BB-2026-abcd-1234',
+      confirmationUrl: 'https://example.com/c/xyz',
+      boardingPoint: 'Nong Cong',
+      boardingTime: '07:00',
+    });
+    expect(body).toContain('Don tai: Nong Cong 07:00');
+  });
+
+  it('bookingReminder24h includes the chosen boarding point when set', () => {
+    const body = renderTemplate('bookingReminder24h', {
+      ticketCount: 1,
+      route: 'Sai Gon - Thanh Hoa',
+      departureAt: '18/05 06:00',
+      bookingRef: 'BB-2026-abcd-1234',
+      boardingPoint: 'Nong Cong',
+      boardingTime: '07:00',
+    });
+    expect(body).toContain('Don tai: Nong Cong 07:00');
+  });
 });
 
 describe('renderTemplate — Bug B unmatched-payment templates', () => {

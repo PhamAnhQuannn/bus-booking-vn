@@ -140,7 +140,10 @@ export async function initiateOnlineBooking(
       holdId,
       buyerName: hold.customerName,
       buyerPhone: hold.customerPhone,
-      buyerEmail: hold.customerEmail,
+      // Non-null: every hold is created through POST /api/holds, which requires a
+      // validated email (Issue 042). Holds are ephemeral (~minutes) so no pre-042
+      // null-email rows survive. The DB column stays String? for historical rows.
+      buyerEmail: hold.customerEmail!,
       customerId,
       // Issue 089: persisted as no_refund + pii_storage ConsentRecord rows inside
       // the booking-creation $transaction.

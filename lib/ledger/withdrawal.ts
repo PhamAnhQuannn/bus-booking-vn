@@ -137,7 +137,26 @@ async function availableUnderLock(
     WHERE le."operatorId" = ${operatorId}
       AND le."type" IN (${balanceTypes})
   `;
-  return BigInt(rows[0]?.available ?? '0');
+  const settledMinusPaid = BigInt(rows[0]?.available ?? '0');
+
+  // RESERVED (P0-1 double-payout fix): MUST match getOperatorBalance()'s `reserved`
+  // term (lib/ledger/balance.ts) exactly — subtract net already committed to a DUE
+  // pending payout that has not yet written its payout_debit. Read UNDER the same
+  // FOR UPDATE tx so a concurrent auto-payout/withdrawal can't slip a double-claim
+  // through the gate. Excludes payouts that already have a payout_debit (their drain
+  // is already in the sum above, not double-subtracted here).
+  const reservedRows = await tx.$queryRaw<{ reserved: string }[]>`
+    SELECT COALESCE(SUM(p.net), 0)::text AS reserved
+    FROM "Payout" p
+    WHERE p."operatorId" = ${operatorId}
+      AND p.status IN ('requested'::"PayoutStatus", 'processing'::"PayoutStatus")
+      AND p."scheduledAt" <= NOW()
+      AND NOT EXISTS (
+        SELECT 1 FROM "LedgerEntry" le
+        WHERE le."payoutId" = p.id AND le."type" = 'payout_debit'::"LedgerEntryType"
+      )
+  `;
+  return settledMinusPaid - BigInt(reservedRows[0]?.reserved ?? '0');
 }
 
 /**

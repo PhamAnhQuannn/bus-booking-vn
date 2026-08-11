@@ -70,7 +70,8 @@ export async function applyPaidStatusTransition(
   const updated = await tx.$executeRaw(Prisma.sql`
     UPDATE "Booking"
     SET status = 'paid'::"BookingStatus",
-        "paymentExternalRef" = ${providerTxnId}
+        "paymentExternalRef" = ${providerTxnId},
+        "paidAt" = NOW()
     WHERE id = ${bookingId}::uuid
       AND status IN (${paidPredecessors})
   `);
@@ -157,12 +158,19 @@ export async function appendBookingPaidLedger(
     now: Date;
     /** Payment adapter/method — 'vnpay' additionally writes a psp_fee entry. */
     adapter: string;
+    /**
+     * A-5 (money-flow audit 2026-08-11): true when the booking was immediately
+     * refunded as OVERSOLD (paid → refunded in the same tx). Then the platform
+     * earns NO fee — the seat was never delivered — so we write booking_credit
+     * ONLY. The post-commit refundOut('oversold_race') claws refund_debit −gross,
+     * which the credit exactly offsets → operator net 0 (not −fee). Writing the
+     * fee would penalise the operator for an oversell they did not cause.
+     */
+    skipPlatformFee?: boolean;
   }
 ): Promise<void> {
-  const { operatorId, bookingId, grossVnd, now, adapter } = input;
+  const { operatorId, bookingId, grossVnd, now, adapter, skipPlatformFee = false } = input;
   const gross = BigInt(grossVnd);
-  const feePpm = await getEffectiveFeeRate(operatorId, now, tx);
-  const fee = calcPlatformFeeMinor(gross, feePpm);
 
   await appendLedgerEntry(
     {
@@ -175,17 +183,21 @@ export async function appendBookingPaidLedger(
     },
     tx
   );
-  await appendLedgerEntry(
-    {
-      operatorId,
-      bookingId,
-      type: 'platform_fee',
-      amountMinor: -fee,
-      currency: 'VND',
-      sourceEventId: `platform_fee:${bookingId}`,
-    },
-    tx
-  );
+  if (!skipPlatformFee) {
+    const feePpm = await getEffectiveFeeRate(operatorId, now, tx);
+    const fee = calcPlatformFeeMinor(gross, feePpm);
+    await appendLedgerEntry(
+      {
+        operatorId,
+        bookingId,
+        type: 'platform_fee',
+        amountMinor: -fee,
+        currency: 'VND',
+        sourceEventId: `platform_fee:${bookingId}`,
+      },
+      tx
+    );
+  }
 
   // Issue 123: VNPay MDR cost as a platform-float psp_fee entry (negative =
   // money the platform pays VNPay). BigInt via applyFeePpm (floor). Excluded

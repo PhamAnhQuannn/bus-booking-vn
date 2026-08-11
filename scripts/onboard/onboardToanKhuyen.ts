@@ -9,7 +9,7 @@
  *   known temp password, forced change) → Bus (sleeper) → Route ×2 (each direction)
  *   → RecurringTripTemplate ×2 (daily, daysOfMask=127).
  * After commit it calls generateTripsFromTemplates() so trips appear immediately
- * (14-day horizon) instead of waiting for the 01:00 cron.
+ * (30-day horizon) instead of waiting for the 01:00 cron.
  *
  * eSMS is stubbed in this environment, so the temp password is PRINTED ONCE (like
  * scripts/seed/seed-operator.ts) — hand it to the operator; they rotate it at
@@ -169,6 +169,15 @@ async function main() {
   const prisma = new PrismaClient({ adapter });
 
   try {
+    // Sync the shared Place registry FIRST, before the idempotent operator guard.
+    // Alias additions (e.g. a new boarding town like "Ngã tư Miếu Ông Cù") must land
+    // even when the operator already exists — otherwise re-running to add a pickup
+    // point is a silent no-op (the guard below returns before the main tx).
+    await prisma.$transaction(async (tx) => {
+      await upsertPlace(tx, PLACE_NORTH);
+      await upsertPlace(tx, PLACE_SOUTH);
+    });
+
     // Idempotent guard — phone is @unique on OperatorUser.
     const existing = await prisma.operatorUser.findUnique({
       where: { phone: loginPhone },
@@ -285,7 +294,7 @@ async function main() {
       };
     });
 
-    // Materialize trips now (14-day horizon) — reuses the cron generator so the
+    // Materialize trips now (30-day horizon) — reuses the cron generator so the
     // idempotency + timezone logic is identical to the nightly run. It opens its
     // own connection from DATABASE_URL (does not take our tx client).
     const { generateTripsFromTemplates } = await import('@/lib/trips/generateFromTemplate');

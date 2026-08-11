@@ -53,7 +53,7 @@ export default function BookingDetailClient({ booking }: Props) {
             <dt className="text-muted-foreground">Xe</dt>
             <dd className="font-mono">{booking.trip.bus.licensePlate}</dd>
             <dt className="text-muted-foreground">Khởi hành</dt>
-            <dd className="tabular-nums">{new Date(booking.trip.departureAt).toLocaleString('vi-VN')}</dd>
+            <dd className="tabular-nums">{new Date(booking.trip.departureAt).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}</dd>
             <dt className="text-muted-foreground">Vé</dt>
             <dd className="tabular-nums">{booking.ticketCount}</dd>
             <dt className="text-muted-foreground">Tổng tiền</dt>
@@ -66,6 +66,15 @@ export default function BookingDetailClient({ booking }: Props) {
             <dd data-testid="booking-contact-status">
               {CONTACT_STATUS_LABELS[booking.contactStatus] ?? booking.contactStatus}
             </dd>
+            {booking.boardingPoint && (
+              <>
+                <dt className="text-muted-foreground">Điểm lên xe</dt>
+                <dd>
+                  {booking.boardingPoint}
+                  {booking.boardingTime ? ` · ${booking.boardingTime}` : ''}
+                </dd>
+              </>
+            )}
             <dt className="text-muted-foreground">Điểm đón</dt>
             <dd>
               {booking.pickupKind === 'custom' ? (

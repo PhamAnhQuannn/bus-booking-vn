@@ -269,7 +269,11 @@ export default function StaffDashboardClient({
                         <TableCell>
                           <Badge variant={contact.variant}>{contact.label}</Badge>
                         </TableCell>
-                        <TableCell>{row.pickupDetail ?? '—'}</TableCell>
+                        <TableCell>
+                          {row.boardingPoint
+                            ? `${row.boardingPoint}${row.boardingTime ? ` · ${row.boardingTime}` : ''}`
+                            : (row.pickupDetail ?? '—')}
+                        </TableCell>
                         <TableCell>
                           <Badge variant={payment.variant}>{payment.label}</Badge>
                         </TableCell>
@@ -348,7 +352,12 @@ export default function StaffDashboardClient({
                         <TableCell>{row.phone}</TableCell>
                         <TableCell className="tabular-nums">{row.ticketCount}</TableCell>
                         <TableCell>
-                          {row.pickupKind === 'custom' ? (
+                          {row.boardingPoint ? (
+                            <span>
+                              {row.boardingPoint}
+                              {row.boardingTime ? ` · ${row.boardingTime}` : ''}
+                            </span>
+                          ) : row.pickupKind === 'custom' ? (
                             <span>
                               <span className="text-warning font-medium">Cần liên hệ: </span>
                               {row.pickupDetail || '—'}

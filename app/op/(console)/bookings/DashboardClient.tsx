@@ -220,12 +220,16 @@ export default function DashboardClient({
                         {contactStatusDisplay(row.contactStatus).label}
                       </Badge>
                     </TableCell>
-                    <TableCell>{row.pickupDetail ?? '—'}</TableCell>
+                    <TableCell>
+                      {row.boardingPoint
+                        ? `${row.boardingPoint}${row.boardingTime ? ` · ${row.boardingTime}` : ''}`
+                        : (row.pickupDetail ?? '—')}
+                    </TableCell>
                     <TableCell>
                       <Badge variant={pay.variant}>{pay.label}</Badge>
                     </TableCell>
                     <TableCell className="whitespace-nowrap tabular-nums">
-                      {new Date(row.departureAt).toLocaleString('vi-VN')}
+                      {new Date(row.departureAt).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">

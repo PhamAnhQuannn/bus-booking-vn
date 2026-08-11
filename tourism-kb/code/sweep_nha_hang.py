@@ -80,9 +80,17 @@ def hav(la1, lo1, la2, lo2):
     return 2 * R * math.asin(math.sqrt(x))
 
 
+def _load(fn, default):
+    """City moi (Overture-only) khong co fsq/mon_an -> tra default."""
+    try:
+        return json.load(io.open(os.path.join(RAW, fn), encoding="utf-8"))
+    except FileNotFoundError:
+        print("(thieu %s -> bo qua)" % fn)
+        return default
+
 ovt = json.load(io.open(os.path.join(RAW, "overture_dalat.json"), encoding="utf-8"))
-fsq = json.load(io.open(os.path.join(RAW, "fsq_dalat.json"), encoding="utf-8"))
-mon = json.load(io.open(os.path.join(RAW, "mon_an_dalat.json"), encoding="utf-8"))
+fsq = _load("fsq_dalat.json", [])
+mon = _load("mon_an_dalat.json", {})
 
 food = [r for r in ovt if str(r.get("category") or "") in AN_UONG and (r.get("name") or "").strip()]
 f_food = [r for r in fsq if "Dining and Drinking" in str(r.get("fsq_category_labels") or "")]

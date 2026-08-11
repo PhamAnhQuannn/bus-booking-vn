@@ -71,7 +71,7 @@ export interface VerifiedHold {
  */
 export function verifyCookieValue(cookieValue: string): VerifiedHold | null {
   // Cookie format: <holdId>.<expiresAtISO>.<sig>
-  // holdId (cuid) contains no dots. expiresAtISO is an ISO timestamp that DOES contain
+  // holdId (uuid) contains no dots. expiresAtISO is an ISO timestamp that DOES contain
   // dots (e.g. ".000Z"). We therefore:
   //   - split on the FIRST dot to extract holdId
   //   - split on the LAST dot to extract sig

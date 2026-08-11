@@ -43,7 +43,9 @@ export function SearchForm({
   useEffect(() => setHydrated(true), []);
   const o = hydrated ? origin : '';
   const d = hydrated ? destination : '';
-  const dt = hydrated ? date : '';
+  // Default the date to today when unset → one-click search; the results page then
+  // redirects an empty day to the nearest upcoming departure (never a blank page).
+  const dt = hydrated ? date || todayVN : '';
   const tc = hydrated ? ticketCount : 1;
   const tcNum = Number.isInteger(tc) ? Math.min(10, Math.max(1, tc)) : 1;
 
