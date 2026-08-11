@@ -20,15 +20,11 @@ import { CustomerAccountMenu } from '@/components/auth/CustomerAccountMenu';
 import { useAuthStatus } from '@/lib/auth/clientSession';
 import { cn } from '@/lib/utils';
 
-/* Nav mirrors the mockup's five items (docs/design/mockup-home.png S1). */
+/* Nav items (docs/design/mockup-home.png S1). "Hướng dẫn" + "Hỗ trợ" removed per request. */
 const NAV = [
   { href: '/', label: 'Đặt vé xe' },
   { href: '/tro-ly-du-lich', label: 'Trợ lý du lịch', badge: 'AI' },
   { href: '/op/register', label: 'Nhà xe' },
-  // Imperfect mapping: no guide page exists yet; the cancellation/refund policy is
-  // the closest real destination. Replace when a real "Hướng dẫn" page ships.
-  { href: '/chinh-sach-huy-ve-hoan-tien', label: 'Hướng dẫn' },
-  { href: '/khieu-nai', label: 'Hỗ trợ' },
 ];
 
 /* Customer login (ADR-021). Operators reach their console from the "Nhà xe" nav item. */
