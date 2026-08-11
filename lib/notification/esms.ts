@@ -119,6 +119,10 @@ export function renderTemplate(template: SmsTemplate, payload: Record<string, st
       return (
         `BusBookVN: ${payload.ticketCount} khach moi, chuyen ${payload.route} ` +
         `${payload.departureAt}. SDT: ${payload.buyerPhone}. Ma: ${payload.bookingRef}.` +
+        // Chosen boarding point along the route (which of the ~10 stops the passenger boards at).
+        (payload.boardingPoint
+          ? ` Don tai: ${payload.boardingPoint}${payload.boardingTime ? ` ${payload.boardingTime}` : ''}.`
+          : '') +
         // Issue 111: custom pickup request folded into the same SMS (no second message).
         (payload.customPickup ? ` Diem don rieng: ${payload.customPickup}. Goi xac nhan.` : '')
       );
@@ -126,8 +130,13 @@ export function renderTemplate(template: SmsTemplate, payload: Record<string, st
       // Method-neutral: bank transfer (VietQR) is the live rail; MoMo is not in use.
       return (
         `BusBookVN: Thanh toan thanh cong. ${payload.ticketCount} ve, chuyen ` +
-        `${payload.route} ${payload.departureAt}. Ma: ${payload.bookingRef}. ` +
-        `Xac nhan: ${payload.confirmationUrl}`
+        `${payload.route} ${payload.departureAt}. Ma: ${payload.bookingRef}.` +
+        // Chosen boarding point — so the "you're confirmed" message tells the rider
+        // where to board, not just later via the ticket email.
+        (payload.boardingPoint
+          ? ` Don tai: ${payload.boardingPoint}${payload.boardingTime ? ` ${payload.boardingTime}` : ''}.`
+          : '') +
+        ` Xac nhan: ${payload.confirmationUrl}`
       );
     case 'customerBookingExpired':
       // Issue 095: reconciliation sweeper expiry notice — the hold lapsed with no
@@ -188,8 +197,11 @@ export function renderTemplate(template: SmsTemplate, payload: Record<string, st
     case 'bookingReminder24h':
       return (
         `BusBookVN: Nhac nho chuyen ${payload.route} khoi hanh ${payload.departureAt} ` +
-        `(con ~24h). ${payload.ticketCount} ve. Ma dat cho: ${payload.bookingRef}. ` +
-        `Vui long co mat truoc gio khoi hanh.`
+        `(con ~24h). ${payload.ticketCount} ve. Ma dat cho: ${payload.bookingRef}.` +
+        (payload.boardingPoint
+          ? ` Don tai: ${payload.boardingPoint}${payload.boardingTime ? ` ${payload.boardingTime}` : ''}.`
+          : '') +
+        ` Vui long co mat truoc gio khoi hanh.`
       );
     default: {
       const exhaustive: never = template;

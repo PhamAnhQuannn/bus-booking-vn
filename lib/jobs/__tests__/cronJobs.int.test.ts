@@ -589,7 +589,7 @@ describe('AC6 withAdvisoryLock', () => {
 // ────────────────────────────────────────────────────────────────────────────
 
 describe('I43 generateTrips (trip-generate job)', () => {
-  // Seed a template that fires every day across the 14-day horizon, so trips
+  // Seed a template that fires every day across the 30-day horizon, so trips
   // generate regardless of the wall-clock day the test runs.
   async function seedDailyTemplate(): Promise<string> {
     const today = new Date();
@@ -618,7 +618,7 @@ describe('I43 generateTrips (trip-generate job)', () => {
     const after = await prisma.jobRunLog.count({ where: { jobName: 'trip-generate' } });
 
     expect(result.status).toBe('success');
-    // 14-day horizon, every day fires → 14 trips on a fresh template.
+    // 30-day horizon, every day fires → 30 trips on a fresh template.
     expect(result.rowsAffected).toBeGreaterThan(0);
     expect(after - before).toBe(1);
 

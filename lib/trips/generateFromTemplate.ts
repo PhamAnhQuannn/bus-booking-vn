@@ -18,7 +18,9 @@ import { addDays, parseISO, format } from 'date-fns';
 import { randomUUID } from 'crypto';
 
 const TZ = 'Asia/Ho_Chi_Minh';
-const HORIZON_DAYS = 14;
+// 30-day booking window: every day has a bus, so a longer horizon just means more
+// bookable dates on the results date-rail. Cron re-materializes forward each run.
+const HORIZON_DAYS = 30;
 
 // ISO weekday (1=Mon .. 7=Sun) → daysOfMask bit
 const WEEKDAY_BIT: Record<number, number> = {
@@ -44,7 +46,7 @@ export async function generateTripsFromTemplates(
   const todayStr = format(today, 'yyyy-MM-dd');
   const horizonStr = format(addDays(today, HORIZON_DAYS - 1), 'yyyy-MM-dd');
 
-  // Fetch all active templates (not deactivated, validFrom ≤ today+14, validUntil ≥ today)
+  // Fetch all active templates (not deactivated, validFrom ≤ horizon, validUntil ≥ today)
   const templates = await prisma.recurringTripTemplate.findMany({
     where: {
       deactivatedAt: null,

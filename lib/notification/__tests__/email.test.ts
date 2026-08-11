@@ -22,7 +22,11 @@ vi.mock('resend', () => ({
   },
 }));
 vi.mock('@/lib/core/config', () => ({
-  getEnv: () => ({ RESEND_API_KEY: 'test_key', EMAIL_FROM: 'noreply@test.dev' }),
+  getEnv: () => ({
+    RESEND_API_KEY: 'test_key',
+    EMAIL_FROM: 'noreply@test.dev',
+    EMAIL_FROM_RECEIPT: 'bienlai@test.dev',
+  }),
 }));
 
 import { sendEmail, renderEmailSubject, _resetResendClient } from '../email';
@@ -100,5 +104,21 @@ describe('sendEmail (resend path — idempotency, #335)', () => {
 
     const [, options] = emailsSendMock.mock.calls[0];
     expect(options).toBeUndefined();
+  });
+
+  it('sends the receipt (ticketReady) from the dedicated biên-lai sender', async () => {
+    await sendEmail({
+      to: 'buyer@example.com',
+      template: 'ticketReady',
+      payload: JSON.stringify({ bookingRef: 'BB-1', amount: '100.000đ' }),
+    });
+    const [payload] = emailsSendMock.mock.calls[0];
+    expect(payload).toMatchObject({ from: 'bienlai@test.dev' });
+  });
+
+  it('sends non-receipt email from the default sender', async () => {
+    await sendEmail({ to: 'x@y.z', template: 'customerBookingPaid', payload: 'b' });
+    const [payload] = emailsSendMock.mock.calls[0];
+    expect(payload).toMatchObject({ from: 'noreply@test.dev' });
   });
 });

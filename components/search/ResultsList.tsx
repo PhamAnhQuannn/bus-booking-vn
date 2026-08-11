@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Bus, Calendar } from 'lucide-react';
 import { SearchFilterRail, SearchToolbar } from '@/components/search/SearchFilters';
 import { OperatorTrustPanel } from '@/components/search/OperatorTrustPanel';
 import { type TripFacets } from '@/lib/search';
@@ -88,30 +89,30 @@ export function ResultsList({
       {showFilterRail && <SearchFilterRail facets={facets} />}
 
       <div className="flex min-w-0 flex-col gap-4">
-        <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1 shadow-e1">
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-card p-2 shadow-e1">
           {showPrev ? (
             <Link
               href={buildUrl(prevDate)}
-              className="inline-flex min-h-11 items-center justify-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="inline-flex min-h-10 items-center justify-center gap-1 rounded-lg border border-destructive bg-white px-4 text-sm font-semibold text-destructive shadow-e1 transition-colors hover:bg-destructive hover:text-white"
               aria-label={`Ngày trước: ${formatVnDate(prevDate)}`}
             >
               ← Trước
             </Link>
           ) : (
             <span
-              className="inline-flex min-h-11 cursor-not-allowed items-center justify-center rounded-md px-3 text-sm font-medium text-muted-foreground/40"
+              className="inline-flex min-h-10 cursor-not-allowed items-center justify-center gap-1 rounded-lg border border-border/50 bg-muted/30 px-4 text-sm font-medium text-muted-foreground/40"
               aria-disabled="true"
               aria-label="Không thể chọn ngày trong quá khứ"
             >
               ← Trước
             </span>
           )}
-          <span className="flex-1 text-center text-sm font-semibold leading-[2.75rem]">
+          <span className="flex-1 text-center text-sm font-semibold">
             {formatVnDate(date)}
           </span>
           <Link
             href={buildUrl(nextDate)}
-            className="inline-flex min-h-11 items-center justify-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="inline-flex min-h-10 items-center justify-center gap-1 rounded-lg border border-destructive bg-white px-4 text-sm font-semibold text-destructive shadow-e1 transition-colors hover:bg-destructive hover:text-white"
             aria-label={`Ngày sau: ${formatVnDate(nextDate)}`}
           >
             Sau →
@@ -120,9 +121,30 @@ export function ResultsList({
 
         <SearchToolbar facets={facets} showFilterSheet={showFilterRail} />
 
-        <p className="text-sm text-muted-foreground" aria-live="polite">
-          Hiển thị <strong className="text-foreground">{items.length}</strong> {itemNoun}
-        </p>
+        {/* Heading danh sách: chip nhận diện + tiêu đề + ngày & số lượng, gờ phân cách nối vào danh sách thẻ */}
+        <div className="-mb-2 flex items-center gap-3 border-b border-border pb-3">
+          <span
+            className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
+            aria-hidden="true"
+          >
+            <Bus className="size-5" />
+          </span>
+          <div className="flex min-w-0 flex-col gap-1">
+            <h2 className="font-display text-xl font-bold text-foreground sm:text-2xl">Các chuyến xe hôm nay</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                <Calendar className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                {formatVnDate(date)}
+              </span>
+              <span
+                className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary-strong"
+                aria-live="polite"
+              >
+                Hiển thị <strong className="font-bold">{items.length}</strong> {itemNoun}
+              </span>
+            </div>
+          </div>
+        </div>
 
         {trips.length === 0 ? (
           <p className="rounded-lg border border-border bg-muted/40 px-4 py-6 text-center text-sm text-muted-foreground">

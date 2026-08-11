@@ -161,7 +161,7 @@ async function SearchResultsView({
             priority
             quality={90}
             sizes="100vw"
-            className="object-cover object-[50%_79%]"
+            className="object-cover object-[50%_90%]"
           />
         </div>
         {/* Mobile wash: hạ nền ảnh để chữ tối đọc được, không hoá trắng cả xe. */}
@@ -174,10 +174,10 @@ async function SearchResultsView({
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 bottom-0 -top-12 hidden md:block md:bg-[linear-gradient(90deg,rgba(255,247,237,0.60)_0%,rgba(255,247,237,0.44)_32%,rgba(255,247,237,0.20)_54%,rgba(255,247,237,0.05)_74%,rgba(255,247,237,0)_100%)] lg:-top-16"
         />
-        {/* Feather đáy: hoà hero vào băng trust (#FFF6EE) bên dưới. h-16 để không phủ bánh xe. */}
+        {/* Tan mép đáy hero: fade golden→white cho gutter cạnh panel mềm (panel opaque nên không ảnh hưởng). */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent to-[#FFF6EE]"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent to-white"
         />
 
         <div className="page-container relative flex flex-col gap-4 pt-8 pb-12 sm:pt-12 sm:pb-14 lg:min-h-[30vw] lg:pt-14 lg:pb-[72px]">
@@ -205,30 +205,39 @@ async function SearchResultsView({
         </div>
       </section>
 
-      {/* TRUST STRIP — dùng đúng class homepage (page.tsx:441-462): card cream nổi đè đáy hero. */}
+      {/* TRUST STRIP — block cream nổi ĐÈ NỬA lên đáy hero (mock #17), 4 mục nối + light divider. */}
       <section
         aria-label="Điểm nổi bật"
-        className="relative z-raised -mt-8 mb-6 w-full border-b border-border bg-[#FFF6EE] py-5 shadow-e2 lg:-mt-12"
+        className="relative z-raised -mt-10 w-full py-5 lg:-mt-[72px]"
       >
-        <ul className="page-container grid list-none grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {RESULT_TRUST.map(({ icon: Icon, title, sub }) => (
-            <li
-              key={title}
-              className="flex items-center gap-3 rounded-xl border border-border bg-white p-4 shadow-e1"
-            >
-              <span
-                className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
-                aria-hidden="true"
+        {/* White fill từ mép hero-bottom (= overlap line) xuống — xoá dải cam body-background,
+            khớp <main> trắng. top-10/lg:top-[72px] = overlap px → top phía trên vẫn trong suốt
+            (photo hiện, straddle giữ); -z-10 → nằm sau panel cream. Không đổi geometry. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-10 bottom-0 -z-10 bg-white lg:top-[72px]"
+        />
+        <div className="page-container">
+          <ul className="grid list-none grid-cols-1 overflow-hidden rounded-2xl border border-border bg-[#FFF6EE] shadow-e2 lg:grid-cols-4">
+            {RESULT_TRUST.map(({ icon: Icon, title, sub }) => (
+              <li
+                key={title}
+                className="flex items-center gap-4 border-border p-5 [&+&]:border-t lg:[&+&]:border-t-0 lg:[&+&]:border-l"
               >
-                <Icon className="size-5" />
-              </span>
-              <div className="flex flex-col gap-0.5">
-                <span className="text-sm font-semibold leading-tight text-foreground">{title}</span>
-                <span className="text-xs leading-snug text-muted-foreground">{sub}</span>
-              </div>
-            </li>
-          ))}
-        </ul>
+                <span
+                  className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
+                  aria-hidden="true"
+                >
+                  <Icon className="size-6" />
+                </span>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-base font-semibold leading-tight text-foreground">{title}</span>
+                  <span className="text-sm leading-snug text-muted-foreground">{sub}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
       </section>
 
       {/* Nền trắng full-bleed (khớp mockup): main tràn ngang, content trong page-container. */}

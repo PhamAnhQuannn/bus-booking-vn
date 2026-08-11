@@ -46,7 +46,18 @@ interface ClaimedRow {
   bookingRef: string;
   confirmationToken: string;
   buyerEmail: string | null;
+  paidAt: Date | null;
 }
+
+/** Customer-facing payment-method label for the receipt email. */
+const PAYMENT_METHOD_LABEL: Record<string, string> = {
+  bank_transfer: 'Chuyển khoản',
+  cash: 'Tiền mặt',
+  vnpay: 'VNPay',
+  momo: 'MoMo',
+  zalopay: 'ZaloPay',
+  card: 'Thẻ',
+};
 
 export const generateTicketPdfs: JobCore = async (_tx, opts?: JobOpts) => {
   const now = opts?.now ?? new Date();
@@ -56,13 +67,14 @@ export const generateTicketPdfs: JobCore = async (_tx, opts?: JobOpts) => {
   const { renderTicketPdf } = await import('@/lib/booking');
   const { putObject } = await import('@/lib/storage');
   const { createNotificationLog } = await import('@/lib/core/db/notificationLogRepo');
+  const { mintTicketToken } = await import('@/lib/ticketing');
 
   // 1. Claim a batch of paid, un-keyed bookings (SKIP LOCKED so two concurrent
   //    ticks never grab the same row). The rows stay PAID; the stamp happens
   //    per-row after the render/upload commits.
   const claimed = await prisma.$transaction(async (tx) => {
     return tx.$queryRaw<ClaimedRow[]>(Prisma.sql`
-      SELECT "id", "bookingRef", "confirmationToken", "buyerEmail"
+      SELECT "id", "bookingRef", "confirmationToken", "buyerEmail", "paidAt"
       FROM "Booking"
       WHERE "ticketPdfKey" IS NULL
         AND "status" IN (${Prisma.join(
@@ -102,6 +114,11 @@ export const generateTicketPdfs: JobCore = async (_tx, opts?: JobOpts) => {
     //    Skip when there's no buyerEmail — there is nowhere to deliver. The PDF
     //    is still generated + downloadable via the ticket route.
     if (row.buyerEmail) {
+      // Receipt QR/verify links: the token → the public receipt page + its PNG QR.
+      const token = await mintTicketToken({
+        bookingRef: row.bookingRef,
+        confirmationToken: row.confirmationToken,
+      });
       await createNotificationLog({
         bookingId: row.id,
         channel: 'email',
@@ -113,9 +130,16 @@ export const generateTicketPdfs: JobCore = async (_tx, opts?: JobOpts) => {
           route: `${detail.route.origin} → ${detail.route.destination}`,
           departureAt: formatDepartureVn(detail.departureAt),
           ticketCount: String(detail.ticketCount),
+          boardingPoint: detail.boardingPoint
+            ? `${detail.boardingPoint}${detail.boardingTime ? ` · ${detail.boardingTime}` : ''}`
+            : '',
           vehicle: detail.busLicensePlate,
           operator: detail.operator.legalName,
           amount: formatVnd(detail.totalVnd),
+          paymentMethod: PAYMENT_METHOD_LABEL[detail.paymentMethod] ?? detail.paymentMethod,
+          paidAt: row.paidAt ? formatDepartureVn(row.paidAt.toISOString()) : '',
+          verifyUrl: `/verify/${token}`,
+          qrUrl: `/verify/${token}/qr`,
           ticketUrl: `/api/bookings/${row.id}/ticket`,
         }),
         status: 'pending',
@@ -180,5 +204,7 @@ async function loadBookingDetail(
       legalName: row.trip.bus.operator.legalName,
       contactPhone: row.trip.bus.operator.contactPhone,
     },
+    boardingPoint: row.boardingPoint,
+    boardingTime: row.boardingTime,
   };
 }

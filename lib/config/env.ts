@@ -382,6 +382,9 @@ const envSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
   /** Sender address for transactional email. */
   EMAIL_FROM: z.string().default('noreply@lenxevn.com'),
+  /** Sender for the payment RECEIPT email (ticketReady). A receipt, NOT a VAT
+   *  e-invoice (hóa đơn) — hence "bienlai" (biên lai). Override via env if needed. */
+  EMAIL_FROM_RECEIPT: z.string().default('bienlai@lenxevn.com'),
 
   // ---------------------------------------------------------------------------
   // Public site origin + Google OAuth (ADR-021 — customer auth).

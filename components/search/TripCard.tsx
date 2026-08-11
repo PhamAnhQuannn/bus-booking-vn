@@ -1,25 +1,33 @@
-import Link from 'next/link';
-import { ArrowRight, Armchair, MapPin } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { ArrowRight, BedDouble, Bus, GlassWater, MapPin, Plug, Wifi } from 'lucide-react';
 import { BookButton } from '@/components/search/BookButton';
 import { formatVnd } from '@/lib/format';
 import { type TripResult, type BoardingStop } from '@/lib/trips';
-import { BUS_TYPE_LABEL, formatTime, arrivalIso, durationLabel } from './search-utils';
+import { BUS_TYPE_LABEL, formatTime, arrivalIso } from './search-utils';
 
 export type TripCardSize = 'default' | 'expanded';
 
-// Plain-language gloss shown only in the expanded card, where one result carries
-// the page — a first-time booker may not know what "Giường nằm" means.
-const BUS_TYPE_DESC: Record<TripResult['busType'], string> = {
-  coach: 'Ghế ngồi',
-  sleeper: 'Giường nằm · xe khách nằm',
-  limousine: 'Limousine · ghế cao cấp',
-};
+// Tiện ích cố định toàn đội xe (nhà xe xác nhận mọi xe đều có), CHƯA data-hoá theo
+// từng chuyến — giống "Hỗ trợ 24/7". TODO: thêm cột amenities vào schema để hiển thị
+// đúng theo từng xe. Vehicle type + số chỗ ("Limousine 32 chỗ") lấy data thật bên dưới.
+const TRIP_AMENITIES = [
+  { icon: Wifi, label: 'Wi-Fi' },
+  { icon: GlassWater, label: 'Nước uống' },
+  { icon: Plug, label: 'Ổ cắm' },
+  { icon: BedDouble, label: 'Chân đắp' },
+];
+
+function formatVnDayMonth(iso: string): string {
+  return new Date(iso).toLocaleDateString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'Asia/Ho_Chi_Minh',
+  });
+}
 
 export function TripCard({
   trip,
   ticketCount,
-  size = 'default',
   boardingStop,
 }: {
   trip: TripResult;
@@ -29,105 +37,75 @@ export function TripCard({
   boardingStop?: BoardingStop;
 }) {
   const lowSeats = trip.availableSeats <= 5;
-  const expanded = size === 'expanded';
+  const origin = boardingStop ? boardingStop.point : trip.routeOrigin;
   return (
     <article
-      className={`group flex flex-col rounded-xl border border-border bg-card shadow-e1 transition-all hover:border-primary/30 hover:shadow-e2 motion-safe:hover:-translate-y-0.5 ${expanded ? 'gap-4 p-6' : 'gap-3 p-5'}`}
-      aria-label={`Chuyến từ ${trip.routeOrigin} đến ${trip.routeDestination}`}
+      className="group flex flex-col gap-4 rounded-xl border border-border bg-white p-6 shadow-e1 transition-all hover:border-primary/30 hover:shadow-e2 motion-safe:hover:-translate-y-0.5"
+      aria-label={`Chuyến từ ${origin} đến ${trip.routeDestination}`}
     >
-      {/* Operator + route */}
-      <div className="flex items-start justify-between gap-3">
-        <div className={`flex items-center gap-2 font-semibold ${expanded ? 'text-lg' : ''}`}>
-          <span>{trip.routeOrigin}</span>
-          <ArrowRight className="size-4 shrink-0 text-primary" aria-hidden="true" />
-          <span>{trip.routeDestination}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span
-            className={`flex items-center justify-center rounded-full bg-primary/10 font-bold text-primary ${expanded ? 'size-9 text-sm' : 'size-7 text-xs'}`}
-            aria-hidden="true"
-          >
-            {trip.operatorLegalName.replace(/^(Công ty|CÔNG TY)\s*/i, '').trim().charAt(0)}
+      {/* Hàng chính: giờ đi | tuyến (connector co giãn) | giờ đến | giá + CTA */}
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:gap-8">
+        {/* Giờ đi + ngày */}
+        <div className="flex shrink-0 flex-col">
+          <span className="font-mono text-2xl font-bold leading-none text-foreground">
+            {formatTime(trip.departureAt)}
           </span>
-          <span className={expanded ? 'font-medium' : 'text-sm text-muted-foreground'}>{trip.operatorLegalName}</span>
+          <span className="mt-1 text-sm text-muted-foreground">{formatVnDayMonth(trip.departureAt)}</span>
         </div>
-      </div>
 
-      {/* Depart → arrive + duration */}
-      <div className={`flex items-center gap-2 font-mono font-semibold ${expanded ? 'text-xl' : 'text-lg'}`}>
-        <span>{formatTime(trip.departureAt)}</span>
-        <span className="text-xs font-normal text-muted-foreground">
-          {durationLabel(trip.durationMinutes)}
+        {/* Điểm đi ——→ điểm đến: connector trải hết width còn lại */}
+        <div className="flex flex-1 items-center gap-4">
+          <span className="flex shrink-0 items-center gap-2 text-lg font-semibold text-foreground">
+            <span className="size-2.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
+            {origin}
+          </span>
+          <span className="flex flex-1 items-center gap-2 text-muted-foreground">
+            <span className="h-px flex-1 bg-border" aria-hidden="true" />
+            <ArrowRight className="size-5 shrink-0" aria-hidden="true" />
+            <span className="h-px flex-1 bg-border" aria-hidden="true" />
+          </span>
+          <span className="flex shrink-0 items-center gap-1.5 text-lg font-semibold text-foreground">
+            {trip.routeDestination}
+            <MapPin className="size-5 shrink-0 text-primary" aria-hidden="true" />
+          </span>
+        </div>
+
+        {/* Giờ đến */}
+        <span className="shrink-0 font-mono text-2xl font-bold leading-none text-foreground">
+          {formatTime(arrivalIso(trip.departureAt, trip.durationMinutes))}
         </span>
-        <span className="text-muted-foreground">→</span>
-        <span>{formatTime(arrivalIso(trip.departureAt, trip.durationMinutes))}</span>
-      </div>
 
-      {/* Badges: bus type + seats-left urgency */}
-      <div className="flex flex-wrap items-center gap-2">
-        {expanded ? (
-          <span className="text-sm text-muted-foreground">{BUS_TYPE_DESC[trip.busType]}</span>
-        ) : (
-          <Badge variant="neutral">{BUS_TYPE_LABEL[trip.busType]}</Badge>
-        )}
-        <Badge variant={lowSeats ? 'pending' : 'neutral'}>
-          <Armchair className="size-3.5" aria-hidden="true" />
-          {lowSeats
-            ? `Chỉ còn ${trip.availableSeats} chỗ`
-            : expanded
-              ? `${trip.availableSeats}/${trip.capacity} chỗ trống`
-              : `Còn ${trip.availableSeats} chỗ`}
-        </Badge>
-      </div>
-
-      {/* Boarding: when this card is ONE chosen pickup point, feature it; otherwise
-          (expanded) list the staggered pickups of the single bus. */}
-      {boardingStop ? (
-        <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-          <MapPin className="size-4 shrink-0 text-primary" aria-hidden="true" />
-          <span>
-            Đón tại {boardingStop.point} · {boardingStop.time}
-          </span>
-        </p>
-      ) : (
-        expanded &&
-        trip.boardingSchedule.length > 0 && (
-          <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
-            <MapPin className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-            <span>
-              Đón:{' '}
-              {trip.boardingSchedule
-                .slice(0, 3)
-                .map((s) => `${s.point} ${s.time}`)
-                .join(' · ')}
-              {trip.boardingSchedule.length > 3
-                ? ` · +${trip.boardingSchedule.length - 3} điểm`
-                : ''}
-            </span>
-          </p>
-        )
-      )}
-
-      {/* Price + actions */}
-      <div className={`flex items-center justify-between gap-3 border-t border-border/60 ${expanded ? 'mt-2 pt-4' : 'mt-1 pt-3'}`}>
-        <div className="flex flex-col">
-          <span className="text-xs text-muted-foreground">Giá vé</span>
-          <span className={`font-mono font-bold text-primary ${expanded ? 'text-2xl' : 'text-xl'}`}>{formatVnd(trip.price)}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href={`/trips/${trip.tripId}`}
-            className="inline-flex min-h-11 items-center text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-          >
-            Xem chi tiết
-          </Link>
+        {/* Giá + CTA + số chỗ */}
+        <div className="flex shrink-0 flex-col items-start gap-2 lg:items-end">
+          <div className="flex items-baseline gap-1">
+            <span className="font-mono text-2xl font-bold text-primary">{formatVnd(trip.price)}</span>
+            <span className="text-sm text-muted-foreground">/ 1 vé</span>
+          </div>
           <BookButton
             tripId={trip.tripId}
             ticketCount={ticketCount}
             boardingPoint={boardingStop?.point}
             boardingTime={boardingStop?.time}
+            label="Chọn ghế"
           />
+          <span className={`text-sm ${lowSeats ? 'font-medium text-destructive' : 'text-muted-foreground'}`}>
+            Còn {trip.availableSeats} chỗ trống
+          </span>
         </div>
+      </div>
+
+      {/* Hàng tiện ích: loại xe (thật) + tiện ích cố định */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border pt-4 text-sm text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <Bus className="size-4 shrink-0 text-primary" aria-hidden="true" />
+          {BUS_TYPE_LABEL[trip.busType]}
+        </span>
+        {TRIP_AMENITIES.map(({ icon: Icon, label }) => (
+          <span key={label} className="flex items-center gap-1.5">
+            <Icon className="size-4 shrink-0" aria-hidden="true" />
+            {label}
+          </span>
+        ))}
       </div>
     </article>
   );

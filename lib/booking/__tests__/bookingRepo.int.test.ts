@@ -40,7 +40,11 @@ function createBookingFromHold(input: {
   consentVersion?: string;
 }) {
   return createOnlineBookingFromHold(
-    { ...input, consentVersion: input.consentVersion ?? '2026-06-01' },
+    {
+      ...input,
+      consentVersion: input.consentVersion ?? '2026-06-01',
+      buyerEmail: input.buyerEmail ?? 'test@example.com',
+    },
     'momo'
   );
 }
@@ -219,6 +223,44 @@ describe('createOnlineBookingFromHold (momo)', () => {
     expect(bookingRow?.pickupDetail).toBe('12 Lê Lợi, phường X');
   });
 
+  it('copies the chosen boarding point (name + time) from the hold onto the booking', async () => {
+    const h = await createHold({
+      tripId,
+      ticketCount: 1,
+      customerPhone: '+8490xxxxxx1',
+      customerName: 'Boarding Holder',
+      customerEmail: 'boarding@example.com',
+      boardingPoint: 'Nông Cống',
+      boardingTime: '07:00',
+    });
+    expect(h).not.toBeNull();
+
+    // Persisted on the Hold row.
+    const holdRow = await prisma.hold.findUnique({
+      where: { id: h!.holdId },
+      select: { boardingPoint: true, boardingTime: true },
+    });
+    expect(holdRow?.boardingPoint).toBe('Nông Cống');
+    expect(holdRow?.boardingTime).toBe('07:00');
+
+    const r = await createBookingFromHold({
+      holdId: h!.holdId,
+      buyerName: 'Boarding Buyer',
+      buyerPhone: '+8490xxxxxx5',
+      buyerEmail: 'boardingbuyer@example.com',
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    // Copied through the Hold→Booking SQL insert.
+    const bookingRow = await prisma.booking.findUnique({
+      where: { id: r.booking.id },
+      select: { boardingPoint: true, boardingTime: true },
+    });
+    expect(bookingRow?.boardingPoint).toBe('Nông Cống');
+    expect(bookingRow?.boardingTime).toBe('07:00');
+  });
+
   it('stamps customerId when provided and leaves it null when omitted (Issue 031)', async () => {
     // Booking.customerId is a real FK → Customer.id, so the signed-in case needs
     // a real customer row (onDelete: SetNull lets us drop it before the booking).
@@ -350,6 +392,7 @@ describe('capacity correctness — bookings subtract from holdRepo availability'
       ticketCount: 1,
       customerPhone: '+8490xxxxxx1',
       customerName: 'First',
+      customerEmail: 'test@example.com',
     });
     expect(firstHold).not.toBeNull();
     const r = await createBookingFromHold({
@@ -366,6 +409,7 @@ describe('capacity correctness — bookings subtract from holdRepo availability'
       ticketCount: 1,
       customerPhone: '+8490xxxxxx2',
       customerName: 'Second',
+      customerEmail: 'test@example.com',
     });
     expect(secondHold).toBeNull();
   });
@@ -381,7 +425,7 @@ describe('createOnlineBookingFromHold — concurrent sell (issue 036)', () => {
     const results = await Promise.all(
       Array.from({ length: 10 }, () =>
         createOnlineBookingFromHold(
-          { holdId, buyerName: 'Race Buyer', buyerPhone: '+8490xxxxxx5', consentVersion: '2026-06-01' },
+          { holdId, buyerName: 'Race Buyer', buyerPhone: '+8490xxxxxx5', buyerEmail: 'test@example.com', consentVersion: '2026-06-01' },
           'momo'
         )
       )

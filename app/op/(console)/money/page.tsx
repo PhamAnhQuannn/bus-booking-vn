@@ -222,7 +222,7 @@ export default async function OpMoneyPage() {
                     return (
                       <TableRow key={row.id} data-testid={`ledger-row-${row.id}`}>
                         <TableCell className="whitespace-nowrap tabular-nums">
-                          {new Date(row.createdAt).toLocaleString('vi-VN')}
+                          {new Date(row.createdAt).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}
                         </TableCell>
                         <TableCell>{LEDGER_TYPE_LABEL[row.type] ?? row.type}</TableCell>
                         <TableCell
