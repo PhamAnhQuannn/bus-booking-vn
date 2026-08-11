@@ -250,6 +250,11 @@ export async function refresh(rawToken: string): Promise<{
   if ('reuse' in result) {
     throw new AuthServiceError('SESSION_REUSE');
   }
+  // #464: rotate re-checked the customer and found them suspended/deleted — the
+  // family is already revoked; deny the refresh (client must re-login → login blocks).
+  if ('inactive' in result) {
+    throw new AuthServiceError('SESSION_NOT_FOUND');
+  }
 
   // Rehydrate the client's display name / email on a full page load — SessionBootstrap only
   // has the refresh cookie, so without this the account menu falls back to "Khách hàng" (QA F1).
