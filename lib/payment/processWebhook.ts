@@ -167,6 +167,8 @@ export async function processPaymentWebhook(
       totalVnd: true,
       customPickupRequested: true,
       pickupDetail: true,
+      boardingPoint: true,
+      boardingTime: true,
       trip: {
         select: {
           departureAt: true,
@@ -344,6 +346,9 @@ export async function processPaymentWebhook(
             now: new Date(),
             // Issue 123: 'vnpay' additionally writes a platform-float psp_fee entry.
             adapter,
+            // A-5: oversold → no platform fee; booking_credit offsets the oversold
+            // refund_debit so the operator nets 0 (not −fee).
+            skipPlatformFee: refundTriggered,
           });
 
           // Issue 100: for an oversold booking, the booking is already `refunded`
@@ -372,6 +377,12 @@ export async function processPaymentWebhook(
               bookingRef: booking.bookingRef,
               confirmationUrl,
             };
+            // Chosen boarding point — tell the rider where to board in the first
+            // "you're confirmed" message, not only later via the ticket email.
+            if (booking.boardingPoint) {
+              customerPayload.boardingPoint = booking.boardingPoint;
+              if (booking.boardingTime) customerPayload.boardingTime = booking.boardingTime;
+            }
             const operatorPayload: Record<string, string | number> = {
               ticketCount: booking.ticketCount,
               route: routeLabel,
@@ -379,6 +390,12 @@ export async function processPaymentWebhook(
               bookingRef: booking.bookingRef,
               buyerPhone: booking.buyerPhone,
             };
+            // Chosen boarding point along the route — the driver needs to know which of the
+            // ~10 stops this passenger boards at. Renderer appends a "Don tai" line.
+            if (booking.boardingPoint) {
+              operatorPayload.boardingPoint = booking.boardingPoint;
+              if (booking.boardingTime) operatorPayload.boardingTime = booking.boardingTime;
+            }
             // Issue 111: fold the custom-pickup request into the SAME operator SMS (no second
             // message — avoids notification spam). The renderer appends a "Diem don rieng" line.
             if (booking.customPickupRequested && booking.pickupDetail) {

@@ -173,8 +173,30 @@ export async function getOperatorBalance(operatorId: string): Promise<OperatorBa
   const pending = BigInt(row?.pending_sum ?? '0');
   const paidOut = BigInt(row?.paid_out ?? '0');
 
-  // available = everything settlement-eligible minus everything already paid out.
-  const available = settledEligible - paidOut;
+  // RESERVED (P0-1 double-payout fix, money-flow audit 2026-08-11): money already
+  // committed to a DUE pending payout that has NOT yet drained the ledger. The
+  // per-trip auto-payout (completeTripCore) is created `requested` and writes its
+  // `payout_debit` only when processPayouts pays it — so between eligibility (T+1 =
+  // its scheduledAt) and the sweep, its net is BOTH settlement-eligible AND has no
+  // payout_debit, i.e. it would otherwise be withdrawable a second time. Reserve it
+  // so `available` never offers money that is already earmarked for a pending payout.
+  // Excludes payouts that already wrote a `payout_debit` (on-demand withdrawals write
+  // theirs at request time — those are already reflected in paidOut, not double-counted).
+  const reservedRows = await prisma.$queryRaw<{ reserved: string }[]>`
+    SELECT COALESCE(SUM(p.net), 0)::text AS reserved
+    FROM "Payout" p
+    WHERE p."operatorId" = ${operatorId}
+      AND p.status IN ('requested'::"PayoutStatus", 'processing'::"PayoutStatus")
+      AND p."scheduledAt" <= NOW()
+      AND NOT EXISTS (
+        SELECT 1 FROM "LedgerEntry" le
+        WHERE le."payoutId" = p.id AND le."type" = 'payout_debit'::"LedgerEntryType"
+      )
+  `;
+  const reserved = BigInt(reservedRows[0]?.reserved ?? '0');
+
+  // available = settlement-eligible − already paid out − committed-to-pending-payout.
+  const available = settledEligible - paidOut - reserved;
 
   return { pending, available, paidOut };
 }

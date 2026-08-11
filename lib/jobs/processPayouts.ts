@@ -39,6 +39,8 @@ interface DuePayout {
   id: string;
   operatorId: string;
   net: bigint;
+  /** Trip-scoped payout (auto per-trip) vs on-demand withdrawal (tripId null). */
+  tripId: string | null;
 }
 
 /**
@@ -74,7 +76,7 @@ export const processPayouts: JobCore = async (tx, opts) => {
   // the rows this tick claims and nothing in "PayoutAccount".
   const due = await tx.$queryRaw<DuePayout[]>(
     Prisma.sql`
-      SELECT p.id, p."operatorId", p.net
+      SELECT p.id, p."operatorId", p.net, p."tripId"
       FROM "Payout" p
       WHERE p.status = 'requested'::"PayoutStatus"
         AND p."scheduledAt" <= NOW()
@@ -139,6 +141,53 @@ export const processPayouts: JobCore = async (tx, opts) => {
       continue;
     }
 
+    // P0-2 (money-flow audit 2026-08-11): settle a TRIP-scoped payout against the
+    // LIVE ledger, not the net frozen at trip completion. A booking on the trip may
+    // have been refunded/charged-back AFTER completion (refund_debit/chargeback),
+    // reducing the operator's owed revenue — but Payout.net is frozen. The frozen net
+    // IS the authoritative earned revenue; only a post-completion CLAWBACK legitimately
+    // reduces it, so we add the sum of clawback-type entries for the trip's bookings
+    // (INNER JOIN on bookingId structurally excludes null-bookingId payout_debit +
+    // withdrawal-marker adjustment rows). Explicit IN-list, never a negation
+    // (mirrors lib/ledger/balance.ts so refund_out can never leak in). Clamp so a
+    // positive adjustment never INFLATES the payout — that surplus reaches the
+    // operator via `available`/withdrawal instead. Withdrawal payouts (tripId null)
+    // keep the frozen net: their money already drained `available` at request time.
+    let disbursed = payout.net;
+    if (payout.tripId !== null) {
+      const deltaRows = await tx.$queryRaw<{ delta: string }[]>(Prisma.sql`
+        SELECT COALESCE(SUM(le."amount"), 0)::text AS delta
+        FROM "LedgerEntry" le
+        JOIN "Booking" b ON b.id = le."bookingId"
+        WHERE b."tripId" = ${payout.tripId}
+          AND le."operatorId" = ${payout.operatorId}
+          AND le."type" IN (
+            'refund_debit'::"LedgerEntryType",
+            'chargeback'::"LedgerEntryType",
+            'adjustment'::"LedgerEntryType"
+          )
+      `);
+      const delta = BigInt(deltaRows[0]?.delta ?? '0');
+      if (delta < BigInt(0)) disbursed = payout.net + delta;
+    }
+
+    // Fully clawed back → withhold: mark terminal 'failed' (there is no 'cancelled'
+    // PayoutStatus) with a distinguishing reason, disburse nothing, write no
+    // payout_debit. Use logger.info NOT captureException — this is intentional
+    // withholding, not a settlement failure (must not fire the Issue 061 alert).
+    if (disbursed <= BigInt(0)) {
+      await tx.payout.update({
+        where: { id: payout.id },
+        data: { status: 'failed', failureReason: 'trip_revenue_refunded' },
+      });
+      logger.info(
+        { payoutId: payout.id, tripId: payout.tripId, frozenNet: payout.net.toString() },
+        'processPayouts.withheld_trip_revenue_refunded'
+      );
+      processed += 1;
+      continue;
+    }
+
     await tx.payout.update({
       where: { id: payout.id },
       data: { status: 'processing' },
@@ -147,13 +196,20 @@ export const processPayouts: JobCore = async (tx, opts) => {
     const result = await settlePayout({
       payoutId: payout.id,
       operatorId: payout.operatorId,
-      net: payout.net,
+      net: disbursed,
     });
 
     if (result.ok) {
       await tx.payout.update({
         where: { id: payout.id },
-        data: { status: 'paid', settledAt: now },
+        // Reconcile the frozen net to the actual disbursed amount on a partial refund
+        // so reports (getPayoutReport reads Payout.net) reflect what really left. This
+        // does NOT affect the P0-1 `reserved` term — once the payout_debit below exists
+        // the payout is excluded from `reserved` regardless of net.
+        data:
+          disbursed === payout.net
+            ? { status: 'paid', settledAt: now }
+            : { status: 'paid', settledAt: now, net: disbursed },
       });
 
       // Issue 050 Part C: record the balance drain as an immutable ledger entry
@@ -182,7 +238,7 @@ export const processPayouts: JobCore = async (tx, opts) => {
             operatorId: payout.operatorId,
             payoutId: payout.id,
             type: 'payout_debit',
-            amountMinor: -payout.net,
+            amountMinor: -disbursed,
             sourceEventId: debitKey,
           },
           tx
