@@ -38,7 +38,7 @@ import time
 import urllib.parse
 import urllib.request
 
-RAW = sys.argv[1] if len(sys.argv) > 1 else "tourism-kb/raw"
+RAW = sys.argv[1] if len(sys.argv) > 1 else "tourism-kb/raw/da-lat/scrape"
 API = "https://vi.wikipedia.org/w/api.php"
 UA = "BusBookingKB/0.1 (tourism knowledge base; contact via repo)"
 
