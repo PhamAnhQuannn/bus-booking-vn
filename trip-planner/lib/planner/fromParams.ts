@@ -16,7 +16,7 @@ export function requestFromParams(sp: URLSearchParams): TripRequest {
     slug: sp.get("slug") || "da-lat",
     days: Math.min(Math.max(int(sp.get("days"), 3), 1), 7),
     party: {
-      adults: int(sp.get("adults"), 2),
+      adults: Math.max(int(sp.get("adults"), 2), 1), // >=1 người lớn (không "0 người")
       children: int(sp.get("children"), 0),
       elders: int(sp.get("elders"), 0),
     },

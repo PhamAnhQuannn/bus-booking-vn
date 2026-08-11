@@ -137,7 +137,17 @@ function packDays(store: Store, orderedRegs: Reg[], restDays: number, perDay: nu
     }
   }
   if (cur.length) days.push(cur);
-  while (days.length > restDays) days[days.length - 2].push(...days.pop()!); // dồn dư (khu kề đuôi) vào ngày cuối
+  // Dư ngày (khu nhỏ phân mảnh > restDays chunk): rải TỪNG điểm dư vào ngày CÒN CHỖ (quét từ đuôi) —
+  // GIỮ trần perDay (không overpack, không phá nhịp), điểm dư là khu macro-kề đuôi nên rơi ngày cuối gần.
+  // Tổng điểm <= budget=restDays*perDay nên luôn đủ chỗ; fallback ngày cuối chỉ để an toàn.
+  while (days.length > restDays) {
+    const extra = days.pop()!;
+    for (const p of extra) {
+      let placed = false;
+      for (let i = days.length - 1; i >= 0; i--) if (days[i].length < perDay) { days[i].push(p); placed = true; break; }
+      if (!placed) days[days.length - 1].push(p);
+    }
+  }
   return days;
 }
 
@@ -299,7 +309,8 @@ export function buildItinerary(req: TripRequest, store?: Store): Itinerary {
     : null;
 
   const notes: string[] = [...planNotes];
-  if (req.party.elders > 0) notes.push("Có người lớn tuổi: đã ưu tiên điểm ít dốc + có lối tiếp cận khi dữ liệu cho phép.");
+  if (req.party.elders > 0 || req.accessibility?.avoidSteep)
+    notes.push("Đi cùng người lớn tuổi / cần tránh dốc: đã hạ ưu tiên điểm dốc khi có dữ liệu địa hình (còn hạn chế) — vui lòng tự kiểm tra lối tiếp cận tại từng điểm.");
   notes.push("Mọi địa điểm truy về nguồn trong bộ dữ liệu; SĐT chưa gọi xác minh (marketplace — thông tin, không đặt hộ).");
 
   return { slug: req.slug, request: req, days, hotel, restaurants, notes, generated_from: st.generatedAt };
