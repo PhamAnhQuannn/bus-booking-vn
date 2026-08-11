@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowRight, Bus, BusFront, CreditCard, MailCheck, MapPin, Sparkles } from 'lucide-react';
+import { ArrowRight, Bus, BusFront, ChevronRight, CreditCard, Headset, Home, MailCheck, MapPin, ShieldCheck, Sparkles } from 'lucide-react';
 import { searchParamsSchema, searchFiltersSchema } from '@/lib/core/validation/search';
 import { track } from '@/lib/analytics';
 import { logger } from '@/lib/logger';
@@ -16,6 +16,7 @@ import { ResultsList } from '@/components/search/ResultsList';
 import { ResultsHeading } from '@/components/search/ResultsHeading';
 import { ResultsSkeleton } from '@/components/search/ResultsSkeleton';
 import { PopularTrips } from '@/components/home/PopularTrips';
+import { PopularDestinations } from '@/components/home/PopularDestinations';
 import { TripPlannerPromo } from '@/components/home/TripPlannerPromo';
 import { ContractCarRental } from '@/components/home/ContractCarRental';
 import { OperatorShowcase } from '@/components/home/OperatorShowcase';
@@ -62,6 +63,15 @@ const FEATURES = [
   // of its trips become bookable.
   { icon: Bus, title: 'Nhà xe được xác minh', sub: 'Mỗi nhà xe đều được duyệt trước khi mở bán vé' },
   { icon: MapPin, title: 'Đón trả tận nơi', sub: 'Đón tại nhà hoặc khách sạn, trả đúng điểm bạn cần' },
+];
+
+// Trust strip trên trang kết quả (mockup S1). Chỉ dùng claim kiểm chứng được — "Hỗ trợ 24/7"
+// được xác nhận là dịch vụ thật (khác các claim marketing bịa đã gỡ trong review honest-copy).
+const RESULT_TRUST = [
+  { icon: ShieldCheck, title: 'Thanh toán đơn giản', sub: 'Nhiều phương thức, tiện lợi và an toàn' },
+  { icon: MailCheck, title: 'Xác nhận qua email', sub: 'Vé điện tử gửi ngay, tiết kiệm thời gian' },
+  { icon: Bus, title: 'Nhà xe được xác minh', sub: 'Đối tác uy tín, chất lượng đảm bảo' },
+  { icon: Headset, title: 'Hỗ trợ 24/7', sub: 'Tư vấn, hỗ trợ tận tâm mọi lúc' },
 ];
 
 export default async function HomePage({ searchParams }: PageProps) {
@@ -136,50 +146,124 @@ async function SearchResultsView({
   const showPrev = date > todayVNDate;
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-6">
-      <SearchStoreHydrator
-        query={{ origin, destination, date, ticketCount }}
-      />
+    <>
+      <SearchStoreHydrator query={{ origin, destination, date, ticketCount }} />
 
-      <div className="flex items-center gap-3">
-        <Link
-          href="/"
-          className="inline-flex min-h-11 items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          aria-label="Tìm lại — quay về trang tìm kiếm"
-        >
-          ← Tìm lại
-        </Link>
-        <ResultsHeading origin={origin} destination={destination} />
-      </div>
-
-      {totalBeforeFilters === 0 ? (
-        // Center the empty-state in the leftover height so a short "no trips" page
-        // reads as intentional instead of clustering at the top over a big void.
-        <div className="flex flex-1 flex-col items-center justify-center gap-6">
-          <EmptyState
-            origin={origin}
-            destination={destination}
-            date={date}
-            ticketCount={String(ticketCount)}
-            showPrev={showPrev}
+      {/* HERO — ảnh golden bleed lên sau navbar (id="search" → SiteHeader thành glass nhìn xuyên).
+          Bus vẫn nằm trong gap navbar↔trust (object-y canh), width-driven cover → bus hiện trọn. */}
+      <section id="search" aria-label="Tuyến đường" className="relative w-full">
+        {/* Ảnh 16:9 (fill). -top-12 lg:-top-16 kéo box lên sau header glass để nhìn xuyên. */}
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 -top-12 lg:-top-16">
+          <Image
+            src="/hero/landing-golden-1920.jpg"
+            alt=""
+            fill
+            priority
+            quality={90}
+            sizes="100vw"
+            className="object-cover object-[50%_79%]"
           />
         </div>
-      ) : (
-        <ResultsList
-          trips={trips}
-          facets={facets}
-          totalBeforeFilters={totalBeforeFilters}
-          origin={origin}
-          destination={destination}
-          date={date}
-          ticketCount={ticketCount}
-          showPrev={showPrev}
-          nextCursor={nextCursor}
-          allParams={params}
-          operator={operator}
+        {/* Mobile wash: hạ nền ảnh để chữ tối đọc được, không hoá trắng cả xe. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 -top-12 bg-gradient-to-b from-white/45 via-white/10 to-white/15 md:hidden lg:-top-16"
         />
-      )}
-    </main>
+        {/* md+ cream left-gradient: giữ contrast cho khối chữ trái (mirror homepage page.tsx:295). */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 -top-12 hidden md:block md:bg-[linear-gradient(90deg,rgba(255,247,237,0.60)_0%,rgba(255,247,237,0.44)_32%,rgba(255,247,237,0.20)_54%,rgba(255,247,237,0.05)_74%,rgba(255,247,237,0)_100%)] lg:-top-16"
+        />
+        {/* Feather đáy: hoà hero vào băng trust (#FFF6EE) bên dưới. h-16 để không phủ bánh xe. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent to-[#FFF6EE]"
+        />
+
+        <div className="page-container relative flex flex-col gap-4 pt-8 pb-12 sm:pt-12 sm:pb-14 lg:min-h-[30vw] lg:pt-14 lg:pb-[72px]">
+          <div className="relative isolate flex max-w-[680px] flex-col items-start gap-3 text-left">
+            {/* Mobile-only scrim sau khối chữ cho legibility (mirror homepage page.tsx:367-370). */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -inset-x-4 -inset-y-3 -z-10 rounded-2xl bg-white/70 backdrop-blur-[2px] md:hidden"
+            />
+            <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <Link href="/" className="inline-flex items-center gap-1 hover:text-foreground">
+                <Home className="size-4" aria-hidden="true" />
+                Trang chủ
+              </Link>
+              <ChevronRight className="size-4 shrink-0" aria-hidden="true" />
+              <span className="font-medium text-foreground">
+                {origin} – {destination}
+              </span>
+            </nav>
+            <ResultsHeading origin={origin} destination={destination} />
+            <p className="text-base font-medium text-muted-foreground sm:text-lg">
+              An toàn – Đúng giờ – Tận tâm
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* TRUST STRIP — dùng đúng class homepage (page.tsx:441-462): card cream nổi đè đáy hero. */}
+      <section
+        aria-label="Điểm nổi bật"
+        className="relative z-raised -mt-8 mb-6 w-full border-b border-border bg-[#FFF6EE] py-5 shadow-e2 lg:-mt-12"
+      >
+        <ul className="page-container grid list-none grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {RESULT_TRUST.map(({ icon: Icon, title, sub }) => (
+            <li
+              key={title}
+              className="flex items-center gap-3 rounded-xl border border-border bg-white p-4 shadow-e1"
+            >
+              <span
+                className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
+                aria-hidden="true"
+              >
+                <Icon className="size-5" />
+              </span>
+              <div className="flex flex-col gap-0.5">
+                <span className="text-sm font-semibold leading-tight text-foreground">{title}</span>
+                <span className="text-xs leading-snug text-muted-foreground">{sub}</span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {/* Nền trắng full-bleed (khớp mockup): main tràn ngang, content trong page-container. */}
+      <main className="flex w-full flex-1 flex-col bg-white pb-6">
+        <div className="page-container flex flex-1 flex-col gap-6">
+          {totalBeforeFilters === 0 ? (
+            // Center the empty-state in the leftover height so a short "no trips" page
+            // reads as intentional instead of clustering at the top over a big void.
+            <div className="flex flex-1 flex-col items-center justify-center gap-6">
+              <EmptyState
+                origin={origin}
+                destination={destination}
+                date={date}
+                ticketCount={String(ticketCount)}
+                showPrev={showPrev}
+              />
+            </div>
+          ) : (
+            <ResultsList
+              trips={trips}
+              facets={facets}
+              totalBeforeFilters={totalBeforeFilters}
+              origin={origin}
+              destination={destination}
+              date={date}
+              ticketCount={ticketCount}
+              showPrev={showPrev}
+              nextCursor={nextCursor}
+              allParams={params}
+              operator={operator}
+            />
+          )}
+        </div>
+      </main>
+    </>
   );
 }
 
@@ -389,20 +473,38 @@ async function HeroMarketingView() {
                 {/* One route per direction (single operator). A CTA per direction goes
                     straight to that direction's trip list — with one route there is
                     nothing to search, so we skip the form and hand the rider the list. */}
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  {activeRoutes.map((r) => (
+                {activeRoutes.length > 0 ? (
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    {activeRoutes.map((r) => (
+                      <Link
+                        key={`${r.origin}-${r.destination}`}
+                        href={searchHref(r.origin, r.destination)}
+                        className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-primary-strong px-5 py-3 text-base font-semibold text-white transition-colors hover:bg-primary-strong/90"
+                      >
+                        <BusFront className="size-5 shrink-0" aria-hidden="true" />
+                        <span>
+                          {r.origin} → {r.destination}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  // No bookable route (misconfig or every route deactivated): never render an
+                  // empty CTA card. Tell the rider plainly and point them at the route list.
+                  <div className="flex flex-col gap-2">
+                    <p className="text-base font-medium text-foreground">
+                      Hiện chưa có chuyến nào mở bán trực tuyến.
+                    </p>
                     <Link
-                      key={`${r.origin}-${r.destination}`}
-                      href={searchHref(r.origin, r.destination)}
-                      className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-primary-strong px-5 py-3 text-base font-semibold text-white transition-colors hover:bg-primary-strong/90"
+                      href="/routes"
+                      className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary-strong hover:underline"
                     >
-                      <BusFront className="size-5 shrink-0" aria-hidden="true" />
-                      <span>
-                        {r.origin} → {r.destination}
-                      </span>
+                      <BusFront className="size-4 shrink-0" aria-hidden="true" />
+                      Xem các tuyến đường
+                      <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
                     </Link>
-                  ))}
-                </div>
+                  </div>
+                )}
                 <Link
                   href="/tro-ly-du-lich"
                   className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-primary-strong hover:underline"
@@ -447,11 +549,12 @@ async function HeroMarketingView() {
 
       <TripPlannerPromo />
 
-      {/* 2026-08-10: <PopularDestinations /> was mounted here. Its five cards (Đà Lạt,
-          Nha Trang, Sa Pa, Vũng Tàu, Đà Nẵng) were a hardcoded aspirational list — none
-          is a route we operate, so every card dead-ended in an empty search. The routes
-          we DO run already surface, with real photos, in <PopularTrips /> above. Re-mount
-          this (driven off real destination data) once we serve those destinations. */}
+      {/* Điểm đến được yêu thích — this is an IMAGE AD for the travel/tourism service
+          (dịch vụ du lịch), NOT a booking funnel. The five cards are aspirational
+          destination imagery, so the earlier "every card dead-ends in an empty booking
+          search" critique (which briefly removed it on 2026-08-10) does not apply: brand
+          appeal is the goal, not booking conversion. Kept deliberately — do not remove. */}
+      <PopularDestinations />
 
       <OperatorShowcase operators={operators} />
 
