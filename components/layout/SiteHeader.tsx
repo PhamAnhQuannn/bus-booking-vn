@@ -176,7 +176,12 @@ export function SiteHeader() {
             ? 'bg-background/40 backdrop-blur-md after:opacity-0'
             : scrolled
               ? 'bg-background/82 shadow-e1 backdrop-blur after:opacity-0'
-              : 'bg-background'
+              : 'bg-background',
+          // App-shell routes (trợ lý du lịch): the bar is chrome above a workspace, not
+          // a marketing header melting into a hero. Give it a crisp bottom edge + drop
+          // shadow so the session below reads as a separate surface; kill the feather
+          // (it only exists to soften an edge into a photo, which there is none here).
+          compact && 'border-b border-border shadow-e1 after:opacity-0'
         )}
       >
         {/* Flat px-6 with no max-width container: keeps the logo a constant 24px
