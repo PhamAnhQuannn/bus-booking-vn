@@ -6,12 +6,17 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mockReplace }),
 }));
 
-import { BankTransferClient, MAX_REFRESHES } from '../BankTransferClient';
+import { BankTransferClient } from '../BankTransferClient';
+
+const WINDOW_MINUTES = 20;
+// Mirrors the component's derivation: window at the 5s poll cadence.
+const MAX_REFRESHES = (WINDOW_MINUTES * 60_000) / 5000;
 
 const PROPS = {
   bookingRef: 'BB-2026-abcd-ef12',
   confirmationToken: 'tok-abc',
   redirectUrl: '/booking/confirmation/tok-abc',
+  windowMinutes: WINDOW_MINUTES,
 };
 
 beforeEach(() => {
@@ -63,6 +68,23 @@ describe('BankTransferClient', () => {
 
     expect(screen.getByText(/Chưa nhận được thanh toán/)).toBeDefined();
     expect(screen.getByText('Thử lại')).toBeDefined();
+  });
+
+  it('shows a terminal failure state when the booking is payment_failed_expired', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: 'payment_failed_expired' }),
+    });
+
+    render(<BankTransferClient {...PROPS} />);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(screen.getByText(/Giao dịch chưa hoàn tất hoặc đã bị hủy/)).toBeDefined();
+    expect(screen.getByText('Tìm chuyến khác')).toBeDefined();
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it('shows a live transfer countdown when a deadline is provided', async () => {

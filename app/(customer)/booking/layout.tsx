@@ -5,19 +5,22 @@
  *
  * Checks bookingStore.tripId on mount for the pre-booking flow (customer-info).
  * Confirmation (`/booking/confirmation/:token`), result (`/booking/result/:token`),
- * bank-transfer (`/booking/bank-transfer`), review (`/booking/review`), and the
- * VNPay return pages (`/booking/payment-pending`, `/booking/payment-error`) are
- * reachable via SMS/email link, the payment redirect, or a restored tab with
- * no prior session state — they MUST bypass the tripId guard. Each of those
- * routes re-verifies its own access key server-side (confirmationToken / bb_hold
- * cookie), so the token/cookie in the URL is itself the access key, not the
- * client store.
+ * bank-transfer (`/booking/bank-transfer`), and the VNPay return pages
+ * (`/booking/payment-pending`, `/booking/payment-error`) are reachable via
+ * SMS/email link, the payment redirect, or a restored tab with no prior session
+ * state — they MUST bypass the tripId guard. Each of those routes re-verifies its
+ * own access key server-side (confirmationToken / bb_hold cookie), so the
+ * token/cookie in the URL is itself the access key, not the client store.
  *
- * `/booking/customer` carries `?tripId=` in the URL itself — on a fresh session
- * (shared link, restored tab, cleared storage) we recover by seeding the store
- * from the URL instead of silently bouncing home (audit F6). Only when there is
- * truly no recoverable state do we show an interstitial instead of a silent
- * `router.replace('/')`.
+ * `/booking/customer` is the merged checkout page (info + review/pay + consent).
+ * In form mode it carries `?tripId=` in the URL — on a fresh session (shared link,
+ * restored tab, cleared storage) we recover by seeding the store from the URL
+ * instead of silently bouncing home (audit F6). After initiate it swaps to
+ * `?bookingRef=` (payment mode) — the bb_hold cookie is cleared by then and the
+ * store may be empty on reload, so `?bookingRef` is itself the access key
+ * (the server re-verifies it via getBookingByRef) and must bypass the tripId
+ * guard too. Only when there is truly no recoverable state do we show an
+ * interstitial instead of a silent `router.replace('/')`.
  *
  * The query string is read from window.location in a mount effect, NOT via
  * useSearchParams(): that hook in a client layout opts the whole /booking
@@ -35,7 +38,6 @@ const TOKEN_LANDING_PREFIXES = [
   '/booking/confirmation',
   '/booking/result',
   '/booking/bank-transfer',
-  '/booking/review',
   // VNPay return destinations — reached via the payment redirect with no client
   // store state; each reads its own ?ref= / server data, so bypass the tripId guard.
   '/booking/payment-pending',
@@ -51,7 +53,13 @@ export default function BookingLayout({ children }: { children: React.ReactNode 
     TOKEN_LANDING_PREFIXES.some((p) => pathname?.startsWith(p)) ?? false;
 
   // null = not read yet (pre-mount); { tripId: null } = read, nothing recoverable.
-  const [urlParams, setUrlParams] = useState<{ tripId: string | null; ticketCount: number } | null>(null);
+  const [urlParams, setUrlParams] = useState<{
+    tripId: string | null;
+    ticketCount: number;
+    boardingPoint: string | null;
+    boardingTime: string | null;
+    bookingRef: string | null;
+  } | null>(null);
 
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
@@ -59,19 +67,25 @@ export default function BookingLayout({ children }: { children: React.ReactNode 
     setUrlParams({
       tripId: sp.get('tripId'),
       ticketCount: Math.max(1, Number(sp.get('ticketCount')) || 1),
+      boardingPoint: sp.get('boardingPoint'),
+      boardingTime: sp.get('boardingTime'),
+      bookingRef: sp.get('bookingRef'),
     });
   }, [pathname]);
 
-  const urlTripId =
-    pathname?.startsWith('/booking/customer') && urlParams ? urlParams.tripId : null;
+  const onCustomer = pathname?.startsWith('/booking/customer') ?? false;
+  const urlTripId = onCustomer && urlParams ? urlParams.tripId : null;
+  // Payment mode: /booking/customer?bookingRef=... — server re-verifies via
+  // getBookingByRef, so the ref is the access key (like the token-landing routes).
+  const hasBookingRef = onCustomer && urlParams ? Boolean(urlParams.bookingRef) : false;
 
   useEffect(() => {
     if (!isTokenLanding && !tripId && urlTripId && urlParams) {
-      setTrip(urlTripId, urlParams.ticketCount);
+      setTrip(urlTripId, urlParams.ticketCount, urlParams.boardingPoint, urlParams.boardingTime);
     }
   }, [isTokenLanding, tripId, urlTripId, urlParams, setTrip]);
 
-  if (isTokenLanding || tripId || urlTripId) return <>{children}</>;
+  if (isTokenLanding || tripId || urlTripId || hasBookingRef) return <>{children}</>;
 
   // Query string not read yet — render nothing rather than flashing the interstitial.
   if (urlParams === null) return null;

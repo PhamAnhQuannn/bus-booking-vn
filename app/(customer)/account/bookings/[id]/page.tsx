@@ -186,6 +186,12 @@ export default function BookingDetailPage() {
           <Card>
             <CardContent className="flex flex-col gap-3">
               <Field label="Khởi hành">{dateFmt.format(new Date(booking.departureAt))}</Field>
+              {booking.boardingPoint && (
+                <Field label="Điểm lên xe">
+                  {booking.boardingPoint}
+                  {booking.boardingTime ? ` · ${booking.boardingTime}` : ''}
+                </Field>
+              )}
               <Field label="Số vé">{booking.ticketCount}</Field>
               <Field label="Tổng tiền">{vnd(booking.totalVnd)}</Field>
               <Field label="Biển số xe">{booking.busLicensePlate}</Field>
