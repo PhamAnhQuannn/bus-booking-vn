@@ -40,7 +40,7 @@ export default async function LichTrinhPage({ searchParams }: { searchParams: Pr
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
       <header className="mb-6">
-        <h1 className="text-2xl font-semibold">Lịch trình {req.days} ngày · {cityName(req.slug)}</h1>
+        <h1 className="text-2xl font-semibold">Lịch trình {it.days.length} ngày · {cityName(req.slug)}</h1>
         <p className="text-sm text-muted-foreground">
           Nhịp: {paceLabel(req.pace)} · {req.party.adults} người lớn
           {req.party.elders > 0 ? ` · ${req.party.elders} người lớn tuổi` : ''}

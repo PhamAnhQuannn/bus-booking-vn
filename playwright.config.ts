@@ -12,9 +12,12 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   projects: [
+    // Setup: ghi fixture KB planner (skip-nếu-đã-có). Chỉ suite CẦN data mới depend.
+    { name: 'planner-setup', testMatch: /planner\.setup\.ts/ },
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      dependencies: ['planner-setup'],
     },
     {
       name: 'mobile-390',
@@ -22,6 +25,7 @@ export default defineConfig({
         ...devices['iPhone SE'],
         viewport: { width: 390, height: 844 },
       },
+      dependencies: ['planner-setup'],
     },
   ],
   // Serve the dev build (NODE_ENV=development) in CI as well as locally. The prod
