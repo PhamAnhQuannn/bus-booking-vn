@@ -6,6 +6,7 @@
  * no such trip are omitted so the browse page never links to a dead search.
  */
 
+import { unstable_cache } from 'next/cache';
 import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 
@@ -21,7 +22,7 @@ export interface ActiveRoute {
   boardingSchedule: unknown;
 }
 
-export async function getActiveRoutes(): Promise<ActiveRoute[]> {
+async function fetchActiveRoutes(): Promise<ActiveRoute[]> {
   type Row = {
     origin: string;
     destination: string;
@@ -68,3 +69,20 @@ export async function getActiveRoutes(): Promise<ActiveRoute[]> {
     boardingSchedule: r.boardingSchedule,
   }));
 }
+
+/**
+ * Cached public catalog read (revalidate 300s, tag 'catalog'). Pure catalog data —
+ * no live seat/hold/price — so a ≤5-min staleness is fine. Keeps this repeated
+ * hot-path read (home + /routes) off the pool-max-2 Neon connection budget.
+ *
+ * On-demand invalidation is DELIBERATELY NOT wired (accept the ≤5-min auto-heal).
+ * If ever needed, invalidate from a Server Action / Route Handler after a catalog
+ * mutation with the Next 16 two-arg form `revalidateTag('catalog', 'max')` (SWR) or
+ * `updateTag('catalog')` (immediate) — the bare `revalidateTag('catalog')` is
+ * deprecated. Never invalidate from the every-minute autoCloseSales cron (thrashes
+ * the cache). See the plan's "revalidateTag — cơ chế & gate" section.
+ */
+export const getActiveRoutes = unstable_cache(fetchActiveRoutes, ['active-routes'], {
+  tags: ['catalog'],
+  revalidate: 300,
+});
