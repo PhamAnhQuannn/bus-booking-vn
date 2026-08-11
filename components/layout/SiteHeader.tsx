@@ -160,19 +160,22 @@ export function SiteHeader() {
             // Over the hero photo the bar is frosted glass: translucent surface
             // plus backdrop blur, so the sky and clouds read through it.
             //
-            // 0.45 is as opaque as it needs to be and no more. Over the sky in
-            // this band (~RGB 173) it composites to ~210, where the dark labels
-            // measure ~8.9:1; even against the darkest content that reaches the
-            // bar at 2560 (tree tops, ~RGB 60) it still clears 4.5:1. This only
+            // 0.40 (lowered from 0.45 on user request for a bit more glass). Over
+            // the sky in this band (~RGB 173) it composites to ~208, where the dark
+            // labels still measure ~8.8:1; over the darkest content that reaches the
+            // bar at 2560 (tree tops, ~RGB 60) contrast tightens toward the 4.5:1 AA
+            // floor, so `backdrop-blur-md` is load-bearing here — it averages the
+            // backdrop and lifts the worst-case local contrast. Do not lower further
+            // without re-measuring on the render. This only
             // works because the active label is dark — an orange one would need
             // ~RGB 243 behind it and force the bar back to near-white. See the
             // nav-link classes below before raising either.
             //
             // The feather stays off: it exists to fade an OPAQUE bar into the
             // photo, and against a translucent bar it reads as a smear.
-            ? 'bg-background/45 backdrop-blur-md after:opacity-0'
+            ? 'bg-background/40 backdrop-blur-md after:opacity-0'
             : scrolled
-              ? 'bg-background/90 shadow-e1 backdrop-blur after:opacity-0'
+              ? 'bg-background/82 shadow-e1 backdrop-blur after:opacity-0'
               : 'bg-background'
         )}
       >
