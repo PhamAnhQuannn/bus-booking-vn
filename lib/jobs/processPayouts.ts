@@ -41,6 +41,10 @@ interface DuePayout {
   net: bigint;
   /** Trip-scoped payout (auto per-trip) vs on-demand withdrawal (tripId null). */
   tripId: string | null;
+  /** When the auto-payout was created = the instant `net` was frozen at trip
+   *  completion. #516: only clawbacks AFTER this reduce net (pre-completion refunds
+   *  already excluded the booking from the frozen net). */
+  createdAt: Date;
 }
 
 /**
@@ -76,7 +80,7 @@ export const processPayouts: JobCore = async (tx, opts) => {
   // the rows this tick claims and nothing in "PayoutAccount".
   const due = await tx.$queryRaw<DuePayout[]>(
     Prisma.sql`
-      SELECT p.id, p."operatorId", p.net, p."tripId"
+      SELECT p.id, p."operatorId", p.net, p."tripId", p."createdAt"
       FROM "Payout" p
       WHERE p.status = 'requested'::"PayoutStatus"
         AND p."scheduledAt" <= NOW()
@@ -166,6 +170,11 @@ export const processPayouts: JobCore = async (tx, opts) => {
             'chargeback'::"LedgerEntryType",
             'adjustment'::"LedgerEntryType"
           )
+          -- #516: only clawbacks created AFTER the net was frozen (payout.createdAt =
+          -- trip completion) reduce it. A pre-completion refund already excluded its
+          -- booking from the frozen net; summing its refund_debit here too subtracted
+          -- the same fare twice (operator underpaid, or wholly withheld).
+          AND le."createdAt" > ${payout.createdAt}
       `);
       const delta = BigInt(deltaRows[0]?.delta ?? '0');
       if (delta < BigInt(0)) disbursed = payout.net + delta;

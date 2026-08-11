@@ -102,6 +102,13 @@ export interface OperatorBalance {
   available: bigint;
   /** Total already disbursed (positive magnitude of the payout_debit entries). */
   paidOut: bigint;
+  /** Settlement-eligible minus already-paid-out, WITHOUT reserving pending payouts.
+   *  This is the operator revenue that can still absorb a clawback (#517): money
+   *  earmarked for a due-but-unpaid payout is still the operator's — a chargeback
+   *  against it is recovered by reducing that payout (processPayouts #516 delta),
+   *  NOT by a platform backstop. Use this (not `available`) for chargeback solvency;
+   *  use `available` for withdrawal limits. */
+  coverable: bigint;
 }
 
 interface BalanceRow {
@@ -195,8 +202,12 @@ export async function getOperatorBalance(operatorId: string): Promise<OperatorBa
   `;
   const reserved = BigInt(reservedRows[0]?.reserved ?? '0');
 
-  // available = settlement-eligible − already paid out − committed-to-pending-payout.
-  const available = settledEligible - paidOut - reserved;
+  // coverable = settlement-eligible − already paid out (revenue that can still absorb a
+  // clawback; the reserved pending-payout money is still the operator's — #517).
+  const coverable = settledEligible - paidOut;
+  // available = coverable − committed-to-pending-payout (withdrawal limit; #517 keeps the
+  // reserve here so a due-but-unpaid payout can't be double-withdrawn).
+  const available = coverable - reserved;
 
-  return { pending, available, paidOut };
+  return { pending, available, paidOut, coverable };
 }

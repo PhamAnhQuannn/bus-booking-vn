@@ -274,9 +274,14 @@ export async function recordChargeback(
   // 4. Backstop sizing (S15#7): read the operator's CURRENT available balance.
   //    The un-coverable shortfall is amount − max(available, 0). Read BEFORE the
   //    clawback writes (the clawback would itself drive available negative).
+  // #517: size the shortfall against COVERABLE revenue, not `available`. `available`
+  // subtracts money reserved for a due-but-unpaid payout, which is still the operator's
+  // and can absorb this clawback (recovered by reducing that payout via processPayouts'
+  // #516 delta). Using `available` here made a solvent operator look broke whenever a
+  // payout was pending, so the platform wrongly absorbed the chargeback.
   const balanceBefore = await getOperatorBalance(operatorId);
   const availableCover =
-    balanceBefore.available > BigInt(0) ? balanceBefore.available : BigInt(0);
+    balanceBefore.coverable > BigInt(0) ? balanceBefore.coverable : BigInt(0);
   const amount = BigInt(amountMinor);
   const shortfall = amount > availableCover ? amount - availableCover : BigInt(0);
 

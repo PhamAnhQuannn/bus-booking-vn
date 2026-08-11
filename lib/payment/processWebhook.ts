@@ -310,9 +310,12 @@ export async function processPaymentWebhook(
           // difference. Captured ONLY inside the updated>0 branch (the FIRST and
           // only paid transition) so a replayed IPN never re-refunds. Executed
           // post-commit in after() — best-effort + logged, NOT inside this tx.
-          // Issue 100: skip overpay handling for an oversold booking (the entire
-          // amount is refunded via the oversoldRefundBox path below).
-          if (amount > booking.totalVnd && !refundTriggered) {
+          // #515: fire even when oversold. The oversold path (below) refunds only
+          // the FARE (totalVnd, operator clawback); the overpay delta is platform
+          // float (reason 'overpay_difference' → no operator clawback), so BOTH
+          // refunds must run for the rider to get back the full `amount` they paid.
+          // Previously `&& !refundTriggered` skipped this, silently keeping the delta.
+          if (amount > booking.totalVnd) {
             overpayRefundBox.value = {
               bookingId: booking.id,
               overpayVnd: amount - booking.totalVnd,
