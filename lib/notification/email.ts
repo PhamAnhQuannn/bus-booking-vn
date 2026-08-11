@@ -135,7 +135,7 @@ const SUBJECTS: Record<string, string> = {
   charterClaimLost: 'BBVN — Yêu cầu thuê xe đã được nhà xe khác nhận',
   // Issue 086: auto-return to admin review (no operator responded in time).
   charterReturnedToReview: 'BBVN — Chúng tôi vẫn đang tìm nhà xe cho bạn',
-  ticketReady: 'BBVN — Vé điện tử của bạn đã sẵn sàng',
+  ticketReady: 'BBVN — Biên nhận & vé điện tử của bạn đã sẵn sàng',
   charterDeclined: 'BBVN — Nhà xe đã từ chối yêu cầu thuê xe',
 };
 
@@ -178,9 +178,9 @@ async function sendViaResend(
   html: string,
   text: string,
   template: string,
+  from: string,
   idempotencyKey?: string,
 ): Promise<SendEmailResult> {
-  const from = getEnv().EMAIL_FROM ?? 'noreply@lenxevn.com';
   try {
     const client = await getResendClient();
     const { data, error } = await client.emails.send(
@@ -220,16 +220,26 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
   // Render a branded HTML body + plain-text fallback from the stored payload
   // (SMS line, or a structured JSON blob for templates like `ticketReady`).
   const { html, text } = renderEmailBody(template, input.payload, subject);
+  // Per-template sender: the payment RECEIPT (ticketReady) comes from a dedicated
+  // "biên lai" address; everything else keeps the default noreply@ sender.
+  const from = fromForTemplate(template);
 
   if (emailStubbed()) {
     const externalRef = `${STUB_PROVIDER_REF_PREFIX}${Date.now().toString(36)}`;
     logger.info(
-      { template, externalRef, subjectLen: subject.length, bodyLen: text.length, recipientLen: to.length },
+      { template, from, externalRef, subjectLen: subject.length, bodyLen: text.length, recipientLen: to.length },
       'email.stub.dispatch',
     );
     return { ok: true, externalRef };
   }
 
   // EMAIL_PROVIDER === 'resend' (env guarantees RESEND_API_KEY via superRefine).
-  return sendViaResend(to, subject, html, text, template, idempotencyKey);
+  return sendViaResend(to, subject, html, text, template, from, idempotencyKey);
+}
+
+/** Resolve the sender address for a template — receipt gets its own, else default. */
+function fromForTemplate(template: string): string {
+  const env = getEnv();
+  if (template === 'ticketReady') return env.EMAIL_FROM_RECEIPT ?? env.EMAIL_FROM;
+  return env.EMAIL_FROM ?? 'noreply@lenxevn.com';
 }

@@ -180,27 +180,43 @@ export function renderEmailBody(
         ['Hành khách', val('buyerName')],
         ['Tuyến', val('route')],
         ['Khởi hành', val('departureAt')],
+        ['Điểm lên xe', val('boardingPoint')],
         ['Số vé', val('ticketCount')],
         ['Xe', val('vehicle')],
         ['Nhà xe', val('operator')],
+        ['Phương thức', val('paymentMethod')],
+        ['Thời điểm thanh toán', val('paidAt')],
         ['Tổng tiền', val('amount')],
       ];
 
-      const ctas: Cta[] = [];
-      if (data.ticketUrl) ctas.push({ label: 'Xem vé', url: absolute(val('ticketUrl')) });
+      // Receipt QR — scanning it (any phone camera) opens the public receipt page.
+      // Hosted PNG (data-URI/SVG get stripped by many mail clients).
+      const qrHtml = data.qrUrl
+        ? `<div style="text-align:center;margin:8px 0 4px;">` +
+          `<img src="${escapeHtml(absolute(val('qrUrl')))}" width="180" height="180" alt="QR biên nhận" ` +
+          `style="display:inline-block;border:1px solid #e5e7eb;border-radius:8px;">` +
+          `<p style="margin:6px 0 0;font-size:12px;color:#6b7280;">Quét mã để xem biên nhận</p></div>`
+        : '';
 
-      const bodyLines = ['Vé điện tử của bạn đã sẵn sàng. Chi tiết chuyến đi bên dưới.'];
+      // One CTA only: the PUBLIC receipt page (verifyUrl). The ticket-PDF route
+      // (ticketUrl) is auth-gated (requireCustomerAuth) → 401 for guests, so a
+      // "Xem vé" button here is broken for them; logged-in customers get the PDF
+      // via /account/bookings. The receipt page + the QR cover proof-of-payment.
+      const ctas: Cta[] = [];
+      if (data.verifyUrl) ctas.push({ label: 'Xem biên nhận', url: absolute(val('verifyUrl')) });
+
+      const bodyLines = ['Biên nhận thanh toán & vé điện tử của bạn đã sẵn sàng. Chi tiết bên dưới.'];
       const text =
-        `Vé điện tử của bạn đã sẵn sàng.\n` +
+        `Biên nhận thanh toán & vé điện tử của bạn đã sẵn sàng.\n` +
         rows.filter(([, v]) => v.trim()).map(([l, v]) => `${l}: ${v}`).join('\n') +
-        (ctas.length ? `\nXem vé: ${ctas[0].url}` : '') +
+        (data.verifyUrl ? `\nXem biên nhận: ${absolute(val('verifyUrl'))}` : '') +
         `\nHỗ trợ: ${SUPPORT_EMAIL}`;
 
       return {
         html: shell({
-          title: 'Vé điện tử đã sẵn sàng',
+          title: 'Biên nhận & Vé điện tử',
           bodyLines,
-          detailHtml: detailTable(rows),
+          detailHtml: detailTable(rows) + qrHtml,
           ctas,
         }),
         text,

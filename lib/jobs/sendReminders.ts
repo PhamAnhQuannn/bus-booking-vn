@@ -37,6 +37,8 @@ interface ReminderRow {
   departureAt: Date;
   origin: string;
   destination: string;
+  boardingPoint: string | null;
+  boardingTime: string | null;
 }
 
 /** VN-local short date+time for SMS bodies (mirrors initiateBooking). */
@@ -57,6 +59,8 @@ export const claimReminders: JobCore = async (tx) => {
              b."bookingRef",
              b."buyerPhone",
              b."ticketCount",
+             b."boardingPoint",
+             b."boardingTime",
              t."departureAt",
              r.origin,
              r.destination
@@ -90,12 +94,16 @@ export const claimReminders: JobCore = async (tx) => {
 
 async function dispatchReminders(rows: ReminderRow[]): Promise<void> {
   for (const row of rows) {
-    const payload = {
+    const payload: Record<string, string | number> = {
       route: `${row.origin} - ${row.destination}`,
       departureAt: formatDepartureForSms(row.departureAt),
       ticketCount: row.ticketCount,
       bookingRef: row.bookingRef,
     };
+    if (row.boardingPoint) {
+      payload.boardingPoint = row.boardingPoint;
+      if (row.boardingTime) payload.boardingTime = row.boardingTime;
+    }
 
     const result = await sendSms({
       to: row.buyerPhone,

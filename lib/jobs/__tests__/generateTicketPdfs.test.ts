@@ -14,6 +14,7 @@ interface ClaimRow {
   bookingRef: string;
   confirmationToken: string;
   buyerEmail: string | null;
+  paidAt: Date | null;
 }
 
 const {
@@ -53,6 +54,7 @@ vi.mock('@prisma/client', async (importOriginal) => {
   };
 });
 vi.mock('@/lib/booking/ticketPdf', () => ({ renderTicketPdf: mockRenderPdf }));
+vi.mock('@/lib/ticketing', () => ({ mintTicketToken: vi.fn(async () => 'mock-token') }));
 vi.mock('@/lib/storage', () => ({ putObject: mockPutObject }));
 vi.mock('@/lib/core/db/notificationLogRepo', () => ({
   createNotificationLog: mockCreateNotificationLog,
@@ -104,7 +106,7 @@ beforeEach(() => {
 describe('generateTicketPdfs', () => {
   it('claims paid-without-key rows, renders, uploads, stamps the key, enqueues email', async () => {
     setClaim([
-      { id: 'b1', bookingRef: 'BB-2026-b1', confirmationToken: 'ct1', buyerEmail: 'a@x.com' },
+      { id: 'b1', bookingRef: 'BB-2026-b1', confirmationToken: 'ct1', buyerEmail: 'a@x.com', paidAt: new Date('2026-06-01T03:00:00.000Z') },
     ]);
     mockFindUnique.mockResolvedValue(bookingRow('b1'));
 
@@ -148,19 +150,23 @@ describe('generateTicketPdfs', () => {
       vehicle: '29B-12345',
       operator: 'Test Bus Co',
       amount: '150.000đ',
+      paymentMethod: 'MoMo', // fixture method 'momo' → VN label
       ticketUrl: '/api/bookings/b1/ticket',
+      // Receipt QR + verify links carry the minted token (mocked → 'mock-token').
+      verifyUrl: '/verify/mock-token',
+      qrUrl: '/verify/mock-token/qr',
     });
     // departureAt is VN-local (UTC+7): 2026-06-10T22:00Z → 11/06/2026 05:00.
     // Assert via contains to stay robust to ICU date/time ordering + separators.
     expect(payload.departureAt).toContain('11/06/2026');
     expect(payload.departureAt).toContain('05:00');
-    // Staff-facing verify link is no longer sent to the customer.
-    expect(payload).not.toHaveProperty('verifyUrl');
+    // paidAt is VN-local formatted (2026-06-01T03:00Z → 01/06/2026 10:00).
+    expect(payload.paidAt).toContain('01/06/2026');
   });
 
   it('skips the email enqueue when buyerEmail is null (still renders + uploads)', async () => {
     setClaim([
-      { id: 'b2', bookingRef: 'BB-2026-b2', confirmationToken: 'ct2', buyerEmail: null },
+      { id: 'b2', bookingRef: 'BB-2026-b2', confirmationToken: 'ct2', buyerEmail: null, paidAt: new Date('2026-06-01T03:00:00.000Z') },
     ]);
     mockFindUnique.mockResolvedValue(bookingRow('b2'));
 
@@ -174,7 +180,7 @@ describe('generateTicketPdfs', () => {
 
   it('does not count or enqueue when the guarded stamp loses the race (count 0)', async () => {
     setClaim([
-      { id: 'b3', bookingRef: 'BB-2026-b3', confirmationToken: 'ct3', buyerEmail: 'c@x.com' },
+      { id: 'b3', bookingRef: 'BB-2026-b3', confirmationToken: 'ct3', buyerEmail: 'c@x.com', paidAt: new Date('2026-06-01T03:00:00.000Z') },
     ]);
     mockFindUnique.mockResolvedValue(bookingRow('b3'));
     mockUpdateMany.mockResolvedValue({ count: 0 }); // already keyed by a racing tick
