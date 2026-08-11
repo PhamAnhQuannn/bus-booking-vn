@@ -1,16 +1,21 @@
 # -*- coding: utf-8 -*-
 """Wikidata (CC0) + Wikimedia Commons sweep for Da Lat."""
-import json, sys, io, urllib.request, urllib.parse, time
+import json, sys, os, io, urllib.request, urllib.parse, time
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from dia_diem_config import cfg, slug_of
 OUT = sys.argv[1]
 UA = "BusBooking-KB/0.1 (tourism research; phamanhquan4068@gmail.com)"
+_c = cfg(OUT)
+_lon, _lat = _c["center"]
+print(f"dia diem: {slug_of(OUT)}  center: {_lon} {_lat}  radius: {_c['radius_km']}km")
 
 Q = """
 SELECT ?item ?itemLabel ?viLabel ?coord ?typeLabel ?image ?site WHERE {
   SERVICE wikibase:around {
     ?item wdt:P625 ?coord .
-    bd:serviceParam wikibase:center "Point(108.4454 11.9450)"^^geo:wktLiteral .
-    bd:serviceParam wikibase:radius "25" .
-  }
+    bd:serviceParam wikibase:center "Point(%s %s)"^^geo:wktLiteral .
+    bd:serviceParam wikibase:radius "%s" .
+  }""" % (_lon, _lat, _c["radius_km"]) + """
   ?item wdt:P31 ?type .
   OPTIONAL { ?item wdt:P18 ?image }
   OPTIONAL { ?item wdt:P856 ?site }

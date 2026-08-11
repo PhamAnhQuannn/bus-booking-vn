@@ -4,12 +4,16 @@
 Public bucket, anonymous access confirmed (HTTP 200). Places theme contains NO OpenStreetMap
 data, so it carries none of ODbL's share-alike obligations.
 """
-import sys, io, json, time
+import sys, os, io, json, time
 import duckdb
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from dia_diem_config import cfg, slug_of
 
 OUT = sys.argv[1]
 REL = sys.argv[2] if len(sys.argv) > 2 else "2026-07-22.0"
-XMIN, YMIN, XMAX, YMAX = 108.30, 11.75, 108.65, 12.10
+XMIN, YMIN, XMAX, YMAX = cfg(OUT)["bbox"]
+print(f"dia diem: {slug_of(OUT)}  bbox: {XMIN},{YMIN},{XMAX},{YMAX}")
 SRC = f"s3://overturemaps-us-west-2/release/{REL}/theme=places/type=place/*.parquet"
 
 t0 = time.time()
