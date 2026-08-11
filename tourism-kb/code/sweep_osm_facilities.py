@@ -12,11 +12,15 @@ Co hoi thuc te: cac node amenity=toilets / amenity=parking duoc map RIENG nam
 TRONG khuon vien diem tham quan, khong mang ten diem do.
 """
 import json, os, sys, io, math, time, urllib.request, urllib.parse
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from dia_diem_config import cfg, slug_of
 
 RAW = sys.argv[1]
 OUT = os.path.join(RAW, "osm_facilities.json")
 ENRICH = os.path.join(RAW, "enrichment.json")
-BBOX = (11.75, 108.30, 12.10, 108.65)      # south, west, north, east
+_lonmin, _latmin, _lonmax, _latmax = cfg(RAW)["bbox"]
+BBOX = (_latmin, _lonmin, _latmax, _lonmax)      # south, west, north, east
+print(f"dia diem: {slug_of(RAW)}  bbox(S,W,N,E): {BBOX}")
 ENDPOINT = "https://overpass-api.de/api/interpreter"
 INSIDE_M = 250        # coi la "trong khuon vien"
 PULL_DATE = "28/07/2026"
