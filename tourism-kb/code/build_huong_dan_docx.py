@@ -44,6 +44,7 @@ import an_ngu_data as _an_ngu
 import docx_chung as _dx             # may dinh dang Word dung chung
 import xep_hang as _xep_hang         # nguong xep hang — MOT nguon, khong go tay
 import duong_dan_ra as _duong_dan_ra # chan ghi ra ngoai vung da gitignore
+from dia_diem_config import cfg as _cfg, slug_of as _slug_of  # config theo dia diem (slug)
 
 # Duong ra co MAC DINH, va do la de chan mot loi da xay ra: ten file tung la
 # lua chon cua tung lan goi, nen hai phien lam viec song song da sinh ra
@@ -93,14 +94,25 @@ if TAI_LIEU not in _HOP_LE:
 #
 # Nen ban gop chuyen sang thu muc build noi bo (tourism-kb/raw/build/), khong
 # nam trong tourism-kb/output/ (noi chi giu ba ban phat hanh).
+# output/ chia theo DIA DIEM (output/<slug>/) — sau nay nhieu tinh, moi tinh mot
+# thu muc rieng nen ten file khong dung nhau. Doi MOT dong nay khi lam dia diem
+# khac. Giu hau to "-Da-Lat" trong ten file la co chu dich: G8 rule 3 bat ban
+# giao bi chep ra ngoai vung ignore theo mau `*Diem-Den-*`/`*Nha-Hang-*`/
+# `*Khach-San-*`, nen ten khong hau to se lot luoi lop guard do.
+DIA_DIEM = _slug_of(RAW)                       # slug tu duong dan (da-lat neu raw/ phang)
+CITY_CFG = _cfg(RAW)
+_CITY_FILE = "-".join(p.capitalize() for p in DIA_DIEM.split("-"))   # nha-trang -> Nha-Trang
+_CITY_UP = CITY_CFG["city"].upper()            # NHA TRANG / ĐÀ NẴNG (giu dau)
+_OUT_DD = "tourism-kb/output/" + DIA_DIEM
+# Giu pattern *Diem-Den-*/*Nha-Hang-*/*Khach-San- (G8 rule 3) + hau to <City>.
 _CAU_HINH = {
-    "tatca":    ("tourism-kb/raw/build/Huong-Dan-Da-Lat.docx",
-                 "HƯỚNG DẪN ĐIỂM ĐẾN ĐÀ LẠT", None),
-    "diemden":  ("tourism-kb/output/Diem-Den-Da-Lat.docx", "ĐIỂM THAM QUAN ĐÀ LẠT",
+    "tatca":    ("tourism-kb/raw/build/Huong-Dan-%s.docx" % _CITY_FILE,
+                 "HƯỚNG DẪN ĐIỂM ĐẾN %s" % _CITY_UP, None),
+    "diemden":  ("%s/Diem-Den-%s.docx" % (_OUT_DD, _CITY_FILE), "ĐIỂM THAM QUAN %s" % _CITY_UP,
                  "Điểm tham quan · công viên · hoạt động ngoài trời"),
-    "nhahang":  ("tourism-kb/output/Nha-Hang-Da-Lat.docx", "NHÀ HÀNG & QUÁN ĂN ĐÀ LẠT",
+    "nhahang":  ("%s/Nha-Hang-%s.docx" % (_OUT_DD, _CITY_FILE), "NHÀ HÀNG & QUÁN ĂN %s" % _CITY_UP,
                  "Quán ăn · cà phê · đặc sản theo món"),
-    "khachsan": ("tourism-kb/output/Khach-San-Da-Lat.docx", "KHÁCH SẠN & LƯU TRÚ ĐÀ LẠT",
+    "khachsan": ("%s/Khach-San-%s.docx" % (_OUT_DD, _CITY_FILE), "KHÁCH SẠN & LƯU TRÚ %s" % _CITY_UP,
                  "Cơ sở lưu trú đã đăng ký, theo phân khúc giá"),
 }
 _OUT_TL, TIEU_DE, PHU_DE = _CAU_HINH[TAI_LIEU]
@@ -485,11 +497,11 @@ B("KHÔNG suy ra giá vé, giờ mở cửa, thời lượng thăm hay mức đ�
   "Chỉ ba suy diễn được duyệt: trong nhà/ngoài trời, link bản đồ, điểm lân cận.")
 B("KHÔNG TỰ VIẾT mô tả, “lý do nên đến” hay “điểm nhấn”. Đoạn mô tả trong hồ sơ (nếu có) là TRÍCH NGUYÊN VĂN từ Wikipedia tiếng Việt, kèm nguồn và ngày — dẫn nguồn khi đọc cho khách, và KHÔNG sửa lời. Tài liệu cố ý KHÔNG sinh "
   "những mục đó vì mọi chữ trong đó sẽ là bịa. Mục 3 liệt kê hoạt động kèm nơi và "
-  "đơn vị cụ thể, đó là dữ kiện; “Đà Lạt lãng mạn” thì không.")
+  "đơn vị cụ thể, đó là dữ kiện; “thành phố này lãng mạn” thì không.")
 P("Nhịp độ mặc định (chuyến thư giãn): tối đa 4 điểm/ngày · tối đa 2 giờ di chuyển/ngày · "
   "mỗi ngày chừa một khoảng trống.", bold=True)
 # ── Ba quy tac ap cho CA 36 ho so, noi mot lan ──────────────────────────
-P("Ba điều dưới đây áp cho cả 36 hồ sơ, không nhắc lại ở từng điểm:", bold=True, size=9.5)
+P(f"Ba điều dưới đây áp cho cả {len(picked)} hồ sơ, không nhắc lại ở từng điểm:", bold=True, size=9.5)
 B("Mỗi hồ sơ chỉ nêu những trường KHÔNG mang dấu [CHƯA XÁC MINH]. Trường vắng mặt "
   "nghĩa là chưa xác minh được — nói với khách đúng như vậy, đừng suy ra.")
 B("Khoảng cách từ khách sạn của khách không có trong tài liệu này: nó thuộc hồ sơ "
@@ -545,16 +557,15 @@ if phat("nhahang", "khachsan"):
 if phat("diemden"):
     H(f"{S_TONGQUAN}. Tổng quan điểm đến", 1)
     TBL(["Mục", "Giá trị"],
-        [["Thành phố", "Đà Lạt, tỉnh Lâm Đồng"],
+        [["Thành phố", CITY_CFG["city"] + (", tỉnh " + CITY_CFG["province"] if CITY_CFG["province"] != CITY_CFG["city"] else "")],
          ["Số điểm trong hồ sơ", str(len(picked))],
-         ["Kho dữ liệu đầy đủ", "diem-tham-quan.md — 1.361 điểm"],
          *([["Hướng mặt trời mọc", (_an_ngu.tai_dia_hinh(RAW) or {}).get("binh_minh")
              + " — chung cho cả thành phố, không khác nhau giữa các điểm"]]
            if (_an_ngu.tai_dia_hinh(RAW) or {}).get("binh_minh") else []),
          ["Thời tiết theo tháng", UNV],
          ["Lịch lễ hội", UNV],
          ["Ảnh hưởng Tết", UNV + " — nhiều nơi đóng cửa, giá tăng mạnh"],
-         ["Đi lại tới Đà Lạt", UNV + " — chưa thu thập tuyến xe / máy bay"],
+         ["Đi lại tới " + CITY_CFG["city"], UNV + " — chưa thu thập tuyến xe / máy bay"],
          ["Phương tiện tại chỗ", UNV + " — chưa thu thập giá thuê xe / taxi"]],
         widths=[5.0, 11.0], size=9)
     P("⚠ Năm hàng cuối là khoảng trống có thật, không phải lỗi hiển thị. Một lịch trình không biết "
@@ -822,7 +833,7 @@ if phat("diemden"):
                    "Nên mang theo", "Điều cấm"):
             spec.append(("f", f_, UNV))
         spec += [("group", "Vị trí và di chuyển"),
-                 ("f", "Từ hồ Xuân Hương",
+                 ("f", "Từ trung tâm " + CITY_CFG["city"],
                   f"{r['km']:.1f} km · {r['min']:.0f} phút"
                   if r.get("min") is not None else UNV),
                  # "Tu khach san" da chuyen len muc 0 — cung mot cau cho ca 36 diem.
@@ -881,7 +892,11 @@ if phat("diemden"):
 # Cung mot module chon loc voi ban .md — `hoat_dong_data.tai()`. Neu viet lai
 # logic cat gon o day thi hai ban se lech nhau va khong ai biet cho toi khi doc
 # canh nhau; du an da dinh dung lop loi do (hai bo trich cung payload VNPay).
-_HD, _HDTK = _hoat_dong.tai(RAW)
+# City moi (scope diem-den) khong co tour_sites/dv_trai_nghiem -> tai() vo -> bo qua hoat dong.
+try:
+    _HD, _HDTK = _hoat_dong.tai(RAW)
+except (FileNotFoundError, TypeError, ValueError):
+    _HD, _HDTK = [], {"thieu": []}
 _MON = _hoat_dong.tai_mon_an(RAW)
 _PC = _hoat_dong.tai_phong_cach(RAW)
 
@@ -894,10 +909,11 @@ if phat("diemden", "nhahang"):
     _nhom_tl = len({a["nhom"] for a in _HD_TL})
 
     doc.add_page_break()
-    H(f"{S_HOATDONG}. Hoạt động — làm gì ở Đà Lạt", 1)
-    _dan = (f" Mã DL-xx dẫn về mục chi tiết ở mục {S_DIEMDEN}."
+    H(f"{S_HOATDONG}. Hoạt động — làm gì ở {CITY_CFG['city']}", 1)
+    _pfx = CITY_CFG["id_prefix"]
+    _dan = (f" Mã {_pfx}-xx dẫn về mục chi tiết ở mục {S_DIEMDEN}."
             if S_DIEMDEN else
-            " Mã DL-xx dẫn về tài liệu Điểm tham quan Đà Lạt.")
+            f" Mã {_pfx}-xx dẫn về tài liệu Điểm tham quan {CITY_CFG['city']}.")
     P(f"{len(_HD_TL)} hoạt động, {_nhom_tl} nhóm." + _dan,
       italic=True, size=9, color=GREY)
 
