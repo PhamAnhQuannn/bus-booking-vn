@@ -18,6 +18,10 @@ const GEMINI_MODEL = "gemini-flash-latest";
 const GEMINI_URL = (model: string, key: string) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${key}`;
 
+// Bound each free-text turn: cap output tokens (cost) + abort a hung/slow upstream (latency).
+const MAX_OUTPUT_TOKENS = 1024;
+const STREAM_TIMEOUT_MS = 30_000;
+
 export class ParseIntentError extends Error {
   constructor(
     message: string,
@@ -171,18 +175,31 @@ export async function* streamChat(history: ChatTurn[]): AsyncGenerator<StreamEve
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new ParseIntentError("GEMINI_API_KEY chưa cấu hình", "no_key");
 
-  const res = await fetch(GEMINI_URL(GEMINI_MODEL, key), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      system_instruction: { parts: [{ text: SYSTEM }] },
-      contents: history.map((t) => ({ role: t.role, parts: [{ text: t.text }] })),
-      tools: [{ function_declarations: [TRICH_DECL, GOI_Y_DECL] }],
-      generationConfig: { temperature: 0.3 },
-    }),
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(GEMINI_URL(GEMINI_MODEL, key), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: SYSTEM }] },
+        contents: history.map((t) => ({ role: t.role, parts: [{ text: t.text }] })),
+        tools: [{ function_declarations: [TRICH_DECL, GOI_Y_DECL] }],
+        generationConfig: { temperature: 0.3, maxOutputTokens: MAX_OUTPUT_TOKENS },
+      }),
+    });
+  } catch {
+    clearTimeout(timer);
+    throw new ParseIntentError(
+      controller.signal.aborted ? "Gemini timeout" : "Gemini fetch failed",
+      "upstream",
+    );
+  }
 
   if (!res.ok || !res.body) {
+    clearTimeout(timer);
     throw new ParseIntentError(`Gemini HTTP ${res.status}`, "upstream");
   }
 
@@ -228,4 +245,5 @@ export async function* streamChat(history: ChatTurn[]): AsyncGenerator<StreamEve
       }
     }
   }
+  clearTimeout(timer);
 }

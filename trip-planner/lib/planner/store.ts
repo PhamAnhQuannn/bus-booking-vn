@@ -39,6 +39,10 @@ export interface Store {
 }
 
 function readJson<T>(slug: string, file: string): T {
+  // Gate at the fs-read chokepoint: loadStore() is exported (scripts + buildItinerary
+  // fallback) and bypasses getStore's isCitySlug check — keep slug on the CITIES allowlist
+  // so it can never traverse outside EXPORT_ROOT.
+  if (!isCitySlug(slug)) throw new CityDataUnavailableError(slug);
   const p = path.join(EXPORT_ROOT, slug, file);
   return JSON.parse(fs.readFileSync(p, "utf-8")) as T;
 }
