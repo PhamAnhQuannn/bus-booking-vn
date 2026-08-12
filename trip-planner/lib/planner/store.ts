@@ -39,6 +39,11 @@ export interface Store {
 }
 
 function readJson<T>(slug: string, file: string): T {
+  // Guard the fs-read chokepoint against path traversal: loadStore() is exported (scripts +
+  // buildItinerary fallback) and bypasses getStore's isCitySlug gate. Validate slug as a
+  // single safe path segment — NOT the CITIES allowlist, so staged/export-only slugs still
+  // load — so it can never escape EXPORT_ROOT.
+  if (!/^[a-z0-9-]+$/.test(slug)) throw new CityDataUnavailableError(slug);
   const p = path.join(EXPORT_ROOT, slug, file);
   return JSON.parse(fs.readFileSync(p, "utf-8")) as T;
 }
