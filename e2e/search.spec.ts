@@ -60,9 +60,9 @@ test.describe('AC-4: Search results display', () => {
     await expect(first.getByText(ORIGIN)).toBeVisible();
     await expect(first.getByText(DESTINATION)).toBeVisible();
 
-    // Operator name visible on the page. The single-operator redesign moved it out of
-    // each card into the results-level OperatorTrustPanel (shown once, not per card).
-    await expect(page.getByText(/Toàn Khuyên/).first()).toBeVisible();
+    // Operator name is no longer a per-card field: the redesign moved it off the card
+    // into the results-level OperatorTrustPanel, which only renders for a single-facet
+    // result (one bus type/operator). It's therefore not part of the card contract.
 
     // Price formatted in VND (e.g. "850.000đ"). Match the grouped digits so it
     // doesn't collide with the "Đón tại …" boarding line (Đ ~ đ case-insensitive).
