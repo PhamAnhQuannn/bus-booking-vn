@@ -238,7 +238,7 @@ function BrandIntro() {
       </div>
 
       <div className="relative overflow-hidden rounded-2xl border border-[#F0E9E1] shadow-e1">
-        <PlannerImage src="/planner/bus-promo.jpg" alt="Đặt vé xe BBVN" fallbackEmoji="🚌" className="aspect-[3/2] w-full" />
+        <PlannerImage src="/destinations/sai-gon.jpg" alt="Đặt vé xe BBVN" fallbackEmoji="🚌" className="aspect-[3/2] w-full" />
         <div className="absolute inset-0 flex flex-col justify-between bg-gradient-to-t from-black/55 to-transparent p-4">
           <p className="max-w-[75%] text-sm font-bold leading-snug text-white">Đặt vé xe dễ dàng cho hành trình của bạn</p>
           {/* Mock: pill nền trắng mờ + chữ cam (KHÔNG phải nút cam đặc) */}
