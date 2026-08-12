@@ -9,6 +9,7 @@
 
 import { CITIES, CITY_SLUGS, isCitySlug } from "./cities";
 import { VIBE_VOCAB, filterVibes } from "./vibes";
+import { signModelTurn } from "./chatSig";
 
 // Danh sách + mapping tên→slug DERIVE từ CITIES (single source) — thêm tỉnh = chỉ sửa cities.ts.
 const CITY_LIST = CITIES.map((c) => c.ten).join(", ");
@@ -45,6 +46,7 @@ export type ChatRole = "user" | "model";
 export interface ChatTurn {
   role: ChatRole;
   text: string;
+  sig?: string; // model-turn: HMAC tag do server ký (chống history-injection). Xem chatSig.ts.
 }
 
 // Event stream ra route: prose token | slot ĐÃ TRÍCH (client lo hỏi thêm + dựng).
@@ -53,6 +55,7 @@ export type StreamEvent =
   | { kind: "token"; text: string }
   | { kind: "slots"; partial: Partial<ParsedIntent> }
   | { kind: "suggest"; dia_diem: string; vibe: string } // mode discovery: route lo lookup KB → tên
+  | { kind: "sig"; tag: string } // cuối turn: HMAC ký prose server phát ra (client echo lại — chatSig.ts)
   | { kind: "ask"; slot: string; options: string[]; allowCustom: boolean }
   | { kind: "plan"; intent: ParsedIntent };
 
@@ -171,26 +174,44 @@ export async function* streamChat(history: ChatTurn[]): AsyncGenerator<StreamEve
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new ParseIntentError("GEMINI_API_KEY chưa cấu hình", "no_key");
 
-  const res = await fetch(GEMINI_URL(GEMINI_MODEL, key), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      system_instruction: { parts: [{ text: SYSTEM }] },
-      contents: history.map((t) => ({ role: t.role, parts: [{ text: t.text }] })),
-      tools: [{ function_declarations: [TRICH_DECL, GOI_Y_DECL] }],
-      generationConfig: { temperature: 0.3 },
-    }),
-  });
+  // Abort a hung upstream: without this a stalled Gemini stream blocks the function until
+  // the platform ceiling (300s) — indefinite spinner + wasted compute. 30s covers a normal
+  // few-second generation with headroom.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+
+  let res: Response;
+  try {
+    res = await fetch(GEMINI_URL(GEMINI_MODEL, key), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: SYSTEM }] },
+        contents: history.map((t) => ({ role: t.role, parts: [{ text: t.text }] })),
+        tools: [{ function_declarations: [TRICH_DECL, GOI_Y_DECL] }],
+        // maxOutputTokens caps a single turn's generation — prose is 1-2 sentences + one
+        // function call (~150-300 tok); 512 is generous headroom and bounds worst-case cost.
+        generationConfig: { temperature: 0.3, maxOutputTokens: 512 },
+      }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timeout);
+    throw new ParseIntentError(`Gemini fetch lỗi: ${String(err)}`, "upstream");
+  }
 
   if (!res.ok || !res.body) {
+    clearTimeout(timeout);
     throw new ParseIntentError(`Gemini HTTP ${res.status}`, "upstream");
   }
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  let accProse = ""; // cộng dồn prose server phát ra → ký ở cuối turn (client echo tag để verify).
 
-  while (true) {
+  try {
+    while (true) {
     const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
@@ -214,6 +235,7 @@ export async function* streamChat(history: ChatTurn[]): AsyncGenerator<StreamEve
       const parts = obj.candidates?.[0]?.content?.parts ?? [];
       for (const part of parts) {
         if (part.text) {
+          accProse += part.text;
           yield { kind: "token", text: part.text };
         } else if (part.functionCall) {
           const { name, args = {} } = part.functionCall;
@@ -227,5 +249,14 @@ export async function* streamChat(history: ChatTurn[]): AsyncGenerator<StreamEve
         }
       }
     }
+    }
+    // Cuối turn thành công: ký prose đã phát → client lưu tag, echo lại lượt sau để server verify.
+    if (accProse) yield { kind: "sig", tag: signModelTurn(accProse) };
+  } catch (err) {
+    // Reader aborted (timeout) or upstream dropped mid-stream — surface as upstream, not a
+    // silent truncated turn.
+    throw new ParseIntentError(`Gemini stream lỗi: ${String(err)}`, "upstream");
+  } finally {
+    clearTimeout(timeout);
   }
 }

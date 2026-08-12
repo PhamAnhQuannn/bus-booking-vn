@@ -10,3 +10,4 @@ export * from "./itineraryDto";
 export * from "./slots"; // máy trạng thái slot tất định (client-safe) — chip điền slot không cần Gemini
 export { getStore, CityDataUnavailableError } from "./store"; // server-only: nạp KB (dev đĩa / prod R2 + cache) — caller await
 export * from "./conversationRepo"; // server-only: CRUD lịch sử hội thoại (owner-scoped) — route deep-import qua barrel
+export { sanitizeHistory } from "./chatSig"; // server-only: drop model-turn không có chữ ký hợp lệ (chống history-injection)

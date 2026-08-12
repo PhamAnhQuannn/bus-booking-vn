@@ -433,3 +433,43 @@ export const holdsRatelimit = createRatelimit({ limit: 8, windowMs: 60_000 });
  * session to key on); the CGNAT concern is bounded because legitimate traffic is not in it.
  */
 export const holdsAnonRatelimit = createRatelimit({ limit: 3, windowMs: 60_000 });
+
+/**
+ * AI trip-planner chat throttle for a known browser session: 10 turns/min. Keyed
+ * `planner-chat:<bb_sid>`.
+ *
+ * Each turn is one uncapped streamed Gemini generation — far more expensive than a
+ * normal /api/* POST — so the generic 60/min/IP edge limit is too loose for this
+ * surface (it was chosen for cheap DB routes). A real planning conversation is a
+ * handful of typed turns per minute; 10 leaves room for retries. Session-keyed for
+ * the same CGNAT reason as holdsRatelimit (#359) — many real Vietnamese users share
+ * one carrier egress IP, so an IP-keyed chat limit would starve them at peak.
+ */
+export const plannerChatRatelimit = createRatelimit({ limit: 10, windowMs: 60_000 });
+
+/**
+ * AI trip-planner chat throttle for a caller with NO bb_sid: 3 turns/min/IP. Keyed
+ * `planner-chat-anon:<ip>`. Tighter than the session bucket, mirroring holdsAnonRatelimit:
+ * a real browser mints bb_sid on its first safe-method request, so a client that POSTs
+ * chat with no session is a script.
+ */
+export const plannerChatAnonRatelimit = createRatelimit({ limit: 3, windowMs: 60_000 });
+
+/**
+ * GLOBAL daily budget cap for Gemini calls, shared across ALL callers. Keyed on the
+ * constant `planner-gemini:global` so every planner-chat turn consumes from ONE bucket.
+ *
+ * The per-session/IP limiters above slow a single abuser but cannot protect the Gemini
+ * FREE-TIER quota, which is a single account-wide budget (~1000 requests/day): without
+ * this, one IP (or organic traffic) can exhaust it and either fail every other user or —
+ * once billing is enabled — run up unbounded spend. This bucket makes crossing the free
+ * tier a controlled 429 rather than a surprise bill. Raise/disable via
+ * PLANNER_GEMINI_DAILY_MAX once paid billing + a real budget are in place.
+ *
+ * Fails OPEN (default) — a Redis blip must not take the assistant down; the per-turn
+ * limiters and Gemini's own quota remain as backstops.
+ */
+export const plannerDailyBudget = createRatelimit({
+  limit: Number(process.env.PLANNER_GEMINI_DAILY_MAX) || 1000,
+  windowMs: 24 * 60 * 60_000,
+});

@@ -64,6 +64,7 @@ type Msg =
       suggestions?: DestinationSuggestion[]; // mode vibe-discovery: điểm-đến có tên (KB)
       suggestCity?: string; // slug thành phố của gợi ý (để anchor/lên lịch)
       suggestVibe?: string; // mã vibe (nhãn header)
+      sig?: string; // HMAC tag server ký prose lượt này — echo lại để server verify (chống injection)
     };
 
 // Msg[] (UI, có field tạm) ↔ StoredMsg[] (bền vững, chỉ role/text/dto).
@@ -262,7 +263,11 @@ export default function TroLyDuLichPage() {
     await ensureConversation(text);
 
     const history = [...messages, { role: 'user' as const, text }]
-      .map((m) => ({ role: m.role === 'user' ? 'user' : 'model', text: m.text }))
+      .map((m) =>
+        m.role === 'user'
+          ? { role: 'user', text: m.text }
+          : { role: 'model', text: m.text, sig: m.sig }, // echo chữ ký để server verify model-turn
+      )
       .filter((m) => m.text);
 
     setMessages((prev) => [...prev, { role: 'user', text, time: nowHHMM() }, { role: 'bot', text: '', time: nowHHMM() }]);
@@ -320,6 +325,9 @@ export default function TroLyDuLichPage() {
     switch (event) {
       case 'token':
         patchBot((m) => ({ ...m, text: m.text + String(payload.text ?? '') }));
+        return null;
+      case 'sig':
+        patchBot((m) => ({ ...m, sig: String(payload.tag ?? '') }));
         return null;
       case 'slots': {
         const pt = payload.partial as Partial<ParsedIntent> | undefined;
