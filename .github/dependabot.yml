@@ -12,6 +12,11 @@ updates:
       - dependency-name: "*"
         update-types:
           - version-update:semver-major
+      # base-ui 1.7 moved the menu popup to a lazy chunk; Next 16.2 Turbopack dev has no
+      # chunk-retry, so the WebKit/mobile-390 e2e ChunkLoads and hangs (prod build is fine).
+      # Hold on 1.6.x until we're on Next 16.3+ (chunk-retry default). See issue #535.
+      - dependency-name: "@base-ui/react"
+        versions: ["1.7.x"]
 
   - package-ecosystem: github-actions
     directory: /

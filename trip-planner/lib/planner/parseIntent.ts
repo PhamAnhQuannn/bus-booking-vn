@@ -19,6 +19,11 @@ const GEMINI_MODEL = "gemini-flash-latest";
 const GEMINI_URL = (model: string, key: string) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${key}`;
 
+// Bound each free-text turn: cap output tokens (cost) + abort a hung/slow upstream (latency).
+// 2048 leaves prose + the trich/goi_y_vibe function-call room so extraction isn't cut off.
+const MAX_OUTPUT_TOKENS = 2048;
+const STREAM_TIMEOUT_MS = 30_000;
+
 export class ParseIntentError extends Error {
   constructor(
     message: string,
@@ -174,34 +179,38 @@ export async function* streamChat(history: ChatTurn[]): AsyncGenerator<StreamEve
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new ParseIntentError("GEMINI_API_KEY chưa cấu hình", "no_key");
 
-  // Abort a hung upstream: without this a stalled Gemini stream blocks the function until
-  // the platform ceiling (300s) — indefinite spinner + wasted compute. 30s covers a normal
-  // few-second generation with headroom.
+  // Idle deadline: abort only when the upstream goes quiet for STREAM_TIMEOUT_MS (reset on
+  // every chunk), so a healthy long stream isn't truncated while a hung upstream still can't
+  // pin the function open. maxOutputTokens caps a runaway generation.
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30_000);
+  let timer = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS);
+  const kick = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS);
+  };
 
   let res: Response;
   try {
     res = await fetch(GEMINI_URL(GEMINI_MODEL, key), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
       body: JSON.stringify({
         system_instruction: { parts: [{ text: SYSTEM }] },
         contents: history.map((t) => ({ role: t.role, parts: [{ text: t.text }] })),
-        tools: [{ function_declarations: [TRICH_DECL, GOI_Y_DECL] }],
-        // maxOutputTokens caps a single turn's generation — prose is 1-2 sentences + one
-        // function call (~150-300 tok); 512 is generous headroom and bounds worst-case cost.
-        generationConfig: { temperature: 0.3, maxOutputTokens: 512 },
+        generationConfig: { temperature: 0.3, maxOutputTokens: MAX_OUTPUT_TOKENS },
       }),
-      signal: controller.signal,
     });
   } catch (err) {
-    clearTimeout(timeout);
-    throw new ParseIntentError(`Gemini fetch lỗi: ${String(err)}`, "upstream");
+    clearTimeout(timer);
+    throw new ParseIntentError(
+      controller.signal.aborted ? "Gemini timeout" : `Gemini fetch failed: ${String(err)}`,
+      "upstream",
+    );
   }
 
   if (!res.ok || !res.body) {
-    clearTimeout(timeout);
+    clearTimeout(timer);
     throw new ParseIntentError(`Gemini HTTP ${res.status}`, "upstream");
   }
 
@@ -212,51 +221,55 @@ export async function* streamChat(history: ChatTurn[]): AsyncGenerator<StreamEve
 
   try {
     while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
+      const { done, value } = await reader.read();
+      if (done) break;
+      kick(); // got a chunk -> reset the idle deadline
+      buffer += decoder.decode(value, { stream: true });
 
-    // SSE frame phân tách bằng dòng "data: {json}".
-    let nl: number;
-    while ((nl = buffer.indexOf("\n")) !== -1) {
-      const line = buffer.slice(0, nl).trim();
-      buffer = buffer.slice(nl + 1);
-      if (!line.startsWith("data:")) continue;
-      const payload = line.slice(5).trim();
-      if (!payload || payload === "[DONE]") continue;
+      // SSE frame phân tách bằng dòng "data: {json}".
+      let nl: number;
+      while ((nl = buffer.indexOf("\n")) !== -1) {
+        const line = buffer.slice(0, nl).trim();
+        buffer = buffer.slice(nl + 1);
+        if (!line.startsWith("data:")) continue;
+        const payload = line.slice(5).trim();
+        if (!payload || payload === "[DONE]") continue;
 
-      let obj: { candidates?: { content?: { parts?: GeminiPart[] } }[] };
-      try {
-        obj = JSON.parse(payload);
-      } catch {
-        continue; // frame chưa trọn (hiếm với 1 dòng/frame) -> bỏ qua
-      }
+        let obj: { candidates?: { content?: { parts?: GeminiPart[] } }[] };
+        try {
+          obj = JSON.parse(payload);
+        } catch {
+          continue; // frame chưa trọn (hiếm với 1 dòng/frame) -> bỏ qua
+        }
 
-      const parts = obj.candidates?.[0]?.content?.parts ?? [];
-      for (const part of parts) {
-        if (part.text) {
-          accProse += part.text;
-          yield { kind: "token", text: part.text };
-        } else if (part.functionCall) {
-          const { name, args = {} } = part.functionCall;
-          if (name === "trich") {
-            yield { kind: "slots", partial: partialFromArgs(args) };
-          } else if (name === "goi_y_vibe") {
-            const dia = typeof args.dia_diem === "string" && isCitySlug(args.dia_diem) ? args.dia_diem : null;
-            const vibes = filterVibes([String(args.vibe ?? "")]); // allowlist vibe
-            if (dia && vibes.length) yield { kind: "suggest", dia_diem: dia, vibe: vibes[0] };
+        const parts = obj.candidates?.[0]?.content?.parts ?? [];
+        for (const part of parts) {
+          if (part.text) {
+            accProse += part.text;
+            yield { kind: "token", text: part.text };
+          } else if (part.functionCall) {
+            const { name, args = {} } = part.functionCall;
+            if (name === "trich") {
+              yield { kind: "slots", partial: partialFromArgs(args) };
+            } else if (name === "goi_y_vibe") {
+              const dia = typeof args.dia_diem === "string" && isCitySlug(args.dia_diem) ? args.dia_diem : null;
+              const vibes = filterVibes([String(args.vibe ?? "")]); // allowlist vibe
+              if (dia && vibes.length) yield { kind: "suggest", dia_diem: dia, vibe: vibes[0] };
+            }
           }
         }
       }
     }
-    }
     // Cuối turn thành công: ký prose đã phát → client lưu tag, echo lại lượt sau để server verify.
     if (accProse) yield { kind: "sig", tag: signModelTurn(accProse) };
   } catch (err) {
-    // Reader aborted (timeout) or upstream dropped mid-stream — surface as upstream, not a
-    // silent truncated turn.
-    throw new ParseIntentError(`Gemini stream lỗi: ${String(err)}`, "upstream");
+    // Idle-timeout abort or a stream read error -> ParseIntentError so the route shows the
+    // polite fallback instead of an uncaught crash.
+    throw new ParseIntentError(
+      controller.signal.aborted ? "Gemini timeout" : `Gemini stream error: ${String(err)}`,
+      "upstream",
+    );
   } finally {
-    clearTimeout(timeout);
+    clearTimeout(timer);
   }
 }
