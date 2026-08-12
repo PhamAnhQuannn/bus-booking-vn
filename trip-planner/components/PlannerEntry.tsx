@@ -21,7 +21,7 @@ export function PlannerEntry({ onPick, disabled }: Props) {
       {/* Mascot hero — scene ngang ~3:1, ~60% bề rộng nội dung */}
       <div className="flex justify-center">
         <PlannerImage
-          src="/planner/mascot.png"
+          src="/planner/mascot.svg"
           alt="Trợ lý BBVN AI"
           fallbackEmoji="🤖"
           className="aspect-[512/173] w-full max-w-[480px] rounded-3xl bg-transparent from-transparent to-transparent"
