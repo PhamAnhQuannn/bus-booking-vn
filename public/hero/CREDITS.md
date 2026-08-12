@@ -49,6 +49,26 @@ visible bus. See `scripts/hero-logo.py` for the measurements behind that, and
 behind the decal's size, position and brightness — all four are solved against
 the panel's real boundaries rather than chosen.
 
+## Operator door (`/op/login` + operator auth pages)
+
+The operator brand panel (`components/auth/AuthSplitLayout.tsx`, `audience="operator"`)
+uses a dusk bus-depot photo behind a dark scrim — a separate composition from the
+customer golden-hour hero, chosen to read as a back-office "operations portal."
+
+| File | Pixels | Bytes | Serves |
+|------|--------|-------|--------|
+| `operator-depot.jpg` | 1360×822 | 151 KB | `image-set()` 1× + cascade fallback |
+| `operator-depot@2x.webp` | 1614×975 | 125 KB | hi-DPR (native-resolution ceiling of the source) |
+
+Source: AI-generated master, owner-provided 2026-08-08 (a BBVN bus depot at blue
+hour — three buses under an illuminated "BBVN" canopy, city skyline, wet pavement).
+The "BBVN" livery + canopy sign were already painted into the master by the
+generator, so no decal composite step is applied here (unlike the golden hero).
+Variants cut with Pillow (`LANCZOS`, no super-resolution — the source is already
+sharp at panel scale and the dark scrim hides residual detail). Not driven by
+`hero-cut.py`; if you re-cut, keep the two-file 1×-jpg / 2×-webp shape the
+`image-set()` in `AuthSplitLayout.tsx` expects.
+
 ## Unreferenced legacy assets
 
 Still on disk, referenced by nothing (grepped across `app/` and `components/`).

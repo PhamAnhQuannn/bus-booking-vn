@@ -84,7 +84,7 @@ async function handler(req: NextRequest): Promise<Response> {
   }
 
   // Server-side VNPay availability gate. Shares ONE predicate with the UI's
-  // `showVnpay` (app/(customer)/booking/review/page.tsx) — see
+  // `showVnpay` (app/(customer)/booking/customer/page.tsx) — see
   // lib/payment/vnpaySelectable.ts for why VNPAY_ENABLED is deliberately NOT part
   // of it: VNPay's webhook and return routes are deleted, so real VNPay would take
   // the customer's money with no route left to confirm the booking. Without this

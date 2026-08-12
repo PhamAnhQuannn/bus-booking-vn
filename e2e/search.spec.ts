@@ -30,14 +30,16 @@ function vnDateStr(d: Date): string {
 
 const TOMORROW = vnDateStr(addDays(new Date(), 1));
 
-/** Build search URL with known seed data for Hà Nội → Sài Gòn */
+// The live single-operator DB serves one route each way (Sài Gòn ⇄ Thanh Hóa,
+// operator "Toàn Khuyên – Minh Tuyến"), a bus every day. The results page renders
+// one card PER boarding point of the trip; the homepage is a direct CTA (no search
+// form), so the funnel is deep-link → results (SearchResultsView).
+const ORIGIN = 'Sài Gòn';
+const DESTINATION = 'Thanh Hóa';
+
+/** Build a results-listing URL for the live Sài Gòn → Thanh Hóa route. */
 function searchUrl(date = TOMORROW, ticketCount = '1') {
-  const p = new URLSearchParams({
-    origin: 'Hà Nội',
-    destination: 'Sài Gòn',
-    date,
-    ticketCount,
-  });
+  const p = new URLSearchParams({ origin: ORIGIN, destination: DESTINATION, date, ticketCount });
   return `/?${p.toString()}`;
 }
 
@@ -55,14 +57,16 @@ test.describe('AC-4: Search results display', () => {
     const first = cards.first();
 
     // Route origin → destination visible
-    await expect(first.locator('text=Hà Nội')).toBeVisible();
-    await expect(first.locator('text=Sài Gòn')).toBeVisible();
+    await expect(first.getByText(ORIGIN)).toBeVisible();
+    await expect(first.getByText(DESTINATION)).toBeVisible();
 
-    // Operator name visible (seed: "Công ty TNHH Xe Khách Phương Bắc")
-    await expect(first.getByText(/Công ty/)).toBeVisible();
+    // Operator name is no longer a per-card field: the redesign moved it off the card
+    // into the results-level OperatorTrustPanel, which only renders for a single-facet
+    // result (one bus type/operator). It's therefore not part of the card contract.
 
-    // Price formatted in VND
-    await expect(first.getByText(/đ/i)).toBeVisible();
+    // Price formatted in VND (e.g. "850.000đ"). Match the grouped digits so it
+    // doesn't collide with the "Đón tại …" boarding line (Đ ~ đ case-insensitive).
+    await expect(first.getByText(/\d{3}\.\d{3}/)).toBeVisible();
 
     // Seats-left badge (PTN-04: "Còn N chỗ" / "Chỉ còn N chỗ")
     await expect(first.getByText(/chỗ/)).toBeVisible();
@@ -105,20 +109,21 @@ test.describe('AC-4: Search results display', () => {
 
 // ---- AC-5: Back-nav restores form state ----
 
-test.describe('AC-5: Back navigation restores search form', () => {
-  test('back link navigates to home and form retains origin/destination', async ({ page }) => {
-    // Navigate to results
+test.describe('AC-5: Back navigation returns to the homepage', () => {
+  test('header logo returns home, which offers the direct route CTA (no search form)', async ({ page }) => {
     await page.goto(searchUrl());
-    const cards = page.locator('article');
-    await expect(cards.first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('article').first()).toBeVisible({ timeout: 10_000 });
 
-    // Click "Tìm lại" back link
-    await page.getByRole('link', { name: /Tìm lại/i }).click();
-    await expect(page).toHaveURL('/');
+    // The redesign removed the "Tìm lại" back button; the header logo is the way home.
+    // (dev-mode first compile of "/" can be slow → generous timeout)
+    await page.locator('header a[href="/"]').first().click();
+    await page.waitForURL('/', { timeout: 20_000 });
 
-    // Form should have origin pre-filled from store
-    await expect(page.getByLabel('Điểm xuất phát', { exact: true })).toHaveValue('Hà Nội');
-    await expect(page.getByLabel('Điểm đến', { exact: true })).toHaveValue('Sài Gòn');
+    // The homepage no longer has a point-to-point search form — with one route it
+    // links straight to that route's trip list. Assert the direct CTA is present.
+    await expect(
+      page.getByRole('link', { name: /Sài Gòn\s*→\s*Thanh Hóa/ }).first(),
+    ).toBeVisible({ timeout: 10_000 });
   });
 });
 
@@ -142,7 +147,7 @@ test.describe('AC-6: Date navigation chips', () => {
     // URL should contain the next date and same origin/destination
     const dayAfterTomorrow = vnDateStr(addDays(new Date(), 2));
     await expect(page).toHaveURL(new RegExp(`date=${dayAfterTomorrow}`));
-    await expect(page).toHaveURL(/origin=H%C3%A0%20N%E1%BB%99i|origin=H%C3%A0\+N%E1%BB%99i/);
+    expect(new URL(page.url()).searchParams.get('origin')).toBe(ORIGIN);
   });
 
   test('"Ngày trước" chip navigates to date-1 with same origin/destination', async ({ page }) => {
@@ -185,11 +190,11 @@ test.describe('AC-6: Date navigation chips', () => {
 // ---- Mobile viewport tap-target size ----
 
 test.describe('Mobile tap target requirements', () => {
-  test('search form submit button is at least 44px tall on 390px viewport', async ({ page }) => {
+  test('the homepage route CTA is at least 44px tall on 390px viewport', async ({ page }) => {
     await page.goto('/');
-    const button = page.getByRole('button', { name: /Tìm chuyến xe/i });
-    await expect(button).toBeVisible({ timeout: 5_000 });
-    const box = await button.boundingBox();
+    const cta = page.getByRole('link', { name: /Sài Gòn\s*→\s*Thanh Hóa/ }).first();
+    await expect(cta).toBeVisible({ timeout: 5_000 });
+    const box = await cta.boundingBox();
     expect(box).not.toBeNull();
     if (box) {
       expect(box.height).toBeGreaterThanOrEqual(44);

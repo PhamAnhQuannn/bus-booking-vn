@@ -43,6 +43,13 @@ export { salesToggle } from './salesToggle';
 export { searchTrips, SEARCH_PAGE_LIMIT } from './searchTrips';
 export type { TripResult } from './searchTrips';
 
+// nearestUpcomingTripDate.ts
+export { nearestUpcomingTripDate } from './nearestUpcomingTripDate';
+
+// boardingSchedule.ts
+export { parseBoardingSchedule } from './boardingSchedule';
+export type { BoardingStop } from './boardingSchedule';
+
 // toTripDto.ts
 export { toTripDto } from './toTripDto';
 

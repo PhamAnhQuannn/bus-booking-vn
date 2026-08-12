@@ -164,6 +164,25 @@ describe('retryPayout', () => {
     await prisma.payout.delete({ where: { id: payoutId } });
   });
 
+  it('withheld (#518): a trip_revenue_refunded withhold is terminal, not retryable', async () => {
+    const payoutId = await seedPayout('failed');
+    // processPayouts withholds a fully-refunded trip's payout with this exact reason.
+    await prisma.payout.update({
+      where: { id: payoutId },
+      data: { failureReason: 'trip_revenue_refunded' },
+    });
+
+    const result = await retryPayout({ payoutId, operatorId: operatorAId });
+    expect(result).toEqual({ ok: false, error: 'withheld' });
+
+    // The withhold must stay terminal — NOT flipped to 'processing' with reason cleared.
+    const after = await prisma.payout.findUniqueOrThrow({ where: { id: payoutId } });
+    expect(after.status).toBe('failed');
+    expect(after.failureReason).toBe('trip_revenue_refunded');
+
+    await prisma.payout.delete({ where: { id: payoutId } });
+  });
+
   it('concurrent-write: two simultaneous retries — one succeeds, one returns not_failed', async () => {
     const payoutId = await seedPayout('failed');
 

@@ -66,7 +66,7 @@ function OperatorCard({ card }: { card: ShowcaseCard }) {
   );
 
   const cls =
-    'flex items-center gap-3 rounded-xl bg-card p-4 shadow-e1 transition-all hover:shadow-e2 motion-safe:hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none';
+    'flex items-center gap-3 rounded-xl border border-border bg-card p-4 shadow-e1 transition-all hover:shadow-e2 motion-safe:hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none';
 
   if (card.href) {
     return (
@@ -97,7 +97,7 @@ export function OperatorShowcase({ operators }: { operators: PublicOperator[] })
    * the operator list grows.
    */
   return (
-    <section className="mx-auto w-full max-w-7xl px-4 py-8 lg:py-10">
+    <section className="page-container py-3 lg:py-4">
       <div className="mb-6">
         <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
           {/* Plural "uy tín" over a single card overclaims a roster of one. */}

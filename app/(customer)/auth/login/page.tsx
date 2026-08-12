@@ -7,16 +7,19 @@
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { ShieldCheck, Mail, Lock, Eye, EyeOff, ArrowRight, Users, Building2 } from 'lucide-react';
 import { setAccessToken, setDisplayName, setCustomerEmail } from '@/lib/auth/clientSession';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
 import { safeReturnTo } from '@/lib/auth/safeReturnTo';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
+import { AuthPromoCard } from '@/components/auth/AuthPromoCard';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { FormError } from '@/components/auth/FormError';
 import { authLinkClass, authFieldClass } from '@/components/auth/authLinkClass';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 
 export default function LoginPage() {
   return (
@@ -36,6 +39,7 @@ function LoginPageInner() {
     searchParams.get('error') === 'google' ? 'Đăng nhập Google thất bại. Thử lại.' : ''
   );
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -75,48 +79,118 @@ function LoginPageInner() {
   }
 
   return (
-    <AuthSplitLayout audience="customer" eyebrow="Chào mừng trở lại" title="Đăng nhập">
+    <AuthSplitLayout
+      audience="customer"
+      eyebrow={
+        <span className="inline-flex items-center gap-1.5">
+          <ShieldCheck className="size-4" aria-hidden="true" />
+          Chào mừng trở lại!
+        </span>
+      }
+      title="Đăng nhập"
+    >
       {/* Two-tier spacing: within-zone tight, ~28px between zones. Zones read as
-          credentials+CTA · alternate login (divider+Google) · account help · operator. */}
+          credentials+CTA · alternate login (divider+Google) · account help · security. */}
       <div className="flex flex-col gap-7">
         <form onSubmit={handleLogin} method="post" className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="email">Địa chỉ email</Label>
-            <Input id="email" type="email" name="email" required autoComplete="email" placeholder="you@example.com" className={authFieldClass} />
+            <div className="relative">
+              <Mail
+                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <Input
+                id="email"
+                type="email"
+                name="email"
+                required
+                autoComplete="email"
+                placeholder="you@example.com"
+                className={cn(authFieldClass, 'pl-10')}
+              />
+            </div>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="password">Mật khẩu</Label>
-            <Input id="password" type="password" name="password" required autoComplete="current-password" className={authFieldClass} />
+            <div className="relative">
+              <Lock
+                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <Input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                name="password"
+                required
+                autoComplete="current-password"
+                placeholder="Nhập mật khẩu"
+                className={cn(authFieldClass, 'pl-10 pr-11')}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                aria-pressed={showPassword}
+                className="absolute right-1 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                {showPassword ? (
+                  <EyeOff className="size-4" aria-hidden="true" />
+                ) : (
+                  <Eye className="size-4" aria-hidden="true" />
+                )}
+              </button>
+            </div>
+          </div>
+          <div className="flex items-center justify-end gap-3">
+            <Link href="/auth/forgot-password" className={cn(authLinkClass, 'text-sm')}>
+              Quên mật khẩu?
+            </Link>
           </div>
           {/* -my-2 pulls the CTA up toward the credentials: the reserved (no-shift)
               error line stays, but its empty-state void no longer detaches the button. */}
           <FormError message={error} className="-my-2" />
-          <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="h-12 w-full text-base">
-            {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+          <Button
+            type="submit"
+            size="lg"
+            disabled={loading}
+            aria-busy={loading}
+            className="h-12 w-full text-base"
+          >
+            {loading ? (
+              'Đang đăng nhập...'
+            ) : (
+              <>
+                Đăng nhập
+                <ArrowRight data-icon="inline-end" aria-hidden="true" />
+              </>
+            )}
           </Button>
         </form>
         <GoogleSignInButton returnTo={returnTo} />
-        <div className="flex flex-col gap-2 text-base">
-          <Link href="/auth/forgot-password" className={authLinkClass}>
-            Quên mật khẩu?
-          </Link>
-          <p className="text-muted-foreground">
-            Chưa có tài khoản?{' '}
-            <Link href="/auth/register" className={authLinkClass}>
-              Đăng ký
-            </Link>
-          </p>
+        <div className="flex flex-col gap-3">
+          <AuthPromoCard
+            icon={Users}
+            title="Chưa có tài khoản?"
+            body="Đăng ký để đặt vé nhanh chóng và nhận nhiều ưu đãi hấp dẫn."
+            actionLabel="Đăng ký ngay"
+            actionHref="/auth/register"
+          />
+          {/* Operator door — now a symmetric tinted card matching the register card. */}
+          <AuthPromoCard
+            icon={Building2}
+            title="Bạn là nhà xe?"
+            body="Đăng nhập để quản lý lịch chạy, đơn hàng và doanh thu."
+            actionLabel="Đăng nhập nhà xe"
+            actionHref="/op/login"
+          />
         </div>
-        {/* Operator door — a rule (section break) + one tinted 44px link, not a boxed
-            card: clearly a separate portal, but visually secondary (no double border). */}
-        <div className="flex items-center justify-between gap-3 border-t border-border pt-5">
-          <span className="text-sm text-muted-foreground">Bạn là nhà xe?</span>
-          <Link
-            href="/op/login"
-            className="inline-flex h-11 items-center rounded-lg border border-primary/40 bg-primary/5 px-4 text-sm font-medium text-foreground outline-none transition-colors hover:bg-primary/10 focus-visible:ring-3 focus-visible:ring-ring/50"
-          >
-            Đăng nhập nhà xe →
-          </Link>
+        <div className="flex items-start gap-2.5 text-sm text-muted-foreground">
+          <Lock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <div>
+            <p className="font-semibold text-foreground">Bảo mật thông tin</p>
+            <p>Dữ liệu của bạn được mã hóa và bảo vệ.</p>
+          </div>
         </div>
       </div>
     </AuthSplitLayout>

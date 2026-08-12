@@ -104,6 +104,7 @@ describe('createHold', () => {
       ticketCount: 1,
       customerPhone: '0912345678',
       customerName: 'Test User One',
+      customerEmail: 'test@example.com',
     });
 
     expect(result).not.toBeNull();
@@ -119,6 +120,7 @@ describe('createHold', () => {
       ticketCount: 1,
       customerPhone: '0912345678',
       customerName: 'Test User',
+      customerEmail: 'test@example.com',
     });
     expect(result).toBeNull();
   });
@@ -130,6 +132,7 @@ describe('createHold', () => {
       ticketCount: 5,
       customerPhone: '0912345678',
       customerName: 'Test User',
+      customerEmail: 'test@example.com',
     });
     expect(result).toBeNull();
   });
@@ -149,6 +152,7 @@ describe('createHold', () => {
           ticketCount: 1,
           customerPhone: `09123456${String(i).padStart(2, '0')}`,
           customerName: `Parallel User ${i + 1}`,
+          customerEmail: 'test@example.com',
         })
       )
     );

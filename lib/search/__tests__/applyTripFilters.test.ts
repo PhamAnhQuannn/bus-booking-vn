@@ -14,12 +14,15 @@ function trip(overrides: Partial<TripResult> & { vnHourLocal?: number } = {}): T
     departureAt,
     price: 200_000,
     availableSeats: 30,
+    capacity: 40,
     operatorLegalName: 'Nhà xe A',
+    operatorContactPhone: '+8490xxxxxx1',
     operatorId: 'op-a',
     busType: 'coach',
     durationMinutes: 360,
     routeOrigin: 'Hà Nội',
     routeDestination: 'TP.HCM',
+    boardingSchedule: [],
     ...rest,
   };
 }

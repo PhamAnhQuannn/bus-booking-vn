@@ -112,6 +112,7 @@ describe('PSP-window awaiting_payment capacity protection (Issue 100)', () => {
       ticketCount: 1,
       customerPhone: '+8490xxxxxx3',
       customerName: 'New Buyer',
+      customerEmail: 'test@example.com',
     });
 
     // Hold should be blocked: the 1-seat capacity is occupied by the awaiting_payment booking.
@@ -128,6 +129,7 @@ describe('PSP-window awaiting_payment capacity protection (Issue 100)', () => {
       ticketCount: 1,
       customerPhone: '+8490xxxxxx4',
       customerName: 'New Buyer 2',
+      customerEmail: 'test@example.com',
     });
 
     // Hold should succeed: the expired awaiting_payment booking no longer blocks.
@@ -163,6 +165,7 @@ describe('PSP-window awaiting_payment capacity protection (Issue 100)', () => {
       ticketCount: 1,
       customerPhone: '+8490xxxxxx6',
       customerName: 'Latecomer',
+      customerEmail: 'test@example.com',
     });
 
     expect(result).toBeNull(); // always blocked by paid booking

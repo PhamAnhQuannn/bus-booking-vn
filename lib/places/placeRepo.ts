@@ -51,7 +51,7 @@ export async function resolveOrCreatePlace(name: string): Promise<ResolvedPlace>
  * Case-insensitive match on canonicalName OR membership in aliases[].
  * Single query path via raw SQL (lower() compare + ANY over the array).
  */
-async function findByNameOrAlias(trimmed: string): Promise<ResolvedPlace | null> {
+export async function findByNameOrAlias(trimmed: string): Promise<ResolvedPlace | null> {
   const rows = await prisma.$queryRaw<ResolvedPlace[]>(
     Prisma.sql`
       SELECT "id", "canonicalName"

@@ -13,7 +13,13 @@ import type { Payout } from '@prisma/client';
 
 export type RetryPayoutResult =
   | { ok: true; payout: Payout }
-  | { ok: false; error: 'not_found' | 'wrong_operator' | 'not_failed' };
+  | { ok: false; error: 'not_found' | 'wrong_operator' | 'not_failed' | 'withheld' };
+
+// #518: processPayouts withholds a fully-refunded trip's payout by marking it
+// status='failed' with this reason (there is no 'cancelled' PayoutStatus). That is an
+// INTENTIONAL terminal state, not a settlement failure — it must NOT be retryable, or
+// an operator/admin could re-queue already-refunded trip revenue for payout.
+const WITHHELD_REASON = 'trip_revenue_refunded';
 
 export async function retryPayout(input: {
   payoutId: string;
@@ -25,8 +31,8 @@ export async function retryPayout(input: {
     // SELECT FOR UPDATE serialises concurrent retries on the same payout row.
     // CUIDs are TEXT — no ::uuid cast needed.
     const rows = await tx.$queryRaw<
-      Array<{ id: string; operatorId: string; status: string }>
-    >`SELECT id, "operatorId", status FROM "Payout" WHERE id = ${payoutId} FOR UPDATE`;
+      Array<{ id: string; operatorId: string; status: string; failureReason: string | null }>
+    >`SELECT id, "operatorId", status, "failureReason" FROM "Payout" WHERE id = ${payoutId} FOR UPDATE`;
 
     if (rows.length === 0) {
       return { ok: false, error: 'not_found' };
@@ -41,6 +47,12 @@ export async function retryPayout(input: {
     // are not eligible — use discriminated result, not a thrown sentinel (Issue 013 Mistake Log).
     if (rows[0].status !== 'failed') {
       return { ok: false, error: 'not_failed' };
+    }
+
+    // #518: a withheld (trip_revenue_refunded) payout is 'failed' only because there is
+    // no 'cancelled' status — it is a terminal, non-retryable withholding.
+    if (rows[0].failureReason === WITHHELD_REASON) {
+      return { ok: false, error: 'withheld' };
     }
 
     const updated = await tx.payout.update({

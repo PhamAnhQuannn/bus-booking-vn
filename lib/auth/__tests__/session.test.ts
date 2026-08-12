@@ -8,11 +8,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // ---- vi.hoisted: declare mocks before hoisted vi.mock factories run ----
 const { mockTx, mockPrisma } = vi.hoisted(() => {
   const mockTx = {
+    // rotateRefresh locks the session row via a raw SELECT … FOR UPDATE (#463).
+    $queryRaw: vi.fn(),
     session: {
       findUnique: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
+    },
+    // #464: rotate re-checks the customer's active state.
+    customer: {
+      findUnique: vi.fn(),
     },
   };
   const mockPrisma = {
@@ -74,8 +80,9 @@ describe('rotateRefresh', () => {
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     };
 
-    mockTx.session.findUnique.mockResolvedValueOnce(existingSession);
-    mockTx.session.update.mockResolvedValueOnce({ id: 'sess-001' });
+    mockTx.$queryRaw.mockResolvedValueOnce([existingSession]);
+    mockTx.customer.findUnique.mockResolvedValueOnce({ suspendedAt: null, deletedAt: null });
+    mockTx.session.updateMany.mockResolvedValueOnce({ count: 1 }); // revoke-old guarded
     mockTx.session.create.mockResolvedValueOnce({ id: 'sess-002' });
 
     const result = await rotateRefresh('old-hash-abc', '127.0.0.1');
@@ -98,8 +105,9 @@ describe('rotateRefresh', () => {
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     };
 
-    mockTx.session.findUnique.mockResolvedValueOnce(existingSession);
-    mockTx.session.update.mockResolvedValueOnce({});
+    mockTx.$queryRaw.mockResolvedValueOnce([existingSession]);
+    mockTx.customer.findUnique.mockResolvedValueOnce({ suspendedAt: null, deletedAt: null });
+    mockTx.session.updateMany.mockResolvedValueOnce({ count: 1 });
     mockTx.session.create.mockResolvedValueOnce({ id: 'sess-011' });
 
     await rotateRefresh('old-hash-010', null);
@@ -119,7 +127,7 @@ describe('rotateRefresh', () => {
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     };
 
-    mockTx.session.findUnique.mockResolvedValueOnce(revokedSession);
+    mockTx.$queryRaw.mockResolvedValueOnce([revokedSession]);
     mockTx.session.updateMany.mockResolvedValueOnce({ count: 3 });
 
     const result = await rotateRefresh('revoked-hash', '10.0.0.1');
@@ -133,7 +141,7 @@ describe('rotateRefresh', () => {
   });
 
   it('throws SESSION_NOT_FOUND when no session matches hash', async () => {
-    mockTx.session.findUnique.mockResolvedValueOnce(null);
+    mockTx.$queryRaw.mockResolvedValueOnce([]);
 
     await expect(rotateRefresh('nonexistent-hash', null)).rejects.toThrow(
       'SESSION_NOT_FOUND'

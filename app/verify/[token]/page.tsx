@@ -16,10 +16,11 @@
  * its own API (Mistake Log 2026-05-17, Issues 002/003). No Date.now() in the
  * render body (Issue 016 RSC purity) — it formats DB-sourced Date strings only.
  *
- * PII (AC2): the page is PUBLIC, so it renders NO buyer name / phone / email.
- * getTicketVerification's select never reads those columns. An invalid/tampered/
- * unknown token resolves to null → notFound() (a generic 404, no information
- * leak about whether the booking exists).
+ * RECEIPT (2026-08-11): the page doubles as a payment receipt reached by scanning the
+ * QR, so it shows the buyer NAME + a MASKED phone (last 4 only) and the payment facts
+ * (amount, method, paid time). Safe because the token is a 192-bit capability (only the
+ * QR-holder opens it) and the phone is masked; buyerEmail is still never read. An
+ * invalid/tampered/unknown token → notFound() (generic 404, no existence leak).
  */
 
 import type { Metadata } from 'next';
@@ -50,6 +51,24 @@ function formatBoardingTime(iso: string): string {
     minute: '2-digit',
   }).format(new Date(iso));
 }
+
+/** Full VN-local date+time for the receipt paid instant. */
+function formatPaidAt(iso: string): string {
+  return new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(new Date(iso));
+}
+
+const PAYMENT_METHOD_LABEL: Record<string, string> = {
+  bank_transfer: 'Chuyển khoản',
+  cash: 'Tiền mặt',
+  vnpay: 'VNPay',
+  momo: 'MoMo',
+  zalopay: 'ZaloPay',
+  card: 'Thẻ',
+};
 
 export default async function VerifyPage({ params }: VerifyPageProps) {
   const { token } = await params;
@@ -100,6 +119,43 @@ export default async function VerifyPage({ params }: VerifyPageProps) {
         busType={view.busType}
         operatorName={view.operatorName}
       />
+
+      {/* Payment receipt — the "toàn bộ thông tin chuyển khoản" a scanner sees. */}
+      <Card>
+        <CardHeader>
+          <CardTitle as="h2">Biên nhận thanh toán</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <dl className="flex flex-col gap-2.5 text-sm">
+            <div className="flex items-center justify-between gap-4">
+              <dt className="text-muted-foreground">Khách hàng</dt>
+              <dd className="text-right font-medium">{view.buyerName}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <dt className="text-muted-foreground">Số điện thoại</dt>
+              <dd className="text-right font-mono">{view.buyerPhoneMasked}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <dt className="text-muted-foreground">Số tiền</dt>
+              <dd className="text-right font-semibold text-primary">
+                {view.totalVnd.toLocaleString('vi-VN')}đ
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <dt className="text-muted-foreground">Phương thức</dt>
+              <dd className="text-right">
+                {PAYMENT_METHOD_LABEL[view.paymentMethod] ?? view.paymentMethod}
+              </dd>
+            </div>
+            {view.paidAt ? (
+              <div className="flex items-center justify-between gap-4">
+                <dt className="text-muted-foreground">Thời điểm thanh toán</dt>
+                <dd className="text-right tabular-nums">{formatPaidAt(view.paidAt)}</dd>
+              </div>
+            ) : null}
+          </dl>
+        </CardContent>
+      </Card>
 
       {/* Boarding info */}
       <Card>

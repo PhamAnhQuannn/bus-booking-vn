@@ -26,6 +26,12 @@ regexes = [
   # number under docs/qa/ is now scanned. See the paths block below for why that changed.
   '''\+84909999999''',
   '''\+84987654321''',
+  # Fabricated VN phones in the holdInputSchema phone-format test suite
+  # (lib/core/validation/__tests__/hold.test.ts) — the +84 valid-format cases (9- and
+  # 3-prefix). Obviously synthetic (…12345678); must stay valid-format (can't be
+  # x-masked) so the accept-cases actually exercise the regex.
+  '''\+84912345678''',
+  '''\+84312345678''',
   # Elided JWT in a QA transcript showing a login response SHAPE. `eyJhbGciOiJIUzI1NiJ9` is
   # base64 of the literal header `{"alg":"HS256"}` — identical in every HS256 token ever issued —
   # and it is truncated at `...`, so there is no payload and no signature. Surfaced once the

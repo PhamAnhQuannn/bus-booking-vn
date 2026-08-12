@@ -23,7 +23,7 @@ export interface CreateCashBookingInput {
   operatorId: string;
   buyerName: string;
   buyerPhone: string;
-  buyerEmail?: string | null;
+  buyerEmail: string;
   ticketCount: number;
 }
 
@@ -60,7 +60,7 @@ export async function createCashBooking(
     operatorId,
     buyerName,
     buyerPhone,
-    buyerEmail = null,
+    buyerEmail,
     ticketCount,
   } = input;
 
@@ -137,7 +137,7 @@ export async function createCashBooking(
             id, "bookingRef", "confirmationToken", "tripId", "holdId",
             "customerId", "buyerName", "buyerPhone", "buyerEmail",
             "ticketCount", "totalVnd",
-            "paymentMethod", status, "isManual", "createdAt",
+            "paymentMethod", status, "isManual", "createdAt", "paidAt",
             "pickupKind"
           )
           VALUES (
@@ -155,6 +155,7 @@ export async function createCashBooking(
             'cash'::"PaymentMethod",
             'paid'::"BookingStatus",
             true,
+            NOW(),
             NOW(),
             'station'::"PickupKind"
           )

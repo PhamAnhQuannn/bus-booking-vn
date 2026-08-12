@@ -252,7 +252,12 @@ export default function ManifestRefresh({ tripId, initialGeneratedAt, initialRow
                     <TableCell className="tabular-nums">{row.phone}</TableCell>
                     <TableCell className="tabular-nums">{row.ticketCount}</TableCell>
                     <TableCell>
-                      {row.pickupKind === 'custom' ? (
+                      {row.boardingPoint ? (
+                        <span>
+                          {row.boardingPoint}
+                          {row.boardingTime ? ` · ${row.boardingTime}` : ''}
+                        </span>
+                      ) : row.pickupKind === 'custom' ? (
                         <span>
                           <span className="text-warning font-medium">Cần liên hệ: </span>
                           {row.pickupDetail || '—'}

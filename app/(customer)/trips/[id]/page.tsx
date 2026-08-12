@@ -10,7 +10,7 @@ import type { Metadata } from 'next';
 import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowRight, Clock, Armchair, Phone, Timer } from 'lucide-react';
+import { ArrowRight, Clock, Armchair, Phone, Timer, MapPin } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getTripDetails } from '@/lib/trips';
 import { formatVnd } from '@/lib/format';
@@ -170,6 +170,31 @@ export default async function TripDetailPage({
           </a>
         </CardContent>
       </Card>
+
+      {/* Boarding schedule — this bus makes staggered pickups on one trip. Times are
+          the operator's published pickup times per point (display-only, from the card). */}
+      {trip.boardingSchedule.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <MapPin className="size-4 text-primary" aria-hidden="true" /> Điểm đón khách
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="py-0 pb-5">
+            <ul className="flex flex-col divide-y divide-border/60 text-sm">
+              {trip.boardingSchedule.map((s, i) => (
+                <li key={`${s.point}-${i}`} className="flex items-center justify-between gap-3 py-2">
+                  <span className="text-foreground">{s.point}</span>
+                  <span className="font-mono font-medium text-muted-foreground">{s.time}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Giờ đón theo từng điểm. Vui lòng có mặt trước 15 phút.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Price + book CTA */}
       <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 shadow-e3">

@@ -10,7 +10,11 @@
 import { z } from 'zod';
 
 export const holdInputSchema = z.object({
-  tripId: z.string().cuid(),
+  // Prisma 7's @default(cuid()) generates cuid2 (no 'c' prefix), which z.cuid()
+  // (cuid v1) REJECTS — that silently 400'd every real booking. tripId is looked up
+  // in the DB (createHold → null → 409 if it doesn't exist), so a bounded-length
+  // string is the right amount of validation and is robust across the cuid→cuid2 shift.
+  tripId: z.string().min(1).max(64),
   ticketCount: z.number().int().min(1).max(10),
   buyerName: z
     .string()
@@ -29,6 +33,10 @@ export const holdInputSchema = z.object({
   // custom detail constraints are enforced server-side.
   pickupKind: z.enum(['station', 'custom']).optional().default('station'),
   pickupDetail: z.string().trim().max(300).optional(),
+  // Chosen boarding point (name + "HH:MM") from the results card. Distinct from
+  // pickupKind/pickupDetail; optional/back-compat.
+  boardingPoint: z.string().trim().min(1).max(120).optional(),
+  boardingTime: z.string().trim().regex(/^\d{2}:\d{2}$/).optional(),
 });
 
 export type HoldInput = z.infer<typeof holdInputSchema>;

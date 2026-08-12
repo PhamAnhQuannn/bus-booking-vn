@@ -1,50 +1,42 @@
 #!/usr/bin/env bash
-# Restore a pg_dump archive produced by scripts/backup.sh into a TARGET database.
-# Verified by the 2026-08-04 rehearsal (docs/ops/backup-restore.md → Rehearsal Log).
 #
-# Usage:
-#   TARGET_URL="postgresql://user:pass@host/db_restore" ./scripts/restore.sh path/to/bbvn.dump
-# Local dev (via docker, host has no pg_restore):
-#   see docs/ops/backup-restore.md § Local rehearsal.
+# DRILL restore: pull the latest R2 logical dump and load it into a SCRATCH database, timed.
+# NEVER point this at prod — DATABASE_URL_BACKUP_TEST must be a scratch Neon branch or throwaway DB.
+# See docs/ops/backup-restore.md → Drill Procedure. (Neon PITR is the faster path B; this exercises
+# the secondary R2 dump so we know BOTH recovery paths work.)
+#
+# Required env:
+#   DATABASE_URL_BACKUP_TEST   scratch target (NOT prod)
+#   R2_S3_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BACKUP_BUCKET   (as in backup.sh)
+#
 set -euo pipefail
 
-DUMP="${1:?usage: restore.sh <dump-file>}"
-: "${TARGET_URL:?set TARGET_URL — the DB to restore INTO (never the live primary)}"
+: "${DATABASE_URL_BACKUP_TEST:?DATABASE_URL_BACKUP_TEST (scratch target) is required}"
+: "${R2_S3_ENDPOINT:?R2_S3_ENDPOINT is required}"
+: "${R2_ACCESS_KEY_ID:?R2_ACCESS_KEY_ID is required}"
+: "${R2_SECRET_ACCESS_KEY:?R2_SECRET_ACCESS_KEY is required}"
+: "${R2_BACKUP_BUCKET:?R2_BACKUP_BUCKET is required}"
 
-# --- Safety rail: refuse to restore over a non-throwaway target ---------------------------------
-# Restore is DESTRUCTIVE. A mistyped prod TARGET_URL would overwrite prod. Require the target DB name
-# to look like a throwaway (*_restore / *_test), else demand explicit acknowledgement.
-TARGET_DB="$(printf '%s' "$TARGET_URL" | sed -E 's#^.*/([^/?]+)(\?.*)?$#\1#')"
-if ! printf '%s' "$TARGET_DB" | grep -qiE '(_restore|_test)$'; then
-  if [ "${I_UNDERSTAND_TARGET:-}" != "1" ]; then
-    echo "REFUSING: target DB '$TARGET_DB' is not a *_restore/*_test throwaway." >&2
-    echo "Restore is destructive. Re-run with I_UNDERSTAND_TARGET=1 only if this is intentional." >&2
-    exit 1
-  fi
-  echo "WARNING: restoring into non-throwaway target '$TARGET_DB' (I_UNDERSTAND_TARGET=1)." >&2
-fi
+# Guard: refuse obviously-prod targets.
+case "$DATABASE_URL_BACKUP_TEST" in
+  *lenxevn*|*"$([ -n "${PROD_DB_HOST:-}" ] && echo "$PROD_DB_HOST" || echo __never__)"*)
+    echo "ERROR: DATABASE_URL_BACKUP_TEST looks like prod. Refusing." >&2; exit 1;;
+esac
 
-# CRITICAL (rehearsal finding 2026-08-04): the search index trip_route_unaccent_idx uses
-# unaccent_immutable(), which calls unaccent() unqualified. pg_restore runs with an empty
-# search_path, so that ONE index fails to create ("function unaccent(unknown, text) does not
-# exist") and is skipped — a non-fatal, ignored error. DATA + all other objects restore fully.
-# Pre-creating the extensions is required; the index is rebuilt explicitly after restore.
-psql "$TARGET_URL" -c 'CREATE EXTENSION IF NOT EXISTS unaccent; CREATE EXTENSION IF NOT EXISTS pg_trgm;'
+export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
+export AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
+export AWS_DEFAULT_REGION="auto"
 
-# Run pg_restore capturing stderr. Tolerate ONLY the known-benign unaccent-index error; FAIL on any
-# other error (corrupt archive, unreachable target, auth/permission, disk-full) — never silently.
-set +e
-restore_err="$(pg_restore "$DUMP" --dbname "$TARGET_URL" --no-owner --no-privileges 2>&1)"
-set -e
-unexpected="$(printf '%s\n' "$restore_err" | grep -iE 'error|fatal' | grep -viE 'unaccent|errors ignored on restore' || true)"
-if [ -n "$unexpected" ]; then
-  echo "restore FAILED — unexpected errors:" >&2
-  printf '%s\n' "$restore_err" >&2
-  exit 1
-fi
-[ -n "$restore_err" ] && printf '%s\n' "$restore_err"  # surface the ignored-unaccent note
+LATEST=$(aws s3 ls "s3://${R2_BACKUP_BUCKET}/" --endpoint-url "$R2_S3_ENDPOINT" \
+  | awk '{print $4}' | grep -E '\.sql\.gz$' | sort | tail -1)
+[ -n "$LATEST" ] || { echo "ERROR: no backups found in bucket." >&2; exit 1; }
 
-# Rebuild the one search index that the empty-search_path restore skips. Let a real failure propagate.
-psql "$TARGET_URL" -c 'CREATE INDEX IF NOT EXISTS trip_route_unaccent_idx ON "Route" USING GIN (unaccent_immutable(lower(origin)) gin_trgm_ops, unaccent_immutable(lower(destination)) gin_trgm_ops);'
+echo "Restoring $LATEST → scratch DB ..."
+START=$(date +%s)
+aws s3 cp "s3://${R2_BACKUP_BUCKET}/${LATEST}" - --endpoint-url "$R2_S3_ENDPOINT" \
+  | gunzip | psql "$DATABASE_URL_BACKUP_TEST" >/dev/null
+END=$(date +%s)
 
-echo "restore complete. Verify: SELECT COUNT(*),SUM(amount) FROM \"LedgerEntry\"; and prisma migrate status."
+echo "Restore took $((END - START))s (RTO target: 1800s)."
+echo "Now run the verify queries in docs/ops/backup-restore.md against DATABASE_URL_BACKUP_TEST,"
+echo "record the result in the Drill Log, then drop the scratch branch/DB."

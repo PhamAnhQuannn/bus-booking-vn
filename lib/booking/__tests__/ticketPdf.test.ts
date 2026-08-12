@@ -26,6 +26,8 @@ const sampleBooking: CustomerBookingDetail = {
   departureAt: '2026-06-10T22:00:00.000Z',
   busLicensePlate: '29B-12345',
   operator: { legalName: 'Test Bus Co', contactPhone: '+8490xxxxxx9' },
+  boardingPoint: 'Nông Cống',
+  boardingTime: '07:00',
 };
 
 describe('renderTicketPdf', () => {

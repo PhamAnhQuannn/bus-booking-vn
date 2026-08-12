@@ -36,9 +36,12 @@ TRUONG_HOP = [
     ("tourism-kb/wiki/destinations/da-lat/huong-dan-diem-den.md", True,
      "dau ra mac dinh cua build_huong_dan.py"),
     ("tourism-kb/wiki", True, "chinh thu muc ban giao"),
-    ("tourism-kb/output/Diem-Den-Da-Lat.docx", True, "mot trong ba ban phat hanh"),
-    ("tourism-kb/output/Nha-Hang-Da-Lat.docx", True, "mot trong ba ban phat hanh"),
-    ("tourism-kb/output/Khach-San-Da-Lat.docx", True, "mot trong ba ban phat hanh"),
+    # output/ chia theo dia diem: output/<slug>/ — prefix match cho phep moi do sau.
+    ("tourism-kb/output/da-lat/Diem-Den-Da-Lat.docx", True, "ban phat hanh, theo dia diem"),
+    ("tourism-kb/output/da-lat/Nha-Hang-Da-Lat.docx", True, "ban phat hanh, theo dia diem"),
+    ("tourism-kb/output/da-lat/Khach-San-Da-Lat.docx", True, "ban phat hanh, theo dia diem"),
+    ("tourism-kb/output/da-lat/archive/Huong-Dan-Da-Lat-v5.docx", True, "archive theo dia diem"),
+    ("tourism-kb/output/nha-trang/Diem-Den-Nha-Trang.docx", True, "dia diem tuong lai van duoc"),
     ("tourism-kb/output", True, "chinh thu muc phat hanh"),
 
     # ── Bi tu choi: docs/ KHONG con carve-out ─────────────────────────────
@@ -63,7 +66,7 @@ TRUONG_HOP = [
     ("tourism-kb/raw/../docs/sneak.md", False, ".. di ra khoi vung cho phep"),
     ("tourism-kb/wiki/../../issues/x.md", False, ".. hai cap"),
     ("../outside-repo.md", False, "ngoai repo"),
-    (os.path.join(_GOC, "tourism-kb", "output", "Diem-Den-Da-Lat.docx"), True,
+    (os.path.join(_GOC, "tourism-kb", "output", "da-lat", "Diem-Den-Da-Lat.docx"), True,
      "duong dan tuyet doi trong vung van duoc"),
     (os.path.join(_GOC, "issues", "x.md"), False,
      "duong dan tuyet doi ngoai vung van bi chan"),
@@ -94,8 +97,8 @@ except SystemExit as e:
 # ...va phai TRA VE duong dan khi hop le, de goi long nhau duoc:
 #     OUT = kiem_loi_ra(sys.argv[2])
 try:
-    tra_ve = D.kiem_loi_ra("tourism-kb/output/Diem-Den-Da-Lat.docx")
-    if tra_ve == "tourism-kb/output/Diem-Den-Da-Lat.docx":
+    tra_ve = D.kiem_loi_ra("tourism-kb/output/da-lat/Diem-Den-Da-Lat.docx")
+    if tra_ve == "tourism-kb/output/da-lat/Diem-Den-Da-Lat.docx":
         print("  OK  kiem_loi_ra() tra ve duong dan khi hop le")
     else:
         loi.append("kiem_loi_ra() tra ve {!r}".format(tra_ve))

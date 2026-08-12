@@ -24,6 +24,9 @@ export interface HoldDetails {
   /** Issue 107: traveler pickup selection for review display. */
   pickupKind: 'station' | 'custom';
   pickupDetail: string | null;
+  /** Chosen boarding point (name + "HH:MM") from the results card, for review display. */
+  boardingPoint: string | null;
+  boardingTime: string | null;
 }
 
 export async function getHoldDetails(holdId: string): Promise<HoldDetails | null> {
@@ -35,6 +38,8 @@ export async function getHoldDetails(holdId: string): Promise<HoldDetails | null
       expiresAt: true,
       pickupKind: true,
       pickupDetail: true,
+      boardingPoint: true,
+      boardingTime: true,
       trip: {
         select: {
           price: true,
@@ -60,5 +65,7 @@ export async function getHoldDetails(holdId: string): Promise<HoldDetails | null
     operatorLegalName: hold.trip.bus.operator.legalName,
     pickupKind: hold.pickupKind,
     pickupDetail: hold.pickupDetail,
+    boardingPoint: hold.boardingPoint,
+    boardingTime: hold.boardingTime,
   };
 }

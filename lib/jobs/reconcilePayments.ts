@@ -142,6 +142,9 @@ interface StuckBookingRow {
   /** Issue 111 custom off-list pickup — folded into the operator SMS on paid. */
   customPickupRequested: boolean;
   pickupDetail: string | null;
+  /** Chosen boarding point (name) + "HH:MM" — folded into the operator SMS on paid. */
+  boardingPoint: string | null;
+  boardingTime: string | null;
 }
 
 /** Recovered view of a stored PaymentEvent (amount/success parsed from rawBody). */
@@ -293,6 +296,7 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
   const { applyPaidStatusTransition, appendBookingPaidLedger, recoverSepayEvent, recoverVnpayEvent } =
     await import('@/lib/payment');
   const { refundOut } = await import('@/lib/payment');
+  const { PSP_WINDOW_MINUTES } = await import('@/lib/core/db/pspWindow');
 
   const now = opts?.now ?? new Date();
   const thresholdAt = new Date(now.getTime() - RECONCILE_THRESHOLD_MINUTES * 60_000);
@@ -320,7 +324,9 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
            h."expiresAt"             AS "holdExpiresAt",
            h."createdAt"             AS "holdCreatedAt",
            b."customPickupRequested" AS "customPickupRequested",
-           b."pickupDetail"          AS "pickupDetail"
+           b."pickupDetail"          AS "pickupDetail",
+           b."boardingPoint"         AS "boardingPoint",
+           b."boardingTime"          AS "boardingTime"
     FROM "Booking" b
     JOIN "Trip" t      ON t."id" = b."tripId"
     JOIN "Operator" op ON op."id" = t."operatorId"
@@ -444,6 +450,18 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
           const bid = booking.id;
           const totalVnd = booking.totalVnd;
           const providerTxnId = confirming.providerTxnId;
+          // A-5 (money-flow audit 2026-08-11): write booking_credit (fee SKIPPED —
+          // the seat was never delivered) IN THIS TX so the post-commit
+          // refundOut('oversold_race') refund_debit −total is offset → operator net 0.
+          // Without the credit the refund alone would leave the operator at −total.
+          await appendBookingPaidLedger(tx, {
+            operatorId: booking.operatorId,
+            bookingId: booking.id,
+            grossVnd: booking.totalVnd,
+            now,
+            adapter: confirming.adapter,
+            skipPlatformFee: true,
+          });
           after(async () => {
             try {
               await refundOut({
@@ -459,7 +477,8 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
               );
             }
           });
-          // Skip paid ledger + notifications — booking is refunded, not paid.
+          // Skip paid NOTIFICATIONS — booking is refunded, not paid (the offsetting
+          // booking_credit was already written above for A-5).
           paidCount += 1;
           logger.info(
             { bookingRef: booking.bookingRef, providerTxnId: confirming.providerTxnId, oversold: true },
@@ -494,18 +513,24 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
 
         // Email-first: customer confirmation goes by email (buyerEmail required at
         // booking; SMS fallback only for legacy pre-042 null-email rows).
+        const customerPaidPayload: Record<string, string | number> = {
+          ticketCount: booking.ticketCount,
+          route: routeLabel,
+          departureAt: departureLabel,
+          bookingRef: booking.bookingRef,
+          confirmationUrl: booking.confirmationToken,
+        };
+        // Chosen boarding point — mirror the webhook customer payload.
+        if (booking.boardingPoint) {
+          customerPaidPayload.boardingPoint = booking.boardingPoint;
+          if (booking.boardingTime) customerPaidPayload.boardingTime = booking.boardingTime;
+        }
         await enqueuePendingNotification(tx, logger, {
           bookingId: booking.id,
           template: 'customerBookingPaid',
           channel: booking.buyerEmail ? 'email' : 'sms',
           recipient: booking.buyerEmail ?? booking.buyerPhone,
-          payload: renderTemplate('customerBookingPaid', {
-            ticketCount: booking.ticketCount,
-            route: routeLabel,
-            departureAt: departureLabel,
-            bookingRef: booking.bookingRef,
-            confirmationUrl: booking.confirmationToken,
-          }),
+          payload: renderTemplate('customerBookingPaid', customerPaidPayload),
         });
         const operatorPayload: Record<string, string | number> = {
           ticketCount: booking.ticketCount,
@@ -514,6 +539,12 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
           bookingRef: booking.bookingRef,
           buyerPhone: booking.buyerPhone,
         };
+        // Chosen boarding point — mirrors the webhook path so recovery doesn't drop the
+        // "Don tai" line the driver needs.
+        if (booking.boardingPoint) {
+          operatorPayload.boardingPoint = booking.boardingPoint;
+          if (booking.boardingTime) operatorPayload.boardingTime = booking.boardingTime;
+        }
         // Issue 111: fold the custom-pickup request into the SAME operator SMS, mirroring
         // the webhook path (lib/payment/processWebhook.ts) so the reconcile recovery path
         // doesn't silently drop the "Diem don rieng" line.
@@ -630,9 +661,21 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
     // we never accept their short payment as paid.
     const holdExpired =
       booking.holdExpiresAt !== null && booking.holdExpiresAt <= now;
-    if (!holdExpired) {
-      // Hold still active (or no hold yet expired) → leave it; a payment may
-      // still confirm. Below-threshold rows were already excluded by the claim.
+    // Don't expire (which also FREES the seat, since holdRepo/searchTrips stop
+    // counting a non-awaiting_payment row) until the capacity-protection window has
+    // elapsed too. Otherwise the seat opens at ~min 15 while a genuine late bank
+    // transfer landing in min 15–20 still expects to pay THIS booking — and once the
+    // row is terminal `payment_failed_expired`, that transfer's event matches 0 rows
+    // and the money is stranded on a dead booking. Aligning expiry with PSP_WINDOW
+    // (the same bound the online capacity check uses) closes that gap. A suspected-
+    // unresolved hold (branch d) is already bounded by SUSPECTED_HOLD_MAX_AGE (hours)
+    // ≫ PSP_WINDOW, so this gate never delays that path.
+    const pspWindowElapsed =
+      now.getTime() - booking.createdAt.getTime() > PSP_WINDOW_MINUTES * 60_000;
+    if (!holdExpired || !pspWindowElapsed) {
+      // Hold still active, or still inside the capacity window → leave it; a payment
+      // may still confirm and will be reconsidered next tick. Below-threshold rows
+      // were already excluded by the claim.
       continue;
     }
 

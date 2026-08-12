@@ -61,6 +61,11 @@ BA BO GOI, chon bang `--bo`:
 
 Chay:  PYTHONIOENCODING=utf-8 python tourism-kb/code/sweep_google_placeid.py <thu-muc-raw>
        PYTHONIOENCODING=utf-8 python tourism-kb/code/sweep_google_placeid.py <thu-muc-raw> --bo hxh
+
+NOTE: cac ham khop ten/dia chi (`goi`, `phan_giai`, `khop_ten`, `doc_khoa`, …) o
+module-level de script khac (vd resolve_luu_tru_overture.py) IMPORT lai — luat
+nhan hai-truc chong nham dinh danh chi viet MOT lan. Body chay duoi `main()` +
+guard `__main__` nen import KHONG kich hoat mot luot goi API nao.
 """
 import json, os, sys, io, math, re, time
 import urllib.request, urllib.error
@@ -69,33 +74,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from yt_chung import luu_json, fold, tim_cum
 import hoat_dong_data as _hd
 import an_ngu_data as _an
-
-# --bo huongdan (mac dinh)  bo goi cua bo huong dan: top quan an + luu tru theo bac
-# --bo hxh                  co so luu tru quanh Ho Xuan Huong trong bang gia quy uoc
-# --bo quanhxh              quan an quanh Ho Xuan Huong (ban kinh rieng, 500 m)
-_tudo, BO = [], "huongdan"
-_i = 1
-while _i < len(sys.argv):
-    a = sys.argv[_i]
-    if a == "--bo":
-        _i += 1
-        BO = sys.argv[_i] if _i < len(sys.argv) else BO
-    elif a.startswith("--bo="):
-        BO = a.partition("=")[2]
-    else:
-        _tudo.append(a)
-    _i += 1
-if BO not in ("huongdan", "hxh", "quanhxh"):
-    print(f"--bo không nhận “{BO}”. Chỉ có: huongdan · hxh · quanhxh")
-    sys.exit(1)
-if not _tudo:
-    print("thiếu thư mục raw.  Chạy: sweep_google_placeid.py <thu-muc-raw>"
-          " [--bo hxh|quanhxh]")
-    sys.exit(1)
-RAW = _tudo[0]
-OUT = os.path.join(RAW, {"huongdan": "place_id.json", "hxh": "place_id_hxh.json",
-                         "quanhxh": "place_id_quan_hxh.json"}[BO])
-PHIEN_BAN = 1
 
 API = "https://places.googleapis.com/v1/places:searchText"
 BAN_KINH_M = 100          # truc 1: khoang cach toi da
@@ -350,117 +328,149 @@ def phan_giai(r, khoa):
             False)
 
 
-khoa, nguon = doc_khoa()
-if not khoa:
-    print("KHÔNG tìm thấy GOOGLE_MAPS_API_KEY.")
-    print("Tạo ở console.cloud.google.com: bật Places API (New), tạo API key,")
-    print("Restrict key → API restrictions → CHỈ Places API (New).")
-    print("⚠ Phải GẮN TÀI KHOẢN THANH TOÁN vào project — chưa gắn thì Maps")
-    print("  Platform chỉ cho 1 lệnh/ngày, không phải lỗi khoá.")
-    sys.exit(0)
-print(f"khoá đọc từ: {nguon}  (giá trị không in ra)\n")
-
-# ── Bo can phan giai ───────────────────────────────────────────────────────
-muc = []
-if BO == "hxh":
-    # Bo loc nam trong `an_ngu_data`, KHONG o day: builder .docx doc cung ham
-    # do. Mot literal loc chep sang script nay la cach hai ban lech nhau ma
-    # khong ai biet — dung loi da ghi so 30/07.
-    _q = _an.tai_luu_tru_quanh_ho(RAW)
-    if not _q:
-        print("không đọc được luu_tru.json"); sys.exit(1)
-    for c in _q["trong"]:
-        muc.append({"lop": "lưu trú · quanh hồ", "ten": c["ten"],
-                    "dia_chi": c.get("dia_chi"),
-                    "lat": c.get("lat"), "lon": c.get("lon")})
-    print(f"bộ HXH — {len(muc)} cơ sở trong {_q['ban_kinh']} m quanh Hồ Xuân Hương")
-    print(f"   (bảng giá quy ước {_q['gia'][0]:,}–{_q['gia'][1]:,}₫"
-          .replace(",", ".") + f" · {_q['tong_bang_gia']} cơ sở toàn thành phố,"
-          f" {_q['co_toa_do']} có toạ độ)")
-    print(f"   {len(_q['khong_toa_do'])} cơ sở có địa chỉ nhưng KHÔNG có toạ độ"
-          " — ngoài phép lọc này, không phân giải\n")
-if BO == "quanhxh":
-    _q = _an.tai_quan_an_quanh_ho(RAW)
-    if not _q:
-        print("không đọc được nha_hang.json"); sys.exit(1)
-    for c in _q["trong"]:
-        muc.append({"lop": "quán ăn · quanh hồ", "ten": c["ten"],
-                    "dia_chi": c.get("dia_chi"),
-                    "lat": c.get("lat"), "lon": c.get("lon")})
-    print(f"bộ QUÁN-HXH — {len(muc)} quán trong {_q['ban_kinh']} m quanh Hồ Xuân Hương"
-          f" (trên {_q['tong_mo']:,} quán còn hoạt động)".replace(",", "."))
-    print(f"   {_q['co_dia_chi']} có địa chỉ · {_q['co_dien_thoai']} có số gọi\n")
-for r in (_hd.tai_top_quan(RAW) if BO == "huongdan" else []):
-    muc.append({"lop": "quán ăn", "ten": r["ten"], "dia_chi": r.get("dia_chi"),
-                "lat": r.get("lat"), "lon": r.get("lon")})
-# `tai_luu_tru` la lop CHON LOC, no khong mang toa do — do la dung, vi tai lieu
-# khong in toa do khach san. Nhung buoc doi chieu thi can. Tra nguoc ve file goc
-# theo ten da gap phang; do duoc 16/30 dong co toa do, 14 dong con lai se dung
-# truc so-nha-ten-duong.
-if BO == "huongdan":
-    _p = os.path.join(RAW, "luu_tru.json")
-    _toa_do = {}
-    if os.path.exists(_p):
-        _d = json.load(io.open(_p, encoding="utf-8"))
-        _toa_do = {fold(r["ten"]): (r.get("lat"), r.get("lon"))
-                   for r in (_d["co_so"] if isinstance(_d, dict) else _d)}
-    lt = _an.tai_luu_tru(RAW) or {}
-    for bac in lt.get("bac", []):
-        for c in bac["co_so"]:
-            la, lo = _toa_do.get(fold(c["ten"]), (None, None))
-            muc.append({"lop": f"lưu trú · {bac['ten']}", "ten": c["ten"],
-                        "dia_chi": c.get("dia_chi"), "lat": la, "lon": lo})
-print(f"cần phân giải: {len(muc)} cơ sở")
-# Phan loai theo tien to cua `lop`, khong so BANG mot chuoi: bo `quanhxh` dat
-# lop la "quán ăn · quanh hồ" nen phep so bang cu bao "0 quán ăn · 353 lưu trú"
-# — mot dong thong ke sai o ngay dau lan chay.
-_nq = sum(1 for m in muc if m["lop"].startswith("quán ăn"))
-print(f"   {_nq} quán ăn · {len(muc)-_nq} lưu trú")
-print(f"   có toạ độ để đối chiếu: {sum(1 for m in muc if m['lat'])}\n")
-
-ra, hong = [], []
-for i, m in enumerate(muc, 1):
-    pid, ly, so_nha_lech = phan_giai(m, khoa)
-    if pid:
-        d = {"lop": m["lop"], "ten": m["ten"], "place_id": pid}
-        if so_nha_lech:
-            d["so_nha_lech"] = True
-        ra.append(d)
-        print(f"  {i:3} ✓ {m['ten'][:34]:36} {pid}"
-              + ("  ⚠ số nhà lệch" if so_nha_lech else ""))
-    else:
-        hong.append({"lop": m["lop"], "ten": m["ten"], "ly_do": ly})
-        print(f"  {i:3} — {m['ten'][:34]:36} {ly[:60]}")
-    time.sleep(NGHI_GIAY)
-
-# CHI ghi place_id. `displayName`/`formattedAddress`/`location` cua Google chi
-# ton tai trong bo nho ham `phan_giai` va bien mat cung no.
-#
-# Ban chong ghi de: khac hai sweep YouTube, buoc nay KHONG bi do han muc nen
-# chay lai mien phi. Nhung "lay lai duoc" khac "mat cung duoc" — mot lan chay
-# gap su co mang tra ve 3 dong khong duoc phep de len 40 dong da phan giai.
-# Coi "chua co file" la moc 0 dong, dung cai lo hong lan-chay-dau da sua o hai
-# sweep kia.
-cu = []
-if os.path.exists(OUT):
-    try:
-        cu = json.load(io.open(OUT, encoding="utf-8")).get("co_so", [])
-    except Exception:
-        print(f"DỪNG: {OUT} tồn tại nhưng KHÔNG đọc được."
-              " Không ghi đè khi mốc so sánh không tin được.")
+def main():
+    # --bo huongdan (mac dinh)  bo goi cua bo huong dan: top quan an + luu tru theo bac
+    # --bo hxh                  co so luu tru quanh Ho Xuan Huong trong bang gia quy uoc
+    # --bo quanhxh              quan an quanh Ho Xuan Huong (ban kinh rieng, 500 m)
+    _tudo, BO = [], "huongdan"
+    _i = 1
+    while _i < len(sys.argv):
+        a = sys.argv[_i]
+        if a == "--bo":
+            _i += 1
+            BO = sys.argv[_i] if _i < len(sys.argv) else BO
+        elif a.startswith("--bo="):
+            BO = a.partition("=")[2]
+        else:
+            _tudo.append(a)
+        _i += 1
+    if BO not in ("huongdan", "hxh", "quanhxh"):
+        print(f"--bo không nhận “{BO}”. Chỉ có: huongdan · hxh · quanhxh")
         sys.exit(1)
-goi_ra = {"phien_ban": PHIEN_BAN, "co_so": ra, "chua_phan_giai": hong}
-if hong and len(ra) <= len(cu):
-    bak = OUT.replace(".json", f".dorang-{len(ra)}coso.json")
-    luu_json(bak, goi_ra)
-    print(f"⚠ Lần chạy này chỉ phân giải {len(ra)} cơ sở, không hơn"
-          f" {len(cu)} đã có. KHÔNG ghi đè — kết quả dở ở: {bak}")
-    OUT = bak
-else:
-    luu_json(OUT, goi_ra)
-print("\n" + "═" * 62)
-print(f"phân giải được {len(ra)}/{len(muc)}"
-      f"  ({100*len(ra)/max(len(muc),1):.0f}%)")
-print(f"chưa phân giải {len(hong)} — KHÔNG nhận khi chỉ một trục đúng")
-print(f"saved -> {OUT}")
-print("raw/ chỉ chứa place_id — không rating, không tên/địa chỉ từ Google.")
+    if not _tudo:
+        print("thiếu thư mục raw.  Chạy: sweep_google_placeid.py <thu-muc-raw>"
+              " [--bo hxh|quanhxh]")
+        sys.exit(1)
+    RAW = _tudo[0]
+    OUT = os.path.join(RAW, {"huongdan": "place_id.json", "hxh": "place_id_hxh.json",
+                             "quanhxh": "place_id_quan_hxh.json"}[BO])
+    PHIEN_BAN = 1
+
+    khoa, nguon = doc_khoa()
+    if not khoa:
+        print("KHÔNG tìm thấy GOOGLE_MAPS_API_KEY.")
+        print("Tạo ở console.cloud.google.com: bật Places API (New), tạo API key,")
+        print("Restrict key → API restrictions → CHỈ Places API (New).")
+        print("⚠ Phải GẮN TÀI KHOẢN THANH TOÁN vào project — chưa gắn thì Maps")
+        print("  Platform chỉ cho 1 lệnh/ngày, không phải lỗi khoá.")
+        sys.exit(0)
+    print(f"khoá đọc từ: {nguon}  (giá trị không in ra)\n")
+
+    # ── Bo can phan giai ───────────────────────────────────────────────────────
+    muc = []
+    if BO == "hxh":
+        # Bo loc nam trong `an_ngu_data`, KHONG o day: builder .docx doc cung ham
+        # do. Mot literal loc chep sang script nay la cach hai ban lech nhau ma
+        # khong ai biet — dung loi da ghi so 30/07.
+        _q = _an.tai_luu_tru_quanh_ho(RAW)
+        if not _q:
+            print("không đọc được luu_tru.json"); sys.exit(1)
+        for c in _q["trong"]:
+            muc.append({"lop": "lưu trú · quanh hồ", "ten": c["ten"],
+                        "dia_chi": c.get("dia_chi"),
+                        "lat": c.get("lat"), "lon": c.get("lon")})
+        print(f"bộ HXH — {len(muc)} cơ sở trong {_q['ban_kinh']} m quanh Hồ Xuân Hương")
+        print(f"   (bảng giá quy ước {_q['gia'][0]:,}–{_q['gia'][1]:,}₫"
+              .replace(",", ".") + f" · {_q['tong_bang_gia']} cơ sở toàn thành phố,"
+              f" {_q['co_toa_do']} có toạ độ)")
+        print(f"   {len(_q['khong_toa_do'])} cơ sở có địa chỉ nhưng KHÔNG có toạ độ"
+              " — ngoài phép lọc này, không phân giải\n")
+    if BO == "quanhxh":
+        _q = _an.tai_quan_an_quanh_ho(RAW)
+        if not _q:
+            print("không đọc được nha_hang.json"); sys.exit(1)
+        for c in _q["trong"]:
+            muc.append({"lop": "quán ăn · quanh hồ", "ten": c["ten"],
+                        "dia_chi": c.get("dia_chi"),
+                        "lat": c.get("lat"), "lon": c.get("lon")})
+        print(f"bộ QUÁN-HXH — {len(muc)} quán trong {_q['ban_kinh']} m quanh Hồ Xuân Hương"
+              f" (trên {_q['tong_mo']:,} quán còn hoạt động)".replace(",", "."))
+        print(f"   {_q['co_dia_chi']} có địa chỉ · {_q['co_dien_thoai']} có số gọi\n")
+    for r in (_hd.tai_top_quan(RAW) if BO == "huongdan" else []):
+        muc.append({"lop": "quán ăn", "ten": r["ten"], "dia_chi": r.get("dia_chi"),
+                    "lat": r.get("lat"), "lon": r.get("lon")})
+    # `tai_luu_tru` la lop CHON LOC, no khong mang toa do — do la dung, vi tai lieu
+    # khong in toa do khach san. Nhung buoc doi chieu thi can. Tra nguoc ve file goc
+    # theo ten da gap phang; do duoc 16/30 dong co toa do, 14 dong con lai se dung
+    # truc so-nha-ten-duong.
+    if BO == "huongdan":
+        _p = os.path.join(RAW, "luu_tru.json")
+        _toa_do = {}
+        if os.path.exists(_p):
+            _d = json.load(io.open(_p, encoding="utf-8"))
+            _toa_do = {fold(r["ten"]): (r.get("lat"), r.get("lon"))
+                       for r in (_d["co_so"] if isinstance(_d, dict) else _d)}
+        lt = _an.tai_luu_tru(RAW) or {}
+        for bac in lt.get("bac", []):
+            for c in bac["co_so"]:
+                la, lo = _toa_do.get(fold(c["ten"]), (None, None))
+                muc.append({"lop": f"lưu trú · {bac['ten']}", "ten": c["ten"],
+                            "dia_chi": c.get("dia_chi"), "lat": la, "lon": lo})
+    print(f"cần phân giải: {len(muc)} cơ sở")
+    # Phan loai theo tien to cua `lop`, khong so BANG mot chuoi: bo `quanhxh` dat
+    # lop la "quán ăn · quanh hồ" nen phep so bang cu bao "0 quán ăn · 353 lưu trú"
+    # — mot dong thong ke sai o ngay dau lan chay.
+    _nq = sum(1 for m in muc if m["lop"].startswith("quán ăn"))
+    print(f"   {_nq} quán ăn · {len(muc)-_nq} lưu trú")
+    print(f"   có toạ độ để đối chiếu: {sum(1 for m in muc if m['lat'])}\n")
+
+    ra, hong = [], []
+    for i, m in enumerate(muc, 1):
+        pid, ly, so_nha_lech = phan_giai(m, khoa)
+        if pid:
+            d = {"lop": m["lop"], "ten": m["ten"], "place_id": pid}
+            if so_nha_lech:
+                d["so_nha_lech"] = True
+            ra.append(d)
+            print(f"  {i:3} ✓ {m['ten'][:34]:36} {pid}"
+                  + ("  ⚠ số nhà lệch" if so_nha_lech else ""))
+        else:
+            hong.append({"lop": m["lop"], "ten": m["ten"], "ly_do": ly})
+            print(f"  {i:3} — {m['ten'][:34]:36} {ly[:60]}")
+        time.sleep(NGHI_GIAY)
+
+    # CHI ghi place_id. `displayName`/`formattedAddress`/`location` cua Google chi
+    # ton tai trong bo nho ham `phan_giai` va bien mat cung no.
+    #
+    # Ban chong ghi de: khac hai sweep YouTube, buoc nay KHONG bi do han muc nen
+    # chay lai mien phi. Nhung "lay lai duoc" khac "mat cung duoc" — mot lan chay
+    # gap su co mang tra ve 3 dong khong duoc phep de len 40 dong da phan giai.
+    # Coi "chua co file" la moc 0 dong, dung cai lo hong lan-chay-dau da sua o hai
+    # sweep kia.
+    cu = []
+    if os.path.exists(OUT):
+        try:
+            cu = json.load(io.open(OUT, encoding="utf-8")).get("co_so", [])
+        except Exception:
+            print(f"DỪNG: {OUT} tồn tại nhưng KHÔNG đọc được."
+                  " Không ghi đè khi mốc so sánh không tin được.")
+            sys.exit(1)
+    goi_ra = {"phien_ban": PHIEN_BAN, "co_so": ra, "chua_phan_giai": hong}
+    if hong and len(ra) <= len(cu):
+        bak = OUT.replace(".json", f".dorang-{len(ra)}coso.json")
+        luu_json(bak, goi_ra)
+        print(f"⚠ Lần chạy này chỉ phân giải {len(ra)} cơ sở, không hơn"
+              f" {len(cu)} đã có. KHÔNG ghi đè — kết quả dở ở: {bak}")
+        OUT = bak
+    else:
+        luu_json(OUT, goi_ra)
+    print("\n" + "═" * 62)
+    print(f"phân giải được {len(ra)}/{len(muc)}"
+          f"  ({100*len(ra)/max(len(muc),1):.0f}%)")
+    print(f"chưa phân giải {len(hong)} — KHÔNG nhận khi chỉ một trục đúng")
+    print(f"saved -> {OUT}")
+    print("raw/ chỉ chứa place_id — không rating, không tên/địa chỉ từ Google.")
+
+
+if __name__ == "__main__":
+    main()

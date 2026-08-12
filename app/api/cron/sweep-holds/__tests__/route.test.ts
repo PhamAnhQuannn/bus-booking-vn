@@ -38,12 +38,14 @@ beforeEach(() => {
 
 afterEach(() => {
   delete process.env.CRON_SECRET;
+  delete process.env.HOLD_SWEEPER_MODE;
 });
 
 describe('GET /api/cron/sweep-holds', () => {
   describe('count mode (explicit)', () => {
     it('returns expiredCount without mutating DB', async () => {
-      vi.mocked(getEnv).mockReturnValue({ HOLD_SWEEPER_MODE: 'count' } as ReturnType<typeof getEnv>);
+      // The route reads process.env.HOLD_SWEEPER_MODE directly (NOT getEnv) — see route.ts.
+      process.env.HOLD_SWEEPER_MODE = 'count';
       vi.mocked(prisma.hold.count).mockResolvedValueOnce(5);
 
       const req = makeRequest({ authorization: `Bearer ${process.env.CRON_SECRET}` });

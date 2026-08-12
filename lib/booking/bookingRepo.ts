@@ -41,8 +41,9 @@ export interface CreateMomoBookingInput {
   holdId: string;
   buyerName: string;
   buyerPhone: string;
-  /** Issue 042: buyer email snapshot. Nullable — pre-042 holds carry no email. */
-  buyerEmail?: string | null;
+  /** Issue 042: buyer email snapshot. Required — copied from a hold that always
+   *  carries a validated email (POST /api/holds). */
+  buyerEmail: string;
   customerId?: string | null;
   /** Issue 089: consent text version the buyer accepted at checkout. */
   consentVersion: string;
@@ -54,8 +55,9 @@ export interface CreateOnlineBookingInput {
   holdId: string;
   buyerName: string;
   buyerPhone: string;
-  /** Issue 042: buyer email snapshot for ticket delivery. Nullable — pre-042 holds carry no email. */
-  buyerEmail?: string | null;
+  /** Issue 042: buyer email snapshot for ticket delivery. Required — the hold it is
+   *  copied from is always created with a validated email (POST /api/holds). */
+  buyerEmail: string;
   /** Customer.id of the signed-in buyer, or null for a guest booking (Issue 031). */
   customerId?: string | null;
   /**
@@ -119,7 +121,7 @@ export async function createOnlineBookingFromHold(
     holdId,
     buyerName,
     buyerPhone,
-    buyerEmail = null,
+    buyerEmail,
     customerId = null,
     consentVersion,
   } = input;
@@ -163,7 +165,8 @@ export async function createOnlineBookingFromHold(
               "customerId", "buyerName", "buyerPhone", "buyerEmail", "ticketCount", "totalVnd",
               "paymentMethod", status, "isManual", "createdAt",
               "pickupKind", "pickupDetail",
-              "customPickupRequested"
+              "customPickupRequested",
+              "boardingPoint", "boardingTime"
             )
             SELECT
               ${bookingId}::uuid,
@@ -183,7 +186,9 @@ export async function createOnlineBookingFromHold(
               NOW(),
               h."pickupKind",
               h."pickupDetail",
-              (h."pickupKind" = 'custom'::"PickupKind")
+              (h."pickupKind" = 'custom'::"PickupKind"),
+              h."boardingPoint",
+              h."boardingTime"
             FROM "Hold" h
             JOIN "Trip" t ON t.id = h."tripId"
             WHERE h.id = ${holdId}

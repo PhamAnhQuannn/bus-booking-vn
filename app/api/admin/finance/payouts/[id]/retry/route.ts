@@ -45,7 +45,7 @@ async function handler(req: NextRequest, ctx: AdminAuthContext): Promise<Respons
     if (result.error === 'not_found') {
       return NextResponse.json({ error: 'PAYOUT_NOT_FOUND' }, { status: 404 });
     }
-    // not_failed (or the unreachable wrong_operator) → not a retryable state.
+    // not_failed / withheld (#518) / the unreachable wrong_operator → not a retryable state.
     return NextResponse.json({ error: 'NOT_RETRYABLE' }, { status: 422 });
   }
 

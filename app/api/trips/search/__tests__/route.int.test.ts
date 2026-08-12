@@ -213,9 +213,11 @@ describe('GET /api/trips/search — integration', () => {
     }
   });
 
-  // ---- AC-13: Select whitelist — exactly 7 fields ----
+  // ---- AC-13: Select whitelist — exactly the contract fields ----
+  // The operator-forward funnel widened the contract: capacity, operatorContactPhone
+  // (customers call the operator to book), and boardingSchedule are now surfaced.
 
-  it('AC-13: response objects contain exactly the 7 contract fields', async () => {
+  it('AC-13: response objects contain exactly the contract fields', async () => {
     const req = makeRequest({ origin: 'Hà Nội', destination: 'Sài Gòn', date: TOMORROW_STR, ticketCount: '1' });
     const res = await GET(req);
     expect(res.status).toBe(200);
@@ -226,9 +228,12 @@ describe('GET /api/trips/search — integration', () => {
     expect(keys).toEqual(
       [
         'availableSeats',
+        'boardingSchedule',
         'busType',
+        'capacity',
         'departureAt',
         'durationMinutes',
+        'operatorContactPhone',
         'operatorId',
         'operatorLegalName',
         'price',

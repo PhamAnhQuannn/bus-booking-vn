@@ -77,8 +77,9 @@ describe('generateTripsFromTemplates', () => {
     const referenceDate = new Date('2026-06-01T00:00:00Z');
     const result = await generateTripsFromTemplates(referenceDate);
 
-    // In 14 days from 2026-06-01, Mon/Wed/Fri: 6/1,6/3,6/5,6/8,6/10,6/12 = 6 trips
-    expect(result.generated).toBe(6);
+    // In 30 days from 2026-06-01 (Mon), Mon/Wed/Fri: Mon 1,8,15,22,29 (5) +
+    // Wed 3,10,17,24 (4) + Fri 5,12,19,26 (4) = 13 trips.
+    expect(result.generated).toBe(13);
     expect(result.skipped).toBe(0);
     expect(result.failed).toBe(0);
   });
@@ -93,7 +94,7 @@ describe('generateTripsFromTemplates', () => {
     const result = await generateTripsFromTemplates(referenceDate);
 
     expect(result.generated).toBe(0);
-    expect(result.skipped).toBe(6); // all skipped as already_exists
+    expect(result.skipped).toBe(13); // all skipped as already_exists (30-day horizon)
   });
 
   it('skips trips when bus is in maintenance', async () => {
@@ -113,7 +114,7 @@ describe('generateTripsFromTemplates', () => {
     const referenceDate = new Date('2026-06-01T00:00:00Z');
     const result = await generateTripsFromTemplates(referenceDate);
 
-    expect(result.skipped).toBe(6);
+    expect(result.skipped).toBe(13);
     expect(result.generated).toBe(0);
   });
 

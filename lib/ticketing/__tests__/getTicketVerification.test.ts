@@ -38,6 +38,11 @@ function rawBooking(overrides: Record<string, unknown> = {}) {
     status: 'paid',
     ticketCount: 2,
     paymentExternalRef: 'momo-txn-998877',
+    totalVnd: 850000,
+    paymentMethod: 'bank_transfer',
+    paidAt: new Date('2026-06-09T03:00:00Z'),
+    buyerName: 'Nguyen Van A',
+    buyerPhone: '0912345678',
     checkedInAt: null,
     noShowAt: null,
     trip: {
@@ -73,6 +78,11 @@ describe('getTicketVerification', () => {
       isPaid: true,
       ticketCount: 2,
       providerTxnId: 'momo-txn-998877',
+      buyerName: 'Nguyen Van A',
+      buyerPhoneMasked: 'xxxxxx5678',
+      totalVnd: 850000,
+      paymentMethod: 'bank_transfer',
+      paidAt: '2026-06-09T03:00:00.000Z',
       operatorName: 'Test Bus Co',
       route: { origin: 'Hanoi', destination: 'Hue' },
       departureAt: '2026-06-10T22:00:00.000Z',
@@ -130,20 +140,23 @@ describe('getTicketVerification', () => {
     expect(result).toBeNull();
   });
 
-  it('returned shape carries NO buyer PII', async () => {
+  it('receipt view exposes name + MASKED phone, never full phone or email', async () => {
+    // Product decision 2026-08-11: the receipt shows buyerName + last-4 phone. It must
+    // still NEVER expose the full phone or the email.
     verify.mockResolvedValue({ ref: REF, ct: CT });
     findUnique.mockResolvedValue(rawBooking());
 
     const result = await getTicketVerification('t');
+    expect(result?.buyerName).toBe('Nguyen Van A');
+    expect(result?.buyerPhoneMasked).toBe('xxxxxx5678'); // last 4 only
+    // The full phone must not appear anywhere in the returned view.
+    expect(JSON.stringify(result)).not.toContain('0912345678');
     const keys = new Set(Object.keys(result ?? {}));
-    expect(keys.has('buyerName')).toBe(false);
     expect(keys.has('buyerPhone')).toBe(false);
     expect(keys.has('buyerEmail')).toBe(false);
 
-    // The select must not even request the buyer columns.
+    // The select must never request the email column.
     const selectArg = findUnique.mock.calls[0][0].select;
-    expect(selectArg.buyerName).toBeUndefined();
-    expect(selectArg.buyerPhone).toBeUndefined();
     expect(selectArg.buyerEmail).toBeUndefined();
   });
 });
