@@ -15,6 +15,12 @@ export function CardImage({ src, alt, priority }: { src: string; alt: string; pr
   return (
     // eslint-disable-next-line @next/next/no-img-element -- local /public thumbnail; next/image+sharp not used in this app
     <img
+      ref={(node) => {
+        // An error that fires between the SSR-painted <img> and hydration is lost:
+        // the onError handler isn't attached yet. Recover it on mount — a decoded
+        // image that finished with zero width has already failed to load.
+        if (node?.complete && node.naturalWidth === 0) setBroken(true);
+      }}
       src={src}
       alt={alt}
       loading={priority ? 'eager' : 'lazy'}

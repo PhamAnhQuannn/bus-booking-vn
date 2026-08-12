@@ -151,6 +151,10 @@ model Route {
   /// columns above stay AS-IS as a back-compat shim; this link is additive.
   originPlaceId      String?
   destPlaceId        String?
+  /// Display-only per-direction boarding schedule: JSON array [{point, time "HH:MM"}].
+  /// Nullable + additive; NOT used in any query predicate (this bus makes staggered
+  /// pickups on one physical trip — the times are shown to riders, not booked against).
+  boardingSchedule   Json?
   trips              Trip[]
   operator           Operator                @relation(fields: [operatorId], references: [id], onDelete: Restrict)
   originPlace        Place?                  @relation("RouteOrigin", fields: [originPlaceId], references: [id], onDelete: SetNull)
@@ -261,6 +265,11 @@ model Hold {
   /// rows have none, and a client that sends no cookie legitimately has none. Used ONLY to
   /// bound seats per session (SESSION_SEAT_CAP); carries no PII and is never shown to users.
   sessionId       String?
+  /// Chosen boarding point (name) + local time "HH:MM" from the results card. Distinct
+  /// from the station/custom pickup feature (pickupKind/pickupDetail) above. Nullable —
+  /// holds created without a chosen point (or pre-feature rows) have none.
+  boardingPoint   String?
+  boardingTime    String?
   trip            Trip                @relation(fields: [tripId], references: [id])
   booking         Booking?
 
@@ -336,12 +345,20 @@ model Booking {
   status               BookingStatus       @default(awaiting_payment)
   isManual             Boolean             @default(false)
   createdAt            DateTime            @default(now())
+  /// Instant the booking became paid — the receipt/verify timestamp. Set on the
+  /// paid transition (applyPaidStatusTransition) and at cash-booking creation.
+  /// Nullable: awaiting_payment/failed rows and pre-feature paid rows have none.
+  paidAt               DateTime?
   /// Issue 014: operator call-queue contact tracking
   contactStatus        ContactStatus       @default(pending)
   pickupKind           PickupKind          @default(station)
   pickupDetail         String?
   /// true ⇔ pickupKind=custom. Derived in SQL at INSERT. SQL-only CHECK enforces pickupDetail ≥5 chars when true.
   customPickupRequested Boolean            @default(false)
+  /// Chosen boarding point (name) + local time "HH:MM", copied from the hold. Distinct
+  /// from the station/custom pickup feature above. Nullable.
+  boardingPoint        String?
+  boardingTime         String?
   /// Timestamp when boarding was marked (SET-TRUE-ONLY per SPEC NOTE)
   pickedUpAt           DateTime?
   /// Escalation note set by operator
@@ -519,6 +536,8 @@ model Customer {
   charterRequests CharterRequest[]
   /// ADR-021/DS-033: linked OAuth providers (Google). Zero or one Google Account.
   accounts        Account[]
+  /// Redesign v4: lịch sử hội thoại trợ lý du lịch (persist, đồng bộ đa thiết bị).
+  plannerConversations PlannerConversation[]
 }
 
 /// DS-033: customer↔OAuth-provider link. One row per (provider, external account).
@@ -574,6 +593,34 @@ model Session {
 
   @@index([customerId])
   @@index([expiresAt])
+}
+
+/// Redesign v4 — lịch sử hội thoại trợ lý du lịch (persist cho customer đã đăng nhập;
+/// guest dùng localStorage client-side). Owner-scoped: mọi truy vấn lọc theo customerId.
+model PlannerConversation {
+  id         String           @id @default(cuid())
+  customerId String
+  customer   Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  title      String
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  messages   PlannerMessage[]
+
+  @@index([customerId, updatedAt(sort: Desc)])
+}
+
+/// Một lượt lời trong hội thoại. dtoJson = snapshot PlannerDto khi bot message mang lịch trình.
+model PlannerMessage {
+  id             String              @id @default(cuid())
+  conversationId String
+  conversation   PlannerConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  /// 'user' | 'bot'
+  role           String
+  text           String
+  dtoJson        Json?
+  createdAt      DateTime            @default(now())
+
+  @@index([conversationId, createdAt])
 }
 
 // ---------------------------------------------------------------------------

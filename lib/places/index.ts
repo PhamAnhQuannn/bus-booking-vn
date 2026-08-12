@@ -6,6 +6,7 @@ export {
   resolveOrCreatePlace,
   listSearchablePlaces,
   findCanonicalNameBySlug,
+  findByNameOrAlias,
   type ResolvedPlace,
 } from './placeRepo';
 

@@ -1,28 +1,27 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import { preload } from 'react-dom';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { Bus, BusFront, CreditCard, MailCheck, MapPin } from 'lucide-react';
+import Image from 'next/image';
+import { ArrowRight, Bus, BusFront, ChevronRight, CreditCard, Headset, Home, MailCheck, MapPin, ShieldCheck, Sparkles } from 'lucide-react';
 import { searchParamsSchema, searchFiltersSchema } from '@/lib/core/validation/search';
 import { track } from '@/lib/analytics';
-import { searchTrips, SEARCH_PAGE_LIMIT } from '@/lib/trips';
-import { applyTripFilters, todayVN } from '@/lib/search';
-import { SearchFormWrapper } from '@/components/search/SearchFormWrapper';
-import { SearchForm } from '@/components/search/SearchForm';
+import { logger } from '@/lib/logger';
+import { searchTrips, SEARCH_PAGE_LIMIT, parseBoardingSchedule, nearestUpcomingTripDate } from '@/lib/trips';
+import { applyTripFilters, searchHref, todayVN } from '@/lib/search';
 import { SearchStoreHydrator } from '@/components/search/SearchStoreHydrator';
 import { EmptyState } from '@/components/search/EmptyState';
 import { ResultsList } from '@/components/search/ResultsList';
 import { ResultsHeading } from '@/components/search/ResultsHeading';
 import { ResultsSkeleton } from '@/components/search/ResultsSkeleton';
 import { PopularTrips } from '@/components/home/PopularTrips';
-import { ContractCarRental } from '@/components/home/ContractCarRental';
 import { PopularDestinations } from '@/components/home/PopularDestinations';
+import { TripPlannerPromo } from '@/components/home/TripPlannerPromo';
+import { ContractCarRental } from '@/components/home/ContractCarRental';
 import { OperatorShowcase } from '@/components/home/OperatorShowcase';
-import { POPULAR_ROUTES, routeKey } from '@/components/home/popularRoutes';
 import { Card, CardContent } from '@/components/ui/card';
-import { getSearchablePlaces } from '@/lib/places';
+import { slugify } from '@/lib/places';
 import { getActiveRoutes } from '@/lib/core/db/getActiveRoutes';
 import { getPublicOperators } from '@/lib/home';
 import { organizationLd } from '@/lib/seo';
@@ -66,6 +65,15 @@ const FEATURES = [
   { icon: MapPin, title: 'Đón trả tận nơi', sub: 'Đón tại nhà hoặc khách sạn, trả đúng điểm bạn cần' },
 ];
 
+// Trust strip trên trang kết quả (mockup S1). Chỉ dùng claim kiểm chứng được — "Hỗ trợ 24/7"
+// được xác nhận là dịch vụ thật (khác các claim marketing bịa đã gỡ trong review honest-copy).
+const RESULT_TRUST = [
+  { icon: ShieldCheck, title: 'Thanh toán đơn giản', sub: 'Nhiều phương thức, tiện lợi và an toàn' },
+  { icon: MailCheck, title: 'Xác nhận qua email', sub: 'Vé điện tử gửi ngay, tiết kiệm thời gian' },
+  { icon: Bus, title: 'Nhà xe được xác minh', sub: 'Đối tác uy tín, chất lượng đảm bảo' },
+  { icon: Headset, title: 'Hỗ trợ 24/7', sub: 'Tư vấn, hỗ trợ tận tâm mọi lúc' },
+];
+
 export default async function HomePage({ searchParams }: PageProps) {
   const params = await searchParams;
   const raw = {
@@ -104,13 +112,28 @@ async function SearchResultsView({
 
   const cursor = typeof params.cursor === 'string' ? params.cursor : null;
 
-  const [base, page, places] = await Promise.all([
+  const [base, page] = await Promise.all([
     searchTrips({ origin, destination, date, ticketCount, limit: Number.MAX_SAFE_INTEGER }),
     searchTrips({ origin, destination, date, ticketCount, cursor, limit: SEARCH_PAGE_LIMIT }),
-    getSearchablePlaces(),
   ]);
   const baseTrips = base.trips;
   const nextCursor = page.nextCursor;
+
+  // No blank page for a route that runs other days: if the requested day has no trips
+  // (e.g. today's bus already departed), jump to the nearest upcoming date that does.
+  // Forward-only + seat-agnostic → at most one hop (target with no seats stops at itself).
+  if (baseTrips.length === 0) {
+    const near = await nearestUpcomingTripDate(origin, destination, date);
+    if (near && near !== date) {
+      const p = new URLSearchParams({ origin, destination, date: near, ticketCount: String(ticketCount) });
+      redirect(`/?${p.toString()}`);
+    }
+  }
+
+  // Single-operator trust panel data — real fields off the first result.
+  const operator = baseTrips[0]
+    ? { legalName: baseTrips[0].operatorLegalName, contactPhone: baseTrips[0].operatorContactPhone }
+    : undefined;
 
   const sessionId = (await cookies()).get('bb_sid')?.value ?? null;
   void track('search_performed', { sessionId, context: { resultCount: baseTrips.length } });
@@ -123,104 +146,192 @@ async function SearchResultsView({
   const showPrev = date > todayVNDate;
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6">
-      <SearchStoreHydrator
-        query={{ origin, destination, date, ticketCount }}
-      />
+    <>
+      <SearchStoreHydrator query={{ origin, destination, date, ticketCount }} />
 
-      <div className="flex items-center gap-3">
-        <Link
-          href="/"
-          className="inline-flex min-h-11 items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          aria-label="Tìm lại — quay về trang tìm kiếm"
-        >
-          ← Tìm lại
-        </Link>
-        <ResultsHeading origin={origin} destination={destination} />
-      </div>
-
-      <Card className="shadow-e1">
-        <CardContent className="py-3">
-          <SearchForm places={places} orientation="horizontal" />
-        </CardContent>
-      </Card>
-
-      {totalBeforeFilters === 0 ? (
-        <EmptyState
-          origin={origin}
-          destination={destination}
-          date={date}
-          ticketCount={String(ticketCount)}
-          showPrev={showPrev}
+      {/* HERO — ảnh golden bleed lên sau navbar (id="search" → SiteHeader thành glass nhìn xuyên).
+          Bus vẫn nằm trong gap navbar↔trust (object-y canh), width-driven cover → bus hiện trọn. */}
+      <section id="search" aria-label="Tuyến đường" className="relative w-full">
+        {/* Ảnh 16:9 (fill). -top-12 lg:-top-16 kéo box lên sau header glass để nhìn xuyên. */}
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 -top-12 lg:-top-16">
+          <Image
+            src="/hero/landing-golden-1920.jpg"
+            alt=""
+            fill
+            priority
+            quality={90}
+            sizes="100vw"
+            className="object-cover object-[50%_90%]"
+          />
+        </div>
+        {/* Mobile wash: hạ nền ảnh để chữ tối đọc được, không hoá trắng cả xe. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 -top-12 bg-gradient-to-b from-white/45 via-white/10 to-white/15 md:hidden lg:-top-16"
         />
-      ) : (
-        <ResultsList
-          trips={trips}
-          facets={facets}
-          totalBeforeFilters={totalBeforeFilters}
-          origin={origin}
-          destination={destination}
-          date={date}
-          ticketCount={ticketCount}
-          showPrev={showPrev}
-          nextCursor={nextCursor}
-          allParams={params}
+        {/* md+ cream left-gradient: giữ contrast cho khối chữ trái (mirror homepage page.tsx:295). */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 -top-12 hidden md:block md:bg-[linear-gradient(90deg,rgba(255,247,237,0.60)_0%,rgba(255,247,237,0.44)_32%,rgba(255,247,237,0.20)_54%,rgba(255,247,237,0.05)_74%,rgba(255,247,237,0)_100%)] lg:-top-16"
         />
-      )}
-    </main>
+        {/* Tan mép đáy hero: fade golden→white cho gutter cạnh panel mềm (panel opaque nên không ảnh hưởng). */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent to-white"
+        />
+
+        <div className="page-container relative flex flex-col gap-4 pt-8 pb-12 sm:pt-12 sm:pb-14 lg:min-h-[30vw] lg:pt-14 lg:pb-[72px]">
+          <div className="relative isolate flex max-w-[680px] flex-col items-start gap-3 text-left">
+            {/* Mobile-only scrim sau khối chữ cho legibility (mirror homepage page.tsx:367-370). */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -inset-x-4 -inset-y-3 -z-10 rounded-2xl bg-white/70 backdrop-blur-[2px] md:hidden"
+            />
+            <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <Link href="/" className="inline-flex items-center gap-1 hover:text-foreground">
+                <Home className="size-4" aria-hidden="true" />
+                Trang chủ
+              </Link>
+              <ChevronRight className="size-4 shrink-0" aria-hidden="true" />
+              <span className="font-medium text-foreground">
+                {origin} – {destination}
+              </span>
+            </nav>
+            <ResultsHeading origin={origin} destination={destination} />
+            <p className="text-base font-medium text-muted-foreground sm:text-lg">
+              An toàn – Đúng giờ – Tận tâm
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* TRUST STRIP — block cream nổi ĐÈ NỬA lên đáy hero (mock #17), 4 mục nối + light divider. */}
+      <section
+        aria-label="Điểm nổi bật"
+        className="relative z-raised -mt-10 w-full py-5 lg:-mt-[72px]"
+      >
+        {/* White fill từ mép hero-bottom (= overlap line) xuống — xoá dải cam body-background,
+            khớp <main> trắng. top-10/lg:top-[72px] = overlap px → top phía trên vẫn trong suốt
+            (photo hiện, straddle giữ); -z-10 → nằm sau panel cream. Không đổi geometry. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-10 bottom-0 -z-10 bg-white lg:top-[72px]"
+        />
+        <div className="page-container">
+          <ul className="grid list-none grid-cols-1 overflow-hidden rounded-2xl border border-border bg-[#FFF6EE] shadow-e2 lg:grid-cols-4">
+            {RESULT_TRUST.map(({ icon: Icon, title, sub }) => (
+              <li
+                key={title}
+                className="flex items-center gap-4 border-border p-5 [&+&]:border-t lg:[&+&]:border-t-0 lg:[&+&]:border-l"
+              >
+                <span
+                  className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
+                  aria-hidden="true"
+                >
+                  <Icon className="size-6" />
+                </span>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-base font-semibold leading-tight text-foreground">{title}</span>
+                  <span className="text-sm leading-snug text-muted-foreground">{sub}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* Nền trắng full-bleed (khớp mockup): main tràn ngang, content trong page-container. */}
+      <main className="flex w-full flex-1 flex-col bg-white pb-6">
+        <div className="page-container flex flex-1 flex-col gap-6">
+          {totalBeforeFilters === 0 ? (
+            // Center the empty-state in the leftover height so a short "no trips" page
+            // reads as intentional instead of clustering at the top over a big void.
+            <div className="flex flex-1 flex-col items-center justify-center gap-6">
+              <EmptyState
+                origin={origin}
+                destination={destination}
+                date={date}
+                ticketCount={String(ticketCount)}
+                showPrev={showPrev}
+              />
+            </div>
+          ) : (
+            <ResultsList
+              trips={trips}
+              facets={facets}
+              totalBeforeFilters={totalBeforeFilters}
+              origin={origin}
+              destination={destination}
+              date={date}
+              ticketCount={ticketCount}
+              showPrev={showPrev}
+              nextCursor={nextCursor}
+              allParams={params}
+              operator={operator}
+            />
+          )}
+        </div>
+      </main>
+    </>
   );
 }
 
 async function HeroMarketingView() {
-  // `imageSrcSet` mirrors each layer's `image-set()` exactly, so the preload
-  // scanner fetches the same candidate the CSS will later pick. Density
-  // descriptors need no `imageSizes`.
-  //
-  // Deliberately NO `type`: a link carries one MIME for the whole srcset, and
-  // this srcset is mixed JPEG + WebP, so any value would be wrong for one of
-  // them. Format is not negotiated here either -- `image-set()`'s `type()` has
-  // an open WebKit bug and is unsupported in Safari, so the format is fixed per
-  // candidate and only DENSITY is negotiated.
-  preload('/hero/landing-golden-1280.jpg', {
-    as: 'image',
-    media: '(max-width: 767px)',
-    imageSrcSet: '/hero/landing-golden-1280.jpg 1x, /hero/landing-golden-1280@2x.webp 2x',
-  });
-  preload('/hero/landing-golden-md-1536.jpg', {
-    as: 'image',
-    media: '(min-width: 768px) and (max-width: 1023px)',
-    imageSrcSet:
-      '/hero/landing-golden-md-1536.jpg 1x, /hero/landing-golden-md-1536@2x.webp 2x',
-  });
-  preload('/hero/landing-golden-1920.jpg', {
-    as: 'image',
-    media: '(min-width: 1024px) and (max-width: 1919px)',
-    imageSrcSet: '/hero/landing-golden-1920.jpg 1x, /hero/landing-golden-1920@2x.webp 2x',
-  });
-  preload('/hero/landing-golden-3840.jpg', {
-    as: 'image',
-    media: '(min-width: 1920px)',
-    imageSrcSet: '/hero/landing-golden-3840.jpg 1x, /hero/landing-golden-3840@2x.webp 2x',
-  });
-  const [places, activeRoutes, operators] = await Promise.all([
-    getSearchablePlaces(),
-    getActiveRoutes(),
-    getPublicOperators(),
+  // Degrade, don't 500: the homepage is the highest-traffic page and force-dynamic,
+  // so a transient failure in either loader would otherwise take the whole page down.
+  // Each section already self-hides on empty data (PopularTrips/OperatorShowcase), so a
+  // failed loader just drops its section — the hero + route CTAs always render.
+  const [activeRoutes, operators] = await Promise.all([
+    getActiveRoutes().catch((err) => {
+      logger.error({ err }, 'HeroMarketingView: getActiveRoutes failed');
+      return [];
+    }),
+    getPublicOperators().catch((err) => {
+      logger.error({ err }, 'HeroMarketingView: getPublicOperators failed');
+      return [];
+    }),
   ]);
 
-  const popularKeys = new Set(POPULAR_ROUTES.map((r) => routeKey(r.origin, r.destination)));
-  const prices: Record<string, number | null> = {};
-  const durations: Record<string, number | null> = {};
-  for (const r of activeRoutes) {
-    const key = routeKey(r.origin, r.destination);
-    if (popularKeys.has(key)) {
-      prices[key] = r.minPrice;
-      durations[key] = r.minDurationMinutes;
-    }
-  }
+  // Popular trips = routes we actually operate, EXPANDED by boarding point so a rider in
+  // each pickup town sees their own "Nông Cống → Sài Gòn" card. Every card links via
+  // searchHref → alias resolution finds the one real trip (no separate trips, no oversell).
+  // Card image is keyed by ORIGIN (the pickup town) so cards don't all share one photo.
+  // Towns without their own Wikimedia photo fall back to a province image.
+  const IMAGE_FALLBACK: Record<string, string> = {
+    'nong-cong': 'thanh-hoa',
+    'cho-tan-khai': 'binh-phuoc',
+    'song-than': 'binh-duong',
+    'an-phu': 'binh-duong',
+    'tan-dong-hiep': 'binh-duong',
+    'nga-tu-mieu-ong-cu': 'binh-duong',
+    'nga-tu-550': 'binh-duong',
+  };
+  const seen = new Set<string>();
+  const popularTrips = activeRoutes
+    .flatMap((r) => {
+      const stops = parseBoardingSchedule(r.boardingSchedule);
+      const origins = [r.origin, ...stops.map((s) => s.point)];
+      return origins.map((origin) => {
+        const s = slugify(origin);
+        return {
+          origin,
+          destination: r.destination,
+          slug: IMAGE_FALLBACK[s] ?? s,
+          price: r.minPrice,
+          duration: r.minDurationMinutes,
+        };
+      });
+    })
+    .filter((t) => {
+      const k = `${t.origin}→${t.destination}`;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    })
+    .slice(0, 12);
 
   return (
-    <main className="flex flex-1 flex-col">
+    <main className="flex flex-1 flex-col bg-[#FFFCFA]">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationLd()) }}
@@ -231,111 +342,25 @@ async function HeroMarketingView() {
           upward past this section's top edge to sit behind the header, and
           clipping would defeat that. */}
       <section id="search" className="relative w-full scroll-mt-20 lg:scroll-mt-[92px]">
-        {/* Every decorative layer uses `-top-18 lg:-top-21` rather than `inset-0`:
-            the photo box extends upward by exactly the header's height so the
-            image starts at viewport y=0 and the sky sits behind the navbar. The
-            header is z-40 and this section sets no z-index, so the photo paints
-            behind it without any explicit stacking work. */}
-        {/* Mobile DOES show the whole bus, which it could not before. The box
-            here is PORTRAIT — measured 375x732 at 390, h/w 1.952 — so cover
-            exposes only 28.8% of the master's width. The previous master's bus
-            was 36% and could not fit at any position, so this crop framed only
-            the vehicle's front. The current bus is 22.5%, which fits inside that
-            window with margin. All four variants come from scripts/hero-cut.py. */}
-        {/* Two declarations, on purpose, and they must stay at DIFFERENT cascade
-            levels. React's `style` is a JS object, so a duplicate
-            `backgroundImage` key is impossible — the usual "plain url() first,
-            image-set() second" fallback cannot be written inline. So the class
-            carries the 1x fallback and the inline style carries the density
-            set: inline wins wherever `image-set()` parses, and where it does not
-            the whole declaration is dropped and the class shows through.
-            Keep the multi-URL value OUT of the Tailwind arbitrary value — that
-            is the escaping trap, and it has no reason to move. */}
+        {/* Single 16:9 hero image via next/image (fill + sizes=100vw): serves the
+            exact resolution per device WIDTH × DPR (AVIF/WebP), so wide monitors no
+            longer upscale a fixed asset. `-top-12 lg:-top-16` extends the box up behind
+            the sticky header. object-position frames the bus (far-right) per breakpoint;
+            mobile/md pan right to keep the bus, lg+ shows full width. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 bg-[url('/hero/landing-golden-1280.jpg')] bg-cover bg-center md:hidden lg:-top-21"
-          style={{
-            backgroundImage:
-              "image-set(url('/hero/landing-golden-1280.jpg') 1x, url('/hero/landing-golden-1280@2x.webp') 2x)",
-          }}
-        />
-        {/* md box measures 885x734 at 900 (h/w 0.830). cover shows 67.9% of the
-            asset's width and the bus spans 22.5%, so the whole vehicle fits with
-            room for the skyline too. The variant is pre-cut to the box aspect
-            (1.205 vs 1.205), which is why position is plain centre — there is
-            nothing to pan. */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 hidden bg-[url('/hero/landing-golden-md-1536.jpg')] bg-cover bg-center md:block lg:hidden"
-          style={{
-            backgroundImage:
-              "image-set(url('/hero/landing-golden-md-1536.jpg') 1x, url('/hero/landing-golden-md-1536@2x.webp') 2x)",
-          }}
-        />
-        {/* lg and 3xl use `cover`, not a percentage zoom. The old asset was 2:1
-            and needed 138% merely to cover, which is why only ~50% of it was
-            ever visible. This master is 1.777, so cover IS the floor and the
-            whole frame is in play — the framing is done by position alone.
-
-            These position values depend on pixel-measured landmarks in the
-            master. If the photograph is ever swapped, they silently become
-            wrong — re-measure before changing the asset:
-
-              bus body    x 0.63 -> 0.855,  tyres y 0.775, floor ~0.79
-              sun disc    x 0.114, y 0.472
-              trees intrude from the top at x 0.85 -> y 0.397,
-                          x 0.90 -> y 0.326,  x 0.946 -> y 0.272,
-                          x 0.99 -> y 0.179
-
-            lg spans 1024-1919 and changes character partway: below a box width
-            of ~1263 the image is height-constrained (no y travel, only x
-            matters) and above it width-constrained (no x travel, only y). One
-            declaration covers both.
-
-            x=50% (centred). The previous master needed a RIGHT anchor here: its
-            bus rear sat at x 0.95 and the sun at 0.09, spanning 0.86, which does
-            not fit the 82.3% of width that cover shows at 1024 — so the sun was
-            sacrificed. This master's rear is at 0.855, so the centred window
-            [0.0885, 0.9115] holds the whole bus AND the sun. The anchor hack is
-            gone; do not reintroduce it without re-checking that span.
-
-            y=48% is for the wide end. At 1920 the visible window is 67.9% of
-            image height with 32.1% of travel: the bus floor (0.79) needs
-            y >= 34.6% and the tree line under nav content (0.272) caps it at
-            60.4%. 48% sits mid-window. */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 hidden bg-[url('/hero/landing-golden-1920.jpg')] bg-cover bg-[position:50%_48%] lg:-top-21 lg:block 3xl:hidden"
-          style={{
-            backgroundImage:
-              "image-set(url('/hero/landing-golden-1920.jpg') 1x, url('/hero/landing-golden-1920@2x.webp') 2x)",
-          }}
-        />
-        {/* 3xl gets its OWN crop rather than another position value, because
-            position alone has an empty solution here: at 2560 the full master
-            would need y >= 28.2% to keep the bus floor and <= 21.3% to keep the
-            navbar on sky. The asset is pre-cut to the box aspect (2.618 vs
-            1905/728 = 2.617), so at 1920 the whole crop is visible and the
-            bottom anchor just pins the floor in view. Measured at 1920: navbar
-            band lands on master y 0.154-0.232 against a tree line of 0.272, and
-            the bus floor 0.790 sits inside 0.833.
-
-            Known limit, do not tune against it: beyond ~2040px of box width the
-            visible band can no longer hold both invariants, and tree tips rise
-            into the navbar band. It fails in the right order — the bus stays
-            whole. Note the navbar is now translucent glass with NO scrim behind
-            it (that layer was removed when the active label went dark), so this
-            is more visible than it used to be; it is an aesthetic cost at
-            ultra-wide, not a legibility one, since the dark labels clear 4.5:1
-            against tree tops. Re-check on the render if it ever looks wrong. */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 -top-21 hidden bg-[url('/hero/landing-golden-3840.jpg')] bg-cover bg-[position:50%_100%] 3xl:block"
-          style={{
-            backgroundImage:
-              "image-set(url('/hero/landing-golden-3840.jpg') 1x, url('/hero/landing-golden-3840@2x.webp') 2x)",
-          }}
-        />
+          className="pointer-events-none absolute inset-x-0 bottom-0 -top-12 lg:-top-16"
+        >
+          <Image
+            src="/hero/landing-hero-v8.jpg"
+            alt=""
+            fill
+            priority
+            quality={90}
+            sizes="100vw"
+            className="object-cover object-[85%_58%] md:object-[80%_56%] lg:object-[50%_100%] 2xl:object-[50%_72%]"
+          />
+        </div>
         {/* Mobile wash. Was 85/40/70, which put ~40-55% white over the whole
             vehicle — the bus was hazed out by roughly half-opacity paint, and
             that was a bigger contributor to "the bus looks blurry" on a phone
@@ -347,7 +372,7 @@ async function HeroMarketingView() {
             Halving it takes the visible bus from ~53% white down to ~20%. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 bg-gradient-to-b from-white/45 via-white/10 to-white/30 md:hidden lg:-top-21"
+          className="pointer-events-none absolute inset-x-0 bottom-0 -top-12 bg-gradient-to-b from-white/45 via-white/10 to-white/15 md:hidden lg:-top-16"
         />
         {/* Legibility wash, sized to the contrast floor rather than by feel.
             It used to run alpha 0.82 -> 0.66 across x=0-30%, which erased the
@@ -360,7 +385,7 @@ async function HeroMarketingView() {
             Do not raise them back without re-measuring contrast on the render. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 hidden md:block md:bg-[linear-gradient(90deg,rgba(255,247,237,0.56)_0%,rgba(255,247,237,0.44)_38%,rgba(255,247,237,0.22)_62%,rgba(255,247,237,0.07)_82%,rgba(255,247,237,0)_100%)] lg:-top-21 xl:bg-[linear-gradient(90deg,rgba(255,247,237,0.50)_0%,rgba(255,247,237,0.40)_30%,rgba(255,247,237,0.18)_52%,rgba(255,247,237,0.05)_72%,rgba(255,247,237,0)_100%)]"
+          className="pointer-events-none absolute inset-x-0 bottom-0 -top-12 hidden md:block md:bg-[linear-gradient(90deg,rgba(255,247,237,0.40)_0%,rgba(255,247,237,0.30)_38%,rgba(255,247,237,0.14)_62%,rgba(255,247,237,0.04)_82%,rgba(255,247,237,0)_100%)] lg:-top-16 xl:bg-[linear-gradient(90deg,rgba(255,247,237,0.36)_0%,rgba(255,247,237,0.26)_30%,rgba(255,247,237,0.12)_52%,rgba(255,247,237,0.03)_72%,rgba(255,247,237,0)_100%)]"
         />
         {/* The navbar scrim that used to sit here — a white wash ramping 0.97 to
             0 across the bar — has been REMOVED. It existed for one reason: the
@@ -381,16 +406,19 @@ async function HeroMarketingView() {
             reference has no counterpart to it. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 -top-18 opacity-[0.04] mix-blend-overlay lg:-top-21"
+          className="pointer-events-none absolute inset-x-0 bottom-0 -top-12 opacity-[0.04] mix-blend-overlay lg:-top-16"
           style={{
             backgroundImage:
               "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
           }}
         />
-        {/* Không còn lớp fade trắng ở đáy hero. Nó từng tồn tại để dải trust bên
-            dưới (panel trắng, chromeless) tan vào nền trang. Giờ dải là một băng
-            TỐI nằm ĐÈ lên chính đáy ảnh (kiểu Vexere), nên phải còn ảnh ở đó để
-            phủ — fade trắng sẽ xoá mất thứ mà băng cần phản chiếu. */}
+        {/* Bottom feather: short fade dissolving the hero photo into the cream trust
+            strip (#FFF6EE) below, so the hero melts into the strip with no hard seam.
+            Page field itself is near-white #FFFCFA (main bg). */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-b from-transparent to-[#FFF6EE]"
+        />
 
         {/* 570px at lg, down from 640. The height is not a free choice: it sets
             the photo box, and the cover floor is 200 * box_h / box_w, so every
@@ -404,7 +432,7 @@ async function HeroMarketingView() {
             nhỏ hơn nên thẻ tìm kiếm sẽ bị băng che 24px — phải nâng pb lên 72px
             (56 băng + 16 thở) và cộng đúng phần chênh đó vào min-h: 570 + 40 =
             610. Ngân sách 30px nói trên đã bị tiêu hết, không còn chỗ dư. */}
-        <div className="relative mx-auto flex w-full max-w-[1920px] flex-col gap-6 px-4 pt-12 pb-16 sm:px-8 sm:pt-16 sm:pb-20 lg:min-h-[610px] lg:pt-14 lg:pb-[72px] xl:px-[104px]">
+        <div className="page-container relative flex flex-col gap-6 pt-8 pb-12 sm:pt-12 sm:pb-14 lg:min-h-[610px] lg:pt-14 lg:pb-[72px]">
           <div className="relative isolate flex max-w-[680px] flex-col items-start gap-4 text-left 2xl:max-w-[760px]">
             {/* Mobile-only legibility scrim, sized to a MEASURED contrast floor
                 (scripts/smoke/hero-wash-capture.mjs + the solve beside it).
@@ -448,84 +476,98 @@ async function HeroMarketingView() {
 
           {/* md cap mirrors the lg one: a full-width card would sit over the bus in the
               md hero crop. Capping it opens a right-hand column the way lg already does. */}
-          <div className="flex w-full flex-col gap-4 md:max-w-[560px] lg:max-w-[calc(63vw-60px)] xl:max-w-[min(63vw-132px,13.2vw+828px)]">
-            <Card className="w-full rounded-2xl text-left shadow-e4">
-              <CardContent className="py-3 xl:px-8 xl:py-5">
-                <SearchFormWrapper places={places} />
+          <div className="flex w-full flex-col gap-4">
+            <Card className="w-full rounded-2xl py-0 text-left shadow-e4">
+              <CardContent className="py-4 xl:px-8 xl:py-6">
+                {/* One route per direction (single operator). A CTA per direction goes
+                    straight to that direction's trip list — with one route there is
+                    nothing to search, so we skip the form and hand the rider the list. */}
+                {activeRoutes.length > 0 ? (
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    {activeRoutes.map((r) => (
+                      <Link
+                        key={`${r.origin}-${r.destination}`}
+                        href={searchHref(r.origin, r.destination)}
+                        className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-primary-strong px-5 py-3 text-base font-semibold text-white transition-colors hover:bg-primary-strong/90"
+                      >
+                        <BusFront className="size-5 shrink-0" aria-hidden="true" />
+                        <span>
+                          {r.origin} → {r.destination}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  // No bookable route (misconfig or every route deactivated): never render an
+                  // empty CTA card. Tell the rider plainly and point them at the route list.
+                  <div className="flex flex-col gap-2">
+                    <p className="text-base font-medium text-foreground">
+                      Hiện chưa có chuyến nào mở bán trực tuyến.
+                    </p>
+                    <Link
+                      href="/routes"
+                      className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary-strong hover:underline"
+                    >
+                      <BusFront className="size-4 shrink-0" aria-hidden="true" />
+                      Xem các tuyến đường
+                      <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
+                    </Link>
+                  </div>
+                )}
+                <Link
+                  href="/tro-ly-du-lich"
+                  className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-primary-strong hover:underline"
+                >
+                  <Sparkles className="size-4 shrink-0" aria-hidden="true" />
+                  <span>
+                    <span className="font-normal text-muted-foreground">Chưa biết đi đâu? </span>
+                    Lập kế hoạch chuyến đi với Trợ lý du lịch AI
+                  </span>
+                  <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
+                </Link>
               </CardContent>
             </Card>
           </div>
         </div>
-        {/* Bang trust dat DE len day anh hero, theo mau Vexere. Do tren anh cua ho:
-            lay cap mau ngay tren/duoi bien bang tai 4 vi tri x, moi kenh deu x0.5
-            -> do la lop phu DEN alpha ~50%, KHONG phai kinh mo. Bang chung khong
-            blur: bien thien cua may ben duoi bang van giu khac biet giua cac x
-            (94 / 32 / 84); blur se san phang. Cao 69px anh / 1.25 = ~55px CSS,
-            noi dung mot dong, khong mo ta.
+      </section>
 
-            Alpha o day KHONG lay 0.5 cua ho. Chu trang can 4.5:1 nen nen sau phu
-            phai <= ~118. Ho phu troi xanh 252 -> 126, tuc chinh ho chi dat ~3.9:1.
-            Day hero cua ta co mat bien hoang hon rat sang, nen alpha phai do tren
-            render that roi chot; 0.6 chi la diem khoi dau.
-
-            Duoi lg: bang nam trong luong (static), luoi 2 cot. Tu lg: absolute de
-            day hero. Mot markup, hai vi tri — khong nuoi hai bang mau.
-
-            CANH SANG 1px o mep tren la thu giu cho bang ton tai o nua PHAI. Anh
-            hero toi dan sang phai (nhua duong): luminance ngay tren bang di tu
-            0.419 (x=280) xuong 0.023 (x=1360). Phu den la phep NHAN, nen o dau
-            phai 0.4 x 0.023 = 0.009 va bien bang-vs-anh chi con 1.07:1 — bang
-            tan vao mat duong. Da chung minh khong ton tai bang don-luminance nao
-            tach duoc ca hai dau (can dong thoi <= 0.106 va >= 0.169: vo nghiem),
-            va backdrop-blur/brightness/saturate deu vo dung vi deu la toan tu
-            nhan tren vung gan don sac. Nen loi ra chi co: doi SAC, hoac ve CANH.
-            Chon ve canh de giu nguyen dien mao.
-
-            Doi tuong so sanh cua canh la LONG BANG, khong phai anh — nho vay no
-            deu o moi x: 2.98:1 (x=280) va 3.74:1 (x=1360), tuc manh nhat dung
-            cho bac tu nhien da chet. Chu trang giu 6.92:1 vi duong 1px khong nam
-            sau chu.
-
-            Dung inset shadow, KHONG dung border-t: chieu cao bang la intrinsic
-            (py-3 + 20px noi dung = 44px), them border se doi len 45px va pha con
-            so lg:pb-[72px] da tinh cho hero.
-
-            Alpha 0.52 la TRAN CUNG, khong phai khau vi — va con so nay den tu
-            mot lan do SAI phai sua. Ban dau uoc anh goc sang nhat duoi bang la
-            (248,185,130) lay tu mot mau tai x=280, tinh ra 0.45 con du bien.
-            Quet TOAN dai tren render thi diem sang nhat that o x=180 (gan mat
-            bien hoang hon), anh goc (251,222,185) — sang hon nhieu o kenh G/B.
-            Tai alpha 0.45 chu trang chi con 4.15:1, THUNG san 4.5.
-
-            Quet lai tren anh goc dung: 0.45 -> 4.15 · 0.48 -> 4.58 · 0.50 -> 4.87
-            · 0.52 -> 5.19 · 0.60 -> 6.84. Chon 0.52 de con bien ~0.7 cho sai so
-            do va cho anh hero neu doi crop. Bai hoc: uoc diem cuc tri tu MOT mau
-            thi se hut; phai quet toan vung.
-
-            Icon la TRANG chu khong phai cam, va do la he qua cua viec lam bang
-            sang len: icon cam tren nua trai (nen hoang hon cam) tut 2.29 -> 1.45,
-            tuc cam-tren-cam gan nhu tan bien. Trang cho 5.20 o nua trai va 17.97
-            o nua phai, deu bang chu. Doi lai: bang mat diem nhan cam duy nhat. */}
-        <ul
-          aria-label="Điểm nổi bật"
-          className="relative z-10 grid list-none grid-cols-2 gap-x-6 gap-y-2 bg-black/52 px-4 py-3 text-white sm:px-8 lg:absolute lg:inset-x-0 lg:bottom-0 lg:grid-cols-4 lg:gap-0 lg:px-12 lg:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.4)]"
-        >
-          {FEATURES.map(({ icon: Icon, title }) => (
-            <li key={title} className="flex items-center justify-center gap-2">
-              <Icon className="size-4 shrink-0" aria-hidden="true" />
-              <span className="text-sm font-medium">{title}</span>
+      {/* Trust panel: light card floating over the hero photo's bottom edge (mockup S1).
+          Replaces the old dark bg-black/52 band-over-photo: on the light-orange page field a
+          white card needs no photo-overlap contrast math. Renders both title + sub (2 lines). */}
+      <section
+        aria-label="Điểm nổi bật"
+        className="relative z-raised -mt-8 mb-6 w-full border-b border-border bg-[#FFF6EE] shadow-e2 lg:-mt-12"
+      >
+        <ul className="grid w-full list-none grid-cols-1 gap-5 px-4 py-5 sm:grid-cols-2 sm:px-8 lg:grid-cols-4 lg:gap-0 lg:px-12 lg:py-0">
+          {FEATURES.map(({ icon: Icon, title, sub }) => (
+            <li
+              key={title}
+              className="flex items-center gap-4 lg:border-l lg:border-border lg:px-6 lg:py-6 lg:first:border-l-0"
+            >
+              <Icon className="size-7 shrink-0 text-primary-strong" aria-hidden="true" />
+              <div className="flex flex-col gap-0.5">
+                <span className="text-base font-semibold leading-tight text-foreground">{title}</span>
+                <span className="text-sm leading-snug text-muted-foreground">{sub}</span>
+              </div>
             </li>
           ))}
         </ul>
       </section>
 
-      <PopularTrips prices={prices} durations={durations} />
+      <PopularTrips trips={popularTrips} />
+
+      <TripPlannerPromo />
+
+      {/* Điểm đến được yêu thích — this is an IMAGE AD for the travel/tourism service
+          (dịch vụ du lịch), NOT a booking funnel. The five cards are aspirational
+          destination imagery, so the earlier "every card dead-ends in an empty booking
+          search" critique (which briefly removed it on 2026-08-10) does not apply: brand
+          appeal is the goal, not booking conversion. Kept deliberately — do not remove. */}
+      <PopularDestinations />
 
       <OperatorShowcase operators={operators} />
 
       <ContractCarRental />
-
-      <PopularDestinations />
 
       {/* 2026-07-30: <NewsletterBand /> was mounted here. It rendered an email field
           and a "Đăng ký" button with no action, no handler and no backend — it took a

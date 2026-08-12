@@ -76,7 +76,7 @@ export default async function OpUpcomingPage({ searchParams }: PageProps) {
                 const status = tripStatusDisplay(trip.status as TripStatus);
                 return (
                   <TableRow key={trip.id} data-testid={`upcoming-trip-${trip.id}`}>
-                    <TableCell>{new Date(trip.departureAt).toLocaleString('vi-VN')}</TableCell>
+                    <TableCell>{new Date(trip.departureAt).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}</TableCell>
                     <TableCell>{trip.price?.toLocaleString('vi-VN')}đ</TableCell>
                     <TableCell>
                       <Badge variant={status.variant}>{status.label}</Badge>

@@ -27,6 +27,8 @@ const bookingFullSelect = {
   contactStatus: true,
   pickupKind: true,
   pickupDetail: true,
+  boardingPoint: true,
+  boardingTime: true,
   pickedUpAt: true,
   escalationNote: true,
   escalatedAt: true,

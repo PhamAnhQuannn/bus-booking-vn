@@ -24,6 +24,8 @@ export const bookingDetailSelect = {
   paymentMethod: true,
   status: true,
   createdAt: true,
+  boardingPoint: true,
+  boardingTime: true,
   trip: {
     select: {
       id: true,

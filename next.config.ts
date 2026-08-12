@@ -33,6 +33,9 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   output: 'standalone',
+  // Hero LCP is served via next/image; prefer AVIF (smaller + sharper) then WebP.
+  // `qualities` allowlists the non-default q=90 the hero <Image> requests (Next 16).
+  images: { formats: ['image/avif', 'image/webp'], qualities: [75, 90] },
   // argon2 is a native addon (P19 password hashing). Mark it external so webpack does
   // not try to bundle the `.node` binary; Next then requires it at runtime and includes
   // it in the standalone trace. Its import in lib/auth/password.ts is a normal dynamic

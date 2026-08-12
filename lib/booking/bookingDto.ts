@@ -37,6 +37,9 @@ export interface BookingDto {
   contactStatus: BookingContactStatus;
   pickupKind: 'station' | 'custom';
   pickupDetail: string | null;
+  /** Chosen boarding point (name) + "HH:MM" time from the results card; null pre-feature. */
+  boardingPoint: string | null;
+  boardingTime: string | null;
   pickedUpAt: string | null; // ISO 8601
   escalationNote: string | null;
   escalatedAt: string | null; // ISO 8601

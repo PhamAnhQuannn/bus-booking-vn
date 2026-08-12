@@ -1,56 +1,117 @@
-# Backup & Restore Runbook
+---
+last-updated: 2026-08-11
+last-drill: none
+drill-cadence: quarterly
+db-host: neon
+rpo: 1h
+rto: 30min
+status: untested
+---
 
-**Status:** ACTIVE (supersedes `docs/qa/gl-003-backup-dr-plan.md`, which was FPT-Cloud-based and stale).
-**Infra:** Vercel + Neon Postgres (ap-southeast-1) + Upstash Redis. No FPT Cloud (removed 2026-07-10).
-**RPO = 24h · RTO = 1h** (decided 2026-08-04; family-operator scale).
+# Backup & Restore — Postgres (Neon) · Bus-Booking (lenxevn.com)
 
-## Backup strategy
-**Current plan = Neon FREE → History retention = 6h** (max on Free). Strategy of record:
-1. **Primary — Neon Instant-restore (6h window on Free).** Neon retains WAL for point-in-time restore;
-   restore = roll a branch back / branch from a timestamp. Recent-incident recovery. Nothing to configure
-   (already at Free max). To extend to 7d/30d, upgrade Launch/Scale. **Steps + verify:
-   [`docs/ops/neon-pitr-setup.md`](./neon-pitr-setup.md).**
-2. **Secondary — private logical dump (`scripts/backup.sh`).** Daily `pg_dump -F c` to a **PRIVATE**
-   destination (your machine / private bucket) — satisfies the 24h RPO + history beyond the 6h window.
-   ⚠️ NEVER dump prod PII into public-CI artifacts (repo goes public during /ship). Scheduling snippet +
-   PII-safety in `neon-pitr-setup.md` §4. Also run on-demand before any risky migration.
+Closes go-live gate **GL-003**. An untested backup is not a backup — the drill (below) is the point.
+`status: untested` until the first drill (§Drill) passes; do not treat this as GL-003-complete before then.
 
-## Restore procedure (`scripts/restore.sh`)
-1. Create/choose a TARGET database (a Neon branch, or a fresh DB — NEVER the live primary).
-2. `CREATE EXTENSION unaccent; CREATE EXTENSION pg_trgm;` on the target (script does this).
-3. `pg_restore --no-owner --no-privileges` the archive.
-4. **Rebuild `trip_route_unaccent_idx`** (script does this — see caveat below).
-5. Verify: `SELECT COUNT(*),SUM(amount) FROM "LedgerEntry";` matches the source checkpoint;
-   `pnpm prisma migrate status` = "up to date"; `GET /api/health` non-500.
+## Data Tiers
 
-### Known caveat (found in rehearsal)
-`unaccent_immutable(text)` (migration `20260517221513_init`) calls `unaccent()` unqualified. pg_restore
-runs with an empty `search_path`, so the GIN search index `trip_route_unaccent_idx` fails to create —
-a single **non-fatal, ignored** error (`function unaccent(unknown, text) does not exist`). All DATA and
-every other object restore fully. Remediation: `restore.sh` rebuilds that index explicitly after restore.
-(No FATAL errors; data integrity unaffected.)
+| Tier | Tables | RPO (max loss) | RTO (max downtime) | Backup |
+|------|--------|----------------|--------------------|--------|
+| **Critical** — real money/records, unrecreatable | `Booking`, `PaymentEvent`, `LedgerEntry` (append-only), `Payout`, `PayoutAccount`, `Customer`, `Operator`, `Hold`, `StoredObject` (pointers) | **1h** | **30min** | Neon PITR (continuous) + weekly logical dump |
+| **Important** — catalog, recreatable via console but painful | `Route`, `Trip`, `Bus`, `RecurringTripTemplate`, `FeeConfig`, `AdminUser`, `OperatorUser` | 24h | 2h | Neon PITR + weekly dump |
+| **Regenerable** — drop-safe | `Session`, `OtpAttempt`, `JobRunLog`, `NotificationLog` (outbox, replayable) | none | n/a | none needed |
 
-## Local rehearsal (docker — host has no pg_dump/psql)
-```bash
-docker exec bus-booking-postgres-1 sh -c 'pg_dump -U bbvn -d bbvn_dev -F c -f /tmp/d.dump'
-docker exec bus-booking-postgres-1 psql -U bbvn -d postgres -c 'CREATE DATABASE bbvn_restore_test;'
-docker exec bus-booking-postgres-1 psql -U bbvn -d bbvn_restore_test -c 'CREATE EXTENSION unaccent; CREATE EXTENSION pg_trgm;'
-docker exec bus-booking-postgres-1 sh -c 'pg_restore -U bbvn -d bbvn_restore_test /tmp/d.dump'   # 1 ignored unaccent error expected
-DATABASE_URL=postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_restore_test pnpm prisma migrate status
-docker exec bus-booking-postgres-1 psql -U bbvn -d postgres -c 'DROP DATABASE bbvn_restore_test;'
+Note: object bytes (ticket PDFs, KYB docs) live in **Cloudflare R2**, not Postgres — only the `StoredObject`
+key/metadata is in the DB. R2 has its own durability; a Postgres restore re-points to existing R2 objects by key.
+
+## Backup Mechanism
+
+**Primary — Neon PITR (point-in-time recovery), continuous, built-in.**
+- Neon streams WAL continuously; any instant in the retention window is restorable to a new branch.
+- Retention depends on plan (Free ~24h, Launch/Scale 7d+). **Confirm the retention on the current Neon plan
+  meets RPO=1h with margin** — if on Free, a 7-day-retention paid tier is the GL-003 requirement.
+- No app code needed; this is the recovery-of-record.
+
+**Secondary (defense in depth) — weekly logical `pg_dump` to Cloudflare R2.**
+- `scripts/backup.sh` → `pg_dump` (via `DIRECT_URL`, non-pooled) → gzip → upload to R2 bucket `bus-booking-backups`.
+- Scheduled by **GitHub Actions** (`.github/workflows/backup.yml`), NOT Vercel Cron — pg_dump needs the client
+  binary + can exceed the 300s function budget on a growing DB; a GH Actions runner has `postgresql-client`.
+- Retention: 90 days (script prunes older). Encrypted in transit (TLS) + at rest (R2 SSE).
+- Blast-radius isolation: R2 is a different provider/host than Neon — a Neon-side incident can't take the dumps.
+
+## Restore Procedures
+
+### A. Neon PITR (recommended, fastest)
+1. Neon dashboard → project → **Branches → Restore / "Restore to timestamp"**.
+2. Pick the timestamp just BEFORE the incident.
+3. Neon creates a branch at that point-in-time.
+4. Update Vercel Production `DATABASE_URL` + `DIRECT_URL` to the new branch's pooled/direct URLs.
+5. Redeploy prod; run `scripts/smoke-test.sh https://lenxevn.com` (GL-005) before announcing recovery.
+
+### B. Logical dump restore (fallback — R2 dump)
+1. `aws s3 cp s3://bus-booking-backups/<file>.sql.gz . --endpoint-url "$R2_S3_ENDPOINT"`
+2. `gunzip <file>.sql.gz`
+3. `psql "$RESTORE_TARGET_URL" < <file>.sql`   # scratch/new DB, never prod directly
+4. Run the drill verify queries (below); update `DATABASE_URL`/`DIRECT_URL`, redeploy.
+
+### C. Single-table restore (e.g. accidental data loss in one table)
+1. Restore a full snapshot to a scratch Neon branch (A) or scratch DB (B).
+2. `pg_dump --table='"<Name>"' "$SCRATCH_URL" > table.sql`
+3. Review, then `psql "$PROD_DIRECT_URL" < table.sql`.
+   - ⚠️ NEVER restore over `LedgerEntry` — it is append-only (DB triggers block UPDATE/DELETE). Recover ledger
+     rows only by inserting missing entries, never by overwriting.
+
+## Drill Procedure (Quarterly — required for GL-003 sign-off)
+
+Goal: prove the backup-of-record restores within RTO and loses ≤ RPO.
+
+1. Create a scratch Neon branch (PITR) OR provision `DATABASE_URL_BACKUP_TEST` (separate scratch DB).
+2. Restore latest backup to it (PITR restore, or `scripts/restore.sh` for the R2 dump path).
+3. **Time it** — from start to first successful `psql` connect. Must be < RTO (30min).
+4. Run verify queries:
+
+```sql
+-- Row-count parity (expect prod_count minus rows written in the RPO window)
+SELECT 'Booking'      AS t, COUNT(*) FROM "Booking"
+UNION ALL SELECT 'PaymentEvent', COUNT(*) FROM "PaymentEvent"
+UNION ALL SELECT 'LedgerEntry',  COUNT(*) FROM "LedgerEntry"
+UNION ALL SELECT 'Payout',       COUNT(*) FROM "Payout"
+UNION ALL SELECT 'Customer',     COUNT(*) FROM "Customer"
+UNION ALL SELECT 'Operator',     COUNT(*) FROM "Operator";
+
+-- Recency: newest rows present (should be within the RPO window of the snapshot)
+SELECT MAX("createdAt") FROM "Booking";
+SELECT MAX("createdAt") FROM "LedgerEntry";
+
+-- FK integrity: no orphan PaymentEvent → Booking
+SELECT COUNT(*) FROM "PaymentEvent" pe
+  LEFT JOIN "Booking" b ON pe."bookingId" = b.id
+  WHERE pe."bookingId" IS NOT NULL AND b.id IS NULL;
+
+-- Ledger immutability triggers present after restore
+SELECT tgname FROM pg_trigger WHERE tgname IN ('ledger_entry_no_update','ledger_entry_no_delete');
 ```
 
-## Rehearsal Log
-### 2026-08-04 — local rehearsal (docker `bus-booking-postgres-1`, source `bbvn_dev`)
-| Check | Expected | Actual | Result |
-|-------|----------|--------|--------|
-| Dump created | file >0 bytes | 144,221 bytes | ✅ |
-| pg_restore FATAL | 0 | 0 (1 ignored unaccent error, non-fatal) | ✅ |
-| Ledger count/sum parity | source == restore | `13 \| 649250` == `13 \| 649250` | ✅ |
-| Immutability triggers survive | no_update + no_delete present | both present | ✅ |
-| UPDATE blocked | error `append-only` | `ERROR: LedgerEntry is append-only: UPDATE is not permitted` | ✅ |
-| migrate status on restored DB | up to date | "Database schema is up to date!" (80 migrations) | ✅ |
-| Measured restore time (RTO) | ≤ 1h | ~2s (dev DB; scales well under 1h for prod) | ✅ |
-| Cleanup | throwaway dropped + dump removed | DB count 0, dump removed | ✅ |
+5. Run one real app query (e.g. `getActiveRoutes` equivalent — an upcoming bookable trip exists).
+6. Drop the scratch branch/DB.
+7. Append a row to the Drill Log.
 
-**RESULT: PASS** (1 documented non-fatal caveat: search index rebuild, automated in `restore.sh`).
+**PASS** = restore < 30min, row counts within the 1h RPO window, FK check = 0 orphans, both ledger triggers present.
+**FAIL** = anything else → file P1, fix pipeline before any launch/traffic event.
+
+## Drill Log
+
+| Date | Source | Restore time | Row-count delta | Verdict | Notes |
+|------|--------|--------------|-----------------|---------|-------|
+| _pending_ | — | — | — | — | First drill not yet run. GL-003 stays OPEN until one PASS row exists. |
+
+## Out of Scope
+- Cross-region replication (single-region `sin1` by design; PDPL residency).
+- R2 object backup (R2 provides durability; only DB pointers are backed up here).
+- Customer self-serve restore (admin-only).
+
+## Auto-chain
+- RPO/RTO feed the NFR doc.
+- Drill FAIL → risk register P1.
+- Any migration touching a Critical table → schedule a drill within 7 days.
+- Restore is a remediation step referenced by the go-live runbook (`docs/ops/go-live-runbook.md`).

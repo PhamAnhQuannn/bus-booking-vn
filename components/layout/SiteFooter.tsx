@@ -98,7 +98,7 @@ export function SiteFooter() {
 
   return (
     <footer className="bg-footer text-footer-foreground">
-      <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-8 px-4 py-12 text-sm sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr_1.2fr] lg:gap-10">
+      <div className="page-container grid grid-cols-1 gap-8 py-12 text-sm sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr_1.2fr] lg:gap-10">
         {/* Brand column */}
         <div className="flex flex-col gap-3">
           {/* mono: the footer slab is `--footer` (~#202123) and the colour
@@ -153,7 +153,7 @@ export function SiteFooter() {
         </div>
       </div>
 
-      <div className="mx-auto w-full max-w-7xl px-4">
+      <div className="page-container">
         <div className="flex flex-col items-center justify-between gap-4 border-t border-footer-hairline py-5 text-xs text-footer-muted sm:flex-row">
           <span>© {year} BBVN. All rights reserved.</span>
           <ul className="flex list-none items-center gap-4 p-0">

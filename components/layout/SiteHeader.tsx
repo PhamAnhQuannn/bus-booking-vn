@@ -20,15 +20,11 @@ import { CustomerAccountMenu } from '@/components/auth/CustomerAccountMenu';
 import { useAuthStatus } from '@/lib/auth/clientSession';
 import { cn } from '@/lib/utils';
 
-/* Nav mirrors the mockup's five items (docs/design/mockup-home.png S1). */
+/* Nav items (docs/design/mockup-home.png S1). "Hướng dẫn" + "Hỗ trợ" removed per request. */
 const NAV = [
   { href: '/', label: 'Đặt vé xe' },
-  { href: '/tro-ly-du-lich', label: 'Trợ lý du lịch' },
+  { href: '/tro-ly-du-lich', label: 'Trợ lý du lịch', badge: 'AI' },
   { href: '/op/register', label: 'Nhà xe' },
-  // Imperfect mapping: no guide page exists yet; the cancellation/refund policy is
-  // the closest real destination. Replace when a real "Hướng dẫn" page ships.
-  { href: '/chinh-sach-huy-ve-hoan-tien', label: 'Hướng dẫn' },
-  { href: '/khieu-nai', label: 'Hỗ trợ' },
 ];
 
 /* Customer login (ADR-021). Operators reach their console from the "Nhà xe" nav item. */
@@ -160,20 +156,28 @@ export function SiteHeader() {
             // Over the hero photo the bar is frosted glass: translucent surface
             // plus backdrop blur, so the sky and clouds read through it.
             //
-            // 0.45 is as opaque as it needs to be and no more. Over the sky in
-            // this band (~RGB 173) it composites to ~210, where the dark labels
-            // measure ~8.9:1; even against the darkest content that reaches the
-            // bar at 2560 (tree tops, ~RGB 60) it still clears 4.5:1. This only
+            // 0.40 (lowered from 0.45 on user request for a bit more glass). Over
+            // the sky in this band (~RGB 173) it composites to ~208, where the dark
+            // labels still measure ~8.8:1; over the darkest content that reaches the
+            // bar at 2560 (tree tops, ~RGB 60) contrast tightens toward the 4.5:1 AA
+            // floor, so `backdrop-blur-md` is load-bearing here — it averages the
+            // backdrop and lifts the worst-case local contrast. Do not lower further
+            // without re-measuring on the render. This only
             // works because the active label is dark — an orange one would need
             // ~RGB 243 behind it and force the bar back to near-white. See the
             // nav-link classes below before raising either.
             //
             // The feather stays off: it exists to fade an OPAQUE bar into the
             // photo, and against a translucent bar it reads as a smear.
-            ? 'bg-background/45 backdrop-blur-md after:opacity-0'
+            ? 'bg-background/40 backdrop-blur-md after:opacity-0'
             : scrolled
-              ? 'bg-background/90 shadow-e1 backdrop-blur after:opacity-0'
-              : 'bg-background'
+              ? 'bg-background/82 shadow-e1 backdrop-blur after:opacity-0'
+              : 'bg-background',
+          // App-shell routes (trợ lý du lịch): the bar is chrome above a workspace, not
+          // a marketing header melting into a hero. Give it a crisp bottom edge + drop
+          // shadow so the session below reads as a separate surface; kill the feather
+          // (it only exists to soften an edge into a photo, which there is none here).
+          compact && 'border-b border-border shadow-e1 after:opacity-0'
         )}
       >
         {/* Flat px-6 with no max-width container: keeps the logo a constant 24px
@@ -209,7 +213,7 @@ export function SiteHeader() {
                 the reference's ~17px on an 1828 frame scales to ~13.4px here.
                 This also lands "VI" at nav size and keeps the button label one
                 step larger than the nav, both as measured. */}
-            <nav className="ml-16 flex items-center gap-4 text-sm" aria-label="Điều hướng chính">
+            <nav className="ml-16 flex items-center gap-4 text-lg" aria-label="Điều hướng chính">
               {NAV.map((item) => {
                 // '/' would prefix-match every route, so it needs an exact match.
                 const active =
@@ -240,6 +244,11 @@ export function SiteHeader() {
                     )}
                   >
                     {item.label}
+                    {item.badge && (
+                      <span className="ml-1.5 rounded bg-primary-strong px-1 py-px text-[10px] font-bold uppercase leading-none tracking-wide text-primary-foreground">
+                        {item.badge}
+                      </span>
+                    )}
                   </Link>
                 );
               })}
@@ -270,7 +279,7 @@ export function SiteHeader() {
                     // bg-card, not a transparent interior: the scrim has faded to
                     // ~0 this far right, so the label would otherwise sit on raw
                     // sky pixels. The reference's own button carries a fill too.
-                    'inline-flex h-11 items-center whitespace-nowrap rounded-lg border border-primary/40 bg-card px-5 text-base font-medium text-foreground outline-none transition-colors hover:bg-primary/5 focus-visible:ring-3 focus-visible:ring-ring/50'
+                    'inline-flex h-11 items-center whitespace-nowrap rounded-lg border border-primary/70 bg-card px-5 text-xl font-medium text-primary-strong outline-none transition-colors hover:bg-primary/5 focus-visible:ring-3 focus-visible:ring-ring/50'
                   )}
                 >
                   {LOGIN.label}
@@ -341,13 +350,18 @@ export function SiteHeader() {
                   onClick={() => setDrawerOpen(false)}
                   aria-current={active ? 'page' : undefined}
                   className={cn(
-                    'flex min-h-11 items-center rounded-md px-3 text-sm font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
+                    'flex min-h-11 items-center rounded-md px-3 text-base font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
                     active
                       ? 'font-semibold text-primary-strong'
                       : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
                   {item.label}
+                  {item.badge && (
+                    <span className="ml-1.5 rounded bg-primary-strong px-1 py-px text-[10px] font-bold uppercase leading-none tracking-wide text-primary-foreground">
+                      {item.badge}
+                    </span>
+                  )}
                 </Link>
               );
             })}

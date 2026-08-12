@@ -33,6 +33,10 @@ export interface ManifestRow {
   pickupDetail: string | null;
   /** Issue 111: true ⇔ pickupKind=custom — the "Cần liên hệ" highlight trigger (gated on contactStatus=pending). */
   customPickupRequested: boolean;
+  /** Chosen boarding point (name) from the results card; null for pre-feature rows. */
+  boardingPoint: string | null;
+  /** Pickup time "HH:MM" at that boarding point; null when unset. */
+  boardingTime: string | null;
   contactStatus: 'pending' | 'reached' | 'no_answer' | 'callback';
   paymentStatus: string;
   pickedUpAt: string | null; // ISO 8601
@@ -90,6 +94,8 @@ export async function getManifest(
       pickupKind: true,
       pickupDetail: true,
       customPickupRequested: true,
+      boardingPoint: true,
+      boardingTime: true,
     },
     orderBy: { createdAt: 'asc' },
   });
@@ -103,6 +109,8 @@ export async function getManifest(
     pickupKind: b.pickupKind as ManifestRow['pickupKind'],
     pickupDetail: b.pickupDetail,
     customPickupRequested: b.customPickupRequested,
+    boardingPoint: b.boardingPoint,
+    boardingTime: b.boardingTime,
     contactStatus: b.contactStatus as ManifestRow['contactStatus'],
     paymentStatus: b.status,
     pickedUpAt: b.pickedUpAt ? b.pickedUpAt.toISOString() : null,

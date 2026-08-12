@@ -11,27 +11,50 @@ const logoLinkClass =
  * Split-panel auth shell (design: docs/design/03a-frontend-design-system/, design-language v1.0).
  *
  * Desktop (≥lg): brand panel beside the form panel. Mobile: form panel only + a slim
- * brand bar. `audience` swaps the brand panel surface + copy so customers and operators
- * land on visibly distinct doors while sharing one structural family — the customer door
- * runs a travel photo under an orange scrim; the operator door keeps a dark gradient.
+ * brand bar. `audience` swaps the ENTIRE brand panel so customers and operators land on
+ * visibly distinct doors while sharing one structural family:
+ *   - customer: golden-hour travel photo under a directional orange scrim (emotional).
+ *   - operator: dusk bus-depot photo under a dark scrim + a diagonal orange "blade" seam,
+ *     icon-chip benefit rows and a trust badge (a restrained back-office ops portal).
  *
- * No client hooks — safe to compose inside the 'use client' auth pages.
+ * The two panels are rendered by separate branches (see `audience === 'operator'`) so a
+ * change to one door cannot regress the other. No client hooks — safe to compose inside
+ * the 'use client' auth pages.
  */
 
 type Audience = 'customer' | 'operator';
+
+// Real support line comes from NEXT_PUBLIC_SUPPORT_PHONE (Vercel-set), never a source
+// literal — same rule + formatter as SiteFooter (a fabricated "1900 xxxx" was shipped
+// and ripped out once; CI gate G7 guards it). Unset → the row is hidden.
+const SUPPORT_PHONE = process.env.NEXT_PUBLIC_SUPPORT_PHONE?.trim();
+const SUPPORT_PHONE_DISPLAY =
+  SUPPORT_PHONE && /^\d{10}$/.test(SUPPORT_PHONE)
+    ? `${SUPPORT_PHONE.slice(0, 4)} ${SUPPORT_PHONE.slice(4, 7)} ${SUPPORT_PHONE.slice(7)}`
+    : SUPPORT_PHONE;
+
+type Bullet = { icon: typeof Bus; label: string; sub?: string };
 
 const CONTENT: Record<
   Audience,
   {
     eyebrow: string | null;
     headline: string;
-    bullets: { icon: typeof Bus; label: string }[];
-    /** Full-bleed brand photo (customer only). null → dark gradient + route motif. */
-    photo: string | null;
-    panel: string;
+    /** Second headline line, rendered in the brand accent (operator only). */
+    headlineAccent?: string;
+    /** Operational sub-paragraph under the headline (operator only). */
+    subhead?: string[];
+    bullets: Bullet[];
+    /** Trust badge card at the panel foot (operator only; replaces `fineprint`). */
+    badge?: { icon: typeof Bus; title: string; sub: string };
+    /** Full-bleed brand photo: `image-set()` 1× jpg + 2× webp. */
+    photo: string;
+    photo2x: string;
+    /** Always-opaque base behind the photo (fallback if the image fails to load). */
+    base: string;
     ink: string;
     inkMuted: string;
-    fineprint: string;
+    fineprint?: string;
     monoLogo: boolean;
   }
 > = {
@@ -48,7 +71,8 @@ const CONTENT: Record<
       { icon: Wallet, label: 'Thanh toán an toàn, minh bạch' },
     ],
     photo: '/hero/landing-golden-md-1536.jpg',
-    panel: 'bg-primary',
+    photo2x: '/hero/landing-golden-md-1536@2x.webp',
+    base: 'bg-primary',
     ink: 'text-primary-foreground',
     inkMuted: 'text-primary-foreground/85',
     // NOT "trên toàn quốc" — no nationwide network exists at launch.
@@ -57,21 +81,42 @@ const CONTENT: Record<
   },
   operator: {
     eyebrow: 'Cổng nhà xe',
-    headline: 'Cổng quản trị nhà xe',
-    bullets: [
-      { icon: Bus, label: 'Quản lý chuyến & đội xe' },
-      { icon: BarChart3, label: 'Theo dõi doanh thu' },
-      { icon: Ticket, label: 'Xử lý đặt vé của khách' },
+    headline: 'Cổng quản trị',
+    headlineAccent: 'nhà xe',
+    subhead: [
+      'Giải pháp quản lý toàn diện cho đối tác vận tải.',
+      'Vận hành hiệu quả – Doanh thu bứt phá.',
     ],
-    photo: null,
-    // Dark warm panel — distinct back-office surface, clearly not the consumer orange.
-    panel: 'bg-gradient-to-br from-foreground to-foreground/90',
-    ink: 'text-background',
-    inkMuted: 'text-background/70',
-    fineprint: 'Dành cho nhà xe đối tác.',
+    bullets: [
+      { icon: Bus, label: 'Quản lý lịch chạy & đội xe', sub: 'Theo dõi lịch trình, phương tiện và tài xế.' },
+      { icon: BarChart3, label: 'Theo dõi doanh thu', sub: 'Báo cáo chi tiết, cập nhật theo thời gian thực.' },
+      { icon: Ticket, label: 'Xử lý đặt vé của khách', sub: 'Tiếp nhận, xác nhận và chăm sóc khách hàng.' },
+    ],
+    badge: {
+      icon: ShieldCheck,
+      title: 'Nền tảng vận hành tin cậy',
+      sub: 'Bảo mật cao – Ổn định – Hỗ trợ 24/7',
+    },
+    photo: '/hero/operator-depot.jpg',
+    photo2x: '/hero/operator-depot@2x.webp',
+    // Dark charcoal base — distinct back-office surface, clearly not the consumer orange.
+    base: 'bg-[#111318]',
+    ink: 'text-white',
+    inkMuted: 'text-white/70',
     monoLogo: true,
   },
 };
+
+// Operator diagonal seam: the dark panel is wider at the bottom than the top (leans `\`).
+// OUTER is the orange "blade" base; INNER (photo) is inset ~5px along the diagonal so a
+// thin orange sliver shows on the seam. The top-right triangle the OUTER clips away reveals
+// the warm page background (`main` is bg-background) so it blends into the form panel.
+const OP_CLIP_OUTER = 'polygon(0 0, 90% 0, 100% 100%, 0 100%)';
+const OP_CLIP_INNER = 'polygon(0 0, calc(90% - 5px) 0, calc(100% - 5px) 100%, 0 100%)';
+
+function imageSet(jpg: string, webp: string) {
+  return `image-set(url('${jpg}') 1x, url('${webp}') 2x)`;
+}
 
 export function AuthSplitLayout({
   audience,
@@ -81,115 +126,168 @@ export function AuthSplitLayout({
   children,
 }: {
   audience: Audience;
-  /** Small tracked line above the page title (e.g. "Chào mừng trở lại"). */
-  eyebrow?: string;
+  /** Small tracked line above the page title (e.g. "Chào mừng trở lại"). ReactNode so
+      a page can prefix an icon (login passes a ShieldCheck + text). */
+  eyebrow?: ReactNode;
   title: string;
   subtitle?: ReactNode;
   children: ReactNode;
 }) {
   const c = CONTENT[audience];
+  const isOperator = audience === 'operator';
 
-  // AU-1: the split starts at lg, not md (below lg the form is full-width). The brand
-  // side gets the larger share (1.4fr) so it earns its width, while the form side stays
-  // narrow enough that a comfortably-large form column fills it instead of floating.
   return (
-    <main className="grid min-h-svh lg:grid-cols-[1.4fr_1fr]">
-      {/* Brand panel — desktop only */}
-      <aside
-        className={cn(
-          // c.panel is the ALWAYS-opaque base (orange for customer, dark gradient for
-          // operator): if the hero photo below fails to load, white copy still has an
-          // opaque brand backing instead of the translucent scrims over the page field.
-          // `isolate` makes the aside a stacking context so the -z photo/scrim layers
-          // paint ABOVE this base (else the opaque base would hide the photo).
-          'relative isolate hidden flex-col justify-between overflow-hidden p-12 lg:flex lg:p-16',
-          c.panel
-        )}
-      >
-        {c.photo ? (
-          <>
-            {/* Full-bleed travel photo as a CSS background (not an <img>): an <img>
-                inside this `hidden lg:flex` aside is still fetched on mobile even though
-                the panel is display:none — a background-image on a display:none subtree
-                is NOT fetched, so sub-lg visits pay 0 bytes for it. */}
-            <div
-              aria-hidden="true"
-              className="absolute inset-0 -z-20 bg-cover bg-center"
-              style={{
-                backgroundImage:
-                  "image-set(url('/hero/landing-golden-md-1536.jpg') 1x, url('/hero/landing-golden-md-1536@2x.webp') 2x)",
-              }}
-            />
-            {/* Directional orange scrim: stronger over the copy (left), lighter over the
-                bus/landscape (right) so the photograph keeps its depth. */}
-            <div
-              aria-hidden="true"
-              className="absolute inset-0 -z-10 bg-gradient-to-r from-primary/85 via-primary/70 to-primary/50"
-            />
-            {/* Left-anchored darkening: all brand copy is left-aligned, so this lifts the
-                white headline/bullets/fineprint clear of AA (≥4.5:1) on the copy side while
-                the right (bus/landscape) stays bright. */}
-            <div
-              aria-hidden="true"
-              className="absolute inset-0 -z-10 bg-gradient-to-r from-black/55 via-black/25 to-transparent"
-            />
-            <div
-              aria-hidden="true"
-              className="absolute inset-0 -z-10 bg-gradient-to-t from-black/40 to-transparent"
-            />
-          </>
-        ) : (
-          /* Operator door: decorative route motif (origin dot → path → arrowhead). */
-          <svg
-            viewBox="0 0 200 200"
+    <main
+      className={cn(
+        'grid min-h-svh bg-background',
+        // Operator door prioritises utility → a near-even split (~52/48). Customer door
+        // earns a stronger visual hero (1.4fr). The diagonal makes the operator dark
+        // region read narrower at the top than its 52% column, which is intentional.
+        isOperator ? 'lg:grid-cols-[1.08fr_1fr]' : 'lg:grid-cols-[1.4fr_1fr]'
+      )}
+    >
+      {isOperator ? (
+        /* ───────────── Operator brand panel ───────────── */
+        <aside
+          className="relative isolate hidden flex-col justify-between overflow-hidden bg-primary p-12 lg:flex lg:p-16"
+          style={{ clipPath: OP_CLIP_OUTER }}
+        >
+          {/* Depot photo + dark scrim, inset along the diagonal to leave the orange blade.
+              CSS background-image (not <img>): a display:none subtree below lg fetches 0
+              bytes. bg-[#111318] is the opaque fallback if the image fails. */}
+          <div
             aria-hidden="true"
-            fill="none"
-            className={cn('pointer-events-none absolute -right-10 -bottom-10 size-80 opacity-[0.12]', c.ink)}
+            className="absolute inset-0 -z-10 bg-[#111318] bg-cover bg-center"
+            style={{ clipPath: OP_CLIP_INNER, backgroundImage: imageSet(c.photo, c.photo2x) }}
           >
-            <circle cx="40" cy="100" r="10" fill="currentColor" />
-            <path d="M55 100 H130" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />
-            <path
-              d="M128 76 L172 100 L128 124"
-              stroke="currentColor"
-              strokeWidth="8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        )}
-
-        {/* Top cluster — logo + message kept together in the upper region so the brand
-            and the proposition read as one thought (not spread across the whole panel). */}
-        <div className="relative flex flex-col gap-14">
-          <div className="flex flex-col gap-1">
-            <Link href="/" aria-label="Về trang chủ BBVN" className={logoLinkClass}>
-              <Logo
-                variant="combo"
-                mono={c.monoLogo}
-                className={cn('h-16 w-auto lg:h-20', c.monoLogo ? c.ink : undefined)}
-              />
-            </Link>
-            {c.eyebrow && <p className={cn('text-sm font-medium', c.inkMuted)}>{c.eyebrow}</p>}
+            <div className="absolute inset-0 bg-gradient-to-br from-black/85 via-black/60 to-black/25" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+            {/* warm glow echoing the canopy "BBVN" sign in the photo */}
+            <div className="absolute right-6 bottom-24 size-72 rounded-full bg-primary/25 blur-3xl" />
           </div>
 
-          <div className="flex flex-col gap-7">
-            <p className={cn('max-w-md text-4xl font-bold leading-[1.15] tracking-tight xl:text-5xl', c.ink)}>
-              {c.headline}
-            </p>
-            <ul className="flex flex-col gap-3.5">
-              {c.bullets.map(({ icon: Icon, label }) => (
-                <li key={label} className={cn('flex items-center gap-3 text-[15px]', c.inkMuted)}>
-                  {/* icon full-ink (100%), label stays muted (85%) → subtle hierarchy */}
-                  <Icon className={cn('size-5 shrink-0', c.ink)} aria-hidden="true" />
-                  <span>{label}</span>
-                </li>
-              ))}
-            </ul>
+          {/* Top cluster — logo row + proposition kept together in the upper region. */}
+          <div className="relative flex flex-col gap-12">
+            <div className="flex items-center gap-4">
+              <Link href="/" aria-label="Về trang chủ BBVN" className={logoLinkClass}>
+                <Logo variant="combo" mono className={cn('h-14 w-auto', c.ink)} />
+              </Link>
+              {c.eyebrow && (
+                <>
+                  <span aria-hidden="true" className="h-9 w-px bg-white/20" />
+                  <span className={cn('text-[15px]', c.inkMuted)}>{c.eyebrow}</span>
+                </>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-6">
+              <p className={cn('text-4xl font-extrabold leading-[1.1] tracking-tight xl:text-5xl', c.ink)}>
+                {c.headline}
+                {c.headlineAccent && (
+                  <>
+                    <br />
+                    <span className="text-primary">{c.headlineAccent}</span>
+                  </>
+                )}
+              </p>
+              {c.subhead && (
+                <div className={cn('max-w-md space-y-0.5 text-[17px]', c.inkMuted)}>
+                  {c.subhead.map((line) => (
+                    <p key={line}>{line}</p>
+                  ))}
+                </div>
+              )}
+              <ul className="mt-2 flex flex-col gap-4">
+                {c.bullets.map(({ icon: Icon, label, sub }) => (
+                  <li key={label} className="flex items-start gap-3.5">
+                    <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06]">
+                      <Icon className={cn('size-5', c.ink)} aria-hidden="true" />
+                    </span>
+                    <div className="flex flex-col gap-0.5 pt-0.5">
+                      <span className={cn('text-[15px] font-semibold', c.ink)}>{label}</span>
+                      {sub && <span className={cn('text-[13px]', c.inkMuted)}>{sub}</span>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* Trust badge — content-width glass card at the panel foot. */}
+          {c.badge && (
+            <div className="relative flex w-fit max-w-sm items-center gap-3 rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 backdrop-blur-sm">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06]">
+                <c.badge.icon className={cn('size-5', c.ink)} aria-hidden="true" />
+              </span>
+              <div className="flex flex-col">
+                <span className={cn('text-[15px] font-semibold', c.ink)}>{c.badge.title}</span>
+                <span className={cn('text-[13px]', c.inkMuted)}>{c.badge.sub}</span>
+              </div>
+            </div>
+          )}
+        </aside>
+      ) : (
+        /* ───────────── Customer brand panel (unchanged) ───────────── */
+        <aside
+          className={cn(
+            'relative isolate hidden flex-col justify-between overflow-hidden p-12 lg:flex lg:p-16',
+            c.base
+          )}
+        >
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 -z-20 bg-cover bg-center"
+            style={{ backgroundImage: imageSet(c.photo, c.photo2x) }}
+          />
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 -z-10 bg-gradient-to-r from-primary/85 via-primary/70 to-primary/50"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 -z-10 bg-gradient-to-r from-black/55 via-black/25 to-transparent"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 -z-10 bg-gradient-to-t from-black/40 to-transparent"
+          />
+
+          <div className="relative flex flex-col gap-14">
+            <div className="flex flex-col gap-1">
+              <Link href="/" aria-label="Về trang chủ BBVN" className={logoLinkClass}>
+                <Logo
+                  variant="combo"
+                  mono={c.monoLogo}
+                  className={cn('h-16 w-auto lg:h-20', c.monoLogo ? c.ink : undefined)}
+                />
+              </Link>
+              {c.eyebrow && <p className={cn('text-sm font-medium', c.inkMuted)}>{c.eyebrow}</p>}
+            </div>
+
+            <div className="flex flex-col gap-7">
+              <p className={cn('max-w-md text-4xl font-bold leading-[1.15] tracking-tight xl:text-5xl', c.ink)}>
+                {c.headline}
+              </p>
+              <ul className="flex flex-col gap-3.5">
+                {c.bullets.map(({ icon: Icon, label }) => (
+                  <li key={label} className={cn('flex items-center gap-3 text-[15px]', c.inkMuted)}>
+                    <Icon className={cn('size-5 shrink-0', c.ink)} aria-hidden="true" />
+                    <span>{label}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <div className={cn('relative flex items-start gap-2.5 text-sm', c.inkMuted)}>
+          <ShieldCheck className={cn('mt-0.5 size-4 shrink-0', c.ink)} aria-hidden="true" />
+          <div className="flex flex-col gap-0.5">
+            <span>{c.fineprint}</span>
+            {SUPPORT_PHONE_DISPLAY && <span>Hỗ trợ: {SUPPORT_PHONE_DISPLAY}</span>}
           </div>
         </div>
-
-        <p className={cn('relative text-sm', c.inkMuted)}>{c.fineprint}</p>
-      </aside>
+        </aside>
+      )}
 
       {/* Form panel. Asymmetric vertical padding (heavier bottom at lg) biases the form
           ~28px above dead-center so it reads as intentional, not floating mid-panel. */}

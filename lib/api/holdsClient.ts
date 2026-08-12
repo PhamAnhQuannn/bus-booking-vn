@@ -20,12 +20,21 @@ export interface HoldRequestBody {
   /** Issue 107: traveler pickup selection (absent = station). */
   pickupKind?: 'station' | 'custom';
   pickupDetail?: string;
+  /** Chosen boarding point (name + "HH:MM") from the results card. Distinct from
+   *  pickupKind/pickupDetail. */
+  boardingPoint?: string;
+  boardingTime?: string;
 }
 
 export interface HoldSuccess {
   ok: true;
   holdId: string;
   expiresAt: string;
+  /** Boarding point the SERVER kept after validating against the route schedule.
+   *  Null when the chosen point was dropped (stale/mismatched) — the caller compares
+   *  against what it sent to detect a silent drop. */
+  boardingPoint: string | null;
+  boardingTime: string | null;
 }
 
 export interface HoldError {
@@ -67,7 +76,13 @@ export async function createHoldRequest(body: HoldRequestBody): Promise<HoldResu
 
   if (res.status === 200) {
     const data = await res.json();
-    return { ok: true, holdId: data.holdId, expiresAt: data.expiresAt };
+    return {
+      ok: true,
+      holdId: data.holdId,
+      expiresAt: data.expiresAt,
+      boardingPoint: data.boardingPoint ?? null,
+      boardingTime: data.boardingTime ?? null,
+    };
   }
 
   if (res.status === 409) {

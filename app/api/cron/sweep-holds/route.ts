@@ -18,7 +18,6 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/core/db/client';
 import { runJob } from '@/lib/jobs';
 import { expireHolds } from '@/lib/jobs';
-import { getEnv } from '@/lib/config';
 import { getOrCreateRequestId, loggerForRequest } from '@/lib/observability';
 
 export async function GET(req: NextRequest): Promise<Response> {
@@ -32,7 +31,12 @@ export async function GET(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
   }
 
-  const mode = getEnv().HOLD_SWEEPER_MODE;
+  // Read HOLD_SWEEPER_MODE from process.env directly (NOT getEnv()): getEnv() runs
+  // the full Zod env validation, so an unrelated missing prod secret (e.g. the
+  // REFRESH_TOKEN_SECRET_* trio) would throw here and kill the every-minute sweeper.
+  // Mirror the schema (env.ts): enum ['count','update'], default 'update'; any value
+  // other than 'count' resolves to 'update' rather than crashing.
+  const mode = process.env.HOLD_SWEEPER_MODE === 'count' ? 'count' : 'update';
 
   if (mode === 'count') {
     // Count-only mode: read without mutation. No JobRunLog row — this path

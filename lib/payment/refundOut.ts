@@ -119,6 +119,15 @@ export async function refundOut(input: RefundOutInput): Promise<RefundOutResult>
   const refundOutSourceId = `refund_out:${idempotencyKey}`;
   const refundDebitSourceId = `refund_debit:${idempotencyKey}`;
 
+  // P0-3 (money-flow audit 2026-08-11): an OVERPAYMENT was never credited to the
+  // operator — booking_credit is the fare (totalVnd), not the received amount, so
+  // the overpaid delta is platform float. Refunding it must write ONLY the
+  // refund_out leg; adding a refund_debit would claw back operator revenue that was
+  // never granted (operator ends up −overpay). Every other reason (operator_cancel /
+  // oversold_race) DID credit the operator the full fare, so the refund_debit
+  // clawback is correct there.
+  const clawbackOperator = reason !== 'overpay_difference';
+
   // 2. Replay short-circuit (layer 1): if the refund_out ledger row already
   //    exists for this key, the PSP was already called — DO NOT call it again.
   const existing = await prisma.ledgerEntry.findUnique({
@@ -148,17 +157,19 @@ export async function refundOut(input: RefundOutInput): Promise<RefundOutResult>
   if (!psp.ok) {
     const amt = BigInt(amountMinor);
     await prisma.$transaction(async (tx) => {
-      await appendLedgerEntry(
-        {
-          operatorId,
-          bookingId,
-          type: 'refund_debit',
-          amountMinor: -amt,
-          currency: 'VND',
-          sourceEventId: refundDebitSourceId,
-        },
-        tx
-      );
+      if (clawbackOperator) {
+        await appendLedgerEntry(
+          {
+            operatorId,
+            bookingId,
+            type: 'refund_debit',
+            amountMinor: -amt,
+            currency: 'VND',
+            sourceEventId: refundDebitSourceId,
+          },
+          tx
+        );
+      }
       await appendLedgerEntry(
         {
           operatorId,
@@ -196,17 +207,19 @@ export async function refundOut(input: RefundOutInput): Promise<RefundOutResult>
   //    inbound providerTxnId), so a concurrent winner makes these no-ops.
   const amt = BigInt(amountMinor);
   await prisma.$transaction(async (tx) => {
-    await appendLedgerEntry(
-      {
-        operatorId,
-        bookingId,
-        type: 'refund_debit',
-        amountMinor: -amt, // clawback of operator credit — COUNTS toward balance
-        currency: 'VND',
-        sourceEventId: refundDebitSourceId,
-      },
-      tx
-    );
+    if (clawbackOperator) {
+      await appendLedgerEntry(
+        {
+          operatorId,
+          bookingId,
+          type: 'refund_debit',
+          amountMinor: -amt, // clawback of operator credit — COUNTS toward balance
+          currency: 'VND',
+          sourceEventId: refundDebitSourceId,
+        },
+        tx
+      );
+    }
     await appendLedgerEntry(
       {
         operatorId,

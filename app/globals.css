@@ -86,6 +86,15 @@
   --z-index-toast: 100;
 }
 
+@layer components {
+  /* Shared landing content container: caps content + scales side gutters so wide
+     monitors don't leave big dead-space. Full-width BANDS keep their bg at 100vw;
+     only the inner wrapper adopts this. */
+  .page-container {
+    @apply mx-auto w-full max-w-[1600px] px-4 sm:px-6 lg:px-10 xl:px-16 2xl:px-20;
+  }
+}
+
 :root {
   /* Light-orange page field — primary at ~6% over white (#fef3ec), the same tint
      mockup-home-spec.md picked for its S7 panel. Cards/popovers stay pure WHITE,

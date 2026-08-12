@@ -73,6 +73,10 @@ export function BookingSummaryRail({ summary, showHoldTimer = true }: { summary:
             <dd className="font-mono">{formatVND(summary.unitPriceVND * summary.ticketCount)}</dd>
           </div>
         )}
+        <div className="flex justify-between">
+          <dt className="text-muted-foreground">Tạm tính</dt>
+          <dd className="font-mono">{formatVND(summary.totalVND)}</dd>
+        </div>
         <div className="mt-1 flex items-center justify-between border-t border-border pt-3 text-lg font-semibold">
           <dt>Tổng cộng</dt>
           <dd className="font-mono text-primary" aria-live="polite">{formatVND(summary.totalVND)}</dd>

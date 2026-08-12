@@ -23,9 +23,20 @@ export interface BookingState {
   buyerName: string | null;
   buyerPhone: string | null;
   buyerEmail: string | null;
+  /** Chosen boarding point (name) from the results card. Distinct from the
+   *  station/custom pickup feature (pickupKind/pickupDetail). */
+  boardingPoint: string | null;
+  /** Pickup time "HH:MM" at that boarding point. */
+  boardingTime: string | null;
 
-  /** Set trip + ticketCount when the user clicks "Book" on the search results. */
-  setTrip: (tripId: string, ticketCount: number) => void;
+  /** Set trip + ticketCount (+ optional chosen boarding point) when the user
+   *  clicks "Book" on a results card. */
+  setTrip: (
+    tripId: string,
+    ticketCount: number,
+    boardingPoint?: string | null,
+    boardingTime?: string | null,
+  ) => void;
 
   /** Set hold details after POST /api/holds succeeds. */
   setHold: (holdId: string, expiresAt: string) => void;
@@ -45,9 +56,11 @@ export const useBookingStore = create<BookingState>((set) => ({
   buyerName: null,
   buyerPhone: null,
   buyerEmail: null,
+  boardingPoint: null,
+  boardingTime: null,
 
-  setTrip: (tripId, ticketCount) =>
-    set({ tripId, ticketCount, holdId: null, expiresAt: null }),
+  setTrip: (tripId, ticketCount, boardingPoint = null, boardingTime = null) =>
+    set({ tripId, ticketCount, boardingPoint, boardingTime, holdId: null, expiresAt: null }),
 
   setHold: (holdId, expiresAt) => set({ holdId, expiresAt }),
 
@@ -63,5 +76,7 @@ export const useBookingStore = create<BookingState>((set) => ({
       buyerName: null,
       buyerPhone: null,
       buyerEmail: null,
+      boardingPoint: null,
+      boardingTime: null,
     }),
 }));

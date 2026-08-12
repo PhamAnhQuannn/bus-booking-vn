@@ -109,16 +109,28 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  // Payouts and payout accounts only. LedgerEntry is append-only — a DB trigger rejects
-  // DELETE — so the payout_debit this test writes cannot be removed, and its FK keeps the
-  // operator rows alive too. Clearing the payouts is what matters: 200 lingering
-  // `requested` rows would otherwise sit in every later tick's candidate scan.
-  await prisma.payout.deleteMany({
-    where: { operatorId: { in: [unverifiedOperatorId, verifiedOperatorId] } },
-  });
-  await prisma.payoutAccount.deleteMany({
-    where: { operatorId: { in: [unverifiedOperatorId, verifiedOperatorId] } },
-  });
+  // Full FK-safe teardown so these APPROVED test operators don't linger as orphan rows
+  // (they otherwise sit in the DB forever; only the absence of a Route keeps them off the
+  // public listing). Mirrors lib/ledger/__tests__/ledgerImmutability.int.test.ts. Order:
+  // payouts → payout accounts → ledger → operators. LedgerEntry is append-only (a DB
+  // trigger rejects DELETE) and its FK to Operator is ON DELETE RESTRICT, so the
+  // payout_debit rows processPayouts wrote for the verified operator must be removed first,
+  // which means dropping the two immutability triggers, deleting, then restoring them.
+  const operatorIds = [unverifiedOperatorId, verifiedOperatorId];
+  await prisma.payout.deleteMany({ where: { operatorId: { in: operatorIds } } });
+  await prisma.payoutAccount.deleteMany({ where: { operatorId: { in: operatorIds } } });
+
+  await prisma.$executeRawUnsafe('DROP TRIGGER IF EXISTS "ledger_entry_no_update" ON "LedgerEntry"');
+  await prisma.$executeRawUnsafe('DROP TRIGGER IF EXISTS "ledger_entry_no_delete" ON "LedgerEntry"');
+  await prisma.ledgerEntry.deleteMany({ where: { operatorId: { in: operatorIds } } });
+  await prisma.$executeRawUnsafe(
+    'CREATE TRIGGER "ledger_entry_no_update" BEFORE UPDATE ON "LedgerEntry" FOR EACH ROW EXECUTE FUNCTION "ledger_entry_immutable"()'
+  );
+  await prisma.$executeRawUnsafe(
+    'CREATE TRIGGER "ledger_entry_no_delete" BEFORE DELETE ON "LedgerEntry" FOR EACH ROW EXECUTE FUNCTION "ledger_entry_immutable"()'
+  );
+
+  await prisma.operator.deleteMany({ where: { id: { in: operatorIds } } });
 });
 
 describe('processPayouts CLAIM_LIMIT starvation (#364)', () => {

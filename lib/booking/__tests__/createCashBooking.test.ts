@@ -46,6 +46,7 @@ const baseInput = {
   operatorId: 'op-1',
   buyerName: 'Nguyen Van A',
   buyerPhone: '+8490xxxxxx1',
+  buyerEmail: 'test@example.com',
   ticketCount: 2,
 };
 

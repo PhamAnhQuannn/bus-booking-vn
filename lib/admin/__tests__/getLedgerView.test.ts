@@ -53,6 +53,7 @@ const stubBalance = async () => ({
   pending: BigInt(1000),
   available: BigInt(2000),
   paidOut: BigInt(3000),
+  coverable: BigInt(2000),
 });
 
 describe('getLedgerView', () => {

@@ -163,9 +163,12 @@ const eslintConfig = defineConfig([
                 "consent.{ts,tsx}", // lib/booking — checkout consent constants
               "pickupSelection.{ts,tsx}", // lib/booking — pure pickup validator (client + server)
                 "emailSuggest.{ts,tsx}", // lib/booking — pure email typo suggester (client)
+                "customerFormSchema.{ts,tsx}", // lib/booking — pure buyer-info Zod schema (client checkout)
                 "statusLabels.{ts,tsx}", // lib/op — pure status/label display maps
                 "formatRelativeVi.{ts,tsx}", // lib/op — pure relative-time formatter
                 "cities.{ts,tsx}", // trip-planner/lib/planner — pure city registry (client selector + server)
+                "slots.{ts,tsx}", // trip-planner/lib/planner — máy trạng thái slot tất định (chip client, không Gemini)
+                "conversationsClient.{ts,tsx}", // trip-planner/lib/planner — client-safe: lưu/đọc lịch sử (authFetch + localStorage)
               ],
             },
             { target: ["lib-core"], allow: "**" },

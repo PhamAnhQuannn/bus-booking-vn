@@ -130,6 +130,7 @@ describe('searchTrips availability (holds + bookings aware, never raw capacity)'
       ticketCount: 3,
       customerPhone: '+8490xxxxxx1',
       customerName: 'Holder',
+      customerEmail: 'test@example.com',
     });
     expect(hold).not.toBeNull();
 
@@ -151,6 +152,7 @@ describe('searchTrips availability (holds + bookings aware, never raw capacity)'
       ticketCount: 3,
       customerPhone: '+8490xxxxxx1',
       customerName: 'Holder',
+      customerEmail: 'test@example.com',
     });
     expect(hold).not.toBeNull();
     await seedPaidBooking(5);

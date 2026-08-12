@@ -12,9 +12,9 @@ export function ResultsHeading({ origin, destination }: { origin: string; destin
     <h1
       ref={ref}
       tabIndex={-1}
-      className="text-lg font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
+      className="rounded-sm font-display text-3xl font-extrabold tracking-tight text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:text-4xl md:text-5xl"
     >
-      {origin} → {destination}
+      {origin} <span className="text-primary-strong">↔ {destination}</span>
     </h1>
   );
 }

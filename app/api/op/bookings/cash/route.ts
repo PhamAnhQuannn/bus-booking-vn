@@ -8,26 +8,18 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
+import { cashBookingSchema } from '@/lib/core/validation/cashBooking';
 import {
   createCashBooking,
   CashBookingError,
 } from '@/lib/booking';
 
-const CashBookingSchema = z.object({
-  tripId: z.string().min(1),
-  buyerName: z.string().min(1).max(200),
-  buyerPhone: z.string().min(1).max(20),
-  buyerEmail: z.string().email().max(200).nullish(),
-  ticketCount: z.number().int().min(1).max(50),
-});
-
 export const POST = withErrorHandler(
   requireOperatorAuth({})(async (req: NextRequest, ctx: OperatorAuthContext) => {
     const body = await req.json();
-    const parsed = CashBookingSchema.safeParse(body);
+    const parsed = cashBookingSchema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -39,7 +31,6 @@ export const POST = withErrorHandler(
     try {
       const booking = await createCashBooking({
         ...parsed.data,
-        buyerEmail: parsed.data.buyerEmail ?? null,
         operatorId: ctx.operatorId,
       });
 

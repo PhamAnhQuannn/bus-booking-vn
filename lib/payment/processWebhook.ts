@@ -167,6 +167,8 @@ export async function processPaymentWebhook(
       totalVnd: true,
       customPickupRequested: true,
       pickupDetail: true,
+      boardingPoint: true,
+      boardingTime: true,
       trip: {
         select: {
           departureAt: true,
@@ -308,9 +310,12 @@ export async function processPaymentWebhook(
           // difference. Captured ONLY inside the updated>0 branch (the FIRST and
           // only paid transition) so a replayed IPN never re-refunds. Executed
           // post-commit in after() — best-effort + logged, NOT inside this tx.
-          // Issue 100: skip overpay handling for an oversold booking (the entire
-          // amount is refunded via the oversoldRefundBox path below).
-          if (amount > booking.totalVnd && !refundTriggered) {
+          // #515: fire even when oversold. The oversold path (below) refunds only
+          // the FARE (totalVnd, operator clawback); the overpay delta is platform
+          // float (reason 'overpay_difference' → no operator clawback), so BOTH
+          // refunds must run for the rider to get back the full `amount` they paid.
+          // Previously `&& !refundTriggered` skipped this, silently keeping the delta.
+          if (amount > booking.totalVnd) {
             overpayRefundBox.value = {
               bookingId: booking.id,
               overpayVnd: amount - booking.totalVnd,
@@ -344,6 +349,9 @@ export async function processPaymentWebhook(
             now: new Date(),
             // Issue 123: 'vnpay' additionally writes a platform-float psp_fee entry.
             adapter,
+            // A-5: oversold → no platform fee; booking_credit offsets the oversold
+            // refund_debit so the operator nets 0 (not −fee).
+            skipPlatformFee: refundTriggered,
           });
 
           // Issue 100: for an oversold booking, the booking is already `refunded`
@@ -372,6 +380,12 @@ export async function processPaymentWebhook(
               bookingRef: booking.bookingRef,
               confirmationUrl,
             };
+            // Chosen boarding point — tell the rider where to board in the first
+            // "you're confirmed" message, not only later via the ticket email.
+            if (booking.boardingPoint) {
+              customerPayload.boardingPoint = booking.boardingPoint;
+              if (booking.boardingTime) customerPayload.boardingTime = booking.boardingTime;
+            }
             const operatorPayload: Record<string, string | number> = {
               ticketCount: booking.ticketCount,
               route: routeLabel,
@@ -379,6 +393,12 @@ export async function processPaymentWebhook(
               bookingRef: booking.bookingRef,
               buyerPhone: booking.buyerPhone,
             };
+            // Chosen boarding point along the route — the driver needs to know which of the
+            // ~10 stops this passenger boards at. Renderer appends a "Don tai" line.
+            if (booking.boardingPoint) {
+              operatorPayload.boardingPoint = booking.boardingPoint;
+              if (booking.boardingTime) operatorPayload.boardingTime = booking.boardingTime;
+            }
             // Issue 111: fold the custom-pickup request into the SAME operator SMS (no second
             // message — avoids notification spam). The renderer appends a "Diem don rieng" line.
             if (booking.customPickupRequested && booking.pickupDetail) {

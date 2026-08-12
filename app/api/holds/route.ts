@@ -18,6 +18,8 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { holdInputSchema } from '@/lib/core/validation/hold';
 import { createHold, HOLD_TTL_MINUTES } from '@/lib/core/db/holdRepo';
+import { prisma } from '@/lib/core/db/client';
+import { parseBoardingSchedule } from '@/lib/trips';
 import { validatePickupSelection } from '@/lib/booking';
 import {
   HoldCapExceededError,
@@ -85,8 +87,16 @@ async function handler(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: 'INVALID' }, { status: 400 });
   }
 
-  const { tripId, ticketCount, buyerName, buyerPhone, buyerEmail, pickupKind, pickupDetail } =
-    parsed.data;
+  const {
+    tripId,
+    ticketCount,
+    buyerName,
+    buyerPhone,
+    buyerEmail,
+    pickupKind,
+    pickupDetail,
+    boardingPoint,
+  } = parsed.data;
 
   // ---- 2b. Resolve + validate pickup (Issue 107/111) ----
   // The client-supplied pickupKind selects the branch; the resulting fields are always
@@ -112,6 +122,27 @@ async function handler(req: NextRequest): Promise<Response> {
     };
   }
 
+  // ---- 2c. Validate the chosen boarding point against the route schedule ----
+  // The point comes from the results card; a mismatch means a stale or tampered
+  // value. Drop it to null (never 422) so a legitimate booking never fails when a
+  // schedule was edited — but garbage never lands on the Hold/Booking row. The
+  // stored time is the schedule's authoritative time, not the client's.
+  let boarding: { point: string; time: string | null } | null = null;
+  if (boardingPoint) {
+    const trip = await prisma.trip.findUnique({
+      where: { id: tripId },
+      select: { route: { select: { boardingSchedule: true } } },
+    });
+    const match = parseBoardingSchedule(trip?.route.boardingSchedule).find(
+      (s) => s.point === boardingPoint,
+    );
+    if (match) {
+      boarding = { point: match.point, time: match.time };
+    } else {
+      logger.warn({ tripId, boardingPoint }, 'hold.boarding_point_mismatch — dropped');
+    }
+  }
+
   // ---- 3. Atomic hold insert ----
   let result: Awaited<ReturnType<typeof createHold>>;
   try {
@@ -123,6 +154,8 @@ async function handler(req: NextRequest): Promise<Response> {
       customerEmail: buyerEmail,
       pickupKind: pickup.pickupKind,
       pickupDetail: pickup.pickupDetail,
+      boardingPoint: boarding?.point ?? null,
+      boardingTime: boarding?.time ?? null,
       sessionId,
     });
   } catch (e) {
@@ -193,8 +226,15 @@ async function handler(req: NextRequest): Promise<Response> {
   const setCookieHeader = buildSetCookieHeader(holdId, expiresAtISO);
 
   // ---- 5. Return 200 ----
+  // Echo the SERVER-resolved boarding point (null if the chosen one was dropped as
+  // stale/mismatched) so the client can tell the traveler their pickup wasn't kept.
   return new Response(
-    JSON.stringify({ holdId, expiresAt: expiresAtISO }),
+    JSON.stringify({
+      holdId,
+      expiresAt: expiresAtISO,
+      boardingPoint: boarding?.point ?? null,
+      boardingTime: boarding?.time ?? null,
+    }),
     {
       status: 200,
       headers: {
