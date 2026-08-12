@@ -93,14 +93,14 @@ export function ResultsList({
           {showPrev ? (
             <Link
               href={buildUrl(prevDate)}
-              className="inline-flex min-h-10 items-center justify-center gap-1 rounded-lg border border-destructive bg-white px-4 text-sm font-semibold text-destructive shadow-e1 transition-colors hover:bg-destructive hover:text-white"
+              className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-destructive bg-white px-4 text-sm font-semibold text-destructive shadow-e1 transition-colors hover:bg-destructive hover:text-white"
               aria-label={`Ngày trước: ${formatVnDate(prevDate)}`}
             >
               ← Trước
             </Link>
           ) : (
             <span
-              className="inline-flex min-h-10 cursor-not-allowed items-center justify-center gap-1 rounded-lg border border-border/50 bg-muted/30 px-4 text-sm font-medium text-muted-foreground/40"
+              className="inline-flex min-h-11 cursor-not-allowed items-center justify-center gap-1 rounded-lg border border-border/50 bg-muted/30 px-4 text-sm font-medium text-muted-foreground/40"
               aria-disabled="true"
               aria-label="Không thể chọn ngày trong quá khứ"
             >
@@ -112,7 +112,7 @@ export function ResultsList({
           </span>
           <Link
             href={buildUrl(nextDate)}
-            className="inline-flex min-h-10 items-center justify-center gap-1 rounded-lg border border-destructive bg-white px-4 text-sm font-semibold text-destructive shadow-e1 transition-colors hover:bg-destructive hover:text-white"
+            className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-destructive bg-white px-4 text-sm font-semibold text-destructive shadow-e1 transition-colors hover:bg-destructive hover:text-white"
             aria-label={`Ngày sau: ${formatVnDate(nextDate)}`}
           >
             Sau →

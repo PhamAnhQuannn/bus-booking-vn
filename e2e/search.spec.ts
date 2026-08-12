@@ -60,8 +60,9 @@ test.describe('AC-4: Search results display', () => {
     await expect(first.getByText(ORIGIN)).toBeVisible();
     await expect(first.getByText(DESTINATION)).toBeVisible();
 
-    // Operator name visible (live: "Toàn Khuyên – Minh Tuyến")
-    await expect(first.getByText(/Toàn Khuyên/)).toBeVisible();
+    // Operator name visible on the page. The single-operator redesign moved it out of
+    // each card into the results-level OperatorTrustPanel (shown once, not per card).
+    await expect(page.getByText(/Toàn Khuyên/).first()).toBeVisible();
 
     // Price formatted in VND (e.g. "850.000đ"). Match the grouped digits so it
     // doesn't collide with the "Đón tại …" boarding line (Đ ~ đ case-insensitive).
@@ -109,12 +110,13 @@ test.describe('AC-4: Search results display', () => {
 // ---- AC-5: Back-nav restores form state ----
 
 test.describe('AC-5: Back navigation returns to the homepage', () => {
-  test('"Tìm lại" returns home, which offers the direct route CTA (no search form)', async ({ page }) => {
+  test('header logo returns home, which offers the direct route CTA (no search form)', async ({ page }) => {
     await page.goto(searchUrl());
     await expect(page.locator('article').first()).toBeVisible({ timeout: 10_000 });
 
-    // Click "Tìm lại" back link (dev-mode first compile of "/" can be slow → generous timeout)
-    await page.getByRole('link', { name: /Tìm lại/i }).click();
+    // The redesign removed the "Tìm lại" back button; the header logo is the way home.
+    // (dev-mode first compile of "/" can be slow → generous timeout)
+    await page.locator('header a[href="/"]').first().click();
     await page.waitForURL('/', { timeout: 20_000 });
 
     // The homepage no longer has a point-to-point search form — with one route it
