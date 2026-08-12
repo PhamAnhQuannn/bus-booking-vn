@@ -9,6 +9,7 @@
 
 import { CITIES, CITY_SLUGS, isCitySlug } from "./cities";
 import { VIBE_VOCAB, filterVibes } from "./vibes";
+import { signModelTurn } from "./chatSig";
 
 // Danh sách + mapping tên→slug DERIVE từ CITIES (single source) — thêm tỉnh = chỉ sửa cities.ts.
 const CITY_LIST = CITIES.map((c) => c.ten).join(", ");
@@ -50,6 +51,7 @@ export type ChatRole = "user" | "model";
 export interface ChatTurn {
   role: ChatRole;
   text: string;
+  sig?: string; // model-turn: HMAC tag do server ký (chống history-injection). Xem chatSig.ts.
 }
 
 // Event stream ra route: prose token | slot ĐÃ TRÍCH (client lo hỏi thêm + dựng).
@@ -58,6 +60,7 @@ export type StreamEvent =
   | { kind: "token"; text: string }
   | { kind: "slots"; partial: Partial<ParsedIntent> }
   | { kind: "suggest"; dia_diem: string; vibe: string } // mode discovery: route lo lookup KB → tên
+  | { kind: "sig"; tag: string } // cuối turn: HMAC ký prose server phát ra (client echo lại — chatSig.ts)
   | { kind: "ask"; slot: string; options: string[]; allowCustom: boolean }
   | { kind: "plan"; intent: ParsedIntent };
 
@@ -195,7 +198,6 @@ export async function* streamChat(history: ChatTurn[]): AsyncGenerator<StreamEve
       body: JSON.stringify({
         system_instruction: { parts: [{ text: SYSTEM }] },
         contents: history.map((t) => ({ role: t.role, parts: [{ text: t.text }] })),
-        tools: [{ function_declarations: [TRICH_DECL, GOI_Y_DECL] }],
         generationConfig: { temperature: 0.3, maxOutputTokens: MAX_OUTPUT_TOKENS },
       }),
     });
@@ -215,6 +217,7 @@ export async function* streamChat(history: ChatTurn[]): AsyncGenerator<StreamEve
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  let accProse = ""; // cộng dồn prose server phát ra → ký ở cuối turn (client echo tag để verify).
 
   try {
     while (true) {
@@ -242,6 +245,7 @@ export async function* streamChat(history: ChatTurn[]): AsyncGenerator<StreamEve
         const parts = obj.candidates?.[0]?.content?.parts ?? [];
         for (const part of parts) {
           if (part.text) {
+            accProse += part.text;
             yield { kind: "token", text: part.text };
           } else if (part.functionCall) {
             const { name, args = {} } = part.functionCall;
@@ -256,6 +260,8 @@ export async function* streamChat(history: ChatTurn[]): AsyncGenerator<StreamEve
         }
       }
     }
+    // Cuối turn thành công: ký prose đã phát → client lưu tag, echo lại lượt sau để server verify.
+    if (accProse) yield { kind: "sig", tag: signModelTurn(accProse) };
   } catch (err) {
     // Idle-timeout abort or a stream read error -> ParseIntentError so the route shows the
     // polite fallback instead of an uncaught crash.

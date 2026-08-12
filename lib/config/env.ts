@@ -140,6 +140,18 @@ const envSchema = z.object({
   /** Gemini API key cho chat planner (aistudio.google.com, free tier). Đọc server-side. */
   GEMINI_API_KEY: z.string().optional(),
 
+  /**
+   * HMAC-SHA256 secret ký từng model-turn của planner chat (chống history-injection:
+   * client không thể bịa `role:'model'` giả để mồi jailbreak). ≥32 bytes hex. Distinct
+   * khỏi HOLD_SECRET/GOAUTH_COOKIE_SECRET để rò rỉ được blast-contain. Optional: khi unset
+   * (dev/CI) chatSig degrade an toàn — model-turn client gửi được tin như cũ; PROD phải set.
+   */
+  PLANNER_CHAT_SECRET: z
+    .string()
+    .min(64, 'PLANNER_CHAT_SECRET must be at least 64 hex characters (32 bytes)')
+    .regex(/^[0-9a-fA-F]+$/, 'PLANNER_CHAT_SECRET must be a hex string')
+    .optional(),
+
   // ---------------------------------------------------------------------------
   // Local fake-gateway stub (Phase 1 — run all online-payment stories with no
   // real PSP credentials). When PAYMENTS_STUB="true", getGatewayFor('momo')
