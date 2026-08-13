@@ -30,6 +30,10 @@
       "schedule": "* * * * *"
     },
     {
+      "path": "/api/cron/process-refunds",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/generate-ticket-pdfs",
       "schedule": "*/2 * * * *"
     },

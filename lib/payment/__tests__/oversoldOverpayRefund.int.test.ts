@@ -23,9 +23,14 @@ vi.mock('next/server', async (importOriginal) => {
   const actual = await importOriginal<typeof import('next/server')>();
   return { ...actual, after: (task: () => Promise<unknown>) => { afterTasks.push(task); } };
 });
-const flushAfter = async () => { for (const t of afterTasks.splice(0)) await t(); };
+const flushAfter = async () => {
+  for (const t of afterTasks.splice(0)) await t();
+  // #569: refunds are now durable RefundObligation rows driven by the process-refunds cron core.
+  await processRefunds({} as never, { now: new Date() });
+};
 
 import { prisma } from '@/lib/core/db/client';
+import { processRefunds } from '@/lib/jobs';
 import { processPaymentWebhook, getBankTransferAdapter } from '@/lib/payment';
 import { generateBookingRef } from '@/lib/core/id';
 
@@ -104,6 +109,7 @@ afterAll(async () => {
     'CREATE TRIGGER "ledger_entry_no_delete" BEFORE DELETE ON "LedgerEntry" FOR EACH ROW EXECUTE FUNCTION "ledger_entry_immutable"()'
   );
   await prisma.paymentEvent.deleteMany({ where: { bookingId: { in: ids } } });
+  await prisma.refundObligation.deleteMany({ where: { bookingId: { in: ids } } });
   await prisma.notificationLog.deleteMany({ where: { bookingId: { in: ids } } });
   await prisma.booking.deleteMany({ where: { id: { in: ids } } });
   await prisma.trip.deleteMany({ where: { routeId } });
@@ -122,8 +128,9 @@ describe('#515 — oversold + overpaid refunds both the fare and the overpay del
       adapter: 'bank_transfer', proto: 'https', host: 'test.invalid',
     });
     expect(res.status).toBe(200);
-    // FIX: BOTH the oversold refund AND the overpay refund are captured (was 1 before).
-    expect(afterTasks.length).toBe(2);
+    // #569: BOTH refunds (oversold fare clawback + overpay delta) are enqueued as durable
+    // RefundObligation rows in-tx (was 2 after() tasks before).
+    expect(await prisma.refundObligation.count({ where: { bookingId: oversoldBookingId } })).toBe(2);
     await flushAfter();
 
     const booking = await prisma.booking.findUnique({ where: { id: oversoldBookingId }, select: { status: true } });
