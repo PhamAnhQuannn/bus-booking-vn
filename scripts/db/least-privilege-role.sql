@@ -28,7 +28,11 @@ END
 $$;
 
 -- 2. Connect + schema usage (no CREATE on the schema → cannot add/drop objects).
-GRANT CONNECT ON DATABASE CURRENT_CATALOG TO app_runtime;  -- if this errors, name the DB explicitly
+-- CONNECT: replace <YOUR_DATABASE> with the real db name (e.g. neondb). `CURRENT_CATALOG` is a
+-- reserved keyword and is NOT valid identifier syntax in GRANT ON DATABASE — it raises a syntax
+-- error. CONNECT is usually already granted to PUBLIC, so this line is often redundant; keep it to
+-- be explicit if PUBLIC's CONNECT was revoked.
+GRANT CONNECT ON DATABASE "<YOUR_DATABASE>" TO app_runtime;
 GRANT USAGE ON SCHEMA public TO app_runtime;
 REVOKE CREATE ON SCHEMA public FROM app_runtime;
 
