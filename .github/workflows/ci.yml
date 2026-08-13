@@ -391,12 +391,12 @@ jobs:
           GITLEAKS_CONFIG: .gitleaks.toml
 
   # ---- 9. Python syntax (no other job looks at a .py file) ----
-  # NB (SEC-CI-GATE #567): `master` branch protection now requires the security +
-  # test jobs (Secret Scanning, Dependency Audit, Data Leak Audit, Greppable
-  # Invariants, Lint & Typecheck, Unit/Integration/E2E) as passing status checks
-  # before merge — set via `gh api repos/{owner}/{repo}/branches/master/protection`
-  # (a repo setting, not this file). PR reviews are NOT required (solo-merge flow).
-  # This particular Python job is informational and is NOT a required check.
+  # NB (SEC-CI-GATE #567): `master` is NOT branch-protected — no status check in
+  # this file gates a merge. Required-status-check protection needs GitHub Pro or a
+  # public repo (`gh api .../branches/master/protection` returns 403 on this
+  # private free-plan repo); until then a red run is a signal, not a barrier. The
+  # audit gate was still tightened to --audit-level=high (fail-closed on new high
+  # advisories) so the signal is louder. This Python job is informational.
   python-syntax:
     name: Python Syntax
     runs-on: ubuntu-latest

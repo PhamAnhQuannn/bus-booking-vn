@@ -57,8 +57,14 @@ already carry a versioned `enc:v1:` prefix and a plaintext-passthrough branch, w
 3. **Run a one-shot re-encrypt sweep** (a script/migration): for every `PayoutAccount` /`AdminUser`
    row, read → `decrypt` (old) → `encrypt` (new) → write back, in batches. Idempotent (re-encrypting
    an already-new row is a no-op decrypt-new/encrypt-new).
-4. **Verify no old-key rows remain:** count rows whose stored prefix/key-id is still the old version
-   → expect 0. Spot-check a payout account decrypts and a TOTP verifies.
+4. **Verify no old-key rows remain.** The check depends on which seam you chose in step 1:
+   - **`enc:v2:`+key-id path:** count rows whose stored version tag is still the old one → expect 0.
+   - **`*_ENCRYPTION_KEY_OLD` path (default):** old- and new-key ciphertext are byte-**indistinguishable**
+     (both write the same `enc:v1:` prefix, no key-id), so a prefix count proves nothing. Instead
+     decrypt every row with the **NEW key only** (disable the old-key fallback for the check) and
+     require **0 decryption failures**. A single failure = an un-swept old-key row; re-run step 3
+     before proceeding.
+   Spot-check a payout account decrypts and a TOTP verifies.
 5. **Retire the old key:** remove `*_ENCRYPTION_KEY_OLD`, drop the fallback branch, deploy.
 
 Do NOT skip step 3: if you retire the old key with old-key ciphertext still in the DB, that data is
