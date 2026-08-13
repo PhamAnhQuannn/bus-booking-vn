@@ -22,10 +22,8 @@ export const POST = withErrorHandler(
     const parsed = cashBookingSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'validation_failed', issues: parsed.error.issues },
-        { status: 422 },
-      );
+      // #566 (SEC-ZOD-LEAK): opaque error only — never echo zodError.issues (leaks schema shape).
+      return NextResponse.json({ error: 'validation_failed' }, { status: 422 });
     }
 
     try {
