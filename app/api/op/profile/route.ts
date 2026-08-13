@@ -12,50 +12,31 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { prisma } from '@/lib/core/db/client';
-import { verifyOperatorAccess } from '@/lib/auth';
+import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth';
 import { PatchOperatorProfileSchema } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { normalizePhone } from '@/lib/core/validation/phone';
 import { PhoneNormalizeError } from '@/lib/core/validation/phone';
 import { Prisma } from '@prisma/client';
 
-const ACCESS_COOKIE = 'bb_op_access';
-
-async function getOperatorFromToken(
-  cookieStore: Awaited<ReturnType<typeof cookies>>
-): Promise<{ id: string } | null> {
-  const tokenCookie = cookieStore.get(ACCESS_COOKIE);
-  if (!tokenCookie?.value) return null;
-  const payload = await verifyOperatorAccess(tokenCookie.value);
-  if (!payload) return null;
-  return { id: payload.sub };
-}
-
-async function getHandler(req: NextRequest): Promise<Response> {
-  const cookieStore = await cookies();
-  const identity = await getOperatorFromToken(cookieStore);
-  if (!identity) return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
-
+// #563 (SEC-OP-PROFILE-HOF): identity comes ONLY through requireOperatorAuth — no inline
+// verifyOperatorAccess. The HOF already enforces the token, disabledAt→401 and
+// requiresPasswordChange→403 gates, so those are not re-implemented here.
+async function getHandler(_req: NextRequest, ctx: OperatorAuthContext): Promise<Response> {
   const user = await prisma.operatorUser.findUnique({
-    where: { id: identity.id },
+    where: { id: ctx.operatorUserId },
     select: {
       phone: true,
       contactPhone: true,
       notificationPhone: true,
       displayName: true,
       requiresPasswordChange: true,
-      disabledAt: true,
     },
   });
 
-  if (!user || user.disabledAt !== null) {
+  if (!user) {
     return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
-  }
-
-  if (user.requiresPasswordChange) {
-    return NextResponse.json({ error: 'PASSWORD_CHANGE_REQUIRED' }, { status: 403 });
   }
 
   return NextResponse.json({
@@ -67,28 +48,17 @@ async function getHandler(req: NextRequest): Promise<Response> {
   });
 }
 
-async function patchHandler(req: NextRequest): Promise<Response> {
-  const cookieStore = await cookies();
-  const identity = await getOperatorFromToken(cookieStore);
-  if (!identity) return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
-
+async function patchHandler(req: NextRequest, ctx: OperatorAuthContext): Promise<Response> {
   const user = await prisma.operatorUser.findUnique({
-    where: { id: identity.id },
+    where: { id: ctx.operatorUserId },
     select: {
       contactPhone: true,
       notificationPhone: true,
-      displayName: true,
-      requiresPasswordChange: true,
-      disabledAt: true,
     },
   });
 
-  if (!user || user.disabledAt !== null) {
+  if (!user) {
     return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
-  }
-
-  if (user.requiresPasswordChange) {
-    return NextResponse.json({ error: 'PASSWORD_CHANGE_REQUIRED' }, { status: 403 });
   }
 
   let body: unknown;
@@ -129,7 +99,7 @@ async function patchHandler(req: NextRequest): Promise<Response> {
 
   try {
     await prisma.operatorUser.update({
-      where: { id: identity.id },
+      where: { id: ctx.operatorUserId },
       data: {
         ...(updates.contactPhone ? { contactPhone: normalizedContact } : {}),
         ...(updates.notificationPhone ? { notificationPhone: normalizedNotification } : {}),
@@ -147,5 +117,5 @@ async function patchHandler(req: NextRequest): Promise<Response> {
   return new NextResponse(null, { status: 204 });
 }
 
-export const GET = withErrorHandler(getHandler);
-export const PATCH = withErrorHandler(patchHandler);
+export const GET = withErrorHandler(requireOperatorAuth()(getHandler));
+export const PATCH = withErrorHandler(requireOperatorAuth()(patchHandler));

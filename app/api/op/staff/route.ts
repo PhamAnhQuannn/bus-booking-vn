@@ -14,6 +14,7 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { requireOperatorAuth, type OperatorAuthContext } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
+import { resolveBaseUrl } from '@/lib/core/http/baseUrl';
 import { listStaff } from '@/lib/staff';
 import { createStaff } from '@/lib/staff';
 import { StaffServiceError } from '@/lib/staff';
@@ -34,12 +35,11 @@ async function postHandler(req: NextRequest, ctx: OperatorAuthContext): Promise<
 
   const parsed = CreateStaffSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: 'invalid_input', issues: parsed.error.issues }, { status: 400 });
+    // #566 (SEC-ZOD-LEAK): opaque error only — never echo zodError.issues (leaks schema shape).
+    return NextResponse.json({ error: 'invalid_input' }, { status: 400 });
   }
 
-  const proto = req.headers.get('x-forwarded-proto') ?? 'http';
-  const host = req.headers.get('host') ?? 'localhost:3000';
-  const baseUrl = `${proto}://${host}`;
+  const baseUrl = resolveBaseUrl(req); // #565: trusted env, not the spoofable Host header
 
   try {
     const staff = await createStaff({

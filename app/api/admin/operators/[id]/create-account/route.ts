@@ -20,6 +20,7 @@ import { requireStepUp } from '@/lib/auth';
 import { prisma } from '@/lib/core/db/client';
 import { createOperatorAccount, AdminServiceError } from '@/lib/admin';
 import { withErrorHandler } from '@/lib/withErrorHandler';
+import { resolveBaseUrl } from '@/lib/core/http/baseUrl';
 import { operatorIdFromUrl } from '../_shared';
 
 async function handler(req: NextRequest, ctx: AdminAuthContext): Promise<Response> {
@@ -28,10 +29,7 @@ async function handler(req: NextRequest, ctx: AdminAuthContext): Promise<Respons
     return NextResponse.json({ error: 'INVALID' }, { status: 400 });
   }
 
-  const proto = req.headers.get('x-forwarded-proto') ?? 'http';
-  const host =
-    req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? 'localhost:3001';
-  const baseUrl = `${proto}://${host}`;
+  const baseUrl = resolveBaseUrl(req); // #565: trusted env, not the spoofable Host header
 
   try {
     const result = await createOperatorAccount(prisma, {

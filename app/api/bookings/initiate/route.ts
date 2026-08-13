@@ -11,8 +11,9 @@
  *   4. initiateOnlineBooking(method) → { bookingId, payUrl }
  *   5. Map orchestrator result to HTTP status
  *
- * baseUrl derived from incoming request headers (x-forwarded-proto + host) —
- * never from env fallback (per AGENTS.md mistake log).
+ * baseUrl via resolveBaseUrl (#565): the trusted NEXT_PUBLIC_BASE_URL in prod (Host is
+ * client-spoofable and this builds pay/return URLs), falling back to the request origin only
+ * when the env is unset (dev/preview — which also handles the :3001 dev-port case).
  *
  * Wrapped in withErrorHandler — 500 scrubbed on unexpected throw.
  */
@@ -29,6 +30,7 @@ import { isVnpaySelectable } from '@/lib/payment';
 import { ratelimit } from '@/lib/ratelimit';
 import { clientIp } from '@/lib/core/http/clientIp';
 import { withErrorHandler } from '@/lib/withErrorHandler';
+import { resolveBaseUrl } from '@/lib/core/http/baseUrl';
 import { track, sessionIdFromRequest } from '@/lib/analytics';
 
 const initiateInputSchema = z.object({
@@ -104,11 +106,7 @@ async function handler(req: NextRequest): Promise<Response> {
   // backfill — never via the spoofable phone-match attach.
   const customerId = await getCustomerOptional(req);
 
-  const proto =
-    req.headers.get('x-forwarded-proto') ?? req.nextUrl.protocol.replace(/:$/, '');
-  const host =
-    req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? req.nextUrl.host;
-  const baseUrl = `${proto}://${host}`;
+  const baseUrl = resolveBaseUrl(req); // #565: trusted env, not the spoofable Host header
 
   // ---------------------------------------------------------------------------
   // Online path — bank_transfer (VietQR) + vnpay (card/ATM)
