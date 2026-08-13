@@ -13,6 +13,8 @@ import { cookies } from 'next/headers';
 import { registerInput } from '@/lib/core/validation/auth';
 import { register, AuthServiceError, verifyOtpProof } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
+import { clientIp } from '@/lib/core/http/clientIp';
+import { customerRegisterRatelimit } from '@/lib/ratelimit';
 import { z } from 'zod';
 
 const registerBodySchema = registerInput.extend({
@@ -22,6 +24,16 @@ const registerBodySchema = registerInput.extend({
 const REFRESH_COOKIE_MAX_AGE = 30 * 24 * 60 * 60;
 
 async function handler(req: NextRequest): Promise<Response> {
+  // Per-IP registration throttle (#465, DS-003 §6.1: 5/15min/IP). Register was wide open —
+  // login was limited but this path had no limiter, leaving mass account creation / OTP-bomb.
+  const rl = await customerRegisterRatelimit.limit(`customer-register:${clientIp(req.headers)}`);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'RATE_LIMITED' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } }
+    );
+  }
+
   let body: unknown;
   try {
     body = await req.json();

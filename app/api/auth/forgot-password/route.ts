@@ -9,6 +9,8 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { forgotPassword } from '@/lib/account';
+import { clientIp } from '@/lib/core/http/clientIp';
+import { otpSendPerIpRatelimit } from '@/lib/ratelimit';
 import { z } from 'zod';
 
 const schema = z.object({
@@ -16,6 +18,16 @@ const schema = z.object({
 });
 
 async function handler(req: NextRequest): Promise<Response> {
+  // Per-IP OTP-send throttle (#470) — shares the entry-point IP bucket with /otp/send so one
+  // IP cannot spray reset emails across many inboxes. IP-keyed → no email enumeration leak.
+  const ipRl = await otpSendPerIpRatelimit.limit(`otp-send-ip:${clientIp(req.headers)}`);
+  if (!ipRl.allowed) {
+    return NextResponse.json(
+      { error: 'rate_limited', retryAfter: ipRl.retryAfter },
+      { status: 429, headers: { 'Retry-After': String(ipRl.retryAfter) } }
+    );
+  }
+
   let body: unknown;
   try {
     body = await req.json();

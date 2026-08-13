@@ -9,7 +9,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SignJWT } from 'jose';
 import crypto from 'crypto';
 
-const { mockRegister, mockCookieStore, AuthServiceError } = vi.hoisted(() => {
+const { mockRegister, mockCookieStore, AuthServiceError, mockRlLimit } = vi.hoisted(() => {
   class AuthServiceError extends Error {
     code: string;
     constructor(code: string) {
@@ -23,12 +23,21 @@ const { mockRegister, mockCookieStore, AuthServiceError } = vi.hoisted(() => {
     mockRegister: vi.fn(),
     mockCookieStore,
     AuthServiceError,
+    mockRlLimit: vi.fn(),
   };
 });
 
 vi.mock('@/lib/auth/authService', () => ({
   register: mockRegister,
   AuthServiceError,
+}));
+
+// #465: register now rate-limits per IP. Override only that limiter (importOriginal spread —
+// the @/lib/auth barrel pulls transitive consumers of createRatelimit, so a full-module mock
+// would strip them). One test flips mockRlLimit to assert the 429.
+vi.mock('@/lib/ratelimit', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/ratelimit')>()),
+  customerRegisterRatelimit: { limit: mockRlLimit },
 }));
 
 vi.mock('next/headers', () => ({
@@ -73,6 +82,7 @@ const AUTH_RESULT = {
 beforeEach(() => {
   vi.clearAllMocks();
   mockRegister.mockResolvedValue(AUTH_RESULT);
+  mockRlLimit.mockResolvedValue({ allowed: true, remaining: 4, retryAfter: 0 });
 });
 
 describe('POST /api/auth/register', () => {
@@ -146,5 +156,16 @@ describe('POST /api/auth/register', () => {
   it('returns 400 for invalid body (missing otpProof)', async () => {
     const res = await POST(makeRequest({ email: TEST_EMAIL, password: 'Password1' }));
     expect(res.status).toBe(400);
+  });
+
+  it('returns 429 RATE_LIMITED when the per-IP register limiter denies (#465)', async () => {
+    mockRlLimit.mockResolvedValue({ allowed: false, remaining: 0, retryAfter: 900 });
+    const otpProof = await makeOtpProof();
+    const res = await POST(makeRequest({ email: TEST_EMAIL, otpProof, password: 'Password1' }));
+    const json = await res.json();
+    expect(res.status).toBe(429);
+    expect(json.error).toBe('RATE_LIMITED');
+    expect(res.headers.get('Retry-After')).toBe('900');
+    expect(mockRegister).not.toHaveBeenCalled();
   });
 });

@@ -89,6 +89,11 @@ export async function resolveGoogleLogin(identity: GoogleIdentityInput): Promise
             data: { emailVerifiedAt: now },
           });
         }
+        // Claim guest bookings for this now-Google-proven email (#468). L3 and password
+        // register() both backfill; L2 (existing email → Google link) was the only proven-
+        // email branch that never did, orphaning a guest's prior bookings after they link
+        // Google. `email` is proven here — the L2′ guard above rejected unverified identities.
+        await backfillGuestBookingsByEmail(tx, existingByEmail.id, asProvenEmail(email));
       });
     } catch (err) {
       // L2 idempotent: a concurrent request created the link first (P2002 on the

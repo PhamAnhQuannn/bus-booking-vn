@@ -35,8 +35,11 @@ export const loginInput = z.object({
 });
 
 // 2026-06-06: operators log in by generated username (BRAND_ACRONYM-last4phone), not phone.
+// .toUpperCase() (#452): the stored username is uppercase (e.g. PB-0001); the client's
+// autoCapitalize="characters" is a no-op on desktop/paste, so typing `pb-0001` reached the
+// exact-match lookup lowercased and returned invalid_credentials. Normalise server-side.
 export const operatorLoginInput = z.object({
-  username: z.string().trim().min(1, 'Username is required').max(64),
+  username: z.string().trim().toUpperCase().min(1, 'Username is required').max(64),
   password: z.string().min(1, 'Password is required'),
 });
 

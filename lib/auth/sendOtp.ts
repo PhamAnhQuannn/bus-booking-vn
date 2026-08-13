@@ -13,12 +13,10 @@ import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import { generateCode, generateSalt, hashCode } from './otp';
 import { sendEmail, stashTestOtp } from '@/lib/notification';
-import { createRatelimit } from '@/lib/ratelimit';
+import { otpSendRatelimit } from '@/lib/ratelimit';
 
 const OTP_TTL_SECONDS = 5 * 60; // 5 minutes
 const OTP_EXPIRY_MINUTES = 5;
-
-const otpRatelimit = createRatelimit({ limit: 3, windowMs: 15 * 60 * 1000 });
 
 export type SendOtpResult =
   | { ok: true }
@@ -31,7 +29,9 @@ function normalizeEmail(raw: string): string {
 export async function sendOtp(rawEmail: string): Promise<SendOtpResult> {
   const email = normalizeEmail(rawEmail);
 
-  const rl = await otpRatelimit.limit(email);
+  // Shared per-identifier OTP budget (#469): `otp-send:<email>` — same bucket the account
+  // OTP path consumes, so register+forgot cannot combine into a 6/15min bomb on one inbox.
+  const rl = await otpSendRatelimit.limit(`otp-send:${email}`);
   if (!rl.allowed) {
     return { ok: false, reason: 'rate_limited', retryAfter: rl.retryAfter };
   }
