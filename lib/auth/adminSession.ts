@@ -6,7 +6,8 @@
  * adminUserId in the payload.
  *
  * issueAdminSession(adminUserId, role, totpVerified=false) — create fresh session (login).
- * rotateAdminRefresh(oldHash, role?, totpVerified?) — atomic rotation inside a Prisma transaction.
+ * rotateAdminRefresh(oldHash, role?) — atomic rotation inside a Prisma transaction. TOTP
+ *   elevation is preserved from the AdminSession.totpVerifiedAt row (#564), not a caller arg.
  *   - If already revoked → revoke entire family → return { reuse: true }
  *   - Otherwise → revoke old row, create new row, return new tokens
  *   - If not found → throw Error('SESSION_NOT_FOUND')
@@ -116,6 +117,9 @@ export async function issueAdminSession(
       rotationCount: 0,
       refreshTokenHash: refreshHash,
       expiresAt: new Date(Date.now() + SESSION_EXPIRY_MS),
+      // #564: anchor elevation on the row. A fresh login is unelevated (null); the TOTP-verify
+      // path issues with totpVerified=true → stamps now(), so refresh can preserve it.
+      totpVerifiedAt: totpVerified ? new Date() : null,
     },
   });
 
@@ -135,8 +139,7 @@ export async function issueAdminSession(
 
 export async function rotateAdminRefresh(
   oldHash: string,
-  role?: AdminRole,
-  totpVerified = false
+  role?: AdminRole
 ): Promise<AdminSessionTokens | { reuse: true }> {
   return prisma.$transaction(async (tx) => {
     const session = await tx.adminSession.findUnique({
@@ -174,6 +177,11 @@ export async function rotateAdminRefresh(
       rotation: newRotation,
     });
 
+    // #564: PRESERVE TOTP elevation across rotation. The old code hard-reset it to false, so a
+    // TOTP-verified admin silently lost elevation on every ~10-min refresh. Elevation is now
+    // anchored on the AdminSession row — carry it forward and derive the claim from it, so a
+    // rotation faithfully reflects the session's real elevation state (no self-asserted param).
+    const totpVerifiedAt = session.totpVerifiedAt;
     await tx.adminSession.create({
       data: {
         adminUserId: session.adminUserId,
@@ -181,6 +189,7 @@ export async function rotateAdminRefresh(
         rotationCount: newRotation,
         refreshTokenHash: newRefreshHash,
         expiresAt: new Date(Date.now() + SESSION_EXPIRY_MS),
+        totpVerifiedAt,
       },
     });
 
@@ -200,7 +209,7 @@ export async function rotateAdminRefresh(
       sub: session.adminUserId,
       scope: 'admin',
       role: resolvedRole,
-      totpVerified,
+      totpVerified: totpVerifiedAt !== null,
     });
 
     return { accessToken, refreshToken: newRefreshToken, refreshHash: newRefreshHash };
