@@ -151,5 +151,24 @@ describe('#515 — oversold + overpaid refunds both the fare and the overpay del
     // refund_out is stored as a negative (platform-float outflow); magnitude = full amount paid.
     const totalRefunded = refundOuts.reduce((s, r) => s + r.amount, BigInt(0));
     expect(totalRefunded).toBe(BigInt(-AMOUNT));
+
+    // #569 crash-window idempotency (the core money-safety property): simulate the process dying
+    // AFTER refundOut committed its ledger tx but BEFORE the obligation was marked done — force
+    // both rows back to 'pending' and re-drive. refundOut must short-circuit on the existing
+    // refund_out:<key> ledger row, so NO second refund_out appears (no double refund).
+    await prisma.refundObligation.updateMany({
+      where: { bookingId: oversoldBookingId },
+      data: { status: 'pending', attemptCount: 0, nextAttemptAt: null },
+    });
+    await processRefunds({} as never, { now: new Date() });
+    const refundOutsAfterRedrive = await prisma.ledgerEntry.count({
+      where: { bookingId: oversoldBookingId, type: 'refund_out' },
+    });
+    expect(refundOutsAfterRedrive).toBe(2); // still exactly 2 — the re-drive did not double-refund
+    // The re-driven obligations settle back to done (refundOut's alreadyDone counts as satisfied).
+    const doneAfterRedrive = await prisma.refundObligation.count({
+      where: { bookingId: oversoldBookingId, status: 'done' },
+    });
+    expect(doneAfterRedrive).toBe(2);
   });
 });
