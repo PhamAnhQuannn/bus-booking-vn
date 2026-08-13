@@ -758,6 +758,10 @@ model AdminSession {
   expiresAt        DateTime
   createdAt        DateTime  @default(now())
   revokedAt        DateTime?
+  /// #564: server-side anchor for TOTP step-up elevation. NULL = never elevated. Set when the
+  /// admin clears TOTP; PRESERVED across refresh rotation (the JWT totpVerified claim is derived
+  /// from this, so a rotation no longer silently drops elevation).
+  totpVerifiedAt   DateTime?
   admin            AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
 
   @@index([adminUserId])

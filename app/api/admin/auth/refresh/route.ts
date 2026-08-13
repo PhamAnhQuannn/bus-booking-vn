@@ -41,7 +41,9 @@ async function handler(_req: NextRequest): Promise<Response> {
 
   let result;
   try {
-    result = await rotateAdminRefresh(verified.hash, undefined, false);
+    // #564: no totpVerified arg — elevation is preserved from the AdminSession row inside
+    // rotateAdminRefresh, so a refresh no longer silently drops a TOTP-verified session.
+    result = await rotateAdminRefresh(verified.hash);
   } catch {
     // SESSION_NOT_FOUND / ADMIN_USER_NOT_FOUND / DB error
     clearCookies(cookieStore);
