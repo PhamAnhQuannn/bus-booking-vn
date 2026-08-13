@@ -116,6 +116,7 @@ test.describe('Customer login lockout', () => {
       email: TEST_EMAIL,
       otpProof: verify.otpProof,
       password: TEST_PASSWORD,
+      acceptTerms: true, // #472: register now requires explicit consent.
     });
     expect(register.status).toBe(201);
 

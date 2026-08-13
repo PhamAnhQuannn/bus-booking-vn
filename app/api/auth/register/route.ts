@@ -60,7 +60,10 @@ async function handler(req: NextRequest): Promise<Response> {
 
   let result;
   try {
-    result = await register({ email, password, displayName });
+    result = await register(
+      { email, password, displayName },
+      { ip: clientIp(req.headers), userAgent: req.headers.get('user-agent') },
+    );
   } catch (err) {
     if (err instanceof AuthServiceError && err.code === 'EMAIL_TAKEN') {
       // DS-003 §6.1 / FI-016: 409 with the AC-verbatim code EMAIL_TAKEN (FD-012 maps it to

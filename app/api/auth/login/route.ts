@@ -63,7 +63,10 @@ async function handleCustomerLogin(req: NextRequest, body: unknown): Promise<Res
 
   let result;
   try {
-    result = await login(parsed.data);
+    result = await login(parsed.data, {
+      ip: clientIp(req.headers),
+      userAgent: req.headers.get('user-agent'),
+    });
   } catch (err) {
     if (err instanceof AuthServiceError && err.code === 'INVALID_CREDENTIALS') {
       const lk = await customerLoginLockout.limit(lockoutKey);

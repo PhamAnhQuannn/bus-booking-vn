@@ -27,6 +27,9 @@ export const registerInput = z.object({
   email: emailSchema,
   password: passwordSchema,
   displayName: z.string().trim().min(2).max(100).optional(),
+  // #472 (PDPL): explicit ToS/privacy consent is mandatory to register. z.literal(true) so a
+  // missing or false value is a 400 — the account is never created without recorded consent.
+  acceptTerms: z.literal(true),
 });
 
 export const loginInput = z.object({

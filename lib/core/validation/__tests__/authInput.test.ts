@@ -26,9 +26,26 @@ describe('operatorLoginInput.username normalization (#452)', () => {
   });
 });
 
+describe('registerInput consent gate (#472)', () => {
+  it('rejects registration with no acceptTerms', () => {
+    const r = registerInput.safeParse({ email: 'a@b.co', password: 'Password1' });
+    expect(r.success).toBe(false);
+  });
+
+  it('rejects acceptTerms:false', () => {
+    const r = registerInput.safeParse({ email: 'a@b.co', password: 'Password1', acceptTerms: false });
+    expect(r.success).toBe(false);
+  });
+
+  it('accepts acceptTerms:true', () => {
+    const r = registerInput.safeParse({ email: 'a@b.co', password: 'Password1', acceptTerms: true });
+    expect(r.success).toBe(true);
+  });
+});
+
 describe('customer email normalization (case-stable account key)', () => {
   it('register lower-cases + trims the email', () => {
-    const parsed = registerInput.parse({ email: '  User@Example.COM  ', password: 'Password1' });
+    const parsed = registerInput.parse({ email: '  User@Example.COM  ', password: 'Password1', acceptTerms: true });
     expect(parsed.email).toBe('user@example.com');
   });
 

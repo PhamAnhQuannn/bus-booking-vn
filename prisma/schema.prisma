@@ -538,6 +538,25 @@ model Customer {
   accounts        Account[]
   /// Redesign v4: lịch sử hội thoại trợ lý du lịch (persist, đồng bộ đa thiết bị).
   plannerConversations PlannerConversation[]
+  /// #472: append-only ToS/privacy consent captured at registration (PDPL lawful-basis evidence).
+  customerConsents CustomerConsent[]
+}
+
+/// #472 (DS-003 / PDPL): append-only record of a customer accepting ToS / privacy at signup.
+/// Distinct from the booking-scoped ConsentRecord (that one is bookingId-bound). One row per
+/// (customer, consentType) acceptance; a new version bump writes a fresh row (history kept).
+model CustomerConsent {
+  id          String   @id @default(cuid())
+  customerId  String
+  /// Documented union: 'tos' | 'privacy'
+  consentType String
+  /// Consent text version accepted, e.g. '2026-08' (lib/auth/customerConsent.ts).
+  version     String
+  consentedAt DateTime @default(now())
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([consentType, version])
 }
 
 /// DS-033: customer↔OAuth-provider link. One row per (provider, external account).
@@ -589,6 +608,10 @@ model Session {
   expiresAt        DateTime
   createdAt        DateTime  @default(now())
   revokedAt        DateTime?
+  /// #477: login forensics / active-devices. Captured at createSession and refreshed on
+  /// each rotateRefresh (the client's current IP/UA). Both are PII → redacted in logs.
+  ip               String?
+  userAgent        String?
   customer         Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   @@index([customerId])
