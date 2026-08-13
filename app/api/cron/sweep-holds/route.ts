@@ -15,6 +15,7 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
+import { assertCronAuth } from '@/lib/core/http/cronAuth';
 import { prisma } from '@/lib/core/db/client';
 import { runJob } from '@/lib/jobs';
 import { expireHolds } from '@/lib/jobs';
@@ -24,12 +25,8 @@ export async function GET(req: NextRequest): Promise<Response> {
   const log = loggerForRequest(getOrCreateRequestId(req.headers));
 
   // Authenticate via CRON_SECRET (Vercel sets Authorization: Bearer <secret>)
-  const authHeader = req.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
-  }
+  const unauthorized = assertCronAuth(req);
+  if (unauthorized) return unauthorized;
 
   // Read HOLD_SWEEPER_MODE from process.env directly (NOT getEnv()): getEnv() runs
   // the full Zod env validation, so an unrelated missing prod secret (e.g. the

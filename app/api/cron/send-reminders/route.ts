@@ -15,17 +15,14 @@
 export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
+import { assertCronAuth } from '@/lib/core/http/cronAuth';
 import { prisma } from '@/lib/core/db/client';
 import { sendReminders } from '@/lib/jobs';
 import { logger } from '@/lib/logger';
 
 export async function GET(req: NextRequest): Promise<Response> {
-  const authHeader = req.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
-  }
+  const unauthorized = assertCronAuth(req);
+  if (unauthorized) return unauthorized;
 
   const startedAt = new Date();
 

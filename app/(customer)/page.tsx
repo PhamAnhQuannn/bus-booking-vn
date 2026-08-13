@@ -24,7 +24,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { slugify } from '@/lib/places';
 import { getActiveRoutes } from '@/lib/core/db/getActiveRoutes';
 import { getPublicOperators } from '@/lib/home';
-import { organizationLd } from '@/lib/seo';
+import { organizationLd, jsonLdHtml } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
 
@@ -334,7 +334,8 @@ async function HeroMarketingView() {
     <main className="flex flex-1 flex-col bg-[#FFFCFA]">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationLd()) }}
+        // SEC-XSS-JSONLD (#557): consistent hardened serializer for all inline JSON-LD.
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(organizationLd()) }}
       />
       {/* scroll-mt tracks the SiteHeader height (h-18 / lg:h-21) plus 8px of
           breathing room, so #search anchor jumps clear the sticky bar.

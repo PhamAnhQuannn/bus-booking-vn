@@ -14,6 +14,7 @@
 
 import { notFound } from 'next/navigation';
 import { getEnv } from '@/lib/config';
+import { assertDevPageAllowed } from '@/lib/dev/prodGuard';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { submitStubPayment } from './actions';
@@ -38,7 +39,8 @@ function formatVND(amount: number): string {
 }
 
 export default async function StubPayPage({ searchParams }: StubPayPageProps) {
-  if (process.env.NODE_ENV === 'production' || !getEnv().PAYMENTS_STUB) {
+  assertDevPageAllowed(); // SEC-DEV-STUB-PROD-SAFETY (#559): shared prod-404 guard.
+  if (!getEnv().PAYMENTS_STUB) {
     notFound();
   }
 

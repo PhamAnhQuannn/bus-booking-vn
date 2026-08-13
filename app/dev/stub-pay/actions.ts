@@ -28,6 +28,7 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getEnv } from '@/lib/config';
+import { assertDevActionAllowed } from '@/lib/dev/prodGuard';
 import { getGatewayFor, type OnlinePaymentMethod } from '@/lib/payment';
 import { buildStubIpn, type StubOutcome } from '@/lib/payment';
 import { processPaymentWebhook } from '@/lib/payment';
@@ -35,9 +36,7 @@ import { processPaymentWebhook } from '@/lib/payment';
 const STUB_ADAPTERS = new Set<OnlinePaymentMethod>(['momo', 'zalopay', 'card', 'vnpay']);
 
 export async function submitStubPayment(outcome: StubOutcome, formData: FormData): Promise<void> {
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('stub-pay disabled: not available on a production deployment');
-  }
+  assertDevActionAllowed(); // SEC-DEV-STUB-PROD-SAFETY (#559): shared prod guard.
   const env = getEnv();
   if (!env.PAYMENTS_STUB) {
     throw new Error('stub-pay disabled: PAYMENTS_STUB is off');

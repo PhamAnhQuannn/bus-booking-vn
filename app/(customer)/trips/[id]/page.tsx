@@ -14,7 +14,7 @@ import { ArrowRight, Clock, Armchair, Phone, Timer, MapPin } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getTripDetails } from '@/lib/trips';
 import { formatVnd } from '@/lib/format';
-import { busTripLd, breadcrumbLd, SITE_URL } from '@/lib/seo';
+import { busTripLd, breadcrumbLd, SITE_URL, jsonLdHtml } from '@/lib/seo';
 import { TripBooking } from './TripBooking';
 
 export const dynamic = 'force-dynamic';
@@ -102,7 +102,9 @@ export default async function TripDetailPage({
       {/* SEO: BusTrip/Offer + breadcrumb structured data for rich results. */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        // SEC-XSS-JSONLD (#557): jsonLdHtml escapes <>&/U+2028/9 so operator free-text
+        // (route names, legalName) can't break out of the inline script. Never bare JSON.stringify.
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(jsonLd) }}
       />
       <nav aria-label="breadcrumb" className="text-sm text-muted-foreground">
         <ol className="flex flex-wrap items-center gap-1.5">

@@ -5,6 +5,7 @@
  * Call getEnv() from route handlers / server modules — never from client bundles.
  */
 
+import crypto from 'crypto';
 import { z } from 'zod';
 import { DEFAULT_DATABASE_POOL_MAX } from '@/lib/core/db/poolConfig';
 import { resolveRatelimitBackend } from '@/lib/core/http/ratelimitBackend';
@@ -278,13 +279,18 @@ const envSchema = z.object({
   /**
    * HMAC-SHA256 key the storage stub uses to sign + verify its own stub
    * PUT/GET URLs so they're tamper-evident (mirrors STUB_PAYMENT_SECRET).
-   * Dev-only — never used by real S3. MUST be overridden (or unused) in
-   * production where STORAGE_STUB is false.
+   * Dev-only — never used by real S3, and the `app/dev/*` routes hard-404 in prod.
+   *
+   * SEC-DEV-STUB-PROD-SAFETY (#559): NO committed default — a git-published signing key
+   * lets anyone forge stub URLs if the stub is ever armed. When unset, default to a
+   * per-process random hex (evaluated once, since getEnv() caches). Stub PUT signs and the
+   * later GET verifies within the same dev process, so an ephemeral key round-trips fine;
+   * a shared multi-instance stub was never valid (bytes live in a per-instance Map anyway).
    */
   STORAGE_STUB_SECRET: z
     .string()
     .min(16, 'STORAGE_STUB_SECRET must be at least 16 characters')
-    .default('dev-stub-storage-secret-local-only-change-me'),
+    .default(() => crypto.randomBytes(24).toString('hex')),
 
   // ---------------------------------------------------------------------------
   // Observability — Sentry (Issue 061).
@@ -686,6 +692,19 @@ const envSchema = z.object({
           message: `${key} is required in production`,
         });
       }
+    }
+    // SEC-DEV-STUB-PROD-SAFETY (#559): storage MUST be real in production — KYB docs
+    // (bank statements, licenses) cannot live in the per-instance stub Map, and a prod
+    // deploy that forgets STORAGE_STUB=false silently loses uploads + arms the dev stub
+    // signer. Fail the boot. (PAYMENTS_STUB is intentionally NOT asserted false here: the
+    // Phase-1 config runs online-PSP stubbed with bank transfer as the real rail, and the
+    // /dev/stub-pay surface is already hard-404'd in prod by assertDevActionAllowed.)
+    if (env.STORAGE_STUB) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['STORAGE_STUB'],
+        message: 'STORAGE_STUB must be false in production (real object storage required)',
+      });
     }
     // DIRECT_URL is required in production when using real payments (non-stub).
     // It must point directly at Postgres (bypassing PgBouncer) for migrations.
