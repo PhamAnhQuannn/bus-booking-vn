@@ -9,6 +9,7 @@ export { expireHolds } from './expireHolds';
 export { generateTicketPdfs } from './generateTicketPdfs';
 export { generateTrips } from './generateTrips';
 export { processPayouts } from './processPayouts';
+export { processRefunds } from './processRefunds';
 export { reconcilePayments } from './reconcilePayments';
 export { retentionSweeper } from './retentionSweeper';
 export { runJob } from './runJob';

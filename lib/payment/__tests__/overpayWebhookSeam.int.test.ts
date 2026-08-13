@@ -23,9 +23,13 @@ vi.mock('next/server', async (importOriginal) => {
 });
 const flushAfter = async () => {
   for (const t of afterTasks.splice(0)) await t();
+  // #569: refunds are now durable RefundObligation rows driven by the process-refunds cron
+  // core, not after() tasks. Run it here so the existing ledger assertions still hold.
+  await processRefunds({} as never, { now: new Date() });
 };
 
 import { prisma } from '@/lib/core/db/client';
+import { processRefunds } from '@/lib/jobs';
 import { processPaymentWebhook, getBankTransferAdapter } from '@/lib/payment';
 import { getOperatorBalance } from '@/lib/ledger';
 import { generateBookingRef } from '@/lib/core/id';
@@ -118,6 +122,7 @@ afterAll(async () => {
     'CREATE TRIGGER "ledger_entry_no_delete" BEFORE DELETE ON "LedgerEntry" FOR EACH ROW EXECUTE FUNCTION "ledger_entry_immutable"()'
   );
   await prisma.paymentEvent.deleteMany({ where: { bookingId: { in: ids } } });
+  await prisma.refundObligation.deleteMany({ where: { bookingId: { in: ids } } });
   await prisma.notificationLog.deleteMany({ where: { bookingId: { in: ids } } });
   await prisma.booking.deleteMany({ where: { id: { in: ids } } });
   await prisma.trip.deleteMany({ where: { routeId } });
@@ -136,7 +141,8 @@ describe('P0-3 seam — overpay via the real webhook does not debit the operator
       adapter: 'bank_transfer', proto: 'https', host: 'test.invalid',
     });
     expect(res.status).toBe(200);
-    expect(afterTasks.length).toBe(1); // overpay refund captured, not yet run
+    // #569: the overpay refund is enqueued as a durable RefundObligation (in-tx), not an after() task.
+    expect(await prisma.refundObligation.count({ where: { bookingId } })).toBe(1);
     await flushAfter();
 
     const booking = await prisma.booking.findUnique({ where: { id: bookingId }, select: { status: true } });
@@ -166,7 +172,8 @@ describe('P0-3 seam — overpay via the real webhook does not debit the operator
       adapter: 'bank_transfer', proto: 'https', host: 'test.invalid',
     });
     expect(res.status).toBe(200);
-    expect(afterTasks.length).toBe(0); // no overpay, no oversold → no scheduled refund
+    // no overpay, no oversold → no refund obligation enqueued
+    expect(await prisma.refundObligation.count({ where: { bookingId: exactBookingId } })).toBe(0);
 
     const refundOutRows = await prisma.ledgerEntry.count({ where: { bookingId: exactBookingId, type: 'refund_out' } });
     const refundDebit = await prisma.ledgerEntry.count({ where: { bookingId: exactBookingId, type: 'refund_debit' } });

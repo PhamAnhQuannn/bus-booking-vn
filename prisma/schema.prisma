@@ -464,6 +464,32 @@ model PaymentEvent {
   @@index([bookingId])
 }
 
+/// #569 (SEC-REFUND-DURABILITY): durable outbox for refund-outs. Overpay/oversold refunds used to
+/// run best-effort in `after()` after the paid tx — if the instance died or refundOut threw, the
+/// rider's money was silently kept with only a log line. The obligation is now enqueued INSIDE the
+/// paid transaction (durable by construction) and driven by the process-refunds cron with backoff.
+/// `idempotencyKey` is the same `overpay:`/`oversold:<bookingId>:<providerTxnId>` refundOut key, so
+/// enqueue is idempotent under replayed IPNs; refundOut itself is also ledger-idempotent.
+model RefundObligation {
+  id             String    @id @default(cuid())
+  bookingId      String    @db.Uuid
+  /// VND minor units (Int, matches Booking.totalVnd). Passed to refundOut as-is.
+  amountMinor    Int
+  /// refundOut RefundReason: 'overpay_difference' | 'oversold_race'.
+  reason         String
+  /// Unique = idempotent enqueue: a replayed paid IPN cannot create a second obligation.
+  idempotencyKey String    @unique
+  providerTxnId  String
+  /// 'pending' | 'done' | 'failed'. `failed` rows are reclaimed until attemptCount hits the cap.
+  status         String    @default("pending")
+  attemptCount   Int       @default(0)
+  nextAttemptAt  DateTime?
+  lastError      String?
+  createdAt      DateTime  @default(now())
+
+  @@index([status, nextAttemptAt])
+}
+
 model NotificationLog {
   id            String              @id @default(cuid())
   bookingId     String?             @db.Uuid

@@ -41,7 +41,7 @@
  */
 
 import 'server-only';
-import { NextResponse, after } from 'next/server';
+import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/core/db/client';
 import { createNotificationLog } from '@/lib/core/db/notificationLogRepo';
@@ -51,7 +51,6 @@ import { captureException } from '@/lib/observability';
 import { track, sessionIdForBooking } from '@/lib/analytics';
 import type { PaymentGateway } from './gateway';
 import { legalPredecessors } from '@/lib/core/booking';
-import { refundOut } from './refundOut';
 import {
   applyPaidStatusTransition,
   appendBookingPaidLedger,
@@ -66,20 +65,6 @@ export interface ProcessPaymentWebhookInput {
   proto: string;
   /** host header (for building the confirmation URL in SMS). */
   host: string;
-}
-
-/** Issue 051: captured overpay info, refunded post-commit in after(). */
-interface OverpayRefund {
-  bookingId: string;
-  overpayVnd: number;
-  providerTxnId: string;
-}
-
-/** Issue 100: oversold booking — paid then immediately refunded inside the tx. */
-interface OversoldRefund {
-  bookingId: string;
-  totalVnd: number;
-  providerTxnId: string;
 }
 
 function formatDepartureForSms(d: Date): string {
@@ -208,12 +193,8 @@ export async function processPaymentWebhook(
   }
 
   let paidBookingId: string | null = null;
-  // Issue 051: overpay refund-out captured here, executed AFTER the paid tx
-  // commits (refundOut opens its own tx + reads the committed paid state).
-  const overpayRefundBox: { value: OverpayRefund | null } = { value: null };
-  // Issue 100: oversold refund-out captured here, executed AFTER the paid tx
-  // commits. The booking is already in `refunded` state at that point.
-  const oversoldRefundBox: { value: OversoldRefund | null } = { value: null };
+  // #569: overpay + oversold refund-outs are enqueued as durable RefundObligation rows
+  // inside the paid tx below (was a captured box + best-effort after()).
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -316,11 +297,18 @@ export async function processPaymentWebhook(
           // refunds must run for the rider to get back the full `amount` they paid.
           // Previously `&& !refundTriggered` skipped this, silently keeping the delta.
           if (amount > booking.totalVnd) {
-            overpayRefundBox.value = {
-              bookingId: booking.id,
-              overpayVnd: amount - booking.totalVnd,
-              providerTxnId,
-            };
+            // #569: enqueue the overpay refund-out durably INSIDE the paid tx (was a
+            // best-effort after()). Commits with the paid transition; the process-refunds
+            // cron drives it. idempotencyKey unique → no double-enqueue on a replayed IPN.
+            await tx.refundObligation.create({
+              data: {
+                bookingId: booking.id,
+                amountMinor: amount - booking.totalVnd,
+                reason: 'overpay_difference',
+                idempotencyKey: `overpay:${booking.id}:${providerTxnId}`,
+                providerTxnId,
+              },
+            });
           }
 
           // ── Issue 049: ledger entries at booking-paid ───────────────────
@@ -358,11 +346,16 @@ export async function processPaymentWebhook(
           // in the DB. Capture the refund details for the post-commit after().
           // Skip paid notifications — the booking was never durably paid.
           if (refundTriggered) {
-            oversoldRefundBox.value = {
-              bookingId: booking.id,
-              totalVnd: booking.totalVnd,
-              providerTxnId,
-            };
+            // #569: enqueue the oversold full-fare refund-out durably in-tx (was after()).
+            await tx.refundObligation.create({
+              data: {
+                bookingId: booking.id,
+                amountMinor: booking.totalVnd,
+                reason: 'oversold_race',
+                idempotencyKey: `oversold:${booking.id}:${providerTxnId}`,
+                providerTxnId,
+              },
+            });
           } else {
             const operator = booking.trip.bus.operator;
             const operatorRecipient = operator.notificationPhone ?? operator.contactPhone;
@@ -503,53 +496,10 @@ export async function processPaymentWebhook(
     );
   }
 
-  // Issue 051: refund the overpay difference AFTER the paid tx committed. In
-  // after() so it never blocks the 200 IPN ack and never runs inside the status
-  // tx (refundOut opens its own tx and reads the committed paid booking).
-  // Best-effort + logged: a refund failure must not fail the webhook (the paid
-  // transition already succeeded). Idempotency key is tied to the overpay event
-  // (`overpay:<bookingId>:<providerTxnId>`), distinct from the inbound payment.
-  if (overpayRefundBox.value) {
-    const ovr = overpayRefundBox.value;
-    after(async () => {
-      try {
-        await refundOut({
-          bookingId: ovr.bookingId,
-          amountMinor: ovr.overpayVnd,
-          reason: 'overpay_difference',
-          idempotencyKey: `overpay:${ovr.bookingId}:${ovr.providerTxnId}`,
-        });
-      } catch (refundErr) {
-        logger.error(
-          { err: refundErr, adapter, bookingRef, bookingId: ovr.bookingId },
-          'payment.webhook.overpay_refund.error — booking stays paid, refund needs retry'
-        );
-      }
-    });
-  }
-
-  // Issue 100: refund the full fare AFTER the paid tx committed for oversold
-  // bookings. The booking is already in `refunded` state in the DB. Best-effort
-  // + logged: a ledger failure must not fail the webhook IPN ack.
-  // Idempotency key: `oversold:<bookingId>:<providerTxnId>`.
-  if (oversoldRefundBox.value) {
-    const ovs = oversoldRefundBox.value;
-    after(async () => {
-      try {
-        await refundOut({
-          bookingId: ovs.bookingId,
-          amountMinor: ovs.totalVnd,
-          reason: 'oversold_race',
-          idempotencyKey: `oversold:${ovs.bookingId}:${ovs.providerTxnId}`,
-        });
-      } catch (refundErr) {
-        logger.error(
-          { err: refundErr, adapter, bookingRef, bookingId: ovs.bookingId },
-          'payment.webhook.oversold_refund.error — booking refunded, ledger entries need retry'
-        );
-      }
-    });
-  }
+  // #569: overpay (Issue 051) + oversold (Issue 100) refund-outs are no longer fired
+  // best-effort in after(). They are enqueued as durable RefundObligation rows INSIDE the
+  // paid transaction above (committing atomically with the paid/refunded transition) and
+  // driven by the process-refunds cron with backoff. refundOut stays ledger-idempotent.
 
   // Issue 058: notifications are NOT dispatched in-process here anymore. The two
   // NotificationLog rows above are enqueued status='pending'; the

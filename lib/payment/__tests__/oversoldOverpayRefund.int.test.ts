@@ -23,9 +23,14 @@ vi.mock('next/server', async (importOriginal) => {
   const actual = await importOriginal<typeof import('next/server')>();
   return { ...actual, after: (task: () => Promise<unknown>) => { afterTasks.push(task); } };
 });
-const flushAfter = async () => { for (const t of afterTasks.splice(0)) await t(); };
+const flushAfter = async () => {
+  for (const t of afterTasks.splice(0)) await t();
+  // #569: refunds are now durable RefundObligation rows driven by the process-refunds cron core.
+  await processRefunds({} as never, { now: new Date() });
+};
 
 import { prisma } from '@/lib/core/db/client';
+import { processRefunds } from '@/lib/jobs';
 import { processPaymentWebhook, getBankTransferAdapter } from '@/lib/payment';
 import { generateBookingRef } from '@/lib/core/id';
 
@@ -104,6 +109,7 @@ afterAll(async () => {
     'CREATE TRIGGER "ledger_entry_no_delete" BEFORE DELETE ON "LedgerEntry" FOR EACH ROW EXECUTE FUNCTION "ledger_entry_immutable"()'
   );
   await prisma.paymentEvent.deleteMany({ where: { bookingId: { in: ids } } });
+  await prisma.refundObligation.deleteMany({ where: { bookingId: { in: ids } } });
   await prisma.notificationLog.deleteMany({ where: { bookingId: { in: ids } } });
   await prisma.booking.deleteMany({ where: { id: { in: ids } } });
   await prisma.trip.deleteMany({ where: { routeId } });
@@ -122,8 +128,9 @@ describe('#515 — oversold + overpaid refunds both the fare and the overpay del
       adapter: 'bank_transfer', proto: 'https', host: 'test.invalid',
     });
     expect(res.status).toBe(200);
-    // FIX: BOTH the oversold refund AND the overpay refund are captured (was 1 before).
-    expect(afterTasks.length).toBe(2);
+    // #569: BOTH refunds (oversold fare clawback + overpay delta) are enqueued as durable
+    // RefundObligation rows in-tx (was 2 after() tasks before).
+    expect(await prisma.refundObligation.count({ where: { bookingId: oversoldBookingId } })).toBe(2);
     await flushAfter();
 
     const booking = await prisma.booking.findUnique({ where: { id: oversoldBookingId }, select: { status: true } });
@@ -144,5 +151,24 @@ describe('#515 — oversold + overpaid refunds both the fare and the overpay del
     // refund_out is stored as a negative (platform-float outflow); magnitude = full amount paid.
     const totalRefunded = refundOuts.reduce((s, r) => s + r.amount, BigInt(0));
     expect(totalRefunded).toBe(BigInt(-AMOUNT));
+
+    // #569 crash-window idempotency (the core money-safety property): simulate the process dying
+    // AFTER refundOut committed its ledger tx but BEFORE the obligation was marked done — force
+    // both rows back to 'pending' and re-drive. refundOut must short-circuit on the existing
+    // refund_out:<key> ledger row, so NO second refund_out appears (no double refund).
+    await prisma.refundObligation.updateMany({
+      where: { bookingId: oversoldBookingId },
+      data: { status: 'pending', attemptCount: 0, nextAttemptAt: null },
+    });
+    await processRefunds({} as never, { now: new Date() });
+    const refundOutsAfterRedrive = await prisma.ledgerEntry.count({
+      where: { bookingId: oversoldBookingId, type: 'refund_out' },
+    });
+    expect(refundOutsAfterRedrive).toBe(2); // still exactly 2 — the re-drive did not double-refund
+    // The re-driven obligations settle back to done (refundOut's alreadyDone counts as satisfied).
+    const doneAfterRedrive = await prisma.refundObligation.count({
+      where: { bookingId: oversoldBookingId, status: 'done' },
+    });
+    expect(doneAfterRedrive).toBe(2);
   });
 });

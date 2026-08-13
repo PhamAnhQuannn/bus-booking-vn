@@ -24,9 +24,14 @@ vi.mock('next/server', async (importOriginal) => {
   const actual = await importOriginal<typeof import('next/server')>();
   return { ...actual, after: (task: () => Promise<unknown>) => { afterTasks.push(task); } };
 });
-const flushAfter = async () => { for (const t of afterTasks.splice(0)) await t(); };
+const flushAfter = async () => {
+  for (const t of afterTasks.splice(0)) await t();
+  // #569: refunds are now durable RefundObligation rows driven by the process-refunds cron core.
+  await processRefunds({} as never, { now: new Date() });
+};
 
 import { prisma } from '@/lib/core/db/client';
+import { processRefunds } from '@/lib/jobs';
 import { processPaymentWebhook, getBankTransferAdapter } from '@/lib/payment';
 import { generateBookingRef } from '@/lib/core/id';
 
@@ -106,6 +111,7 @@ afterAll(async () => {
     'CREATE TRIGGER "ledger_entry_no_delete" BEFORE DELETE ON "LedgerEntry" FOR EACH ROW EXECUTE FUNCTION "ledger_entry_immutable"()'
   );
   await prisma.paymentEvent.deleteMany({ where: { bookingId: { in: ids } } });
+  await prisma.refundObligation.deleteMany({ where: { bookingId: { in: ids } } });
   await prisma.notificationLog.deleteMany({ where: { bookingId: { in: ids } } });
   await prisma.booking.deleteMany({ where: { id: { in: ids } } });
   await prisma.trip.deleteMany({ where: { routeId } });
@@ -124,7 +130,8 @@ describe('A-5 — oversold refund leaves the operator net zero (no fee penalty)'
       adapter: 'bank_transfer', proto: 'https', host: 'test.invalid',
     });
     expect(res.status).toBe(200);
-    expect(afterTasks.length).toBe(1); // oversold refund captured
+    // #569: the oversold refund is enqueued as a durable RefundObligation (in-tx), not an after() task.
+    expect(await prisma.refundObligation.count({ where: { bookingId: oversoldBookingId } })).toBe(1);
     await flushAfter();
 
     const booking = await prisma.booking.findUnique({ where: { id: oversoldBookingId }, select: { status: true } });
