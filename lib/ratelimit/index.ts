@@ -484,6 +484,25 @@ export const plannerChatRatelimit = createRatelimit({ limit: 10, windowMs: 60_00
 export const plannerChatAnonRatelimit = createRatelimit({ limit: 3, windowMs: 60_000 });
 
 /**
+ * Per-IP DAILY sub-cap on Gemini chat: 50 turns/day/IP. Keyed `planner-gemini-ip:<ip>`.
+ *
+ * The per-session limiter (plannerChatRatelimit) is keyed on bb_sid, an UNSIGNED,
+ * attacker-mintable cookie (#547): a script that sends a fresh random bb_sid per request
+ * always lands in a brand-new empty per-minute bucket, defeating that throttle, and can then
+ * drain the whole 1000/day global budget from one IP in ~17 min → every other user gets 429
+ * for the rest of the window (self-inflicted DoS; once billing is on, a spend vector). This
+ * bucket caps any single IP at 50/day regardless of how many bb_sids it rotates, so no one IP
+ * can eat 100% of the global budget. It does NOT close the root (signing bb_sid, which also
+ * fixes #391, is the real fix — tracked separately); it bounds the blast radius surgically.
+ *
+ * IP-keyed, so like holdsAnonRatelimit it inherits the #359 CGNAT caveat: many real Vietnamese
+ * users share one carrier egress IP. 50 free-text turns/day is generous for a real human (chip
+ * flows are $0 and never hit this route), so a shared egress is unlikely to reach it; tune up if
+ * it ever bites real traffic.
+ */
+export const plannerChatDailyPerIp = createRatelimit({ limit: 50, windowMs: 24 * 60 * 60_000 });
+
+/**
  * GLOBAL daily budget cap for Gemini calls, shared across ALL callers. Keyed on the
  * constant `planner-gemini:global` so every planner-chat turn consumes from ONE bucket.
  *
@@ -494,10 +513,17 @@ export const plannerChatAnonRatelimit = createRatelimit({ limit: 3, windowMs: 60
  * tier a controlled 429 rather than a surprise bill. Raise/disable via
  * PLANNER_GEMINI_DAILY_MAX once paid billing + a real budget are in place.
  *
- * Fails OPEN (default) — a Redis blip must not take the assistant down; the per-turn
- * limiters and Gemini's own quota remain as backstops.
+ * Fails CLOSED (#548) — the OPPOSITE of the throttles above, on purpose. This bucket is the
+ * only control sized to protect the shared Gemini quota/spend; failing open would make it
+ * VANISH during a Redis outage (not degrade — disappear), leaving only per-call
+ * MAX_OUTPUT_TOKENS, i.e. unbounded calls up to the account ceiling and, once billing is on,
+ * unbounded spend for the outage's duration. The trade is that the assistant returns 429 while
+ * Redis is down — acceptable: bookings/payments ride the fail-OPEN `ratelimit` and are
+ * unaffected, and the alternative is an uncapped paid surface. The per-session/anon limiters
+ * stay fail-open (they are throttles, not the cost backstop).
  */
 export const plannerDailyBudget = createRatelimit({
   limit: Number(process.env.PLANNER_GEMINI_DAILY_MAX) || 1000,
   windowMs: 24 * 60 * 60_000,
+  failClosed: true,
 });
