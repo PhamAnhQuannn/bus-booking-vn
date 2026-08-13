@@ -140,6 +140,11 @@ jobs:
         env:
           PGPASSWORD: bbvn_dev_password
 
+      - name: Ensure Postgres extensions
+        run: psql "$DATABASE_URL" -c "CREATE EXTENSION IF NOT EXISTS unaccent; CREATE EXTENSION IF NOT EXISTS pg_trgm;"
+        env:
+          PGPASSWORD: bbvn_dev_password
+
       - name: Run migrations
         run: pnpm prisma migrate deploy
 
@@ -211,6 +216,11 @@ jobs:
 
       - name: Generate Prisma Client
         run: pnpm prisma generate
+
+      - name: Ensure Postgres extensions
+        run: psql "$DATABASE_URL" -c "CREATE EXTENSION IF NOT EXISTS unaccent; CREATE EXTENSION IF NOT EXISTS pg_trgm;"
+        env:
+          PGPASSWORD: bbvn_dev_password
 
       - name: Run migrations
         run: pnpm prisma migrate deploy
@@ -292,6 +302,11 @@ jobs:
 
       - name: Generate Prisma Client
         run: pnpm prisma generate
+
+      - name: Ensure Postgres extensions
+        run: psql "$DATABASE_URL" -c "CREATE EXTENSION IF NOT EXISTS unaccent; CREATE EXTENSION IF NOT EXISTS pg_trgm;"
+        env:
+          PGPASSWORD: bbvn_dev_password
 
       - name: Run migrations
         run: pnpm prisma migrate deploy
