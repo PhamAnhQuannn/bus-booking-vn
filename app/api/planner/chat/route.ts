@@ -30,17 +30,29 @@ import {
 import {
   plannerChatRatelimit,
   plannerChatAnonRatelimit,
+  plannerChatDailyPerIp,
   plannerDailyBudget,
 } from '@/lib/ratelimit';
 import { clientIp } from '@/lib/core/http/clientIp';
 import { sessionIdFromRequest } from '@/lib/analytics';
 import { captureException } from '@/lib/observability';
+import { getEnv } from '@/lib/config';
+import { logger } from '@/lib/logger';
 
 function sse(event: string, data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
 export async function POST(req: NextRequest): Promise<Response> {
+  // Runtime kill-switch (#549): shut off the paid Gemini chat instantly during a cost/abuse
+  // incident without unsetting GEMINI_API_KEY + redeploying. 503 before any work or body parse.
+  if (!getEnv().PLANNER_CHAT_ENABLED) {
+    return new Response(JSON.stringify({ error: 'PLANNER_CHAT_DISABLED' }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json', 'Retry-After': '3600' },
+    });
+  }
+
   const body = (await req.json().catch(() => null)) as { history?: unknown } | null;
   const raw = Array.isArray(body?.history) ? body.history : [];
   const history: ChatTurn[] = raw
@@ -68,15 +80,41 @@ export async function POST(req: NextRequest): Promise<Response> {
   // Rate-limit BEFORE the (paid, uncapped) Gemini call. The generic 60/min/IP edge
   // limit in proxy.ts is too loose for an LLM stream — tighten per session, then check
   // the global daily Gemini budget so no single caller can exhaust the free-tier quota.
+  const ip = clientIp(req.headers);
   const sessionId = sessionIdFromRequest(req);
   const rl = sessionId
     ? await plannerChatRatelimit.limit(`planner-chat:${sessionId}`)
-    : await plannerChatAnonRatelimit.limit(`planner-chat-anon:${clientIp(req.headers)}`);
-  const budget = rl.allowed
+    : await plannerChatAnonRatelimit.limit(`planner-chat-anon:${ip}`);
+  // Per-IP DAILY sub-cap (#547) — bb_sid is attacker-mintable, so the per-session throttle
+  // above can be rotated away; this caps any single IP at 50/day so no one IP drains the whole
+  // global budget. Checked before the global bucket so a drained IP doesn't consume it.
+  const perIp = rl.allowed
+    ? await plannerChatDailyPerIp.limit(`planner-gemini-ip:${ip}`)
+    : null;
+  const budget = rl.allowed && perIp?.allowed
     ? await plannerDailyBudget.limit('planner-gemini:global')
     : null;
-  if (!rl.allowed || (budget && !budget.allowed)) {
-    const retryAfter = (budget && !budget.allowed ? budget.retryAfter : rl.retryAfter);
+  if (!rl.allowed || (perIp && !perIp.allowed) || (budget && !budget.allowed)) {
+    // Which bucket denied — a distinct line for the GLOBAL budget so quota exhaustion is
+    // greppable/alertable, vs the per-session/IP throttles which just mean one caller is noisy.
+    const denier = budget && !budget.allowed
+      ? 'global-budget'
+      : perIp && !perIp.allowed
+        ? 'per-ip-daily'
+        : sessionId
+          ? 'session'
+          : 'anon-ip';
+    const retryAfter = budget && !budget.allowed
+      ? budget.retryAfter
+      : perIp && !perIp.allowed
+        ? perIp.retryAfter
+        : rl.retryAfter;
+    logger.warn(
+      { denier, retryAfter, ip },
+      denier === 'global-budget'
+        ? 'planner.chat.denied.budget_exhausted'
+        : 'planner.chat.denied.rate_limited',
+    );
     return new Response(JSON.stringify({ error: 'TOO_MANY_REQUESTS' }), {
       status: 429,
       headers: {
