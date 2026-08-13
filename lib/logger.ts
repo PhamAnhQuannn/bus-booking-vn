@@ -139,6 +139,11 @@ export const loggerOptions: LoggerOptions = {
       '*.sub',
       'providerAccountId',
       '*.providerAccountId',
+      // #477: Session.userAgent — client UA captured for active-devices. PII (fingerprintable);
+      // never logged today, redact so an accidentally-logged Session object can't leak it. IP is
+      // deliberately NOT globally redacted here — rate-limit forensics log `ip` on purpose.
+      'userAgent',
+      '*.userAgent',
     ],
     censor: '[REDACTED]',
   },

@@ -18,6 +18,10 @@ const { mockPrisma, mockSession, mockConsume, mockHashPassword, mockVerifyPasswo
       // needed by backfillGuestBookingsForCustomer inside register $transaction
       updateMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
+    // #472: recordRegistrationConsent writes two rows inside the register $transaction.
+    customerConsent: {
+      createMany: vi.fn().mockResolvedValue({ count: 2 }),
+    },
     // Transaction: execute the callback with the same mock object (so customer.create mock is used)
     $transaction: vi.fn(),
   };
@@ -91,6 +95,26 @@ describe('authService.register', () => {
     const result = await register({ email: 'test@example.com', password: 'Password1' });
     expect(result.accessToken).toBe('mock-access-token');
     expect(result.customer.email).toBe(CUSTOMER_STUB.email);
+  });
+
+  it('records ToS + privacy consent rows in the register transaction (#472)', async () => {
+    mockPrisma.customer.create.mockResolvedValue(CUSTOMER_STUB);
+    await register({ email: 'test@example.com', password: 'Password1' });
+    expect(mockPrisma.customerConsent.createMany).toHaveBeenCalledWith({
+      data: [
+        { customerId: CUSTOMER_STUB.id, consentType: 'tos', version: expect.any(String) },
+        { customerId: CUSTOMER_STUB.id, consentType: 'privacy', version: expect.any(String) },
+      ],
+    });
+  });
+
+  it('forwards the session context (ip/userAgent) to createSession (#477)', async () => {
+    mockPrisma.customer.create.mockResolvedValue(CUSTOMER_STUB);
+    await register({ email: 'test@example.com', password: 'Password1' }, { ip: '203.0.113.5', userAgent: 'UA/1' });
+    expect(mockSession.createSession).toHaveBeenCalledWith(
+      CUSTOMER_STUB.id,
+      { ip: '203.0.113.5', userAgent: 'UA/1' },
+    );
   });
 
   it('lowercases email before create', async () => {

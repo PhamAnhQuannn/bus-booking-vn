@@ -9,11 +9,12 @@ import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import { consume } from './otp';
 import { hash as hashPassword, verify as verifyPassword, dummyVerify, needsRehash } from './password';
-import { createSession, rotateRefresh, revokeSession } from './session';
+import { createSession, rotateRefresh, revokeSession, type SessionContext } from './session';
 import { verify as verifyRefreshToken } from './refreshToken';
 import { backfillGuestBookingsByEmail } from '@/lib/booking';
 import { asProvenEmail } from '@/lib/core/validation/provenEmail';
 import { checkCustomerActive } from './assertCustomerActive';
+import { recordRegistrationConsent } from './customerConsent';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -64,7 +65,7 @@ export class AuthServiceError extends Error {
 // register
 // ---------------------------------------------------------------------------
 
-export async function register(input: RegisterInput): Promise<AuthResult> {
+export async function register(input: RegisterInput, ctx: SessionContext = {}): Promise<AuthResult> {
   const email = input.email.trim().toLowerCase();
   const passwordHash = await hashPassword(input.password);
 
@@ -83,6 +84,9 @@ export async function register(input: RegisterInput): Promise<AuthResult> {
         },
         select: { id: true, email: true, displayName: true },
       });
+      // #472: capture ToS/privacy consent atomically with the Customer row. The register
+      // route rejects the request unless acceptTerms === true, so consent is given here.
+      await recordRegistrationConsent(tx, created.id);
       if (created.email) {
         // Email ownership was proven upstream (the register route validates an OTP
         // proof matching this email), so it is safe to brand as ProvenEmail (P22).
@@ -97,7 +101,7 @@ export async function register(input: RegisterInput): Promise<AuthResult> {
     throw err;
   }
 
-  const session = await createSession(customer.id, null);
+  const session = await createSession(customer.id, ctx);
   await prisma.customer.update({
     where: { id: customer.id },
     data: { lastLoginAt: new Date() },
@@ -116,7 +120,7 @@ export async function register(input: RegisterInput): Promise<AuthResult> {
 // login
 // ---------------------------------------------------------------------------
 
-export async function login(input: LoginInput): Promise<AuthResult> {
+export async function login(input: LoginInput, ctx: SessionContext = {}): Promise<AuthResult> {
   const email = input.email.trim().toLowerCase();
 
   const customer = await prisma.customer.findFirst({
@@ -143,7 +147,7 @@ export async function login(input: LoginInput): Promise<AuthResult> {
     throw new AuthServiceError('INVALID_CREDENTIALS');
   }
 
-  const session = await createSession(customer.id, null);
+  const session = await createSession(customer.id, ctx);
 
   // Rehash-on-verify (P19): upgrade a legacy scrypt hash to argon2id on a successful
   // login. Best-effort — never block login if the upgrade or its write fails. Only
@@ -194,9 +198,10 @@ export async function login(input: LoginInput): Promise<AuthResult> {
  * the access token is re-minted via /api/auth/refresh on landing (a 302 has no body).
  */
 export async function createCustomerSession(
-  customerId: string
+  customerId: string,
+  ctx: SessionContext = {}
 ): Promise<{ accessToken: string; refreshToken: string; refreshHash: string; csrf: string }> {
-  const session = await createSession(customerId, null);
+  const session = await createSession(customerId, ctx);
   await prisma.customer.update({
     where: { id: customerId },
     data: { lastLoginAt: new Date() },
@@ -227,7 +232,7 @@ export async function verifyOtp(rawEmail: string, code: string): Promise<VerifyO
 // refresh
 // ---------------------------------------------------------------------------
 
-export async function refresh(rawToken: string): Promise<{
+export async function refresh(rawToken: string, ctx: SessionContext = {}): Promise<{
   accessToken: string;
   refreshToken: string;
   refreshHash: string;
@@ -240,7 +245,7 @@ export async function refresh(rawToken: string): Promise<{
 
   let result: Awaited<ReturnType<typeof rotateRefresh>>;
   try {
-    result = await rotateRefresh(verified.hash, null);
+    result = await rotateRefresh(verified.hash, ctx);
   } catch (err) {
     if (err instanceof Error && err.message === 'SESSION_NOT_FOUND') {
       throw new AuthServiceError('SESSION_NOT_FOUND');

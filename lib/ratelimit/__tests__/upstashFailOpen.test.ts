@@ -157,10 +157,12 @@ describe('UpstashRatelimit.limit — fails CLOSED when opted in', () => {
   });
 });
 
-describe('the three account lockouts are wired fail-closed', () => {
-  it('adminLoginLockout / opLoginLockout / adminTotpLockout deny on store failure', async () => {
+describe('security controls are wired fail-closed', () => {
+  it('the three account lockouts + the planner budget deny on store failure', async () => {
     // Guards the WIRING, not just the class: the failClosed option is useless if a
-    // lockout is declared without it, and that is a one-word omission away.
+    // limiter is declared without it, and that is a one-word omission away.
+    // plannerDailyBudget (#548) is the cost backstop for the shared Gemini quota — it must
+    // vanish-safe (429), not vanish, during a Redis outage, or the paid surface is uncapped.
     process.env.REDIS_PROVIDER = 'upstash';
     vi.resetModules();
     const mod = await import('../index');
@@ -170,13 +172,20 @@ describe('the three account lockouts are wired fail-closed', () => {
       ['adminLoginLockout', mod.adminLoginLockout],
       ['opLoginLockout', mod.opLoginLockout],
       ['adminTotpLockout', mod.adminTotpLockout],
+      ['plannerDailyBudget', mod.plannerDailyBudget],
     ] as const) {
       const result = await rl.limit(`${name}:victim`);
       expect(result.allowed, `${name} must fail closed`).toBe(false);
     }
 
-    // Contrast: the generic edge throttle on the same backend still fails OPEN.
+    // Contrast: the generic edge throttle AND the planner per-turn/per-IP throttles stay
+    // fail-OPEN on the same backend — they are throttles, not the cost backstop, so a Redis
+    // blip must not take the assistant (or the site) down.
     const generic = await mod.ratelimit.limit('203.0.113.7');
     expect(generic.allowed).toBe(true);
+    const perIp = await mod.plannerChatDailyPerIp.limit('planner-gemini-ip:203.0.113.7');
+    expect(perIp.allowed).toBe(true);
+    const perSession = await mod.plannerChatRatelimit.limit('planner-chat:sess');
+    expect(perSession.allowed).toBe(true);
   });
 });

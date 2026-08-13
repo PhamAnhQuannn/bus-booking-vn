@@ -47,11 +47,11 @@ afterAll(async () => {
 describe('rotateRefresh hardening', () => {
   it('#463 concurrent double-refresh does not fork the family (exactly one rotation succeeds)', async () => {
     const customerId = await seedCustomer();
-    const { refreshHash, family } = await createSession(customerId, null);
+    const { refreshHash, family } = await createSession(customerId);
 
     const [a, b] = await Promise.allSettled([
-      rotateRefresh(refreshHash, null),
-      rotateRefresh(refreshHash, null),
+      rotateRefresh(refreshHash),
+      rotateRefresh(refreshHash),
     ]);
 
     const outcomes = [a, b].map((r) =>
@@ -69,9 +69,9 @@ describe('rotateRefresh hardening', () => {
 
   it('#464 a suspended customer cannot rotate — inactive sentinel + family revoked', async () => {
     const customerId = await seedCustomer({ suspendedAt: new Date() });
-    const { refreshHash, family } = await createSession(customerId, null);
+    const { refreshHash, family } = await createSession(customerId);
 
-    const result = await rotateRefresh(refreshHash, null);
+    const result = await rotateRefresh(refreshHash);
     expect('inactive' in result).toBe(true);
 
     const live = await prisma.session.count({ where: { tokenFamily: family, revokedAt: null } });
@@ -80,19 +80,19 @@ describe('rotateRefresh hardening', () => {
 
   it('#464 a deleted customer cannot rotate', async () => {
     const customerId = await seedCustomer({ deletedAt: new Date() });
-    const { refreshHash } = await createSession(customerId, null);
-    const result = await rotateRefresh(refreshHash, null);
+    const { refreshHash } = await createSession(customerId);
+    const result = await rotateRefresh(refreshHash);
     expect('inactive' in result).toBe(true);
   });
 
   it('#476 an expired session cannot rotate', async () => {
     const customerId = await seedCustomer();
-    const { refreshHash } = await createSession(customerId, null);
+    const { refreshHash } = await createSession(customerId);
     // Force the session past its expiry.
     await prisma.session.updateMany({
       where: { refreshTokenHash: refreshHash },
       data: { expiresAt: new Date(Date.now() - 60_000) },
     });
-    await expect(rotateRefresh(refreshHash, null)).rejects.toThrow();
+    await expect(rotateRefresh(refreshHash)).rejects.toThrow();
   });
 });

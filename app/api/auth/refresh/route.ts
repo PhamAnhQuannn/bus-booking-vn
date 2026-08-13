@@ -11,10 +11,11 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { refresh, AuthServiceError } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
+import { clientIp } from '@/lib/core/http/clientIp';
 
 const REFRESH_COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days
 
-async function handler(_req: NextRequest): Promise<Response> {
+async function handler(req: NextRequest): Promise<Response> {
   const cookieStore = await cookies();
   const rt = cookieStore.get('bb_rt')?.value;
 
@@ -24,7 +25,9 @@ async function handler(_req: NextRequest): Promise<Response> {
 
   let result;
   try {
-    result = await refresh(rt);
+    // Refresh the stored IP/UA to the client's current values (#477) so active-devices
+    // reflects where the session is being used now, not only where it was first minted.
+    result = await refresh(rt, { ip: clientIp(req.headers), userAgent: req.headers.get('user-agent') });
   } catch (err) {
     if (err instanceof AuthServiceError) {
       if (err.code === 'SESSION_REUSE') {

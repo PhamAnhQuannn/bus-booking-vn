@@ -23,7 +23,7 @@ vi.mock('@/lib/notification', () => ({
   stashTestOtp: mockStash,
   logNotificationDispatchFailure: mockLogFail,
 }));
-vi.mock('@/lib/ratelimit', () => ({ createRatelimit: () => ({ limit: mockLimit }) }));
+vi.mock('@/lib/ratelimit', () => ({ otpSendRatelimit: { limit: mockLimit } }));
 vi.mock('@/lib/core/db/client', () => ({
   prisma: { $executeRaw: mockExecuteRaw, $queryRaw: mockQueryRaw },
 }));

@@ -8,3 +8,4 @@ export { sendCustomerAccountOtp, verifyCustomerAccountOtp } from './customerOtp'
 export { forgotPassword } from './forgotPassword';
 export { resetPassword, ResetPasswordError } from './resetPassword';
 export { updateName, UpdateNameError } from './updateName';
+export { exportCustomerData } from './exportData';

@@ -19,7 +19,7 @@ import { Prisma } from '@prisma/client';
 import { generateCode, generateSalt, hashCode } from '@/lib/auth';
 import { sendEmail, sendSms, stashTestOtp, logNotificationDispatchFailure } from '@/lib/notification';
 import { normalizePhone } from '@/lib/core/validation/phone';
-import { createRatelimit } from '@/lib/ratelimit';
+import { otpSendRatelimit } from '@/lib/ratelimit';
 
 export type OtpChannel = 'email' | 'phone';
 
@@ -27,8 +27,6 @@ const OTP_TTL_SECONDS = 5 * 60;
 const OTP_EXPIRY_MINUTES = 5;
 export const MAX_VERIFY_FAILURES = 3;
 export const LOCKOUT_WINDOW_MS = 15 * 60 * 1000;
-
-const customerAccountOtpRatelimit = createRatelimit({ limit: 3, windowMs: LOCKOUT_WINDOW_MS });
 
 /** Normalise an identifier for its channel (email: lowercase/trim; phone: E.164). */
 function normalizeIdentifier(raw: string, channel: OtpChannel): string {
@@ -85,7 +83,9 @@ export async function sendCustomerAccountOtp(
     return { ok: false, reason: 'locked_out', retryAfter };
   }
 
-  const rl = await customerAccountOtpRatelimit.limit(identifier);
+  // Shared per-identifier OTP budget (#469): `otp-send:<identifier>` — the same bucket the
+  // registration OTP path consumes, so the two flows cannot be combined into a 6/15min bomb.
+  const rl = await otpSendRatelimit.limit(`otp-send:${identifier}`);
   if (!rl.allowed) {
     return { ok: false, reason: 'rate_limited', retryAfter: rl.retryAfter };
   }

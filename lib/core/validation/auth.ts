@@ -27,6 +27,9 @@ export const registerInput = z.object({
   email: emailSchema,
   password: passwordSchema,
   displayName: z.string().trim().min(2).max(100).optional(),
+  // #472 (PDPL): explicit ToS/privacy consent is mandatory to register. z.literal(true) so a
+  // missing or false value is a 400 — the account is never created without recorded consent.
+  acceptTerms: z.literal(true),
 });
 
 export const loginInput = z.object({
@@ -35,8 +38,11 @@ export const loginInput = z.object({
 });
 
 // 2026-06-06: operators log in by generated username (BRAND_ACRONYM-last4phone), not phone.
+// .toUpperCase() (#452): the stored username is uppercase (e.g. PB-0001); the client's
+// autoCapitalize="characters" is a no-op on desktop/paste, so typing `pb-0001` reached the
+// exact-match lookup lowercased and returned invalid_credentials. Normalise server-side.
 export const operatorLoginInput = z.object({
-  username: z.string().trim().min(1, 'Username is required').max(64),
+  username: z.string().trim().toUpperCase().min(1, 'Username is required').max(64),
   password: z.string().min(1, 'Password is required'),
 });
 

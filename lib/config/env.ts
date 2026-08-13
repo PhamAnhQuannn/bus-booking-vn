@@ -153,6 +153,17 @@ const envSchema = z.object({
     .regex(/^[0-9a-fA-F]+$/, 'PLANNER_CHAT_SECRET must be a hex string')
     .optional(),
 
+  /**
+   * Runtime kill-switch for the billable Gemini chat (#549). Default true. Set to "false" to
+   * return 503 from /api/planner/chat instantly — a way to shut off the paid AI surface during
+   * a cost/abuse incident WITHOUT unsetting GEMINI_API_KEY + redeploying. Any value other than
+   * the exact string "false" leaves the chat enabled.
+   */
+  PLANNER_CHAT_ENABLED: z
+    .string()
+    .default('true')
+    .transform((v) => v !== 'false'),
+
   // ---------------------------------------------------------------------------
   // Local fake-gateway stub (Phase 1 — run all online-payment stories with no
   // real PSP credentials). When PAYMENTS_STUB="true", getGatewayFor('momo')

@@ -18,7 +18,7 @@ const { mockPrisma, mockRatelimit, mockSendEmail, mockStashTestOtp } = vi.hoiste
 
 vi.mock('@/lib/core/db/client', () => ({ prisma: mockPrisma }));
 vi.mock('@/lib/ratelimit', () => ({
-  createRatelimit: vi.fn(() => mockRatelimit),
+  otpSendRatelimit: mockRatelimit,
   InMemoryRatelimit: vi.fn(),
 }));
 vi.mock('@/lib/notification', () => ({ sendEmail: mockSendEmail, stashTestOtp: mockStashTestOtp }));
@@ -89,9 +89,9 @@ describe('sendOtp', () => {
     expect(mockPrisma.$executeRaw).not.toHaveBeenCalled();
   });
 
-  it('rate-limit key is normalized email, not raw input', async () => {
+  it('rate-limit key is purpose-prefixed normalized email, not raw input', async () => {
     await sendOtp('  Test@Example.COM  ');
-    expect(mockRatelimit.limit).toHaveBeenCalledWith('test@example.com');
+    expect(mockRatelimit.limit).toHaveBeenCalledWith('otp-send:test@example.com');
   });
 
   it('normalizes email before DB insert — payload uses lowercase trimmed email', async () => {

@@ -41,13 +41,24 @@ export interface CreateSessionResult extends SessionTokens {
   family: string;
 }
 
+/**
+ * Request-derived forensics captured on a Session row (#477): the client's current IP and
+ * User-Agent, for login-history / active-devices. Both optional — server-to-server mints
+ * (none today) pass nothing. IP is intentionally NOT globally log-redacted (rate-limit
+ * forensics log it deliberately); userAgent IS redacted (never logged elsewhere).
+ */
+export interface SessionContext {
+  ip?: string | null;
+  userAgent?: string | null;
+}
+
 // ---------------------------------------------------------------------------
 // rotateRefresh
 // ---------------------------------------------------------------------------
 
 export async function rotateRefresh(
   oldHash: string,
-  _ip: string | null
+  ctx: SessionContext = {}
 ): Promise<SessionTokens | { reuse: true } | { inactive: true }> {
   return prisma.$transaction(async (tx) => {
     // 1. Lock the session row FOR UPDATE (#463). Without the lock two concurrent
@@ -145,7 +156,7 @@ export async function rotateRefresh(
       rotation: newRotation,
     });
 
-    // 5. Insert new Session row
+    // 5. Insert new Session row (carry the caller's current IP/UA forward — #477).
     await tx.session.create({
       data: {
         customerId: session.customerId,
@@ -153,6 +164,8 @@ export async function rotateRefresh(
         rotationCount: newRotation,
         refreshTokenHash: newRefreshHash,
         expiresAt: new Date(Date.now() + SESSION_EXPIRY_MS),
+        ip: ctx?.ip ?? null,
+        userAgent: ctx?.userAgent ?? null,
       },
     });
 
@@ -176,7 +189,7 @@ export async function rotateRefresh(
 
 export async function createSession(
   customerId: string,
-  _ip: string | null
+  ctx: SessionContext = {}
 ): Promise<CreateSessionResult> {
   const family = generateFamily();
   const tokenId = crypto.randomUUID();
@@ -197,6 +210,8 @@ export async function createSession(
       rotationCount: 0,
       refreshTokenHash: refreshHash,
       expiresAt: new Date(Date.now() + SESSION_EXPIRY_MS),
+      ip: ctx.ip ?? null,
+      userAgent: ctx.userAgent ?? null,
     },
   });
 
