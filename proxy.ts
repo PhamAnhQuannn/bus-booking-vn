@@ -73,18 +73,24 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 // defaults to a literal published in this repo — so any reader could forge a signed
 // "paid" IPN naming a bookingRef and mark that booking paid. Adding a path back here
 // re-opens that surface; do not, without a real PSP integration behind it.
-const CSRF_EXEMPT = new Set(['/api/payments/bank_transfer/webhook']);
+// CSRF-exempt = routes where the double-submit CSRF cookie is unavailable (webhook /
+// pre-auth refresh + password-reset flows). EXACT-match Set only (SEC-CSRF-EXACT #561):
+// a prior `startsWith` prefix-match silently exempted any FUTURE route under these trees
+// (e.g. /api/auth/reset-password/admin), so a new state-changing route could inherit the
+// exemption with zero review signal. Exact membership forces an explicit entry per route —
+// mirroring the OP_AUTH_FREE_PATHS / ADMIN_AUTH_FREE_PATHS discipline (Issue 010).
+const CSRF_EXEMPT = new Set([
+  '/api/payments/bank_transfer/webhook', // SePay webhook — static Apikey, no bb_csrf cookie
+  '/api/op/auth/refresh',                // pre-auth operator refresh (HttpOnly cookie, no JS CSRF)
+  '/api/admin/auth/refresh',             // Issue 056: admin refresh (HttpOnly cookie)
+  '/api/auth/forgot-password',           // Issue 008: customer forgot-password (pre-auth)
+  '/api/auth/forgot-password/verify',    // Issue 008: forgot-password OTP verify (pre-auth)
+  '/api/auth/reset-password',            // Issue 008: customer reset-password (pre-auth, proof-protected)
+]);
 // There is deliberately NO rate-limit exemption list. The only webhook left is SePay,
 // which authenticates with a STATIC Apikey and is NOT HMAC-signed, so it stays
 // rate-limited to blunt an unauthenticated flood. SePay treats a 429 as a retryable
 // delivery (Fibonacci backoff) and the reconcile sweeper is the backstop.
-// Prefix exemptions (CSRF) — routes where the CSRF cookie is unavailable pre-auth
-const CSRF_EXEMPT_PREFIXES = [
-  '/api/op/auth/refresh',
-  '/api/admin/auth/refresh',     // Issue 056: admin refresh (HttpOnly refresh cookie, no JS-readable CSRF)
-  '/api/auth/forgot-password',   // Issue 008: customer forgot-password (pre-auth)
-  '/api/auth/reset-password',    // Issue 008: customer reset-password (pre-auth, proof-protected)
-];
 
 // /op/* paths that do NOT require a valid operator session.
 // Exact-match Set (Issue 010) — NOT startsWith, so /op/register-bypass is NOT
@@ -303,13 +309,9 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Skip CSRF for: the bank_transfer webhook (Issue 329 — rate-limited above but
-  // SePay sends no bb_csrf cookie) and the pre-auth operator routes (prefix match).
+  // Skip CSRF for the exact CSRF_EXEMPT routes (webhook + pre-auth refresh/reset flows).
   // Both are past the rate-limit at this point.
-  if (
-    CSRF_EXEMPT.has(pathname) ||
-    CSRF_EXEMPT_PREFIXES.some((prefix) => pathname.startsWith(prefix))
-  ) {
+  if (CSRF_EXEMPT.has(pathname)) {
     return nextWithRid();
   }
 

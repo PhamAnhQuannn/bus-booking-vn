@@ -14,6 +14,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getEnv } from '@/lib/config';
+import { devRouteProdGuard } from '@/lib/dev/prodGuard';
 import { verifyStubSignature } from '@/lib/storage';
 // Issue 074: the byte store is shared (lib/storage/stubStore) so the server-side
 // putObject() upload path writes into the SAME Map this GET route reads from.
@@ -32,6 +33,10 @@ function readSig(req: NextRequest): { exp: number; sig: string } {
 }
 
 function guardEnabled(): NextResponse | null {
+  // SEC-DEV-STUB-PROD-SAFETY (#559): hard-404 in production regardless of STORAGE_STUB —
+  // the flag defaulting insecurely must not be the only thing gating a dev tool in prod.
+  const prodBlocked = devRouteProdGuard();
+  if (prodBlocked) return prodBlocked;
   if (!getEnv().STORAGE_STUB) {
     return NextResponse.json({ error: 'stub_storage_disabled' }, { status: 404 });
   }

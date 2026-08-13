@@ -77,6 +77,13 @@ describe('isVnpaySelectable', () => {
     setEnv({
       NODE_ENV: 'production',
       PAYMENTS_STUB: 'true',
+      // SEC-DEV-STUB-PROD-SAFETY (#559): a real prod boot requires STORAGE_STUB=false + S3 creds.
+      STORAGE_STUB: 'false',
+      STORAGE_BUCKET: 'b',
+      STORAGE_REGION: 'r',
+      STORAGE_ENDPOINT: 'https://r2',
+      STORAGE_ACCESS_KEY: 'ak',
+      STORAGE_SECRET_KEY: 'sk',
       // The full NODE_ENV=production superRefine set (lib/config/env.ts). Kept
       // explicit rather than trimmed to the ones that happen to fail first — the
       // point of the test is that a REAL production boot still hides vnpay.

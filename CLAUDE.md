@@ -114,6 +114,15 @@ Distilled from the codebase Mistake Log. Full per-lesson post-mortems live in `~
 - Divergent AC status codes for same error: implement both per AC text, add `// SPEC CONFLICT:` comment at each site.
 - Cron/sweeper WHERE predicates MUST be top-level indexed columns, never JSON-payload keys.
 
+### Security (full ruleset: `documentation/hardening/HD-013-security-ruleset/`)
+- Inline `<script>` from DB/user data → `jsonLdHtml()` (`lib/seo`), never bare `JSON.stringify` in `dangerouslySetInnerHTML`.
+- Every `app/dev/*` route/action/page MUST refuse in production via `@/lib/dev/prodGuard`, independent of any `*_STUB` flag. No committed signing-secret defaults.
+- `getEnv()` fails the prod boot unless `STORAGE_STUB=false` (PAYMENTS_STUB may stay true — Phase-1 stubbed PSP).
+- Identity ONLY through `require{Customer,Operator,Admin}Auth` HOFs — never inline `verify*Access`. Step-up elevation read from the server session row, not a refresh param.
+- Static-bearer auth (cron/webhook) → `crypto.timingSafeEqual` via a shared helper (`assertCronAuth`, `lib/core/http/cronAuth.ts`).
+- Outbound email/redirect base URLs from a trusted env, never `Host`/`x-forwarded-host`/`req.origin`. Error bodies opaque — never echo `zodError.issues`.
+- Prod `DATABASE_URL` should be a DML-only role (DDL on the migration role only). Prod `script-src` should be nonce-based, never `'unsafe-inline'`.
+
 ## Dev Setup
 
 ```bash

@@ -14,6 +14,29 @@ export const SITE_URL =
 
 const ORG_NAME = 'BBVN';
 
+/**
+ * Serialize a JSON-LD object for safe embedding in an inline `<script>` (SEC-XSS-JSONLD, #557).
+ *
+ * `JSON.stringify` does NOT escape `<`, `>`, `&`, or the U+2028/U+2029 line separators, so a value
+ * containing `</script><script>…` breaks out of the LD block and executes. Several embedded fields
+ * are operator self-service free-text (route origin/destination, operator legal name), so that
+ * breakout is a real stored-XSS vector on the public /trips/[id] page. Escaping the dangerous
+ * sequences to their `\uXXXX` JSON escapes keeps the JSON value semantically identical while making
+ * it impossible to close the script element or open an HTML entity.
+ *
+ * ALWAYS use this (never bare `JSON.stringify`) when feeding `dangerouslySetInnerHTML` for JSON-LD.
+ */
+export function jsonLdHtml(obj: unknown): string {
+  // Kept fully ASCII on purpose (fromCharCode, not literal separators) so no editor/formatter
+  // can silently mangle the exotic code points. Each dangerous char → its \uXXXX JSON escape.
+  return JSON.stringify(obj)
+    .split('<').join('\\u003c')
+    .split('>').join('\\u003e')
+    .split('&').join('\\u0026')
+    .split(String.fromCharCode(0x2028)).join('\\u2028')
+    .split(String.fromCharCode(0x2029)).join('\\u2029');
+}
+
 /** Organization schema for the home page. */
 export function organizationLd() {
   return {

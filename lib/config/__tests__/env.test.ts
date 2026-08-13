@@ -43,6 +43,46 @@ function warned(): boolean {
   return warnSpy.mock.calls.some((c: unknown[]) => String(c[0]).includes('env.email.silently_stubbed'));
 }
 
+// Full production-required secret set so the prod superRefine reaches the STORAGE_STUB check.
+const PROD_SECRETS = {
+  JWT_SECRET: 'x'.repeat(48),
+  JWT_OPERATOR_SECRET: 'x'.repeat(48),
+  JWT_ADMIN_SECRET: 'x'.repeat(48),
+  TOTP_ENCRYPTION_KEY: 'a'.repeat(64),
+  BANK_ENCRYPTION_KEY: 'a'.repeat(64),
+  DATABASE_URL: 'postgresql://u:p@host:5432/db',
+  CRON_SECRET: 'cron-secret-xxxxxxxx',
+  REFRESH_TOKEN_SECRET_CUSTOMER: 'r'.repeat(40),
+  REFRESH_TOKEN_SECRET_OPERATOR: 'r'.repeat(40),
+  REFRESH_TOKEN_SECRET_ADMIN: 'r'.repeat(40),
+  TICKET_SECRET: 'ticket-secret-xxxxxxxx',
+};
+
+describe('getEnv — production STORAGE_STUB fail-fast (SEC-DEV-STUB-PROD-SAFETY #559)', () => {
+  it('THROWS in production when STORAGE_STUB is true (real storage required)', () => {
+    Object.assign(process.env, BASE, PROD_SECRETS, {
+      NODE_ENV: 'production',
+      PAYMENTS_STUB: 'true',
+      STORAGE_STUB: 'true',
+    });
+    expect(() => getEnv()).toThrow(/STORAGE_STUB must be false in production/);
+  });
+
+  it('does NOT throw for STORAGE_STUB in production when it is false', () => {
+    Object.assign(process.env, BASE, PROD_SECRETS, {
+      NODE_ENV: 'production',
+      PAYMENTS_STUB: 'true',
+      STORAGE_STUB: 'false',
+      STORAGE_BUCKET: 'b',
+      STORAGE_REGION: 'r',
+      STORAGE_ENDPOINT: 'https://r2',
+      STORAGE_ACCESS_KEY: 'ak',
+      STORAGE_SECRET_KEY: 'sk',
+    });
+    expect(() => getEnv()).not.toThrow();
+  });
+});
+
 describe('getEnv — email-stub boot warn (#337)', () => {
   it('warns when NOTIFY_STUB=false and EMAIL_PROVIDER is unset (silently stubbed)', () => {
     Object.assign(process.env, BASE, { NOTIFY_STUB: 'false' });
@@ -138,6 +178,14 @@ describe('getEnv — in-memory rate limiting in production', () => {
     NOTIFY_STUB: 'true',
     EMAIL_PROVIDER: 'resend',
     RESEND_API_KEY: 're_x',
+    // SEC-DEV-STUB-PROD-SAFETY (#559): storage must be real in prod, so these prod-env
+    // fixtures set STORAGE_STUB=false + the S3 creds its superRefine then requires.
+    STORAGE_STUB: 'false',
+    STORAGE_BUCKET: 'b',
+    STORAGE_REGION: 'r',
+    STORAGE_ENDPOINT: 'https://r2',
+    STORAGE_ACCESS_KEY: 'ak',
+    STORAGE_SECRET_KEY: 'sk',
     DATABASE_URL: 'postgresql://u:p@localhost:5432/d',
     JWT_SECRET: 'j'.repeat(32),
     JWT_OPERATOR_SECRET: 'o'.repeat(32),
