@@ -21,6 +21,7 @@ import { OtpCodeInput } from '@/components/auth/OtpCodeInput';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 
 type Step = 'email' | 'otp' | 'details';
@@ -64,6 +65,7 @@ function RegisterPageInner() {
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
   const [otpProof, setOtpProof] = useState('');
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resendIn, setResendIn] = useState(0);
@@ -164,7 +166,7 @@ function RegisterPageInner() {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': readCsrfToken() },
-        body: JSON.stringify({ email, otpProof, password, displayName }),
+        body: JSON.stringify({ email, otpProof, password, displayName, acceptTerms }),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -262,8 +264,26 @@ function RegisterPageInner() {
                 <Label htmlFor="displayName">Tên hiển thị (tuỳ chọn)</Label>
                 <Input id="displayName" type="text" name="displayName" autoComplete="name" className={authFieldClass} />
               </div>
+              {/* #472: explicit ToS/privacy consent — required to register (server enforces it too). */}
+              <div className="flex items-start gap-2.5">
+                <Checkbox
+                  id="acceptTerms"
+                  checked={acceptTerms}
+                  onCheckedChange={(checked) => setAcceptTerms(checked === true)}
+                  className="mt-0.5"
+                />
+                <Label htmlFor="acceptTerms" className="text-sm font-normal leading-snug text-muted-foreground">
+                  Tôi đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của BusBookVN.
+                </Label>
+              </div>
               <FormError message={error} />
-              <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="h-12 w-full text-base">
+              <Button
+                type="submit"
+                size="lg"
+                disabled={loading || !acceptTerms}
+                aria-busy={loading}
+                className="h-12 w-full text-base"
+              >
                 {loading ? 'Đang đăng ký...' : 'Đăng ký'}
               </Button>
             </form>

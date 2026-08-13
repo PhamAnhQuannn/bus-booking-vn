@@ -9,7 +9,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SignJWT } from 'jose';
 import crypto from 'crypto';
 
-const { mockRegister, mockCookieStore, AuthServiceError } = vi.hoisted(() => {
+const { mockRegister, mockCookieStore, AuthServiceError, mockRlLimit } = vi.hoisted(() => {
   class AuthServiceError extends Error {
     code: string;
     constructor(code: string) {
@@ -23,12 +23,21 @@ const { mockRegister, mockCookieStore, AuthServiceError } = vi.hoisted(() => {
     mockRegister: vi.fn(),
     mockCookieStore,
     AuthServiceError,
+    mockRlLimit: vi.fn(),
   };
 });
 
 vi.mock('@/lib/auth/authService', () => ({
   register: mockRegister,
   AuthServiceError,
+}));
+
+// #465: register now rate-limits per IP. Override only that limiter (importOriginal spread —
+// the @/lib/auth barrel pulls transitive consumers of createRatelimit, so a full-module mock
+// would strip them). One test flips mockRlLimit to assert the 429.
+vi.mock('@/lib/ratelimit', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/ratelimit')>()),
+  customerRegisterRatelimit: { limit: mockRlLimit },
 }));
 
 vi.mock('next/headers', () => ({
@@ -73,12 +82,13 @@ const AUTH_RESULT = {
 beforeEach(() => {
   vi.clearAllMocks();
   mockRegister.mockResolvedValue(AUTH_RESULT);
+  mockRlLimit.mockResolvedValue({ allowed: true, remaining: 4, retryAfter: 0 });
 });
 
 describe('POST /api/auth/register', () => {
   it('returns 201 with accessToken and customer on success', async () => {
     const otpProof = await makeOtpProof();
-    const body = { email: TEST_EMAIL, otpProof, password: 'Password1' };
+    const body = { email: TEST_EMAIL, otpProof, password: 'Password1', acceptTerms: true };
     const res = await POST(makeRequest(body));
     const json = await res.json();
     expect(res.status).toBe(201); // DS-003 §6.1: register creates a Customer
@@ -88,7 +98,7 @@ describe('POST /api/auth/register', () => {
 
   it('sets bb_rt cookie on success', async () => {
     const otpProof = await makeOtpProof();
-    await POST(makeRequest({ email: TEST_EMAIL, otpProof, password: 'Password1' }));
+    await POST(makeRequest({ email: TEST_EMAIL, otpProof, password: 'Password1', acceptTerms: true }));
     expect(mockCookieStore.set).toHaveBeenCalledWith(
       'bb_rt',
       'refresh-token',
@@ -99,7 +109,7 @@ describe('POST /api/auth/register', () => {
   it('returns 400 otp_proof_invalid when otpProof JWT is expired', async () => {
     // -1s expiry → already expired
     const expiredProof = await makeOtpProof(TEST_EMAIL, -1);
-    const res = await POST(makeRequest({ email: TEST_EMAIL, otpProof: expiredProof, password: 'Password1' }));
+    const res = await POST(makeRequest({ email: TEST_EMAIL, otpProof: expiredProof, password: 'Password1', acceptTerms: true }));
     const json = await res.json();
     expect(res.status).toBe(400);
     expect(json.error).toBe('otp_proof_invalid');
@@ -107,7 +117,7 @@ describe('POST /api/auth/register', () => {
 
   it('returns 400 otp_proof_invalid when otpProof email does not match request email', async () => {
     const wrongEmailProof = await makeOtpProof('other@example.com');
-    const res = await POST(makeRequest({ email: TEST_EMAIL, otpProof: wrongEmailProof, password: 'Password1' }));
+    const res = await POST(makeRequest({ email: TEST_EMAIL, otpProof: wrongEmailProof, password: 'Password1', acceptTerms: true }));
     const json = await res.json();
     expect(res.status).toBe(400);
     expect(json.error).toBe('otp_proof_invalid');
@@ -116,17 +126,17 @@ describe('POST /api/auth/register', () => {
   it('rejects a replayed otpProof (one-shot jti consume) — 2nd use returns 400', async () => {
     // Same proof (same jti) used twice: first registration succeeds, replay is rejected.
     const otpProof = await makeOtpProof(TEST_EMAIL, 300, 'fixed-replay-jti');
-    const first = await POST(makeRequest({ email: TEST_EMAIL, otpProof, password: 'Password1' }));
+    const first = await POST(makeRequest({ email: TEST_EMAIL, otpProof, password: 'Password1', acceptTerms: true }));
     expect(first.status).toBe(201);
 
-    const second = await POST(makeRequest({ email: TEST_EMAIL, otpProof, password: 'Password1' }));
+    const second = await POST(makeRequest({ email: TEST_EMAIL, otpProof, password: 'Password1', acceptTerms: true }));
     const json = await second.json();
     expect(second.status).toBe(400);
     expect(json.error).toBe('otp_proof_invalid');
   });
 
   it('returns 400 otp_proof_invalid when otpProof is malformed', async () => {
-    const res = await POST(makeRequest({ email: TEST_EMAIL, otpProof: 'not.a.jwt', password: 'Password1' }));
+    const res = await POST(makeRequest({ email: TEST_EMAIL, otpProof: 'not.a.jwt', password: 'Password1', acceptTerms: true }));
     const json = await res.json();
     expect(res.status).toBe(400);
     expect(json.error).toBe('otp_proof_invalid');
@@ -137,14 +147,25 @@ describe('POST /api/auth/register', () => {
     // đăng ký") — unlike login, which stays uniform. The AC-verbatim code is EMAIL_TAKEN.
     mockRegister.mockRejectedValue(new AuthServiceError('EMAIL_TAKEN'));
     const otpProof = await makeOtpProof();
-    const res = await POST(makeRequest({ email: TEST_EMAIL, otpProof, password: 'Password1' }));
+    const res = await POST(makeRequest({ email: TEST_EMAIL, otpProof, password: 'Password1', acceptTerms: true }));
     const json = await res.json();
     expect(res.status).toBe(409);
     expect(json.error).toBe('EMAIL_TAKEN');
   });
 
   it('returns 400 for invalid body (missing otpProof)', async () => {
-    const res = await POST(makeRequest({ email: TEST_EMAIL, password: 'Password1' }));
+    const res = await POST(makeRequest({ email: TEST_EMAIL, password: 'Password1', acceptTerms: true }));
     expect(res.status).toBe(400);
+  });
+
+  it('returns 429 RATE_LIMITED when the per-IP register limiter denies (#465)', async () => {
+    mockRlLimit.mockResolvedValue({ allowed: false, remaining: 0, retryAfter: 900 });
+    const otpProof = await makeOtpProof();
+    const res = await POST(makeRequest({ email: TEST_EMAIL, otpProof, password: 'Password1', acceptTerms: true }));
+    const json = await res.json();
+    expect(res.status).toBe(429);
+    expect(json.error).toBe('RATE_LIMITED');
+    expect(res.headers.get('Retry-After')).toBe('900');
+    expect(mockRegister).not.toHaveBeenCalled();
   });
 });

@@ -397,6 +397,34 @@ export const customerLoginLockout = createRatelimit({
 });
 
 /**
+ * Customer registration per-IP throttle: 5 attempts/15min/IP (#465, DS-003 §6.1).
+ * Keyed `customer-register:<ip>`. POST /api/auth/register was wide open — no limiter —
+ * so a script could mass-create accounts / bomb OTP inboxes. Login was already limited;
+ * register was the gap. Per-IP (not per-email) because the abuse is volume of NEW emails
+ * from one source, which a per-email key cannot see.
+ */
+export const customerRegisterRatelimit = createRatelimit({ limit: 5, windowMs: 15 * 60_000 });
+
+/**
+ * SHARED OTP-send budget per identifier (email or phone): 3 sends/15min (#469). Keyed
+ * `otp-send:<identifier>`. ONE bucket consumed by BOTH the registration OTP path
+ * (lib/auth/sendOtp) AND the account OTP path (lib/account/customerOtp), so an attacker
+ * cannot combine two independent 3/15min limiters into a 6/15min email-bomb on the same
+ * address. The purpose prefix also prevents the accidental cross-flow key collision the
+ * two bare-`<email>` limiters had under a shared Redis keyspace.
+ */
+export const otpSendRatelimit = createRatelimit({ limit: 3, windowMs: 15 * 60_000 });
+
+/**
+ * Per-IP OTP-send throttle: 10 sends/min/IP (#470). Keyed `otp-send-ip:<ip>`. The
+ * per-identifier budget above stops hammering ONE inbox; this stops one IP from spraying
+ * MANY inboxes (≈60/min without it — one fresh email per request). Applied at the email
+ * OTP entry points (register OTP send + forgot-password). Per-IP denial reveals nothing
+ * about whether any given email exists, so it is enumeration-safe.
+ */
+export const otpSendPerIpRatelimit = createRatelimit({ limit: 10, windowMs: 60_000 });
+
+/**
  * Admin login per-IP throttle: 10 attempts/min/IP — mirrors opLoginRatelimit.
  * Keyed `admin-login:<ip>`.
  */

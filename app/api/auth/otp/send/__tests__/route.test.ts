@@ -4,8 +4,9 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockSendOtp } = vi.hoisted(() => ({
+const { mockSendOtp, mockIpLimit } = vi.hoisted(() => ({
   mockSendOtp: vi.fn(),
+  mockIpLimit: vi.fn(),
 }));
 
 // Route imports `sendOtp` from the @/lib/auth barrel (post-092b sweep), so mock the
@@ -13,6 +14,13 @@ const { mockSendOtp } = vi.hoisted(() => ({
 // also blocks the real barrel from loading authService → @/lib/booking → server-only,
 // which is unresolvable under vitest.
 vi.mock('@/lib/auth', () => ({ sendOtp: mockSendOtp }));
+
+// #470: per-IP OTP-send throttle. Override only that limiter (importOriginal spread keeps
+// createRatelimit + siblings real for transitive consumers).
+vi.mock('@/lib/ratelimit', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/ratelimit')>()),
+  otpSendPerIpRatelimit: { limit: mockIpLimit },
+}));
 
 import { POST } from '../route';
 import { NextRequest } from 'next/server';
@@ -28,6 +36,7 @@ function makeRequest(body: unknown): NextRequest {
 beforeEach(() => {
   vi.clearAllMocks();
   mockSendOtp.mockResolvedValue({ ok: true });
+  mockIpLimit.mockResolvedValue({ allowed: true, remaining: 9, retryAfter: 0 });
 });
 
 describe('POST /api/auth/otp/send', () => {
@@ -63,5 +72,15 @@ describe('POST /api/auth/otp/send', () => {
     expect(json.error).toBe('rate_limited');
     expect(json.retryAfter).toBe(300);
     expect(res.headers.get('Retry-After')).toBe('300');
+  });
+
+  it('returns 429 on the per-IP throttle before parsing the body or calling sendOtp (#470)', async () => {
+    mockIpLimit.mockResolvedValue({ allowed: false, remaining: 0, retryAfter: 45 });
+    const res = await POST(makeRequest({ email: 'test@example.com' }));
+    const json = await res.json();
+    expect(res.status).toBe(429);
+    expect(json.error).toBe('rate_limited');
+    expect(res.headers.get('Retry-After')).toBe('45');
+    expect(mockSendOtp).not.toHaveBeenCalled();
   });
 });

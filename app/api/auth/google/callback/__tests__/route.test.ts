@@ -86,7 +86,11 @@ describe('GET /api/auth/google/callback', () => {
     expect(locationOf(res)).toContain('/account/bookings');
     expect(asNext(res).cookies.get('bb_rt')?.value).toBe('refresh-tok');
     expect(asNext(res).cookies.get('bb_goauth')?.value).toBe('');
-    expect(mockCreateCustomerSession).toHaveBeenCalledWith('cust-1');
+    expect(mockCreateCustomerSession).toHaveBeenCalledWith(
+      'cust-1',
+      // #477: callback now forwards a { ip, userAgent } session context.
+      expect.objectContaining({ ip: expect.any(String) }),
+    );
   });
 
   it('returns 404 when GOOGLE_OAUTH_ENABLED is not "true"', async () => {

@@ -90,7 +90,10 @@ async function handler(req: NextRequest): Promise<Response> {
   });
   if (!resolved.ok) return errorRedirect();
 
-  const session = await createCustomerSession(resolved.customerId);
+  const session = await createCustomerSession(resolved.customerId, {
+    ip: clientIp(req.headers),
+    userAgent: req.headers.get('user-agent'),
+  });
 
   const dest = safeReturnTo(goauth.returnTo, '/account/bookings');
   const res = clearGoauth(NextResponse.redirect(new URL(dest, origin)));

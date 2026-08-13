@@ -20,10 +20,23 @@ import {
   safeReturnTo,
 } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
+import { clientIp } from '@/lib/core/http/clientIp';
+import { customerLoginRatelimit } from '@/lib/ratelimit';
 
 async function handler(req: NextRequest): Promise<Response> {
   if (process.env.GOOGLE_OAUTH_ENABLED !== 'true') {
     return NextResponse.json({ error: 'google_oauth_disabled' }, { status: 404 });
+  }
+
+  // Route-level throttle (#499): this is a GET, so proxy.ts's SAFE_METHODS short-circuit
+  // exempts it from the edge limiter — without this it can be hit unboundedly, minting a
+  // signed bb_goauth cookie + redirect each time. Reuse the customer-login per-IP limiter.
+  const rl = await customerLoginRatelimit.limit(`google-start:${clientIp(req.headers)}`);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'rate_limited' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } }
+    );
   }
 
   const returnTo = safeReturnTo(req.nextUrl.searchParams.get('returnTo'), '/account/bookings');

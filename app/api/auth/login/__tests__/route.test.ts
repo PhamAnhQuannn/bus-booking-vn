@@ -102,7 +102,11 @@ describe('POST /api/auth/login', () => {
       expect(res.status).toBe(200);
       expect(json.accessToken).toBe('cust-access-token');
       expect(json.customer).toEqual(CUST_AUTH_RESULT.customer);
-      expect(mockCustomerLogin).toHaveBeenCalledWith({ email: 'test@example.com', password: 'Password1' });
+      expect(mockCustomerLogin).toHaveBeenCalledWith(
+        { email: 'test@example.com', password: 'Password1' },
+        // #477: login now forwards a { ip, userAgent } session context.
+        expect.objectContaining({ ip: expect.any(String) }),
+      );
       const setCalls = mockCookieStore.set.mock.calls;
       const rt = setCalls.find((c: unknown[]) => c[0] === 'bb_rt');
       expect(rt).toBeDefined();

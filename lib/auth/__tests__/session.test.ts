@@ -85,7 +85,7 @@ describe('rotateRefresh', () => {
     mockTx.session.updateMany.mockResolvedValueOnce({ count: 1 }); // revoke-old guarded
     mockTx.session.create.mockResolvedValueOnce({ id: 'sess-002' });
 
-    const result = await rotateRefresh('old-hash-abc', '127.0.0.1');
+    const result = await rotateRefresh('old-hash-abc', { ip: '127.0.0.1' });
 
     expect('reuse' in result).toBe(false);
     const r = result as { access: string; refreshToken: string; refreshHash: string; csrf: string };
@@ -110,7 +110,7 @@ describe('rotateRefresh', () => {
     mockTx.session.updateMany.mockResolvedValueOnce({ count: 1 });
     mockTx.session.create.mockResolvedValueOnce({ id: 'sess-011' });
 
-    await rotateRefresh('old-hash-010', null);
+    await rotateRefresh('old-hash-010');
 
     const createCall = mockTx.session.create.mock.calls[0][0];
     expect(createCall.data.rotationCount).toBe(6);
@@ -130,7 +130,7 @@ describe('rotateRefresh', () => {
     mockTx.$queryRaw.mockResolvedValueOnce([revokedSession]);
     mockTx.session.updateMany.mockResolvedValueOnce({ count: 3 });
 
-    const result = await rotateRefresh('revoked-hash', '10.0.0.1');
+    const result = await rotateRefresh('revoked-hash', { ip: '10.0.0.1' });
 
     expect(result).toEqual({ reuse: true });
     expect(mockTx.session.updateMany).toHaveBeenCalledWith(
@@ -143,7 +143,7 @@ describe('rotateRefresh', () => {
   it('throws SESSION_NOT_FOUND when no session matches hash', async () => {
     mockTx.$queryRaw.mockResolvedValueOnce([]);
 
-    await expect(rotateRefresh('nonexistent-hash', null)).rejects.toThrow(
+    await expect(rotateRefresh('nonexistent-hash')).rejects.toThrow(
       'SESSION_NOT_FOUND'
     );
   });
@@ -156,7 +156,7 @@ describe('createSession', () => {
   it('returns access + refreshToken + refreshHash + csrf + family', async () => {
     mockPrisma.session.create.mockResolvedValueOnce({ id: 'new-sess-001' });
 
-    const result = await createSession('cust-new', '192.168.1.1');
+    const result = await createSession('cust-new', { ip: '192.168.1.1' });
 
     expect(result.access).toContain('mock-access-cust-new');
     expect(typeof result.refreshToken).toBe('string');
@@ -168,7 +168,7 @@ describe('createSession', () => {
   it('passes customerId and family to session.create', async () => {
     mockPrisma.session.create.mockResolvedValueOnce({ id: 'new-sess-002' });
 
-    await createSession('cust-xyz', null);
+    await createSession('cust-xyz');
 
     expect(mockPrisma.session.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -176,6 +176,30 @@ describe('createSession', () => {
           customerId: 'cust-xyz',
           rotationCount: 0,
         }),
+      })
+    );
+  });
+
+  it('writes the session-context ip + userAgent (#477)', async () => {
+    mockPrisma.session.create.mockResolvedValueOnce({ id: 'new-sess-003' });
+
+    await createSession('cust-ua', { ip: '198.51.100.7', userAgent: 'Mozilla/5.0 test' });
+
+    expect(mockPrisma.session.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ ip: '198.51.100.7', userAgent: 'Mozilla/5.0 test' }),
+      })
+    );
+  });
+
+  it('writes null ip/userAgent when no context is given', async () => {
+    mockPrisma.session.create.mockResolvedValueOnce({ id: 'new-sess-004' });
+
+    await createSession('cust-noctx');
+
+    expect(mockPrisma.session.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ ip: null, userAgent: null }),
       })
     );
   });
