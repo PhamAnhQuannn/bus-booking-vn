@@ -239,6 +239,10 @@ export async function refresh(rawToken: string, ctx: SessionContext = {}): Promi
   csrf: string;
   displayName: string | null;
   email: string | null;
+  /** False when the refresh was a benign concurrent race (#519): a fresh access token was
+   *  minted off the live successor but the refresh cookie was NOT rotated — the route must
+   *  leave the existing bb_rt cookie in place. */
+  rotated: boolean;
 }> {
   const verified = verifyRefreshToken(rawToken);
   if (!verified) throw new AuthServiceError('REFRESH_INVALID');
@@ -260,6 +264,10 @@ export async function refresh(rawToken: string, ctx: SessionContext = {}): Promi
   if ('inactive' in result) {
     throw new AuthServiceError('SESSION_NOT_FOUND');
   }
+  // #520/#476: the session was past expiresAt — already revoked inside rotateRefresh; deny.
+  if ('expired' in result) {
+    throw new AuthServiceError('SESSION_NOT_FOUND');
+  }
 
   // Rehydrate the client's display name / email on a full page load — SessionBootstrap only
   // has the refresh cookie, so without this the account menu falls back to "Khách hàng" (QA F1).
@@ -267,14 +275,32 @@ export async function refresh(rawToken: string, ctx: SessionContext = {}): Promi
     where: { id: result.customerId, deletedAt: null },
     select: { displayName: true, email: true },
   });
+  const displayName = customer?.displayName ?? null;
+  const email = customer?.email ?? null;
+
+  // #519: a benign concurrent race minted a fresh access token off the live successor but
+  // did NOT rotate the refresh token — the winner already rotated the cookie. Signal the
+  // route to leave bb_rt in place (rotated: false); return empty token fields.
+  if ('raced' in result) {
+    return {
+      accessToken: result.access,
+      refreshToken: '',
+      refreshHash: '',
+      csrf: '',
+      displayName,
+      email,
+      rotated: false,
+    };
+  }
 
   return {
     accessToken: result.access,
     refreshToken: result.refreshToken,
     refreshHash: result.refreshHash,
     csrf: result.csrf,
-    displayName: customer?.displayName ?? null,
-    email: customer?.email ?? null,
+    displayName,
+    email,
+    rotated: true,
   };
 }
 
