@@ -5,8 +5,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { claimTxMock, updateMock, refundOutMock, queryRawMock } = vi.hoisted(() => ({
-  claimTxMock: vi.fn(),
+const { updateMock, refundOutMock, queryRawMock } = vi.hoisted(() => ({
   updateMock: vi.fn(),
   refundOutMock: vi.fn(),
   queryRawMock: vi.fn(),
