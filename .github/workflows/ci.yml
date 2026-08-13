@@ -355,7 +355,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Audit production dependencies
-        run: pnpm audit --prod --audit-level=critical --ignore-registry-errors
+        # SEC-CI-GATE (#567): fail on `high` (was `critical`), and do NOT mask a registry
+        # outage as success on the blocking run (dropped --ignore-registry-errors).
+        run: pnpm audit --prod --audit-level=high
 
   # ---- 7. Greppable invariants (KG-14) ----
   greppable-invariants:
@@ -389,10 +391,12 @@ jobs:
           GITLEAKS_CONFIG: .gitleaks.toml
 
   # ---- 9. Python syntax (no other job looks at a .py file) ----
-  # NB: this FAILS THE RUN, it does not block a merge. `master` is unprotected
-  # (`protected: false`, zero required status checks), so no job in this file
-  # gates anything — a red run is a signal, not a barrier. Calling it a "gate"
-  # would overstate what it can do.
+  # NB (SEC-CI-GATE #567): `master` is NOT branch-protected — no status check in
+  # this file gates a merge. Required-status-check protection needs GitHub Pro or a
+  # public repo (`gh api .../branches/master/protection` returns 403 on this
+  # private free-plan repo); until then a red run is a signal, not a barrier. The
+  # audit gate was still tightened to --audit-level=high (fail-closed on new high
+  # advisories) so the signal is louder. This Python job is informational.
   python-syntax:
     name: Python Syntax
     runs-on: ubuntu-latest
