@@ -87,6 +87,36 @@ describe('POST /api/op/auth/refresh', () => {
     expect(mockCookiesSet).toHaveBeenCalledWith('bb_op_refresh', '', { maxAge: 0, path: '/' });
   });
 
+  it('#589: returns 401 INVALID_SESSION and clears cookies on an expired session', async () => {
+    mockCookiesGet.mockReturnValue({ value: 'expired-token' });
+    mockVerifyOpRefreshToken.mockReturnValue({ payload: { operatorUserId: 'op-1' }, hash: 'hash1' });
+    mockRotateOperatorRefresh.mockResolvedValue({ expired: true });
+    const res = await POST(makeRequest());
+    const json = await res.json();
+    expect(res.status).toBe(401);
+    expect(json.error).toBe('INVALID_SESSION');
+    expect(mockCookiesSet).toHaveBeenCalledWith('bb_op_access', '', { maxAge: 0, path: '/' });
+    expect(mockCookiesSet).toHaveBeenCalledWith('bb_op_refresh', '', { maxAge: 0, path: '/' });
+  });
+
+  it('#589: benign race sets ONLY the access cookie (refresh untouched) and returns 200', async () => {
+    mockCookiesGet.mockReturnValue({ value: 'raced-token' });
+    mockVerifyOpRefreshToken.mockReturnValue({ payload: { operatorUserId: 'op-1' }, hash: 'hash1' });
+    mockRotateOperatorRefresh.mockResolvedValue({ raced: true, accessToken: 'fresh-access' });
+    const res = await POST(makeRequest());
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.accessToken).toBe('fresh-access');
+    expect(mockCookiesSet).toHaveBeenCalledWith(
+      'bb_op_access',
+      'fresh-access',
+      expect.objectContaining({ httpOnly: true, maxAge: 15 * 60 })
+    );
+    // Refresh cookie must NOT be rotated on a race (the winner already did).
+    const refreshSet = mockCookiesSet.mock.calls.find((c: unknown[]) => c[0] === 'bb_op_refresh');
+    expect(refreshSet).toBeUndefined();
+  });
+
   it('returns 200 with accessToken and rotates cookies on success', async () => {
     mockCookiesGet.mockReturnValue({ value: 'valid-token' });
     mockVerifyOpRefreshToken.mockReturnValue({ payload: { operatorUserId: 'op-1' }, hash: 'hash1' });

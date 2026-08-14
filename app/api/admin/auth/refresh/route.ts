@@ -55,7 +55,30 @@ async function handler(_req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: 'SESSION_REUSE' }, { status: 401 });
   }
 
+  // #589: the session was past its 30-day idle cap — already revoked inside the rotate; deny.
+  if ('expired' in result) {
+    clearCookies(cookieStore);
+    return NextResponse.json({ error: 'INVALID_SESSION' }, { status: 401 });
+  }
+
   const secure = process.env.NODE_ENV === 'production';
+
+  // #589: a benign concurrent double-refresh minted a fresh access token off the live
+  // successor but did NOT rotate the refresh token (the winner already did). Set ONLY the
+  // access cookie and leave bb_admin_refresh untouched. The admin contract keeps tokens OUT
+  // of the response body, so echo back { role } (decoded from the fresh token) as usual.
+  if ('raced' in result) {
+    cookieStore.set('bb_admin_access', result.accessToken, {
+      httpOnly: true,
+      secure,
+      sameSite: 'strict',
+      path: '/',
+      maxAge: ACCESS_COOKIE_MAX_AGE,
+    });
+    const { verifyAdminAccess } = await import('@/lib/auth');
+    const payload = await verifyAdminAccess(result.accessToken);
+    return NextResponse.json({ role: payload?.role ?? null });
+  }
 
   cookieStore.set('bb_admin_access', result.accessToken, {
     httpOnly: true,

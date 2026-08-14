@@ -10,7 +10,7 @@ export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { verifyOpRefreshToken, revokeOperatorSession } from '@/lib/auth';
+import { verifyOpRefreshToken, revokeOperatorSession, rotateCsrf } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 async function handler(_req: NextRequest): Promise<Response> {
@@ -36,6 +36,9 @@ async function handler(_req: NextRequest): Promise<Response> {
 
   cookieStore.set('bb_op_access', '', cookieOpts);
   cookieStore.set('bb_op_refresh', '', cookieOpts);
+  // #584: re-mint the bb_csrf double-submit token on logout (auth-state change), matching
+  // the customer logout route, so a pre-logout token can't be replayed against a new session.
+  rotateCsrf(cookieStore);
 
   return new NextResponse(null, { status: 204 });
 }

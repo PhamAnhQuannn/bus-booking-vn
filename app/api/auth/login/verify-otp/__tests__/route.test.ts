@@ -33,6 +33,7 @@ vi.mock('@/lib/auth', () => ({
   verifyOperatorLoginOtp: mockVerifyOperatorLoginOtp,
   operatorLoginStep2: mockOperatorLoginStep2,
   AuthServiceError,
+  rotateCsrf: vi.fn(),
 }));
 
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => mockCookieStore) }));

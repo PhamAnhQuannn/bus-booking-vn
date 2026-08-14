@@ -67,10 +67,21 @@ describe('POST /api/admin/auth/login', () => {
     const calls = mockCookieStore.set.mock.calls.map((c: string[]) => c[0]);
     expect(calls).toContain('bb_admin_access');
     expect(calls).toContain('bb_admin_refresh');
-    // Both cookies must be HttpOnly + sameSite strict.
+    // The two admin session cookies must be HttpOnly + sameSite strict.
     for (const call of mockCookieStore.set.mock.calls) {
-      expect(call[2]).toMatchObject({ httpOnly: true, sameSite: 'strict', path: '/' });
+      if (call[0] === 'bb_admin_access' || call[0] === 'bb_admin_refresh') {
+        expect(call[2]).toMatchObject({ httpOnly: true, sameSite: 'strict', path: '/' });
+      }
     }
+  });
+
+  it('#584: rotates the bb_csrf double-submit token on admin login', async () => {
+    await POST(makeRequest({ email: 'admin@example.com', password: 'CorrectPassword1' }));
+    const csrf = mockCookieStore.set.mock.calls.find((c: unknown[]) => c[0] === 'bb_csrf');
+    expect(csrf, 'bb_csrf must be rotated on admin login').toBeDefined();
+    expect((csrf![1] as string).length).toBeGreaterThan(0);
+    // Non-HttpOnly so JS can echo it for the double-submit check; session cookie, SameSite=Lax.
+    expect(csrf![2]).toMatchObject({ httpOnly: false, sameSite: 'lax', path: '/' });
   });
 
   it('returns 401 INVALID_CREDENTIALS on failed login', async () => {

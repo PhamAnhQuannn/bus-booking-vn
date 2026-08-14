@@ -15,11 +15,18 @@
  */
 
 import crypto from 'crypto';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/core/db/client';
 import { signOperatorAccess } from './jwt';
 
 // Session expiry: 30 days
 const SESSION_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000;
+
+// Reuse-detection grace window (#589, mirrors session.ts #519). A concurrent double-refresh
+// of the same token serializes on the FOR UPDATE lock; the loser re-reads the just-revoked
+// row. Within this window, if the immediate successor is still live, that is a benign race
+// (two tabs), NOT token theft — mint a fresh access token instead of nuking the family.
+const REUSE_GRACE_MS = 30 * 1000;
 
 // ---------------------------------------------------------------------------
 // Internal helpers — HMAC-based refresh tokens (mirrors refreshToken.ts pattern)
@@ -152,30 +159,110 @@ export async function rotateOperatorRefresh(
   oldHash: string,
   requiresPasswordChange = false,
   operatorId?: string
-): Promise<OperatorSessionTokens | { reuse: true }> {
+): Promise<
+  | OperatorSessionTokens
+  | { reuse: true }
+  | { expired: true }
+  | { raced: true; accessToken: string }
+> {
   return prisma.$transaction(async (tx) => {
-    const session = await tx.operatorSession.findUnique({
-      where: { refreshTokenHash: oldHash },
-    });
+    // #589: lock the session row FOR UPDATE. Without the lock two concurrent refreshes of
+    // the same still-valid token both read revokedAt=null and both rotate — forking the
+    // token family into two live leaves and defeating reuse-detection. The lock serializes
+    // them; the loser sees the committed revoke below. (Mirrors session.ts #463.)
+    const rows = await tx.$queryRaw<
+      Array<{
+        id: string;
+        operatorUserId: string;
+        tokenFamily: string;
+        rotationCount: number;
+        revokedAt: Date | null;
+        expiresAt: Date;
+      }>
+    >(Prisma.sql`
+      SELECT id, "operatorUserId", "tokenFamily", "rotationCount", "revokedAt", "expiresAt"
+      FROM "OperatorSession"
+      WHERE "refreshTokenHash" = ${oldHash}
+      FOR UPDATE
+    `);
+    const session = rows[0];
 
     if (!session) {
       throw new Error('SESSION_NOT_FOUND');
     }
 
-    // Reuse detection: already revoked → revoke entire family
+    const now = new Date();
+
+    // Already revoked. Two causes, opposite responses (#589, mirrors session.ts #519):
+    //   (a) benign race — a concurrent refresh of the SAME token rotated first; the immediate
+    //       successor (rotationCount+1) is still live and the revoke is fresh. Mint a fresh
+    //       access token off the successor; leave the family and the (already-rotated) cookie.
+    //   (b) genuine reuse — an old token replayed after its window. Cascade-revoke the family.
     if (session.revokedAt !== null) {
+      if (session.revokedAt.getTime() > now.getTime() - REUSE_GRACE_MS) {
+        const successor = await tx.operatorSession.findFirst({
+          where: {
+            tokenFamily: session.tokenFamily,
+            rotationCount: session.rotationCount + 1,
+            revokedAt: null,
+            expiresAt: { gt: now },
+          },
+          select: { id: true },
+        });
+        if (successor) {
+          // Resolve the same operatorId/role claims the normal path mints (Issue 011/016).
+          let racedOperatorId = operatorId;
+          let racedRole: 'admin' | 'staff' | undefined;
+          if (!racedOperatorId || !racedRole) {
+            const user = await tx.operatorUser.findUnique({
+              where: { id: session.operatorUserId },
+              select: { operatorId: true, role: true },
+            });
+            if (!user) throw new Error('OPERATOR_USER_NOT_FOUND');
+            racedOperatorId ??= user.operatorId;
+            racedRole ??= user.role as 'admin' | 'staff';
+          }
+          const accessToken = await signOperatorAccess({
+            sub: session.operatorUserId,
+            scope: 'operator',
+            role: racedRole ?? 'admin',
+            requiresPasswordChange,
+            operatorId: racedOperatorId,
+          });
+          return { raced: true as const, accessToken };
+        }
+      }
       await tx.operatorSession.updateMany({
         where: { tokenFamily: session.tokenFamily },
-        data: { revokedAt: new Date() },
+        data: { revokedAt: now },
       });
       return { reuse: true as const };
     }
 
-    // Revoke old session row
-    await tx.operatorSession.update({
-      where: { id: session.id },
-      data: { revokedAt: new Date() },
+    // #589: an expired session must not rotate — the 30-day idle cap was never enforced.
+    // Revoke it and deny via an `expired` sentinel (returning, not throwing, so the revoke
+    // COMMITS; a throw would roll the tx back and leave the row live forever).
+    if (session.expiresAt <= now) {
+      await tx.operatorSession.updateMany({
+        where: { id: session.id, revokedAt: null },
+        data: { revokedAt: now },
+      });
+      return { expired: true as const };
+    }
+
+    // Guarded revoke of the old row (#589). Under the lock this is belt-and-suspenders; a
+    // count of 0 means a concurrent rotation already revoked it → treat as reuse.
+    const revoked = await tx.operatorSession.updateMany({
+      where: { id: session.id, revokedAt: null },
+      data: { revokedAt: now },
     });
+    if (revoked.count === 0) {
+      await tx.operatorSession.updateMany({
+        where: { tokenFamily: session.tokenFamily },
+        data: { revokedAt: now },
+      });
+      return { reuse: true as const };
+    }
 
     const tokenId = crypto.randomUUID();
     const newRotation = session.rotationCount + 1;

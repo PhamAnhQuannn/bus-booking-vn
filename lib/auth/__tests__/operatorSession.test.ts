@@ -18,15 +18,19 @@ const mockPrisma = vi.hoisted(() => {
   const operatorSession = {
     create: vi.fn(),
     findUnique: vi.fn(),
+    findFirst: vi.fn(),
     update: vi.fn(),
     updateMany: vi.fn(),
   };
   const operatorUser = {
     findUnique: vi.fn().mockResolvedValue({ operatorId: 'op-org-1', role: 'admin' }),
   };
-  const txProxy = { operatorSession, operatorUser };
+  // rotateOperatorRefresh now locks the row via a raw SELECT … FOR UPDATE (#589).
+  const $queryRaw = vi.fn();
+  const txProxy = { operatorSession, operatorUser, $queryRaw };
   return {
     $transaction: vi.fn(async (fn: (tx: typeof txProxy) => Promise<unknown>) => fn(txProxy)),
+    $queryRaw,
     operatorSession,
     operatorUser,
   };
@@ -55,6 +59,7 @@ function makeSession(overrides: Partial<{
   tokenFamily: string;
   rotationCount: number;
   revokedAt: Date | null;
+  expiresAt: Date;
 }> = {}) {
   return {
     id: 'sess-1',
@@ -113,10 +118,10 @@ describe('issueOperatorSession', () => {
 // ---------------------------------------------------------------------------
 
 describe('rotateOperatorRefresh', () => {
-  it('rotates a valid non-revoked session', async () => {
+  it('rotates a valid non-revoked session (guarded revoke via updateMany)', async () => {
     const session = makeSession({ rotationCount: 2 });
-    mockPrisma.operatorSession.findUnique.mockResolvedValue(session);
-    mockPrisma.operatorSession.update.mockResolvedValue({ ...session, revokedAt: new Date() });
+    mockPrisma.$queryRaw.mockResolvedValue([session]);
+    mockPrisma.operatorSession.updateMany.mockResolvedValue({ count: 1 }); // guarded revoke succeeds
     mockPrisma.operatorSession.create.mockResolvedValue(makeSession({ rotationCount: 3 }));
 
     const result = await rotateOperatorRefresh('old-hash', false, 'op-org-1');
@@ -125,10 +130,10 @@ describe('rotateOperatorRefresh', () => {
     expect(result).toHaveProperty('accessToken');
     expect(result).toHaveProperty('refreshToken');
 
-    // Should revoke old session
-    expect(mockPrisma.operatorSession.update).toHaveBeenCalledWith(
+    // Should revoke old row guarded on revokedAt:null (#589)
+    expect(mockPrisma.operatorSession.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: session.id },
+        where: { id: session.id, revokedAt: null },
         data: expect.objectContaining({ revokedAt: expect.any(Date) }),
       })
     );
@@ -144,16 +149,15 @@ describe('rotateOperatorRefresh', () => {
     );
   });
 
-  it('returns { reuse: true } and revokes entire family on already-revoked token', async () => {
-    const session = makeSession({ revokedAt: new Date(Date.now() - 1000) });
-    mockPrisma.operatorSession.findUnique.mockResolvedValue(session);
+  it('returns { reuse: true } and revokes entire family on an old (post-grace) revoked token', async () => {
+    // Revoked well beyond REUSE_GRACE_MS → genuine replay, no live successor.
+    const session = makeSession({ revokedAt: new Date(Date.now() - 5 * 60 * 1000) });
+    mockPrisma.$queryRaw.mockResolvedValue([session]);
     mockPrisma.operatorSession.updateMany.mockResolvedValue({ count: 2 });
 
     const result = await rotateOperatorRefresh('revoked-hash');
 
     expect(result).toEqual({ reuse: true });
-
-    // Should revoke entire family
     expect(mockPrisma.operatorSession.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { tokenFamily: session.tokenFamily },
@@ -162,8 +166,59 @@ describe('rotateOperatorRefresh', () => {
     );
   });
 
+  it('#589: a second rotation of a just-revoked token with NO live successor revokes the family (no fork)', async () => {
+    // Revoked within the grace window but the successor lookup finds nothing live.
+    const session = makeSession({ revokedAt: new Date() });
+    mockPrisma.$queryRaw.mockResolvedValue([session]);
+    mockPrisma.operatorSession.findFirst.mockResolvedValue(null); // no live successor
+    mockPrisma.operatorSession.updateMany.mockResolvedValue({ count: 2 });
+
+    const result = await rotateOperatorRefresh('revoked-hash');
+
+    expect(result).toEqual({ reuse: true });
+    expect(mockPrisma.operatorSession.create).not.toHaveBeenCalled();
+    expect(mockPrisma.operatorSession.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { tokenFamily: session.tokenFamily } })
+    );
+  });
+
+  it('#589: a benign race (revoked within grace + live successor) returns { raced } with a fresh access token, no fork', async () => {
+    const session = makeSession({ revokedAt: new Date(), rotationCount: 4 });
+    mockPrisma.$queryRaw.mockResolvedValue([session]);
+    mockPrisma.operatorSession.findFirst.mockResolvedValue({ id: 'successor-sess' }); // live successor
+
+    const result = await rotateOperatorRefresh('revoked-hash', false, 'op-org-1');
+
+    expect(result).toMatchObject({ raced: true });
+    expect((result as { accessToken: string }).accessToken).toBeTruthy();
+    // Race path must NOT mint a new refresh row nor revoke the family.
+    expect(mockPrisma.operatorSession.create).not.toHaveBeenCalled();
+    expect(mockPrisma.operatorSession.updateMany).not.toHaveBeenCalled();
+    // Successor lookup keyed on rotationCount+1.
+    expect(mockPrisma.operatorSession.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ rotationCount: 5, revokedAt: null }) })
+    );
+  });
+
+  it('#589: an expired session returns { expired } and revokes the row (no rotation)', async () => {
+    const session = makeSession({ expiresAt: new Date(Date.now() - 1000) });
+    mockPrisma.$queryRaw.mockResolvedValue([session]);
+    mockPrisma.operatorSession.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await rotateOperatorRefresh('expired-hash');
+
+    expect(result).toEqual({ expired: true });
+    expect(mockPrisma.operatorSession.create).not.toHaveBeenCalled();
+    expect(mockPrisma.operatorSession.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: session.id, revokedAt: null },
+        data: expect.objectContaining({ revokedAt: expect.any(Date) }),
+      })
+    );
+  });
+
   it('throws SESSION_NOT_FOUND when hash does not exist', async () => {
-    mockPrisma.operatorSession.findUnique.mockResolvedValue(null);
+    mockPrisma.$queryRaw.mockResolvedValue([]);
 
     await expect(rotateOperatorRefresh('ghost-hash')).rejects.toThrow('SESSION_NOT_FOUND');
   });
