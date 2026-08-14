@@ -181,6 +181,11 @@ jobs:
   e2e-tests:
     name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
+    # #539: the mobile-390 (WebKit) shard intermittently HANGS — next dev/Turbopack (Next
+    # 16.2.11) serves chunks on-demand with no chunk-retry, so a slow WebKit hits ChunkLoadError,
+    # never hydrates, and all 116 tests time out. With no job timeout that ran to the 360-min
+    # default. Fail fast instead (a full green run is ~5-6 min/shard; 25 leaves ample headroom).
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -276,6 +281,9 @@ jobs:
     name: Flaky E2E Quarantine
     runs-on: ubuntu-latest
     continue-on-error: true
+    # #539: same hang guard as e2e-tests (this quarantine lane runs @flaky specs on the same
+    # next dev/Turbopack webServer). Shorter cap — it is non-blocking (continue-on-error).
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:16
