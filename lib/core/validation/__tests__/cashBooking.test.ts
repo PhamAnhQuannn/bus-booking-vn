@@ -16,14 +16,24 @@ describe('cashBookingSchema', () => {
     if (r.success) expect(r.data.buyerEmail).toBe('buyer@example.com');
   });
 
-  it('rejects a missing email (Issue 042 — email required for ticket delivery)', () => {
+  it('#527: accepts a cash walk-up with NO email (missing or empty → null)', () => {
     const { buyerEmail: _omit, ...noEmail } = valid;
-    expect(cashBookingSchema.safeParse(noEmail).success).toBe(false);
+    const rMissing = cashBookingSchema.safeParse(noEmail);
+    expect(rMissing.success).toBe(true);
+    if (rMissing.success) expect(rMissing.data.buyerEmail).toBeNull();
+
+    const rEmpty = cashBookingSchema.safeParse({ ...valid, buyerEmail: '' });
+    expect(rEmpty.success).toBe(true);
+    if (rEmpty.success) expect(rEmpty.data.buyerEmail).toBeNull();
   });
 
-  it('rejects an empty / invalid email', () => {
-    for (const buyerEmail of ['', '   ', 'not-an-email']) {
-      expect(cashBookingSchema.safeParse({ ...valid, buyerEmail }).success).toBe(false);
-    }
+  it('still rejects a present-but-malformed email', () => {
+    expect(cashBookingSchema.safeParse({ ...valid, buyerEmail: 'not-an-email' }).success).toBe(false);
+  });
+
+  it('#527: rejects a malformed phone (reuses the hold VN-mobile validator, not min(1))', () => {
+    expect(cashBookingSchema.safeParse({ ...valid, buyerPhone: '123' }).success).toBe(false);
+    // a valid +84 international form is accepted
+    expect(cashBookingSchema.safeParse({ ...valid, buyerPhone: '+84912345678' }).success).toBe(true);
   });
 });

@@ -134,6 +134,10 @@ export function CheckoutClient({
   const [holdAlert, setHoldAlert] = useState<HoldAlert | null>(null);
   const [initiateError, setInitiateError] = useState<string | null>(null);
   const [revealed, setRevealed] = useState<RevealedPayment | null>(null);
+  // #526: the boarding point the SERVER actually stored on the hold (null once a stale/
+  // mismatched selection is dropped). Null until the hold succeeds; then it authoritatively
+  // replaces the results-card selection in the display.
+  const [resolvedBoarding, setResolvedBoarding] = useState<{ point: string | null; time: string | null } | null>(null);
   // Guards the auto-fire so createHold/initiate run exactly once (retry is manual).
   const firedRef = useRef(false);
 
@@ -170,6 +174,13 @@ export function CheckoutClient({
   );
 
   const locked = submitting || revealed !== null;
+
+  // #526: display the SERVER-resolved boarding point once the hold succeeds (it authoritatively
+  // replaces the results-card selection). `boardingDropped` = a point WAS chosen but the server
+  // dropped it as stale — the traveler is warned instead of shown a pickup that isn't on the ticket.
+  const displayBoardingPoint = resolvedBoarding ? resolvedBoarding.point : boardingPoint;
+  const displayBoardingTime = resolvedBoarding ? resolvedBoarding.time : boardingTime;
+  const boardingDropped = !!boardingPoint && resolvedBoarding !== null && resolvedBoarding.point === null;
 
   async function fire(override?: { email?: string; skipTypoGate?: boolean }) {
     const effectiveEmail = override?.email ?? buyerEmail;
@@ -223,6 +234,12 @@ export function CheckoutClient({
           return setHoldAlert({ kind: 'error', message: 'Có lỗi xảy ra. Vui lòng thử lại.' });
       }
     }
+
+    // #526: reflect the SERVER-resolved boarding point (null if the chosen one was dropped as
+    // stale/mismatched) so the confirmation/QR screen never shows a pickup that was never
+    // recorded on the ticket. Before submit the display uses the results-card selection; after
+    // a successful hold it switches to what the server actually stored.
+    setResolvedBoarding({ point: hold.boardingPoint, time: hold.boardingTime });
 
     if (typeof window !== 'undefined') {
       sessionStorage.setItem(PHONE_STORAGE_KEY, p.data.buyerPhone);
@@ -405,14 +422,28 @@ export function CheckoutClient({
             </div>
 
             {boardingPoint ? (
-              // Boarding point chosen on the results card IS the pickup — read-only.
-              <div className="rounded-lg border border-border bg-muted/40 p-3">
-                <p className="text-sm font-medium text-muted-foreground">Điểm đón</p>
-                <p className="mt-0.5 text-sm font-medium text-foreground">
-                  {boardingPoint}
-                  {boardingTime ? ` · ${boardingTime}` : ''}
-                </p>
-              </div>
+              boardingDropped ? (
+                // #526: the chosen point was dropped server-side (schedule edited between the
+                // results card and submit) — warn instead of showing a pickup that was never
+                // recorded on the ticket.
+                <div className="rounded-lg border border-warning-foreground/30 bg-warning-foreground/5 p-3">
+                  <p className="text-sm font-medium text-warning-foreground">Điểm đón đã thay đổi</p>
+                  <p className="mt-0.5 text-sm text-muted-foreground">
+                    Điểm đón bạn chọn không còn trong lịch của nhà xe. Vé sẽ đón tại bến; vui lòng
+                    liên hệ nhà xe để xác nhận.
+                  </p>
+                </div>
+              ) : (
+                // Boarding point chosen on the results card IS the pickup — read-only. After the
+                // hold, this shows the SERVER-resolved value (#526).
+                <div className="rounded-lg border border-border bg-muted/40 p-3">
+                  <p className="text-sm font-medium text-muted-foreground">Điểm đón</p>
+                  <p className="mt-0.5 text-sm font-medium text-foreground">
+                    {displayBoardingPoint}
+                    {displayBoardingTime ? ` · ${displayBoardingTime}` : ''}
+                  </p>
+                </div>
+              )
             ) : (
               <fieldset className="flex flex-col gap-2" disabled={locked}>
                 <legend className="mb-1 text-sm font-medium">Điểm đón</legend>
@@ -534,8 +565,8 @@ export function CheckoutClient({
         operatorLegalName={trip.operatorLegalName}
         vehicleLabel={trip.vehicleLabel}
         ticketCount={ticketCount}
-        boardingPoint={boardingPoint}
-        boardingTime={boardingTime}
+        boardingPoint={displayBoardingPoint}
+        boardingTime={displayBoardingTime}
       />
 
       {/* 4. Payment — VietQR only; QR reveals automatically after consent */}
