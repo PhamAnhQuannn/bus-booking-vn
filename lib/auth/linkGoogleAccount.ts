@@ -57,7 +57,10 @@ export async function resolveGoogleLogin(identity: GoogleIdentityInput): Promise
     }
     // #495: keep the audit-only Account.email snapshot fresh when the user's Google email
     // changes after the initial link. Best-effort — never block login on the audit write.
-    if (existingLink.email !== email) {
+    // #588: only refresh from a Google-VERIFIED email. Account.email is audit/debug-only, not
+    // unique, and gates nothing (Customer.email is authoritative) — but if any future code ever
+    // reads it as authoritative, an unverified Google email must never have landed in the snapshot.
+    if (identity.emailVerified && existingLink.email !== email) {
       try {
         await prisma.account.update({ where: { id: existingLink.id }, data: { email } });
       } catch {

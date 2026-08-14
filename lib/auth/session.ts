@@ -111,6 +111,17 @@ export async function rotateRefresh(
     //        or revoked long ago. Cascade-revoke the family.
     if (session.revokedAt !== null) {
       if (session.revokedAt.getTime() > now.getTime() - REUSE_GRACE_MS) {
+        // Match the IMMEDIATE successor only (rotationCount+1), NOT any live descendant.
+        // #592 asked to widen this to any live leaf so a >=2-rotation burst inside the grace
+        // window stops force-logging-out the user — but that is DELIBERATELY not done: a genuine
+        // replay of a stolen token whose family has since rotated >=2 times presents the exact
+        // same state (this token revoked-in-grace, immediate successor revoked, a live leaf
+        // further along), so accepting any live descendant would silently turn real reuse into a
+        // benign `raced` response and defeat reuse-detection (see session #519 int test — "replay
+        // of a superseded token → genuine reuse → family revoked"). Strict +1 keeps the
+        // reuse-detection blind spot at exactly one rotation; the spurious-logout case #592
+        // describes (rare, needs concurrent refreshes advancing the family 2+ times in 30s) is
+        // accepted as an availability cost of that security choice.
         const successor = await tx.session.findFirst({
           where: {
             tokenFamily: session.tokenFamily,
@@ -121,6 +132,25 @@ export async function rotateRefresh(
           select: { id: true },
         });
         if (successor) {
+          // #587: re-check the customer is still active before minting off the live successor,
+          // mirroring step 2c. The family-revoke on suspend/delete usually removes the successor
+          // too; this closes the millisecond-wide successor-INSERT vs suspend-revoke ordering race
+          // so a suspended customer can't be handed a fresh access token through the raced branch.
+          const customer = await tx.customer.findUnique({
+            where: { id: session.customerId },
+            select: { suspendedAt: true, deletedAt: true },
+          });
+          if (
+            !customer ||
+            !checkCustomerActive({ suspendedAt: customer.suspendedAt, deletedAt: customer.deletedAt })
+              .active
+          ) {
+            await tx.session.updateMany({
+              where: { tokenFamily: session.tokenFamily },
+              data: { revokedAt: now },
+            });
+            return { inactive: true as const };
+          }
           const access = await signAccess({ sub: session.customerId, role: 'customer' });
           return { raced: true as const, access, customerId: session.customerId };
         }
