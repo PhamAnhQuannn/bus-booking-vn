@@ -28,9 +28,8 @@ export default function TermsPage() {
         </p>
         <ul className="list-disc pl-6 text-sm leading-relaxed">
           <li>Tìm kiếm và so sánh chuyến xe khách liên tỉnh.</li>
-          <li>Đặt chỗ và thanh toán trực tuyến qua chuyển khoản ngân hàng.</li>
+          <li>Đặt chỗ và thanh toán trước trực tuyến qua chuyển khoản ngân hàng (VietQR) hoặc VNPay.</li>
           <li>Xác nhận vé và thông báo qua email.</li>
-          <li>Thanh toán tiền mặt trực tiếp tại điểm đón khi lên xe.</li>
         </ul>
         <p className="text-sm leading-relaxed">
           BBVN không phải là nhà vận tải. Nhà xe chịu trách nhiệm về dịch vụ vận chuyển, an toàn và
@@ -60,7 +59,6 @@ export default function TermsPage() {
             Nếu thanh toán không hoàn tất trong thời gian giữ chỗ, ghế sẽ được trả lại để người
             khác đặt.
           </li>
-          <li>Thanh toán tiền mặt: trả trực tiếp cho nhà xe tại điểm đón khi lên xe.</li>
         </ul>
       </section>
 
