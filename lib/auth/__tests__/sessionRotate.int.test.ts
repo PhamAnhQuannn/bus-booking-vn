@@ -103,6 +103,26 @@ describe('rotateRefresh hardening', () => {
     expect(live).toBe(0);
   });
 
+  it('#587 raced branch re-checks active — a customer suspended mid-grace is denied, not handed a token', async () => {
+    const customerId = await seedCustomer();
+    const { refreshHash: hashA, family } = await createSession(customerId);
+
+    const rotA = await rotateRefresh(hashA); // A → B (B live; A revoked, within grace)
+    if (!('refreshHash' in rotA)) throw new Error('expected rotation');
+
+    // Customer is suspended AFTER the rotation but the family's live successor B still exists.
+    await prisma.customer.update({ where: { id: customerId }, data: { suspendedAt: new Date() } });
+
+    // Replay A: hits the benign-race branch (A revoked-in-grace + live successor B). Without the
+    // #587 re-check this would mint a fresh access token for a now-suspended customer.
+    const replay = await rotateRefresh(hashA);
+    expect('inactive' in replay).toBe(true);
+    expect('raced' in replay).toBe(false);
+
+    const live = await prisma.session.count({ where: { tokenFamily: family, revokedAt: null } });
+    expect(live).toBe(0); // family revoked
+  });
+
   it('#464 a suspended customer cannot rotate — inactive sentinel + family revoked', async () => {
     const customerId = await seedCustomer({ suspendedAt: new Date() });
     const { refreshHash, family } = await createSession(customerId);

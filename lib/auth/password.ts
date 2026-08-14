@@ -32,6 +32,15 @@ import { promisify } from 'util';
  * argon2id is opt-in (see the module header). When off, hash()/verify() never touch the
  * native addon — pure scrypt. Read `process.env` directly (not the env module) so this
  * low-level util stays dependency-free for tsx/seed and client-safe callers.
+ *
+ * #591 — this flag is effectively ONE-WAY. Once enabled, users who log in get `$argon2id$…`
+ * hashes (rehash-on-verify). If it is later turned OFF, verify() gates the native import out
+ * for `$argon2`-prefixed hashes → `verifyScrypt('$argon2…') → false` = a lockout for every
+ * argon2-hashed user, and needsRehash() returns false for `$argon2` so it never self-heals.
+ * The gate is deliberately NOT relaxed to attempt argon2 when off — its whole purpose is to
+ * never load an addon that can segfault (uncatchably) on the running host. Operational rule:
+ * do not disable AUTH_ARGON2_ENABLED once any account has been hashed with argon2. To retire
+ * argon2, roll users back to scrypt via a verify-time re-hash BEFORE flipping the flag.
  */
 function argon2Enabled(): boolean {
   return process.env.AUTH_ARGON2_ENABLED === 'true';
@@ -55,7 +64,20 @@ const SCRYPT_P = 1;
 // #441: current cost factor N = 2^17 (OWASP-recommended for scrypt r=8,p=1), up from the
 // pre-#441 default of 2^14 (16384, ~8x below OWASP). N is now ENCODED in the hash so old
 // hashes keep verifying at their own N and needsRehash() can upgrade them on next login.
-const SCRYPT_N = 131072;
+// #585: overridable via the SCRYPT_N env var for ops tuning without a code change. Raising N
+// makes needsRehash() upgrade lower-N hashes on the next login; lowering it just stops upgrades
+// (existing higher-N hashes keep verifying at their own encoded N). The override is validated:
+// a positive power of two in [2^14, 2^20] — anything else (typo, junk) falls back to the default,
+// so a fat-fingered env var can never silently weaken hashing to an absurd N.
+function resolveScryptN(): number {
+  const DEFAULT_N = 131072; // 2^17
+  const raw = process.env.SCRYPT_N;
+  if (!raw) return DEFAULT_N;
+  const n = Number(raw);
+  if (Number.isInteger(n) && n >= 16384 && n <= 1048576 && (n & (n - 1)) === 0) return n;
+  return DEFAULT_N;
+}
+const SCRYPT_N = resolveScryptN();
 // Legacy 3-part hashes (`scrypt$salt$hash`, no encoded N) were all produced at this N.
 const LEGACY_SCRYPT_N = 16384;
 export const SCRYPT_PREFIX = 'scrypt$';
@@ -173,10 +195,14 @@ export async function verify(storedHash: string, plain: string): Promise<boolean
 }
 
 /**
- * True when a stored hash should be upgraded (it is not argon2id — i.e. a legacy scrypt
- * hash). Callers re-hash the plaintext on a successful login and persist the argon2id
- * result (rehash-on-verify). Returns false once argon2 is unavailable and the new hash
- * would also be scrypt — the caller checks that before writing.
+ * True when a stored hash should be upgraded on a successful login (rehash-on-verify); the
+ * caller then re-hashes the plaintext and persists the result. Cases:
+ *   - `$argon2…`             → false (already the strongest available).
+ *   - argon2 ENABLED         → true for any scrypt hash (upgrade scrypt → argon2id).
+ *   - argon2 OFF, scrypt     → true only when the hash's encoded N is below the current
+ *                              SCRYPT_N (legacy/lower-cost); false for a current-N hash, so
+ *                              the rehash-on-verify loop settles instead of re-writing forever.
+ *   - unknown shape          → true (re-hash to the current scrypt).
  */
 export function needsRehash(storedHash: string): boolean {
   if (storedHash.startsWith('$argon2')) return false; // already the strongest available
