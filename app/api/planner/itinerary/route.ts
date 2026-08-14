@@ -28,7 +28,9 @@ async function handler(req: NextRequest): Promise<Response> {
     throw e;
   }
   const itinerary = buildItinerary(request, store);
-  // Trả DTO (client-safe) — KHÔNG gửi raw Itinerary (PlaceRef.phone điểm/nhà hàng = PII).
+  // Trả DTO (client-safe) — KHÔNG gửi raw Itinerary. Contract SĐT (#522/#532): điểm-đến phone = PII
+  // (đã strip tại model — DtoItem không có phone); khách sạn/nhà hàng = business contact công khai
+  // ("gọi trước") → GIỮ. RSC /lich-trinh đọc thẳng model tuân cùng contract (strip điểm-đến ở slot()).
   return NextResponse.json(
     { dto: toPlannerDto(itinerary), href: `/lich-trinh?${searchParams.toString()}`, days: itinerary.days.length },
     { headers: { 'Cache-Control': 'no-store' } },

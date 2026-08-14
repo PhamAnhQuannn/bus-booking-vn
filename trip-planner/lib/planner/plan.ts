@@ -367,8 +367,12 @@ export function buildItinerary(req: TripRequest, store?: Store): Itinerary {
   return { slug: req.slug, request: req, days, hotel, hotelAlts, restaurants, notes, generated_from: st.generatedAt };
 }
 
+// PII (#522/#532): điểm-đến phone = riêng tư → STRIP tại model. Contract: điểm đến ẩn số; khách sạn/
+// nhà hàng GIỮ số business ("gọi trước"). slot() chỉ dựng timeline item điểm-đến, nên enforce ở đây phủ
+// CẢ hai đường đọc — DTO (/api/planner/itinerary bỏ phone khỏi DtoItem) lẫn RSC (/lich-trinh đọc thẳng
+// SlotItem.phone) — không rò theo đường vòng.
 function slot(p: PlaceRef, role: SlotItem["role"], buoi: SlotItem["buoi"]): SlotItem {
-  return { ...p, role, buoi };
+  return { ...p, phone: null, role, buoi };
 }
 
 // Gắn chặng di chuyển tới mục TRƯỚC trong ngày (phút theo matrix nếu có, km haversine để hiển thị).

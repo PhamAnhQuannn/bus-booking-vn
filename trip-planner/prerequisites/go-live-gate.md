@@ -37,9 +37,10 @@ chốt** (bán/gói/marketplace → kéo theo giấy phép lữ hành), KHÔNG p
 
 1. **Giấy phép lữ hành** — nếu sản phẩm BÁN/gói/đặt hộ → cần giấy phép + luật sư. Hiện chỉ "tư vấn thông tin
    miễn phí" → prompt đã ràng "không đặt hộ". Giữ ranh giới này tới khi có giấy phép.
-2. **PII — SĐT khách sạn lộ ra client.** `DtoHotel.phone` gửi ra browser (điểm đến/nhà hàng KHÔNG lộ — DtoItem
-   không có phone). Là số business công khai, nhưng PDPL 2025 cần đánh giá + disclaimer. Cân nhắc: ẩn phone,
-   hoặc chỉ hiện khi bấm, + ghi nguồn.
+2. **PII — SĐT.** Contract (#522/#532): **điểm-đến phone = PII → strip tại model** (`slot()` trong `plan.ts`
+   null phone; phủ cả DTO lẫn RSC `/lich-trinh`). **Khách sạn + nhà hàng phone = số business công khai → GIỮ**
+   ("gọi trước"). PDPL 2025 vẫn cần đánh giá + **disclaimer trên UI** cho 2 số business này (owner chốt); tùy
+   chọn: chỉ hiện khi bấm. KHÔNG còn rò điểm-đến theo đường vòng RSC.
 3. **Licensing attribution** — mô tả verbatim **Wikipedia (CC BY-SA)** phải giữ nguồn + link; **OSM (ODbL)**,
    **Overture (CDLA)**, **Foursquare** cần dòng attribution hiện trong app. Chưa có → thêm footer/nguồn.
 4. **Disclaimer sản phẩm** — "thông tin tham khảo · giá/giờ chưa xác minh, gọi trước · không đặt hộ · lịch do hệ
