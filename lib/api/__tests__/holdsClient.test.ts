@@ -69,6 +69,25 @@ describe('createHoldRequest', () => {
     }
   });
 
+  it('#395: maps each distinct 429 cap/contention code to itself (not the generic throttle)', async () => {
+    for (const code of ['SESSION_SEAT_CAP_EXCEEDED', 'HOLD_CAP_EXCEEDED', 'SEAT_MAP_BUSY', 'REQUEST_IN_FLIGHT'] as const) {
+      mockFetch({ status: 429, headers: { 'Retry-After': '720' }, jsonBody: { error: code } });
+      const result = await createHoldRequest(VALID_BODY);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.code, `429 ${code} must not collapse to TOO_MANY_REQUESTS`).toBe(code);
+        expect(result.retryAfter).toBe(720);
+      }
+    }
+  });
+
+  it('#395: an unrecognized 429 code falls back to TOO_MANY_REQUESTS', async () => {
+    mockFetch({ status: 429, headers: { 'Retry-After': '60' }, jsonBody: { error: 'SOMETHING_ELSE' } });
+    const result = await createHoldRequest(VALID_BODY);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe('TOO_MANY_REQUESTS');
+  });
+
   it('returns ok=false with code=INVALID on 400', async () => {
     mockFetch({ status: 400, jsonBody: { error: 'INVALID' } });
     const result = await createHoldRequest(VALID_BODY);
