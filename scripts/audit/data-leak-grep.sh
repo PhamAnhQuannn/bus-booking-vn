@@ -109,7 +109,9 @@ check_samesite_lax_baseline() {
   echo "--- A4: sameSite lax baseline ---"
   # 14 → 16 (ADR-021 / DS-033): the Google OAuth flow adds two sameSite=lax cookies —
   # `bb_goauth` (start route: signed state + PKCE verifier) and `bb_rt` (callback: refresh).
-  local BASELINE=16
+  # 16 → 19 (#493/#494): CSRF-token rotation re-mints the `bb_csrf` double-submit cookie
+  # (sameSite=lax, matching proxy.ts minting) at login (customer + operator) and logout.
+  local BASELINE=19
   local count
   count=$(grep -rn --include='*.ts' -i 'sameSite.*lax' app/api/ \
     | grep -v '__tests__/' \
