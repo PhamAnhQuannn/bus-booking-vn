@@ -8,12 +8,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ---- hoisted mocks ----
-const { mockPrisma, mockRatelimit, mockSendEmail, mockStashTestOtp } = vi.hoisted(() => {
+const { mockPrisma, mockRatelimit, mockSendEmail, mockStashTestOtp, mockLogDispatchFailure } = vi.hoisted(() => {
   const mockPrisma = { $executeRaw: vi.fn() };
   const mockRatelimit = { limit: vi.fn() };
   const mockSendEmail = vi.fn();
   const mockStashTestOtp = vi.fn();
-  return { mockPrisma, mockRatelimit, mockSendEmail, mockStashTestOtp };
+  const mockLogDispatchFailure = vi.fn();
+  return { mockPrisma, mockRatelimit, mockSendEmail, mockStashTestOtp, mockLogDispatchFailure };
 });
 
 vi.mock('@/lib/core/db/client', () => ({ prisma: mockPrisma }));
@@ -21,7 +22,11 @@ vi.mock('@/lib/ratelimit', () => ({
   otpSendRatelimit: mockRatelimit,
   InMemoryRatelimit: vi.fn(),
 }));
-vi.mock('@/lib/notification', () => ({ sendEmail: mockSendEmail, stashTestOtp: mockStashTestOtp }));
+vi.mock('@/lib/notification', () => ({
+  sendEmail: mockSendEmail,
+  stashTestOtp: mockStashTestOtp,
+  logNotificationDispatchFailure: mockLogDispatchFailure,
+}));
 
 import { sendOtp } from '../sendOtp';
 
@@ -100,5 +105,18 @@ describe('sendOtp', () => {
     const callArgs = mockPrisma.$executeRaw.mock.calls[0][0];
     const values = callArgs.values;
     expect(values.some((v: unknown) => v === 'test@example.com')).toBe(true);
+  });
+
+  it('#442: a failed send is surfaced to logNotificationDispatchFailure; result stays ok:true', async () => {
+    mockSendEmail.mockResolvedValue({ ok: false, error: 'Resend 502', outcome: 'unknown' });
+
+    const result = await sendOtp(EMAIL);
+
+    // Enumeration-safety: the caller still returns ok:true regardless of delivery outcome.
+    expect(result).toEqual({ ok: true });
+    expect(mockLogDispatchFailure).toHaveBeenCalledWith(
+      'auth_otp_email',
+      { ok: false, error: 'Resend 502', outcome: 'unknown' }
+    );
   });
 });

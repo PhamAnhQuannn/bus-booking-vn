@@ -58,4 +58,13 @@ describe('POST /api/auth/logout', () => {
     expect(res.status).toBe(200);
     expect(mockLogout).not.toHaveBeenCalled();
   });
+
+  it('#493: rotates the bb_csrf double-submit token on logout', async () => {
+    await POST(makeRequest());
+    const csrfCall = mockCookieStore.set.mock.calls.find((c: unknown[]) => c[0] === 'bb_csrf');
+    expect(csrfCall, 'bb_csrf must be re-minted on logout').toBeDefined();
+    expect(typeof csrfCall![1]).toBe('string');
+    expect((csrfCall![1] as string).length).toBeGreaterThan(0);
+    expect(csrfCall![2]).toMatchObject({ httpOnly: false });
+  });
 });
