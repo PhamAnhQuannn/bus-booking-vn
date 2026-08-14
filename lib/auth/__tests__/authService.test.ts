@@ -69,6 +69,8 @@ const CUSTOMER_STUB = {
   email: 'test@example.com',
   displayName: 'Test User',
   suspendedAt: null,
+  // #492: login now requires a proven email; register() stamps this in the same tx.
+  emailVerifiedAt: new Date('2026-01-01T00:00:00.000Z'),
 };
 
 beforeEach(() => {
@@ -188,6 +190,20 @@ describe('authService.login', () => {
 
     await expect(login({ email: 'test@example.com', password: 'whatever' })).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
     expect(mockDummyVerify).toHaveBeenCalledTimes(1);
+  });
+
+  it('#492: throws INVALID_CREDENTIALS + dummyVerify for an unverified email, mints no session', async () => {
+    mockPrisma.customer.findFirst.mockResolvedValue({
+      ...CUSTOMER_STUB,
+      passwordHash: 'hash',
+      emailVerifiedAt: null, // has a password but email never proven — must not log in
+    });
+
+    await expect(
+      login({ email: 'test@example.com', password: 'Password1' })
+    ).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
+    expect(mockDummyVerify).toHaveBeenCalledTimes(1);
+    expect(mockSession.createSession).not.toHaveBeenCalled();
   });
 
   it('throws INVALID_CREDENTIALS + dummyVerify for a suspended customer, mints no session (P8)', async () => {

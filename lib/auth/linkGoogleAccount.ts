@@ -48,12 +48,21 @@ export async function resolveGoogleLogin(identity: GoogleIdentityInput): Promise
     where: {
       provider_providerAccountId: { provider: PROVIDER, providerAccountId: identity.sub },
     },
-    select: { customer: { select: { id: true, suspendedAt: true, deletedAt: true } } },
+    select: { id: true, email: true, customer: { select: { id: true, suspendedAt: true, deletedAt: true } } },
   });
   if (existingLink) {
     const c = existingLink.customer;
     if (!checkCustomerActive({ suspendedAt: c.suspendedAt, deletedAt: c.deletedAt }).active) {
       return { ok: false, reason: 'inactive' };
+    }
+    // #495: keep the audit-only Account.email snapshot fresh when the user's Google email
+    // changes after the initial link. Best-effort — never block login on the audit write.
+    if (existingLink.email !== email) {
+      try {
+        await prisma.account.update({ where: { id: existingLink.id }, data: { email } });
+      } catch {
+        // audit-only; ignore a transient write failure
+      }
     }
     return { ok: true, customerId: c.id, created: false };
   }

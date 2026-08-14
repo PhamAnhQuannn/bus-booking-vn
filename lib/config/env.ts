@@ -433,6 +433,15 @@ const envSchema = z.object({
     .string()
     .default('false')
     .transform((v) => v === 'true'),
+  /**
+   * Client mirror of GOOGLE_OAUTH_ENABLED (GoogleSignInButton reads it to decide whether to
+   * render). #478: boot asserts it EQUALS the server flag — a mismatch either renders a button
+   * that dead-ends on the /start 404, or hides an enabled flow. Fail-closed parity.
+   */
+  NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED: z
+    .string()
+    .default('false')
+    .transform((v) => v === 'true'),
   /** Google OAuth 2.0 Web client id. Required when GOOGLE_OAUTH_ENABLED=true. */
   GOOGLE_CLIENT_ID: z.string().optional(),
   /** Google OAuth 2.0 client secret. Required when GOOGLE_OAUTH_ENABLED=true. NEVER log this value. */
@@ -665,6 +674,17 @@ const envSchema = z.object({
           'GOAUTH_COOKIE_SECRET (≥32 chars) is required when GOOGLE_OAUTH_ENABLED=true (signs the bb_goauth handshake cookie)',
       });
     }
+  }
+  // #478: client/server OAuth flag parity. A mismatch renders a Google button that
+  // dead-ends on the /start 404 (client on, server off) or silently hides an enabled
+  // flow (server on, client off). Fail the boot rather than ship either.
+  if (env.GOOGLE_OAUTH_ENABLED !== env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED'],
+      message:
+        'NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED must equal GOOGLE_OAUTH_ENABLED (client/server OAuth flag parity)',
+    });
   }
   // Upstash provider must carry REST credentials.
   if (env.REDIS_PROVIDER === 'upstash') {
