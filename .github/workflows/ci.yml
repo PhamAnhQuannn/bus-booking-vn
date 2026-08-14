@@ -391,12 +391,15 @@ jobs:
           GITLEAKS_CONFIG: .gitleaks.toml
 
   # ---- 9. Python syntax (no other job looks at a .py file) ----
-  # NB (SEC-CI-GATE #567): `master` is NOT branch-protected — no status check in
-  # this file gates a merge. Required-status-check protection needs GitHub Pro or a
-  # public repo (`gh api .../branches/master/protection` returns 403 on this
-  # private free-plan repo); until then a red run is a signal, not a barrier. The
-  # audit gate was still tightened to --audit-level=high (fail-closed on new high
-  # advisories) so the signal is louder. This Python job is informational.
+  # NB (SEC-CI-GATE #567): `master` IS branch-protected (repo is public). A merge is
+  # gated on these 8 required status checks passing: Lint & Typecheck, Unit Tests,
+  # Integration Tests, E2E Tests (Playwright) (chromium), Data Leak Audit, Dependency
+  # Audit, Greppable Invariants, Secret Scanning (gitleaks). NON-required (run but
+  # don't block): E2E mobile-390 (known transformAlgorithm WebServer-crash flake),
+  # Flaky E2E Quarantine (continue-on-error), and this Python job. PR reviews are NOT
+  # required (solo squash-merge on green CI); enforce_admins is off (admins can
+  # override); strict/up-to-date is off. NOTE: free-plan protection only enforces
+  # while the repo stays PUBLIC — a toggle back to private silently drops the gate.
   python-syntax:
     name: Python Syntax
     runs-on: ubuntu-latest
