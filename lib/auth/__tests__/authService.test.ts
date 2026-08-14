@@ -312,6 +312,51 @@ describe('authService.refresh', () => {
     mockRotateRefresh.mockResolvedValue({ reuse: true });
     await expect(refresh('reused-token')).rejects.toMatchObject({ code: 'SESSION_REUSE' });
   });
+
+  // #464/#521: suspended/deleted customer → rotateRefresh returns the `inactive` sentinel
+  // (family already revoked); refresh denies as SESSION_NOT_FOUND (negative-path required).
+  it('throws SESSION_NOT_FOUND when rotateRefresh returns inactive', async () => {
+    mockVerifyRefreshToken.mockReturnValue({ payload: {}, hash: 'old-hash' });
+    mockRotateRefresh.mockResolvedValue({ inactive: true });
+    await expect(refresh('inactive-token')).rejects.toMatchObject({ code: 'SESSION_NOT_FOUND' });
+  });
+
+  // #520/#476: expired session → rotateRefresh returns the `expired` sentinel (row revoked
+  // and committed); refresh denies as SESSION_NOT_FOUND.
+  it('throws SESSION_NOT_FOUND when rotateRefresh returns expired', async () => {
+    mockVerifyRefreshToken.mockReturnValue({ payload: {}, hash: 'old-hash' });
+    mockRotateRefresh.mockResolvedValue({ expired: true });
+    await expect(refresh('expired-token')).rejects.toMatchObject({ code: 'SESSION_NOT_FOUND' });
+  });
+
+  // #519: benign concurrent race → fresh access token, but rotated:false and NO new refresh
+  // token (the winner already rotated the cookie). Name/email still rehydrated.
+  it('returns rotated:false with a fresh access token on a benign race', async () => {
+    mockVerifyRefreshToken.mockReturnValue({ payload: {}, hash: 'old-hash' });
+    mockRotateRefresh.mockResolvedValue({ raced: true, access: 'raced-access', customerId: 'cust-1' });
+    mockPrisma.customer.findFirst.mockResolvedValue({ displayName: 'Test User', email: 'test@example.com' });
+
+    const result = await refresh('raced-token');
+    expect(result.accessToken).toBe('raced-access');
+    expect(result.rotated).toBe(false);
+    expect(result.refreshToken).toBe('');
+    expect(result.displayName).toBe('Test User');
+    expect(result.email).toBe('test@example.com');
+  });
+
+  it('returns rotated:true on a normal rotation', async () => {
+    mockVerifyRefreshToken.mockReturnValue({ payload: {}, hash: 'old-hash' });
+    mockRotateRefresh.mockResolvedValue({
+      access: 'new-access',
+      refreshToken: 'new-refresh',
+      refreshHash: 'new-hash',
+      csrf: 'new-csrf',
+      customerId: 'cust-1',
+    });
+    mockPrisma.customer.findFirst.mockResolvedValue({ displayName: null, email: null });
+    const result = await refresh('valid-token');
+    expect(result.rotated).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -40,6 +40,9 @@ beforeEach(() => {
     refreshToken: 'new-refresh',
     refreshHash: 'new-hash',
     csrf: 'new-csrf',
+    displayName: null,
+    email: null,
+    rotated: true,
   });
 });
 
@@ -100,5 +103,36 @@ describe('POST /api/auth/refresh', () => {
     const json = await res.json();
     expect(res.status).toBe(401);
     expect(json.error).toBe('invalid_session');
+  });
+
+  // #521: inactive/expired customer maps to SESSION_NOT_FOUND — the stale cookie must be
+  // cleared too (previously only SESSION_REUSE cleared it), or it re-fires every navigation.
+  it('clears cookie on SESSION_NOT_FOUND (inactive/expired)', async () => {
+    mockRefresh.mockRejectedValue(new AuthServiceError('SESSION_NOT_FOUND'));
+    await POST(makeRequest());
+    expect(mockCookieStore.set).toHaveBeenCalledWith(
+      'bb_rt',
+      '',
+      expect.objectContaining({ maxAge: 0 })
+    );
+  });
+
+  // #519: a benign concurrent race returns rotated:false — a fresh access token but NO new
+  // refresh token. The route must NOT Set-Cookie (the winner already rotated bb_rt).
+  it('does not set bb_rt when rotated is false (benign race)', async () => {
+    mockRefresh.mockResolvedValue({
+      accessToken: 'raced-access',
+      refreshToken: '',
+      refreshHash: '',
+      csrf: '',
+      displayName: null,
+      email: null,
+      rotated: false,
+    });
+    const res = await POST(makeRequest());
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.accessToken).toBe('raced-access');
+    expect(mockCookieStore.set).not.toHaveBeenCalled();
   });
 });

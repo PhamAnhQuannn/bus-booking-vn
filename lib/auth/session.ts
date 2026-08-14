@@ -25,6 +25,12 @@ import { checkCustomerActive } from './assertCustomerActive';
 // Session expiry: 30 days
 const SESSION_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000;
 
+// Reuse-detection grace window (#519). A concurrent double-refresh of the same token
+// serializes on the FOR UPDATE lock; the loser re-reads the just-revoked row. Within this
+// window, if the immediate successor is still live, that is a benign race (two tabs / a
+// SessionBootstrap double-mount), NOT token theft — do not nuke the family.
+const REUSE_GRACE_MS = 30 * 1000;
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -59,7 +65,13 @@ export interface SessionContext {
 export async function rotateRefresh(
   oldHash: string,
   ctx: SessionContext = {}
-): Promise<SessionTokens | { reuse: true } | { inactive: true }> {
+): Promise<
+  | SessionTokens
+  | { reuse: true }
+  | { inactive: true }
+  | { expired: true }
+  | { raced: true; access: string; customerId: string }
+> {
   return prisma.$transaction(async (tx) => {
     // 1. Lock the session row FOR UPDATE (#463). Without the lock two concurrent
     //    refreshes of the same still-valid token both read revokedAt=null and both
@@ -89,8 +101,30 @@ export async function rotateRefresh(
 
     const now = new Date();
 
-    // 2. Reuse detection: session was already revoked → revoke entire family
+    // 2. Session already revoked. Two causes, opposite responses (#519):
+    //    (a) benign race — a concurrent refresh of the SAME token rotated first; the
+    //        immediate successor (rotationCount+1) is still live and the revoke is fresh.
+    //        Nuking the family here would force-log-out the user (two tabs → one dies).
+    //        Mint a fresh access token off the live successor; leave the family and the
+    //        (already-rotated) cookie untouched.
+    //    (b) genuine reuse — an old token replayed after its window; no live successor,
+    //        or revoked long ago. Cascade-revoke the family.
     if (session.revokedAt !== null) {
+      if (session.revokedAt.getTime() > now.getTime() - REUSE_GRACE_MS) {
+        const successor = await tx.session.findFirst({
+          where: {
+            tokenFamily: session.tokenFamily,
+            rotationCount: session.rotationCount + 1,
+            revokedAt: null,
+            expiresAt: { gt: now },
+          },
+          select: { id: true },
+        });
+        if (successor) {
+          const access = await signAccess({ sub: session.customerId, role: 'customer' });
+          return { raced: true as const, access, customerId: session.customerId };
+        }
+      }
       await tx.session.updateMany({
         where: { tokenFamily: session.tokenFamily },
         data: { revokedAt: now },
@@ -99,13 +133,15 @@ export async function rotateRefresh(
     }
 
     // 2b. Expired session must not rotate (#476). Session.expiresAt was written but
-    //     never enforced. Revoke it and deny.
+    //     never enforced. Revoke it and deny. RETURN an `expired` sentinel (not throw):
+    //     a throw rolls back the tx and discards the revoke (#520), leaving the row
+    //     revokedAt=null forever — anything treating that as "live" miscounts it.
     if (session.expiresAt <= now) {
       await tx.session.updateMany({
         where: { id: session.id, revokedAt: null },
         data: { revokedAt: now },
       });
-      throw new Error('SESSION_NOT_FOUND');
+      return { expired: true as const };
     }
 
     // 2c. Re-check the customer is still active (#464). suspendCustomer revokes
