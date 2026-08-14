@@ -148,6 +148,29 @@ jobs:
       - name: Run migrations
         run: pnpm prisma migrate deploy
 
+      # SEC-DB-LEASTPRIV (#558) — regression-guard for the least-privilege split.
+      # Apply the SAME script prod uses (scripts/db/least-privilege-role.sql) to the CI
+      # database, then assert app_runtime has row DML but NO DDL (TRUNCATE / CREATE-on-schema).
+      # A red here means someone weakened the runtime role's privilege ceiling.
+      - name: Assert DB privilege split (#558)
+        env:
+          PGPASSWORD: bbvn_dev_password
+        run: |
+          sed 's/<YOUR_DATABASE>/bbvn_dev/g' scripts/db/least-privilege-role.sql \
+            | psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f -
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          BEGIN
+            IF NOT has_table_privilege('app_runtime','"Booking"','DELETE')
+               THEN RAISE EXCEPTION 'app_runtime is missing DELETE on Booking'; END IF;
+            IF has_table_privilege('app_runtime','"Booking"','TRUNCATE')
+               THEN RAISE EXCEPTION 'app_runtime HAS TRUNCATE (DDL leak)'; END IF;
+            IF has_schema_privilege('app_runtime','public','CREATE')
+               THEN RAISE EXCEPTION 'app_runtime HAS CREATE on schema public'; END IF;
+            RAISE NOTICE 'DB privilege split OK';
+          END $$;
+          SQL
+
       - name: Seed database
         run: pnpm prisma db seed
 
