@@ -12,6 +12,7 @@ import { SignJWT, jwtVerify } from 'jose';
 import crypto from 'crypto';
 import type IORedisType from 'ioredis';
 import { logger } from '@/lib/logger';
+import { resolveRatelimitBackend } from '@/lib/core/http/ratelimitBackend';
 
 const OTP_PROOF_TTL_SECONDS = 300; // 5 minutes
 
@@ -107,19 +108,22 @@ async function consumeJtiViaIoRedis(jti: string, ttlSec: number): Promise<boolea
  * verify — fail-closed by crash, with a stack trace instead of a clean denial.
  */
 export async function consumeJti(jti: string, ttlSec: number): Promise<boolean> {
-  const provider = process.env.REDIS_PROVIDER;
+  // #396: resolve the backend through the ONE shared predicate (resolveRatelimitBackend) that
+  // createRatelimit + the getEnv boot-warning also use — instead of a third hand-rolled
+  // ioredis/upstash/memory branch that would silently drift when the selection rule changes.
+  const backend = resolveRatelimitBackend();
 
   try {
-    if (provider === 'ioredis') {
+    if (backend === 'ioredis') {
       return await consumeJtiViaIoRedis(jti, ttlSec);
     }
 
-    const url = process.env.UPSTASH_REDIS_REST_URL;
-    const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-
-    if (provider === 'upstash' || (url && token)) {
+    if (backend === 'upstash') {
       const { Redis } = await import('@upstash/redis');
-      const redis = new Redis({ url: url!, token: token! });
+      const redis = new Redis({
+        url: process.env.UPSTASH_REDIS_REST_URL!,
+        token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+      });
       const key = `otpproof:consumed:${jti}`;
       const result = await redis.set(key, '1', { nx: true, ex: ttlSec });
       return result === 'OK';
@@ -129,7 +133,7 @@ export async function consumeJti(jti: string, ttlSec: number): Promise<boolean> 
   } catch (err) {
     // Logged via lib/logger (not console) so the redact list applies. No jti in the
     // line — it is a single-use credential.
-    logger.error({ err, provider }, 'auth.consume_jti.failed — fail-closed, denying');
+    logger.error({ err, backend }, 'auth.consume_jti.failed — fail-closed, denying');
     return false;
   }
 }
