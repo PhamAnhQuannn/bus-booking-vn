@@ -313,6 +313,7 @@ describe('getEnv — Google OAuth guard (ADR-021 / P5)', () => {
   it('parses when GOOGLE_OAUTH_ENABLED=true and all four are set', () => {
     Object.assign(process.env, BASE, {
       GOOGLE_OAUTH_ENABLED: 'true',
+      NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED: 'true', // #478: client/server flag parity
       GOOGLE_CLIENT_ID: 'cid.apps.googleusercontent.com',
       GOOGLE_CLIENT_SECRET: 'secret',
       NEXT_PUBLIC_BASE_URL: 'https://lenxevn.com',
@@ -343,5 +344,22 @@ describe('getEnv — Google OAuth guard (ADR-021 / P5)', () => {
   it('rejects a non-URL NEXT_PUBLIC_BASE_URL', () => {
     Object.assign(process.env, BASE, { NEXT_PUBLIC_BASE_URL: 'not-a-url' });
     expect(() => getEnv()).toThrow(/NEXT_PUBLIC_BASE_URL/);
+  });
+});
+
+describe('getEnv — Google OAuth client/server flag parity (#478)', () => {
+  it('THROWS when NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED=true but the server flag is off (dead-end)', () => {
+    Object.assign(process.env, BASE, { NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED: 'true' });
+    delete process.env.GOOGLE_OAUTH_ENABLED;
+    _resetEnvCache();
+    expect(() => getEnv()).toThrow(/NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED/);
+  });
+
+  it('does NOT throw when both flags are off (default parity)', () => {
+    Object.assign(process.env, BASE);
+    delete process.env.GOOGLE_OAUTH_ENABLED;
+    delete process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED;
+    _resetEnvCache();
+    expect(() => getEnv()).not.toThrow();
   });
 });

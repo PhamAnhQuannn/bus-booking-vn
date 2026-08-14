@@ -125,7 +125,14 @@ export async function login(input: LoginInput, ctx: SessionContext = {}): Promis
 
   const customer = await prisma.customer.findFirst({
     where: { email, deletedAt: null },
-    select: { id: true, email: true, displayName: true, passwordHash: true, suspendedAt: true },
+    select: {
+      id: true,
+      email: true,
+      displayName: true,
+      passwordHash: true,
+      suspendedAt: true,
+      emailVerifiedAt: true,
+    },
   });
 
   // P8: a suspended customer must not mint a session even with the right password.
@@ -133,9 +140,16 @@ export async function login(input: LoginInput, ctx: SessionContext = {}): Promis
   // the error uniform as INVALID_CREDENTIALS — never leak suspension state pre-auth.
   // Uses the shared checkCustomerActive so this can't drift from requireCustomerAuth
   // (deletedAt is already excluded by the `where` above, so pass it as null).
+  //
+  // #492: also require a proven email (emailVerifiedAt) at auth — defense-in-depth. Today
+  // register() is the sole passwordHash writer and stamps emailVerifiedAt in the same tx, so
+  // no legit user is blocked; but a future password-setter (admin set-password, recovery)
+  // that skips the OTP proof would otherwise silently allow unverified login. Uniform
+  // INVALID_CREDENTIALS (no new enumeration oracle).
   if (
     !customer ||
     !customer.passwordHash ||
+    !customer.emailVerifiedAt ||
     !checkCustomerActive({ suspendedAt: customer.suspendedAt, deletedAt: null }).active
   ) {
     await dummyVerify();

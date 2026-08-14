@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const { mockPrisma, mockBackfill } = vi.hoisted(() => ({
   mockPrisma: {
-    account: { findUnique: vi.fn(), create: vi.fn() },
+    account: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     customer: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
     $transaction: vi.fn(),
   },
@@ -28,13 +28,30 @@ beforeEach(() => {
 });
 
 describe('resolveGoogleLogin', () => {
-  it('L1: returns the linked customer for a known active link', async () => {
+  it('L1: returns the linked customer for a known active link (email unchanged → no update)', async () => {
     mockPrisma.account.findUnique.mockResolvedValue({
+      id: 'acct-1',
+      email: 'trip@example.com', // already matches the (lowercased) identity email
       customer: { id: 'cust-1', suspendedAt: null, deletedAt: null },
     });
     const res = await resolveGoogleLogin(IDENTITY);
     expect(res).toEqual({ ok: true, customerId: 'cust-1', created: false });
     expect(mockPrisma.customer.create).not.toHaveBeenCalled();
+    expect(mockPrisma.account.update).not.toHaveBeenCalled();
+  });
+
+  it('#495: L1 refreshes the audit Account.email snapshot when the Google email changed', async () => {
+    mockPrisma.account.findUnique.mockResolvedValue({
+      id: 'acct-1',
+      email: 'old@example.com', // stale snapshot from the initial link
+      customer: { id: 'cust-1', suspendedAt: null, deletedAt: null },
+    });
+    const res = await resolveGoogleLogin(IDENTITY);
+    expect(res).toEqual({ ok: true, customerId: 'cust-1', created: false });
+    expect(mockPrisma.account.update).toHaveBeenCalledWith({
+      where: { id: 'acct-1' },
+      data: { email: 'trip@example.com' },
+    });
   });
 
   it('L1: rejects a known link whose customer is deleted/suspended (inactive)', async () => {
