@@ -43,7 +43,15 @@ async function handler(req: NextRequest): Promise<Response> {
 
   const parsed = registerBodySchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: 'INVALID' }, { status: 400 });
+    // #479: surface a distinct WEAK_PASSWORD code when the ONLY validation failure is the
+    // password policy, so the client shows a specific reason instead of a generic
+    // "Đăng ký thất bại". Derive a CODE from the issue paths — never echo zodError.issues
+    // across the boundary (SEC-ZOD-LEAK #566).
+    const onlyPasswordFailed = parsed.error.issues.every((i) => i.path[0] === 'password');
+    return NextResponse.json(
+      { error: onlyPasswordFailed ? 'WEAK_PASSWORD' : 'INVALID' },
+      { status: 400 },
+    );
   }
 
   const { email, otpProof, password, displayName } = parsed.data;

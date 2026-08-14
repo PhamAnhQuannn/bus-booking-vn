@@ -95,7 +95,9 @@ const CONTENT: Record<
     badge: {
       icon: ShieldCheck,
       title: 'Nền tảng vận hành tin cậy',
-      sub: 'Bảo mật cao – Ổn định – Hỗ trợ 24/7',
+      // #491: drop the unverifiable "24/7" (a 1–2-operator launch can't back a 24/7 SLA — same
+      // anti-overclaim reasoning as the customer bullets above). Both panels now consistent.
+      sub: 'Bảo mật cao – Ổn định – Hỗ trợ tận tâm',
     },
     photo: '/hero/operator-depot.jpg',
     photo2x: '/hero/operator-depot@2x.webp',

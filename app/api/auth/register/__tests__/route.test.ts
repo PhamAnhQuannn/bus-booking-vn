@@ -158,6 +158,23 @@ describe('POST /api/auth/register', () => {
     expect(res.status).toBe(400);
   });
 
+  it('#479: returns 400 WEAK_PASSWORD when only the password fails the policy', async () => {
+    const otpProof = await makeOtpProof();
+    const res = await POST(makeRequest({ email: TEST_EMAIL, otpProof, password: 'weak', acceptTerms: true }));
+    const json = await res.json();
+    expect(res.status).toBe(400);
+    expect(json.error).toBe('WEAK_PASSWORD');
+    expect(mockRegister).not.toHaveBeenCalled();
+  });
+
+  it('#479: returns generic INVALID when a non-password field also fails (no WEAK_PASSWORD)', async () => {
+    const otpProof = await makeOtpProof('bad-email');
+    const res = await POST(makeRequest({ email: 'bad-email', otpProof, password: 'weak', acceptTerms: true }));
+    const json = await res.json();
+    expect(res.status).toBe(400);
+    expect(json.error).toBe('INVALID');
+  });
+
   it('returns 429 RATE_LIMITED when the per-IP register limiter denies (#465)', async () => {
     mockRlLimit.mockResolvedValue({ allowed: false, remaining: 0, retryAfter: 900 });
     const otpProof = await makeOtpProof();

@@ -157,11 +157,20 @@ function RegisterPageInner() {
 
   async function handleRegister(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (loading) return; // #483: guard double-submit
     setError('');
-    setLoading(true);
     const fd = new FormData(e.currentTarget);
     const password = fd.get('password') as string;
     const displayName = (fd.get('displayName') as string) || undefined;
+    // #479: mirror the server password policy (≥8 chars, ≥1 letter, ≥1 digit) client-side, so a
+    // weak password is caught before the round-trip and the reason is specific — not the generic
+    // "Đăng ký thất bại" the server rejection used to collapse to.
+    const WEAK_PW_MSG = 'Mật khẩu cần tối thiểu 8 ký tự, gồm cả chữ và số.';
+    if (!/^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(password)) {
+      setError(WEAK_PW_MSG);
+      return;
+    }
+    setLoading(true);
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
@@ -170,7 +179,13 @@ function RegisterPageInner() {
       });
       const json = await res.json();
       if (!res.ok) {
-        setError(json.error === 'EMAIL_TAKEN' ? 'Email đã được đăng ký.' : 'Đăng ký thất bại.');
+        setError(
+          json.error === 'EMAIL_TAKEN'
+            ? 'Email đã được đăng ký.'
+            : json.error === 'WEAK_PASSWORD'
+              ? WEAK_PW_MSG
+              : 'Đăng ký thất bại.',
+        );
         return;
       }
       setAccessToken(json.accessToken);
