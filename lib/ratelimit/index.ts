@@ -10,6 +10,7 @@
 import type { Ratelimit as UpstashRatelimitClient } from '@upstash/ratelimit';
 import type Redis from 'ioredis';
 import { logger } from '@/lib/logger';
+import { readPlannerGeminiDailyMax } from '@/lib/config';
 import { resolveRatelimitBackend } from '@/lib/core/http/ratelimitBackend';
 
 export interface RatelimitResult {
@@ -523,7 +524,17 @@ export const plannerChatDailyPerIp = createRatelimit({ limit: 50, windowMs: 24 *
  * stay fail-open (they are throttles, not the cost backstop).
  */
 export const plannerDailyBudget = createRatelimit({
-  limit: Number(process.env.PLANNER_GEMINI_DAILY_MAX) || 1000,
+  limit: readPlannerGeminiDailyMax(), // #551: validated (int, positive) — no more `Number()||1000` footgun
   windowMs: 24 * 60 * 60_000,
   failClosed: true,
 });
+
+// Gemini cost controls that pair with the budget above (barrel re-exports).
+export {
+  breakerState,
+  recordUpstreamFailure,
+  recordUpstreamSuccess,
+  BREAKER_COOLDOWN_SEC,
+  type BreakerState,
+} from './geminiBreaker'; // #552 circuit-breaker
+export { recordGeminiUsage, type GeminiUsageResult } from './geminiUsage'; // #553 token/$ accounting

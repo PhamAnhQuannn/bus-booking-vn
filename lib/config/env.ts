@@ -10,6 +10,11 @@ import { z } from 'zod';
 import { DEFAULT_DATABASE_POOL_MAX } from '@/lib/core/db/poolConfig';
 import { resolveRatelimitBackend } from '@/lib/core/http/ratelimitBackend';
 
+// Shared so the standalone reader (readPlannerGeminiDailyMax) and the full-schema boot validation
+// use ONE rule. z.coerce.number().int().positive() kills the old `Number()||1000` footgun: 0,
+// negative, or non-numeric now fail instead of silently collapsing to 1000.
+const plannerGeminiDailyMaxSchema = z.coerce.number().int().positive().default(1000);
+
 const envSchema = z.object({
   /**
    * HMAC-SHA256 signing secret for bb_hold cookies.
@@ -163,6 +168,15 @@ const envSchema = z.object({
     .string()
     .default('true')
     .transform((v) => v !== 'false'),
+
+  /**
+   * Global daily Gemini request budget — free-tier quota backstop (#551). Consumed by
+   * plannerDailyBudget (lib/ratelimit). Free-tier ceiling ≈ 1000/day; raise once paid billing +
+   * a real budget exist. Declared here so it is validated + documented; a typo/non-numeric now
+   * fails the boot instead of the old `Number()||1000` silently collapsing to 1000. lib/ratelimit
+   * reads it via readPlannerGeminiDailyMax() (module-safe — no full-schema validation at import).
+   */
+  PLANNER_GEMINI_DAILY_MAX: plannerGeminiDailyMaxSchema,
 
   // ---------------------------------------------------------------------------
   // Local fake-gateway stub (Phase 1 — run all online-payment stories with no
@@ -756,6 +770,16 @@ let _env: AppEnv | null = null;
  * Returns the parsed, validated env config.
  * Throws on first call if required vars are missing/invalid — fails fast at startup.
  */
+/**
+ * Read PLANNER_GEMINI_DAILY_MAX standalone — NOT via getEnv() — so importing it does not trigger
+ * the full-schema validation. lib/ratelimit calls this at module load and must stay importable in
+ * unit tests + before the rest of the env is populated. Same rule (plannerGeminiDailyMaxSchema) as
+ * the envSchema field, so the boot-time validation and this read never drift.
+ */
+export function readPlannerGeminiDailyMax(): number {
+  return plannerGeminiDailyMaxSchema.parse(process.env.PLANNER_GEMINI_DAILY_MAX);
+}
+
 export function getEnv(): AppEnv {
   if (_env) return _env;
   const result = envSchema.safeParse(process.env);

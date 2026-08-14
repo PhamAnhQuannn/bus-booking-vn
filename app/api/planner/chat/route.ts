@@ -32,6 +32,11 @@ import {
   plannerChatAnonRatelimit,
   plannerChatDailyPerIp,
   plannerDailyBudget,
+  breakerState,
+  recordUpstreamFailure,
+  recordUpstreamSuccess,
+  recordGeminiUsage,
+  BREAKER_COOLDOWN_SEC,
 } from '@/lib/ratelimit';
 import { clientIp } from '@/lib/core/http/clientIp';
 import { sessionIdFromRequest } from '@/lib/analytics';
@@ -81,6 +86,23 @@ export async function POST(req: NextRequest): Promise<Response> {
   // limit in proxy.ts is too loose for an LLM stream — tighten per session, then check
   // the global daily Gemini budget so no single caller can exhaust the free-tier quota.
   const ip = clientIp(req.headers);
+
+  // Circuit-breaker (#552): during a Gemini 429/5xx storm, short-circuit to 503 WITHOUT calling
+  // Gemini or consuming the budget — checked before the budget bucket so doomed calls don't burn
+  // the daily quota. Fail-open (breakerState returns closed on Redis error) so a blip can't wedge
+  // the assistant shut; the fail-closed plannerDailyBudget stays the cost backstop.
+  const breaker = await breakerState();
+  if (breaker.open) {
+    logger.warn({ retryAfter: breaker.retryAfter, ip }, 'planner.chat.breaker.open');
+    return new Response(JSON.stringify({ error: 'UPSTREAM_UNAVAILABLE' }), {
+      status: 503,
+      headers: {
+        'Content-Type': 'application/json',
+        'Retry-After': String(breaker.retryAfter || BREAKER_COOLDOWN_SEC),
+      },
+    });
+  }
+
   const sessionId = sessionIdFromRequest(req);
   const rl = sessionId
     ? await plannerChatRatelimit.limit(`planner-chat:${sessionId}`)
@@ -163,11 +185,31 @@ export async function POST(req: NextRequest): Promise<Response> {
               if (!(e instanceof CityDataUnavailableError)) console.error('planner vibe lookup failed', e);
             }
             send('suggestions', { vibe: ev.vibe, dia_diem: ev.dia_diem, items });
+          } else if (ev.kind === 'usage') {
+            // #553: real token usage Gemini returned this turn → daily $ accounting + a per-turn
+            // log line ops can aggregate. recordGeminiUsage fails open, so it never breaks the stream.
+            const acct = await recordGeminiUsage(ev.inputTokens, ev.outputTokens);
+            logger.info(
+              {
+                inputTokens: ev.inputTokens,
+                outputTokens: ev.outputTokens,
+                totalTokens: ev.totalTokens,
+                callUsd: acct.callUsd,
+                dailyInputTokens: acct.dailyInputTokens,
+                dailyOutputTokens: acct.dailyOutputTokens,
+                dailyUsd: acct.dailyUsd,
+              },
+              'planner.chat.usage',
+            );
           }
         }
+        await recordUpstreamSuccess(); // #552: a healthy turn clears the breaker failure counter
         send('done', {});
       } catch (err) {
         const noKey = err instanceof ParseIntentError && err.code === 'no_key';
+        // #552: count a real upstream failure toward the breaker (no_key is a config error, not an
+        // upstream storm, so it must NOT trip the breaker).
+        if (!noKey) await recordUpstreamFailure();
         // Surface the failure — this is the one paid upstream (Gemini); without this the
         // route is blind to quota-exhaustion / 5xx storms until users complain.
         captureException(err, { route: 'planner/chat', code: noKey ? 'no_key' : 'upstream' });

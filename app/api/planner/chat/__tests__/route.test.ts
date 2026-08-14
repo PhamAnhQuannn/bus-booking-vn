@@ -16,17 +16,27 @@ const {
   anonLimitMock,
   perIpLimitMock,
   budgetLimitMock,
+  breakerStateMock,
+  upstreamFailMock,
+  upstreamSuccessMock,
+  usageMock,
   sessionIdMock,
   chatEnabledMock,
   warnMock,
+  infoMock,
 } = vi.hoisted(() => ({
   sessionLimitMock: vi.fn(async () => ({ allowed: true, remaining: 9, retryAfter: 0 })),
   anonLimitMock: vi.fn(async () => ({ allowed: true, remaining: 2, retryAfter: 0 })),
   perIpLimitMock: vi.fn(async () => ({ allowed: true, remaining: 49, retryAfter: 0 })),
   budgetLimitMock: vi.fn(async () => ({ allowed: true, remaining: 999, retryAfter: 0 })),
+  breakerStateMock: vi.fn(async () => ({ open: false, retryAfter: 0 })),
+  upstreamFailMock: vi.fn(async () => {}),
+  upstreamSuccessMock: vi.fn(async () => {}),
+  usageMock: vi.fn(async () => ({ callUsd: 0, dailyInputTokens: 0, dailyOutputTokens: 0, dailyUsd: 0 })),
   sessionIdMock: vi.fn<() => string | null>(() => 'sess-1'),
   chatEnabledMock: vi.fn<() => boolean>(() => true),
   warnMock: vi.fn(),
+  infoMock: vi.fn(),
 }));
 
 vi.mock('@/lib/ratelimit', () => ({
@@ -34,6 +44,11 @@ vi.mock('@/lib/ratelimit', () => ({
   plannerChatAnonRatelimit: { limit: anonLimitMock },
   plannerChatDailyPerIp: { limit: perIpLimitMock },
   plannerDailyBudget: { limit: budgetLimitMock },
+  breakerState: breakerStateMock,
+  recordUpstreamFailure: upstreamFailMock,
+  recordUpstreamSuccess: upstreamSuccessMock,
+  recordGeminiUsage: usageMock,
+  BREAKER_COOLDOWN_SEC: 60,
 }));
 
 vi.mock('@/lib/analytics', () => ({
@@ -45,7 +60,7 @@ vi.mock('@/lib/config', () => ({
 }));
 
 vi.mock('@/lib/logger', () => ({
-  logger: { warn: warnMock },
+  logger: { warn: warnMock, info: infoMock },
 }));
 
 vi.mock('@/lib/observability', () => ({
@@ -81,9 +96,14 @@ beforeEach(() => {
   anonLimitMock.mockResolvedValue({ allowed: true, remaining: 2, retryAfter: 0 });
   perIpLimitMock.mockResolvedValue({ allowed: true, remaining: 49, retryAfter: 0 });
   budgetLimitMock.mockResolvedValue({ allowed: true, remaining: 999, retryAfter: 0 });
+  breakerStateMock.mockResolvedValue({ open: false, retryAfter: 0 });
+  upstreamFailMock.mockReset();
+  upstreamSuccessMock.mockReset();
+  usageMock.mockReset();
   sessionIdMock.mockReturnValue('sess-1');
   chatEnabledMock.mockReturnValue(true);
   warnMock.mockReset();
+  infoMock.mockReset();
 });
 
 describe('POST /api/planner/chat — kill-switch (#549)', () => {
@@ -109,6 +129,25 @@ describe('POST /api/planner/chat — per-IP sub-cap (#547)', () => {
     expect(warnMock).toHaveBeenCalledWith(
       expect.objectContaining({ denier: 'per-ip-daily' }),
       'planner.chat.denied.rate_limited',
+    );
+  });
+});
+
+describe('POST /api/planner/chat — circuit-breaker (#552)', () => {
+  it('returns 503 without consuming the budget when the breaker is open', async () => {
+    breakerStateMock.mockResolvedValue({ open: true, retryAfter: 45 });
+    sessionLimitMock.mockClear();
+    budgetLimitMock.mockClear();
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: 'UPSTREAM_UNAVAILABLE' });
+    expect(res.headers.get('Retry-After')).toBe('45');
+    // A doomed call must not burn the daily budget nor the per-session throttle.
+    expect(budgetLimitMock).not.toHaveBeenCalled();
+    expect(sessionLimitMock).not.toHaveBeenCalled();
+    expect(warnMock).toHaveBeenCalledWith(
+      expect.objectContaining({ retryAfter: 45 }),
+      'planner.chat.breaker.open',
     );
   });
 });
