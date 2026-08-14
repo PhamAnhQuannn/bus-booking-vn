@@ -23,7 +23,8 @@ export interface CreateCashBookingInput {
   operatorId: string;
   buyerName: string;
   buyerPhone: string;
-  buyerEmail: string;
+  // #527: nullable — a cash walk-up passenger may have no email (DB column is nullable).
+  buyerEmail: string | null;
   ticketCount: number;
 }
 
