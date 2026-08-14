@@ -14,7 +14,7 @@ import crypto from 'crypto';
 import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import { generateCode, generateSalt, hashCode } from './otp';
-import { sendEmail } from '@/lib/notification';
+import { sendEmail, logNotificationDispatchFailure } from '@/lib/notification';
 import { stashTestOtp } from '@/lib/notification';
 import { createRatelimit } from '@/lib/ratelimit';
 
@@ -97,11 +97,13 @@ export async function sendOperatorLoginOtp(email: string): Promise<SendLoginOtpR
     stashTestOtp(email, code);
   }
 
-  await sendEmail({
+  // #442: surface a definitive send failure to logs + Sentry; outward result unchanged.
+  const result = await sendEmail({
     to: email,
     template: 'otpCode',
     payload: { code, expiryMinutes: OTP_EXPIRY_MINUTES },
   });
+  logNotificationDispatchFailure('operator_login_otp_email', result);
 
   return { ok: true };
 }

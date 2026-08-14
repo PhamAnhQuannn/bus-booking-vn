@@ -45,6 +45,14 @@ describe('redactErrorText', () => {
     expect(redactErrorText(msg)).toBe(msg);
   });
 
+  it('#394: leaves a digit run whose tail is phone-shaped intact (no interior match)', () => {
+    // Without the leading (?<!\d) anchor the old regex matched "00912345678" INSIDE this
+    // provider ref (an interior 0-prefixed run reaching the end \b) and blanked its tail.
+    // The anchor now requires the phone to START a digit run, so the ref is left readable.
+    const msg = 'gateway ref REF12300912345678 declined';
+    expect(redactErrorText(msg)).toBe(msg);
+  });
+
   it('is idempotent — re-running never corrupts already-redacted text', () => {
     const once = redactErrorText('failed for a@b.com');
     expect(redactErrorText(once)).toBe(once);

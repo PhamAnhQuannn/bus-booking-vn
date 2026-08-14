@@ -8,7 +8,7 @@ export const runtime = 'nodejs';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { logout } from '@/lib/auth';
+import { logout, generateCsrfToken } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 async function handler(_req: NextRequest): Promise<Response> {
@@ -26,6 +26,16 @@ async function handler(_req: NextRequest): Promise<Response> {
     sameSite: 'lax',
     path: '/',
     maxAge: 0,
+  });
+
+  // #493: re-mint the bb_csrf double-submit token on logout (auth-state change) so a
+  // pre-logout token can't be replayed against the next session. Non-HttpOnly to stay
+  // readable for the double-submit echo; attributes mirror proxy.ts.
+  cookieStore.set('bb_csrf', generateCsrfToken(), {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
   });
 
   return NextResponse.json({ success: true });

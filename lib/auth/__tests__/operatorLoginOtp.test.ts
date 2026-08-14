@@ -23,6 +23,7 @@ vi.mock('@/lib/ratelimit', () => ({
 vi.mock('@/lib/notification', () => ({
   sendEmail: mockSendEmail,
   stashTestOtp: mockStashTestOtp,
+  logNotificationDispatchFailure: vi.fn(),
 }));
 
 vi.mock('../otp', () => ({

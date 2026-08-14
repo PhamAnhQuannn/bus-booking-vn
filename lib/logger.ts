@@ -36,6 +36,7 @@
  * - buyerPhone                 — manual booking buyer phone PII (Issue 015)
  * - buyerName                  — manual booking buyer name PII (Issue 015)
  * - buyerEmail                 — booking buyer email PII (Issue 042)
+ * - email / *.email            — bare/nested email key — defense-in-depth (#494)
  * - *.recipient                — NotificationLog/Payout recipient phone (Issue 019)
  * - totpSecret                 — top-level TOTP shared secret (Issue 055)
  * - *.totpSecret               — nested TOTP shared secret — a logged secret = full 2FA compromise (Issue 055)
@@ -104,6 +105,8 @@ export const loggerOptions: LoggerOptions = {
       'buyerPhone',
       'buyerName',
       'buyerEmail',
+      'email',                   // #494: bare top-level email key — defense-in-depth (customerEmail/buyerEmail already covered)
+      '*.email',                 // #494: nested email key
       '*.recipient',
       'newPhone',                // Issue 008: phone-change new phone (PII)
       'totpSecret',              // Issue 055: top-level TOTP shared secret

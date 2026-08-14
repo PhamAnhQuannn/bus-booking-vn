@@ -12,7 +12,7 @@
 import { prisma } from '@/lib/core/db/client';
 import { Prisma } from '@prisma/client';
 import { generateCode, generateSalt, hashCode } from './otp';
-import { sendEmail, stashTestOtp } from '@/lib/notification';
+import { sendEmail, stashTestOtp, logNotificationDispatchFailure } from '@/lib/notification';
 import { otpSendRatelimit } from '@/lib/ratelimit';
 
 const OTP_TTL_SECONDS = 5 * 60; // 5 minutes
@@ -67,11 +67,15 @@ export async function sendOtp(rawEmail: string): Promise<SendOtpResult> {
 
   stashTestOtp(email, code);
 
-  await sendEmail({
+  // #442: surface a definitive send failure (Resend outage / misroute) to logs + Sentry.
+  // The outward result stays {ok:true} regardless — never let a send failure become
+  // distinguishable from an unknown recipient (enumeration-safety for forgot/reset).
+  const result = await sendEmail({
     to: email,
     template: 'otpCode',
     payload: `BusBookVN: Ma xac thuc cua ban la ${code}. Ma co hieu luc trong ${OTP_EXPIRY_MINUTES} phut.`,
   });
+  logNotificationDispatchFailure('auth_otp_email', result);
 
   return { ok: true };
 }

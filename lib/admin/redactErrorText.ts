@@ -20,8 +20,13 @@ const EMAIL_IN_TEXT = /[\w.+-]+@[\w-]+\.[\w.-]+/g;
  * Vietnamese mobile numbers, with or without +84 / leading 0, tolerating the spaces,
  * dots and dashes people and vendors put in them. Bounded to 8-10 following digits so
  * it cannot swallow an arbitrary long digit run (an order id, a timestamp).
+ *
+ * #394: the leading `(?<!\d)` anchors the match to the START of a digit run. Without it,
+ * a `0`/`84` appearing *inside* a longer run (an order id, a provider txn ref) matched
+ * and the trailing `\b` blanked the run's tail. Now a run longer than a phone number is
+ * left intact (no interior match), while a genuine phone still matches.
  */
-const PHONE_IN_TEXT = /(?:\+?84|0)[\s.-]?\d(?:[\s.-]?\d){7,9}\b/g;
+const PHONE_IN_TEXT = /(?<!\d)(?:\+?84|0)[\s.-]?\d(?:[\s.-]?\d){7,9}\b/g;
 
 export function redactErrorText(text: string): string {
   return text.replace(EMAIL_IN_TEXT, '[email]').replace(PHONE_IN_TEXT, '[phone]');

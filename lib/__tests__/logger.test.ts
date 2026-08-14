@@ -70,6 +70,15 @@ describe('logger redactPaths', () => {
     }
   });
 
+  it('#494: redacts a bare top-level and nested email key (defense-in-depth)', async () => {
+    const { loggerOptions } = await import('../logger');
+    const redactPaths = Array.isArray(loggerOptions.redact)
+      ? loggerOptions.redact
+      : (loggerOptions.redact as { paths: string[] }).paths;
+    expect(redactPaths).toContain('email');
+    expect(redactPaths).toContain('*.email');
+  });
+
   it('masks Issue 010 operator auth PII fields', async () => {
     const { loggerOptions } = await import('../logger');
     const redactPaths = Array.isArray(loggerOptions.redact)

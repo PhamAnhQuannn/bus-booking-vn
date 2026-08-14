@@ -24,6 +24,7 @@ export {
   type ResolveGoogleResult,
 } from './linkGoogleAccount';
 export { readCsrfToken } from './csrfClient';
+export { generateToken as generateCsrfToken } from './csrf';
 export {
   signAccess,
   verifyAccess,

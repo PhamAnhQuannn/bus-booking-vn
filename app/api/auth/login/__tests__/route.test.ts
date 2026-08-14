@@ -111,6 +111,12 @@ describe('POST /api/auth/login', () => {
       const rt = setCalls.find((c: unknown[]) => c[0] === 'bb_rt');
       expect(rt).toBeDefined();
       expect(rt![2]).toMatchObject({ httpOnly: true, sameSite: 'lax', path: '/' });
+      // #493: the bb_csrf double-submit token is re-minted on login (non-HttpOnly so JS
+      // can echo it), blunting cookie-tossing across the auth-state change.
+      const csrf = setCalls.find((c: unknown[]) => c[0] === 'bb_csrf');
+      expect(csrf, 'bb_csrf must be rotated on customer login').toBeDefined();
+      expect((csrf![1] as string).length).toBeGreaterThan(0);
+      expect(csrf![2]).toMatchObject({ httpOnly: false });
     });
 
     it('does NOT set operator cookies on customer login', async () => {
