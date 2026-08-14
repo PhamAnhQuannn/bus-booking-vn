@@ -26,7 +26,7 @@ export default function CancellationRefundPage() {
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold">2. Phạm vi áp dụng</h2>
         <ul className="list-disc pl-6 text-sm leading-relaxed">
-          <li>Áp dụng cho vé thanh toán qua chuyển khoản ngân hàng (VietQR) và tiền mặt.</li>
+          <li>Áp dụng cho vé thanh toán trước qua chuyển khoản ngân hàng (VietQR) hoặc VNPay.</li>
           <li>
             Không áp dụng cho đặt xe hợp đồng/thuê riêng — vui lòng liên hệ{' '}
             <Link href="/lien-he-dat-xe" className="text-primary underline">
@@ -87,7 +87,6 @@ export default function CancellationRefundPage() {
         <h2 className="text-lg font-semibold">7. Thời gian và phương thức hoàn tiền</h2>
         <ul className="list-disc pl-6 text-sm leading-relaxed">
           <li>Hoàn tiền qua chuyển khoản ngân hàng: 3-5 ngày làm việc kể từ khi nhà xe xác nhận hủy chuyến.</li>
-          <li>Vé thanh toán tiền mặt: trả trực tiếp cho nhà xe khi lên xe, nên chuyến không chạy sẽ không phát sinh khoản cần hoàn.</li>
         </ul>
       </section>
 

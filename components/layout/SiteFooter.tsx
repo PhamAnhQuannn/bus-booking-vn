@@ -83,7 +83,7 @@ const FOOTER_COLUMNS = [
 /* Only the methods Phase 1 actually accepts. The mockup showed VISA / Mastercard /
    MoMo / ZaloPay — advertising schemes we do not take would fail customers at
    checkout. Rendered as monochrome wordmarks per design-research rule F4. */
-const PAYMENT_METHODS = ['VietQR', 'Tiền mặt', 'VNPay'];
+const PAYMENT_METHODS = ['VietQR', 'VNPay'];
 
 const linkClass =
   'inline-flex min-h-9 items-center rounded-md text-footer-muted outline-none transition-colors hover:text-footer-foreground focus-visible:ring-3 focus-visible:ring-ring/50';

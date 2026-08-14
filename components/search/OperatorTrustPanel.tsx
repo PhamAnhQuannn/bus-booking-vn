@@ -44,7 +44,7 @@ export function OperatorTrustPanel({
             </li>
             <li className="flex items-start gap-2">
               <CreditCard className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-              Thanh toán chuyển khoản VietQR hoặc tiền mặt khi lên xe
+              Thanh toán trước qua VietQR hoặc VNPay
             </li>
             <li className="flex items-start gap-2">
               <FileText className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
