@@ -623,6 +623,10 @@ model OtpAttempt {
 
   @@index([phone, createdAt(sort: Desc)])
   @@index([email, createdAt(sort: Desc)])
+  // #475: standalone createdAt index so the retention sweeper's age-based bulk delete
+  // (WHERE "createdAt" < …) is an index scan — the composite indexes above lead with
+  // phone/email and can't serve a createdAt-only predicate.
+  @@index([createdAt])
 }
 
 model Session {
