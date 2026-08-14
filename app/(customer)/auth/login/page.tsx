@@ -4,11 +4,11 @@
  * /auth/login — email + password → POST /api/auth/login → redirect
  */
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ShieldCheck, Mail, Lock, Eye, EyeOff, ArrowRight, Users, Building2 } from 'lucide-react';
-import { setAccessToken, setDisplayName, setCustomerEmail } from '@/lib/auth/clientSession';
+import { setAccessToken, setDisplayName, setCustomerEmail, useAuthStatus } from '@/lib/auth/clientSession';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
 import { safeReturnTo } from '@/lib/auth/safeReturnTo';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
@@ -41,9 +41,19 @@ function LoginPageInner() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  // #482: a signed-in customer landing here (bookmark, back-button, stale tab) is bounced to
+  // returnTo instead of seeing the form again. `useAuthStatus` resolves 'unknown' → 'authed'/
+  // 'guest' after the bootstrap refresh; only redirect once it is definitively 'authed'.
+  const authStatus = useAuthStatus();
+  useEffect(() => {
+    if (authStatus === 'authed') router.replace(returnTo);
+  }, [authStatus, router, returnTo]);
+
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (loading) return; // #483: guard against a double-submit (Enter held / rapid clicks)
     setError('');
+    setShowPassword(false); // #490: never leave the password revealed across a submit
     setLoading(true);
     const fd = new FormData(e.currentTarget);
     const email = fd.get('email') as string;
@@ -107,6 +117,9 @@ function LoginPageInner() {
                 required
                 autoComplete="email"
                 placeholder="you@example.com"
+                disabled={loading}
+                aria-invalid={!!error}
+                aria-describedby={error ? 'login-error' : undefined}
                 className={cn(authFieldClass, 'pl-10')}
               />
             </div>
@@ -125,14 +138,18 @@ function LoginPageInner() {
                 required
                 autoComplete="current-password"
                 placeholder="Nhập mật khẩu"
-                className={cn(authFieldClass, 'pl-10 pr-11')}
+                disabled={loading}
+                aria-invalid={!!error}
+                aria-describedby={error ? 'login-error' : undefined}
+                className={cn(authFieldClass, 'pl-10 pr-12')}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
                 aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
                 aria-pressed={showPassword}
-                className="absolute right-1 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+                // #488: 44px tap target (was size-9 = 36px, below the AU-5 / WCAG 2.5.5 minimum).
+                className="absolute right-0.5 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
               >
                 {showPassword ? (
                   <EyeOff className="size-4" aria-hidden="true" />
@@ -149,7 +166,7 @@ function LoginPageInner() {
           </div>
           {/* -my-2 pulls the CTA up toward the credentials: the reserved (no-shift)
               error line stays, but its empty-state void no longer detaches the button. */}
-          <FormError message={error} className="-my-2" />
+          <FormError message={error} id="login-error" className="-my-2" />
           <Button
             type="submit"
             size="lg"
