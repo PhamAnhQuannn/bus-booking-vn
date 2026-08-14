@@ -728,6 +728,10 @@ model OperatorSession {
   operator         OperatorUser @relation(fields: [operatorUserId], references: [id], onDelete: Cascade)
 
   @@index([operatorUserId])
+  // #474: standalone expiresAt index so the session pruning sweeper's age-based bulk
+  // delete (WHERE "expiresAt" < NOW()) is an index scan — the operatorUserId index
+  // above can't serve an expiresAt-only predicate.
+  @@index([expiresAt])
 }
 
 model OperatorOtpAttempt {
@@ -795,6 +799,10 @@ model AdminSession {
   admin            AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
 
   @@index([adminUserId])
+  // #474: standalone expiresAt index so the session pruning sweeper's age-based bulk
+  // delete (WHERE "expiresAt" < NOW()) is an index scan — the adminUserId index above
+  // can't serve an expiresAt-only predicate.
+  @@index([expiresAt])
 }
 
 // ---------------------------------------------------------------------------
