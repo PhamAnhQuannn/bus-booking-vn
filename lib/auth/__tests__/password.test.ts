@@ -77,4 +77,23 @@ describe('password (scrypt default, argon2id opt-in + legacy compat)', () => {
     const { verify } = await import('../password');
     expect(await verify('scrypt$notvalid', 'anything')).toBe(false);
   });
+
+  it.skipIf(ARGON2_ON)('#441: a fresh scrypt hash encodes the current cost factor N=131072', async () => {
+    const { hash } = await import('../password');
+    const stored = await hash('CostFactor1');
+    expect(stored).toMatch(/^scrypt\$131072\$/);
+  });
+
+  it.skipIf(ARGON2_ON)('#441: needsRehash is false for a fresh current-N scrypt hash', async () => {
+    const { hash, needsRehash } = await import('../password');
+    const stored = await hash('Fresh1Pass');
+    expect(needsRehash(stored)).toBe(false);
+  });
+
+  it('#441: a legacy N=16384 hash still verifies AND is flagged for upgrade', async () => {
+    const { verify, needsRehash } = await import('../password');
+    const legacy = await makeLegacyScryptHash('Legacy1Pass');
+    expect(await verify(legacy, 'Legacy1Pass')).toBe(true);
+    expect(needsRehash(legacy)).toBe(true);
+  });
 });

@@ -12,7 +12,13 @@
  *   file-tracing shipping the native binary; `argon2` is in next.config `serverExternalPackages`.
  *
  * verify() auto-detects the stored algorithm; legacy `scrypt$` hashes still verify.
- * needsRehash() flags a non-argon2id hash so callers upgrade it on a successful login.
+ * needsRehash() flags a hash below the current work factor so callers upgrade it on a
+ * successful login (rehash-on-verify).
+ *
+ * Scrypt cost (#441): N = 2^17 (OWASP-recommended), up from the pre-#441 2^14. N is encoded
+ * in the hash (`scrypt$<N>$<salt>$<hash>`); the legacy 2-part form decodes to N = 16384 and
+ * still verifies, then upgrades on next login. Even with argon2 OFF, the scrypt baseline now
+ * meets OWASP.
  *
  * dummyVerify() runs an equivalent-cost verification on a constant hash via the SAME
  *   primary path, so unknown-user login paths are timing-indistinguishable from a
@@ -44,24 +50,68 @@ const scryptAsync = promisify(crypto.scrypt) as (
 // ---------------------------------------------------------------------------
 
 const SCRYPT_KEYLEN = 64;
-const SCRYPT_PARAMS = { N: 16384, r: 8, p: 1 };
+const SCRYPT_R = 8;
+const SCRYPT_P = 1;
+// #441: current cost factor N = 2^17 (OWASP-recommended for scrypt r=8,p=1), up from the
+// pre-#441 default of 2^14 (16384, ~8x below OWASP). N is now ENCODED in the hash so old
+// hashes keep verifying at their own N and needsRehash() can upgrade them on next login.
+const SCRYPT_N = 131072;
+// Legacy 3-part hashes (`scrypt$salt$hash`, no encoded N) were all produced at this N.
+const LEGACY_SCRYPT_N = 16384;
 export const SCRYPT_PREFIX = 'scrypt$';
+
+// scrypt needs maxmem > 128 * N * r; Node's 32 MB default is exceeded at N = 2^17
+// (128 * 131072 * 8 ≈ 128 MB), so set an explicit ceiling with headroom.
+function scryptMaxmem(n: number): number {
+  return 128 * n * SCRYPT_R * 2;
+}
+
+interface ParsedScrypt {
+  n: number;
+  salt: string;
+  hashHex: string;
+}
+
+/**
+ * Parse a stored scrypt hash. Supports both the new `scrypt$<N>$<salt>$<hash>` form and
+ * the legacy `scrypt$<salt>$<hash>` form (no encoded N → LEGACY_SCRYPT_N). Returns null
+ * for any malformed value.
+ */
+function parseScrypt(storedHash: string): ParsedScrypt | null {
+  const parts = storedHash.slice(SCRYPT_PREFIX.length).split('$');
+  if (parts.length === 3) {
+    const n = Number(parts[0]);
+    if (!Number.isInteger(n) || n <= 0) return null;
+    return { n, salt: parts[1], hashHex: parts[2] };
+  }
+  if (parts.length === 2) {
+    return { n: LEGACY_SCRYPT_N, salt: parts[0], hashHex: parts[1] };
+  }
+  return null;
+}
 
 async function hashScrypt(plain: string): Promise<string> {
   const salt = crypto.randomBytes(16).toString('hex');
-  const derived = await scryptAsync(plain, salt, SCRYPT_KEYLEN, SCRYPT_PARAMS);
-  return `${SCRYPT_PREFIX}${salt}$${derived.toString('hex')}`;
+  const derived = await scryptAsync(plain, salt, SCRYPT_KEYLEN, {
+    N: SCRYPT_N,
+    r: SCRYPT_R,
+    p: SCRYPT_P,
+    maxmem: scryptMaxmem(SCRYPT_N),
+  });
+  return `${SCRYPT_PREFIX}${SCRYPT_N}$${salt}$${derived.toString('hex')}`;
 }
 
 async function verifyScrypt(storedHash: string, plain: string): Promise<boolean> {
-  const body = storedHash.slice(SCRYPT_PREFIX.length);
-  const dollarIdx = body.indexOf('$');
-  if (dollarIdx === -1) return false;
-  const salt = body.slice(0, dollarIdx);
-  const hashHex = body.slice(dollarIdx + 1);
-  const expected = Buffer.from(hashHex, 'hex');
+  const parsed = parseScrypt(storedHash);
+  if (!parsed) return false;
+  const expected = Buffer.from(parsed.hashHex, 'hex');
   try {
-    const derived = await scryptAsync(plain, salt, SCRYPT_KEYLEN, SCRYPT_PARAMS);
+    const derived = await scryptAsync(plain, parsed.salt, SCRYPT_KEYLEN, {
+      N: parsed.n,
+      r: SCRYPT_R,
+      p: SCRYPT_P,
+      maxmem: scryptMaxmem(parsed.n),
+    });
     if (derived.length !== expected.length) return false;
     return crypto.timingSafeEqual(derived, expected);
   } catch {
@@ -129,7 +179,14 @@ export async function verify(storedHash: string, plain: string): Promise<boolean
  * would also be scrypt — the caller checks that before writing.
  */
 export function needsRehash(storedHash: string): boolean {
-  return !storedHash.startsWith('$argon2');
+  if (storedHash.startsWith('$argon2')) return false; // already the strongest available
+  if (argon2Enabled()) return true; // upgrade any scrypt hash → argon2id when available
+  // argon2 off: upgrade only when this scrypt hash is below the current cost factor (#441),
+  // so a legacy N=16384 hash is re-hashed to N=131072 on the next successful login, while a
+  // current-strength hash is left alone (else the rehash-on-verify loop would never settle).
+  const parsed = storedHash.startsWith(SCRYPT_PREFIX) ? parseScrypt(storedHash) : null;
+  if (!parsed) return true; // unknown shape → rehash to the current scrypt
+  return parsed.n < SCRYPT_N;
 }
 
 // Dummy hash for timing parity — computed once, never changes. Uses hash() so it runs the
