@@ -20,6 +20,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, Eye, EyeOff, KeyRound, Lock, ShieldCheck, UserRound, Users } from 'lucide-react';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
+import { OtpCodeInput } from '@/components/auth/OtpCodeInput';
 import { Card } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -42,7 +43,9 @@ export default function OpLoginPage() {
 
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (loading) return; // guard double-submit
     setError('');
+    setShowPassword(false);
     setLoading(true);
     const fd = new FormData(e.currentTarget);
     const username = fd.get('username') as string;
@@ -69,7 +72,11 @@ export default function OpLoginPage() {
           } else {
             setError('Quá nhiều yêu cầu. Vui lòng thử lại sau.');
           }
+        } else if (res.status >= 500) {
+          // #454: a server error must NOT read as "wrong credentials" — the user retries in vain.
+          setError('Hệ thống đang gặp sự cố. Vui lòng thử lại sau.');
         } else {
+          // 400/401 → uniform credential message (no operator-existence enumeration).
           setError('Tên đăng nhập hoặc mật khẩu không đúng.');
         }
         return;
@@ -98,6 +105,7 @@ export default function OpLoginPage() {
 
   async function handleOtpVerify(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (loading) return; // guard double-submit
     setError('');
     setLoading(true);
     const fd = new FormData(e.currentTarget);
@@ -116,6 +124,13 @@ export default function OpLoginPage() {
       if (!res.ok) {
         if (res.status === 429) {
           setError('Quá nhiều lần nhập sai mã OTP. Vui lòng thử lại sau 15 phút.');
+        } else if (res.status >= 500) {
+          setError('Hệ thống đang gặp sự cố. Vui lòng thử lại sau.');
+        } else if (res.status === 401) {
+          // #454: the operator was disabled/removed BETWEEN password and OTP — the route
+          // re-validates and returns 401. Don't show "wrong code"; send them back to re-login.
+          setError('Tài khoản không khả dụng. Vui lòng đăng nhập lại.');
+          setStep('password');
         } else {
           const json = await res.json().catch(() => ({}));
           const errCode = (json as { error?: string }).error ?? '';
@@ -172,6 +187,9 @@ export default function OpLoginPage() {
                     autoCapitalize="characters"
                     autoComplete="username"
                     required
+                    disabled={loading}
+                    aria-invalid={!!error}
+                    aria-describedby={error ? 'op-login-error' : undefined}
                     placeholder="Ví dụ: PB-0001"
                     className="h-11 pl-10"
                   />
@@ -192,17 +210,26 @@ export default function OpLoginPage() {
                     name="password"
                     autoComplete="current-password"
                     required
+                    disabled={loading}
+                    aria-invalid={!!error}
+                    aria-describedby={error ? 'op-login-error' : undefined}
                     placeholder="Nhập mật khẩu của bạn"
-                    className="h-11 pl-10 pr-10"
+                    className="h-11 pl-10 pr-11"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
                     aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
                     aria-pressed={showPassword}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+                    // 44px tap target (WCAG 2.5.5) — was an icon-sized hit area; matches the
+                    // customer login toggle (#456 a11y / #486 parity).
+                    className="absolute right-0 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
                   >
-                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    {showPassword ? (
+                      <EyeOff className="size-4" aria-hidden="true" />
+                    ) : (
+                      <Eye className="size-4" aria-hidden="true" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -217,7 +244,7 @@ export default function OpLoginPage() {
               </div>
 
               {error && (
-                <Alert variant="error">
+                <Alert variant="error" id="op-login-error">
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
@@ -241,23 +268,22 @@ export default function OpLoginPage() {
                     className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
                     aria-hidden="true"
                   />
-                  <Input
+                  {/* #453: reuse OtpCodeInput — strips non-digits + caps at 6 AFTER paste, so a
+                      pasted "123 456" / "123-456" lands as "123456" instead of truncating to 6 raw
+                      chars. (The old raw maxLength={6} dropped a digit on formatted pastes.) */}
+                  <OtpCodeInput
                     id="op-login-otp"
-                    type="text"
-                    name="code"
-                    maxLength={6}
-                    pattern="[0-9]{6}"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
                     autoFocus
                     required
                     placeholder="000000"
+                    aria-invalid={!!error}
+                    aria-describedby={error ? 'op-login-error' : undefined}
                     className="h-11 pl-10 tracking-[0.5em]"
                   />
                 </div>
               </div>
               {error && (
-                <Alert variant="error">
+                <Alert variant="error" id="op-login-error">
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
