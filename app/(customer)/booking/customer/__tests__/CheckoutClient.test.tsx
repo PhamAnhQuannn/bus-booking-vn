@@ -158,4 +158,32 @@ describe('CheckoutClient', () => {
     expect(screen.queryByText(/thông tin chuyển khoản/i)).toBeNull();
     expect(screen.getByRole('button', { name: /thử lại/i })).toBeDefined();
   });
+
+  it('#586 retry after a typo-override re-fires with the override, not the gate', async () => {
+    mockCreateHold.mockResolvedValue({ ok: false, code: 'SOLD_OUT' });
+
+    render(<CheckoutClient {...PROPS} />);
+    fireEvent.change(screen.getByPlaceholderText('Nhập họ và tên'), { target: { value: 'Nguyen Van Test' } });
+    fireEvent.change(screen.getByPlaceholderText('VD: 0912 345 678'), { target: { value: '0912345678' } });
+    fireEvent.change(screen.getByPlaceholderText('Nhập email để nhận vé'), { target: { value: 'test@gmial.com' } });
+    await tickBothConsents();
+
+    // Domain typo → the soft-gate blocks the auto-fire: no hold yet.
+    expect(mockCreateHold).not.toHaveBeenCalled();
+
+    // Override ("keep this email") fires the hold; it returns a transient SOLD_OUT.
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /vẫn dùng email này/i }));
+    });
+    expect(mockCreateHold).toHaveBeenCalledTimes(1);
+    expect((mockCreateHold.mock.calls[0][0] as { buyerEmail: string }).buyerEmail).toBe('test@gmial.com');
+
+    // Retry must re-fire the overridden email — NOT silently re-enter the typo gate (#586).
+    const retryBtn = await screen.findByRole('button', { name: /thử lại/i });
+    await act(async () => {
+      fireEvent.click(retryBtn);
+    });
+    expect(mockCreateHold).toHaveBeenCalledTimes(2);
+    expect((mockCreateHold.mock.calls[1][0] as { buyerEmail: string }).buyerEmail).toBe('test@gmial.com');
+  });
 });

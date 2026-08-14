@@ -140,6 +140,10 @@ export function CheckoutClient({
   const [resolvedBoarding, setResolvedBoarding] = useState<{ point: string | null; time: string | null } | null>(null);
   // Guards the auto-fire so createHold/initiate run exactly once (retry is manual).
   const firedRef = useRef(false);
+  // #586: the override args that last got us PAST the typo gate. retry() replays them so a
+  // transient hold error after an override/correction doesn't re-enter the gate on the
+  // original typo'd email (which silently re-blocks and looks like retry did nothing).
+  const lastFireArgs = useRef<{ email?: string; skipTypoGate?: boolean } | undefined>(undefined);
 
   // Prefill phone (sessionStorage) + name (signed-in display name). Browser-only
   // sources, so this must run in a mount effect, not a lazy useState initializer
@@ -197,6 +201,9 @@ export function CheckoutClient({
       setSubmitting(false);
       return;
     }
+
+    // #586: past the gate — remember what got us here so retry() re-fires identically.
+    lastFireArgs.current = override;
 
     setHoldAlert(null);
     setInitiateError(null);
@@ -305,7 +312,7 @@ export function CheckoutClient({
   function retry() {
     setHoldAlert(null);
     setInitiateError(null);
-    void fire();
+    void fire(lastFireArgs.current);
   }
 
   const hasError = holdAlert !== null || initiateError !== null;
@@ -372,7 +379,22 @@ export function CheckoutClient({
                 name="buyerEmail"
                 type="email"
                 value={buyerEmail}
-                onChange={(e) => setBuyerEmail(e.target.value)}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setBuyerEmail(next);
+                  // #586: if a typo gate-block stranded the buyer and they fix the address by
+                  // editing the field directly (not via the suggestion chip), resume the
+                  // auto-flow — consents are already in and nothing else re-fires. Guard on a
+                  // complete, typo-free form and no fire in flight so we never fire on partial
+                  // input or double-fire (validate `next` explicitly; buyerEmail state lags here).
+                  const nextInfoOk =
+                    customerFormSchema.safeParse({ buyerName, buyerPhone, buyerEmail: next }).success &&
+                    pickupOk;
+                  if (consented && !firedRef.current && !locked && nextInfoOk && suggestEmail(next) === null) {
+                    firedRef.current = true;
+                    void fire({ email: next });
+                  }
+                }}
                 disabled={locked}
                 placeholder="Nhập email để nhận vé"
                 aria-describedby={buyerEmail.trim() && issues.buyerEmail ? 'buyerEmail-error' : undefined}
@@ -392,6 +414,7 @@ export function CheckoutClient({
                       // Consents already accepted → correcting the typo resumes the
                       // auto-flow immediately (skip the gate: the suggestion has none).
                       if (consented) {
+                        if (firedRef.current) return; // #586: guard against a rapid double-click
                         firedRef.current = true;
                         void fire({ email: emailSuggestion, skipTypoGate: true });
                       }
@@ -408,6 +431,7 @@ export function CheckoutClient({
                         type="button"
                         onClick={() => {
                           // #525: explicit override — keep the typed email despite the hint.
+                          if (firedRef.current) return; // #586: guard against a rapid double-click
                           firedRef.current = true;
                           void fire({ skipTypoGate: true });
                         }}
