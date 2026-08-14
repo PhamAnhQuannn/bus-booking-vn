@@ -25,6 +25,7 @@ const {
   mockRenderPdf,
   mockPutObject,
   mockCreateNotificationLog,
+  mockCaptureException,
 } = vi.hoisted(() => ({
   mockQueryRaw: vi.fn(),
   mockTransaction: vi.fn(),
@@ -33,6 +34,7 @@ const {
   mockRenderPdf: vi.fn(),
   mockPutObject: vi.fn(),
   mockCreateNotificationLog: vi.fn(),
+  mockCaptureException: vi.fn(),
 }));
 
 vi.mock('@/lib/core/db/client', () => ({
@@ -56,6 +58,7 @@ vi.mock('@prisma/client', async (importOriginal) => {
 vi.mock('@/lib/booking/ticketPdf', () => ({ renderTicketPdf: mockRenderPdf }));
 vi.mock('@/lib/ticketing', () => ({ mintTicketToken: vi.fn(async () => 'mock-token') }));
 vi.mock('@/lib/storage', () => ({ putObject: mockPutObject }));
+vi.mock('@/lib/observability', () => ({ captureException: mockCaptureException }));
 vi.mock('@/lib/core/db/notificationLogRepo', () => ({
   createNotificationLog: mockCreateNotificationLog,
 }));
@@ -189,6 +192,32 @@ describe('generateTicketPdfs', () => {
 
     expect(result.rowsAffected).toBe(0);
     expect(mockCreateNotificationLog).not.toHaveBeenCalled();
+  });
+
+  it('#524: a poison-pill row (render throws) is logged + skipped; the batch continues', async () => {
+    setClaim([
+      { id: 'bad', bookingRef: 'BB-2026-bad', confirmationToken: 'ctb', buyerEmail: 'bad@x.com', paidAt: new Date('2026-06-01T03:00:00.000Z') },
+      { id: 'ok', bookingRef: 'BB-2026-ok', confirmationToken: 'cto', buyerEmail: 'ok@x.com', paidAt: new Date('2026-06-01T03:00:00.000Z') },
+    ]);
+    mockFindUnique.mockImplementation(async (args: { where: { id: string } }) => bookingRow(args.where.id));
+    // First row's render throws (e.g. font/render/storage failure); second is fine.
+    mockRenderPdf
+      .mockRejectedValueOnce(new Error('ENOENT: font missing'))
+      .mockResolvedValueOnce(Buffer.from('%PDF-1.4'));
+
+    const result = await generateTicketPdfs({} as never, { now: new Date() });
+
+    // The good row still processed — the bad one did NOT abort the whole batch.
+    expect(result).toEqual({ rowsAffected: 1, status: 'success' });
+    expect(mockCaptureException).toHaveBeenCalledTimes(1);
+    expect(mockCaptureException.mock.calls[0][1]).toMatchObject({
+      extra: { bookingId: 'bad', bookingRef: 'BB-2026-bad' },
+    });
+    // Only the good row got stamped + enqueued.
+    expect(mockUpdateMany).toHaveBeenCalledTimes(1);
+    expect(mockUpdateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'ok', ticketPdfKey: null } }));
+    expect(mockCreateNotificationLog).toHaveBeenCalledTimes(1);
+    expect(mockCreateNotificationLog.mock.calls[0][0]).toMatchObject({ bookingId: 'ok' });
   });
 
   it('returns 0 with no rows to claim (a re-run over already-keyed bookings)', async () => {
