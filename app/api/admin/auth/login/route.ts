@@ -15,7 +15,7 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { cookies } from 'next/headers';
-import { adminLogin, issueAdminSession } from '@/lib/auth';
+import { adminLogin, issueAdminSession, rotateCsrf } from '@/lib/auth';
 import { adminLoginRatelimit, adminLoginLockout } from '@/lib/ratelimit';
 import { clientIp } from '@/lib/core/http/clientIp';
 import { writeAdminAuditLog } from '@/lib/audit';
@@ -103,6 +103,9 @@ async function handler(req: NextRequest): Promise<Response> {
     path: '/',
     maxAge: REFRESH_COOKIE_MAX_AGE,
   });
+  // #584: re-mint the bb_csrf double-submit token on this admin auth-state change, matching
+  // the login route, so a fixed pre-login value doesn't survive into the elevated session.
+  rotateCsrf(cookieStore);
 
   return NextResponse.json({ role: result.role, totpDisabled: false });
 }

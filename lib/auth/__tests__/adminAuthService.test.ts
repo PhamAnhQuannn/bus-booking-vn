@@ -8,9 +8,10 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockAdminFindUnique, mockVerifyPassword } = vi.hoisted(() => ({
+const { mockAdminFindUnique, mockVerifyPassword, mockDummyVerify } = vi.hoisted(() => ({
   mockAdminFindUnique: vi.fn(),
   mockVerifyPassword: vi.fn(),
+  mockDummyVerify: vi.fn(),
 }));
 
 vi.mock('@/lib/core/db/client', () => ({
@@ -18,7 +19,7 @@ vi.mock('@/lib/core/db/client', () => ({
     adminUser: { findUnique: mockAdminFindUnique },
   },
 }));
-vi.mock('../password', () => ({ verify: mockVerifyPassword }));
+vi.mock('../password', () => ({ verify: mockVerifyPassword, dummyVerify: mockDummyVerify }));
 
 import { adminLogin } from '../adminAuthService';
 
@@ -50,11 +51,13 @@ describe('adminLogin', () => {
 
   it('returns { ok: false } for unknown email (no throw, same shape)', async () => {
     mockAdminFindUnique.mockResolvedValue(null);
-    mockVerifyPassword.mockResolvedValue(false);
     const result = await adminLogin('nobody@example.com', 'anything');
     expect(result).toEqual({ ok: false });
-    // Dummy verify must still run for timing parity.
-    expect(mockVerifyPassword).toHaveBeenCalled();
+    // #590: the scrypt-aware dummyVerify() runs for timing parity (NOT a real verify against
+    // the user's hash — there is no user). This closes the enumeration oracle a fast constant-
+    // argon2 verify would re-open when AUTH_ARGON2_ENABLED is off.
+    expect(mockDummyVerify).toHaveBeenCalled();
+    expect(mockVerifyPassword).not.toHaveBeenCalled();
   });
 
   it('returns { ok: false } for DISABLED admin (even with correct password)', async () => {
@@ -62,5 +65,7 @@ describe('adminLogin', () => {
     mockVerifyPassword.mockResolvedValue(true);
     const result = await adminLogin('admin@example.com', 'CorrectPassword1');
     expect(result).toEqual({ ok: false });
+    // Disabled path also runs dummyVerify (not the real hash) for uniform timing.
+    expect(mockDummyVerify).toHaveBeenCalled();
   });
 });

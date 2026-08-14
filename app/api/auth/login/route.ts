@@ -18,7 +18,7 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { operatorLoginInput, loginInput } from '@/lib/core/validation/auth';
-import { operatorLogin, login, AuthServiceError, generateCsrfToken } from '@/lib/auth';
+import { operatorLogin, login, AuthServiceError, rotateCsrf } from '@/lib/auth';
 import { clientIp } from '@/lib/core/http/clientIp';
 import {
   opLoginRatelimit,
@@ -92,21 +92,6 @@ async function handleCustomerLogin(req: NextRequest, body: unknown): Promise<Res
   rotateCsrf(cookieStore);
 
   return NextResponse.json({ accessToken: result.accessToken, customer: result.customer });
-}
-
-/**
- * #493: re-mint the bb_csrf double-submit token on an auth-state change (login/logout).
- * The token is otherwise minted once (proxy.ts, first safe GET) and never rotated, so a
- * fixed pre-login value would survive into the authenticated session. Attributes mirror
- * proxy.ts (non-HttpOnly so JS can echo it; session cookie; SameSite=Lax).
- */
-function rotateCsrf(cookieStore: Awaited<ReturnType<typeof cookies>>): void {
-  cookieStore.set('bb_csrf', generateCsrfToken(), {
-    httpOnly: false,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-  });
 }
 
 async function handleOperatorLogin(req: NextRequest, body: unknown): Promise<Response> {

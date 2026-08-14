@@ -20,7 +20,7 @@ export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { z } from 'zod';
-import { verifyOtpProof, verifyOperatorLoginOtp, operatorLoginStep2, AuthServiceError } from '@/lib/auth';
+import { verifyOtpProof, verifyOperatorLoginOtp, operatorLoginStep2, AuthServiceError, rotateCsrf } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 
 const REFRESH_COOKIE_MAX_AGE = 30 * 24 * 60 * 60;
@@ -110,6 +110,9 @@ async function handler(req: Request): Promise<Response> {
     path: '/',
     maxAge: REFRESH_COOKIE_MAX_AGE,
   });
+  // #584: re-mint the bb_csrf double-submit token on this operator auth-state change,
+  // matching the login route (a fixed pre-login value must not survive into the session).
+  rotateCsrf(cookieStore);
 
   return NextResponse.json({
     accessToken: result.accessToken,

@@ -62,7 +62,28 @@ async function handler(_req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: 'SESSION_REUSE' }, { status: 401 });
   }
 
+  // #589: the session was past its 30-day idle cap — already revoked inside the rotate; deny.
+  if ('expired' in result) {
+    cookieStore.set('bb_op_access', '', { maxAge: 0, path: '/' });
+    cookieStore.set('bb_op_refresh', '', { maxAge: 0, path: '/' });
+    return NextResponse.json({ error: 'INVALID_SESSION' }, { status: 401 });
+  }
+
   const secure = process.env.NODE_ENV === 'production';
+
+  // #589: a benign concurrent double-refresh minted a fresh access token off the live
+  // successor but did NOT rotate the refresh token (the winner already did). Set ONLY the
+  // access cookie and leave bb_op_refresh untouched.
+  if ('raced' in result) {
+    cookieStore.set('bb_op_access', result.accessToken, {
+      httpOnly: true,
+      secure,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: ACCESS_COOKIE_MAX_AGE,
+    });
+    return NextResponse.json({ accessToken: result.accessToken });
+  }
 
   cookieStore.set('bb_op_access', result.accessToken, {
     httpOnly: true,

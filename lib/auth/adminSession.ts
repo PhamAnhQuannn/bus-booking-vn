@@ -16,6 +16,7 @@
  */
 
 import crypto from 'crypto';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/core/db/client';
 import { signAdminAccess, type AdminAccessPayload } from './jwt';
 
@@ -23,6 +24,12 @@ type AdminRole = AdminAccessPayload['role'];
 
 // Session expiry: 30 days
 const SESSION_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000;
+
+// Reuse-detection grace window (#589, mirrors session.ts #519). A concurrent double-refresh
+// of the same token serializes on the FOR UPDATE lock; the loser re-reads the just-revoked
+// row. Within this window, if the immediate successor is still live, that is a benign race
+// (two tabs), NOT token theft — mint a fresh access token instead of nuking the family.
+const REUSE_GRACE_MS = 30 * 1000;
 
 // ---------------------------------------------------------------------------
 // Internal helpers — HMAC-based refresh tokens (mirrors operatorSession.ts)
@@ -140,30 +147,108 @@ export async function issueAdminSession(
 export async function rotateAdminRefresh(
   oldHash: string,
   role?: AdminRole
-): Promise<AdminSessionTokens | { reuse: true }> {
+): Promise<
+  | AdminSessionTokens
+  | { reuse: true }
+  | { expired: true }
+  | { raced: true; accessToken: string }
+> {
   return prisma.$transaction(async (tx) => {
-    const session = await tx.adminSession.findUnique({
-      where: { refreshTokenHash: oldHash },
-    });
+    // #589: lock the session row FOR UPDATE. Without the lock two concurrent refreshes of
+    // the same still-valid token both read revokedAt=null and both rotate — forking the
+    // token family into two live leaves and defeating reuse-detection. The lock serializes
+    // them; the loser sees the committed revoke below. (Mirrors session.ts #463.)
+    const rows = await tx.$queryRaw<
+      Array<{
+        id: string;
+        adminUserId: string;
+        tokenFamily: string;
+        rotationCount: number;
+        revokedAt: Date | null;
+        expiresAt: Date;
+        totpVerifiedAt: Date | null;
+      }>
+    >(Prisma.sql`
+      SELECT id, "adminUserId", "tokenFamily", "rotationCount", "revokedAt", "expiresAt", "totpVerifiedAt"
+      FROM "AdminSession"
+      WHERE "refreshTokenHash" = ${oldHash}
+      FOR UPDATE
+    `);
+    const session = rows[0];
 
     if (!session) {
       throw new Error('SESSION_NOT_FOUND');
     }
 
-    // Reuse detection: already revoked → revoke entire family
+    const now = new Date();
+
+    // Already revoked. Two causes, opposite responses (#589, mirrors session.ts #519):
+    //   (a) benign race — a concurrent refresh of the SAME token rotated first; the immediate
+    //       successor (rotationCount+1) is still live and the revoke is fresh. Mint a fresh
+    //       access token off the successor (carrying ITS elevation); leave the family/cookie.
+    //   (b) genuine reuse — an old token replayed after its window. Cascade-revoke the family.
     if (session.revokedAt !== null) {
+      if (session.revokedAt.getTime() > now.getTime() - REUSE_GRACE_MS) {
+        const successor = await tx.adminSession.findFirst({
+          where: {
+            tokenFamily: session.tokenFamily,
+            rotationCount: session.rotationCount + 1,
+            revokedAt: null,
+            expiresAt: { gt: now },
+          },
+          select: { id: true, totpVerifiedAt: true },
+        });
+        if (successor) {
+          let racedRole = role;
+          if (!racedRole) {
+            const admin = await tx.adminUser.findUnique({
+              where: { id: session.adminUserId },
+              select: { role: true },
+            });
+            if (!admin) throw new Error('ADMIN_USER_NOT_FOUND');
+            racedRole = admin.role as AdminRole;
+          }
+          const accessToken = await signAdminAccess({
+            sub: session.adminUserId,
+            scope: 'admin',
+            role: racedRole,
+            // #564: elevation reflects the LIVE successor row, not the replayed loser.
+            totpVerified: successor.totpVerifiedAt !== null,
+          });
+          return { raced: true as const, accessToken };
+        }
+      }
       await tx.adminSession.updateMany({
         where: { tokenFamily: session.tokenFamily },
-        data: { revokedAt: new Date() },
+        data: { revokedAt: now },
       });
       return { reuse: true as const };
     }
 
-    // Revoke old session row
-    await tx.adminSession.update({
-      where: { id: session.id },
-      data: { revokedAt: new Date() },
+    // #589: an expired session must not rotate — the 30-day idle cap was never enforced.
+    // Revoke it and deny via an `expired` sentinel (returning, not throwing, so the revoke
+    // COMMITS; a throw would roll the tx back and leave the row live forever).
+    if (session.expiresAt <= now) {
+      await tx.adminSession.updateMany({
+        where: { id: session.id, revokedAt: null },
+        data: { revokedAt: now },
+      });
+      return { expired: true as const };
+    }
+
+    // Guarded revoke of the old row (#589). Under the lock this is belt-and-suspenders; a
+    // count of 0 means a concurrent rotation already revoked it → treat as reuse.
+    const revoked = await tx.adminSession.updateMany({
+      where: { id: session.id, revokedAt: null },
+      data: { revokedAt: now },
     });
+    if (revoked.count === 0) {
+      await tx.adminSession.updateMany({
+        where: { tokenFamily: session.tokenFamily },
+        data: { revokedAt: now },
+      });
+      return { reuse: true as const };
+    }
 
     const tokenId = crypto.randomUUID();
     const newRotation = session.rotationCount + 1;

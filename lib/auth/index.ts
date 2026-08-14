@@ -25,6 +25,7 @@ export {
 } from './linkGoogleAccount';
 export { readCsrfToken } from './csrfClient';
 export { generateToken as generateCsrfToken } from './csrf';
+export { rotateCsrf } from './csrfRotate';
 export {
   signAccess,
   verifyAccess,
