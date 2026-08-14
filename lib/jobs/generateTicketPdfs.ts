@@ -68,6 +68,7 @@ export const generateTicketPdfs: JobCore = async (_tx, opts?: JobOpts) => {
   const { putObject } = await import('@/lib/storage');
   const { createNotificationLog } = await import('@/lib/core/db/notificationLogRepo');
   const { mintTicketToken } = await import('@/lib/ticketing');
+  const { captureException } = await import('@/lib/observability');
 
   // 1. Claim a batch of paid, un-keyed bookings (SKIP LOCKED so two concurrent
   //    ticks never grab the same row). The rows stay PAID; the stamp happens
@@ -89,61 +90,73 @@ export const generateTicketPdfs: JobCore = async (_tx, opts?: JobOpts) => {
   let generated = 0;
 
   for (const row of claimed) {
-    // Re-read the full booking detail (trip/route/bus/operator) for the PDF.
-    // customerId can be null for guest bookings, so read directly by id rather
-    // than via the customer-scoped getCustomerBookingDetail. We reuse its select
-    // shape (customerBookingDetailSelect) by loading the same fields below.
-    const detail = await loadBookingDetail(prisma, row.id);
-    if (!detail) continue; // raced away (deleted) — nothing to render
+    // #524: isolate each row. A render/upload failure (bad data, missing font,
+    // storage blip) previously threw out of the whole job → every tick aborted and
+    // NO ticket was ever stamped (poison-pill). Wrap per-row so one bad booking is
+    // logged and skipped; ticketPdfKey stays NULL → retried next tick.
+    try {
+      // Re-read the full booking detail (trip/route/bus/operator) for the PDF.
+      // customerId can be null for guest bookings, so read directly by id rather
+      // than via the customer-scoped getCustomerBookingDetail. We reuse its select
+      // shape (customerBookingDetailSelect) by loading the same fields below.
+      const detail = await loadBookingDetail(prisma, row.id);
+      if (!detail) continue; // raced away (deleted) — nothing to render
 
-    const pdf = await renderTicketPdf(detail, row.confirmationToken);
-    const key = `ticket_pdf/${row.bookingRef}.pdf`;
-    await putObject(prisma, key, 'application/pdf', pdf);
+      const pdf = await renderTicketPdf(detail, row.confirmationToken);
+      const key = `ticket_pdf/${row.bookingRef}.pdf`;
+      await putObject(prisma, key, 'application/pdf', pdf);
 
-    // 3. Stamp the key — guarded WHERE ticketPdfKey IS NULL so a concurrent
-    //    stamp (belt-and-suspenders against the SKIP-LOCKED claim) is a no-op.
-    const stamped = await prisma.booking.updateMany({
-      where: { id: row.id, ticketPdfKey: null },
-      data: { ticketPdfKey: key, ticketPdfGeneratedAt: now },
-    });
-    if (stamped.count === 0) continue; // already keyed by a racing tick
-
-    generated += 1;
-
-    // 4. Enqueue the 'ticketReady' email for the dispatcher (NOTIFY_STUB-gated).
-    //    Skip when there's no buyerEmail — there is nowhere to deliver. The PDF
-    //    is still generated + downloadable via the ticket route.
-    if (row.buyerEmail) {
-      // Receipt QR/verify links: the token → the public receipt page + its PNG QR.
-      const token = await mintTicketToken({
-        bookingRef: row.bookingRef,
-        confirmationToken: row.confirmationToken,
+      // 3. Stamp the key — guarded WHERE ticketPdfKey IS NULL so a concurrent
+      //    stamp (belt-and-suspenders against the SKIP-LOCKED claim) is a no-op.
+      const stamped = await prisma.booking.updateMany({
+        where: { id: row.id, ticketPdfKey: null },
+        data: { ticketPdfKey: key, ticketPdfGeneratedAt: now },
       });
-      await createNotificationLog({
-        bookingId: row.id,
-        channel: 'email',
-        template: 'ticketReady',
-        recipient: row.buyerEmail,
-        payload: JSON.stringify({
+      if (stamped.count === 0) continue; // already keyed by a racing tick
+
+      generated += 1;
+
+      // 4. Enqueue the 'ticketReady' email for the dispatcher (NOTIFY_STUB-gated).
+      //    Skip when there's no buyerEmail — there is nowhere to deliver. The PDF
+      //    is still generated + downloadable via the ticket route.
+      if (row.buyerEmail) {
+        // Receipt QR/verify links: the token → the public receipt page + its PNG QR.
+        const token = await mintTicketToken({
           bookingRef: row.bookingRef,
-          buyerName: detail.buyerName ?? '',
-          route: `${detail.route.origin} → ${detail.route.destination}`,
-          departureAt: formatDepartureVn(detail.departureAt),
-          ticketCount: String(detail.ticketCount),
-          boardingPoint: detail.boardingPoint
-            ? `${detail.boardingPoint}${detail.boardingTime ? ` · ${detail.boardingTime}` : ''}`
-            : '',
-          vehicle: detail.busLicensePlate,
-          operator: detail.operator.legalName,
-          amount: formatVnd(detail.totalVnd),
-          paymentMethod: PAYMENT_METHOD_LABEL[detail.paymentMethod] ?? detail.paymentMethod,
-          paidAt: row.paidAt ? formatDepartureVn(row.paidAt.toISOString()) : '',
-          verifyUrl: `/verify/${token}`,
-          qrUrl: `/verify/${token}/qr`,
-          ticketUrl: `/api/bookings/${row.id}/ticket`,
-        }),
-        status: 'pending',
+          confirmationToken: row.confirmationToken,
+        });
+        await createNotificationLog({
+          bookingId: row.id,
+          channel: 'email',
+          template: 'ticketReady',
+          recipient: row.buyerEmail,
+          payload: JSON.stringify({
+            bookingRef: row.bookingRef,
+            buyerName: detail.buyerName ?? '',
+            route: `${detail.route.origin} → ${detail.route.destination}`,
+            departureAt: formatDepartureVn(detail.departureAt),
+            ticketCount: String(detail.ticketCount),
+            boardingPoint: detail.boardingPoint
+              ? `${detail.boardingPoint}${detail.boardingTime ? ` · ${detail.boardingTime}` : ''}`
+              : '',
+            vehicle: detail.busLicensePlate,
+            operator: detail.operator.legalName,
+            amount: formatVnd(detail.totalVnd),
+            paymentMethod: PAYMENT_METHOD_LABEL[detail.paymentMethod] ?? detail.paymentMethod,
+            paidAt: row.paidAt ? formatDepartureVn(row.paidAt.toISOString()) : '',
+            verifyUrl: `/verify/${token}`,
+            qrUrl: `/verify/${token}/qr`,
+            ticketUrl: `/api/bookings/${row.id}/ticket`,
+          }),
+          status: 'pending',
+        });
+      }
+    } catch (err) {
+      captureException(err instanceof Error ? err : new Error(String(err)), {
+        tags: { job: 'generateTicketPdfs' },
+        extra: { bookingId: row.id, bookingRef: row.bookingRef },
       });
+      // leave ticketPdfKey NULL → this row is retried on the next tick
     }
   }
 

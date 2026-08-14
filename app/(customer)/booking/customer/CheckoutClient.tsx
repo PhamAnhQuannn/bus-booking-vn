@@ -171,10 +171,21 @@ export function CheckoutClient({
 
   const locked = submitting || revealed !== null;
 
-  async function fire() {
-    const p = customerFormSchema.safeParse({ buyerName, buyerPhone, buyerEmail });
+  async function fire(override?: { email?: string; skipTypoGate?: boolean }) {
+    const effectiveEmail = override?.email ?? buyerEmail;
+    const p = customerFormSchema.safeParse({ buyerName, buyerPhone, buyerEmail: effectiveEmail });
     const pickupCheck = validatePickupSelection({ kind: pickupKind, detail: pickupDetail });
     if (!p.success || !pickupCheck.ok) return;
+
+    // #525: email-typo soft-gate. Block the first (auto-)submit on a likely domain typo
+    // (e.g. gmial.com → gmail.com) so a mistyped address doesn't silently complete a
+    // hold + bank-transfer booking whose ticket/receipt then bounces. The buyer proceeds
+    // by accepting the suggestion or explicitly overriding (both pass skipTypoGate).
+    if (!override?.skipTypoGate && suggestEmail(effectiveEmail) !== null) {
+      firedRef.current = false; // re-arm so a later decision can fire again
+      setSubmitting(false);
+      return;
+    }
 
     setHoldAlert(null);
     setInitiateError(null);
@@ -359,12 +370,36 @@ export function CheckoutClient({
                   Có phải bạn muốn nhập{' '}
                   <button
                     type="button"
-                    onClick={() => setBuyerEmail(emailSuggestion)}
+                    onClick={() => {
+                      setBuyerEmail(emailSuggestion);
+                      // Consents already accepted → correcting the typo resumes the
+                      // auto-flow immediately (skip the gate: the suggestion has none).
+                      if (consented) {
+                        firedRef.current = true;
+                        void fire({ email: emailSuggestion, skipTypoGate: true });
+                      }
+                    }}
                     className="font-semibold text-primary-strong underline underline-offset-2"
                   >
                     {emailSuggestion}
                   </button>
                   ?
+                  {consented && (
+                    <>
+                      {' '}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // #525: explicit override — keep the typed email despite the hint.
+                          firedRef.current = true;
+                          void fire({ skipTypoGate: true });
+                        }}
+                        className="font-semibold underline underline-offset-2"
+                      >
+                        Vẫn dùng email này
+                      </button>
+                    </>
+                  )}
                 </p>
               )}
             </div>
