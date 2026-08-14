@@ -8,6 +8,7 @@
 
 import type { PlannerDto } from '@/trip-planner/lib/planner/itineraryDto';
 import { cityName } from '@/trip-planner/lib/planner/cities';
+import { nights } from '@/trip-planner/lib/planner/labels';
 
 type Props = {
   dto: PlannerDto;
@@ -26,7 +27,7 @@ export function TripReceipt({ dto, onActivate, onSelectDay }: Props) {
     >
       <span className="text-xl" aria-hidden="true">🗺️</span>
       <div className="min-w-0 flex-1">
-        <b className="text-[15px] font-semibold">Lịch trình {cityName(dto.slug)} · {dto.tripDays} ngày {dto.tripDays - 1} đêm</b>
+        <b className="text-[15px] font-semibold">Lịch trình {cityName(dto.slug)} · {dto.tripDays} ngày {nights(dto.tripDays)} đêm</b>
         <div className="mt-1.5 flex flex-wrap gap-1.5">
           {dto.days.map((d) => (
             <button

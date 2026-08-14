@@ -9,7 +9,7 @@
 
 import type { PlannerDto, DtoItem } from '@/trip-planner/lib/planner/itineraryDto';
 import { cityName } from '@/trip-planner/lib/planner/cities';
-import { displayCategory, itemBadge, areaLabel } from '@/trip-planner/lib/planner/labels';
+import { displayCategory, itemBadge, areaLabel, nights } from '@/trip-planner/lib/planner/labels';
 
 type Props = {
   dto: PlannerDto;
@@ -146,7 +146,7 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
 
       {/* TITLE block — hairline #1 dưới đây */}
       <div className="border-b border-border px-4 pb-3 pt-4">
-        <h3 className="text-base font-semibold" style={{ color: INK }}>🏔 {cityName(dto.slug)} · {dto.tripDays} ngày {dto.tripDays - 1} đêm</h3>
+        <h3 className="text-base font-semibold" style={{ color: INK }}>🏔 {cityName(dto.slug)} · {dto.tripDays} ngày {nights(dto.tripDays)} đêm</h3>
         <p className="mt-1 text-[13px]" style={{ color: SOFT }}>
           {dto.party.adults} người lớn
           {dto.party.children ? ` · ${dto.party.children} trẻ nhỏ` : ''}

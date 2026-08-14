@@ -29,17 +29,36 @@ type Props = {
 
 const BUOI: Record<DtoItem['buoi'], string> = { sang: 'Sáng', trua: 'Trưa', chieu: 'Chiều', toi: 'Tối' };
 
-// Đang mở? parse "HH:MM-HH:MM" so với giờ máy. null = không đủ dữ liệu.
+// Slug có PMTiles thật trong public/tiles/. cities.ts quảng cáo 28 slug nhưng chỉ 3 tile ship →
+// slug ngoài set này KHÔNG add tile layer (tránh request tile 404 → bản đồ xám); hiện nền kem + note.
+// Sinh thêm tile cho 25 tỉnh còn lại là việc DATA riêng. (#528)
+const TILED_SLUGS = new Set(['da-lat', 'da-nang', 'nha-trang']);
+
+// Giờ hiện tại (phút từ 0h) theo Asia/Ho_Chi_Minh — KHÔNG theo đồng hồ máy khách (khách ở múi giờ
+// khác sẽ đọc sai "đang mở"). (#528)
+function vnNowMinutes(): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+  const h = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
+  const mi = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
+  return h * 60 + mi;
+}
+
+// Đang mở? parse "HH:MM-HH:MM" so với giờ VN. Xử lý khoảng qua đêm (18:00-02:00). null = thiếu dữ liệu.
 function openNow(gio: string | null): boolean | null {
   if (!gio) return null;
   const m = gio.match(/(\d{1,2}):(\d{2})\D+(\d{1,2}):(\d{2})/);
   if (!m) return null;
-  const now = new Date();
-  const cur = now.getHours() * 60 + now.getMinutes();
+  const cur = vnNowMinutes();
   const s = +m[1] * 60 + +m[2];
   let e = +m[3] * 60 + +m[4];
   if (e >= 1440) e = 1439; // "24:00"
-  return cur >= s && cur <= e;
+  // Khoảng qua đêm (s > e, vd 20:00-02:00): mở nếu cur >= s HOẶC cur <= e. (#528)
+  return s <= e ? cur >= s && cur <= e : cur >= s || cur <= e;
 }
 
 const PIN_CSS = `
@@ -86,6 +105,14 @@ export default function PlannerMap({ dto, activeDay, hoveredOrder, selected, onP
   const baseRef = useRef<{ layer: L.Layer; slug: string } | null>(null);
   const overlayRef = useRef<L.LayerGroup | null>(null);
   const markersRef = useRef<Map<number, L.Marker>>(new Map());
+  // Keep the latest onPinClick in a ref so the pin/route effect doesn't depend on it — the parent
+  // recreates the callback each render, and having it in the deps made the effect clear+rebuild the
+  // markers and refit bounds on every hover, re-panning the map. Synced in an effect (not during
+  // render); marker click handlers read .current at click time, always the latest. (#529)
+  const onPinClickRef = useRef(onPinClick);
+  useEffect(() => {
+    onPinClickRef.current = onPinClick;
+  }, [onPinClick]);
 
   // init map một lần
   useEffect(() => {
@@ -133,7 +160,10 @@ export default function PlannerMap({ dto, activeDay, hoveredOrder, selected, onP
     const map = mapRef.current;
     if (!map) return;
     if (baseRef.current?.slug === dto.slug) return;
-    if (baseRef.current) map.removeLayer(baseRef.current.layer);
+    if (baseRef.current) { map.removeLayer(baseRef.current.layer); baseRef.current = null; }
+    // No tile shipped for this city → skip the layer (cream bg + placeholder note below), don't
+    // request a 404 tile that renders as a grey map. (#528)
+    if (!TILED_SLUGS.has(dto.slug)) return;
     const layer = leafletLayer({
       url: `/tiles/${dto.slug}.pmtiles`,
       flavor: 'light',
@@ -161,7 +191,7 @@ export default function PlannerMap({ dto, activeDay, hoveredOrder, selected, onP
       pts.push(ll);
       const icon = L.divIcon({ html: pinHtml(it.order), className: '', iconSize: [30, 38], iconAnchor: [15, 38] });
       const mk = L.marker(ll, { icon, title: it.name }).addTo(overlay);
-      mk.on('click', () => onPinClick(day.day, it.order));
+      mk.on('click', () => onPinClickRef.current(day.day, it.order));
       markersRef.current.set(it.order, mk);
     });
 
@@ -171,7 +201,7 @@ export default function PlannerMap({ dto, activeDay, hoveredOrder, selected, onP
     if (pts.length) {
       map.fitBounds(L.latLngBounds(pts).pad(0.25), { padding: [30, 30], maxZoom: 14, animate: true });
     }
-  }, [dto, activeDay, onPinClick]);
+  }, [dto, activeDay]);
 
   // nhấn mạnh pin khi hover row bên card / được chọn: đổi class + đẩy z-index lên trên
   useEffect(() => {
@@ -196,6 +226,13 @@ export default function PlannerMap({ dto, activeDay, hoveredOrder, selected, onP
     <div className="relative h-full w-full">
       <style>{PIN_CSS}</style>
       <div ref={boxRef} className="h-full w-full" style={{ background: 'var(--bg-cream, #FBF2E7)' }} />
+
+      {/* Không có tile nền cho thành phố này → note thay vì để nền xám; pin vẫn hiện. (#528) */}
+      {!TILED_SLUGS.has(dto.slug) ? (
+        <div className="pointer-events-none absolute inset-x-3 top-3 z-[400] rounded-lg bg-white/90 px-3 py-2 text-center text-xs text-muted-foreground shadow-sm">
+          Bản đồ nền khu vực này chưa có — vẫn hiển thị vị trí các điểm.
+        </div>
+      ) : null}
 
       {/* Day-tabs ĐÃ chuyển sang <DayTabBar> chung (bắc cầu map↔card, right-split) */}
 

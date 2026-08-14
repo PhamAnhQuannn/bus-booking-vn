@@ -69,7 +69,9 @@ export function pickByVibe(store: Store, vibe: string, n = 5): PlaceRef[] {
 
 // ── chi phí đi lại (PHÚT đồng nhất): điểm-điểm dùng ma trận OSRM; else haversine->phút ──
 function legMin(store: Store, aId: string | null, a: LL, bId: string | null, b: LL): number {
-  if (aId && bId) { const dm = driveMinutes(store, aId, bId); if (dm != null) return dm; }
+  // A ragged OSRM matrix (island cities e.g. Phú Quốc/Hạ Long) can hold NaN durations; treat those
+  // as "not in matrix" and fall back to haversine so no leg cost is ever NaN. (#529)
+  if (aId && bId) { const dm = driveMinutes(store, aId, bId); if (dm != null && Number.isFinite(dm)) return dm; }
   return (kmBetween(a, b) / ASSUMED_SPEED_KMH) * 60;
 }
 
@@ -98,14 +100,17 @@ function orderLoop(store: Store, recs: KbRecord[], anchor: LL): KbRecord[] {
     }
     return path.map((i) => recs[i]);
   }
-  let best: number[] | null = null, bestCost = Infinity;
+  // Default to input order so an all-NaN cost matrix returns a valid ordering instead of throwing
+  // on a null `best!` (was a 500 on island cities). legMin no longer yields NaN, but keep the
+  // finite guard + non-null seed as defense-in-depth. (#529)
+  let best: number[] = idx, bestCost = Infinity;
   for (const perm of permutations(idx)) { // lex order -> lex-nhỏ-nhất thắng tie (strict <)
     let c = legMin(store, null, anchor, ids[perm[0]], lls[perm[0]]);
     for (let i = 0; i < perm.length - 1; i++) c += legMin(store, ids[perm[i]], lls[perm[i]], ids[perm[i + 1]], lls[perm[i + 1]]);
     c += legMin(store, ids[perm[perm.length - 1]], lls[perm[perm.length - 1]], null, anchor);
-    if (c < bestCost - 1e-9) { bestCost = c; best = perm; }
+    if (Number.isFinite(c) && c < bestCost - 1e-9) { bestCost = c; best = perm; }
   }
-  return best!.map((i) => recs[i]);
+  return best.map((i) => recs[i]);
 }
 
 // macro-NN: xếp thứ tự các REGION theo centroid, quét 1 chiều từ tâm (tất định, tie theo key).

@@ -112,6 +112,10 @@ export async function createConversation(title: string, messages: StoredMsg[]): 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, messages }),
     });
+    // Guard res.ok BEFORE parsing (mirrors getConversation): on 401/400/500 the body has no
+    // `conversation`, so normalize(undefined) threw a confusing TypeError that the caller swallowed
+    // → conversationId stayed null, persistence never fired. Throw a clear error instead. (#528)
+    if (!res.ok) throw new Error(`createConversation failed: HTTP ${res.status}`);
     const json = (await res.json()) as { conversation: ApiConvo };
     return normalize(json.conversation);
   }

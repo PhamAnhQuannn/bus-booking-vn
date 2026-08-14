@@ -114,3 +114,8 @@ export function areaLabel(regionId: string | null | undefined): string | null {
   if (AREA_NAMES[regionId]) return AREA_NAMES[regionId];
   return regionId.replace(/-/g, " "); // fallback: bỏ gạch nối (không tự thêm dấu)
 }
+
+// Số ĐÊM từ số ngày, kẹp >= 0: itinerary 0 ngày (thành phố không có điểm) từng render "-1 đêm". (#529)
+export function nights(tripDays: number): number {
+  return Math.max(0, tripDays - 1);
+}

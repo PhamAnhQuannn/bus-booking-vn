@@ -45,7 +45,10 @@ export async function getConversation(customerId: string, id: string): Promise<C
       createdAt: true,
       updatedAt: true,
       messages: {
-        orderBy: { createdAt: 'asc' },
+        // Secondary sort on id: createMany stamps every row in a batch with the same createdAt, so a
+        // single-key sort left message order nondeterministic (shuffled on reload). replaceMessages
+        // now also writes strictly increasing createdAt, but keep the id tiebreak as a backstop. (#528)
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
         select: { role: true, text: true, dtoJson: true },
       },
     },
@@ -81,12 +84,25 @@ export async function createConversation(
 /** Ghi đè toàn bộ messages (replace-all) + bump updatedAt. Trả false nếu không phải owner. */
 export async function replaceMessages(customerId: string, id: string, messages: RepoMessage[]): Promise<boolean> {
   return prisma.$transaction(async (tx) => {
-    const owned = await tx.plannerConversation.findFirst({ where: { id, customerId }, select: { id: true } });
-    if (!owned) return false;
+    // Lock the conversation row FOR UPDATE so two tabs saving the same conversation serialize instead
+    // of interleaving delete/create (concurrency rule). Owner-scoped, so a miss (not owner or gone)
+    // returns [] → false, same as the old findFirst. Prisma has no FOR UPDATE builder → raw. (#528)
+    const owned = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id FROM "PlannerConversation" WHERE id = ${id} AND "customerId" = ${customerId} FOR UPDATE`;
+    if (owned.length === 0) return false;
     await tx.plannerMessage.deleteMany({ where: { conversationId: id } });
     if (messages.length) {
+      // Strictly increasing createdAt (base + index ms) so message order is deterministic AND matches
+      // insertion order — createMany would otherwise stamp every row with one identical now(). (#528)
+      const base = Date.now();
       await tx.plannerMessage.createMany({
-        data: messages.map((m) => ({ conversationId: id, role: m.role, text: m.text, dtoJson: toDtoJson(m.dto) })),
+        data: messages.map((m, i) => ({
+          conversationId: id,
+          role: m.role,
+          text: m.text,
+          dtoJson: toDtoJson(m.dto),
+          createdAt: new Date(base + i),
+        })),
       });
     }
     await tx.plannerConversation.update({ where: { id }, data: { updatedAt: new Date() } });
