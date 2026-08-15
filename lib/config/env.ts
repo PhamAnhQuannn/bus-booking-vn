@@ -9,6 +9,11 @@ import crypto from 'crypto';
 import { z } from 'zod';
 import { DEFAULT_DATABASE_POOL_MAX } from '@/lib/core/db/poolConfig';
 import { resolveRatelimitBackend } from '@/lib/core/http/ratelimitBackend';
+// #551: the budget-knob schema/reader live in lib/core (NOT this barrel) so lib/ratelimit can read
+// it without a partial `vi.mock('@/lib/config')` breaking its module load. Re-exported below so
+// callers importing from '@/lib/config' still get readPlannerGeminiDailyMax.
+import { plannerGeminiDailyMaxSchema } from '@/lib/core/config/plannerGeminiBudget';
+export { readPlannerGeminiDailyMax } from '@/lib/core/config/plannerGeminiBudget';
 
 const envSchema = z.object({
   /**
@@ -163,6 +168,15 @@ const envSchema = z.object({
     .string()
     .default('true')
     .transform((v) => v !== 'false'),
+
+  /**
+   * Global daily Gemini request budget — free-tier quota backstop (#551). Consumed by
+   * plannerDailyBudget (lib/ratelimit). Free-tier ceiling ≈ 1000/day; raise once paid billing +
+   * a real budget exist. Declared here so it is validated + documented; a typo/non-numeric now
+   * fails the boot instead of the old `Number()||1000` silently collapsing to 1000. lib/ratelimit
+   * reads it via readPlannerGeminiDailyMax() (module-safe — no full-schema validation at import).
+   */
+  PLANNER_GEMINI_DAILY_MAX: plannerGeminiDailyMaxSchema,
 
   // ---------------------------------------------------------------------------
   // Local fake-gateway stub (Phase 1 — run all online-payment stories with no

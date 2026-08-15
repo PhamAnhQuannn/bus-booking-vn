@@ -10,6 +10,7 @@
 import type { Ratelimit as UpstashRatelimitClient } from '@upstash/ratelimit';
 import type Redis from 'ioredis';
 import { logger } from '@/lib/logger';
+import { readPlannerGeminiDailyMax } from '@/lib/core/config/plannerGeminiBudget';
 import { resolveRatelimitBackend } from '@/lib/core/http/ratelimitBackend';
 
 export interface RatelimitResult {
@@ -522,8 +523,37 @@ export const plannerChatDailyPerIp = createRatelimit({ limit: 50, windowMs: 24 *
  * unaffected, and the alternative is an uncapped paid surface. The per-session/anon limiters
  * stay fail-open (they are throttles, not the cost backstop).
  */
+// #604: this module is imported by proxy.ts (Edge middleware for ALL state-changing /api/*), so its
+// top-level body runs on every site request path. readPlannerGeminiDailyMax() THROWS on an invalid
+// PLANNER_GEMINI_DAILY_MAX (0/negative/non-numeric) — letting a planner-only env typo crash the shared
+// ratelimit module and 500 every /api/* POST sitewide. Contain the blast radius: on invalid config,
+// log loudly and fall back to the schema default (1000, == unset behavior — bounded, not fail-open),
+// instead of taking the whole module down. readPlannerGeminiDailyMax() stays strict for getEnv()
+// boot-validation and its unit tests; only this module-load call site degrades gracefully.
+function plannerDailyLimitAtLoad(): number {
+  try {
+    return readPlannerGeminiDailyMax();
+  } catch (err) {
+    logger.error(
+      { err },
+      'PLANNER_GEMINI_DAILY_MAX is invalid — falling back to 1000/day. Fix the env var; the planner cost cap is at the default until then.'
+    );
+    return 1000; // schema default (plannerGeminiDailyMaxSchema.default) — keep in sync
+  }
+}
+
 export const plannerDailyBudget = createRatelimit({
-  limit: Number(process.env.PLANNER_GEMINI_DAILY_MAX) || 1000,
+  limit: plannerDailyLimitAtLoad(), // #551/#604: validated, with a contained fallback (no site-wide crash)
   windowMs: 24 * 60 * 60_000,
   failClosed: true,
 });
+
+// Gemini cost controls that pair with the budget above (barrel re-exports).
+export {
+  breakerState,
+  recordUpstreamFailure,
+  recordUpstreamSuccess,
+  BREAKER_COOLDOWN_SEC,
+  type BreakerState,
+} from './geminiBreaker'; // #552 circuit-breaker
+export { recordGeminiUsage, type GeminiUsageResult } from './geminiUsage'; // #553 token/$ accounting

@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { getEnv, _resetEnvCache } from '../env';
+import { getEnv, _resetEnvCache, readPlannerGeminiDailyMax } from '../env';
 
 // Self-sufficient base so parsing does not depend on the ambient env: force the
 // other subsystems to stub mode (so their superRefine credential checks pass)
@@ -361,5 +361,34 @@ describe('getEnv — Google OAuth client/server flag parity (#478)', () => {
     delete process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED;
     _resetEnvCache();
     expect(() => getEnv()).not.toThrow();
+  });
+});
+
+describe('readPlannerGeminiDailyMax (#551)', () => {
+  // Standalone reader (module-safe) for lib/ratelimit — validates the same rule as the envSchema
+  // field, so a typo/non-numeric fails LOUDLY instead of the old `Number()||1000` silently → 1000.
+  it('defaults to 1000 when unset', () => {
+    delete process.env.PLANNER_GEMINI_DAILY_MAX;
+    expect(readPlannerGeminiDailyMax()).toBe(1000);
+  });
+
+  it('coerces a valid numeric string', () => {
+    process.env.PLANNER_GEMINI_DAILY_MAX = '2500';
+    expect(readPlannerGeminiDailyMax()).toBe(2500);
+  });
+
+  it('THROWS on 0 (the old ||1000 footgun) instead of silently becoming 1000', () => {
+    process.env.PLANNER_GEMINI_DAILY_MAX = '0';
+    expect(() => readPlannerGeminiDailyMax()).toThrow();
+  });
+
+  it('THROWS on a non-numeric value', () => {
+    process.env.PLANNER_GEMINI_DAILY_MAX = 'lots';
+    expect(() => readPlannerGeminiDailyMax()).toThrow();
+  });
+
+  it('THROWS on a negative value', () => {
+    process.env.PLANNER_GEMINI_DAILY_MAX = '-5';
+    expect(() => readPlannerGeminiDailyMax()).toThrow();
   });
 });

@@ -61,6 +61,7 @@ export type StreamEvent =
   | { kind: "slots"; partial: Partial<ParsedIntent> }
   | { kind: "suggest"; dia_diem: string; vibe: string } // mode discovery: route lo lookup KB → tên
   | { kind: "sig"; tag: string } // cuối turn: HMAC ký prose server phát ra (client echo lại — chatSig.ts)
+  | { kind: "usage"; inputTokens: number; outputTokens: number; totalTokens: number } // #553: token thật/turn cho accounting
   | { kind: "ask"; slot: string; options: string[]; allowCustom: boolean }
   | { kind: "plan"; intent: ParsedIntent };
 
@@ -218,6 +219,9 @@ export async function* streamChat(history: ChatTurn[]): AsyncGenerator<StreamEve
   const decoder = new TextDecoder();
   let buffer = "";
   let accProse = ""; // cộng dồn prose server phát ra → ký ở cuối turn (client echo tag để verify).
+  // #553: Gemini trả usageMetadata (token thật) ở frame CUỐI của stream, luỹ kế. Giữ bản mới nhất,
+  // phát 1 event "usage" ở cuối turn cho route accounting. Trước đây bị bỏ hẳn → không đo được spend.
+  let usage: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number } | null = null;
 
   try {
     while (true) {
@@ -235,12 +239,17 @@ export async function* streamChat(history: ChatTurn[]): AsyncGenerator<StreamEve
         const payload = line.slice(5).trim();
         if (!payload || payload === "[DONE]") continue;
 
-        let obj: { candidates?: { content?: { parts?: GeminiPart[] } }[] };
+        let obj: {
+          candidates?: { content?: { parts?: GeminiPart[] } }[];
+          usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number };
+        };
         try {
           obj = JSON.parse(payload);
         } catch {
           continue; // frame chưa trọn (hiếm với 1 dòng/frame) -> bỏ qua
         }
+
+        if (obj.usageMetadata) usage = obj.usageMetadata; // luỹ kế; frame cuối mang tổng
 
         const parts = obj.candidates?.[0]?.content?.parts ?? [];
         for (const part of parts) {
@@ -262,6 +271,14 @@ export async function* streamChat(history: ChatTurn[]): AsyncGenerator<StreamEve
     }
     // Cuối turn thành công: ký prose đã phát → client lưu tag, echo lại lượt sau để server verify.
     if (accProse) yield { kind: "sig", tag: signModelTurn(accProse) };
+    // #553: phát token thật/turn (nếu Gemini trả usageMetadata) cho route accounting.
+    if (usage)
+      yield {
+        kind: "usage",
+        inputTokens: usage.promptTokenCount ?? 0,
+        outputTokens: usage.candidatesTokenCount ?? 0,
+        totalTokens: usage.totalTokenCount ?? 0,
+      };
   } catch (err) {
     // Idle-timeout abort or a stream read error -> ParseIntentError so the route shows the
     // polite fallback instead of an uncaught crash.
