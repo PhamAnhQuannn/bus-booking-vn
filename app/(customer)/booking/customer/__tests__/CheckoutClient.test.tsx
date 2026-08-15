@@ -186,4 +186,31 @@ describe('CheckoutClient', () => {
     expect(mockCreateHold).toHaveBeenCalledTimes(2);
     expect((mockCreateHold.mock.calls[1][0] as { buyerEmail: string }).buyerEmail).toBe('test@gmial.com');
   });
+
+  it('#602 override grant does not leak onto a different typo email edited before retry', async () => {
+    mockCreateHold.mockResolvedValue({ ok: false, code: 'SOLD_OUT' });
+
+    render(<CheckoutClient {...PROPS} />);
+    fireEvent.change(screen.getByPlaceholderText('Nhập họ và tên'), { target: { value: 'Nguyen Van Test' } });
+    fireEvent.change(screen.getByPlaceholderText('VD: 0912 345 678'), { target: { value: '0912345678' } });
+    fireEvent.change(screen.getByPlaceholderText('Nhập email để nhận vé'), { target: { value: 'test@gmial.com' } });
+    await tickBothConsents();
+
+    // Override the first typo → fires the hold, which returns a transient SOLD_OUT.
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /vẫn dùng email này/i }));
+    });
+    expect(mockCreateHold).toHaveBeenCalledTimes(1);
+
+    // Buyer edits to a DIFFERENT typo — the grant was pinned to the first email, so it
+    // must not carry over (still a typo → no auto-fire re-arms it either).
+    fireEvent.change(screen.getByPlaceholderText('Nhập email để nhận vé'), { target: { value: 'other@gmial.com' } });
+
+    // Retry must re-enter the gate on the new unconfirmed email, NOT bypass it (#602).
+    const retryBtn = await screen.findByRole('button', { name: /thử lại/i });
+    await act(async () => {
+      fireEvent.click(retryBtn);
+    });
+    expect(mockCreateHold).toHaveBeenCalledTimes(1);
+  });
 });
