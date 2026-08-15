@@ -10,7 +10,7 @@
 import type { Ratelimit as UpstashRatelimitClient } from '@upstash/ratelimit';
 import type Redis from 'ioredis';
 import { logger } from '@/lib/logger';
-import { readPlannerGeminiDailyMax } from '@/lib/config';
+import { readPlannerGeminiDailyMax } from '@/lib/core/config/plannerGeminiBudget';
 import { resolveRatelimitBackend } from '@/lib/core/http/ratelimitBackend';
 
 export interface RatelimitResult {
