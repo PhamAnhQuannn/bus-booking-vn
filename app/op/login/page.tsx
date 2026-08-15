@@ -15,17 +15,20 @@
  */
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, Eye, EyeOff, KeyRound, Lock, ShieldCheck, UserRound, Users } from 'lucide-react';
+import { ArrowRight, KeyRound, ShieldCheck, UserRound, Building2 } from 'lucide-react';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
+import { AuthPromoCard } from '@/components/auth/AuthPromoCard';
+import { AuthSecurityFooter } from '@/components/auth/AuthSecurityFooter';
+import { PasswordField } from '@/components/auth/PasswordField';
+import { FormError } from '@/components/auth/FormError';
+import { authLinkClass, authFieldClass } from '@/components/auth/authLinkClass';
 import { OtpCodeInput } from '@/components/auth/OtpCodeInput';
 import { Card } from '@/components/ui/card';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
 type Step = 'password' | 'otp';
@@ -35,7 +38,6 @@ export default function OpLoginPage() {
   const [step, setStep] = useState<Step>('password');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
   // OTP step state
   const [loginChallenge, setLoginChallenge] = useState('');
@@ -45,8 +47,7 @@ export default function OpLoginPage() {
     e.preventDefault();
     if (loading) return; // guard double-submit
     setError('');
-    setShowPassword(false);
-    setLoading(true);
+    setLoading(true); // #490 hide-on-submit handled by PasswordField revealResetKey={loading}
     const fd = new FormData(e.currentTarget);
     const username = fd.get('username') as string;
     const password = fd.get('password') as string;
@@ -191,67 +192,48 @@ export default function OpLoginPage() {
                     aria-invalid={!!error}
                     aria-describedby={error ? 'op-login-error' : undefined}
                     placeholder="Ví dụ: PB-0001"
-                    className="h-11 pl-10"
+                    className={cn(authFieldClass, 'pl-10')}
                   />
                 </div>
                 <p className="text-[13px] text-muted-foreground">Mã được cấp bởi hệ thống BBVN.</p>
               </div>
 
-              <div className="grid gap-1.5">
-                <Label htmlFor="op-login-password">Mật khẩu</Label>
-                <div className="relative">
-                  <Lock
-                    className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                    aria-hidden="true"
-                  />
-                  <Input
-                    id="op-login-password"
-                    type={showPassword ? 'text' : 'password'}
-                    name="password"
-                    autoComplete="current-password"
-                    required
-                    disabled={loading}
-                    aria-invalid={!!error}
-                    aria-describedby={error ? 'op-login-error' : undefined}
-                    placeholder="Nhập mật khẩu của bạn"
-                    className="h-11 pl-10 pr-11"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((v) => !v)}
-                    aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                    aria-pressed={showPassword}
-                    // 44px tap target (WCAG 2.5.5) — was an icon-sized hit area; matches the
-                    // customer login toggle (#456 a11y / #486 parity).
-                    className="absolute right-0 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="size-4" aria-hidden="true" />
-                    ) : (
-                      <Eye className="size-4" aria-hidden="true" />
-                    )}
-                  </button>
-                </div>
-              </div>
+              <PasswordField
+                id="op-login-password"
+                name="password"
+                label="Mật khẩu"
+                placeholder="Nhập mật khẩu của bạn"
+                autoComplete="current-password"
+                required
+                disabled={loading}
+                invalid={!!error}
+                describedBy={error ? 'op-login-error' : undefined}
+                revealResetKey={loading}
+              />
 
               <div className="flex justify-end">
-                <a
-                  className="text-sm font-medium text-primary underline-offset-4 hover:underline"
-                  href="/op/forgot-password"
-                >
+                <a className={cn(authLinkClass, 'text-sm')} href="/op/forgot-password">
                   Quên mật khẩu?
                 </a>
               </div>
 
-              {error && (
-                <Alert variant="error" id="op-login-error">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
+              <FormError id="op-login-error" message={error} />
 
-              <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="w-full">
-                {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
-                {!loading && <ArrowRight className="size-4" aria-hidden="true" />}
+              <Button
+                type="submit"
+                size="lg"
+                disabled={loading}
+                aria-busy={loading}
+                className="h-12 w-full text-base"
+              >
+                {loading ? (
+                  'Đang đăng nhập...'
+                ) : (
+                  <>
+                    Đăng nhập
+                    <ArrowRight data-icon="inline-end" aria-hidden="true" />
+                  </>
+                )}
               </Button>
             </form>
           )}
@@ -278,21 +260,17 @@ export default function OpLoginPage() {
                     placeholder="000000"
                     aria-invalid={!!error}
                     aria-describedby={error ? 'op-login-error' : undefined}
-                    className="h-11 pl-10 tracking-[0.5em]"
+                    className={cn(authFieldClass, 'pl-10 tracking-[0.5em]')}
                   />
                 </div>
               </div>
-              {error && (
-                <Alert variant="error" id="op-login-error">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-              <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="w-full">
+              <FormError id="op-login-error" message={error} />
+              <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="h-12 w-full text-base">
                 {loading ? 'Đang xác thực...' : 'Xác nhận'}
               </Button>
               <button
                 type="button"
-                className="text-sm text-muted-foreground underline underline-offset-4 hover:text-primary"
+                className={cn(authLinkClass, 'text-sm')}
                 onClick={() => {
                   setStep('password');
                   setError('');
@@ -304,38 +282,16 @@ export default function OpLoginPage() {
           )}
         </Card>
 
-        {/* Partner onboarding — a distinct card so business signup reads as a separate
-            intent from operator authentication (not crowded inside the login card). */}
-        <div className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/[0.06] p-4">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <Users className="size-5" aria-hidden="true" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold">Chưa là đối tác BBVN?</p>
-            <p className="text-[13px] text-muted-foreground">
-              Đăng ký hợp tác để quản lý và phát triển doanh nghiệp cùng BBVN.
-            </p>
-          </div>
-          <Link
-            href="/op/register"
-            className={cn(
-              buttonVariants({ variant: 'outline', size: 'sm' }),
-              'shrink-0 border-primary/40 text-primary hover:bg-primary/10 hover:text-primary'
-            )}
-          >
-            Trở thành đối tác
-            <ArrowRight className="size-4" aria-hidden="true" />
-          </Link>
-        </div>
+        {/* Partner onboarding — the shared door card (was hand-rolled; now matches customer login). */}
+        <AuthPromoCard
+          icon={Building2}
+          title="Chưa là đối tác BBVN?"
+          body="Đăng ký hợp tác để quản lý và phát triển doanh nghiệp cùng BBVN."
+          actionLabel="Trở thành đối tác"
+          actionHref="/op/register"
+        />
 
-        {/* Security reassurance footnote — low emphasis. */}
-        <p className="flex items-start gap-2 text-[13px] text-muted-foreground">
-          <ShieldCheck className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          <span>
-            <span className="font-medium text-foreground/80">Bảo mật thông tin.</span> Dữ liệu của bạn
-            được mã hóa và bảo vệ.
-          </span>
-        </p>
+        <AuthSecurityFooter />
       </div>
     </AuthSplitLayout>
   );

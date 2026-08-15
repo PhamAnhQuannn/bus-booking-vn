@@ -13,13 +13,24 @@
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { ShieldCheck, Mail } from 'lucide-react';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
+import { AuthSecurityFooter } from '@/components/auth/AuthSecurityFooter';
+import { PasswordField } from '@/components/auth/PasswordField';
 import { FormError } from '@/components/auth/FormError';
 import { authLinkClass, authFieldClass } from '@/components/auth/authLinkClass';
 import { OtpCodeInput } from '@/components/auth/OtpCodeInput';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
+
+const RESET_EYEBROW = (
+  <span className="inline-flex items-center gap-1.5">
+    <ShieldCheck className="size-4" aria-hidden="true" />
+    Khôi phục mật khẩu
+  </span>
+);
 
 export default function ResetPasswordPage() {
   return (
@@ -120,53 +131,53 @@ function ResetPasswordPageInner() {
   }
 
   return (
-    <AuthSplitLayout audience="customer" title="Đặt lại mật khẩu">
+    <AuthSplitLayout audience="customer" eyebrow={RESET_EYEBROW} title="Đặt lại mật khẩu">
       <div className="flex flex-col gap-7">
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="email">Địa chỉ email</Label>
-              <Input
-                id="email"
-                type="email"
-                name="email"
-                required
-                autoComplete="email"
-                defaultValue={prefillEmail}
-                placeholder="you@example.com"
-                className={authFieldClass}
-              />
+              <div className="relative">
+                <Mail
+                  className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <Input
+                  id="email"
+                  type="email"
+                  name="email"
+                  required
+                  autoComplete="email"
+                  defaultValue={prefillEmail}
+                  placeholder="you@example.com"
+                  className={cn(authFieldClass, 'pl-10')}
+                />
+              </div>
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="code">Mã OTP (6 chữ số)</Label>
               <OtpCodeInput id="code" required className={authFieldClass} />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="newPassword">Mật khẩu mới</Label>
-              <Input
-                id="newPassword"
-                type="password"
-                name="newPassword"
-                required
-                minLength={8}
-                autoComplete="new-password"
-                aria-invalid={mismatch || undefined}
-                className={authFieldClass}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="confirmPassword">Xác nhận mật khẩu mới</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                name="confirmPassword"
-                required
-                minLength={8}
-                autoComplete="new-password"
-                aria-invalid={mismatch || undefined}
-                aria-describedby={mismatch ? 'reset-error' : undefined}
-                className={authFieldClass}
-              />
-            </div>
+            <PasswordField
+              id="newPassword"
+              name="newPassword"
+              label="Mật khẩu mới"
+              autoComplete="new-password"
+              required
+              minLength={8}
+              invalid={mismatch}
+              revealResetKey={loading}
+            />
+            <PasswordField
+              id="confirmPassword"
+              name="confirmPassword"
+              label="Xác nhận mật khẩu mới"
+              autoComplete="new-password"
+              required
+              minLength={8}
+              invalid={mismatch}
+              describedBy={mismatch ? 'reset-error' : undefined}
+              revealResetKey={loading}
+            />
             <FormError id="reset-error" message={error} />
             <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="h-12 w-full text-base">
               {loading ? 'Đang xử lý...' : 'Đặt lại mật khẩu'}
@@ -180,6 +191,7 @@ function ResetPasswordPageInner() {
               Đăng nhập
             </Link>
           </div>
+          <AuthSecurityFooter />
       </div>
     </AuthSplitLayout>
   );

@@ -7,12 +7,14 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ShieldCheck, Mail, Lock, Eye, EyeOff, ArrowRight, Users, Building2 } from 'lucide-react';
+import { ShieldCheck, Mail, ArrowRight, Users, Building2 } from 'lucide-react';
 import { setAccessToken, setDisplayName, setCustomerEmail, useAuthStatus } from '@/lib/auth/clientSession';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
 import { safeReturnTo } from '@/lib/auth/safeReturnTo';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
 import { AuthPromoCard } from '@/components/auth/AuthPromoCard';
+import { AuthSecurityFooter } from '@/components/auth/AuthSecurityFooter';
+import { PasswordField } from '@/components/auth/PasswordField';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { FormError } from '@/components/auth/FormError';
 import { authLinkClass, authFieldClass } from '@/components/auth/authLinkClass';
@@ -39,7 +41,6 @@ function LoginPageInner() {
     searchParams.get('error') === 'google' ? 'Đăng nhập Google thất bại. Thử lại.' : ''
   );
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
   // #482: a signed-in customer landing here (bookmark, back-button, stale tab) is bounced to
   // returnTo instead of seeing the form again. `useAuthStatus` resolves 'unknown' → 'authed'/
@@ -53,8 +54,7 @@ function LoginPageInner() {
     e.preventDefault();
     if (loading) return; // #483: guard against a double-submit (Enter held / rapid clicks)
     setError('');
-    setShowPassword(false); // #490: never leave the password revealed across a submit
-    setLoading(true);
+    setLoading(true); // #490 hide-on-submit is handled by PasswordField via revealResetKey={loading}
     const fd = new FormData(e.currentTarget);
     const email = fd.get('email') as string;
     const password = fd.get('password') as string;
@@ -124,41 +124,17 @@ function LoginPageInner() {
               />
             </div>
           </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="password">Mật khẩu</Label>
-            <div className="relative">
-              <Lock
-                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                aria-hidden="true"
-              />
-              <Input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                name="password"
-                required
-                autoComplete="current-password"
-                placeholder="Nhập mật khẩu"
-                disabled={loading}
-                aria-invalid={!!error}
-                aria-describedby={error ? 'login-error' : undefined}
-                className={cn(authFieldClass, 'pl-10 pr-12')}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((v) => !v)}
-                aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                aria-pressed={showPassword}
-                // #488: 44px tap target (was size-9 = 36px, below the AU-5 / WCAG 2.5.5 minimum).
-                className="absolute right-0.5 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-              >
-                {showPassword ? (
-                  <EyeOff className="size-4" aria-hidden="true" />
-                ) : (
-                  <Eye className="size-4" aria-hidden="true" />
-                )}
-              </button>
-            </div>
-          </div>
+          <PasswordField
+            id="password"
+            name="password"
+            label="Mật khẩu"
+            autoComplete="current-password"
+            required
+            disabled={loading}
+            invalid={!!error}
+            describedBy={error ? 'login-error' : undefined}
+            revealResetKey={loading}
+          />
           <div className="flex items-center justify-end gap-3">
             <Link href="/auth/forgot-password" className={cn(authLinkClass, 'text-sm')}>
               Quên mật khẩu?
@@ -202,13 +178,7 @@ function LoginPageInner() {
             actionHref="/op/login"
           />
         </div>
-        <div className="flex items-start gap-2.5 text-sm text-muted-foreground">
-          <Lock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          <div>
-            <p className="font-semibold text-foreground">Bảo mật thông tin</p>
-            <p>Dữ liệu của bạn được mã hóa và bảo vệ.</p>
-          </div>
-        </div>
+        <AuthSecurityFooter />
       </div>
     </AuthSplitLayout>
   );

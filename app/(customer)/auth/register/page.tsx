@@ -9,14 +9,17 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
+import { Mail, LogIn } from 'lucide-react';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
 import { setAccessToken, setDisplayName, setCustomerEmail } from '@/lib/auth/clientSession';
 import { safeReturnTo } from '@/lib/auth/safeReturnTo';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
+import { AuthPromoCard } from '@/components/auth/AuthPromoCard';
+import { AuthSecurityFooter } from '@/components/auth/AuthSecurityFooter';
+import { PasswordField } from '@/components/auth/PasswordField';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { FormError } from '@/components/auth/FormError';
-import { authLinkClass, authFieldClass } from '@/components/auth/authLinkClass';
+import { authFieldClass } from '@/components/auth/authLinkClass';
 import { OtpCodeInput } from '@/components/auth/OtpCodeInput';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -212,17 +215,23 @@ function RegisterPageInner() {
             <form onSubmit={handleSendOtp} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="email">Địa chỉ email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  name="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  autoComplete="email"
-                  placeholder="you@example.com"
-                  className={authFieldClass}
-                />
+                <div className="relative">
+                  <Mail
+                    className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                  <Input
+                    id="email"
+                    type="email"
+                    name="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    className={cn(authFieldClass, 'pl-10')}
+                  />
+                </div>
               </div>
               <FormError message={error} />
               <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="h-12 w-full text-base">
@@ -262,19 +271,17 @@ function RegisterPageInner() {
 
           {step === 'details' && (
             <form onSubmit={handleRegister} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="password">Mật khẩu</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  name="password"
-                  required
-                  minLength={8}
-                  autoComplete="new-password"
-                  autoFocus
-                  className={authFieldClass}
-                />
-              </div>
+              <PasswordField
+                id="password"
+                name="password"
+                label="Mật khẩu"
+                autoComplete="new-password"
+                required
+                minLength={8}
+                autoFocus
+                invalid={!!error}
+                revealResetKey={loading}
+              />
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="displayName">Tên hiển thị (tuỳ chọn)</Label>
                 <Input id="displayName" type="text" name="displayName" autoComplete="name" className={authFieldClass} />
@@ -304,12 +311,14 @@ function RegisterPageInner() {
             </form>
           )}
 
-          <p className="text-sm text-muted-foreground">
-            Đã có tài khoản?{' '}
-            <Link href="/auth/login" className={authLinkClass}>
-              Đăng nhập
-            </Link>
-          </p>
+          <AuthPromoCard
+            icon={LogIn}
+            title="Đã có tài khoản?"
+            body="Đăng nhập để tiếp tục đặt vé và theo dõi chuyến đi của bạn."
+            actionLabel="Đăng nhập"
+            actionHref="/auth/login"
+          />
+          <AuthSecurityFooter />
       </div>
     </AuthSplitLayout>
   );
