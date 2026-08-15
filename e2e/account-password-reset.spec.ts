@@ -1,116 +1,32 @@
 /**
- * E2E spec: customer password reset flow — Issue 008 AC1
+ * E2E spec: customer password reset flow — Issue 008 AC1 (email OTP).
  *
  * Flow:
- *   1. Register customer via OTP
- *   2. POST /api/auth/forgot-password (always 200, no-enum)
- *   3. Peek OTP for test purposes
- *   4. POST /api/auth/forgot-password/verify with OTP code → 200 { otpProof }
- *   5. POST /api/auth/reset-password with { otpProof, newPassword } → 204
- *   6. Confirm old password rejected, new password accepted on login
+ *   1. Register customer via email OTP
+ *   2. POST /api/auth/forgot-password { email } (always 200, no-enum)
+ *   3. Peek OTP → POST /api/auth/forgot-password/verify { email, code } → 200 { otpProof }
+ *   4. POST /api/auth/reset-password { otpProof, newPassword } → 204
+ *   5. Old password rejected, new password accepted on login
  *
- * Additional cases:
- *   - Non-existent phone still returns 200 (no-enumeration)
- *   - Wrong OTP code returns 400 OTP_INVALID at forgot-password/verify
- *   - Reused password returns 422 PASSWORD_REUSED at reset-password
+ * Additional cases: non-existent email still 200 (no-enum); wrong OTP → 400 OTP_INVALID;
+ * reused password → 422 PASSWORD_REUSED.
  *
- * No CSRF required for /api/auth/forgot-password and /api/auth/reset-password
- * (pre-auth exemption in proxy.ts).
+ * No CSRF for /forgot-password + /reset-password (pre-auth exemption in proxy.ts).
  *
- * Phone literals use literal-x masks to avoid gitleaks \+84[35789]\d{8}.
- *
- * SANDBOX-GATED: set E2E_ACCOUNT_ENABLED=true to run.
+ * SANDBOX-GATED: set E2E_ACCOUNT_ENABLED=true to run (needs OTP_PEEK_ENABLED + NOTIFY_STUB server env).
  */
 
 import { test, expect } from '@playwright/test';
 import { Client } from 'pg';
+import { getCsrf, cleanupCustomerWith, peekOtp, registerCustomer } from './helpers/customer';
 
 const SANDBOX_ENABLED = process.env.E2E_ACCOUNT_ENABLED === 'true';
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000';
 const DB_URL = process.env.DATABASE_URL ?? 'postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_dev';
 
-// +8490 prefix — NOT in gitleaks mobile pattern +84[35789]
-function mkPhone() { return `+8490${Date.now().toString().slice(-7)}`; }
-
-const ORIGINAL_PASSWORD = 'OriginalPass1!';
-const NEW_PASSWORD = 'NewPassword1!';
-
-// ---- DB helpers ------------------------------------------------------------
-
-async function cleanupPhone(client: Client, phone: string): Promise<void> {
-  await client.query(`DELETE FROM "OtpAttempt" WHERE phone = $1`, [phone]);
-  await client.query(
-    `DELETE FROM "Session" WHERE "customerId" IN (SELECT id FROM "Customer" WHERE phone = $1)`,
-    [phone]
-  );
-  await client.query(`DELETE FROM "Customer" WHERE phone = $1`, [phone]);
-}
-
-// ---- Registration helper ---------------------------------------------------
-
-async function registerCustomer(
-  page: import('@playwright/test').Page,
-  phone: string,
-  csrf: string
-): Promise<string> {
-  const sendRes = await page.evaluate(
-    async ([ph, cs, bu]) => {
-      const r = await fetch(`${bu}/api/auth/otp/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': cs },
-        body: JSON.stringify({ phone: ph }),
-        credentials: 'include',
-      });
-      return { status: r.status, body: await r.json() };
-    },
-    [phone, csrf, BASE_URL]
-  );
-  expect(sendRes.status).toBe(200);
-
-  const peekRes = await page.evaluate(
-    async ([ph, bu]) => {
-      const r = await fetch(`${bu}/api/auth/otp/test-peek?phone=${encodeURIComponent(ph)}`, {
-        credentials: 'include',
-      });
-      return { status: r.status, body: await r.json() };
-    },
-    [phone, BASE_URL]
-  );
-  expect(peekRes.status).toBe(200);
-  const otpCode: string = peekRes.body.code;
-
-  const verifyRes = await page.evaluate(
-    async ([ph, code, cs, bu]) => {
-      const r = await fetch(`${bu}/api/auth/otp/verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': cs },
-        body: JSON.stringify({ phone: ph, code }),
-        credentials: 'include',
-      });
-      return { status: r.status, body: await r.json() };
-    },
-    [phone, otpCode, csrf, BASE_URL]
-  );
-  expect(verifyRes.status).toBe(200);
-  const proof: string = verifyRes.body.otpProof;
-
-  const regRes = await page.evaluate(
-    async ([ph, pf, pw, cs, bu]) => {
-      const r = await fetch(`${bu}/api/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': cs },
-        body: JSON.stringify({ phone: ph, otpProof: pf, password: pw }),
-        credentials: 'include',
-      });
-      return { status: r.status, body: await r.json() };
-    },
-    [phone, proof, ORIGINAL_PASSWORD, csrf, BASE_URL]
-  );
-  expect(regRes.status).toBe(200);
-  return regRes.body.accessToken as string;
-}
-
-// ---- Tests -----------------------------------------------------------------
+const mkEmail = () => `e2e-reset-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.dev`;
+const ORIGINAL_PASSWORD = 'OriginalPass1';
+const NEW_PASSWORD = 'NewPassword1';
 
 test.describe('Customer password reset (Issue 008 AC1)', () => {
   test.skip(!SANDBOX_ENABLED, 'Skipped: set E2E_ACCOUNT_ENABLED=true to run');
@@ -126,61 +42,49 @@ test.describe('Customer password reset (Issue 008 AC1)', () => {
 
   // ---- AC1 full happy path ------------------------------------------------
   test('AC1 — forgot → OTP → reset → login with new password', async ({ page, context }) => {
-    const phone = mkPhone();
-    await cleanupPhone(db, phone);
+    const email = mkEmail();
+    await cleanupCustomerWith(db, email);
     await page.goto(BASE_URL + '/');
-    const cookies = await context.cookies();
-    const csrf = cookies.find((c) => c.name === 'bb_csrf')?.value ?? '';
+    const csrf = getCsrf(await context.cookies());
     expect(csrf).toBeTruthy();
 
-    await registerCustomer(page, phone, csrf);
+    await registerCustomer(page, BASE_URL, csrf, { email, password: ORIGINAL_PASSWORD });
 
-    // Step 1: forgot-password (no CSRF required — pre-auth exempt)
+    // Step 1: forgot-password (no CSRF — pre-auth exempt)
     const forgotRes = await page.evaluate(
-      async ([ph, bu]) => {
+      async ([e, bu]) => {
         const r = await fetch(`${bu}/api/auth/forgot-password`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone: ph }),
+          body: JSON.stringify({ email: e }),
         });
         return { status: r.status };
       },
-      [phone, BASE_URL]
+      [email, BASE_URL] as const,
     );
     expect(forgotRes.status).toBe(200);
 
-    // Step 2: peek OTP (routes through same OtpAttempt table as account OTP)
-    const peekRes = await page.evaluate(
-      async ([ph, bu]) => {
-        const r = await fetch(
-          `${bu}/api/auth/otp/test-peek?phone=${encodeURIComponent(ph)}`,
-          { credentials: 'include' }
-        );
-        return { status: r.status, body: await r.json() };
-      },
-      [phone, BASE_URL]
-    );
-    expect(peekRes.status).toBe(200);
-    const otpCode: string = peekRes.body.code;
+    // Step 2: peek OTP
+    const otpCode = await peekOtp(page, BASE_URL, { email });
     expect(otpCode).toMatch(/^[0-9]{6}$/);
 
-    // Step 3: exchange OTP code for a reset_password proof JWT
+    // Step 3: exchange OTP for a reset_password proof
     const verifyRes = await page.evaluate(
-      async ([ph, code, bu]) => {
+      async ([e, code, bu]) => {
         const r = await fetch(`${bu}/api/auth/forgot-password/verify`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone: ph, code }),
+          body: JSON.stringify({ email: e, code }),
         });
         return { status: r.status, body: await r.json() };
       },
-      [phone, otpCode, BASE_URL]
+      [email, otpCode, BASE_URL] as const,
     );
     expect(verifyRes.status).toBe(200);
     const otpProof: string = verifyRes.body.otpProof;
     expect(typeof otpProof).toBe('string');
 
-    // Step 4: reset-password with proof (no CSRF — pre-auth exempt)
+    // Step 4: reset-password (no CSRF — pre-auth exempt) → 204
     const resetRes = await page.evaluate(
       async ([pf, np, bu]) => {
         const r = await fetch(`${bu}/api/auth/reset-password`, {
@@ -190,160 +94,137 @@ test.describe('Customer password reset (Issue 008 AC1)', () => {
         });
         return { status: r.status };
       },
-      [otpProof, NEW_PASSWORD, BASE_URL]
+      [otpProof, NEW_PASSWORD, BASE_URL] as const,
     );
-    // AC1: 204 No Content on success
     expect(resetRes.status).toBe(204);
 
-    // Step 4: old password now rejected
+    // Step 5: old password rejected
     const oldLoginRes = await page.evaluate(
-      async ([ph, op, cs, bu]) => {
+      async ([e, op, cs, bu]) => {
         const r = await fetch(`${bu}/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': cs },
-          body: JSON.stringify({ phone: ph, password: op }),
+          body: JSON.stringify({ email: e, password: op }),
           credentials: 'include',
         });
         return { status: r.status };
       },
-      [phone, ORIGINAL_PASSWORD, csrf, BASE_URL]
+      [email, ORIGINAL_PASSWORD, csrf, BASE_URL] as const,
     );
     expect(oldLoginRes.status).toBe(401);
 
-    // Step 5: new password accepted
+    // Step 6: new password accepted (re-read csrf — a prior login attempt may have rotated it)
+    const csrf2 = getCsrf(await context.cookies());
     const newLoginRes = await page.evaluate(
-      async ([ph, np, cs, bu]) => {
+      async ([e, np, cs, bu]) => {
         const r = await fetch(`${bu}/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': cs },
-          body: JSON.stringify({ phone: ph, password: np }),
+          body: JSON.stringify({ email: e, password: np }),
           credentials: 'include',
         });
         return { status: r.status, body: await r.json() };
       },
-      [phone, NEW_PASSWORD, csrf, BASE_URL]
+      [email, NEW_PASSWORD, csrf2, BASE_URL] as const,
     );
     expect(newLoginRes.status).toBe(200);
     expect(typeof newLoginRes.body.accessToken).toBe('string');
 
-    await cleanupPhone(db, phone);
+    await cleanupCustomerWith(db, email);
   });
 
-  // ---- AC1: non-existent phone still returns 200 (no-enumeration) ----------
-  test('AC1 — non-existent phone returns 200 (no-enumeration)', async ({ page }) => {
-    // Uses a phone that's definitely not registered (timestamp-based, never seeded)
-    const ghostPhone = `+8490${(Date.now() + 99999).toString().slice(-7)}`;
-
-    // page.evaluate(fetch) needs a real origin — on about:blank a cross-origin
-    // fetch to BASE_URL throws "Failed to fetch". Land on the app first.
-    await page.goto(BASE_URL + '/');
-
+  // ---- AC1: non-existent email still returns 200 (no-enumeration) ----------
+  test('AC1 — non-existent email returns 200 (no-enumeration)', async ({ page }) => {
+    const ghostEmail = mkEmail();
+    await page.goto(BASE_URL + '/'); // real origin so page.evaluate(fetch) works
     const forgotRes = await page.evaluate(
-      async ([ph, bu]) => {
+      async ([e, bu]) => {
         const r = await fetch(`${bu}/api/auth/forgot-password`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone: ph }),
+          body: JSON.stringify({ email: e }),
         });
         return { status: r.status };
       },
-      [ghostPhone, BASE_URL]
+      [ghostEmail, BASE_URL] as const,
     );
     expect(forgotRes.status).toBe(200);
   });
 
   // ---- AC1: wrong OTP code returns 400 OTP_INVALID -------------------------
   test('AC1 — wrong OTP code returns 400 OTP_INVALID', async ({ page, context }) => {
-    const phone = mkPhone();
-    await cleanupPhone(db, phone);
+    const email = mkEmail();
+    await cleanupCustomerWith(db, email);
     await page.goto(BASE_URL + '/');
-    const cookies = await context.cookies();
-    const csrf = cookies.find((c) => c.name === 'bb_csrf')?.value ?? '';
+    const csrf = getCsrf(await context.cookies());
 
-    await registerCustomer(page, phone, csrf);
+    await registerCustomer(page, BASE_URL, csrf, { email, password: ORIGINAL_PASSWORD });
 
-    // Trigger forgot-password to create an OTP attempt
     await page.evaluate(
-      async ([ph, bu]) => {
+      async ([e, bu]) => {
         await fetch(`${bu}/api/auth/forgot-password`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone: ph }),
+          body: JSON.stringify({ email: e }),
         });
       },
-      [phone, BASE_URL]
+      [email, BASE_URL] as const,
     );
 
-    // Submit wrong code to the verify endpoint (proof exchange fails here)
     const verifyRes = await page.evaluate(
-      async ([ph, bu]) => {
+      async ([e, bu]) => {
         const r = await fetch(`${bu}/api/auth/forgot-password/verify`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone: ph, code: '000000' }),
+          body: JSON.stringify({ email: e, code: '000000' }),
         });
         return { status: r.status, body: await r.json() };
       },
-      [phone, BASE_URL]
+      [email, BASE_URL] as const,
     );
     expect(verifyRes.status).toBe(400);
     expect(['OTP_INVALID', 'OTP_EXPIRED']).toContain(verifyRes.body.error);
 
-    await cleanupPhone(db, phone);
+    await cleanupCustomerWith(db, email);
   });
 
   // ---- AC1: password reuse rejected at reset-password ----------------------
   test('AC1 — reset with same password returns 422 PASSWORD_REUSED', async ({ page, context }) => {
-    const phone = mkPhone();
-    await cleanupPhone(db, phone);
+    const email = mkEmail();
+    await cleanupCustomerWith(db, email);
     await page.goto(BASE_URL + '/');
-    const cookies = await context.cookies();
-    const csrf = cookies.find((c) => c.name === 'bb_csrf')?.value ?? '';
+    const csrf = getCsrf(await context.cookies());
 
-    await registerCustomer(page, phone, csrf);
+    await registerCustomer(page, BASE_URL, csrf, { email, password: ORIGINAL_PASSWORD });
 
-    // Trigger forgot-password
     await page.evaluate(
-      async ([ph, bu]) => {
+      async ([e, bu]) => {
         await fetch(`${bu}/api/auth/forgot-password`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone: ph }),
+          body: JSON.stringify({ email: e }),
         });
       },
-      [phone, BASE_URL]
+      [email, BASE_URL] as const,
     );
 
-    // Peek OTP
-    const peekRes = await page.evaluate(
-      async ([ph, bu]) => {
-        const r = await fetch(
-          `${bu}/api/auth/otp/test-peek?phone=${encodeURIComponent(ph)}`,
-          { credentials: 'include' }
-        );
-        return { status: r.status, body: await r.json() };
-      },
-      [phone, BASE_URL]
-    );
-    expect(peekRes.status).toBe(200);
-    const otpCode: string = peekRes.body.code;
+    const otpCode = await peekOtp(page, BASE_URL, { email });
 
-    // Exchange OTP for a reset_password proof
     const verifyRes = await page.evaluate(
-      async ([ph, code, bu]) => {
+      async ([e, code, bu]) => {
         const r = await fetch(`${bu}/api/auth/forgot-password/verify`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone: ph, code }),
+          body: JSON.stringify({ email: e, code }),
         });
         return { status: r.status, body: await r.json() };
       },
-      [phone, otpCode, BASE_URL]
+      [email, otpCode, BASE_URL] as const,
     );
     expect(verifyRes.status).toBe(200);
     const otpProof: string = verifyRes.body.otpProof;
 
-    // Try to reset with the SAME password
+    // Reset with the SAME password → 422
     const resetRes = await page.evaluate(
       async ([pf, op, bu]) => {
         const r = await fetch(`${bu}/api/auth/reset-password`, {
@@ -353,11 +234,11 @@ test.describe('Customer password reset (Issue 008 AC1)', () => {
         });
         return { status: r.status, body: await r.json() };
       },
-      [otpProof, ORIGINAL_PASSWORD, BASE_URL]
+      [otpProof, ORIGINAL_PASSWORD, BASE_URL] as const,
     );
     expect(resetRes.status).toBe(422);
     expect(resetRes.body.error).toBe('PASSWORD_REUSED');
 
-    await cleanupPhone(db, phone);
+    await cleanupCustomerWith(db, email);
   });
 });
