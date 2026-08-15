@@ -37,7 +37,7 @@ export interface DtoHotel {
   name: string;
   note: string | null;
   address: string | null;
-  phone: string | null;
+  phone: string | null; // giữ (business contact, "gọi trước") — đồng nhất với nhà hàng (#532)
   map_url: string | null;
   lat: number | null;
   lon: number | null;
