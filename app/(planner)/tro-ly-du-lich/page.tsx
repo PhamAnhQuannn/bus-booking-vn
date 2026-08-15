@@ -249,7 +249,11 @@ export default function TroLyDuLichPage() {
       const c = await createConversation(deriveTitle(firstText), []);
       setConversationId(c.id);
       reloadConversations();
-    } catch { /* lưu thất bại vẫn cho chat tiếp */ }
+    } catch (e) {
+      // Lưu thất bại vẫn cho chat tiếp (không chặn hội thoại) — nhưng KHÔNG nuốt im: log để chẩn
+      // đoán vì conversationId null nghĩa là phiên này không được persist (mất khi reload). (#528)
+      console.warn('ensureConversation: tạo hội thoại thất bại — chat tiếp, không đồng bộ', e);
+    }
   }
 
   // Free-text → 1 Gemini call TRÍCH ràng buộc (stream prose + slots) → merge → advance.
@@ -274,6 +278,7 @@ export default function TroLyDuLichPage() {
     setLoading(true);
     let partial: Partial<ParsedIntent> = {};
     let suggested = false; // mode vibe-discovery: có gợi ý → KHÔNG auto-advance (CTA lo bước kế)
+    let failed = false; // stream lỗi giữa chừng → đã hiện bong bóng lỗi, KHÔNG advance (tránh 2 tin trái nhau)
 
     try {
       const res = await fetch('/api/planner/chat', {
@@ -299,19 +304,23 @@ export default function TroLyDuLichPage() {
           const r = handleFrame(frame);
           if (r?.partial) partial = { ...partial, ...r.partial };
           if (r?.suggested) suggested = true;
+          if (r?.failed) failed = true; // SSE error frame → chặn advance() bên dưới (#528)
         }
         scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
       }
     } catch {
       patchBot((m) => ({ ...m, text: m.text || 'Không kết nối được máy chủ, thử lại giúp mình nhé.', error: true }));
+      failed = true;
     } finally {
       setLoading(false);
     }
-    if (!suggested) advance(mergeIntent(slots, partial)); // tất định: hỏi thêm bằng chip hoặc dựng — KHÔNG thêm Gemini
+    // Lỗi giữa chừng đã hiện bong bóng lỗi rồi — advance() ở đây sẽ thêm tin bot thứ 2 trái ngược
+    // trong cùng lượt, nên chỉ advance khi KHÔNG lỗi và KHÔNG phải mode gợi ý. (#528)
+    if (!suggested && !failed) advance(mergeIntent(slots, partial)); // tất định: hỏi thêm bằng chip hoặc dựng — KHÔNG thêm Gemini
   }
 
-  // Parse 1 SSE frame. token → patchBot; slots → trả {partial}; suggestions → gắn cards + báo suggested; error → patchBot.
-  function handleFrame(frame: string): { partial?: Partial<ParsedIntent>; suggested?: boolean } | null {
+  // Parse 1 SSE frame. token → patchBot; slots → trả {partial}; suggestions → gắn cards + báo suggested; error → patchBot + báo failed.
+  function handleFrame(frame: string): { partial?: Partial<ParsedIntent>; suggested?: boolean; failed?: boolean } | null {
     let event = 'message';
     let data = '';
     for (const line of frame.split('\n')) {
@@ -339,8 +348,11 @@ export default function TroLyDuLichPage() {
         return { suggested: true };
       }
       case 'error':
+        // SSE error frame (server catch: Gemini quota/no_key/timeout/5xx) — bong bóng lỗi ĐÃ hiện.
+        // Báo failed để send() KHÔNG advance() sau đó (2 tin trái nhau). Đây là đường lỗi PHỔ BIẾN,
+        // khác đường network-exception ở ngoài catch của send(). (#528)
         patchBot((m) => ({ ...m, planning: false, text: m.text || String(payload.message ?? 'Có lỗi xảy ra.'), error: true }));
-        return null;
+        return { failed: true };
       default:
         return null;
     }

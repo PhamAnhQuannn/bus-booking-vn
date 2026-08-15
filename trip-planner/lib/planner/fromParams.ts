@@ -27,11 +27,14 @@ export function requestFromParams(sp: URLSearchParams): TripRequest {
   const food = (sp.get("food") || "").split(",").map((s) => s.trim()).filter((f) => FOODS.includes(f));
   // pace tường minh thắng; else suy từ budget; else moderate.
   const resolvedPace: Pace = PACES.includes(pace) ? pace : budget ? BUDGET_PACE[budget] : "moderate";
+  const adults = int(sp.get("adults"), 2);
   return {
     slug: sp.get("slug") || "da-lat",
     days,
     party: {
-      adults: int(sp.get("adults"), 2),
+      // int() admits 0 (valid for children/elders), but a 0-adult party is nonsense — fall back to
+      // the default 2 rather than preserve 0, so ?adults=0 doesn't build a 0-person trip. (#528)
+      adults: adults >= 1 ? adults : 2,
       children: int(sp.get("children"), 0),
       elders: int(sp.get("elders"), 0),
     },
@@ -53,7 +56,10 @@ export function toURLSearchParams(obj: Record<string, string | string[] | undefi
   const sp = new URLSearchParams();
   for (const [k, v] of Object.entries(obj)) {
     if (v == null) continue;
-    sp.set(k, Array.isArray(v) ? v[0] ?? "" : v);
+    // Repeated params (Next gives string[] for ?interests=a&interests=b) must NOT be truncated to
+    // v[0] — the multi-value keys (interests/food/anchors) are parsed as CSV downstream, so join on
+    // "," to preserve every value instead of dropping all but the first. (#528)
+    sp.set(k, Array.isArray(v) ? v.join(",") : v);
   }
   return sp;
 }
