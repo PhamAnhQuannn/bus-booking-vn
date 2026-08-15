@@ -215,6 +215,15 @@ jobs:
       HOLD_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       # Route online payments through the local stub gateway for e2e.
       PAYMENTS_STUB: 'true'
+      # #473: run the customer auth E2E (login-lockout + otp-roundtrip), previously skipped because
+      # E2E_AUTH_ENABLED was never set. The playwright webServer runs `pnpm dev` (NODE_ENV=development),
+      # so the OTP peek route's dual-guard (NODE_ENV!=production AND OTP_PEEK_ENABLED) opens and the OTP
+      # lands in the peek sink (NOTIFY_STUB stubs email). Only the 2 AUTH specs are enabled here — the
+      # E2E_ACCOUNT_ENABLED specs stay gated because all registrations share the localhost IP and
+      # customerRegisterRatelimit is 5/15min, so running every auth+account spec together trips the cap.
+      E2E_AUTH_ENABLED: 'true'
+      OTP_PEEK_ENABLED: 'true'
+      NOTIFY_STUB: 'true'
       # pnpm build sets NODE_ENV=production; env.ts superRefine requires these.
       JWT_SECRET: ci-test-jwt-secret-not-for-production-use-0123456789ab
       JWT_OPERATOR_SECRET: ci-test-operator-secret-not-for-production-0123
