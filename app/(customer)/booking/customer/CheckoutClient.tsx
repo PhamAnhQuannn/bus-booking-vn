@@ -203,7 +203,9 @@ export function CheckoutClient({
     }
 
     // #586: past the gate — remember what got us here so retry() re-fires identically.
-    lastFireArgs.current = override;
+    // #602: pin the concrete resolved email, so an override grant can't leak onto a
+    // different address the buyer edits to afterwards (see the onChange invalidation).
+    lastFireArgs.current = { ...override, email: effectiveEmail };
 
     setHoldAlert(null);
     setInitiateError(null);
@@ -382,6 +384,12 @@ export function CheckoutClient({
                 onChange={(e) => {
                   const next = e.target.value;
                   setBuyerEmail(next);
+                  // #602: a skipTypoGate grant is pinned to the email it was earned for.
+                  // Editing away from that address drops the grant so retry() re-runs the
+                  // gate on the new (possibly-typo) email instead of bypassing it blindly.
+                  if (lastFireArgs.current?.skipTypoGate && lastFireArgs.current.email !== next) {
+                    lastFireArgs.current = undefined;
+                  }
                   // #586: if a typo gate-block stranded the buyer and they fix the address by
                   // editing the field directly (not via the suggestion chip), resume the
                   // auto-flow — consents are already in and nothing else re-fires. Guard on a
