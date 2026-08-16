@@ -503,6 +503,11 @@ model NotificationLog {
   scheduledFor  DateTime? // S19 cron: payout_scheduled dispatch time (completedAt+3d)
   /// Issue 058: dispatcher retry/backoff state.
   attemptCount  Int                 @default(0)
+  /// #368: Idempotency-key salt, distinct from attemptCount. Advances ONLY after a
+  /// DEFINITE vendor rejection (outcome:'rejected'); an 'unknown' outcome (timeout/
+  /// socket — vendor may have accepted) leaves it unchanged so the retry reuses the
+  /// same key and the vendor dedupes instead of sending a real duplicate.
+  keySalt       Int                 @default(0)
   /// Next eligible dispatch instant after a failed attempt (exponential backoff). NULL = due now.
   nextAttemptAt DateTime?
   /// Last delivery error message (truncated) — ops debugging only.

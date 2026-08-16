@@ -58,7 +58,7 @@ import {
 
 const NOW = new Date('2026-06-02T12:00:00.000Z');
 
-function row(over: Partial<{ id: string; channel: 'sms' | 'email'; template: string; recipient: string; payload: string; attemptCount: number }> = {}) {
+function row(over: Partial<{ id: string; channel: 'sms' | 'email'; template: string; recipient: string; payload: string; attemptCount: number; keySalt: number }> = {}) {
   return {
     id: 'log-1',
     channel: 'sms' as const,
@@ -66,6 +66,7 @@ function row(over: Partial<{ id: string; channel: 'sms' | 'email'; template: str
     recipient: '+8490xxxxxx1',
     payload: 'rendered body',
     attemptCount: 0,
+    keySalt: 0,
     ...over,
   };
 }
@@ -119,33 +120,73 @@ describe('dispatchNotifications — success path', () => {
       to: 'a@b.c',
       template: 'customerBookingPaid',
       payload: 'rendered body',
-      // "<row id>:<attemptCount>" as the Resend Idempotency-Key (#335): a cron
-      // re-run of the SAME attempt cannot double-send, because attemptCount is
-      // only incremented once the attempt's outcome is persisted.
+      // "<row id>:<keySalt>" as the Resend Idempotency-Key (#368): a cron re-run of
+      // the SAME attempt cannot double-send, and the salt (not attemptCount) is what
+      // moves the key on a real rejection.
       idempotencyKey: 'log-e:0',
     });
     expect(sendSmsBodyMock).not.toHaveBeenCalled();
   });
 
-  it('varies the idempotency key per attempt so a retry is not blocked by a cached failure', async () => {
-    // Resend keeps a key for 24h and replays the original response on reuse —
-    // "even if the original returned an error"
-    // (https://resend.com/docs/dashboard/emails/idempotency-keys). Our five
-    // attempts span ~60min of backoff, well inside that window, so reusing a bare
-    // row.id would make attempts 2-5 replay attempt 1's cached FAILURE and turn a
-    // transient error into permanent non-delivery. The key must move with the
-    // attempt. Asserting the SAME row at a LATER attemptCount yields a DIFFERENT
-    // key is the property that actually protects delivery.
+  it('#368: the idempotency key is salted by keySalt, NOT attemptCount', async () => {
+    // The key must move only when the previous attempt was definitively rejected
+    // (keySalt++), not on every attempt. A row that has retried (attemptCount=3) but
+    // whose failures were all `unknown` (keySalt still 2, say) reuses the keySalt-2
+    // key so Resend can dedupe — the attempt number is irrelevant to the key.
     queryRawMock.mockResolvedValueOnce([
-      row({ id: 'log-e', channel: 'email', recipient: 'a@b.c', attemptCount: 3 }),
+      row({ id: 'log-e', channel: 'email', recipient: 'a@b.c', attemptCount: 3, keySalt: 2 }),
     ]);
     sendEmailMock.mockResolvedValueOnce({ ok: true, externalRef: 'stub_email_x' });
 
     await dispatchNotifications({} as never, { now: NOW });
 
     expect(sendEmailMock).toHaveBeenCalledWith(
-      expect.objectContaining({ idempotencyKey: 'log-e:3' }),
+      expect.objectContaining({ idempotencyKey: 'log-e:2' }),
     );
+  });
+});
+
+describe('dispatchNotifications — #368 idempotency-key salt', () => {
+  it("'unknown' outcome increments attemptCount but LEAVES keySalt unchanged (retry reuses key → vendor dedupes)", async () => {
+    queryRawMock.mockResolvedValueOnce([
+      row({ id: 'log-e', channel: 'email', recipient: 'a@b.c', attemptCount: 1, keySalt: 0 }),
+    ]);
+    // no answer from the vendor (timeout/socket) — may have been accepted.
+    sendEmailMock.mockResolvedValueOnce({ ok: false, error: 'resend_exception', outcome: 'unknown' });
+
+    await dispatchNotifications({} as never, { now: NOW });
+
+    const call = updateMock.mock.calls[0][0];
+    expect(call.data.status).toBe('failed');
+    expect(call.data.attemptCount).toBe(2); // still advances (gating/backoff)
+    expect(call.data.keySalt).toBe(0); // UNCHANGED → next attempt rebuilds 'log-e:0'
+  });
+
+  it("'rejected' outcome increments keySalt so the retry gets a FRESH key", async () => {
+    queryRawMock.mockResolvedValueOnce([
+      row({ id: 'log-e', channel: 'email', recipient: 'a@b.c', attemptCount: 1, keySalt: 0 }),
+    ]);
+    // vendor answered and refused — email was NOT sent.
+    sendEmailMock.mockResolvedValueOnce({ ok: false, error: 'invalid_to', outcome: 'rejected' });
+
+    await dispatchNotifications({} as never, { now: NOW });
+
+    const call = updateMock.mock.calls[0][0];
+    expect(call.data.attemptCount).toBe(2);
+    expect(call.data.keySalt).toBe(1); // FRESH key next attempt → 'log-e:1'
+  });
+
+  it('a caught throw is treated as unknown — keySalt held', async () => {
+    queryRawMock.mockResolvedValueOnce([
+      row({ id: 'log-e', channel: 'email', recipient: 'a@b.c', attemptCount: 0, keySalt: 3 }),
+    ]);
+    sendEmailMock.mockRejectedValueOnce(new Error('socket hang up'));
+
+    await dispatchNotifications({} as never, { now: NOW });
+
+    const call = updateMock.mock.calls[0][0];
+    expect(call.data.attemptCount).toBe(1);
+    expect(call.data.keySalt).toBe(3); // a throw = unseen answer → do NOT advance
   });
 });
 

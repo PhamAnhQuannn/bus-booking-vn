@@ -55,6 +55,7 @@ interface DueRow {
   recipient: string;
   payload: string;
   attemptCount: number;
+  keySalt: number;
 }
 
 /**
@@ -82,7 +83,7 @@ export function backoffMs(attemptCount: number, now: Date): Date {
 async function claimDueRows(now: Date, limit: number): Promise<DueRow[]> {
   return prisma.$transaction(async (tx) => {
     return tx.$queryRaw<DueRow[]>(Prisma.sql`
-      SELECT "id", "channel", "template", "recipient", "payload", "attemptCount"
+      SELECT "id", "channel", "template", "recipient", "payload", "attemptCount", "keySalt"
       FROM "NotificationLog"
       WHERE "status" IN ('pending'::"NotificationStatus", 'failed'::"NotificationStatus")
         AND "attemptCount" < ${MAX_ATTEMPTS}
@@ -114,42 +115,32 @@ export interface DispatchOutcome {
 
 async function dispatchRow(row: DueRow): Promise<DispatchOutcome> {
   if (row.channel === 'email') {
-    // Resend Idempotency-Key = "<row id>:<attemptCount>", so a cron re-run of the
-    // SAME attempt (crash between the send and the status='sent' write) cannot
-    // double-send, while a genuine retry after a failure gets a fresh key.
+    // Resend Idempotency-Key = "<row id>:<keySalt>", so a cron re-run of the SAME
+    // attempt (crash between the send and the status write) cannot double-send.
     //
-    // The attempt number is load-bearing, not cosmetic. Per Resend's docs
+    // The salt is load-bearing, not cosmetic. Per Resend's docs
     // (https://resend.com/docs/dashboard/emails/idempotency-keys) keys live for
     // 24h and a replayed key "returns exactly the same status code and body as
     // the original response — even if the original returned an error". Our five
-    // attempts span ~60min of backoff (2+4+8+16+30), well inside that window, so
-    // a bare row.id would make attempts 2-5 replay attempt 1's cached FAILURE and
-    // turn any transient Resend error into permanent non-delivery.
+    // attempts span ~60min of backoff (2+4+8+16+30), well inside that window.
     //
-    // Crash-safety is preserved because attemptCount is a persisted column and is
-    // only incremented once the attempt's outcome is written: a re-claim of an
-    // unfinished attempt reads the same value and therefore rebuilds the same key.
-    // cuid ids are alphanumeric, so this stays well under Resend's 256-char limit.
+    // #368: the salt is `keySalt`, NOT `attemptCount`. attemptCount advances on
+    // every failure (it drives MAX_ATTEMPTS gating + backoff), but keySalt advances
+    // ONLY after a definite `rejected` outcome (see the failure-write below). So:
+    //   - `rejected` (vendor refused, not sent): salt++ → fresh key → the retry is a
+    //     real new send, not a replay of the cached failure (the #335 property).
+    //   - `unknown` (timeout/socket — Resend may have accepted): salt unchanged →
+    //     the retry reuses the same key → Resend dedupes instead of double-sending.
     //
-    // KNOWN RESIDUAL (#368), deliberately not fixed here. attemptCount advances on
-    // EVERY failure, so an `unknown` outcome (timeout, socket reset — Resend may
-    // already have accepted the message) also gets a fresh key on the next attempt,
-    // and that sends a real duplicate. The trade favours delivery over
-    // duplicate-avoidance, which is right for a ticket confirmation, but it should be
-    // a decision rather than an accident.
-    //
-    // Fixing it needs the PREVIOUS attempt's outcome at claim time, i.e. a persisted
-    // column — the salt would advance only on `rejected`. sendViaResend now returns
-    // that discriminator and it is carried through DispatchOutcome and logged, so the
-    // information exists; only the column and the salt change remain. Scheduled with
-    // the other schema work rather than bolted onto an unrelated column: overloading
-    // `externalRef` (vendor message id) or `lastError` (operator-visible text) with
-    // retry control state is the dual-meaning trap the mistake log already records.
+    // Crash-safety preserved: keySalt (like attemptCount) is persisted and only
+    // written once the outcome is known, so a re-claim of an unfinished attempt
+    // reads the same salt and rebuilds the same key. cuid ids are alphanumeric, so
+    // this stays well under Resend's 256-char limit.
     return sendEmail({
       to: row.recipient,
       template: row.template,
       payload: row.payload,
-      idempotencyKey: `${row.id}:${row.attemptCount}`,
+      idempotencyKey: `${row.id}:${row.keySalt}`,
     });
   }
   // channel === 'sms' — row.id is the eSMS RequestId (idempotency key) so a
@@ -201,11 +192,17 @@ export const dispatchNotifications: JobCore = async (_tx, opts?: JobOpts) => {
       delivered += 1;
     } else {
       const nextAttempt = row.attemptCount + 1;
+      // #368: advance the idempotency-key salt ONLY on a definite vendor rejection.
+      // 'unknown' (and the caught-throw synthetic 'unknown' above — a throw is by
+      // definition an unseen answer) leave keySalt unchanged so the next attempt
+      // reuses the same key and Resend dedupes a possibly-accepted send.
+      const nextSalt = result.outcome === 'rejected' ? row.keySalt + 1 : row.keySalt;
       await prisma.notificationLog.update({
         where: { id: row.id },
         data: {
           status: 'failed',
           attemptCount: nextAttempt,
+          keySalt: nextSalt,
           lastError: (result.error ?? 'dispatch_failed').slice(0, 500),
           // Always record the next-eligible instant. Once attemptCount reaches
           // MAX_ATTEMPTS the claim query stops reclaiming the row regardless of
