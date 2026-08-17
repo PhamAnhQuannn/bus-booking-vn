@@ -24,6 +24,29 @@ const GEMINI_URL = (model: string, key: string) =>
 const MAX_OUTPUT_TOKENS = 2048;
 const STREAM_TIMEOUT_MS = 30_000;
 
+// gemini-flash-latest trả 503 UNAVAILABLE ("high demand") ngắt quãng khi Google quá tải. 1 phát 503
+// mà không retry = cả lượt hỏng → UI "Trợ lý đang bận, thử lại sau". Retry BOUNDED các mã 5xx tạm
+// thời + lỗi mạng, chỉ TRƯỚC khi stream token đầu (chưa yield gì → không nhân đôi). 4xx (key/config)
+// + 429 (quota/rate-limit — retry trong ~1.2s vô nghĩa, để circuit-breaker #552 lo) + idle-timeout:
+// fail-fast. Backoff tuyến tính 400ms→800ms, tổng thêm ≤ ~1.2s — nằm trong idle STREAM_TIMEOUT_MS.
+const GEMINI_MAX_ATTEMPTS = 3;
+const GEMINI_RETRY_BACKOFF_MS = 400;
+const GEMINI_RETRYABLE_STATUS = new Set([500, 502, 503, 504]);
+// Backoff huỷ sớm khi signal abort (idle-timeout đã hết) → không phí nốt 800ms trên đường lỗi.
+const sleep = (ms: number, signal: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    if (signal.aborted) return reject(new DOMException("Aborted", "AbortError"));
+    const t = setTimeout(resolve, ms);
+    signal.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(t);
+        reject(new DOMException("Aborted", "AbortError"));
+      },
+      { once: true },
+    );
+  });
+
 export class ParseIntentError extends Error {
   constructor(
     message: string,
@@ -190,29 +213,57 @@ export async function* streamChat(history: ChatTurn[]): AsyncGenerator<StreamEve
     timer = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS);
   };
 
-  let res: Response;
-  try {
-    res = await fetch(GEMINI_URL(GEMINI_MODEL, key), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: controller.signal,
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: SYSTEM }] },
-        contents: history.map((t) => ({ role: t.role, parts: [{ text: t.text }] })),
-        generationConfig: { temperature: 0.3, maxOutputTokens: MAX_OUTPUT_TOKENS },
-      }),
-    });
-  } catch (err) {
-    clearTimeout(timer);
-    throw new ParseIntentError(
-      controller.signal.aborted ? "Gemini timeout" : `Gemini fetch failed: ${String(err)}`,
-      "upstream",
-    );
-  }
+  const requestBody = JSON.stringify({
+    system_instruction: { parts: [{ text: SYSTEM }] },
+    contents: history.map((t) => ({ role: t.role, parts: [{ text: t.text }] })),
+    generationConfig: { temperature: 0.3, maxOutputTokens: MAX_OUTPUT_TOKENS },
+  });
 
-  if (!res.ok || !res.body) {
-    clearTimeout(timer);
-    throw new ParseIntentError(`Gemini HTTP ${res.status}`, "upstream");
+  // Backoff giữa các lần thử; abort trong lúc chờ = idle-timeout đã hết → fail-fast timeout.
+  const backoff = async (n: number) => {
+    try {
+      await sleep(GEMINI_RETRY_BACKOFF_MS * n, controller.signal);
+    } catch {
+      clearTimeout(timer);
+      throw new ParseIntentError("Gemini timeout", "upstream");
+    }
+  };
+
+  let res: Response;
+  let attempt = 0;
+  while (true) {
+    attempt++;
+    try {
+      res = await fetch(GEMINI_URL(GEMINI_MODEL, key), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: requestBody,
+      });
+    } catch (err) {
+      // Idle-timeout abort: deadline đã hết, retry vô nghĩa → fail-fast.
+      if (controller.signal.aborted) {
+        clearTimeout(timer);
+        throw new ParseIntentError("Gemini timeout", "upstream");
+      }
+      if (attempt >= GEMINI_MAX_ATTEMPTS) {
+        clearTimeout(timer);
+        throw new ParseIntentError(`Gemini fetch failed: ${String(err)}`, "upstream");
+      }
+      await backoff(attempt);
+      continue;
+    }
+
+    if (res.ok && res.body) break; // thành công → vào phần đọc stream
+
+    // Non-2xx: chỉ retry mã 5xx tạm thời; 4xx + 429 fail-fast. Huỷ body bỏ đi để trả socket sớm.
+    if (!GEMINI_RETRYABLE_STATUS.has(res.status) || attempt >= GEMINI_MAX_ATTEMPTS) {
+      res.body?.cancel();
+      clearTimeout(timer);
+      throw new ParseIntentError(`Gemini HTTP ${res.status}`, "upstream");
+    }
+    res.body?.cancel();
+    await backoff(attempt);
   }
 
   const reader = res.body.getReader();
