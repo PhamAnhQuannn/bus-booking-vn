@@ -107,8 +107,9 @@ export interface DispatchOutcome {
   /**
    * Failure kind, when `ok` is false (#368). `rejected` = the vendor answered and
    * refused (definitively not sent). `unknown` = no answer (timeout/socket reset), so
-   * the message may or may not have been accepted. Currently OBSERVED but not yet acted
-   * on — see the idempotency-key note in dispatchRow.
+   * the message may or may not have been accepted. Acted on in the failure-write:
+   * `rejected` advances keySalt (fresh key), `unknown` holds it (retry dedupes) —
+   * see the idempotency-key note in dispatchRow.
    */
   outcome?: 'rejected' | 'unknown';
 }
@@ -146,7 +147,7 @@ async function dispatchRow(row: DueRow): Promise<DispatchOutcome> {
   // channel === 'sms' — row.id is the eSMS RequestId (idempotency key) so a
   // cron re-run of the same row cannot double-send.
   //
-  // NOTE the asymmetry with the email branch above, which salts by attemptCount: this
+  // NOTE the asymmetry with the email branch above, which salts by keySalt: this
   // passes a BARE row.id, so every eSMS retry replays one key. That is only correct if
   // eSMS does NOT cache and replay failed responses the way Resend does (Resend replays
   // a key's original response for 24h, errors included — which is exactly why the email
@@ -216,9 +217,9 @@ export const dispatchNotifications: JobCore = async (_tx, opts?: JobOpts) => {
           channel: row.channel,
           template: row.template,
           attempt: nextAttempt,
-          // #368: 'unknown' means the next attempt re-keys and may send a REAL duplicate.
-          // Surfacing it makes the residual measurable — if these are rare in practice
-          // the column fix stays low priority; if they are common it is urgent.
+          // #368: keySalt now advances ONLY on `rejected` (fresh key), and holds on
+          // `unknown` so the retry reuses the key and Resend dedupes — no REAL duplicate.
+          // Surfacing `outcome` keeps the rejected/unknown split measurable in ops.
           outcome: result.outcome ?? 'unspecified',
         },
         'notify.dispatch.failed'
