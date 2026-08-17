@@ -1,6 +1,7 @@
 // streamChat retry — gemini-flash-latest trả 503 UNAVAILABLE ("high demand") ngắt quãng; 1 phát 503
-// mà không retry = cả lượt hỏng → UI "Trợ lý đang bận". streamChat retry BOUNDED 429/5xx TRƯỚC khi
-// stream token đầu; 4xx (key/config) fail-fast ngay.
+// mà không retry = cả lượt hỏng → UI "Trợ lý đang bận". streamChat retry BOUNDED 5xx tạm thời TRƯỚC
+// khi stream token đầu; 4xx (key/config) + 429 (quota) fail-fast ngay.
+// Backoff dùng fake timers (advanceTimersByTimeAsync) → không chờ wall-clock thật.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { streamChat, ParseIntentError } from '../parseIntent';
 import type { ChatTurn } from '../parseIntent';
@@ -22,14 +23,16 @@ async function drain(history: ChatTurn[]) {
 
 beforeEach(() => {
   process.env.GEMINI_API_KEY = 'test-key';
+  vi.useFakeTimers();
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
-describe('streamChat — retry 503/upstream', () => {
+describe('streamChat — retry 5xx/upstream', () => {
   it('503 → 503 → 200: retry rồi stream thành công (2 retry)', async () => {
     const fetchMock = vi
       .fn()
@@ -38,7 +41,10 @@ describe('streamChat — retry 503/upstream', () => {
       .mockResolvedValueOnce(ok());
     vi.stubGlobal('fetch', fetchMock);
 
-    const events = await drain(HISTORY);
+    const p = drain(HISTORY);
+    await vi.advanceTimersByTimeAsync(400); // backoff lần 1
+    await vi.advanceTimersByTimeAsync(800); // backoff lần 2
+    const events = await p;
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
     const slots = events.find((e) => e.kind === 'slots');
@@ -50,10 +56,11 @@ describe('streamChat — retry 503/upstream', () => {
     const fetchMock = vi.fn().mockResolvedValue(status(503));
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(drain(HISTORY)).rejects.toMatchObject({
-      name: 'ParseIntentError',
-      code: 'upstream',
-    });
+    const captured = drain(HISTORY).catch((e) => e);
+    await vi.advanceTimersByTimeAsync(1200); // 400 + 800, cả 2 backoff
+    const err = await captured;
+
+    expect(err).toMatchObject({ name: 'ParseIntentError', code: 'upstream' });
     expect(fetchMock).toHaveBeenCalledTimes(3); // 1 initial + 2 retry, không hơn
   });
 
@@ -65,6 +72,14 @@ describe('streamChat — retry 503/upstream', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('429: rate-limit/quota → throw NGAY, KHÔNG retry (để circuit-breaker lo)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(status(429));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(drain(HISTORY)).rejects.toMatchObject({ name: 'ParseIntentError', code: 'upstream' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('lỗi mạng ngắt quãng: fetch reject rồi 200 → retry thành công', async () => {
     const fetchMock = vi
       .fn()
@@ -72,7 +87,9 @@ describe('streamChat — retry 503/upstream', () => {
       .mockResolvedValueOnce(ok());
     vi.stubGlobal('fetch', fetchMock);
 
-    const events = await drain(HISTORY);
+    const p = drain(HISTORY);
+    await vi.advanceTimersByTimeAsync(400); // backoff sau lỗi mạng
+    const events = await p;
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(events.some((e) => e.kind === 'slots')).toBe(true);
