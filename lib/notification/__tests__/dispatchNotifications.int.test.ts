@@ -137,6 +137,7 @@ describe('dispatchNotifications integration', () => {
     expect(row?.sentAt).not.toBeNull();
     expect(row?.externalRef).toBeTruthy();
     expect(row?.attemptCount).toBe(1);
+    expect(row?.keySalt).toBe(0); // #368: never advanced on a clean send
   });
 
   it('does NOT re-send an already-sent row on a second run', async () => {
