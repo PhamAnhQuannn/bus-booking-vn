@@ -24,6 +24,16 @@ const GEMINI_URL = (model: string, key: string) =>
 const MAX_OUTPUT_TOKENS = 2048;
 const STREAM_TIMEOUT_MS = 30_000;
 
+// gemini-flash-latest trả 503 UNAVAILABLE ("high demand") ngắt quãng khi Google quá tải. 1 phát 503
+// mà không retry = cả lượt hỏng → UI "Trợ lý đang bận, thử lại sau". Retry BOUNDED các mã tạm thời
+// (429/5xx) + lỗi mạng, chỉ TRƯỚC khi stream token đầu (chưa yield gì → không nhân đôi). 4xx (key/
+// config) + idle-timeout: fail-fast (thử lại vô nghĩa). Backoff tuyến tính 400ms→800ms, tổng thêm
+// ≤ ~1.2s — nằm trong idle STREAM_TIMEOUT_MS.
+const GEMINI_MAX_ATTEMPTS = 3;
+const GEMINI_RETRY_BACKOFF_MS = 400;
+const GEMINI_RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
 export class ParseIntentError extends Error {
   constructor(
     message: string,
@@ -191,28 +201,42 @@ export async function* streamChat(history: ChatTurn[]): AsyncGenerator<StreamEve
   };
 
   let res: Response;
-  try {
-    res = await fetch(GEMINI_URL(GEMINI_MODEL, key), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: controller.signal,
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: SYSTEM }] },
-        contents: history.map((t) => ({ role: t.role, parts: [{ text: t.text }] })),
-        generationConfig: { temperature: 0.3, maxOutputTokens: MAX_OUTPUT_TOKENS },
-      }),
-    });
-  } catch (err) {
-    clearTimeout(timer);
-    throw new ParseIntentError(
-      controller.signal.aborted ? "Gemini timeout" : `Gemini fetch failed: ${String(err)}`,
-      "upstream",
-    );
-  }
+  let attempt = 0;
+  while (true) {
+    attempt++;
+    try {
+      res = await fetch(GEMINI_URL(GEMINI_MODEL, key), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: SYSTEM }] },
+          contents: history.map((t) => ({ role: t.role, parts: [{ text: t.text }] })),
+          generationConfig: { temperature: 0.3, maxOutputTokens: MAX_OUTPUT_TOKENS },
+        }),
+      });
+    } catch (err) {
+      // Idle-timeout abort: deadline đã hết, retry vô nghĩa → fail-fast.
+      if (controller.signal.aborted) {
+        clearTimeout(timer);
+        throw new ParseIntentError("Gemini timeout", "upstream");
+      }
+      if (attempt >= GEMINI_MAX_ATTEMPTS) {
+        clearTimeout(timer);
+        throw new ParseIntentError(`Gemini fetch failed: ${String(err)}`, "upstream");
+      }
+      await sleep(GEMINI_RETRY_BACKOFF_MS * attempt);
+      continue;
+    }
 
-  if (!res.ok || !res.body) {
-    clearTimeout(timer);
-    throw new ParseIntentError(`Gemini HTTP ${res.status}`, "upstream");
+    if (res.ok && res.body) break; // thành công → vào phần đọc stream
+
+    // Non-2xx: chỉ retry mã tạm thời (429/5xx); 4xx khác (400/401/403) fail-fast.
+    if (!GEMINI_RETRYABLE_STATUS.has(res.status) || attempt >= GEMINI_MAX_ATTEMPTS) {
+      clearTimeout(timer);
+      throw new ParseIntentError(`Gemini HTTP ${res.status}`, "upstream");
+    }
+    await sleep(GEMINI_RETRY_BACKOFF_MS * attempt);
   }
 
   const reader = res.body.getReader();
