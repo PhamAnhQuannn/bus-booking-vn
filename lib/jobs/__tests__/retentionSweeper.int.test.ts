@@ -6,6 +6,9 @@
  *   - an OLD guest booking (customerId NULL, trip departed > 365d ago) → must be scrubbed
  *   - a RECENT guest booking (trip in the future)                      → must be untouched
  *   - an expired KYB doc (operator REJECTED, uploadedAt > 90d ago)     → must be purged
+ *   - an OLD orphan PaymentEvent (#332, bookingId NULL, received > 365d ago) → PII redacted
+ *   - a RECENT orphan PaymentEvent (received now)                      → must be untouched
+ *   - an OLD LINKED PaymentEvent (bookingId set, received > 365d ago)  → must be untouched
  *
  * Runs the sweeper via runJob (the real 'retention-sweep' advisory lock + JobRunLog
  * path) and asserts the outcomes. The sweeper uses NOW(); the old booking's trip is
@@ -34,8 +37,28 @@ const ids = {
   oldBooking: crypto.randomUUID(),
   recentBooking: crypto.randomUUID(),
   kybExpired: '',
+  orphanOld: '',
+  orphanRecent: '',
+  linkedOld: '',
 };
 const kybKey = `kyb_doc/${crypto.randomUUID()}/license.pdf`;
+
+// #332: a SePay orphan rawBody. `description`/`accountNumber`/`subAccount`/`accumulated`
+// are PII/business-sensitive (must be nulled); `transferAmount`/`id`/`content` are
+// money-evidence (must survive).
+const ORPHAN_BODY = JSON.stringify({
+  id: 777,
+  gateway: 'VCB',
+  transactionDate: '2026-01-01 09:00:00',
+  accountNumber: '0999888777',
+  subAccount: '11',
+  content: 'chuyen tien BB-2026-rnew-0001',
+  transferType: 'in',
+  description: 'TRAN THI B chuyen khoan',
+  transferAmount: 150000,
+  referenceCode: 'FT2026010199',
+  accumulated: 1000000,
+});
 
 beforeAll(async () => {
   process.env.STORAGE_STUB = 'true';
@@ -125,11 +148,35 @@ beforeAll(async () => {
   });
   ids.kybExpired = kyb.id;
   await prisma.$executeRaw`UPDATE "KybDocument" SET "uploadedAt" = NOW() - INTERVAL '120 days' WHERE "id" = ${kyb.id}`;
+
+  // #332: OLD orphan (bookingId NULL, bank_transfer) → must be redacted.
+  const orphanOld = await prisma.paymentEvent.create({
+    data: { bookingId: null, adapter: 'bank_transfer', providerTxnId: 'int-orphan-old-1', currency: 'VND', rawBody: ORPHAN_BODY },
+  });
+  ids.orphanOld = orphanOld.id;
+  await prisma.$executeRaw`UPDATE "PaymentEvent" SET "receivedAt" = NOW() - INTERVAL '400 days' WHERE "id" = ${orphanOld.id}::uuid`;
+
+  // RECENT orphan → outside the window, must be untouched.
+  const orphanRecent = await prisma.paymentEvent.create({
+    data: { bookingId: null, adapter: 'bank_transfer', providerTxnId: 'int-orphan-recent-1', currency: 'VND', rawBody: ORPHAN_BODY },
+  });
+  ids.orphanRecent = orphanRecent.id;
+
+  // OLD but LINKED (bookingId set) → excluded by the bookingId IS NULL gate, untouched.
+  const linkedOld = await prisma.paymentEvent.create({
+    data: { bookingId: ids.recentBooking, adapter: 'bank_transfer', providerTxnId: 'int-linked-old-1', currency: 'VND', rawBody: ORPHAN_BODY },
+  });
+  ids.linkedOld = linkedOld.id;
+  await prisma.$executeRaw`UPDATE "PaymentEvent" SET "receivedAt" = NOW() - INTERVAL '400 days' WHERE "id" = ${linkedOld.id}::uuid`;
 });
 
 afterAll(async () => {
   await prisma.kybDocument.deleteMany({ where: { id: ids.kybExpired } });
   await prisma.storedObject.deleteMany({ where: { key: kybKey } });
+  // PaymentEvents first — linkedOld FKs recentBooking with onDelete: Restrict.
+  await prisma.paymentEvent.deleteMany({
+    where: { id: { in: [ids.orphanOld, ids.orphanRecent, ids.linkedOld] } },
+  });
   await prisma.booking.deleteMany({
     where: { id: { in: [ids.oldBooking, ids.recentBooking] } },
   });
@@ -170,5 +217,27 @@ describe('retentionSweeper integration (AC5)', () => {
     expect(getStubBlob(kybKey)).toBeUndefined();
     const pointer = await prisma.storedObject.findUnique({ where: { key: kybKey } });
     expect(pointer).toBeNull();
+
+    // #332: OLD orphan redacted — PII nulled, evidence kept, redactedAt stamped.
+    const orphanOld = await prisma.paymentEvent.findUnique({ where: { id: ids.orphanOld } });
+    expect(orphanOld?.redactedAt).toBeInstanceOf(Date);
+    const oldBody = JSON.parse(orphanOld!.rawBody);
+    expect(oldBody.description).toBeNull();
+    expect(oldBody.accountNumber).toBeNull();
+    expect(oldBody.subAccount).toBeNull();
+    expect(oldBody.accumulated).toBeNull();
+    expect(oldBody.transferAmount).toBe(150000); // evidence retained
+    expect(oldBody.id).toBe(777);
+    expect(oldBody.content).toBe('chuyen tien BB-2026-rnew-0001');
+
+    // RECENT orphan untouched (outside the window).
+    const orphanRecent = await prisma.paymentEvent.findUnique({ where: { id: ids.orphanRecent } });
+    expect(orphanRecent?.redactedAt).toBeNull();
+    expect(JSON.parse(orphanRecent!.rawBody).description).toBe('TRAN THI B chuyen khoan');
+
+    // OLD but LINKED event untouched (bookingId IS NULL gate excludes it).
+    const linkedOld = await prisma.paymentEvent.findUnique({ where: { id: ids.linkedOld } });
+    expect(linkedOld?.redactedAt).toBeNull();
+    expect(JSON.parse(linkedOld!.rawBody).description).toBe('TRAN THI B chuyen khoan');
   });
 });

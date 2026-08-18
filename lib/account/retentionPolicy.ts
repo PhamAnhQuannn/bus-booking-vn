@@ -41,3 +41,17 @@ export const GUEST_PII_RETENTION_DAYS = 365;
  * marker) — the pointer row is retained, only the storage object is removed.
  */
 export const KYB_DOC_RETENTION_DAYS = 90;
+
+/**
+ * ORPHAN_PAYMENT_PII_RETENTION_DAYS — orphan PaymentEvent payer-PII retention (365 days).
+ *
+ * An ORPHAN bank-transfer PaymentEvent (bookingId IS NULL, #332) stores the raw SePay
+ * webhook body, which carries the payer's name (in `description`) and bank account
+ * (`accountNumber`/`subAccount`). The row is the ONLY evidence money arrived, so it is
+ * NEVER deleted. 365 days after receipt the retention sweeper strips those PII keys from
+ * rawBody — KEEPING the money-evidence fields (amount / txn-id / timestamp / memo) — and
+ * stamps PaymentEvent.redactedAt. Matches the guest-PII window; 365d leaves ample time to
+ * reconcile a stray transfer against the bank statement (and to resolve any chargeback
+ * dispute, DS-010) before the payer detail is scrubbed. ERASE ≠ DELETE (S04).
+ */
+export const ORPHAN_PAYMENT_PII_RETENTION_DAYS = 365;
