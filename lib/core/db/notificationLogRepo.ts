@@ -7,7 +7,10 @@
  */
 
 import { prisma } from '@/lib/core/db/client';
-import type { NotificationStatus, NotificationChannel } from '@prisma/client';
+import type { NotificationStatus, NotificationChannel, Prisma } from '@prisma/client';
+
+/** Prisma client or an interactive-transaction handle (`$transaction` callback arg). */
+type Db = typeof prisma | Prisma.TransactionClient;
 
 export interface CreateNotificationLogInput {
   bookingId?: string | null;
@@ -21,8 +24,14 @@ export interface CreateNotificationLogInput {
   attemptCount?: number;
 }
 
-export async function createNotificationLog(input: CreateNotificationLogInput) {
-  return prisma.notificationLog.create({
+/**
+ * Create a NotificationLog row. Pass `db` = the interactive `tx` handle to enqueue
+ * INSIDE a transaction (the row then commits atomically with it — used by the payment
+ * webhook so a rolled-back booking never leaves an orphan "paid" notification). Omit
+ * for the default best-effort ambient-client write.
+ */
+export async function createNotificationLog(input: CreateNotificationLogInput, db: Db = prisma) {
+  return db.notificationLog.create({
     data: {
       bookingId: input.bookingId ?? null,
       channel: input.channel ?? 'sms',

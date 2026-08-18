@@ -172,6 +172,38 @@ async function getResendClient(): Promise<Resend> {
   return _resend;
 }
 
+/**
+ * #620: classify a Resend `{error}` response into the idempotency outcome.
+ * The Resend SDK returns `{error}` (rather than throwing) for HTTP-level failures
+ * including ambiguous 5xx/429 where the message may already be queued. Only a
+ * definite 4xx validation refusal (invalid_to, missing fields…) is 'rejected'
+ * (safe to re-key); 5xx / 429 / unrecognised-transient are 'unknown' (hold the
+ * key so the retry dedupes instead of sending a second real email).
+ */
+export function classifyResendError(error: {
+  name?: string;
+  statusCode?: number | null;
+  message?: string;
+}): 'rejected' | 'unknown' {
+  const status = typeof error.statusCode === 'number' ? error.statusCode : undefined;
+  if (status !== undefined) {
+    return status >= 500 || status === 429 ? 'unknown' : 'rejected';
+  }
+  // No status code on the error — fall back to the Resend error `name`.
+  const name = (error.name ?? '').toLowerCase();
+  if (
+    name.includes('rate_limit') ||
+    name.includes('internal_server') ||
+    name.includes('service_unavailable') ||
+    name.includes('application_error')
+  ) {
+    return 'unknown';
+  }
+  // Unrecognised shape with no transient signal → treat as a 4xx-style refusal,
+  // preserving pre-#620 behaviour for genuine validation errors.
+  return 'rejected';
+}
+
 async function sendViaResend(
   to: string,
   subject: string,
@@ -194,10 +226,14 @@ async function sendViaResend(
       idempotencyKey ? { idempotencyKey } : undefined,
     );
     if (error) {
-      // Vendor answered and refused: definitively not sent. Safe — required, even — to
-      // retry under a fresh idempotency key.
-      logger.error({ template, err: error.message }, 'email.resend.api-error');
-      return { ok: false, error: error.message, outcome: 'rejected' };
+      // #620: only a DEFINITE 4xx validation refusal is 'rejected' (safe to re-key).
+      // A 5xx / 429 / transient error is AMBIGUOUS — Resend may have accepted the
+      // message — so it must be 'unknown' (hold the salt → the retry reuses the key
+      // → Resend dedupes) exactly like a thrown timeout. On the inline hot path a
+      // single Resend 5xx would otherwise duplicate-email every booking.
+      const outcome = classifyResendError(error);
+      logger.error({ template, err: error.message, outcome }, 'email.resend.api-error');
+      return { ok: false, error: error.message, outcome };
     }
     logger.info({ template, externalRef: data?.id }, 'email.resend.sent');
     return { ok: true, externalRef: data?.id };

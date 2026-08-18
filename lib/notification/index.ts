@@ -10,7 +10,7 @@ export {
 
   OPS_ALERT_EMAIL,
 } from './esms';
-export { dispatchNotifications, MAX_ATTEMPTS } from './dispatchNotifications';
+export { dispatchNotifications, dispatchOne, MAX_ATTEMPTS } from './dispatchNotifications';
 export { sendEmail, renderEmailSubject } from './email';
 export type { SendEmailInput, SendEmailResult, EmailTemplate } from './email';
 export type { SendSmsInput, SendSmsResult, SmsTemplate } from './esms';

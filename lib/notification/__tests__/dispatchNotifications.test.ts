@@ -27,15 +27,13 @@ vi.mock('@/lib/observability', () => ({
 
 const updateMock = vi.fn();
 const queryRawMock = vi.fn();
-const txTransactionMock = vi.fn();
 
-// prisma.$transaction(cb) → invoke cb with a tx exposing $queryRaw (the claim).
-// prisma.notificationLog.update → updateMock. There is NO booking model exposed
-// here — proving the dispatcher performs no Booking writes (AC5 decoupling).
+// prisma.$queryRaw → the atomic lease-claim (UPDATE … RETURNING). prisma.notificationLog
+// .update → updateMock. There is NO booking model exposed here — proving the dispatcher
+// performs no Booking writes (AC5 decoupling).
 vi.mock('@/lib/core/db/client', () => ({
   prisma: {
-    $transaction: (cb: (tx: unknown) => unknown) =>
-      txTransactionMock(cb),
+    $queryRaw: (...a: unknown[]) => queryRawMock(...a),
     notificationLog: { update: (args: unknown) => updateMock(args) },
   },
 }));
@@ -52,6 +50,7 @@ vi.mock('@/lib/notification/email', () => ({
 
 import {
   dispatchNotifications,
+  dispatchOne,
   backoffMs,
   MAX_ATTEMPTS,
 } from '../dispatchNotifications';
@@ -73,11 +72,7 @@ function row(over: Partial<{ id: string; channel: 'sms' | 'email'; template: str
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Default: claim returns whatever queryRawMock yields; the tx callback is run
-  // with a fake tx exposing $queryRaw.
-  txTransactionMock.mockImplementation(async (cb: (tx: unknown) => unknown) =>
-    cb({ $queryRaw: (...a: unknown[]) => queryRawMock(...a) })
-  );
+  // Default: the claim ($queryRaw UPDATE … RETURNING) returns whatever queryRawMock yields.
   updateMock.mockResolvedValue({});
 });
 
@@ -257,5 +252,47 @@ describe('dispatchNotifications — claim predicate gating', () => {
 
     expect(res.rowsAffected).toBe(2);
     expect(updateMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('dispatchOne — inline single-row delivery', () => {
+  it('atomically claims + sends a due row and marks it sent (returns true)', async () => {
+    // claimRowById → the row (leased); send OK → status='sent'.
+    queryRawMock.mockResolvedValueOnce([row({ id: 'log-x', channel: 'email', recipient: 'a@b.c' })]);
+    sendEmailMock.mockResolvedValueOnce({ ok: true, externalRef: 'r' });
+
+    const ok = await dispatchOne('log-x', NOW);
+
+    expect(ok).toBe(true);
+    // claim query bound to THIS id.
+    const sqlArg = queryRawMock.mock.calls[0][0] as { values?: unknown[] };
+    expect(sqlArg.values).toContain('log-x');
+    expect(sendEmailMock).toHaveBeenCalledWith(expect.objectContaining({ idempotencyKey: 'log-x:0' }));
+    expect(updateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'log-x' }, data: expect.objectContaining({ status: 'sent' }) }),
+    );
+  });
+
+  it('no-op when a concurrent cron already claimed the row (claim returns nothing) — no send, no double-write', async () => {
+    queryRawMock.mockResolvedValueOnce([]); // lease already held by the cron tick
+
+    const ok = await dispatchOne('log-x', NOW);
+
+    expect(ok).toBe(false);
+    expect(sendEmailMock).not.toHaveBeenCalled();
+    expect(sendSmsBodyMock).not.toHaveBeenCalled();
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
+  it('failed inline send → returns false, row left failed for the cron to retry', async () => {
+    queryRawMock.mockResolvedValueOnce([row({ id: 'log-x', channel: 'email', recipient: 'a@b.c' })]);
+    sendEmailMock.mockResolvedValueOnce({ ok: false, error: 'boom', outcome: 'unknown' });
+
+    const ok = await dispatchOne('log-x', NOW);
+
+    expect(ok).toBe(false);
+    expect(updateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: 'failed' }) }),
+    );
   });
 });

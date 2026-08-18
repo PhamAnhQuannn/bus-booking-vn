@@ -45,7 +45,7 @@ import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/core/db/client';
 import { createNotificationLog } from '@/lib/core/db/notificationLogRepo';
-import { renderTemplate } from '@/lib/notification';
+import { renderTemplate, dispatchOne } from '@/lib/notification';
 import { logger } from '@/lib/logger';
 import { captureException } from '@/lib/observability';
 import { track, sessionIdForBooking } from '@/lib/analytics';
@@ -193,6 +193,11 @@ export async function processPaymentWebhook(
   }
 
   let paidBookingId: string | null = null;
+  // Inline confirmation-email fast path: the ids of the customer + operator
+  // NotificationLog rows enqueued in-tx below, so they can be dispatched immediately
+  // post-commit (instant email) instead of waiting for the next dispatch cron tick.
+  let customerNotifId: string | null = null;
+  let operatorNotifId: string | null = null;
   // #569: overpay + oversold refund-outs are enqueued as durable RefundObligation rows
   // inside the paid tx below (was a captured box + best-effort after()).
 
@@ -405,11 +410,14 @@ export async function processPaymentWebhook(
             const customerChannel = booking.buyerEmail ? 'email' : 'sms';
             const customerRecipient = booking.buyerEmail ?? booking.buyerPhone;
 
-            // Issue 058: enqueue ONLY (status='pending'). No in-process send —
-            // the dispatch-notifications cron delivers these with retry/backoff.
+            // Issue 058: enqueue status='pending'. Enqueued IN-TX (via `tx`) so the
+            // rows commit atomically with the paid transition — a rolled-back booking
+            // never leaves an orphan "paid" notification. Their ids are captured and
+            // dispatched inline post-commit (instant email); the dispatch-notifications
+            // cron remains the durable retry path for anything not delivered inline.
             // The pre-rendered body is stored in `payload` so the dispatcher
             // re-presents it without re-rendering.
-            await Promise.all([
+            const [customerNotif, operatorNotif] = await Promise.all([
               createNotificationLog({
                 bookingId: booking.id,
                 template: 'customerBookingPaid',
@@ -417,7 +425,7 @@ export async function processPaymentWebhook(
                 recipient: customerRecipient,
                 payload: renderTemplate('customerBookingPaid', customerPayload),
                 status: 'pending',
-              }),
+              }, tx),
               // Issue 328: route the operator notice to EMAIL — SMS is stubbed under
               // NOTIFY_STUB, so operators were blind under the email-first launch.
               // ONE row per (bookingId, template) — NotificationLog is unique on that
@@ -430,8 +438,10 @@ export async function processPaymentWebhook(
                 recipient: operator.contactEmail ?? operatorRecipient,
                 payload: renderTemplate('operatorNewBooking', operatorPayload),
                 status: 'pending',
-              }),
+              }, tx),
             ]);
+            customerNotifId = customerNotif.id;
+            operatorNotifId = operatorNotif.id;
           }
         }
         if ((updated as number) === 0) {
@@ -493,6 +503,26 @@ export async function processPaymentWebhook(
         bookingId: bid,
         context: { adapter, amount: gmvVnd, gmvVnd },
       })
+    );
+  }
+
+  // Inline confirmation delivery: send the customer + operator emails NOW (post-commit,
+  // awaited) so a paid booking is confirmed in seconds instead of at the next dispatch
+  // cron tick. Best-effort: dispatchOne atomically claims each row (a concurrent cron
+  // tick can never also send it) and is wrapped so it NEVER throws — anything not
+  // delivered here stays pending/failed for the dispatch-notifications cron to retry.
+  // Gated on paidBookingId, which is only set inside the committed paid transition, so a
+  // rolled-back booking never emits a confirmation.
+  if (paidBookingId && (customerNotifId || operatorNotifId)) {
+    await Promise.all(
+      ([customerNotifId, operatorNotifId] as (string | null)[])
+        .filter((id): id is string => id !== null)
+        .map((notifId) =>
+          dispatchOne(notifId).catch((err) => {
+            logger.warn({ notificationId: notifId, err }, 'notify.inline.failed');
+            captureException(err, { area: 'notification.inline', notificationId: notifId });
+          })
+        )
     );
   }
 
