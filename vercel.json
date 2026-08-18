@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/cron/sweep-holds",
-      "schedule": "*/15 * * * *"
+      "schedule": "0,30 * * * *"
     },
     {
       "path": "/api/cron/generate-trips",
@@ -11,15 +11,15 @@
     },
     {
       "path": "/api/cron/close-sales",
-      "schedule": "*/15 * * * *"
+      "schedule": "1,31 * * * *"
     },
     {
       "path": "/api/cron/complete-trips",
-      "schedule": "*/15 * * * *"
+      "schedule": "2,32 * * * *"
     },
     {
       "path": "/api/cron/send-reminders",
-      "schedule": "*/15 * * * *"
+      "schedule": "5,35 * * * *"
     },
     {
       "path": "/api/cron/process-payouts",
@@ -31,7 +31,7 @@
     },
     {
       "path": "/api/cron/process-refunds",
-      "schedule": "*/15 * * * *"
+      "schedule": "3,33 * * * *"
     },
     {
       "path": "/api/cron/generate-ticket-pdfs",
@@ -47,7 +47,7 @@
     },
     {
       "path": "/api/cron/reconcile-payments",
-      "schedule": "*/15 * * * *"
+      "schedule": "4,34 * * * *"
     },
     {
       "path": "/api/cron/sweep-sessions",
