@@ -1,6 +1,8 @@
 # BetterStack — Uptime Monitoring Setup Guide
 
-Configure BetterStack for uptime monitoring, incident alerting, and public status page. Code integration: `app/api/health/route.ts` (health endpoint). Env vars: none (external service only).
+Configure BetterStack for uptime monitoring, incident alerting, and public status page. Code integration: `app/api/ping/route.ts` (no-DB liveness — the high-frequency target) + `app/api/health/route.ts` (DB readiness — monitored rarely). Env vars: none (external service only).
+
+> ⚠️ **Point the frequent monitor at `/api/ping`, NOT `/api/health`.** `/api/health` runs a Prisma `SELECT 1` on every hit; a 60s monitor against it keeps Neon compute awake 24/7 and exhausts the compute-hour quota (this caused a prod outage on 2026-08-18). `/api/ping` is a pure Edge 200 that never touches the DB. Monitor `/api/health` separately at 15–30 min for DB-readiness visibility.
 
 ---
 
@@ -23,16 +25,27 @@ Free plan includes 5 monitors with 3-minute check intervals.
 | Setting | Value |
 |---------|-------|
 | Monitor type | **HTTP(s)** |
-| URL | `https://YOURDOMAIN.COM/api/health` |
+| URL | `https://YOURDOMAIN.COM/api/ping` |
 | Check frequency | **Every 60 seconds** (Pro) or **Every 3 min** (Free) |
 | Request method | `GET` |
 | Expected status code | `200` |
 | Request timeout | `10 seconds` |
 | Confirmation period | **2 checks** (avoid false positives from transient errors) |
-| Monitor name | `BusMap Production` |
+| Monitor name | `BusMap Production (liveness)` |
 | Regions | **Asia Pacific** (closest to sin1 Vercel) |
 
 4. Click **"Save"**
+
+### Second monitor — DB readiness (low frequency)
+
+Create a second monitor pointed at `/api/health` (the Prisma `SELECT 1` probe) so a DB/Neon outage is still visible — but at a **15–30 minute** interval so it doesn't keep Neon compute awake:
+
+| Setting | Value |
+|---------|-------|
+| URL | `https://YOURDOMAIN.COM/api/health` |
+| Check frequency | **Every 15–30 min** |
+| Expected status code | `200` |
+| Monitor name | `BusMap Production (DB readiness)` |
 
 ---
 
