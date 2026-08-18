@@ -69,31 +69,60 @@ export function backoffMs(attemptCount: number, now: Date): Date {
 }
 
 /**
- * Claim a batch of due rows inside a short transaction with FOR UPDATE SKIP
- * LOCKED, returning the claimed rows. The rows stay in their current status
- * (pending/failed) — the dispatch outcome is written per-row afterward. The
- * SKIP LOCKED claim ensures a concurrent dispatcher does not re-claim them
- * while this tick holds the row locks for the (brief) duration of this tx.
- *
- * NOTE: because dispatch happens AFTER this tx commits (the lock is released),
- * the gating predicate (attemptCount < MAX, nextAttemptAt/scheduledFor due)
- * plus the advisory lock 'notify-dispatch' serializing whole ticks is what
- * prevents double-send — not a held row lock across the network call.
+ * Claim lease (ms). On claim we push `nextAttemptAt` this far into the future so
+ * a concurrent claimer's due-predicate (`nextAttemptAt <= now`) skips the row —
+ * an atomic per-row claim WITHOUT holding a row lock across the network send, and
+ * without a new status column. A crash between claim and outcome-write leaves the
+ * row leased; once the lease expires it becomes due again (a real send is ~1-3s,
+ * so 2 min amply covers a slow Resend call).
+ */
+const CLAIM_LEASE_MS = 2 * 60_000;
+
+const CLAIM_COLUMNS = Prisma.sql`"id", "channel", "template", "recipient", "payload", "attemptCount", "keySalt"`;
+
+/** Rows whose lease/backoff is due AND not exhausted AND not scheduled for later. */
+const duePredicate = (now: Date) => Prisma.sql`
+  ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= ${now})
+  AND "status" IN ('pending'::"NotificationStatus", 'failed'::"NotificationStatus")
+  AND "attemptCount" < ${MAX_ATTEMPTS}
+  AND ("scheduledFor" IS NULL OR "scheduledFor" <= ${now})
+`;
+
+/**
+ * Atomically CLAIM up to `limit` due rows by pushing their `nextAttemptAt` a lease
+ * into the future and returning them. `FOR UPDATE SKIP LOCKED` in the sub-select
+ * lets concurrent dispatchers claim disjoint batches; the lease bump then makes the
+ * claimed rows invisible to any other claimer (cron OR inline `dispatchOne`) until
+ * the send finishes and writes the real outcome — so no two callers ever send the
+ * same row. Single atomic statement, no held lock across the subsequent network call.
  */
 async function claimDueRows(now: Date, limit: number): Promise<DueRow[]> {
-  return prisma.$transaction(async (tx) => {
-    return tx.$queryRaw<DueRow[]>(Prisma.sql`
-      SELECT "id", "channel", "template", "recipient", "payload", "attemptCount", "keySalt"
-      FROM "NotificationLog"
-      WHERE "status" IN ('pending'::"NotificationStatus", 'failed'::"NotificationStatus")
-        AND "attemptCount" < ${MAX_ATTEMPTS}
-        AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= ${now})
-        AND ("scheduledFor" IS NULL OR "scheduledFor" <= ${now})
+  const leaseUntil = new Date(now.getTime() + CLAIM_LEASE_MS);
+  return prisma.$queryRaw<DueRow[]>(Prisma.sql`
+    UPDATE "NotificationLog" SET "nextAttemptAt" = ${leaseUntil}
+    WHERE "id" IN (
+      SELECT "id" FROM "NotificationLog"
+      WHERE ${duePredicate(now)}
       ORDER BY "createdAt" ASC
       LIMIT ${limit}
       FOR UPDATE SKIP LOCKED
-    `);
-  });
+    )
+    RETURNING ${CLAIM_COLUMNS}
+  `);
+}
+
+/**
+ * Atomically claim ONE row by id (the inline-dispatch path). Returns the row if it
+ * was due-and-claimable, or [] if a concurrent cron tick already leased it / it is
+ * not due — in which case the caller simply skips (the cron will deliver it).
+ */
+async function claimRowById(rowId: string, now: Date): Promise<DueRow[]> {
+  const leaseUntil = new Date(now.getTime() + CLAIM_LEASE_MS);
+  return prisma.$queryRaw<DueRow[]>(Prisma.sql`
+    UPDATE "NotificationLog" SET "nextAttemptAt" = ${leaseUntil}
+    WHERE "id" = ${rowId} AND ${duePredicate(now)}
+    RETURNING ${CLAIM_COLUMNS}
+  `);
 }
 
 /**
@@ -158,6 +187,90 @@ async function dispatchRow(row: DueRow): Promise<DispatchOutcome> {
   return sendSmsBody({ to: row.recipient, template: row.template, body: row.payload, requestId: row.id });
 }
 
+/** Send one already-claimed row, catching an escaped throw as an 'unknown' outcome. */
+async function sendClaimed(row: DueRow): Promise<DispatchOutcome> {
+  try {
+    return await dispatchRow(row);
+  } catch (err) {
+    // A throw that escaped the adapter is an unknown outcome by definition — we never
+    // saw the vendor's answer.
+    return { ok: false, error: err instanceof Error ? err.message : String(err), outcome: 'unknown' };
+  }
+}
+
+/**
+ * Persist the per-row dispatch outcome (transitions the row OUT of its lease):
+ *   success → status='sent', sentAt, externalRef, nextAttemptAt=null
+ *   failure → status='failed', attemptCount++, keySalt (per #368), backoff nextAttemptAt
+ * Shared by the cron loop and the inline `dispatchOne` path so both write identically.
+ */
+async function applyDispatchOutcome(row: DueRow, result: DispatchOutcome, now: Date): Promise<void> {
+  if (result.ok) {
+    await prisma.notificationLog.update({
+      where: { id: row.id },
+      data: {
+        status: 'sent',
+        sentAt: now,
+        externalRef: result.externalRef ?? null,
+        attemptCount: row.attemptCount + 1,
+        lastError: null,
+        nextAttemptAt: null,
+      },
+    });
+    return;
+  }
+  const nextAttempt = row.attemptCount + 1;
+  // #368: advance the idempotency-key salt ONLY on a definite vendor rejection.
+  // 'unknown' (and the caught-throw synthetic 'unknown') leaves keySalt unchanged so
+  // the next attempt reuses the same key and Resend dedupes a possibly-accepted send.
+  const nextSalt = result.outcome === 'rejected' ? row.keySalt + 1 : row.keySalt;
+  await prisma.notificationLog.update({
+    where: { id: row.id },
+    data: {
+      status: 'failed',
+      attemptCount: nextAttempt,
+      keySalt: nextSalt,
+      lastError: (result.error ?? 'dispatch_failed').slice(0, 500),
+      // Once attemptCount reaches MAX_ATTEMPTS the claim query stops reclaiming the
+      // row regardless of nextAttemptAt, so an exhausted row is permanently failed.
+      nextAttemptAt: backoffMs(nextAttempt, now),
+    },
+  });
+  logger.warn(
+    {
+      logId: row.id,
+      channel: row.channel,
+      template: row.template,
+      attempt: nextAttempt,
+      outcome: result.outcome ?? 'unspecified',
+    },
+    'notify.dispatch.failed'
+  );
+  // Issue 061 (AC5): alert on a dispatch failure. `recipient` is NOT included (PII).
+  captureException(new Error(result.error ?? 'dispatch_failed'), {
+    area: 'notification',
+    notificationId: row.id,
+    channel: row.channel,
+  });
+}
+
+/**
+ * Deliver ONE NotificationLog row immediately (inline-send path — called post-commit
+ * from the payment webhook so a paid customer/operator gets their email in seconds
+ * instead of waiting for the next cron tick). Atomically claims the row (lease), so a
+ * concurrent cron tick can never also send it; if it was already claimed/sent/not-due
+ * this is a no-op. Best-effort by contract: the caller wraps it in try/catch and the
+ * cron remains the durable retry path for anything not delivered here.
+ * Returns true iff the row was claimed AND sent successfully.
+ */
+export async function dispatchOne(rowId: string, now: Date = new Date()): Promise<boolean> {
+  const [row] = await claimRowById(rowId, now);
+  if (!row) return false; // already claimed by the cron, already sent, or not yet due
+  const result = await sendClaimed(row);
+  await applyDispatchOutcome(row, result, now);
+  return result.ok;
+}
+
 export const dispatchNotifications: JobCore = async (_tx, opts?: JobOpts) => {
   const now = opts?.now ?? new Date();
 
@@ -165,74 +278,9 @@ export const dispatchNotifications: JobCore = async (_tx, opts?: JobOpts) => {
   let delivered = 0;
 
   for (const row of rows) {
-    let result: DispatchOutcome;
-    try {
-      result = await dispatchRow(row);
-    } catch (err) {
-      // A throw that escaped the adapter is an unknown outcome by definition — we never
-      // saw the vendor's answer.
-      result = {
-        ok: false,
-        error: err instanceof Error ? err.message : String(err),
-        outcome: 'unknown',
-      };
-    }
-
-    if (result.ok) {
-      await prisma.notificationLog.update({
-        where: { id: row.id },
-        data: {
-          status: 'sent',
-          sentAt: now,
-          externalRef: result.externalRef ?? null,
-          attemptCount: row.attemptCount + 1,
-          lastError: null,
-          nextAttemptAt: null,
-        },
-      });
-      delivered += 1;
-    } else {
-      const nextAttempt = row.attemptCount + 1;
-      // #368: advance the idempotency-key salt ONLY on a definite vendor rejection.
-      // 'unknown' (and the caught-throw synthetic 'unknown' above — a throw is by
-      // definition an unseen answer) leave keySalt unchanged so the next attempt
-      // reuses the same key and Resend dedupes a possibly-accepted send.
-      const nextSalt = result.outcome === 'rejected' ? row.keySalt + 1 : row.keySalt;
-      await prisma.notificationLog.update({
-        where: { id: row.id },
-        data: {
-          status: 'failed',
-          attemptCount: nextAttempt,
-          keySalt: nextSalt,
-          lastError: (result.error ?? 'dispatch_failed').slice(0, 500),
-          // Always record the next-eligible instant. Once attemptCount reaches
-          // MAX_ATTEMPTS the claim query stops reclaiming the row regardless of
-          // nextAttemptAt, so an exhausted row is permanently failed.
-          nextAttemptAt: backoffMs(nextAttempt, now),
-        },
-      });
-      logger.warn(
-        {
-          logId: row.id,
-          channel: row.channel,
-          template: row.template,
-          attempt: nextAttempt,
-          // #368: keySalt now advances ONLY on `rejected` (fresh key), and holds on
-          // `unknown` so the retry reuses the key and Resend dedupes — no REAL duplicate.
-          // Surfacing `outcome` keeps the rejected/unknown split measurable in ops.
-          outcome: result.outcome ?? 'unspecified',
-        },
-        'notify.dispatch.failed'
-      );
-      // Issue 061 (AC5): alert on a dispatch failure. Additive + non-throwing;
-      // the status='failed' write + backoff above are unchanged. `recipient` is
-      // NOT included (PII) — area/notificationId/channel only.
-      captureException(new Error(result.error ?? 'dispatch_failed'), {
-        area: 'notification',
-        notificationId: row.id,
-        channel: row.channel,
-      });
-    }
+    const result = await sendClaimed(row);
+    await applyDispatchOutcome(row, result, now);
+    if (result.ok) delivered += 1;
   }
 
   return { rowsAffected: delivered, status: 'success' };
