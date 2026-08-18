@@ -292,6 +292,7 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
     '@/lib/notification'
   );
   const { logger } = await import('@/lib/logger');
+  const { captureMessage } = await import('@/lib/observability');
   const { legalPredecessors } = await import('@/lib/core/booking');
   const { applyPaidStatusTransition, appendBookingPaidLedger, recoverSepayEvent, recoverVnpayEvent } =
     await import('@/lib/payment');
@@ -652,6 +653,20 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
           },
           'reconcile.unmatched_payment_unresolved — hold window elapsed, expiring booking; orphan PaymentEvent remains as evidence'
         );
+        // #336: the single highest-severity money-flow moment — a booking that PROBABLY
+        // received money is being terminally expired. logger.error alone never reaches
+        // Sentry when SENTRY_DSN is set, so mirror the orphan-creation seam
+        // (processWebhook.ts) with an independent alerting signal that does NOT ride the
+        // Resend/NotificationLog pipeline (the ops email may itself be failing). Non-
+        // throwing, like the logger.error above.
+        captureMessage('payment.reconcile.unresolved_hold', {
+          bookingRef: booking.bookingRef,
+          paymentEventId: suspected.paymentEventId,
+          providerTxnId: suspected.providerTxnId,
+          amountVnd: booking.totalVnd,
+          heldForHours: Math.floor(heldForMs / 3_600_000),
+          area: 'payment.reconcile.unresolved_hold',
+        });
       }
     }
 
