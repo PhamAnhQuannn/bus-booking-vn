@@ -5,7 +5,9 @@ path in gl-004 is DROPPED — infra is Vercel + Neon only since 2026-07-10).
 **Primary mechanism:** Vercel "Promote previous deployment" — **< 5 minutes**, no rebuild.
 
 ## Rollback triggers (any one → roll back)
-- `GET /api/health` non-200 for **2 consecutive minutes** post-deploy.
+- `GET /api/ping` (no-DB liveness) non-200 for **2 consecutive minutes** post-deploy. (If `/api/ping`
+  is 200 but `/api/health` 503, it's a DB/Neon dependency issue — e.g. Neon compute-quota suspend —
+  NOT a bad deploy: investigate the DB, do not promote-previous.)
 - 5xx rate **> 5%** in the first 10 minutes after a deploy.
 - A cron `JobRunLog` row shows `status='failed'` on a money-path job (process-payouts / close-sales)
   attributable to the deploy.

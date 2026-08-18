@@ -25,8 +25,8 @@ Run before announcing launch. Tick each against live prod, not memory.
 - [ ] **Backup taken** — on-demand dump per `docs/ops/backup-routine.md`; Neon PITR window confirmed
       (`neon-pitr-setup.md`).
 - [ ] **Observability live** — Sentry receiving events (`SENTRY_DSN` + `NEXT_PUBLIC_SENTRY_DSN` set, CSP
-      allows `*.sentry.io`); high-priority alert → email on. External uptime monitor on `GET /api/health`
-      (Issue 118 — set up separately).
+      allows `*.sentry.io`); high-priority alert → email on. External uptime monitor on `GET /api/ping`
+      (no-DB liveness; `/api/health` DB-readiness monitored rarely — Issue 118 — set up separately).
 - [ ] **Payments** — `PAYMENTS_STUB=false`; `SEPAY_API_KEY` + `VIETQR_*` set; SePay webhook URL registered
       in the SePay dashboard pointing at `/api/payments/bank_transfer/webhook`.
 - [ ] **Storage** — `STORAGE_STUB=false`; R2 creds set; a `generate-ticket-pdfs` run has written a
@@ -75,11 +75,12 @@ Never log or paste secret VALUES. Read a value only via a scoped `vercel env pul
   read-only via the pg16 container: `docker exec -e BBVN_PROD_DATABASE_URL … psql "$BBVN_PROD_DATABASE_URL"`
   (URL from your vault, never on argv/chat — same pattern as `backup-ondemand.sh`).
 - **Errors:** Sentry Issues, `environment:production`. High-priority → email alert.
-- **Uptime:** external monitor on `GET /api/health`.
+- **Uptime:** external monitor on `GET /api/ping` (no-DB liveness); `/api/health` DB-readiness at 15–30 min.
 
 ## 5. Rollback
 See `docs/ops/runbooks/rollback.md` (primary: Vercel "Promote previous deployment", < 5 min, no rebuild).
-Triggers: `/api/health` non-200 for 2 min; 5xx > 5% in first 10 min; a money-path cron `JobRunLog.failed`
+Triggers: `/api/ping` non-200 for 2 min (a `/api/health`-only 503 = DB/Neon issue, not a bad deploy);
+5xx > 5% in first 10 min; a money-path cron `JobRunLog.failed`
 attributable to the deploy; data-integrity alarm. Migrations are FORWARD-ONLY (ADR-017) — promote-previous
 restores CODE only; fix a bad schema with a forward migration, never hand-edit a committed one.
 

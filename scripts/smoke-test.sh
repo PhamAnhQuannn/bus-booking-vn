@@ -36,7 +36,9 @@ check() {
 echo "Smoke test → $BASE"
 echo "-----------------------------------------"
 
-# Liveness — the endpoint UptimeRobot watches.
+# Liveness (no-DB) — the high-frequency uptime-monitor target; never wakes Neon.
+check /api/ping             200 '"status":"ok"'
+# Readiness — DB reachable. Monitored rarely (15-30 min), NOT the high-frequency target.
 check /api/health           200 '"status":"ok"'
 # Public marketing + catalog pages (must render, not 500).
 check /                     200
