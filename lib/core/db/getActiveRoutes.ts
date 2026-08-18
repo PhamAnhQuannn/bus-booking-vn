@@ -55,7 +55,10 @@ async function fetchActiveRoutes(): Promise<ActiveRoute[]> {
         AND t."salesClosed" = false
         AND t."departureAt" >= NOW()
       GROUP BY r.origin, r.destination
-      ORDER BY "operatorCount" DESC, r.origin ASC
+      -- destination ASC is the final tiebreaker: without it, same-origin routes come
+      -- back in arbitrary PG order, so the hero route chips + PopularTrips cards
+      -- reshuffle on every render (visible in dev, where unstable_cache doesn't hold).
+      ORDER BY "operatorCount" DESC, r.origin ASC, r.destination ASC
     `
   );
 
