@@ -47,7 +47,7 @@ import { prisma } from '@/lib/core/db/client';
 import { createNotificationLog } from '@/lib/core/db/notificationLogRepo';
 import { renderTemplate, dispatchOne } from '@/lib/notification';
 import { logger } from '@/lib/logger';
-import { captureException } from '@/lib/observability';
+import { captureException, captureMessage } from '@/lib/observability';
 import { track, sessionIdForBooking } from '@/lib/analytics';
 import type { PaymentGateway } from './gateway';
 import { legalPredecessors } from '@/lib/core/booking';
@@ -96,16 +96,34 @@ export async function recordUnmatchedPaymentEvent(input: {
   adapter: string;
   providerTxnId: string;
   rawBody: string;
+  /**
+   * #370: why the transfer is unmatched. Persisted so the admin actionable-orphan
+   * count can exclude 'account_mismatch' (Issue 334 — not our money, never resolvable).
+   */
+  unmatchedReason: string;
 }): Promise<void> {
-  const { adapter, providerTxnId, rawBody } = input;
+  const { adapter, providerTxnId, rawBody, unmatchedReason } = input;
   try {
     await prisma.paymentEvent.create({
-      data: { bookingId: null, adapter, providerTxnId, currency: 'VND', rawBody },
+      data: { bookingId: null, adapter, providerTxnId, currency: 'VND', rawBody, unmatchedReason },
     });
     logger.warn(
-      { adapter, providerTxnId },
+      { adapter, providerTxnId, unmatchedReason },
       'payment.webhook.unmatched_recorded — orphan PaymentEvent stored for reconciliation'
     );
+    // #370: the alert half of #327. Emit on orphan CREATION (not just the dashboard
+    // read) so the backlog is visible before an admin happens to open the tile. The
+    // repo has no metrics util; captureMessage is the existing alerting seam (routes
+    // to Sentry issue frequency when SENTRY_DSN is set, logs a fallback otherwise).
+    // Non-throwing, like the logger.warn above. `account_mismatch` still emits — a
+    // spike of foreign-account transfers is itself worth seeing — but it is excluded
+    // from the admin actionable COUNT, which is a different signal.
+    captureMessage('payment.webhook.orphan_created', {
+      adapter,
+      providerTxnId,
+      unmatchedReason,
+      area: 'payment.webhook.unmatched',
+    });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
       // Already recorded (SePay retry) — nothing to do.
@@ -183,7 +201,7 @@ export async function processPaymentWebhook(
     // generated and the PSP echoed back, so an unresolvable ref there is a genuinely
     // nonexistent booking, not a mistyped memo.
     if (adapter === 'bank_transfer' && status === 'paid') {
-      await recordUnmatchedPaymentEvent({ adapter, providerTxnId, rawBody });
+      await recordUnmatchedPaymentEvent({ adapter, providerTxnId, rawBody, unmatchedReason: 'booking_not_found' });
     }
     // Don't leak existence — return 200 to prevent enumeration. Status, body and
     // headers are identical on every branch above and below, so recording the orphan

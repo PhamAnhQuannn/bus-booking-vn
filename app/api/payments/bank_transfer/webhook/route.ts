@@ -101,6 +101,7 @@ async function handler(req: NextRequest): Promise<Response> {
         adapter: 'bank_transfer',
         providerTxnId: preVerify.unmatched.providerTxnId,
         rawBody,
+        unmatchedReason: 'account_mismatch',
       });
     }
     logger.warn(
@@ -121,6 +122,7 @@ async function handler(req: NextRequest): Promise<Response> {
         adapter: 'bank_transfer',
         providerTxnId: preVerify.unmatched.providerTxnId,
         rawBody,
+        unmatchedReason: 'no_booking_ref_in_memo',
       });
     }
     logger.info(

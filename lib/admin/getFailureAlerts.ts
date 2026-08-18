@@ -10,11 +10,13 @@
  *                          (attemptCount < MAX_ATTEMPTS) — a transient blip the cron
  *                          will re-attempt; NOT actionable yet. (#327: a retrying blip
  *                          and a permanently-dead delivery used to render identically.)
- *   - orphanPayments       PaymentEvent rows with bookingId IS NULL — bank transfers
- *                          recorded but never matched to a booking (Bug B, #324). An
- *                          orphan that fits no stuck booking triggers NO other alert;
- *                          this is the only signal (#327). Claiming a match sets
- *                          bookingId, so IS NULL == still-unresolved (no resolved flag).
+ *   - orphanPayments       ACTIONABLE orphan PaymentEvent rows: bookingId IS NULL AND
+ *                          unmatchedReason != 'account_mismatch' (#370). Bank transfers
+ *                          recorded but never matched to a booking (Bug B, #324) that a
+ *                          human CAN still reconcile. account_mismatch (Issue 334, foreign
+ *                          account) is excluded — it is never resolvable, so counting it
+ *                          made this a ratchet that never returns to zero. Claiming a
+ *                          match sets bookingId, so it drops out of the count.
  *   - failedPayouts        count of Payout rows in status=failed (PayoutStatus.failed).
  *   - recent               last N failed notifications (id/template/recipient/createdAt/
  *                          lastError) for an at-a-glance list. Recipient is the only
@@ -33,6 +35,9 @@ export interface FailureAlertItem {
   recipient: string;
   createdAt: Date;
   lastError: string | null;
+  /** #370: exposed so the list can distinguish permanently-dead (>= MAX_ATTEMPTS)
+   *  from still-retrying rows instead of rendering them identically. */
+  attemptCount: number;
 }
 
 export interface FailureAlerts {
@@ -58,7 +63,16 @@ export async function getFailureAlerts(
       prisma.notificationLog.count({
         where: { status: 'failed', attemptCount: { lt: MAX_ATTEMPTS } },
       }),
-      prisma.paymentEvent.count({ where: { bookingId: null } }),
+      // #370: only ACTIONABLE orphans. 'account_mismatch' (Issue 334, foreign account)
+      // is unresolvable, so counting it made the "cần xử lý" tile a ratchet that never
+      // returns to zero. NULL unmatchedReason = legacy orphan (pre-column) → still
+      // actionable, hence the explicit OR rather than a bare `not` (which drops NULLs).
+      prisma.paymentEvent.count({
+        where: {
+          bookingId: null,
+          OR: [{ unmatchedReason: null }, { unmatchedReason: { not: 'account_mismatch' } }],
+        },
+      }),
       prisma.payout.count({ where: { status: 'failed' } }),
       prisma.notificationLog.findMany({
         where: { status: 'failed' },
@@ -70,6 +84,7 @@ export async function getFailureAlerts(
           recipient: true,
           createdAt: true,
           lastError: true,
+          attemptCount: true,
         },
       }),
     ]);

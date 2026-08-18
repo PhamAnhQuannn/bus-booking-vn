@@ -21,7 +21,7 @@ function makePrisma() {
         return 0;
       }),
       findMany: vi.fn(async () => [
-        { id: 'n1', template: 'customerBookingPaid', recipient: '+8490xxxxxx1', createdAt: new Date(), lastError: 'boom' },
+        { id: 'n1', template: 'customerBookingPaid', recipient: '+8490xxxxxx1', createdAt: new Date(), lastError: 'boom', attemptCount: 5 },
       ]),
     },
     payout: { count: vi.fn(async () => 2) },
@@ -39,7 +39,7 @@ describe('getFailureAlerts (#327)', () => {
       retryingNotifications: 7,
       orphanPayments: 4,
       failedPayouts: 2,
-      recent: [expect.objectContaining({ id: 'n1', template: 'customerBookingPaid' })],
+      recent: [expect.objectContaining({ id: 'n1', template: 'customerBookingPaid', attemptCount: 5 })],
     });
   });
 
@@ -55,11 +55,18 @@ describe('getFailureAlerts (#327)', () => {
     });
   });
 
-  it('counts an orphan PaymentEvent as one with bookingId IS NULL', async () => {
+  it('counts only ACTIONABLE orphans — bookingId NULL, excluding account_mismatch (#370)', async () => {
     const prisma = makePrisma();
     await getFailureAlerts(5, prisma as never);
 
-    expect(prisma.paymentEvent.count).toHaveBeenCalledWith({ where: { bookingId: null } });
+    // account_mismatch (Issue 334, foreign account) is unresolvable → excluded so the
+    // tile can reach zero. NULL reason (legacy orphan) stays actionable, hence the OR.
+    expect(prisma.paymentEvent.count).toHaveBeenCalledWith({
+      where: {
+        bookingId: null,
+        OR: [{ unmatchedReason: null }, { unmatchedReason: { not: 'account_mismatch' } }],
+      },
+    });
   });
 
   it('passes the limit through to the recent-failures query', async () => {

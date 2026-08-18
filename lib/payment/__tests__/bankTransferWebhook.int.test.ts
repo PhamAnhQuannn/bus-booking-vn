@@ -231,6 +231,7 @@ describe('bank_transfer webhook — orphan persistence (Bug B)', () => {
       adapter: 'bank_transfer',
       providerTxnId: verified.unmatched!.providerTxnId,
       rawBody,
+      unmatchedReason: 'no_booking_ref_in_memo',
     });
 
     const orphan = await prisma.paymentEvent.findFirst({
@@ -239,6 +240,7 @@ describe('bank_transfer webhook — orphan persistence (Bug B)', () => {
     expect(orphan).not.toBeNull();
     expect(orphan!.bookingId).toBeNull();
     expect(orphan!.rawBody).toBe(rawBody);
+    expect(orphan!.unmatchedReason).toBe('no_booking_ref_in_memo');
   });
 
   it('records an orphan when the ref parses but no such booking exists', async () => {
@@ -276,6 +278,7 @@ describe('bank_transfer webhook — orphan persistence (Bug B)', () => {
     });
     expect(orphan).not.toBeNull();
     expect(orphan!.bookingId).toBeNull();
+    expect(orphan!.unmatchedReason).toBe('booking_not_found');
   });
 
   it('a redelivery whose ref now resolves CLAIMS the orphan and pays the booking', async () => {
@@ -301,7 +304,7 @@ describe('bank_transfer webhook — orphan persistence (Bug B)', () => {
     });
 
     // 1st delivery: booking does not exist yet → orphan.
-    await recordUnmatchedPaymentEvent({ adapter: 'bank_transfer', providerTxnId: txnId, rawBody });
+    await recordUnmatchedPaymentEvent({ adapter: 'bank_transfer', providerTxnId: txnId, rawBody, unmatchedReason: 'booking_not_found' });
     const before = await prisma.paymentEvent.findFirst({
       where: { adapter: 'bank_transfer', providerTxnId: txnId },
     });

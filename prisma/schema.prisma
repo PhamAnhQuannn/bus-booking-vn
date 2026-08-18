@@ -454,6 +454,13 @@ model PaymentEvent {
   currency      String   @default("VND")
   rawBody       String   @db.Text
   receivedAt    DateTime @default(now())
+  /// #370: why this orphan is unmatched, persisted at creation. 'account_mismatch'
+  /// (Issue 334 — foreign account, "not our money") is UNACTIONABLE: no admin action
+  /// resolves it, so the admin "cần xử lý" count excludes it. Other reasons
+  /// ('no_booking_ref_in_memo', 'booking_not_found') are human-reconcilable. NULL =
+  /// legacy orphan created before this column (counted as actionable). Top-level
+  /// column, not a rawBody/JSON key, so the count predicate stays indexable (Issue 014).
+  unmatchedReason String?
 
   // onDelete declared explicitly (matches the deployed FK from 20260518161139) so
   // widening the column to nullable doesn't let Prisma diff drift to SET NULL —
@@ -519,6 +526,9 @@ model NotificationLog {
   @@index([bookingId])
   @@index([template, scheduledFor])
   @@index([status, nextAttemptAt])
+  /// #370: the admin failure-alert dead/retrying counts filter status=failed by
+  /// attemptCount (gte/lt MAX_ATTEMPTS); index it so they don't heap-scan the partition.
+  @@index([status, attemptCount])
 }
 
 /// Issue 019: one row per cron-job invocation. status ∈ success|failed|skipped_locked.
