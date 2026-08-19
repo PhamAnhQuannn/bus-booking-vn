@@ -266,6 +266,8 @@ SRC_OVT_DD = SRC.id_of("Overture Maps (khop ten diem den)", None, "aggregate", B
 SRC_WIKI_DD = SRC.id_of("Wikidata (khop toa do diem den)", None, "encyclopedia", BUILD)
 SRC_OSM_DD = SRC.id_of("OpenStreetMap (tag diem den: tourism/historic/natural)", None, "aggregate", BUILD)
 SRC_HINT_DD = SRC.id_of("Curator dat toa do (chua xac minh nguon ngoai)", None, "curated", BUILD)
+SRC_CSDL_DD = SRC.id_of("Register diem den — Cuc Du lich Quoc gia (csdl.vietnamtourism.gov.vn/dest)",
+                        None, "registry", BUILD)
 def _src_dd(src):
     lab = (src or ["curated hint"])
     lab = str(lab[0] if isinstance(lab, list) and lab else lab).lower()
@@ -275,6 +277,8 @@ def _src_dd(src):
         return SRC_WIKI_DD
     if "osm" in lab:
         return SRC_OSM_DD
+    if "csdl" in lab:
+        return SRC_CSDL_DD
     return SRC_HINT_DD
 
 diem_den = []
@@ -372,6 +376,8 @@ for r in PICKED:
         "media": media,
         "map": {"google_maps_url": "https://www.google.com/maps/search/?api=1&query={},{}".format(r["lat"], r["lon"]),
                 "nearest_main_road": road_v},
+        # None = khong tim thay trong register (khong khang dinh "khong duoc cong nhan")
+        "nha_nuoc_tham_dinh": True if r.get("csdl_tham_dinh") else None,
     }}
     # warnings + verification meta tu enrichment
     cb = e(pid, "canh_bao_website")
@@ -384,6 +390,8 @@ for r in PICKED:
     _dd = finalize(rec)
     if not _dd.get("source_ids"):                 # hint-only / chua enrich -> seed source tu resolver
         _dd["source_ids"] = [_src_dd(r.get("src"))]
+    if r.get("csdl_tham_dinh") and SRC_CSDL_DD not in _dd["source_ids"]:
+        _dd["source_ids"].append(SRC_CSDL_DD)     # register nha nuoc = nguon chung thuc
     diem_den.append(_dd)
 
 # ── 2. nha hang ────────────────────────────────────────────────────────────

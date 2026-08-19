@@ -106,6 +106,14 @@ two outputs are >300 s apart). Word must be closed (`PermissionError` otherwise)
 - **Khách sạn**: `build_khach_san_docx.py` → 5 cột (Khách sạn · Loại hình · Địa chỉ · Điện thoại · Bản đồ-link), thứ tự ảnh hưởng, **BỎ cột giá/sao** (nguồn Overture không có; đừng pad "Chưa xác minh"). City không sổ nhà nước (NT/DN): `sweep_luu_tru_overture.py` (bulk, giá/sao null, provenance `SRC_OT`) + `resolve_quan_overture.py` (place_id nhà hàng, nhắm đúng tập export top-250) trước.
 `build_huong_dan*.py` verbose là **legacy** (KS có giá — chỉ Đà Lạt/CSDL).
 
+**3 CITY curated (da-lat/nha-trang/da-nang) = sản phẩm standalone, KHÔNG nhận merge /dest.**
+Chúng dùng pipeline riêng (da-lat=`build_huong_dan`, NT/DN=`resolve_diem_den` từ `DIEM_CHOT`
+trong `dia_diem_config.py`), ids DL-/NT-/DN-xx positional mà nhiều script enrich blind-join.
+Độ phủ /dest đã do tỉnh twin phủ (da-lat⊂lam-dong, nha-trang⊂khanh-hoa, da-nang⊂da-nang-tinh)
+→ merge /dest vào 3 city là THỪA, **đừng re-propose**. Chỉ patch label lẻ (vd loại vào `DIEM_CHOT["loai"]`
+cho NT/DN — id-safe; da-lat freeze-guard drift sẵn → patch `guide_data.json` DL-xx in-place rồi
+chạy lại `export_planner`+`build_diem_den_docx`, KHÔNG full-rebuild trừ khi cố ý re-freeze). (2026-08-19)
+
     python tourism-kb/code/build_diem_den_docx.py  tourism-kb/raw/<slug>/scrape
     python tourism-kb/code/build_nha_hang_docx.py  tourism-kb/raw/<slug>/scrape
     python tourism-kb/code/build_khach_san_docx.py tourism-kb/raw/<slug>/scrape
