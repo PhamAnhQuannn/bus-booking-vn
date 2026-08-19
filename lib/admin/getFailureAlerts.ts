@@ -28,6 +28,7 @@
 
 import { prisma as defaultPrisma } from '@/lib/core/db/client';
 import { MAX_ATTEMPTS } from '@/lib/notification';
+import { UNMATCHED_REASON } from '@/lib/payment';
 
 export interface FailureAlertItem {
   id: string;
@@ -44,6 +45,10 @@ export interface FailureAlerts {
   deadNotifications: number;
   retryingNotifications: number;
   orphanPayments: number;
+  /** #370: orphans that landed in a NON-configured receiving account (Issue 334,
+   *  account_mismatch). Unactionable ("not our money") so kept OUT of orphanPayments,
+   *  but surfaced in its own tile so a misdirected transfer is never invisible. */
+  mismatchedPayments: number;
   failedPayouts: number;
   recent: FailureAlertItem[];
 }
@@ -55,8 +60,14 @@ export async function getFailureAlerts(
   limit = 5,
   prisma: PrismaLike = defaultPrisma
 ): Promise<FailureAlerts> {
-  const [deadNotifications, retryingNotifications, orphanPayments, failedPayouts, recent] =
-    await Promise.all([
+  const [
+    deadNotifications,
+    retryingNotifications,
+    orphanPayments,
+    mismatchedPayments,
+    failedPayouts,
+    recent,
+  ] = await Promise.all([
       prisma.notificationLog.count({
         where: { status: 'failed', attemptCount: { gte: MAX_ATTEMPTS } },
       }),
@@ -70,8 +81,17 @@ export async function getFailureAlerts(
       prisma.paymentEvent.count({
         where: {
           bookingId: null,
-          OR: [{ unmatchedReason: null }, { unmatchedReason: { not: 'account_mismatch' } }],
+          OR: [
+            { unmatchedReason: null },
+            { unmatchedReason: { not: UNMATCHED_REASON.ACCOUNT_MISMATCH } },
+          ],
         },
+      }),
+      // #370: account_mismatch orphans on their own — surfaced in a dedicated tile so a
+      // misdirected transfer stays visible to the admin even though it is unactionable
+      // and excluded from the "cần xử lý" count above.
+      prisma.paymentEvent.count({
+        where: { bookingId: null, unmatchedReason: UNMATCHED_REASON.ACCOUNT_MISMATCH },
       }),
       prisma.payout.count({ where: { status: 'failed' } }),
       prisma.notificationLog.findMany({
@@ -89,5 +109,12 @@ export async function getFailureAlerts(
       }),
     ]);
 
-  return { deadNotifications, retryingNotifications, orphanPayments, failedPayouts, recent };
+  return {
+    deadNotifications,
+    retryingNotifications,
+    orphanPayments,
+    mismatchedPayments,
+    failedPayouts,
+    recent,
+  };
 }

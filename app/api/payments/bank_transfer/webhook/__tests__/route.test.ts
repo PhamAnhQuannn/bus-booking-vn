@@ -11,6 +11,13 @@ vi.mock('@/lib/payment', () => ({
   }),
   processPaymentWebhook: vi.fn(),
   recordUnmatchedPaymentEvent: vi.fn(),
+  // Route now branches on the shared constant (real values, not a stub) so the
+  // reason comparisons + persisted unmatchedReason keep matching the fixtures.
+  UNMATCHED_REASON: {
+    ACCOUNT_MISMATCH: 'account_mismatch',
+    NO_BOOKING_REF: 'no_booking_ref_in_memo',
+    BOOKING_NOT_FOUND: 'booking_not_found',
+  },
 }));
 
 vi.mock('@/lib/logger', () => ({

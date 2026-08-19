@@ -25,7 +25,14 @@ function makePrisma() {
       ]),
     },
     payout: { count: vi.fn(async () => 2) },
-    paymentEvent: { count: vi.fn(async () => 4) },
+    paymentEvent: {
+      // Two distinct paymentEvent.count queries: the actionable-orphan count (OR
+      // predicate) and the account_mismatch tile (direct unmatchedReason equality).
+      // Return different values so the assertions prove each routed to the right field.
+      count: vi.fn(async ({ where }: { where: { unmatchedReason?: unknown } }) =>
+        where?.unmatchedReason === 'account_mismatch' ? 1 : 4
+      ),
+    },
   };
 }
 
@@ -38,6 +45,7 @@ describe('getFailureAlerts (#327)', () => {
       deadNotifications: 3,
       retryingNotifications: 7,
       orphanPayments: 4,
+      mismatchedPayments: 1,
       failedPayouts: 2,
       recent: [expect.objectContaining({ id: 'n1', template: 'customerBookingPaid', attemptCount: 5 })],
     });
@@ -67,6 +75,18 @@ describe('getFailureAlerts (#327)', () => {
         OR: [{ unmatchedReason: null }, { unmatchedReason: { not: 'account_mismatch' } }],
       },
     });
+  });
+
+  it('counts account_mismatch orphans separately for their own tile (#370)', async () => {
+    const prisma = makePrisma();
+    const result = await getFailureAlerts(5, prisma as never);
+
+    // The misdirected-transfer tile is a DEDICATED count, kept out of the actionable
+    // orphan number but still surfaced so the money is never invisible.
+    expect(prisma.paymentEvent.count).toHaveBeenCalledWith({
+      where: { bookingId: null, unmatchedReason: 'account_mismatch' },
+    });
+    expect(result.mismatchedPayments).toBe(1);
   });
 
   it('passes the limit through to the recent-failures query', async () => {

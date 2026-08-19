@@ -6,7 +6,7 @@ export { getBankTransferAdapter, recoverSepayEvent } from './adapters/bankTransf
 export { buildStubIpn, createStubAdapter, refundPaymentStub } from './adapters/stub';
 export type { StubOutcome } from './adapters/stub';
 export type { PaymentGateway, CreatePaymentInput } from './gateway';
-export { processPaymentWebhook, recordUnmatchedPaymentEvent } from './processWebhook';
+export { processPaymentWebhook, recordUnmatchedPaymentEvent, UNMATCHED_REASON } from './processWebhook';
 export { applyPaidStatusTransition, appendBookingPaidLedger } from './applyPaidTransition';
 export { refundPayment } from './refund';
 // #343: refundOut moved here from lib/ledger — it calls the PSP then writes its ledger

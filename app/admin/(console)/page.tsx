@@ -256,6 +256,11 @@ export default async function AdminOverviewPage() {
                 hint="chuyển khoản chưa gán được đơn"
               />
               <MetricCard
+                label="Chuyển khoản lạc tài khoản"
+                value={vnd.format(failures.mismatchedPayments)}
+                hint="vào nhầm tài khoản — không tự đối soát được"
+              />
+              <MetricCard
                 label="Chi trả thất bại"
                 value={vnd.format(failures.failedPayouts)}
                 hint="giải ngân bị lỗi"
