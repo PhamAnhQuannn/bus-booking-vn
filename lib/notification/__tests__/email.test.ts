@@ -121,4 +121,32 @@ describe('sendEmail (resend path — idempotency, #335)', () => {
     const [payload] = emailsSendMock.mock.calls[0];
     expect(payload).toMatchObject({ from: 'noreply@test.dev' });
   });
+
+  // #393.2: the outcome discriminator (#620) — 'rejected' is safe to re-key, 'unknown'
+  // must hold the salt so the retry dedupes instead of sending a second real email.
+  // Every case here went untested; only the success (error:null) branch was exercised.
+  it('definite 4xx refusal → ok:false, outcome "rejected"', async () => {
+    emailsSendMock.mockResolvedValueOnce({
+      data: null,
+      error: { name: 'validation_error', statusCode: 400, message: 'Invalid `to` field' },
+    });
+    const res = await sendEmail({ to: 'x@y.z', template: 'opsUnmatchedPayment', payload: 'b' });
+    expect(res).toEqual({ ok: false, error: 'Invalid `to` field', outcome: 'rejected' });
+  });
+
+  it('ambiguous 5xx → ok:false, outcome "unknown" (hold the key, may have been accepted)', async () => {
+    emailsSendMock.mockResolvedValueOnce({
+      data: null,
+      error: { name: 'internal_server_error', statusCode: 500, message: 'server error' },
+    });
+    const res = await sendEmail({ to: 'x@y.z', template: 'opsUnmatchedPayment', payload: 'b' });
+    expect(res).toEqual({ ok: false, error: 'server error', outcome: 'unknown' });
+  });
+
+  it('thrown exception (timeout/socket) → ok:false, outcome "unknown", never rejects', async () => {
+    emailsSendMock.mockRejectedValueOnce(new Error('socket hang up'));
+    await expect(
+      sendEmail({ to: 'x@y.z', template: 'opsUnmatchedPayment', payload: 'b' })
+    ).resolves.toEqual({ ok: false, error: 'resend_exception', outcome: 'unknown' });
+  });
 });
