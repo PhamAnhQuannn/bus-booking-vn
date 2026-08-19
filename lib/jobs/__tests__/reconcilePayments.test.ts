@@ -25,6 +25,7 @@ const {
   mockLegalPredecessors,
   mockRefundOut,
   mockLogger,
+  mockCaptureMessage,
 } = vi.hoisted(() => ({
   mockApplyPaid: vi.fn(),
   mockAppendLedger: vi.fn(),
@@ -32,6 +33,7 @@ const {
   mockLegalPredecessors: vi.fn(),
   mockRefundOut: vi.fn(),
   mockLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+  mockCaptureMessage: vi.fn(),
 }));
 
 // `recoverSepayEvent` is supplied REAL (deep import — the barrel would drag
@@ -67,6 +69,9 @@ vi.mock('@/lib/notification', () => ({
   OPS_ALERT_EMAIL: 'hotro@lenxevn.com',
 }));
 vi.mock('@/lib/logger', () => ({ logger: mockLogger }));
+// #336: the unresolved-hold branch now also emits an independent Sentry signal that
+// does NOT ride the Resend pipeline. Mock it so the assertion can pin the call.
+vi.mock('@/lib/observability', () => ({ captureMessage: mockCaptureMessage }));
 // #343: legalPredecessors now lives in lib/core/booking, so the mock follows it. The
 // production dynamic import in reconcilePayments points here too — a mock left on
 // '@/lib/booking' would silently stop intercepting and the real map would run.
@@ -576,6 +581,11 @@ describe('reconcilePayments (e2) degraded match — SePay bank transfer (Bug B)'
     expect(mockLogger.error).toHaveBeenCalledWith(
       expect.objectContaining({ providerTxnId: String(sepayPayload.id) }),
       expect.stringContaining('unmatched_payment_unresolved')
+    );
+    // #336: and it emits an independent Sentry signal (off the Resend pipeline).
+    expect(mockCaptureMessage).toHaveBeenCalledWith(
+      'payment.reconcile.unresolved_hold',
+      expect.objectContaining({ providerTxnId: String(sepayPayload.id) })
     );
     // Notices: ops alert + the "couldn't verify" customer message — NOT the false
     // "expired because unpaid" (customerBookingExpired) that this branch used to send.

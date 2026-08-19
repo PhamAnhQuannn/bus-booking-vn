@@ -292,6 +292,7 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
     '@/lib/notification'
   );
   const { logger } = await import('@/lib/logger');
+  const { captureMessage } = await import('@/lib/observability');
   const { legalPredecessors } = await import('@/lib/core/booking');
   const { applyPaidStatusTransition, appendBookingPaidLedger, recoverSepayEvent, recoverVnpayEvent } =
     await import('@/lib/payment');
@@ -593,6 +594,16 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
     // Set when a lapsed hold is being expired, so the expiry branch below sends the
     // "we couldn't verify your payment" notice instead of the false "you didn't pay".
     let suspectedUnresolved = false;
+    // #336: details of the suspected orphan payment, captured when the lapsed hold is
+    // marked for expiry so the independent Sentry alert can fire from the committed-
+    // expiry block below (only once the row ACTUALLY transitions to expired), never
+    // pre-gate — a null-hold row that `continue`s the gate would otherwise re-alert
+    // every tick, undeduped.
+    let suspectedAlert: {
+      paymentEventId: string;
+      providerTxnId: string;
+      heldForHours: number;
+    } | null = null;
 
     if (!confirming) {
       const suspected = matchDegraded(booking, events, usedAdapters);
@@ -642,6 +653,11 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
         // Escalated to error: this is the one place a booking that PROBABLY received
         // money gets closed, and the orphan PaymentEvent stays on file as evidence.
         suspectedUnresolved = true;
+        suspectedAlert = {
+          paymentEventId: suspected.paymentEventId,
+          providerTxnId: suspected.providerTxnId,
+          heldForHours: Math.floor(heldForMs / 3_600_000),
+        };
         logger.error(
           {
             bookingRef: booking.bookingRef,
@@ -652,6 +668,10 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
           },
           'reconcile.unmatched_payment_unresolved — hold window elapsed, expiring booking; orphan PaymentEvent remains as evidence'
         );
+        // #336 Sentry emission is DEFERRED to the committed-expiry block below — see
+        // `suspectedAlert`. Emitting here (pre-gate) would re-fire every tick for a
+        // null-`holdExpiresAt` row that never actually expires, and would fire even if
+        // the expiry UPDATE later matches 0 rows (raced to paid) — a false alert.
       }
     }
 
@@ -730,6 +750,24 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
         { bookingRef: booking.bookingRef, suspectedUnresolved },
         'reconcile.booking_expired'
       );
+      if (suspectedUnresolved && suspectedAlert) {
+        // #336: the single highest-severity money-flow moment — a booking that PROBABLY
+        // received money is being terminally expired. logger.error alone never reaches
+        // Sentry when SENTRY_DSN is set, so mirror the orphan-creation seam
+        // (processWebhook.ts) with an independent alerting signal that does NOT ride the
+        // Resend/NotificationLog pipeline (the ops email may itself be failing). Emitted
+        // HERE, gated on the expiry having actually committed (expired > 0), so it fires
+        // exactly once per booking and never for a hold that wasn't really expired. Non-
+        // throwing, like the logger.error above.
+        captureMessage('payment.reconcile.unresolved_hold', {
+          bookingRef: booking.bookingRef,
+          paymentEventId: suspectedAlert.paymentEventId,
+          providerTxnId: suspectedAlert.providerTxnId,
+          amountVnd: booking.totalVnd,
+          heldForHours: suspectedAlert.heldForHours,
+          area: 'payment.reconcile',
+        });
+      }
     }
   }
 
