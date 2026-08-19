@@ -11,6 +11,13 @@ vi.mock('@/lib/payment', () => ({
   }),
   processPaymentWebhook: vi.fn(),
   recordUnmatchedPaymentEvent: vi.fn(),
+  // Route now branches on the shared constant (real values, not a stub) so the
+  // reason comparisons + persisted unmatchedReason keep matching the fixtures.
+  UNMATCHED_REASON: {
+    ACCOUNT_MISMATCH: 'account_mismatch',
+    NO_BOOKING_REF: 'no_booking_ref_in_memo',
+    BOOKING_NOT_FOUND: 'booking_not_found',
+  },
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -157,6 +164,7 @@ describe('POST /api/payments/bank_transfer/webhook', () => {
       adapter: 'bank_transfer',
       providerTxnId: '99',
       rawBody: validPayload,
+      unmatchedReason: 'no_booking_ref_in_memo',
     });
     expect(processPaymentWebhook).not.toHaveBeenCalled();
     // Ack shape unchanged — SePay must still treat this delivery as final.
@@ -179,6 +187,7 @@ describe('POST /api/payments/bank_transfer/webhook', () => {
       adapter: 'bank_transfer',
       providerTxnId: '77',
       rawBody: validPayload,
+      unmatchedReason: 'account_mismatch',
     });
     // Never reaches the credit path.
     expect(processPaymentWebhook).not.toHaveBeenCalled();

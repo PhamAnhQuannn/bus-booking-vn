@@ -14,7 +14,7 @@
  * Requires a real PostgreSQL DB. DB-gated — runs in CI / `pnpm vitest:int`, not locally.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { randomUUID } from 'crypto';
 import { prisma } from '@/lib/core/db/client';
 import {
@@ -23,6 +23,16 @@ import {
   recordUnmatchedPaymentEvent,
 } from '@/lib/payment';
 import { generateBookingRef } from '@/lib/core/id';
+
+// #370/#631: the "alert half" — recordUnmatchedPaymentEvent emits
+// captureMessage('payment.webhook.orphan_created') on orphan creation. Spy on the
+// observability seam so a regression that drops or reorders the emission fails here
+// (the DB-shape assertions alone can't catch it). captureException kept as a noop.
+const { mockCaptureMessage } = vi.hoisted(() => ({ mockCaptureMessage: vi.fn() }));
+vi.mock('@/lib/observability', () => ({
+  captureMessage: mockCaptureMessage,
+  captureException: vi.fn(),
+}));
 
 const GROSS = 100_000; // VND — 6% platform fee = 6_000
 const EXPECTED_FEE = BigInt(6_000);
@@ -231,6 +241,7 @@ describe('bank_transfer webhook — orphan persistence (Bug B)', () => {
       adapter: 'bank_transfer',
       providerTxnId: verified.unmatched!.providerTxnId,
       rawBody,
+      unmatchedReason: 'no_booking_ref_in_memo',
     });
 
     const orphan = await prisma.paymentEvent.findFirst({
@@ -239,6 +250,13 @@ describe('bank_transfer webhook — orphan persistence (Bug B)', () => {
     expect(orphan).not.toBeNull();
     expect(orphan!.bookingId).toBeNull();
     expect(orphan!.rawBody).toBe(rawBody);
+    expect(orphan!.unmatchedReason).toBe('no_booking_ref_in_memo');
+
+    // #631: the orphan-created alert fired on creation (the "alert half" of #370).
+    expect(mockCaptureMessage).toHaveBeenCalledWith(
+      'payment.webhook.orphan_created',
+      expect.objectContaining({ providerTxnId: txnId, unmatchedReason: 'no_booking_ref_in_memo' })
+    );
   });
 
   it('records an orphan when the ref parses but no such booking exists', async () => {
@@ -276,6 +294,7 @@ describe('bank_transfer webhook — orphan persistence (Bug B)', () => {
     });
     expect(orphan).not.toBeNull();
     expect(orphan!.bookingId).toBeNull();
+    expect(orphan!.unmatchedReason).toBe('booking_not_found');
   });
 
   it('a redelivery whose ref now resolves CLAIMS the orphan and pays the booking', async () => {
@@ -301,7 +320,7 @@ describe('bank_transfer webhook — orphan persistence (Bug B)', () => {
     });
 
     // 1st delivery: booking does not exist yet → orphan.
-    await recordUnmatchedPaymentEvent({ adapter: 'bank_transfer', providerTxnId: txnId, rawBody });
+    await recordUnmatchedPaymentEvent({ adapter: 'bank_transfer', providerTxnId: txnId, rawBody, unmatchedReason: 'booking_not_found' });
     const before = await prisma.paymentEvent.findFirst({
       where: { adapter: 'bank_transfer', providerTxnId: txnId },
     });

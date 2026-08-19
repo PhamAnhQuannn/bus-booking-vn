@@ -31,6 +31,7 @@ import {
   getBankTransferAdapter,
   processPaymentWebhook,
   recordUnmatchedPaymentEvent,
+  UNMATCHED_REASON,
 } from '@/lib/payment';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { logger } from '@/lib/logger';
@@ -95,12 +96,13 @@ async function handler(req: NextRequest): Promise<Response> {
   // arrived somewhere) + warn loudly so a genuine account-format mismatch is visible,
   // then ack 200 so SePay stops retrying. The reconcile suspicion-hold never
   // auto-credits an orphan, so a foreign account stays held for manual review.
-  if (!preVerify.ok && preVerify.reason === 'account_mismatch') {
+  if (!preVerify.ok && preVerify.reason === UNMATCHED_REASON.ACCOUNT_MISMATCH) {
     if (preVerify.unmatched) {
       await recordUnmatchedPaymentEvent({
         adapter: 'bank_transfer',
         providerTxnId: preVerify.unmatched.providerTxnId,
         rawBody,
+        unmatchedReason: UNMATCHED_REASON.ACCOUNT_MISMATCH,
       });
     }
     logger.warn(
@@ -110,7 +112,7 @@ async function handler(req: NextRequest): Promise<Response> {
     return sepayAck();
   }
 
-  if (!preVerify.ok && preVerify.reason === 'no_booking_ref_in_memo') {
+  if (!preVerify.ok && preVerify.reason === UNMATCHED_REASON.NO_BOOKING_REF) {
     // Bug B: this short-circuit never reaches processPaymentWebhook, so the orphan
     // row has to be written here. It is also the COMMON unmatched case — the memo
     // the customer never typed, or one the bank mangled past EXTRACT_REGEX. Without
@@ -121,6 +123,7 @@ async function handler(req: NextRequest): Promise<Response> {
         adapter: 'bank_transfer',
         providerTxnId: preVerify.unmatched.providerTxnId,
         rawBody,
+        unmatchedReason: UNMATCHED_REASON.NO_BOOKING_REF,
       });
     }
     logger.info(
