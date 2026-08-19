@@ -43,9 +43,9 @@ const ids = {
 };
 const kybKey = `kyb_doc/${crypto.randomUUID()}/license.pdf`;
 
-// #332: a SePay orphan rawBody. `description`/`accountNumber`/`subAccount`/`accumulated`
-// are PII/business-sensitive (must be nulled); `transferAmount`/`id`/`content` are
-// money-evidence (must survive).
+// #332: a SePay orphan rawBody. `description`/`content`/`accumulated` are payer PII /
+// business-sensitive (must be nulled). `accountNumber`/`subAccount` (OUR receiving
+// account, not the sender's) + `transferAmount`/`id` are reconciliation evidence (kept).
 const ORPHAN_BODY = JSON.stringify({
   id: 777,
   gateway: 'VCB',
@@ -222,13 +222,13 @@ describe('retentionSweeper integration (AC5)', () => {
     const orphanOld = await prisma.paymentEvent.findUnique({ where: { id: ids.orphanOld } });
     expect(orphanOld?.redactedAt).toBeInstanceOf(Date);
     const oldBody = JSON.parse(orphanOld!.rawBody);
-    expect(oldBody.description).toBeNull();
-    expect(oldBody.accountNumber).toBeNull();
-    expect(oldBody.subAccount).toBeNull();
-    expect(oldBody.accumulated).toBeNull();
+    expect(oldBody.description).toBeNull(); // payer name — stripped
+    expect(oldBody.content).toBeNull(); // payer-typed memo — stripped
+    expect(oldBody.accumulated).toBeNull(); // platform balance — stripped
+    expect(oldBody.accountNumber).toBe('0999888777'); // OUR account — evidence, kept
+    expect(oldBody.subAccount).toBe('11'); // OUR virtual-account token — kept
     expect(oldBody.transferAmount).toBe(150000); // evidence retained
     expect(oldBody.id).toBe(777);
-    expect(oldBody.content).toBe('chuyen tien BB-2026-rnew-0001');
 
     // RECENT orphan untouched (outside the window).
     const orphanRecent = await prisma.paymentEvent.findUnique({ where: { id: ids.orphanRecent } });

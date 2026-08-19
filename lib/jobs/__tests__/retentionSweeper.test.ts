@@ -145,15 +145,15 @@ describe('retentionSweeper', () => {
     id: 123,
     gateway: 'VCB',
     transactionDate: '2026-08-01 10:00:00',
-    accountNumber: '0123456789', // PII (sender bank account)
-    subAccount: '9988', // PII
+    accountNumber: '0123456789', // OUR receiving account — KEPT (evidence)
+    subAccount: '9988', // OUR virtual-account token — KEPT (evidence)
     code: null,
-    content: 'chuyen tien BB1234', // memo — KEPT (evidence)
+    content: 'NGUYEN VAN A chuyen tien', // payer-typed memo, may carry name — STRIPPED
     transferType: 'in',
-    description: 'NGUYEN VAN A chuyen khoan', // PII (payer name)
+    description: 'NGUYEN VAN A chuyen khoan', // payer name — STRIPPED
     transferAmount: 200000, // evidence — KEPT
     referenceCode: 'FT2026080112345', // evidence — KEPT
-    accumulated: 5000000, // business-sensitive balance
+    accumulated: 5000000, // platform balance — STRIPPED
   });
 
   it('strips payer PII from an expired orphan rawBody, keeps evidence, stamps redactedAt', async () => {
@@ -171,16 +171,16 @@ describe('retentionSweeper', () => {
     expect(call.data.redactedAt).toBe(NOW);
 
     const body = JSON.parse(call.data.rawBody);
-    // PII nulled
+    // Payer PII + platform balance nulled
     expect(body.description).toBeNull();
-    expect(body.accountNumber).toBeNull();
-    expect(body.subAccount).toBeNull();
+    expect(body.content).toBeNull();
     expect(body.accumulated).toBeNull();
-    // Evidence + memo preserved
+    // Reconciliation evidence preserved — OUR receiving account + money keys
+    expect(body.accountNumber).toBe('0123456789');
+    expect(body.subAccount).toBe('9988');
     expect(body.transferAmount).toBe(200000);
     expect(body.id).toBe(123);
     expect(body.referenceCode).toBe('FT2026080112345');
-    expect(body.content).toBe('chuyen tien BB1234');
 
     expect(res).toEqual({ rowsAffected: 1, status: 'success' });
   });

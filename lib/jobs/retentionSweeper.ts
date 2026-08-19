@@ -65,13 +65,20 @@ interface OrphanRedactRow {
 }
 
 /**
- * #332: SePay rawBody keys that identify the payer. `description` carries the payer's
- * account-holder name; `accountNumber`/`subAccount` are the sender's bank account;
- * `accumulated` is the platform's running balance (business-sensitive, not needed for
- * reconciliation). The money-evidence keys (`transferAmount`, `id`, `transactionDate`,
- * `code`, `referenceCode`) and the `content` memo are KEPT.
+ * #332: SePay rawBody keys to erase after the retention window. `description` carries
+ * the payer's account-holder name. `content` is the transfer memo — for an ORPHAN it
+ * failed booking-ref matching, so it is arbitrary payer-typed free text that commonly
+ * contains the sender's name ("NGUYEN VAN A chuyen tien …"); erased too. `accumulated`
+ * is the platform's running balance (business-sensitive, not per-transfer evidence).
+ *
+ * KEPT as reconciliation evidence: `accountNumber`/`subAccount` are OUR *receiving*
+ * (destination) account + virtual-account token, NOT the sender's — the SePay adapter
+ * reports the destination account (see lib/payment/adapters/bankTransfer.ts); they are
+ * how ops tells which target a stray transfer hit, so they are evidence, not payer PII.
+ * The money-evidence keys (`transferAmount`, `id`, `transactionDate`, `code`,
+ * `referenceCode`) are also KEPT.
  */
-const ORPHAN_PII_KEYS = ['description', 'accountNumber', 'subAccount', 'accumulated'];
+const ORPHAN_PII_KEYS = ['description', 'content', 'accumulated'];
 
 /**
  * Strip the payer-PII keys from a stored orphan rawBody, preserving money-evidence.
