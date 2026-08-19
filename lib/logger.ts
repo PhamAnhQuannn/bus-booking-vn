@@ -114,6 +114,8 @@ export const loggerOptions: LoggerOptions = {
       'totpCode',                // Issue 055: top-level TOTP code (body.code covered by *.code)
       'accountNumber',           // Issue 078: payout-account bank number (sensitive PII)
       '*.accountNumber',         // Issue 078: nested payout-account number (real harm if leaked)
+      'rawBody',                 // #332: PaymentEvent raw webhook body — carries payer name/bank account (SePay). Not logged today; redact so an accidentally-logged PaymentEvent row can't leak it.
+      '*.rawBody',               // #332: nested PaymentEvent.rawBody
       'ESMS_API_KEY',            // SMS-OTP: eSMS provider credential
       'ESMS_SECRET_KEY',         // SMS-OTP: eSMS provider credential (never log)
       'MISA_API_KEY',            // e-invoice: MISA meInvoice API key (never log)

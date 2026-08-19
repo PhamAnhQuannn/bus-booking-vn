@@ -462,6 +462,14 @@ model PaymentEvent {
   /// column, not a rawBody/JSON key, so the count predicate stays indexable (Issue 014).
   unmatchedReason String?
 
+  /// #332: when this orphan row's rawBody PII (payer name / bank account) was scrubbed
+  /// by the retention sweeper. NULL = not yet redacted. The row is NEVER deleted (it is
+  /// the only evidence money arrived); past ORPHAN_PAYMENT_PII_RETENTION_DAYS the sweeper
+  /// strips the SePay PII keys from rawBody, keeping the money-evidence fields, and stamps
+  /// this — erase ≠ delete (S04). Top-level column so the sweeper claim predicate stays
+  /// indexable (Project Rules: sweeper WHERE predicates must be top-level columns).
+  redactedAt DateTime?
+
   // onDelete declared explicitly (matches the deployed FK from 20260518161139) so
   // widening the column to nullable doesn't let Prisma diff drift to SET NULL —
   // a deleted booking's event must NOT become a sweepable orphan.
@@ -469,6 +477,11 @@ model PaymentEvent {
 
   @@unique([adapter, providerTxnId])
   @@index([bookingId])
+  // #332: the sweeper's orphan-redaction claim uses a PARTIAL index
+  // (WHERE "bookingId" IS NULL AND "redactedAt" IS NULL) which Prisma DSL cannot
+  // express — it lives SQL-only in migration 20260818120000 (Project Rules: partial
+  // indices stay SQL-only). Do NOT add a bare @@index([receivedAt]) here; that would be
+  // a different, non-partial index and diverge from the deployed one.
 }
 
 /// #569 (SEC-REFUND-DURABILITY): durable outbox for refund-outs. Overpay/oversold refunds used to

@@ -36,7 +36,14 @@
  * clock (the earliest defensible "no longer needed" instant on the row — there is
  * no per-doc deactivation timestamp).
  *
- * rowsAffected = guest snapshots scrubbed + KYB docs purged.
+ *   3. ORPHAN PAYMENT PII (#332, 365d). For each orphan bank-transfer PaymentEvent
+ *      (bookingId IS NULL) past ORPHAN_PAYMENT_PII_RETENTION_DAYS whose rawBody has not
+ *      been redacted (redactedAt IS NULL), strip the SePay payer-PII keys from rawBody
+ *      (keeping the money-evidence fields) and stamp redactedAt. Per-row with FOR UPDATE
+ *      SKIP LOCKED + a bounded LIMIT, like the KYB arm. The row is NEVER deleted (money
+ *      evidence); erase ≠ delete (S04).
+ *
+ * rowsAffected = guest snapshots scrubbed + KYB docs purged + orphan bodies redacted.
  */
 
 import type { JobCore } from './types';
@@ -44,9 +51,55 @@ import type { JobCore } from './types';
 /** Bound the per-tick KYB purge so a backlog can't hold the lock indefinitely. */
 const KYB_CLAIM_LIMIT = 200;
 
+/** Bound the per-tick orphan-PII redaction (#332), same rationale as KYB. */
+const ORPHAN_REDACT_LIMIT = 200;
+
 interface KybPurgeRow {
   id: string;
   storageKey: string;
+}
+
+interface OrphanRedactRow {
+  id: string;
+  rawBody: string;
+}
+
+/**
+ * #332: SePay rawBody keys to erase after the retention window. `description` carries
+ * the payer's account-holder name. `content` is the transfer memo — for an ORPHAN it
+ * failed booking-ref matching, so it is arbitrary payer-typed free text that commonly
+ * contains the sender's name ("NGUYEN VAN A chuyen tien …"); erased too. `accumulated`
+ * is the platform's running balance (business-sensitive, not per-transfer evidence).
+ *
+ * KEPT as reconciliation evidence: `accountNumber`/`subAccount` are OUR *receiving*
+ * (destination) account + virtual-account token, NOT the sender's — the SePay adapter
+ * reports the destination account (see lib/payment/adapters/bankTransfer.ts); they are
+ * how ops tells which target a stray transfer hit, so they are evidence, not payer PII.
+ * The money-evidence keys (`transferAmount`, `id`, `transactionDate`, `code`,
+ * `referenceCode`) are also KEPT.
+ */
+const ORPHAN_PII_KEYS = ['description', 'content', 'accumulated'];
+
+/**
+ * Strip the payer-PII keys from a stored orphan rawBody, preserving money-evidence.
+ * Returns the rewritten JSON, or `null` when the body is not parseable JSON (the caller
+ * then leaves rawBody unchanged but still stamps redactedAt so the row is not re-claimed
+ * forever). Only overwrites when a PII key was actually present and non-null.
+ */
+function redactOrphanRawBody(rawBody: string): string | null {
+  try {
+    const parsed = JSON.parse(rawBody) as Record<string, unknown>;
+    let changed = false;
+    for (const k of ORPHAN_PII_KEYS) {
+      if (k in parsed && parsed[k] !== null) {
+        parsed[k] = null;
+        changed = true;
+      }
+    }
+    return changed ? JSON.stringify(parsed) : rawBody;
+  } catch {
+    return null;
+  }
 }
 
 export const retentionSweeper: JobCore = async (tx, opts) => {
@@ -57,9 +110,12 @@ export const retentionSweeper: JobCore = async (tx, opts) => {
   const { Prisma } = await import('@prisma/client');
   const { deleteObject } = await import('@/lib/storage');
   const { prisma } = await import('@/lib/core/db/client');
-  const { GUEST_PII_RETENTION_DAYS, KYB_DOC_RETENTION_DAYS } = await import(
-    '@/lib/account'
-  );
+  const { logger } = await import('@/lib/logger');
+  const {
+    GUEST_PII_RETENTION_DAYS,
+    KYB_DOC_RETENTION_DAYS,
+    ORPHAN_PAYMENT_PII_RETENTION_DAYS,
+  } = await import('@/lib/account');
 
   const now = opts?.now ?? new Date();
 
@@ -116,5 +172,45 @@ export const retentionSweeper: JobCore = async (tx, opts) => {
     docsPurged += 1;
   }
 
-  return { rowsAffected: guestScrubbed + docsPurged, status: 'success' };
+  // --- 3. Orphan PaymentEvent PII redaction (#332) — per-row, FOR UPDATE SKIP LOCKED --
+  // An orphan bank-transfer PaymentEvent's rawBody carries the payer's name / bank
+  // account. The row can't be deleted (it is the only evidence money arrived — see the
+  // schema comment on PaymentEvent), so past the window we STRIP the PII keys from
+  // rawBody while KEEPING the money-evidence fields, then stamp redactedAt. Erase ≠
+  // delete (S04), same shape as the guest-snapshot arm. bank_transfer is the only
+  // orphan-producing adapter (the webhook records orphans only for SePay); the predicate
+  // is gated on it so the JSON.parse below always faces the SePay shape.
+  const orphanCandidates = await tx.$queryRaw<OrphanRedactRow[]>(Prisma.sql`
+    SELECT pe."id", pe."rawBody"
+    FROM "PaymentEvent" pe
+    WHERE pe."bookingId" IS NULL
+      AND pe."redactedAt" IS NULL
+      AND pe."adapter" = 'bank_transfer'
+      AND pe."receivedAt" < ${now}::timestamp - (${ORPHAN_PAYMENT_PII_RETENTION_DAYS} * INTERVAL '1 day')
+    FOR UPDATE OF pe SKIP LOCKED
+    LIMIT ${ORPHAN_REDACT_LIMIT}
+  `);
+
+  let orphansRedacted = 0;
+  for (const row of orphanCandidates) {
+    const redacted = redactOrphanRawBody(row.rawBody);
+    if (redacted === null) {
+      // Non-JSON body (should not occur for a SePay orphan). Leave rawBody untouched but
+      // still stamp redactedAt so the row is not re-claimed every tick forever.
+      logger.warn(
+        { paymentEventId: row.id },
+        'retention.orphan_redact_parse_miss — rawBody not JSON; stamping redactedAt without change'
+      );
+    }
+    await tx.paymentEvent.update({
+      where: { id: row.id },
+      data: { rawBody: redacted ?? row.rawBody, redactedAt: now },
+    });
+    orphansRedacted += 1;
+  }
+
+  return {
+    rowsAffected: guestScrubbed + docsPurged + orphansRedacted,
+    status: 'success',
+  };
 };
