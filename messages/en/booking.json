@@ -1,4 +1,15 @@
 {
+  "checkoutValidation": {
+    "reqName": "Please enter your full name",
+    "minName": "Full name must be at least 4 characters",
+    "maxName": "Full name must not exceed 100 characters",
+    "regexName": "Full name may only contain letters, spaces and valid characters",
+    "reqPhone": "Please enter your phone number",
+    "regexPhone": "Invalid phone number. Enter a 10-digit Vietnamese mobile number starting with 0 or +84, e.g. 0912345678.",
+    "reqEmail": "Please enter an email to receive your ticket",
+    "maxEmail": "Email must not exceed 254 characters",
+    "invalidEmail": "Invalid email"
+  },
   "status": {
     "awaiting_payment": "Awaiting payment",
     "paid": "Paid",

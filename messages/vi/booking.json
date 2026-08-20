@@ -1,4 +1,15 @@
 {
+  "checkoutValidation": {
+    "reqName": "Vui lòng nhập họ tên",
+    "minName": "Họ tên phải có ít nhất 4 ký tự",
+    "maxName": "Họ tên không được vượt quá 100 ký tự",
+    "regexName": "Họ tên chỉ được chứa chữ cái, dấu cách và các ký tự hợp lệ",
+    "reqPhone": "Vui lòng nhập số điện thoại",
+    "regexPhone": "Số điện thoại không hợp lệ. Nhập số di động Việt Nam 10 chữ số bắt đầu bằng 0 hoặc +84, VD: 0912345678.",
+    "reqEmail": "Vui lòng nhập email để nhận vé",
+    "maxEmail": "Email không được vượt quá 254 ký tự",
+    "invalidEmail": "Email không hợp lệ"
+  },
   "status": {
     "awaiting_payment": "Chờ thanh toán",
     "paid": "Đã thanh toán",

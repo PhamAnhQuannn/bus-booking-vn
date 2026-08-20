@@ -156,7 +156,8 @@ export function CheckoutClient({
   if (!parsed.success) {
     for (const iss of parsed.error.issues) {
       const key = String(iss.path[0]);
-      if (key && !issues[key]) issues[key] = iss.message;
+      // iss.message is a booking-ns catalog key (checkoutValidation.*), not literal text.
+      if (key && !issues[key]) issues[key] = t(iss.message);
     }
   }
   const pickupOk = validatePickupSelection({ kind: pickupKind, detail: pickupDetail }).ok;
