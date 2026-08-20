@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
-import Link from 'next/link';
 import Image from 'next/image';
+import { getLocale, getTranslations } from 'next-intl/server';
+import { Link, redirect } from '@/i18n/navigation';
 import { ArrowRight, Bus, BusFront, ChevronRight, CreditCard, Headset, Home, MailCheck, MapPin, ShieldCheck, Sparkles } from 'lucide-react';
 import { searchParamsSchema, searchFiltersSchema } from '@/lib/core/validation/search';
 import { track } from '@/lib/analytics';
@@ -54,25 +54,25 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
 }
 
 const FEATURES = [
-  { icon: CreditCard, title: 'Thanh toán đơn giản', sub: 'Chuyển khoản VietQR hoặc VNPay, thanh toán trước' },
-  { icon: MailCheck, title: 'Xác nhận qua email', sub: 'Thông tin chuyến đi được gửi đến email của bạn' },
+  { icon: CreditCard, titleKey: 'feature.paymentTitle', subKey: 'feature.paymentSub' },
+  { icon: MailCheck, titleKey: 'feature.emailTitle', subKey: 'feature.emailSub' },
   // 2026-07-30: was "Nhiều nhà xe uy tín" / "Hợp tác cùng nhiều nhà xe chất lượng trên
   // toàn quốc". That asserts a nationwide partner network; at launch there is one
   // operator, so it was simply untrue. Replaced with a claim the platform can actually
   // back: every operator is reviewed and approved (PENDING_REVIEW → APPROVED) before any
   // of its trips become bookable.
-  { icon: Bus, title: 'Nhà xe được xác minh', sub: 'Mỗi nhà xe đều được duyệt trước khi mở bán vé' },
-  { icon: MapPin, title: 'Đón trả tận nơi', sub: 'Đón tại nhà hoặc khách sạn, trả đúng điểm bạn cần' },
-];
+  { icon: Bus, titleKey: 'feature.verifiedTitle', subKey: 'feature.verifiedSub' },
+  { icon: MapPin, titleKey: 'feature.pickupTitle', subKey: 'feature.pickupSub' },
+] as const;
 
 // Trust strip trên trang kết quả (mockup S1). Chỉ dùng claim kiểm chứng được — "Hỗ trợ 24/7"
 // được xác nhận là dịch vụ thật (khác các claim marketing bịa đã gỡ trong review honest-copy).
 const RESULT_TRUST = [
-  { icon: ShieldCheck, title: 'Thanh toán đơn giản', sub: 'Nhiều phương thức, tiện lợi và an toàn' },
-  { icon: MailCheck, title: 'Xác nhận qua email', sub: 'Vé điện tử gửi ngay, tiết kiệm thời gian' },
-  { icon: Bus, title: 'Nhà xe được xác minh', sub: 'Đối tác uy tín, chất lượng đảm bảo' },
-  { icon: Headset, title: 'Hỗ trợ 24/7', sub: 'Tư vấn, hỗ trợ tận tâm mọi lúc' },
-];
+  { icon: ShieldCheck, titleKey: 'trust.paymentTitle', subKey: 'trust.paymentSub' },
+  { icon: MailCheck, titleKey: 'trust.emailTitle', subKey: 'trust.emailSub' },
+  { icon: Bus, titleKey: 'trust.verifiedTitle', subKey: 'trust.verifiedSub' },
+  { icon: Headset, titleKey: 'trust.supportTitle', subKey: 'trust.supportSub' },
+] as const;
 
 export default async function HomePage({ searchParams }: PageProps) {
   const params = await searchParams;
@@ -103,11 +103,12 @@ async function SearchResultsView({
   parsed: { origin: string; destination: string; date: string; ticketCount: number };
 }) {
   const { origin, destination, date, ticketCount } = parsed;
+  const [t, locale] = await Promise.all([getTranslations('home'), getLocale()]);
 
   const todayVNDate = todayVN();
   if (date < todayVNDate) {
     const p = new URLSearchParams({ origin, destination, date: todayVNDate, ticketCount: String(ticketCount) });
-    redirect(`/?${p.toString()}`);
+    redirect({ href: `/?${p.toString()}`, locale });
   }
 
   const cursor = typeof params.cursor === 'string' ? params.cursor : null;
@@ -126,7 +127,7 @@ async function SearchResultsView({
     const near = await nearestUpcomingTripDate(origin, destination, date);
     if (near && near !== date) {
       const p = new URLSearchParams({ origin, destination, date: near, ticketCount: String(ticketCount) });
-      redirect(`/?${p.toString()}`);
+      redirect({ href: `/?${p.toString()}`, locale });
     }
   }
 
@@ -151,7 +152,7 @@ async function SearchResultsView({
 
       {/* HERO — ảnh golden bleed lên sau navbar (id="search" → SiteHeader thành glass nhìn xuyên).
           Bus vẫn nằm trong gap navbar↔trust (object-y canh), width-driven cover → bus hiện trọn. */}
-      <section id="search" aria-label="Tuyến đường" className="relative w-full">
+      <section id="search" aria-label={t('section.routeAria')} className="relative w-full">
         {/* Ảnh 16:9 (fill). -top-12 lg:-top-16 kéo box lên sau header glass để nhìn xuyên. */}
         <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 -top-12 lg:-top-16">
           <Image
@@ -190,7 +191,7 @@ async function SearchResultsView({
             <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-muted-foreground">
               <Link href="/" className="inline-flex items-center gap-1 hover:text-foreground">
                 <Home className="size-4" aria-hidden="true" />
-                Trang chủ
+                {t('breadcrumb.home')}
               </Link>
               <ChevronRight className="size-4 shrink-0" aria-hidden="true" />
               <span className="font-medium text-foreground">
@@ -199,7 +200,7 @@ async function SearchResultsView({
             </nav>
             <ResultsHeading origin={origin} destination={destination} />
             <p className="text-base font-medium text-muted-foreground sm:text-lg">
-              An toàn – Đúng giờ – Tận tâm
+              {t('resultTagline')}
             </p>
           </div>
         </div>
@@ -207,7 +208,7 @@ async function SearchResultsView({
 
       {/* TRUST STRIP — block cream nổi ĐÈ NỬA lên đáy hero (mock #17), 4 mục nối + light divider. */}
       <section
-        aria-label="Điểm nổi bật"
+        aria-label={t('section.highlightsAria')}
         className="relative z-raised -mt-10 w-full py-5 lg:-mt-[72px]"
       >
         {/* White fill từ mép hero-bottom (= overlap line) xuống — xoá dải cam body-background,
@@ -219,9 +220,9 @@ async function SearchResultsView({
         />
         <div className="page-container">
           <ul className="grid list-none grid-cols-1 overflow-hidden rounded-2xl border border-border bg-[#FFF6EE] shadow-e2 lg:grid-cols-4">
-            {RESULT_TRUST.map(({ icon: Icon, title, sub }) => (
+            {RESULT_TRUST.map(({ icon: Icon, titleKey, subKey }) => (
               <li
-                key={title}
+                key={titleKey}
                 className="flex items-center gap-4 border-border p-5 [&+&]:border-t lg:[&+&]:border-t-0 lg:[&+&]:border-l"
               >
                 <span
@@ -231,8 +232,8 @@ async function SearchResultsView({
                   <Icon className="size-6" />
                 </span>
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-base font-semibold leading-tight text-foreground">{title}</span>
-                  <span className="text-sm leading-snug text-muted-foreground">{sub}</span>
+                  <span className="text-base font-semibold leading-tight text-foreground">{t(titleKey)}</span>
+                  <span className="text-sm leading-snug text-muted-foreground">{t(subKey)}</span>
                 </div>
               </li>
             ))}
@@ -277,6 +278,7 @@ async function SearchResultsView({
 }
 
 async function HeroMarketingView() {
+  const t = await getTranslations('home');
   // Degrade, don't 500: the homepage is the highest-traffic page and force-dynamic,
   // so a transient failure in either loader would otherwise take the whole page down.
   // Each section already self-hides on empty data (PopularTrips/OperatorShowcase), so a
@@ -464,14 +466,14 @@ async function HeroMarketingView() {
             />
             <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-white/80 px-3.5 py-1.5 text-sm font-medium text-primary-strong backdrop-blur">
               <BusFront className="size-4" aria-hidden="true" />
-              Đặt vé dễ dàng – Đi xe an toàn
+              {t('hero.badge')}
             </span>
             <h1 className="font-display text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl md:text-[64px] md:leading-[1.05] 2xl:text-7xl">
-              <span className="block">Đặt vé xe khách</span>
-              <span className="block text-primary-strong">chỉ trong 30 giây</span>
+              <span className="block">{t('hero.titleLine1')}</span>
+              <span className="block text-primary-strong">{t('hero.titleLine2')}</span>
             </h1>
             <p className="max-w-[620px] text-base text-foreground/80 sm:text-lg xl:text-[22px] xl:leading-snug 2xl:max-w-[680px]">
-              Tìm chuyến, đặt vé, nhà xe gọi xác nhận. Không cần chọn ghế trên màn hình.
+              {t('hero.subtitle')}
             </p>
           </div>
 
@@ -503,14 +505,14 @@ async function HeroMarketingView() {
                   // empty CTA card. Tell the rider plainly and point them at the route list.
                   <div className="flex flex-col gap-2">
                     <p className="text-base font-medium text-foreground">
-                      Hiện chưa có chuyến nào mở bán trực tuyến.
+                      {t('hero.noRoutes')}
                     </p>
                     <Link
                       href="/routes"
                       className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary-strong hover:underline"
                     >
                       <BusFront className="size-4 shrink-0" aria-hidden="true" />
-                      Xem các tuyến đường
+                      {t('hero.viewRoutes')}
                       <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
                     </Link>
                   </div>
@@ -521,8 +523,8 @@ async function HeroMarketingView() {
                 >
                   <Sparkles className="size-4 shrink-0" aria-hidden="true" />
                   <span>
-                    <span className="font-normal text-muted-foreground">Chưa biết đi đâu? </span>
-                    Lập kế hoạch chuyến đi với Trợ lý du lịch AI
+                    <span className="font-normal text-muted-foreground">{t('hero.plannerCtaPrefix')}</span>
+                    {t('hero.plannerCtaText')}
                   </span>
                   <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
                 </Link>
@@ -536,19 +538,19 @@ async function HeroMarketingView() {
           Replaces the old dark bg-black/52 band-over-photo: on the light-orange page field a
           white card needs no photo-overlap contrast math. Renders both title + sub (2 lines). */}
       <section
-        aria-label="Điểm nổi bật"
+        aria-label={t('section.highlightsAria')}
         className="relative z-raised -mt-8 mb-6 w-full border-b border-border bg-[#FFF6EE] shadow-e2 lg:-mt-12"
       >
         <ul className="grid w-full list-none grid-cols-1 gap-5 px-4 py-5 sm:grid-cols-2 sm:px-8 lg:grid-cols-4 lg:gap-0 lg:px-12 lg:py-0">
-          {FEATURES.map(({ icon: Icon, title, sub }) => (
+          {FEATURES.map(({ icon: Icon, titleKey, subKey }) => (
             <li
-              key={title}
+              key={titleKey}
               className="flex items-center gap-4 lg:border-l lg:border-border lg:px-6 lg:py-6 lg:first:border-l-0"
             >
               <Icon className="size-7 shrink-0 text-primary-strong" aria-hidden="true" />
               <div className="flex flex-col gap-0.5">
-                <span className="text-base font-semibold leading-tight text-foreground">{title}</span>
-                <span className="text-sm leading-snug text-muted-foreground">{sub}</span>
+                <span className="text-base font-semibold leading-tight text-foreground">{t(titleKey)}</span>
+                <span className="text-sm leading-snug text-muted-foreground">{t(subKey)}</span>
               </div>
             </li>
           ))}

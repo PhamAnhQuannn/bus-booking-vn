@@ -1,0 +1,40 @@
+{
+  "hero": {
+    "badge": "Đặt vé dễ dàng – Đi xe an toàn",
+    "titleLine1": "Đặt vé xe khách",
+    "titleLine2": "chỉ trong 30 giây",
+    "subtitle": "Tìm chuyến, đặt vé, nhà xe gọi xác nhận. Không cần chọn ghế trên màn hình.",
+    "noRoutes": "Hiện chưa có chuyến nào mở bán trực tuyến.",
+    "viewRoutes": "Xem các tuyến đường",
+    "plannerCtaPrefix": "Chưa biết đi đâu? ",
+    "plannerCtaText": "Lập kế hoạch chuyến đi với Trợ lý du lịch AI"
+  },
+  "section": {
+    "routeAria": "Tuyến đường",
+    "highlightsAria": "Điểm nổi bật"
+  },
+  "breadcrumb": {
+    "home": "Trang chủ"
+  },
+  "resultTagline": "An toàn – Đúng giờ – Tận tâm",
+  "feature": {
+    "paymentTitle": "Thanh toán đơn giản",
+    "paymentSub": "Chuyển khoản VietQR hoặc VNPay, thanh toán trước",
+    "emailTitle": "Xác nhận qua email",
+    "emailSub": "Thông tin chuyến đi được gửi đến email của bạn",
+    "verifiedTitle": "Nhà xe được xác minh",
+    "verifiedSub": "Mỗi nhà xe đều được duyệt trước khi mở bán vé",
+    "pickupTitle": "Đón trả tận nơi",
+    "pickupSub": "Đón tại nhà hoặc khách sạn, trả đúng điểm bạn cần"
+  },
+  "trust": {
+    "paymentTitle": "Thanh toán đơn giản",
+    "paymentSub": "Nhiều phương thức, tiện lợi và an toàn",
+    "emailTitle": "Xác nhận qua email",
+    "emailSub": "Vé điện tử gửi ngay, tiết kiệm thời gian",
+    "verifiedTitle": "Nhà xe được xác minh",
+    "verifiedSub": "Đối tác uy tín, chất lượng đảm bảo",
+    "supportTitle": "Hỗ trợ 24/7",
+    "supportSub": "Tư vấn, hỗ trợ tận tâm mọi lúc"
+  }
+}
