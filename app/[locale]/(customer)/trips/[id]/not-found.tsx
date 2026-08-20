@@ -1,4 +1,5 @@
-import Link from 'next/link';
+import { useTranslations } from 'next-intl';
+import { Link } from '@/i18n/navigation';
 import { buttonVariants } from '@/components/ui/button';
 
 /**
@@ -7,21 +8,22 @@ import { buttonVariants } from '@/components/ui/button';
  * Gives a forward path back into search instead of a generic dead-end.
  */
 export default function TripNotFound() {
+  const t = useTranslations('trips');
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-6 px-4 py-16 text-center">
       <div className="flex flex-col gap-2">
-        <p className="text-sm font-medium text-muted-foreground">Chuyến xe không khả dụng</p>
-        <h1 className="text-2xl font-bold">Không tìm thấy chuyến xe</h1>
+        <p className="text-sm font-medium text-muted-foreground">{t('notFound.eyebrow')}</p>
+        <h1 className="text-2xl font-bold">{t('notFound.title')}</h1>
         <p className="text-sm text-muted-foreground">
-          Chuyến xe này không còn nhận đặt vé hoặc đã khởi hành. Hãy tìm một chuyến khác.
+          {t('notFound.desc')}
         </p>
       </div>
       <div className="flex flex-wrap items-center justify-center gap-3">
         <Link href="/" className={buttonVariants({ variant: 'default', size: 'lg' })}>
-          Về tìm kiếm
+          {t('notFound.toSearch')}
         </Link>
         <Link href="/" className={buttonVariants({ variant: 'outline', size: 'lg' })}>
-          Về trang chủ
+          {t('notFound.goHome')}
         </Link>
       </div>
     </main>

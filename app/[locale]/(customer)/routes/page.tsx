@@ -6,6 +6,7 @@
  */
 
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { getActiveRoutes } from '@/lib/core/db/getActiveRoutes';
 import { RoutesBrowser } from './RoutesBrowser';
 
@@ -25,19 +26,20 @@ function getTodayVN(): string {
 export default async function RoutesPage() {
   const routes = await getActiveRoutes();
   const today = getTodayVN();
+  const t = await getTranslations('trips');
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8">
       <div className="flex flex-col gap-2">
-        <h1 className="font-display text-2xl font-bold tracking-tight">Tuyến đường</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight">{t('routes.title')}</h1>
         <p className="text-sm text-muted-foreground">
-          {routes.length} tuyến đang mở bán. Chọn tuyến để xem chuyến hôm nay.
+          {t('routes.countOpen', { count: routes.length })}
         </p>
       </div>
 
       {routes.length === 0 ? (
         <p className="rounded-lg border border-border bg-muted/40 px-4 py-10 text-center text-sm text-muted-foreground">
-          Hiện chưa có tuyến nào mở bán.
+          {t('routes.noneOpen')}
         </p>
       ) : (
         <RoutesBrowser routes={routes} today={today} />

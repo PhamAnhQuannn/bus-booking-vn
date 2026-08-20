@@ -1,0 +1,34 @@
+{
+  "detail": {
+    "breadcrumbHome": "Home",
+    "breadcrumbSearch": "Search trips",
+    "depart": "Departure",
+    "duration": "Travel time",
+    "vehicleType": "Vehicle type",
+    "seatsAvailable": "Seats available",
+    "operatorLabel": "Operator:",
+    "boardingTitle": "Pickup points",
+    "boardingNote": "Pickup times per point. Please arrive 15 minutes early.",
+    "pricePerPerson": "Price / person",
+    "ticketCountAria": "Tickets",
+    "decTicket": "Decrease tickets",
+    "incTicket": "Increase tickets"
+  },
+  "notFound": {
+    "eyebrow": "Trip unavailable",
+    "title": "Trip not found",
+    "desc": "This trip is no longer accepting bookings or has departed. Please find another trip.",
+    "toSearch": "Back to search",
+    "goHome": "Back to home"
+  },
+  "routes": {
+    "title": "Routes",
+    "countOpen": "{count} routes on sale. Choose a route to see today's trips.",
+    "noneOpen": "No routes are on sale yet.",
+    "searchLabel": "Search routes",
+    "searchPlaceholder": "e.g. Hà Nội, Đà Nẵng…",
+    "noMatch": "No matching routes found.",
+    "operatorCount": "{count} operators",
+    "from": "From"
+  }
+}

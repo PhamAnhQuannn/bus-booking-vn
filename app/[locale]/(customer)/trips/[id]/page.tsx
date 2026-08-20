@@ -9,8 +9,9 @@
 import type { Metadata } from 'next';
 import { cache } from 'react';
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { ArrowRight, Clock, Armchair, Phone, Timer, MapPin } from 'lucide-react';
+import { Link } from '@/i18n/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getTripDetails } from '@/lib/trips';
 import { formatVnd } from '@/lib/format';
@@ -23,12 +24,6 @@ export const dynamic = 'force-dynamic';
 // uncached — two DB round-trips per request and two chances to time out.
 // React cache() dedupes them within one request.
 const getTripDetailsCached = cache(getTripDetails);
-
-const BUS_TYPE_LABEL: Record<'coach' | 'sleeper' | 'limousine', string> = {
-  coach: 'Ghế ngồi',
-  sleeper: 'Giường nằm',
-  limousine: 'Limousine',
-};
 
 function formatDuration(mins: number): string {
   const h = Math.floor(mins / 60);
@@ -76,6 +71,8 @@ export default async function TripDetailPage({
   const trip = await getTripDetailsCached(id);
   if (!trip) notFound();
 
+  const [t, ts] = await Promise.all([getTranslations('trips'), getTranslations('search')]);
+
   const tripUrl = `${SITE_URL}/trips/${trip.tripId}`;
   const arrivalIso = new Date(
     new Date(trip.departureAt).getTime() + trip.durationMinutes * 60000,
@@ -91,8 +88,8 @@ export default async function TripDetailPage({
       url: tripUrl,
     }),
     breadcrumbLd([
-      { name: 'Trang chủ', url: `${SITE_URL}/` },
-      { name: 'Tìm chuyến', url: `${SITE_URL}/` },
+      { name: t('detail.breadcrumbHome'), url: `${SITE_URL}/` },
+      { name: t('detail.breadcrumbSearch'), url: `${SITE_URL}/` },
       { name: `${trip.routeOrigin} → ${trip.routeDestination}`, url: tripUrl },
     ]),
   ];
@@ -108,9 +105,9 @@ export default async function TripDetailPage({
       />
       <nav aria-label="breadcrumb" className="text-sm text-muted-foreground">
         <ol className="flex flex-wrap items-center gap-1.5">
-          <li><Link href="/" className="underline-offset-4 hover:text-foreground hover:underline">Trang chủ</Link></li>
+          <li><Link href="/" className="underline-offset-4 hover:text-foreground hover:underline">{t('detail.breadcrumbHome')}</Link></li>
           <li aria-hidden="true">/</li>
-          <li><Link href="/" className="underline-offset-4 hover:text-foreground hover:underline">Tìm chuyến</Link></li>
+          <li><Link href="/" className="underline-offset-4 hover:text-foreground hover:underline">{t('detail.breadcrumbSearch')}</Link></li>
           <li aria-hidden="true">/</li>
           <li aria-current="page" className="font-medium text-foreground">
             {trip.routeOrigin} → {trip.routeDestination}
@@ -134,28 +131,28 @@ export default async function TripDetailPage({
           <div className="flex items-start gap-2">
             <Clock className="mt-0.5 size-4 text-primary" aria-hidden="true" />
             <div>
-              <div className="text-muted-foreground">Khởi hành</div>
+              <div className="text-muted-foreground">{t('detail.depart')}</div>
               <div className="font-medium">{formatDeparture(trip.departureAt)}</div>
             </div>
           </div>
           <div className="flex items-start gap-2">
             <Timer className="mt-0.5 size-4 text-primary" aria-hidden="true" />
             <div>
-              <div className="text-muted-foreground">Thời gian đi</div>
+              <div className="text-muted-foreground">{t('detail.duration')}</div>
               <div className="font-medium">~{formatDuration(trip.durationMinutes)}</div>
             </div>
           </div>
           <div className="flex items-start gap-2">
             <Armchair className="mt-0.5 size-4 text-primary" aria-hidden="true" />
             <div>
-              <div className="text-muted-foreground">Loại xe</div>
-              <div className="font-medium">{BUS_TYPE_LABEL[trip.busType]}</div>
+              <div className="text-muted-foreground">{t('detail.vehicleType')}</div>
+              <div className="font-medium">{ts(`busType.${trip.busType}`)}</div>
             </div>
           </div>
           <div className="flex items-start gap-2">
             <Armchair className="mt-0.5 size-4 text-primary" aria-hidden="true" />
             <div>
-              <div className="text-muted-foreground">Chỗ trống</div>
+              <div className="text-muted-foreground">{t('detail.seatsAvailable')}</div>
               <div className="font-medium">{trip.availableSeats}</div>
             </div>
           </div>
@@ -166,7 +163,7 @@ export default async function TripDetailPage({
       <Card>
         <CardContent className="flex items-center gap-2 py-4 text-sm">
           <Phone className="size-4 text-primary" aria-hidden="true" />
-          <span className="text-muted-foreground">Nhà xe:</span>
+          <span className="text-muted-foreground">{t('detail.operatorLabel')}</span>
           <a href={`tel:${trip.operatorContactPhone}`} className="font-medium text-primary hover:underline">
             {trip.operatorContactPhone}
           </a>
@@ -179,7 +176,7 @@ export default async function TripDetailPage({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <MapPin className="size-4 text-primary" aria-hidden="true" /> Điểm đón khách
+              <MapPin className="size-4 text-primary" aria-hidden="true" /> {t('detail.boardingTitle')}
             </CardTitle>
           </CardHeader>
           <CardContent className="py-0 pb-5">
@@ -192,7 +189,7 @@ export default async function TripDetailPage({
               ))}
             </ul>
             <p className="mt-3 text-xs text-muted-foreground">
-              Giờ đón theo từng điểm. Vui lòng có mặt trước 15 phút.
+              {t('detail.boardingNote')}
             </p>
           </CardContent>
         </Card>
@@ -201,7 +198,7 @@ export default async function TripDetailPage({
       {/* Price + book CTA */}
       <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 shadow-e3">
         <div className="flex flex-col">
-          <span className="text-xs text-muted-foreground">Giá vé / người</span>
+          <span className="text-xs text-muted-foreground">{t('detail.pricePerPerson')}</span>
           <span className="font-mono text-2xl font-bold text-primary">{formatVnd(trip.price)}</span>
         </div>
         <TripBooking tripId={trip.tripId} availableSeats={trip.availableSeats} />

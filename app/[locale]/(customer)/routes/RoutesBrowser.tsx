@@ -6,8 +6,9 @@
  */
 
 import { useMemo, useState } from 'react';
-import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { ArrowRight, Search } from 'lucide-react';
+import { Link } from '@/i18n/navigation';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { ActiveRoute } from '@/lib/core/db/getActiveRoutes';
@@ -21,6 +22,7 @@ function formatDuration(mins: number): string {
 }
 
 export function RoutesBrowser({ routes, today }: { routes: ActiveRoute[]; today: string }) {
+  const t = useTranslations('trips');
   const [q, setQ] = useState('');
 
   const filtered = useMemo(() => {
@@ -45,7 +47,7 @@ export function RoutesBrowser({ routes, today }: { routes: ActiveRoute[]; today:
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="route-search" className="text-muted-foreground">
-          Tìm tuyến
+          {t('routes.searchLabel')}
         </Label>
         <div className="relative">
           <Search
@@ -56,7 +58,7 @@ export function RoutesBrowser({ routes, today }: { routes: ActiveRoute[]; today:
             id="route-search"
             type="search"
             className="pl-8"
-            placeholder="Ví dụ: Hà Nội, Đà Nẵng…"
+            placeholder={t('routes.searchPlaceholder')}
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -65,7 +67,7 @@ export function RoutesBrowser({ routes, today }: { routes: ActiveRoute[]; today:
 
       {filtered.length === 0 ? (
         <p className="rounded-lg border border-border bg-muted/40 px-4 py-8 text-center text-sm text-muted-foreground">
-          Không tìm thấy tuyến phù hợp.
+          {t('routes.noMatch')}
         </p>
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2">
@@ -83,11 +85,11 @@ export function RoutesBrowser({ routes, today }: { routes: ActiveRoute[]; today:
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                   <span>~{formatDuration(r.minDurationMinutes)}</span>
                   <span>
-                    {r.operatorCount} nhà xe
+                    {t('routes.operatorCount', { count: r.operatorCount })}
                   </span>
                 </div>
                 <div className="mt-auto flex items-baseline gap-1 border-t border-border/60 pt-2 text-sm">
-                  <span className="text-muted-foreground">Từ</span>
+                  <span className="text-muted-foreground">{t('routes.from')}</span>
                   <span className="font-mono font-bold text-primary">{formatVnd(r.minPrice)}</span>
                 </div>
               </Link>

@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Minus, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BookButton } from '@/components/search/BookButton';
@@ -17,6 +18,7 @@ export function TripBooking({
   tripId: string;
   availableSeats: number;
 }) {
+  const t = useTranslations('trips');
   const max = Math.min(availableSeats, 10);
   const [count, setCount] = useState(1);
 
@@ -25,14 +27,14 @@ export function TripBooking({
       <div
         className="flex items-center gap-1 rounded-lg border border-border p-1"
         role="group"
-        aria-label="Số vé"
+        aria-label={t('detail.ticketCountAria')}
       >
         <Button
           type="button"
           variant="ghost"
           size="icon-sm"
           className="size-11"
-          aria-label="Giảm số vé"
+          aria-label={t('detail.decTicket')}
           disabled={count <= 1}
           onClick={() => setCount((c) => Math.max(1, c - 1))}
         >
@@ -46,7 +48,7 @@ export function TripBooking({
           variant="ghost"
           size="icon-sm"
           className="size-11"
-          aria-label="Tăng số vé"
+          aria-label={t('detail.incTicket')}
           disabled={count >= max}
           onClick={() => setCount((c) => Math.min(max, c + 1))}
         >
