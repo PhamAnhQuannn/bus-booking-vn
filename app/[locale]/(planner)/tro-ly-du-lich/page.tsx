@@ -14,7 +14,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
 import { useAuthStatus } from '@/lib/auth/clientSession';
@@ -81,6 +81,7 @@ function fromStored(list: StoredMsg[]): Msg[] {
 export default function TroLyDuLichPage() {
   const authStatus = useAuthStatus();
   const locale = useLocale(); // P3b: forwarded to /api/planner/chat so Gemini replies in the UI language
+  const t = useTranslations('planner');
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -215,9 +216,9 @@ export default function TroLyDuLichPage() {
       if (!res.ok) throw new Error('build');
       const data = (await res.json()) as { dto: PlannerDto; href: string };
       setDto(data.dto); setActiveDay(1); setSelected(null); setLastHref(data.href);
-      patchBot((m) => ({ ...m, planning: false, text: 'Đây là lịch trình gợi ý cho bạn 👇', dto: data.dto, href: data.href }));
+      patchBot((m) => ({ ...m, planning: false, text: t('assistant.buildSuccess'), dto: data.dto, href: data.href }));
     } catch {
-      patchBot((m) => ({ ...m, planning: false, text: 'Chưa dựng được lịch, bạn thử lại nhé.', error: true }));
+      patchBot((m) => ({ ...m, planning: false, text: t('assistant.buildFail'), error: true }));
     } finally {
       setLoading(false);
     }
@@ -233,14 +234,14 @@ export default function TroLyDuLichPage() {
   // Mode vibe: "Thêm vào lịch" 1 card → tích anchor + đặt thành phố (KHÔNG dựng ngay; cho chọn nhiều).
   function onAddAnchor(city: string, id: string, name: string) {
     if (loading || !city || !id) return; // city rỗng (backend thiếu dia_diem) -> no-op, không phá build
-    setMessages((prev) => [...prev, { role: 'user', text: `Thêm ${name} vào lịch`, time: nowHHMM() }]);
+    setMessages((prev) => [...prev, { role: 'user', text: t('assistant.addAnchor', { name }), time: nowHHMM() }]);
     setSlots((s) => ({ ...s, dia_diem: city, anchor: [...new Set([...(s.anchor ?? []), id])] }));
   }
 
   // Mode vibe: "Lên lịch trình" → tiếp tục flow (hỏi ngày/số người nếu thiếu, rồi dựng với anchor đã tích).
   function onPlanVibe(city: string) {
     if (loading || !city) return; // city rỗng -> no-op (tránh slots.dia_diem="")
-    setMessages((prev) => [...prev, { role: 'user', text: 'Lên lịch trình', time: nowHHMM() }]);
+    setMessages((prev) => [...prev, { role: 'user', text: t('assistant.planTrip'), time: nowHHMM() }]);
     advance({ ...slots, dia_diem: city });
   }
 
@@ -289,7 +290,7 @@ export default function TroLyDuLichPage() {
         body: JSON.stringify({ history, locale }),
       });
       if (!res.ok || !res.body) {
-        patchBot((m) => ({ ...m, text: m.text || 'Trợ lý đang bận, thử lại giúp mình nhé.', error: true }));
+        patchBot((m) => ({ ...m, text: m.text || t('assistant.busy'), error: true }));
         return;
       }
       const reader = res.body.getReader();
@@ -311,7 +312,7 @@ export default function TroLyDuLichPage() {
         scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
       }
     } catch {
-      patchBot((m) => ({ ...m, text: m.text || 'Không kết nối được máy chủ, thử lại giúp mình nhé.', error: true }));
+      patchBot((m) => ({ ...m, text: m.text || t('assistant.noConnection'), error: true }));
       failed = true;
     } finally {
       setLoading(false);
@@ -353,7 +354,7 @@ export default function TroLyDuLichPage() {
         // SSE error frame (server catch: Gemini quota/no_key/timeout/5xx) — bong bóng lỗi ĐÃ hiện.
         // Báo failed để send() KHÔNG advance() sau đó (2 tin trái nhau). Đây là đường lỗi PHỔ BIẾN,
         // khác đường network-exception ở ngoài catch của send(). (#528)
-        patchBot((m) => ({ ...m, planning: false, text: m.text || String(payload.message ?? 'Có lỗi xảy ra.'), error: true }));
+        patchBot((m) => ({ ...m, planning: false, text: m.text || String(payload.message ?? t('assistant.genericError')), error: true }));
         return { failed: true };
       default:
         return null;
@@ -404,7 +405,7 @@ export default function TroLyDuLichPage() {
       <div>
         <div className="text-4xl">🗺️</div>
         <p className="mx-auto mt-3 max-w-[230px] text-sm font-semibold text-muted-foreground">
-          Lịch trình + bản đồ của bạn sẽ hiện ở đây sau khi trợ lý dựng xong.
+          {t('assistant.emptyState')}
         </p>
       </div>
     </div>
@@ -433,9 +434,9 @@ export default function TroLyDuLichPage() {
   const lastMsg = messages[messages.length - 1];
   const activeAsk = lastMsg?.role === 'bot' && lastMsg.options?.options?.length ? lastMsg.options : null;
   const ACTIONS: [string, string][] = [
-    ['🔄 Đổi chỗ ăn trưa', 'Đổi giúp mình quán ăn trưa'],
-    ['➕ Thêm 1 ngày', 'Thêm 1 ngày nữa vào lịch'],
-    ['💸 Tiết kiệm hơn', 'Cho mình phương án tiết kiệm hơn'],
+    [t('assistant.actionChangeLunchLabel'), t('assistant.actionChangeLunchPrompt')],
+    [t('assistant.actionAddDayLabel'), t('assistant.actionAddDayPrompt')],
+    [t('assistant.actionCheaperLabel'), t('assistant.actionCheaperPrompt')],
   ];
 
   const sidebarProps = {
@@ -471,16 +472,16 @@ export default function TroLyDuLichPage() {
         className={`flex min-h-0 w-full flex-col lg:min-w-0 ${isEntry ? 'lg:flex-1' : 'lg:w-[var(--chat-w,37%)] lg:shrink-0'}`}>
         {/* Top bar mảnh: nút mở lịch sử (mobile) + nút "mới" khi đang chat */}
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#E4D8C9] px-4 py-2.5">
-          <button type="button" onClick={() => setDrawerOpen(true)} aria-label="Lịch sử trò chuyện"
+          <button type="button" onClick={() => setDrawerOpen(true)} aria-label={t('assistant.historyAria')}
             className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold lg:hidden">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
-            Lịch sử
+            {t('assistant.history')}
           </button>
-          <span className="hidden text-sm font-semibold text-muted-foreground lg:inline">{isEntry ? '' : 'Trợ lý du lịch'}</span>
+          <span className="hidden text-sm font-semibold text-muted-foreground lg:inline">{isEntry ? '' : t('assistant.assistantName')}</span>
           {!isEntry ? (
             <button type="button" onClick={newConversation}
               className="shrink-0 whitespace-nowrap rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-primary/5">
-              + Cuộc trò chuyện mới
+              {t('assistant.newConversation')}
             </button>
           ) : <span />}
         </div>
@@ -507,12 +508,12 @@ export default function TroLyDuLichPage() {
                       <div className="min-w-0 max-w-[min(90%,560px)] flex-1">
                         {/* Bubble bot — nền #FEFCF7 + viền hairline #F0EAE2 (đo từ mock) */}
                         <div className="rounded-2xl rounded-bl-md border px-4 py-3 text-[15px] leading-6 text-foreground" style={{ background: '#FEFCF7', borderColor: '#F0EAE2' }}>
-                          {m.text ? <p className="whitespace-pre-wrap">{m.text}</p> : <p className="text-muted-foreground">Trợ lý đang trả lời…</p>}
-                          {m.planning ? <p className="mt-2 text-xs text-muted-foreground">Đang lập kế hoạch từ dữ liệu đã xác minh…</p> : null}
+                          {m.text ? <p className="whitespace-pre-wrap">{m.text}</p> : <p className="text-muted-foreground">{t('assistant.typing')}</p>}
+                          {m.planning ? <p className="mt-2 text-xs text-muted-foreground">{t('assistant.planningFromData')}</p> : null}
                           {m.options && m.options.options.length && messages[idx + 1]?.role === 'user' ? (
-                            <p className="mt-2 text-xs" style={{ color: '#9AA0AC' }}>Đã chọn: {(messages[idx + 1] as { text: string }).text}</p>
+                            <p className="mt-2 text-xs" style={{ color: '#9AA0AC' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
                           ) : null}
-                          {m.error ? <p className="mt-2 text-xs text-muted-foreground">Bạn thử nhắn lại giúp mình nhé.</p> : null}
+                          {m.error ? <p className="mt-2 text-xs text-muted-foreground">{t('assistant.tryAgain')}</p> : null}
                         </div>
                         {m.time ? <span className="mt-0.5 block px-1 text-[10px] text-muted-foreground">{m.time}</span> : null}
 
@@ -558,7 +559,7 @@ export default function TroLyDuLichPage() {
         <div className={`mx-auto w-full shrink-0 px-4 pb-5 pt-3 ${isEntry ? 'max-w-[800px]' : 'max-w-[45rem]'}`}>
           {!isEntry && dto && !activeAsk ? (
             <p className="mb-2 px-1 text-xs leading-relaxed" style={{ color: '#9AA0AC' }}>
-              💡 Bấm pin trên bản đồ hoặc chip <b className="font-semibold">N1–N3</b> để xem từng ngày · gõ câu để chỉnh lịch trình.
+              {t.rich('assistant.tip', { b: (chunks) => <b className="font-semibold">{chunks}</b> })}
             </p>
           ) : null}
           {/* Chip hành động sau khi có lịch (ask ĐANG hỏi render inline trong luồng chat, không ở đây) */}
@@ -578,7 +579,7 @@ export default function TroLyDuLichPage() {
           {/* Hàng filter chip (mock active) — mở picker slot Sở thích/Ngân sách/Phương tiện/Ăn uống */}
           {!isEntry && !activeAsk ? (
             <div className="mb-2.5 flex flex-wrap gap-2">
-              {([['🎯 Sở thích', 'so_thich'], ['🚌 Phương tiện', 'phuong_tien'], ['🍜 Ăn uống', 'an_uong']] as const).map(
+              {([[t('assistant.filterInterests'), 'so_thich'], [t('assistant.filterTransport'), 'phuong_tien'], [t('assistant.filterFood'), 'an_uong']] as [string, 'so_thich' | 'phuong_tien' | 'an_uong'][]).map(
                 ([label, kind]) => (
                   <button key={kind} type="button" onClick={() => openFilter(kind)} disabled={loading}
                     className="flex items-center gap-1.5 rounded-full border border-[#F0EAE2] bg-white px-3 py-1.5 text-[12.5px] font-medium text-foreground transition-colors hover:border-primary hover:bg-primary/5 disabled:opacity-40">
@@ -591,7 +592,7 @@ export default function TroLyDuLichPage() {
           <PlannerComposer value={input} onChange={setInput} onSubmit={() => send(input)} disabled={loading} />
           {isEntry ? (
             <p className="mt-2.5 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
-              <span aria-hidden>🔒</span> Thông tin bạn cung cấp chỉ được sử dụng để hỗ trợ lập kế hoạch chuyến đi.
+              <span aria-hidden>🔒</span> {t('assistant.privacy')}
             </p>
           ) : null}
         </div>
@@ -599,7 +600,7 @@ export default function TroLyDuLichPage() {
 
       {/* SPLITTER dọc — kéo đổi rộng chat ↔ plan (chỉ active + lg). */}
       {!isEntry ? (
-        <div role="separator" aria-orientation="vertical" aria-label="Kéo để chỉnh độ rộng chat và bản đồ"
+        <div role="separator" aria-orientation="vertical" aria-label={t('assistant.splitterAria')}
           onPointerDown={onSplitDown} onPointerMove={onSplitMove} onPointerUp={onSplitUp} onLostPointerCapture={onSplitUp}
           className="group hidden w-2 shrink-0 cursor-col-resize touch-none items-center justify-center lg:flex">
           <span className="h-10 w-1 rounded-full bg-border transition-colors group-hover:bg-primary" />
@@ -617,9 +618,9 @@ export default function TroLyDuLichPage() {
       {resultFull ? (
         <div className="fixed inset-0 z-overlay-panel flex flex-col bg-background">
           <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-3">
-            <span className="text-sm font-semibold">Lịch trình & bản đồ</span>
+            <span className="text-sm font-semibold">{t('assistant.itineraryAndMap')}</span>
             <button type="button" onClick={() => setResultFull(false)} className="rounded-full border border-border px-3 py-1.5 text-xs font-bold">
-              ← Về hội thoại
+              {t('assistant.backToChat')}
             </button>
           </div>
           <div className="min-h-0 flex-1">{paneFor('overlay')}</div>
@@ -631,7 +632,7 @@ export default function TroLyDuLichPage() {
         <button type="button" onClick={() => setResultFull(true)}
           style={{ bottom: 'calc(5.5rem + env(safe-area-inset-bottom))', right: 'calc(1rem + env(safe-area-inset-right))' }}
           className="fixed z-raised rounded-full bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-lg lg:hidden">
-          🗺 Lịch trình & bản đồ
+          {t('assistant.openMapFab')}
         </button>
       ) : null}
     </main>

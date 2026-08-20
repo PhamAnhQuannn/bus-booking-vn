@@ -10,33 +10,35 @@
  *  3 card chia đều, ảnh ratio ~2.4:1. Màu: heading gần đen #0A0806 · muted #5C5A5A · border mờ #F0E9E1.
  */
 
+import { useTranslations } from 'next-intl';
 import { PlannerImage } from '@/trip-planner/components/PlannerImage';
 import { VIBE_STARTERS, SAMPLE_CARDS } from '@/trip-planner/lib/planner/starters';
 
 type Props = { onPick: (prompt: string) => void; disabled?: boolean };
 
 export function PlannerEntry({ onPick, disabled }: Props) {
+  const t = useTranslations('planner');
   return (
     <div className="mx-auto flex w-full max-w-[800px] flex-col px-4 pb-4 pt-6 lg:pt-9">
       {/* Mascot hero — scene ngang ~3:1, ~60% bề rộng nội dung */}
       <div className="flex justify-center">
         <PlannerImage
           src="/planner/mascot.svg"
-          alt="Trợ lý BBVN AI"
+          alt={t('entry.mascotAlt')}
           fallbackEmoji="🤖"
           className="aspect-[512/173] w-full max-w-[480px] rounded-3xl bg-transparent from-transparent to-transparent"
         />
       </div>
 
       <h1 className="mt-7 text-center text-[30px] font-extrabold tracking-tight text-[#0A0806] sm:text-[38px]">
-        Bạn muốn đi đâu hôm nay?
+        {t('entry.heading')}
       </h1>
       <p className="mx-auto mt-4 max-w-[440px] text-center text-[15px] leading-relaxed text-[#5C5A5A]">
-        Hãy chia sẻ với mình ý tưởng chuyến đi của bạn, mình sẽ giúp bạn lên kế hoạch chi tiết và tối ưu nhất!
+        {t('entry.subheading')}
       </p>
 
       {/* Gợi ý bắt đầu — 4 chip vibe (co theo nội dung, gap đều, căn giữa) */}
-      <p className="mt-12 text-sm font-medium text-[#33322F]">Gợi ý bắt đầu:</p>
+      <p className="mt-12 text-sm font-medium text-[#33322F]">{t('entry.startersLabel')}</p>
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {VIBE_STARTERS.map((v) => (
           <button
@@ -53,7 +55,7 @@ export function PlannerEntry({ onPick, disabled }: Props) {
       </div>
 
       {/* Bạn có thể thử — 3 card điểm đến (chia đều, ảnh ratio ~2.4:1) */}
-      <p className="mt-9 text-sm font-medium text-[#33322F]">Bạn có thể thử những câu hỏi như:</p>
+      <p className="mt-9 text-sm font-medium text-[#33322F]">{t('entry.samplesLabel')}</p>
       <div className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-3">
         {SAMPLE_CARDS.map((c) => (
           <button

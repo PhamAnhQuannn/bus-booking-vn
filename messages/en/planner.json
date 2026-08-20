@@ -1,0 +1,217 @@
+{
+  "entry": {
+    "mascotAlt": "BBVN AI assistant",
+    "heading": "Where would you like to go today?",
+    "subheading": "Share your trip ideas with me and I'll help you build a detailed, optimized plan!",
+    "startersLabel": "Suggestions to start:",
+    "samplesLabel": "You can try questions like:"
+  },
+  "composer": {
+    "placeholder": "e.g. I'd like to go to Đà Lạt for 3 days 2 nights, budget ~3 million/person",
+    "send": "Send"
+  },
+  "sidebar": {
+    "openHistory": "Open history",
+    "newConversationShort": "New conversation",
+    "historyTitle": "Chat history",
+    "collapse": "Collapse",
+    "newConversation": "New conversation",
+    "options": "Options",
+    "rename": "Rename",
+    "delete": "Delete",
+    "renamePrompt": "Rename this conversation:",
+    "deleteConfirm": "Delete this conversation?",
+    "clearAllConfirm": "Delete your entire chat history?",
+    "clearAll": "Clear chat history",
+    "group": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "week": "Past 7 days",
+      "older": "Older"
+    },
+    "upsellTitle": "Upgrade your experience",
+    "upsellDesc": "Sign in to save your history, sync across devices, and get personalized suggestions.",
+    "upsellCta": "Sign in now",
+    "brandEyebrow": "AI Travel Assistant",
+    "brandGreeting": "Hi there!",
+    "brandIntro": "I'm BBVN AI",
+    "brandBubble": "I'll help you plan the perfect trip from A to Z in just a few minutes.",
+    "capabilitiesTitle": "Here's how I can help:",
+    "capability1": "Suggest destinations that suit you",
+    "capability2": "Build a detailed day-by-day itinerary",
+    "capability3": "Book bus tickets and recommend trusted operators",
+    "capability4": "Suggest places to eat, stay, and play",
+    "capability5": "Estimate costs and travel times",
+    "promoAlt": "Book BBVN bus tickets",
+    "promoTitle": "Book bus tickets easily for your journey",
+    "promoCta": "Book now",
+    "brandFooter": "BBVN AI uses artificial intelligence to bring you the best experience."
+  },
+  "stepper": {
+    "title": "Trip details",
+    "destination": "Destination",
+    "days": "Dates",
+    "group": "Group"
+  },
+  "receipt": {
+    "title": "{city} itinerary · {days} days {nights} nights",
+    "dayChip": "D{day}",
+    "viewDetailDesktop": "See details + map on the right",
+    "viewDetailMobile": "Tap to view itinerary + map"
+  },
+  "suggestions": {
+    "heading": "Suggested {vibe} spots",
+    "add": "+ Add to plan",
+    "empty": "No specific suggestions for this vibe yet — I'll build a general plan instead.",
+    "plan": "Build itinerary",
+    "vibe": {
+      "ngam-canh": "sightseeing",
+      "tam-linh": "spiritual",
+      "lich-su-van-hoa": "history & culture",
+      "thien-nhien-mao-hiem": "nature & adventure",
+      "mua-sam": "shopping",
+      "nong-nghiep-sinh-thai": "eco-agriculture",
+      "bien-dao": "beaches & islands",
+      "suoi-nuoc-nong": "hot springs",
+      "song-ao-chup-hinh": "photo spots",
+      "thu-gian-yen-tinh": "relaxing & quiet",
+      "lang-man": "romantic"
+    }
+  },
+  "assistant": {
+    "buildSuccess": "Here's a suggested itinerary for you 👇",
+    "buildFail": "I couldn't build the itinerary — please try again.",
+    "busy": "The assistant is busy, please try again.",
+    "noConnection": "Couldn't reach the server, please try again.",
+    "planningFromData": "Planning from verified data…",
+    "typing": "The assistant is replying…",
+    "tryAgain": "Please try messaging again.",
+    "genericError": "Something went wrong.",
+    "selected": "Selected: {choice}",
+    "addAnchor": "Add {name} to plan",
+    "planTrip": "Build itinerary",
+    "historyAria": "Chat history",
+    "splitterAria": "Drag to resize the chat and map",
+    "history": "History",
+    "assistantName": "Travel assistant",
+    "newConversation": "+ New conversation",
+    "itineraryAndMap": "Itinerary & map",
+    "backToChat": "← Back to chat",
+    "openMapFab": "🗺 Itinerary & map",
+    "emptyState": "Your itinerary and map will appear here once the assistant finishes.",
+    "tip": "💡 Tap a pin on the map or the <b>D1–D3</b> chips to view each day · type a message to adjust the itinerary.",
+    "privacy": "The information you provide is only used to help plan your trip.",
+    "filterInterests": "🎯 Interests",
+    "filterTransport": "🚌 Transport",
+    "filterFood": "🍜 Food",
+    "actionChangeLunchLabel": "🔄 Change lunch spot",
+    "actionChangeLunchPrompt": "Please swap the lunch spot for me",
+    "actionAddDayLabel": "➕ Add a day",
+    "actionAddDayPrompt": "Add one more day to the itinerary",
+    "actionCheaperLabel": "💸 More budget-friendly",
+    "actionCheaperPrompt": "Give me a more budget-friendly option"
+  },
+  "schedule": {
+    "unsupportedTitle": "This city isn't supported yet",
+    "unsupportedDesc": "We don't have a suggested itinerary for the place you chose yet. Please try another city.",
+    "unsupportedCta": "← Choose another city",
+    "heading": "{days}-day itinerary · {city}",
+    "paceLabel": "Pace: {pace}",
+    "adults": "{count} adults",
+    "elders": "{count} seniors",
+    "children": "{count} children",
+    "dataSource": "data: {source}",
+    "bookCta": "Book a bus for this trip →",
+    "day": "Day {day}",
+    "hotelTitle": "Suggested hotels",
+    "restaurantTitle": "Restaurant suggestions",
+    "restaurantNote": "Suggested by popularity; not tied to specific time slots — pick to taste.",
+    "hoursLabel": "hours:",
+    "callAhead": "call ahead",
+    "noPhone": "no phone yet",
+    "sources": "sources: {count}",
+    "updated": "updated {date}",
+    "notesTitle": "Notes",
+    "pace": {
+      "relaxed": "relaxed",
+      "packed": "packed",
+      "moderate": "moderate"
+    },
+    "buoi": {
+      "sang": "Morning",
+      "trua": "Noon",
+      "chieu": "Afternoon",
+      "toi": "Evening"
+    }
+  },
+  "pane": {
+    "openMapFullscreen": "Map — open fullscreen",
+    "resizeMapAria": "Drag to resize the map"
+  },
+  "dayTabBar": {
+    "day": "Day {day}"
+  },
+  "itinerary": {
+    "title": "🏔 {city} · {days} days {nights} nights",
+    "adults": "{count} adults",
+    "children": "{count} children",
+    "elders": "{count} seniors",
+    "paceLabel": "Pace: {pace}",
+    "dataUpdated": "Data updated {source}",
+    "orderLegend": "= the order the assistant suggests (not a star rating)",
+    "badgeOpen": "Open",
+    "hoursOnGoogle": "Opening hours on Google ↗",
+    "callAheadTitle": "No verified opening hours — please call ahead",
+    "legMinutes": "{minutes} min",
+    "fromHotelShort": "~{km}km from hotel",
+    "area": "{area} area · ",
+    "stops": "{stops} spots",
+    "restaurantTitle": "Restaurant suggestions",
+    "hoursLabel": "hours: {value}",
+    "callAhead": "call ahead",
+    "mapLink": "Map →",
+    "hotelTitle": "Suggested hotels",
+    "fromFirstStop": "📍 about {km} km from the first stop",
+    "phoneUnverified": "Phone unverified — call ahead",
+    "viewMap": "View map →",
+    "hotelAlts": "Other options",
+    "verifiedCount": "✓ {verified}/{total} stops with verified hours",
+    "footerNote": "Order = suggestion strength; prices not shown (info only, no booking on your behalf).",
+    "saveTrip": "💾 Save trip",
+    "exportPdf": "📄 Export PDF",
+    "share": "🔗 Share",
+    "savedAlert": "Trip saved to this device.",
+    "sharedAlert": "Share link copied.",
+    "shareTitle": "{city} itinerary, {days} days",
+    "pace": {
+      "relaxed": "relaxed",
+      "moderate": "moderate",
+      "packed": "packed"
+    },
+    "buoi": {
+      "sang": "Morning",
+      "trua": "Noon",
+      "chieu": "Afternoon",
+      "toi": "Evening"
+    }
+  },
+  "map": {
+    "noBasemap": "No base map for this area yet — locations are still shown.",
+    "close": "Close",
+    "open": "Open now",
+    "closed": "Closed",
+    "verified": "✓ Verified",
+    "legFromPrev": "{km}km · {minutes} min from previous stop",
+    "source": "Source: {source}",
+    "viewOnGoogleMaps": "View on Google Maps →",
+    "buoi": {
+      "sang": "Morning",
+      "trua": "Noon",
+      "chieu": "Afternoon",
+      "toi": "Evening"
+    }
+  },
+  "metadata": {
+    "scheduleTitle": "Suggested itinerary"
+  }
+}
