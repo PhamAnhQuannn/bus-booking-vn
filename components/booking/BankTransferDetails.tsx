@@ -11,8 +11,8 @@
  * 'use client' directive so a server component can render it too.
  */
 
-import { QrImage } from '@/app/(customer)/booking/bank-transfer/QrImage';
-import { CopyButton } from '@/app/(customer)/booking/bank-transfer/CopyButton';
+import { QrImage } from '@/app/[locale]/(customer)/booking/bank-transfer/QrImage';
+import { CopyButton } from '@/app/[locale]/(customer)/booking/bank-transfer/CopyButton';
 
 function formatVND(amount: number): string {
   return (

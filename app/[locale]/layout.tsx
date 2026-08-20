@@ -1,28 +1,104 @@
-import { NextIntlClientProvider, hasLocale } from 'next-intl';
-import { setRequestLocale } from 'next-intl/server';
-import { notFound } from 'next/navigation';
-import { routing } from '@/i18n/routing';
+import type { Metadata } from "next";
+import { Be_Vietnam_Pro, Geist_Mono } from "next/font/google";
+import { NextIntlClientProvider, hasLocale } from "next-intl";
+import { getMessages, setRequestLocale } from "next-intl/server";
+import { notFound } from "next/navigation";
+import { routing, type Locale } from "@/i18n/routing";
+import { SiteHeader } from "@/components/layout/SiteHeader";
+import { SiteFooter } from "@/components/layout/SiteFooter";
+import { SessionBootstrap } from "@/components/auth/SessionBootstrap";
+import { CookieConsent } from "@/components/CookieConsent";
+import { Analytics } from "@vercel/analytics/next";
+import { SITE_URL } from "@/lib/seo";
 
-/**
- * Locale layout (P-spike). Provides the next-intl client context for everything under
- * `app/[locale]`. It does NOT render <html>/<body> — the root layout (app/layout.tsx)
- * still owns those during the spike, so `<html lang>` stays "vi" even on /en/… for now.
- * P0 moves the root <html lang> binding here (or into a route-group root) so the lang
- * attribute tracks the locale.
- */
+const beVietnam = Be_Vietnam_Pro({
+  variable: "--font-be-vietnam",
+  subsets: ["latin", "vietnamese"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+// Metadata strings stay Vietnamese for now — SEO/metadata localization is P2.
+// Only openGraph.locale is derived per-locale here so the document declares the
+// right language pair; per-page titles still carry their own "| BBVN" suffix.
+const SITE_TITLE = "Đặt vé xe khách | BBVN";
+const SITE_DESC = "Tìm và đặt vé xe khách liên tỉnh trên toàn quốc.";
+const OG_LOCALE: Record<Locale, string> = { vi: "vi_VN", en: "en_US" };
+
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  return {
+    metadataBase: new URL(SITE_URL),
+    title: SITE_TITLE,
+    description: SITE_DESC,
+    openGraph: {
+      type: "website",
+      locale: OG_LOCALE[locale as Locale] ?? OG_LOCALE.vi,
+      siteName: "BBVN",
+      url: "/",
+      title: SITE_TITLE,
+      description: SITE_DESC,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: SITE_TITLE,
+      description: SITE_DESC,
+    },
+  };
 }
 
 export default async function LocaleLayout({
   children,
   params,
-}: {
+}: Readonly<{
   children: React.ReactNode;
   params: Promise<{ locale: string }>;
-}) {
+}>) {
   const { locale } = await params;
   if (!hasLocale(routing.locales, locale)) notFound();
+  // Enable static rendering for the whole localized subtree.
   setRequestLocale(locale);
-  return <NextIntlClientProvider>{children}</NextIntlClientProvider>;
+  const messages = await getMessages();
+
+  return (
+    <html
+      lang={locale}
+      className={`${beVietnam.variable} ${geistMono.variable} h-full antialiased`}
+    >
+      <body className="flex min-h-full flex-col">
+        {/* AX-10: skip link — first focusable element, visually hidden until focused
+            so keyboard users can jump past the header nav on every page (WCAG 2.4.1). */}
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-toast focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:shadow-e2 focus:outline-none focus:ring-3 focus:ring-ring/50"
+        >
+          {locale === "en" ? "Skip to main content" : "Bỏ qua tới nội dung chính"}
+        </a>
+        <NextIntlClientProvider messages={messages}>
+          <SessionBootstrap />
+          <SiteHeader />
+          <div id="main" tabIndex={-1} className="flex flex-1 flex-col outline-none">
+            {children}
+          </div>
+          <SiteFooter />
+          <CookieConsent />
+        </NextIntlClientProvider>
+        {/* Dev mode loads an external debug script (va.vercel-scripts.com) that our CSP blocks — prod-only. */}
+        {process.env.NODE_ENV === "production" && <Analytics />}
+      </body>
+    </html>
+  );
 }
