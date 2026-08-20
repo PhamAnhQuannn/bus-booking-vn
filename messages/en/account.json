@@ -1,4 +1,8 @@
 {
+  "language": {
+    "title": "Display language",
+    "description": "Choose the interface language. Your choice is remembered on this device."
+  },
   "common": {
     "sessionExpired": "Your session has expired. Please log in again.",
     "sessionExpiredShort": "Your session has expired.",

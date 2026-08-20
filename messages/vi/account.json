@@ -1,4 +1,8 @@
 {
+  "language": {
+    "title": "Ngôn ngữ hiển thị",
+    "description": "Chọn ngôn ngữ hiển thị giao diện. Lựa chọn được ghi nhớ trên thiết bị này."
+  },
   "common": {
     "sessionExpired": "Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.",
     "sessionExpiredShort": "Phiên đăng nhập hết hạn.",

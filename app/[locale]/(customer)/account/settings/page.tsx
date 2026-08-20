@@ -25,6 +25,7 @@ import { OtpCodeInput } from '@/components/auth/OtpCodeInput';
 import { FormError } from '@/components/auth/FormError';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { LanguageSwitcher } from '@/components/i18n/LanguageSwitcher';
 import {
   Dialog,
   DialogClose,
@@ -60,6 +61,26 @@ function FormStatus({
       tone={status === 'err' ? 'error' : 'success'}
       message={status === 'ok' ? okMessage : status === 'err' ? errMessage : ''}
     />
+  );
+}
+
+// ---- card: display language (P2d) ------------------------------------------
+
+// Surfaces the same header LanguageSwitcher as a settings card. next-intl's
+// router.replace(pathname, {locale}) rewrites the prefix and persists the choice
+// in the NEXT_LOCALE cookie — device-scoped, no server-persist needed.
+function LanguageCard() {
+  const t = useTranslations('account');
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle as="h2">{t('language.title')}</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col items-start gap-3">
+        <p className="text-sm text-muted-foreground">{t('language.description')}</p>
+        <LanguageSwitcher />
+      </CardContent>
+    </Card>
   );
 }
 
@@ -474,6 +495,7 @@ export default function AccountSettingsPage() {
         </ol>
       </nav>
       <h1 className="text-2xl font-bold">{t('page.title')}</h1>
+      <LanguageCard />
       <ChangeNameForm />
       <ChangePasswordForm />
       <ChangePhoneForm />
