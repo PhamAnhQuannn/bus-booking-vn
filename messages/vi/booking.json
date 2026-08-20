@@ -57,7 +57,8 @@
     "paymentTitle": "Thanh toán chuyển khoản",
     "paymentSubtitle": "Quét mã QR hoặc chuyển khoản thủ công theo thông tin bên dưới",
     "notUpdated": "Đã chuyển khoản mà chưa thấy cập nhật?",
-    "contactSupport": "Liên hệ hỗ trợ"
+    "contactSupport": "Liên hệ hỗ trợ",
+    "bookingRef": "Mã đặt vé:"
   },
   "tripInfo": {
     "title": "Thông tin chuyến đi",
@@ -104,5 +105,39 @@
     "copyAccountNumber": "số tài khoản",
     "copyMemo": "nội dung chuyển khoản",
     "copyAmount": "số tiền"
+  },
+  "transfer": {
+    "paidRedirect": "Thanh toán thành công! Đang chuyển hướng...",
+    "failedMsg": "Giao dịch chưa hoàn tất hoặc đã bị hủy. Vui lòng thử lại với chuyến xe khác.",
+    "findOther": "Tìm chuyến khác",
+    "timeoutMsg": "Chưa nhận được thanh toán. Nếu bạn đã chuyển khoản, vui lòng đợi thêm 1-2 phút.",
+    "retry": "Thử lại",
+    "waiting": "Đang chờ xác nhận thanh toán...",
+    "expiredMsg": "Đã hết thời gian thanh toán. Nếu bạn đã chuyển khoản, vui lòng đợi trong giây lát hoặc liên hệ hỗ trợ.",
+    "countdown": "Vui lòng hoàn tất chuyển khoản trong vòng {minutes} phút — còn {time}"
+  },
+  "copy": {
+    "copy": "Sao chép",
+    "copied": "Đã sao chép",
+    "copyAria": "Sao chép {label}",
+    "copiedAria": "Đã sao chép {label}",
+    "failed": "Không sao chép được — vui lòng chọn và sao chép thủ công"
+  },
+  "qr": {
+    "loadFailed": "Không tải được mã QR.",
+    "useManual": "Vui lòng chuyển khoản thủ công theo thông tin bên dưới."
+  },
+  "paymentStatus": {
+    "errorTitle": "Thanh toán thất bại",
+    "reasonSigInvalid": "Không xác thực được giao dịch từ VNPay.",
+    "reasonInvalidAmount": "Số tiền giao dịch không hợp lệ.",
+    "reasonGeneric": "Giao dịch VNPay không thành công.",
+    "refundNote": "Nếu tài khoản của bạn đã bị trừ tiền, vui lòng liên hệ hỗ trợ — chúng tôi sẽ kiểm tra và hoàn tiền nếu cần.",
+    "bookAgain": "Đặt vé lại",
+    "pendingTitle": "Thanh toán chưa hoàn tất",
+    "pendingMsg": "Giao dịch VNPay chưa được xác nhận hoàn tất. Nếu bạn đã thanh toán, hệ thống sẽ tự động cập nhật trạng thái trong giây lát.",
+    "vnpayCode": "Mã phản hồi VNPay: {code}",
+    "checkStatus": "Kiểm tra trạng thái đặt vé",
+    "goHome": "Về trang chủ"
   }
 }

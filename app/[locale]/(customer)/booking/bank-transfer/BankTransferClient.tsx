@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { Link, useRouter } from '@/i18n/navigation';
 
 interface BankTransferClientProps {
   bookingRef: string;
@@ -35,6 +35,7 @@ export function BankTransferClient({
   windowMinutes,
 }: BankTransferClientProps) {
   const router = useRouter();
+  const t = useTranslations('booking');
   const [paid, setPaid] = useState(false);
   const [failed, setFailed] = useState(false);
   const [isTimeout, setIsTimeout] = useState(false);
@@ -105,7 +106,7 @@ export function BankTransferClient({
       <div className="flex flex-col items-center gap-3 rounded-xl border border-success-border bg-success p-4 text-center">
         <CheckCircle2 className="size-8 text-success-foreground" />
         <p className="text-sm font-medium text-success-foreground">
-          Thanh toán thành công! Đang chuyển hướng...
+          {t('transfer.paidRedirect')}
         </p>
       </div>
     );
@@ -116,13 +117,13 @@ export function BankTransferClient({
       <div className="flex flex-col items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-center">
         <XCircle className="size-8 text-destructive" />
         <p className="text-sm text-destructive">
-          Giao dịch chưa hoàn tất hoặc đã bị hủy. Vui lòng thử lại với chuyến xe khác.
+          {t('transfer.failedMsg')}
         </p>
         <Link
           href="/"
           className="text-sm font-medium text-primary underline underline-offset-4"
         >
-          Tìm chuyến khác
+          {t('transfer.findOther')}
         </Link>
       </div>
     );
@@ -132,14 +133,14 @@ export function BankTransferClient({
     return (
       <div className="flex flex-col gap-2 rounded-xl border border-warning-border bg-warning p-4">
         <p className="text-sm text-warning-foreground">
-          Chưa nhận được thanh toán. Nếu bạn đã chuyển khoản, vui lòng đợi thêm 1-2 phút.
+          {t('transfer.timeoutMsg')}
         </p>
         <button
           type="button"
           onClick={() => { pollCount.current = 0; setIsTimeout(false); }}
           className="text-sm font-medium text-primary underline"
         >
-          Thử lại
+          {t('transfer.retry')}
         </button>
       </div>
     );
@@ -150,16 +151,15 @@ export function BankTransferClient({
   return (
     <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-muted p-4 text-center">
       <Loader2 className="size-6 motion-safe:animate-spin text-muted-foreground" />
-      <p className="text-sm text-muted-foreground">Đang chờ xác nhận thanh toán...</p>
+      <p className="text-sm text-muted-foreground">{t('transfer.waiting')}</p>
       {remainingMs !== null &&
         (expired ? (
           <p className="text-sm font-medium text-destructive" role="status" aria-live="polite">
-            Đã hết thời gian thanh toán. Nếu bạn đã chuyển khoản, vui lòng đợi trong giây
-            lát hoặc liên hệ hỗ trợ.
+            {t('transfer.expiredMsg')}
           </p>
         ) : (
           <p className="text-sm font-semibold text-warning-foreground" role="status" aria-live="polite">
-            Vui lòng hoàn tất chuyển khoản trong vòng {windowMinutes} phút — còn {formatCountdown(remainingMs)}
+            {t('transfer.countdown', { minutes: windowMinutes, time: formatCountdown(remainingMs) })}
           </p>
         ))}
     </div>

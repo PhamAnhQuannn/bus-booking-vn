@@ -13,6 +13,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Check, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -25,6 +26,7 @@ export function CopyButton({
   label: string;
   showLabel?: boolean;
 }) {
+  const t = useTranslations('booking');
   const [status, setStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
 
   async function handleCopy() {
@@ -45,7 +47,7 @@ export function CopyButton({
       <button
         type="button"
         onClick={handleCopy}
-        aria-label={status === 'copied' ? `Đã sao chép ${label}` : `Sao chép ${label}`}
+        aria-label={status === 'copied' ? t('copy.copiedAria', { label }) : t('copy.copyAria', { label })}
         className={cn(
           'inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-md px-2 text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50'
         )}
@@ -55,14 +57,14 @@ export function CopyButton({
         ) : (
           <Copy className="size-4" />
         )}
-        {showLabel && <span className="text-xs font-medium">{status === 'copied' ? 'Đã sao chép' : 'Sao chép'}</span>}
+        {showLabel && <span className="text-xs font-medium">{status === 'copied' ? t('copy.copied') : t('copy.copy')}</span>}
       </button>
       {status === 'failed' && (
         <span
           role="status"
           className="absolute top-full left-1/2 z-10 mt-1 -translate-x-1/2 rounded-md bg-destructive px-2 py-1 text-xs font-medium whitespace-nowrap text-white shadow-e2"
         >
-          Không sao chép được — vui lòng chọn và sao chép thủ công
+          {t('copy.failed')}
         </span>
       )}
     </span>

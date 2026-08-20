@@ -57,7 +57,8 @@
     "paymentTitle": "Bank transfer payment",
     "paymentSubtitle": "Scan the QR code or transfer manually using the details below",
     "notUpdated": "Transferred but no update yet?",
-    "contactSupport": "Contact support"
+    "contactSupport": "Contact support",
+    "bookingRef": "Booking code:"
   },
   "tripInfo": {
     "title": "Trip details",
@@ -104,5 +105,39 @@
     "copyAccountNumber": "account number",
     "copyMemo": "transfer memo",
     "copyAmount": "amount"
+  },
+  "transfer": {
+    "paidRedirect": "Payment successful! Redirecting...",
+    "failedMsg": "The transaction is incomplete or was cancelled. Please try again with another trip.",
+    "findOther": "Find another trip",
+    "timeoutMsg": "Payment not received yet. If you have transferred, please wait another 1-2 minutes.",
+    "retry": "Try again",
+    "waiting": "Waiting for payment confirmation...",
+    "expiredMsg": "The payment window has expired. If you have transferred, please wait a moment or contact support.",
+    "countdown": "Please complete the transfer within {minutes} minutes — {time} left"
+  },
+  "copy": {
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyAria": "Copy {label}",
+    "copiedAria": "Copied {label}",
+    "failed": "Couldn't copy — please select and copy manually"
+  },
+  "qr": {
+    "loadFailed": "Couldn't load the QR code.",
+    "useManual": "Please transfer manually using the details below."
+  },
+  "paymentStatus": {
+    "errorTitle": "Payment failed",
+    "reasonSigInvalid": "Could not verify the transaction from VNPay.",
+    "reasonInvalidAmount": "The transaction amount is invalid.",
+    "reasonGeneric": "The VNPay transaction was unsuccessful.",
+    "refundNote": "If your account was charged, please contact support — we will check and refund if needed.",
+    "bookAgain": "Book again",
+    "pendingTitle": "Payment incomplete",
+    "pendingMsg": "The VNPay transaction has not been confirmed as complete. If you have paid, the system will update the status automatically shortly.",
+    "vnpayCode": "VNPay response code: {code}",
+    "checkStatus": "Check booking status",
+    "goHome": "Back to home"
   }
 }

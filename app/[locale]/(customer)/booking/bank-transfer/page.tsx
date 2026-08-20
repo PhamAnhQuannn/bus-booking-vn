@@ -11,8 +11,9 @@
  */
 
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { getTranslations } from 'next-intl/server';
+import { Link } from '@/i18n/navigation';
 import { getBookingByRef, getBookingByConfirmationToken } from '@/lib/booking';
 import { PSP_WINDOW_MINUTES } from '@/lib/core/db/pspWindow';
 import { getEnv } from '@/lib/config';
@@ -80,13 +81,15 @@ export default async function BankTransferPage({ searchParams }: BankTransferPag
     ? new Date(fullBooking.createdAt.getTime() + PAYMENT_WINDOW_MINUTES * 60_000).toISOString()
     : undefined;
 
+  const t = await getTranslations('booking');
+
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 md:grid md:grid-cols-[1fr_20rem] md:items-start">
       <div className="flex flex-col gap-6">
         <header className="flex flex-col items-center gap-2 text-center">
-          <h1 className="text-2xl font-bold">Thanh toán chuyển khoản</h1>
+          <h1 className="text-2xl font-bold">{t('page.paymentTitle')}</h1>
           <p className="text-sm text-muted-foreground">
-            Quét mã QR hoặc chuyển khoản thủ công theo thông tin bên dưới
+            {t('page.paymentSubtitle')}
           </p>
         </header>
 
@@ -108,9 +111,9 @@ export default async function BankTransferPage({ searchParams }: BankTransferPag
         />
 
         <p className="text-center text-sm text-muted-foreground">
-          Đã chuyển khoản mà chưa thấy cập nhật?{' '}
+          {t('page.notUpdated')}{' '}
           <Link href="/lien-he-dat-xe" className="font-medium text-primary underline">
-            Liên hệ hỗ trợ
+            {t('page.contactSupport')}
           </Link>
         </p>
       </div>

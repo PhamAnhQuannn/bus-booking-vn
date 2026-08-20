@@ -8,7 +8,8 @@
  */
 
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
+import { Link } from '@/i18n/navigation';
 import { getBookingByRef } from '@/lib/booking';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -24,45 +25,45 @@ interface PendingPageProps {
 export default async function VnpayPendingPage({ searchParams }: PendingPageProps) {
   const { ref, code } = await searchParams;
   const booking = ref ? await getBookingByRef(ref) : null;
+  const t = await getTranslations('booking');
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-12">
       <Card>
         <CardHeader>
-          <CardTitle as="h2">Thanh toán chưa hoàn tất</CardTitle>
+          <CardTitle as="h2">{t('paymentStatus.pendingTitle')}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4 text-sm">
           <p className="text-muted-foreground">
-            Giao dịch VNPay chưa được xác nhận hoàn tất. Nếu bạn đã thanh toán, hệ thống sẽ tự
-            động cập nhật trạng thái trong giây lát.
+            {t('paymentStatus.pendingMsg')}
           </p>
           {ref && (
             <p>
-              Mã đặt vé: <span className="font-mono font-medium">{ref}</span>
+              {t('page.bookingRef')} <span className="font-mono font-medium">{ref}</span>
             </p>
           )}
-          {code && <p className="text-muted-foreground">Mã phản hồi VNPay: {code}</p>}
+          {code && <p className="text-muted-foreground">{t('paymentStatus.vnpayCode', { code })}</p>}
           <div className="mt-2 flex flex-wrap gap-3">
             {booking ? (
               <Link
                 href={`/booking/result/${booking.confirmationToken}`}
                 className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
               >
-                Kiểm tra trạng thái đặt vé
+                {t('paymentStatus.checkStatus')}
               </Link>
             ) : (
               <Link
                 href="/"
                 className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
               >
-                Về trang chủ
+                {t('paymentStatus.goHome')}
               </Link>
             )}
             <Link
               href="/lien-he-dat-xe"
               className="inline-flex items-center justify-center rounded-lg border border-border px-4 py-2 text-sm font-medium hover:border-primary/30"
             >
-              Liên hệ hỗ trợ
+              {t('page.contactSupport')}
             </Link>
           </div>
         </CardContent>
