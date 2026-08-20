@@ -139,5 +139,41 @@
     "vnpayCode": "VNPay response code: {code}",
     "checkStatus": "Check booking status",
     "goHome": "Back to home"
+  },
+  "confirm": {
+    "success": "Booking successful",
+    "bookingRefLabel": "Booking code",
+    "addToCalendar": "Add to calendar",
+    "bookingInfo": "Booking details",
+    "passenger": "Passenger",
+    "ticketCount": "Tickets",
+    "licensePlate": "License plate",
+    "operatorHotline": "Operator hotline",
+    "receiptQrAlt": "Receipt QR",
+    "scanReceipt": "Scan to view receipt & ticket status",
+    "changePickup": "Need to change pickup point? Please contact the operator",
+    "icsSummary": "Bus trip {origin} → {destination}",
+    "icsDesc": "Booking code {ref}"
+  },
+  "result": {
+    "paidTitle": "Payment successful",
+    "pendingTitle": "Processing payment",
+    "genericTitle": "Booking result",
+    "bookingRefLabel": "Booking code:",
+    "awaitingGateway": "Waiting for {gateway} payment confirmation",
+    "awaitingBank": "We are waiting for the bank to confirm your transfer.",
+    "completePayment": "Please complete the {gateway} payment.",
+    "autoRefresh": "This page updates automatically after 5 seconds.",
+    "stoppedRefresh": "The page has stopped auto-refreshing.",
+    "reloadPage": "Reload the page",
+    "toCheckStatus": "to check the status.",
+    "thanks": "Thank you for booking with BBVN. Please view the confirmation for your trip details.",
+    "viewBooking": "View booking details",
+    "failedGateway": "Your {gateway} transaction is incomplete or was cancelled. Please try again with another trip.",
+    "processing": "Your booking is being processed. Please contact support if you need help.",
+    "route": "Route",
+    "gatewayCard": "card",
+    "gatewayBank": "bank transfer",
+    "gatewayOnline": "online"
   }
 }

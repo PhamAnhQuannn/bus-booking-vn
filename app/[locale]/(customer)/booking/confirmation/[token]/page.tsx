@@ -14,9 +14,10 @@
  */
 
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
+import { getTranslations } from 'next-intl/server';
+import { Link } from '@/i18n/navigation';
 import { CheckCircle2, CalendarPlus } from 'lucide-react';
 import { getBookingByConfirmationToken } from '@/lib/booking';
 import { mintTicketToken, ticketQrDataUrl } from '@/lib/ticketing';
@@ -51,8 +52,9 @@ function toIcsDate(d: Date): string {
   return d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 }
 
-/** Build a downloadable .ics data URI for the trip departure (2h default block). */
-function buildCalendarHref(opts: { ref: string; origin: string; destination: string; departure: Date }): string {
+/** Build a downloadable .ics data URI for the trip departure (2h default block).
+ *  `summary`/`description` are pre-localized by the caller. */
+function buildCalendarHref(opts: { ref: string; departure: Date; summary: string; description: string }): string {
   const end = new Date(opts.departure.getTime() + 2 * 3600 * 1000);
   const ics = [
     'BEGIN:VCALENDAR',
@@ -63,8 +65,8 @@ function buildCalendarHref(opts: { ref: string; origin: string; destination: str
     `DTSTAMP:${toIcsDate(new Date())}`,
     `DTSTART:${toIcsDate(opts.departure)}`,
     `DTEND:${toIcsDate(end)}`,
-    `SUMMARY:Chuyến xe ${opts.origin} → ${opts.destination}`,
-    `DESCRIPTION:Mã đặt vé ${opts.ref}`,
+    `SUMMARY:${opts.summary}`,
+    `DESCRIPTION:${opts.description}`,
     'END:VEVENT',
     'END:VCALENDAR',
   ].join('\r\n');
@@ -82,6 +84,7 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
   const { trip } = booking;
 
   const unitPrice = trip.price;
+  const t = await getTranslations('booking');
 
   // Receipt QR shown DIRECTLY on the page (right after payment): scanning it opens the
   // public /verify receipt. Rendered as an inline SVG data-URI — web isn't subject to
@@ -107,7 +110,7 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
           <span className="flex size-14 items-center justify-center rounded-full bg-success text-success-foreground">
             <CheckCircle2 className="size-8" aria-hidden="true" />
           </span>
-          <h1 className="text-2xl font-bold">Đặt vé thành công</h1>
+          <h1 className="text-2xl font-bold">{t('confirm.success')}</h1>
           <Badge variant={bookingStatusDisplay(booking.status).variant}>
             {bookingStatusDisplay(booking.status).label}
           </Badge>
@@ -115,44 +118,44 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
 
         {/* Prominent e-ticket ref */}
         <div className="flex flex-col items-center gap-1 rounded-xl border border-dashed border-primary/40 bg-primary/5 px-4 py-4 text-center">
-          <span className="text-xs uppercase tracking-wide text-muted-foreground">Mã đặt vé</span>
+          <span className="text-xs uppercase tracking-wide text-muted-foreground">{t('confirm.bookingRefLabel')}</span>
           <span className="font-mono text-2xl font-bold tracking-widest text-primary">{booking.bookingRef}</span>
           <a
             href={buildCalendarHref({
               ref: booking.bookingRef,
-              origin: trip.route.origin,
-              destination: trip.route.destination,
               departure: trip.departureAt,
+              summary: t('confirm.icsSummary', { origin: trip.route.origin, destination: trip.route.destination }),
+              description: t('confirm.icsDesc', { ref: booking.bookingRef }),
             })}
             download={`chuyen-xe-${booking.bookingRef}.ics`}
             className={buttonVariants({ variant: 'outline', size: 'sm', className: 'mt-2' })}
           >
             <CalendarPlus className="size-4" aria-hidden="true" />
-            Thêm vào lịch
+            {t('confirm.addToCalendar')}
           </a>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle as="h2">Thông tin đặt vé</CardTitle>
+            <CardTitle as="h2">{t('confirm.bookingInfo')}</CardTitle>
           </CardHeader>
           <CardContent>
             <dl className="flex flex-col gap-2.5 text-sm">
               <div className="flex justify-between">
-                <dt className="text-muted-foreground">Hành khách</dt>
+                <dt className="text-muted-foreground">{t('confirm.passenger')}</dt>
                 <dd>{booking.buyerName}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-muted-foreground">Số điện thoại</dt>
+                <dt className="text-muted-foreground">{t('checkout.phone')}</dt>
                 <dd className="font-mono">{booking.buyerPhone}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-muted-foreground">Số vé</dt>
+                <dt className="text-muted-foreground">{t('confirm.ticketCount')}</dt>
                 <dd>{booking.ticketCount}</dd>
               </div>
               {booking.boardingPoint ? (
                 <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Điểm đón</dt>
+                  <dt className="text-muted-foreground">{t('checkout.pickup')}</dt>
                   <dd className="text-right">
                     {booking.boardingPoint}
                     {booking.boardingTime ? ` · ${booking.boardingTime}` : ''}
@@ -160,11 +163,11 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
                 </div>
               ) : null}
               <div className="flex justify-between">
-                <dt className="text-muted-foreground">Biển số xe</dt>
+                <dt className="text-muted-foreground">{t('confirm.licensePlate')}</dt>
                 <dd className="font-mono">{trip.bus.licensePlate}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-muted-foreground">Hotline nhà xe</dt>
+                <dt className="text-muted-foreground">{t('confirm.operatorHotline')}</dt>
                 <dd>
                   <a href={`tel:${trip.bus.operator.contactPhone}`} className="font-mono text-primary hover:underline">
                     {trip.bus.operator.contactPhone}
@@ -172,7 +175,7 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
                 </dd>
               </div>
               <div className="mt-1 flex items-center justify-between border-t border-border pt-3 text-lg font-semibold">
-                <dt>Tổng cộng</dt>
+                <dt>{t('summary.total')}</dt>
                 <dd className="font-mono text-primary">{formatVND(booking.totalVnd)}</dd>
               </div>
             </dl>
@@ -185,20 +188,20 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
             {/* eslint-disable-next-line @next/next/no-img-element -- inline SVG data-URI, not an optimizable asset */}
             <img
               src={receiptQrDataUrl}
-              alt="QR biên nhận"
+              alt={t('confirm.receiptQrAlt')}
               width={180}
               height={180}
               className="size-44"
             />
             <p className="text-center text-sm text-muted-foreground">
-              Quét mã để xem biên nhận &amp; trạng thái vé
+              {t('confirm.scanReceipt')}
             </p>
           </div>
         ) : null}
 
         {/* Issue 112: pickup is locked at hold; no self-serve edit. Point travelers to the operator. */}
         <p className="text-center text-sm text-muted-foreground" data-testid="pickup-edit-hint">
-          Cần đổi điểm đón? Vui lòng liên hệ nhà xe
+          {t('confirm.changePickup')}
           {trip.bus.operator.contactPhone ? (
             <>
               {': '}
@@ -217,10 +220,10 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
         {/* Forward CTAs — no post-payment dead-end. */}
         <div className="flex flex-col gap-2 sm:flex-row">
           <Link href="/" className={buttonVariants({ variant: 'default', className: 'flex-1' })}>
-            Về trang chủ
+            {t('paymentStatus.goHome')}
           </Link>
           <Link href="/" className={buttonVariants({ variant: 'outline', className: 'flex-1' })}>
-            Tìm chuyến khác
+            {t('transfer.findOther')}
           </Link>
         </div>
       </div>

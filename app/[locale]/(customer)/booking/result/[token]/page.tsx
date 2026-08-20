@@ -20,9 +20,11 @@
 
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
+import { getTranslations, getLocale } from 'next-intl/server';
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { getBookingByConfirmationToken } from '@/lib/booking';
+import { Link } from '@/i18n/navigation';
+import { routing } from '@/i18n/routing';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 
@@ -38,13 +40,6 @@ interface ResultPageProps {
 }
 
 const MAX_AUTO_REFRESH = 24; // ~2 min at 5s interval
-
-const GATEWAY_LABEL: Record<string, string> = {
-  momo: 'MoMo',
-  zalopay: 'ZaloPay',
-  card: 'thẻ',
-  bank_transfer: 'chuyển khoản ngân hàng',
-};
 
 function formatVND(amount: number): string {
   return (
@@ -67,14 +62,29 @@ export default async function ResultPage({ params, searchParams }: ResultPagePro
   const sp = await searchParams;
   const refreshCount = Math.min(parseInt(sp.r ?? '0', 10) || 0, MAX_AUTO_REFRESH);
 
+  const t = await getTranslations('booking');
+  const locale = await getLocale();
+  // Meta-refresh + manual reload must keep the active locale prefix (vi = unprefixed).
+  const localePrefix = locale === routing.defaultLocale ? '' : `/${locale}`;
+
   const isPending = booking.status === 'awaiting_payment';
   const isPaid = booking.status === 'paid' || booking.status === 'completed';
   const isFailed = booking.status === 'payment_failed_expired';
-  const gatewayLabel = GATEWAY_LABEL[booking.paymentMethod] ?? 'trực tuyến';
+  // momo/zalopay are brand names (kept); card/bank_transfer/other are localized.
+  const gatewayLabel =
+    booking.paymentMethod === 'momo'
+      ? 'MoMo'
+      : booking.paymentMethod === 'zalopay'
+        ? 'ZaloPay'
+        : booking.paymentMethod === 'card'
+          ? t('result.gatewayCard')
+          : booking.paymentMethod === 'bank_transfer'
+            ? t('result.gatewayBank')
+            : t('result.gatewayOnline');
 
   const nextRefreshCount = refreshCount + 1;
   const shouldAutoRefresh = isPending && refreshCount < MAX_AUTO_REFRESH;
-  const refreshUrl = `/booking/result/${token}?r=${nextRefreshCount}`;
+  const refreshUrl = `${localePrefix}/booking/result/${token}?r=${nextRefreshCount}`;
 
   return (
     <>
@@ -100,15 +110,15 @@ export default async function ResultPage({ params, searchParams }: ResultPagePro
           </span>
           <h1 className="text-2xl font-bold">
             {isPaid
-              ? 'Thanh toán thành công'
+              ? t('result.paidTitle')
               : isPending
-                ? 'Đang xử lý thanh toán'
+                ? t('result.pendingTitle')
                 : isFailed
-                  ? 'Thanh toán thất bại'
-                  : 'Kết quả đặt vé'}
+                  ? t('paymentStatus.errorTitle')
+                  : t('result.genericTitle')}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Mã đặt chỗ: <span className="font-mono font-semibold text-foreground">{booking.bookingRef}</span>
+            {t('result.bookingRefLabel')} <span className="font-mono font-semibold text-foreground">{booking.bookingRef}</span>
           </p>
         </header>
 
@@ -116,28 +126,28 @@ export default async function ResultPage({ params, searchParams }: ResultPagePro
         {isPending && (
           <div className="flex flex-col gap-2 rounded-xl border border-warning-border bg-warning p-4">
             <h2 className="text-base font-semibold text-warning-foreground">
-              Đang chờ xác nhận thanh toán {gatewayLabel}
+              {t('result.awaitingGateway', { gateway: gatewayLabel })}
             </h2>
             <p className="text-sm text-warning-foreground">
               {booking.paymentMethod === 'bank_transfer'
-                ? 'Chúng tôi đang chờ ngân hàng xác nhận chuyển khoản của bạn.'
-                : `Vui lòng hoàn tất thanh toán ${gatewayLabel}.`}{' '}
-              Trang này tự động cập nhật sau 5 giây.
+                ? t('result.awaitingBank')
+                : t('result.completePayment', { gateway: gatewayLabel })}{' '}
+              {t('result.autoRefresh')}
             </p>
             {refreshCount >= MAX_AUTO_REFRESH && (
               <div className="flex flex-col gap-2">
                 <p className="text-sm font-medium text-warning-foreground">
-                  Trang đã dừng tự động làm mới.{' '}
-                  <a href={`/booking/result/${token}`} className="underline">
-                    Tải lại trang
+                  {t('result.stoppedRefresh')}{' '}
+                  <a href={`${localePrefix}/booking/result/${token}`} className="underline">
+                    {t('result.reloadPage')}
                   </a>{' '}
-                  để kiểm tra trạng thái.
+                  {t('result.toCheckStatus')}
                 </p>
                 <Link
                   href="/lien-he-dat-xe"
                   className={buttonVariants({ variant: 'outline', size: 'sm' }) + ' self-start'}
                 >
-                  Liên hệ hỗ trợ
+                  {t('page.contactSupport')}
                 </Link>
               </div>
             )}
@@ -148,13 +158,13 @@ export default async function ResultPage({ params, searchParams }: ResultPagePro
         {isPaid && (
           <div className="flex flex-col gap-3 rounded-xl border border-success-border bg-success p-4">
             <p className="text-sm text-success-foreground">
-              Cảm ơn bạn đã đặt vé qua BBVN. Vui lòng xem thông tin xác nhận để biết chi tiết chuyến đi.
+              {t('result.thanks')}
             </p>
             <Link
               href={`/booking/confirmation/${token}`}
               className={buttonVariants({ variant: 'default', size: 'default' }) + ' self-start'}
             >
-              Xem thông tin đặt vé
+              {t('result.viewBooking')}
             </Link>
           </div>
         )}
@@ -163,10 +173,10 @@ export default async function ResultPage({ params, searchParams }: ResultPagePro
         {isFailed && (
           <div className="flex flex-col gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-4">
             <p className="text-sm text-destructive">
-              Giao dịch {gatewayLabel} của bạn chưa hoàn tất hoặc đã bị hủy. Vui lòng thử lại với chuyến xe khác.
+              {t('result.failedGateway', { gateway: gatewayLabel })}
             </p>
             <Link href="/" className={buttonVariants({ variant: 'default', size: 'default' }) + ' self-start'}>
-              Tìm chuyến khác
+              {t('transfer.findOther')}
             </Link>
           </div>
         )}
@@ -175,13 +185,13 @@ export default async function ResultPage({ params, searchParams }: ResultPagePro
         {!isPending && !isPaid && !isFailed && (
           <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted p-4">
             <p className="text-sm text-muted-foreground">
-              Đặt vé của bạn đang được xử lý. Vui lòng liên hệ hỗ trợ nếu cần trợ giúp.
+              {t('result.processing')}
             </p>
             <Link
               href="/lien-he-dat-xe"
               className={buttonVariants({ variant: 'outline', size: 'default' }) + ' self-start'}
             >
-              Liên hệ hỗ trợ
+              {t('page.contactSupport')}
             </Link>
           </div>
         )}
@@ -189,22 +199,22 @@ export default async function ResultPage({ params, searchParams }: ResultPagePro
         {/* Booking summary */}
         <Card>
           <CardHeader>
-            <CardTitle as="h2">Thông tin đặt vé</CardTitle>
+            <CardTitle as="h2">{t('confirm.bookingInfo')}</CardTitle>
           </CardHeader>
           <CardContent>
             <dl className="flex flex-col gap-2.5 text-sm">
               <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">Tuyến</dt>
+                <dt className="text-muted-foreground">{t('result.route')}</dt>
                 <dd className="text-right">
                   {booking.trip.route.origin} → {booking.trip.route.destination}
                 </dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-muted-foreground">Số vé</dt>
+                <dt className="text-muted-foreground">{t('confirm.ticketCount')}</dt>
                 <dd>{booking.ticketCount}</dd>
               </div>
               <div className="mt-1 flex items-center justify-between border-t border-border pt-3 text-lg font-semibold">
-                <dt>Tổng cộng</dt>
+                <dt>{t('summary.total')}</dt>
                 <dd className="font-mono text-primary">{formatVND(booking.totalVnd)}</dd>
               </div>
             </dl>

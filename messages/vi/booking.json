@@ -139,5 +139,41 @@
     "vnpayCode": "Mã phản hồi VNPay: {code}",
     "checkStatus": "Kiểm tra trạng thái đặt vé",
     "goHome": "Về trang chủ"
+  },
+  "confirm": {
+    "success": "Đặt vé thành công",
+    "bookingRefLabel": "Mã đặt vé",
+    "addToCalendar": "Thêm vào lịch",
+    "bookingInfo": "Thông tin đặt vé",
+    "passenger": "Hành khách",
+    "ticketCount": "Số vé",
+    "licensePlate": "Biển số xe",
+    "operatorHotline": "Hotline nhà xe",
+    "receiptQrAlt": "QR biên nhận",
+    "scanReceipt": "Quét mã để xem biên nhận & trạng thái vé",
+    "changePickup": "Cần đổi điểm đón? Vui lòng liên hệ nhà xe",
+    "icsSummary": "Chuyến xe {origin} → {destination}",
+    "icsDesc": "Mã đặt vé {ref}"
+  },
+  "result": {
+    "paidTitle": "Thanh toán thành công",
+    "pendingTitle": "Đang xử lý thanh toán",
+    "genericTitle": "Kết quả đặt vé",
+    "bookingRefLabel": "Mã đặt chỗ:",
+    "awaitingGateway": "Đang chờ xác nhận thanh toán {gateway}",
+    "awaitingBank": "Chúng tôi đang chờ ngân hàng xác nhận chuyển khoản của bạn.",
+    "completePayment": "Vui lòng hoàn tất thanh toán {gateway}.",
+    "autoRefresh": "Trang này tự động cập nhật sau 5 giây.",
+    "stoppedRefresh": "Trang đã dừng tự động làm mới.",
+    "reloadPage": "Tải lại trang",
+    "toCheckStatus": "để kiểm tra trạng thái.",
+    "thanks": "Cảm ơn bạn đã đặt vé qua BBVN. Vui lòng xem thông tin xác nhận để biết chi tiết chuyến đi.",
+    "viewBooking": "Xem thông tin đặt vé",
+    "failedGateway": "Giao dịch {gateway} của bạn chưa hoàn tất hoặc đã bị hủy. Vui lòng thử lại với chuyến xe khác.",
+    "processing": "Đặt vé của bạn đang được xử lý. Vui lòng liên hệ hỗ trợ nếu cần trợ giúp.",
+    "route": "Tuyến",
+    "gatewayCard": "thẻ",
+    "gatewayBank": "chuyển khoản ngân hàng",
+    "gatewayOnline": "trực tuyến"
   }
 }
