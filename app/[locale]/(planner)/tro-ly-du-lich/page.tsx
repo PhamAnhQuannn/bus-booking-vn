@@ -14,6 +14,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocale } from 'next-intl';
 import dynamic from 'next/dynamic';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
 import { useAuthStatus } from '@/lib/auth/clientSession';
@@ -79,6 +80,7 @@ function fromStored(list: StoredMsg[]): Msg[] {
 
 export default function TroLyDuLichPage() {
   const authStatus = useAuthStatus();
+  const locale = useLocale(); // P3b: forwarded to /api/planner/chat so Gemini replies in the UI language
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -284,7 +286,7 @@ export default function TroLyDuLichPage() {
       const res = await fetch('/api/planner/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': readCsrfToken() },
-        body: JSON.stringify({ history }),
+        body: JSON.stringify({ history, locale }),
       });
       if (!res.ok || !res.body) {
         patchBot((m) => ({ ...m, text: m.text || 'Trợ lý đang bận, thử lại giúp mình nhé.', error: true }));
