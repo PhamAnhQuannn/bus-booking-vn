@@ -10,10 +10,11 @@
  */
 
 import { useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Send } from 'lucide-react';
 import { z } from 'zod';
 
+import { useRouter } from '@/i18n/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,22 +22,22 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { cn } from '@/lib/utils';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
 
-// Audit F19: presence-first Vietnamese messages, same pattern as CustomerForm's
-// clientSchema (F8) — replaces the native HTML5 `required` bubbles (English,
-// off-brand) with the site's own inline error voice.
-const contactSchema = z.object({
-  name: z.string().trim().min(1, 'Vui lòng nhập họ tên'),
-  phone: z.string().trim().min(1, 'Vui lòng nhập số điện thoại'),
-  email: z.string().trim().min(1, 'Vui lòng nhập email').email('Email không hợp lệ'),
-  origin: z.string().trim().min(1, 'Vui lòng nhập điểm đón'),
-  destination: z.string().trim().min(1, 'Vui lòng nhập điểm đến'),
-  departureDate: z.string().trim().min(1, 'Vui lòng chọn ngày khởi hành'),
-  people: z.string().trim().min(1, 'Vui lòng nhập số người'),
-  vehicle: z.string().trim().min(1, 'Vui lòng chọn loại xe'),
-});
-
 export function ContactBookingForm() {
   const router = useRouter();
+  const t = useTranslations('charter');
+  // Audit F19: presence-first inline messages (localized VI/EN) — replaces the native
+  // HTML5 `required` bubbles with the site's own inline error voice. Built per render
+  // so the messages track the active locale.
+  const contactSchema = z.object({
+    name: z.string().trim().min(1, t('validation.reqName')),
+    phone: z.string().trim().min(1, t('validation.reqPhone')),
+    email: z.string().trim().min(1, t('validation.reqEmail')).email(t('validation.invalidEmail')),
+    origin: z.string().trim().min(1, t('validation.reqOrigin')),
+    destination: z.string().trim().min(1, t('validation.reqDestination')),
+    departureDate: z.string().trim().min(1, t('validation.reqDate')),
+    people: z.string().trim().min(1, t('validation.reqPeople')),
+    vehicle: z.string().trim().min(1, t('validation.reqVehicle')),
+  });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -96,7 +97,7 @@ export function ContactBookingForm() {
     const destination = str('destination');
     const passengers = num('people');
     if (passengers === null) {
-      setError('Vui lòng nhập số người.');
+      setError(t('validation.reqPeopleNum'));
       inflightRef.current = false;
       setSubmitting(false);
       return;
@@ -140,72 +141,72 @@ export function ContactBookingForm() {
         return;
       }
       if (res.status === 429) {
-        setError('Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau.');
+        setError(t('errors.rateLimit'));
       } else {
-        setError('Gửi yêu cầu thất bại. Vui lòng kiểm tra lại thông tin.');
+        setError(t('errors.submitFailed'));
       }
       inflightRef.current = false;
       setSubmitting(false);
     } catch {
-      setError('Có lỗi kết nối. Vui lòng thử lại.');
+      setError(t('errors.connError'));
       inflightRef.current = false;
       setSubmitting(false);
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5" aria-label="Liên hệ đặt xe">
+    <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5" aria-label={t('form.aria')}>
       {/* Honeypot: visually hidden, off the tab order, never read by humans. */}
       <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
-        <label htmlFor="company">Công ty</label>
+        <label htmlFor="company">{t('form.honeypotCompany')}</label>
         <input id="company" name="company" type="text" tabIndex={-1} autoComplete="off" />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="name">
-            Họ và tên <span aria-hidden="true" className="text-destructive">*</span>
+            {t('form.name')} <span aria-hidden="true" className="text-destructive">*</span>
           </Label>
-          <Input id="name" name="name" required placeholder="Nguyễn Văn A" autoComplete="name" aria-describedby={fieldErrors.name ? 'name-error' : undefined} />
+          <Input id="name" name="name" required placeholder={t('form.namePlaceholder')} autoComplete="name" aria-describedby={fieldErrors.name ? 'name-error' : undefined} />
           {fieldErrors.name && <p id="name-error" className="text-destructive text-sm mt-1">{fieldErrors.name}</p>}
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="phone">
-            Số điện thoại <span aria-hidden="true" className="text-destructive">*</span>
+            {t('form.phone')} <span aria-hidden="true" className="text-destructive">*</span>
           </Label>
-          <Input id="phone" name="phone" type="tel" required placeholder="0901234567" autoComplete="tel" aria-describedby={fieldErrors.phone ? 'phone-error' : undefined} />
+          <Input id="phone" name="phone" type="tel" required placeholder={t('form.phonePlaceholder')} autoComplete="tel" aria-describedby={fieldErrors.phone ? 'phone-error' : undefined} />
           {fieldErrors.phone && <p id="phone-error" className="text-destructive text-sm mt-1">{fieldErrors.phone}</p>}
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="email">
-            Email <span aria-hidden="true" className="text-destructive">*</span>
+            {t('form.email')} <span aria-hidden="true" className="text-destructive">*</span>
           </Label>
-          <Input id="email" name="email" type="email" required placeholder="ban@email.com" autoComplete="email" aria-describedby={fieldErrors.email ? 'email-error' : undefined} />
+          <Input id="email" name="email" type="email" required placeholder={t('form.emailPlaceholder')} autoComplete="email" aria-describedby={fieldErrors.email ? 'email-error' : undefined} />
           {fieldErrors.email && <p id="email-error" className="text-destructive text-sm mt-1">{fieldErrors.email}</p>}
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="origin">
-            Điểm đón <span aria-hidden="true" className="text-destructive">*</span>
+            {t('form.origin')} <span aria-hidden="true" className="text-destructive">*</span>
           </Label>
-          <Input id="origin" name="origin" required placeholder="vd: Thanh Hoá" aria-describedby={fieldErrors.origin ? 'origin-error' : undefined} />
+          <Input id="origin" name="origin" required placeholder={t('form.originPlaceholder')} aria-describedby={fieldErrors.origin ? 'origin-error' : undefined} />
           {fieldErrors.origin && <p id="origin-error" className="text-destructive text-sm mt-1">{fieldErrors.origin}</p>}
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="destination">
-            Điểm đến <span aria-hidden="true" className="text-destructive">*</span>
+            {t('form.destination')} <span aria-hidden="true" className="text-destructive">*</span>
           </Label>
-          <Input id="destination" name="destination" required placeholder="vd: Sầm Sơn, Pù Luông…" aria-describedby={fieldErrors.destination ? 'destination-error' : undefined} />
+          <Input id="destination" name="destination" required placeholder={t('form.destinationPlaceholder')} aria-describedby={fieldErrors.destination ? 'destination-error' : undefined} />
           {fieldErrors.destination && <p id="destination-error" className="text-destructive text-sm mt-1">{fieldErrors.destination}</p>}
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="departureDate">
-            Ngày khởi hành <span aria-hidden="true" className="text-destructive">*</span>
+            {t('form.departureDate')} <span aria-hidden="true" className="text-destructive">*</span>
           </Label>
           <DatePicker
             id="departureDate"
             name="departureDate"
             min={todayVN}
-            placeholder="Chọn ngày đi"
+            placeholder={t('form.datePlaceholder')}
             aria-invalid={fieldErrors.departureDate ? true : undefined}
           />
           {fieldErrors.departureDate && (
@@ -213,25 +214,25 @@ export function ContactBookingForm() {
           )}
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="days">Số ngày (tuỳ chọn)</Label>
-          <Input id="days" name="days" type="number" min={1} max={60} placeholder="vd: 2" />
+          <Label htmlFor="days">{t('form.days')}</Label>
+          <Input id="days" name="days" type="number" min={1} max={60} placeholder={t('form.daysPlaceholder')} />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="people">
-            Số người <span aria-hidden="true" className="text-destructive">*</span>
+            {t('form.people')} <span aria-hidden="true" className="text-destructive">*</span>
           </Label>
-          <Input id="people" name="people" type="number" min={1} max={100} required placeholder="vd: 16" aria-describedby={fieldErrors.people ? 'people-error' : undefined} />
+          <Input id="people" name="people" type="number" min={1} max={100} required placeholder={t('form.peoplePlaceholder')} aria-describedby={fieldErrors.people ? 'people-error' : undefined} />
           {fieldErrors.people && <p id="people-error" className="text-destructive text-sm mt-1">{fieldErrors.people}</p>}
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="vehicle">
-            Loại xe mong muốn <span aria-hidden="true" className="text-destructive">*</span>
+            {t('form.vehicle')} <span aria-hidden="true" className="text-destructive">*</span>
           </Label>
           <Input
             id="vehicle"
             name="vehicle"
             required
-            placeholder="vd: 16 chỗ, Limousine, giường nằm"
+            placeholder={t('form.vehiclePlaceholder')}
             aria-describedby={fieldErrors.vehicle ? 'vehicle-error' : undefined}
           />
           {fieldErrors.vehicle && <p id="vehicle-error" className="text-destructive text-sm mt-1">{fieldErrors.vehicle}</p>}
@@ -239,12 +240,12 @@ export function ContactBookingForm() {
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="notes">Ghi chú (tuỳ chọn)</Label>
+        <Label htmlFor="notes">{t('form.notes')}</Label>
         <textarea
           id="notes"
           name="notes"
           rows={4}
-          placeholder="Lịch trình, điểm đón, yêu cầu thêm…"
+          placeholder={t('form.notesPlaceholder')}
           className={cn(
             'min-h-24 w-full resize-y rounded-lg border border-input bg-transparent px-3 py-2 text-base outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm'
           )}
@@ -264,7 +265,7 @@ export function ContactBookingForm() {
         className="w-full gap-2 bg-primary-strong hover:bg-primary-strong/90 sm:w-auto sm:self-start"
       >
         <Send className="size-4" aria-hidden="true" />
-        {submitting ? 'Đang gửi…' : 'Gửi yêu cầu'}
+        {submitting ? t('form.submitting') : t('form.submit')}
       </Button>
     </form>
   );

@@ -9,9 +9,10 @@
  */
 
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { CheckCircle2 } from 'lucide-react';
 
+import { Link } from '@/i18n/navigation';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -30,6 +31,7 @@ export default async function CharterConfirmationPage({ searchParams }: Confirma
   const { ref: rawRef } = await searchParams;
   // Only trust a well-formed ref from the query string (display-only).
   const ref = rawRef && REF_RE.test(rawRef) ? rawRef : null;
+  const t = await getTranslations('charter');
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-12">
@@ -38,15 +40,15 @@ export default async function CharterConfirmationPage({ searchParams }: Confirma
           <CheckCircle2 className="size-8" aria-hidden="true" />
         </span>
         <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-bold">Đã nhận yêu cầu</h1>
+          <h1 className="text-xl font-bold">{t('confirm.title')}</h1>
           <p className="text-sm text-muted-foreground">
-            Chúng tôi sẽ liên hệ với bạn sớm để tư vấn lịch trình và báo giá.
+            {t('confirm.desc')}
           </p>
         </div>
 
         {ref && (
           <div className="flex flex-col items-center gap-1 rounded-xl border border-dashed border-primary/40 bg-primary/5 px-4 py-3">
-            <span className="text-xs uppercase tracking-wide text-muted-foreground">Mã yêu cầu</span>
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">{t('confirm.refLabel')}</span>
             <span className="font-mono text-2xl font-bold tracking-widest text-primary">{ref}</span>
           </div>
         )}
@@ -57,11 +59,11 @@ export default async function CharterConfirmationPage({ searchParams }: Confirma
               href={`/charter/status/${encodeURIComponent(ref)}`}
               className={cn(buttonVariants({}), 'bg-primary-strong hover:bg-primary-strong/90')}
             >
-              Theo dõi trạng thái
+              {t('confirm.trackStatus')}
             </Link>
           )}
           <Link href="/" className={buttonVariants({ variant: 'outline' })}>
-            Về trang chủ
+            {t('confirm.goHome')}
           </Link>
         </div>
       </div>

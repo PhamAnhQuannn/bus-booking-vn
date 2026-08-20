@@ -21,11 +21,12 @@
  */
 
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { getTranslations } from 'next-intl/server';
 import { CalendarDays, MapPin, Phone, Users } from 'lucide-react';
 import type { CharterStatus } from '@prisma/client';
 
+import { Link } from '@/i18n/navigation';
 import { prisma } from '@/lib/core/db/client';
 import { getCharterByRef, CUSTOMER_CANCELLABLE_STATUSES } from '@/lib/charter';
 import { Badge } from '@/components/ui/badge';
@@ -44,17 +45,18 @@ interface StatusPageProps {
 
 type Tone = 'pending' | 'success' | 'neutral' | 'danger';
 
-const STATUS_LABEL: Record<CharterStatus, string> = {
-  SUBMITTED: 'Đang tìm nhà xe',
-  ADMIN_REVIEW: 'Đang tìm nhà xe',
-  ASSIGNED_DIRECT: 'Đang tìm nhà xe',
-  PUBLISHED: 'Đang tìm nhà xe',
-  ACCEPTED: 'Đã ghép nhà xe',
-  COMPLETED: 'Hoàn tất',
-  CANCELLED: 'Đã hủy',
-  REJECTED: 'Không thể xử lý',
-  EXPIRED: 'Không thể xử lý',
-  DECLINED: 'Đang tìm nhà xe',
+// Customer-facing status → catalog key (localized VI/EN via charter.status.*).
+const STATUS_KEY: Record<CharterStatus, string> = {
+  SUBMITTED: 'status.finding',
+  ADMIN_REVIEW: 'status.finding',
+  ASSIGNED_DIRECT: 'status.finding',
+  PUBLISHED: 'status.finding',
+  ACCEPTED: 'status.matched',
+  COMPLETED: 'status.done',
+  CANCELLED: 'status.cancelled',
+  REJECTED: 'status.unprocessable',
+  EXPIRED: 'status.unprocessable',
+  DECLINED: 'status.finding',
 };
 
 const STATUS_TONE: Record<CharterStatus, Tone> = {
@@ -89,32 +91,33 @@ export default async function CharterStatusPage({ params }: StatusPageProps) {
 
   const cancellable = CUSTOMER_CANCELLABLE_STATUSES.has(charter.status);
   const route = [charter.originName, ...charter.destinations].filter(Boolean).join(' → ');
+  const t = await getTranslations('charter');
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-8">
       <header className="flex flex-col items-center gap-3 text-center">
         <div className="flex flex-col items-center gap-1 rounded-xl border border-dashed border-primary/40 bg-primary/5 px-4 py-3">
-          <span className="text-xs uppercase tracking-wide text-muted-foreground">Mã yêu cầu</span>
+          <span className="text-xs uppercase tracking-wide text-muted-foreground">{t('status.refLabel')}</span>
           <span className="font-mono text-2xl font-bold tracking-widest text-primary">{charter.ref}</span>
         </div>
-        <Badge variant={STATUS_TONE[charter.status]}>{STATUS_LABEL[charter.status]}</Badge>
+        <Badge variant={STATUS_TONE[charter.status]}>{t(STATUS_KEY[charter.status])}</Badge>
       </header>
 
       {charter.status === 'ACCEPTED' && charter.operator && (
         <Card>
           <CardHeader>
-            <CardTitle as="h2">Nhà xe phụ trách</CardTitle>
+            <CardTitle as="h2">{t('status.operatorCardTitle')}</CardTitle>
           </CardHeader>
           <CardContent>
             <dl className="flex flex-col gap-2.5 text-sm">
               <div className="flex justify-between">
-                <dt className="text-muted-foreground">Nhà xe</dt>
+                <dt className="text-muted-foreground">{t('status.operatorLabel')}</dt>
                 <dd className="font-medium">{charter.operator.legalName}</dd>
               </div>
               <div className="flex items-center justify-between">
                 <dt className="inline-flex items-center gap-2 text-muted-foreground">
                   <Phone className="size-4" aria-hidden="true" />
-                  Hotline
+                  {t('status.hotline')}
                 </dt>
                 <dd className="text-right">
                   <a href={`tel:${charter.operator.contactPhone}`} className="font-mono text-primary hover:underline">
@@ -129,40 +132,40 @@ export default async function CharterStatusPage({ params }: StatusPageProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle as="h2">Thông tin yêu cầu</CardTitle>
+          <CardTitle as="h2">{t('status.requestInfoTitle')}</CardTitle>
         </CardHeader>
         <CardContent>
           <dl className="flex flex-col gap-2.5 text-sm">
             <div className="flex items-start justify-between gap-4">
               <dt className="inline-flex items-center gap-2 text-muted-foreground">
                 <MapPin className="size-4" aria-hidden="true" />
-                Hành trình
+                {t('status.journey')}
               </dt>
               <dd className="text-right font-medium">{route || '—'}</dd>
             </div>
             <div className="flex items-center justify-between">
               <dt className="inline-flex items-center gap-2 text-muted-foreground">
                 <CalendarDays className="size-4" aria-hidden="true" />
-                Ngày đi
+                {t('status.departDate')}
               </dt>
               <dd>
                 {formatDate(charter.startDate)}
-                {charter.durationDays ? ` · ${charter.durationDays} ngày` : ''}
+                {charter.durationDays ? ` · ${t('status.durationDays', { days: charter.durationDays })}` : ''}
               </dd>
             </div>
             <div className="flex items-center justify-between">
               <dt className="inline-flex items-center gap-2 text-muted-foreground">
                 <Users className="size-4" aria-hidden="true" />
-                Số người
+                {t('status.people')}
               </dt>
               <dd>{charter.passengers}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-muted-foreground">Loại xe</dt>
+              <dt className="text-muted-foreground">{t('status.vehicleType')}</dt>
               <dd>{charter.vehicleType}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-muted-foreground">Liên hệ</dt>
+              <dt className="text-muted-foreground">{t('status.contact')}</dt>
               <dd className="font-mono">{charter.contactPhone}</dd>
             </div>
           </dl>
@@ -172,7 +175,7 @@ export default async function CharterStatusPage({ params }: StatusPageProps) {
       {cancellable ? (
         <div className="flex flex-col gap-2">
           <p className="text-sm text-muted-foreground">
-            Bạn có thể hủy yêu cầu trong khi chúng tôi đang tìm nhà xe phù hợp.
+            {t('status.cancellableNote')}
           </p>
           <CancelCharterButton charterRef={charter.ref} />
         </div>
@@ -181,13 +184,13 @@ export default async function CharterStatusPage({ params }: StatusPageProps) {
         // give a forward action instead of a dead-end.
         <div className="flex flex-col gap-2 sm:flex-row">
           <Link href="/" className={buttonVariants({ variant: 'default', className: 'flex-1' })}>
-            Về trang chủ
+            {t('status.goHome')}
           </Link>
           <Link
             href="/lien-he-dat-xe"
             className={buttonVariants({ variant: 'outline', className: 'flex-1' })}
           >
-            Đặt chuyến khác
+            {t('status.bookAnother')}
           </Link>
         </div>
       )}
