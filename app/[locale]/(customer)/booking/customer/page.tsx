@@ -11,13 +11,13 @@
  */
 
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { redirect, notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
+import { getTranslations } from 'next-intl/server';
+import { Link } from '@/i18n/navigation';
 import { getTripDetails } from '@/lib/trips';
 import { getBookingByRef, getBookingByConfirmationToken } from '@/lib/booking';
 import { getEnv } from '@/lib/config';
 import { PSP_WINDOW_MINUTES } from '@/lib/core/db/pspWindow';
-import { BUS_TYPE_LABEL } from '@/components/search/search-utils';
 import { BookingSteps } from '@/components/booking/BookingSteps';
 import { BookingSummaryRail } from '@/components/booking/BookingSummaryRail';
 import { CheckoutTrustBadges } from '@/components/booking/CheckoutTrustBadges';
@@ -52,24 +52,27 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
   // Form mode.
   const tripId = sp.tripId;
   const ticketCount = Math.max(1, Number(sp.ticketCount) || 1);
+  // Guard redirects go to the customer home. next/navigation redirect() returns `never`
+  // (narrows tripId/trip below); an error-path drop to the vi home is acceptable.
   if (!tripId) redirect('/');
 
   const trip = await getTripDetails(tripId);
   if (!trip) redirect('/');
 
+  const [tb, ts] = await Promise.all([getTranslations('booking'), getTranslations('search')]);
   const boardingPoint = sp.boardingPoint ?? null;
   const boardingTime = sp.boardingTime ?? null;
   const total = trip.price * ticketCount;
   const env = getEnv();
-  const vehicleLabel = `${BUS_TYPE_LABEL[trip.busType]} ${trip.capacity} chỗ`;
+  const vehicleLabel = `${ts(`busType.${trip.busType}`)} ${trip.capacity} ${tb('page.seats')}`;
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8">
       <BookingSteps current={2} />
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold">Xác nhận thông tin &amp; thanh toán</h1>
+        <h1 className="text-2xl font-bold">{tb('page.title')}</h1>
         <p className="text-sm text-muted-foreground">
-          Vui lòng kiểm tra thông tin và hoàn tất thanh toán để giữ chỗ
+          {tb('page.subtitle')}
         </p>
       </div>
 
@@ -138,6 +141,7 @@ async function PaymentModeView({
   const fullBooking = await getBookingByConfirmationToken(booking.confirmationToken);
   if (!fullBooking) notFound();
 
+  const tb = await getTranslations('booking');
   const env = getEnv();
   const amount = fullBooking.totalVnd;
   const qrUrl = `https://img.vietqr.io/image/${env.VIETQR_BANK_BIN}-${env.VIETQR_ACCOUNT_NUMBER}-${env.VIETQR_TEMPLATE}.png?amount=${amount}&addInfo=${encodeURIComponent(bookingRef)}`;
@@ -152,9 +156,9 @@ async function PaymentModeView({
       <div className="flex flex-col gap-6">
         <BookingSteps current={2} />
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-bold">Thanh toán chuyển khoản</h1>
+          <h1 className="text-2xl font-bold">{tb('page.paymentTitle')}</h1>
           <p className="text-sm text-muted-foreground">
-            Quét mã QR hoặc chuyển khoản thủ công theo thông tin bên dưới
+            {tb('page.paymentSubtitle')}
           </p>
         </div>
 
@@ -176,9 +180,9 @@ async function PaymentModeView({
         />
 
         <p className="text-center text-sm text-muted-foreground">
-          Đã chuyển khoản mà chưa thấy cập nhật?{' '}
+          {tb('page.notUpdated')}{' '}
           <Link href="/lien-he-dat-xe" className="font-medium text-primary underline">
-            Liên hệ hỗ trợ
+            {tb('page.contactSupport')}
           </Link>
         </p>
       </div>

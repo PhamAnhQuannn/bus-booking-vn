@@ -24,6 +24,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Loader2 } from 'lucide-react';
 import { createHoldRequest } from '@/lib/api';
 import { customerFormSchema } from '@/lib/booking/customerFormSchema';
@@ -42,21 +43,9 @@ import { cn } from '@/lib/utils';
 
 const PHONE_STORAGE_KEY = 'busbooking_last_phone';
 
-// Initiate error-code → VN copy (lifted from the former ReviewClient).
-const ERROR_LABEL: Record<string, string> = {
-  HOLD_EXPIRED: 'Hết thời gian giữ chỗ. Vui lòng đặt lại.',
-  TRIP_DEPARTED: 'Chuyến đã khởi hành. Vui lòng chọn chuyến khác.',
-  OPERATOR_NOT_BOOKABLE: 'Nhà xe tạm ngừng bán vé chuyến này. Vui lòng chọn chuyến khác.',
-  NOT_FOUND: 'Không tìm thấy giữ chỗ. Vui lòng đặt lại.',
-  FORBIDDEN: 'Phiên giữ chỗ không hợp lệ. Vui lòng đặt lại.',
-  INVALID: 'Yêu cầu không hợp lệ.',
-  TOO_MANY_REQUESTS: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.',
-  UNAVAILABLE: 'Hệ thống tạm thời bận. Vui lòng thử lại.',
-  GATEWAY_ERROR: 'Cổng thanh toán gặp lỗi. Vui lòng thử lại.',
-  consent_required: 'Vui lòng đồng ý cả hai điều khoản trước khi thanh toán.',
-};
-
 // Hold-creation error copy (lifted from the former CustomerForm alert blocks).
+// Display strings resolve from the `booking.hold.*` / `booking.error.*` catalog at
+// render (localized VI/EN); see errorLabel()/holdAlertText() inside the component.
 type HoldAlert =
   | { kind: 'sold_out' }
   | { kind: 'rate_limited'; retryAfter: number }
@@ -64,17 +53,6 @@ type HoldAlert =
   | { kind: 'seat_map_busy' }
   | { kind: 'request_in_flight' }
   | { kind: 'error'; message: string };
-
-const HOLD_ALERT_TEXT: Record<HoldAlert['kind'], (a: HoldAlert) => string> = {
-  sold_out: () => 'Chuyến xe này đã hết chỗ. Vui lòng chọn chuyến khác.',
-  rate_limited: (a) =>
-    `Quá nhiều yêu cầu. Vui lòng thử lại sau ${a.kind === 'rate_limited' ? a.retryAfter : 60} giây.`,
-  seat_map_busy: () => 'Chuyến này đang có nhiều người đặt cùng lúc. Vui lòng thử lại.',
-  request_in_flight: () => 'Yêu cầu trước của bạn đang được xử lý. Vui lòng đợi giây lát rồi thử lại.',
-  hold_cap: () =>
-    'Bạn đang giữ nhiều chỗ cùng lúc. Vui lòng hoàn tất thanh toán cho các chỗ đã giữ, hoặc đợi chúng hết hạn rồi thử lại.',
-  error: (a) => (a.kind === 'error' ? a.message : 'Có lỗi xảy ra. Vui lòng thử lại.'),
-};
 
 interface RevealedPayment {
   bookingRef: string;
@@ -118,6 +96,18 @@ export function CheckoutClient({
   vietqr,
 }: CheckoutClientProps) {
   const router = useRouter();
+  const t = useTranslations('booking');
+
+  // Initiate error-code → localized copy. Unknown codes fall back to UNAVAILABLE.
+  const errorLabel = (code: string): string =>
+    t.has(`error.${code}`) ? t(`error.${code}`) : t('error.UNAVAILABLE');
+  // Hold-creation alert → localized copy (rate_limited carries a {seconds} param; the
+  // 'error' kind carries a pre-resolved message).
+  const holdAlertText = (a: HoldAlert): string => {
+    if (a.kind === 'rate_limited') return t('hold.rate_limited', { seconds: a.retryAfter });
+    if (a.kind === 'error') return a.message;
+    return t(`hold.${a.kind}`);
+  };
 
   const [buyerName, setBuyerName] = useState('');
   const [buyerPhone, setBuyerPhone] = useState('');
@@ -240,7 +230,7 @@ export function CheckoutClient({
         case 'REQUEST_IN_FLIGHT':
           return setHoldAlert({ kind: 'request_in_flight' });
         default:
-          return setHoldAlert({ kind: 'error', message: 'Có lỗi xảy ra. Vui lòng thử lại.' });
+          return setHoldAlert({ kind: 'error', message: t('error.generic') });
       }
     }
 
@@ -293,10 +283,10 @@ export function CheckoutClient({
       }
 
       const code = typeof data?.error === 'string' ? data.error : 'UNAVAILABLE';
-      setInitiateError(ERROR_LABEL[code] ?? ERROR_LABEL.UNAVAILABLE);
+      setInitiateError(errorLabel(code));
       setSubmitting(false);
     } catch {
-      setInitiateError(ERROR_LABEL.UNAVAILABLE);
+      setInitiateError(t('error.UNAVAILABLE'));
       setSubmitting(false);
     }
   }
@@ -324,14 +314,14 @@ export function CheckoutClient({
       {/* 1. Passenger info */}
       <Card>
         <CardHeader>
-          <CardTitle as="h2">Thông tin hành khách</CardTitle>
+          <CardTitle as="h2">{t('checkout.passengerInfo')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="buyerName" className="mb-1">
-                  Họ và tên <span className="text-destructive">*</span>
+                  {t('checkout.fullName')} <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="buyerName"
@@ -340,7 +330,7 @@ export function CheckoutClient({
                   value={buyerName}
                   onChange={(e) => setBuyerName(e.target.value)}
                   disabled={locked}
-                  placeholder="Nhập họ và tên"
+                  placeholder={t('checkout.fullNamePlaceholder')}
                   aria-describedby={buyerName.trim() && issues.buyerName ? 'buyerName-error' : undefined}
                 />
                 {buyerName.trim() && issues.buyerName && (
@@ -352,7 +342,7 @@ export function CheckoutClient({
 
               <div>
                 <Label htmlFor="buyerPhone" className="mb-1">
-                  Số điện thoại <span className="text-destructive">*</span>
+                  {t('checkout.phone')} <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="buyerPhone"
@@ -361,7 +351,7 @@ export function CheckoutClient({
                   value={buyerPhone}
                   onChange={(e) => setBuyerPhone(e.target.value)}
                   disabled={locked}
-                  placeholder="VD: 0912 345 678"
+                  placeholder={t('checkout.phonePlaceholder')}
                   aria-describedby={buyerPhone.trim() && issues.buyerPhone ? 'buyerPhone-error' : undefined}
                 />
                 {buyerPhone.trim() && issues.buyerPhone && (
@@ -374,7 +364,7 @@ export function CheckoutClient({
 
             <div>
               <Label htmlFor="buyerEmail" className="mb-1">
-                Email <span className="text-destructive">*</span>
+                {t('checkout.email')} <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="buyerEmail"
@@ -404,7 +394,7 @@ export function CheckoutClient({
                   }
                 }}
                 disabled={locked}
-                placeholder="Nhập email để nhận vé"
+                placeholder={t('checkout.emailPlaceholder')}
                 aria-describedby={buyerEmail.trim() && issues.buyerEmail ? 'buyerEmail-error' : undefined}
               />
               {buyerEmail.trim() && issues.buyerEmail && (
@@ -414,7 +404,7 @@ export function CheckoutClient({
               )}
               {emailSuggestion && !locked && (
                 <p className="mt-1 text-sm text-warning-foreground">
-                  Có phải bạn muốn nhập{' '}
+                  {t('checkout.emailSuggestPrefix')}{' '}
                   <button
                     type="button"
                     onClick={() => {
@@ -445,7 +435,7 @@ export function CheckoutClient({
                         }}
                         className="font-semibold underline underline-offset-2"
                       >
-                        Vẫn dùng email này
+                        {t('checkout.emailKeep')}
                       </button>
                     </>
                   )}
@@ -459,17 +449,16 @@ export function CheckoutClient({
                 // results card and submit) — warn instead of showing a pickup that was never
                 // recorded on the ticket.
                 <div className="rounded-lg border border-warning-foreground/30 bg-warning-foreground/5 p-3">
-                  <p className="text-sm font-medium text-warning-foreground">Điểm đón đã thay đổi</p>
+                  <p className="text-sm font-medium text-warning-foreground">{t('checkout.boardingChanged')}</p>
                   <p className="mt-0.5 text-sm text-muted-foreground">
-                    Điểm đón bạn chọn không còn trong lịch của nhà xe. Vé sẽ đón tại bến; vui lòng
-                    liên hệ nhà xe để xác nhận.
+                    {t('checkout.boardingChangedDesc')}
                   </p>
                 </div>
               ) : (
                 // Boarding point chosen on the results card IS the pickup — read-only. After the
                 // hold, this shows the SERVER-resolved value (#526).
                 <div className="rounded-lg border border-border bg-muted/40 p-3">
-                  <p className="text-sm font-medium text-muted-foreground">Điểm đón</p>
+                  <p className="text-sm font-medium text-muted-foreground">{t('checkout.pickup')}</p>
                   <p className="mt-0.5 text-sm font-medium text-foreground">
                     {displayBoardingPoint}
                     {displayBoardingTime ? ` · ${displayBoardingTime}` : ''}
@@ -478,7 +467,7 @@ export function CheckoutClient({
               )
             ) : (
               <fieldset className="flex flex-col gap-2" disabled={locked}>
-                <legend className="mb-1 text-sm font-medium">Điểm đón</legend>
+                <legend className="mb-1 text-sm font-medium">{t('checkout.pickup')}</legend>
                 <div className="flex gap-4">
                   <label className="flex cursor-pointer items-center gap-2">
                     <input
@@ -492,7 +481,7 @@ export function CheckoutClient({
                       }}
                       className="accent-primary"
                     />
-                    <span className="text-sm">Đón tại bến xe</span>
+                    <span className="text-sm">{t('checkout.pickupStation')}</span>
                   </label>
                   <label className="flex cursor-pointer items-center gap-2">
                     <input
@@ -506,13 +495,13 @@ export function CheckoutClient({
                       }}
                       className="accent-primary"
                     />
-                    <span className="text-sm">Đón tận nơi</span>
+                    <span className="text-sm">{t('checkout.pickupCustom')}</span>
                   </label>
                 </div>
                 {pickupKind === 'custom' && (
                   <div className="pt-1">
                     <Label htmlFor="pickupDetail" className="mb-1">
-                      Địa chỉ đón
+                      {t('checkout.pickupAddress')}
                     </Label>
                     <Input
                       ref={customDetailRef}
@@ -520,11 +509,11 @@ export function CheckoutClient({
                       type="text"
                       value={pickupDetail}
                       onChange={(e) => setPickupDetail(e.target.value)}
-                      placeholder="VD: số 12 Lê Lợi, phường X (ít nhất 5 ký tự)"
+                      placeholder={t('checkout.pickupAddressPlaceholder')}
                       data-testid="pickup-custom-detail"
                     />
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Nhà xe sẽ gọi xác nhận địa chỉ đón với bạn.
+                      {t('checkout.pickupAddressHint')}
                     </p>
                   </div>
                 )}
@@ -537,16 +526,16 @@ export function CheckoutClient({
       {/* 2. Consent — right below the info (gated on infoComplete) */}
       <Card className={cn(!infoComplete && 'opacity-60')} aria-disabled={!infoComplete}>
         <CardHeader>
-          <CardTitle as="h2">Điều khoản đặt vé</CardTitle>
+          <CardTitle as="h2">{t('checkout.terms')}</CardTitle>
         </CardHeader>
         <CardContent>
           {!infoComplete && (
             <p className="mb-3 text-sm text-muted-foreground">
-              Vui lòng điền đầy đủ thông tin hành khách hợp lệ để tiếp tục.
+              {t('checkout.termsIncomplete')}
             </p>
           )}
           <fieldset className="flex flex-col gap-3" disabled={!infoComplete || locked}>
-            <legend className="sr-only">Điều khoản đặt vé bắt buộc</legend>
+            <legend className="sr-only">{t('checkout.termsLegend')}</legend>
             <label className="flex cursor-pointer items-start gap-2 text-sm">
               <input
                 type="checkbox"
@@ -562,7 +551,7 @@ export function CheckoutClient({
               <span>
                 {CONSENT_TEXT.noRefund}{' '}
                 <a href="/chinh-sach-huy-ve-hoan-tien" target="_blank" rel="noopener noreferrer" className="text-primary underline">
-                  Xem chi tiết
+                  {t('checkout.viewDetails')}
                 </a>
               </span>
             </label>
@@ -581,7 +570,7 @@ export function CheckoutClient({
               <span>
                 {CONSENT_TEXT.piiStorage}{' '}
                 <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary underline">
-                  Xem chi tiết
+                  {t('checkout.viewDetails')}
                 </a>
               </span>
             </label>
@@ -604,11 +593,11 @@ export function CheckoutClient({
       {/* 4. Payment — VietQR only; QR reveals automatically after consent */}
       <Card className={cn(!infoComplete && 'opacity-60')} aria-disabled={!infoComplete}>
         <CardHeader>
-          <CardTitle as="h2">Phương thức thanh toán</CardTitle>
+          <CardTitle as="h2">{t('checkout.paymentMethod')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm font-medium">
-            Chuyển khoản ngân hàng (VietQR)
+            {t('checkout.bankTransfer')}
           </div>
 
           {revealed ? (
@@ -632,7 +621,7 @@ export function CheckoutClient({
           ) : hasError ? (
             <div className="mt-4 flex flex-col gap-3">
               <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                {initiateError ?? (holdAlert && HOLD_ALERT_TEXT[holdAlert.kind](holdAlert))}
+                {initiateError ?? (holdAlert && holdAlertText(holdAlert))}
               </div>
               <Button
                 type="button"
@@ -640,25 +629,25 @@ export function CheckoutClient({
                 disabled={submitting}
                 className="w-full bg-primary-strong hover:bg-primary-strong/90"
               >
-                {submitting ? 'Đang xử lý...' : 'Thử lại'}
+                {submitting ? t('checkout.processing') : t('checkout.retry')}
               </Button>
             </div>
           ) : submitting ? (
             <div className="mt-4 flex items-center justify-center gap-2 rounded-lg border border-border bg-muted p-4 text-sm text-muted-foreground">
               <Loader2 className="size-4 motion-safe:animate-spin" />
-              Đang tạo mã QR thanh toán...
+              {t('checkout.creatingQr')}
             </div>
           ) : (
             <p className="mt-4 rounded-lg border border-dashed border-border bg-muted/40 p-4 text-center text-sm text-muted-foreground">
               {infoComplete
-                ? 'Đồng ý các điều khoản ở trên để hiển thị mã QR thanh toán.'
-                : 'Điền đầy đủ thông tin để hiển thị mã QR thanh toán.'}
+                ? t('checkout.consentToShowQr')
+                : t('checkout.fillToShowQr')}
             </p>
           )}
 
           {revealed && (
             <p className="mt-3 text-center text-xs text-muted-foreground">
-              Sau khi thanh toán thành công, vé sẽ được gửi qua SMS và Email.
+              {t('checkout.ticketSent')}
             </p>
           )}
         </CardContent>

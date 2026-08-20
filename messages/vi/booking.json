@@ -1,0 +1,62 @@
+{
+  "checkout": {
+    "passengerInfo": "Thông tin hành khách",
+    "fullName": "Họ và tên",
+    "fullNamePlaceholder": "Nhập họ và tên",
+    "phone": "Số điện thoại",
+    "phonePlaceholder": "VD: 0912 345 678",
+    "email": "Email",
+    "emailPlaceholder": "Nhập email để nhận vé",
+    "emailSuggestPrefix": "Có phải bạn muốn nhập",
+    "emailKeep": "Vẫn dùng email này",
+    "boardingChanged": "Điểm đón đã thay đổi",
+    "boardingChangedDesc": "Điểm đón bạn chọn không còn trong lịch của nhà xe. Vé sẽ đón tại bến; vui lòng liên hệ nhà xe để xác nhận.",
+    "pickup": "Điểm đón",
+    "pickupStation": "Đón tại bến xe",
+    "pickupCustom": "Đón tận nơi",
+    "pickupAddress": "Địa chỉ đón",
+    "pickupAddressPlaceholder": "VD: số 12 Lê Lợi, phường X (ít nhất 5 ký tự)",
+    "pickupAddressHint": "Nhà xe sẽ gọi xác nhận địa chỉ đón với bạn.",
+    "terms": "Điều khoản đặt vé",
+    "termsIncomplete": "Vui lòng điền đầy đủ thông tin hành khách hợp lệ để tiếp tục.",
+    "termsLegend": "Điều khoản đặt vé bắt buộc",
+    "viewDetails": "Xem chi tiết",
+    "paymentMethod": "Phương thức thanh toán",
+    "bankTransfer": "Chuyển khoản ngân hàng (VietQR)",
+    "processing": "Đang xử lý...",
+    "retry": "Thử lại",
+    "creatingQr": "Đang tạo mã QR thanh toán...",
+    "consentToShowQr": "Đồng ý các điều khoản ở trên để hiển thị mã QR thanh toán.",
+    "fillToShowQr": "Điền đầy đủ thông tin để hiển thị mã QR thanh toán.",
+    "ticketSent": "Sau khi thanh toán thành công, vé sẽ được gửi qua SMS và Email."
+  },
+  "error": {
+    "HOLD_EXPIRED": "Hết thời gian giữ chỗ. Vui lòng đặt lại.",
+    "TRIP_DEPARTED": "Chuyến đã khởi hành. Vui lòng chọn chuyến khác.",
+    "OPERATOR_NOT_BOOKABLE": "Nhà xe tạm ngừng bán vé chuyến này. Vui lòng chọn chuyến khác.",
+    "NOT_FOUND": "Không tìm thấy giữ chỗ. Vui lòng đặt lại.",
+    "FORBIDDEN": "Phiên giữ chỗ không hợp lệ. Vui lòng đặt lại.",
+    "INVALID": "Yêu cầu không hợp lệ.",
+    "TOO_MANY_REQUESTS": "Quá nhiều yêu cầu. Vui lòng thử lại sau.",
+    "UNAVAILABLE": "Hệ thống tạm thời bận. Vui lòng thử lại.",
+    "GATEWAY_ERROR": "Cổng thanh toán gặp lỗi. Vui lòng thử lại.",
+    "consent_required": "Vui lòng đồng ý cả hai điều khoản trước khi thanh toán.",
+    "generic": "Có lỗi xảy ra. Vui lòng thử lại."
+  },
+  "hold": {
+    "sold_out": "Chuyến xe này đã hết chỗ. Vui lòng chọn chuyến khác.",
+    "rate_limited": "Quá nhiều yêu cầu. Vui lòng thử lại sau {seconds} giây.",
+    "seat_map_busy": "Chuyến này đang có nhiều người đặt cùng lúc. Vui lòng thử lại.",
+    "request_in_flight": "Yêu cầu trước của bạn đang được xử lý. Vui lòng đợi giây lát rồi thử lại.",
+    "hold_cap": "Bạn đang giữ nhiều chỗ cùng lúc. Vui lòng hoàn tất thanh toán cho các chỗ đã giữ, hoặc đợi chúng hết hạn rồi thử lại."
+  },
+  "page": {
+    "seats": "chỗ",
+    "title": "Xác nhận thông tin & thanh toán",
+    "subtitle": "Vui lòng kiểm tra thông tin và hoàn tất thanh toán để giữ chỗ",
+    "paymentTitle": "Thanh toán chuyển khoản",
+    "paymentSubtitle": "Quét mã QR hoặc chuyển khoản thủ công theo thông tin bên dưới",
+    "notUpdated": "Đã chuyển khoản mà chưa thấy cập nhật?",
+    "contactSupport": "Liên hệ hỗ trợ"
+  }
+}

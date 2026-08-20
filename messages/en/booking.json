@@ -1,0 +1,62 @@
+{
+  "checkout": {
+    "passengerInfo": "Passenger details",
+    "fullName": "Full name",
+    "fullNamePlaceholder": "Enter full name",
+    "phone": "Phone number",
+    "phonePlaceholder": "e.g. 0912 345 678",
+    "email": "Email",
+    "emailPlaceholder": "Enter email to receive the ticket",
+    "emailSuggestPrefix": "Did you mean",
+    "emailKeep": "Use this email anyway",
+    "boardingChanged": "Pickup point changed",
+    "boardingChangedDesc": "The pickup point you chose is no longer in the operator's schedule. The ticket will board at the station; please contact the operator to confirm.",
+    "pickup": "Pickup point",
+    "pickupStation": "Pickup at the station",
+    "pickupCustom": "Door-to-door pickup",
+    "pickupAddress": "Pickup address",
+    "pickupAddressPlaceholder": "e.g. 12 Lê Lợi, ward X (at least 5 characters)",
+    "pickupAddressHint": "The operator will call to confirm your pickup address.",
+    "terms": "Booking terms",
+    "termsIncomplete": "Please fill in valid passenger details to continue.",
+    "termsLegend": "Required booking terms",
+    "viewDetails": "View details",
+    "paymentMethod": "Payment method",
+    "bankTransfer": "Bank transfer (VietQR)",
+    "processing": "Processing...",
+    "retry": "Try again",
+    "creatingQr": "Generating payment QR code...",
+    "consentToShowQr": "Accept the terms above to show the payment QR code.",
+    "fillToShowQr": "Fill in all details to show the payment QR code.",
+    "ticketSent": "After successful payment, the ticket will be sent via SMS and Email."
+  },
+  "error": {
+    "HOLD_EXPIRED": "Your seat hold expired. Please book again.",
+    "TRIP_DEPARTED": "The trip has departed. Please choose another trip.",
+    "OPERATOR_NOT_BOOKABLE": "The operator has paused sales for this trip. Please choose another trip.",
+    "NOT_FOUND": "Seat hold not found. Please book again.",
+    "FORBIDDEN": "Invalid hold session. Please book again.",
+    "INVALID": "Invalid request.",
+    "TOO_MANY_REQUESTS": "Too many requests. Please try again later.",
+    "UNAVAILABLE": "The system is temporarily busy. Please try again.",
+    "GATEWAY_ERROR": "The payment gateway encountered an error. Please try again.",
+    "consent_required": "Please accept both terms before paying.",
+    "generic": "Something went wrong. Please try again."
+  },
+  "hold": {
+    "sold_out": "This trip is sold out. Please choose another trip.",
+    "rate_limited": "Too many requests. Please try again in {seconds} seconds.",
+    "seat_map_busy": "Many people are booking this trip at once. Please try again.",
+    "request_in_flight": "Your previous request is being processed. Please wait a moment and try again.",
+    "hold_cap": "You are holding several seats at once. Please complete payment for the held seats, or wait for them to expire and try again."
+  },
+  "page": {
+    "seats": "seats",
+    "title": "Confirm details & payment",
+    "subtitle": "Please review your details and complete payment to hold your seat",
+    "paymentTitle": "Bank transfer payment",
+    "paymentSubtitle": "Scan the QR code or transfer manually using the details below",
+    "notUpdated": "Transferred but no update yet?",
+    "contactSupport": "Contact support"
+  }
+}
