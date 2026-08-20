@@ -58,5 +58,51 @@
     "paymentSubtitle": "Quét mã QR hoặc chuyển khoản thủ công theo thông tin bên dưới",
     "notUpdated": "Đã chuyển khoản mà chưa thấy cập nhật?",
     "contactSupport": "Liên hệ hỗ trợ"
+  },
+  "tripInfo": {
+    "title": "Thông tin chuyến đi",
+    "departTime": "Thời gian đi",
+    "departHour": "Giờ khởi hành",
+    "pickup": "Điểm đón",
+    "operator": "Nhà xe",
+    "vehicleType": "Loại xe",
+    "seatCount": "Số ghế",
+    "atStation": "Tại bến xe",
+    "seatsValue": "{count} ghế"
+  },
+  "summary": {
+    "aria": "Tóm tắt đơn",
+    "price": "Giá vé",
+    "priceTimes": "Giá vé × {count}",
+    "subtotal": "Tạm tính",
+    "total": "Tổng cộng",
+    "confirmNote": "Nhà xe xác nhận giờ đón & chỗ ngồi qua email sau khi đặt."
+  },
+  "steps": {
+    "step1": "Thông tin",
+    "step2": "Xác nhận & Thanh toán",
+    "step3": "Hoàn tất",
+    "aria": "Bước {current} trên {total}"
+  },
+  "badges": {
+    "badge1Title": "Giữ chỗ 100%",
+    "badge1Detail": "Vé của bạn được giữ đến khi thanh toán",
+    "badge2Title": "Hỗ trợ 24/7",
+    "badge2Detail": "Tư vấn và hỗ trợ mọi lúc",
+    "badge3Title": "An toàn – Uy tín",
+    "badge3Detail": "BBVN – Nhà xe chính hãng, phục vụ tận tâm"
+  },
+  "bankTransfer": {
+    "title": "Thông tin chuyển khoản",
+    "bank": "Ngân hàng",
+    "accountNumber": "Số tài khoản",
+    "accountName": "Chủ tài khoản",
+    "memo": "Nội dung chuyển khoản",
+    "amount": "Số tiền",
+    "qrAlt": "Mã QR thanh toán {ref}",
+    "scanToPay": "Quét mã để thanh toán",
+    "copyAccountNumber": "số tài khoản",
+    "copyMemo": "nội dung chuyển khoản",
+    "copyAmount": "số tiền"
   }
 }

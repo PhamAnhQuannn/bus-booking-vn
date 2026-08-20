@@ -6,6 +6,7 @@
  * Desktop: sticky right rail. Mobile: renders inline (stacked above the form).
  */
 
+import { useTranslations } from 'next-intl';
 import { ArrowRight, Clock, ShieldCheck } from 'lucide-react';
 import { HoldTimer } from '@/components/HoldTimer';
 
@@ -35,10 +36,11 @@ export interface BookingSummary {
 }
 
 export function BookingSummaryRail({ summary, showHoldTimer = true }: { summary: BookingSummary; showHoldTimer?: boolean }) {
+  const t = useTranslations('booking');
   return (
     <aside
       className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5 shadow-e2 md:sticky md:top-20"
-      aria-label="Tóm tắt đơn"
+      aria-label={t('summary.aria')}
     >
       <div className="flex flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2 font-semibold">
@@ -57,7 +59,7 @@ export function BookingSummaryRail({ summary, showHoldTimer = true }: { summary:
         {summary.ticketCount > 1 ? (
           <>
             <div className="flex justify-between">
-              <dt className="text-muted-foreground">Giá vé</dt>
+              <dt className="text-muted-foreground">{t('summary.price')}</dt>
               <dd className="font-mono">{formatVND(summary.unitPriceVND)}</dd>
             </div>
             <div className="flex justify-between">
@@ -68,17 +70,17 @@ export function BookingSummaryRail({ summary, showHoldTimer = true }: { summary:
         ) : (
           <div className="flex justify-between">
             <dt className="text-muted-foreground">
-              Giá vé × {summary.ticketCount}
+              {t('summary.priceTimes', { count: summary.ticketCount })}
             </dt>
             <dd className="font-mono">{formatVND(summary.unitPriceVND * summary.ticketCount)}</dd>
           </div>
         )}
         <div className="flex justify-between">
-          <dt className="text-muted-foreground">Tạm tính</dt>
+          <dt className="text-muted-foreground">{t('summary.subtotal')}</dt>
           <dd className="font-mono">{formatVND(summary.totalVND)}</dd>
         </div>
         <div className="mt-1 flex items-center justify-between border-t border-border pt-3 text-lg font-semibold">
-          <dt>Tổng cộng</dt>
+          <dt>{t('summary.total')}</dt>
           <dd className="font-mono text-primary" aria-live="polite">{formatVND(summary.totalVND)}</dd>
         </div>
       </dl>
@@ -87,7 +89,7 @@ export function BookingSummaryRail({ summary, showHoldTimer = true }: { summary:
 
       <p className="inline-flex items-start gap-1.5 border-t border-border/60 pt-3 text-xs text-muted-foreground">
         <ShieldCheck className="mt-0.5 size-4 shrink-0 text-success-foreground" aria-hidden="true" />
-        Nhà xe xác nhận giờ đón &amp; chỗ ngồi qua email sau khi đặt.
+        {t('summary.confirmNote')}
       </p>
     </aside>
   );

@@ -58,5 +58,51 @@
     "paymentSubtitle": "Scan the QR code or transfer manually using the details below",
     "notUpdated": "Transferred but no update yet?",
     "contactSupport": "Contact support"
+  },
+  "tripInfo": {
+    "title": "Trip details",
+    "departTime": "Travel date",
+    "departHour": "Departure time",
+    "pickup": "Pickup point",
+    "operator": "Operator",
+    "vehicleType": "Vehicle type",
+    "seatCount": "Seats",
+    "atStation": "At the station",
+    "seatsValue": "{count} seats"
+  },
+  "summary": {
+    "aria": "Order summary",
+    "price": "Ticket price",
+    "priceTimes": "Ticket price × {count}",
+    "subtotal": "Subtotal",
+    "total": "Total",
+    "confirmNote": "The operator confirms pickup time & seats by email after booking."
+  },
+  "steps": {
+    "step1": "Details",
+    "step2": "Confirm & Pay",
+    "step3": "Done",
+    "aria": "Step {current} of {total}"
+  },
+  "badges": {
+    "badge1Title": "100% seat hold",
+    "badge1Detail": "Your ticket is held until you pay",
+    "badge2Title": "24/7 support",
+    "badge2Detail": "Advice and support anytime",
+    "badge3Title": "Safe – Trusted",
+    "badge3Detail": "BBVN – genuine operators, attentive service"
+  },
+  "bankTransfer": {
+    "title": "Bank transfer details",
+    "bank": "Bank",
+    "accountNumber": "Account number",
+    "accountName": "Account holder",
+    "memo": "Transfer memo",
+    "amount": "Amount",
+    "qrAlt": "Payment QR code {ref}",
+    "scanToPay": "Scan to pay",
+    "copyAccountNumber": "account number",
+    "copyMemo": "transfer memo",
+    "copyAmount": "amount"
   }
 }
