@@ -17,7 +17,7 @@ import { useTranslations } from 'next-intl';
 import { useParams } from 'next/navigation';
 import { Link, useRouter } from '@/i18n/navigation';
 import { authFetch, ensureAuthenticated } from '@/lib/auth/clientSession';
-import { bookingStatusDisplay } from '@/lib/op/statusLabels';
+import { bookingStatusVariant } from '@/lib/op/statusLabels';
 import type { CustomerBookingDetail } from '@/lib/booking';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -49,6 +49,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 export default function BookingDetailPage() {
   const t = useTranslations('account');
+  const tStatus = useTranslations('booking');
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const id = params.id;
@@ -181,7 +182,7 @@ export default function BookingDetailPage() {
             <h1 className="text-2xl font-bold">
               {booking.route.origin} → {booking.route.destination}
             </h1>
-            <Badge variant={bookingStatusDisplay(booking.status).variant}>{bookingStatusDisplay(booking.status).label}</Badge>
+            <Badge variant={bookingStatusVariant(booking.status)}>{tStatus(`status.${booking.status}`)}</Badge>
           </div>
           <div className="font-mono text-sm text-muted-foreground">{booking.bookingRef}</div>
 

@@ -1,4 +1,14 @@
 {
+  "status": {
+    "awaiting_payment": "Awaiting payment",
+    "paid": "Paid",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "trip_cancelled": "Trip cancelled",
+    "no_show": "No-show",
+    "payment_failed_expired": "Payment failed",
+    "refunded": "Refunded (sold out)"
+  },
   "checkout": {
     "passengerInfo": "Passenger details",
     "fullName": "Full name",

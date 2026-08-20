@@ -21,7 +21,7 @@ import { Link } from '@/i18n/navigation';
 import { CheckCircle2, CalendarPlus } from 'lucide-react';
 import { getBookingByConfirmationToken } from '@/lib/booking';
 import { mintTicketToken, ticketQrDataUrl } from '@/lib/ticketing';
-import { bookingStatusDisplay } from '@/lib/op/statusLabels';
+import { bookingStatusVariant } from '@/lib/op/statusLabels';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -111,8 +111,8 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
             <CheckCircle2 className="size-8" aria-hidden="true" />
           </span>
           <h1 className="text-2xl font-bold">{t('confirm.success')}</h1>
-          <Badge variant={bookingStatusDisplay(booking.status).variant}>
-            {bookingStatusDisplay(booking.status).label}
+          <Badge variant={bookingStatusVariant(booking.status)}>
+            {t(`status.${booking.status}`)}
           </Badge>
         </header>
 

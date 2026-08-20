@@ -1,4 +1,14 @@
 {
+  "status": {
+    "awaiting_payment": "Chờ thanh toán",
+    "paid": "Đã thanh toán",
+    "completed": "Hoàn tất",
+    "cancelled": "Đã hủy",
+    "trip_cancelled": "Chuyến đã hủy",
+    "no_show": "Vắng mặt",
+    "payment_failed_expired": "Thanh toán thất bại",
+    "refunded": "Đã hoàn tiền (hết chỗ)"
+  },
   "checkout": {
     "passengerInfo": "Thông tin hành khách",
     "fullName": "Họ và tên",

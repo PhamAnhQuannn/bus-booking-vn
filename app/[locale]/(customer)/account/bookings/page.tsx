@@ -13,7 +13,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link, useRouter } from '@/i18n/navigation';
 import { authFetch, ensureAuthenticated } from '@/lib/auth/clientSession';
-import { bookingStatusDisplay } from '@/lib/op/statusLabels';
+import { bookingStatusVariant } from '@/lib/op/statusLabels';
 import type { CustomerBookingRow } from '@/lib/booking';
 import { Ticket, ArrowRight } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -82,6 +82,7 @@ function EmptyBookings({ tab }: { tab: Tab }) {
 
 export default function BookingsHistoryPage() {
   const t = useTranslations('account');
+  const tStatus = useTranslations('booking');
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('upcoming');
   const [rows, setRows] = useState<CustomerBookingRow[]>([]);
@@ -215,7 +216,7 @@ export default function BookingsHistoryPage() {
                       <strong className="text-base">
                         {b.route.origin} → {b.route.destination}
                       </strong>
-                      <Badge variant={bookingStatusDisplay(b.status).variant}>{bookingStatusDisplay(b.status).label}</Badge>
+                      <Badge variant={bookingStatusVariant(b.status)}>{tStatus(`status.${b.status}`)}</Badge>
                     </div>
                     <div className="px-4 text-sm text-muted-foreground">
                       {dateFmt.format(new Date(b.departureAt))}

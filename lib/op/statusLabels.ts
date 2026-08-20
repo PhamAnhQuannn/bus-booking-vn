@@ -40,6 +40,13 @@ export function bookingStatusDisplay(status: BookingStatus): StatusDisplay {
   return BOOKING_STATUS[status]
 }
 
+// i18n: customer-facing surfaces render the label via next-intl catalog
+// (booking.status.<enum>) and take ONLY the Badge variant from here, so the VN
+// label map above stays the single source for op/admin + email/PDF (untranslated).
+export function bookingStatusVariant(status: BookingStatus): StatusBadgeVariant {
+  return BOOKING_STATUS[status].variant
+}
+
 export function tripStatusDisplay(
   status: TripStatus,
   salesClosed = false
