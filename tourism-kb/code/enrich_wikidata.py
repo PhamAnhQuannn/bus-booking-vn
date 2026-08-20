@@ -56,6 +56,17 @@ def _la_hanh_chinh(type_label):
     return any(w in t for w in _HANH_CHINH)
 
 
+# Bai ve SU KIEN lich su (chien dich/tran/vu...) — diem den la NOI, khong phai su kien.
+# Nha tho/chua dat theo dia danh se trung toponym voi tran danh cung dia danh (Phuoc Long).
+_SU_KIEN = ("chiến dịch", "trận ", "vụ ", "cuộc ", "khởi nghĩa", "phong trào",
+            "sự kiện", "chiến tranh", "thảm sát", "nổi dậy",
+            "trường ", "đại học", "trung học", "học viện")   # su kien HOAC truong hoc != diem den
+
+
+def _la_su_kien(label):
+    return (label or "").strip().lower().startswith(_SU_KIEN)
+
+
 def _ten_khop(a, b):
     """Danh tu rieng chung MANH -> cung mot noi. Mot token chung (meo/son/ban) la trung
     am, KHONG du (Chua Meo <-> Na Meo cach 47km). Doi: fold bang nhau, HOAC >=2 token
@@ -79,6 +90,11 @@ def _ten_khop(a, b):
 picked = json.load(io.open(os.path.join(RAW, "guide_data.json"), encoding="utf-8"))["picked"]
 name_of = {c["id"]: c["name"] for c in picked}
 rows = json.load(io.open(ENRICH, encoding="utf-8"))
+# SELF-HEAL: xoa row do CHINH script nay sinh o lan truoc (mo_ta/QID pass2/gia-ve wiki...),
+# roi dung lai qua guard hien tai. Neu khong, `emit` seen-guarded se giu mo_ta cu SAI (tu
+# lan chay 400m-no-guard) — misattribution song sot. Giu row OSM-goc (source khong phai wiki).
+rows = [r for r in rows if not (str(r.get("source", "")).startswith(("Wikidata", "Wikipedia"))
+                                or str(r.get("method", "")).startswith("pass2"))]
 before = len(rows)
 seen = {(r["id"], r["field"]) for r in rows}
 
@@ -108,7 +124,7 @@ for p in picked:
     for lat, lon, q, lab, img, typ in wd_pts:
         # bo don vi HANH CHINH (xa/huyen/phuong...) — bai Wikipedia ta VUNG, khong ta diem;
         # gan cho mot lang nghe se mo ta ca xa, la misattribution.
-        if _la_hanh_chinh(typ):
+        if _la_hanh_chinh(typ) or _la_su_kien(lab):   # don vi HC hoac su kien lich su -> bo
             continue
         d = hav((p["lat"], p["lon"]), (lat, lon))
         # identity 2 truc: ten khop MANH VA cung tinh (<6km — feature lon nhu VQG/ho
@@ -198,15 +214,16 @@ for pid, raw in sorted(wp_of.items()):
         print(f"  {pid} {title}: {type(e).__name__}")
         continue
     pages = d.get("query", {}).get("pages", {})
-    text = ""
+    text = rtitle = ""
     for _, pg in pages.items():
         text = pg.get("extract") or ""
+        rtitle = pg.get("title") or title       # tieu de SAU redirect (khac title yeu cau)
     if not text:
         continue
-    # GUARD ten: tieu de bai phai khop ten diem — chan ca mis-tag OSM (sub-feature gan
-    # wikidata cua diem CHA, vd "Big Bamboo" gan QID "Pù Luông"). Mo ta = claim.
-    if not _ten_khop(name_of.get(pid, ""), title):
-        print(f"  bo qua {pid}: bai '{title}' khong khop ten diem '{name_of.get(pid,'')[:30]}'")
+    # GUARD ten: tieu de bai (SAU redirect) phai khop ten diem — chan mis-tag OSM (sub-feature
+    # gan wikidata diem CHA) VA redirect lech (vd "Phước Lộc" -> bai "Chiến dịch Đường 14").
+    if _la_su_kien(rtitle) or not _ten_khop(name_of.get(pid, ""), rtitle):
+        print(f"  bo qua {pid}: bai '{rtitle}' (su kien / khong khop ten '{name_of.get(pid,'')[:24]}')")
         continue
     n_wp += 1
     url = f"https://{lang}.wikipedia.org/wiki/{urllib.parse.quote(title)}"
