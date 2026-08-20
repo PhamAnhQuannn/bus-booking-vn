@@ -10,8 +10,8 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import { Link, useRouter } from '@/i18n/navigation';
 import { authFetch, ensureAuthenticated } from '@/lib/auth/clientSession';
 import { bookingStatusDisplay } from '@/lib/op/statusLabels';
 import type { CustomerBookingRow } from '@/lib/booking';
@@ -54,6 +54,7 @@ function BookingCardSkeleton() {
 
 /** Composed empty state — icon, message, and a CTA back into the search flow. */
 function EmptyBookings({ tab }: { tab: Tab }) {
+  const t = useTranslations('account');
   return (
     <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed border-border bg-card/50 px-6 py-12 text-center shadow-e1">
       <span className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -61,17 +62,17 @@ function EmptyBookings({ tab }: { tab: Tab }) {
       </span>
       <div className="flex flex-col gap-1">
         <p className="font-semibold">
-          {tab === 'upcoming' ? 'Chưa có chuyến nào sắp tới' : 'Chưa có vé đã qua'}
+          {tab === 'upcoming' ? t('bookings.emptyUpcomingTitle') : t('bookings.emptyPastTitle')}
         </p>
         <p className="text-sm text-muted-foreground">
           {tab === 'upcoming'
-            ? 'Đặt vé xe khách liên tỉnh chỉ trong 30 giây.'
-            : 'Vé đã hoàn thành sẽ hiển thị ở đây.'}
+            ? t('bookings.emptyUpcomingDesc')
+            : t('bookings.emptyPastDesc')}
         </p>
       </div>
       {tab === 'upcoming' && (
         <Link href="/" className={cn(buttonVariants({ size: 'lg' }), 'gap-1')}>
-          Tìm chuyến xe
+          {t('bookings.findTrips')}
           <ArrowRight className="size-4" aria-hidden="true" />
         </Link>
       )}
@@ -80,6 +81,7 @@ function EmptyBookings({ tab }: { tab: Tab }) {
 }
 
 export default function BookingsHistoryPage() {
+  const t = useTranslations('account');
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('upcoming');
   const [rows, setRows] = useState<CustomerBookingRow[]>([]);
@@ -105,19 +107,19 @@ export default function BookingsHistoryPage() {
           return;
         }
         if (!res.ok) {
-          setError('Không thể tải lịch sử đặt vé.');
+          setError(t('bookings.loadError'));
           return;
         }
         const json = (await res.json()) as { rows: CustomerBookingRow[]; nextCursor: string | null };
         setRows((prev) => (cursor ? [...prev, ...json.rows] : json.rows));
         setNextCursor(json.nextCursor);
       } catch {
-        setError('Lỗi kết nối. Vui lòng thử lại.');
+        setError(t('common.connErrorRetry'));
       } finally {
         setLoading(false);
       }
     },
-    [router]
+    [router, t]
   );
 
   useEffect(() => {
@@ -140,43 +142,43 @@ export default function BookingsHistoryPage() {
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 py-8">
       <nav aria-label="breadcrumb" className="text-sm text-muted-foreground">
         <ol className="flex items-center gap-1.5">
-          <li><Link href="/" className="underline-offset-4 hover:text-foreground hover:underline">Trang chủ</Link></li>
+          <li><Link href="/" className="underline-offset-4 hover:text-foreground hover:underline">{t('page.breadcrumbHome')}</Link></li>
           <li aria-hidden="true">/</li>
-          <li aria-current="page" className="font-medium text-foreground">Lịch sử đặt vé</li>
+          <li aria-current="page" className="font-medium text-foreground">{t('page.breadcrumbBookings')}</li>
         </ol>
       </nav>
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <h1 className="text-2xl font-bold">Lịch sử đặt vé</h1>
+        <h1 className="text-2xl font-bold">{t('page.breadcrumbBookings')}</h1>
         <Link
           href="/account/settings"
           className="shrink-0 text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
         >
-          Cài đặt tài khoản
+          {t('page.title')}
         </Link>
       </div>
 
-      <div className="flex gap-2 border-b border-border" role="tablist" aria-label="Lọc lịch sử đặt vé">
-        {(['upcoming', 'past'] as const).map((t) => (
+      <div className="flex gap-2 border-b border-border" role="tablist" aria-label={t('bookings.filterAria')}>
+        {(['upcoming', 'past'] as const).map((tabKey) => (
           <button
-            key={t}
+            key={tabKey}
             type="button"
-            id={`bookings-tab-${t}`}
+            id={`bookings-tab-${tabKey}`}
             role="tab"
-            aria-selected={tab === t}
+            aria-selected={tab === tabKey}
             aria-controls="bookings-tabpanel"
             // AX-8: roving tabindex — only the active tab is in the tab order;
             // ArrowLeft/Right move selection + focus between tabs.
-            tabIndex={tab === t ? 0 : -1}
-            onClick={() => setTab(t)}
+            tabIndex={tab === tabKey ? 0 : -1}
+            onClick={() => setTab(tabKey)}
             onKeyDown={onTabKeyDown}
             className={cn(
               'border-b-2 px-4 py-2 text-sm font-medium transition-colors',
-              tab === t
+              tab === tabKey
                 ? 'border-primary text-foreground'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             )}
           >
-            {t === 'upcoming' ? 'Sắp tới' : 'Đã qua'}
+            {tabKey === 'upcoming' ? t('bookings.tabUpcoming') : t('bookings.tabPast')}
           </button>
         ))}
       </div>
@@ -219,7 +221,7 @@ export default function BookingsHistoryPage() {
                       {dateFmt.format(new Date(b.departureAt))}
                     </div>
                     <div className="px-4 text-sm text-muted-foreground">
-                      {b.ticketCount} vé · {vnd(b.totalVnd)} · <span className="font-mono">{b.bookingRef}</span>
+                      {t('bookings.ticketsCount', { count: b.ticketCount })} · {vnd(b.totalVnd)} · <span className="font-mono">{b.bookingRef}</span>
                     </div>
                   </Card>
                 </Link>
@@ -232,7 +234,7 @@ export default function BookingsHistoryPage() {
         {loading && rows.length > 0 && <BookingCardSkeleton />}
         {nextCursor && !loading && (
           <Button variant="outline" className="self-start" onClick={() => void load(tab, nextCursor)}>
-            Tải thêm
+            {t('bookings.loadMore')}
           </Button>
         )}
       </div>

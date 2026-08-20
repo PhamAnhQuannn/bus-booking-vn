@@ -13,8 +13,9 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import { useParams } from 'next/navigation';
+import { Link, useRouter } from '@/i18n/navigation';
 import { authFetch, ensureAuthenticated } from '@/lib/auth/clientSession';
 import { bookingStatusDisplay } from '@/lib/op/statusLabels';
 import type { CustomerBookingDetail } from '@/lib/booking';
@@ -47,6 +48,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 export default function BookingDetailPage() {
+  const t = useTranslations('account');
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const id = params.id;
@@ -76,17 +78,17 @@ export default function BookingDetailPage() {
           return;
         }
         if (res.status === 404) {
-          setError('Không tìm thấy vé.');
+          setError(t('detail.notFound'));
           return;
         }
         if (!res.ok) {
-          setError('Không thể tải chi tiết vé.');
+          setError(t('detail.loadError'));
           return;
         }
         const json = (await res.json()) as { booking: CustomerBookingDetail };
         setBooking(json.booking);
       } catch {
-        if (active) setError('Lỗi kết nối. Vui lòng thử lại.');
+        if (active) setError(t('common.connErrorRetry'));
       } finally {
         if (active) setLoading(false);
       }
@@ -94,7 +96,7 @@ export default function BookingDetailPage() {
     return () => {
       active = false;
     };
-  }, [id, loginRedirect]);
+  }, [id, loginRedirect, t]);
 
   const downloadTicket = useCallback(async () => {
     const ok = await ensureAuthenticated();
@@ -111,7 +113,7 @@ export default function BookingDetailPage() {
         return;
       }
       if (!res.ok) {
-        setError('Không thể tải vé PDF.');
+        setError(t('detail.pdfError'));
         return;
       }
       const blob = await res.blob();
@@ -124,11 +126,11 @@ export default function BookingDetailPage() {
       a.remove();
       URL.revokeObjectURL(url);
     } catch {
-      setError('Lỗi kết nối. Vui lòng thử lại.');
+      setError(t('common.connErrorRetry'));
     } finally {
       setDownloading(false);
     }
-  }, [id, booking, loginRedirect]);
+  }, [id, booking, loginRedirect, t]);
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 py-8">
@@ -136,12 +138,12 @@ export default function BookingDetailPage() {
         <ol className="flex flex-wrap items-center gap-1.5">
           <li className="shrink-0">
             <Link href="/account/bookings" className="underline-offset-4 hover:text-foreground hover:underline">
-              Lịch sử đặt vé
+              {t('page.breadcrumbBookings')}
             </Link>
           </li>
           <li aria-hidden="true" className="shrink-0">/</li>
           <li aria-current="page" className="min-w-0 truncate font-medium text-foreground">
-            {booking?.bookingRef ?? 'Chi tiết'}
+            {booking?.bookingRef ?? t('detail.fallbackRef')}
           </li>
         </ol>
       </nav>
@@ -185,33 +187,33 @@ export default function BookingDetailPage() {
 
           <Card>
             <CardContent className="flex flex-col gap-3">
-              <Field label="Khởi hành">{dateFmt.format(new Date(booking.departureAt))}</Field>
+              <Field label={t('detail.depart')}>{dateFmt.format(new Date(booking.departureAt))}</Field>
               {booking.boardingPoint && (
-                <Field label="Điểm lên xe">
+                <Field label={t('detail.boardingPoint')}>
                   {booking.boardingPoint}
                   {booking.boardingTime ? ` · ${booking.boardingTime}` : ''}
                 </Field>
               )}
-              <Field label="Số vé">{booking.ticketCount}</Field>
-              <Field label="Tổng tiền">{vnd(booking.totalVnd)}</Field>
-              <Field label="Biển số xe">{booking.busLicensePlate}</Field>
+              <Field label={t('detail.ticketCount')}>{booking.ticketCount}</Field>
+              <Field label={t('detail.total')}>{vnd(booking.totalVnd)}</Field>
+              <Field label={t('detail.licensePlate')}>{booking.busLicensePlate}</Field>
 
               <div className="border-t border-border" />
 
-              <Field label="Người đặt">{booking.buyerName}</Field>
-              <Field label="Số điện thoại">{booking.buyerPhone}</Field>
+              <Field label={t('detail.buyer')}>{booking.buyerName}</Field>
+              <Field label={t('detail.phone')}>{booking.buyerPhone}</Field>
 
               <div className="border-t border-border" />
 
-              <Field label="Nhà xe">{booking.operator.legalName}</Field>
-              <Field label="Liên hệ nhà xe">{booking.operator.contactPhone}</Field>
+              <Field label={t('detail.operator')}>{booking.operator.legalName}</Field>
+              <Field label={t('detail.operatorContact')}>{booking.operator.contactPhone}</Field>
             </CardContent>
           </Card>
 
           <div className="flex flex-wrap gap-2">
             {TICKETABLE.has(booking.status) && (
               <Button size="lg" onClick={() => void downloadTicket()} disabled={downloading}>
-                {downloading ? 'Đang tải...' : 'Tải vé PDF'}
+                {downloading ? t('detail.downloading') : t('detail.downloadPdf')}
               </Button>
             )}
             <a
@@ -219,7 +221,7 @@ export default function BookingDetailPage() {
               className={buttonVariants({ variant: 'outline', size: 'lg' })}
             >
               <Phone className="size-4" aria-hidden="true" />
-              Gọi nhà xe
+              {t('detail.callOperator')}
             </a>
           </div>
         </>

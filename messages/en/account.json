@@ -4,6 +4,7 @@
     "sessionExpiredShort": "Your session has expired.",
     "genericError": "Something went wrong. Please try again.",
     "connError": "Connection error.",
+    "connErrorRetry": "Connection error. Please try again.",
     "cancel": "Cancel"
   },
   "page": {
@@ -60,5 +61,36 @@
     "dialogDesc": "This action cannot be undone. All your personal data will be permanently deleted.",
     "deleting": "Deleting...",
     "confirmDelete": "Confirm deletion"
+  },
+  "bookings": {
+    "emptyUpcomingTitle": "No upcoming trips yet",
+    "emptyPastTitle": "No past tickets yet",
+    "emptyUpcomingDesc": "Book an intercity bus ticket in just 30 seconds.",
+    "emptyPastDesc": "Completed tickets will appear here.",
+    "findTrips": "Find trips",
+    "loadError": "Could not load your booking history.",
+    "filterAria": "Filter booking history",
+    "tabUpcoming": "Upcoming",
+    "tabPast": "Past",
+    "ticketsCount": "{count} tickets",
+    "loadMore": "Load more"
+  },
+  "detail": {
+    "fallbackRef": "Details",
+    "notFound": "Ticket not found.",
+    "loadError": "Could not load ticket details.",
+    "pdfError": "Could not download the PDF ticket.",
+    "depart": "Departure",
+    "boardingPoint": "Boarding point",
+    "ticketCount": "Tickets",
+    "total": "Total",
+    "licensePlate": "License plate",
+    "buyer": "Booked by",
+    "phone": "Phone number",
+    "operator": "Operator",
+    "operatorContact": "Operator contact",
+    "downloading": "Downloading...",
+    "downloadPdf": "Download PDF ticket",
+    "callOperator": "Call operator"
   }
 }
