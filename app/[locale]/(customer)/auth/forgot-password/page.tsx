@@ -11,8 +11,8 @@
  */
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { useTranslations } from 'next-intl';
+import { Link, useRouter } from '@/i18n/navigation';
 import { ShieldCheck, Mail } from 'lucide-react';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
 import { AuthSecurityFooter } from '@/components/auth/AuthSecurityFooter';
@@ -25,17 +25,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
-const RESET_EYEBROW = (
-  <span className="inline-flex items-center gap-1.5">
-    <ShieldCheck className="size-4" aria-hidden="true" />
-    Khôi phục mật khẩu
-  </span>
-);
-
 type Step = 'email' | 'reset' | 'done';
 
 export default function ForgotPasswordPage() {
+  const t = useTranslations('auth');
   const router = useRouter();
+  const RESET_EYEBROW = (
+    <span className="inline-flex items-center gap-1.5">
+      <ShieldCheck className="size-4" aria-hidden="true" />
+      {t('reset.eyebrow')}
+    </span>
+  );
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
@@ -58,13 +58,13 @@ export default function ForgotPasswordPage() {
       const json = (await res.json().catch(() => ({}))) as { retryAfter?: number };
       if (json.retryAfter != null) {
         const secs = Math.ceil(json.retryAfter);
-        setError(`Vui lòng thử lại sau ${secs} giây.`);
+        setError(t('reset.retryAfter', { seconds: secs }));
         return;
       }
       setEmail(rawEmail);
       setStep('reset');
     } catch {
-      setError('Lỗi kết nối. Vui lòng thử lại.');
+      setError(t('common.connError'));
     } finally {
       setLoading(false);
     }
@@ -81,7 +81,7 @@ export default function ForgotPasswordPage() {
     const newPassword = fd.get('newPassword') as string;
     const confirmPassword = fd.get('confirmPassword') as string;
     if (newPassword !== confirmPassword) {
-      setError('Mật khẩu xác nhận không khớp.');
+      setError(t('reset.mismatch'));
       setMismatch(true);
       setLoading(false);
       return;
@@ -96,11 +96,11 @@ export default function ForgotPasswordPage() {
         const json = await verifyRes.json().catch(() => ({}));
         const errCode = (json as { error?: string }).error ?? '';
         if (errCode === 'OTP_INVALID' || errCode === 'OTP_EXPIRED') {
-          setError('Mã OTP không hợp lệ hoặc đã hết hạn.');
+          setError(t('reset.otpInvalidExpired'));
         } else if (errCode === 'OTP_LOCKED_OUT') {
-          setError('Tài khoản tạm khóa sau nhiều lần nhập sai. Vui lòng thử lại sau 15 phút.');
+          setError(t('reset.otpLockedOut'));
         } else {
-          setError('Có lỗi xảy ra. Vui lòng thử lại.');
+          setError(t('reset.genericError'));
         }
         return;
       }
@@ -118,16 +118,16 @@ export default function ForgotPasswordPage() {
       const json = await res.json().catch(() => ({}));
       const code_err = (json as { error?: string }).error ?? '';
       if (code_err === 'PASSWORD_REUSED') {
-        setError('Mật khẩu mới không được trùng mật khẩu cũ.');
+        setError(t('reset.passwordReused'));
       } else if (code_err === 'WEAK_PASSWORD') {
-        setError('Mật khẩu mới quá yếu. Vui lòng chọn mật khẩu mạnh hơn.');
+        setError(t('reset.weakPassword'));
       } else if (code_err === 'INVALID_PROOF') {
-        setError('Phiên xác thực đã hết hạn. Vui lòng yêu cầu mã OTP mới.');
+        setError(t('reset.invalidProof'));
       } else {
-        setError('Có lỗi xảy ra. Vui lòng thử lại.');
+        setError(t('reset.genericError'));
       }
     } catch {
-      setError('Lỗi kết nối. Vui lòng thử lại.');
+      setError(t('common.connError'));
     } finally {
       setLoading(false);
     }
@@ -135,11 +135,11 @@ export default function ForgotPasswordPage() {
 
   if (step === 'done') {
     return (
-      <AuthSplitLayout audience="customer" title="Đặt lại mật khẩu thành công">
+      <AuthSplitLayout audience="customer" title={t('reset.doneTitle')}>
         <div className="flex flex-col gap-7">
-            <p className="text-sm text-muted-foreground">Mật khẩu của bạn đã được cập nhật.</p>
+            <p className="text-sm text-muted-foreground">{t('reset.doneBody')}</p>
             <Button size="lg" className="h-12 w-full text-base" onClick={() => router.push('/auth/login')}>
-              Đăng nhập
+              {t('reset.login')}
             </Button>
         </div>
       </AuthSplitLayout>
@@ -151,19 +151,19 @@ export default function ForgotPasswordPage() {
       <AuthSplitLayout
         audience="customer"
         eyebrow={RESET_EYEBROW}
-        title="Đặt lại mật khẩu"
-        subtitle="Nhập mã OTP đã gửi đến email của bạn và mật khẩu mới."
+        title={t('reset.resetTitle')}
+        subtitle={t('reset.resetSubtitle')}
       >
         <div className="flex flex-col gap-7">
             <form onSubmit={handleReset} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="code">Mã OTP (6 chữ số)</Label>
+                <Label htmlFor="code">{t('reset.otpLabel')}</Label>
                 <OtpCodeInput id="code" required autoFocus className={authFieldClass} />
               </div>
               <PasswordField
                 id="newPassword"
                 name="newPassword"
-                label="Mật khẩu mới"
+                label={t('reset.newPassword')}
                 autoComplete="new-password"
                 required
                 minLength={8}
@@ -173,7 +173,7 @@ export default function ForgotPasswordPage() {
               <PasswordField
                 id="confirmPassword"
                 name="confirmPassword"
-                label="Xác nhận mật khẩu mới"
+                label={t('reset.confirmPassword')}
                 autoComplete="new-password"
                 required
                 minLength={8}
@@ -183,7 +183,7 @@ export default function ForgotPasswordPage() {
               />
               <FormError id="forgot-reset-error" message={error} />
               <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="h-12 w-full text-base">
-                {loading ? 'Đang xử lý...' : 'Đặt lại mật khẩu'}
+                {loading ? t('reset.processing') : t('reset.submitReset')}
               </Button>
             </form>
             <Button
@@ -197,7 +197,7 @@ export default function ForgotPasswordPage() {
                 setMismatch(false);
               }}
             >
-              Dùng email khác
+              {t('reset.useAnotherEmail')}
             </Button>
             <AuthSecurityFooter />
         </div>
@@ -210,28 +210,28 @@ export default function ForgotPasswordPage() {
     <AuthSplitLayout
       audience="customer"
       eyebrow={RESET_EYEBROW}
-      title="Quên mật khẩu"
-      subtitle="Nhập email đã đăng ký. Chúng tôi sẽ gửi mã OTP để đặt lại mật khẩu."
+      title={t('reset.forgotTitle')}
+      subtitle={t('reset.forgotSubtitle')}
     >
       <div className="flex flex-col gap-7">
           <form onSubmit={handleRequestOtp} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="email">Địa chỉ email</Label>
+              <Label htmlFor="email">{t('common.emailLabel')}</Label>
               <div className="relative">
                 <Mail
                   className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
                   aria-hidden="true"
                 />
-                <Input id="email" type="email" name="email" required autoComplete="email" placeholder="you@example.com" className={cn(authFieldClass, 'pl-10')} />
+                <Input id="email" type="email" name="email" required autoComplete="email" placeholder={t('common.emailPlaceholder')} className={cn(authFieldClass, 'pl-10')} />
               </div>
             </div>
             <FormError message={error} />
             <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="h-12 w-full text-base">
-              {loading ? 'Đang gửi...' : 'Gửi mã OTP'}
+              {loading ? t('reset.sending') : t('reset.sendOtp')}
             </Button>
           </form>
           <Link href="/auth/login" className={`${authLinkClass} text-sm`}>
-            Quay lại đăng nhập
+            {t('reset.backToLogin')}
           </Link>
           <AuthSecurityFooter />
       </div>
