@@ -21,6 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dia_diem_config import cfg as _cfg, slug_of as _slug_of
 import anh_huong as _ah                        # sap output theo THU TU anh huong (VQS noi bo)
 import trai_nghiem as _tn                       # nhan trai nghiem (category.primary -> "Ngam canh"...)
+import hoat_dong_derive as _hd                   # "Co gi o day" suy tu loai + tag OSM (rederivation)
 import vibes as _vb                             # slug vibe: rule (category) + fold cache LLM (enrich_vibes)
 
 RAW = sys.argv[1] if len(sys.argv) > 1 else "tourism-kb/raw/da-lat/scrape"
@@ -350,6 +351,14 @@ for r in PICKED:
             oh = parsed
             if bad:
                 rec["data_quality"]["warnings"].append("gio_mo_cua: " + gh["value"][:80])
+    if oh is None:                                 # BUG-FIX: gio_mo_cua_wikipedia truoc day bi bo
+        ghw = e(pid, "gio_mo_cua_wikipedia")       # prose VN ("mở cửa từ ... đến ..."), parse_hours khong doc duoc
+        if ghw:
+            oh = {"raw_text": ghw["value"], "regular_schedule": None,
+                  "source_id": SRC.id_of(ghw.get("source"), ghw.get("url"), None, ghw.get("date")),
+                  "retrieved_at": rong(ghw.get("date")),
+                  "note": "trích prose Wikipedia, chưa cấu trúc — gọi xác nhận trước khi đi"}
+            rec["data_quality"]["warnings"].append("gio_mo_cua (Wikipedia prose): " + ghw["value"][:80])
     # ticketing: giu HET gia tham khao
     tickets = []
     for f in ("gia_ve", "gia_ve_tham_khao", "gia_ve_wikipedia"):
@@ -393,6 +402,8 @@ for r in PICKED:
     rec["ext"] = {"destination": {
         "trai_nghiem": _tn.nhan_trai_nghiem(rec["category"]["primary"]),  # derived tu category (khong source_id)
         "trai_nghiem_nguon": "category",                                  # tang 2 override -> "fsq"/"overture"
+        "hoat_dong": _hd.hoat_dong(rec["category"]["primary"], r.get("tags") or {}),  # "Co gi o day" derived loai+tag
+        "hoat_dong_nguon": "loại hình + tag OSM",                         # rederivation, khong claim rieng (nhu trai_nghiem)
         "vibes": _vibes_v,                                                # slug vibe roi rac (VIBE_VOCAB)
         "vibes_nguon": _vibes_ng,                                         # rule | llm | rule+llm | none
         "opening_hours": oh,

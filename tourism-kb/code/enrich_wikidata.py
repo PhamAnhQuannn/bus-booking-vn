@@ -34,7 +34,9 @@ def hav(a, b):
 
 import unicodedata
 _GENERIC = {"chua", "den", "mieu", "nha", "tho", "khu", "di", "tich", "thap", "ho",
-            "nui", "thac", "dao", "bai", "vuon", "cong", "vien", "diem", "du", "lich"}
+            "nui", "thac", "dao", "bai", "vuon", "cong", "vien", "diem", "du", "lich",
+            "quang", "truong", "bao", "tang", "danh", "thang"}   # +tu chi LOAI (quang truong,
+            #                                          bao tang, danh thang) — chan collision 2-token type
 
 
 def _fold(s):
@@ -227,10 +229,26 @@ for pid, raw in sorted(wp_of.items()):
         continue
     n_wp += 1
     url = f"https://{lang}.wikipedia.org/wiki/{urllib.parse.quote(title)}"
-    intro = text.split("\n")[0].strip()
+    # Lay LEAD section: toi da 3 doan, dung o header "==", cap 1500 ky tu cat an-toan-cau.
+    # (Truoc day split("\n")[0] bo doan 2+ — bai lon nhu Ho Hoan Kiem/Vinh Ha Long bi cat con 1.)
+    _paras = []
+    for _p in text.split("\n"):
+        _p = _p.strip()
+        if not _p:
+            continue
+        if _p.startswith("=="):
+            break
+        _paras.append(_p)
+        if len(_paras) >= 3:
+            break
+    intro = "\n\n".join(_paras)
+    if len(intro) > 1500:
+        _cut = intro[:1500]
+        _dot = _cut.rfind(". ")
+        intro = _cut[:_dot + 1] if _dot > 800 else _cut
     if len(intro) > 40:
-        emit(pid, "mo_ta_wikipedia", intro[:700], f"Wikipedia {lang}", url,
-             "đoạn mở đầu, trích nguyên văn")
+        emit(pid, "mo_ta_wikipedia", intro, f"Wikipedia {lang}", url,
+             "đoạn mở đầu (tối đa 3 đoạn), trích nguyên văn")
     for m in PRICE_RE.finditer(text):
         s = " ".join(m.group(0).split())
         if len(s) < 260:
