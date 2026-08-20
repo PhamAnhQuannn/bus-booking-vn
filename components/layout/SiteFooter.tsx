@@ -155,7 +155,7 @@ export function SiteFooter() {
 
       <div className="page-container">
         <div className="flex flex-col items-center justify-between gap-4 border-t border-footer-hairline py-5 text-xs text-footer-muted sm:flex-row">
-          <span>© {year} BBVN. All rights reserved.</span>
+          <span>© {year} BBVN — CÔNG TY TNHH XD VT & DVTM MINH QUÂN. All rights reserved.</span>
           <ul className="flex list-none items-center gap-4 p-0">
             {PAYMENT_METHODS.map((m) => (
               <li key={m} className="font-semibold uppercase tracking-wide">
