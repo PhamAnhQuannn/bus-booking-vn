@@ -52,10 +52,18 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
+import createMiddleware from 'next-intl/middleware';
+import { routing } from '@/i18n/routing';
 import { generateToken, compareTokens } from '@/lib/auth/csrf';
 import { ratelimit } from '@/lib/ratelimit';
 import { REQUEST_ID_HEADER, getOrCreateRequestId } from '@/lib/observability/requestId';
 import { clientIp } from '@/lib/core/http/clientIp';
+
+// next-intl locale router. P-spike: invoked ONLY for the /spike proof route + /en/*
+// (see the scoped gate in proxy() below), so /op, /admin, /api and the current
+// Vietnamese customer tree are completely untouched. P0 widens this to the full
+// customer matcher once app/(customer) moves under app/[locale].
+const handleI18nRouting = createMiddleware(routing);
 
 const CSRF_COOKIE = 'bb_csrf';
 const CSRF_HEADER = 'X-CSRF-Token';
@@ -194,6 +202,18 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     res.headers.set(REQUEST_ID_HEADER, rid);
     return res;
   };
+
+  // -------------------------------------------------------------------------
+  // i18n locale routing (P-spike) — SCOPED to the throwaway /spike proof route.
+  // Only /spike (vi, unprefixed → rewritten to /vi/spike) and /en/* run through
+  // next-intl, so the rest of the app is untouched until P0 moves app/(customer)
+  // under app/[locale] and this gate widens to the full customer matcher.
+  // Placed before the auth guards: /spike and /en/* are never /op, /admin or /api,
+  // so this never intercepts a guarded path.
+  // -------------------------------------------------------------------------
+  if (pathname === '/spike' || pathname === '/en' || pathname.startsWith('/en/')) {
+    return handleI18nRouting(request);
+  }
 
   // Google OAuth routes self-gate on GOOGLE_OAUTH_ENABLED (404 when off) — the interim
   // middleware 410 block was removed once the /api/auth/google/{start,callback} routes

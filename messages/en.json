@@ -1,0 +1,14 @@
+{
+  "common": {
+    "brand": "BBVN",
+    "bookTicket": "Book a ticket",
+    "search": "Search trips",
+    "login": "Log in / Sign up"
+  },
+  "spike": {
+    "title": "i18n spike",
+    "intro": "This page proves the bilingual infrastructure works: strings are translated on the server, the /en/ URL routes by locale, and the switcher preserves the current path.",
+    "currentLocale": "Current language",
+    "note": "Route names, operator names and VND amounts are data — not translated. Only interface labels are localized."
+  }
+}

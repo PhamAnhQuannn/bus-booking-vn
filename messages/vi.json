@@ -1,0 +1,14 @@
+{
+  "common": {
+    "brand": "BBVN",
+    "bookTicket": "Đặt vé xe",
+    "search": "Tìm chuyến xe",
+    "login": "Đăng nhập / Đăng ký"
+  },
+  "spike": {
+    "title": "Bản chạy thử i18n",
+    "intro": "Trang này chứng minh hạ tầng song ngữ hoạt động: chuỗi được dịch phía máy chủ, URL /en/ định tuyến theo locale, và nút chuyển đổi giữ nguyên đường dẫn.",
+    "currentLocale": "Ngôn ngữ hiện tại",
+    "note": "Tên tuyến, tên nhà xe và số tiền VND là dữ liệu — không dịch. Chỉ nhãn giao diện được dịch."
+  }
+}
