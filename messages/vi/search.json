@@ -1,0 +1,57 @@
+{
+  "form": {
+    "aria": "Tìm chuyến xe",
+    "submit": "Tìm chuyến xe",
+    "searching": "Đang tìm…",
+    "origin": "Điểm đi",
+    "originShort": "Điểm xuất phát",
+    "destination": "Điểm đến",
+    "originPlaceholder": "Nhập điểm xuất phát",
+    "destinationPlaceholder": "Nhập điểm đến",
+    "swap": "Đổi chiều điểm đi và điểm đến",
+    "date": "Ngày đi",
+    "datePlaceholder": "Chọn ngày đi",
+    "ticketCount": "Số vé",
+    "decTicket": "Giảm số vé",
+    "incTicket": "Tăng số vé",
+    "ticketAria": "{count} vé",
+    "errRequired": "Vui lòng nhập điểm đi và điểm đến.",
+    "errSame": "Điểm đi và điểm đến không được trùng nhau.",
+    "errDate": "Vui lòng chọn ngày đi hợp lệ."
+  },
+  "sort": {
+    "label": "Sắp xếp",
+    "departure_asc": "Giờ đi sớm nhất",
+    "price_asc": "Giá thấp → cao",
+    "price_desc": "Giá cao → thấp",
+    "duration_asc": "Đi nhanh nhất"
+  },
+  "busType": {
+    "coach": "Ghế ngồi",
+    "sleeper": "Giường nằm",
+    "limousine": "Limousine"
+  },
+  "window": {
+    "morning": "Sáng (5–11h)",
+    "afternoon": "Chiều (11–17h)",
+    "evening": "Tối (17–22h)",
+    "night": "Đêm (22–5h)"
+  },
+  "filter": {
+    "title": "Bộ lọc",
+    "sheetTitle": "Bộ lọc chuyến xe",
+    "operator": "Nhà xe",
+    "allOperators": "Tất cả nhà xe",
+    "busTypeLabel": "Loại xe",
+    "departureTime": "Giờ khởi hành",
+    "maxDuration": "Thời gian đi tối đa",
+    "price": "Giá vé (đ)",
+    "priceMin": "Giá tối thiểu",
+    "priceMax": "Giá tối đa",
+    "clear": "Xóa bộ lọc",
+    "button": "Bộ lọc",
+    "viewResults": "Xem kết quả",
+    "activeAria": "Bộ lọc đang áp dụng",
+    "removeChip": "Bỏ lọc: {label}"
+  }
+}
