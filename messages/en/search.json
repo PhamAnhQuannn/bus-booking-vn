@@ -53,5 +53,49 @@
     "viewResults": "View results",
     "activeAria": "Active filters",
     "removeChip": "Remove filter: {label}"
+  },
+  "results": {
+    "prev": "Previous",
+    "next": "Next",
+    "prevDay": "Previous day: {date}",
+    "nextDay": "Next day: {date}",
+    "pastDisabled": "Cannot choose a past date",
+    "heading": "Trips today",
+    "showingPrefix": "Showing",
+    "nounPickup": "pickup points",
+    "nounTrip": "trips",
+    "noMatch": "No trips match the filters. Try removing some filters.",
+    "loadMore": "More trips →",
+    "loadMoreAria": "See more trips (next page)"
+  },
+  "card": {
+    "aria": "Trip from {origin} to {destination}",
+    "perTicket": "/ 1 ticket",
+    "seatsLeft": "{count} seats left",
+    "selectSeat": "Select seat",
+    "amenityWifi": "Wi-Fi",
+    "amenityWater": "Water",
+    "amenitySocket": "Power socket",
+    "amenityBlanket": "Blanket"
+  },
+  "book": {
+    "bookTicket": "Book",
+    "aria": "{label} — this trip"
+  },
+  "empty": {
+    "notFound": "No trips found for this date.",
+    "tryOther": "Try another date:",
+    "findPrev": "Find previous day: {date}",
+    "findNext": "Find next day: {date}",
+    "viewAllRoutes": "View all routes"
+  },
+  "trust": {
+    "aria": "Operator info and support",
+    "approved": "Operator approved",
+    "title": "Book with confidence",
+    "point1": "Operators are approved before selling tickets",
+    "point2": "Pay upfront via VietQR or VNPay",
+    "refundLink": "Cancellation & refund policy",
+    "supportLabel": "Support: "
   }
 }
