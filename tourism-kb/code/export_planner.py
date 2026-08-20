@@ -268,6 +268,31 @@ SRC_OSM_DD = SRC.id_of("OpenStreetMap (tag diem den: tourism/historic/natural)",
 SRC_HINT_DD = SRC.id_of("Curator dat toa do (chua xac minh nguon ngoai)", None, "curated", BUILD)
 SRC_CSDL_DD = SRC.id_of("Register diem den — Cuc Du lich Quoc gia (csdl.vietnamtourism.gov.vn/dest)",
                         None, "registry", BUILD)
+SRC_TMPL_DD = SRC.id_of("Mo ta soan tu truong co san (loai + vi tri + tham dinh)", None, "derived", BUILD)
+
+
+def _mo_ta_don_gian(rec, tham_dinh):
+    """Cau factual tu field DA CO — khong bia, khong dien dat lai nguon nao. Fallback khi
+    khong co mo_ta_wikipedia verbatim. Chi khang dinh loai + vi tri + provenance da hold."""
+    loai = (rec.get("category") or {}).get("primary") or "Điểm tham quan"
+    ad = rec.get("address") or {}
+    prov = (ad.get("province") or ad.get("city") or "").strip()
+    full = re.sub(r"\s*\([^)]*\)", "", ad.get("full_address") or "")   # bo "(nay là ...)"
+    segs = [s.strip() for s in full.split(",") if s.strip()]
+    first = segs[0] if segs else ""       # segment cu the nhat (xã/phường/đường)
+    # "xã X, tỉnh" — bo prov trung lap trong first
+    def _clean(s):
+        return s.lower().replace("tỉnh ", "").replace("thành phố ", "").strip()
+    if first and prov and _clean(prov) in _clean(first):
+        noi = first
+    elif first and prov:
+        noi = f"{first}, {prov}"
+    else:
+        noi = first or prov
+    cau = f"{loai} tại {noi}." if noi else f"{loai}."
+    if tham_dinh:
+        cau += " Điểm đến được nhà nước thẩm định."
+    return cau
 def _src_dd(src):
     lab = (src or ["curated hint"])
     lab = str(lab[0] if isinstance(lab, list) and lab else lab).lower()
@@ -305,11 +330,15 @@ for r in PICKED:
         place_id_of(r["name"]), "source_node",
     )
     rec["alternate_names"] = alt
-    # description (verbatim wiki)
+    # description: verbatim wiki neu co, else template factual tu field (100% phu)
     dsc = prov_val(pid, "mo_ta_wikipedia", "encyclopedia")
     if dsc:
         rec["description"] = {"value": dsc["value"], "is_verbatim_quote": True,
                               "source_id": dsc["source_id"], "retrieved_at": dsc["retrieved_at"]}
+    else:
+        rec["description"] = {"value": _mo_ta_don_gian(rec, r.get("csdl_tham_dinh")),
+                              "is_verbatim_quote": False, "derived": "template-fields",
+                              "source_id": SRC_TMPL_DD, "retrieved_at": BUILD}
     # opening_hours
     gh = e(pid, "gio_mo_cua")
     oh = None

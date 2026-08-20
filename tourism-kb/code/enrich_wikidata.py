@@ -32,7 +32,52 @@ def hav(a, b):
     return 2 * R * math.asin(math.sqrt(x))
 
 
+import unicodedata
+_GENERIC = {"chua", "den", "mieu", "nha", "tho", "khu", "di", "tich", "thap", "ho",
+            "nui", "thac", "dao", "bai", "vuon", "cong", "vien", "diem", "du", "lich"}
+
+
+def _fold(s):
+    s = unicodedata.normalize("NFD", s or "")
+    s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+    return " ".join(s.lower().replace("đ", "d").split())
+
+
+def _core(s):
+    return frozenset(t for t in _fold(s).split() if len(t) > 2 and t not in _GENERIC)
+
+
+_HANH_CHINH = ("xã", "huyện", "phường", "thị trấn", "tỉnh", "thành phố", "quận",
+               "đơn vị hành chính", "làng", "thôn", "khu dân cư")
+
+
+def _la_hanh_chinh(type_label):
+    t = (type_label or "").lower()
+    return any(w in t for w in _HANH_CHINH)
+
+
+def _ten_khop(a, b):
+    """Danh tu rieng chung MANH -> cung mot noi. Mot token chung (meo/son/ban) la trung
+    am, KHONG du (Chua Meo <-> Na Meo cach 47km). Doi: fold bang nhau, HOAC >=2 token
+    danh-tu-rieng chung, HOAC tap con nhau voi >=2 token — chan trung-am 1-token."""
+    fa, fb = _fold(a), _fold(b)
+    if not fa or not fb:
+        return False
+    if fa == fb:
+        return True
+    ca, cb = _core(a), _core(b)
+    if not ca or not cb:
+        return False
+    inter = ca & cb
+    if len(inter) >= 2:
+        return True
+    if (ca <= cb or cb <= ca) and min(len(ca), len(cb)) >= 2:
+        return True
+    return False
+
+
 picked = json.load(io.open(os.path.join(RAW, "guide_data.json"), encoding="utf-8"))["picked"]
+name_of = {c["id"]: c["name"] for c in picked}
 rows = json.load(io.open(ENRICH, encoding="utf-8"))
 before = len(rows)
 seen = {(r["id"], r["field"]) for r in rows}
@@ -54,14 +99,21 @@ for b in wd.get("results", {}).get("bindings", []):
         continue
     wd_pts.append((lat, lon, b["item"]["value"].rsplit("/", 1)[-1],
                    b.get("viLabel", {}).get("value") or b.get("itemLabel", {}).get("value", ""),
-                   b.get("image", {}).get("value", "")))
+                   b.get("image", {}).get("value", ""),
+                   b.get("typeLabel", {}).get("value", "")))
 for p in picked:
     if p["id"] in qid_of:
         continue
     best, bd = None, 9e9
-    for lat, lon, q, lab, img in wd_pts:
+    for lat, lon, q, lab, img, typ in wd_pts:
+        # bo don vi HANH CHINH (xa/huyen/phuong...) — bai Wikipedia ta VUNG, khong ta diem;
+        # gan cho mot lang nghe se mo ta ca xa, la misattribution.
+        if _la_hanh_chinh(typ):
+            continue
         d = hav((p["lat"], p["lon"]), (lat, lon))
-        if d < bd and d < 400:
+        # identity 2 truc: ten khop MANH VA cung tinh (<6km — feature lon nhu VQG/ho
+        # cach centroid vai km; ten manh + cung tinh = cung noi). Ten manh chan trung-am.
+        if d < bd and d < 6000 and _ten_khop(p["name"], lab):
             bd, best = d, (q, lab, img)
     if best:
         qid_of[p["id"]] = best[0]
@@ -150,6 +202,11 @@ for pid, raw in sorted(wp_of.items()):
     for _, pg in pages.items():
         text = pg.get("extract") or ""
     if not text:
+        continue
+    # GUARD ten: tieu de bai phai khop ten diem — chan ca mis-tag OSM (sub-feature gan
+    # wikidata cua diem CHA, vd "Big Bamboo" gan QID "Pù Luông"). Mo ta = claim.
+    if not _ten_khop(name_of.get(pid, ""), title):
+        print(f"  bo qua {pid}: bai '{title}' khong khop ten diem '{name_of.get(pid,'')[:30]}'")
         continue
     n_wp += 1
     url = f"https://{lang}.wikipedia.org/wiki/{urllib.parse.quote(title)}"
