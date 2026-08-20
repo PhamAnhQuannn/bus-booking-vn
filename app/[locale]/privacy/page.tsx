@@ -1,209 +1,187 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
+import { Link } from '@/i18n/navigation';
+import { localeAlternates } from '@/lib/seo';
 
-export const metadata: Metadata = {
-  title: 'Chính sách bảo mật | BBVN',
-  description: 'Cách BBVN thu thập, sử dụng và bảo vệ thông tin cá nhân của khách hàng.',
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'legal' });
+  return {
+    title: t('privacy.meta.title'),
+    description: t('privacy.meta.description'),
+    alternates: localeAlternates('/privacy'),
+  };
+}
 
-export default function PrivacyPage() {
+export default async function PrivacyPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'legal' });
+  const b = (c: React.ReactNode) => <strong>{c}</strong>;
+
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-10">
-      <h1 className="text-2xl font-bold">Chính sách bảo mật</h1>
-      <p className="text-sm text-muted-foreground">Cập nhật: Tháng 7, 2026</p>
+      <h1 className="text-2xl font-bold">{t('privacy.h1')}</h1>
+      <p className="text-sm text-muted-foreground">{t('privacy.updated')}</p>
+
+      <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+        {t('prevailingLanguage')}
+      </p>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">1. Giới thiệu</h2>
-        <p className="text-sm leading-relaxed">
-          BBVN (&quot;chúng tôi&quot;) cam kết bảo vệ quyền riêng tư của bạn theo Luật Bảo vệ dữ liệu
-          cá nhân số 91/2025/QH15 (PDPL 2025) và Nghị định 356/2025/NĐ-CP. Chính sách này mô tả cách
-          chúng tôi thu thập, sử dụng, lưu trữ và bảo vệ thông tin cá nhân khi bạn sử dụng nền tảng
-          đặt vé xe khách BBVN.
-        </p>
+        <h2 className="text-lg font-semibold">{t('privacy.s1.title')}</h2>
+        <p className="text-sm leading-relaxed">{t('privacy.s1.body')}</p>
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">2. Thông tin chúng tôi thu thập</h2>
+        <h2 className="text-lg font-semibold">{t('privacy.s2.title')}</h2>
         <ul className="list-disc pl-6 text-sm leading-relaxed">
-          <li>
-            <strong>Thông tin liên hệ đặt vé:</strong> Số điện thoại liên hệ (bắt buộc để đặt vé và
-            nhận thông báo), họ tên, địa chỉ email (tùy chọn).
-          </li>
-          <li>
-            <strong>Thông tin đặt vé:</strong> Tên hành khách, số điện thoại liên hệ, email liên hệ,
-            điểm đón, chi tiết chuyến đi.
-          </li>
-          <li>
-            <strong>Thông tin thanh toán:</strong> Trạng thái thanh toán, mã giao dịch ngân hàng. Chúng
-            tôi không lưu trữ số thẻ ngân hàng hay thông tin đăng nhập ngân hàng.
-          </li>
-          <li>
-            <strong>Dữ liệu kỹ thuật:</strong> Địa chỉ IP (dùng cho giới hạn truy cập), user agent
-            trình duyệt, nhật ký truy cập.
-          </li>
+          {(t.raw('privacy.s2.items') as string[]).map((_, i) => (
+            <li key={i}>{t.rich(`privacy.s2.items.${i}`, { b })}</li>
+          ))}
         </ul>
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">3. Mục đích sử dụng</h2>
+        <h2 className="text-lg font-semibold">{t('privacy.s3.title')}</h2>
         <ul className="list-disc pl-6 text-sm leading-relaxed">
-          <li>Xử lý và xác nhận đặt vé xe khách.</li>
-          <li>Gửi thông báo qua email (xác nhận vé, nhắc nhở chuyến đi).</li>
-          <li>Hỗ trợ khách hàng và giải quyết tranh chấp.</li>
-          <li>Cải thiện chất lượng dịch vụ và phát hiện gian lận.</li>
+          {(t.raw('privacy.s3.items') as string[]).map((item, i) => (
+            <li key={i}>{item}</li>
+          ))}
         </ul>
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">4. Cơ sở pháp lý</h2>
-        <p className="text-sm leading-relaxed">
-          Chúng tôi xử lý dữ liệu dựa trên: (a) sự đồng ý của bạn khi đặt vé; (b) thực hiện hợp đồng
-          đặt vé; (c) nghĩa vụ pháp lý theo quy định kế toán và lưu trữ chứng từ.
-        </p>
+        <h2 className="text-lg font-semibold">{t('privacy.s4.title')}</h2>
+        <p className="text-sm leading-relaxed">{t('privacy.s4.body')}</p>
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">5. Chia sẻ dữ liệu</h2>
-        <p className="text-sm leading-relaxed">
-          Chúng tôi chỉ chia sẻ thông tin cá nhân với:
-        </p>
+        <h2 className="text-lg font-semibold">{t('privacy.s5.title')}</h2>
+        <p className="text-sm leading-relaxed">{t('privacy.s5.intro')}</p>
         <ul className="list-disc pl-6 text-sm leading-relaxed">
-          <li>
-            <strong>Nhà xe:</strong> Tên hành khách, số điện thoại liên hệ và điểm đón — để phục vụ
-            chuyến đi.
-          </li>
-          <li>
-            <strong>Đối tác thanh toán:</strong> Xử lý giao dịch chuyển khoản ngân hàng (VietQR). Chúng
-            tôi không lưu trữ số thẻ ngân hàng hay thông tin đăng nhập ngân hàng.
-          </li>
-          <li>
-            <strong>Cơ quan nhà nước:</strong> Khi có yêu cầu theo quy định pháp luật Việt Nam.
-          </li>
+          {(t.raw('privacy.s5.items') as string[]).map((_, i) => (
+            <li key={i}>{t.rich(`privacy.s5.items.${i}`, { b })}</li>
+          ))}
         </ul>
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">6. Lưu trữ và bảo mật</h2>
-        <p className="text-sm leading-relaxed">
-          Dữ liệu được lưu trữ trên máy chủ tại Singapore (Vercel, Neon, Upstash). Chúng tôi áp dụng
-          mã hóa AES-256 cho thông tin nhạy cảm, mã hóa kết nối SSL/TLS, và kiểm soát truy cập nghiêm
-          ngặt. Mật khẩu được băm (hash) một chiều, không lưu dạng rõ.
-        </p>
+        <h2 className="text-lg font-semibold">{t('privacy.s6.title')}</h2>
+        <p className="text-sm leading-relaxed">{t('privacy.s6.body')}</p>
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">6a. Chuyển dữ liệu ra nước ngoài</h2>
-        <p className="text-sm leading-relaxed">
-          Theo Điều 25 Luật PDPL 2025 và Nghị định 356/2025/NĐ-CP, chúng tôi thông báo rằng dữ liệu cá
-          nhân của bạn được xử lý bởi các nhà cung cấp dịch vụ đám mây tại Singapore:
-        </p>
+        <h2 className="text-lg font-semibold">{t('privacy.s6a.title')}</h2>
+        <p className="text-sm leading-relaxed">{t('privacy.s6a.intro')}</p>
         <ul className="list-disc pl-6 text-sm leading-relaxed">
-          <li><strong>Vercel:</strong> Máy chủ ứng dụng (compute) — khu vực Singapore (sin1).</li>
-          <li><strong>Neon:</strong> Cơ sở dữ liệu PostgreSQL — khu vực Singapore.</li>
-          <li><strong>Upstash:</strong> Bộ nhớ đệm Redis — khu vực Singapore.</li>
+          {(t.raw('privacy.s6a.items') as string[]).map((_, i) => (
+            <li key={i}>{t.rich(`privacy.s6a.items.${i}`, { b })}</li>
+          ))}
         </ul>
-        <p className="text-sm leading-relaxed">
-          Việc chuyển dữ liệu ra nước ngoài tuân thủ các yêu cầu về đánh giá tác động chuyển dữ liệu
-          xuyên biên giới (CDTIA) theo quy định PDPL 2025.
-        </p>
+        <p className="text-sm leading-relaxed">{t('privacy.s6a.note')}</p>
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">7. Thời gian lưu trữ</h2>
+        <h2 className="text-lg font-semibold">{t('privacy.s7.title')}</h2>
         <ul className="list-disc pl-6 text-sm leading-relaxed">
-          <li>Thông tin liên hệ đặt vé: cho đến khi bạn yêu cầu xóa hoặc hết nghĩa vụ lưu trữ pháp lý.</li>
-          <li>Lịch sử đặt vé và chứng từ thanh toán: tối thiểu 5 năm theo quy định kế toán.</li>
-          <li>Nhật ký truy cập: 90 ngày.</li>
+          {(t.raw('privacy.s7.items') as string[]).map((item, i) => (
+            <li key={i}>{item}</li>
+          ))}
         </ul>
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">8. Quyền của bạn</h2>
-        <p className="text-sm leading-relaxed">
-          Theo Luật PDPL 2025, bạn có các quyền sau:
-        </p>
+        <h2 className="text-lg font-semibold">{t('privacy.s8.title')}</h2>
+        <p className="text-sm leading-relaxed">{t('privacy.s8.intro')}</p>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-left">
-                <th className="py-2 pr-4 font-semibold">Quyền</th>
-                <th className="py-2 font-semibold">Thời hạn xử lý</th>
+                {(t.raw('privacy.s8.tableHead') as string[]).map((h, i) => (
+                  <th key={i} className={i === 0 ? 'py-2 pr-4 font-semibold' : 'py-2 font-semibold'}>
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
-              <tr>
-                <td className="py-2 pr-4">Truy cập và xem thông tin cá nhân</td>
-                <td className="py-2">10 ngày làm việc</td>
-              </tr>
-              <tr>
-                <td className="py-2 pr-4">Yêu cầu chỉnh sửa thông tin không chính xác</td>
-                <td className="py-2">10 ngày làm việc</td>
-              </tr>
-              <tr>
-                <td className="py-2 pr-4">Yêu cầu xóa dữ liệu cá nhân</td>
-                <td className="py-2">20 ngày làm việc</td>
-              </tr>
-              <tr>
-                <td className="py-2 pr-4">Rút lại sự đồng ý xử lý dữ liệu</td>
-                <td className="py-2">15 ngày làm việc</td>
-              </tr>
+              {(t.raw('privacy.s8.rows') as string[][]).map((row, i) => (
+                <tr key={i}>
+                  <td className="py-2 pr-4">{row[0]}</td>
+                  <td className="py-2">{row[1]}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
         <p className="text-sm leading-relaxed">
-          Để thực hiện các quyền này, vui lòng gửi email đến{' '}
-          <a href="mailto:privacy@bbvn.vn" className="text-primary underline">
-            privacy@bbvn.vn
-          </a>
-          .
+          {t.rich('privacy.s8.contact', {
+            email: (c) => (
+              <a href="mailto:privacy@bbvn.vn" className="text-primary underline">
+                {c}
+              </a>
+            ),
+          })}
         </p>
-        <p className="text-sm leading-relaxed">
-          Lưu ý: lịch sử đặt vé và chứng từ thanh toán vẫn được lưu theo nghĩa vụ pháp lý ngay cả
-          sau khi xóa dữ liệu cá nhân.
-        </p>
+        <p className="text-sm leading-relaxed">{t('privacy.s8.note')}</p>
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">8a. Thông báo vi phạm dữ liệu</h2>
-        <p className="text-sm leading-relaxed">
-          Trong trường hợp vi phạm dữ liệu cá nhân, chúng tôi sẽ thông báo cho cơ quan chức năng trong
-          vòng 72 giờ và trong vòng 24 giờ nếu liên quan đến tấn công mạng, theo quy định PDPL 2025.
-        </p>
+        <h2 className="text-lg font-semibold">{t('privacy.s8a.title')}</h2>
+        <p className="text-sm leading-relaxed">{t('privacy.s8a.body')}</p>
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">9. Cookie và công nghệ theo dõi</h2>
-        <p className="text-sm leading-relaxed">
-          Chúng tôi sử dụng cookie kỹ thuật (phiên đăng nhập, xác thực CSRF, giữ chỗ) cần thiết để
-          vận hành dịch vụ. Chúng tôi không sử dụng cookie theo dõi quảng cáo hay cookie bên thứ ba.
-        </p>
+        <h2 className="text-lg font-semibold">{t('privacy.s9.title')}</h2>
+        <p className="text-sm leading-relaxed">{t('privacy.s9.body')}</p>
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">10. Liên hệ</h2>
+        <h2 className="text-lg font-semibold">{t('privacy.s10.title')}</h2>
         <p className="text-sm leading-relaxed">
-          Phụ trách bảo vệ dữ liệu cá nhân — Email:{' '}
-          <a href="mailto:privacy@bbvn.vn" className="text-primary underline">
-            privacy@bbvn.vn
-          </a>
+          {t.rich('privacy.s10.body', {
+            email: (c) => (
+              <a href="mailto:privacy@bbvn.vn" className="text-primary underline">
+                {c}
+              </a>
+            ),
+          })}
         </p>
         <p className="text-sm leading-relaxed">
-          Nếu bạn không hài lòng với cách xử lý khiếu nại, bạn có quyền liên hệ Cục Cạnh tranh và Bảo
-          vệ người tiêu dùng (VCCA) hoặc cơ quan chức năng có thẩm quyền theo{' '}
-          <Link href="/khieu-nai" className="text-primary underline">
-            Chính sách giải quyết khiếu nại
-          </Link>
-          .
+          {t.rich('privacy.s10.authority', {
+            link: (c) => (
+              <Link href="/khieu-nai" className="text-primary underline">
+                {c}
+              </Link>
+            ),
+          })}
         </p>
       </section>
 
-      <p className="text-xs text-muted-foreground">Phiên bản: 2026-07</p>
+      <p className="text-xs text-muted-foreground">{t('privacy.version')}</p>
 
-      <nav className="flex flex-wrap gap-x-4 gap-y-1 border-t border-border pt-4 text-sm" aria-label="Chính sách liên quan">
-        <span className="text-muted-foreground">Liên quan:</span>
-        <Link href="/terms" className="text-primary underline">Điều khoản dịch vụ</Link>
-        <Link href="/chinh-sach-huy-ve-hoan-tien" className="text-primary underline">Chính sách hủy vé và hoàn tiền</Link>
-        <Link href="/khieu-nai" className="text-primary underline">Giải quyết khiếu nại</Link>
+      <nav
+        className="flex flex-wrap gap-x-4 gap-y-1 border-t border-border pt-4 text-sm"
+        aria-label={t('related.aria')}
+      >
+        <span className="text-muted-foreground">{t('related.label')}</span>
+        <Link href="/terms" className="text-primary underline">
+          {t('related.terms')}
+        </Link>
+        <Link href="/chinh-sach-huy-ve-hoan-tien" className="text-primary underline">
+          {t('related.refund')}
+        </Link>
+        <Link href="/khieu-nai" className="text-primary underline">
+          {t('related.complaints')}
+        </Link>
       </nav>
     </main>
   );
