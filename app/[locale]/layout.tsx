@@ -3,6 +3,7 @@ import { Be_Vietnam_Pro, Geist_Mono } from "next/font/google";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { routing, type Locale } from "@/i18n/routing";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
@@ -23,11 +24,9 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// Metadata strings stay Vietnamese for now — SEO/metadata localization is P2.
-// Only openGraph.locale is derived per-locale here so the document declares the
-// right language pair; per-page titles still carry their own "| BBVN" suffix.
-const SITE_TITLE = "Đặt vé xe khách | BBVN";
-const SITE_DESC = "Tìm và đặt vé xe khách liên tỉnh trên toàn quốc.";
+// Default document title/description per-locale (i18n P2a). openGraph.locale
+// declares the right language pair; per-page generateMetadata overrides title/
+// description (and adds hreflang alternates) on indexable funnel pages.
 const OG_LOCALE: Record<Locale, string> = { vi: "vi_VN", en: "en_US" };
 
 export function generateStaticParams() {
@@ -40,22 +39,25 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "metadata" });
+  const title = t("site.title");
+  const description = t("site.description");
   return {
     metadataBase: new URL(SITE_URL),
-    title: SITE_TITLE,
-    description: SITE_DESC,
+    title,
+    description,
     openGraph: {
       type: "website",
       locale: OG_LOCALE[locale as Locale] ?? OG_LOCALE.vi,
       siteName: "BBVN",
       url: "/",
-      title: SITE_TITLE,
-      description: SITE_DESC,
+      title,
+      description,
     },
     twitter: {
       card: "summary_large_image",
-      title: SITE_TITLE,
-      description: SITE_DESC,
+      title,
+      description,
     },
   };
 }

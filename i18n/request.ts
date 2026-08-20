@@ -12,7 +12,7 @@ import { routing } from './routing';
  * namespace key ({ common: {...}, booking: {...}, … }). Add a namespace here when its file
  * lands; every locale must ship the same set.
  */
-const NAMESPACES = ['common', 'home', 'search', 'booking', 'trips', 'charter', 'account', 'auth'] as const;
+const NAMESPACES = ['common', 'home', 'search', 'booking', 'trips', 'charter', 'account', 'auth', 'metadata'] as const;
 
 export default getRequestConfig(async ({ requestLocale }) => {
   const requested = await requestLocale;

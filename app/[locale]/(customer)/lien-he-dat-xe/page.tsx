@@ -1,11 +1,22 @@
 import type { Metadata } from 'next';
 import { useTranslations } from 'next-intl';
+import { getTranslations } from 'next-intl/server';
+import { localeAlternates } from '@/lib/seo';
 import { ContactBookingForm } from '@/components/contact/ContactBookingForm';
 
-export const metadata: Metadata = {
-  title: 'Liên hệ đặt xe | BBVN',
-  description: 'Đặt xe du lịch, thuê xe hợp đồng — để lại thông tin, BBVN tư vấn và báo giá nhanh.',
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'metadata' });
+  return {
+    title: t('charter.title'),
+    description: t('charter.description'),
+    alternates: localeAlternates('/lien-he-dat-xe'),
+  };
+}
 
 export default function ContactBookingPage() {
   const t = useTranslations('charter');

@@ -15,7 +15,7 @@ import { Link } from '@/i18n/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getTripDetails } from '@/lib/trips';
 import { formatVnd } from '@/lib/format';
-import { busTripLd, breadcrumbLd, SITE_URL, jsonLdHtml } from '@/lib/seo';
+import { busTripLd, breadcrumbLd, SITE_URL, jsonLdHtml, localeAlternates } from '@/lib/seo';
 import { TripBooking } from './TripBooking';
 
 export const dynamic = 'force-dynamic';
@@ -45,20 +45,28 @@ function formatDeparture(iso: string): string {
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ locale: string; id: string }>;
 }): Promise<Metadata> {
-  const { id } = await params;
+  const { locale, id } = await params;
+  const t = await getTranslations({ locale, namespace: 'metadata' });
+  const alternates = localeAlternates(`/trips/${id}`);
   // Metadata must never take down the page — a DB timeout here falls back to a
   // static title instead of throwing (audit F5).
   try {
     const trip = await getTripDetailsCached(id);
-    if (!trip) return { title: 'Chuyến xe | BBVN' };
+    if (!trip) return { title: t('trip.fallbackTitle'), alternates };
+    // Route origin/destination + operator name are DATA — passed as args, never translated.
     return {
-      title: `${trip.routeOrigin} → ${trip.routeDestination} | BBVN`,
-      description: `Chuyến ${trip.routeOrigin} đi ${trip.routeDestination} — ${trip.operatorLegalName}.`,
+      title: t('trip.title', { origin: trip.routeOrigin, destination: trip.routeDestination }),
+      description: t('trip.description', {
+        origin: trip.routeOrigin,
+        destination: trip.routeDestination,
+        operator: trip.operatorLegalName,
+      }),
+      alternates,
     };
   } catch {
-    return { title: 'Chi tiết chuyến xe | BBVN' };
+    return { title: t('trip.fallbackTitle'), alternates };
   }
 }
 

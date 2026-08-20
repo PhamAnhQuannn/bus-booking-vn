@@ -24,32 +24,40 @@ import { Card, CardContent } from '@/components/ui/card';
 import { slugify } from '@/lib/places';
 import { getActiveRoutes } from '@/lib/core/db/getActiveRoutes';
 import { getPublicOperators } from '@/lib/home';
-import { organizationLd, jsonLdHtml } from '@/lib/seo';
+import { organizationLd, jsonLdHtml, localeAlternates } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
+  params: Promise<{ locale: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
-  const params = await searchParams;
+export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'metadata' });
+  const sp = await searchParams;
   const raw = {
-    origin: typeof params.origin === 'string' ? params.origin : '',
-    destination: typeof params.destination === 'string' ? params.destination : '',
-    date: typeof params.date === 'string' ? params.date : '',
-    ticketCount: typeof params.ticketCount === 'string' ? params.ticketCount : '',
+    origin: typeof sp.origin === 'string' ? sp.origin : '',
+    destination: typeof sp.destination === 'string' ? sp.destination : '',
+    date: typeof sp.date === 'string' ? sp.date : '',
+    ticketCount: typeof sp.ticketCount === 'string' ? sp.ticketCount : '',
   };
   const parsed = searchParamsSchema.safeParse(raw);
+  // Canonical always the query-free home path — search-result variants are the
+  // same indexable surface, not distinct URLs.
+  const alternates = localeAlternates('/');
   if (parsed.success) {
     return {
-      title: `${parsed.data.origin} → ${parsed.data.destination} | BBVN`,
-      description: `Tìm chuyến xe từ ${parsed.data.origin} đến ${parsed.data.destination}`,
+      title: t('home.searchTitle', { origin: parsed.data.origin, destination: parsed.data.destination }),
+      description: t('home.searchDescription', { origin: parsed.data.origin, destination: parsed.data.destination }),
+      alternates,
     };
   }
   return {
-    title: 'Đặt vé xe khách | BBVN',
-    description: 'Tìm và đặt vé xe khách liên tỉnh trên toàn quốc, đặt trong 30 giây.',
+    title: t('home.title'),
+    description: t('home.description'),
+    alternates,
   };
 }
 

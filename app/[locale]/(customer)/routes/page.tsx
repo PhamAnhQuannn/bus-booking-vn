@@ -8,12 +8,22 @@
 import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
 import { getActiveRoutes } from '@/lib/core/db/getActiveRoutes';
+import { localeAlternates } from '@/lib/seo';
 import { RoutesBrowser } from './RoutesBrowser';
 
-export const metadata: Metadata = {
-  title: 'Tuyến đường | BBVN',
-  description: 'Khám phá các tuyến xe khách liên tỉnh đang mở bán.',
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'metadata' });
+  return {
+    title: t('routes.title'),
+    description: t('routes.description'),
+    alternates: localeAlternates('/routes'),
+  };
+}
 
 export const dynamic = 'force-dynamic';
 

@@ -15,6 +15,26 @@ export const SITE_URL =
 const ORG_NAME = 'BBVN';
 
 /**
+ * hreflang + canonical alternates for an indexable localized page (i18n P2a).
+ *
+ * `localePrefix: 'as-needed'` → vi (default) is unprefixed, en lives under `/en`.
+ * `path` is the locale-agnostic pathname starting with '/', WITHOUT any query
+ * string (canonical must be query-free). Relative values resolve against the
+ * root `metadataBase`. x-default points at the vi (default-locale) URL.
+ */
+export function localeAlternates(path: string): {
+  canonical: string;
+  languages: Record<string, string>;
+} {
+  const p = path === '/' ? '' : path.replace(/\/+$/, '');
+  const vi = p || '/';
+  return {
+    canonical: vi,
+    languages: { vi, en: `/en${p}`, 'x-default': vi },
+  };
+}
+
+/**
  * Serialize a JSON-LD object for safe embedding in an inline `<script>` (SEC-XSS-JSONLD, #557).
  *
  * `JSON.stringify` does NOT escape `<`, `>`, `&`, or the U+2028/U+2029 line separators, so a value
