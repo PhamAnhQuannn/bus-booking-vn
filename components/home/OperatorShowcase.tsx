@@ -1,5 +1,6 @@
-import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 
+import { Link } from '@/i18n/navigation';
 import type { PublicOperator } from '@/lib/home';
 import { searchHref } from '@/lib/search';
 
@@ -78,10 +79,12 @@ function OperatorCard({ card }: { card: ShowcaseCard }) {
   return <div className={cls.replace(' hover:shadow-e2 motion-safe:hover:-translate-y-0.5', '')}>{content}</div>;
 }
 
-export function OperatorShowcase({ operators }: { operators: PublicOperator[] }) {
+export async function OperatorShowcase({ operators }: { operators: PublicOperator[] }) {
   const cards = operators.map(toCard);
 
   if (cards.length === 0) return null;
+
+  const t = await getTranslations('home');
 
   /**
    * Bound the CARD, not the track count.
@@ -101,7 +104,7 @@ export function OperatorShowcase({ operators }: { operators: PublicOperator[] })
       <div className="mb-6">
         <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
           {/* Plural "uy tín" over a single card overclaims a roster of one. */}
-          {cards.length === 1 ? 'Nhà xe đối tác' : 'Nhà xe đối tác uy tín'}
+          {cards.length === 1 ? t('operators.titleSingle') : t('operators.titlePlural')}
         </h2>
       </div>
 
