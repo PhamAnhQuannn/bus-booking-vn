@@ -16,8 +16,8 @@
  */
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import { Link, useRouter } from '@/i18n/navigation';
 import { authFetch, ensureAuthenticated, clearSession, setDisplayName } from '@/lib/auth/clientSession';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -66,6 +66,7 @@ function FormStatus({
 // ---- sub-form: change display name -----------------------------------------
 
 function ChangeNameForm() {
+  const t = useTranslations('account');
   const [status, setStatus] = useState<'idle' | 'ok' | 'err'>('idle');
   const [errMsg, setErrMsg] = useState('');
   const [loading, setLoading] = useState(false);
@@ -90,13 +91,13 @@ function ChangeNameForm() {
       }
       const json = await res.json().catch(() => ({}));
       const code = (json as { error?: string }).error ?? '';
-      if (code === 'DISPLAY_NAME_TOO_SHORT') setErrMsg('Tên hiển thị quá ngắn (tối thiểu 4 ký tự).');
-      else if (code === 'DISPLAY_NAME_TOO_LONG') setErrMsg('Tên hiển thị quá dài (tối đa 100 ký tự).');
-      else if (res.status === 401) setErrMsg('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
-      else setErrMsg('Có lỗi xảy ra. Vui lòng thử lại.');
+      if (code === 'DISPLAY_NAME_TOO_SHORT') setErrMsg(t('name.tooShort'));
+      else if (code === 'DISPLAY_NAME_TOO_LONG') setErrMsg(t('name.tooLong'));
+      else if (res.status === 401) setErrMsg(t('common.sessionExpired'));
+      else setErrMsg(t('common.genericError'));
       setStatus('err');
     } catch {
-      setErrMsg('Lỗi kết nối.');
+      setErrMsg(t('common.connError'));
       setStatus('err');
     } finally {
       setLoading(false);
@@ -106,17 +107,17 @@ function ChangeNameForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle as="h2">Tên hiển thị</CardTitle>
+        <CardTitle as="h2">{t('name.title')}</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="displayName">Tên mới</Label>
+            <Label htmlFor="displayName">{t('name.newLabel')}</Label>
             <Input id="displayName" type="text" name="displayName" required minLength={4} maxLength={100} autoComplete="name" />
           </div>
-          <FormStatus status={status} okMessage="Đã cập nhật tên hiển thị." errMessage={errMsg} />
+          <FormStatus status={status} okMessage={t('name.ok')} errMessage={errMsg} />
           <Button type="submit" disabled={loading} className="self-start">
-            {loading ? 'Đang lưu...' : 'Lưu tên'}
+            {loading ? t('name.saving') : t('name.save')}
           </Button>
         </form>
       </CardContent>
@@ -127,6 +128,7 @@ function ChangeNameForm() {
 // ---- sub-form: change password ---------------------------------------------
 
 function ChangePasswordForm() {
+  const t = useTranslations('account');
   const [status, setStatus] = useState<'idle' | 'ok' | 'err'>('idle');
   const [errMsg, setErrMsg] = useState('');
   const [loading, setLoading] = useState(false);
@@ -141,7 +143,7 @@ function ChangePasswordForm() {
     const confirmPassword = fd.get('confirmPassword') as string;
 
     if (newPassword !== confirmPassword) {
-      setErrMsg('Mật khẩu xác nhận không khớp.');
+      setErrMsg(t('password.mismatch'));
       setStatus('err');
       setLoading(false);
       return;
@@ -159,13 +161,13 @@ function ChangePasswordForm() {
       }
       const json = await res.json().catch(() => ({}));
       const code = (json as { error?: string }).error ?? '';
-      if (code === 'CURRENT_PASSWORD_WRONG') setErrMsg('Mật khẩu hiện tại không đúng.');
-      else if (code === 'PASSWORD_REUSED') setErrMsg('Mật khẩu mới không được trùng mật khẩu cũ.');
-      else if (res.status === 401) setErrMsg('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
-      else setErrMsg('Có lỗi xảy ra. Vui lòng thử lại.');
+      if (code === 'CURRENT_PASSWORD_WRONG') setErrMsg(t('password.wrongCurrent'));
+      else if (code === 'PASSWORD_REUSED') setErrMsg(t('password.reused'));
+      else if (res.status === 401) setErrMsg(t('common.sessionExpired'));
+      else setErrMsg(t('common.genericError'));
       setStatus('err');
     } catch {
-      setErrMsg('Lỗi kết nối.');
+      setErrMsg(t('common.connError'));
       setStatus('err');
     } finally {
       setLoading(false);
@@ -175,25 +177,25 @@ function ChangePasswordForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle as="h2">Đổi mật khẩu</CardTitle>
+        <CardTitle as="h2">{t('password.title')}</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="currentPassword">Mật khẩu hiện tại</Label>
+            <Label htmlFor="currentPassword">{t('password.current')}</Label>
             <Input id="currentPassword" type="password" name="currentPassword" required autoComplete="current-password" />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="newPassword">Mật khẩu mới</Label>
+            <Label htmlFor="newPassword">{t('password.new')}</Label>
             <Input id="newPassword" type="password" name="newPassword" required minLength={8} autoComplete="new-password" />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="confirmPassword">Xác nhận mật khẩu mới</Label>
+            <Label htmlFor="confirmPassword">{t('password.confirm')}</Label>
             <Input id="confirmPassword" type="password" name="confirmPassword" required minLength={8} autoComplete="new-password" />
           </div>
-          <FormStatus status={status} okMessage="Đã đổi mật khẩu. Vui lòng đăng nhập lại." errMessage={errMsg} />
+          <FormStatus status={status} okMessage={t('password.ok')} errMessage={errMsg} />
           <Button type="submit" disabled={loading} className="self-start">
-            {loading ? 'Đang xử lý...' : 'Đổi mật khẩu'}
+            {loading ? t('password.processing') : t('password.submit')}
           </Button>
         </form>
       </CardContent>
@@ -204,6 +206,7 @@ function ChangePasswordForm() {
 // ---- sub-form: change phone -------------------------------------------------
 
 function ChangePhoneForm() {
+  const t = useTranslations('account');
   const [phoneStep, setPhoneStep] = useState<'init' | 'confirm'>('init');
   const [pendingPhone, setPendingPhone] = useState('');
   const [status, setStatus] = useState<'idle' | 'ok' | 'err'>('idle');
@@ -229,13 +232,13 @@ function ChangePhoneForm() {
       }
       const json = await res.json().catch(() => ({}));
       const code = (json as { error?: string }).error ?? '';
-      if (code === 'LOCKED_OUT') setErrMsg('Số điện thoại tạm khóa. Vui lòng thử lại sau.');
-      else if (code === 'RATE_LIMITED') setErrMsg('Gửi OTP quá nhiều. Vui lòng thử lại sau.');
-      else if (res.status === 401) setErrMsg('Phiên đăng nhập hết hạn.');
-      else setErrMsg('Có lỗi xảy ra. Vui lòng thử lại.');
+      if (code === 'LOCKED_OUT') setErrMsg(t('phone.lockedOut'));
+      else if (code === 'RATE_LIMITED') setErrMsg(t('phone.rateLimited'));
+      else if (res.status === 401) setErrMsg(t('common.sessionExpiredShort'));
+      else setErrMsg(t('common.genericError'));
       setStatus('err');
     } catch {
-      setErrMsg('Lỗi kết nối.');
+      setErrMsg(t('common.connError'));
       setStatus('err');
     } finally {
       setLoading(false);
@@ -261,15 +264,15 @@ function ChangePhoneForm() {
       }
       const json = await res.json().catch(() => ({}));
       const errCode = (json as { error?: string }).error ?? '';
-      if (errCode === 'PHONE_TAKEN') setErrMsg('Số điện thoại đã được đăng ký bởi tài khoản khác.');
-      else if (errCode === 'OTP_INVALID') setErrMsg('Mã OTP không đúng.');
-      else if (errCode === 'OTP_EXPIRED') setErrMsg('Mã OTP đã hết hạn.');
-      else if (errCode === 'OTP_LOCKED_OUT') setErrMsg('Tài khoản tạm khóa sau nhiều lần nhập sai.');
-      else if (res.status === 401) setErrMsg('Phiên đăng nhập hết hạn.');
-      else setErrMsg('Có lỗi xảy ra. Vui lòng thử lại.');
+      if (errCode === 'PHONE_TAKEN') setErrMsg(t('phone.phoneTaken'));
+      else if (errCode === 'OTP_INVALID') setErrMsg(t('phone.otpInvalid'));
+      else if (errCode === 'OTP_EXPIRED') setErrMsg(t('phone.otpExpired'));
+      else if (errCode === 'OTP_LOCKED_OUT') setErrMsg(t('phone.otpLockedOut'));
+      else if (res.status === 401) setErrMsg(t('common.sessionExpiredShort'));
+      else setErrMsg(t('common.genericError'));
       setStatus('err');
     } catch {
-      setErrMsg('Lỗi kết nối.');
+      setErrMsg(t('common.connError'));
       setStatus('err');
     } finally {
       setLoading(false);
@@ -280,19 +283,19 @@ function ChangePhoneForm() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle as="h2">Xác nhận số điện thoại mới</CardTitle>
+          <CardTitle as="h2">{t('phone.confirmTitle')}</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="mb-3 text-sm text-muted-foreground">Nhập mã OTP đã gửi đến {pendingPhone}.</p>
+          <p className="mb-3 text-sm text-muted-foreground">{t('phone.otpSentTo', { phone: pendingPhone })}</p>
           <form onSubmit={handleConfirm} className="flex flex-col gap-3">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="phone-otp">Mã OTP (6 chữ số)</Label>
+              <Label htmlFor="phone-otp">{t('phone.otpLabel')}</Label>
               <OtpCodeInput id="phone-otp" required />
             </div>
-            <FormStatus status={status} okMessage="Đã đổi số điện thoại thành công." errMessage={errMsg} />
+            <FormStatus status={status} okMessage={t('phone.ok')} errMessage={errMsg} />
             <div className="flex gap-2">
               <Button type="submit" disabled={loading}>
-                {loading ? 'Đang xác nhận...' : 'Xác nhận'}
+                {loading ? t('phone.confirming') : t('phone.confirm')}
               </Button>
               <Button
                 type="button"
@@ -303,7 +306,7 @@ function ChangePhoneForm() {
                   setStatus('idle');
                 }}
               >
-                Hủy
+                {t('common.cancel')}
               </Button>
             </div>
           </form>
@@ -315,17 +318,17 @@ function ChangePhoneForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle as="h2">Đổi số điện thoại</CardTitle>
+        <CardTitle as="h2">{t('phone.title')}</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleInit} className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="newPhone">Số điện thoại mới</Label>
-            <Input id="newPhone" type="tel" name="newPhone" required autoComplete="tel" placeholder="0901234567" />
+            <Label htmlFor="newPhone">{t('phone.newLabel')}</Label>
+            <Input id="newPhone" type="tel" name="newPhone" required autoComplete="tel" placeholder={t('phone.newPlaceholder')} />
           </div>
-          <FormStatus status={status} okMessage="Đã đổi số điện thoại thành công." errMessage={errMsg} />
+          <FormStatus status={status} okMessage={t('phone.ok')} errMessage={errMsg} />
           <Button type="submit" disabled={loading} className="self-start">
-            {loading ? 'Đang gửi OTP...' : 'Gửi mã OTP'}
+            {loading ? t('phone.sendingOtp') : t('phone.sendOtp')}
           </Button>
         </form>
       </CardContent>
@@ -336,6 +339,7 @@ function ChangePhoneForm() {
 // ---- sub-form: delete account -----------------------------------------------
 
 function DeleteAccountForm() {
+  const t = useTranslations('account');
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<'idle' | 'err'>('idle');
@@ -364,11 +368,11 @@ function DeleteAccountForm() {
         router.push('/');
         return;
       }
-      if (res.status === 401) setErrMsg('Phiên đăng nhập hết hạn.');
-      else setErrMsg('Có lỗi xảy ra. Vui lòng thử lại.');
+      if (res.status === 401) setErrMsg(t('common.sessionExpiredShort'));
+      else setErrMsg(t('common.genericError'));
       setStatus('err');
     } catch {
-      setErrMsg('Lỗi kết nối.');
+      setErrMsg(t('common.connError'));
       setStatus('err');
     } finally {
       clearTimeout(timeout);
@@ -380,12 +384,12 @@ function DeleteAccountForm() {
     <Card className="border-destructive/30">
       <CardHeader>
         <CardTitle as="h2" className="text-destructive">
-          Xóa tài khoản
+          {t('delete.title')}
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <p className="text-sm text-muted-foreground">
-          Thao tác này không thể hoàn tác. Tất cả dữ liệu cá nhân sẽ bị xóa.
+          {t('delete.warning')}
         </p>
         {/* AC-1: the confirm lives in a focus-trapped modal, not an in-place swap
             a fast double-tap could hit. Esc/backdrop/Hủy all cancel. */}
@@ -403,15 +407,15 @@ function DeleteAccountForm() {
           <DialogTrigger
             render={(p) => (
               <Button {...p} type="button" variant="destructive" className="self-start">
-                Xóa tài khoản
+                {t('delete.button')}
               </Button>
             )}
           />
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Xóa tài khoản?</DialogTitle>
+              <DialogTitle>{t('delete.dialogTitle')}</DialogTitle>
               <DialogDescription>
-                Thao tác này không thể hoàn tác. Tất cả dữ liệu cá nhân của bạn sẽ bị xóa vĩnh viễn.
+                {t('delete.dialogDesc')}
               </DialogDescription>
             </DialogHeader>
             <FormStatus status={status} errMessage={errMsg} />
@@ -419,14 +423,14 @@ function DeleteAccountForm() {
               <DialogClose
                 render={(p) => (
                   <Button {...p} type="button" variant="outline" disabled={loading}>
-                    Hủy
+                    {t('common.cancel')}
                   </Button>
                 )}
               />
               {/* AC-2: solid destructive — the strongest affordance for the
                   highest-risk, irreversible action (not the pale outline weight). */}
               <Button type="button" variant="destructiveSolid" onClick={handleDelete} disabled={loading}>
-                {loading ? 'Đang xóa...' : 'Xác nhận xóa'}
+                {loading ? t('delete.deleting') : t('delete.confirmDelete')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -439,6 +443,7 @@ function DeleteAccountForm() {
 // ---- page ------------------------------------------------------------------
 
 export default function AccountSettingsPage() {
+  const t = useTranslations('account');
   const router = useRouter();
   // Access token lives in client memory (lost on reload); a missing token
   // redirects to login with returnTo — mirrors /account/bookings. Without this
@@ -461,14 +466,14 @@ export default function AccountSettingsPage() {
     <main className="mx-auto flex w-full max-w-xl flex-col gap-6 px-4 py-10">
       <nav aria-label="breadcrumb" className="text-sm text-muted-foreground">
         <ol className="flex flex-wrap items-center gap-1.5">
-          <li><Link href="/" className="underline-offset-4 hover:text-foreground hover:underline">Trang chủ</Link></li>
+          <li><Link href="/" className="underline-offset-4 hover:text-foreground hover:underline">{t('page.breadcrumbHome')}</Link></li>
           <li aria-hidden="true">/</li>
-          <li><Link href="/account/bookings" className="underline-offset-4 hover:text-foreground hover:underline">Lịch sử đặt vé</Link></li>
+          <li><Link href="/account/bookings" className="underline-offset-4 hover:text-foreground hover:underline">{t('page.breadcrumbBookings')}</Link></li>
           <li aria-hidden="true">/</li>
-          <li aria-current="page" className="font-medium text-foreground">Cài đặt</li>
+          <li aria-current="page" className="font-medium text-foreground">{t('page.breadcrumbSettings')}</li>
         </ol>
       </nav>
-      <h1 className="text-2xl font-bold">Cài đặt tài khoản</h1>
+      <h1 className="text-2xl font-bold">{t('page.title')}</h1>
       <ChangeNameForm />
       <ChangePasswordForm />
       <ChangePhoneForm />

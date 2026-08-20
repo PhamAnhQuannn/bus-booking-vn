@@ -1,0 +1,64 @@
+{
+  "common": {
+    "sessionExpired": "Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.",
+    "sessionExpiredShort": "Phiên đăng nhập hết hạn.",
+    "genericError": "Có lỗi xảy ra. Vui lòng thử lại.",
+    "connError": "Lỗi kết nối.",
+    "cancel": "Hủy"
+  },
+  "page": {
+    "breadcrumbHome": "Trang chủ",
+    "breadcrumbBookings": "Lịch sử đặt vé",
+    "breadcrumbSettings": "Cài đặt",
+    "title": "Cài đặt tài khoản"
+  },
+  "name": {
+    "title": "Tên hiển thị",
+    "newLabel": "Tên mới",
+    "ok": "Đã cập nhật tên hiển thị.",
+    "saving": "Đang lưu...",
+    "save": "Lưu tên",
+    "tooShort": "Tên hiển thị quá ngắn (tối thiểu 4 ký tự).",
+    "tooLong": "Tên hiển thị quá dài (tối đa 100 ký tự)."
+  },
+  "password": {
+    "title": "Đổi mật khẩu",
+    "current": "Mật khẩu hiện tại",
+    "new": "Mật khẩu mới",
+    "confirm": "Xác nhận mật khẩu mới",
+    "ok": "Đã đổi mật khẩu. Vui lòng đăng nhập lại.",
+    "processing": "Đang xử lý...",
+    "submit": "Đổi mật khẩu",
+    "mismatch": "Mật khẩu xác nhận không khớp.",
+    "wrongCurrent": "Mật khẩu hiện tại không đúng.",
+    "reused": "Mật khẩu mới không được trùng mật khẩu cũ."
+  },
+  "phone": {
+    "title": "Đổi số điện thoại",
+    "confirmTitle": "Xác nhận số điện thoại mới",
+    "otpSentTo": "Nhập mã OTP đã gửi đến {phone}.",
+    "otpLabel": "Mã OTP (6 chữ số)",
+    "ok": "Đã đổi số điện thoại thành công.",
+    "confirming": "Đang xác nhận...",
+    "confirm": "Xác nhận",
+    "newLabel": "Số điện thoại mới",
+    "newPlaceholder": "0901234567",
+    "sendingOtp": "Đang gửi OTP...",
+    "sendOtp": "Gửi mã OTP",
+    "lockedOut": "Số điện thoại tạm khóa. Vui lòng thử lại sau.",
+    "rateLimited": "Gửi OTP quá nhiều. Vui lòng thử lại sau.",
+    "phoneTaken": "Số điện thoại đã được đăng ký bởi tài khoản khác.",
+    "otpInvalid": "Mã OTP không đúng.",
+    "otpExpired": "Mã OTP đã hết hạn.",
+    "otpLockedOut": "Tài khoản tạm khóa sau nhiều lần nhập sai."
+  },
+  "delete": {
+    "title": "Xóa tài khoản",
+    "warning": "Thao tác này không thể hoàn tác. Tất cả dữ liệu cá nhân sẽ bị xóa.",
+    "button": "Xóa tài khoản",
+    "dialogTitle": "Xóa tài khoản?",
+    "dialogDesc": "Thao tác này không thể hoàn tác. Tất cả dữ liệu cá nhân của bạn sẽ bị xóa vĩnh viễn.",
+    "deleting": "Đang xóa...",
+    "confirmDelete": "Xác nhận xóa"
+  }
+}

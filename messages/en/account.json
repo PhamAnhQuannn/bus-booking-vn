@@ -1,0 +1,64 @@
+{
+  "common": {
+    "sessionExpired": "Your session has expired. Please log in again.",
+    "sessionExpiredShort": "Your session has expired.",
+    "genericError": "Something went wrong. Please try again.",
+    "connError": "Connection error.",
+    "cancel": "Cancel"
+  },
+  "page": {
+    "breadcrumbHome": "Home",
+    "breadcrumbBookings": "Booking history",
+    "breadcrumbSettings": "Settings",
+    "title": "Account settings"
+  },
+  "name": {
+    "title": "Display name",
+    "newLabel": "New name",
+    "ok": "Display name updated.",
+    "saving": "Saving...",
+    "save": "Save name",
+    "tooShort": "Display name is too short (at least 4 characters).",
+    "tooLong": "Display name is too long (at most 100 characters)."
+  },
+  "password": {
+    "title": "Change password",
+    "current": "Current password",
+    "new": "New password",
+    "confirm": "Confirm new password",
+    "ok": "Password changed. Please log in again.",
+    "processing": "Processing...",
+    "submit": "Change password",
+    "mismatch": "Password confirmation does not match.",
+    "wrongCurrent": "Current password is incorrect.",
+    "reused": "The new password must not match the old one."
+  },
+  "phone": {
+    "title": "Change phone number",
+    "confirmTitle": "Confirm new phone number",
+    "otpSentTo": "Enter the OTP sent to {phone}.",
+    "otpLabel": "OTP code (6 digits)",
+    "ok": "Phone number changed successfully.",
+    "confirming": "Confirming...",
+    "confirm": "Confirm",
+    "newLabel": "New phone number",
+    "newPlaceholder": "0901234567",
+    "sendingOtp": "Sending OTP...",
+    "sendOtp": "Send OTP code",
+    "lockedOut": "This phone number is temporarily locked. Please try again later.",
+    "rateLimited": "Too many OTP requests. Please try again later.",
+    "phoneTaken": "This phone number is already registered to another account.",
+    "otpInvalid": "The OTP code is incorrect.",
+    "otpExpired": "The OTP code has expired.",
+    "otpLockedOut": "Account temporarily locked after too many wrong attempts."
+  },
+  "delete": {
+    "title": "Delete account",
+    "warning": "This action cannot be undone. All personal data will be deleted.",
+    "button": "Delete account",
+    "dialogTitle": "Delete account?",
+    "dialogDesc": "This action cannot be undone. All your personal data will be permanently deleted.",
+    "deleting": "Deleting...",
+    "confirmDelete": "Confirm deletion"
+  }
+}
