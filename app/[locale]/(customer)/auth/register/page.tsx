@@ -8,8 +8,10 @@
  */
 
 import { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Mail, LogIn } from 'lucide-react';
+import { useRouter } from '@/i18n/navigation';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
 import { setAccessToken, setDisplayName, setCustomerEmail } from '@/lib/auth/clientSession';
 import { safeReturnTo } from '@/lib/auth/safeReturnTo';
@@ -30,10 +32,10 @@ import { cn } from '@/lib/utils';
 type Step = 'email' | 'otp' | 'details';
 
 const STEP_INDEX: Record<Step, number> = { email: 0, otp: 1, details: 2 };
-const STEP_SUBTITLE: Record<Step, string> = {
-  email: 'Bước 1/3 · Địa chỉ email',
-  otp: 'Bước 2/3 · Xác minh OTP',
-  details: 'Bước 3/3 · Tạo mật khẩu',
+const STEP_SUBTITLE_KEY: Record<Step, string> = {
+  email: 'register.step1',
+  otp: 'register.step2',
+  details: 'register.step3',
 };
 
 function StepDots({ current }: { current: number }) {
@@ -61,6 +63,7 @@ export default function RegisterPage() {
 }
 
 function RegisterPageInner() {
+  const t = useTranslations('auth');
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = safeReturnTo(searchParams.get('returnTo'));
@@ -89,9 +92,9 @@ function RegisterPageInner() {
     if (!res.ok) {
       if (json.error === 'rate_limited') {
         setResendIn(json.retryAfter ?? 30);
-        setError(`Quá nhiều yêu cầu. Thử lại sau ${json.retryAfter ?? 30}s.`);
+        setError(t('register.rateLimitedOtp', { seconds: json.retryAfter ?? 30 }));
       } else {
-        setError('Không thể gửi mã OTP. Vui lòng thử lại.');
+        setError(t('register.otpSendFailed'));
       }
       return false;
     }
@@ -108,7 +111,7 @@ function RegisterPageInner() {
         setResendIn(30);
       }
     } catch {
-      setError('Lỗi kết nối. Vui lòng thử lại.');
+      setError(t('common.connError'));
     } finally {
       setLoading(false);
     }
@@ -121,7 +124,7 @@ function RegisterPageInner() {
     try {
       if (await sendOtp(email)) setResendIn(30);
     } catch {
-      setError('Lỗi kết nối. Vui lòng thử lại.');
+      setError(t('common.connError'));
     } finally {
       setLoading(false);
     }
@@ -143,16 +146,16 @@ function RegisterPageInner() {
       if (!res.ok) {
         if (json.error === 'attempt_cap') {
           setResendIn(0);
-          setError('Bạn đã nhập sai quá nhiều lần. Vui lòng bấm "Gửi lại mã" để nhận mã mới.');
+          setError(t('register.attemptCap'));
         } else {
-          setError(json.error === 'expired' ? 'Mã OTP đã hết hạn.' : 'Mã OTP không đúng.');
+          setError(json.error === 'expired' ? t('register.otpExpired') : t('register.otpInvalid'));
         }
         return;
       }
       setOtpProof(json.otpProof);
       setStep('details');
     } catch {
-      setError('Lỗi kết nối. Vui lòng thử lại.');
+      setError(t('common.connError'));
     } finally {
       setLoading(false);
     }
@@ -168,7 +171,7 @@ function RegisterPageInner() {
     // #479: mirror the server password policy (≥8 chars, ≥1 letter, ≥1 digit) client-side, so a
     // weak password is caught before the round-trip and the reason is specific — not the generic
     // "Đăng ký thất bại" the server rejection used to collapse to.
-    const WEAK_PW_MSG = 'Mật khẩu cần tối thiểu 8 ký tự, gồm cả chữ và số.';
+    const WEAK_PW_MSG = t('register.weakPassword');
     if (!/^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(password)) {
       setError(WEAK_PW_MSG);
       return;
@@ -184,10 +187,10 @@ function RegisterPageInner() {
       if (!res.ok) {
         setError(
           json.error === 'EMAIL_TAKEN'
-            ? 'Email đã được đăng ký.'
+            ? t('register.emailTaken')
             : json.error === 'WEAK_PASSWORD'
               ? WEAK_PW_MSG
-              : 'Đăng ký thất bại.',
+              : t('register.registerFailed'),
         );
         return;
       }
@@ -196,25 +199,25 @@ function RegisterPageInner() {
       setCustomerEmail(json.customer?.email ?? email);
       router.push(returnTo);
     } catch {
-      setError('Lỗi kết nối. Vui lòng thử lại.');
+      setError(t('common.connError'));
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <AuthSplitLayout audience="customer" title="Đăng ký" subtitle={STEP_SUBTITLE[step]}>
+    <AuthSplitLayout audience="customer" title={t('register.title')} subtitle={t(STEP_SUBTITLE_KEY[step])}>
       <div className="flex flex-col gap-7">
           <StepDots current={STEP_INDEX[step]} />
           {/* AX-7: announce step advances to screen-readers (StepDots is aria-hidden). */}
           <p className="sr-only" aria-live="polite">
-            {STEP_SUBTITLE[step]}
+            {t(STEP_SUBTITLE_KEY[step])}
           </p>
 
           {step === 'email' && (
             <form onSubmit={handleSendOtp} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="email">Địa chỉ email</Label>
+                <Label htmlFor="email">{t('common.emailLabel')}</Label>
                 <div className="relative">
                   <Mail
                     className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
@@ -228,14 +231,14 @@ function RegisterPageInner() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     autoComplete="email"
-                    placeholder="you@example.com"
+                    placeholder={t('common.emailPlaceholder')}
                     className={cn(authFieldClass, 'pl-10')}
                   />
                 </div>
               </div>
               <FormError message={error} />
               <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="h-12 w-full text-base">
-                {loading ? 'Đang gửi...' : 'Gửi mã OTP'}
+                {loading ? t('register.sendingOtp') : t('register.sendOtp')}
               </Button>
               <GoogleSignInButton returnTo={returnTo} />
             </form>
@@ -244,15 +247,15 @@ function RegisterPageInner() {
           {step === 'otp' && (
             <form onSubmit={handleVerifyOtp} className="flex flex-col gap-4">
               <p className="text-sm break-words text-muted-foreground">
-                Nhập mã 6 chữ số đã gửi đến {email}
+                {t('register.otpSentTo', { email })}
               </p>
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="code">Mã OTP</Label>
+                <Label htmlFor="code">{t('register.otpLabel')}</Label>
                 <OtpCodeInput id="code" required autoFocus className={authFieldClass} />
               </div>
               <FormError message={error} />
               <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="h-12 w-full text-base">
-                {loading ? 'Đang xác minh...' : 'Xác minh'}
+                {loading ? t('register.verifying') : t('register.verify')}
               </Button>
               <Button
                 type="button"
@@ -264,7 +267,7 @@ function RegisterPageInner() {
                 disabled={loading || resendIn > 0}
                 onClick={handleResend}
               >
-                {resendIn > 0 ? `Gửi lại mã sau ${resendIn}s` : 'Gửi lại mã'}
+                {resendIn > 0 ? t('register.resendIn', { seconds: resendIn }) : t('register.resend')}
               </Button>
             </form>
           )}
@@ -274,7 +277,7 @@ function RegisterPageInner() {
               <PasswordField
                 id="password"
                 name="password"
-                label="Mật khẩu"
+                label={t('common.password')}
                 autoComplete="new-password"
                 required
                 minLength={8}
@@ -283,7 +286,7 @@ function RegisterPageInner() {
                 revealResetKey={loading}
               />
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="displayName">Tên hiển thị (tuỳ chọn)</Label>
+                <Label htmlFor="displayName">{t('register.displayNameLabel')}</Label>
                 <Input id="displayName" type="text" name="displayName" autoComplete="name" className={authFieldClass} />
               </div>
               {/* #472: explicit ToS/privacy consent — required to register (server enforces it too). */}
@@ -295,7 +298,7 @@ function RegisterPageInner() {
                   className="mt-0.5"
                 />
                 <Label htmlFor="acceptTerms" className="text-sm font-normal leading-snug text-muted-foreground">
-                  Tôi đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của BusBookVN.
+                  {t('register.acceptTerms')}
                 </Label>
               </div>
               <FormError message={error} />
@@ -306,16 +309,16 @@ function RegisterPageInner() {
                 aria-busy={loading}
                 className="h-12 w-full text-base"
               >
-                {loading ? 'Đang đăng ký...' : 'Đăng ký'}
+                {loading ? t('register.registering') : t('register.register')}
               </Button>
             </form>
           )}
 
           <AuthPromoCard
             icon={LogIn}
-            title="Đã có tài khoản?"
-            body="Đăng nhập để tiếp tục đặt vé và theo dõi chuyến đi của bạn."
-            actionLabel="Đăng nhập"
+            title={t('register.haveAccountTitle')}
+            body={t('register.haveAccountBody')}
+            actionLabel={t('register.login')}
             actionHref="/auth/login"
           />
           <AuthSecurityFooter />

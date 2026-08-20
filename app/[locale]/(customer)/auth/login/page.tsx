@@ -5,9 +5,10 @@
  */
 
 import { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { ShieldCheck, Mail, ArrowRight, Users, Building2 } from 'lucide-react';
+import { Link, useRouter } from '@/i18n/navigation';
 import { setAccessToken, setDisplayName, setCustomerEmail, useAuthStatus } from '@/lib/auth/clientSession';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
 import { safeReturnTo } from '@/lib/auth/safeReturnTo';
@@ -32,13 +33,14 @@ export default function LoginPage() {
 }
 
 function LoginPageInner() {
+  const t = useTranslations('auth');
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = safeReturnTo(searchParams.get('returnTo'));
 
   // FD-012 §2A.4: a Google callback failure redirects to /auth/login?error=google.
   const [error, setError] = useState(
-    searchParams.get('error') === 'google' ? 'Đăng nhập Google thất bại. Thử lại.' : ''
+    searchParams.get('error') === 'google' ? t('login.googleFailed') : ''
   );
   const [loading, setLoading] = useState(false);
 
@@ -69,11 +71,11 @@ function LoginPageInner() {
         // Surface throttle/lockout distinctly so a locked-out user knows to wait (QA F2);
         // everything else stays the uniform credential message (no account enumeration).
         if (res.status === 429 && json.error === 'LOCKED_OUT') {
-          setError('Tài khoản tạm khóa sau nhiều lần đăng nhập sai. Vui lòng thử lại sau 15 phút.');
+          setError(t('login.lockedOut'));
         } else if (res.status === 429 && json.error === 'RATE_LIMITED') {
-          setError('Quá nhiều yêu cầu. Vui lòng thử lại sau ít phút.');
+          setError(t('login.rateLimited'));
         } else {
-          setError('Email hoặc mật khẩu không đúng.');
+          setError(t('login.invalidCreds'));
         }
         return;
       }
@@ -82,7 +84,7 @@ function LoginPageInner() {
       setCustomerEmail(json.customer?.email ?? null);
       router.push(returnTo);
     } catch {
-      setError('Lỗi kết nối. Vui lòng thử lại.');
+      setError(t('common.connError'));
     } finally {
       setLoading(false);
     }
@@ -94,17 +96,17 @@ function LoginPageInner() {
       eyebrow={
         <span className="inline-flex items-center gap-1.5">
           <ShieldCheck className="size-4" aria-hidden="true" />
-          Chào mừng trở lại!
+          {t('login.eyebrow')}
         </span>
       }
-      title="Đăng nhập"
+      title={t('login.title')}
     >
       {/* Two-tier spacing: within-zone tight, ~28px between zones. Zones read as
           credentials+CTA · alternate login (divider+Google) · account help · security. */}
       <div className="flex flex-col gap-7">
         <form onSubmit={handleLogin} method="post" className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="email">Địa chỉ email</Label>
+            <Label htmlFor="email">{t('common.emailLabel')}</Label>
             <div className="relative">
               <Mail
                 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
@@ -116,7 +118,7 @@ function LoginPageInner() {
                 name="email"
                 required
                 autoComplete="email"
-                placeholder="you@example.com"
+                placeholder={t('common.emailPlaceholder')}
                 disabled={loading}
                 aria-invalid={!!error}
                 aria-describedby={error ? 'login-error' : undefined}
@@ -127,7 +129,7 @@ function LoginPageInner() {
           <PasswordField
             id="password"
             name="password"
-            label="Mật khẩu"
+            label={t('common.password')}
             autoComplete="current-password"
             required
             disabled={loading}
@@ -137,7 +139,7 @@ function LoginPageInner() {
           />
           <div className="flex items-center justify-end gap-3">
             <Link href="/auth/forgot-password" className={cn(authLinkClass, 'text-sm')}>
-              Quên mật khẩu?
+              {t('login.forgotPassword')}
             </Link>
           </div>
           {/* -my-2 pulls the CTA up toward the credentials: the reserved (no-shift)
@@ -151,10 +153,10 @@ function LoginPageInner() {
             className="h-12 w-full text-base"
           >
             {loading ? (
-              'Đang đăng nhập...'
+              t('login.submitting')
             ) : (
               <>
-                Đăng nhập
+                {t('login.submit')}
                 <ArrowRight data-icon="inline-end" aria-hidden="true" />
               </>
             )}
@@ -164,17 +166,17 @@ function LoginPageInner() {
         <div className="flex flex-col gap-3">
           <AuthPromoCard
             icon={Users}
-            title="Chưa có tài khoản?"
-            body="Đăng ký để đặt vé nhanh chóng và nhận nhiều ưu đãi hấp dẫn."
-            actionLabel="Đăng ký ngay"
+            title={t('login.noAccountTitle')}
+            body={t('login.noAccountBody')}
+            actionLabel={t('login.registerNow')}
             actionHref="/auth/register"
           />
           {/* Operator door — now a symmetric tinted card matching the register card. */}
           <AuthPromoCard
             icon={Building2}
-            title="Bạn là nhà xe?"
-            body="Đăng nhập để quản lý lịch chạy, đơn hàng và doanh thu."
-            actionLabel="Đăng nhập nhà xe"
+            title={t('login.operatorTitle')}
+            body={t('login.operatorBody')}
+            actionLabel={t('login.operatorLogin')}
             actionHref="/op/login"
           />
         </div>
