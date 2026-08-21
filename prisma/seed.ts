@@ -30,6 +30,68 @@ function vnTime(baseUtcDate: Date, hours: number, minutes = 0): Date {
   return fromZonedTime(vnWithTime, TZ);
 }
 
+// ---- Real single-operator corridor (mirrors scripts/onboard/onboardToanKhuyen.ts) ----
+// Dev seed now models the ONE physical route we operate — Thanh Hóa ↔ Sài Gòn — so
+// localhost matches prod (landing hero shows exactly the two directions we run), instead
+// of the old ~13-city demo grid. Constants copied from the onboard script so the Place
+// aliases + boarding points stay identical to the real operator.
+const NORTH = 'Thanh Hóa';
+const SOUTH = 'Sài Gòn';
+
+interface PlaceSeed {
+  canonicalName: string;
+  slug: string;
+  aliases: string[];
+}
+const PLACE_NORTH: PlaceSeed = {
+  canonicalName: NORTH,
+  slug: 'thanh-hoa',
+  aliases: ['Thanh Hoa', 'Triệu Sơn', 'Đông Sơn', 'Nông Cống', 'Bến Sung', 'Thọ Xuân', 'Ngọc Lặc'],
+};
+const PLACE_SOUTH: PlaceSeed = {
+  canonicalName: SOUTH,
+  slug: 'sai-gon',
+  aliases: [
+    'Sai Gon', 'TP HCM', 'TP. Hồ Chí Minh', 'Hồ Chí Minh', 'Ho Chi Minh',
+    'Bàu Bàng', 'Chợ Tân Khai', 'Chơn Thành', 'Bến Cát', 'Mỹ Phước',
+    'Sóng Thần', 'Dĩ An', 'Tân Đông Hiệp', 'An Phú',
+    'Ngã tư Miếu Ông Cù', 'Ngã tư 550',
+  ],
+};
+// Display-only boarding schedule per direction — one bus, staggered pickups (NOT separate trips).
+const BOARDING_NORTH = [
+  { point: 'Triệu Sơn', time: '06:00' },
+  { point: 'Đông Sơn', time: '06:00' },
+  { point: 'Nông Cống', time: '07:00' },
+  { point: 'Bến Sung', time: '08:00' },
+];
+const BOARDING_SOUTH = [
+  { point: 'Chợ Tân Khai', time: '03:00' },
+  { point: 'Chơn Thành', time: '03:30' },
+  { point: 'Bàu Bàng', time: '04:00' },
+  { point: 'Bến Cát', time: '04:30' },
+  { point: 'Mỹ Phước', time: '04:30' },
+  { point: 'Ngã tư Miếu Ông Cù', time: '05:00' },
+  { point: 'An Phú', time: '05:30' },
+  { point: 'Tân Đông Hiệp', time: '05:30' },
+  { point: 'Ngã tư 550', time: '06:00' },
+  { point: 'Sóng Thần', time: '06:00' },
+];
+
+// Place is a GLOBAL shared registry — MERGE (union) aliases with any already present,
+// never overwrite. Mirrors upsertPlace in the onboard script.
+async function upsertPlace(p: PlaceSeed): Promise<string> {
+  const existing = await prisma.place.findUnique({ where: { slug: p.slug }, select: { aliases: true } });
+  const mergedAliases = [...new Set([...(existing?.aliases ?? []), ...p.aliases])];
+  const row = await prisma.place.upsert({
+    where: { slug: p.slug },
+    update: { canonicalName: p.canonicalName, aliases: mergedAliases },
+    create: { canonicalName: p.canonicalName, slug: p.slug, aliases: mergedAliases },
+    select: { id: true },
+  });
+  return row.id;
+}
+
 async function main() {
   if (process.env.NODE_ENV === 'production') {
     throw new Error(
@@ -64,6 +126,9 @@ async function main() {
   // (BusMaintenance Cascade) precede their parents.
   await prisma.recurringTripTemplate.deleteMany();
   await prisma.route.deleteMany();
+  // Place has no cascade; wipe after routes so a reseed without DROP SCHEMA leaves no
+  // stale demo cities behind (typeahead + registry stay in sync with the one corridor).
+  await prisma.place.deleteMany();
   await prisma.busMaintenance.deleteMany();
   await prisma.bus.deleteMany();
 
@@ -88,120 +153,59 @@ async function main() {
   // (default status is PENDING_REVIEW, which the Issue 046 search gate hides).
   const op1 = await prisma.operator.create({
     data: {
-      legalName: 'Công ty TNHH Xe Khách Phương Bắc',
-      brandName: 'Phương Bắc',
-      contactName: 'Nguyễn Văn A',
-      address: 'Hà Nội',
-      routesSummary: 'Hà Nội – Sài Gòn',
+      legalName: 'Toàn Khuyên – Minh Tuyến',
+      brandName: 'Toàn Khuyên – Minh Tuyến',
+      contactName: 'Toàn',
+      address: 'Thanh Hóa',
+      routesSummary: 'Thanh Hóa – Sài Gòn',
       contactPhone: '+8490xxxxxx1',
-      contactEmail: 'lienhe@phuongbac.vn',
+      contactEmail: 'ops@toankhuyen.vn',
       status: 'APPROVED',
     },
   });
-
-  const op2 = await prisma.operator.create({
-    data: {
-      legalName: 'Công ty CP Vận Tải Miền Nam',
-      brandName: 'Miền Nam',
-      contactName: 'Trần Thị B',
-      address: 'TP. Hồ Chí Minh',
-      routesSummary: 'Sài Gòn – Đà Lạt',
-      contactPhone: '+8490xxxxxx2',
-      contactEmail: 'hotro@mientam.vn',
-      status: 'APPROVED',
-    },
-  });
-
-  const op3 = await prisma.operator.create({
-    data: {
-      legalName: 'Công ty TNHH Vận Tải Tây Nguyên',
-      brandName: 'Tây Nguyên',
-      contactName: 'Lê Văn C',
-      address: 'Đắk Lắk',
-      routesSummary: 'Buôn Ma Thuột – Sài Gòn',
-      contactPhone: '+8490xxxxxx4',
-      contactEmail: 'cskh@taynguyen.vn',
-      status: 'APPROVED',
-    },
-  });
-
 
   // ---- Buses ----
+  // One physical sleeper (the corridor bus) + a capacity-1 bus reserved for the e2e
+  // race-condition fixture (AC-4). No demo variety fleet — prod runs a single sleeper.
   const buses = await Promise.all([
-    prisma.bus.create({ data: { operatorId: op1.id, capacity: 40, licensePlate: '29B-12345', busType: 'coach' } }),
-    prisma.bus.create({ data: { operatorId: op1.id, capacity: 40, licensePlate: '29B-12346', busType: 'coach' } }),
-    prisma.bus.create({
-      data: { operatorId: op1.id, capacity: 40, licensePlate: '29B-12347', busType: 'coach' },
-    }), // Under maintenance — BusMaintenance row created below
-    prisma.bus.create({ data: { operatorId: op2.id, capacity: 40, licensePlate: '51B-99001', busType: 'coach' } }),
-    prisma.bus.create({ data: { operatorId: op2.id, capacity: 40, licensePlate: '51B-99002', busType: 'coach' } }),
+    prisma.bus.create({ data: { operatorId: op1.id, capacity: 40, licensePlate: '36B-12345', busType: 'sleeper' } }), // 0: corridor bus
     // Capacity-1 bus dedicated for e2e race-condition test (AC-4)
-    prisma.bus.create({ data: { operatorId: op1.id, capacity: 1, licensePlate: 'E2E-RACE-01', busType: 'coach' } }),
-    // --- Variety buses (indices 6+) for the new filters; indices 0–5 above stay stable ---
-    prisma.bus.create({ data: { operatorId: op1.id, capacity: 34, licensePlate: '29B-22001', busType: 'sleeper' } }),    // 6
-    prisma.bus.create({ data: { operatorId: op1.id, capacity: 22, licensePlate: '29B-22002', busType: 'limousine' } }),  // 7
-    prisma.bus.create({ data: { operatorId: op2.id, capacity: 45, licensePlate: '51B-99003', busType: 'coach' } }),      // 8
-    prisma.bus.create({ data: { operatorId: op2.id, capacity: 34, licensePlate: '51B-99004', busType: 'sleeper' } }),    // 9
-    prisma.bus.create({ data: { operatorId: op2.id, capacity: 22, licensePlate: '51B-99005', busType: 'limousine' } }),  // 10
-    prisma.bus.create({ data: { operatorId: op3.id, capacity: 40, licensePlate: '47B-30001', busType: 'coach' } }),      // 11
-    prisma.bus.create({ data: { operatorId: op3.id, capacity: 34, licensePlate: '47B-30002', busType: 'sleeper' } }),    // 12
-    prisma.bus.create({ data: { operatorId: op3.id, capacity: 22, licensePlate: '47B-30003', busType: 'limousine' } }),  // 13
+    prisma.bus.create({ data: { operatorId: op1.id, capacity: 1, licensePlate: 'E2E-RACE-01', busType: 'coach' } }),   // 1: AC-4 race
   ]);
 
-  // Maintenance window for bus[2] (29B-12347)
-  await prisma.busMaintenance.create({
-    data: { busId: buses[2].id, startAt: new Date(), endAt: addDays(new Date(), 3), reason: 'scheduled maintenance' },
+  // ---- Places + Routes ----
+  // The one real corridor: Thanh Hóa ↔ Sài Gòn (both directions), plus the hidden e2e
+  // race fixture. Rich Places (with boarding-town aliases) so "Nông Cống → Sài Gòn"
+  // resolves to the physical trip — identical to the prod onboard script.
+  const northId = await upsertPlace(PLACE_NORTH);
+  const southId = await upsertPlace(PLACE_SOUTH);
+
+  const routeBn = await prisma.route.create({
+    data: {
+      operatorId: op1.id,
+      origin: NORTH,
+      destination: SOUTH,
+      durationMinutes: 1920,
+      originPlaceId: northId,
+      destPlaceId: southId,
+      boardingSchedule: BOARDING_NORTH,
+    },
   });
-
-  // ---- Routes ----
-  const r1 = await prisma.route.create({ data: { origin: 'Hà Nội', destination: 'Sài Gòn', operatorId: op1.id, durationMinutes: 960 } });
-  const r2 = await prisma.route.create({ data: { origin: 'Đà Nẵng', destination: 'Huế', operatorId: op1.id, durationMinutes: 120 } });
-  const r3 = await prisma.route.create({ data: { origin: 'Cần Thơ', destination: 'Đà Lạt', operatorId: op2.id, durationMinutes: 300 } });
-  // --- Additional real routes for the new /routes + search-filter surfaces ---
-  const r4 = await prisma.route.create({ data: { origin: 'Hà Nội', destination: 'Sa Pa', operatorId: op1.id, durationMinutes: 330 } });
-  const r5 = await prisma.route.create({ data: { origin: 'Hà Nội', destination: 'Hải Phòng', operatorId: op2.id, durationMinutes: 150 } });
-  const r6 = await prisma.route.create({ data: { origin: 'Sài Gòn', destination: 'Đà Lạt', operatorId: op2.id, durationMinutes: 360 } });
-  const r7 = await prisma.route.create({ data: { origin: 'Huế', destination: 'Đà Nẵng', operatorId: op3.id, durationMinutes: 120 } });
-  const r8 = await prisma.route.create({ data: { origin: 'Nha Trang', destination: 'Đà Lạt', operatorId: op3.id, durationMinutes: 240 } });
-  // Same origin/destination as r6 but a different operator → /routes shows "2 nhà xe".
-  const r9 = await prisma.route.create({ data: { origin: 'Sài Gòn', destination: 'Đà Lạt', operatorId: op3.id, durationMinutes: 360 } });
-  // Dedicated route for e2e race-condition test (capacity-1 bus, AC-4)
+  const routeNb = await prisma.route.create({
+    data: {
+      operatorId: op1.id,
+      origin: SOUTH,
+      destination: NORTH,
+      durationMinutes: 1920,
+      originPlaceId: southId,
+      destPlaceId: northId,
+      boardingSchedule: BOARDING_SOUTH,
+    },
+  });
+  // Dedicated route for e2e race-condition test (capacity-1 bus, AC-4). moderatedAt is set
+  // so it is HIDDEN from getActiveRoutes + public search (both filter moderatedAt IS NULL);
+  // the race spec reaches its trip via a direct DB lookup, not the search API.
   const rRace = await prisma.route.create({ data: { origin: 'E2E Race Origin', destination: 'E2E Race Destination', operatorId: op1.id, durationMinutes: 240, moderatedAt: new Date() } });
-
-  // --- Popular landing-page routes (RouteDirectory + carousels) so those links
-  //     return real results. Names match the UI exactly — canonical "Sài Gòn" (no "TP.HCM" split).
-  //     Spread across operators — each has coach/sleeper/limousine buses for the dense generator. ---
-  const extraRouteDefs: Array<{ origin: string; destination: string; operatorId: string; durationMinutes: number }> = [
-    { origin: 'Hà Nội', destination: 'Sài Gòn', operatorId: op1.id, durationMinutes: 1740 },
-    { origin: 'Sài Gòn', destination: 'Hà Nội', operatorId: op2.id, durationMinutes: 1740 },
-    { origin: 'Thanh Hóa', destination: 'Sài Gòn', operatorId: op1.id, durationMinutes: 1500 },
-    { origin: 'Đà Lạt', destination: 'Sài Gòn', operatorId: op3.id, durationMinutes: 360 },
-    { origin: 'Sài Gòn', destination: 'Nha Trang', operatorId: op2.id, durationMinutes: 480 },
-    { origin: 'Sài Gòn', destination: 'Vũng Tàu', operatorId: op2.id, durationMinutes: 150 },
-    { origin: 'Sài Gòn', destination: 'Cần Thơ', operatorId: op2.id, durationMinutes: 210 },
-    { origin: 'Sài Gòn', destination: 'Đà Nẵng', operatorId: op2.id, durationMinutes: 960 },
-    { origin: 'Sài Gòn', destination: 'Bình Dương', operatorId: op2.id, durationMinutes: 60 },
-    { origin: 'Hà Nội', destination: 'Đà Nẵng', operatorId: op1.id, durationMinutes: 900 },
-    { origin: 'Hà Nội', destination: 'Thanh Hóa', operatorId: op1.id, durationMinutes: 180 },
-    { origin: 'Hà Nội', destination: 'Vinh', operatorId: op1.id, durationMinutes: 300 },
-  ];
-  const extraRoutes = await Promise.all(extraRouteDefs.map((d) => prisma.route.create({ data: d })));
-
-  // --- Bidirectional fill: every real route searchable both ways. Derive the reverse
-  //     of each real route; skip pairs already bidirectional (Đà Nẵng↔Huế, Sài Gòn↔Đà Lạt,
-  //     Hà Nội↔Sài Gòn) + r1 (now Hà Nội→Sài Gòn, already covered) / e2e fixture (rRace). Reverse keeps the
-  //     same duration (symmetric) + operator. ---
-  const baseRealRoutes = [r2, r3, r4, r5, r6, r7, r8, r9, ...extraRoutes];
-  const existingKeys = new Set(baseRealRoutes.map((r) => `${r.origin}|${r.destination}`));
-  const seenReverse = new Set<string>();
-  const reverseDefs: Array<{ origin: string; destination: string; operatorId: string; durationMinutes: number }> = [];
-  for (const r of baseRealRoutes) {
-    const revKey = `${r.destination}|${r.origin}`;
-    if (existingKeys.has(revKey) || seenReverse.has(revKey)) continue;
-    seenReverse.add(revKey);
-    reverseDefs.push({ origin: r.destination, destination: r.origin, operatorId: r.operatorId, durationMinutes: r.durationMinutes });
-  }
-  const reverseRoutes = await Promise.all(reverseDefs.map((d) => prisma.route.create({ data: d })));
 
   // ---- Places (Issue 044) ----
   // Canonical Place per distinct trimmed origin/destination, then link route FKs.
@@ -246,184 +250,37 @@ async function main() {
     price: number;
     status: TripStatus;
     salesClosed: boolean;
-  }> = [
-    // Route 1: Hà Nội → Sài Gòn (scheduled, various prices)
-    {
-      routeId: r1.id,
-      busId: buses[0].id,
-      operatorId: op1.id,
-      departureAt: vnTime(addDays(todayStart, 0), 6, 0),
-      price: 250000,
-      status: 'scheduled',
-      salesClosed: false,
-    },
-    {
-      routeId: r1.id,
-      busId: buses[0].id,
-      operatorId: op1.id,
-      departureAt: vnTime(addDays(todayStart, 1), 8, 30),
-      price: 270000,
-      status: 'scheduled',
-      salesClosed: false,
-    },
-    {
-      routeId: r1.id,
-      busId: buses[1].id,
-      operatorId: op1.id,
-      departureAt: vnTime(addDays(todayStart, 2), 14, 0),
-      price: 300000,
-      status: 'scheduled',
-      salesClosed: false,
-    },
-    {
-      routeId: r1.id,
-      busId: buses[1].id,
-      operatorId: op1.id,
-      departureAt: vnTime(addDays(todayStart, 3), 20, 0),
-      price: 280000,
-      status: 'scheduled',
-      salesClosed: false,
-    },
-    // AC-3 coverage: cancelled trip
-    {
-      routeId: r1.id,
-      busId: buses[0].id,
-      operatorId: op1.id,
-      departureAt: vnTime(addDays(todayStart, 4), 10, 0),
-      price: 260000,
-      status: 'cancelled',
-      salesClosed: false,
-    },
-    // AC-3 coverage: salesClosed trip
-    {
-      routeId: r1.id,
-      busId: buses[1].id,
-      operatorId: op1.id,
-      departureAt: vnTime(addDays(todayStart, 5), 12, 0),
-      price: 290000,
-      status: 'scheduled',
-      salesClosed: true,
-    },
-    // Route 2: Đà Nẵng → Huế
-    {
-      routeId: r2.id,
-      busId: buses[3].id,
-      operatorId: op1.id,
-      departureAt: vnTime(addDays(todayStart, 1), 7, 0),
-      price: 200000,
-      status: 'scheduled',
-      salesClosed: false,
-    },
-    // AC-3 coverage: maintenance-bus trip (buses[2] is under maintenance now..+3 days)
-    // Tomorrow 11am falls inside the maintenance window — must be excluded by search.
-    {
-      routeId: r2.id,
-      busId: buses[2].id,
-      operatorId: op1.id,
-      departureAt: vnTime(addDays(todayStart, 1), 11, 0),
-      price: 220000,
-      status: 'scheduled',
-      salesClosed: false,
-    },
-    {
-      routeId: r2.id,
-      busId: buses[3].id,
-      operatorId: op1.id,
-      departureAt: vnTime(addDays(todayStart, 2), 13, 0),
-      price: 210000,
-      status: 'scheduled',
-      salesClosed: false,
-    },
-    // Route 3: Cần Thơ → Đà Lạt
-    {
-      routeId: r3.id,
-      busId: buses[4].id,
-      operatorId: op2.id,
-      departureAt: vnTime(addDays(todayStart, 1), 9, 0),
-      price: 350000,
-      status: 'scheduled',
-      salesClosed: false,
-    },
-    {
-      routeId: r3.id,
-      busId: buses[4].id,
-      operatorId: op2.id,
-      departureAt: vnTime(addDays(todayStart, 7), 15, 0),
-      price: 340000,
-      status: 'scheduled',
-      salesClosed: false,
-    },
-    // AC-4 race-condition e2e trip: capacity-1 bus, departs tomorrow at 06:00
-    {
-      routeId: rRace.id,
-      busId: buses[5].id,
-      operatorId: op1.id,
-      departureAt: vnTime(addDays(todayStart, 1), 6, 0),
-      price: 100000,
-      status: 'scheduled',
-      salesClosed: false,
-    },
-  ];
+  }> = [];
 
-  // ---- Generated demo trips ----
-  // Dense + deterministic: EVERY real route gets 3 trips EVERY day for the next 14
-  // days — one per bus type (coach/sleeper/limousine) at 3 rotating windows. This
-  // guarantees any upcoming (origin, destination, date) search returns several trips
-  // with real busType/window/price variety for the filter UI. (The earlier sparse
-  // 40-trip round-robin left most route+date combos empty.)
-  // One bus per distinct type per operator (clean buses; excludes maintenance + race).
-  const busByOpType: Record<string, { id: string; type: 'coach' | 'sleeper' | 'limousine' }[]> = {
-    [op1.id]: [
-      { id: buses[0].id, type: 'coach' },
-      { id: buses[6].id, type: 'sleeper' },
-      { id: buses[7].id, type: 'limousine' },
-    ],
-    [op2.id]: [
-      { id: buses[3].id, type: 'coach' },
-      { id: buses[9].id, type: 'sleeper' },
-      { id: buses[10].id, type: 'limousine' },
-    ],
-    [op3.id]: [
-      { id: buses[11].id, type: 'coach' },
-      { id: buses[12].id, type: 'sleeper' },
-      { id: buses[13].id, type: 'limousine' },
-    ],
-  };
-  const realRoutes = [r1, r2, r3, r4, r5, r6, r7, r8, r9, ...extraRoutes, ...reverseRoutes];
-  const windows = [
-    { h: 7, m: 0 },
-    { h: 13, m: 30 },
-    { h: 19, m: 0 },
-    { h: 23, m: 30 },
-  ];
-  const TYPE_PREMIUM = { coach: 0, sleeper: 60000, limousine: 120000 } as const;
+  // Dense + deterministic: BOTH directions of the corridor get one 06:00 sleeper trip
+  // every day for the next 14 days, so any upcoming search (esp. tomorrow, the default)
+  // returns a bookable trip. Flat 850k fare — matches the real operator's card.
   const DAYS = 14;
-
-  for (const route of realRoutes) {
-    const pool = busByOpType[route.operatorId];
+  const FARE = 850000;
+  for (const route of [routeBn, routeNb]) {
     for (let day = 0; day < DAYS; day++) {
-      for (let k = 0; k < pool.length; k++) {
-        const bus = pool[k];
-        // Rotate window start by day so all 4 windows appear across the span and a
-        // single day still shows 3 distinct departure times.
-        const w = windows[(day + k) % windows.length];
-        const departureAt = vnTime(addDays(todayStart, day), w.h, w.m);
-        const price =
-          Math.round(
-            (60000 + route.durationMinutes * 600 + TYPE_PREMIUM[bus.type] + (day % 4) * 7000) / 1000
-          ) * 1000;
-        tripData.push({
-          routeId: route.id,
-          busId: bus.id,
-          operatorId: route.operatorId,
-          departureAt,
-          price,
-          status: 'scheduled',
-          salesClosed: false,
-        });
-      }
+      tripData.push({
+        routeId: route.id,
+        busId: buses[0].id,
+        operatorId: op1.id,
+        departureAt: vnTime(addDays(todayStart, day), 6, 0),
+        price: FARE,
+        status: 'scheduled',
+        salesClosed: false,
+      });
     }
   }
+
+  // AC-4 race-condition e2e trip: capacity-1 bus, departs tomorrow at 06:00 (hidden route).
+  tripData.push({
+    routeId: rRace.id,
+    busId: buses[1].id,
+    operatorId: op1.id,
+    departureAt: vnTime(addDays(todayStart, 1), 6, 0),
+    price: 100000,
+    status: 'scheduled',
+    salesClosed: false,
+  });
 
   await prisma.trip.createMany({ data: tripData });
 
@@ -471,10 +328,9 @@ async function main() {
   }
 
   console.log(
-    `Seeded: 3 operators, 14 buses (coach/sleeper/limousine), ${realRoutes.length + 1} routes ` +
-      `(${realRoutes.length} real incl. ${reverseRoutes.length} reverse + 1 e2e), ${tripData.length} trips ` +
-      `(12 curated for AC-3/AC-4 + ${realRoutes.length} routes × ${DAYS} days × 3 types dense demo grid). ` +
-      `1 OperatorUser (Issue 010).`
+    `Seeded: 1 operator (Toàn Khuyên – Minh Tuyến), 2 buses (1 sleeper + 1 e2e race), ` +
+      `3 routes (Thanh Hóa↔Sài Gòn bidirectional + 1 hidden e2e), ${tripData.length} trips ` +
+      `(2 dirs × ${DAYS} days @ 06:00 + 1 AC-4 race). 1 OperatorUser (PB-0001, Issue 010).`
   );
 }
 
