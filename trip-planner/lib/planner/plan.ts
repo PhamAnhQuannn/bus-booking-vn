@@ -340,7 +340,8 @@ export function buildItinerary(req: TripRequest, store?: Store): Itinerary {
   });
 
   // GỢI Ý quán ăn: top-N theo ảnh hưởng trong vùng chuyến đi (bias theo khẩu vị nếu có).
-  const restaurants: PlaceRef[] = recommendRestaurants(st, centroid, dynamicCapKm(tripSpanKm), clampInt(req.days, 1, 3), req.food).map(toPlaceRef);
+  // B4.1: nâng trần gợi ý quán 3 → tối đa 8 (theo số ngày); KB ít hơn → hiện đúng số có.
+  const restaurants: PlaceRef[] = recommendRestaurants(st, centroid, dynamicCapKm(tripSpanKm), clampInt(req.days * 2, 4, 8), req.food).map(toPlaceRef);
 
   const hotelNote = (h: KbRecord): string | null =>
     [h.ext?.hotel?.phan_khuc, h.ext?.hotel?.so_phong ? `${h.ext?.hotel?.so_phong} phòng` : null]
@@ -350,12 +351,12 @@ export function buildItinerary(req: TripRequest, store?: Store): Itinerary {
     ? { ...toPlaceRef(hotelRec), note: hotelNote(hotelRec) }
     : null;
 
-  // 1-3 khách sạn: primary (hotelRec) + tối đa 2 lựa chọn gần centroid nhất (loại primary).
+  // 1-4 khách sạn: primary (hotelRec) + tối đa 3 lựa chọn gần centroid nhất (loại primary).
   const hotelAlts: PlaceRef[] = st.hotels
     .filter((h) => h !== hotelRec && h.coordinates?.latitude != null && h.coordinates?.longitude != null)
     .map((h) => ({ h, d: haversine(centroid.lat, centroid.lon, co(h).lat, co(h).lon) }))
     .sort((a, b) => a.d - b.d)
-    .slice(0, 2)
+    .slice(0, 3)
     .map(({ h }) => ({ ...toPlaceRef(h), note: hotelNote(h) }));
 
   const goiTruoc = days.flatMap((d) => d.items).filter((i) => i.goi_truoc).length;

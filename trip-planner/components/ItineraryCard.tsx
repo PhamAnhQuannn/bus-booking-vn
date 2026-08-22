@@ -7,9 +7,12 @@
  * day-header band + accent ngày active. Font: name 15/22, day-header 13.5 uppercase.
  */
 
+import { useState } from 'react';
 import type { PlannerDto, DtoItem } from '@/trip-planner/lib/planner/itineraryDto';
 import { cityName } from '@/trip-planner/lib/planner/cities';
-import { displayCategory, itemBadge, areaLabel, nights } from '@/trip-planner/lib/planner/labels';
+import { displayCategory, itemBadge, areaLabel, vibeChip, stripCitySuffix, FACILITY_LABELS } from '@/trip-planner/lib/planner/labels';
+import { cardProfile, type SectionKey } from '@/trip-planner/lib/planner/cardProfile';
+import { fmtKm, fmtMinutes } from '@/trip-planner/lib/planner/fmt';
 
 type Props = {
   dto: PlannerDto;
@@ -21,7 +24,6 @@ type Props = {
 };
 
 const BUOI: Record<DtoItem['buoi'], string> = { sang: 'Sáng', trua: 'Trưa', chieu: 'Chiều', toi: 'Tối' };
-const PACE: Record<string, string> = { relaxed: 'thư giãn', moderate: 'vừa phải', packed: 'dày' };
 const INK = '#1E2433', SOFT = '#6B7280', FAINT = '#9AA0AC';
 
 // spine + day-band CSS (scoped v5-*). Spine chạy qua tâm order-circle (left 24 = px-3 + nửa circle).
@@ -36,9 +38,10 @@ function Badge({ it }: { it: DtoItem }) {
   const b = itemBadge(it);
   if (b.tone === 'ok') {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold"
-        style={{ background: 'rgba(46,158,107,.14)', color: '#157347' }}>
+      <span className="inline-flex items-center gap-1 rounded-full bg-success px-2 py-0.5 text-xs font-bold text-success-foreground">
         ✓ Mở <span className="tabular-nums">{b.hours}</span>
+        {/* provenance THẬT (source_ids.length) — KHÔNG phải citation [S] bịa */}
+        {it.nguon ? <span className="font-semibold opacity-70">· {it.nguon} nguồn</span> : null}
       </span>
     );
   }
@@ -65,36 +68,140 @@ function Badge({ it }: { it: DtoItem }) {
 }
 
 function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: number; active: boolean; onHoverItem: Props['onHoverItem']; hotelKm?: number | null }) {
+  const [open, setOpen] = useState(false);
+  const isDest = it.role === 'diem-den';
+  const longMoTa = !!it.mo_ta && it.mo_ta.length > 150; // proxy: đủ dài để clamp 3 dòng → hiện "Xem thêm"
   return (
     <>
       {it.leg_from_prev ? (
-        // travel-leg: tầng FAINT (nhạt hơn metadata), nằm trên spine
+        // travel-leg: tầng FAINT (nhạt hơn metadata), nằm trên spine — nối 2 card
         <div className="py-1 pl-9 text-xs font-semibold" style={{ color: FAINT }}>
-          🚗 {it.leg_from_prev.minutes} phút · <span className="tabular-nums">{it.leg_from_prev.km}km</span>
+          🚗 {fmtMinutes(it.leg_from_prev.minutes)?.replace('~', '')} · <span className="tabular-nums">{fmtKm(it.leg_from_prev.km)?.replace('~', '')}</span>
         </div>
       ) : null}
       <div
         id={`row-${day}-${it.order}`}
         onMouseEnter={() => onHoverItem(it.order)}
         onMouseLeave={() => onHoverItem(null)}
-        className={`flex gap-3 rounded-xl py-1.5 transition-colors ${active ? 'bg-primary/10' : 'hover:bg-primary/5'}`}
+        className="mb-3 flex gap-3"
       >
-        <span className="mt-0.5 grid size-6 flex-none place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground"
+        <span className="mt-1 grid size-6 flex-none place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground"
           style={{ position: 'relative', zIndex: 1, boxShadow: active ? '0 0 0 1px #fff, 0 0 0 3px var(--primary,#F0561D)' : undefined }}>
           {it.order}
         </span>
-        <div className="min-w-0 flex-1">
-          <div>
-            <span className="mr-1.5 text-xs font-semibold" style={{ color: SOFT }}>{BUOI[it.buoi]}</span>
-            {/* place name = tầng INK, 15/22 semibold (backbone) */}
-            <span className="text-[15px] font-semibold leading-snug" style={{ color: INK }}>{it.name}</span>
-          </div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs" style={{ color: SOFT }}>
-            <span>{displayCategory(it)}</span>
+        {/* Card dossier (Image#4). CHỈ field CÓ NGUỒN. Cố ý OMIT (không nguồn trong KB):
+            thời lượng ghé ("60-90 phút"), citation [S6] (ta chỉ có SỐ nguồn), khung giờ đồng hồ,
+            "CHUẨN BỊ"/"TIP TUYẾN" (thay bằng "Có gì ở đây"/"Thực tế" từ data thật). = bịa nếu thêm. */}
+        <article className={`min-w-0 flex-1 rounded-xl border p-3 transition-colors ${active ? 'border-primary/50 bg-primary/5' : 'border-border bg-white hover:border-primary/30'}`}>
+          {/* HEADER: buổi + tên + badge xác minh (✓ Mở {giờ} · N nguồn = "Đã xác minh · S6" trung thực) */}
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <span className="text-xs font-semibold" style={{ color: SOFT }}>{BUOI[it.buoi]}</span>
+            <span className="text-[15px] font-semibold leading-snug" style={{ color: INK }}>{stripCitySuffix(it.name)}</span>
             <Badge it={it} />
-            {hotelKm != null ? <span className="whitespace-nowrap">📍 cách KS ~<span className="tabular-nums">{hotelKm}</span>km</span> : null}
           </div>
-        </div>
+          {/* META: category · trải nghiệm · cách KS (KHÔNG duration) */}
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 text-[13px]" style={{ color: SOFT }}>
+            <span>{displayCategory(it)}</span>
+            {isDest && it.trai_nghiem && it.trai_nghiem !== displayCategory(it) ? <span>· {it.trai_nghiem}</span> : null}
+            {hotelKm != null ? <span>· 📍 cách KS {fmtKm(hotelKm)}</span> : null}
+          </div>
+
+          {isDest ? (() => {
+            // Render section theo PROFILE của loại điểm (thứ tự + gate). landmark bỏ "Có gì ở đây";
+            // paid_activity/environment là slot forward-compat (chưa có field trên DtoItem → no-op).
+            const { sections } = cardProfile(it.category, it.name);
+            // "Giới thiệu nhanh" câu 1 (intro.fact) — baked build-time, đứng tự nhiên (bỏ prefix label)
+            const gt = it.gioi_thieu;
+            const renderSection = (s: SectionKey) => {
+              switch (s) {
+                case 'mo_ta':
+                  return it.mo_ta ? (
+                    <div key="mo_ta">
+                      {/* MÔ TẢ: mo_ta full, clamp 3 dòng + "Xem thêm" khi dài */}
+                      <p className={`mt-2 text-[14px] leading-[1.6] ${open ? '' : 'line-clamp-3'}`} style={{ color: INK }}>{it.mo_ta}</p>
+                      {longMoTa ? (
+                        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
+                          className="mt-0.5 text-[12px] font-semibold text-primary hover:underline">
+                          {open ? 'Thu gọn ⌃' : 'Xem thêm ⌄'}
+                        </button>
+                      ) : null}
+                      {/* CC-BY-SA: mô tả trích Wikipedia → bắt buộc dẫn nguồn (B2) */}
+                      {it.mo_ta_nguon_url ? (
+                        <a href={it.mo_ta_nguon_url} target="_blank" rel="noreferrer"
+                          className="mt-0.5 block text-[12px] hover:underline" style={{ color: FAINT }}>Theo Wikipedia ↗</a>
+                      ) : null}
+                    </div>
+                  ) : null;
+                case 'hoat_dong': {
+                  // A3: MỘT nhãn "Có gì ở đây" + MỘT chip-wrap gộp — hoat_dong (chip muted), trò trả phí
+                  // có tên (chip primary đặc), vibes (chip viền primary). Không sub-heading caps liền kề.
+                  const tham = (it.hoat_dong ?? []).map((h) => h.label);
+                  const paid = (it.paid_activities ?? []).map((a) => a.ten);
+                  const vibes = it.vibes ?? [];
+                  if (!tham.length && !paid.length && !vibes.length) return null;
+                  return (
+                    <div key="hoat_dong" className="mt-2.5">
+                      <div className="text-[12px] font-bold uppercase tracking-wide" style={{ color: FAINT }}>Có gì ở đây</div>
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        {tham.map((label, i) => (
+                          <span key={`t-${i}`} className="rounded-full bg-muted px-2 py-0.5 text-[12px] font-semibold" style={{ color: SOFT }}>{label}</span>
+                        ))}
+                        {paid.map((label, i) => (
+                          <span key={`p-${i}`} className="rounded-full bg-primary/10 px-2 py-0.5 text-[12px] font-semibold text-primary">{label}</span>
+                        ))}
+                        {vibes.map((v) => {
+                          const c = vibeChip(v);
+                          return (
+                            <span key={`v-${v}`} className="rounded-full border border-primary/30 px-2 py-0.5 text-[12px] font-semibold text-primary">
+                              {c.emoji ? `${c.emoji} ` : ''}{c.label}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                }
+                case 'cach_trung_tam': {
+                  // B5.1: nhãn tiện ích ĐẦY ĐỦ qua FACILITY_LABELS (cấm viết tắt tự chế); key lạ → ẩn
+                  const fac = it.facilities ? Object.entries(it.facilities).filter(([k, v]) => v && FACILITY_LABELS[k]).map(([k, v]) => FACILITY_LABELS[k] + (v === 'limited' ? ' (hạn chế)' : '')) : [];
+                  const hasThucTe = it.gio_mo || it.cach_trung_tam_km != null || it.gia_ve || fac.length;
+                  return hasThucTe ? (
+                    <div key="thuc_te" className="mt-2 border-t border-border pt-2 text-[12px]" style={{ color: SOFT }}>
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                        {/* badge "✓ Mở {giờ}" đã hiện giờ khi !goi_truoc → bỏ dòng này tránh trùng */}
+                        {it.gio_mo && it.goi_truoc ? <span>🕐 Mở <span className="tabular-nums">{it.gio_mo}</span></span> : null}
+                        {it.gia_ve ? <span>🎟️ Vé: {/^\s*(yes|có|co)\s*$/i.test(it.gia_ve) ? 'Có thu phí (chưa rõ mức)' : it.gia_ve}</span> : null}
+                        {it.cach_trung_tam_km != null ? <span>📍 cách trung tâm {fmtKm(it.cach_trung_tam_km)}</span> : null}
+                      </div>
+                      {fac.length ? <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5" style={{ color: FAINT }}>{fac.map((f, i) => <span key={i}>{f}</span>)}</div> : null}
+                    </div>
+                  ) : null;
+                }
+                case 'vibes':
+                  return null; // A3: vibes ĐÃ gộp vào "Có gì ở đây" (case hoat_dong) — không render riêng
+                default:
+                  return null; // paid_activity / environment: chưa có field trên DtoItem
+              }
+            };
+            return (
+              <>
+                {gt ? (
+                  <p className="mt-2 text-[14px] leading-[1.6]" style={{ color: INK }}>{gt}</p>
+                ) : null}
+                {sections.map(renderSection)}
+                {/* EDITORIAL tier (002): tách hẳn khỏi badge verified + mô tả — nhãn + disclaimer,
+                    KHÔNG trộn với fact. Chỉ hiện khi flag EDITORIAL_TIER bật + có câu (per-loại). */}
+                {it.phu_hop_voi ? (
+                  <div key="phu_hop_voi" className="mt-2 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5">
+                    <div className="text-[12px] font-bold uppercase tracking-wide text-primary">✨ Gợi ý biên tập</div>
+                    <p className="mt-0.5 text-[13px] leading-relaxed" style={{ color: SOFT }}>{it.phu_hop_voi}</p>
+                    <p className="mt-0.5 text-[12px] italic" style={{ color: FAINT }}>Gợi ý soạn theo loại hình — không phải thông tin đã xác minh.</p>
+                  </div>
+                ) : null}
+              </>
+            );
+          })() : null}
+        </article>
       </div>
     </>
   );
@@ -131,51 +238,29 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
     } catch { /* user huỷ / không hỗ trợ */ }
   }
 
-  let verified = 0, total = 0;
-  dto.days.forEach((d) => d.items.forEach((i) => { total++; if (!i.goi_truoc && i.gio_mo) verified++; }));
-
-  const firstStop = dto.days[0]?.items.find((i) => i.role === 'diem-den');
-  let hotelKm: number | null = null;
-  if (dto.hotel?.lat != null && dto.hotel?.lon != null && firstStop?.lat != null && firstStop?.lon != null) {
-    hotelKm = Math.round(havKm(dto.hotel.lat, dto.hotel.lon, firstStop.lat, firstStop.lon) * 10) / 10;
-  }
-
   return (
     <div className="@container w-full overflow-hidden border border-border bg-white">
       <style>{CARD_CSS}</style>
 
-      {/* TITLE block — hairline #1 dưới đây */}
-      <div className="border-b border-border px-4 pb-3 pt-4">
-        <h3 className="text-base font-semibold" style={{ color: INK }}>🏔 {cityName(dto.slug)} · {dto.tripDays} ngày {nights(dto.tripDays)} đêm</h3>
-        <p className="mt-1 text-[13px]" style={{ color: SOFT }}>
-          {dto.party.adults} người lớn
-          {dto.party.children ? ` · ${dto.party.children} trẻ nhỏ` : ''}
-          {dto.party.elders ? ` · ${dto.party.elders} người lớn tuổi` : ''}
-          {' · '}Nhịp độ: {PACE[dto.pace] ?? dto.pace} · Dữ liệu cập nhật {dto.generated_from}
-        </p>
-        <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary/5 px-2.5 py-1 text-[11px] font-semibold" style={{ color: SOFT }}>
-          <span className="grid size-4 place-items-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">1</span>
-          = thứ tự trợ lý đề xuất (không phải đánh giá sao)
+      {/* Tiêu đề chính ở PlannerPane header. Chú thích order-circle + "Nhịp độ" đã BỎ (gọn timeline). */}
+      {/* Header actions (mock): Lưu chuyến đi · Xuất PDF · Chia sẻ — ẨN TẠM (phát triển sau). */}
+      {HEADER_ACTIONS.enabled ? (
+        <div className="flex flex-wrap gap-2 border-b border-border px-4 py-3">
+          <button type="button" onClick={saveTrip}
+            className="inline-flex items-center gap-1 rounded-lg border border-[#F0EAE2] bg-white px-2.5 py-1.5 text-xs font-semibold hover:border-primary hover:bg-primary/5">
+            💾 Lưu chuyến đi
+          </button>
+          {hrefPdf ? (
+            <a href={hrefPdf} className="inline-flex items-center gap-1 rounded-lg border border-[#F0EAE2] bg-white px-2.5 py-1.5 text-xs font-semibold hover:border-primary hover:bg-primary/5">
+              📄 Xuất PDF
+            </a>
+          ) : null}
+          <button type="button" onClick={shareTrip}
+            className="inline-flex items-center gap-1 rounded-lg border border-[#F0EAE2] bg-white px-2.5 py-1.5 text-xs font-semibold hover:border-primary hover:bg-primary/5">
+            🔗 Chia sẻ
+          </button>
         </div>
-        {/* Header actions (mock): Lưu chuyến đi · Xuất PDF · Chia sẻ — ẨN TẠM (phát triển sau). */}
-        {HEADER_ACTIONS.enabled ? (
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" onClick={saveTrip}
-              className="inline-flex items-center gap-1 rounded-lg border border-[#F0EAE2] bg-white px-2.5 py-1.5 text-xs font-semibold hover:border-primary hover:bg-primary/5">
-              💾 Lưu chuyến đi
-            </button>
-            {hrefPdf ? (
-              <a href={hrefPdf} className="inline-flex items-center gap-1 rounded-lg border border-[#F0EAE2] bg-white px-2.5 py-1.5 text-xs font-semibold hover:border-primary hover:bg-primary/5">
-                📄 Xuất PDF
-              </a>
-            ) : null}
-            <button type="button" onClick={shareTrip}
-              className="inline-flex items-center gap-1 rounded-lg border border-[#F0EAE2] bg-white px-2.5 py-1.5 text-xs font-semibold hover:border-primary hover:bg-primary/5">
-              🔗 Chia sẻ
-            </button>
-          </div>
-        ) : null}
-      </div>
+      ) : null}
 
       {/* DAYS — không divider giữa ngày; band + spine + whitespace 16 */}
       <div className="space-y-4 p-3">
@@ -214,83 +299,10 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
           );
         })}
 
-        {/* GỢI Ý QUÁN ĂN — list riêng, không slot vào timeline (doctrine: không ★/điểm/giá) */}
-        {dto.restaurants.length ? (
-          <div className="v5-band rounded-[10px] px-3.5 py-3">
-            <div className="text-[11px] font-bold uppercase tracking-wide" style={{ color: SOFT }}>Gợi ý quán ăn</div>
-            <div className="mt-1.5 flex flex-col gap-2">
-              {dto.restaurants.map((r, i) => (
-                <div key={`res-${i}`} className="text-xs">
-                  <span className="text-sm font-semibold" style={{ color: INK }}>🍜 {r.name}</span>
-                  {r.category ? <span style={{ color: SOFT }}> · {r.category}</span> : null}
-                  <div className="flex flex-wrap gap-x-3 gap-y-0.5" style={{ color: SOFT }}>
-                    <span>giờ: {r.goi_truoc ? 'gọi trước' : r.gio_mo}</span>
-                    {r.address ? <span>{r.address}</span> : null}
-                    {r.phone ? <a href={`tel:${r.phone}`} className="font-semibold text-primary hover:underline">📞 {r.phone}</a> : null}
-                    {r.map_url ? <a href={r.map_url} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:underline">Bản đồ →</a> : null}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
+        {/* Gợi ý quán ăn ĐÃ chuyển sang tab "Ăn uống" (RestaurantsList) — tránh trùng lặp. */}
 
-        {/* HOTEL + NOTES — gộp 1 block band, không line trong */}
-        {(dto.hotel || dto.notes.length) ? (
-          <div className="v5-band rounded-[10px] px-3.5 py-3">
-            {dto.hotel ? (
-              <>
-                <div className="text-[11px] font-bold uppercase tracking-wide" style={{ color: SOFT }}>Khách sạn gợi ý</div>
-                <div className="text-sm font-semibold" style={{ color: INK }}>🏨 {dto.hotel.name}</div>
-                {dto.hotel.note ? <div className="text-xs" style={{ color: SOFT }}>{dto.hotel.note}</div> : null}
-                {hotelKm != null ? <div className="text-xs" style={{ color: SOFT }}>📍 cách điểm đầu khoảng {hotelKm} km</div> : null}
-                {dto.hotel.address ? <div className="text-xs" style={{ color: SOFT }}>{dto.hotel.address}</div> : null}
-                <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs">
-                  {dto.hotel.phone ? (
-                    <a href={`tel:${dto.hotel.phone}`} className="font-semibold text-primary hover:underline">📞 {dto.hotel.phone}</a>
-                  ) : (
-                    <span style={{ color: SOFT }}>SĐT chưa xác minh — gọi trước</span>
-                  )}
-                  {dto.hotel.map_url ? (
-                    <a href={dto.hotel.map_url} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:underline">Xem bản đồ →</a>
-                  ) : null}
-                </div>
-              </>
-            ) : null}
-            {dto.hotelAlts?.length ? (
-              <div className="mt-2.5">
-                <div className="text-[11px] font-semibold" style={{ color: SOFT }}>Lựa chọn khác</div>
-                <div className="mt-1 flex flex-col gap-1.5">
-                  {dto.hotelAlts.map((h, i) => (
-                    <div key={`hotalt-${i}`} className="text-xs">
-                      <span className="text-sm font-semibold" style={{ color: INK }}>🏨 {h.name}</span>
-                      {h.note ? <span style={{ color: SOFT }}> · {h.note}</span> : null}
-                      <div className="flex flex-wrap gap-x-3 gap-y-0.5" style={{ color: SOFT }}>
-                        {h.address ? <span>{h.address}</span> : null}
-                        {h.phone ? <a href={`tel:${h.phone}`} className="font-semibold text-primary hover:underline">📞 {h.phone}</a> : null}
-                        {h.map_url ? <a href={h.map_url} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:underline">Bản đồ →</a> : null}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            {dto.notes.length ? (
-              <ul className="mt-2 list-disc space-y-1 pl-4 text-xs" style={{ color: FAINT }}>
-                {dto.notes.map((n, i) => <li key={i}>{n}</li>)}
-              </ul>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-
-      {/* FOOTER — hairline #2 trên đây */}
-      <div className="flex flex-wrap items-center gap-2 border-t border-border px-4 py-3 text-[13px]">
-        <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold"
-          style={{ background: 'rgba(46,158,107,.14)', color: '#157347' }}>
-          ✓ {verified}/{total} điểm đã xác minh giờ
-        </span>
-        <span style={{ color: FAINT }}>Thứ tự = mức gợi ý; giá không hiển thị (chỉ thông tin, không đặt hộ).</span>
+        {/* Gợi ý quán ăn → tab "Ăn uống"; khách sạn → tab "Khách sạn". Cảnh báo notes + footer xác minh
+            đã BỎ theo yêu cầu (làm gọn timeline). */}
       </div>
     </div>
   );
