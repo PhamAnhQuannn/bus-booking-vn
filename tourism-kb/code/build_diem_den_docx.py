@@ -55,9 +55,18 @@ def dia_chi(r):
     return (pre + a) if a else (pre + CHUA if pre else CHUA)
 
 
-def gio(ext):
-    oh = ext.get("opening_hours")
-    return (oh.get("raw") or CHUA) if oh else CHUA
+def _maps_link(r):
+    # store-vs-link: giờ mở DRIFT — thay vì in "Chưa xác minh", link Google LIVE khi có place_id (ToS: chỉ link)
+    pid = (r.get("external_ids") or {}).get("google_place_id") or (r.get("identity") or {}).get("place_id")
+    return ("https://www.google.com/maps/place/?q=place_id:" + pid) if pid else None
+
+
+def gio(r):
+    oh = r["ext"]["destination"].get("opening_hours")
+    if oh and oh.get("raw"):
+        return oh["raw"]
+    link = _maps_link(r)
+    return ("Xem giờ live trên Google ↗ " + link) if link else CHUA
 
 
 d = json.load(io.open(EXPORT, encoding="utf-8"))
@@ -96,7 +105,7 @@ for i, r in enumerate(d, 1):
     if _gc:
         _tnh += " · " + _gc
     vals = [str(i), r["name"], _tnh,
-            dia_chi(r), gio(ext), gia_ve(ext)]
+            dia_chi(r), gio(r), gia_ve(ext)]
     for j, v in enumerate(vals):
         row[j].text = ""
         run = row[j].paragraphs[0].add_run(v)

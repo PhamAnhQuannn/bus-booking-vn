@@ -573,7 +573,9 @@ w("**Ba điều tuyệt đối không được làm:**\n\n")
 w("1. **KHÔNG** thay `[CHƯA XÁC MINH]` bằng một giá trị thường gặp. “Giờ mở cửa 08:00–17:00” "
   "là hình dạng của một giờ mở cửa, không phải giờ mở cửa của nơi này.\n")
 w("2. **KHÔNG** suy ra giá vé, giờ mở cửa, thời lượng thăm hay mức độ dễ đi lại từ loại hình. "
-  "Chỉ ba suy diễn được duyệt trước: *trong nhà/ngoài trời*, *link bản đồ*, *điểm lân cận*.\n")
+  "Chỉ ba suy diễn được duyệt trước: *trong nhà/ngoài trời*, *link bản đồ*, *điểm lân cận* — "
+  "trừ nhãn **[GỢI Ý BIÊN TẬP]** (002): câu gợi ý theo loại hình, controlled-vocab, đã qua "
+  "người duyệt, KHÔNG vào trường xác minh.\n")
 # Luat 3 phai HEP LAI, khong bo. Ban cu viet "tai lieu nay co y khong sinh mo
 # ta" — dung khi mo ta chi co the la chu tu viet ra. Gio co 28 doan TRICH NGUYEN
 # VAN tu Wikipedia kem nguon va ngay, va do la mot thu khac han: khong phai chu
@@ -583,7 +585,10 @@ w("3. **KHÔNG tự viết** mô tả, “lý do nên đến” hay “điểm n
   "Đoạn mô tả in trong hồ sơ (nếu có) là **trích nguyên văn từ Wikipedia tiếng Việt**, "
   "kèm nguồn, liên kết và ngày — đọc cho khách thì dẫn nguồn, và **không sửa lời**. "
   f"Mục {S_HOATDONG} liệt kê hoạt động kèm nơi và đơn vị cụ thể, đó là dữ kiện; “Đà Lạt lãng "
-  "mạn, hợp cho các cặp đôi” thì không.\n\n")
+  "mạn, hợp cho các cặp đôi” thì không. "
+  "**Ngoại lệ (002):** câu “Phù hợp với khách muốn…” dạng **[GỢI Ý BIÊN TẬP]** — controlled-vocab "
+  "theo loại hình, nhãn rõ, đã qua người duyệt — được phép, nhưng **hiển thị TÁCH riêng**, "
+  "không trộn với dữ kiện và không vào trường xác minh.\n\n")
 w("**Nhịp độ mặc định (chuyến “thư giãn”):** tối đa 4 điểm/ngày · tối đa 2 giờ di chuyển/ngày · "
   "mỗi ngày chừa một khoảng trống. Vượt quá phải nói rõ với khách là lịch dày.\n\n")
 # ── Ba quy tac ap cho CA 36 ho so, noi mot lan o day ───────────────────────

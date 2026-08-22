@@ -23,6 +23,10 @@ import anh_huong as _ah                        # sap output theo THU TU anh huon
 import trai_nghiem as _tn                       # nhan trai nghiem (category.primary -> "Ngam canh"...)
 import hoat_dong_derive as _hd                   # "Co gi o day" suy tu loai + tag OSM (rederivation)
 import vibes as _vb                             # slug vibe: rule (category) + fold cache LLM (enrich_vibes)
+import phu_hop_voi_data as _phv                 # câu "phù hợp với" — editorial tier 002 (controlled vocab)
+import compose_intro as _ci                     # "Giới thiệu nhanh" V2 (fact + editorial), build-time, không LLM
+import trim_desc as _trimdesc                    # B2: rút mô tả Wikipedia (2 câu, bỏ địa chỉ/khoảng cách TP)
+EDITORIAL_TIER = os.environ.get("EDITORIAL_TIER") == "1"  # kill-switch: off (mặc định) -> 0 field editorial
 
 RAW = sys.argv[1] if len(sys.argv) > 1 else "tourism-kb/raw/da-lat/scrape"
 DIA_DIEM = _slug_of(RAW)                      # slug tu duong dan (da-lat neu raw/ phang)
@@ -333,9 +337,12 @@ for r in PICKED:
     rec["alternate_names"] = alt
     # description: verbatim wiki neu co, else template factual tu field (100% phu)
     dsc = prov_val(pid, "mo_ta_wikipedia", "encyclopedia")
+    _mo_ta_trim = _mo_ta_url = None
     if dsc:
         rec["description"] = {"value": dsc["value"], "is_verbatim_quote": True,
                               "source_id": dsc["source_id"], "retrieved_at": dsc["retrieved_at"]}
+        _mo_ta_trim = _trimdesc.trim_desc(dsc["value"])          # B2: bản rút hiển thị (giữ value gốc)
+        _mo_ta_url = (e(pid, "mo_ta_wikipedia") or {}).get("url")  # link Wikipedia (CC-BY-SA attribution)
     else:
         rec["description"] = {"value": _mo_ta_don_gian(rec, r.get("csdl_tham_dinh")),
                               "is_verbatim_quote": False, "derived": "template-fields",
@@ -406,8 +413,15 @@ for r in PICKED:
         "hoat_dong_nguon": "loại hình + tag OSM",                         # rederivation, khong claim rieng (nhu trai_nghiem)
         "vibes": _vibes_v,                                                # slug vibe roi rac (VIBE_VOCAB)
         "vibes_nguon": _vibes_ng,                                         # rule | llm | rule+llm | none
+        # EDITORIAL tier (002): cau "Phu hop voi khach muon..." keyed vibe-signature, controlled vocab,
+        # nguoi duyet=owner, KHONG source_id (ngoai verified_fields). Gated kill-switch EDITORIAL_TIER.
+        "phu_hop_voi": ({"value": _pv_val, "tier": "bien-tap", "is_editorial": True,
+                         "method": "curated-table", "reviewed_by": "owner", "reviewed_at": BUILD}
+                        if EDITORIAL_TIER and (_pv_val := _phv.phu_hop_voi(_vibes_v, rec["category"]["primary"]))
+                        else None),
         "opening_hours": oh,
         "ticketing": tickets,
+        "trai_nghiem_tra_phi": (prov_val(pid, "trai_nghiem_tra_phi") or {}).get("value"),  # [{ten,don_vi}] on-site geo-join (source_id)
         "facilities": fac,
         "environment": env,
         "transport": {"distance_from_center_km": r.get("km"), "drive_time_min": r.get("min")},
@@ -418,6 +432,8 @@ for r in PICKED:
                 "nearest_main_road": road_v},
         # None = khong tim thay trong register (khong khang dinh "khong duoc cong nhan")
         "nha_nuoc_tham_dinh": True if r.get("csdl_tham_dinh") else None,
+        "mo_ta": _mo_ta_trim,            # B2: mo ta rut (2 cau, bo dia chi/khoang cach TP) — None cho template
+        "mo_ta_nguon_url": _mo_ta_url,   # link Wikipedia (CC-BY-SA attribution) khi co
     }}
     # warnings + verification meta tu enrichment
     cb = e(pid, "canh_bao_website")
@@ -432,6 +448,10 @@ for r in PICKED:
         _dd["source_ids"] = [_src_dd(r.get("src"))]
     if r.get("csdl_tham_dinh") and SRC_CSDL_DD not in _dd["source_ids"]:
         _dd["source_ids"].append(SRC_CSDL_DD)     # register nha nuoc = nguon chung thuc
+    # "Gioi thieu nhanh" V2 (build-time): fact (lap slot tu field) + editorial (so tay 002). source_ids
+    # da finalize o tren -> compose_intro trace duoc. editorial gated boi EDITORIAL_TIER.
+    _dd["ext"]["destination"]["intro"] = {**_ci.compose_intro(_dd, EDITORIAL_TIER),
+                                          "method": "compose-intro-v2", "generated_at": BUILD}
     diem_den.append(_dd)
 
 # ── 2. nha hang ────────────────────────────────────────────────────────────

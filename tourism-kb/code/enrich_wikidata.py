@@ -260,7 +260,10 @@ for pid, raw in sorted(wp_of.items()):
     time.sleep(0.3)
 print(f"doc xong {n_wp} bai Wikipedia")
 
-json.dump(rows, io.open(ENRICH, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+# ghi atomic (.tmp + os.replace): crash giua batch 34 tinh khong lam truncate enrichment.json
+_tmp = ENRICH + ".tmp"
+json.dump(rows, io.open(_tmp, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+os.replace(_tmp, ENRICH)
 from collections import Counter
 print(f"\nenrichment.json: {before} -> {len(rows)}  (+{len(rows)-before})")
 for k, v in Counter(r["field"] for r in rows if r["method"].startswith("pass2")).most_common():
