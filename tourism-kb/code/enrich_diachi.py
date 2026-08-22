@@ -24,6 +24,14 @@ CACHE = os.path.join(RAW, "nominatim.json")
 D = "28/07/2026"
 UA = {"User-Agent": "BusBooking-KB/0.1 (tourism research; phamanhquan4068@gmail.com)"}
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from dia_diem_config import cfg
+
+_C = cfg(RAW)
+PROVINCE = _C["province"]                                   # canonical (sau sáp nhập 2025) — nguồn cấu hình
+_CENTRAL = {"Hà Nội", "Hồ Chí Minh", "Hải Phòng", "Đà Nẵng", "Cần Thơ", "Huế"}
+PROVINCE_LINE = ("thành phố " if PROVINCE in _CENTRAL else "tỉnh ") + PROVINCE
+
 picked = json.load(io.open(os.path.join(RAW, "guide_data.json"), encoding="utf-8"))["picked"]
 rows = json.load(io.open(ENRICH, encoding="utf-8"))
 E = {}
@@ -105,18 +113,12 @@ for p in picked:
         if not osm_addr:
             house = None
 
-    # --- phuong / xa: ten SAU sap nhap 2025 ---
-    ward = a.get("county") or a.get("suburb") or a.get("quarter") or a.get("city_district")
-    if ward and not ward.lower().startswith(("phường", "xã", "thị trấn")):
-        ward = "Phường " + ward
+    # --- phuong / xa: ten SAU sap nhap 2025, lay THANG tu Nominatim (accept-language=vi) ---
+    # KHONG tu them tien to "Phường" (co the la xa/huyen) — giu nguyen van Nominatim tra ve.
+    ward = a.get("suburb") or a.get("quarter") or a.get("city_district") or a.get("county") or a.get("village")
 
-    # --- thanh pho: KHONG mac dinh la Da Lat ---
-    # Thac Voi o Lam Ha, Chua Quan The Am o Duc Trong — ghi "thành phố Đà Lạt"
-    # cho nhung noi nay la sai, va sai theo kieu khien khach di nham 30 km.
-    in_dalat = bool(a.get("city") or a.get("town")) and "lạt" in str(
-        a.get("city") or a.get("town")).lower()
-    if ward and "đà lạt" in ward.lower():
-        in_dalat = True
+    # --- thanh pho / quan: tu Nominatim, KHONG hardcode tinh nao ---
+    city = a.get("city") or a.get("town") or a.get("municipality") or a.get("district")
 
     parts = []
     if house and street:
@@ -129,11 +131,12 @@ for p in picked:
     if ward:
         parts.append(ward)
         stat["co_phuong"] += 1
-    if in_dalat:
-        parts.append("thành phố Đà Lạt")
-    else:
-        stat["ngoai_da_lat"] = stat.get("ngoai_da_lat", 0) + 1
-    parts.append("tỉnh Lâm Đồng")
+    # bo city neu trung/long nhau voi ten tinh: tranh "Thành phố Huế, thành phố Huế" VA
+    # bo label tho Nominatim "Thành phố <Tỉnh>" (vd "Thành phố Quảng Ninh" — khong ton tai)
+    _pl, _cl = PROVINCE.strip().lower(), (city or "").strip().lower()
+    if city and _pl not in _cl and _cl not in _pl:
+        parts.append(city)
+    parts.append(PROVINCE_LINE)
     full = ", ".join(parts)
 
     src = "OpenStreetMap" + (" + Overture" if p.get("addr") else "")
@@ -149,6 +152,7 @@ for p in picked:
     print(f"  {p['id']}  {full}")
 
 json.dump(rows, io.open(ENRICH, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+_n = len(picked)
 print(f"\nenrichment.json +{added} -> {len(rows)} dong")
-print(f"co so nha: {stat['co_so_nha']}/36   co ten duong: {stat['co_duong']}/36   "
-      f"co phuong: {stat['co_phuong']}/36")
+print(f"co so nha: {stat['co_so_nha']}/{_n}   co ten duong: {stat['co_duong']}/{_n}   "
+      f"co phuong: {stat['co_phuong']}/{_n}")

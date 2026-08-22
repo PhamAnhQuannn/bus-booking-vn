@@ -21,7 +21,11 @@ ENRICH = os.path.join(RAW, "enrichment.json")
 _lonmin, _latmin, _lonmax, _latmax = cfg(RAW)["bbox"]
 BBOX = (_latmin, _lonmin, _latmax, _lonmax)      # south, west, north, east
 print(f"dia diem: {slug_of(RAW)}  bbox(S,W,N,E): {BBOX}")
-ENDPOINT = "https://overpass-api.de/api/interpreter"
+ENDPOINTS = [  # xoay 3 mirror: 1 timeout/ban khong con lam chet ca lan quet (nhu sweep_osm_diem_den)
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+]
 INSIDE_M = 250        # coi la "trong khuon vien"
 PULL_DATE = "28/07/2026"
 
@@ -57,13 +61,21 @@ if os.path.exists(OUT):
     print(f"dung lai ket qua da luu: {len(data.get('elements', []))} element")
 else:
     print("goi Overpass (tien nghi) ...", flush=True)
-    req = urllib.request.Request(
-        ENDPOINT, data=urllib.parse.urlencode({"data": Q}).encode(),
-        headers={"User-Agent": "BusBooking-KB/0.1 (tourism research)"})
-    t0 = time.time()
-    with urllib.request.urlopen(req, timeout=240) as r:
-        data = json.load(r)
-    print(f"  {time.time()-t0:.0f}s  {len(data.get('elements', []))} element")
+    data = None
+    for ep in ENDPOINTS:
+        try:
+            req = urllib.request.Request(
+                ep, data=urllib.parse.urlencode({"data": Q}).encode(),
+                headers={"User-Agent": "BusBooking-KB/0.1 (tourism research)"})
+            t0 = time.time()
+            with urllib.request.urlopen(req, timeout=240) as r:
+                data = json.load(r)
+            print(f"  {ep.split('/')[2]}  {time.time()-t0:.0f}s  {len(data.get('elements', []))} element")
+            break
+        except Exception as ex:
+            print(f"  {ep.split('/')[2]} FAIL: {ex}", flush=True)
+    if data is None:
+        raise SystemExit("Overpass: ca 3 mirror deu fail — thu lai sau (khong ghi rong)")
     json.dump(data, io.open(OUT, "w", encoding="utf-8"), ensure_ascii=False)
 
 els = []
