@@ -18,6 +18,13 @@ const STATIC_PATHS = ['', '/routes', '/terms', '/privacy', '/lien-he-dat-xe', '/
 
 const MAX_TRIP_URLS = 5000;
 
+/** hreflang alternates for a locale-agnostic path (i18n P2b). vi is unprefixed
+ * (default locale), en lives under /en. The entry `url` stays the vi URL. */
+function langAlternates(path: string): { languages: Record<string, string> } {
+  const vi = `${SITE_URL}${path || '/'}`;
+  return { languages: { vi, en: `${SITE_URL}/en${path}` } };
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
 
@@ -26,6 +33,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: now,
     changeFrequency: 'daily',
     priority: p === '' ? 1 : 0.7,
+    alternates: langAlternates(p),
   }));
 
   let tripEntries: MetadataRoute.Sitemap = [];
@@ -48,6 +56,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: now,
       changeFrequency: 'daily',
       priority: 0.6,
+      alternates: langAlternates(`/trips/${t.id}`),
     }));
   } catch {
     // DB unreachable at request time → still serve the static sitemap.

@@ -1,0 +1,25 @@
+{
+  "site": {
+    "title": "Book intercity bus tickets | BBVN",
+    "description": "Find and book intercity bus tickets across Vietnam."
+  },
+  "home": {
+    "title": "Book intercity bus tickets | BBVN",
+    "description": "Find and book intercity bus tickets across Vietnam in 30 seconds.",
+    "searchTitle": "{origin} → {destination} | BBVN",
+    "searchDescription": "Find buses from {origin} to {destination}"
+  },
+  "routes": {
+    "title": "Routes | BBVN",
+    "description": "Explore intercity bus routes currently on sale."
+  },
+  "trip": {
+    "title": "{origin} → {destination} | BBVN",
+    "fallbackTitle": "Bus trip | BBVN",
+    "description": "{origin} to {destination} — {operator}."
+  },
+  "charter": {
+    "title": "Charter booking | BBVN",
+    "description": "Book tour or contract buses — leave your details and BBVN will advise and quote quickly."
+  }
+}

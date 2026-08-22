@@ -5,6 +5,11 @@
  * (CheckoutClient) reuses the exact same Zod rules instead of copy-pasting them.
  * Client-safe (pure Zod, no I/O). The soft-gate email typo nudge lives in
  * lib/booking/emailSuggest (suggestEmail) and is applied by the caller.
+ *
+ * i18n (P2c): each issue message is a next-intl catalog KEY under the `booking`
+ * namespace (`checkoutValidation.*`), NOT literal text. The caller resolves it
+ * with `t(iss.message)` at render (CheckoutClient) so the same schema serves both
+ * locales. Consumers that only read `.success` (never the message) are unaffected.
  */
 
 import { z } from 'zod';
@@ -13,25 +18,22 @@ export const customerFormSchema = z.object({
   buyerName: z
     .string()
     .trim()
-    .min(1, 'Vui lòng nhập họ tên')
-    .min(4, 'Họ tên phải có ít nhất 4 ký tự')
-    .max(100, 'Họ tên không được vượt quá 100 ký tự')
-    .regex(/^[\p{L}\p{M}\s'.-]+$/u, 'Họ tên chỉ được chứa chữ cái, dấu cách và các ký tự hợp lệ'),
+    .min(1, 'checkoutValidation.reqName')
+    .min(4, 'checkoutValidation.minName')
+    .max(100, 'checkoutValidation.maxName')
+    .regex(/^[\p{L}\p{M}\s'.-]+$/u, 'checkoutValidation.regexName'),
   buyerPhone: z
     .string()
     .trim()
-    .min(1, 'Vui lòng nhập số điện thoại')
-    .regex(
-      /^(0|\+84)[35789][0-9]{8}$/,
-      'Số điện thoại không hợp lệ. Nhập số di động Việt Nam 10 chữ số bắt đầu bằng 0 hoặc +84, VD: 0912345678.',
-    ),
+    .min(1, 'checkoutValidation.reqPhone')
+    .regex(/^(0|\+84)[35789][0-9]{8}$/, 'checkoutValidation.regexPhone'),
   buyerEmail: z
     .string()
     .trim()
     .toLowerCase()
-    .min(1, 'Vui lòng nhập email để nhận vé')
-    .max(254, 'Email không được vượt quá 254 ký tự')
-    .email('Email không hợp lệ'),
+    .min(1, 'checkoutValidation.reqEmail')
+    .max(254, 'checkoutValidation.maxEmail')
+    .email('checkoutValidation.invalidEmail'),
 });
 
 export type CustomerFormData = z.infer<typeof customerFormSchema>;

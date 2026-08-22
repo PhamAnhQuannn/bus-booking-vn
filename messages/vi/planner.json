@@ -1,0 +1,217 @@
+{
+  "entry": {
+    "mascotAlt": "Trợ lý BBVN AI",
+    "heading": "Bạn muốn đi đâu hôm nay?",
+    "subheading": "Hãy chia sẻ với mình ý tưởng chuyến đi của bạn, mình sẽ giúp bạn lên kế hoạch chi tiết và tối ưu nhất!",
+    "startersLabel": "Gợi ý bắt đầu:",
+    "samplesLabel": "Bạn có thể thử những câu hỏi như:"
+  },
+  "composer": {
+    "placeholder": "Vd: Mình muốn đi Đà Lạt 3 ngày 2 đêm, ngân sách ~3 triệu/người",
+    "send": "Gửi"
+  },
+  "sidebar": {
+    "openHistory": "Mở lịch sử",
+    "newConversationShort": "Cuộc trò chuyện mới",
+    "historyTitle": "Lịch sử trò chuyện",
+    "collapse": "Thu gọn",
+    "newConversation": "Cuộc trò chuyện mới",
+    "options": "Tùy chọn",
+    "rename": "Đổi tên",
+    "delete": "Xoá",
+    "renamePrompt": "Đổi tên cuộc trò chuyện:",
+    "deleteConfirm": "Xoá cuộc trò chuyện này?",
+    "clearAllConfirm": "Xoá toàn bộ lịch sử trò chuyện?",
+    "clearAll": "Xoá lịch sử trò chuyện",
+    "group": {
+      "today": "Hôm nay",
+      "yesterday": "Hôm qua",
+      "week": "7 ngày trước",
+      "older": "Cũ hơn"
+    },
+    "upsellTitle": "Nâng cấp trải nghiệm",
+    "upsellDesc": "Đăng nhập để lưu lịch sử, đồng bộ trên mọi thiết bị và nhận gợi ý cá nhân hoá.",
+    "upsellCta": "Đăng nhập ngay",
+    "brandEyebrow": "AI Trợ lý du lịch",
+    "brandGreeting": "Xin chào!",
+    "brandIntro": "Mình là BBVN AI",
+    "brandBubble": "Mình sẽ giúp bạn lên kế hoạch chuyến đi hoàn hảo từ A–Z chỉ trong vài phút.",
+    "capabilitiesTitle": "Mình có thể giúp bạn:",
+    "capability1": "Gợi ý điểm đến phù hợp với bạn",
+    "capability2": "Lên lịch trình chi tiết theo ngày",
+    "capability3": "Đặt vé xe, gợi ý nhà xe uy tín",
+    "capability4": "Gợi ý ăn uống, lưu trú, vui chơi",
+    "capability5": "Ước tính chi phí và thời gian di chuyển",
+    "promoAlt": "Đặt vé xe BBVN",
+    "promoTitle": "Đặt vé xe dễ dàng cho hành trình của bạn",
+    "promoCta": "Đặt vé ngay",
+    "brandFooter": "BBVN AI sử dụng công nghệ trí tuệ nhân tạo để mang đến trải nghiệm tốt nhất cho bạn."
+  },
+  "stepper": {
+    "title": "Thông tin chuyến đi",
+    "destination": "Điểm đến",
+    "days": "Ngày đi",
+    "group": "Nhóm"
+  },
+  "receipt": {
+    "title": "Lịch trình {city} · {days} ngày {nights} đêm",
+    "dayChip": "N{day}",
+    "viewDetailDesktop": "Xem chi tiết + bản đồ ở bên phải",
+    "viewDetailMobile": "Nhấn để xem lịch trình + bản đồ"
+  },
+  "suggestions": {
+    "heading": "Gợi ý điểm {vibe}",
+    "add": "+ Thêm vào lịch",
+    "empty": "Chưa có gợi ý riêng cho vibe này — để mình lên lịch chung nhé.",
+    "plan": "Lên lịch trình",
+    "vibe": {
+      "ngam-canh": "ngắm cảnh",
+      "tam-linh": "tâm linh",
+      "lich-su-van-hoa": "lịch sử - văn hoá",
+      "thien-nhien-mao-hiem": "thiên nhiên - mạo hiểm",
+      "mua-sam": "mua sắm",
+      "nong-nghiep-sinh-thai": "nông nghiệp sinh thái",
+      "bien-dao": "biển đảo",
+      "suoi-nuoc-nong": "suối nước nóng",
+      "song-ao-chup-hinh": "sống ảo - chụp hình",
+      "thu-gian-yen-tinh": "thư giãn - yên tĩnh",
+      "lang-man": "lãng mạn"
+    }
+  },
+  "assistant": {
+    "buildSuccess": "Đây là lịch trình gợi ý cho bạn 👇",
+    "buildFail": "Chưa dựng được lịch, bạn thử lại nhé.",
+    "busy": "Trợ lý đang bận, thử lại giúp mình nhé.",
+    "noConnection": "Không kết nối được máy chủ, thử lại giúp mình nhé.",
+    "planningFromData": "Đang lập kế hoạch từ dữ liệu đã xác minh…",
+    "typing": "Trợ lý đang trả lời…",
+    "tryAgain": "Bạn thử nhắn lại giúp mình nhé.",
+    "genericError": "Có lỗi xảy ra.",
+    "selected": "Đã chọn: {choice}",
+    "addAnchor": "Thêm {name} vào lịch",
+    "planTrip": "Lên lịch trình",
+    "historyAria": "Lịch sử trò chuyện",
+    "splitterAria": "Kéo để chỉnh độ rộng chat và bản đồ",
+    "history": "Lịch sử",
+    "assistantName": "Trợ lý du lịch",
+    "newConversation": "+ Cuộc trò chuyện mới",
+    "itineraryAndMap": "Lịch trình & bản đồ",
+    "backToChat": "← Về hội thoại",
+    "openMapFab": "🗺 Lịch trình & bản đồ",
+    "emptyState": "Lịch trình + bản đồ của bạn sẽ hiện ở đây sau khi trợ lý dựng xong.",
+    "tip": "💡 Bấm pin trên bản đồ hoặc chip <b>N1–N3</b> để xem từng ngày · gõ câu để chỉnh lịch trình.",
+    "privacy": "Thông tin bạn cung cấp chỉ được sử dụng để hỗ trợ lập kế hoạch chuyến đi.",
+    "filterInterests": "🎯 Sở thích",
+    "filterTransport": "🚌 Phương tiện",
+    "filterFood": "🍜 Ăn uống",
+    "actionChangeLunchLabel": "🔄 Đổi chỗ ăn trưa",
+    "actionChangeLunchPrompt": "Đổi giúp mình quán ăn trưa",
+    "actionAddDayLabel": "➕ Thêm 1 ngày",
+    "actionAddDayPrompt": "Thêm 1 ngày nữa vào lịch",
+    "actionCheaperLabel": "💸 Tiết kiệm hơn",
+    "actionCheaperPrompt": "Cho mình phương án tiết kiệm hơn"
+  },
+  "schedule": {
+    "unsupportedTitle": "Chưa hỗ trợ thành phố này",
+    "unsupportedDesc": "Lịch trình gợi ý hiện chưa có cho địa điểm bạn chọn. Vui lòng thử một thành phố khác.",
+    "unsupportedCta": "← Chọn thành phố khác",
+    "heading": "Lịch trình {days} ngày · {city}",
+    "paceLabel": "Nhịp: {pace}",
+    "adults": "{count} người lớn",
+    "elders": "{count} người lớn tuổi",
+    "children": "{count} trẻ nhỏ",
+    "dataSource": "dữ liệu: {source}",
+    "bookCta": "Đặt xe cho chuyến này →",
+    "day": "Ngày {day}",
+    "hotelTitle": "Khách sạn gợi ý",
+    "restaurantTitle": "Gợi ý quán ăn",
+    "restaurantNote": "Gợi ý theo mức được quan tâm; không gắn vào lịch từng buổi — chọn tuỳ khẩu vị.",
+    "hoursLabel": "giờ:",
+    "callAhead": "gọi trước",
+    "noPhone": "chưa có SĐT",
+    "sources": "nguồn: {count}",
+    "updated": "cập nhật {date}",
+    "notesTitle": "Lưu ý",
+    "pace": {
+      "relaxed": "thư giãn",
+      "packed": "dày",
+      "moderate": "vừa"
+    },
+    "buoi": {
+      "sang": "Sáng",
+      "trua": "Trưa",
+      "chieu": "Chiều",
+      "toi": "Tối"
+    }
+  },
+  "pane": {
+    "openMapFullscreen": "Bản đồ — mở toàn màn hình",
+    "resizeMapAria": "Kéo để chỉnh độ lớn bản đồ"
+  },
+  "dayTabBar": {
+    "day": "Ngày {day}"
+  },
+  "itinerary": {
+    "title": "🏔 {city} · {days} ngày {nights} đêm",
+    "adults": "{count} người lớn",
+    "children": "{count} trẻ nhỏ",
+    "elders": "{count} người lớn tuổi",
+    "paceLabel": "Nhịp độ: {pace}",
+    "dataUpdated": "Dữ liệu cập nhật {source}",
+    "orderLegend": "= thứ tự trợ lý đề xuất (không phải đánh giá sao)",
+    "badgeOpen": "Mở",
+    "hoursOnGoogle": "Giờ mở trên Google ↗",
+    "callAheadTitle": "Chưa có giờ mở xác minh — vui lòng gọi trước",
+    "legMinutes": "{minutes} phút",
+    "fromHotelShort": "cách KS ~{km}km",
+    "area": "khu {area} · ",
+    "stops": "{stops} điểm",
+    "restaurantTitle": "Gợi ý quán ăn",
+    "hoursLabel": "giờ: {value}",
+    "callAhead": "gọi trước",
+    "mapLink": "Bản đồ →",
+    "hotelTitle": "Khách sạn gợi ý",
+    "fromFirstStop": "📍 cách điểm đầu khoảng {km} km",
+    "phoneUnverified": "SĐT chưa xác minh — gọi trước",
+    "viewMap": "Xem bản đồ →",
+    "hotelAlts": "Lựa chọn khác",
+    "verifiedCount": "✓ {verified}/{total} điểm đã xác minh giờ",
+    "footerNote": "Thứ tự = mức gợi ý; giá không hiển thị (chỉ thông tin, không đặt hộ).",
+    "saveTrip": "💾 Lưu chuyến đi",
+    "exportPdf": "📄 Xuất PDF",
+    "share": "🔗 Chia sẻ",
+    "savedAlert": "Đã lưu chuyến đi vào thiết bị này.",
+    "sharedAlert": "Đã sao chép liên kết chia sẻ.",
+    "shareTitle": "Lịch trình {city} {days} ngày",
+    "pace": {
+      "relaxed": "thư giãn",
+      "moderate": "vừa phải",
+      "packed": "dày"
+    },
+    "buoi": {
+      "sang": "Sáng",
+      "trua": "Trưa",
+      "chieu": "Chiều",
+      "toi": "Tối"
+    }
+  },
+  "map": {
+    "noBasemap": "Bản đồ nền khu vực này chưa có — vẫn hiển thị vị trí các điểm.",
+    "close": "Đóng",
+    "open": "Đang mở",
+    "closed": "Đã đóng",
+    "verified": "✓ Đã xác minh",
+    "legFromPrev": "{km}km · {minutes} phút từ điểm trước",
+    "source": "Nguồn: {source}",
+    "viewOnGoogleMaps": "Xem trên Google Maps →",
+    "buoi": {
+      "sang": "Sáng",
+      "trua": "Trưa",
+      "chieu": "Chiều",
+      "toi": "Tối"
+    }
+  },
+  "metadata": {
+    "scheduleTitle": "Lịch trình gợi ý"
+  }
+}

@@ -7,6 +7,7 @@
  * ticketCount, so no booking/hold DTO change is needed.
  */
 
+import { useTranslations } from 'next-intl';
 import { ArrowRight, Calendar, Clock, MapPin, Bus, Armchair, Ticket } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -69,14 +70,15 @@ export function TripInfoCard({
   boardingPoint,
   boardingTime,
 }: TripInfoCardProps) {
+  const t = useTranslations('booking');
   const pickup = boardingPoint
     ? `${boardingPoint}${boardingTime ? ` – ${boardingTime}` : ''}`
-    : 'Tại bến xe';
+    : t('tripInfo.atStation');
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle as="h2">Thông tin chuyến đi</CardTitle>
+        <CardTitle as="h2">{t('tripInfo.title')}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
         <div className="flex flex-wrap items-center gap-2 text-base font-semibold">
@@ -86,12 +88,12 @@ export function TripInfoCard({
         </div>
 
         <div className="grid grid-cols-2 gap-4 border-t border-border/60 pt-4 sm:grid-cols-3">
-          <Fact icon={Calendar} label="Thời gian đi" value={formatDate(departureAt)} />
-          <Fact icon={Clock} label="Giờ khởi hành" value={formatTime(departureAt)} />
-          <Fact icon={MapPin} label="Điểm đón" value={pickup} />
-          <Fact icon={Bus} label="Nhà xe" value={operatorLegalName} />
-          <Fact icon={Armchair} label="Loại xe" value={vehicleLabel} />
-          <Fact icon={Ticket} label="Số ghế" value={`${ticketCount} ghế`} />
+          <Fact icon={Calendar} label={t('tripInfo.departTime')} value={formatDate(departureAt)} />
+          <Fact icon={Clock} label={t('tripInfo.departHour')} value={formatTime(departureAt)} />
+          <Fact icon={MapPin} label={t('tripInfo.pickup')} value={pickup} />
+          <Fact icon={Bus} label={t('tripInfo.operator')} value={operatorLegalName} />
+          <Fact icon={Armchair} label={t('tripInfo.vehicleType')} value={vehicleLabel} />
+          <Fact icon={Ticket} label={t('tripInfo.seatCount')} value={t('tripInfo.seatsValue', { count: ticketCount })} />
         </div>
       </CardContent>
     </Card>

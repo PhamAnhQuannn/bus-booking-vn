@@ -1,0 +1,304 @@
+{
+  "prevailingLanguage": "Bản tiếng Việt có giá trị pháp lý. Bản dịch các ngôn ngữ khác chỉ nhằm mục đích tham khảo; khi có khác biệt, bản tiếng Việt được ưu tiên áp dụng.",
+  "related": {
+    "aria": "Chính sách liên quan",
+    "label": "Liên quan:",
+    "terms": "Điều khoản dịch vụ",
+    "privacy": "Chính sách bảo mật",
+    "refund": "Chính sách hủy vé và hoàn tiền",
+    "complaints": "Giải quyết khiếu nại"
+  },
+  "terms": {
+    "meta": {
+      "title": "Điều khoản dịch vụ | BBVN",
+      "description": "Điều khoản sử dụng dịch vụ đặt vé xe khách BBVN."
+    },
+    "h1": "Điều khoản dịch vụ",
+    "updated": "Cập nhật: Tháng 8, 2026",
+    "version": "Phiên bản: 2026-08",
+    "s1": {
+      "title": "1. Giới thiệu",
+      "body": "Điều khoản dịch vụ này (\"Điều khoản\") điều chỉnh việc sử dụng nền tảng đặt vé xe khách BBVN (\"Dịch vụ\"). Khi đặt vé qua BBVN, bạn đồng ý tuân thủ các Điều khoản này."
+    },
+    "s2": {
+      "title": "2. Dịch vụ cung cấp",
+      "intro": "BBVN là nền tảng trung gian kết nối khách hàng với nhà xe. Chúng tôi cung cấp:",
+      "items": [
+        "Tìm kiếm và so sánh chuyến xe khách liên tỉnh.",
+        "Đặt chỗ và thanh toán trước trực tuyến qua chuyển khoản ngân hàng (VietQR) hoặc VNPay.",
+        "Xác nhận vé và thông báo qua email."
+      ],
+      "note": "BBVN không phải là nhà vận tải. Nhà xe chịu trách nhiệm về dịch vụ vận chuyển, an toàn và đúng giờ."
+    },
+    "s3": {
+      "title": "3. Thông tin đặt vé",
+      "items": [
+        "Khi đặt vé, bạn cung cấp thông tin liên hệ (tên, số điện thoại, email) cho mỗi lần đặt.",
+        "BBVN không yêu cầu tạo tài khoản. Mỗi lần đặt vé là giao dịch độc lập.",
+        "Bạn chịu trách nhiệm cung cấp thông tin chính xác để nhận xác nhận vé và liên hệ khi cần."
+      ]
+    },
+    "s4": {
+      "title": "4. Đặt vé và thanh toán",
+      "items": [
+        "Ghế được giữ chỗ tạm thời (tối đa 12 phút) trong lúc thanh toán.",
+        "Thanh toán qua chuyển khoản ngân hàng. Vé được xác nhận sau khi nhận được thanh toán thành công.",
+        "Giá vé hiển thị đã bao gồm tất cả phí. Không có phí ẩn.",
+        "Nếu thanh toán không hoàn tất trong thời gian giữ chỗ, ghế sẽ được trả lại để người khác đặt."
+      ]
+    },
+    "s5": {
+      "title": "5. Hủy vé và hoàn tiền",
+      "body": "Chính sách hủy vé và hoàn tiền được quy định chi tiết tại <link>Chính sách hủy vé và hoàn tiền</link>. Chính sách này là một phần không thể tách rời của Điều khoản dịch vụ."
+    },
+    "s6": {
+      "title": "6. Trách nhiệm của khách hàng",
+      "items": [
+        "Cung cấp thông tin chính xác khi đặt vé (tên, số điện thoại).",
+        "Có mặt tại điểm đón đúng giờ.",
+        "Tuân thủ quy định của nhà xe trong suốt chuyến đi.",
+        "Không sử dụng Dịch vụ cho mục đích gian lận hoặc bất hợp pháp."
+      ]
+    },
+    "s7": {
+      "title": "7. Giới hạn trách nhiệm",
+      "body": "BBVN không chịu trách nhiệm về: (a) chất lượng dịch vụ vận chuyển do nhà xe cung cấp; (b) thiệt hại do chậm trễ, hủy chuyến hoặc tai nạn trong quá trình vận chuyển; (c) mất mát hành lý hoặc tài sản cá nhân trên xe. Trách nhiệm bồi thường tối đa của BBVN không vượt quá giá trị vé đã thanh toán."
+    },
+    "s8": {
+      "title": "8. Sở hữu trí tuệ",
+      "body": "Toàn bộ nội dung, thiết kế, logo và mã nguồn của BBVN thuộc quyền sở hữu của chúng tôi và được bảo hộ theo pháp luật Việt Nam về sở hữu trí tuệ."
+    },
+    "s9": {
+      "title": "9. Thay đổi điều khoản",
+      "body": "Chúng tôi có thể cập nhật Điều khoản này. Thay đổi quan trọng sẽ được thông báo qua email tối thiểu 30 ngày trước khi có hiệu lực. Việc tiếp tục sử dụng Dịch vụ sau khi thay đổi đồng nghĩa với việc bạn chấp nhận Điều khoản mới."
+    },
+    "s10": {
+      "title": "10. Luật áp dụng",
+      "body": "Điều khoản này được điều chỉnh bởi pháp luật Việt Nam. Mọi tranh chấp sẽ được giải quyết tại tòa án có thẩm quyền tại Việt Nam."
+    },
+    "s11": {
+      "title": "11. Liên hệ",
+      "body": "Nếu có câu hỏi về Điều khoản dịch vụ, vui lòng liên hệ qua email: <email>support@bbvn.vn</email>. Để khiếu nại, vui lòng xem <link>Chính sách giải quyết khiếu nại</link>."
+    }
+  },
+  "privacy": {
+    "meta": {
+      "title": "Chính sách bảo mật | BBVN",
+      "description": "Cách BBVN thu thập, sử dụng và bảo vệ thông tin cá nhân của khách hàng."
+    },
+    "h1": "Chính sách bảo mật",
+    "updated": "Cập nhật: Tháng 7, 2026",
+    "version": "Phiên bản: 2026-07",
+    "s1": {
+      "title": "1. Giới thiệu",
+      "body": "BBVN (\"chúng tôi\") cam kết bảo vệ quyền riêng tư của bạn theo Luật Bảo vệ dữ liệu cá nhân số 91/2025/QH15 (PDPL 2025) và Nghị định 356/2025/NĐ-CP. Chính sách này mô tả cách chúng tôi thu thập, sử dụng, lưu trữ và bảo vệ thông tin cá nhân khi bạn sử dụng nền tảng đặt vé xe khách BBVN."
+    },
+    "s2": {
+      "title": "2. Thông tin chúng tôi thu thập",
+      "items": [
+        "<b>Thông tin liên hệ đặt vé:</b> Số điện thoại liên hệ (bắt buộc để đặt vé và nhận thông báo), họ tên, địa chỉ email (tùy chọn).",
+        "<b>Thông tin đặt vé:</b> Tên hành khách, số điện thoại liên hệ, email liên hệ, điểm đón, chi tiết chuyến đi.",
+        "<b>Thông tin thanh toán:</b> Trạng thái thanh toán, mã giao dịch ngân hàng. Chúng tôi không lưu trữ số thẻ ngân hàng hay thông tin đăng nhập ngân hàng.",
+        "<b>Dữ liệu kỹ thuật:</b> Địa chỉ IP (dùng cho giới hạn truy cập), user agent trình duyệt, nhật ký truy cập."
+      ]
+    },
+    "s3": {
+      "title": "3. Mục đích sử dụng",
+      "items": [
+        "Xử lý và xác nhận đặt vé xe khách.",
+        "Gửi thông báo qua email (xác nhận vé, nhắc nhở chuyến đi).",
+        "Hỗ trợ khách hàng và giải quyết tranh chấp.",
+        "Cải thiện chất lượng dịch vụ và phát hiện gian lận."
+      ]
+    },
+    "s4": {
+      "title": "4. Cơ sở pháp lý",
+      "body": "Chúng tôi xử lý dữ liệu dựa trên: (a) sự đồng ý của bạn khi đặt vé; (b) thực hiện hợp đồng đặt vé; (c) nghĩa vụ pháp lý theo quy định kế toán và lưu trữ chứng từ."
+    },
+    "s5": {
+      "title": "5. Chia sẻ dữ liệu",
+      "intro": "Chúng tôi chỉ chia sẻ thông tin cá nhân với:",
+      "items": [
+        "<b>Nhà xe:</b> Tên hành khách, số điện thoại liên hệ và điểm đón — để phục vụ chuyến đi.",
+        "<b>Đối tác thanh toán:</b> Xử lý giao dịch chuyển khoản ngân hàng (VietQR). Chúng tôi không lưu trữ số thẻ ngân hàng hay thông tin đăng nhập ngân hàng.",
+        "<b>Cơ quan nhà nước:</b> Khi có yêu cầu theo quy định pháp luật Việt Nam."
+      ]
+    },
+    "s6": {
+      "title": "6. Lưu trữ và bảo mật",
+      "body": "Dữ liệu được lưu trữ trên máy chủ tại Singapore (Vercel, Neon, Upstash). Chúng tôi áp dụng mã hóa AES-256 cho thông tin nhạy cảm, mã hóa kết nối SSL/TLS, và kiểm soát truy cập nghiêm ngặt. Mật khẩu được băm (hash) một chiều, không lưu dạng rõ."
+    },
+    "s6a": {
+      "title": "6a. Chuyển dữ liệu ra nước ngoài",
+      "intro": "Theo Điều 25 Luật PDPL 2025 và Nghị định 356/2025/NĐ-CP, chúng tôi thông báo rằng dữ liệu cá nhân của bạn được xử lý bởi các nhà cung cấp dịch vụ đám mây tại Singapore:",
+      "items": [
+        "<b>Vercel:</b> Máy chủ ứng dụng (compute) — khu vực Singapore (sin1).",
+        "<b>Neon:</b> Cơ sở dữ liệu PostgreSQL — khu vực Singapore.",
+        "<b>Upstash:</b> Bộ nhớ đệm Redis — khu vực Singapore."
+      ],
+      "note": "Việc chuyển dữ liệu ra nước ngoài tuân thủ các yêu cầu về đánh giá tác động chuyển dữ liệu xuyên biên giới (CDTIA) theo quy định PDPL 2025."
+    },
+    "s7": {
+      "title": "7. Thời gian lưu trữ",
+      "items": [
+        "Thông tin liên hệ đặt vé: cho đến khi bạn yêu cầu xóa hoặc hết nghĩa vụ lưu trữ pháp lý.",
+        "Lịch sử đặt vé và chứng từ thanh toán: tối thiểu 5 năm theo quy định kế toán.",
+        "Nhật ký truy cập: 90 ngày."
+      ]
+    },
+    "s8": {
+      "title": "8. Quyền của bạn",
+      "intro": "Theo Luật PDPL 2025, bạn có các quyền sau:",
+      "tableHead": ["Quyền", "Thời hạn xử lý"],
+      "rows": [
+        ["Truy cập và xem thông tin cá nhân", "10 ngày làm việc"],
+        ["Yêu cầu chỉnh sửa thông tin không chính xác", "10 ngày làm việc"],
+        ["Yêu cầu xóa dữ liệu cá nhân", "20 ngày làm việc"],
+        ["Rút lại sự đồng ý xử lý dữ liệu", "15 ngày làm việc"]
+      ],
+      "contact": "Để thực hiện các quyền này, vui lòng gửi email đến <email>privacy@bbvn.vn</email>.",
+      "note": "Lưu ý: lịch sử đặt vé và chứng từ thanh toán vẫn được lưu theo nghĩa vụ pháp lý ngay cả sau khi xóa dữ liệu cá nhân."
+    },
+    "s8a": {
+      "title": "8a. Thông báo vi phạm dữ liệu",
+      "body": "Trong trường hợp vi phạm dữ liệu cá nhân, chúng tôi sẽ thông báo cho cơ quan chức năng trong vòng 72 giờ và trong vòng 24 giờ nếu liên quan đến tấn công mạng, theo quy định PDPL 2025."
+    },
+    "s9": {
+      "title": "9. Cookie và công nghệ theo dõi",
+      "body": "Chúng tôi sử dụng cookie kỹ thuật (phiên đăng nhập, xác thực CSRF, giữ chỗ) cần thiết để vận hành dịch vụ. Chúng tôi không sử dụng cookie theo dõi quảng cáo hay cookie bên thứ ba."
+    },
+    "s10": {
+      "title": "10. Liên hệ",
+      "body": "Phụ trách bảo vệ dữ liệu cá nhân — Email: <email>privacy@bbvn.vn</email>",
+      "authority": "Nếu bạn không hài lòng với cách xử lý khiếu nại, bạn có quyền liên hệ Cục Cạnh tranh và Bảo vệ người tiêu dùng (VCCA) hoặc cơ quan chức năng có thẩm quyền theo <link>Chính sách giải quyết khiếu nại</link>."
+    }
+  },
+  "refund": {
+    "meta": {
+      "title": "Chính sách hủy vé và hoàn tiền | BBVN",
+      "description": "Chính sách hủy vé, hoàn tiền và các điều kiện áp dụng khi đặt vé xe khách qua BBVN."
+    },
+    "h1": "Chính sách hủy vé và hoàn tiền",
+    "updated": "Cập nhật: Tháng 8, 2026",
+    "version": "Phiên bản: 2026-08",
+    "s1": {
+      "title": "1. Giới thiệu",
+      "body": "Chính sách này là một phần không thể tách rời của <link>Điều khoản dịch vụ</link>. Chính sách áp dụng cho tất cả vé xe khách đặt qua bbvn.vn."
+    },
+    "s2": {
+      "title": "2. Phạm vi áp dụng",
+      "items": [
+        "Áp dụng cho vé thanh toán trước qua chuyển khoản ngân hàng (VietQR) hoặc VNPay.",
+        "Không áp dụng cho đặt xe hợp đồng/thuê riêng — vui lòng liên hệ <charter>trang đặt xe riêng</charter>."
+      ]
+    },
+    "s3": {
+      "title": "3. Hủy vé theo yêu cầu khách hàng",
+      "body": "Vé đã thanh toán <b>không thể hủy hoặc hoàn tiền theo yêu cầu của khách hàng</b>. BBVN chỉ hoàn tiền trong trường hợp nhà xe hủy chuyến (xem Mục 5). Vui lòng kiểm tra kỹ thông tin chuyến đi và cân nhắc trước khi thanh toán."
+    },
+    "s4": {
+      "title": "4. Không hoàn tiền trong các trường hợp",
+      "items": [
+        "Khách hàng tự ý không đi, đổi lịch cá nhân hoặc yêu cầu hủy vé.",
+        "Khách hàng không có mặt tại điểm đón đúng giờ (no-show).",
+        "Vé đã sử dụng hoặc chuyến đi đã khởi hành.",
+        "Phát hiện gian lận trong quá trình đặt vé hoặc thanh toán."
+      ]
+    },
+    "s5": {
+      "title": "5. Nhà xe hủy chuyến (xe không chạy)",
+      "intro": "Đây là trường hợp duy nhất được hoàn tiền. Khi nhà xe hủy chuyến:",
+      "items": [
+        "Hoàn tiền 100% giá vé (không trừ phí) trong vòng 3-5 ngày làm việc.",
+        "BBVN chủ động thông báo qua SMS/email ngay khi nhận thông tin từ nhà xe.",
+        "Khách hàng không cần thao tác hủy — hệ thống tự động xử lý hoàn tiền."
+      ]
+    },
+    "s6": {
+      "title": "6. Quy trình nhận hoàn tiền khi nhà xe hủy chuyến",
+      "items": [
+        "BBVN gửi thông báo hủy chuyến qua SMS/email tới số điện thoại/email đặt vé.",
+        "Nếu cần, khách hàng cung cấp số tài khoản ngân hàng để nhận hoàn tiền.",
+        "Mọi thắc mắc, liên hệ BBVN qua email <email>support@bbvn.vn</email> (kèm mã đặt vé và số điện thoại đặt vé)."
+      ]
+    },
+    "s7": {
+      "title": "7. Thời gian và phương thức hoàn tiền",
+      "items": [
+        "Hoàn tiền qua chuyển khoản ngân hàng: 3-5 ngày làm việc kể từ khi nhà xe xác nhận hủy chuyến."
+      ]
+    },
+    "s8": {
+      "title": "8. Ghi chú về Luật Bảo vệ quyền lợi người tiêu dùng",
+      "body": "Theo Luật Bảo vệ quyền lợi người tiêu dùng 2023 (Luật 19/2023/QH15), quyền \"đổi trả hàng trong vòng X ngày\" (Điều 44) chỉ áp dụng cho bán hàng tận cửa (door-to-door), không áp dụng cho giao dịch đặt vé trực tuyến tự nguyện."
+    },
+    "s9": {
+      "title": "9. Khiếu nại và liên hệ",
+      "body": "Nếu bạn không đồng ý với quyết định hoàn tiền, vui lòng xem <link>Chính sách giải quyết khiếu nại</link>. Email hỗ trợ: <email>support@bbvn.vn</email>"
+    },
+    "s10": {
+      "title": "10. Thay đổi chính sách",
+      "body": "Thay đổi quan trọng sẽ được thông báo tối thiểu 30 ngày trước khi có hiệu lực, phù hợp với <link>Điều khoản dịch vụ</link>."
+    }
+  },
+  "complaints": {
+    "meta": {
+      "title": "Giải quyết khiếu nại | BBVN",
+      "description": "Quy trình tiếp nhận và giải quyết khiếu nại, tranh chấp khi sử dụng dịch vụ đặt vé xe khách BBVN."
+    },
+    "h1": "Chính sách giải quyết khiếu nại và tranh chấp",
+    "updated": "Cập nhật: Tháng 7, 2026",
+    "version": "Phiên bản: 2026-07",
+    "s1": {
+      "title": "1. Giới thiệu",
+      "body": "BBVN là nền tảng trung gian kết nối khách hàng với nhà xe. Nhà xe chịu trách nhiệm về dịch vụ vận chuyển. Chính sách này mô tả quy trình tiếp nhận và giải quyết khiếu nại theo Luật Bảo vệ quyền lợi người tiêu dùng 2023 (Luật 19/2023/QH15, Điều 37-39)."
+    },
+    "s2": {
+      "title": "2. Kênh tiếp nhận khiếu nại",
+      "items": [
+        "<b>Email (kênh chính thức):</b> <email>support@bbvn.vn</email>",
+        "<b>Thông tin cần cung cấp:</b> Mã đặt vé (nếu có), số điện thoại đặt vé, mô tả vấn đề, bằng chứng (nếu có)."
+      ]
+    },
+    "s3": {
+      "title": "3. Quy trình xử lý và thời hạn",
+      "tableHead": ["Bước", "Nội dung", "Thời hạn"],
+      "rows": [
+        ["1", "Tiếp nhận và xác nhận", "3 ngày làm việc"],
+        ["2", "Xem xét và đề xuất giải pháp", "7-30 ngày làm việc"],
+        ["3", "Thông báo kết quả", "Qua email"]
+      ],
+      "note": "Khiếu nại đơn giản (lỗi hệ thống, thanh toán không ghi nhận) được xử lý trong 7 ngày làm việc. Khiếu nại phức tạp (tranh chấp với nhà xe, hoàn tiền đặc biệt) có thể mất đến 30 ngày làm việc."
+    },
+    "s4": {
+      "title": "4. Phân loại khiếu nại",
+      "items": [
+        "<b>Vấn đề đặt vé / thanh toán:</b> Thanh toán không ghi nhận, lỗi hệ thống, sai thông tin vé.",
+        "<b>Vấn đề hoàn tiền:</b> Xem <link>Chính sách hủy vé và hoàn tiền</link>.",
+        "<b>Chất lượng dịch vụ / thái độ nhà xe:</b> BBVN chuyển khiếu nại đến nhà xe liên quan.",
+        "<b>Vấn đề an toàn:</b> Xử lý khẩn cấp, không áp dụng thời hạn tiêu chuẩn."
+      ]
+    },
+    "s5": {
+      "title": "5. Vai trò của nhà xe trong giải quyết tranh chấp",
+      "body": "BBVN chuyển khiếu nại liên quan đến vận chuyển/dịch vụ tới nhà xe. Nhà xe có trách nhiệm phản hồi trong thời hạn do BBVN quy định."
+    },
+    "s6": {
+      "title": "6. Quyền của khách hàng khi không được giải quyết thỏa đáng",
+      "intro": "Nếu bạn không hài lòng với kết quả giải quyết, bạn có quyền:",
+      "items": [
+        "Liên hệ Cục Cạnh tranh và Bảo vệ người tiêu dùng (VCCA).",
+        "Liên hệ Sở Công Thương địa phương.",
+        "Khởi kiện tại tòa án có thẩm quyền tại Việt Nam."
+      ]
+    },
+    "s7": {
+      "title": "7. Bảo mật thông tin khiếu nại",
+      "body": "Thông tin khiếu nại chỉ được sử dụng cho mục đích giải quyết tranh chấp, theo <link>Chính sách bảo mật</link>."
+    },
+    "s8": {
+      "title": "8. Liên hệ",
+      "body": "Email: <email>support@bbvn.vn</email>"
+    }
+  }
+}

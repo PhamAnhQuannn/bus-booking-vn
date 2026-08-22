@@ -1,77 +1,29 @@
+import type { ReactNode } from "react";
 import type { Metadata } from "next";
-import { Be_Vietnam_Pro, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { SiteHeader } from "@/components/layout/SiteHeader";
-import { SiteFooter } from "@/components/layout/SiteFooter";
-import { SessionBootstrap } from "@/components/auth/SessionBootstrap";
-import { CookieConsent } from "@/components/CookieConsent";
-import { Analytics } from "@vercel/analytics/next";
 import { SITE_URL } from "@/lib/seo";
 
-const beVietnam = Be_Vietnam_Pro({
-  variable: "--font-be-vietnam",
-  subsets: ["latin", "vietnamese"],
-  weight: ["400", "500", "600", "700", "800"],
-  display: "swap",
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const SITE_TITLE = "Đặt vé xe khách | BBVN";
-const SITE_DESC = "Tìm và đặt vé xe khách liên tỉnh trên toàn quốc.";
-
+// metadataBase lives at the root so it is inherited by EVERY surface — including the
+// root-level metadata routes (opengraph-image, icons) that sit outside app/[locale].
+// Per-locale title/description/openGraph are layered on in app/[locale]/layout.tsx.
 export const metadata: Metadata = {
-  // Absolute base for canonical + OG/Twitter image resolution (app/opengraph-image).
   metadataBase: new URL(SITE_URL),
-  // Per-page titles already carry the "| BBVN" suffix, so no title.template here
-  // (a template would double the suffix). Pages set their own full title string.
-  title: SITE_TITLE,
-  description: SITE_DESC,
-  openGraph: {
-    type: "website",
-    locale: "vi_VN",
-    siteName: "BBVN",
-    url: "/",
-    title: SITE_TITLE,
-    description: SITE_DESC,
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: SITE_TITLE,
-    description: SITE_DESC,
-  },
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  return (
-    <html
-      lang="vi"
-      className={`${beVietnam.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="flex min-h-full flex-col">
-        {/* AX-10: skip link — first focusable element, visually hidden until focused
-            so keyboard users can jump past the header nav on every page (WCAG 2.4.1). */}
-        <a
-          href="#main"
-          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-toast focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:shadow-e2 focus:outline-none focus:ring-3 focus:ring-ring/50"
-        >
-          Bỏ qua tới nội dung chính
-        </a>
-        <SessionBootstrap />
-        <SiteHeader />
-        <div id="main" tabIndex={-1} className="flex flex-1 flex-col outline-none">{children}</div>
-        <SiteFooter />
-        <CookieConsent />
-        {/* Dev mode loads an external debug script (va.vercel-scripts.com) that our CSP blocks — prod-only. */}
-        {process.env.NODE_ENV === 'production' && <Analytics />}
-      </body>
-    </html>
-  );
+/**
+ * Root passthrough layout.
+ *
+ * The real document shell — `<html lang={locale}>`, `<body>`, fonts, site chrome —
+ * lives in `app/[locale]/layout.tsx` so the `lang` attribute can track the active
+ * locale (vi → `lang="vi"`, en → `lang="en"`). A nested layout cannot change the
+ * `<html>` its parent already rendered, so the root MUST NOT render `<html>`/`<body>`
+ * here (that would nest under the locale layout's document and break hydration).
+ *
+ * This file still exists because root-level files (global-error, metadata routes,
+ * a top-level not-found) require a layout ancestor. It only forwards children — the
+ * documented next-intl setup for a per-locale root document. globals.css is imported
+ * here so it also covers those root-level surfaces.
+ */
+export default function RootLayout({ children }: { children: ReactNode }) {
+  return children;
 }

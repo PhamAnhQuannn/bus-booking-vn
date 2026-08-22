@@ -8,6 +8,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import type { PlannerDto, DtoItem } from '@/trip-planner/lib/planner/itineraryDto';
 import { cityName } from '@/trip-planner/lib/planner/cities';
 import { displayCategory, itemBadge, areaLabel, vibeChip, stripCitySuffix, FACILITY_LABELS } from '@/trip-planner/lib/planner/labels';
@@ -23,7 +24,6 @@ type Props = {
   hrefPdf?: string; // link /lich-trinh?… để "Xuất PDF" + "Chia sẻ" (mock header actions)
 };
 
-const BUOI: Record<DtoItem['buoi'], string> = { sang: 'Sáng', trua: 'Trưa', chieu: 'Chiều', toi: 'Tối' };
 const INK = '#1E2433', SOFT = '#6B7280', FAINT = '#9AA0AC';
 
 // spine + day-band CSS (scoped v5-*). Spine chạy qua tâm order-circle (left 24 = px-3 + nửa circle).
@@ -35,11 +35,12 @@ const CARD_CSS = `
 `;
 
 function Badge({ it }: { it: DtoItem }) {
+  const t = useTranslations('planner');
   const b = itemBadge(it);
   if (b.tone === 'ok') {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-success px-2 py-0.5 text-xs font-bold text-success-foreground">
-        ✓ Mở <span className="tabular-nums">{b.hours}</span>
+        ✓ {t('itinerary.badgeOpen')} <span className="tabular-nums">{b.hours}</span>
         {/* provenance THẬT (source_ids.length) — KHÔNG phải citation [S] bịa */}
         {it.nguon ? <span className="font-semibold opacity-70">· {it.nguon} nguồn</span> : null}
       </span>
@@ -55,13 +56,13 @@ function Badge({ it }: { it: DtoItem }) {
         className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold hover:bg-primary/15"
         style={{ color: 'var(--primary,#F0561D)' }}
       >
-        Giờ mở trên Google ↗
+        {t('itinerary.hoursOnGoogle')}
       </a>
     );
   }
   return (
     <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold" style={{ color: SOFT }}
-      title={b.label === 'Nên gọi trước' ? 'Chưa có giờ mở xác minh — vui lòng gọi trước' : undefined}>
+      title={b.label === 'Nên gọi trước' ? t('itinerary.callAheadTitle') : undefined}>
       {b.label}
     </span>
   );
@@ -71,6 +72,7 @@ function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: numb
   const [open, setOpen] = useState(false);
   const isDest = it.role === 'diem-den';
   const longMoTa = !!it.mo_ta && it.mo_ta.length > 150; // proxy: đủ dài để clamp 3 dòng → hiện "Xem thêm"
+  const t = useTranslations('planner');
   return (
     <>
       {it.leg_from_prev ? (
@@ -95,7 +97,7 @@ function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: numb
         <article className={`min-w-0 flex-1 rounded-xl border p-3 transition-colors ${active ? 'border-primary/50 bg-primary/5' : 'border-border bg-white hover:border-primary/30'}`}>
           {/* HEADER: buổi + tên + badge xác minh (✓ Mở {giờ} · N nguồn = "Đã xác minh · S6" trung thực) */}
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            <span className="text-xs font-semibold" style={{ color: SOFT }}>{BUOI[it.buoi]}</span>
+            <span className="text-xs font-semibold" style={{ color: SOFT }}>{t(`itinerary.buoi.${it.buoi}`)}</span>
             <span className="text-[15px] font-semibold leading-snug" style={{ color: INK }}>{stripCitySuffix(it.name)}</span>
             <Badge it={it} />
           </div>
@@ -219,6 +221,7 @@ function havKm(aLat: number, aLon: number, bLat: number, bLon: number): number {
 const HEADER_ACTIONS = { enabled: false };
 
 export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleDay, hrefPdf }: Props) {
+  const t = useTranslations('planner');
   // Lưu chuyến đi (localStorage) + Chia sẻ (navigator.share/clipboard) — mock header actions.
   function saveTrip() {
     try {
@@ -226,15 +229,15 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
       const entry = { slug: dto.slug, tripDays: dto.tripDays, href: hrefPdf ?? '', savedAt: Date.now() };
       const next = [entry, ...(Array.isArray(arr) ? arr : []).filter((x: { slug?: string; tripDays?: number }) => !(x.slug === dto.slug && x.tripDays === dto.tripDays))].slice(0, 20);
       localStorage.setItem('bbvn_saved_trips', JSON.stringify(next));
-      alert('Đã lưu chuyến đi vào thiết bị này.');
+      alert(t('itinerary.savedAlert'));
     } catch { /* quota */ }
   }
   async function shareTrip() {
     const url = hrefPdf ? new URL(hrefPdf, location.origin).href : location.href;
-    const title = `Lịch trình ${cityName(dto.slug)} ${dto.tripDays} ngày`;
+    const title = t('itinerary.shareTitle', { city: cityName(dto.slug), days: dto.tripDays });
     try {
       if (typeof navigator !== 'undefined' && navigator.share) await navigator.share({ title, url });
-      else { await navigator.clipboard.writeText(url); alert('Đã sao chép liên kết chia sẻ.'); }
+      else { await navigator.clipboard.writeText(url); alert(t('itinerary.sharedAlert')); }
     } catch { /* user huỷ / không hỗ trợ */ }
   }
 
@@ -248,16 +251,16 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
         <div className="flex flex-wrap gap-2 border-b border-border px-4 py-3">
           <button type="button" onClick={saveTrip}
             className="inline-flex items-center gap-1 rounded-lg border border-[#F0EAE2] bg-white px-2.5 py-1.5 text-xs font-semibold hover:border-primary hover:bg-primary/5">
-            💾 Lưu chuyến đi
+            {t('itinerary.saveTrip')}
           </button>
           {hrefPdf ? (
             <a href={hrefPdf} className="inline-flex items-center gap-1 rounded-lg border border-[#F0EAE2] bg-white px-2.5 py-1.5 text-xs font-semibold hover:border-primary hover:bg-primary/5">
-              📄 Xuất PDF
+              {t('itinerary.exportPdf')}
             </a>
           ) : null}
           <button type="button" onClick={shareTrip}
             className="inline-flex items-center gap-1 rounded-lg border border-[#F0EAE2] bg-white px-2.5 py-1.5 text-xs font-semibold hover:border-primary hover:bg-primary/5">
-            🔗 Chia sẻ
+            {t('itinerary.share')}
           </button>
         </div>
       ) : null}
@@ -276,9 +279,9 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
                 className={`v5-band ${open ? 'v5-active' : ''} flex w-full items-center gap-2 rounded-[10px] px-3 py-2.5 text-left`}
                 style={{ letterSpacing: '0.4px' }}
               >
-                <span className="text-[13.5px] font-[650] uppercase" style={{ color: INK, fontWeight: 650 }}>Ngày {d.day}</span>
+                <span className="text-[13.5px] font-[650] uppercase" style={{ color: INK, fontWeight: 650 }}>{t('dayTabBar.day', { day: d.day })}</span>
                 <span className="ml-auto text-xs font-semibold normal-case" style={{ color: SOFT, letterSpacing: 0 }}>
-                  {area ? `khu ${area} · ` : ''}{stops} điểm
+                  {area ? t('itinerary.area', { area }) : ''}{t('itinerary.stops', { stops })}
                 </span>
               </button>
               {open ? (
@@ -299,10 +302,7 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
           );
         })}
 
-        {/* Gợi ý quán ăn ĐÃ chuyển sang tab "Ăn uống" (RestaurantsList) — tránh trùng lặp. */}
 
-        {/* Gợi ý quán ăn → tab "Ăn uống"; khách sạn → tab "Khách sạn". Cảnh báo notes + footer xác minh
-            đã BỎ theo yêu cầu (làm gọn timeline). */}
       </div>
     </div>
   );

@@ -11,24 +11,27 @@
  */
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Dialog } from '@base-ui/react/dialog';
 import { LogInIcon, MenuIcon, XIcon } from 'lucide-react';
+import { Link, usePathname } from '@/i18n/navigation';
 import { Logo } from '@/components/brand/Logo';
+import { LanguageSwitcher } from '@/components/i18n/LanguageSwitcher';
 import { CustomerAccountMenu } from '@/components/auth/CustomerAccountMenu';
 import { useAuthStatus } from '@/lib/auth/clientSession';
 import { cn } from '@/lib/utils';
 
-/* Nav items (docs/design/mockup-home.png S1). "Hướng dẫn" + "Hỗ trợ" removed per request. */
-const NAV = [
-  { href: '/', label: 'Đặt vé xe' },
-  { href: '/tro-ly-du-lich', label: 'Trợ lý du lịch', badge: 'AI' },
-  { href: '/op/register', label: 'Nhà xe' },
+/* Nav items (docs/design/mockup-home.png S1). "Hướng dẫn" + "Hỗ trợ" removed per request.
+   Labels resolve from the `common.nav` catalog at render (localized VI/EN); hrefs are
+   locale-agnostic — the next-intl <Link> re-adds the active locale prefix. */
+const NAV: { href: string; labelKey: string; badge?: string }[] = [
+  { href: '/', labelKey: 'nav.bookTicket' },
+  { href: '/tro-ly-du-lich', labelKey: 'nav.tripPlanner', badge: 'AI' },
+  { href: '/op/register', labelKey: 'nav.operators' },
 ];
 
 /* Customer login (ADR-021). Operators reach their console from the "Nhà xe" nav item. */
-const LOGIN = { href: '/auth/login', label: 'Đăng nhập / Đăng ký' };
+const LOGIN: { href: string; labelKey: string } = { href: '/auth/login', labelKey: 'auth.loginSignup' };
 
 /* Solid CTA fill uses `--primary-strong` (orange-700, ~4.7:1 on white), not
    `--primary` (~3.4:1) — the label is below the AA large-text threshold. */
@@ -44,6 +47,7 @@ const barHeight = () => (window.innerWidth >= 1024 ? BAR_H_PX.lg : BAR_H_PX.base
 
 export function SiteHeader() {
   const pathname = usePathname();
+  const t = useTranslations('common');
   const authStatus = useAuthStatus();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -213,14 +217,14 @@ export function SiteHeader() {
                 the reference's ~17px on an 1828 frame scales to ~13.4px here.
                 This also lands "VI" at nav size and keeps the button label one
                 step larger than the nav, both as measured. */}
-            <nav className="ml-16 flex items-center gap-4 text-lg" aria-label="Điều hướng chính">
+            <nav className="ml-16 flex items-center gap-4 text-lg" aria-label={t('nav.primary')}>
               {NAV.map((item) => {
                 // '/' would prefix-match every route, so it needs an exact match.
                 const active =
                   item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
                 return (
                   <Link
-                    key={item.label}
+                    key={item.href}
                     href={item.href}
                     aria-current={active ? 'page' : undefined}
                     className={cn(
@@ -243,7 +247,7 @@ export function SiteHeader() {
                         : 'text-foreground/80 after:opacity-0 hover:text-foreground group-hover:after:opacity-40'
                     )}
                   >
-                    {item.label}
+                    {t(item.labelKey)}
                     {item.badge && (
                       <span className="ml-1.5 rounded bg-primary-strong px-1 py-px text-[10px] font-bold uppercase leading-none tracking-wide text-primary-foreground">
                         {item.badge}
@@ -254,11 +258,9 @@ export function SiteHeader() {
               })}
             </nav>
             <div className="ml-auto flex items-center gap-5">
-              {/* 2026-07-30: an inert "VI" language pill sat here — a flag, the label,
-                  and a chevron promising a dropdown that did not exist. The app has no
-                  i18n and is Vietnamese-only, so the control could never do anything.
-                  Its own comment already called it "a known misleading affordance".
-                  Restore it alongside real i18n, not before. */}
+              {/* Real i18n (P0): the language switcher restored to the slot the inert
+                  2026-07-30 "VI" pill vacated ("Restore it alongside real i18n"). */}
+              <LanguageSwitcher />
               {authStatus === 'unknown' ? (
                 // Neutral placeholder while the bootstrap refresh resolves (DD-4):
                 // never the guest CTA, and not clickable, so a returning signed-in
@@ -282,7 +284,7 @@ export function SiteHeader() {
                     'inline-flex h-11 items-center whitespace-nowrap rounded-lg border border-primary/70 bg-card px-5 text-xl font-medium text-primary-strong outline-none transition-colors hover:bg-primary/5 focus-visible:ring-3 focus-visible:ring-ring/50'
                   )}
                 >
-                  {LOGIN.label}
+                  {t(LOGIN.labelKey)}
                 </Link>
               )}
             </div>
@@ -313,7 +315,7 @@ export function SiteHeader() {
           */}
           <div className="flex items-center gap-2 xl:hidden">
             <Dialog.Trigger
-              aria-label="Mở menu điều hướng"
+              aria-label={t('header.openMenu')}
               className="inline-flex size-11 items-center justify-center rounded-md outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               <MenuIcon className="size-5" />
@@ -333,19 +335,19 @@ export function SiteHeader() {
               <Logo variant="combo" />
             </Dialog.Title>
             <Dialog.Close
-              aria-label="Đóng menu"
+              aria-label={t('header.closeMenu')}
               className="inline-flex size-11 items-center justify-center rounded-md outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               <XIcon className="size-5" />
             </Dialog.Close>
           </div>
-          <nav aria-label="Điều hướng chính" className="flex-1 overflow-y-auto px-2 py-2">
+          <nav aria-label={t('nav.primary')} className="flex-1 overflow-y-auto px-2 py-2">
             {NAV.map((item) => {
               const active =
                 item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
               return (
                 <Link
-                  key={item.label}
+                  key={item.href}
                   href={item.href}
                   onClick={() => setDrawerOpen(false)}
                   aria-current={active ? 'page' : undefined}
@@ -356,7 +358,7 @@ export function SiteHeader() {
                       : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
-                  {item.label}
+                  {t(item.labelKey)}
                   {item.badge && (
                     <span className="ml-1.5 rounded bg-primary-strong px-1 py-px text-[10px] font-bold uppercase leading-none tracking-wide text-primary-foreground">
                       {item.badge}
@@ -366,6 +368,9 @@ export function SiteHeader() {
               );
             })}
           </nav>
+          <div className="flex items-center justify-center border-t border-border px-2 py-3">
+            <LanguageSwitcher onNavigate={() => setDrawerOpen(false)} />
+          </div>
           <div className="flex justify-center border-t border-border px-2 py-2">
             {authStatus === 'unknown' ? (
               <div
@@ -387,7 +392,7 @@ export function SiteHeader() {
                 )}
               >
                 <LogInIcon className="size-4" />
-                {LOGIN.label}
+                {t(LOGIN.labelKey)}
               </Link>
             )}
           </div>

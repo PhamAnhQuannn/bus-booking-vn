@@ -159,7 +159,7 @@ describe('GET /api/trips/search — integration', () => {
   });
 
   it('AC-10: ticketCount > 10 → 400', async () => {
-    const req = makeRequest({ origin: 'Hà Nội', destination: 'Sài Gòn', date: TOMORROW_STR, ticketCount: '11' });
+    const req = makeRequest({ origin: 'Thanh Hóa', destination: 'Sài Gòn', date: TOMORROW_STR, ticketCount: '11' });
     const res = await GET(req);
     expect(res.status).toBe(400);
     const body = await res.json();
@@ -167,13 +167,13 @@ describe('GET /api/trips/search — integration', () => {
   });
 
   it('AC-10: ticketCount = 0 → 400', async () => {
-    const req = makeRequest({ origin: 'Hà Nội', destination: 'Sài Gòn', date: TOMORROW_STR, ticketCount: '0' });
+    const req = makeRequest({ origin: 'Thanh Hóa', destination: 'Sài Gòn', date: TOMORROW_STR, ticketCount: '0' });
     const res = await GET(req);
     expect(res.status).toBe(400);
   });
 
   it('AC-10: malformed date → 400', async () => {
-    const req = makeRequest({ origin: 'Hà Nội', destination: 'Sài Gòn', date: '17/05/2026', ticketCount: '2' });
+    const req = makeRequest({ origin: 'Thanh Hóa', destination: 'Sài Gòn', date: '17/05/2026', ticketCount: '2' });
     const res = await GET(req);
     expect(res.status).toBe(400);
     const body = await res.json();
@@ -190,8 +190,8 @@ describe('GET /api/trips/search — integration', () => {
 
   // ---- AC-1: Happy path + ordering ----
 
-  it('AC-1: returns 200 JSON array for valid Hà Nội → Sài Gòn search', async () => {
-    const req = makeRequest({ origin: 'Hà Nội', destination: 'Sài Gòn', date: TOMORROW_STR, ticketCount: '2' });
+  it('AC-1: returns 200 JSON array for valid Thanh Hóa → Sài Gòn search', async () => {
+    const req = makeRequest({ origin: 'Thanh Hóa', destination: 'Sài Gòn', date: TOMORROW_STR, ticketCount: '2' });
     const res = await GET(req);
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -200,8 +200,9 @@ describe('GET /api/trips/search — integration', () => {
   });
 
   it('AC-1: results ordered departureAt ASC', async () => {
-    // Day 2 has 2 trips for r1 and 1 for r2 — search a route with multiple results
-    const req = makeRequest({ origin: 'Hà Nội', destination: 'Sài Gòn', date: DAY2_STR, ticketCount: '1' });
+    // Single-corridor seed: at most 1 trip/day/direction — the >1 ordering check below
+    // is a no-op here but stays as a guard if the seed ever adds more departures.
+    const req = makeRequest({ origin: 'Thanh Hóa', destination: 'Sài Gòn', date: DAY2_STR, ticketCount: '1' });
     const res = await GET(req);
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -218,7 +219,7 @@ describe('GET /api/trips/search — integration', () => {
   // (customers call the operator to book), and boardingSchedule are now surfaced.
 
   it('AC-13: response objects contain exactly the contract fields', async () => {
-    const req = makeRequest({ origin: 'Hà Nội', destination: 'Sài Gòn', date: TOMORROW_STR, ticketCount: '1' });
+    const req = makeRequest({ origin: 'Thanh Hóa', destination: 'Sài Gòn', date: TOMORROW_STR, ticketCount: '1' });
     const res = await GET(req);
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -253,7 +254,7 @@ describe('GET /api/trips/search — integration', () => {
   // ---- AC-12: Cache-Control: no-store ----
 
   it('AC-12: 200 response has Cache-Control: no-store', async () => {
-    const req = makeRequest({ origin: 'Hà Nội', destination: 'Sài Gòn', date: TOMORROW_STR, ticketCount: '1' });
+    const req = makeRequest({ origin: 'Thanh Hóa', destination: 'Sài Gòn', date: TOMORROW_STR, ticketCount: '1' });
     const res = await GET(req);
     expect(res.status).toBe(200);
     expect(res.headers.get('cache-control')).toBe('no-store');
@@ -292,7 +293,7 @@ describe('GET /api/trips/search — integration', () => {
     // All buses have capacity 40; ticketCount=41 should match nothing (DB constraint in findMany)
     // But ticketCount max is 10 via Zod — so we can't test 41 directly.
     // Test capacity filter works: ticketCount=10 should still find results (capacity 40 >= 10)
-    const req = makeRequest({ origin: 'Hà Nội', destination: 'Sài Gòn', date: TOMORROW_STR, ticketCount: '10' });
+    const req = makeRequest({ origin: 'Thanh Hóa', destination: 'Sài Gòn', date: TOMORROW_STR, ticketCount: '10' });
     const res = await GET(req);
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -301,40 +302,40 @@ describe('GET /api/trips/search — integration', () => {
 
   // ---- AC-2: Diacritic-insensitive (unaccent ILIKE) ----
 
-  it('AC-2: unaccented "Ha Noi" matches "Hà Nội"', async () => {
-    const req = makeRequest({ origin: 'Ha Noi', destination: 'Sài Gòn', date: TOMORROW_STR, ticketCount: '1' });
+  it('AC-2: unaccented "Thanh Hoa" matches "Thanh Hóa"', async () => {
+    const req = makeRequest({ origin: 'Thanh Hoa', destination: 'Sai Gon', date: TOMORROW_STR, ticketCount: '1' });
     const res = await GET(req);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.length).toBeGreaterThan(0);
   });
 
-  it('AC-2: partial origin "Noi" matches "Hà Nội"', async () => {
-    const req = makeRequest({ origin: 'Noi', destination: 'Gòn', date: TOMORROW_STR, ticketCount: '1' });
+  it('AC-2: partial origin "Thanh" matches "Thanh Hóa"', async () => {
+    const req = makeRequest({ origin: 'Thanh', destination: 'Gòn', date: TOMORROW_STR, ticketCount: '1' });
     const res = await GET(req);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.length).toBeGreaterThan(0);
   });
 
-  it('AC-2: case-insensitive "ha noi" matches "Hà Nội"', async () => {
-    const req = makeRequest({ origin: 'ha noi', destination: 'sài gòn', date: TOMORROW_STR, ticketCount: '1' });
+  it('AC-2: case-insensitive "thanh hoa" matches "Thanh Hóa"', async () => {
+    const req = makeRequest({ origin: 'thanh hoa', destination: 'sài gòn', date: TOMORROW_STR, ticketCount: '1' });
     const res = await GET(req);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.length).toBeGreaterThan(0);
   });
 
-  it('AC-2: unaccented "Da Nang" matches "Đà Nẵng"', async () => {
-    const req = makeRequest({ origin: 'Da Nang', destination: 'Hue', date: TOMORROW_STR, ticketCount: '1' });
+  it('AC-2: unaccented "Sai Gon" → "Thanh Hoa" matches reverse direction', async () => {
+    const req = makeRequest({ origin: 'Sai Gon', destination: 'Thanh Hoa', date: TOMORROW_STR, ticketCount: '1' });
     const res = await GET(req);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.length).toBeGreaterThan(0);
   });
 
-  it('AC-2: uppercase-with-diacritics "HÀ NỘI" matches "Hà Nội"', async () => {
-    const req = makeRequest({ origin: 'HÀ NỘI', destination: 'Sài Gòn', date: TOMORROW_STR, ticketCount: '1' });
+  it('AC-2: uppercase-with-diacritics "THANH HÓA" matches "Thanh Hóa"', async () => {
+    const req = makeRequest({ origin: 'THANH HÓA', destination: 'Sài Gòn', date: TOMORROW_STR, ticketCount: '1' });
     const res = await GET(req);
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -349,7 +350,7 @@ describe('GET /api/trips/search — integration', () => {
       .mockResolvedValueOnce({ allowed: false, remaining: 0, retryAfter: 30 });
     try {
       const req = makeRequest({
-        origin: 'Hà Nội',
+        origin: 'Thanh Hóa',
         destination: 'Sài Gòn',
         date: TOMORROW_STR,
         ticketCount: '1',
@@ -381,7 +382,7 @@ describe('GET /api/trips/search — integration', () => {
   // by checking that the GET handler returns only { error: string } on error.
   // We test this indirectly: a valid request returns array (not error shape).
   it('AC-11: successful response is plain array, not error wrapper', async () => {
-    const req = makeRequest({ origin: 'Hà Nội', destination: 'Sài Gòn', date: TOMORROW_STR, ticketCount: '1' });
+    const req = makeRequest({ origin: 'Thanh Hóa', destination: 'Sài Gòn', date: TOMORROW_STR, ticketCount: '1' });
     const res = await GET(req);
     const body = await res.json();
     expect(Array.isArray(body)).toBe(true);
@@ -391,7 +392,7 @@ describe('GET /api/trips/search — integration', () => {
   // ---- Field type checks ----
 
   it('tripId is string, price is number, availableSeats is number, departureAt is ISO string', async () => {
-    const req = makeRequest({ origin: 'Hà Nội', destination: 'Sài Gòn', date: TOMORROW_STR, ticketCount: '1' });
+    const req = makeRequest({ origin: 'Thanh Hóa', destination: 'Sài Gòn', date: TOMORROW_STR, ticketCount: '1' });
     const res = await GET(req);
     const body = await res.json();
     expect(body.length).toBeGreaterThan(0);

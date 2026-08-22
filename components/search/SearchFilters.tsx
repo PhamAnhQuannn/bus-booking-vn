@@ -14,6 +14,7 @@
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useState, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import { SlidersHorizontal, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,22 +30,24 @@ import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/components/
 import type { TripFacets } from '@/lib/search';
 import { SORT_OPTIONS, type BusType, type TimeWindow } from '@/lib/core/validation/search';
 
-const SORT_LABEL: Record<(typeof SORT_OPTIONS)[number], string> = {
-  departure_asc: 'Giờ đi sớm nhất',
-  price_asc: 'Giá thấp → cao',
-  price_desc: 'Giá cao → thấp',
-  duration_asc: 'Đi nhanh nhất',
+// Catalog keys (localized VI/EN at render via useTranslations('search')). The enum
+// values driving the state machine stay as-is; only their display labels move to keys.
+const SORT_KEY: Record<(typeof SORT_OPTIONS)[number], string> = {
+  departure_asc: 'sort.departure_asc',
+  price_asc: 'sort.price_asc',
+  price_desc: 'sort.price_desc',
+  duration_asc: 'sort.duration_asc',
 };
-const BUS_TYPE_LABEL: Record<BusType, string> = {
-  coach: 'Ghế ngồi',
-  sleeper: 'Giường nằm',
-  limousine: 'Limousine',
+const BUS_TYPE_KEY: Record<BusType, string> = {
+  coach: 'busType.coach',
+  sleeper: 'busType.sleeper',
+  limousine: 'busType.limousine',
 };
-const WINDOW_LABEL: Record<TimeWindow, string> = {
-  morning: 'Sáng (5–11h)',
-  afternoon: 'Chiều (11–17h)',
-  evening: 'Tối (17–22h)',
-  night: 'Đêm (22–5h)',
+const WINDOW_KEY: Record<TimeWindow, string> = {
+  morning: 'window.morning',
+  afternoon: 'window.afternoon',
+  evening: 'window.evening',
+  night: 'window.night',
 };
 const DURATION_PRESETS = [240, 360, 480, 600];
 const FILTER_KEYS = ['operatorId', 'busType', 'priceMin', 'priceMax', 'window', 'maxDurationMinutes', 'sort'];
@@ -111,6 +114,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
 
 /** The filter inputs — rendered inside both the desktop rail and the mobile sheet. */
 function FilterControls({ facets, s }: { facets: TripFacets; s: FilterState }) {
+  const t = useTranslations('search');
   const [priceMin, setPriceMin] = useState(s.priceMin);
   const [priceMax, setPriceMax] = useState(s.priceMax);
   const durationPresets = facets.durationRange ? DURATION_PRESETS.filter((d) => d <= facets.durationRange!.max + 60) : [];
@@ -119,15 +123,15 @@ function FilterControls({ facets, s }: { facets: TripFacets; s: FilterState }) {
     <div className="flex flex-col gap-5">
       {facets.operators.length > 1 && (
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="operator-select" className="text-muted-foreground">Nhà xe</Label>
+          <Label htmlFor="operator-select" className="text-muted-foreground">{t('filter.operator')}</Label>
           <Select value={s.operatorId} onValueChange={(v: string | null) => s.commit({ operatorId: v || null })}>
             <SelectTrigger id="operator-select" className="w-full">
-              <SelectValue placeholder="Tất cả nhà xe">
-                {(v: string) => (v ? (facets.operators.find((o) => o.id === v)?.legalName ?? 'Nhà xe') : 'Tất cả nhà xe')}
+              <SelectValue placeholder={t('filter.allOperators')}>
+                {(v: string) => (v ? (facets.operators.find((o) => o.id === v)?.legalName ?? t('filter.operator')) : t('filter.allOperators'))}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Tất cả nhà xe</SelectItem>
+              <SelectItem value="">{t('filter.allOperators')}</SelectItem>
               {facets.operators.map((op) => (
                 <SelectItem key={op.id} value={op.id}>{op.legalName} ({op.count})</SelectItem>
               ))}
@@ -138,11 +142,11 @@ function FilterControls({ facets, s }: { facets: TripFacets; s: FilterState }) {
 
       {facets.busTypes.length > 1 && (
         <div className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-muted-foreground">Loại xe</span>
+          <span className="text-sm font-medium text-muted-foreground">{t('filter.busTypeLabel')}</span>
           <div className="flex flex-wrap gap-2">
             {facets.busTypes.map((bt) => (
               <Chip key={bt.value} active={s.busTypes.includes(bt.value)} onClick={() => s.toggleBusType(bt.value)}>
-                {BUS_TYPE_LABEL[bt.value]} ({bt.count})
+                {t(BUS_TYPE_KEY[bt.value])} ({bt.count})
               </Chip>
             ))}
           </div>
@@ -151,11 +155,11 @@ function FilterControls({ facets, s }: { facets: TripFacets; s: FilterState }) {
 
       {facets.windows.length > 1 && (
         <div className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-muted-foreground">Giờ khởi hành</span>
+          <span className="text-sm font-medium text-muted-foreground">{t('filter.departureTime')}</span>
           <div className="flex flex-wrap gap-2">
             {facets.windows.map((w) => (
               <Chip key={w.value} active={s.window === w.value} onClick={() => s.commit({ window: s.window === w.value ? null : w.value })}>
-                {WINDOW_LABEL[w.value]} ({w.count})
+                {t(WINDOW_KEY[w.value])} ({w.count})
               </Chip>
             ))}
           </div>
@@ -164,7 +168,7 @@ function FilterControls({ facets, s }: { facets: TripFacets; s: FilterState }) {
 
       {durationPresets.length > 0 && (
         <div className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-muted-foreground">Thời gian đi tối đa</span>
+          <span className="text-sm font-medium text-muted-foreground">{t('filter.maxDuration')}</span>
           <div className="flex flex-wrap gap-2">
             {durationPresets.map((d) => (
               <Chip key={d} active={s.maxDuration === String(d)} onClick={() => s.commit({ maxDurationMinutes: s.maxDuration === String(d) ? null : String(d) })}>
@@ -177,20 +181,20 @@ function FilterControls({ facets, s }: { facets: TripFacets; s: FilterState }) {
 
       {facets.priceRange && (
         <div className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-muted-foreground">Giá vé (đ)</span>
+          <span className="text-sm font-medium text-muted-foreground">{t('filter.price')}</span>
           <div className="flex items-center gap-2">
             <Input type="number" inputMode="numeric" min={0} className="w-full" placeholder={String(facets.priceRange.min)}
-              aria-label="Giá tối thiểu" value={priceMin} onChange={(e) => setPriceMin(e.target.value)} onBlur={() => s.commit({ priceMin: priceMin || null })} />
+              aria-label={t('filter.priceMin')} value={priceMin} onChange={(e) => setPriceMin(e.target.value)} onBlur={() => s.commit({ priceMin: priceMin || null })} />
             <span className="text-muted-foreground">—</span>
             <Input type="number" inputMode="numeric" min={0} className="w-full" placeholder={String(facets.priceRange.max)}
-              aria-label="Giá tối đa" value={priceMax} onChange={(e) => setPriceMax(e.target.value)} onBlur={() => s.commit({ priceMax: priceMax || null })} />
+              aria-label={t('filter.priceMax')} value={priceMax} onChange={(e) => setPriceMax(e.target.value)} onBlur={() => s.commit({ priceMax: priceMax || null })} />
           </div>
         </div>
       )}
 
       {s.activeCount > 0 && (
         <Button type="button" variant="ghost" size="sm" className="self-start" onClick={() => { setPriceMin(''); setPriceMax(''); s.reset(); }}>
-          <X className="size-4" /> Xóa bộ lọc
+          <X className="size-4" /> {t('filter.clear')}
         </Button>
       )}
     </div>
@@ -200,12 +204,13 @@ function FilterControls({ facets, s }: { facets: TripFacets; s: FilterState }) {
 /** Desktop sticky left rail. */
 export function SearchFilterRail({ facets }: { facets: TripFacets }) {
   const s = useFilterState();
+  const t = useTranslations('search');
   return (
-    <aside className="hidden md:block" aria-label="Bộ lọc chuyến xe">
+    <aside className="hidden md:block" aria-label={t('filter.sheetTitle')}>
       {/* Offsets track SiteHeader's height (h-18 / lg:h-24) plus 8px breathing room. */}
       <div className="sticky top-20 rounded-xl border border-border bg-card p-4 shadow-e1 lg:top-[104px]">
         <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold">
-          <SlidersHorizontal className="size-4 text-primary" aria-hidden="true" /> Bộ lọc
+          <SlidersHorizontal className="size-4 text-primary" aria-hidden="true" /> {t('filter.title')}
         </h2>
         <FilterControls facets={facets} s={s} />
       </div>
@@ -216,6 +221,7 @@ export function SearchFilterRail({ facets }: { facets: TripFacets }) {
 /** Mobile filter button → Dialog sheet. Snapshot/restore so dismiss discards changes. */
 export function SearchFilterSheet({ facets }: { facets: TripFacets }) {
   const s = useFilterState();
+  const t = useTranslations('search');
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -252,14 +258,14 @@ export function SearchFilterSheet({ facets }: { facets: TripFacets }) {
         <DialogTrigger
           render={(p) => (
             <Button {...p} type="button" variant="outline" size="sm" className="min-h-9 md:min-h-0">
-              <SlidersHorizontal className="size-4" /> Bộ lọc{s.activeCount > 0 ? ` (${s.activeCount})` : ''}
+              <SlidersHorizontal className="size-4" /> {t('filter.button')}{s.activeCount > 0 ? ` (${s.activeCount})` : ''}
             </Button>
           )}
         />
         <DialogContent className="max-h-[85vh] overflow-y-auto">
-          <DialogTitle>Bộ lọc chuyến xe</DialogTitle>
+          <DialogTitle>{t('filter.sheetTitle')}</DialogTitle>
           <FilterControls facets={facets} s={s} />
-          <Button type="button" className="w-full" onClick={handleConfirm}>Xem kết quả</Button>
+          <Button type="button" className="w-full" onClick={handleConfirm}>{t('filter.viewResults')}</Button>
         </DialogContent>
       </Dialog>
     </div>
@@ -269,11 +275,12 @@ export function SearchFilterSheet({ facets }: { facets: TripFacets }) {
 /** Sort select + removable active-filter chips (results column header). */
 export function SearchToolbar({ facets, showFilterSheet = true }: { facets: TripFacets; showFilterSheet?: boolean }) {
   const s = useFilterState();
+  const t = useTranslations('search');
 
   const chips: { key: string; label: string; remove: () => void }[] = [];
-  if (s.operatorId) chips.push({ key: 'op', label: facets.operators.find((o) => o.id === s.operatorId)?.legalName ?? 'Nhà xe', remove: () => s.commit({ operatorId: null }) });
-  for (const bt of s.busTypes) chips.push({ key: `bt-${bt}`, label: BUS_TYPE_LABEL[bt], remove: () => s.toggleBusType(bt) });
-  if (s.window) chips.push({ key: 'win', label: WINDOW_LABEL[s.window].replace(/\s*\(.*\)/, ''), remove: () => s.commit({ window: null }) });
+  if (s.operatorId) chips.push({ key: 'op', label: facets.operators.find((o) => o.id === s.operatorId)?.legalName ?? t('filter.operator'), remove: () => s.commit({ operatorId: null }) });
+  for (const bt of s.busTypes) chips.push({ key: `bt-${bt}`, label: t(BUS_TYPE_KEY[bt]), remove: () => s.toggleBusType(bt) });
+  if (s.window) chips.push({ key: 'win', label: t(WINDOW_KEY[s.window]).replace(/\s*\(.*\)/, ''), remove: () => s.commit({ window: null }) });
   if (s.maxDuration) chips.push({ key: 'dur', label: `≤ ${Number(s.maxDuration) / 60}h`, remove: () => s.commit({ maxDurationMinutes: null }) });
   if (s.priceMin) chips.push({ key: 'pmin', label: `≥ ${vnd(Number(s.priceMin))}`, remove: () => s.commit({ priceMin: null }) });
   if (s.priceMax) chips.push({ key: 'pmax', label: `≤ ${vnd(Number(s.priceMax))}`, remove: () => s.commit({ priceMax: null }) });
@@ -282,13 +289,13 @@ export function SearchToolbar({ facets, showFilterSheet = true }: { facets: Trip
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Label htmlFor="sort-select" className="text-muted-foreground">Sắp xếp</Label>
+          <Label htmlFor="sort-select" className="text-muted-foreground">{t('sort.label')}</Label>
           <Select value={s.sort} onValueChange={(v: string | null) => s.commit({ sort: v && v !== 'departure_asc' ? v : null })}>
             <SelectTrigger id="sort-select" className="w-44">
-              <SelectValue>{(v: string) => SORT_LABEL[v as keyof typeof SORT_LABEL] ?? SORT_LABEL.departure_asc}</SelectValue>
+              <SelectValue>{(v: string) => t(SORT_KEY[v as keyof typeof SORT_KEY] ?? SORT_KEY.departure_asc)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {SORT_OPTIONS.map((o) => (<SelectItem key={o} value={o}>{SORT_LABEL[o]}</SelectItem>))}
+              {SORT_OPTIONS.map((o) => (<SelectItem key={o} value={o}>{t(SORT_KEY[o])}</SelectItem>))}
             </SelectContent>
           </Select>
         </div>
@@ -296,14 +303,14 @@ export function SearchToolbar({ facets, showFilterSheet = true }: { facets: Trip
       </div>
 
       {chips.length > 0 && (
-        <ul className="flex flex-wrap gap-2" aria-label="Bộ lọc đang áp dụng">
+        <ul className="flex flex-wrap gap-2" aria-label={t('filter.activeAria')}>
           {chips.map((c) => (
             <li key={c.key}>
               <button
                 type="button"
                 onClick={c.remove}
                 className="inline-flex min-h-9 items-center gap-1 rounded-full border border-border bg-muted/60 px-3 text-xs font-medium transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-8"
-                aria-label={`Bỏ lọc: ${c.label}`}
+                aria-label={t('filter.removeChip', { label: c.label })}
               >
                 {c.label}
                 <X className="size-3" aria-hidden="true" />

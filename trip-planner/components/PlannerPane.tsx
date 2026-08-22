@@ -14,6 +14,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import PlannerMap from '@/trip-planner/components/PlannerMap';
 import { DayTabBar } from '@/trip-planner/components/DayTabBar';
 import { PaneTabs, type PaneTab } from '@/trip-planner/components/PaneTabs';
@@ -67,6 +68,7 @@ function computeMapH(H_i: number, mapW: number, variant: Props['variant']): numb
 }
 
 export default function PlannerPane({ dto, activeDay, hoveredOrder, selected, onPinClick, onCloseSheet, onSelectDay, onHoverItem, variant, onOpenFull, pulseKey, hrefPdf, onAskAssistant }: Props) {
+  const t = useTranslations('planner');
   // điểm đầu Ngày 1 (để tính khoảng cách khách sạn) — chỉ điểm-đến, có thể null
   const firstStop = (() => {
     const s = dto.days[0]?.items.find((i) => i.role === 'diem-den');
@@ -136,7 +138,7 @@ export default function PlannerPane({ dto, activeDay, hoveredOrder, selected, on
           onClick={onOpenFull}
           className="flex h-11 shrink-0 items-center gap-2 rounded-xl border border-border bg-primary/5 px-3 text-sm font-semibold text-primary hover:bg-primary/10"
         >
-          🗺 <span className="flex-1 text-left">Bản đồ — mở toàn màn hình</span> ›
+          🗺 <span className="flex-1 text-left">{t('pane.openMapFullscreen')}</span> ›
         </button>
       ) : (
         <div className="shrink-0 overflow-hidden border border-border" style={{ height: mapH }}>
@@ -156,7 +158,7 @@ export default function PlannerPane({ dto, activeDay, hoveredOrder, selected, on
         <div
           role="separator"
           aria-orientation="horizontal"
-          aria-label="Kéo để chỉnh độ lớn bản đồ"
+          aria-label={t('pane.resizeMapAria')}
           onPointerDown={onHandleDown}
           onPointerMove={onHandleMove}
           onPointerUp={onHandleUp}

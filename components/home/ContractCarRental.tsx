@@ -9,17 +9,20 @@
  * The mockup's van cutout has no equivalent asset; the existing hero coach photo stands in.
  */
 
-import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { ArrowRight, BadgeCheck, BusFront, Headset, Wallet } from 'lucide-react';
 
-const TRUST = [
-  { icon: BusFront, label: 'Xe đời mới, sạch sẽ' },
-  { icon: BadgeCheck, label: 'Tài xế kinh nghiệm' },
-  { icon: Wallet, label: 'Giá minh bạch' },
-  { icon: Headset, label: 'Hỗ trợ tận tâm' },
-];
+import { Link } from '@/i18n/navigation';
 
-export function ContractCarRental() {
+const TRUST = [
+  { icon: BusFront, labelKey: 'rental.trust1' },
+  { icon: BadgeCheck, labelKey: 'rental.trust2' },
+  { icon: Wallet, labelKey: 'rental.trust3' },
+  { icon: Headset, labelKey: 'rental.trust4' },
+] as const;
+
+export async function ContractCarRental() {
+  const t = await getTranslations('home');
   return (
     <section className="page-container py-3 lg:py-4">
       <div className="overflow-hidden rounded-2xl border border-border bg-[#FFF3E9]">
@@ -28,22 +31,22 @@ export function ContractCarRental() {
           <div className="flex flex-col gap-2 lg:justify-center">
             <div className="flex items-center justify-between gap-3">
               <span className="text-xs font-bold uppercase tracking-widest text-primary">
-                Thuê xe hợp đồng
+                {t('rental.eyebrow')}
               </span>
               {/* outlined orange CTA pill → live contract-rental quote form. */}
               <Link
                 href="/lien-he-dat-xe"
                 className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-primary/50 bg-card px-3.5 py-1.5 text-xs font-medium text-primary-strong transition-colors hover:bg-primary/5"
               >
-                Xem dịch vụ thuê xe
+                {t('rental.cta')}
                 <ArrowRight className="size-3.5" aria-hidden="true" />
               </Link>
             </div>
             <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              Dịch vụ thuê xe cho mọi nhu cầu
+              {t('rental.title')}
             </h2>
             <p className="max-w-md text-sm text-foreground/80">
-              Xe 4 – 45 chỗ cho nhóm, doanh nghiệp, sự kiện, du lịch, cưới hỏi…
+              {t('rental.copy')}
             </p>
           </div>
 
@@ -53,7 +56,7 @@ export function ContractCarRental() {
             {/* eslint-disable-next-line @next/next/no-img-element -- local /public photo; next/image+sharp not used in this app */}
             <img
               src="/hero/contract-rental-wide.jpg"
-              alt="Xe hợp đồng BBVN"
+              alt={t('rental.imgAlt')}
               loading="lazy"
               decoding="async"
               className="absolute inset-0 size-full object-cover object-[center_80%] [mask-image:linear-gradient(to_right,transparent,#000_40%)]"
@@ -69,10 +72,10 @@ export function ContractCarRental() {
           {/* Zone 4 — trust column: items spread evenly across the full block height,
               a hairline divider between each. */}
           <ul className="flex list-none flex-col self-stretch divide-y divide-border/40 -my-6 lg:-my-8">
-            {TRUST.map(({ icon: Icon, label }) => (
-              <li key={label} className="flex flex-1 items-center gap-2 py-1 text-sm text-foreground/80">
+            {TRUST.map(({ icon: Icon, labelKey }) => (
+              <li key={labelKey} className="flex flex-1 items-center gap-2 py-1 text-sm text-foreground/80">
                 <Icon className="size-[18px] shrink-0 text-primary-strong" strokeWidth={2.5} aria-hidden="true" />
-                {label}
+                {t(labelKey)}
               </li>
             ))}
           </ul>

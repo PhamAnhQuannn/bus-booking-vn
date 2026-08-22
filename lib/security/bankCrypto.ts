@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
+import { isRealProduction } from '@/lib/core/config/deployTier';
 
 const ALGO = 'aes-256-gcm';
 const IV_BYTES = 12;
@@ -8,7 +9,7 @@ const PREFIX = 'enc:v1:';
 function getKey(): Buffer {
   const hex =
     process.env.BANK_ENCRYPTION_KEY ??
-    (process.env.NODE_ENV === 'production' ? null : 'cd'.repeat(32));
+    (isRealProduction() ? null : 'cd'.repeat(32));
   if (!hex) throw new Error('BANK_ENCRYPTION_KEY not configured');
   return Buffer.from(hex, 'hex');
 }

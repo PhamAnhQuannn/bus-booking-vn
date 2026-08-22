@@ -49,8 +49,10 @@ def run(args, label):
     return p.returncode
 
 
-provinces = [SLUG] if SLUG else sorted(os.path.basename(os.path.dirname(p))
-                                       for p in glob.glob("tourism-kb/export/*/"))
+# BUG-FIX: chi slug CO raw/<slug>/scrape (34 tinh + 3 city goc); KHONG glob export/*/ (nhat 13
+# city-split khong co raw -> FileNotFoundError). 13 sub-view sinh o buoc split_city cuoi.
+provinces = [SLUG] if SLUG else sorted(os.path.basename(os.path.dirname(os.path.dirname(p)))
+                                       for p in glob.glob("tourism-kb/raw/*/scrape/guide_data.json"))
 
 log("rebuild tourism | slug=%s | %d tinh | log=%s" % (SLUG or "ALL", len(provinces), LOG))
 
@@ -69,21 +71,24 @@ run(["tourism-kb/code/enrich_trai_nghiem.py"], "enrich_trai_nghiem (refine + dif
 for slug in provinces:
     run(["tourism-kb/code/build_diem_den_docx.py", "tourism-kb/raw/%s/scrape" % slug], "build_diem_den_docx %s" % slug)
 
-# 5) assert coverage (moi diem-den co trai_nghiem)
+# 4b) BUG-FIX: propagate len 13 city-split (truoc day phai chay tay -> quen)
+if not SLUG:
+    run(["tourism-kb/code/split_city.py"], "split_city (propagate 13 sub-view)")
+
+# 5) assert coverage TOAN BO export (incl 13 split): moi diem-den co trai_nghiem + hoat_dong
 import json
-tot = miss = 0
-for slug in provinces:
-    f = "tourism-kb/export/%s/diem-den.json" % slug
-    try:
-        for r in json.load(io.open(f, encoding="utf-8")):
-            tot += 1
-            if not r.get("ext", {}).get("destination", {}).get("trai_nghiem"):
-                miss += 1
-    except FileNotFoundError:
-        failures.append("thieu export %s" % slug)
-log("\ncoverage: %d/%d co trai_nghiem (missing=%d)" % (tot - miss, tot, miss))
-if miss:
-    failures.append("coverage thieu %d record" % miss)
+tot = miss_tn = miss_hd = 0
+for f in glob.glob("tourism-kb/export/*/diem-den.json"):
+    for r in json.load(io.open(f, encoding="utf-8")):
+        tot += 1
+        dd = r.get("ext", {}).get("destination", {})
+        if not dd.get("trai_nghiem"):
+            miss_tn += 1
+        if not dd.get("hoat_dong"):
+            miss_hd += 1
+log("\ncoverage: %d diem | thieu trai_nghiem=%d | thieu hoat_dong=%d" % (tot, miss_tn, miss_hd))
+if miss_tn or miss_hd:
+    failures.append("coverage thieu (trai_nghiem %d, hoat_dong %d)" % (miss_tn, miss_hd))
 
 log("\n==== KET QUA: %s ====" % ("OK" if not failures else "FAIL (%d)" % len(failures)))
 for x in failures:

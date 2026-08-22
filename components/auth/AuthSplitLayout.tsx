@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
-import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { ShieldCheck, Bus, Wallet, BarChart3, Ticket } from 'lucide-react';
+import { Link } from '@/i18n/navigation';
 import { Logo } from '@/components/brand/Logo';
 import { cn } from '@/lib/utils';
 
@@ -35,79 +36,71 @@ const SUPPORT_PHONE_DISPLAY =
 
 type Bullet = { icon: typeof Bus; label: string; sub?: string };
 
-const CONTENT: Record<
-  Audience,
-  {
-    eyebrow: string | null;
-    headline: string;
-    /** Second headline line, rendered in the brand accent (operator only). */
-    headlineAccent?: string;
-    /** Operational sub-paragraph under the headline (operator only). */
-    subhead?: string[];
-    bullets: Bullet[];
-    /** Trust badge card at the panel foot (operator only; replaces `fineprint`). */
-    badge?: { icon: typeof Bus; title: string; sub: string };
-    /** Full-bleed brand photo: `image-set()` 1× jpg + 2× webp. */
-    photo: string;
-    photo2x: string;
-    /** Always-opaque base behind the photo (fallback if the image fails to load). */
-    base: string;
-    ink: string;
-    inkMuted: string;
-    fineprint?: string;
-    monoLogo: boolean;
-  }
-> = {
-  customer: {
-    eyebrow: null,
-    headline: 'Đặt vé xe khách liên tỉnh — nhanh, an toàn.',
-    bullets: [
-      { icon: ShieldCheck, label: 'Giữ chỗ tức thì khi đặt vé' },
-      // NOT "Hàng nghìn chuyến mỗi ngày" — at launch there are 1–2 operators, so a
-      // thousands-of-trips claim is untrue (same reason PR #402 removed it from the
-      // homepage). Use a claim the platform can actually back: operators are reviewed
-      // + approved before their trips become bookable.
-      { icon: Bus, label: 'Nhà xe được xác minh trước khi mở bán' },
-      { icon: Wallet, label: 'Thanh toán an toàn, minh bạch' },
-    ],
-    photo: '/hero/landing-golden-md-1536.jpg',
-    photo2x: '/hero/landing-golden-md-1536@2x.webp',
-    base: 'bg-primary',
-    ink: 'text-primary-foreground',
-    inkMuted: 'text-primary-foreground/85',
-    // NOT "trên toàn quốc" — no nationwide network exists at launch.
-    fineprint: 'Vé xe khách liên tỉnh, đón trả tận nơi.',
-    monoLogo: true,
-  },
-  operator: {
-    eyebrow: 'Cổng nhà xe',
-    headline: 'Cổng quản trị',
-    headlineAccent: 'nhà xe',
-    subhead: [
-      'Giải pháp quản lý toàn diện cho đối tác vận tải.',
-      'Vận hành hiệu quả – Doanh thu bứt phá.',
-    ],
-    bullets: [
-      { icon: Bus, label: 'Quản lý lịch chạy & đội xe', sub: 'Theo dõi lịch trình, phương tiện và tài xế.' },
-      { icon: BarChart3, label: 'Theo dõi doanh thu', sub: 'Báo cáo chi tiết, cập nhật theo thời gian thực.' },
-      { icon: Ticket, label: 'Xử lý đặt vé của khách', sub: 'Tiếp nhận, xác nhận và chăm sóc khách hàng.' },
-    ],
-    badge: {
-      icon: ShieldCheck,
-      title: 'Nền tảng vận hành tin cậy',
-      // #491: drop the unverifiable "24/7" (a 1–2-operator launch can't back a 24/7 SLA — same
-      // anti-overclaim reasoning as the customer bullets above). Both panels now consistent.
-      sub: 'Bảo mật cao – Ổn định – Hỗ trợ tận tâm',
-    },
-    photo: '/hero/operator-depot.jpg',
-    photo2x: '/hero/operator-depot@2x.webp',
-    // Dark charcoal base — distinct back-office surface, clearly not the consumer orange.
-    base: 'bg-[#111318]',
-    ink: 'text-white',
-    inkMuted: 'text-white/70',
-    monoLogo: true,
-  },
+type PanelContent = {
+  eyebrow: string | null;
+  headline: string;
+  headlineAccent?: string;
+  subhead?: string[];
+  bullets: Bullet[];
+  badge?: { icon: typeof Bus; title: string; sub: string };
+  photo: string;
+  photo2x: string;
+  base: string;
+  ink: string;
+  inkMuted: string;
+  fineprint?: string;
+  monoLogo: boolean;
 };
+
+// Customer brand-panel copy is localized (auth.brand.*). The operator panel stays
+// Vietnamese for now — the operator console + its auth surface are P5 (#638).
+function getContent(t: ReturnType<typeof useTranslations>): Record<Audience, PanelContent> {
+  return {
+    customer: {
+      eyebrow: null,
+      headline: t('brand.customerHeadline'),
+      bullets: [
+        { icon: ShieldCheck, label: t('brand.customerBullet1') },
+        // NOT "thousands of trips a day" — at launch there are 1–2 operators; use a claim
+        // the platform can back: operators are reviewed + approved before selling.
+        { icon: Bus, label: t('brand.customerBullet2') },
+        { icon: Wallet, label: t('brand.customerBullet3') },
+      ],
+      photo: '/hero/landing-golden-md-1536.jpg',
+      photo2x: '/hero/landing-golden-md-1536@2x.webp',
+      base: 'bg-primary',
+      ink: 'text-primary-foreground',
+      inkMuted: 'text-primary-foreground/85',
+      fineprint: t('brand.customerFineprint'),
+      monoLogo: true,
+    },
+    operator: {
+      eyebrow: 'Cổng nhà xe',
+      headline: 'Cổng quản trị',
+      headlineAccent: 'nhà xe',
+      subhead: [
+        'Giải pháp quản lý toàn diện cho đối tác vận tải.',
+        'Vận hành hiệu quả – Doanh thu bứt phá.',
+      ],
+      bullets: [
+        { icon: Bus, label: 'Quản lý lịch chạy & đội xe', sub: 'Theo dõi lịch trình, phương tiện và tài xế.' },
+        { icon: BarChart3, label: 'Theo dõi doanh thu', sub: 'Báo cáo chi tiết, cập nhật theo thời gian thực.' },
+        { icon: Ticket, label: 'Xử lý đặt vé của khách', sub: 'Tiếp nhận, xác nhận và chăm sóc khách hàng.' },
+      ],
+      badge: {
+        icon: ShieldCheck,
+        title: 'Nền tảng vận hành tin cậy',
+        sub: 'Bảo mật cao – Ổn định – Hỗ trợ tận tâm',
+      },
+      photo: '/hero/operator-depot.jpg',
+      photo2x: '/hero/operator-depot@2x.webp',
+      base: 'bg-[#111318]',
+      ink: 'text-white',
+      inkMuted: 'text-white/70',
+      monoLogo: true,
+    },
+  };
+}
 
 // Operator diagonal seam: the dark panel is wider at the bottom than the top (leans `\`).
 // OUTER is the orange "blade" base; INNER (photo) is inset ~5px along the diagonal so a
@@ -135,7 +128,8 @@ export function AuthSplitLayout({
   subtitle?: ReactNode;
   children: ReactNode;
 }) {
-  const c = CONTENT[audience];
+  const t = useTranslations('auth');
+  const c = getContent(t)[audience];
   const isOperator = audience === 'operator';
 
   return (
@@ -171,7 +165,7 @@ export function AuthSplitLayout({
           {/* Top cluster — logo row + proposition kept together in the upper region. */}
           <div className="relative flex flex-col gap-12">
             <div className="flex items-center gap-4">
-              <Link href="/" aria-label="Về trang chủ BBVN" className={logoLinkClass}>
+              <Link href="/" aria-label={t('common.backToHome')} className={logoLinkClass}>
                 <Logo variant="combo" mono className={cn('h-14 w-auto', c.ink)} />
               </Link>
               {c.eyebrow && (
@@ -256,7 +250,7 @@ export function AuthSplitLayout({
 
           <div className="relative flex flex-col gap-14">
             <div className="flex flex-col gap-1">
-              <Link href="/" aria-label="Về trang chủ BBVN" className={logoLinkClass}>
+              <Link href="/" aria-label={t('common.backToHome')} className={logoLinkClass}>
                 <Logo
                   variant="combo"
                   mono={c.monoLogo}
@@ -285,7 +279,7 @@ export function AuthSplitLayout({
           <ShieldCheck className={cn('mt-0.5 size-4 shrink-0', c.ink)} aria-hidden="true" />
           <div className="flex flex-col gap-0.5">
             <span>{c.fineprint}</span>
-            {SUPPORT_PHONE_DISPLAY && <span>Hỗ trợ: {SUPPORT_PHONE_DISPLAY}</span>}
+            {SUPPORT_PHONE_DISPLAY && <span>{t('brand.support', { phone: SUPPORT_PHONE_DISPLAY })}</span>}
           </div>
         </div>
         </aside>
@@ -296,7 +290,7 @@ export function AuthSplitLayout({
       <section className="flex min-h-svh flex-col items-center justify-center px-6 py-10 lg:pb-24">
         <div className="flex w-full max-w-[28.5rem] flex-col gap-7">
           {/* mobile brand bar (below lg, where the photo panel is hidden) */}
-          <Link href="/" aria-label="Về trang chủ BBVN" className={cn(logoLinkClass, 'lg:hidden')}>
+          <Link href="/" aria-label={t('common.backToHome')} className={cn(logoLinkClass, 'lg:hidden')}>
             <Logo variant="combo" className="h-14 w-auto" />
           </Link>
           <div className="flex flex-col gap-1.5">

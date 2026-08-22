@@ -1,11 +1,3 @@
-import type { TripResult } from '@/lib/trips';
-
-export const BUS_TYPE_LABEL: Record<TripResult['busType'], string> = {
-  coach: 'Ghế ngồi',
-  sleeper: 'Giường nằm',
-  limousine: 'Limousine',
-};
-
 export function formatVnDate(dateStr: string): string {
   const [year, month, day] = dateStr.split('-').map(Number);
   const d = new Date(year, month - 1, day);

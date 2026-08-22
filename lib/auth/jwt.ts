@@ -8,10 +8,14 @@
  * - JWT_OPERATOR_SECRET    → operator realm
  * - JWT_ADMIN_SECRET       → admin realm (access + step-up)
  *
- * Test fallback: deterministic per-realm strings when NODE_ENV === 'test'.
+ * Dev/preview fallback: deterministic per-realm strings on any non-real-production
+ * tier (test, local, Vercel preview — #643) so a preview deploy without the
+ * Production-scoped secrets still signs/verifies instead of throwing at runtime.
+ * A REAL Vercel production deployment still requires the env secret.
  */
 
 import { SignJWT, jwtVerify } from 'jose';
+import { isRealProduction } from '@/lib/core/config/deployTier';
 
 const ACCESS_TTL_SECONDS = 900; // 15 minutes
 
@@ -33,7 +37,7 @@ function getSecret(realm: Realm): Uint8Array {
   const envKey = REALM_ENV_KEYS[realm];
   const raw =
     process.env[envKey] ??
-    (process.env.NODE_ENV === 'test' ? REALM_TEST_FALLBACKS[realm] : null);
+    (isRealProduction() ? null : REALM_TEST_FALLBACKS[realm]);
   if (!raw) throw new Error(`${envKey} not configured`);
   return new TextEncoder().encode(raw);
 }
