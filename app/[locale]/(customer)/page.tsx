@@ -46,7 +46,7 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
   const parsed = searchParamsSchema.safeParse(raw);
   // Canonical always the query-free home path — search-result variants are the
   // same indexable surface, not distinct URLs.
-  const alternates = localeAlternates('/');
+  const alternates = localeAlternates('/', locale);
   if (parsed.success) {
     return {
       title: t('home.searchTitle', { origin: parsed.data.origin, destination: parsed.data.destination }),

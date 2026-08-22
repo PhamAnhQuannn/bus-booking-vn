@@ -49,7 +49,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale, id } = await params;
   const t = await getTranslations({ locale, namespace: 'metadata' });
-  const alternates = localeAlternates(`/trips/${id}`);
+  const alternates = localeAlternates(`/trips/${id}`, locale);
   // Metadata must never take down the page — a DB timeout here falls back to a
   // static title instead of throwing (audit F5).
   try {

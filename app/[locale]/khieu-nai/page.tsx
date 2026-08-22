@@ -13,7 +13,7 @@ export async function generateMetadata({
   return {
     title: t('complaints.meta.title'),
     description: t('complaints.meta.description'),
-    alternates: localeAlternates('/khieu-nai'),
+    alternates: localeAlternates('/khieu-nai', locale),
   };
 }
 

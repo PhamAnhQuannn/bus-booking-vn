@@ -14,7 +14,7 @@ export async function generateMetadata({
   return {
     title: t('charter.title'),
     description: t('charter.description'),
-    alternates: localeAlternates('/lien-he-dat-xe'),
+    alternates: localeAlternates('/lien-he-dat-xe', locale),
   };
 }
 

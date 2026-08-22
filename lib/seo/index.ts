@@ -22,15 +22,19 @@ const ORG_NAME = 'BBVN';
  * string (canonical must be query-free). Relative values resolve against the
  * root `metadataBase`. x-default points at the vi (default-locale) URL.
  */
-export function localeAlternates(path: string): {
+export function localeAlternates(path: string, locale: string = 'vi'): {
   canonical: string;
   languages: Record<string, string>;
 } {
   const p = path === '/' ? '' : path.replace(/\/+$/, '');
   const vi = p || '/';
+  const en = `/en${p}`;
+  // Canonical is SELF-referential: the en page must point at the en URL, not vi. A vi canonical
+  // on /en/… tells Google the English page is a duplicate of the Vietnamese one → English pages
+  // get de-indexed, defeating the point of shipping them. x-default stays vi (the default locale).
   return {
-    canonical: vi,
-    languages: { vi, en: `/en${p}`, 'x-default': vi },
+    canonical: locale === 'en' ? en : vi,
+    languages: { vi, en, 'x-default': vi },
   };
 }
 

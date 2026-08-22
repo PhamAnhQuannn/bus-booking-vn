@@ -21,7 +21,7 @@ export async function generateMetadata({
   return {
     title: t('routes.title'),
     description: t('routes.description'),
-    alternates: localeAlternates('/routes'),
+    alternates: localeAlternates('/routes', locale),
   };
 }
 

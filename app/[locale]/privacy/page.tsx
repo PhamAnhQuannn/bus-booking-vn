@@ -13,7 +13,7 @@ export async function generateMetadata({
   return {
     title: t('privacy.meta.title'),
     description: t('privacy.meta.description'),
-    alternates: localeAlternates('/privacy'),
+    alternates: localeAlternates('/privacy', locale),
   };
 }
 

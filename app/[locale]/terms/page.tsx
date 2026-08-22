@@ -13,7 +13,7 @@ export async function generateMetadata({
   return {
     title: t('terms.meta.title'),
     description: t('terms.meta.description'),
-    alternates: localeAlternates('/terms'),
+    alternates: localeAlternates('/terms', locale),
   };
 }
 

@@ -13,7 +13,7 @@ export async function generateMetadata({
   return {
     title: t('refund.meta.title'),
     description: t('refund.meta.description'),
-    alternates: localeAlternates('/chinh-sach-huy-ve-hoan-tien'),
+    alternates: localeAlternates('/chinh-sach-huy-ve-hoan-tien', locale),
   };
 }
 
