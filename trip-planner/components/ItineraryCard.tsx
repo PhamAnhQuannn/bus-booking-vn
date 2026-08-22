@@ -13,7 +13,7 @@ import type { PlannerDto, DtoItem } from '@/trip-planner/lib/planner/itineraryDt
 import { cityName } from '@/trip-planner/lib/planner/cities';
 import { displayCategory, itemBadge, areaLabel, vibeChip, stripCitySuffix, FACILITY_LABELS } from '@/trip-planner/lib/planner/labels';
 import { cardProfile, type SectionKey } from '@/trip-planner/lib/planner/cardProfile';
-import { fmtKm, fmtMinutes } from '@/trip-planner/lib/planner/fmt';
+import { fmtKm } from '@/trip-planner/lib/planner/fmt';
 
 type Props = {
   dto: PlannerDto;
@@ -42,7 +42,7 @@ function Badge({ it }: { it: DtoItem }) {
       <span className="inline-flex items-center gap-1 rounded-full bg-success px-2 py-0.5 text-xs font-bold text-success-foreground">
         ✓ {t('itinerary.badgeOpen')} <span className="tabular-nums">{b.hours}</span>
         {/* provenance THẬT (source_ids.length) — KHÔNG phải citation [S] bịa */}
-        {it.nguon ? <span className="font-semibold opacity-70">· {it.nguon} nguồn</span> : null}
+        {it.nguon ? <span className="font-semibold opacity-70">· {t('itinerary.sources', { count: it.nguon })}</span> : null}
       </span>
     );
   }
@@ -78,7 +78,7 @@ function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: numb
       {it.leg_from_prev ? (
         // travel-leg: tầng FAINT (nhạt hơn metadata), nằm trên spine — nối 2 card
         <div className="py-1 pl-9 text-xs font-semibold" style={{ color: FAINT }}>
-          🚗 {fmtMinutes(it.leg_from_prev.minutes)?.replace('~', '')} · <span className="tabular-nums">{fmtKm(it.leg_from_prev.km)?.replace('~', '')}</span>
+          🚗 {t('itinerary.legMinutes', { minutes: Math.round(it.leg_from_prev.minutes) })} · <span className="tabular-nums">{fmtKm(it.leg_from_prev.km)?.replace('~', '')}</span>
         </div>
       ) : null}
       <div
@@ -105,7 +105,7 @@ function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: numb
           <div className="mt-1 flex flex-wrap items-center gap-x-2 text-[13px]" style={{ color: SOFT }}>
             <span>{displayCategory(it)}</span>
             {isDest && it.trai_nghiem && it.trai_nghiem !== displayCategory(it) ? <span>· {it.trai_nghiem}</span> : null}
-            {hotelKm != null ? <span>· 📍 cách KS {fmtKm(hotelKm)}</span> : null}
+            {hotelKm != null ? <span>· {t('itinerary.fromHotel', { dist: fmtKm(hotelKm) ?? '' })}</span> : null}
           </div>
 
           {isDest ? (() => {
@@ -124,13 +124,13 @@ function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: numb
                       {longMoTa ? (
                         <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
                           className="mt-0.5 text-[12px] font-semibold text-primary hover:underline">
-                          {open ? 'Thu gọn ⌃' : 'Xem thêm ⌄'}
+                          {open ? t('itinerary.showLess') : t('itinerary.seeMore')}
                         </button>
                       ) : null}
                       {/* CC-BY-SA: mô tả trích Wikipedia → bắt buộc dẫn nguồn (B2) */}
                       {it.mo_ta_nguon_url ? (
                         <a href={it.mo_ta_nguon_url} target="_blank" rel="noreferrer"
-                          className="mt-0.5 block text-[12px] hover:underline" style={{ color: FAINT }}>Theo Wikipedia ↗</a>
+                          className="mt-0.5 block text-[12px] hover:underline" style={{ color: FAINT }}>{t('itinerary.fromWikipedia')}</a>
                       ) : null}
                     </div>
                   ) : null;
@@ -143,7 +143,7 @@ function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: numb
                   if (!tham.length && !paid.length && !vibes.length) return null;
                   return (
                     <div key="hoat_dong" className="mt-2.5">
-                      <div className="text-[12px] font-bold uppercase tracking-wide" style={{ color: FAINT }}>Có gì ở đây</div>
+                      <div className="text-[12px] font-bold uppercase tracking-wide" style={{ color: FAINT }}>{t('itinerary.whatsHere')}</div>
                       <div className="mt-1 flex flex-wrap gap-1.5">
                         {tham.map((label, i) => (
                           <span key={`t-${i}`} className="rounded-full bg-muted px-2 py-0.5 text-[12px] font-semibold" style={{ color: SOFT }}>{label}</span>
@@ -165,15 +165,15 @@ function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: numb
                 }
                 case 'cach_trung_tam': {
                   // B5.1: nhãn tiện ích ĐẦY ĐỦ qua FACILITY_LABELS (cấm viết tắt tự chế); key lạ → ẩn
-                  const fac = it.facilities ? Object.entries(it.facilities).filter(([k, v]) => v && FACILITY_LABELS[k]).map(([k, v]) => FACILITY_LABELS[k] + (v === 'limited' ? ' (hạn chế)' : '')) : [];
+                  const fac = it.facilities ? Object.entries(it.facilities).filter(([k, v]) => v && FACILITY_LABELS[k]).map(([k, v]) => FACILITY_LABELS[k] + (v === 'limited' ? t('itinerary.facilityLimited') : '')) : [];
                   const hasThucTe = it.gio_mo || it.cach_trung_tam_km != null || it.gia_ve || fac.length;
                   return hasThucTe ? (
                     <div key="thuc_te" className="mt-2 border-t border-border pt-2 text-[12px]" style={{ color: SOFT }}>
                       <div className="flex flex-wrap gap-x-3 gap-y-0.5">
                         {/* badge "✓ Mở {giờ}" đã hiện giờ khi !goi_truoc → bỏ dòng này tránh trùng */}
-                        {it.gio_mo && it.goi_truoc ? <span>🕐 Mở <span className="tabular-nums">{it.gio_mo}</span></span> : null}
-                        {it.gia_ve ? <span>🎟️ Vé: {/^\s*(yes|có|co)\s*$/i.test(it.gia_ve) ? 'Có thu phí (chưa rõ mức)' : it.gia_ve}</span> : null}
-                        {it.cach_trung_tam_km != null ? <span>📍 cách trung tâm {fmtKm(it.cach_trung_tam_km)}</span> : null}
+                        {it.gio_mo && it.goi_truoc ? <span>🕐 {t('itinerary.badgeOpen')} <span className="tabular-nums">{it.gio_mo}</span></span> : null}
+                        {it.gia_ve ? <span>{t('itinerary.ticketsLabel', { value: /^\s*(yes|có|co)\s*$/i.test(it.gia_ve) ? t('itinerary.ticketsPaidUnconfirmed') : it.gia_ve })}</span> : null}
+                        {it.cach_trung_tam_km != null ? <span>{t('itinerary.fromCentre', { dist: fmtKm(it.cach_trung_tam_km) ?? '' })}</span> : null}
                       </div>
                       {fac.length ? <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5" style={{ color: FAINT }}>{fac.map((f, i) => <span key={i}>{f}</span>)}</div> : null}
                     </div>
@@ -195,9 +195,9 @@ function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: numb
                     KHÔNG trộn với fact. Chỉ hiện khi flag EDITORIAL_TIER bật + có câu (per-loại). */}
                 {it.phu_hop_voi ? (
                   <div key="phu_hop_voi" className="mt-2 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5">
-                    <div className="text-[12px] font-bold uppercase tracking-wide text-primary">✨ Gợi ý biên tập</div>
+                    <div className="text-[12px] font-bold uppercase tracking-wide text-primary">{t('itinerary.editorialTitle')}</div>
                     <p className="mt-0.5 text-[13px] leading-relaxed" style={{ color: SOFT }}>{it.phu_hop_voi}</p>
-                    <p className="mt-0.5 text-[12px] italic" style={{ color: FAINT }}>Gợi ý soạn theo loại hình — không phải thông tin đã xác minh.</p>
+                    <p className="mt-0.5 text-[12px] italic" style={{ color: FAINT }}>{t('itinerary.editorialDisclaimer')}</p>
                   </div>
                 ) : null}
               </>
