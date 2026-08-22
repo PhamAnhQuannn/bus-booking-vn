@@ -101,6 +101,7 @@ CAT_TIER = {
     "Thác nước": 1.0, "Hồ / Đập": 1.0, "Chùa / Thiền viện": 1.0, "Nhà thờ": 1.0,
     "Bảo tàng": 1.0, "Dinh thự / Di tích": 1.0, "Công viên / Vườn hoa": 1.0,
     "Điểm ngắm cảnh": 1.0, "Khu vui chơi": 1.0, "Cáp treo": 1.0,
+    "Khu du lịch giải trí (vui chơi trả phí)": 1.0,   # cùng tier Khu vui chơi -> score DL-xx bất biến, guard qua
     "Nông trại / Vườn": 0.8, "Chợ / Mua sắm": 0.8, "Nghệ thuật / Triển lãm": 0.6,
     "Núi / Đèo / Đường mòn": 0.6, "Ăn uống": 0.2, "Lưu trú": 0.1, "Khác": 0.1,
 }
@@ -393,7 +394,7 @@ LUAT_TEN = [
 # Bang tay bon dong, moi dong mot ly do.
 LOAI_TAY = {
     "Khu Du Lịch Lang Biang": "Khu vui chơi",      # khu cong + dich vu, khong phai di tich
-    "Suối Vàng Dalat & Đường Hầm Đất Sét": "Khu vui chơi",   # duong ham dat set la cong trinh tham quan
+    "Suối Vàng Dalat & Đường Hầm Đất Sét": "Khu du lịch giải trí (vui chơi trả phí)",   # KDL trả phí (hầm đất sét + hồ)
     "Làng Cù Lần": "Khu vui chơi",                 # lang du lich dung san, khong phai di tich
     "Khu Di Tích Dinh Bảo Đại": "Dinh thự / Di tích",        # dung — giu nguyen, ghi ro de khong ai "sua"
 }

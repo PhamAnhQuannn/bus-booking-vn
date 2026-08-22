@@ -18,6 +18,7 @@ EXP_MAP = {
     "Công viên / Vườn hoa": "Ngắm cảnh / chụp ảnh",
     "Điểm ngắm cảnh": "Ngắm cảnh",
     "Khu vui chơi": "Vui chơi dịch vụ / ngắm cảnh",
+    "Khu du lịch giải trí (vui chơi trả phí)": "Vui chơi trả phí / trải nghiệm (nửa–cả ngày)",
     "Chợ / Mua sắm": "Mua sắm / ăn uống / tham quan",
     "Núi / Đèo / Đường mòn": "Ngắm cảnh / leo núi",
     "Cáp treo": "Ngắm cảnh / vui chơi dịch vụ",

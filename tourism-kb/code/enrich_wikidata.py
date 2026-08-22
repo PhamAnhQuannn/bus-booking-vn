@@ -32,8 +32,71 @@ def hav(a, b):
     return 2 * R * math.asin(math.sqrt(x))
 
 
+import unicodedata
+_GENERIC = {"chua", "den", "mieu", "nha", "tho", "khu", "di", "tich", "thap", "ho",
+            "nui", "thac", "dao", "bai", "vuon", "cong", "vien", "diem", "du", "lich",
+            "quang", "truong", "bao", "tang", "danh", "thang"}   # +tu chi LOAI (quang truong,
+            #                                          bao tang, danh thang) — chan collision 2-token type
+
+
+def _fold(s):
+    s = unicodedata.normalize("NFD", s or "")
+    s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+    return " ".join(s.lower().replace("đ", "d").split())
+
+
+def _core(s):
+    return frozenset(t for t in _fold(s).split() if len(t) > 2 and t not in _GENERIC)
+
+
+_HANH_CHINH = ("xã", "huyện", "phường", "thị trấn", "tỉnh", "thành phố", "quận",
+               "đơn vị hành chính", "làng", "thôn", "khu dân cư")
+
+
+def _la_hanh_chinh(type_label):
+    t = (type_label or "").lower()
+    return any(w in t for w in _HANH_CHINH)
+
+
+# Bai ve SU KIEN lich su (chien dich/tran/vu...) — diem den la NOI, khong phai su kien.
+# Nha tho/chua dat theo dia danh se trung toponym voi tran danh cung dia danh (Phuoc Long).
+_SU_KIEN = ("chiến dịch", "trận ", "vụ ", "cuộc ", "khởi nghĩa", "phong trào",
+            "sự kiện", "chiến tranh", "thảm sát", "nổi dậy",
+            "trường ", "đại học", "trung học", "học viện")   # su kien HOAC truong hoc != diem den
+
+
+def _la_su_kien(label):
+    return (label or "").strip().lower().startswith(_SU_KIEN)
+
+
+def _ten_khop(a, b):
+    """Danh tu rieng chung MANH -> cung mot noi. Mot token chung (meo/son/ban) la trung
+    am, KHONG du (Chua Meo <-> Na Meo cach 47km). Doi: fold bang nhau, HOAC >=2 token
+    danh-tu-rieng chung, HOAC tap con nhau voi >=2 token — chan trung-am 1-token."""
+    fa, fb = _fold(a), _fold(b)
+    if not fa or not fb:
+        return False
+    if fa == fb:
+        return True
+    ca, cb = _core(a), _core(b)
+    if not ca or not cb:
+        return False
+    inter = ca & cb
+    if len(inter) >= 2:
+        return True
+    if (ca <= cb or cb <= ca) and min(len(ca), len(cb)) >= 2:
+        return True
+    return False
+
+
 picked = json.load(io.open(os.path.join(RAW, "guide_data.json"), encoding="utf-8"))["picked"]
+name_of = {c["id"]: c["name"] for c in picked}
 rows = json.load(io.open(ENRICH, encoding="utf-8"))
+# SELF-HEAL: xoa row do CHINH script nay sinh o lan truoc (mo_ta/QID pass2/gia-ve wiki...),
+# roi dung lai qua guard hien tai. Neu khong, `emit` seen-guarded se giu mo_ta cu SAI (tu
+# lan chay 400m-no-guard) — misattribution song sot. Giu row OSM-goc (source khong phai wiki).
+rows = [r for r in rows if not (str(r.get("source", "")).startswith(("Wikidata", "Wikipedia"))
+                                or str(r.get("method", "")).startswith("pass2"))]
 before = len(rows)
 seen = {(r["id"], r["field"]) for r in rows}
 
@@ -54,14 +117,21 @@ for b in wd.get("results", {}).get("bindings", []):
         continue
     wd_pts.append((lat, lon, b["item"]["value"].rsplit("/", 1)[-1],
                    b.get("viLabel", {}).get("value") or b.get("itemLabel", {}).get("value", ""),
-                   b.get("image", {}).get("value", "")))
+                   b.get("image", {}).get("value", ""),
+                   b.get("typeLabel", {}).get("value", "")))
 for p in picked:
     if p["id"] in qid_of:
         continue
     best, bd = None, 9e9
-    for lat, lon, q, lab, img in wd_pts:
+    for lat, lon, q, lab, img, typ in wd_pts:
+        # bo don vi HANH CHINH (xa/huyen/phuong...) — bai Wikipedia ta VUNG, khong ta diem;
+        # gan cho mot lang nghe se mo ta ca xa, la misattribution.
+        if _la_hanh_chinh(typ) or _la_su_kien(lab):   # don vi HC hoac su kien lich su -> bo
+            continue
         d = hav((p["lat"], p["lon"]), (lat, lon))
-        if d < bd and d < 400:
+        # identity 2 truc: ten khop MANH VA cung tinh (<6km — feature lon nhu VQG/ho
+        # cach centroid vai km; ten manh + cung tinh = cung noi). Ten manh chan trung-am.
+        if d < bd and d < 6000 and _ten_khop(p["name"], lab):
             bd, best = d, (q, lab, img)
     if best:
         qid_of[p["id"]] = best[0]
@@ -146,17 +216,39 @@ for pid, raw in sorted(wp_of.items()):
         print(f"  {pid} {title}: {type(e).__name__}")
         continue
     pages = d.get("query", {}).get("pages", {})
-    text = ""
+    text = rtitle = ""
     for _, pg in pages.items():
         text = pg.get("extract") or ""
+        rtitle = pg.get("title") or title       # tieu de SAU redirect (khac title yeu cau)
     if not text:
+        continue
+    # GUARD ten: tieu de bai (SAU redirect) phai khop ten diem — chan mis-tag OSM (sub-feature
+    # gan wikidata diem CHA) VA redirect lech (vd "Phước Lộc" -> bai "Chiến dịch Đường 14").
+    if _la_su_kien(rtitle) or not _ten_khop(name_of.get(pid, ""), rtitle):
+        print(f"  bo qua {pid}: bai '{rtitle}' (su kien / khong khop ten '{name_of.get(pid,'')[:24]}')")
         continue
     n_wp += 1
     url = f"https://{lang}.wikipedia.org/wiki/{urllib.parse.quote(title)}"
-    intro = text.split("\n")[0].strip()
+    # Lay LEAD section: toi da 3 doan, dung o header "==", cap 1500 ky tu cat an-toan-cau.
+    # (Truoc day split("\n")[0] bo doan 2+ — bai lon nhu Ho Hoan Kiem/Vinh Ha Long bi cat con 1.)
+    _paras = []
+    for _p in text.split("\n"):
+        _p = _p.strip()
+        if not _p:
+            continue
+        if _p.startswith("=="):
+            break
+        _paras.append(_p)
+        if len(_paras) >= 3:
+            break
+    intro = "\n\n".join(_paras)
+    if len(intro) > 1500:
+        _cut = intro[:1500]
+        _dot = _cut.rfind(". ")
+        intro = _cut[:_dot + 1] if _dot > 800 else _cut
     if len(intro) > 40:
-        emit(pid, "mo_ta_wikipedia", intro[:700], f"Wikipedia {lang}", url,
-             "đoạn mở đầu, trích nguyên văn")
+        emit(pid, "mo_ta_wikipedia", intro, f"Wikipedia {lang}", url,
+             "đoạn mở đầu (tối đa 3 đoạn), trích nguyên văn")
     for m in PRICE_RE.finditer(text):
         s = " ".join(m.group(0).split())
         if len(s) < 260:
