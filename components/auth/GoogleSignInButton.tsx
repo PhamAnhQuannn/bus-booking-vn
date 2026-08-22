@@ -10,6 +10,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 
 const ENABLED = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED === 'true';
@@ -38,6 +39,7 @@ function GoogleGlyph() {
 }
 
 export function GoogleSignInButton({ returnTo }: { returnTo?: string }) {
+  const t = useTranslations('auth');
   const [loading, setLoading] = useState(false);
   if (!ENABLED) return null;
 
@@ -55,7 +57,7 @@ export function GoogleSignInButton({ returnTo }: { returnTo?: string }) {
           screen-readers as a real separator, so aria-hidden goes on the spans. */}
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
         <span aria-hidden="true" className="h-px flex-1 bg-border" />
-        <span>hoặc</span>
+        <span>{t('google.or')}</span>
         <span aria-hidden="true" className="h-px flex-1 bg-border" />
       </div>
       <Button
@@ -68,11 +70,11 @@ export function GoogleSignInButton({ returnTo }: { returnTo?: string }) {
         aria-busy={loading}
       >
         {loading ? (
-          'Đang chuyển tới Google…'
+          t('google.redirecting')
         ) : (
           <>
             <GoogleGlyph />
-            Đăng nhập với Google
+            {t('google.signIn')}
           </>
         )}
       </Button>

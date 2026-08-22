@@ -1,61 +1,39 @@
 /**
  * Next.js 16 Proxy (formerly Middleware).
  *
- * Three enforcement layers:
+ * Composes next-intl locale routing with three enforcement layers. After the P0
+ * i18n restructure EVERY customer/planner page — and the staff consoles — live under
+ * `app/[locale]`, so the locale segment is unprefixed for `vi` (default) and `/en/…`
+ * for English. Route handlers under `/api` stay OUTSIDE `app/[locale]` and bypass
+ * next-intl entirely.
  *
- * 1. Operator forced-redirect guard (AC1 — Gap 3):
- *    For /op/* paths (except /op/login, /op/first-login, /api/op/auth/*):
- *    - No bb_op_access cookie → redirect /op/login
- *    - Invalid/expired token → redirect /op/login
- *    - requiresPasswordChange=true in JWT → redirect /op/first-login
- *    Uses the requiresPasswordChange JWT claim (no DB call needed — token is
- *    rotated on password-change, so stale-claim window = 15-min access TTL).
+ * CRITICAL (SEC-CSRF #561 / Issue 010): every path comparison in the guards runs on
+ * the LOCALE-STRIPPED pathname (`stripLocale`). A raw match would let a crafted
+ * `/en/op/login` or `/en/api/*` slip past the auth/CSRF gates.
  *
- * 1.5. Admin forced-redirect guard (Issue 056):
- *    For /admin PAGE routes (/admin and /admin/*, EXCEPT /admin/login):
- *    - No bb_admin_access cookie → redirect /admin/login
- *    - Invalid/expired/cross-realm token → redirect /admin/login
- *    - totpVerified=false in JWT → redirect /admin/login (must clear the TOTP step)
- *    Uses an EXACT-MATCH Set allowlist (Issue 010 rule) — NOT startsWith — so a
- *    sneaky path like /admin/login-bypass is NOT treated as auth-free.
- *    /api/admin/* routes are NOT guarded here; they enforce via requireAdminAuth
- *    in-handler (DB-aware) — this layer only covers the page-redirect UX.
- *    Reads scope/totpVerified from the JWT (no DB call), mirroring Layer 1.
+ * Enforcement layers (unchanged semantics, now locale-aware):
+ *   1.  Operator forced-redirect guard for /op/* (except the auth-free pages).
+ *   1.5 Admin forced-redirect guard for /admin PAGE routes (except /admin/login,
+ *       /admin/enroll-totp). /api/admin/* enforces via requireAdminAuth in-handler.
+ *   2.  Rate-limit + CSRF double-submit for state-changing /api/* routes.
  *
- * 2. Rate-limit + CSRF double-submit enforcement for all state-changing /api/* routes:
- *    Both gates cover every non-safe-method (POST/PUT/PATCH/DELETE) /api/* request —
- *    customer + operator + admin (Issue 096, spec [S14]).
- *
- *    Rate-limit (Issue 096): runs FIRST (cheap reject before CSRF token work).
- *      Keyed on the client IP (x-real-ip preferred, XFF fallback — Issue 174). On breach
- *      returns 429 + Retry-After, body { error: 'TOO_MANY_REQUESTS' } — same shape the
- *      per-route limiters emit so clients see consistent 429s. Uses lib/ratelimit
- *      (`ratelimit.limit(ip)`), Edge-safe: InMemoryRatelimit in dev/CI (no Redis), lazy
- *      Upstash import only when UPSTASH_REDIS_REST_URL is set.
- *      NOTE: this covers the /api/* edge only. The /search RSC path is NOT /api/* and
- *      keeps its per-route protection (Issue 001) — untouched here.
- *
- *    CSRF Exempt:
- *      - GET / HEAD / OPTIONS (safe methods)
- *      - /api/payments/bank_transfer/webhook (SePay sends no bb_csrf cookie)
- *      - /api/op/auth/refresh (uses HttpOnly refresh cookie; no JS-readable CSRF token)
- *      - /api/admin/auth/refresh (Issue 056 — HttpOnly refresh cookie; no JS-readable CSRF token)
- *    NOTHING is rate-limit exempt. Every non-safe /api/* request is limited at the
- *    edge, webhooks included. The CSRF prefix-exempt pre-auth routes are only
- *    CSRF-exempt; they are STILL rate-limited.
- *    Admin login + TOTP POSTs are NOT exempt — they ride the bb_csrf double-submit
- *    like operator login (the /admin/login GET issues bb_csrf via this layer).
- *    On first GET: issues bb_csrf cookie (non-HttpOnly, SameSite=Lax) if absent.
- *    State-changing requests: reads X-CSRF-Token header and bb_csrf cookie,
- *      compares constant-time — rejects 403 if mismatch or missing.
+ * Staff surfaces (/op, /admin, /dev) and /api are never translated: an /en variant is
+ * 308-redirected to the canonical unprefixed path before the guards run.
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
+import createMiddleware from 'next-intl/middleware';
+import { routing } from '@/i18n/routing';
 import { generateToken, compareTokens } from '@/lib/auth/csrf';
 import { ratelimit } from '@/lib/ratelimit';
 import { REQUEST_ID_HEADER, getOrCreateRequestId } from '@/lib/observability/requestId';
 import { clientIp } from '@/lib/core/http/clientIp';
+
+// next-intl locale router. Invoked for every page route (customer, planner AND the
+// staff consoles, which live under app/[locale] but only ever render the default
+// locale). /api/* is handled separately and never reaches this.
+const handleI18nRouting = createMiddleware(routing);
 
 const CSRF_COOKIE = 'bb_csrf';
 const CSRF_HEADER = 'X-CSRF-Token';
@@ -67,18 +45,15 @@ const SID_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 // Exact-path exemptions (CSRF) — bank_transfer (SePay) sends no bb_csrf cookie.
 //
-// This Set has exactly ONE entry on purpose. The momo/zalopay/card/vnpay webhook
-// routes were DELETED: none of them was ever reachable by a real PSP (no credentials
-// are configured and none will be), yet all four resolved a gateway whose signing key
+// This Set has exactly ONE PSP entry on purpose. The momo/zalopay/card/vnpay webhook
+// routes were DELETED: none was ever reachable by a real PSP (no credentials are
+// configured and none will be), yet all four resolved a gateway whose signing key
 // defaults to a literal published in this repo — so any reader could forge a signed
-// "paid" IPN naming a bookingRef and mark that booking paid. Adding a path back here
-// re-opens that surface; do not, without a real PSP integration behind it.
-// CSRF-exempt = routes where the double-submit CSRF cookie is unavailable (webhook /
-// pre-auth refresh + password-reset flows). EXACT-match Set only (SEC-CSRF-EXACT #561):
-// a prior `startsWith` prefix-match silently exempted any FUTURE route under these trees
-// (e.g. /api/auth/reset-password/admin), so a new state-changing route could inherit the
-// exemption with zero review signal. Exact membership forces an explicit entry per route —
-// mirroring the OP_AUTH_FREE_PATHS / ADMIN_AUTH_FREE_PATHS discipline (Issue 010).
+// "paid" IPN. Adding a path back re-opens that surface; do not, without a real PSP.
+// EXACT-match Set only (SEC-CSRF-EXACT #561): a prior `startsWith` prefix-match silently
+// exempted any FUTURE route under these trees, so a new state-changing route could
+// inherit the exemption with zero review signal. Exact membership forces one entry per
+// route — mirroring the OP_AUTH_FREE_PATHS / ADMIN_AUTH_FREE_PATHS discipline (Issue 010).
 const CSRF_EXEMPT = new Set([
   '/api/payments/bank_transfer/webhook', // SePay webhook — static Apikey, no bb_csrf cookie
   '/api/op/auth/refresh',                // pre-auth operator refresh (HttpOnly cookie, no JS CSRF)
@@ -87,14 +62,12 @@ const CSRF_EXEMPT = new Set([
   '/api/auth/forgot-password/verify',    // Issue 008: forgot-password OTP verify (pre-auth)
   '/api/auth/reset-password',            // Issue 008: customer reset-password (pre-auth, proof-protected)
 ]);
-// There is deliberately NO rate-limit exemption list. The only webhook left is SePay,
-// which authenticates with a STATIC Apikey and is NOT HMAC-signed, so it stays
-// rate-limited to blunt an unauthenticated flood. SePay treats a 429 as a retryable
-// delivery (Fibonacci backoff) and the reconcile sweeper is the backstop.
+// There is deliberately NO rate-limit exemption list. SePay (the only webhook left)
+// authenticates with a STATIC Apikey and is NOT HMAC-signed, so it stays rate-limited
+// to blunt an unauthenticated flood; SePay treats 429 as a retryable delivery.
 
 // /op/* paths that do NOT require a valid operator session.
-// Exact-match Set (Issue 010) — NOT startsWith, so /op/register-bypass is NOT
-// treated as auth-free. Issue 076 adds the public self-serve registration pages.
+// Exact-match Set (Issue 010) — NOT startsWith, so /op/register-bypass is NOT auth-free.
 const OP_AUTH_FREE_PATHS = new Set([
   '/op/login',
   '/op/first-login',
@@ -102,19 +75,53 @@ const OP_AUTH_FREE_PATHS = new Set([
   '/op/register',
   '/op/register/confirmation',
 ]);
-// /op/* path prefixes that are auth-API routes (exempted from page redirect)
+// /op/* path prefix for auth-API routes (exempted from the page redirect).
 const OP_API_AUTH_PREFIX = '/api/op/auth/';
 
-// /admin/* PAGE paths that do NOT require a valid admin session.
-// Exact-match (Issue 010) — NOT startsWith, prevents /admin/login-bypass sneak-throughs.
-// /admin/enroll-totp is here so a password-only (totpVerified=false) session can
-// reach the self-enrollment page WITHOUT the TOTP forced-redirect; the underlying
-// /api/admin/auth/totp/{enroll,confirm} routes still enforce requireAdminAuth.
+// /admin/* PAGE paths that do NOT require a valid admin session (exact-match, Issue 010).
 const ADMIN_AUTH_FREE_PATHS = new Set(['/admin/login', '/admin/enroll-totp']);
 
-/** Decode the JWT payload without hitting the DB — used for forced-redirect guard.
- *  Issue 011: operatorId claim is mandatory. Tokens without it are stale (pre-Issue-011
- *  mint) and must force re-login. */
+// Non-localized surfaces: staff consoles + API. These live outside app/[locale] and
+// must never carry a locale prefix. Matched (prefix) on the locale-stripped path.
+const NON_LOCALIZED_PREFIXES = ['/op', '/admin', '/dev', '/api'];
+
+/** Remove the `/en` locale prefix (vi is the unprefixed default). Returns the
+ *  canonical, locale-free pathname used for every guard comparison. */
+function stripLocale(pathname: string): string {
+  if (pathname === '/en') return '/';
+  if (pathname.startsWith('/en/')) return pathname.slice(3);
+  return pathname;
+}
+
+/** True when the (locale-stripped) path targets a non-localized surface. */
+function isNonLocalized(stripped: string): boolean {
+  return NON_LOCALIZED_PREFIXES.some((p) => stripped === p || stripped.startsWith(`${p}/`));
+}
+
+/** Issue the CSRF double-submit + anonymous-session cookies on a response if the
+ *  request is missing them. Mutates `res` in place. */
+function setSessionCookies(res: NextResponse, request: NextRequest): void {
+  const secure = process.env.NODE_ENV === 'production';
+  if (!request.cookies.get(CSRF_COOKIE)?.value) {
+    res.cookies.set(CSRF_COOKIE, generateToken(), {
+      httpOnly: false, // must be readable by JS for double-submit
+      sameSite: 'lax',
+      path: '/',
+      secure,
+    });
+  }
+  if (!request.cookies.get(SID_COOKIE)?.value) {
+    res.cookies.set(SID_COOKIE, generateToken(), {
+      httpOnly: true, // server-only; funnel correlation, never read by JS
+      sameSite: 'lax',
+      path: '/',
+      maxAge: SID_MAX_AGE,
+      secure,
+    });
+  }
+}
+
+/** Decode the operator JWT without a DB call — forced-redirect guard (Issue 011). */
 async function decodeOperatorJwt(
   token: string
 ): Promise<{ sub: string; requiresPasswordChange: boolean; operatorId: string } | null> {
@@ -127,7 +134,6 @@ async function decodeOperatorJwt(
     const { payload } = await jwtVerify(token, secret, { algorithms: ['HS256'] });
     if (payload['scope'] !== 'operator' || typeof payload.sub !== 'string') return null;
     const operatorId = payload['operatorId'];
-    // Issue 011: missing operatorId claim → stale token → force re-login
     if (typeof operatorId !== 'string' || operatorId.length === 0) return null;
     return {
       sub: payload.sub,
@@ -139,10 +145,7 @@ async function decodeOperatorJwt(
   }
 }
 
-/** Decode the admin JWT payload without hitting the DB — used for the admin
- *  forced-redirect guard (Issue 056). Cross-realm guard: requires scope==='admin'
- *  so an operator/customer token in bb_admin_access is rejected. role must be a
- *  string; totpVerified is read strictly as === true. */
+/** Decode the admin JWT without a DB call — admin forced-redirect guard (Issue 056). */
 async function decodeAdminJwt(
   token: string
 ): Promise<{ sub: string; role: string; totpVerified: boolean } | null> {
@@ -170,42 +173,42 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   const { pathname } = new URL(request.url) as unknown as { pathname: string };
   const requestMethod = request.method;
 
-  // -------------------------------------------------------------------------
-  // Request-id propagation (Issue 061, AC2/AC3)
-  // Read-or-mint a correlation id, forward it to downstream handlers on the
-  // request headers, and echo it on every response. crypto.randomUUID() is
-  // Edge-safe. This is threaded into the guard/CSRF responses below WITHOUT
-  // altering their control flow — every NextResponse this function returns gets
-  // the header stamped, and NextResponse.next() forwards the request header set.
-  // -------------------------------------------------------------------------
+  // Request-id propagation (Issue 061): read-or-mint a correlation id, forward it to
+  // downstream handlers on the request headers, and echo it on every response.
   const rid = getOrCreateRequestId(request.headers);
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set(REQUEST_ID_HEADER, rid);
   const forwarded = { request: { headers: requestHeaders } };
 
-  /** NextResponse.next() that forwards the rid request header + echoes it on the response. */
   const nextWithRid = (): NextResponse => {
     const res = NextResponse.next(forwarded);
     res.headers.set(REQUEST_ID_HEADER, rid);
     return res;
   };
-  /** Stamp the rid on an already-built response (redirect / json) and return it. */
   const withRid = (res: NextResponse): NextResponse => {
     res.headers.set(REQUEST_ID_HEADER, rid);
     return res;
   };
 
-  // Google OAuth routes self-gate on GOOGLE_OAUTH_ENABLED (404 when off) — the interim
-  // middleware 410 block was removed once the /api/auth/google/{start,callback} routes
-  // landed (DS-033 / STEP 8). The /api/auth/otp/test-peek endpoint keeps its own
-  // NODE_ENV + peek-flag guard in the route handler (never enabled in production).
+  // Every guard comparison runs on the locale-stripped path (SEC-CSRF #561).
+  const stripped = stripLocale(pathname);
+  const localized = stripped !== pathname; // request carried an /en prefix
 
   // -------------------------------------------------------------------------
-  // Layer 1 — Operator forced-redirect guard
+  // Non-localized surfaces (/op, /admin, /dev, /api) must never carry a locale.
+  // 308-redirect an /en variant to the canonical path before the guards run.
   // -------------------------------------------------------------------------
-  if (pathname.startsWith('/op/') && !pathname.startsWith(OP_API_AUTH_PREFIX)) {
-    // Allow login and first-login pages through without a token
-    if (!OP_AUTH_FREE_PATHS.has(pathname)) {
+  if (localized && isNonLocalized(stripped)) {
+    const url = new URL(request.url);
+    url.pathname = stripped;
+    return withRid(NextResponse.redirect(url, 308));
+  }
+
+  // -------------------------------------------------------------------------
+  // Layer 1 — Operator forced-redirect guard (on locale-stripped path)
+  // -------------------------------------------------------------------------
+  if (stripped.startsWith('/op/') && !stripped.startsWith(OP_API_AUTH_PREFIX)) {
+    if (!OP_AUTH_FREE_PATHS.has(stripped)) {
       const opToken = request.cookies.get(OP_ACCESS_COOKIE)?.value;
       if (!opToken) {
         return withRid(NextResponse.redirect(new URL('/op/login', request.url)));
@@ -221,12 +224,10 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   }
 
   // -------------------------------------------------------------------------
-  // Layer 1.5 — Admin forced-redirect guard (Issue 056)
-  // Guards /admin PAGE routes only. /api/admin/* is handled by requireAdminAuth.
+  // Layer 1.5 — Admin forced-redirect guard (Issue 056) — /admin PAGE routes only.
   // -------------------------------------------------------------------------
-  if (pathname === '/admin' || pathname.startsWith('/admin/')) {
-    // Exact-match allowlist (Issue 010) — NOT startsWith.
-    if (!ADMIN_AUTH_FREE_PATHS.has(pathname)) {
+  if (stripped === '/admin' || stripped.startsWith('/admin/')) {
+    if (!ADMIN_AUTH_FREE_PATHS.has(stripped)) {
       const adminToken = request.cookies.get(ADMIN_ACCESS_COOKIE)?.value;
       if (!adminToken) {
         return withRid(NextResponse.redirect(new URL('/admin/login', request.url)));
@@ -242,87 +243,58 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   }
 
   // -------------------------------------------------------------------------
-  // Layer 2 — Rate-limit (Issue 096) + CSRF double-submit enforcement
+  // Layer 2 — /api/* rate-limit + CSRF (Issue 096). /api is NOT under app/[locale],
+  // so it bypasses next-intl. Every other path is a page route handed to next-intl.
   // -------------------------------------------------------------------------
+  if (stripped.startsWith('/api/')) {
+    // Safe methods: issue CSRF + anonymous-session cookies if missing, then pass through.
+    if (SAFE_METHODS.has(requestMethod)) {
+      const res = nextWithRid();
+      setSessionCookies(res, request);
+      return res;
+    }
 
-  // Issue CSRF + anonymous-session cookies on any safe method request missing them
-  if (SAFE_METHODS.has(requestMethod)) {
-    const hasCsrf = request.cookies.get(CSRF_COOKIE)?.value;
-    const hasSid = request.cookies.get(SID_COOKIE)?.value;
-    if (!hasCsrf || !hasSid) {
-      const response = NextResponse.next(forwarded);
-      response.headers.set(REQUEST_ID_HEADER, rid);
-      const secure = process.env.NODE_ENV === 'production';
-      if (!hasCsrf) {
-        response.cookies.set(CSRF_COOKIE, generateToken(), {
-          httpOnly: false, // Must be readable by JS for double-submit
-          sameSite: 'lax',
-          path: '/',
-          secure,
-        });
-      }
-      if (!hasSid) {
-        response.cookies.set(SID_COOKIE, generateToken(), {
-          httpOnly: true, // server-only; funnel correlation, never read by JS
-          sameSite: 'lax',
-          path: '/',
-          maxAge: SID_MAX_AGE,
-          secure,
-        });
-      }
-      return response;
+    // Rate-limit FIRST (cheap reject before CSRF token work) — covers ALL non-safe
+    // /api/*, including the CSRF-exempt pre-auth routes below.
+    const ip = clientIp(request.headers);
+    const rl = await ratelimit.limit(ip);
+    if (!rl.allowed) {
+      return withRid(
+        NextResponse.json(
+          { error: 'TOO_MANY_REQUESTS' },
+          {
+            status: 429,
+            headers: { 'Retry-After': String(rl.retryAfter), 'X-RateLimit-Remaining': '0' },
+          }
+        )
+      );
+    }
+
+    // Exact CSRF-exempt routes (webhook + pre-auth refresh/reset flows).
+    if (CSRF_EXEMPT.has(stripped)) {
+      return nextWithRid();
+    }
+
+    const cookieToken = request.cookies.get(CSRF_COOKIE)?.value ?? '';
+    const headerToken = request.headers.get(CSRF_HEADER) ?? '';
+    if (!cookieToken || !headerToken || !compareTokens(cookieToken, headerToken)) {
+      return withRid(NextResponse.json({ error: 'csrf_invalid' }, { status: 403 }));
     }
     return nextWithRid();
   }
 
-  // No webhook skips the rate-limit gate any more. The four HMAC-verified PSP webhook
-  // routes that used to be exempt here (momo/zalopay/card/vnpay) are deleted; SePay,
-  // the only remaining webhook, authenticates with a static Apikey and stays limited.
-
-  // Both rate-limit and CSRF only apply to /api/* state-changing routes.
-  // Non-/api/* non-safe requests (e.g. server actions on app pages) pass through.
-  // NOTE: the /search RSC path is NOT /api/* — Issue 096 covers the /api/* edge
-  // only; /search keeps its per-route protection (Issue 001).
-  if (!pathname.startsWith('/api/')) {
-    return nextWithRid();
+  // -------------------------------------------------------------------------
+  // Page route under app/[locale] — next-intl injects the locale segment (vi for
+  // unprefixed paths, en for /en/…). Attach the rid + issue session cookies on safe
+  // requests. Non-safe page requests (server actions) are not CSRF-gated here — Issue
+  // 096 covers the /api/* edge only (the /search RSC keeps its per-route protection).
+  // -------------------------------------------------------------------------
+  const i18nResponse = handleI18nRouting(request);
+  i18nResponse.headers.set(REQUEST_ID_HEADER, rid);
+  if (SAFE_METHODS.has(requestMethod)) {
+    setSessionCookies(i18nResponse, request);
   }
-
-  // ---- Rate-limit FIRST (cheap reject before CSRF token work) — Issue 096 ----
-  // Applies to ALL non-safe /api/* (customer + operator + admin),
-  // including the CSRF prefix-exempt pre-auth routes below — those are only
-  // CSRF-exempt, never rate-limit-exempt.
-  const ip = clientIp(request.headers);
-  const rl = await ratelimit.limit(ip);
-  if (!rl.allowed) {
-    // Match the per-route 429 shape so clients see consistent responses.
-    return withRid(
-      NextResponse.json(
-        { error: 'TOO_MANY_REQUESTS' },
-        {
-          status: 429,
-          headers: {
-            'Retry-After': String(rl.retryAfter),
-            'X-RateLimit-Remaining': '0',
-          },
-        }
-      )
-    );
-  }
-
-  // Skip CSRF for the exact CSRF_EXEMPT routes (webhook + pre-auth refresh/reset flows).
-  // Both are past the rate-limit at this point.
-  if (CSRF_EXEMPT.has(pathname)) {
-    return nextWithRid();
-  }
-
-  const cookieToken = request.cookies.get(CSRF_COOKIE)?.value ?? '';
-  const headerToken = request.headers.get(CSRF_HEADER) ?? '';
-
-  if (!cookieToken || !headerToken || !compareTokens(cookieToken, headerToken)) {
-    return withRid(NextResponse.json({ error: 'csrf_invalid' }, { status: 403 }));
-  }
-
-  return nextWithRid();
+  return i18nResponse;
 }
 
 export const config = {

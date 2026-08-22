@@ -1,0 +1,34 @@
+{
+  "nav": {
+    "primary": "Điều hướng chính",
+    "bookTicket": "Đặt vé xe",
+    "tripPlanner": "Trợ lý du lịch",
+    "operators": "Nhà xe"
+  },
+  "auth": {
+    "loginSignup": "Đăng nhập / Đăng ký"
+  },
+  "header": {
+    "openMenu": "Mở menu điều hướng",
+    "closeMenu": "Đóng menu"
+  },
+  "footer": {
+    "brandTagline": "BBVN – Nền tảng đặt vé xe khách trực tuyến. Đặt vé nhanh chóng, giá tốt, hỗ trợ tận tình.",
+    "customerSupport": "Hỗ trợ khách hàng",
+    "rights": "© {year} BBVN — CÔNG TY TNHH XD VT & DVTM MINH QUÂN. Bảo lưu mọi quyền.",
+    "col": {
+      "about": "Về BBVN",
+      "support": "Hỗ trợ",
+      "partner": "Hợp tác"
+    },
+    "link": {
+      "tripPlanner": "Trợ lý du lịch",
+      "terms": "Điều khoản dịch vụ",
+      "privacy": "Chính sách bảo mật",
+      "refundPolicy": "Chính sách hủy/hoàn vé",
+      "complaints": "Giải quyết khiếu nại",
+      "becomePartner": "Trở thành đối tác",
+      "operatorLogin": "Đăng nhập nhà xe"
+    }
+  }
+}

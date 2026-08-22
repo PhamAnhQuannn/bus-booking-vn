@@ -58,7 +58,11 @@ export async function POST(req: NextRequest): Promise<Response> {
     });
   }
 
-  const body = (await req.json().catch(() => null)) as { history?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { history?: unknown; locale?: unknown } | null;
+  // i18n (P3b): the assistant replies in English when the UI locale is 'en'; any
+  // other value (or absent) keeps the default Vietnamese. Only the reply prose is
+  // affected — city/vibe codes and the KB data stay Vietnamese.
+  const locale: 'vi' | 'en' = body?.locale === 'en' ? 'en' : 'vi';
   const raw = Array.isArray(body?.history) ? body.history : [];
   const history: ChatTurn[] = raw
     .filter(
@@ -159,7 +163,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       try {
         // Extract-only: chỉ TRÍCH ràng buộc (prose + slots). Client TẤT ĐỊNH lo hỏi thêm + dựng lịch
         // qua /api/planner/itinerary → chip = $0, /chat chỉ chạy cho free-text.
-        for await (const ev of streamChat(safeHistory)) {
+        for await (const ev of streamChat(safeHistory, locale)) {
           if (ev.kind === 'token') {
             send('token', { text: ev.text });
           } else if (ev.kind === 'slots') {

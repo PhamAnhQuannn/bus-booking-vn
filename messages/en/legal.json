@@ -1,0 +1,304 @@
+{
+  "prevailingLanguage": "This English text is a machine-assisted translation provided for reference only. The Vietnamese version is the legally authoritative text; in case of any discrepancy, the Vietnamese version prevails.",
+  "related": {
+    "aria": "Related policies",
+    "label": "Related:",
+    "terms": "Terms of Service",
+    "privacy": "Privacy Policy",
+    "refund": "Cancellation & Refund Policy",
+    "complaints": "Complaint Resolution"
+  },
+  "terms": {
+    "meta": {
+      "title": "Terms of Service | BBVN",
+      "description": "Terms for using the BBVN bus ticket booking service."
+    },
+    "h1": "Terms of Service",
+    "updated": "Updated: August 2026",
+    "version": "Version: 2026-08",
+    "s1": {
+      "title": "1. Introduction",
+      "body": "These Terms of Service (\"Terms\") govern the use of the BBVN bus ticket booking platform (\"Service\"). By booking a ticket through BBVN, you agree to comply with these Terms."
+    },
+    "s2": {
+      "title": "2. Services provided",
+      "intro": "BBVN is an intermediary platform connecting customers with bus operators. We provide:",
+      "items": [
+        "Search and comparison of inter-provincial bus trips.",
+        "Reservation and online prepayment via bank transfer (VietQR) or VNPay.",
+        "Ticket confirmation and notifications via email."
+      ],
+      "note": "BBVN is not a carrier. Bus operators are responsible for the transport service, safety and punctuality."
+    },
+    "s3": {
+      "title": "3. Booking information",
+      "items": [
+        "When booking a ticket, you provide contact information (name, phone number, email) for each booking.",
+        "BBVN does not require you to create an account. Each booking is an independent transaction.",
+        "You are responsible for providing accurate information to receive ticket confirmation and to be contacted when needed."
+      ]
+    },
+    "s4": {
+      "title": "4. Booking and payment",
+      "items": [
+        "Seats are held temporarily (up to 12 minutes) during payment.",
+        "Payment is made via bank transfer. Tickets are confirmed after payment is successfully received.",
+        "The displayed ticket price includes all fees. There are no hidden fees.",
+        "If payment is not completed within the hold period, the seat will be released for others to book."
+      ]
+    },
+    "s5": {
+      "title": "5. Cancellation and refund",
+      "body": "The cancellation and refund policy is set out in detail in the <link>Cancellation & Refund Policy</link>. That policy is an inseparable part of these Terms of Service."
+    },
+    "s6": {
+      "title": "6. Customer responsibilities",
+      "items": [
+        "Provide accurate information when booking (name, phone number).",
+        "Be present at the pickup point on time.",
+        "Comply with the bus operator's rules throughout the trip.",
+        "Do not use the Service for fraudulent or unlawful purposes."
+      ]
+    },
+    "s7": {
+      "title": "7. Limitation of liability",
+      "body": "BBVN is not responsible for: (a) the quality of the transport service provided by the bus operator; (b) damages caused by delay, trip cancellation or accidents during transport; (c) loss of luggage or personal property on the bus. BBVN's maximum compensation liability shall not exceed the value of the ticket paid."
+    },
+    "s8": {
+      "title": "8. Intellectual property",
+      "body": "All content, design, logo and source code of BBVN belong to us and are protected under Vietnamese intellectual property law."
+    },
+    "s9": {
+      "title": "9. Changes to the terms",
+      "body": "We may update these Terms. Material changes will be notified by email at least 30 days before they take effect. Continued use of the Service after a change means you accept the new Terms."
+    },
+    "s10": {
+      "title": "10. Governing law",
+      "body": "These Terms are governed by Vietnamese law. Any disputes shall be resolved by the competent court in Vietnam."
+    },
+    "s11": {
+      "title": "11. Contact",
+      "body": "If you have questions about these Terms of Service, please contact us by email: <email>support@bbvn.vn</email>. To file a complaint, please see the <link>Complaint Resolution Policy</link>."
+    }
+  },
+  "privacy": {
+    "meta": {
+      "title": "Privacy Policy | BBVN",
+      "description": "How BBVN collects, uses and protects customers' personal information."
+    },
+    "h1": "Privacy Policy",
+    "updated": "Updated: July 2026",
+    "version": "Version: 2026-07",
+    "s1": {
+      "title": "1. Introduction",
+      "body": "BBVN (\"we\") is committed to protecting your privacy in accordance with the Personal Data Protection Law No. 91/2025/QH15 (PDPL 2025) and Decree 356/2025/NĐ-CP. This policy describes how we collect, use, store and protect personal information when you use the BBVN bus ticket booking platform."
+    },
+    "s2": {
+      "title": "2. Information we collect",
+      "items": [
+        "<b>Booking contact information:</b> Contact phone number (required to book tickets and receive notifications), full name, email address (optional).",
+        "<b>Booking information:</b> Passenger name, contact phone number, contact email, pickup point, trip details.",
+        "<b>Payment information:</b> Payment status, bank transaction reference. We do not store bank card numbers or bank login credentials.",
+        "<b>Technical data:</b> IP address (used for access rate-limiting), browser user agent, access logs."
+      ]
+    },
+    "s3": {
+      "title": "3. Purposes of use",
+      "items": [
+        "Process and confirm bus ticket bookings.",
+        "Send email notifications (ticket confirmation, trip reminders).",
+        "Support customers and resolve disputes.",
+        "Improve service quality and detect fraud."
+      ]
+    },
+    "s4": {
+      "title": "4. Legal basis",
+      "body": "We process data based on: (a) your consent when booking; (b) performance of the booking contract; (c) legal obligations under accounting and record-keeping regulations."
+    },
+    "s5": {
+      "title": "5. Data sharing",
+      "intro": "We only share personal information with:",
+      "items": [
+        "<b>Bus operators:</b> Passenger name, contact phone number and pickup point — to serve the trip.",
+        "<b>Payment partners:</b> Processing bank transfer transactions (VietQR). We do not store bank card numbers or bank login credentials.",
+        "<b>State authorities:</b> Upon request in accordance with Vietnamese law."
+      ]
+    },
+    "s6": {
+      "title": "6. Storage and security",
+      "body": "Data is stored on servers in Singapore (Vercel, Neon, Upstash). We apply AES-256 encryption for sensitive information, SSL/TLS connection encryption, and strict access controls. Passwords are one-way hashed and never stored in plaintext."
+    },
+    "s6a": {
+      "title": "6a. Cross-border data transfer",
+      "intro": "In accordance with Article 25 of the PDPL 2025 (Điều 25 Luật PDPL 2025) and Decree 356/2025/NĐ-CP, we notify you that your personal data is processed by cloud service providers in Singapore:",
+      "items": [
+        "<b>Vercel:</b> Application server (compute) — Singapore region (sin1).",
+        "<b>Neon:</b> PostgreSQL database — Singapore region.",
+        "<b>Upstash:</b> Redis cache — Singapore region."
+      ],
+      "note": "This cross-border data transfer complies with the cross-border data transfer impact assessment (CDTIA) requirements under the PDPL 2025."
+    },
+    "s7": {
+      "title": "7. Retention period",
+      "items": [
+        "Booking contact information: until you request deletion or the legal retention obligation ends.",
+        "Booking history and payment records: at least 5 years under accounting regulations.",
+        "Access logs: 90 days."
+      ]
+    },
+    "s8": {
+      "title": "8. Your rights",
+      "intro": "Under the PDPL 2025, you have the following rights:",
+      "tableHead": ["Right", "Processing time"],
+      "rows": [
+        ["Access and view your personal information", "10 working days"],
+        ["Request correction of inaccurate information", "10 working days"],
+        ["Request deletion of personal data", "20 working days"],
+        ["Withdraw consent to data processing", "15 working days"]
+      ],
+      "contact": "To exercise these rights, please send an email to <email>privacy@bbvn.vn</email>.",
+      "note": "Note: booking history and payment records are still retained under legal obligations even after personal data is deleted."
+    },
+    "s8a": {
+      "title": "8a. Data breach notification",
+      "body": "In the event of a personal data breach, we will notify the authorities within 72 hours, and within 24 hours if a cyberattack is involved, in accordance with the PDPL 2025."
+    },
+    "s9": {
+      "title": "9. Cookies and tracking technologies",
+      "body": "We use technical cookies (login session, CSRF verification, seat holds) necessary to operate the service. We do not use advertising tracking cookies or third-party cookies."
+    },
+    "s10": {
+      "title": "10. Contact",
+      "body": "Personal data protection officer — Email: <email>privacy@bbvn.vn</email>",
+      "authority": "If you are not satisfied with how a complaint is handled, you have the right to contact the Competition and Consumer Protection Authority (VCCA) or the competent authority in accordance with the <link>Complaint Resolution Policy</link>."
+    }
+  },
+  "refund": {
+    "meta": {
+      "title": "Cancellation & Refund Policy | BBVN",
+      "description": "Cancellation, refund policy and applicable conditions when booking bus tickets through BBVN."
+    },
+    "h1": "Cancellation & Refund Policy",
+    "updated": "Updated: August 2026",
+    "version": "Version: 2026-08",
+    "s1": {
+      "title": "1. Introduction",
+      "body": "This policy is an inseparable part of the <link>Terms of Service</link>. It applies to all bus tickets booked through bbvn.vn."
+    },
+    "s2": {
+      "title": "2. Scope of application",
+      "items": [
+        "Applies to prepaid tickets via bank transfer (VietQR) or VNPay.",
+        "Does not apply to charter/private-hire bookings — please contact the <charter>private charter page</charter>."
+      ]
+    },
+    "s3": {
+      "title": "3. Cancellation at the customer's request",
+      "body": "A paid ticket <b>cannot be cancelled or refunded at the customer's request</b>. BBVN only issues refunds when the bus operator cancels the trip (see Section 5). Please check the trip details carefully and consider before paying."
+    },
+    "s4": {
+      "title": "4. No refund in the following cases",
+      "items": [
+        "The customer voluntarily does not travel, changes personal plans, or requests cancellation.",
+        "The customer is not present at the pickup point on time (no-show).",
+        "The ticket has been used or the trip has already departed.",
+        "Fraud is detected during the booking or payment process."
+      ]
+    },
+    "s5": {
+      "title": "5. Bus operator cancels the trip (bus does not run)",
+      "intro": "This is the only case eligible for a refund. When the bus operator cancels the trip:",
+      "items": [
+        "100% of the ticket price is refunded (no fees deducted) within 3-5 working days.",
+        "BBVN proactively notifies you via SMS/email as soon as it receives the information from the bus operator.",
+        "The customer does not need to take any cancellation action — the system automatically processes the refund."
+      ]
+    },
+    "s6": {
+      "title": "6. Refund process when the bus operator cancels the trip",
+      "items": [
+        "BBVN sends a trip cancellation notice via SMS/email to the booking phone number/email.",
+        "If needed, the customer provides a bank account number to receive the refund.",
+        "For any questions, contact BBVN by email <email>support@bbvn.vn</email> (including the booking code and booking phone number)."
+      ]
+    },
+    "s7": {
+      "title": "7. Refund timing and method",
+      "items": [
+        "Refund via bank transfer: 3-5 working days from when the bus operator confirms the trip cancellation."
+      ]
+    },
+    "s8": {
+      "title": "8. Note on the Law on Protection of Consumer Rights",
+      "body": "Under the Law on Protection of Consumer Rights 2023 (Luật 19/2023/QH15), the right to \"return goods within X days\" (Điều 44) applies only to door-to-door sales, and does not apply to voluntary online ticket booking transactions."
+    },
+    "s9": {
+      "title": "9. Complaints and contact",
+      "body": "If you disagree with a refund decision, please see the <link>Complaint Resolution Policy</link>. Support email: <email>support@bbvn.vn</email>"
+    },
+    "s10": {
+      "title": "10. Changes to the policy",
+      "body": "Material changes will be notified at least 30 days before they take effect, consistent with the <link>Terms of Service</link>."
+    }
+  },
+  "complaints": {
+    "meta": {
+      "title": "Complaint Resolution | BBVN",
+      "description": "The process for receiving and resolving complaints and disputes when using the BBVN bus ticket booking service."
+    },
+    "h1": "Complaint and Dispute Resolution Policy",
+    "updated": "Updated: July 2026",
+    "version": "Version: 2026-07",
+    "s1": {
+      "title": "1. Introduction",
+      "body": "BBVN is an intermediary platform connecting customers with bus operators. Bus operators are responsible for the transport service. This policy describes the process for receiving and resolving complaints in accordance with the Law on Protection of Consumer Rights 2023 (Luật 19/2023/QH15, Điều 37-39)."
+    },
+    "s2": {
+      "title": "2. Complaint channels",
+      "items": [
+        "<b>Email (official channel):</b> <email>support@bbvn.vn</email>",
+        "<b>Information to provide:</b> Booking code (if any), booking phone number, description of the issue, evidence (if any)."
+      ]
+    },
+    "s3": {
+      "title": "3. Handling process and timelines",
+      "tableHead": ["Step", "Content", "Timeline"],
+      "rows": [
+        ["1", "Receipt and acknowledgement", "3 working days"],
+        ["2", "Review and propose a solution", "7-30 working days"],
+        ["3", "Notify the result", "By email"]
+      ],
+      "note": "Simple complaints (system errors, unrecorded payments) are handled within 7 working days. Complex complaints (disputes with the bus operator, special refunds) may take up to 30 working days."
+    },
+    "s4": {
+      "title": "4. Complaint categories",
+      "items": [
+        "<b>Booking / payment issues:</b> Unrecorded payment, system errors, incorrect ticket information.",
+        "<b>Refund issues:</b> See the <link>Cancellation & Refund Policy</link>.",
+        "<b>Service quality / bus operator conduct:</b> BBVN forwards the complaint to the relevant bus operator.",
+        "<b>Safety issues:</b> Handled urgently; standard timelines do not apply."
+      ]
+    },
+    "s5": {
+      "title": "5. The bus operator's role in dispute resolution",
+      "body": "BBVN forwards complaints relating to transport/service to the bus operator. The bus operator is responsible for responding within the timeframe set by BBVN."
+    },
+    "s6": {
+      "title": "6. Customer rights when a complaint is not resolved satisfactorily",
+      "intro": "If you are not satisfied with the resolution outcome, you have the right to:",
+      "items": [
+        "Contact the Competition and Consumer Protection Authority (VCCA).",
+        "Contact the local Department of Industry and Trade.",
+        "File a lawsuit at the competent court in Vietnam."
+      ]
+    },
+    "s7": {
+      "title": "7. Confidentiality of complaint information",
+      "body": "Complaint information is used only for the purpose of dispute resolution, in accordance with the <link>Privacy Policy</link>."
+    },
+    "s8": {
+      "title": "8. Contact",
+      "body": "Email: <email>support@bbvn.vn</email>"
+    }
+  }
+}

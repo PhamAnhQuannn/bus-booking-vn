@@ -1,0 +1,84 @@
+{
+  "page": {
+    "title": "Charter a vehicle",
+    "subtitle": "Charter a vehicle for travel or door-to-door transfers. Leave your details below — the BBVN team will call to advise on the itinerary and quote within 15 minutes."
+  },
+  "form": {
+    "aria": "Charter a vehicle",
+    "honeypotCompany": "Company",
+    "name": "Full name",
+    "namePlaceholder": "Nguyễn Văn A",
+    "phone": "Phone number",
+    "phonePlaceholder": "0901234567",
+    "email": "Email",
+    "emailPlaceholder": "you@email.com",
+    "origin": "Pickup point",
+    "originPlaceholder": "e.g. Thanh Hoá",
+    "destination": "Destination",
+    "destinationPlaceholder": "e.g. Sầm Sơn, Pù Luông…",
+    "departureDate": "Departure date",
+    "datePlaceholder": "Choose departure date",
+    "days": "Number of days (optional)",
+    "daysPlaceholder": "e.g. 2",
+    "people": "Number of people",
+    "peoplePlaceholder": "e.g. 16",
+    "vehicle": "Preferred vehicle",
+    "vehiclePlaceholder": "e.g. 16-seater, Limousine, sleeper",
+    "notes": "Notes (optional)",
+    "notesPlaceholder": "Itinerary, pickup point, extra requests…",
+    "submit": "Send request",
+    "submitting": "Sending…"
+  },
+  "validation": {
+    "reqName": "Please enter your name",
+    "reqPhone": "Please enter your phone number",
+    "reqEmail": "Please enter your email",
+    "invalidEmail": "Invalid email",
+    "reqOrigin": "Please enter a pickup point",
+    "reqDestination": "Please enter a destination",
+    "reqDate": "Please choose a departure date",
+    "reqPeople": "Please enter the number of people",
+    "reqVehicle": "Please choose a vehicle type",
+    "reqPeopleNum": "Please enter the number of people."
+  },
+  "errors": {
+    "rateLimit": "You have sent too many requests. Please try again later.",
+    "submitFailed": "Failed to send the request. Please check your details.",
+    "connError": "Connection error. Please try again."
+  },
+  "confirm": {
+    "title": "Request received",
+    "desc": "We will contact you soon to advise on the itinerary and quote.",
+    "refLabel": "Request code",
+    "trackStatus": "Track status",
+    "goHome": "Back to home"
+  },
+  "status": {
+    "refLabel": "Request code",
+    "finding": "Finding an operator",
+    "matched": "Operator matched",
+    "done": "Completed",
+    "cancelled": "Cancelled",
+    "unprocessable": "Cannot be processed",
+    "operatorCardTitle": "Assigned operator",
+    "operatorLabel": "Operator",
+    "hotline": "Hotline",
+    "requestInfoTitle": "Request details",
+    "journey": "Journey",
+    "departDate": "Departure date",
+    "durationDays": "{days} days",
+    "people": "People",
+    "vehicleType": "Vehicle type",
+    "contact": "Contact",
+    "cancellableNote": "You can cancel the request while we look for a suitable operator.",
+    "goHome": "Back to home",
+    "bookAnother": "Book another trip"
+  },
+  "cancel": {
+    "cancel": "Cancel request",
+    "cancelling": "Cancelling…",
+    "alreadyAccepted": "The request has been accepted by an operator or has ended — it cannot be cancelled.",
+    "cancelFailed": "Failed to cancel the request. Please try again.",
+    "connError": "Connection error. Please try again."
+  }
+}

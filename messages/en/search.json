@@ -1,0 +1,101 @@
+{
+  "form": {
+    "aria": "Search trips",
+    "submit": "Search trips",
+    "searching": "Searching…",
+    "origin": "From",
+    "originShort": "Departure point",
+    "destination": "To",
+    "originPlaceholder": "Enter departure point",
+    "destinationPlaceholder": "Enter destination",
+    "swap": "Swap origin and destination",
+    "date": "Departure date",
+    "datePlaceholder": "Choose departure date",
+    "ticketCount": "Tickets",
+    "decTicket": "Decrease tickets",
+    "incTicket": "Increase tickets",
+    "ticketAria": "{count} tickets",
+    "errRequired": "Please enter origin and destination.",
+    "errSame": "Origin and destination must be different.",
+    "errDate": "Please choose a valid departure date."
+  },
+  "sort": {
+    "label": "Sort",
+    "departure_asc": "Earliest departure",
+    "price_asc": "Price low → high",
+    "price_desc": "Price high → low",
+    "duration_asc": "Fastest"
+  },
+  "busType": {
+    "coach": "Seater",
+    "sleeper": "Sleeper",
+    "limousine": "Limousine"
+  },
+  "window": {
+    "morning": "Morning (5–11h)",
+    "afternoon": "Afternoon (11–17h)",
+    "evening": "Evening (17–22h)",
+    "night": "Night (22–5h)"
+  },
+  "filter": {
+    "title": "Filters",
+    "sheetTitle": "Trip filters",
+    "operator": "Operator",
+    "allOperators": "All operators",
+    "busTypeLabel": "Vehicle type",
+    "departureTime": "Departure time",
+    "maxDuration": "Max travel time",
+    "price": "Ticket price (đ)",
+    "priceMin": "Minimum price",
+    "priceMax": "Maximum price",
+    "clear": "Clear filters",
+    "button": "Filters",
+    "viewResults": "View results",
+    "activeAria": "Active filters",
+    "removeChip": "Remove filter: {label}"
+  },
+  "results": {
+    "prev": "Previous",
+    "next": "Next",
+    "prevDay": "Previous day: {date}",
+    "nextDay": "Next day: {date}",
+    "pastDisabled": "Cannot choose a past date",
+    "heading": "Trips today",
+    "showingPrefix": "Showing",
+    "nounPickup": "pickup points",
+    "nounTrip": "trips",
+    "noMatch": "No trips match the filters. Try removing some filters.",
+    "loadMore": "More trips →",
+    "loadMoreAria": "See more trips (next page)"
+  },
+  "card": {
+    "aria": "Trip from {origin} to {destination}",
+    "perTicket": "/ 1 ticket",
+    "seatsLeft": "{count} seats left",
+    "selectSeat": "Select seat",
+    "amenityWifi": "Wi-Fi",
+    "amenityWater": "Water",
+    "amenitySocket": "Power socket",
+    "amenityBlanket": "Blanket"
+  },
+  "book": {
+    "bookTicket": "Book",
+    "aria": "{label} — this trip"
+  },
+  "empty": {
+    "notFound": "No trips found for this date.",
+    "tryOther": "Try another date:",
+    "findPrev": "Find previous day: {date}",
+    "findNext": "Find next day: {date}",
+    "viewAllRoutes": "View all routes"
+  },
+  "trust": {
+    "aria": "Operator info and support",
+    "approved": "Operator approved",
+    "title": "Book with confidence",
+    "point1": "Operators are approved before selling tickets",
+    "point2": "Pay upfront via VietQR or VNPay",
+    "refundLink": "Cancellation & refund policy",
+    "supportLabel": "Support: "
+  }
+}

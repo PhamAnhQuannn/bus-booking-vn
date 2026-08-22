@@ -1,5 +1,6 @@
-import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { Bus, Calendar } from 'lucide-react';
+import { Link } from '@/i18n/navigation';
 import { SearchFilterRail, SearchToolbar } from '@/components/search/SearchFilters';
 import { OperatorTrustPanel } from '@/components/search/OperatorTrustPanel';
 import { type TripFacets } from '@/lib/search';
@@ -7,7 +8,7 @@ import { type TripResult, type BoardingStop } from '@/lib/trips';
 import { TripCard, type TripCardSize } from './TripCard';
 import { formatVnDate, shiftDate } from './search-utils';
 
-export function ResultsList({
+export async function ResultsList({
   trips,
   facets,
   totalBeforeFilters,
@@ -32,6 +33,7 @@ export function ResultsList({
   allParams: Record<string, string | string[] | undefined>;
   operator?: { legalName: string; contactPhone: string };
 }) {
+  const t = await getTranslations('search');
   const showFilterRail =
     facets.operators.length > 1 ||
     facets.busTypes.length > 1 ||
@@ -74,7 +76,7 @@ export function ResultsList({
       ? trip.boardingSchedule.map((stop, i) => ({ trip, stop, key: `${trip.tripId}-${i}` }))
       : [{ trip, stop: undefined as BoardingStop | undefined, key: trip.tripId }],
   );
-  const itemNoun = trips.some((t) => t.boardingSchedule.length > 0) ? 'điểm đón' : 'chuyến xe';
+  const itemNoun = trips.some((tr) => tr.boardingSchedule.length > 0) ? t('results.nounPickup') : t('results.nounTrip');
 
   return (
     <div
@@ -94,17 +96,17 @@ export function ResultsList({
             <Link
               href={buildUrl(prevDate)}
               className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-destructive bg-white px-4 text-sm font-semibold text-destructive shadow-e1 transition-colors hover:bg-destructive hover:text-white"
-              aria-label={`Ngày trước: ${formatVnDate(prevDate)}`}
+              aria-label={t('results.prevDay', { date: formatVnDate(prevDate) })}
             >
-              ← Trước
+              ← {t('results.prev')}
             </Link>
           ) : (
             <span
               className="inline-flex min-h-11 cursor-not-allowed items-center justify-center gap-1 rounded-lg border border-border/50 bg-muted/30 px-4 text-sm font-medium text-muted-foreground/40"
               aria-disabled="true"
-              aria-label="Không thể chọn ngày trong quá khứ"
+              aria-label={t('results.pastDisabled')}
             >
-              ← Trước
+              ← {t('results.prev')}
             </span>
           )}
           <span className="flex-1 text-center text-sm font-semibold">
@@ -113,9 +115,9 @@ export function ResultsList({
           <Link
             href={buildUrl(nextDate)}
             className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-destructive bg-white px-4 text-sm font-semibold text-destructive shadow-e1 transition-colors hover:bg-destructive hover:text-white"
-            aria-label={`Ngày sau: ${formatVnDate(nextDate)}`}
+            aria-label={t('results.nextDay', { date: formatVnDate(nextDate) })}
           >
-            Sau →
+            {t('results.next')} →
           </Link>
         </div>
 
@@ -130,7 +132,7 @@ export function ResultsList({
             <Bus className="size-5" />
           </span>
           <div className="flex min-w-0 flex-col gap-1">
-            <h2 className="font-display text-xl font-bold text-foreground sm:text-2xl">Các chuyến xe hôm nay</h2>
+            <h2 className="font-display text-xl font-bold text-foreground sm:text-2xl">{t('results.heading')}</h2>
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
                 <Calendar className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -140,7 +142,7 @@ export function ResultsList({
                 className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary-strong"
                 aria-live="polite"
               >
-                Hiển thị <strong className="font-bold">{items.length}</strong> {itemNoun}
+                {t('results.showingPrefix')} <strong className="font-bold">{items.length}</strong> {itemNoun}
               </span>
             </div>
           </div>
@@ -148,7 +150,7 @@ export function ResultsList({
 
         {trips.length === 0 ? (
           <p className="rounded-lg border border-border bg-muted/40 px-4 py-6 text-center text-sm text-muted-foreground">
-            Không có chuyến nào khớp bộ lọc. Hãy bỏ bớt bộ lọc.
+            {t('results.noMatch')}
           </p>
         ) : (
           <ul className="flex flex-col gap-3" aria-label={`${items.length} ${itemNoun}`}>
@@ -170,9 +172,9 @@ export function ResultsList({
             <Link
               href={buildPageUrl(nextCursor)}
               className="inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-background px-6 text-sm font-medium transition-colors hover:bg-muted"
-              aria-label="Xem thêm chuyến xe (trang sau)"
+              aria-label={t('results.loadMoreAria')}
             >
-              Xem thêm chuyến →
+              {t('results.loadMore')}
             </Link>
           </div>
         ) : null}

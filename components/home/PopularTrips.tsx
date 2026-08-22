@@ -15,9 +15,10 @@
  */
 
 import { useRef } from 'react';
-import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { ArrowRight, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 
+import { Link } from '@/i18n/navigation';
 import { searchHref } from '@/lib/search';
 import { formatVnd } from '@/lib/format';
 import { CardImage } from './CardImage';
@@ -47,6 +48,7 @@ function formatDuration(minutes: number): string {
  * future trip) — may be sold out, standard OTA "from" semantic.
  */
 export function PopularTrips({ trips }: { trips: PopularTrip[] }) {
+  const t = useTranslations('home');
   const scrollerRef = useRef<HTMLUListElement>(null);
 
   if (trips.length === 0) return null;
@@ -62,7 +64,7 @@ export function PopularTrips({ trips }: { trips: PopularTrip[] }) {
   return (
     <section className="page-container pt-10 pb-3 lg:pt-14 lg:pb-4">
       <div className="mb-8 flex items-end justify-between gap-4">
-        <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Tuyến đường phổ biến</h2>
+        <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">{t('trips.title')}</h2>
         <div className="flex items-center gap-3">
           {/* 2026-07-30: a "Xem tất cả" link pointed at "/" — it reloaded this same
               page. No route-index page exists to point it at, so it is gone until
@@ -72,7 +74,7 @@ export function PopularTrips({ trips }: { trips: PopularTrip[] }) {
               <button
                 type="button"
                 onClick={() => nudge(-1)}
-                aria-label="Cuộn sang trái"
+                aria-label={t('carousel.scrollLeft')}
                 className="inline-flex size-11 items-center justify-center rounded-full bg-card text-muted-foreground shadow-e2 transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
               >
                 <ChevronLeft className="size-5" aria-hidden="true" />
@@ -80,7 +82,7 @@ export function PopularTrips({ trips }: { trips: PopularTrip[] }) {
               <button
                 type="button"
                 onClick={() => nudge(1)}
-                aria-label="Cuộn sang phải"
+                aria-label={t('carousel.scrollRight')}
                 className="inline-flex size-11 items-center justify-center rounded-full bg-card text-muted-foreground shadow-e2 transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
               >
                 <ChevronRight className="size-5" aria-hidden="true" />
@@ -93,7 +95,7 @@ export function PopularTrips({ trips }: { trips: PopularTrip[] }) {
       <ul
         ref={useCarousel ? scrollerRef : undefined}
         role="region"
-        aria-label="Tuyến đường phổ biến"
+        aria-label={t('trips.title')}
         className={
           useCarousel
             ? 'flex snap-x snap-mandatory list-none gap-4 overflow-x-auto p-0 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
@@ -116,8 +118,8 @@ export function PopularTrips({ trips }: { trips: PopularTrip[] }) {
                 href={searchHref(r.origin, r.destination)}
                 aria-label={
                   price != null
-                    ? `Tìm chuyến ${r.origin} đến ${r.destination}, từ ${formatVnd(price)}`
-                    : `Tìm chuyến ${r.origin} đến ${r.destination}`
+                    ? t('trips.findTripWithPrice', { origin: r.origin, destination: r.destination, price: formatVnd(price) })
+                    : t('trips.findTrip', { origin: r.origin, destination: r.destination })
                 }
                 className="group flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card shadow-e1 transition-all hover:shadow-e2 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none motion-safe:hover:-translate-y-0.5"
               >
@@ -142,7 +144,7 @@ export function PopularTrips({ trips }: { trips: PopularTrip[] }) {
                       <span />
                     )}
                     {price != null && (
-                      <span className="text-sm font-semibold">Từ {formatVnd(price)}</span>
+                      <span className="text-sm font-semibold">{t('trips.fromPrice', { price: formatVnd(price) })}</span>
                     )}
                   </div>
 
@@ -151,7 +153,7 @@ export function PopularTrips({ trips }: { trips: PopularTrip[] }) {
                       rather than emptied. */}
                   <div className="mt-auto flex items-center justify-end gap-2">
                     <span className="inline-flex h-9 items-center rounded-lg border border-primary/20 px-4 text-sm font-medium text-primary-strong transition-colors group-hover:bg-primary/5">
-                      Tìm vé
+                      {t('trips.findTicket')}
                     </span>
                   </div>
                 </div>

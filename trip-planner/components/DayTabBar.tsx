@@ -5,6 +5,7 @@
  * Container pill #FFF3E8; tab active = solid primary + shadow; inactive hover = primary-tint.
  */
 
+import { useTranslations } from 'next-intl';
 import type { PlannerDto } from '@/trip-planner/lib/planner/itineraryDto';
 
 type Props = {
@@ -14,6 +15,7 @@ type Props = {
 };
 
 export function DayTabBar({ dto, activeDay, onSelect }: Props) {
+  const t = useTranslations('planner');
   return (
     <div className="inline-flex gap-1 rounded-full border border-[#F0EAE2] p-[3px] shadow-e1" style={{ background: '#FEFCF7' }}>
       {dto.days.map((d) => {
@@ -29,7 +31,7 @@ export function DayTabBar({ dto, activeDay, onSelect }: Props) {
             }`}
             style={on ? { boxShadow: '0 1px 4px rgba(240,86,29,.35)' } : undefined}
           >
-            Ngày {d.day}
+            {t('dayTabBar.day', { day: d.day })}
           </button>
         );
       })}

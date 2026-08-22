@@ -1,5 +1,9 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
+import createNextIntlPlugin from "next-intl/plugin";
+
+// next-intl plugin — points at the per-request i18n config (message loading).
+const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
 const isProd = process.env.NODE_ENV === 'production';
 const hasSentry = !!process.env.NEXT_PUBLIC_SENTRY_DSN;
@@ -70,4 +74,4 @@ const nextConfig: NextConfig = {
 // then removed — never publicly served. Debug IDs handle symbolication (no release-name match
 // needed). instrumentation.ts / instrumentation-client.ts remain the sole Sentry.init() sites —
 // withSentryConfig only touches the build pipeline, so there is no double-init.
-export default withSentryConfig(nextConfig, {});
+export default withNextIntl(withSentryConfig(nextConfig, {}));

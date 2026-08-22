@@ -1,0 +1,84 @@
+{
+  "page": {
+    "title": "Liên hệ đặt xe",
+    "subtitle": "Thuê xe hợp đồng đi du lịch, đưa đón theo yêu cầu. Để lại thông tin bên dưới — tổng đài BBVN sẽ liên hệ tư vấn lịch trình và báo giá trong vòng 15 phút."
+  },
+  "form": {
+    "aria": "Liên hệ đặt xe",
+    "honeypotCompany": "Công ty",
+    "name": "Họ và tên",
+    "namePlaceholder": "Nguyễn Văn A",
+    "phone": "Số điện thoại",
+    "phonePlaceholder": "0901234567",
+    "email": "Email",
+    "emailPlaceholder": "ban@email.com",
+    "origin": "Điểm đón",
+    "originPlaceholder": "vd: Thanh Hoá",
+    "destination": "Điểm đến",
+    "destinationPlaceholder": "vd: Sầm Sơn, Pù Luông…",
+    "departureDate": "Ngày khởi hành",
+    "datePlaceholder": "Chọn ngày đi",
+    "days": "Số ngày (tuỳ chọn)",
+    "daysPlaceholder": "vd: 2",
+    "people": "Số người",
+    "peoplePlaceholder": "vd: 16",
+    "vehicle": "Loại xe mong muốn",
+    "vehiclePlaceholder": "vd: 16 chỗ, Limousine, giường nằm",
+    "notes": "Ghi chú (tuỳ chọn)",
+    "notesPlaceholder": "Lịch trình, điểm đón, yêu cầu thêm…",
+    "submit": "Gửi yêu cầu",
+    "submitting": "Đang gửi…"
+  },
+  "validation": {
+    "reqName": "Vui lòng nhập họ tên",
+    "reqPhone": "Vui lòng nhập số điện thoại",
+    "reqEmail": "Vui lòng nhập email",
+    "invalidEmail": "Email không hợp lệ",
+    "reqOrigin": "Vui lòng nhập điểm đón",
+    "reqDestination": "Vui lòng nhập điểm đến",
+    "reqDate": "Vui lòng chọn ngày khởi hành",
+    "reqPeople": "Vui lòng nhập số người",
+    "reqVehicle": "Vui lòng chọn loại xe",
+    "reqPeopleNum": "Vui lòng nhập số người."
+  },
+  "errors": {
+    "rateLimit": "Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau.",
+    "submitFailed": "Gửi yêu cầu thất bại. Vui lòng kiểm tra lại thông tin.",
+    "connError": "Có lỗi kết nối. Vui lòng thử lại."
+  },
+  "confirm": {
+    "title": "Đã nhận yêu cầu",
+    "desc": "Chúng tôi sẽ liên hệ với bạn sớm để tư vấn lịch trình và báo giá.",
+    "refLabel": "Mã yêu cầu",
+    "trackStatus": "Theo dõi trạng thái",
+    "goHome": "Về trang chủ"
+  },
+  "status": {
+    "refLabel": "Mã yêu cầu",
+    "finding": "Đang tìm nhà xe",
+    "matched": "Đã ghép nhà xe",
+    "done": "Hoàn tất",
+    "cancelled": "Đã hủy",
+    "unprocessable": "Không thể xử lý",
+    "operatorCardTitle": "Nhà xe phụ trách",
+    "operatorLabel": "Nhà xe",
+    "hotline": "Hotline",
+    "requestInfoTitle": "Thông tin yêu cầu",
+    "journey": "Hành trình",
+    "departDate": "Ngày đi",
+    "durationDays": "{days} ngày",
+    "people": "Số người",
+    "vehicleType": "Loại xe",
+    "contact": "Liên hệ",
+    "cancellableNote": "Bạn có thể hủy yêu cầu trong khi chúng tôi đang tìm nhà xe phù hợp.",
+    "goHome": "Về trang chủ",
+    "bookAnother": "Đặt chuyến khác"
+  },
+  "cancel": {
+    "cancel": "Hủy yêu cầu",
+    "cancelling": "Đang hủy…",
+    "alreadyAccepted": "Yêu cầu đã được nhà xe nhận hoặc đã kết thúc — không thể hủy.",
+    "cancelFailed": "Hủy yêu cầu thất bại. Vui lòng thử lại.",
+    "connError": "Có lỗi kết nối. Vui lòng thử lại."
+  }
+}

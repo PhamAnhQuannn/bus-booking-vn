@@ -1,0 +1,25 @@
+{
+  "site": {
+    "title": "Đặt vé xe khách | BBVN",
+    "description": "Tìm và đặt vé xe khách liên tỉnh trên toàn quốc."
+  },
+  "home": {
+    "title": "Đặt vé xe khách | BBVN",
+    "description": "Tìm và đặt vé xe khách liên tỉnh trên toàn quốc, đặt trong 30 giây.",
+    "searchTitle": "{origin} → {destination} | BBVN",
+    "searchDescription": "Tìm chuyến xe từ {origin} đến {destination}"
+  },
+  "routes": {
+    "title": "Tuyến đường | BBVN",
+    "description": "Khám phá các tuyến xe khách liên tỉnh đang mở bán."
+  },
+  "trip": {
+    "title": "{origin} → {destination} | BBVN",
+    "fallbackTitle": "Chuyến xe | BBVN",
+    "description": "Chuyến {origin} đi {destination} — {operator}."
+  },
+  "charter": {
+    "title": "Liên hệ đặt xe | BBVN",
+    "description": "Đặt xe du lịch, thuê xe hợp đồng — để lại thông tin, BBVN tư vấn và báo giá nhanh."
+  }
+}

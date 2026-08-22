@@ -1,8 +1,9 @@
+import { getTranslations } from 'next-intl/server';
 import { ArrowRight, BedDouble, Bus, GlassWater, MapPin, Plug, Wifi } from 'lucide-react';
 import { BookButton } from '@/components/search/BookButton';
 import { formatVnd } from '@/lib/format';
 import { type TripResult, type BoardingStop } from '@/lib/trips';
-import { BUS_TYPE_LABEL, formatTime, arrivalIso } from './search-utils';
+import { formatTime, arrivalIso } from './search-utils';
 
 export type TripCardSize = 'default' | 'expanded';
 
@@ -10,11 +11,11 @@ export type TripCardSize = 'default' | 'expanded';
 // từng chuyến — giống "Hỗ trợ 24/7". TODO: thêm cột amenities vào schema để hiển thị
 // đúng theo từng xe. Vehicle type + số chỗ ("Limousine 32 chỗ") lấy data thật bên dưới.
 const TRIP_AMENITIES = [
-  { icon: Wifi, label: 'Wi-Fi' },
-  { icon: GlassWater, label: 'Nước uống' },
-  { icon: Plug, label: 'Ổ cắm' },
-  { icon: BedDouble, label: 'Chân đắp' },
-];
+  { icon: Wifi, labelKey: 'card.amenityWifi' },
+  { icon: GlassWater, labelKey: 'card.amenityWater' },
+  { icon: Plug, labelKey: 'card.amenitySocket' },
+  { icon: BedDouble, labelKey: 'card.amenityBlanket' },
+] as const;
 
 function formatVnDayMonth(iso: string): string {
   return new Date(iso).toLocaleDateString('vi-VN', {
@@ -25,7 +26,7 @@ function formatVnDayMonth(iso: string): string {
   });
 }
 
-export function TripCard({
+export async function TripCard({
   trip,
   ticketCount,
   boardingStop,
@@ -36,12 +37,13 @@ export function TripCard({
   /** When set, this card represents ONE chosen boarding point of the trip. */
   boardingStop?: BoardingStop;
 }) {
+  const t = await getTranslations('search');
   const lowSeats = trip.availableSeats <= 5;
   const origin = boardingStop ? boardingStop.point : trip.routeOrigin;
   return (
     <article
       className="group flex flex-col gap-4 rounded-xl border border-border bg-white p-6 shadow-e1 transition-all hover:border-primary/30 hover:shadow-e2 motion-safe:hover:-translate-y-0.5"
-      aria-label={`Chuyến từ ${origin} đến ${trip.routeDestination}`}
+      aria-label={t('card.aria', { origin, destination: trip.routeDestination })}
     >
       {/* Hàng chính: giờ đi | tuyến (connector co giãn) | giờ đến | giá + CTA */}
       <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:gap-8">
@@ -79,17 +81,17 @@ export function TripCard({
         <div className="flex shrink-0 flex-col items-start gap-2 lg:items-end">
           <div className="flex items-baseline gap-1">
             <span className="font-mono text-2xl font-bold text-primary">{formatVnd(trip.price)}</span>
-            <span className="text-sm text-muted-foreground">/ 1 vé</span>
+            <span className="text-sm text-muted-foreground">{t('card.perTicket')}</span>
           </div>
           <BookButton
             tripId={trip.tripId}
             ticketCount={ticketCount}
             boardingPoint={boardingStop?.point}
             boardingTime={boardingStop?.time}
-            label="Chọn ghế"
+            label={t('card.selectSeat')}
           />
           <span className={`text-sm ${lowSeats ? 'font-medium text-destructive' : 'text-muted-foreground'}`}>
-            Còn {trip.availableSeats} chỗ trống
+            {t('card.seatsLeft', { count: trip.availableSeats })}
           </span>
         </div>
       </div>
@@ -98,12 +100,12 @@ export function TripCard({
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border pt-4 text-sm text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <Bus className="size-4 shrink-0 text-primary" aria-hidden="true" />
-          {BUS_TYPE_LABEL[trip.busType]}
+          {t(`busType.${trip.busType}`)}
         </span>
-        {TRIP_AMENITIES.map(({ icon: Icon, label }) => (
-          <span key={label} className="flex items-center gap-1.5">
+        {TRIP_AMENITIES.map(({ icon: Icon, labelKey }) => (
+          <span key={labelKey} className="flex items-center gap-1.5">
             <Icon className="size-4 shrink-0" aria-hidden="true" />
-            {label}
+            {t(labelKey)}
           </span>
         ))}
       </div>

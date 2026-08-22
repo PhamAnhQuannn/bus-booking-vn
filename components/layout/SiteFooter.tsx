@@ -18,9 +18,9 @@
  * rather than relying on anyone reading this paragraph.
  */
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Mail, Phone } from 'lucide-react';
+import { Link, usePathname } from '@/i18n/navigation';
 import { Logo } from '@/components/brand/Logo';
 
 /**
@@ -53,25 +53,25 @@ const SUPPORT_PHONE_DISPLAY =
 // slot should not carry a B2B utility link (audit F9).
 const FOOTER_COLUMNS = [
   {
-    heading: 'Về BBVN',
+    headingKey: 'footer.col.about',
     links: [
-      { href: '/tro-ly-du-lich', label: 'Trợ lý du lịch' },
-      { href: '/terms', label: 'Điều khoản dịch vụ' },
-      { href: '/privacy', label: 'Chính sách bảo mật' },
+      { href: '/tro-ly-du-lich', labelKey: 'footer.link.tripPlanner' },
+      { href: '/terms', labelKey: 'footer.link.terms' },
+      { href: '/privacy', labelKey: 'footer.link.privacy' },
     ],
   },
   {
-    heading: 'Hỗ trợ',
+    headingKey: 'footer.col.support',
     links: [
-      { href: '/chinh-sach-huy-ve-hoan-tien', label: 'Chính sách hủy/hoàn vé' },
-      { href: '/khieu-nai', label: 'Giải quyết khiếu nại' },
+      { href: '/chinh-sach-huy-ve-hoan-tien', labelKey: 'footer.link.refundPolicy' },
+      { href: '/khieu-nai', labelKey: 'footer.link.complaints' },
     ],
   },
   {
-    heading: 'Hợp tác',
+    headingKey: 'footer.col.partner',
     links: [
-      { href: '/op/register', label: 'Trở thành đối tác' },
-      { href: '/op/login', label: 'Đăng nhập nhà xe' },
+      { href: '/op/register', labelKey: 'footer.link.becomePartner' },
+      { href: '/op/login', labelKey: 'footer.link.operatorLogin' },
     ],
   },
 ] as const;
@@ -90,6 +90,7 @@ const linkClass =
 
 export function SiteFooter() {
   const pathname = usePathname();
+  const t = useTranslations('common');
   // /tro-ly-du-lich chiếm trọn viewport (chat+map, cuộn nội bộ) → không footer (P1-3, chống double-scroll).
   if (pathname.startsWith('/op') || pathname.startsWith('/dev') || pathname.startsWith('/auth') || pathname.startsWith('/admin') || pathname.startsWith('/tro-ly-du-lich'))
     return null;
@@ -106,19 +107,16 @@ export function SiteFooter() {
               it. The white knockout is what public/brand/README.md assigns to
               dark surfaces. */}
           <Logo variant="combo" mono className="h-12 w-auto" />
-          <p className="max-w-xs text-footer-muted">
-            BBVN – Nền tảng đặt vé xe khách trực tuyến. Đặt vé nhanh chóng, giá tốt, hỗ trợ
-            tận tình.
-          </p>
+          <p className="max-w-xs text-footer-muted">{t('footer.brandTagline')}</p>
         </div>
 
         {FOOTER_COLUMNS.map((col) => (
-          <nav key={col.heading} className="flex flex-col gap-3" aria-label={col.heading}>
-            <span className="font-semibold text-footer-foreground">{col.heading}</span>
+          <nav key={col.headingKey} className="flex flex-col gap-3" aria-label={t(col.headingKey)}>
+            <span className="font-semibold text-footer-foreground">{t(col.headingKey)}</span>
             <div className="flex flex-col gap-1">
               {col.links.map((l) => (
                 <Link key={l.href} href={l.href} className={linkClass}>
-                  {l.label}
+                  {t(l.labelKey)}
                 </Link>
               ))}
             </div>
@@ -133,7 +131,7 @@ export function SiteFooter() {
             (Deliberately not quoting the old literal here: greppable-invariants G7
             fails on it, which is the point.) */}
         <div className="flex flex-col gap-3">
-          <span className="font-semibold text-footer-foreground">Hỗ trợ khách hàng</span>
+          <span className="font-semibold text-footer-foreground">{t('footer.customerSupport')}</span>
           {SUPPORT_PHONE && (
             <a
               href={`tel:${SUPPORT_PHONE}`}
@@ -155,7 +153,7 @@ export function SiteFooter() {
 
       <div className="page-container">
         <div className="flex flex-col items-center justify-between gap-4 border-t border-footer-hairline py-5 text-xs text-footer-muted sm:flex-row">
-          <span>© {year} BBVN — CÔNG TY TNHH XD VT & DVTM MINH QUÂN. All rights reserved.</span>
+          <span>{t('footer.rights', { year: String(year) })}</span>
           <ul className="flex list-none items-center gap-4 p-0">
             {PAYMENT_METHODS.map((m) => (
               <li key={m} className="font-semibold uppercase tracking-wide">

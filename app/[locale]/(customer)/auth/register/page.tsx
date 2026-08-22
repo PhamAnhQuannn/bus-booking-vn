@@ -1,0 +1,328 @@
+'use client';
+
+/**
+ * /auth/register — 3-step registration:
+ *   1. Enter email → POST /api/auth/otp/send
+ *   2. Enter OTP code → POST /api/auth/otp/verify → get otpProof
+ *   3. Enter password + displayName → POST /api/auth/register → redirect home
+ */
+
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import { Mail, LogIn } from 'lucide-react';
+import { useRouter } from '@/i18n/navigation';
+import { readCsrfToken } from '@/lib/auth/csrfClient';
+import { setAccessToken, setDisplayName, setCustomerEmail } from '@/lib/auth/clientSession';
+import { safeReturnTo } from '@/lib/auth/safeReturnTo';
+import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
+import { AuthPromoCard } from '@/components/auth/AuthPromoCard';
+import { AuthSecurityFooter } from '@/components/auth/AuthSecurityFooter';
+import { PasswordField } from '@/components/auth/PasswordField';
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
+import { FormError } from '@/components/auth/FormError';
+import { authFieldClass } from '@/components/auth/authLinkClass';
+import { OtpCodeInput } from '@/components/auth/OtpCodeInput';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { cn } from '@/lib/utils';
+
+type Step = 'email' | 'otp' | 'details';
+
+const STEP_INDEX: Record<Step, number> = { email: 0, otp: 1, details: 2 };
+const STEP_SUBTITLE_KEY: Record<Step, string> = {
+  email: 'register.step1',
+  otp: 'register.step2',
+  details: 'register.step3',
+};
+
+function StepDots({ current }: { current: number }) {
+  return (
+    <div className="flex items-center gap-2" aria-hidden="true">
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className={cn(
+            'h-1.5 flex-1 rounded-full transition-colors',
+            i < current ? 'bg-primary/40' : i === current ? 'bg-primary' : 'bg-border'
+          )}
+        />
+      ))}
+    </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterPageInner />
+    </Suspense>
+  );
+}
+
+function RegisterPageInner() {
+  const t = useTranslations('auth');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnTo = safeReturnTo(searchParams.get('returnTo'));
+
+  const [step, setStep] = useState<Step>('email');
+  const [email, setEmail] = useState('');
+  const [otpProof, setOtpProof] = useState('');
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setTimeout(() => setResendIn((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
+
+  async function sendOtp(target: string): Promise<boolean> {
+    const res = await fetch('/api/auth/otp/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': readCsrfToken() },
+      body: JSON.stringify({ email: target }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      if (json.error === 'rate_limited') {
+        setResendIn(json.retryAfter ?? 30);
+        setError(t('register.rateLimitedOtp', { seconds: json.retryAfter ?? 30 }));
+      } else {
+        setError(t('register.otpSendFailed'));
+      }
+      return false;
+    }
+    return true;
+  }
+
+  async function handleSendOtp(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      if (await sendOtp(email)) {
+        setStep('otp');
+        setResendIn(30);
+      }
+    } catch {
+      setError(t('common.connError'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleResend() {
+    if (resendIn > 0 || loading) return;
+    setError('');
+    setLoading(true);
+    try {
+      if (await sendOtp(email)) setResendIn(30);
+    } catch {
+      setError(t('common.connError'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleVerifyOtp(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    const fd = new FormData(e.currentTarget);
+    const code = fd.get('code') as string;
+    try {
+      const res = await fetch('/api/auth/otp/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': readCsrfToken() },
+        body: JSON.stringify({ email, code }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        if (json.error === 'attempt_cap') {
+          setResendIn(0);
+          setError(t('register.attemptCap'));
+        } else {
+          setError(json.error === 'expired' ? t('register.otpExpired') : t('register.otpInvalid'));
+        }
+        return;
+      }
+      setOtpProof(json.otpProof);
+      setStep('details');
+    } catch {
+      setError(t('common.connError'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleRegister(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (loading) return; // #483: guard double-submit
+    setError('');
+    const fd = new FormData(e.currentTarget);
+    const password = fd.get('password') as string;
+    const displayName = (fd.get('displayName') as string) || undefined;
+    // #479: mirror the server password policy (≥8 chars, ≥1 letter, ≥1 digit) client-side, so a
+    // weak password is caught before the round-trip and the reason is specific — not the generic
+    // "Đăng ký thất bại" the server rejection used to collapse to.
+    const WEAK_PW_MSG = t('register.weakPassword');
+    if (!/^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(password)) {
+      setError(WEAK_PW_MSG);
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': readCsrfToken() },
+        body: JSON.stringify({ email, otpProof, password, displayName, acceptTerms }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setError(
+          json.error === 'EMAIL_TAKEN'
+            ? t('register.emailTaken')
+            : json.error === 'WEAK_PASSWORD'
+              ? WEAK_PW_MSG
+              : t('register.registerFailed'),
+        );
+        return;
+      }
+      setAccessToken(json.accessToken);
+      setDisplayName(json.customer?.displayName ?? displayName ?? null);
+      setCustomerEmail(json.customer?.email ?? email);
+      router.push(returnTo);
+    } catch {
+      setError(t('common.connError'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <AuthSplitLayout audience="customer" title={t('register.title')} subtitle={t(STEP_SUBTITLE_KEY[step])}>
+      <div className="flex flex-col gap-7">
+          <StepDots current={STEP_INDEX[step]} />
+          {/* AX-7: announce step advances to screen-readers (StepDots is aria-hidden). */}
+          <p className="sr-only" aria-live="polite">
+            {t(STEP_SUBTITLE_KEY[step])}
+          </p>
+
+          {step === 'email' && (
+            <form onSubmit={handleSendOtp} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="email">{t('common.emailLabel')}</Label>
+                <div className="relative">
+                  <Mail
+                    className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                  <Input
+                    id="email"
+                    type="email"
+                    name="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    autoComplete="email"
+                    placeholder={t('common.emailPlaceholder')}
+                    className={cn(authFieldClass, 'pl-10')}
+                  />
+                </div>
+              </div>
+              <FormError message={error} />
+              <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="h-12 w-full text-base">
+                {loading ? t('register.sendingOtp') : t('register.sendOtp')}
+              </Button>
+              <GoogleSignInButton returnTo={returnTo} />
+            </form>
+          )}
+
+          {step === 'otp' && (
+            <form onSubmit={handleVerifyOtp} className="flex flex-col gap-4">
+              <p className="text-sm break-words text-muted-foreground">
+                {t('register.otpSentTo', { email })}
+              </p>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="code">{t('register.otpLabel')}</Label>
+                <OtpCodeInput id="code" required autoFocus className={authFieldClass} />
+              </div>
+              <FormError message={error} />
+              <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="h-12 w-full text-base">
+                {loading ? t('register.verifying') : t('register.verify')}
+              </Button>
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                // AU-5: 44px tap floor. AU-7: fixed min-width + tabular-nums so the
+                // countdown label doesn't jitter the button width each second.
+                className="min-h-11 w-fit min-w-40 justify-center self-center tabular-nums text-primary-strong"
+                disabled={loading || resendIn > 0}
+                onClick={handleResend}
+              >
+                {resendIn > 0 ? t('register.resendIn', { seconds: resendIn }) : t('register.resend')}
+              </Button>
+            </form>
+          )}
+
+          {step === 'details' && (
+            <form onSubmit={handleRegister} className="flex flex-col gap-4">
+              <PasswordField
+                id="password"
+                name="password"
+                label={t('common.password')}
+                autoComplete="new-password"
+                required
+                minLength={8}
+                autoFocus
+                invalid={!!error}
+                revealResetKey={loading}
+              />
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="displayName">{t('register.displayNameLabel')}</Label>
+                <Input id="displayName" type="text" name="displayName" autoComplete="name" className={authFieldClass} />
+              </div>
+              {/* #472: explicit ToS/privacy consent — required to register (server enforces it too). */}
+              <div className="flex items-start gap-2.5">
+                <Checkbox
+                  id="acceptTerms"
+                  checked={acceptTerms}
+                  onCheckedChange={(checked) => setAcceptTerms(checked === true)}
+                  className="mt-0.5"
+                />
+                <Label htmlFor="acceptTerms" className="text-sm font-normal leading-snug text-muted-foreground">
+                  {t('register.acceptTerms')}
+                </Label>
+              </div>
+              <FormError message={error} />
+              <Button
+                type="submit"
+                size="lg"
+                disabled={loading || !acceptTerms}
+                aria-busy={loading}
+                className="h-12 w-full text-base"
+              >
+                {loading ? t('register.registering') : t('register.register')}
+              </Button>
+            </form>
+          )}
+
+          <AuthPromoCard
+            icon={LogIn}
+            title={t('register.haveAccountTitle')}
+            body={t('register.haveAccountBody')}
+            actionLabel={t('register.login')}
+            actionHref="/auth/login"
+          />
+          <AuthSecurityFooter />
+      </div>
+    </AuthSplitLayout>
+  );
+}

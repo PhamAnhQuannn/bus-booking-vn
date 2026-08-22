@@ -1,0 +1,92 @@
+{
+  "hero": {
+    "badge": "Đặt vé dễ dàng – Đi xe an toàn",
+    "titleLine1": "Đặt vé xe khách",
+    "titleLine2": "chỉ trong 30 giây",
+    "subtitle": "Tìm chuyến, đặt vé, nhà xe gọi xác nhận. Không cần chọn ghế trên màn hình.",
+    "noRoutes": "Hiện chưa có chuyến nào mở bán trực tuyến.",
+    "viewRoutes": "Xem các tuyến đường",
+    "plannerCtaPrefix": "Chưa biết đi đâu? ",
+    "plannerCtaText": "Lập kế hoạch chuyến đi với Trợ lý du lịch AI"
+  },
+  "section": {
+    "routeAria": "Tuyến đường",
+    "highlightsAria": "Điểm nổi bật"
+  },
+  "breadcrumb": {
+    "home": "Trang chủ"
+  },
+  "resultTagline": "An toàn – Đúng giờ – Tận tâm",
+  "feature": {
+    "paymentTitle": "Thanh toán đơn giản",
+    "paymentSub": "Chuyển khoản VietQR hoặc VNPay, thanh toán trước",
+    "emailTitle": "Xác nhận qua email",
+    "emailSub": "Thông tin chuyến đi được gửi đến email của bạn",
+    "verifiedTitle": "Nhà xe được xác minh",
+    "verifiedSub": "Mỗi nhà xe đều được duyệt trước khi mở bán vé",
+    "pickupTitle": "Đón trả tận nơi",
+    "pickupSub": "Đón tại nhà hoặc khách sạn, trả đúng điểm bạn cần"
+  },
+  "trust": {
+    "paymentTitle": "Thanh toán đơn giản",
+    "paymentSub": "Nhiều phương thức, tiện lợi và an toàn",
+    "emailTitle": "Xác nhận qua email",
+    "emailSub": "Vé điện tử gửi ngay, tiết kiệm thời gian",
+    "verifiedTitle": "Nhà xe được xác minh",
+    "verifiedSub": "Đối tác uy tín, chất lượng đảm bảo",
+    "supportTitle": "Hỗ trợ 24/7",
+    "supportSub": "Tư vấn, hỗ trợ tận tâm mọi lúc"
+  },
+  "carousel": {
+    "scrollLeft": "Cuộn sang trái",
+    "scrollRight": "Cuộn sang phải"
+  },
+  "planner": {
+    "eyebrow": "Trợ lý du lịch",
+    "titleLine1": "Lên kế hoạch chuyến đi",
+    "titleLine2Prefix": "thông minh cùng ",
+    "subcopy": "Chỉ cần chọn điểm đến, số ngày và sở thích. Trợ lý du lịch sẽ tạo lịch trình và gợi ý phương tiện phù hợp.",
+    "step1Title": "Chọn điểm đến",
+    "step1Sub": "Bạn muốn đi đâu?",
+    "step2Title": "Tạo lịch trình",
+    "step2Sub": "Chi tiết từng ngày",
+    "step3Title": "Tìm phương tiện",
+    "step3Sub": "Chuyến xe phù hợp",
+    "step4Title": "Gợi ý trải nghiệm",
+    "step4Sub": "Điểm tham quan, món ăn",
+    "cta": "Bắt đầu lập kế hoạch",
+    "chatLabel": "Ví dụ từ Trợ lý du lịch AI",
+    "chatUser": "Mình muốn đi Đà Lạt 3 ngày 2 đêm, ngân sách ~3 triệu/người",
+    "chatBot": "Tuyệt vời! Đây là lịch trình gợi ý cho bạn:",
+    "chatItineraryTitle": "Đà Lạt · 3 ngày 2 đêm",
+    "chatDay": "Ngày {n}",
+    "chatInputPlaceholder": "Bạn muốn hỏi thêm điều gì?",
+    "chatFootnote": "*Ví dụ lịch trình được tạo bởi Trợ lý du lịch"
+  },
+  "dest": {
+    "title": "Điểm đến được yêu thích",
+    "findTripTo": "Tìm chuyến đi {name}"
+  },
+  "rental": {
+    "eyebrow": "Thuê xe hợp đồng",
+    "cta": "Xem dịch vụ thuê xe",
+    "title": "Dịch vụ thuê xe cho mọi nhu cầu",
+    "copy": "Xe 4 – 45 chỗ cho nhóm, doanh nghiệp, sự kiện, du lịch, cưới hỏi…",
+    "imgAlt": "Xe hợp đồng BBVN",
+    "trust1": "Xe đời mới, sạch sẽ",
+    "trust2": "Tài xế kinh nghiệm",
+    "trust3": "Giá minh bạch",
+    "trust4": "Hỗ trợ tận tâm"
+  },
+  "trips": {
+    "title": "Tuyến đường phổ biến",
+    "findTrip": "Tìm chuyến {origin} đến {destination}",
+    "findTripWithPrice": "Tìm chuyến {origin} đến {destination}, từ {price}",
+    "fromPrice": "Từ {price}",
+    "findTicket": "Tìm vé"
+  },
+  "operators": {
+    "titleSingle": "Nhà xe đối tác",
+    "titlePlural": "Nhà xe đối tác uy tín"
+  }
+}

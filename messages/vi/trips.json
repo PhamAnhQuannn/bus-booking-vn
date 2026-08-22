@@ -1,0 +1,34 @@
+{
+  "detail": {
+    "breadcrumbHome": "Trang chủ",
+    "breadcrumbSearch": "Tìm chuyến",
+    "depart": "Khởi hành",
+    "duration": "Thời gian đi",
+    "vehicleType": "Loại xe",
+    "seatsAvailable": "Chỗ trống",
+    "operatorLabel": "Nhà xe:",
+    "boardingTitle": "Điểm đón khách",
+    "boardingNote": "Giờ đón theo từng điểm. Vui lòng có mặt trước 15 phút.",
+    "pricePerPerson": "Giá vé / người",
+    "ticketCountAria": "Số vé",
+    "decTicket": "Giảm số vé",
+    "incTicket": "Tăng số vé"
+  },
+  "notFound": {
+    "eyebrow": "Chuyến xe không khả dụng",
+    "title": "Không tìm thấy chuyến xe",
+    "desc": "Chuyến xe này không còn nhận đặt vé hoặc đã khởi hành. Hãy tìm một chuyến khác.",
+    "toSearch": "Về tìm kiếm",
+    "goHome": "Về trang chủ"
+  },
+  "routes": {
+    "title": "Tuyến đường",
+    "countOpen": "{count} tuyến đang mở bán. Chọn tuyến để xem chuyến hôm nay.",
+    "noneOpen": "Hiện chưa có tuyến nào mở bán.",
+    "searchLabel": "Tìm tuyến",
+    "searchPlaceholder": "Ví dụ: Hà Nội, Đà Nẵng…",
+    "noMatch": "Không tìm thấy tuyến phù hợp.",
+    "operatorCount": "{count} nhà xe",
+    "from": "Từ"
+  }
+}

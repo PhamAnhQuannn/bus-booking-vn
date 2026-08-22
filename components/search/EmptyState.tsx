@@ -1,7 +1,8 @@
-import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
+import { Link } from '@/i18n/navigation';
 import { formatVnDate, shiftDate } from './search-utils';
 
-export function EmptyState({
+export async function EmptyState({
   origin,
   destination,
   date,
@@ -14,6 +15,7 @@ export function EmptyState({
   ticketCount: string;
   showPrev: boolean;
 }) {
+  const t = await getTranslations('search');
   const prevDate = shiftDate(date, -1);
   const nextDate = shiftDate(date, 1);
 
@@ -25,15 +27,15 @@ export function EmptyState({
   return (
     <div className="flex flex-col items-center gap-6 py-12 text-center">
       <p className="text-lg text-muted-foreground">
-        Không tìm thấy chuyến xe cho ngày này.
+        {t('empty.notFound')}
       </p>
-      <p className="text-sm text-muted-foreground">Thử ngày khác:</p>
+      <p className="text-sm text-muted-foreground">{t('empty.tryOther')}</p>
       <div className="flex gap-3">
         {showPrev ? (
           <Link
             href={buildUrl(prevDate)}
             className="inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-muted"
-            aria-label={`Tìm ngày trước: ${formatVnDate(prevDate)}`}
+            aria-label={t('empty.findPrev', { date: formatVnDate(prevDate) })}
           >
             ← {formatVnDate(prevDate)}
           </Link>
@@ -41,7 +43,7 @@ export function EmptyState({
           <span
             className="inline-flex min-h-11 cursor-not-allowed items-center justify-center rounded-lg border border-border bg-muted/40 px-4 text-sm font-medium text-muted-foreground/40"
             aria-disabled="true"
-            aria-label="Không thể chọn ngày trong quá khứ"
+            aria-label={t('results.pastDisabled')}
           >
             ← {formatVnDate(prevDate)}
           </span>
@@ -49,7 +51,7 @@ export function EmptyState({
         <Link
           href={buildUrl(nextDate)}
           className="inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-muted"
-          aria-label={`Tìm ngày sau: ${formatVnDate(nextDate)}`}
+          aria-label={t('empty.findNext', { date: formatVnDate(nextDate) })}
         >
           {formatVnDate(nextDate)} →
         </Link>
@@ -58,7 +60,7 @@ export function EmptyState({
         href="/routes"
         className="inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-muted"
       >
-        Xem tất cả tuyến
+        {t('empty.viewAllRoutes')}
       </Link>
     </div>
   );

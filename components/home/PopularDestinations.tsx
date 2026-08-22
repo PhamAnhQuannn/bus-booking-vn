@@ -16,9 +16,10 @@
  */
 
 import { useRef } from 'react';
-import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
+import { Link } from '@/i18n/navigation';
 import { searchHref } from '@/lib/search';
 import { CardImage } from './CardImage';
 
@@ -39,6 +40,7 @@ const DESTINATIONS: Destination[] = [
 ];
 
 export function PopularDestinations() {
+  const t = useTranslations('home');
   const scrollerRef = useRef<HTMLUListElement>(null);
 
   function nudge(direction: 1 | -1) {
@@ -50,7 +52,7 @@ export function PopularDestinations() {
   return (
     <section className="page-container py-3 lg:py-4">
       <div className="mb-6 flex items-end justify-between gap-4">
-        <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Điểm đến được yêu thích</h2>
+        <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">{t('dest.title')}</h2>
         <div className="flex items-center gap-3">
           {/* 2026-07-30: a "Xem tất cả" link pointed at "/" — same page. Removed until
               a destination-index page exists. */}
@@ -58,7 +60,7 @@ export function PopularDestinations() {
             <button
               type="button"
               onClick={() => nudge(-1)}
-              aria-label="Cuộn sang trái"
+              aria-label={t('carousel.scrollLeft')}
               className="inline-flex size-11 items-center justify-center rounded-full bg-card text-muted-foreground shadow-e2 transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
             >
               <ChevronLeft className="size-5" aria-hidden="true" />
@@ -66,7 +68,7 @@ export function PopularDestinations() {
             <button
               type="button"
               onClick={() => nudge(1)}
-              aria-label="Cuộn sang phải"
+              aria-label={t('carousel.scrollRight')}
               className="inline-flex size-11 items-center justify-center rounded-full bg-card text-muted-foreground shadow-e2 transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
             >
               <ChevronRight className="size-5" aria-hidden="true" />
@@ -78,7 +80,7 @@ export function PopularDestinations() {
       <ul
         ref={scrollerRef}
         role="region"
-        aria-label="Điểm đến được yêu thích"
+        aria-label={t('dest.title')}
         className="flex snap-x snap-mandatory list-none gap-4 overflow-x-auto p-0 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {DESTINATIONS.map((d) => (
@@ -88,7 +90,7 @@ export function PopularDestinations() {
           >
             <Link
               href={searchHref(d.from, d.name)}
-              aria-label={`Tìm chuyến đi ${d.name}`}
+              aria-label={t('dest.findTripTo', { name: d.name })}
               className="group relative block aspect-video overflow-hidden rounded-xl shadow-e1 ring-1 ring-black/5 outline-none transition-all hover:shadow-e2 focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               <CardImage src={`/destinations/${d.slug}.jpg`} alt={d.name} />
