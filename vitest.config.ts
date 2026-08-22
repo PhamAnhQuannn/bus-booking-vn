@@ -13,6 +13,11 @@ export default defineConfig({
     exclude: ['node_modules', '.next', 'e2e', '**/*.int.test.ts'],
     setupFiles: ['./vitest.setup.ts'],
     reporters: ['default'],
+    // next-intl ships ESM that bare-imports `next/server` / `next/navigation`. Under pnpm's
+    // nested layout vitest's default (externalized) resolution looks for those inside
+    // next-intl's own node_modules and fails ("Cannot find module …/next-intl/…/next/server").
+    // Inlining next-intl makes vite process it and resolve next/* against the root node_modules.
+    server: { deps: { inline: [/next-intl/] } },
     // #374: Vitest's 5s default is not enough for the FIRST test in a file that pays a
     // heavy module-init cost under parallel load — chiefly @react-pdf/renderer in the
     // ticket-PDF suites. The tell is that only the first test in each file fails, at
