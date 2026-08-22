@@ -21,6 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dia_diem_config import cfg as _cfg, slug_of as _slug_of
 import anh_huong as _ah                        # sap output theo THU TU anh huong (VQS noi bo)
 import trai_nghiem as _tn                       # nhan trai nghiem (category.primary -> "Ngam canh"...)
+import hoat_dong_derive as _hd                   # "Co gi o day" suy tu loai + tag OSM (rederivation)
 import vibes as _vb                             # slug vibe: rule (category) + fold cache LLM (enrich_vibes)
 
 RAW = sys.argv[1] if len(sys.argv) > 1 else "tourism-kb/raw/da-lat/scrape"
@@ -266,6 +267,33 @@ SRC_OVT_DD = SRC.id_of("Overture Maps (khop ten diem den)", None, "aggregate", B
 SRC_WIKI_DD = SRC.id_of("Wikidata (khop toa do diem den)", None, "encyclopedia", BUILD)
 SRC_OSM_DD = SRC.id_of("OpenStreetMap (tag diem den: tourism/historic/natural)", None, "aggregate", BUILD)
 SRC_HINT_DD = SRC.id_of("Curator dat toa do (chua xac minh nguon ngoai)", None, "curated", BUILD)
+SRC_CSDL_DD = SRC.id_of("Register diem den — Cuc Du lich Quoc gia (csdl.vietnamtourism.gov.vn/dest)",
+                        None, "registry", BUILD)
+SRC_TMPL_DD = SRC.id_of("Mo ta soan tu truong co san (loai + vi tri + tham dinh)", None, "derived", BUILD)
+
+
+def _mo_ta_don_gian(rec, tham_dinh):
+    """Cau factual tu field DA CO — khong bia, khong dien dat lai nguon nao. Fallback khi
+    khong co mo_ta_wikipedia verbatim. Chi khang dinh loai + vi tri + provenance da hold."""
+    loai = (rec.get("category") or {}).get("primary") or "Điểm tham quan"
+    ad = rec.get("address") or {}
+    prov = (ad.get("province") or ad.get("city") or "").strip()
+    full = re.sub(r"\s*\([^)]*\)", "", ad.get("full_address") or "")   # bo "(nay là ...)"
+    segs = [s.strip() for s in full.split(",") if s.strip()]
+    first = segs[0] if segs else ""       # segment cu the nhat (xã/phường/đường)
+    # "xã X, tỉnh" — bo prov trung lap trong first
+    def _clean(s):
+        return s.lower().replace("tỉnh ", "").replace("thành phố ", "").strip()
+    if first and prov and _clean(prov) in _clean(first):
+        noi = first
+    elif first and prov:
+        noi = f"{first}, {prov}"
+    else:
+        noi = first or prov
+    cau = f"{loai} tại {noi}." if noi else f"{loai}."
+    if tham_dinh:
+        cau += " Điểm đến được nhà nước thẩm định."
+    return cau
 def _src_dd(src):
     lab = (src or ["curated hint"])
     lab = str(lab[0] if isinstance(lab, list) and lab else lab).lower()
@@ -275,6 +303,8 @@ def _src_dd(src):
         return SRC_WIKI_DD
     if "osm" in lab:
         return SRC_OSM_DD
+    if "csdl" in lab:
+        return SRC_CSDL_DD
     return SRC_HINT_DD
 
 diem_den = []
@@ -301,11 +331,15 @@ for r in PICKED:
         place_id_of(r["name"]), "source_node",
     )
     rec["alternate_names"] = alt
-    # description (verbatim wiki)
+    # description: verbatim wiki neu co, else template factual tu field (100% phu)
     dsc = prov_val(pid, "mo_ta_wikipedia", "encyclopedia")
     if dsc:
         rec["description"] = {"value": dsc["value"], "is_verbatim_quote": True,
                               "source_id": dsc["source_id"], "retrieved_at": dsc["retrieved_at"]}
+    else:
+        rec["description"] = {"value": _mo_ta_don_gian(rec, r.get("csdl_tham_dinh")),
+                              "is_verbatim_quote": False, "derived": "template-fields",
+                              "source_id": SRC_TMPL_DD, "retrieved_at": BUILD}
     # opening_hours
     gh = e(pid, "gio_mo_cua")
     oh = None
@@ -317,6 +351,14 @@ for r in PICKED:
             oh = parsed
             if bad:
                 rec["data_quality"]["warnings"].append("gio_mo_cua: " + gh["value"][:80])
+    if oh is None:                                 # BUG-FIX: gio_mo_cua_wikipedia truoc day bi bo
+        ghw = e(pid, "gio_mo_cua_wikipedia")       # prose VN ("mở cửa từ ... đến ..."), parse_hours khong doc duoc
+        if ghw:
+            oh = {"raw_text": ghw["value"], "regular_schedule": None,
+                  "source_id": SRC.id_of(ghw.get("source"), ghw.get("url"), None, ghw.get("date")),
+                  "retrieved_at": rong(ghw.get("date")),
+                  "note": "trích prose Wikipedia, chưa cấu trúc — gọi xác nhận trước khi đi"}
+            rec["data_quality"]["warnings"].append("gio_mo_cua (Wikipedia prose): " + ghw["value"][:80])
     # ticketing: giu HET gia tham khao
     tickets = []
     for f in ("gia_ve", "gia_ve_tham_khao", "gia_ve_wikipedia"):
@@ -360,6 +402,8 @@ for r in PICKED:
     rec["ext"] = {"destination": {
         "trai_nghiem": _tn.nhan_trai_nghiem(rec["category"]["primary"]),  # derived tu category (khong source_id)
         "trai_nghiem_nguon": "category",                                  # tang 2 override -> "fsq"/"overture"
+        "hoat_dong": _hd.hoat_dong(rec["category"]["primary"], r.get("tags") or {}),  # "Co gi o day" derived loai+tag
+        "hoat_dong_nguon": "loại hình + tag OSM",                         # rederivation, khong claim rieng (nhu trai_nghiem)
         "vibes": _vibes_v,                                                # slug vibe roi rac (VIBE_VOCAB)
         "vibes_nguon": _vibes_ng,                                         # rule | llm | rule+llm | none
         "opening_hours": oh,
@@ -372,6 +416,8 @@ for r in PICKED:
         "media": media,
         "map": {"google_maps_url": "https://www.google.com/maps/search/?api=1&query={},{}".format(r["lat"], r["lon"]),
                 "nearest_main_road": road_v},
+        # None = khong tim thay trong register (khong khang dinh "khong duoc cong nhan")
+        "nha_nuoc_tham_dinh": True if r.get("csdl_tham_dinh") else None,
     }}
     # warnings + verification meta tu enrichment
     cb = e(pid, "canh_bao_website")
@@ -384,6 +430,8 @@ for r in PICKED:
     _dd = finalize(rec)
     if not _dd.get("source_ids"):                 # hint-only / chua enrich -> seed source tu resolver
         _dd["source_ids"] = [_src_dd(r.get("src"))]
+    if r.get("csdl_tham_dinh") and SRC_CSDL_DD not in _dd["source_ids"]:
+        _dd["source_ids"].append(SRC_CSDL_DD)     # register nha nuoc = nguon chung thuc
     diem_den.append(_dd)
 
 # ── 2. nha hang ────────────────────────────────────────────────────────────

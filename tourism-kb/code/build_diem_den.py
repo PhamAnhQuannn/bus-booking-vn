@@ -36,6 +36,7 @@ CAT_TIER = {
     "Thác nước": 1.0, "Hồ / Đập": 1.0, "Chùa / Thiền viện": 1.0, "Nhà thờ": 1.0,
     "Bảo tàng": 1.0, "Dinh thự / Di tích": 1.0, "Công viên / Vườn hoa": 1.0,
     "Bãi biển": 1.0, "Điểm ngắm cảnh": 1.0, "Khu vui chơi": 1.0, "Cáp treo": 1.0,
+    "Khu du lịch giải trí (vui chơi trả phí)": 1.0,
     "Hang động": 1.0, "Đảo": 1.0, "Vườn quốc gia / Khu bảo tồn": 1.0, "Điểm tham quan": 0.9,
     "Đền / Miếu": 0.9, "Suối nước nóng": 0.8,
     "Chợ / Mua sắm": 0.8, "Núi / Đèo / Đường mòn": 0.6, "Khác": 0.1,
@@ -52,10 +53,21 @@ def _tho_loai(name):
     return "Chùa / Thiền viện"   # chua/thien vien/tu/pagoda/monastery mac dinh
 
 
+# KDL giai tri tra phi — seed famous mis-tag (Dai Nam la tourism=attraction, khong phai
+# theme_park) + keyword. Hep, do-dem (rule hit-rate); KHONG dung "khu du lich" rong.
+_GIAITRI_SUB = ("cong vien nuoc", "theme park", "cong vien giai tri")
+_GIAITRI_SEED = ("dai nam", "suoi tien", "dam sen", "vinwonders", "vinpearl", "ba na",
+                 "suoi vang", "sun world", "asia park", "grand world")
+_LOAI_GIAITRI = "Khu du lịch giải trí (vui chơi trả phí)"
+
+
 def map_loai(tags, name):
     """OSM tags -> loai_vn (uu tien place>tourism-cu the>historic>natural>leisure>worship).
     Tra None -> bo (khong phai diem den: coastline linear, historic=yes mo ho, artwork nho...)."""
     t = tags
+    fn = fold(name)
+    if any(s in fn for s in _GIAITRI_SUB) or any(s in fn for s in _GIAITRI_SEED):
+        return _LOAI_GIAITRI                          # A2: seed ten (bat ca ban mis-tag)
     if t.get("place") in ("island", "islet"):
         return "Đảo"
     tr = t.get("tourism")
@@ -63,7 +75,9 @@ def map_loai(tags, name):
         return "Bảo tàng"
     if tr == "viewpoint":
         return "Điểm ngắm cảnh"
-    if tr in ("theme_park", "zoo", "aquarium", "water_park"):
+    if tr in ("theme_park", "water_park"):
+        return _LOAI_GIAITRI                          # A1: theme/water park -> loai moi
+    if tr in ("zoo", "aquarium"):
         return "Khu vui chơi"
     if tr == "attraction":
         return "Điểm tham quan"
@@ -259,6 +273,31 @@ for r in osm:
 print("ung vien OSM (da map loai): %d  (bo khong-loai: %d, clip ngoai tinh: %d)"
       % (len(cand), _no_loai, _clipped))
 
+# ── 1b. ung vien NET-NEW tu CSDL /dest (da geocode) — chi dong khong trung OSM song
+# qua dedup §2; in_boundary loai geocode sai tinh (guard that, khong tin geocode dung tinh). ──
+_csdl_p = os.path.join(RAW, "csdl_dest.json")
+_csdl_add = _csdl_clip = 0
+if os.path.exists(_csdl_p):
+    for r in json.load(io.open(_csdl_p, encoding="utf-8")):
+        name = (r.get("ten") or "").strip()
+        lat, lon = r.get("lat"), r.get("lon")
+        if not name or lat is None or lon is None or not core(name):
+            continue
+        if any(x in fold(name) for x in EXCLUDE_NAME) or fold(name) in DROP_NAMES:
+            continue
+        if not in_boundary(float(lon), float(lat), BOUNDARY):
+            _csdl_clip += 1
+            continue
+        cand.append({
+            "name": name, "lat": float(lat), "lon": float(lon),
+            "loai_vn": r.get("loai_vn") or "Điểm tham quan", "loai_phu": [],
+            "src": ["CSDL"], "tags": {}, "conf": None, "kind": None,
+            "web": None, "tel": None, "addr": r.get("dia_chi"), "closed": "", "alt": [],
+            "csdl_tham_dinh": "nhà nước",
+        })
+        _csdl_add += 1
+    print("ung vien CSDL net-new: +%d  (clip ngoai ranh: %d)" % (_csdl_add, _csdl_clip))
+
 # ── 2. dedup theo fold-name + proximity ────────────────────────────────────
 cand.sort(key=lambda c: (c.get("conf") or 0), reverse=True)
 kept = []
@@ -288,6 +327,8 @@ for c in kept:
     c["allow"] = any(a in f for a in C["allowlist"])
     c["area"] = area_of(c["lat"], c["lon"])
     c["score"] = osm_score(c["loai_vn"], c.get("tags") or {})
+    if c.get("csdl_tham_dinh"):                 # net-new nha nuoc = notable -> boost qua nguong
+        c["score"] = min(1.0, c["score"] + 0.30)
 
 # ── 4. chon ADAPTIVE: allowlist force + threshold score, KHONG san (cho phep 0) ──
 # Bo TARGET=36 cung: moi tinh co so diem TU NHIEN rieng. Giu MOI candidate score>=SCORE_MIN
@@ -352,7 +393,28 @@ for i, c in enumerate(picked):
     c["conf"] = c.get("conf")
     c["kinds"] = [c["kind"]] if c.get("kind") else []
     c["nhom"] = "chinh"
-    c["csdl_gia_min"] = c["csdl_gia_max"] = c["csdl_tham_dinh"] = None
+    c["csdl_gia_min"] = c["csdl_gia_max"] = None
+    c["csdl_tham_dinh"] = c.get("csdl_tham_dinh")   # giu co net-new §1b; §5b se set them cho OSM
+
+# ── 5b. overlay CSDL: co "nha nuoc tham dinh" cho diem trung register /dest (cung tinh) ──
+# csdl_dest.json KHONG co toa do -> match theo ten (fold + core token), trong 1 tinh.
+# Chi la co provenance (rui ro thap); parse_csdl_dest.py da bucket theo slug.
+_csdl_path = os.path.join(RAW, "csdl_dest.json")
+if os.path.exists(_csdl_path):
+    _csdl = json.load(io.open(_csdl_path, encoding="utf-8"))
+    _cidx = [(fold(r["ten"]), core(r["ten"])) for r in _csdl if r.get("ten")]
+    _n_ov = 0
+    for c in picked:
+        cf, cc = fold(c["name"]), core(c["name"])
+        # PRECISION > recall: co provenance sai = claim bia. Chi khop khi ten trung that:
+        # fold bang nhau HOAC tap token-rieng bang nhau (>=2 token, tranh "Chua Ba" trung nhieu).
+        for kf, kc in _cidx:
+            if cf == kf or (cc and cc == kc and len(cc) >= 2):
+                c["csdl_tham_dinh"] = "nhà nước"
+                _n_ov += 1
+                break
+    print("CSDL overlay: %d/%d diem co nha nuoc tham dinh (nguon /dest: %d)"
+          % (_n_ov, len(picked), len(_csdl)))
 
 # id: theo (area, min tu tam)
 picked.sort(key=lambda c: (c["area"], c["min"]))
