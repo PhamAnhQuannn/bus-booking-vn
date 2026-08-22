@@ -43,6 +43,24 @@ function createPrismaClient(): PrismaClient {
   });
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+function getPrisma(): PrismaClient {
+  return (globalForPrisma.prisma ??= createPrismaClient());
+}
 
-globalForPrisma.prisma = prisma;
+// Lazy singleton: importing this module must NEVER read DATABASE_URL or build the
+// pool. `next build` collects page data by importing every route module, and a real
+// DATABASE_URL exists only at request time (absent on Vercel Preview / CI builds) —
+// an eager `createPrismaClient()` here threw "DATABASE_URL not set" during collection
+// and failed the whole build. The client is now created on first actual property
+// access (i.e. first query), so the guard fires at request time when the URL is truly
+// needed. Methods are bound to the real client so Prisma's internal `this` is intact.
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    const client = getPrisma();
+    const value = Reflect.get(client, prop, client);
+    return typeof value === 'function' ? value.bind(client) : value;
+  },
+  has(_target, prop) {
+    return prop in getPrisma();
+  },
+});
