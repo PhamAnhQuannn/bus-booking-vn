@@ -30,6 +30,9 @@ let warnSpy: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   savedEnv = { ...process.env };
   warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  // #643: strictness now keys off VERCEL_ENV (falling back to NODE_ENV when unset).
+  // Clear any ambient VERCEL_ENV so tests that drive strictness via NODE_ENV are deterministic.
+  delete process.env.VERCEL_ENV;
   _resetEnvCache();
 });
 
@@ -80,6 +83,41 @@ describe('getEnv — production STORAGE_STUB fail-fast (SEC-DEV-STUB-PROD-SAFETY
       STORAGE_SECRET_KEY: 'sk',
     });
     expect(() => getEnv()).not.toThrow();
+  });
+});
+
+describe('getEnv — VERCEL_ENV preview tier is non-strict (#643)', () => {
+  it('does NOT throw on a preview deploy missing prod secrets + STORAGE_STUB=true', () => {
+    // Vercel sets NODE_ENV=production for preview builds too; VERCEL_ENV is the real discriminator.
+    Object.assign(process.env, BASE, {
+      NODE_ENV: 'production',
+      VERCEL_ENV: 'preview',
+      PAYMENTS_STUB: 'true',
+      STORAGE_STUB: 'true',
+    });
+    // Deliberately NO PROD_SECRETS set.
+    expect(() => getEnv()).not.toThrow();
+  });
+
+  it('STILL throws on a real production deploy (VERCEL_ENV=production) missing secrets', () => {
+    Object.assign(process.env, BASE, {
+      NODE_ENV: 'production',
+      VERCEL_ENV: 'production',
+      PAYMENTS_STUB: 'true',
+      STORAGE_STUB: 'true',
+    });
+    // Missing PROD_SECRETS + STORAGE_STUB=true → the strict block fires.
+    expect(() => getEnv()).toThrow(/required in production|STORAGE_STUB must be false/);
+  });
+
+  it('falls back to NODE_ENV when VERCEL_ENV is unset (self-host parity)', () => {
+    Object.assign(process.env, BASE, {
+      NODE_ENV: 'production',
+      PAYMENTS_STUB: 'true',
+      STORAGE_STUB: 'true',
+    });
+    delete process.env.VERCEL_ENV;
+    expect(() => getEnv()).toThrow(/required in production|STORAGE_STUB must be false/);
   });
 });
 
