@@ -1,8 +1,9 @@
 'use client';
 
 import { type FormEvent, useEffect, useId, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { MapPin, ArrowLeftRight, ArrowRight, Minus, Plus, Loader2 } from 'lucide-react';
+import { useRouter } from '@/i18n/navigation';
 import { Button } from '@/components/ui/button';
 import { PlaceCombobox } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -16,6 +17,7 @@ export function SearchForm({
   orientation?: 'vertical' | 'horizontal';
 }) {
   const router = useRouter();
+  const t = useTranslations('search');
   const formId = useId();
   const horizontal = orientation === 'horizontal';
 
@@ -60,15 +62,15 @@ export function SearchForm({
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!o.trim() || !d.trim()) {
-      setError('Vui lòng nhập điểm đi và điểm đến.');
+      setError(t('form.errRequired'));
       return;
     }
     if (sameCity) {
-      setError('Điểm đi và điểm đến không được trùng nhau.');
+      setError(t('form.errSame'));
       return;
     }
     if (!dt || dt < todayVN) {
-      setError('Vui lòng chọn ngày đi hợp lệ.');
+      setError(t('form.errDate'));
       return;
     }
     setError(null);
@@ -104,11 +106,11 @@ export function SearchForm({
       {isPending ? (
         <>
           <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-          Đang tìm…
+          {t('form.searching')}
         </>
       ) : (
         <>
-          Tìm chuyến xe
+          {t('form.submit')}
           <ArrowRight className="size-4" aria-hidden="true" data-icon="inline-end" />
         </>
       )}
@@ -120,7 +122,7 @@ export function SearchForm({
       <form
         id={formId}
         onSubmit={handleSubmit}
-        aria-label="Tìm chuyến xe"
+        aria-label={t('form.aria')}
         noValidate
         className={
           horizontal
@@ -136,10 +138,10 @@ export function SearchForm({
         {horizontal ? (
           <div className="flex flex-col gap-1.5 md:flex-1">
             <label htmlFor={`${formId}-origin`} className="sr-only">
-              Điểm xuất phát
+              {t('form.originShort')}
             </label>
             <label htmlFor={`${formId}-destination`} className="sr-only">
-              Điểm đến
+              {t('form.destination')}
             </label>
             <div className="relative flex flex-col gap-2 sm:flex-row sm:gap-2">
               <div className="relative flex-1 overflow-hidden rounded-lg border border-input focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
@@ -149,7 +151,7 @@ export function SearchForm({
                   items={places}
                   value={o}
                   onValueChange={setOrigin}
-                  placeholder="Nhập điểm xuất phát"
+                  placeholder={t('form.originPlaceholder')}
                   className="border-0 rounded-none pl-9 focus-visible:ring-0 focus-visible:outline-none"
                   required
                   maxLength={50}
@@ -160,7 +162,7 @@ export function SearchForm({
               <button
                 type="button"
                 onClick={handleSwap}
-                aria-label="Đổi chiều điểm đi và điểm đến"
+                aria-label={t('form.swap')}
                 className={`absolute left-1/2 top-1/2 z-10 flex size-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-primary shadow-e2 transition-all duration-300 hover:scale-105 hover:bg-primary/5 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none ${swapped ? 'rotate-180' : ''}`}
               >
                 <ArrowLeftRight className="size-4 rotate-90 sm:rotate-0" aria-hidden="true" />
@@ -172,7 +174,7 @@ export function SearchForm({
                   items={places}
                   value={d}
                   onValueChange={setDestination}
-                  placeholder="Nhập điểm đến"
+                  placeholder={t('form.destinationPlaceholder')}
                   className="border-0 rounded-none pl-9 focus-visible:ring-0 focus-visible:outline-none"
                   required
                   maxLength={50}
@@ -186,7 +188,7 @@ export function SearchForm({
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3 xl:min-w-0 xl:flex-1">
             <div className="flex flex-col gap-1.5 sm:flex-1 xl:min-w-0">
               <label htmlFor={`${formId}-origin`} className="text-sm font-medium">
-                Điểm đi
+                {t('form.origin')}
               </label>
               <div className="relative w-full overflow-hidden rounded-lg border border-input focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 md:min-h-[54px]">
                 <MapPin className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
@@ -195,7 +197,7 @@ export function SearchForm({
                   items={places}
                   value={o}
                   onValueChange={setOrigin}
-                  placeholder="Nhập điểm xuất phát"
+                  placeholder={t('form.originPlaceholder')}
                   className="border-0 rounded-none pl-9 focus-visible:ring-0 focus-visible:outline-none md:h-[52px]"
                   required
                   maxLength={50}
@@ -212,7 +214,7 @@ export function SearchForm({
                 <button
                   type="button"
                   onClick={handleSwap}
-                  aria-label="Đổi chiều điểm đi và điểm đến"
+                  aria-label={t('form.swap')}
                   className={`z-10 flex size-11 shrink-0 items-center justify-center rounded-full border border-border bg-card text-primary shadow-e2 transition-all duration-300 hover:scale-105 hover:bg-primary/5 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none ${swapped ? 'rotate-180' : ''}`}
                 >
                   <ArrowLeftRight className="size-4 rotate-90 sm:rotate-0" aria-hidden="true" />
@@ -221,7 +223,7 @@ export function SearchForm({
             </div>
             <div className="flex flex-col gap-1.5 sm:flex-1 xl:min-w-0">
               <label htmlFor={`${formId}-destination`} className="text-sm font-medium">
-                Điểm đến
+                {t('form.destination')}
               </label>
               <div className="relative w-full overflow-hidden rounded-lg border border-input focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 md:min-h-[54px]">
                 <MapPin className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
@@ -230,7 +232,7 @@ export function SearchForm({
                   items={places}
                   value={d}
                   onValueChange={setDestination}
-                  placeholder="Nhập điểm đến"
+                  placeholder={t('form.destinationPlaceholder')}
                   className="border-0 rounded-none pl-9 focus-visible:ring-0 focus-visible:outline-none md:h-[52px]"
                   required
                   maxLength={50}
@@ -252,14 +254,14 @@ export function SearchForm({
         >
           <div className="flex flex-col gap-1.5">
             <label htmlFor={`${formId}-date`} className={horizontal ? 'sr-only' : 'text-sm font-medium'}>
-              Ngày đi
+              {t('form.date')}
             </label>
             <DatePicker
               id={`${formId}-date`}
               value={dt}
               min={todayVN}
               onValueChange={setDate}
-              placeholder="Chọn ngày đi"
+              placeholder={t('form.datePlaceholder')}
               className={horizontal ? undefined : 'md:min-h-[54px]'}
               aria-required="true"
               aria-invalid={dateInvalid || undefined}
@@ -268,7 +270,7 @@ export function SearchForm({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <span className={horizontal ? 'sr-only' : 'text-sm font-medium'}>Số vé</span>
+            <span className={horizontal ? 'sr-only' : 'text-sm font-medium'}>{t('form.ticketCount')}</span>
             <div
               className={`flex min-h-[46px] items-center justify-between rounded-lg border border-input px-1 ${horizontal ? '' : 'md:min-h-[54px]'}`}
             >
@@ -276,7 +278,7 @@ export function SearchForm({
                 type="button"
                 onClick={() => setTicketCount(Math.max(1, tcNum - 1))}
                 disabled={tcNum <= 1}
-                aria-label="Giảm số vé"
+                aria-label={t('form.decTicket')}
                 className="flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
               >
                 <Minus className="size-4" aria-hidden="true" />
@@ -286,7 +288,7 @@ export function SearchForm({
                 aria-live="polite"
                 aria-atomic="true"
                 className="min-w-6 select-none text-center text-base font-semibold tabular-nums"
-                aria-label={`${tcNum} vé`}
+                aria-label={t('form.ticketAria', { count: tcNum })}
               >
                 {tcNum}
               </span>
@@ -294,7 +296,7 @@ export function SearchForm({
                 type="button"
                 onClick={() => setTicketCount(Math.min(10, tcNum + 1))}
                 disabled={tcNum >= 10}
-                aria-label="Tăng số vé"
+                aria-label={t('form.incTicket')}
                 className="flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
               >
                 <Plus className="size-4" aria-hidden="true" />

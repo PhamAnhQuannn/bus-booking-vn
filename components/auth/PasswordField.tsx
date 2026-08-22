@@ -8,6 +8,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Lock, Eye, EyeOff } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -39,7 +40,7 @@ export function PasswordField({
   id,
   name,
   label,
-  placeholder = 'Nhập mật khẩu',
+  placeholder,
   autoComplete = 'current-password',
   required,
   minLength,
@@ -50,6 +51,7 @@ export function PasswordField({
   className,
   revealResetKey,
 }: Props) {
+  const t = useTranslations('auth');
   const [show, setShow] = useState(false);
   // #490: force-hide when the parent bumps revealResetKey (e.g. across a submit). React's
   // "adjust state during render on a prop change" pattern — no effect, no cascading render.
@@ -76,7 +78,7 @@ export function PasswordField({
           disabled={disabled}
           autoFocus={autoFocus}
           autoComplete={autoComplete}
-          placeholder={placeholder}
+          placeholder={placeholder ?? t('field.passwordPlaceholder')}
           aria-invalid={invalid || undefined}
           aria-describedby={describedBy}
           className={cn(authFieldClass, 'pl-10 pr-12', className)}
@@ -84,7 +86,7 @@ export function PasswordField({
         <button
           type="button"
           onClick={() => setShow((v) => !v)}
-          aria-label={show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+          aria-label={show ? t('field.hidePassword') : t('field.showPassword')}
           aria-pressed={show}
           // #488: 44px tap target (was size-9 = 36px, below the AU-5 / WCAG 2.5.5 minimum).
           className="absolute right-0.5 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"

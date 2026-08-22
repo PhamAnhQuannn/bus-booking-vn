@@ -1,0 +1,101 @@
+{
+  "form": {
+    "aria": "Tìm chuyến xe",
+    "submit": "Tìm chuyến xe",
+    "searching": "Đang tìm…",
+    "origin": "Điểm đi",
+    "originShort": "Điểm xuất phát",
+    "destination": "Điểm đến",
+    "originPlaceholder": "Nhập điểm xuất phát",
+    "destinationPlaceholder": "Nhập điểm đến",
+    "swap": "Đổi chiều điểm đi và điểm đến",
+    "date": "Ngày đi",
+    "datePlaceholder": "Chọn ngày đi",
+    "ticketCount": "Số vé",
+    "decTicket": "Giảm số vé",
+    "incTicket": "Tăng số vé",
+    "ticketAria": "{count} vé",
+    "errRequired": "Vui lòng nhập điểm đi và điểm đến.",
+    "errSame": "Điểm đi và điểm đến không được trùng nhau.",
+    "errDate": "Vui lòng chọn ngày đi hợp lệ."
+  },
+  "sort": {
+    "label": "Sắp xếp",
+    "departure_asc": "Giờ đi sớm nhất",
+    "price_asc": "Giá thấp → cao",
+    "price_desc": "Giá cao → thấp",
+    "duration_asc": "Đi nhanh nhất"
+  },
+  "busType": {
+    "coach": "Ghế ngồi",
+    "sleeper": "Giường nằm",
+    "limousine": "Limousine"
+  },
+  "window": {
+    "morning": "Sáng (5–11h)",
+    "afternoon": "Chiều (11–17h)",
+    "evening": "Tối (17–22h)",
+    "night": "Đêm (22–5h)"
+  },
+  "filter": {
+    "title": "Bộ lọc",
+    "sheetTitle": "Bộ lọc chuyến xe",
+    "operator": "Nhà xe",
+    "allOperators": "Tất cả nhà xe",
+    "busTypeLabel": "Loại xe",
+    "departureTime": "Giờ khởi hành",
+    "maxDuration": "Thời gian đi tối đa",
+    "price": "Giá vé (đ)",
+    "priceMin": "Giá tối thiểu",
+    "priceMax": "Giá tối đa",
+    "clear": "Xóa bộ lọc",
+    "button": "Bộ lọc",
+    "viewResults": "Xem kết quả",
+    "activeAria": "Bộ lọc đang áp dụng",
+    "removeChip": "Bỏ lọc: {label}"
+  },
+  "results": {
+    "prev": "Trước",
+    "next": "Sau",
+    "prevDay": "Ngày trước: {date}",
+    "nextDay": "Ngày sau: {date}",
+    "pastDisabled": "Không thể chọn ngày trong quá khứ",
+    "heading": "Các chuyến xe hôm nay",
+    "showingPrefix": "Hiển thị",
+    "nounPickup": "điểm đón",
+    "nounTrip": "chuyến xe",
+    "noMatch": "Không có chuyến nào khớp bộ lọc. Hãy bỏ bớt bộ lọc.",
+    "loadMore": "Xem thêm chuyến →",
+    "loadMoreAria": "Xem thêm chuyến xe (trang sau)"
+  },
+  "card": {
+    "aria": "Chuyến từ {origin} đến {destination}",
+    "perTicket": "/ 1 vé",
+    "seatsLeft": "Còn {count} chỗ trống",
+    "selectSeat": "Chọn ghế",
+    "amenityWifi": "Wi-Fi",
+    "amenityWater": "Nước uống",
+    "amenitySocket": "Ổ cắm",
+    "amenityBlanket": "Chân đắp"
+  },
+  "book": {
+    "bookTicket": "Đặt vé",
+    "aria": "{label} chuyến này"
+  },
+  "empty": {
+    "notFound": "Không tìm thấy chuyến xe cho ngày này.",
+    "tryOther": "Thử ngày khác:",
+    "findPrev": "Tìm ngày trước: {date}",
+    "findNext": "Tìm ngày sau: {date}",
+    "viewAllRoutes": "Xem tất cả tuyến"
+  },
+  "trust": {
+    "aria": "Thông tin nhà xe và hỗ trợ",
+    "approved": "Nhà xe đã được duyệt",
+    "title": "Đặt vé an tâm",
+    "point1": "Nhà xe được duyệt trước khi mở bán vé",
+    "point2": "Thanh toán trước qua VietQR hoặc VNPay",
+    "refundLink": "Chính sách hủy vé & hoàn tiền",
+    "supportLabel": "Hỗ trợ: "
+  }
+}

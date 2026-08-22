@@ -7,6 +7,7 @@
  * day-header band + accent ngày active. Font: name 15/22, day-header 13.5 uppercase.
  */
 
+import { useTranslations } from 'next-intl';
 import type { PlannerDto, DtoItem } from '@/trip-planner/lib/planner/itineraryDto';
 import { cityName } from '@/trip-planner/lib/planner/cities';
 import { displayCategory, itemBadge, areaLabel, nights } from '@/trip-planner/lib/planner/labels';
@@ -20,8 +21,6 @@ type Props = {
   hrefPdf?: string; // link /lich-trinh?… để "Xuất PDF" + "Chia sẻ" (mock header actions)
 };
 
-const BUOI: Record<DtoItem['buoi'], string> = { sang: 'Sáng', trua: 'Trưa', chieu: 'Chiều', toi: 'Tối' };
-const PACE: Record<string, string> = { relaxed: 'thư giãn', moderate: 'vừa phải', packed: 'dày' };
 const INK = '#1E2433', SOFT = '#6B7280', FAINT = '#9AA0AC';
 
 // spine + day-band CSS (scoped v5-*). Spine chạy qua tâm order-circle (left 24 = px-3 + nửa circle).
@@ -33,12 +32,13 @@ const CARD_CSS = `
 `;
 
 function Badge({ it }: { it: DtoItem }) {
+  const t = useTranslations('planner');
   const b = itemBadge(it);
   if (b.tone === 'ok') {
     return (
       <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold"
         style={{ background: 'rgba(46,158,107,.14)', color: '#157347' }}>
-        ✓ Mở <span className="tabular-nums">{b.hours}</span>
+        ✓ {t('itinerary.badgeOpen')} <span className="tabular-nums">{b.hours}</span>
       </span>
     );
   }
@@ -52,25 +52,26 @@ function Badge({ it }: { it: DtoItem }) {
         className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold hover:bg-primary/15"
         style={{ color: 'var(--primary,#F0561D)' }}
       >
-        Giờ mở trên Google ↗
+        {t('itinerary.hoursOnGoogle')}
       </a>
     );
   }
   return (
     <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold" style={{ color: SOFT }}
-      title={b.label === 'Nên gọi trước' ? 'Chưa có giờ mở xác minh — vui lòng gọi trước' : undefined}>
+      title={b.label === 'Nên gọi trước' ? t('itinerary.callAheadTitle') : undefined}>
       {b.label}
     </span>
   );
 }
 
 function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: number; active: boolean; onHoverItem: Props['onHoverItem']; hotelKm?: number | null }) {
+  const t = useTranslations('planner');
   return (
     <>
       {it.leg_from_prev ? (
         // travel-leg: tầng FAINT (nhạt hơn metadata), nằm trên spine
         <div className="py-1 pl-9 text-xs font-semibold" style={{ color: FAINT }}>
-          🚗 {it.leg_from_prev.minutes} phút · <span className="tabular-nums">{it.leg_from_prev.km}km</span>
+          🚗 {t('itinerary.legMinutes', { minutes: it.leg_from_prev.minutes })} · <span className="tabular-nums">{it.leg_from_prev.km}km</span>
         </div>
       ) : null}
       <div
@@ -85,14 +86,14 @@ function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: numb
         </span>
         <div className="min-w-0 flex-1">
           <div>
-            <span className="mr-1.5 text-xs font-semibold" style={{ color: SOFT }}>{BUOI[it.buoi]}</span>
+            <span className="mr-1.5 text-xs font-semibold" style={{ color: SOFT }}>{t(`itinerary.buoi.${it.buoi}`)}</span>
             {/* place name = tầng INK, 15/22 semibold (backbone) */}
             <span className="text-[15px] font-semibold leading-snug" style={{ color: INK }}>{it.name}</span>
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs" style={{ color: SOFT }}>
             <span>{displayCategory(it)}</span>
             <Badge it={it} />
-            {hotelKm != null ? <span className="whitespace-nowrap">📍 cách KS ~<span className="tabular-nums">{hotelKm}</span>km</span> : null}
+            {hotelKm != null ? <span className="whitespace-nowrap">📍 {t('itinerary.fromHotelShort', { km: hotelKm })}</span> : null}
           </div>
         </div>
       </div>
@@ -112,6 +113,7 @@ function havKm(aLat: number, aLon: number, bLat: number, bLon: number): number {
 const HEADER_ACTIONS = { enabled: false };
 
 export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleDay, hrefPdf }: Props) {
+  const t = useTranslations('planner');
   // Lưu chuyến đi (localStorage) + Chia sẻ (navigator.share/clipboard) — mock header actions.
   function saveTrip() {
     try {
@@ -119,17 +121,19 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
       const entry = { slug: dto.slug, tripDays: dto.tripDays, href: hrefPdf ?? '', savedAt: Date.now() };
       const next = [entry, ...(Array.isArray(arr) ? arr : []).filter((x: { slug?: string; tripDays?: number }) => !(x.slug === dto.slug && x.tripDays === dto.tripDays))].slice(0, 20);
       localStorage.setItem('bbvn_saved_trips', JSON.stringify(next));
-      alert('Đã lưu chuyến đi vào thiết bị này.');
+      alert(t('itinerary.savedAlert'));
     } catch { /* quota */ }
   }
   async function shareTrip() {
     const url = hrefPdf ? new URL(hrefPdf, location.origin).href : location.href;
-    const title = `Lịch trình ${cityName(dto.slug)} ${dto.tripDays} ngày`;
+    const title = t('itinerary.shareTitle', { city: cityName(dto.slug), days: dto.tripDays });
     try {
       if (typeof navigator !== 'undefined' && navigator.share) await navigator.share({ title, url });
-      else { await navigator.clipboard.writeText(url); alert('Đã sao chép liên kết chia sẻ.'); }
+      else { await navigator.clipboard.writeText(url); alert(t('itinerary.sharedAlert')); }
     } catch { /* user huỷ / không hỗ trợ */ }
   }
+
+  const paceText = t.has(`itinerary.pace.${dto.pace}`) ? t(`itinerary.pace.${dto.pace}`) : dto.pace;
 
   let verified = 0, total = 0;
   dto.days.forEach((d) => d.items.forEach((i) => { total++; if (!i.goi_truoc && i.gio_mo) verified++; }));
@@ -146,32 +150,32 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
 
       {/* TITLE block — hairline #1 dưới đây */}
       <div className="border-b border-border px-4 pb-3 pt-4">
-        <h3 className="text-base font-semibold" style={{ color: INK }}>🏔 {cityName(dto.slug)} · {dto.tripDays} ngày {nights(dto.tripDays)} đêm</h3>
+        <h3 className="text-base font-semibold" style={{ color: INK }}>{t('itinerary.title', { city: cityName(dto.slug), days: dto.tripDays, nights: nights(dto.tripDays) })}</h3>
         <p className="mt-1 text-[13px]" style={{ color: SOFT }}>
-          {dto.party.adults} người lớn
-          {dto.party.children ? ` · ${dto.party.children} trẻ nhỏ` : ''}
-          {dto.party.elders ? ` · ${dto.party.elders} người lớn tuổi` : ''}
-          {' · '}Nhịp độ: {PACE[dto.pace] ?? dto.pace} · Dữ liệu cập nhật {dto.generated_from}
+          {t('itinerary.adults', { count: dto.party.adults })}
+          {dto.party.children ? ` · ${t('itinerary.children', { count: dto.party.children })}` : ''}
+          {dto.party.elders ? ` · ${t('itinerary.elders', { count: dto.party.elders })}` : ''}
+          {' · '}{t('itinerary.paceLabel', { pace: paceText })} · {t('itinerary.dataUpdated', { source: dto.generated_from })}
         </p>
         <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary/5 px-2.5 py-1 text-[11px] font-semibold" style={{ color: SOFT }}>
           <span className="grid size-4 place-items-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">1</span>
-          = thứ tự trợ lý đề xuất (không phải đánh giá sao)
+          {t('itinerary.orderLegend')}
         </div>
         {/* Header actions (mock): Lưu chuyến đi · Xuất PDF · Chia sẻ — ẨN TẠM (phát triển sau). */}
         {HEADER_ACTIONS.enabled ? (
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" onClick={saveTrip}
               className="inline-flex items-center gap-1 rounded-lg border border-[#F0EAE2] bg-white px-2.5 py-1.5 text-xs font-semibold hover:border-primary hover:bg-primary/5">
-              💾 Lưu chuyến đi
+              {t('itinerary.saveTrip')}
             </button>
             {hrefPdf ? (
               <a href={hrefPdf} className="inline-flex items-center gap-1 rounded-lg border border-[#F0EAE2] bg-white px-2.5 py-1.5 text-xs font-semibold hover:border-primary hover:bg-primary/5">
-                📄 Xuất PDF
+                {t('itinerary.exportPdf')}
               </a>
             ) : null}
             <button type="button" onClick={shareTrip}
               className="inline-flex items-center gap-1 rounded-lg border border-[#F0EAE2] bg-white px-2.5 py-1.5 text-xs font-semibold hover:border-primary hover:bg-primary/5">
-              🔗 Chia sẻ
+              {t('itinerary.share')}
             </button>
           </div>
         ) : null}
@@ -191,9 +195,9 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
                 className={`v5-band ${open ? 'v5-active' : ''} flex w-full items-center gap-2 rounded-[10px] px-3 py-2.5 text-left`}
                 style={{ letterSpacing: '0.4px' }}
               >
-                <span className="text-[13.5px] font-[650] uppercase" style={{ color: INK, fontWeight: 650 }}>Ngày {d.day}</span>
+                <span className="text-[13.5px] font-[650] uppercase" style={{ color: INK, fontWeight: 650 }}>{t('dayTabBar.day', { day: d.day })}</span>
                 <span className="ml-auto text-xs font-semibold normal-case" style={{ color: SOFT, letterSpacing: 0 }}>
-                  {area ? `khu ${area} · ` : ''}{stops} điểm
+                  {area ? t('itinerary.area', { area }) : ''}{t('itinerary.stops', { stops })}
                 </span>
               </button>
               {open ? (
@@ -217,17 +221,17 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
         {/* GỢI Ý QUÁN ĂN — list riêng, không slot vào timeline (doctrine: không ★/điểm/giá) */}
         {dto.restaurants.length ? (
           <div className="v5-band rounded-[10px] px-3.5 py-3">
-            <div className="text-[11px] font-bold uppercase tracking-wide" style={{ color: SOFT }}>Gợi ý quán ăn</div>
+            <div className="text-[11px] font-bold uppercase tracking-wide" style={{ color: SOFT }}>{t('itinerary.restaurantTitle')}</div>
             <div className="mt-1.5 flex flex-col gap-2">
               {dto.restaurants.map((r, i) => (
                 <div key={`res-${i}`} className="text-xs">
                   <span className="text-sm font-semibold" style={{ color: INK }}>🍜 {r.name}</span>
                   {r.category ? <span style={{ color: SOFT }}> · {r.category}</span> : null}
                   <div className="flex flex-wrap gap-x-3 gap-y-0.5" style={{ color: SOFT }}>
-                    <span>giờ: {r.goi_truoc ? 'gọi trước' : r.gio_mo}</span>
+                    <span>{t('itinerary.hoursLabel', { value: r.goi_truoc ? t('itinerary.callAhead') : (r.gio_mo ?? '') })}</span>
                     {r.address ? <span>{r.address}</span> : null}
                     {r.phone ? <a href={`tel:${r.phone}`} className="font-semibold text-primary hover:underline">📞 {r.phone}</a> : null}
-                    {r.map_url ? <a href={r.map_url} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:underline">Bản đồ →</a> : null}
+                    {r.map_url ? <a href={r.map_url} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:underline">{t('itinerary.mapLink')}</a> : null}
                   </div>
                 </div>
               ))}
@@ -240,26 +244,26 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
           <div className="v5-band rounded-[10px] px-3.5 py-3">
             {dto.hotel ? (
               <>
-                <div className="text-[11px] font-bold uppercase tracking-wide" style={{ color: SOFT }}>Khách sạn gợi ý</div>
+                <div className="text-[11px] font-bold uppercase tracking-wide" style={{ color: SOFT }}>{t('itinerary.hotelTitle')}</div>
                 <div className="text-sm font-semibold" style={{ color: INK }}>🏨 {dto.hotel.name}</div>
                 {dto.hotel.note ? <div className="text-xs" style={{ color: SOFT }}>{dto.hotel.note}</div> : null}
-                {hotelKm != null ? <div className="text-xs" style={{ color: SOFT }}>📍 cách điểm đầu khoảng {hotelKm} km</div> : null}
+                {hotelKm != null ? <div className="text-xs" style={{ color: SOFT }}>{t('itinerary.fromFirstStop', { km: hotelKm })}</div> : null}
                 {dto.hotel.address ? <div className="text-xs" style={{ color: SOFT }}>{dto.hotel.address}</div> : null}
                 <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs">
                   {dto.hotel.phone ? (
                     <a href={`tel:${dto.hotel.phone}`} className="font-semibold text-primary hover:underline">📞 {dto.hotel.phone}</a>
                   ) : (
-                    <span style={{ color: SOFT }}>SĐT chưa xác minh — gọi trước</span>
+                    <span style={{ color: SOFT }}>{t('itinerary.phoneUnverified')}</span>
                   )}
                   {dto.hotel.map_url ? (
-                    <a href={dto.hotel.map_url} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:underline">Xem bản đồ →</a>
+                    <a href={dto.hotel.map_url} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:underline">{t('itinerary.viewMap')}</a>
                   ) : null}
                 </div>
               </>
             ) : null}
             {dto.hotelAlts?.length ? (
               <div className="mt-2.5">
-                <div className="text-[11px] font-semibold" style={{ color: SOFT }}>Lựa chọn khác</div>
+                <div className="text-[11px] font-semibold" style={{ color: SOFT }}>{t('itinerary.hotelAlts')}</div>
                 <div className="mt-1 flex flex-col gap-1.5">
                   {dto.hotelAlts.map((h, i) => (
                     <div key={`hotalt-${i}`} className="text-xs">
@@ -268,7 +272,7 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
                       <div className="flex flex-wrap gap-x-3 gap-y-0.5" style={{ color: SOFT }}>
                         {h.address ? <span>{h.address}</span> : null}
                         {h.phone ? <a href={`tel:${h.phone}`} className="font-semibold text-primary hover:underline">📞 {h.phone}</a> : null}
-                        {h.map_url ? <a href={h.map_url} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:underline">Bản đồ →</a> : null}
+                        {h.map_url ? <a href={h.map_url} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:underline">{t('itinerary.mapLink')}</a> : null}
                       </div>
                     </div>
                   ))}
@@ -288,9 +292,9 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
       <div className="flex flex-wrap items-center gap-2 border-t border-border px-4 py-3 text-[13px]">
         <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold"
           style={{ background: 'rgba(46,158,107,.14)', color: '#157347' }}>
-          ✓ {verified}/{total} điểm đã xác minh giờ
+          {t('itinerary.verifiedCount', { verified, total })}
         </span>
-        <span style={{ color: FAINT }}>Thứ tự = mức gợi ý; giá không hiển thị (chỉ thông tin, không đặt hộ).</span>
+        <span style={{ color: FAINT }}>{t('itinerary.footerNote')}</span>
       </div>
     </div>
   );

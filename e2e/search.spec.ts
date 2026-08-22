@@ -10,7 +10,7 @@
  * Requires:
  *   - Next.js dev server running on http://localhost:3000 (auto-started by playwright.config.ts locally)
  *   - DATABASE_URL pointing to a seeded database
- *   - Seed data: Hà Nội → Sài Gòn trips on today+1 (TOMORROW)
+ *   - Seed data: Sài Gòn ⇄ Thanh Hóa corridor trips on today+1 (TOMORROW)
  */
 
 import { test, expect, type Page } from '@playwright/test';
@@ -56,8 +56,12 @@ test.describe('AC-4: Search results display', () => {
 
     const first = cards.first();
 
-    // Route origin → destination visible
-    await expect(first.getByText(ORIGIN)).toBeVisible();
+    // Route origin → destination. Each card is ONE staggered boarding point, so the
+    // origin column shows that pickup's name (a Sài Gòn-side point), not the route-origin
+    // city literally. The route origin+destination pair is carried in the card aria-label
+    // ("Chuyến từ <điểm đón> đến Thanh Hóa") — assert that (proves an origin is rendered and
+    // the destination is DESTINATION), plus the literal destination city in the visible row.
+    await expect(first).toHaveAttribute('aria-label', new RegExp(`^Chuyến từ .+ đến ${DESTINATION}$`));
     await expect(first.getByText(DESTINATION)).toBeVisible();
 
     // Operator name is no longer a per-card field: the redesign moved it off the card

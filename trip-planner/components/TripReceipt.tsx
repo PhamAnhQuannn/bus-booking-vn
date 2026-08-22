@@ -6,6 +6,7 @@
  * Day-chips bấm được → đổi ngày bên phải. Cao ~96 (thêm mass cho chat, cân bằng density).
  */
 
+import { useTranslations } from 'next-intl';
 import type { PlannerDto } from '@/trip-planner/lib/planner/itineraryDto';
 import { cityName } from '@/trip-planner/lib/planner/cities';
 import { nights } from '@/trip-planner/lib/planner/labels';
@@ -17,6 +18,7 @@ type Props = {
 };
 
 export function TripReceipt({ dto, onActivate, onSelectDay }: Props) {
+  const t = useTranslations('planner');
   return (
     <div
       role="button"
@@ -27,7 +29,7 @@ export function TripReceipt({ dto, onActivate, onSelectDay }: Props) {
     >
       <span className="text-xl" aria-hidden="true">🗺️</span>
       <div className="min-w-0 flex-1">
-        <b className="text-[15px] font-semibold">Lịch trình {cityName(dto.slug)} · {dto.tripDays} ngày {nights(dto.tripDays)} đêm</b>
+        <b className="text-[15px] font-semibold">{t('receipt.title', { city: cityName(dto.slug), days: dto.tripDays, nights: nights(dto.tripDays) })}</b>
         <div className="mt-1.5 flex flex-wrap gap-1.5">
           {dto.days.map((d) => (
             <button
@@ -36,13 +38,13 @@ export function TripReceipt({ dto, onActivate, onSelectDay }: Props) {
               onClick={(e) => { e.stopPropagation(); onSelectDay(d.day); onActivate(); }}
               className="rounded-full border border-primary/40 bg-background px-2 py-0.5 text-[11px] font-bold text-primary hover:bg-primary/10"
             >
-              N{d.day}
+              {t('receipt.dayChip', { day: d.day })}
             </button>
           ))}
         </div>
         <div className="mt-1 text-xs text-muted-foreground">
-          <span className="hidden lg:inline">Xem chi tiết + bản đồ ở bên phải</span>
-          <span className="lg:hidden">Nhấn để xem lịch trình + bản đồ</span>
+          <span className="hidden lg:inline">{t('receipt.viewDetailDesktop')}</span>
+          <span className="lg:hidden">{t('receipt.viewDetailMobile')}</span>
         </div>
       </div>
       <span className="shrink-0 text-lg text-primary" aria-hidden="true">→</span>

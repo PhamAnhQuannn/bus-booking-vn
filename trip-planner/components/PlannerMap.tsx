@@ -12,10 +12,11 @@
  */
 
 import { useEffect, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import L from 'leaflet';
 import { leafletLayer } from 'protomaps-leaflet';
 import 'leaflet/dist/leaflet.css';
-import type { PlannerDto, DtoItem } from '@/trip-planner/lib/planner/itineraryDto';
+import type { PlannerDto } from '@/trip-planner/lib/planner/itineraryDto';
 import { displayCategory, itemBadge } from '@/trip-planner/lib/planner/labels';
 
 type Props = {
@@ -26,8 +27,6 @@ type Props = {
   onPinClick: (day: number, order: number) => void;
   onCloseSheet: () => void;
 };
-
-const BUOI: Record<DtoItem['buoi'], string> = { sang: 'Sáng', trua: 'Trưa', chieu: 'Chiều', toi: 'Tối' };
 
 // Slug có PMTiles thật trong public/tiles/. cities.ts quảng cáo 28 slug nhưng chỉ 3 tile ship →
 // slug ngoài set này KHÔNG add tile layer (tránh request tile 404 → bản đồ xám); hiện nền kem + note.
@@ -100,6 +99,7 @@ function pinHtml(order: number): string {
 }
 
 export default function PlannerMap({ dto, activeDay, hoveredOrder, selected, onPinClick, onCloseSheet }: Props) {
+  const t = useTranslations('planner');
   const boxRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const baseRef = useRef<{ layer: L.Layer; slug: string } | null>(null);
@@ -230,7 +230,7 @@ export default function PlannerMap({ dto, activeDay, hoveredOrder, selected, onP
       {/* Không có tile nền cho thành phố này → note thay vì để nền xám; pin vẫn hiện. (#528) */}
       {!TILED_SLUGS.has(dto.slug) ? (
         <div className="pointer-events-none absolute inset-x-3 top-3 z-[400] rounded-lg bg-white/90 px-3 py-2 text-center text-xs text-muted-foreground shadow-sm">
-          Bản đồ nền khu vực này chưa có — vẫn hiển thị vị trí các điểm.
+          {t('map.noBasemap')}
         </div>
       ) : null}
 
@@ -242,7 +242,7 @@ export default function PlannerMap({ dto, activeDay, hoveredOrder, selected, onP
           <button
             type="button"
             onClick={onCloseSheet}
-            aria-label="Đóng"
+            aria-label={t('map.close')}
             className="absolute right-2 top-2 z-10 grid size-7 place-items-center rounded-full bg-white/90 text-foreground shadow-sm"
           >×</button>
           <div className="flex gap-3 p-3">
@@ -253,27 +253,27 @@ export default function PlannerMap({ dto, activeDay, hoveredOrder, selected, onP
                 <span className="grid size-5 shrink-0 place-items-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">{sel.order}</span>
                 <h4 className="truncate text-[15px] font-semibold text-foreground">{sel.name}</h4>
                 {on === true ? (
-                  <span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold" style={{ background: 'rgba(46,158,107,.14)', color: '#1F7A45' }}>Đang mở</span>
+                  <span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold" style={{ background: 'rgba(46,158,107,.14)', color: '#1F7A45' }}>{t('map.open')}</span>
                 ) : on === false ? (
-                  <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground">Đã đóng</span>
+                  <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground">{t('map.closed')}</span>
                 ) : null}
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                <span>{BUOI[sel.buoi]} · {displayCategory(sel)}</span>
+                <span>{t(`map.buoi.${sel.buoi}`)} · {displayCategory(sel)}</span>
                 {!sel.goi_truoc && sel.gio_mo ? (
-                  <span className="inline-flex items-center gap-0.5 font-semibold" style={{ color: '#1F7A45' }}>✓ Đã xác minh</span>
+                  <span className="inline-flex items-center gap-0.5 font-semibold" style={{ color: '#1F7A45' }}>{t('map.verified')}</span>
                 ) : (
                   <span className="text-muted-foreground">{itemBadge(sel).label}</span>
                 )}
               </div>
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-muted-foreground">
                 {sel.gio_mo ? <span className="tabular-nums">🕐 {sel.gio_mo}</span> : null}
-                {sel.leg_from_prev ? <span className="tabular-nums">🚗 {sel.leg_from_prev.km}km · {sel.leg_from_prev.minutes} phút từ điểm trước</span> : null}
-                <span className="tabular-nums">Nguồn: {sel.nguon}</span>
+                {sel.leg_from_prev ? <span className="tabular-nums">🚗 {t('map.legFromPrev', { km: sel.leg_from_prev.km, minutes: sel.leg_from_prev.minutes })}</span> : null}
+                <span className="tabular-nums">{t('map.source', { source: sel.nguon })}</span>
               </div>
               {sel.map_url ? (
                 <a href={sel.map_url} target="_blank" rel="noreferrer" className="mt-2 inline-flex text-[13px] font-semibold text-primary hover:underline">
-                  Xem trên Google Maps →
+                  {t('map.viewOnGoogleMaps')}
                 </a>
               ) : null}
             </div>

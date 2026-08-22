@@ -12,6 +12,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { XCircle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,7 @@ import { readCsrfToken } from '@/lib/auth/csrfClient';
 
 export function CancelCharterButton({ charterRef }: { charterRef: string }) {
   const router = useRouter();
+  const t = useTranslations('charter');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,13 +38,13 @@ export function CancelCharterButton({ charterRef }: { charterRef: string }) {
         return;
       }
       if (res.status === 422) {
-        setError('Yêu cầu đã được nhà xe nhận hoặc đã kết thúc — không thể hủy.');
+        setError(t('cancel.alreadyAccepted'));
         router.refresh();
         return;
       }
-      setError('Hủy yêu cầu thất bại. Vui lòng thử lại.');
+      setError(t('cancel.cancelFailed'));
     } catch {
-      setError('Có lỗi kết nối. Vui lòng thử lại.');
+      setError(t('cancel.connError'));
     } finally {
       setBusy(false);
     }
@@ -52,7 +54,7 @@ export function CancelCharterButton({ charterRef }: { charterRef: string }) {
     <div className="flex flex-col gap-2">
       <Button type="button" variant="outline" disabled={busy} onClick={handleCancel} className="gap-2">
         <XCircle className="size-4" aria-hidden="true" />
-        {busy ? 'Đang hủy…' : 'Hủy yêu cầu'}
+        {busy ? t('cancel.cancelling') : t('cancel.cancel')}
       </Button>
       {error && (
         <p role="alert" className="text-sm font-medium text-destructive">

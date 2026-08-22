@@ -6,21 +6,23 @@
  * Tỉ lệ đo mock: 4 chấm ~đều 21.7%W_chat, chấm ~12px. Màu: fill primary, text đen #000, muted.
  */
 
+import { useTranslations } from 'next-intl';
 import type { Slots } from '@/trip-planner/lib/planner/slots';
 
 type Props = { slots: Slots };
 
 export function PlannerStepper({ slots }: Props) {
+  const t = useTranslations('planner');
   const persons = (slots.adults ?? 0) + (slots.children ?? 0) + (slots.elders ?? 0);
   const steps = [
-    { label: 'Điểm đến', done: !!slots.dia_diem },
-    { label: 'Ngày đi', done: !!slots.days },
-    { label: 'Nhóm', done: !!slots.nhom || persons > 0 },
+    { label: t('stepper.destination'), done: !!slots.dia_diem },
+    { label: t('stepper.days'), done: !!slots.days },
+    { label: t('stepper.group'), done: !!slots.nhom || persons > 0 },
   ];
 
   return (
     <div className="px-1 pb-1">
-      <p className="mb-2.5 text-xs font-semibold text-[#615E5D]">Thông tin chuyến đi</p>
+      <p className="mb-2.5 text-xs font-semibold text-[#615E5D]">{t('stepper.title')}</p>
       <div className="flex items-center">
         {steps.map((s, i) => (
           <div key={s.label} className="flex flex-1 flex-col items-center last:flex-none">

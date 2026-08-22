@@ -12,10 +12,17 @@
 
 import { NextResponse } from 'next/server';
 import { notFound } from 'next/navigation';
+import { isRealProduction } from '@/lib/core/config/deployTier';
 
-/** True on a production deployment. Evaluated per-call so tests can flip NODE_ENV. */
+/**
+ * True on a REAL Vercel production deployment. Evaluated per-call so tests can flip the env.
+ * #643: keys off VERCEL_ENV (not raw NODE_ENV) so `app/dev/*` surfaces (stub-pay, stub-storage)
+ * stay reachable on PREVIEW deployments — needed to verify the booking→payment→ticket flow on a
+ * preview URL — while still hard-404'ing on real production. Preview is SSO-gated + uses its own
+ * throwaway DB, and no webhook route verifies a stub signature, so this does not arm a prod risk.
+ */
 function isProd(): boolean {
-  return process.env.NODE_ENV === 'production';
+  return isRealProduction();
 }
 
 /** Route handlers: `const blocked = devRouteProdGuard(); if (blocked) return blocked;` */
