@@ -1,8 +1,9 @@
 // DTO client-safe cho trợ lý du lịch: serialize Itinerary (server) -> shape gọn cho card + map.
 // CHỈ import kiểu (type-only) -> KHÔNG kéo graph server (parseIntent/GEMINI key) vào bundle client (bẫy 092b).
 // Doctrine: KHÔNG ★/điểm, KHÔNG giá. Order số = tín hiệu ảnh hưởng (VQS). Thiếu giờ -> goi_truoc.
+// mo_ta/hoat_dong/vibes/cach_trung_tam_km: field CÓ NGUỒN (Wikipedia/factual, OSRM đo) — hợp doctrine.
 
-import type { Itinerary, SlotItem } from "./types";
+import type { Itinerary, PlaceRef, SlotItem } from "./types";
 
 export interface DtoLeg {
   minutes: number;
@@ -13,6 +14,7 @@ export interface DtoItem {
   order: number; // 1..n trong ngày = số pin trên map
   name: string;
   category: string | null;
+  category_secondary: string[]; // loại phụ — dựng "Giới thiệu nhanh" factual (derived, không bịa)
   role: SlotItem["role"]; // diem-den | an-trua | an-toi
   buoi: SlotItem["buoi"]; // sang | trua | chieu | toi (KHÔNG clock-time)
   lat: number | null;
@@ -25,6 +27,16 @@ export interface DtoItem {
   google_place_id: string | null; // link giờ mở LIVE trên Google (khi có + thiếu giờ lưu)
   leg_from_prev: DtoLeg | null;
   nguon: number; // số nguồn (source_ids.length) — provenance, KHÔNG phải điểm
+  mo_ta: string | null; // mô tả ngắn (sourced)
+  mo_ta_nguon_url: string | null; // link Wikipedia (CC-BY-SA) khi mo_ta trích Wikipedia
+  hoat_dong: { label: string }[]; // "Có gì ở đây" (sourced, cap hiển thị ở UI)
+  vibes: string[]; // chip trải nghiệm (slug)
+  cach_trung_tam_km: number | null; // đo OSRM
+  facilities: Record<string, string | null> | null; // tiện ích (OSM sourced)
+  gia_ve: string | null; // giá vé vào cửa tham khảo (hiếm)
+  paid_activities: { ten: string }[]; // trò trả phí có tên (on-site geo-join) — hiếm, hiện nơi có
+  gioi_thieu: string | null; // câu 1 "Giới thiệu nhanh" (intro.fact, baked build-time)
+  phu_hop_voi: string | null; // câu 2 EDITORIAL (002) — hiện dưới nhãn "Gợi ý biên tập", null khi off/omit
 }
 
 export interface DtoDay {
@@ -36,6 +48,8 @@ export interface DtoDay {
 export interface DtoHotel {
   name: string;
   note: string | null;
+  phan_khuc: string | null; // hạng thô — render qua HOTEL_TIER_LABELS (B1.2)
+  so_phong: number | null;
   address: string | null;
   phone: string | null; // giữ (business contact, "gọi trước") — đồng nhất với nhà hàng (#532)
   map_url: string | null;
@@ -63,7 +77,7 @@ export interface PlannerDto {
   pace: string;
   days: DtoDay[];
   hotel: DtoHotel | null;
-  hotelAlts: DtoHotel[]; // 0-2 lựa chọn khách sạn khác (primary + alts = 1-3)
+  hotelAlts: DtoHotel[]; // 0-3 lựa chọn khách sạn khác (primary + alts = 1-4)
   restaurants: DtoRestaurant[]; // GỢI Ý (không trong timeline)
   notes: string[];
   generated_from: string;
@@ -74,6 +88,7 @@ function toItem(it: SlotItem, idx: number): DtoItem {
     order: idx + 1,
     name: it.name,
     category: it.category,
+    category_secondary: it.category_secondary ?? [],
     role: it.role,
     buoi: it.buoi,
     lat: it.lat,
@@ -86,6 +101,31 @@ function toItem(it: SlotItem, idx: number): DtoItem {
     google_place_id: it.google_place_id ?? null,
     leg_from_prev: it.leg_from_prev ?? null,
     nguon: it.source_ids?.length ?? 0,
+    mo_ta: it.mo_ta ?? null,
+    mo_ta_nguon_url: it.mo_ta_nguon_url ?? null,
+    hoat_dong: it.hoat_dong ?? [],
+    vibes: it.vibes ?? [],
+    cach_trung_tam_km: it.cach_trung_tam_km ?? null,
+    facilities: it.facilities ?? null,
+    gia_ve: it.gia_ve ?? null,
+    paid_activities: (it.trai_nghiem_tra_phi ?? []).map((a) => ({ ten: a.ten })),
+    gioi_thieu: it.gioi_thieu ?? null,
+    phu_hop_voi: it.phu_hop_voi ?? null,
+  };
+}
+
+function toHotel(h: PlaceRef): DtoHotel {
+  return {
+    name: h.name,
+    note: h.note ?? null,
+    phan_khuc: h.phan_khuc ?? null,
+    so_phong: h.so_phong ?? null,
+    address: h.address,
+    phone: h.phone,
+    map_url: h.map_url,
+    lat: h.lat,
+    lon: h.lon,
+    nguon: h.source_ids?.length ?? 0,
   };
 }
 
@@ -100,28 +140,8 @@ export function toPlannerDto(it: Itinerary): PlannerDto {
       region_id: d.region_id,
       items: d.items.map(toItem),
     })),
-    hotel: it.hotel
-      ? {
-          name: it.hotel.name,
-          note: it.hotel.note ?? null,
-          address: it.hotel.address,
-          phone: it.hotel.phone,
-          map_url: it.hotel.map_url,
-          lat: it.hotel.lat,
-          lon: it.hotel.lon,
-          nguon: it.hotel.source_ids?.length ?? 0,
-        }
-      : null,
-    hotelAlts: it.hotelAlts.map((h) => ({
-      name: h.name,
-      note: h.note ?? null,
-      address: h.address,
-      phone: h.phone,
-      map_url: h.map_url,
-      lat: h.lat,
-      lon: h.lon,
-      nguon: h.source_ids?.length ?? 0,
-    })),
+    hotel: it.hotel ? toHotel(it.hotel) : null,
+    hotelAlts: it.hotelAlts.map(toHotel),
     restaurants: it.restaurants.map((r) => ({
       name: r.name,
       category: r.category,
