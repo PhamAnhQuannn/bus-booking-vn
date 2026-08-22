@@ -299,7 +299,16 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 
 export const config = {
   matcher: [
-    // Match all paths except Next.js internals and static files
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    // /api/* is always gated (rate-limit + CSRF) — even paths with a dotted final
+    // segment like /api/op/reports/revenue.csv, which the page matcher below excludes.
+    '/api/:path*',
+    // Page routes only. EXCLUDE every static asset + file-metadata route: anything whose
+    // final segment has an extension (`/brand/logo.png`, `/destinations/da-lat.jpg`,
+    // `/robots.txt`, `/sitemap.xml`, `/manifest.webmanifest`, `/favicon.ico`, `/icon.png`)
+    // plus the extensionless metadata route `/opengraph-image`. Without this the proxy
+    // hands these to next-intl (handleI18nRouting), which rewrites them as page routes and
+    // 404s them — the whole class of /public + metadata assets went dark after the i18n
+    // (#640) restructure. next-intl's own recommended matcher excludes dotted paths too.
+    '/((?!_next/static|_next/image|opengraph-image|.*\\.[^/]+$).*)',
   ],
 };
