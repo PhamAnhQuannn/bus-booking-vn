@@ -5,7 +5,9 @@
 // LLM chỉ (a) nói chuyện, (b) hỏi thêm bằng lựa chọn (hoi_them), (c) chốt ràng buộc (lap_lich).
 //
 // 1 Gemini call / lượt user, STREAM (streamGenerateContent?alt=sse). Key server-side,
-// KHÔNG lộ client. gemini-flash-latest (retire gemini-2.0-flash 3/3/2026 -> limit 0).
+// KHÔNG lộ client. Model PIN cứng: alias `gemini-flash-latest` đã roll sang gemini-3.7-flash
+// (thinking, thiếu năng lực) → trả 503 "high demand" ngắt quãng → UI "Trợ lý đang bận". Pin
+// bản ổn định để tránh alias trôi làm hỏng chat lần nữa.
 
 import { CITIES, CITY_SLUGS, isCitySlug } from "./cities";
 import { VIBE_VOCAB, filterVibes } from "./vibes";
@@ -15,7 +17,7 @@ import { signModelTurn } from "./chatSig";
 const CITY_LIST = CITIES.map((c) => c.ten).join(", ");
 const CITY_CODE_MAP = CITIES.map((c) => `${c.ten}=${c.slug}`).join(", ");
 
-const GEMINI_MODEL = "gemini-flash-latest";
+const GEMINI_MODEL = "gemini-3.5-flash";
 const GEMINI_URL = (model: string, key: string) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${key}`;
 
@@ -216,6 +218,9 @@ export async function* streamChat(history: ChatTurn[]): AsyncGenerator<StreamEve
   const requestBody = JSON.stringify({
     system_instruction: { parts: [{ text: SYSTEM }] },
     contents: history.map((t) => ({ role: t.role, parts: [{ text: t.text }] })),
+    // BẮT BUỘC: không có tools thì Gemini KHÔNG function-call → không có `slots`/`suggest`,
+    // bot hỏi lại thành phố dù khách đã nêu. Client parse part.functionCall bên dưới.
+    tools: [{ functionDeclarations: [TRICH_DECL, GOI_Y_DECL] }],
     generationConfig: { temperature: 0.3, maxOutputTokens: MAX_OUTPUT_TOKENS },
   });
 
