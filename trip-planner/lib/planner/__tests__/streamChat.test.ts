@@ -95,6 +95,17 @@ describe('streamChat — retry 5xx/upstream', () => {
     expect(events.some((e) => e.kind === 'slots')).toBe(true);
   });
 
+  it('request body gắn tools.functionDeclarations (trich + goi_y_vibe) — nếu thiếu, slots không trích', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(ok());
+    vi.stubGlobal('fetch', fetchMock);
+
+    await drain(HISTORY);
+
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as { body: string }).body);
+    const decls = body.tools?.[0]?.functionDeclarations ?? [];
+    expect(decls.map((d: { name: string }) => d.name)).toEqual(['trich', 'goi_y_vibe']);
+  });
+
   it('thiếu GEMINI_API_KEY → throw no_key, KHÔNG gọi fetch', async () => {
     delete process.env.GEMINI_API_KEY;
     const fetchMock = vi.fn();
