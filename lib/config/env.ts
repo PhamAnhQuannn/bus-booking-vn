@@ -9,6 +9,7 @@ import crypto from 'crypto';
 import { z } from 'zod';
 import { DEFAULT_DATABASE_POOL_MAX } from '@/lib/core/db/poolConfig';
 import { resolveRatelimitBackend } from '@/lib/core/http/ratelimitBackend';
+import { isRealProduction } from '@/lib/core/config/deployTier';
 // #551: the budget-knob schema/reader live in lib/core (NOT this barrel) so lib/ratelimit can read
 // it without a partial `vi.mock('@/lib/config')` breaking its module load. Re-exported below so
 // callers importing from '@/lib/config' still get readPlannerGeminiDailyMax.
@@ -512,6 +513,10 @@ const envSchema = z.object({
   SHADOW_DATABASE_URL: z.string().url().optional(),
 
 }).superRefine((env, ctx) => {
+  // #643: strict = a REAL Vercel production deployment (VERCEL_ENV==='production'), NOT preview.
+  // Off Vercel, falls back to NODE_ENV==='production' (historical behavior). Preview deployments
+  // are held to the relaxed, non-strict contract so getEnv() no longer 500s them at boot.
+  const strict = isRealProduction();
   // (EMAIL_PROVIDER=resend requires RESEND_API_KEY — enforced below, Issue 080.)
   // Real eSMS mode (NOTIFY_STUB=false) must carry credentials — fail fast at boot.
   if (!env.NOTIFY_STUB) {
@@ -717,7 +722,7 @@ const envSchema = z.object({
       });
     }
   }
-  if (process.env.NODE_ENV === 'production') {
+  if (strict) {
     for (const key of ['JWT_SECRET', 'JWT_OPERATOR_SECRET', 'JWT_ADMIN_SECRET', 'TOTP_ENCRYPTION_KEY', 'BANK_ENCRYPTION_KEY', 'DATABASE_URL', 'CRON_SECRET', 'REFRESH_TOKEN_SECRET_CUSTOMER', 'REFRESH_TOKEN_SECRET_OPERATOR', 'REFRESH_TOKEN_SECRET_ADMIN', 'TICKET_SECRET'] as const) {
       if (!env[key]) {
         ctx.addIssue({
@@ -810,7 +815,7 @@ export function getEnv(): AppEnv {
   // A warn rather than a boot error on purpose: refusing to boot would turn a lost
   // env var into a failed deploy on a live site. Escalate to a hard requirement once
   // the Vercel Production value is confirmed set.
-  if (process.env.NODE_ENV === 'production' && resolveRatelimitBackend() === 'memory') {
+  if (isRealProduction() && resolveRatelimitBackend() === 'memory') {
     console.warn(
       'env.ratelimit.in_memory_in_production: no Redis backend resolved — rate limiting is PER-INSTANCE and effectively absent across serverless instances. Set REDIS_PROVIDER=upstash + UPSTASH_REDIS_REST_URL/TOKEN.',
     );
