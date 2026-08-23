@@ -60,3 +60,42 @@ describe('buildItinerary — NaN OSRM matrix does not throw (#529)', () => {
     }
   });
 });
+
+// Cụm theo KHU HÀNH CHÍNH (ward từ full_address), KHÔNG theo region_id (hướng la bàn). Tỉnh sáp nhập
+// mega (Lào Cai): Sa Pa ↔ TP Lào Cai ~19km cùng octant "tay-bac" → trước đây chung 1 ngày. Giờ tách.
+describe('buildItinerary — cụm theo khu hành chính, không trộn thị xã xa', () => {
+  const mk = (id: string, lat: number, lon: number, ward: string): KbRecord => ({
+    id, name: `Nơi ${id}`, region_id: 'tay-bac', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `đường X, ${ward}, tỉnh Lào Cai` },
+    description: { value: 'mô tả' },
+  });
+  // 4 điểm Sa Pa (cụm mass cao) + 2 điểm TP Lào Cai ~19km — cùng region_id "tay-bac".
+  const store: Store = {
+    slug: 'lao-cai', generatedAt: '2026-01-01', tam: { lat: 22.42, lon: 103.92 },
+    destinations: [
+      mk('SP1', 22.36, 103.86, 'Phường Sa Pa'), mk('SP2', 22.35, 103.85, 'Phường Sa Pa'),
+      mk('SP3', 22.34, 103.84, 'Phường Sa Pa'), mk('TV1', 22.33, 103.87, 'Xã Tả Van'),
+      mk('LC1', 22.49, 103.97, 'Phường Lào Cai'), mk('LC2', 22.50, 103.98, 'Phường Lào Cai'),
+    ],
+    restaurants: [], hotels: [mk('H1', 22.35, 103.85, 'Phường Sa Pa')],
+    matrix: null, matrixIndex: new Map(),
+  };
+  const req: TripRequest = { slug: 'lao-cai', days: 3, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+
+  it('không xếp điểm Sa Pa và điểm TP Lào Cai (cách ~19km) chung một ngày', () => {
+    const it = buildItinerary(req, store);
+    for (const d of it.days) {
+      const wards = new Set(d.items.map((i) => (i.address ?? '').includes('Phường Lào Cai') ? 'LC' : 'SP'));
+      expect(wards.has('LC') && wards.has('SP')).toBe(false); // không trộn 2 thị xã trong 1 ngày
+    }
+  });
+
+  it('cụm TP Lào Cai xa bị loại khỏi lịch (compactness thắng), có note', () => {
+    const it = buildItinerary(req, store);
+    const ids = it.days.flatMap((d) => d.items.map((i) => i.id));
+    expect(ids).not.toContain('LC1');
+    expect(ids).not.toContain('LC2');
+    expect(it.notes.some((n) => n.includes('ngoài vùng thuận tiện'))).toBe(true);
+  });
+});

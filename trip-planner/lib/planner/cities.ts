@@ -40,6 +40,7 @@ export const CITIES: City[] = [
   { slug: "van-don", ten: "Vân Đồn" },
   { slug: "mui-ca-mau", ten: "Mũi Cà Mau" },
   { slug: "tay-ninh-tp", ten: "Tây Ninh" },
+  { slug: "sa-pa", ten: "Sa Pa" }, // tách từ lao-cai (mega sáp nhập) — lọc theo khu hành chính, bỏ TP Lào Cai
 ];
 // Bỏ tay-ninh(111km)/thanh-hoa(94)/cao-bang(89): smoke lộ 1 ngày span >80km (lịch loạn) — chờ engine
 // tune outlier hoặc tách city con. ho-chi-minh/hai-phong/vinh-long giữ (60-70km = tầm day-trip chấp nhận).

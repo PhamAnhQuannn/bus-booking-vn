@@ -18,6 +18,23 @@ const MIN_JOINS_FOR_GAP = 2;  // cần >=2 bước trước khi cho phép gap-st
 type LL = { lat: number; lon: number };
 const co = (r: KbRecord): LL => ({ lat: r.coordinates.latitude, lon: r.coordinates.longitude });
 const kmBetween = (a: LL, b: LL): number => haversine(a.lat, a.lon, b.lat, b.lon) / 1000;
+
+// Khu HÀNH CHÍNH thật (phường/xã/thị trấn) trích từ địa chỉ — khoá gom cụm ngày. Trước đây gom theo
+// region_id (một HƯỚNG LA BÀN tính từ tâm tỉnh, KHÔNG phải ranh giới hành chính) nên với tỉnh sáp nhập
+// mega, hai thị xã cách nhau ~20km rơi chung một octant -> chung một ngày (vd Sa Pa + TP Lào Cai). Ward
+// bảo đảm mỗi cụm chặt về địa lý; growCompact lo việc gộp/loại cụm kề theo khoảng cách. Địa chỉ lồng
+// "Xã A, Phường B" -> lấy token ĐẦU (cụ thể nhất) = "Xã A" (đồng nhất record chỉ ghi "Xã A"). city KHÔNG
+// dùng (rác sáp nhập: điểm Lào Cai ghi city="Yên Bái"). Không parse được -> null (rơi về region_id).
+const WARD_RE = /^(Phường|Xã|Thị trấn)\s+\S/;
+function adminKey(r: KbRecord): string | null {
+  const full = r.address?.full_address;
+  if (!full) return null;
+  for (const seg of full.split(",")) {
+    const s = seg.trim();
+    if (WARD_RE.test(s)) return s.toLowerCase();
+  }
+  return null;
+}
 const dynamicCapKm = (spanKm: number): number => Math.min(Math.max(spanKm * 0.6, 5), 10);
 const clampInt = (v: number, lo: number, hi: number): number => Math.min(Math.max(v, lo), hi);
 
@@ -219,13 +236,15 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
   if (!withCoord.length) return { chunks: [], notes };
   const tam: LL = { lat: store.tam.lat, lon: store.tam.lon };
 
-  // A0/A6: chấm TOÀN BỘ (không slice-by-score sớm), cụm theo region_id; điểm thiếu region_id -> cụm toạ độ.
+  // A0/A6: chấm TOÀN BỘ (không slice-by-score sớm), cụm theo KHU HÀNH CHÍNH (ward); thiếu địa chỉ ->
+  // fallback region_id; thiếu cả hai -> cụm toạ độ. (Cũ: cụm theo region_id = hướng la bàn -> trộn thị xã.)
   const scoreOf = new Map<string, number>();
   for (const r of withCoord) scoreOf.set(r.id, scoreDestination(r, req));
   const groups = new Map<string, KbRecord[]>();
   const noRegion: KbRecord[] = [];
   for (const r of withCoord) {
-    if (r.region_id) { const g = groups.get(r.region_id); if (g) g.push(r); else groups.set(r.region_id, [r]); }
+    const key = adminKey(r) ?? (r.region_id || null);
+    if (key) { const g = groups.get(key); if (g) g.push(r); else groups.set(key, [r]); }
     else noRegion.push(r);
   }
   clusterByCoord(noRegion).forEach((cl, i) => groups.set(`__geo__${i}`, cl));
