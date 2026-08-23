@@ -311,11 +311,30 @@ def _src_dd(src):
         return SRC_CSDL_DD
     return SRC_HINT_DD
 
+# ── Curation loi du lieu diem-den lao-cai (2026-08-23): ten rac OSM + sai loai hinh. Khop EXACT theo
+# ten (chuoi lay tu picked). DROP = ten khong phai dia danh that (cau mo ta/chi duong tieng Anh, danh tu
+# chung, token khong xac minh duoc). RENAME = phien am VN garble -> ten dung. LOAI = sua category (chi
+# ap o tang export: loai_vn->category o day; sua o build_diem_den.map_loai se lech osm_score -> rot diem).
+# Noi loc ten CHUAN cho lan re-scrape la build_diem_den.DROP_NAMES (truoc scoring); day la duong re-export
+# nhe (khong OSRM/enrich) de materialize ngay + dong bo cascade trai_nghiem/hoat_dong/vibes/intro.
+CURATE_DROP = {
+    "stunning valley full of great views", "Fork road, take right side up the hill",
+    "Parachute site", "Turtle Head Rock", "Cave", "Impossible to pass, blocked",
+    "Cuu Hop Lop", "Ole Sia", "Christopher little waterfall", "Waterfall", "VIP Game",
+}
+# "Động Hàm Rồng" (OSM natural=cave_entrance) thuc la nui/khu du lich Ham Rong (wiki + toa do + mo ta)
+# -> doi ten bo tien to "Dong" (hang) cho khop category + intro.
+CURATE_RENAME = {"Su Pan": "Sử Pán", "Hau Thao": "Hầu Thào", "Động Hàm Rồng": "Núi Hàm Rồng"}
+CURATE_LOAI = {"Động Hàm Rồng": "Núi / Đèo / Đường mòn", "Hồ Thác Bà": "Hồ / Đập"}
+_curate_drop_ids = {r["id"] for r in PICKED if r.get("name") in CURATE_DROP}
+
 diem_den = []
 for r in PICKED:
-    if r.get("closed"):
+    if r.get("closed") or r.get("name") in CURATE_DROP:
         continue
     pid = r["id"]
+    _name = CURATE_RENAME.get(r["name"], r["name"])
+    _loai = CURATE_LOAI.get(r["name"]) or rong(r.get("loai_vn"))
     alt = list(r.get("alt") or [])
     for f in ("ten_en", "ten_vi", "ten_khac"):
         ev = e(pid, f)
@@ -323,7 +342,7 @@ for r in PICKED:
             alt.append(ev["value"])
     addr = prov_val(pid, "dia_chi_day_du") or prov_val(pid, "dia_chi_osm")
     rec = core(
-        pid, r["name"], r["lat"], r["lon"], rong(r.get("loai_vn")), r.get("loai_phu"),
+        pid, _name, r["lat"], r["lon"], _loai, r.get("loai_phu"),
         region_ids.get(rong(r.get("area"))),
         (addr or {}).get("value") or rong(r.get("addr")),
         rong(r.get("tel")) or (e(pid, "dien_thoai_osm") or {}).get("value")
@@ -426,7 +445,7 @@ for r in PICKED:
         "environment": env,
         "transport": {"distance_from_center_km": r.get("km"), "drive_time_min": r.get("min")},
         "nearby_destinations": [{"destination_id": n[0], "distance_km": n[1], "drive_time_minutes": n[2]}
-                                for n in NEAR.get(pid, [])],
+                                for n in NEAR.get(pid, []) if n[0] not in _curate_drop_ids],
         "media": media,
         "map": {"google_maps_url": "https://www.google.com/maps/search/?api=1&query={},{}".format(r["lat"], r["lon"]),
                 "nearest_main_road": road_v},
