@@ -100,6 +100,42 @@ describe('buildItinerary — cụm theo khu hành chính, không trộn thị x�
   });
 });
 
+// FAME-aware seed: tỉnh sáp nhập mega (tuyen-quang bao Hà Giang) — cụm tỉnh-lỵ nhiều POI (mass cao) KHÔNG
+// được seed nếu cụm khác chứa điểm nổi tiếng (signatureSpots trong areas.json). Seed = cụm có FAME.
+describe('buildItinerary — seed theo độ nổi tiếng, không theo data-mass', () => {
+  const rich = (id: string, lat: number, lon: number, ward: string): KbRecord => ({
+    id, name: `Trụ sở ${id}`, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5', 's6'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `đường X, ${ward}, tỉnh Tuyên Quang` },
+    description: { value: 'có mô tả' }, // mass cao (desc + >=5 nguồn)
+  });
+  const famous = (id: string, lat: number, lon: number, name: string): KbRecord => ({
+    id, name, region_id: 'r', source_ids: ['s1'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `đường Y, Xã Đồng Văn, tỉnh Tuyên Quang` }, // ít nguồn -> mass THẤP
+  });
+  // Cụm tỉnh-lỵ (Phường Minh Xuân) 4 điểm mass cao + KHÔNG nổi tiếng; cụm Đồng Văn 2 điểm mass thấp nhưng
+  // chứa Đèo Mã Pí Lèng / Phố cổ Đồng Văn (signatureSpots). ~150km cách nhau (Hà Giang loop vs TP TQ).
+  const store: Store = {
+    slug: 'tuyen-quang', generatedAt: '2026-01-01', tam: { lat: 22.3, lon: 105.1 },
+    destinations: [
+      rich('TQ1', 21.82, 105.21, 'Phường Minh Xuân'), rich('TQ2', 21.83, 105.22, 'Phường Minh Xuân'),
+      rich('TQ3', 21.81, 105.20, 'Phường Minh Xuân'), rich('TQ4', 21.82, 105.23, 'Phường Minh Xuân'),
+      famous('HG1', 23.27, 105.36, 'Đèo Mã Pí Lèng'), famous('HG2', 23.28, 105.34, 'Phố cổ Đồng Văn'),
+    ],
+    restaurants: [], hotels: [rich('H', 23.27, 105.36, 'Xã Đồng Văn')],
+    matrix: null, matrixIndex: new Map(),
+  };
+  const req: TripRequest = { slug: 'tuyen-quang', days: 3, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+
+  it('seed cụm Hà Giang (có điểm nổi tiếng) dù tỉnh-lỵ nhiều điểm/mass cao hơn', () => {
+    const it = buildItinerary(req, store);
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).toContain('Đèo Mã Pí Lèng');
+    expect(names.some((n) => n.startsWith('Trụ sở'))).toBe(false); // tỉnh-lỵ bị loại (xa + không fame)
+  });
+});
+
 // Regression (#649 review BLOCKER): khi cụm theo ward, lõi TRUNG TÂM vỡ thành nhiều ward nhỏ, còn các
 // điểm KHÔNG parse được ward (không có full_address) dồn vào MỘT blob region_id ngoại vi có tổng mass
 // lớn. Seed cũ = mass cao nhất -> blob ngoại vi chiếm seed -> lõi trung tâm cách >8km bị gap-stop loại

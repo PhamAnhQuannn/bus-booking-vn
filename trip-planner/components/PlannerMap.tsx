@@ -33,6 +33,13 @@ type Props = {
 // Sinh thêm tile cho 25 tỉnh còn lại là việc DATA riêng. (#528)
 const TILED_SLUGS = new Set(['da-lat', 'da-nang', 'nha-trang']);
 
+// Nền QUỐC GIA zoom-thấp fallback: 1 file /tiles/vietnam.pmtiles phủ CẢ nước cho slug không có tile
+// street-zoom riêng → hết "bản đồ trắng" trên mọi tỉnh cùng lúc. Same-origin nên CSP connect-src 'self'
+// đã cho (không đổi CSP). BẬT khi binary đã commit vào public/tiles/ (sinh: go-pmtiles extract
+// --bbox=<VN> --maxzoom=9, xem public/tiles/README.md). enabled=false = hành vi cũ (nền kem + note) để
+// KHÔNG request tile 404 → xám khi chưa có binary. (#528)
+const COUNTRY_BASEMAP = { enabled: false, url: '/tiles/vietnam.pmtiles', maxDataZoom: 9 };
+
 // Giờ hiện tại (phút từ 0h) theo Asia/Ho_Chi_Minh — KHÔNG theo đồng hồ máy khách (khách ở múi giờ
 // khác sẽ đọc sai "đang mở"). (#528)
 function vnNowMinutes(): number {
@@ -161,13 +168,14 @@ export default function PlannerMap({ dto, activeDay, hoveredOrder, selected, onP
     if (!map) return;
     if (baseRef.current?.slug === dto.slug) return;
     if (baseRef.current) { map.removeLayer(baseRef.current.layer); baseRef.current = null; }
-    // No tile shipped for this city → skip the layer (cream bg + placeholder note below), don't
-    // request a 404 tile that renders as a grey map. (#528)
-    if (!TILED_SLUGS.has(dto.slug)) return;
+    // Tile riêng (street-zoom) cho slug curated; else nền quốc gia zoom-thấp (nếu bật); else bỏ layer
+    // (nền kem + note) — KHÔNG request tile 404 → xám. (#528)
+    const tiled = TILED_SLUGS.has(dto.slug);
+    if (!tiled && !COUNTRY_BASEMAP.enabled) return;
     const layer = leafletLayer({
-      url: `/tiles/${dto.slug}.pmtiles`,
+      url: tiled ? `/tiles/${dto.slug}.pmtiles` : COUNTRY_BASEMAP.url,
       flavor: 'light',
-      maxDataZoom: 14, // trần thật của PMTiles (--maxzoom=14); mặc định lib=15 → request tile z15 ma → xám
+      maxDataZoom: tiled ? 14 : COUNTRY_BASEMAP.maxDataZoom, // trần thật PMTiles; overzoom từ mức này lên
       attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a> · © <a href="https://protomaps.com">Protomaps</a>',
     }) as unknown as L.Layer;
     layer.addTo(map);
@@ -227,8 +235,8 @@ export default function PlannerMap({ dto, activeDay, hoveredOrder, selected, onP
       <style>{PIN_CSS}</style>
       <div ref={boxRef} className="h-full w-full" style={{ background: 'var(--bg-cream, #FBF2E7)' }} />
 
-      {/* Không có tile nền cho thành phố này → note thay vì để nền xám; pin vẫn hiện. (#528) */}
-      {!TILED_SLUGS.has(dto.slug) ? (
+      {/* Không có tile riêng LẪN nền quốc gia → note thay vì để nền xám; pin vẫn hiện. (#528) */}
+      {!TILED_SLUGS.has(dto.slug) && !COUNTRY_BASEMAP.enabled ? (
         <div className="pointer-events-none absolute inset-x-3 top-3 z-[400] rounded-lg bg-white/90 px-3 py-2 text-center text-xs text-muted-foreground shadow-sm">
           {t('map.noBasemap')}
         </div>

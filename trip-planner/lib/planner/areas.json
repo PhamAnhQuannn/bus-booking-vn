@@ -1,0 +1,115 @@
+{
+  "_doc": "AREA_REGISTRY — nguồn DUY NHẤT về khu du lịch trong tỉnh sáp nhập 2025. Đọc bởi TS (cities/plan) + Python (split_city/dia_diem_config). PII-free: chỉ tên khu + ward + tên điểm nổi tiếng. signatureSpots = tên marquee (fold+substring match) để (a) fame-aware seed engine, (b) allowlist force-include pipeline. Khu có slug != null => carve slug riêng (ward-allow, subtractive). Ward = token 'Phường/Xã/Thị trấn ...' lowercase, khớp full_address.",
+  "provinces": {
+    "lao-cai": {
+      "signatureSpots": ["fansipan", "phan xi păng", "đỉnh fansipan", "thung lũng mường hoa", "nhà thờ đá sa pa", "đèo ô quy hồ", "thác tình yêu", "thác bạc", "bản cát cát", "núi hàm rồng", "chợ phiên bắc hà", "dinh hoàng a tưởng", "ruộng bậc thang mù cang chải", "đèo khau phạ", "đồi mâm xôi"]
+    },
+    "tuyen-quang": {
+      "signatureSpots": ["đèo mã pí lèng", "mã pí lèng", "cột cờ lũng cú", "phố cổ đồng văn", "sông nho quế", "hẻm tu sản", "dinh thự vua mèo", "nhà của pao", "núi đôi quản bạ", "cao nguyên đá đồng văn", "dốc thẩm mã", "khu di tích tân trào", "cây đa tân trào", "hồ na hang", "thác khuổi nhi"]
+    },
+    "phu-tho": {
+      "signatureSpots": ["đền hùng", "khu di tích đền hùng", "thị trấn tam đảo", "nhà thờ đá tam đảo", "tây thiên", "thiền viện trúc lâm tây thiên", "vườn quốc gia tam đảo", "hồ đại lải", "bản lác", "thung lũng mai châu", "đèo thung khe", "hồ hòa bình", "suối khoáng thanh thủy", "đồi chè long cốc", "vườn quốc gia xuân sơn"]
+    },
+    "thai-nguyen": {
+      "signatureSpots": ["hồ núi cốc", "đồi chè tân cương", "hồ ba bể", "vườn quốc gia ba bể", "động puông", "thác đầu đẳng", "ao tiên", "hang phượng hoàng", "atk định hóa", "thác khuôn tát", "bảo tàng văn hóa các dân tộc"]
+    },
+    "bac-ninh": {
+      "signatureSpots": ["chùa dâu", "chùa bút tháp", "chùa phật tích", "đền đô", "làng tranh đông hồ", "đền bà chúa kho", "chùa vĩnh nghiêm", "tây yên tử", "chùa đồng", "cao nguyên đồng cao", "suối mỡ"]
+    },
+    "dong-thap": {
+      "signatureSpots": ["vườn quốc gia tràm chim", "gò tháp", "xẻo quýt", "đồng sen tháp mười", "gáo giồng", "làng hoa sa đéc", "nhà cổ huỳnh thủy lê", "kiến an cung", "cù lao thới sơn", "chùa vĩnh tràng", "chợ nổi cái bè", "làng cổ đông hòa hiệp"]
+    },
+    "vinh-long": {
+      "signatureSpots": ["cù lao an bình", "chợ nổi trà ôn", "văn thánh miếu", "lò gạch mang thít", "cồn phụng", "cồn quy", "sân chim vàm hồ", "ao bà om", "chùa âng", "biển ba động", "chùa hang", "chùa cò"]
+    }
+  },
+  "areas": [
+    {
+      "parent": "tuyen-quang",
+      "slug": "ha-giang",
+      "displayName": "Hà Giang",
+      "center": { "lat": 23.05, "lon": 105.05 },
+      "marquee": true,
+      "fame": 100,
+      "wardAllow": [
+        "phường hà giang 1", "phường hà giang 2",
+        "xã đồng văn", "xã sà phìn", "xã lũng cú", "xã phố bảng",
+        "xã quản bạ", "xã lùng tám", "xã cán tỷ", "xã đông hà",
+        "xã yên minh", "xã đường thượng", "xã mèo vạc", "xã pả vi", "xã khâu vai",
+        "xã minh tân", "xã thuận hòa", "xã minh sơn",
+        "xã bản máy", "xã tân trịnh", "xã tân quang"
+      ],
+      "signatureSpots": ["đèo mã pí lèng", "mã pí lèng", "cột cờ lũng cú", "phố cổ đồng văn", "sông nho quế", "hẻm tu sản", "dinh thự vua mèo", "nhà của pao", "núi đôi quản bạ", "cao nguyên đá đồng văn", "dốc thẩm mã"]
+    },
+    {
+      "parent": "phu-tho",
+      "slug": "tam-dao",
+      "displayName": "Tam Đảo",
+      "center": { "lat": 21.46, "lon": 105.64 },
+      "marquee": true,
+      "fame": 90,
+      "wardAllow": ["xã tam đảo", "xã đại đình", "xã đạo trù"],
+      "signatureSpots": ["thị trấn tam đảo", "nhà thờ đá tam đảo", "tây thiên", "thiền viện trúc lâm tây thiên", "vườn quốc gia tam đảo", "thác bạc", "hồ xạ hương"]
+    },
+    {
+      "parent": "thai-nguyen",
+      "slug": "ba-be",
+      "displayName": "Ba Bể",
+      "center": { "lat": 22.40, "lon": 105.62 },
+      "marquee": true,
+      "fame": 90,
+      "wardAllow": ["xã ba bể", "xã đồng phúc"],
+      "signatureSpots": ["hồ ba bể", "vườn quốc gia ba bể", "động puông", "thác đầu đẳng", "ao tiên", "đảo bà góa", "động nả phoòng"]
+    },
+    {
+      "parent": "phu-tho",
+      "slug": "mai-chau",
+      "displayName": "Mai Châu",
+      "center": { "lat": 20.66, "lon": 105.10 },
+      "marquee": true,
+      "fame": 85,
+      "wardAllow": ["xã mai châu", "xã mai hạ"],
+      "signatureSpots": ["bản lác", "thung lũng mai châu", "đèo thung khe", "đèo đá trắng", "hang chiều", "pom coọng"]
+    },
+    {
+      "parent": "lao-cai",
+      "slug": "bac-ha",
+      "displayName": "Bắc Hà",
+      "center": { "lat": 22.53, "lon": 104.29 },
+      "marquee": true,
+      "fame": 80,
+      "wardAllow": ["xã bắc hà"],
+      "signatureSpots": ["chợ phiên bắc hà", "dinh hoàng a tưởng", "cao nguyên trắng bắc hà", "chợ cốc ly", "bản phố"]
+    },
+    {
+      "parent": "lao-cai",
+      "slug": "mu-cang-chai",
+      "displayName": "Mù Cang Chải",
+      "center": { "lat": 21.72, "lon": 104.05 },
+      "marquee": true,
+      "fame": 88,
+      "wardAllow": ["xã púng luông", "xã mù cang chải", "xã la pán tẩn", "xã chế cu nha", "xã dế xu phình", "xã tú lệ"],
+      "signatureSpots": ["ruộng bậc thang mù cang chải", "đèo khau phạ", "đồi mâm xôi", "móng ngựa", "tú lệ", "la pán tẩn"]
+    },
+    {
+      "parent": "vinh-long",
+      "slug": "ben-tre",
+      "displayName": "Bến Tre",
+      "center": { "lat": 10.24, "lon": 106.38 },
+      "marquee": true,
+      "fame": 80,
+      "wardAllow": ["phường an hội", "phường phú khương", "xã phú túc", "xã đồng khởi", "xã an định", "xã mỹ chánh hòa", "xã tân phú", "xã vĩnh thành", "xã tân hòa"],
+      "signatureSpots": ["cồn phụng", "cồn quy", "cồn phú đa", "sân chim vàm hồ", "làng nghề kẹo dừa", "khu lưu niệm nguyễn thị định", "đồng khởi"]
+    },
+    {
+      "parent": "vinh-long",
+      "slug": "tra-vinh",
+      "displayName": "Trà Vinh",
+      "center": { "lat": 9.93, "lon": 106.34 },
+      "marquee": true,
+      "fame": 78,
+      "wardAllow": ["phường long châu", "xã cầu ngang", "xã an phú tân", "xã cầu kè", "phường trà vinh", "xã nguyệt hóa"],
+      "signatureSpots": ["ao bà om", "chùa âng", "bảo tàng văn hóa khmer", "biển ba động", "chùa hang", "chùa cò", "đền thờ bác hồ"]
+    }
+  ]
+}
