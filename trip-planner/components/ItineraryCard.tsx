@@ -14,6 +14,7 @@ import { cityName } from '@/trip-planner/lib/planner/cities';
 import { displayCategory, itemBadge, areaLabel, vibeChip, stripCitySuffix, FACILITY_LABELS } from '@/trip-planner/lib/planner/labels';
 import { cardProfile, type SectionKey } from '@/trip-planner/lib/planner/cardProfile';
 import { fmtKm } from '@/trip-planner/lib/planner/fmt';
+import { buildOverview, withMeals } from '@/trip-planner/lib/planner/timeline';
 import { DayTabBar } from '@/trip-planner/components/DayTabBar';
 
 type Props = {
@@ -26,6 +27,7 @@ type Props = {
   compact?: boolean; // ≥1280: mọi ngày mở sẵn + compact row + dossier accordion + scrollspy
   onSelectItem?: (day: number, order: number) => void; // compact: click row → toggle dossier
   onActiveDayChange?: (day: number) => void; // compact: scrollspy đặt ngày active
+  onSeeFood?: () => void; // meal block "xem gợi ý quán" → chuyển tab Ăn uống
 };
 
 const INK = '#1E2433', SOFT = '#6B7280', FAINT = '#9AA0AC';
@@ -37,6 +39,21 @@ const CARD_CSS = `
 .v5-band{background:#FFF9F2}
 .v5-band.v5-active{box-shadow:inset 3px 0 0 var(--primary,#F0561D)}
 `;
+
+function MealRow({ meal, onSeeFood }: { meal: 'trua' | 'toi'; onSeeFood?: () => void }) {
+  const t = useTranslations('planner');
+  return (
+    <div className="mb-3 flex items-center gap-2 pl-9 text-[13px]" style={{ color: SOFT }}>
+      <span aria-hidden>{meal === 'trua' ? '🍜' : '🍲'}</span>
+      <span>{t(meal === 'trua' ? 'itinerary.mealLunch' : 'itinerary.mealDinner')}</span>
+      {onSeeFood ? (
+        <button type="button" onClick={onSeeFood} className="text-[12px] font-semibold text-primary hover:underline">
+          {t('itinerary.mealSeeFood')} →
+        </button>
+      ) : null}
+    </div>
+  );
+}
 
 function Badge({ it }: { it: DtoItem }) {
   const t = useTranslations('planner');
@@ -239,8 +256,9 @@ function havKm(aLat: number, aLon: number, bLat: number, bLon: number): number {
 // (Member-access thay vì literal `false` để không dính eslint no-constant-condition ở JSX.)
 const HEADER_ACTIONS = { enabled: false };
 
-export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleDay, hrefPdf, compact, onSelectItem, onActiveDayChange }: Props) {
+export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleDay, hrefPdf, compact, onSelectItem, onActiveDayChange, onSeeFood }: Props) {
   const t = useTranslations('planner');
+  const overview = compact ? buildOverview(dto) : null; // strip tóm tắt chỉ ở chế độ compact (≥1280)
   const rootRef = useRef<HTMLDivElement>(null);
   const programmaticRef = useRef(false); // đang click-scroll → tạm khoá scrollspy (chống chip nhảy)
 
@@ -327,6 +345,22 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
         </div>
       ) : null}
 
+      {/* OVERVIEW strip (P4, compact) — tóm tắt 1 dòng/ngày, click → scroll tới band ngày */}
+      {overview ? (
+        <div className="mx-3 mt-3 rounded-[10px] p-3" style={{ background: '#FFF9F2' }}>
+          <div className="text-[12px] font-bold uppercase tracking-wide" style={{ color: FAINT }}>{t('itinerary.overviewTitle')}</div>
+          <div className="mt-1.5 space-y-0.5">
+            {overview.map((o) => (
+              <button key={o.day} type="button" onClick={() => goToDay(o.day)} className="block w-full truncate text-left text-[13px] hover:underline">
+                <span style={{ color: INK, fontWeight: 600 }}>{t('dayTabBar.day', { day: o.day })}</span>
+                {o.area ? <span style={{ color: SOFT }}> · {o.area}</span> : null}
+                <span style={{ color: SOFT }}> — {o.names.join(' → ')}{o.extra ? ` +${o.extra}` : ''}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       {/* DAYS — không divider giữa ngày; band + spine + whitespace 16 */}
       <div className="space-y-4 p-3">
         {dto.days.map((d) => {
@@ -350,7 +384,9 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
               </button>
               {open ? (
                 <div className="v5-daybody mt-2 px-3">
-                  {d.items.map((it) => {
+                  {(compact ? withMeals(d.items) : d.items.map((it) => ({ kind: 'item' as const, it }))).map((row) => {
+                    if (row.kind === 'meal') return <MealRow key={`meal-${d.day}-${row.meal}`} meal={row.meal} onSeeFood={onSeeFood} />;
+                    const it = row.it;
                     // item ĐẦU ngày (không có leg tới mục trước) → hiện khoảng cách từ khách sạn (mock: "cách KS ~Xkm")
                     const hk =
                       !it.leg_from_prev && dto.hotel?.lat != null && dto.hotel?.lon != null && it.lat != null && it.lon != null

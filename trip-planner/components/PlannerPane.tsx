@@ -192,7 +192,7 @@ export default function PlannerPane({ dto, activeDay, hoveredOrder, selected, on
 
       <div data-pane-scroll className="min-h-0 flex-1 overflow-y-auto">
         {tab === 'lich-trinh' ? (
-          <ItineraryCard dto={dto} activeDay={activeDay} selected={selected} onHoverItem={onHoverItem} onToggleDay={onSelectDay} hrefPdf={hrefPdf} compact={hideMap} onSelectItem={onSelectItem} onActiveDayChange={onActiveDayChange} />
+          <ItineraryCard dto={dto} activeDay={activeDay} selected={selected} onHoverItem={onHoverItem} onToggleDay={onSelectDay} hrefPdf={hrefPdf} compact={hideMap} onSelectItem={onSelectItem} onActiveDayChange={onActiveDayChange} onSeeFood={() => setTab('an-uong')} />
         ) : tab === 'khach-san' ? (
           <HotelsList hotel={dto.hotel} hotelAlts={dto.hotelAlts} firstStop={firstStop} onAskAssistant={onAskAssistant} />
         ) : (
