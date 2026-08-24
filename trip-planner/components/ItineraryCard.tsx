@@ -7,13 +7,14 @@
  * day-header band + accent ngày active. Font: name 15/22, day-header 13.5 uppercase.
  */
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import type { PlannerDto, DtoItem } from '@/trip-planner/lib/planner/itineraryDto';
 import { cityName } from '@/trip-planner/lib/planner/cities';
 import { displayCategory, itemBadge, areaLabel, vibeChip, stripCitySuffix, FACILITY_LABELS } from '@/trip-planner/lib/planner/labels';
 import { cardProfile, type SectionKey } from '@/trip-planner/lib/planner/cardProfile';
 import { fmtKm } from '@/trip-planner/lib/planner/fmt';
+import { DayTabBar } from '@/trip-planner/components/DayTabBar';
 
 type Props = {
   dto: PlannerDto;
@@ -22,6 +23,9 @@ type Props = {
   onHoverItem: (order: number | null) => void;
   onToggleDay: (day: number) => void;
   hrefPdf?: string; // link /lich-trinh?… để "Xuất PDF" + "Chia sẻ" (mock header actions)
+  compact?: boolean; // ≥1280: mọi ngày mở sẵn + compact row + dossier accordion + scrollspy
+  onSelectItem?: (day: number, order: number) => void; // compact: click row → toggle dossier
+  onActiveDayChange?: (day: number) => void; // compact: scrollspy đặt ngày active
 };
 
 const INK = '#1E2433', SOFT = '#6B7280', FAINT = '#9AA0AC';
@@ -68,11 +72,23 @@ function Badge({ it }: { it: DtoItem }) {
   );
 }
 
-function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: number; active: boolean; onHoverItem: Props['onHoverItem']; hotelKm?: number | null }) {
+function Row({ it, day, active, onHoverItem, hotelKm, compact, onSelectItem }: { it: DtoItem; day: number; active: boolean; onHoverItem: Props['onHoverItem']; hotelKm?: number | null; compact?: boolean; onSelectItem?: (day: number, order: number) => void }) {
   const [open, setOpen] = useState(false);
   const isDest = it.role === 'diem-den';
   const longMoTa = !!it.mo_ta && it.mo_ta.length > 150; // proxy: đủ dài để clamp 3 dòng → hiện "Xem thêm"
+  const showDossier = isDest && (!compact || active); // compact: dossier chỉ khi card đang mở (accordion)
   const t = useTranslations('planner');
+  // compact: header (buổi+tên+meta) là vùng click → toggle dossier; non-compact: header tĩnh (giữ nguyên).
+  const headerProps = compact
+    ? {
+        role: 'button' as const,
+        tabIndex: 0,
+        'aria-expanded': active,
+        onClick: () => onSelectItem?.(day, it.order),
+        onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectItem?.(day, it.order); } },
+        className: 'cursor-pointer rounded-md outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+      }
+    : {};
   return (
     <>
       {it.leg_from_prev ? (
@@ -95,20 +111,23 @@ function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: numb
             thời lượng ghé ("60-90 phút"), citation [S6] (ta chỉ có SỐ nguồn), khung giờ đồng hồ,
             "CHUẨN BỊ"/"TIP TUYẾN" (thay bằng "Có gì ở đây"/"Thực tế" từ data thật). = bịa nếu thêm. */}
         <article className={`min-w-0 flex-1 rounded-xl border p-3 transition-colors ${active ? 'border-primary/50 bg-primary/5' : 'border-border bg-white hover:border-primary/30'}`}>
-          {/* HEADER: buổi + tên + badge xác minh (✓ Mở {giờ} · N nguồn = "Đã xác minh · S6" trung thực) */}
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            <span className="text-xs font-semibold" style={{ color: SOFT }}>{t(`itinerary.buoi.${it.buoi}`)}</span>
-            <span className="text-[15px] font-semibold leading-snug" style={{ color: INK }}>{stripCitySuffix(it.name)}</span>
-            <Badge it={it} />
-          </div>
-          {/* META: category · trải nghiệm · cách KS (KHÔNG duration) */}
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 text-[13px]" style={{ color: SOFT }}>
-            <span>{displayCategory(it)}</span>
-            {isDest && it.trai_nghiem && it.trai_nghiem !== displayCategory(it) ? <span>· {it.trai_nghiem}</span> : null}
-            {hotelKm != null ? <span>· {t('itinerary.fromHotel', { dist: fmtKm(hotelKm) ?? '' })}</span> : null}
+          <div {...headerProps}>
+            {/* HEADER: buổi + tên + badge xác minh (✓ Mở {giờ} · N nguồn = "Đã xác minh · S6" trung thực) */}
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <span className="text-xs font-semibold" style={{ color: SOFT }}>{t(`itinerary.buoi.${it.buoi}`)}</span>
+              <span className="text-[15px] font-semibold leading-snug" style={{ color: INK }}>{stripCitySuffix(it.name)}</span>
+              <Badge it={it} />
+              {compact ? <span className="ml-auto shrink-0 self-center text-[12px] transition-transform" style={{ color: FAINT, transform: active ? 'rotate(180deg)' : undefined }} aria-hidden>⌄</span> : null}
+            </div>
+            {/* META: category · trải nghiệm · cách KS (KHÔNG duration) */}
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 text-[13px]" style={{ color: SOFT }}>
+              <span>{displayCategory(it)}</span>
+              {isDest && it.trai_nghiem && it.trai_nghiem !== displayCategory(it) ? <span>· {it.trai_nghiem}</span> : null}
+              {hotelKm != null ? <span>· {t('itinerary.fromHotel', { dist: fmtKm(hotelKm) ?? '' })}</span> : null}
+            </div>
           </div>
 
-          {isDest ? (() => {
+          {showDossier ? (() => {
             // Render section theo PROFILE của loại điểm (thứ tự + gate). landmark bỏ "Có gì ở đây";
             // paid_activity/environment là slot forward-compat (chưa có field trên DtoItem → no-op).
             const { sections } = cardProfile(it.category, it.name);
@@ -220,8 +239,44 @@ function havKm(aLat: number, aLon: number, bLat: number, bLon: number): number {
 // (Member-access thay vì literal `false` để không dính eslint no-constant-condition ở JSX.)
 const HEADER_ACTIONS = { enabled: false };
 
-export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleDay, hrefPdf }: Props) {
+export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleDay, hrefPdf, compact, onSelectItem, onActiveDayChange }: Props) {
   const t = useTranslations('planner');
+  const rootRef = useRef<HTMLDivElement>(null);
+  const programmaticRef = useRef(false); // đang click-scroll → tạm khoá scrollspy (chống chip nhảy)
+
+  // Scrollspy (compact): band ngày nào ở dải giữa viewport → đặt ngày active. rootMargin -45%/-45%
+  // = dải mỏng ở giữa → 1 band/lúc (hysteresis, không nhấp nháy chip khi đứng giữa 2 ngày).
+  useEffect(() => {
+    if (!compact) return;
+    const el = rootRef.current;
+    const scrollRoot = el?.closest('[data-pane-scroll]') as HTMLElement | null;
+    if (!el || !scrollRoot) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (programmaticRef.current) return; // bỏ qua trong lúc goToDay smooth-scroll
+        const hit = entries.filter((e) => e.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (hit) {
+          const day = Number((hit.target as HTMLElement).dataset.day);
+          if (day && day !== activeDay) onActiveDayChange?.(day);
+        }
+      },
+      { root: scrollRoot, rootMargin: '-45% 0px -45% 0px', threshold: [0, 0.15, 0.5, 1] },
+    );
+    el.querySelectorAll('[data-day]').forEach((n) => io.observe(n));
+    return () => io.disconnect();
+  }, [compact, dto, activeDay, onActiveDayChange]);
+
+  // Click chip/dòng overview → smooth-scroll tới band ngày (khoá scrollspy tới khi scrollend).
+  const goToDay = (day: number) => {
+    onActiveDayChange?.(day);
+    programmaticRef.current = true;
+    document.getElementById(`day-band-${day}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const scrollRoot = rootRef.current?.closest('[data-pane-scroll]') as HTMLElement | null;
+    const release = () => { programmaticRef.current = false; };
+    scrollRoot?.addEventListener('scrollend', release, { once: true });
+    setTimeout(release, 600); // fallback Safari (không có scrollend)
+  };
+
   // Lưu chuyến đi (localStorage) + Chia sẻ (navigator.share/clipboard) — mock header actions.
   function saveTrip() {
     try {
@@ -242,8 +297,15 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
   }
 
   return (
-    <div className="@container w-full overflow-hidden border border-border bg-white">
+    <div ref={rootRef} className={`@container w-full border border-border bg-white ${compact ? '' : 'overflow-hidden'}`}>
       <style>{CARD_CSS}</style>
+
+      {/* Chip ngày sticky (compact) — nav + scrollspy. overflow-hidden bỏ ở root để sticky bám pane-scroll. */}
+      {compact ? (
+        <div className="sticky top-0 z-raised -mx-px border-b border-border bg-white/95 px-3 py-1.5 backdrop-blur">
+          <DayTabBar dto={dto} activeDay={activeDay} onSelect={goToDay} />
+        </div>
+      ) : null}
 
       {/* Tiêu đề chính ở PlannerPane header. Chú thích order-circle + "Nhịp độ" đã BỎ (gọn timeline). */}
       {/* Header actions (mock): Lưu chuyến đi · Xuất PDF · Chia sẻ — ẨN TẠM (phát triển sau). */}
@@ -268,15 +330,17 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
       {/* DAYS — không divider giữa ngày; band + spine + whitespace 16 */}
       <div className="space-y-4 p-3">
         {dto.days.map((d) => {
-          const open = d.day === activeDay;
+          // compact: mọi ngày mở sẵn (lướt là thấy); non-compact: accordion theo activeDay (giữ nguyên).
+          const open = compact ? true : d.day === activeDay;
+          const isActive = d.day === activeDay;
           const stops = d.items.filter((i) => i.role === 'diem-den').length;
           const area = areaLabel(d.region_id);
           return (
-            <div key={d.day}>
+            <div key={d.day} id={`day-band-${d.day}`} data-day={d.day} style={compact ? { scrollMarginTop: 48 } : undefined}>
               <button
                 type="button"
-                onClick={() => onToggleDay(d.day)}
-                className={`v5-band ${open ? 'v5-active' : ''} flex w-full items-center gap-2 rounded-[10px] px-3 py-2.5 text-left`}
+                onClick={() => (compact ? goToDay(d.day) : onToggleDay(d.day))}
+                className={`v5-band ${isActive ? 'v5-active' : ''} flex w-full items-center gap-2 rounded-[10px] px-3 py-2.5 text-left`}
                 style={{ letterSpacing: '0.4px' }}
               >
                 <span className="text-[13.5px] font-[650] uppercase" style={{ color: INK, fontWeight: 650 }}>{t('dayTabBar.day', { day: d.day })}</span>
@@ -293,7 +357,7 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
                         ? Math.round(havKm(dto.hotel.lat, dto.hotel.lon, it.lat, it.lon) * 10) / 10
                         : null;
                     return (
-                      <Row key={it.order} it={it} day={d.day} active={selected?.day === d.day && selected?.order === it.order} onHoverItem={onHoverItem} hotelKm={hk} />
+                      <Row key={it.order} it={it} day={d.day} active={selected?.day === d.day && selected?.order === it.order} onHoverItem={onHoverItem} hotelKm={hk} compact={compact} onSelectItem={onSelectItem} />
                     );
                   })}
                 </div>
