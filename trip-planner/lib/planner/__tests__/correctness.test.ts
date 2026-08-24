@@ -135,3 +135,49 @@ describe('buildItinerary — seed theo độ nổi tiếng, không theo data-mas
     expect(names.some((n) => n.startsWith('Trụ sở'))).toBe(false); // tỉnh-lỵ bị loại (xa + không fame)
   });
 });
+
+// Regression (#649 review BLOCKER): khi cụm theo ward, lõi TRUNG TÂM vỡ thành nhiều ward nhỏ, còn các
+// điểm KHÔNG parse được ward (không có full_address) dồn vào MỘT blob region_id ngoại vi có tổng mass
+// lớn. Seed cũ = mass cao nhất -> blob ngoại vi chiếm seed -> lõi trung tâm cách >8km bị gap-stop loại
+// sạch (Hạ Long 19→9, Vũng Tàu 19→4 điểm). Seed theo TÂM chuyến sửa việc này. Test này FAIL với seed cũ.
+describe('buildItinerary — blob ngoại vi mass-lớn KHÔNG được chiếm seed, giữ lõi trung tâm (#649)', () => {
+  // Lõi đất liền: 5 điểm/3 ward, sát tâm (~≤3km). Có full_address -> cụm theo ward.
+  const core = (id: string, lat: number, lon: number, ward: string): KbRecord => ({
+    id, name: `Lõi ${id}`, region_id: 'trung-tam', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `số 1, ${ward}, tỉnh Quảng Ninh` },
+    description: { value: 'điểm trung tâm' },
+  });
+  // Blob ngoài khơi: 4 điểm ~18km đông, KHÔNG full_address -> rơi về region_id 'ngoai-khoi' = 1 cụm mass lớn.
+  const off = (id: string, lat: number, lon: number): KbRecord => ({
+    id, name: `Khơi ${id}`, region_id: 'ngoai-khoi', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon },
+    description: { value: 'điểm ngoài khơi' },
+  });
+  const store: Store = {
+    slug: 'ha-long', generatedAt: '2026-01-01', tam: { lat: 20.95, lon: 107.07 },
+    destinations: [
+      core('BC1', 20.955, 107.060, 'Phường Bãi Cháy'), core('BC2', 20.953, 107.065, 'Phường Bãi Cháy'),
+      core('HG1', 20.948, 107.080, 'Phường Hồng Gai'), core('HG2', 20.950, 107.085, 'Phường Hồng Gai'),
+      core('HT1', 20.945, 107.075, 'Phường Hà Tu'),
+      off('OFF1', 20.952, 107.240), off('OFF2', 20.949, 107.244),
+      off('OFF3', 20.955, 107.238), off('OFF4', 20.947, 107.242),
+    ],
+    restaurants: [], hotels: [core('H1', 20.950, 107.070, 'Phường Bãi Cháy')],
+    matrix: null, matrixIndex: new Map(),
+  };
+  const req: TripRequest = { slug: 'ha-long', days: 3, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+
+  it('giữ lõi trung tâm (5 điểm đất liền), KHÔNG để blob ngoài khơi thắng seed', () => {
+    const it = buildItinerary(req, store);
+    const ids = it.days.flatMap((d) => d.items.map((i) => i.id));
+    for (const id of ['BC1', 'BC2', 'HG1', 'HG2', 'HT1']) expect(ids).toContain(id);
+  });
+
+  it('blob ngoài khơi xa bị loại (compactness thắng), có note', () => {
+    const it = buildItinerary(req, store);
+    const ids = it.days.flatMap((d) => d.items.map((i) => i.id));
+    for (const id of ['OFF1', 'OFF2', 'OFF3', 'OFF4']) expect(ids).not.toContain(id);
+    expect(it.notes.some((n) => n.includes('ngoài vùng thuận tiện'))).toBe(true);
+  });
+});

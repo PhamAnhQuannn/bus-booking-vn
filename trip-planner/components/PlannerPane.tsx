@@ -17,7 +17,12 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import PlannerMap from '@/trip-planner/components/PlannerMap';
 import { DayTabBar } from '@/trip-planner/components/DayTabBar';
+import { PaneTabs, type PaneTab } from '@/trip-planner/components/PaneTabs';
 import { ItineraryCard } from '@/trip-planner/components/ItineraryCard';
+import { HotelsList } from '@/trip-planner/components/HotelsList';
+import { RestaurantsList } from '@/trip-planner/components/RestaurantsList';
+import { cityName } from '@/trip-planner/lib/planner/cities';
+import { nights } from '@/trip-planner/lib/planner/labels';
 import type { PlannerDto } from '@/trip-planner/lib/planner/itineraryDto';
 
 type Props = {
@@ -33,6 +38,7 @@ type Props = {
   onOpenFull: () => void;
   pulseKey?: number; // đổi giá trị → nháy ring (receipt click → "đây là artifact")
   hrefPdf?: string; // link Xuất PDF / Chia sẻ (mock header actions itinerary)
+  onAskAssistant?: (prompt: string) => void; // chip "Hỏi trợ lý thêm…" → gửi prompt vào chat (optional; chưa wire → ẩn chip)
 };
 
 const PANE_CSS = `
@@ -61,10 +67,16 @@ function computeMapH(H_i: number, mapW: number, variant: Props['variant']): numb
   return mapH;
 }
 
-export default function PlannerPane({ dto, activeDay, hoveredOrder, selected, onPinClick, onCloseSheet, onSelectDay, onHoverItem, variant, onOpenFull, pulseKey, hrefPdf }: Props) {
+export default function PlannerPane({ dto, activeDay, hoveredOrder, selected, onPinClick, onCloseSheet, onSelectDay, onHoverItem, variant, onOpenFull, pulseKey, hrefPdf, onAskAssistant }: Props) {
   const t = useTranslations('planner');
+  // điểm đầu Ngày 1 (để tính khoảng cách khách sạn) — chỉ điểm-đến, có thể null
+  const firstStop = (() => {
+    const s = dto.days[0]?.items.find((i) => i.role === 'diem-den');
+    return s ? { name: s.name, lat: s.lat, lon: s.lon } : null;
+  })();
   const rootRef = useRef<HTMLDivElement>(null);
   const [mapH, setMapH] = useState(320);
+  const [tab, setTab] = useState<PaneTab>('lich-trinh'); // tab section artifact (mock)
   const userHRef = useRef<number | null>(null); // chiều cao map do user kéo chốt (null = auto computeMapH)
   const dragRef = useRef<{ startY: number; startH: number } | null>(null);
 
@@ -118,8 +130,8 @@ export default function PlannerPane({ dto, activeDay, hoveredOrder, selected, on
       className="flex h-full min-h-0 flex-col gap-3 overflow-hidden border border-border bg-white p-3 shadow-[0_2px_12px_rgba(30,36,51,0.06)]"
     >
       <style>{PANE_CSS}</style>
-      <DayTabBar dto={dto} activeDay={activeDay} onSelect={onSelectDay} />
 
+      {/* MAP (persistent qua mọi tab) — trên cùng như mock */}
       {short ? (
         <button
           type="button"
@@ -157,8 +169,31 @@ export default function PlannerPane({ dto, activeDay, hoveredOrder, selected, on
         </div>
       ) : null}
 
+      {/* HEADER artifact — tiêu đề kế hoạch (persistent). Party/ngày/ngày-dữ-liệu = field thật. */}
+      <div className="shrink-0 px-1">
+        <h3 className="text-[18px] font-semibold" style={{ color: '#1E2433' }}>🏔 {cityName(dto.slug)} · Kế hoạch chuyến đi</h3>
+        <p className="mt-0.5 text-[13px]" style={{ color: '#6B7280' }}>
+          {dto.party.adults} người lớn
+          {dto.party.children ? ` · ${dto.party.children} trẻ nhỏ` : ''}
+          {dto.party.elders ? ` · ${dto.party.elders} người lớn tuổi` : ''}
+          {' · '}{dto.tripDays} ngày {nights(dto.tripDays)} đêm · Cập nhật {dto.generated_from}
+        </p>
+      </div>
+
+      {/* TAB section: Lịch trình · Khách sạn · Ăn uống (Điểm đến gộp vào Lịch trình; KHÔNG Plan B) */}
+      <PaneTabs active={tab} onSelect={setTab} />
+
+      {/* DayTabBar chỉ có nghĩa ở tab Lịch trình (lái map + timeline theo ngày) */}
+      {tab === 'lich-trinh' ? <DayTabBar dto={dto} activeDay={activeDay} onSelect={onSelectDay} /> : null}
+
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <ItineraryCard dto={dto} activeDay={activeDay} selected={selected} onHoverItem={onHoverItem} onToggleDay={onSelectDay} hrefPdf={hrefPdf} />
+        {tab === 'lich-trinh' ? (
+          <ItineraryCard dto={dto} activeDay={activeDay} selected={selected} onHoverItem={onHoverItem} onToggleDay={onSelectDay} hrefPdf={hrefPdf} />
+        ) : tab === 'khach-san' ? (
+          <HotelsList hotel={dto.hotel} hotelAlts={dto.hotelAlts} firstStop={firstStop} onAskAssistant={onAskAssistant} />
+        ) : (
+          <RestaurantsList restaurants={dto.restaurants} onAskAssistant={onAskAssistant} />
+        )}
       </div>
     </div>
   );

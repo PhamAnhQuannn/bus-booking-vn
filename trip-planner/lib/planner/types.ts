@@ -43,6 +43,7 @@ export interface PlaceRef {
   id: string;
   name: string;
   category: string | null;
+  category_secondary?: string[]; // loại phụ (category.secondary) — dựng "Giới thiệu nhanh" factual
   lat: number | null;
   lon: number | null;
   address: string | null;
@@ -57,6 +58,17 @@ export interface PlaceRef {
   vibes?: string[]; // slug vibe (VIBE_VOCAB) — khớp interests khách; sinh offline (rule+llm)
   google_place_id?: string | null; // để hiện giờ mở LIVE qua link Google (ToS cấm lưu giờ)
   note?: string | null; // vd giá khách sạn, độ nổi tiếng
+  phan_khuc?: string | null; // hạng khách sạn thô (ext.hotel.phan_khuc) — render qua HOTEL_TIER_LABELS
+  so_phong?: number | null; // số phòng (ext.hotel.so_phong)
+  mo_ta?: string | null; // mô tả ngắn (description.value) — Wikipedia verbatim / template factual
+  mo_ta_nguon_url?: string | null; // link nguồn Wikipedia (CC-BY-SA attribution) khi mo_ta trích Wikipedia
+  hoat_dong?: { label: string }[]; // "Có gì ở đây" — nhãn hoạt động (điểm đến); source-count riêng
+  cach_trung_tam_km?: number | null; // khoảng cách tới trung tâm (đo OSRM), không bịa
+  facilities?: Record<string, string | null> | null; // tiện ích (OSM): WC/bãi xe/lối xe lăn/...
+  gia_ve?: string | null; // giá vé vào cửa tham khảo (ticketing[0].value), hiếm — hiện nơi có
+  trai_nghiem_tra_phi?: { ten: string; don_vi: string }[] | null; // trò trả phí có tên
+  gioi_thieu?: string | null; // câu 1 "Giới thiệu nhanh" (intro.fact, build-time, lắp từ field)
+  phu_hop_voi?: string | null; // EDITORIAL (002 bien-tap): câu 2 "Phù hợp với khách muốn…" (intro.editorial)
 }
 
 export interface SlotItem extends PlaceRef {
@@ -76,7 +88,7 @@ export interface Itinerary {
   request: TripRequest;
   days: DayPlan[];
   hotel: PlaceRef | null; // khách sạn chính (km-anchor)
-  hotelAlts: PlaceRef[]; // 0-2 lựa chọn khách sạn khác gần đó (primary + alts = 1-3)
+  hotelAlts: PlaceRef[]; // 0-3 lựa chọn khách sạn khác gần đó (primary + alts = 1-4)
   restaurants: PlaceRef[]; // GỢI Ý quán ăn (không slot vào timeline) — thứ tự ảnh hưởng VQS
   notes: string[]; // cảnh báo mức lịch trình (vd nhiều nơi phải gọi trước)
   generated_from: string; // ngay_du_lieu của bộ dữ liệu
@@ -93,10 +105,18 @@ export interface KbOpeningSlot {
 export interface KbDestinationExt {
   trai_nghiem?: string | null;
   vibes?: string[]; // slug vibe rời rạc (VIBE_VOCAB) — CẤM chuỗi ghép "X/Y"
+  hoat_dong?: { label: string; nguon: string }[]; // "Có gì ở đây" — sinh offline (hoat_dong_derive), cap 5
   opening_hours?: { regular_schedule?: KbOpeningSlot[]; raw?: string | null };
   map?: { google_maps_url?: string | null };
-  facilities?: { wheelchair_access?: boolean };
+  facilities?: Record<string, string | null>; // {restroom/parking/wheelchair_access/wifi/info_desk/souvenir}: "có"/"limited"/null (OSM)
+  ticketing?: { value?: string | null }[]; // giá vé tham khảo (chuỗi, có thể nhiều nguồn xung đột)
+  trai_nghiem_tra_phi?: { ten: string; don_vi: string }[] | null; // trò trả phí có tên (geo-join on-site Overture)
+  phu_hop_voi?: { value?: string | null } | null; // EDITORIAL tier (002): "Phù hợp với khách muốn…" (bien-tap)
+  intro?: { fact?: string | null; editorial?: string | null; tier?: string } | null; // "Giới thiệu nhanh" V2 (build-time)
+  mo_ta?: string | null; // mô tả đã trim (B2, build-time) — ưu tiên hơn description.value
+  mo_ta_nguon_url?: string | null; // link Wikipedia (CC-BY-SA) khi mo_ta trích Wikipedia
   environment?: { prominence_m?: number };
+  transport?: { distance_from_center_km?: number | null }; // đo được (OSRM) — không phải bịa
 }
 export interface KbHotelExt {
   phan_khuc?: string;

@@ -224,17 +224,25 @@ function clusterByCoord(pts: KbRecord[]): KbRecord[][] {
   return clusters;
 }
 
-// A1/A2/A4/A5: đưa ĐỊA LÝ vào bước CHỌN. Seed = cụm FAME cao nhất (nổi tiếng), rồi mass, rồi gần tâm, rồi
-// key. FAME (khớp signatureSpots) đứng TRƯỚC mass để tỉnh sáp nhập mega không seed nhầm tỉnh-lỵ nhiều POI
-// hành chính thay vì thị xã du lịch. Slug ngoài registry: fame=0 mọi cụm -> lùi về mass (hành vi cũ).
+// A1/A2/A4/A5: đưa ĐỊA LÝ vào bước CHỌN. Ứng viên seed = cụm ở nửa GẦN TÂM (distTam ≤ trung vị) để blob
+// ngoại vi mass-lớn không chiếm seed (khi cụm theo ward, lõi trung tâm vỡ thành nhiều ward nhỏ còn điểm
+// KHÔNG parse được ward dồn vào MỘT blob region_id/__geo__ ngoại vi mass lớn -> blob chiếm seed -> lõi
+// >8km bị gap-stop loại sạch, vd Hạ Long/Vũng Tàu mất khu đất liền). TRONG pool đó, seed = FAME cao nhất
+// (khớp signatureSpots) TRƯỚC, rồi mass, rồi gần tâm, rồi key — để tỉnh sáp nhập mega không seed nhầm
+// tỉnh-lỵ nhiều POI hành chính thay vì thị xã du lịch. Slug ngoài registry: fame=0 mọi cụm -> lùi về mass.
 // Neo khoảng cách vào SEED CỐ ĐỊNH (không centroid trôi -> chống chaining single-linkage): duyệt cụm
 // theo distToSeed tăng dần, DỪNG ở cụm đầu tiên "nhảy cụm" -> mọi cụm xa hơn đều LOẠI (compactness
 // thắng coverage — không kéo vào cho đủ số). Tất định. Trả kept (giữ) + dropped (loại-note).
 function growCompact(regs: Reg[], anchorKeys: Set<string>): { kept: Reg[]; dropped: Reg[] } {
   if (regs.length <= 1) return { kept: regs, dropped: [] };
   const sorted = [...regs].sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
-  let seed = sorted[0];
-  for (const r of sorted) {
+  // Ứng viên seed = cụm ở nửa GẦN TÂM (distTam ≤ trung vị) để blob ngoại vi mass-lớn không chiếm seed —
+  // NHƯNG cụm có FAME (khớp signatureSpots) luôn được vào pool dù xa, để tỉnh mega sáp nhập seed đúng khu
+  // du lịch nổi tiếng cách tỉnh-lỵ >trung-vị (vd tuyen-quang -> Hà Giang). Blob ngoại vi fame=0 vẫn bị loại.
+  const medTam = median(sorted.map((r) => r.distTam));
+  const seedPool = sorted.filter((r) => r.distTam <= medTam || r.fame > 0);
+  let seed = seedPool[0];
+  for (const r of seedPool) {
     const better =
       r.fame > seed.fame ||
       (r.fame === seed.fame && r.mass > seed.mass) ||
@@ -391,7 +399,8 @@ export function buildItinerary(req: TripRequest, store?: Store): Itinerary {
   });
 
   // GỢI Ý quán ăn: top-N theo ảnh hưởng trong vùng chuyến đi (bias theo khẩu vị nếu có).
-  const restaurants: PlaceRef[] = recommendRestaurants(st, centroid, dynamicCapKm(tripSpanKm), clampInt(req.days, 1, 3), req.food).map(toPlaceRef);
+  // B4.1: nâng trần gợi ý quán 3 → tối đa 8 (theo số ngày); KB ít hơn → hiện đúng số có.
+  const restaurants: PlaceRef[] = recommendRestaurants(st, centroid, dynamicCapKm(tripSpanKm), clampInt(req.days * 2, 4, 8), req.food).map(toPlaceRef);
 
   const hotelNote = (h: KbRecord): string | null =>
     [h.ext?.hotel?.phan_khuc, h.ext?.hotel?.so_phong ? `${h.ext?.hotel?.so_phong} phòng` : null]
@@ -401,12 +410,12 @@ export function buildItinerary(req: TripRequest, store?: Store): Itinerary {
     ? { ...toPlaceRef(hotelRec), note: hotelNote(hotelRec) }
     : null;
 
-  // 1-3 khách sạn: primary (hotelRec) + tối đa 2 lựa chọn gần centroid nhất (loại primary).
+  // 1-4 khách sạn: primary (hotelRec) + tối đa 3 lựa chọn gần centroid nhất (loại primary).
   const hotelAlts: PlaceRef[] = st.hotels
     .filter((h) => h !== hotelRec && h.coordinates?.latitude != null && h.coordinates?.longitude != null)
     .map((h) => ({ h, d: haversine(centroid.lat, centroid.lon, co(h).lat, co(h).lon) }))
     .sort((a, b) => a.d - b.d)
-    .slice(0, 2)
+    .slice(0, 3)
     .map(({ h }) => ({ ...toPlaceRef(h), note: hotelNote(h) }));
 
   const goiTruoc = days.flatMap((d) => d.items).filter((i) => i.goi_truoc).length;

@@ -144,10 +144,13 @@ export function toPlaceRef(rec: KbRecord): PlaceRef {
     id: rec.id,
     name: rec.name,
     category: rec.category?.primary ?? null,
+    category_secondary: rec.category?.secondary ?? [],
     lat: rec.coordinates?.latitude ?? null,
     lon: rec.coordinates?.longitude ?? null,
     address: rec.address?.full_address ?? null,
     phone: rec.contact?.phone ?? null,
+    phan_khuc: rec.ext?.hotel?.phan_khuc ?? null,
+    so_phong: rec.ext?.hotel?.so_phong ?? null,
     gio_mo,
     goi_truoc: !gio_mo, // không có giờ -> phải gọi trước
     map_url: rec.ext?.destination?.map?.google_maps_url ?? null,
@@ -157,6 +160,21 @@ export function toPlaceRef(rec: KbRecord): PlaceRef {
     trai_nghiem: rec.ext?.destination?.trai_nghiem ?? null,
     vibes: rec.ext?.destination?.vibes ?? [],
     google_place_id: rec.external_ids?.google_place_id ?? null,
+    mo_ta: rec.ext?.destination?.mo_ta ?? rec.description?.value ?? null, // ưu tiên bản trim (B2)
+    mo_ta_nguon_url: rec.ext?.destination?.mo_ta_nguon_url ?? null, // link Wikipedia (B2)
+    hoat_dong: (rec.ext?.destination?.hoat_dong ?? []).map((h) => ({ label: h.label })),
+    cach_trung_tam_km: rec.ext?.destination?.transport?.distance_from_center_km ?? null,
+    facilities: rec.ext?.destination?.facilities ?? null,
+    // ưu tiên giá trị CÓ SỐ (giá thật) hơn "yes" (chỉ báo có phí, chưa rõ mức)
+    gia_ve: (() => {
+      const tks = rec.ext?.destination?.ticketing ?? [];
+      const withNum = tks.find((t) => t.value && /\d/.test(t.value));
+      return (withNum ?? tks[0])?.value ?? null;
+    })(),
+    trai_nghiem_tra_phi: rec.ext?.destination?.trai_nghiem_tra_phi ?? null,
+    // "Giới thiệu nhanh" V2 baked: câu 1 fact + câu 2 editorial (từ ext.destination.intro)
+    gioi_thieu: rec.ext?.destination?.intro?.fact ?? null,
+    phu_hop_voi: rec.ext?.destination?.intro?.editorial ?? rec.ext?.destination?.phu_hop_voi?.value ?? null,
   };
 }
 
