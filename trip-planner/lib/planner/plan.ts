@@ -197,15 +197,23 @@ function clusterByCoord(pts: KbRecord[]): KbRecord[][] {
   return clusters;
 }
 
-// A1/A2/A4/A5: đưa ĐỊA LÝ vào bước CHỌN. Seed = cụm mass cao nhất (tie: gần tâm hơn, rồi key).
+// A1/A2/A4/A5: đưa ĐỊA LÝ vào bước CHỌN. Seed = cụm MASS cao nhất TRONG NHÓM GẦN TÂM (distTam ≤ trung vị);
+// tie: gần tâm hơn, rồi key. (Trước: seed = mass cao nhất TOÀN BỘ — nhưng khi cụm theo ward, lõi trung tâm
+// vỡ thành nhiều ward nhỏ còn các điểm KHÔNG parse được ward dồn vào MỘT blob region_id/__geo__ ngoại vi
+// tổng mass lớn -> blob chiếm seed -> lõi trung tâm cách >8km bị gap-stop loại sạch, vd Hạ Long/Vũng Tàu
+// mất cả khu đất liền. Chặn ứng viên seed vào nửa GẦN TÂM: blob ngoại vi mass-lớn hết neo được, nhưng vẫn
+// giữ chọn-theo-mass trong vùng lõi nên cụm dày trung tâm vẫn thắng cụm thưa cùng vùng.)
 // Neo khoảng cách vào SEED CỐ ĐỊNH (không centroid trôi -> chống chaining single-linkage): duyệt cụm
 // theo distToSeed tăng dần, DỪNG ở cụm đầu tiên "nhảy cụm" -> mọi cụm xa hơn đều LOẠI (compactness
 // thắng coverage — không kéo vào cho đủ số). Tất định. Trả kept (giữ) + dropped (loại-note).
 function growCompact(regs: Reg[], anchorKeys: Set<string>): { kept: Reg[]; dropped: Reg[] } {
   if (regs.length <= 1) return { kept: regs, dropped: [] };
   const sorted = [...regs].sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
-  let seed = sorted[0];
-  for (const r of sorted) {
+  // Ứng viên seed = cụm ở nửa GẦN TÂM (distTam ≤ trung vị) để blob ngoại vi mass-lớn không chiếm seed.
+  const medTam = median(sorted.map((r) => r.distTam));
+  const seedPool = sorted.filter((r) => r.distTam <= medTam);
+  let seed = seedPool[0];
+  for (const r of seedPool) {
     const better =
       r.mass > seed.mass ||
       (r.mass === seed.mass && (r.distTam < seed.distTam || (r.distTam === seed.distTam && r.key < seed.key)));
