@@ -75,6 +75,9 @@ const PIN_CSS = `
 .pm-pin.pm-big{transform:scale(1.26)}
 .pm-pin.pm-big path{fill:#C63D0B}
 .pm-pin.pm-big svg{filter:drop-shadow(0 3px 6px rgba(30,36,51,.45))}
+.pm-pin.pm-pulse::after{content:"";position:absolute;left:50%;top:12px;width:28px;height:28px;transform:translate(-50%,-50%);border-radius:50%;border:2px solid var(--primary,#F0561D);pointer-events:none;animation:pmPulse .6s ease-out}
+@keyframes pmPulse{0%{opacity:.55;transform:translate(-50%,-50%) scale(.5)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.9)}}
+@media (prefers-reduced-motion: reduce){.pm-pin.pm-pulse::after{animation:none;opacity:0}}
 .pm-empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;color:var(--muted-foreground,#6B7280);pointer-events:none}
 `;
 
@@ -207,16 +210,27 @@ export default function PlannerMap({ dto, activeDay, hoveredOrder, selected, onP
       L.polyline(curvedLatLngs(pts), { color: '#F0561D', weight: 3.5, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }).addTo(overlay);
     }
     if (pts.length) {
-      map.fitBounds(L.latLngBounds(pts).pad(0.25), { padding: [30, 30], maxZoom: 14, animate: true });
+      // đổi ngày (scrollspy/chip/pin) → fit về bound ngày active, animate 300ms (AC P6)
+      map.fitBounds(L.latLngBounds(pts).pad(0.25), { padding: [30, 30], maxZoom: 14, animate: true, duration: 0.3 });
     }
   }, [dto, activeDay]);
 
-  // nhấn mạnh pin khi hover row bên card / được chọn: đổi class + đẩy z-index lên trên
+  // nhấn mạnh pin khi hover row bên card / được chọn: pm-big + z-index; pin đang focus nháy ring 0.6s.
   useEffect(() => {
+    const focus = hoveredOrder ?? selected?.order ?? null;
     markersRef.current.forEach((mk, order) => {
       const big = order === hoveredOrder || order === (selected?.order ?? -1);
-      const el = mk.getElement()?.querySelector('.pm-pin');
-      if (el) el.classList.toggle('pm-big', big);
+      const el = mk.getElement()?.querySelector('.pm-pin') as HTMLElement | null | undefined;
+      if (el) {
+        el.classList.toggle('pm-big', big);
+        if (order === focus) {
+          el.classList.remove('pm-pulse');
+          el.getBoundingClientRect(); // ép reflow → animation chạy lại mỗi lần focus đổi
+          el.classList.add('pm-pulse');
+        } else {
+          el.classList.remove('pm-pulse');
+        }
+      }
       mk.setZIndexOffset(big ? 1000 : 0);
     });
   }, [hoveredOrder, selected]);
