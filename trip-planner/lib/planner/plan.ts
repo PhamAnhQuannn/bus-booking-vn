@@ -5,6 +5,7 @@
 
 import type { DayPlan, Itinerary, KbDestinationExt, KbRecord, PlaceRef, SlotItem, TripRequest } from "./types";
 import { driveMinutes, haversine, loadStore, toPlaceRef, type Store } from "./store";
+import AREAS from "./areas.json";
 
 const PER_DAY: Record<TripRequest["pace"], number> = { relaxed: 2, moderate: 3, packed: 4 };
 const ASSUMED_SPEED_KMH = 25; // đổi km -> phút cho leg không có ma trận OSRM (khách sạn/nhà hàng)
@@ -37,6 +38,32 @@ function adminKey(r: KbRecord): string | null {
 }
 const dynamicCapKm = (spanKm: number): number => Math.min(Math.max(spanKm * 0.6, 5), 10);
 const clampInt = (v: number, lo: number, hi: number): number => Math.min(Math.max(v, lo), hi);
+
+// FAME-aware seed (AREA_REGISTRY): với tỉnh sáp nhập mega, seed cụm theo mass (số điểm nhiều dữ liệu)
+// chọn NHẦM tỉnh-lỵ thay vì thị xã du lịch (tỉnh-lỵ lắm POI hành chính). Chấm FAME = cụm có điểm khớp
+// tên điểm-nổi-tiếng (signatureSpots của slug trong areas.json) → growCompact seed FAME trước, mass sau.
+// Slug ngoài registry → fameSpots rỗng → fame=0 mọi cụm → hành vi cũ (mass) giữ nguyên.
+const foldText = (s: string): string =>
+  (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[đĐ]/g, "d").toLowerCase();
+
+function fameSpotsForSlug(slug: string): string[] {
+  const out: string[] = [];
+  const prov = (AREAS.provinces as Record<string, { signatureSpots?: string[] }>)[slug];
+  if (prov?.signatureSpots) out.push(...prov.signatureSpots);
+  for (const a of AREAS.areas as Array<{ slug?: string; signatureSpots?: string[] }>)
+    if (a.slug === slug && a.signatureSpots) out.push(...a.signatureSpots);
+  return out.map(foldText);
+}
+// số điểm trong cụm có tên khớp 1 signature-spot (fold + substring 2 chiều, guard >=5 ký tự tránh nhiễu).
+function regFame(pts: KbRecord[], fameSpots: string[]): number {
+  if (!fameSpots.length) return 0;
+  let n = 0;
+  for (const p of pts) {
+    const nm = foldText(p.name);
+    if (fameSpots.some((s) => (s.length >= 5 && nm.includes(s)) || (nm.length >= 5 && s.includes(nm)))) n++;
+  }
+  return n;
+}
 
 function meanLL(pts: LL[]): LL {
   const n = pts.length || 1;
@@ -131,7 +158,7 @@ function orderLoop(store: Store, recs: KbRecord[], anchor: LL): KbRecord[] {
 }
 
 // macro-NN: xếp thứ tự các REGION theo centroid, quét 1 chiều từ tâm (tất định, tie theo key).
-type Reg = { key: string; pts: KbRecord[]; centroid: LL; distTam: number; card: number; mass: number };
+type Reg = { key: string; pts: KbRecord[]; centroid: LL; distTam: number; card: number; mass: number; fame: number };
 function macroOrder(regs: Reg[], tam: LL): Reg[] {
   if (regs.length <= 1) return regs;
   const rem = [...regs].sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
@@ -197,7 +224,9 @@ function clusterByCoord(pts: KbRecord[]): KbRecord[][] {
   return clusters;
 }
 
-// A1/A2/A4/A5: đưa ĐỊA LÝ vào bước CHỌN. Seed = cụm mass cao nhất (tie: gần tâm hơn, rồi key).
+// A1/A2/A4/A5: đưa ĐỊA LÝ vào bước CHỌN. Seed = cụm FAME cao nhất (nổi tiếng), rồi mass, rồi gần tâm, rồi
+// key. FAME (khớp signatureSpots) đứng TRƯỚC mass để tỉnh sáp nhập mega không seed nhầm tỉnh-lỵ nhiều POI
+// hành chính thay vì thị xã du lịch. Slug ngoài registry: fame=0 mọi cụm -> lùi về mass (hành vi cũ).
 // Neo khoảng cách vào SEED CỐ ĐỊNH (không centroid trôi -> chống chaining single-linkage): duyệt cụm
 // theo distToSeed tăng dần, DỪNG ở cụm đầu tiên "nhảy cụm" -> mọi cụm xa hơn đều LOẠI (compactness
 // thắng coverage — không kéo vào cho đủ số). Tất định. Trả kept (giữ) + dropped (loại-note).
@@ -207,8 +236,10 @@ function growCompact(regs: Reg[], anchorKeys: Set<string>): { kept: Reg[]; dropp
   let seed = sorted[0];
   for (const r of sorted) {
     const better =
-      r.mass > seed.mass ||
-      (r.mass === seed.mass && (r.distTam < seed.distTam || (r.distTam === seed.distTam && r.key < seed.key)));
+      r.fame > seed.fame ||
+      (r.fame === seed.fame && r.mass > seed.mass) ||
+      (r.fame === seed.fame && r.mass === seed.mass &&
+        (r.distTam < seed.distTam || (r.distTam === seed.distTam && r.key < seed.key)));
     if (better) seed = r;
   }
   const others = sorted
@@ -240,6 +271,7 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
   // fallback region_id; thiếu cả hai -> cụm toạ độ. (Cũ: cụm theo region_id = hướng la bàn -> trộn thị xã.)
   const scoreOf = new Map<string, number>();
   for (const r of withCoord) scoreOf.set(r.id, scoreDestination(r, req));
+  const fameSpots = fameSpotsForSlug(req.slug); // signature-spots của slug (rỗng nếu ngoài registry)
   const groups = new Map<string, KbRecord[]>();
   const noRegion: KbRecord[] = [];
   for (const r of withCoord) {
@@ -258,7 +290,7 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
       (scoreOf.get(b.id)! - scoreOf.get(a.id)!) || (a.id < b.id ? -1 : 1));
     const centroid = meanLL(pts.map(co));
     const mass = pts.reduce((s, p) => s + scoreOf.get(p.id)!, 0);
-    return { key, pts, centroid, distTam: kmBetween(tam, centroid), card: pts.length, mass };
+    return { key, pts, centroid, distTam: kmBetween(tam, centroid), card: pts.length, mass, fame: regFame(pts, fameSpots) };
   });
 
   // E1 anchor: cụm chứa anchor -> key (scan pts, KHÔNG dựa region_id vì điểm thiếu region đã vào __geo__).
