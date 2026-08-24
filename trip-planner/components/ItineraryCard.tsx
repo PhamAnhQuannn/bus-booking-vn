@@ -230,7 +230,6 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
                   <div className="flex flex-wrap gap-x-3 gap-y-0.5" style={{ color: SOFT }}>
                     <span>{t('itinerary.hoursLabel', { value: r.goi_truoc ? t('itinerary.callAhead') : (r.gio_mo ?? '') })}</span>
                     {r.address ? <span>{r.address}</span> : null}
-                    {r.phone ? <a href={`tel:${r.phone}`} className="font-semibold text-primary hover:underline">📞 {r.phone}</a> : null}
                     {r.map_url ? <a href={r.map_url} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:underline">{t('itinerary.mapLink')}</a> : null}
                   </div>
                 </div>
@@ -249,16 +248,11 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
                 {dto.hotel.note ? <div className="text-xs" style={{ color: SOFT }}>{dto.hotel.note}</div> : null}
                 {hotelKm != null ? <div className="text-xs" style={{ color: SOFT }}>{t('itinerary.fromFirstStop', { km: hotelKm })}</div> : null}
                 {dto.hotel.address ? <div className="text-xs" style={{ color: SOFT }}>{dto.hotel.address}</div> : null}
-                <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs">
-                  {dto.hotel.phone ? (
-                    <a href={`tel:${dto.hotel.phone}`} className="font-semibold text-primary hover:underline">📞 {dto.hotel.phone}</a>
-                  ) : (
-                    <span style={{ color: SOFT }}>{t('itinerary.phoneUnverified')}</span>
-                  )}
-                  {dto.hotel.map_url ? (
+                {dto.hotel.map_url ? (
+                  <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs">
                     <a href={dto.hotel.map_url} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:underline">{t('itinerary.viewMap')}</a>
-                  ) : null}
-                </div>
+                  </div>
+                ) : null}
               </>
             ) : null}
             {dto.hotelAlts?.length ? (
@@ -271,7 +265,6 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
                       {h.note ? <span style={{ color: SOFT }}> · {h.note}</span> : null}
                       <div className="flex flex-wrap gap-x-3 gap-y-0.5" style={{ color: SOFT }}>
                         {h.address ? <span>{h.address}</span> : null}
-                        {h.phone ? <a href={`tel:${h.phone}`} className="font-semibold text-primary hover:underline">📞 {h.phone}</a> : null}
                         {h.map_url ? <a href={h.map_url} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:underline">{t('itinerary.mapLink')}</a> : null}
                       </div>
                     </div>
