@@ -8,7 +8,6 @@
 
 import type { DtoRestaurant } from '@/trip-planner/lib/planner/itineraryDto';
 import { displayCategory, stripCitySuffix } from '@/trip-planner/lib/planner/labels';
-import { fmtPhone } from '@/trip-planner/lib/planner/fmt';
 
 const INK = '#1E2433', SOFT = '#6B7280', FAINT = '#9AA0AC';
 
@@ -20,7 +19,6 @@ function GioChip({ r }: { r: DtoRestaurant }) {
 }
 
 function RestaurantCard({ r }: { r: DtoRestaurant }) {
-  const phone = fmtPhone(r.phone);
   return (
     <div className="max-w-[720px] rounded-[10px] border border-border bg-cream px-3.5 py-3 text-[13px] @[1100px]:max-w-none">
       <div className="flex items-baseline justify-between gap-2">
@@ -32,10 +30,11 @@ function RestaurantCard({ r }: { r: DtoRestaurant }) {
       </div>
       <div className="mt-1"><GioChip r={r} /></div>
       {r.address ? <div className="mt-1" style={{ color: SOFT }}>{r.address}</div> : null}
-      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5" style={{ color: SOFT }}>
-        {phone ? <a href={`tel:${r.phone}`} className="font-semibold text-primary hover:underline">📞 {phone}</a> : null}
-        {r.map_url ? <a href={r.map_url} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:underline">Bản đồ →</a> : null}
-      </div>
+      {r.map_url ? (
+        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5" style={{ color: SOFT }}>
+          <a href={r.map_url} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:underline">Bản đồ →</a>
+        </div>
+      ) : null}
     </div>
   );
 }

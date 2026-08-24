@@ -45,13 +45,14 @@ export interface DtoDay {
   items: DtoItem[];
 }
 
+// SPEC CONFLICT: #532 cố ý GIỮ phone (business contact) vs issue planner-pii-hotel-phone
+// (PDPL: số chủ hộ cá thể = PII, cùng lý do tourism-kb/export bị gitignore) → BỎ phone. PDPL thắng.
 export interface DtoHotel {
   name: string;
   note: string | null;
   phan_khuc: string | null; // hạng thô — render qua HOTEL_TIER_LABELS (B1.2)
   so_phong: number | null;
   address: string | null;
-  phone: string | null; // giữ (business contact, "gọi trước") — đồng nhất với nhà hàng (#532)
   map_url: string | null;
   lat: number | null;
   lon: number | null;
@@ -62,7 +63,7 @@ export interface DtoRestaurant {
   name: string;
   category: string | null;
   address: string | null;
-  phone: string | null; // giữ (business contact, "gọi trước") — đồng nhất với hotel
+  // phone BỎ — xem SPEC CONFLICT trên DtoHotel (planner-pii-hotel-phone, PDPL)
   map_url: string | null;
   region_id: string | null;
   gio_mo: string | null;
@@ -121,7 +122,6 @@ function toHotel(h: PlaceRef): DtoHotel {
     phan_khuc: h.phan_khuc ?? null,
     so_phong: h.so_phong ?? null,
     address: h.address,
-    phone: h.phone,
     map_url: h.map_url,
     lat: h.lat,
     lon: h.lon,
@@ -146,7 +146,6 @@ export function toPlannerDto(it: Itinerary): PlannerDto {
       name: r.name,
       category: r.category,
       address: r.address,
-      phone: r.phone,
       map_url: r.map_url,
       region_id: r.region_id ?? null,
       gio_mo: r.gio_mo,

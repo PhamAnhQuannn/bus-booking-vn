@@ -6,13 +6,36 @@ UNITS = 13 cum tuong minh (tam+ban kinh+ten tu density-probe 2026-08-09). Ghi
 tourism-kb/export/<slug>/ qua kiem_loi_ra (da trong .gitignore + G8). Chay TU GOC REPO:
     python tourism-kb/code/split_city.py
 """
-import os, io, sys, json, math
+import os, io, sys, json, math, re
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import duong_dan_ra as _dr
 
 R_DD = 22.0     # ban kinh diem den (km)
 R_ANU = 27.0    # ban kinh nha hang/khach san (rong hon chut)
+
+# Tinh sap nhap MEGA co cac thi xa ranh gioi SAT nhau (vd Sa Pa <-> TP Lao Cai ~19km < R_DD) -> loc
+# ban kinh THUAN keo diem thi xa khac vao => RO. Voi cac slug o WARD_ALLOW, loc diem-den theo KHU HANH
+# CHINH (ward: Phuong/Xa/Thi tran dau tien trong full_address) thay ban kinh. Nha-hang/khach-san giu
+# ban kinh (engine tu loc lai theo centroid chuyen di nen leak vo hai). Dong bo voi adminKey() ben
+# trip-planner/lib/planner/plan.ts.
+_WARD_RE = re.compile(r"^(Phường|Xã|Thị trấn)\s+\S")
+
+
+def ward_of(r):
+    full = ((r.get("address") or {}).get("full_address")) or ""
+    for seg in full.split(","):
+        s = seg.strip()
+        if _WARD_RE.match(s):
+            return s.lower()
+    return None
+
+
+WARD_ALLOW = {
+    # Sa Pa (thi xa cu) = cac phuong/xa Sa Pa; loai Phuong Lao Cai (TP Lao Cai ~19km).
+    "sa-pa": {"phường sa pa", "xã tả van", "xã hoàng liên", "xã mường hoa",
+              "xã tả phìn", "xã ngũ chỉ sơn", "xã bản hồ", "xã liên minh"},
+}
 
 
 def hav(a, b):
@@ -37,6 +60,7 @@ UNITS = [
     ("gia-lai", "quy-nhon", "Quy Nhơn", 13.89, 109.11),
     ("dong-nai", "vung-tau", "Vũng Tàu", 10.87, 107.10),
     ("tay-ninh", "tay-ninh-tp", "Tây Ninh", 11.25, 106.20),
+    ("lao-cai", "sa-pa", "Sa Pa", 22.34, 103.84),
 ]
 
 
@@ -69,7 +93,8 @@ for parent, slug, ten, lat, lon in UNITS:
     nh = load(parent, "nha-hang.json") or []
     ks = load(parent, "khach-san.json") or []
     meta = load(parent, "meta.json") or {}
-    sub_dd = [r for r in dd if near(r, center, R_DD)]
+    allow = WARD_ALLOW.get(slug)
+    sub_dd = [r for r in dd if ward_of(r) in allow] if allow else [r for r in dd if near(r, center, R_DD)]
     sub_nh = [r for r in nh if near(r, center, R_ANU)]
     sub_ks = [r for r in ks if near(r, center, R_ANU)]
     if len(sub_dd) < 8:

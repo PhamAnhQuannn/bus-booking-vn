@@ -9,7 +9,7 @@
 
 import type { DtoHotel } from '@/trip-planner/lib/planner/itineraryDto';
 import { hotelTierLabel, stripCitySuffix } from '@/trip-planner/lib/planner/labels';
-import { fmtKm, fmtPhone } from '@/trip-planner/lib/planner/fmt';
+import { fmtKm } from '@/trip-planner/lib/planner/fmt';
 
 const INK = '#1E2433', SOFT = '#6B7280', FAINT = '#9AA0AC';
 
@@ -27,7 +27,6 @@ function havKm(aLat: number, aLon: number, bLat: number, bLon: number): number {
 
 function HotelCard({ h, primary, firstStop }: { h: DtoHotel; primary?: boolean; firstStop?: FirstStop }) {
   const tier = hotelTierLabel(h.phan_khuc);
-  const phone = fmtPhone(h.phone);
   const dist =
     primary && firstStop && firstStop.lat != null && firstStop.lon != null && h.lat != null && h.lon != null
       ? fmtKm(havKm(h.lat, h.lon, firstStop.lat, firstStop.lon))
@@ -50,14 +49,11 @@ function HotelCard({ h, primary, firstStop }: { h: DtoHotel; primary?: boolean; 
       ) : null}
       {dist ? <div className="mt-0.5" style={{ color: SOFT }}>📍 cách {stripCitySuffix(firstStop!.name)} {dist}</div> : null}
       {h.address ? <div className="mt-0.5" style={{ color: SOFT }}>{h.address}</div> : null}
-      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5" style={{ color: SOFT }}>
-        {phone ? (
-          <a href={`tel:${h.phone}`} className="font-semibold text-primary hover:underline">📞 {phone}</a>
-        ) : (
-          <span>SĐT chưa xác minh — gọi trước</span>
-        )}
-        {h.map_url ? <a href={h.map_url} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:underline">Bản đồ →</a> : null}
-      </div>
+      {h.map_url ? (
+        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5" style={{ color: SOFT }}>
+          <a href={h.map_url} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:underline">Bản đồ →</a>
+        </div>
+      ) : null}
       {primary ? (
         <div className="mt-2 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5">
           <div className="text-[12px] font-bold uppercase tracking-wide text-primary">✨ Gợi ý biên tập</div>

@@ -302,7 +302,6 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
           );
         })}
 
-
       </div>
     </div>
   );

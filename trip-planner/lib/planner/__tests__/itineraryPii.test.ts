@@ -1,8 +1,11 @@
-// PII contract (#522/#532): điểm-đến phone bị STRIP tại model (slot()), khách sạn + nhà hàng phone
-// GIỮ (business contact). Test tại buildItinerary — phủ cả hai đường đọc (DTO route + RSC /lich-trinh)
-// vì cả hai dựng itinerary từ hàm này.
+// PII contract:
+//  - Server Itinerary (#522/#532): điểm-đến phone STRIP tại model (slot()); khách sạn + nhà hàng
+//    GIỮ phone ở tầng server (nguồn sự thật, dùng nội bộ).
+//  - DTO client (planner-pii-hotel-phone, PDPL): toPlannerDto BỎ phone cho MỌI loại (hotel +
+//    hotelAlts + restaurant) — không rò số chủ hộ cá thể ra browser. SPEC CONFLICT với #532 → PDPL thắng.
 import { describe, it, expect } from 'vitest';
 import { buildItinerary } from '../plan';
+import { toPlannerDto } from '../itineraryDto';
 import type { Store } from '../store';
 import type { KbRecord, TripRequest } from '../types';
 
@@ -54,5 +57,27 @@ describe('buildItinerary — PII phone contract', () => {
   it('nhà hàng: phone GIỮ (business contact)', () => {
     expect(itinerary.restaurants.length).toBeGreaterThan(0);
     expect(itinerary.restaurants[0]?.phone).toBe('+8490xxxxxx3');
+  });
+});
+
+describe('toPlannerDto — DTO client KHÔNG rò phone (PDPL)', () => {
+  const dto = toPlannerDto(buildItinerary(req, store));
+
+  it('khách sạn: DTO không có field phone', () => {
+    expect(dto.hotel).not.toBeNull();
+    expect(Object.hasOwn(dto.hotel!, 'phone')).toBe(false);
+  });
+
+  it('khách sạn thay thế (hotelAlts): DTO không có field phone', () => {
+    for (const h of dto.hotelAlts) expect(Object.hasOwn(h, 'phone')).toBe(false);
+  });
+
+  it('nhà hàng: DTO không có field phone', () => {
+    expect(dto.restaurants.length).toBeGreaterThan(0);
+    for (const r of dto.restaurants) expect(Object.hasOwn(r, 'phone')).toBe(false);
+  });
+
+  it('không còn chuỗi số điện thoại placeholder trong DTO serialize', () => {
+    expect(JSON.stringify(dto)).not.toContain('+8490xxxxxx');
   });
 });

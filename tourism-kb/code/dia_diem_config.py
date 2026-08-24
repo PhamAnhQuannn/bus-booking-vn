@@ -200,7 +200,7 @@ CONFIG = {
         "center": (104.3149, 22.0854),
         "radius_km": 120,
         "id_prefix": "LCa",
-        "city": "Yên Bái",
+        "city": "Lào Cai",       # slug=lao-cai (Sa Pa/Lào Cai) — KHÔNG để "Yên Bái" (nhãn 1-city/tỉnh gộp 2025 bị lệch)
         "province": "Lào Cai",
         "allowlist": [],
     },
