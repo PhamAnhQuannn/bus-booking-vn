@@ -39,6 +39,7 @@ type Props = {
   pulseKey?: number; // đổi giá trị → nháy ring (receipt click → "đây là artifact")
   hrefPdf?: string; // link Xuất PDF / Chia sẻ (mock header actions itinerary)
   onAskAssistant?: (prompt: string) => void; // chip "Hỏi trợ lý thêm…" → gửi prompt vào chat (optional; chưa wire → ẩn chip)
+  hideMap?: boolean; // ≥1280 3-pha: map ở cột trái (PlannerMapColumn) → pane phải bỏ map + handle + launcher
 };
 
 const PANE_CSS = `
@@ -67,7 +68,7 @@ function computeMapH(H_i: number, mapW: number, variant: Props['variant']): numb
   return mapH;
 }
 
-export default function PlannerPane({ dto, activeDay, hoveredOrder, selected, onPinClick, onCloseSheet, onSelectDay, onHoverItem, variant, onOpenFull, pulseKey, hrefPdf, onAskAssistant }: Props) {
+export default function PlannerPane({ dto, activeDay, hoveredOrder, selected, onPinClick, onCloseSheet, onSelectDay, onHoverItem, variant, onOpenFull, pulseKey, hrefPdf, onAskAssistant, hideMap }: Props) {
   const t = useTranslations('planner');
   // điểm đầu Ngày 1 (để tính khoảng cách khách sạn) — chỉ điểm-đến, có thể null
   const firstStop = (() => {
@@ -91,6 +92,7 @@ export default function PlannerPane({ dto, activeDay, hoveredOrder, selected, on
   }, [pulseKey]);
 
   useEffect(() => {
+    if (hideMap) return; // map ở cột trái → pane không tự đo/định cỡ map
     const el = rootRef.current;
     if (!el) return;
     const ro = new ResizeObserver(() => {
@@ -103,7 +105,7 @@ export default function PlannerPane({ dto, activeDay, hoveredOrder, selected, on
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, [variant]);
+  }, [variant, hideMap]);
 
   const short = mapH === 0; // SHORT-inline → launcher
 
@@ -131,8 +133,8 @@ export default function PlannerPane({ dto, activeDay, hoveredOrder, selected, on
     >
       <style>{PANE_CSS}</style>
 
-      {/* MAP (persistent qua mọi tab) — trên cùng như mock */}
-      {short ? (
+      {/* MAP (persistent qua mọi tab) — trên cùng như mock. ≥1280: map ở cột trái → ẩn ở đây. */}
+      {hideMap ? null : short ? (
         <button
           type="button"
           onClick={onOpenFull}
@@ -153,8 +155,8 @@ export default function PlannerPane({ dto, activeDay, hoveredOrder, selected, on
         </div>
       )}
 
-      {/* Thanh kéo lề dưới bản đồ → chỉnh chiều cao map (plan tự co). Chỉ khi có map inline (!short). */}
-      {!short ? (
+      {/* Thanh kéo lề dưới bản đồ → chỉnh chiều cao map (plan tự co). Chỉ khi có map inline (!short, !hideMap). */}
+      {!hideMap && !short ? (
         <div
           role="separator"
           aria-orientation="horizontal"
@@ -186,7 +188,7 @@ export default function PlannerPane({ dto, activeDay, hoveredOrder, selected, on
       {/* DayTabBar chỉ có nghĩa ở tab Lịch trình (lái map + timeline theo ngày) */}
       {tab === 'lich-trinh' ? <DayTabBar dto={dto} activeDay={activeDay} onSelect={onSelectDay} /> : null}
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div data-pane-scroll className="min-h-0 flex-1 overflow-y-auto">
         {tab === 'lich-trinh' ? (
           <ItineraryCard dto={dto} activeDay={activeDay} selected={selected} onHoverItem={onHoverItem} onToggleDay={onSelectDay} hrefPdf={hrefPdf} />
         ) : tab === 'khach-san' ? (

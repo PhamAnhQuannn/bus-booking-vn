@@ -168,6 +168,7 @@ const eslintConfig = defineConfig([
                 "formatRelativeVi.{ts,tsx}", // lib/op — pure relative-time formatter
                 "cities.{ts,tsx}", // trip-planner/lib/planner — pure city registry (client selector + server)
                 "slots.{ts,tsx}", // trip-planner/lib/planner — máy trạng thái slot tất định (chip client, không Gemini)
+                "layoutPhase.{ts,tsx}", // trip-planner/lib/planner — pure derive pha bố cục (client-safe, no server)
                 "conversationsClient.{ts,tsx}", // trip-planner/lib/planner — client-safe: lưu/đọc lịch sử (authFetch + localStorage)
               ],
             },

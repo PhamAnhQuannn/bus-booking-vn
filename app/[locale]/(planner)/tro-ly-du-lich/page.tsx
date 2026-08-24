@@ -13,7 +13,7 @@
  * PlannerPane (dynamic ssr:false), các component planner, kiểu DTO.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
@@ -38,11 +38,15 @@ import {
 } from '@/trip-planner/lib/planner/conversationsClient';
 // Deep-import client-safe: máy trạng thái slot tất định (chip = $0, không Gemini).
 import { type Slots, type Ask, nextAsk, optionalAsk, applyChip, complete, mergeIntent, slotsToParams, budgetAsk, transportAsk, foodAsk } from '@/trip-planner/lib/planner/slots';
+import { deriveLayoutPhase, type LayoutPhase } from '@/trip-planner/lib/planner/layoutPhase';
+import { useIsWide } from '@/trip-planner/components/useIsWide';
 // KIỂU only (erased lúc build → không kéo graph server vào client). Qua barrel = entry-point hợp lệ.
 import type { PlannerDto, ParsedIntent, DestinationSuggestion } from '@/trip-planner/lib/planner';
 
 // PlannerPane gộp Leaflet → dynamic ssr:false. Chứa DayTabBar + map (aspect-lock) + itinerary card.
 const PlannerPane = dynamic(() => import('@/trip-planner/components/PlannerPane'), { ssr: false });
+// ≥1280 pha planning: bản đồ ở đầu cột trái (gộp Leaflet → ssr:false).
+const PlannerMapColumn = dynamic(() => import('@/trip-planner/components/PlannerMapColumn'), { ssr: false });
 
 type Options = { slot: string; options: string[]; allowCustom: boolean };
 
@@ -113,6 +117,35 @@ export default function TroLyDuLichPage() {
   const dragXRef = useRef(false);
 
   const isEntry = messages.length === 0; // màn mở đầu (hero) vs active-chat
+
+  // ── pha bố cục (idle | collecting | planning) — flow 3-pha ≥1280 ──────────
+  const isWide = useIsWide(); // ≥1280 → áp flow 3-pha mới; <1280 giữ bố cục cũ
+  const [transitioning, setTransitioning] = useState(false); // slide collecting→planning (1 lần/phiên)
+  const [composerFocused, setComposerFocused] = useState(false); // focus input → auto-thu map
+  const skipTransitionRef = useRef(false); // reopen convo có plan → vào thẳng split, không animate
+  const transitionDoneRef = useRef(false); // one-shot guard: slide chỉ chạy 1 lần/phiên
+  const prevPhaseRef = useRef<LayoutPhase>('idle'); // phát hiện cạnh collecting→planning
+
+  // Sticky planning KHÔNG cần latch riêng: tin bot mang dto tồn tại mãi trong mảng → hasDto sticky;
+  // isGenerating phủ khoảng trống lần dựng đầu (trước khi dto về). Regenerate: dto cũ vẫn trong mảng.
+  const hasDto = useMemo(() => messages.some((m) => m.role === 'bot' && !!m.dto), [messages]);
+  const isGenerating = loading && messages.some((m) => m.role === 'bot' && m.planning);
+  const layoutPhase = deriveLayoutPhase({ messageCount: messages.length, hasDto, isGenerating, planned: hasDto });
+  const useWideLayout = isWide && (layoutPhase === 'collecting' || layoutPhase === 'planning');
+  const shrinkMap = isWide && layoutPhase === 'planning' && (composerFocused || loading); // Phần 6 wiring (auto-thu)
+
+  // Slide split chạy ĐÚNG 1 lần/phiên khi lần đầu vào planning (bỏ qua nếu skipTransition / <1280).
+  useEffect(() => {
+    const prev = prevPhaseRef.current;
+    prevPhaseRef.current = layoutPhase;
+    if (prev === 'collecting' && layoutPhase === 'planning' && isWide && !skipTransitionRef.current && !transitionDoneRef.current) {
+      transitionDoneRef.current = true;
+      setTransitioning(true);
+      const id = setTimeout(() => setTransitioning(false), 360);
+      return () => clearTimeout(id);
+    }
+    skipTransitionRef.current = false; // consume 1 lần khi đã tới planning
+  }, [layoutPhase, isWide]);
 
   // Kéo splitter dọc: đổi độ rộng cột chat; pane plan (flex-1) tự co. Chỉ lg (splitter hidden <lg).
   function onSplitMove(e: React.PointerEvent) {
@@ -375,19 +408,25 @@ export default function TroLyDuLichPage() {
     const c = await getConversation(id);
     if (!c) return;
     const msgs = fromStored(c.messages);
-    // Đặt chữ ký = đúng cái effect sẽ tính → lần lưu ngay sau khi load bị skip (không bump updatedAt).
-    lastSavedRef.current = id + '|' + JSON.stringify(toStored(msgs));
-    setMessages(msgs);
-    setConversationId(id);
     let lastDto: PlannerDto | null = null;
     for (let i = msgs.length - 1; i >= 0; i--) {
       const m = msgs[i];
       if (m.role === 'bot' && m.dto) { lastDto = m.dto; break; }
     }
+    // Reset cờ transition TRƯỚC setMessages: có plan → vào thẳng split, KHÔNG replay slide.
+    skipTransitionRef.current = !!lastDto;
+    transitionDoneRef.current = false;
+    prevPhaseRef.current = lastDto ? 'planning' : 'idle';
+    // Đặt chữ ký = đúng cái effect sẽ tính → lần lưu ngay sau khi load bị skip (không bump updatedAt).
+    lastSavedRef.current = id + '|' + JSON.stringify(toStored(msgs));
+    setMessages(msgs);
+    setConversationId(id);
     setDto(lastDto); setActiveDay(1); setSelected(null); setHoveredOrder(null); setSlots({});
     setDrawerOpen(false); setSidebarCollapsed(true); // active → thu gọn sidebar (mock 3)
   }
   function newConversation() {
+    // Reset cờ transition cùng nhau TRƯỚC setMessages → phiên mới ở idle, slide sẵn sàng chạy lại.
+    skipTransitionRef.current = false; transitionDoneRef.current = false; prevPhaseRef.current = 'idle';
     setSlots({}); setMessages([]); setDto(null); setSelected(null); setActiveDay(1);
     setHoveredOrder(null); setResultFull(false); setInput(''); setConversationId(null); setDrawerOpen(false);
     setSidebarCollapsed(false); // về entry → mở lại sidebar
@@ -450,6 +489,214 @@ export default function TroLyDuLichPage() {
     onClearAll,
   };
 
+  // ── mảnh chat dùng chung (narrow + wide) ─────────────────────────────────
+  const chatTopBar = (
+    <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#E4D8C9] px-4 py-2.5">
+      <button type="button" onClick={() => setDrawerOpen(true)} aria-label={t('assistant.historyAria')}
+        className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold lg:hidden">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+        {t('assistant.history')}
+      </button>
+      <span className="hidden text-sm font-semibold text-muted-foreground lg:inline">{isEntry ? '' : t('assistant.assistantName')}</span>
+      {!isEntry ? (
+        <button type="button" onClick={newConversation}
+          className="shrink-0 whitespace-nowrap rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-primary/5">
+          {t('assistant.newConversation')}
+        </button>
+      ) : <span />}
+    </div>
+  );
+
+  // Dòng trạng thái gọn (pha collecting ≥1280) — thay stepper chấm-đường kéo dài.
+  const statusPersons = (slots.adults ?? 0) + (slots.children ?? 0) + (slots.elders ?? 0);
+  const statusItems: [string, boolean][] = [
+    [t('stepper.destination'), !!slots.dia_diem],
+    [t('stepper.days'), !!slots.days],
+    [t('stepper.group'), !!slots.nhom || statusPersons > 0],
+  ];
+  const statusLine = (
+    <p className="mb-1 px-1 text-[13px]">
+      {statusItems.map(([label, done], i) => (
+        <span key={label}>
+          <span style={{ color: done ? '#1E2433' : '#9AA0AC', fontWeight: done ? 600 : 400 }}>{label}{done ? ' ✓' : ' —'}</span>
+          {i < statusItems.length - 1 ? <span style={{ color: '#9AA0AC' }}> · </span> : null}
+        </span>
+      ))}
+    </p>
+  );
+
+  const messagesBlock = (
+    <div className="mt-3 flex flex-col">
+      {messages.map((m, idx) => {
+        const mt = idx === 0 ? 0 : messages[idx - 1].role === m.role ? 8 : 16;
+        return m.role === 'user' ? (
+          <div key={idx} style={{ marginTop: mt }} className="max-w-[min(78%,460px)] self-end rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-[15px] text-primary-foreground">
+            {m.text}
+            {m.time ? <span className="mt-0.5 block text-right text-[10px] text-primary-foreground/70">{m.time} ✓✓</span> : null}
+          </div>
+        ) : (
+          <div key={idx} style={{ marginTop: mt }} className="flex w-full gap-2.5 self-start">
+            <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/10 text-base" aria-hidden>🤖</span>
+            <div className="min-w-0 max-w-[min(90%,560px)] flex-1">
+              <div className="rounded-2xl rounded-bl-md border px-4 py-3 text-[15px] leading-6 text-foreground" style={{ background: '#FEFCF7', borderColor: '#F0EAE2' }}>
+                {m.text ? <p className="whitespace-pre-wrap">{m.text}</p> : <p className="text-muted-foreground">{t('assistant.typing')}</p>}
+                {m.planning ? <p className="mt-2 text-xs text-muted-foreground">{t('assistant.planningFromData')}</p> : null}
+                {m.options && m.options.options.length && messages[idx + 1]?.role === 'user' ? (
+                  <p className="mt-2 text-xs" style={{ color: '#9AA0AC' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
+                ) : null}
+                {m.error ? <p className="mt-2 text-xs text-muted-foreground">{t('assistant.tryAgain')}</p> : null}
+              </div>
+              {m.time ? <span className="mt-0.5 block px-1 text-[10px] text-muted-foreground">{m.time}</span> : null}
+              {m.dto ? <TripReceipt dto={m.dto} onActivate={activateArtifact} onSelectDay={setActiveDay} /> : null}
+              {m.suggestions ? (
+                <SuggestionCards
+                  items={m.suggestions}
+                  vibe={m.suggestVibe ?? ''}
+                  onAdd={(id, name) => onAddAnchor(m.suggestCity ?? '', id, name)}
+                  onPlan={() => onPlanVibe(m.suggestCity ?? '')}
+                />
+              ) : null}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const askBlock = activeAsk ? (
+    <div className="mt-3 flex gap-2.5">
+      <span className="h-8 w-8 shrink-0" aria-hidden />
+      <div className="rounded-2xl border border-[#F0EAE2] bg-white p-3.5 shadow-e1">
+        <div className="flex flex-wrap gap-2">
+          {activeAsk.options.map((opt, i) => (
+            <button key={opt} type="button" onClick={() => onChip(activeAsk.slot, opt)} disabled={loading}
+              className={`rounded-full px-3.5 py-2 text-[13px] font-semibold transition-colors disabled:opacity-40 ${
+                i === 0 ? 'bg-primary text-primary-foreground hover:opacity-90' : 'border border-[#F0EAE2] text-foreground hover:border-primary hover:bg-primary/5'
+              }`}>
+              {opt}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  const composerZone = (maxW: string) => (
+    <div className={`mx-auto w-full shrink-0 px-4 pb-5 pt-3 ${maxW}`}>
+      {!isEntry && dto && !activeAsk ? (
+        <p className="mb-2 px-1 text-xs leading-relaxed" style={{ color: '#9AA0AC' }}>
+          {t.rich('assistant.tip', { b: (chunks) => <b className="font-semibold">{chunks}</b> })}
+        </p>
+      ) : null}
+      {!isEntry && dto && !activeAsk ? (
+        <div className="mb-2.5 flex gap-2 overflow-x-auto pb-1">
+          {ACTIONS.map(([label, prompt]) => (
+            <button key={label} type="button" onClick={() => send(prompt)} disabled={loading}
+              className="flex h-[34px] shrink-0 items-center rounded-full border bg-background px-3 text-[13px] font-semibold text-primary hover:bg-primary/10 disabled:opacity-40" style={{ borderColor: '#F5A98A' }}>
+              {label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {!isEntry && !activeAsk ? (
+        <div className="mb-2.5 flex flex-wrap gap-2">
+          {([[t('assistant.filterInterests'), 'so_thich'], [t('assistant.filterTransport'), 'phuong_tien'], [t('assistant.filterFood'), 'an_uong']] as [string, 'so_thich' | 'phuong_tien' | 'an_uong'][]).map(
+            ([label, kind]) => (
+              <button key={kind} type="button" onClick={() => openFilter(kind)} disabled={loading}
+                className="flex items-center gap-1.5 rounded-full border border-[#F0EAE2] bg-white px-3 py-1.5 text-[12.5px] font-medium text-foreground transition-colors hover:border-primary hover:bg-primary/5 disabled:opacity-40">
+                {label}
+              </button>
+            ),
+          )}
+        </div>
+      ) : null}
+      <PlannerComposer value={input} onChange={setInput} onSubmit={() => send(input)} disabled={loading} />
+      {isEntry ? (
+        <p className="mt-2.5 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+          <span aria-hidden>🔒</span> {t('assistant.privacy')}
+        </p>
+      ) : null}
+    </div>
+  );
+
+  // Skeleton pha planning khi đang generating chưa có dto (band giả + 3 block shimmer).
+  const planSkeleton = (
+    <div className="grid h-full w-full content-start gap-3 bg-white p-4">
+      <div className="h-9 w-2/3 animate-pulse rounded-lg bg-muted" />
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" style={{ animationDelay: `${i * 120}ms` }} />
+      ))}
+    </div>
+  );
+
+  // ── CORE 3-pha (≥1280): collecting full-width || planning split ──────────
+  const wideCore =
+    layoutPhase === 'collecting' ? (
+      <section className="flex min-h-0 w-full flex-1 flex-col">
+        {chatTopBar}
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+          <div className="mx-auto flex w-full max-w-[780px] flex-1 flex-col px-4 pb-2 pt-3">
+            {statusLine}
+            {messagesBlock}
+            {askBlock}
+          </div>
+        </div>
+        {composerZone('max-w-[780px]')}
+      </section>
+    ) : (
+      <div className="grid min-h-0 w-full flex-1" style={{ gridTemplateColumns: 'minmax(420px,42%) 1fr' }}>
+        <style>{`@keyframes v4PaneIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}.v4-pane-in{animation:v4PaneIn .35s ease-out}@media (prefers-reduced-motion: reduce){.v4-pane-in{animation:none}}`}</style>
+        {/* CỘT TRÁI — bản đồ (trên) + chat (dưới) */}
+        <div className="flex min-h-0 flex-col border-r border-[#E4D8C9]">
+          {dto ? (
+            <PlannerMapColumn
+              dto={dto}
+              activeDay={activeDay}
+              hoveredOrder={hoveredOrder}
+              selected={selected}
+              onPinClick={onPinClick}
+              onCloseSheet={() => setSelected(null)}
+              shrink={shrinkMap}
+            />
+          ) : null}
+          <div onFocusCapture={() => setComposerFocused(true)} onBlurCapture={() => setComposerFocused(false)} className="flex min-h-0 flex-1 flex-col">
+            {chatTopBar}
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+              <div className="flex w-full flex-1 flex-col px-4 pb-2 pt-3">
+                {messagesBlock}
+                {askBlock}
+              </div>
+            </div>
+            {composerZone('max-w-none')}
+          </div>
+        </div>
+        {/* CỘT PHẢI — kế hoạch full-height (map đã ở cột trái → hideMap) */}
+        <section data-map-pane className={`flex min-h-0 flex-col ${transitioning ? 'v4-pane-in' : ''}`}>
+          {dto ? (
+            <PlannerPane
+              dto={dto}
+              activeDay={activeDay}
+              hoveredOrder={hoveredOrder}
+              selected={selected}
+              onPinClick={onPinClick}
+              onCloseSheet={() => setSelected(null)}
+              onSelectDay={setActiveDay}
+              onHoverItem={setHoveredOrder}
+              variant="inline"
+              onOpenFull={() => setResultFull(true)}
+              pulseKey={pulseKey}
+              hrefPdf={lastHref}
+              hideMap
+            />
+          ) : isGenerating ? (
+            planSkeleton
+          ) : (
+            emptyState
+          )}
+        </section>
+      </div>
+    );
+
   return (
     <main ref={mainRef} className="flex h-[calc(100dvh-56px)] w-full flex-col overflow-hidden bg-white lg:h-[calc(100dvh-64px)] lg:flex-row">
       {/* SIDEBAR desktop — lịch sử / brand-intro. Rộng ~26%W (đo từ mock) + clamp → bền tỉ lệ. */}
@@ -466,6 +713,8 @@ export default function TroLyDuLichPage() {
         </div>
       ) : null}
 
+      {/* ≥1280 pha collecting/planning → CORE 3-pha mới; else (idle hoặc <1280) → bố cục cũ */}
+      {useWideLayout ? wideCore : (<>
       {/* CỘT GIỮA — entry hero (rộng) || active chat (mặc định ~37%W; kéo splitter đổi rộng qua --chat-w) */}
       <section ref={chatSecRef}
         style={{ '--chat-w': chatW == null ? '37%' : chatW + 'px' } as React.CSSProperties}
@@ -613,6 +862,7 @@ export default function TroLyDuLichPage() {
           {paneFor('inline')}
         </section>
       ) : null}
+      </>)}
 
       {/* Overlay fullscreen [tabs + map + card] — dùng mọi width (mobile FAB + desktop-short launcher). */}
       {resultFull ? (
