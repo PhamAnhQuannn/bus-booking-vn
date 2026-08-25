@@ -40,7 +40,6 @@ type Props = {
   hrefPdf?: string; // link Xuất PDF / Chia sẻ (mock header actions itinerary)
   onAskAssistant?: (prompt: string) => void; // chip "Hỏi trợ lý thêm…" → gửi prompt vào chat (optional; chưa wire → ẩn chip)
   hideMap?: boolean; // ≥1280 3-pha: map ở cột trái (PlannerMapColumn) → pane phải bỏ map + handle + launcher
-  onSelectItem?: (day: number, order: number) => void; // compact: click row → toggle dossier accordion
   onActiveDayChange?: (day: number) => void; // compact: scrollspy đặt ngày active
 };
 
@@ -70,7 +69,7 @@ function computeMapH(H_i: number, mapW: number, variant: Props['variant']): numb
   return mapH;
 }
 
-export default function PlannerPane({ dto, activeDay, hoveredOrder, selected, onPinClick, onCloseSheet, onSelectDay, onHoverItem, variant, onOpenFull, pulseKey, hrefPdf, onAskAssistant, hideMap, onSelectItem, onActiveDayChange }: Props) {
+export default function PlannerPane({ dto, activeDay, hoveredOrder, selected, onPinClick, onCloseSheet, onSelectDay, onHoverItem, variant, onOpenFull, pulseKey, hrefPdf, onAskAssistant, hideMap, onActiveDayChange }: Props) {
   const t = useTranslations('planner');
   // điểm đầu Ngày 1 (để tính khoảng cách khách sạn) — chỉ điểm-đến, có thể null
   const firstStop = (() => {
@@ -192,7 +191,7 @@ export default function PlannerPane({ dto, activeDay, hoveredOrder, selected, on
 
       <div data-pane-scroll className="min-h-0 flex-1 overflow-y-auto">
         {tab === 'lich-trinh' ? (
-          <ItineraryCard dto={dto} activeDay={activeDay} selected={selected} onHoverItem={onHoverItem} onToggleDay={onSelectDay} hrefPdf={hrefPdf} compact={hideMap} onSelectItem={onSelectItem} onActiveDayChange={onActiveDayChange} onSeeFood={() => setTab('an-uong')} />
+          <ItineraryCard dto={dto} activeDay={activeDay} selected={selected} onHoverItem={onHoverItem} onToggleDay={onSelectDay} hrefPdf={hrefPdf} compact={hideMap} onActiveDayChange={onActiveDayChange} onSeeFood={() => setTab('an-uong')} />
         ) : tab === 'khach-san' ? (
           <HotelsList hotel={dto.hotel} hotelAlts={dto.hotelAlts} firstStop={firstStop} onAskAssistant={onAskAssistant} />
         ) : (
