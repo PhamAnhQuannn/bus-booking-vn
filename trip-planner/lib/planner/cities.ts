@@ -42,6 +42,12 @@ export const CITIES: City[] = [
   { slug: "tay-ninh-tp", ten: "Tây Ninh" },
   { slug: "sa-pa", ten: "Sa Pa" }, // tách từ lao-cai (mega sáp nhập) — lọc theo khu hành chính, bỏ TP Lào Cai
   { slug: "ba-be", ten: "Ba Bể" }, // hồ Ba Bể (Bắc Kạn→Thái Nguyên) — lõi tự nhiên chặt (median 6km, max 20km), golden 3 ngày OK
+  // Hub city-unit carve từ tỉnh phủ=0 (split_city.py, density-probe 2026-08-24) — đầy đủ OSRM matrix.
+  { slug: "dien-bien-phu", ten: "Điện Biên Phủ" }, // di tích chiến dịch (Đồi A1, Him Lam, Mường Phăng) — 18 điểm
+  { slug: "dong-van", ten: "Đồng Văn" }, // cao nguyên đá Hà Giang (Nhà của Pao, Dinh Vua Mèo, Lũng Cẩm) — 14 điểm
+  { slug: "vinh", ten: "Vinh" }, // Vinh + Nam Đàn (Làng Sen quê Bác, Thành cổ, Bãi Lữ) — 11 điểm
+  { slug: "cao-bang-tp", ten: "Cao Bằng" }, // TP Cao Bằng + karst (Mã Phục, Thăng Hen, Núi Thủng) — 14 điểm
+  { slug: "thanh-hoa-tp", ten: "Thanh Hóa" }, // TP Thanh Hóa (Hàm Rồng, làng nghề, đền chùa) — 31 điểm
 ];
 // Bỏ tay-ninh(111km)/thanh-hoa(94)/cao-bang(89): smoke lộ 1 ngày span >80km (lịch loạn) — chờ engine
 // tune outlier hoặc tách city con. ho-chi-minh/hai-phong/vinh-long giữ (60-70km = tầm day-trip chấp nhận).

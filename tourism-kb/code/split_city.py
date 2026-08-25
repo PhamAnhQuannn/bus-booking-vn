@@ -61,6 +61,13 @@ UNITS = [
     ("dong-nai", "vung-tau", "Vũng Tàu", 10.87, 107.10),
     ("tay-ninh", "tay-ninh-tp", "Tây Ninh", 11.25, 106.20),
     ("lao-cai", "sa-pa", "Sa Pa", 22.34, 103.84),
+    # Hub city-unit carve từ tỉnh phủ=0 (density-probe 2026-08-24) — lõi tham quan chặt.
+    ("dien-bien", "dien-bien-phu", "Điện Biên Phủ", 21.398, 103.032),
+    ("ha-giang", "dong-van", "Đồng Văn", 23.227, 105.202),
+    ("nghe-an", "vinh", "Vinh", 18.708, 105.584),
+    ("cao-bang", "cao-bang-tp", "Cao Bằng", 22.701, 106.191),
+    ("thanh-hoa", "thanh-hoa-tp", "Thanh Hóa", 19.904, 105.858),
+    ("lang-son", "lang-son-tp", "Lạng Sơn", 21.856, 106.747),
 ]
 
 
