@@ -48,7 +48,8 @@ export interface PlaceRef {
   lon: number | null;
   address: string | null;
   phone: string | null;
-  gio_mo: string | null; // chuỗi giờ mở nếu có
+  gio_mo: string | null; // chuỗi giờ mở nếu có (khung đầu, gọn)
+  gio_mo_chi_tiet?: { d: number[]; open: string; close: string }[] | null; // lịch theo ngày khi giờ khác nhau
   goi_truoc: boolean; // true = không có giờ xác minh -> "gọi trước"
   map_url: string | null;
   source_ids: string[];
@@ -101,6 +102,7 @@ export interface Itinerary {
 export interface KbOpeningSlot {
   open?: string;
   close?: string;
+  days?: string[]; // "monday".."sunday" — lịch theo ngày (giờ chi tiết)
 }
 export interface KbDestinationExt {
   trai_nghiem?: string | null;

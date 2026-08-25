@@ -20,6 +20,7 @@ export interface DtoItem {
   lat: number | null;
   lon: number | null;
   gio_mo: string | null;
+  gio_mo_chi_tiet?: { d: number[]; open: string; close: string }[] | null; // lịch theo ngày khi giờ khác nhau
   goi_truoc: boolean; // true = chưa có giờ xác minh
   map_url: string | null;
   region_id: string | null;
@@ -95,6 +96,7 @@ function toItem(it: SlotItem, idx: number): DtoItem {
     lat: it.lat,
     lon: it.lon,
     gio_mo: it.gio_mo,
+    gio_mo_chi_tiet: it.gio_mo_chi_tiet ?? null,
     goi_truoc: it.goi_truoc,
     map_url: it.map_url,
     region_id: it.region_id ?? null,

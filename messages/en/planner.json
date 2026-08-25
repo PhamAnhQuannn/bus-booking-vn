@@ -184,6 +184,7 @@
     "sharedAlert": "Share link copied.",
     "shareTitle": "{city} itinerary, {days} days",
     "whatsHere": "What's here",
+    "dayShorts": "Mon,Tue,Wed,Thu,Fri,Sat,Sun",
     "overviewTitle": "TRIP OVERVIEW",
     "mealLunch": "Lunch · break",
     "mealDinner": "Dinner · break",

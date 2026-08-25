@@ -15,7 +15,19 @@ import { displayCategory, itemBadge, areaLabel, vibeChip, stripCitySuffix, FACIL
 import { cardProfile, type SectionKey } from '@/trip-planner/lib/planner/cardProfile';
 import { fmtKm } from '@/trip-planner/lib/planner/fmt';
 import { buildOverview, withMeals } from '@/trip-planner/lib/planner/timeline';
+import { compressDays } from '@/trip-planner/lib/planner/hours';
 import { DayTabBar } from '@/trip-planner/components/DayTabBar';
+
+// Format lịch giờ theo ngày: [{d:[1..5],open,close}] + nhãn ngày (i18n) → "T2–T6 08:00–17:00 · T7,CN 08:00–21:00"
+function fmtScheduleSlots(slots: { d: number[]; open: string; close: string }[], dayShorts: string[]): string {
+  const lbl = (n: number) => dayShorts[n - 1] ?? String(n);
+  return slots
+    .map((s) => {
+      const ranges = compressDays(s.d).map(([a, b]) => (a === b ? lbl(a) : `${lbl(a)}–${lbl(b)}`)).join(', ');
+      return `${ranges} ${s.open}–${s.close}`;
+    })
+    .join(' · ');
+}
 
 type Props = {
   dto: PlannerDto;
@@ -187,12 +199,13 @@ function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: numb
                 case 'cach_trung_tam': {
                   // B5.1: nhãn tiện ích ĐẦY ĐỦ qua FACILITY_LABELS (cấm viết tắt tự chế); key lạ → ẩn
                   const fac = it.facilities ? Object.entries(it.facilities).filter(([k, v]) => v && FACILITY_LABELS[k]).map(([k, v]) => FACILITY_LABELS[k] + (v === 'limited' ? t('itinerary.facilityLimited') : '')) : [];
-                  const hasThucTe = it.gio_mo || it.cach_trung_tam_km != null || it.gia_ve || fac.length;
+                  const schedule = it.gio_mo_chi_tiet && it.gio_mo_chi_tiet.length ? fmtScheduleSlots(it.gio_mo_chi_tiet, t('itinerary.dayShorts').split(',')) : null;
+                  const hasThucTe = it.gio_mo || schedule || it.cach_trung_tam_km != null || it.gia_ve || fac.length;
                   return hasThucTe ? (
                     <div key="thuc_te" className="mt-2 border-t border-border pt-2 text-[12px]" style={{ color: SOFT }}>
                       <div className="flex flex-wrap gap-x-3 gap-y-0.5">
-                        {/* badge "✓ Mở {giờ}" đã hiện giờ khi !goi_truoc → bỏ dòng này tránh trùng */}
-                        {it.gio_mo && it.goi_truoc ? <span>🕐 {t('itinerary.badgeOpen')} <span className="tabular-nums">{it.gio_mo}</span></span> : null}
+                        {/* Lịch giờ theo ngày (khi giờ khác nhau giữa các ngày) — badge chỉ hiện 1 khung */}
+                        {schedule ? <span>🕐 <span className="tabular-nums">{schedule}</span></span> : it.gio_mo && it.goi_truoc ? <span>🕐 {t('itinerary.badgeOpen')} <span className="tabular-nums">{it.gio_mo}</span></span> : null}
                         {it.gia_ve ? <span>{t('itinerary.ticketsLabel', { value: /^\s*(yes|có|co)\s*$/i.test(it.gia_ve) ? t('itinerary.ticketsPaidUnconfirmed') : it.gia_ve })}</span> : null}
                         {it.cach_trung_tam_km != null ? <span>{t('itinerary.fromCentre', { dist: fmtKm(it.cach_trung_tam_km) ?? '' })}</span> : null}
                       </div>
