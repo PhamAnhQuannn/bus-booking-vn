@@ -181,3 +181,67 @@ describe('buildItinerary — blob ngoại vi mass-lớn KHÔNG được chiếm 
     expect(it.notes.some((n) => n.includes('ngoài vùng thuận tiện'))).toBe(true);
   });
 });
+
+// MARQUEE surfacing (P0): điểm biểu tượng khớp signatureSpots của slug LUÔN có mặt trong lịch —
+// pin đầu cụm (sống sót packDays cap) + cụm marquee force-keep qua gap-stop (không bị "ngoài vùng
+// thuận tiện"). "Đi Nha Trang phải có VinWonders", "đi Đà Nẵng phải có Bà Nà".
+describe('buildItinerary — marquee (signatureSpots) luôn xuất hiện trong lịch (P0)', () => {
+  // Nha Trang: cụm trung tâm 1 ward, 4 điểm generic score cao + VinWonders score THẤP (id cuối). Không
+  // pin → cap budget 3 loại VinWonders. Có pin → VinWonders lên đầu, sống sót.
+  const generic = (id: string, lat: number, lon: number): KbRecord => ({
+    id, name: `Bảo tàng ${id}`, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `số 1, Phường Nha Trang, tỉnh Khánh Hòa` },
+    description: { value: 'có mô tả' }, // score cao (desc + >=5 nguồn)
+  });
+  const vinwonders: KbRecord = {
+    id: 'NT-Z', name: 'VinWonders Nha Trang', region_id: 'r', source_ids: ['s1'], // score thấp (1 nguồn, no desc)
+    coordinates: { latitude: 12.221, longitude: 109.247 },
+    address: { full_address: `Phường Nha Trang, tỉnh Khánh Hòa` },
+    category: { primary: 'Khu du lịch giải trí (vui chơi trả phí)' },
+  };
+  const ntStore: Store = {
+    slug: 'nha-trang', generatedAt: '2026-01-01', tam: { lat: 12.24, lon: 109.19 },
+    destinations: [
+      generic('B1', 12.245, 109.190), generic('B2', 12.246, 109.191),
+      generic('B3', 12.244, 109.192), generic('B4', 12.243, 109.189), vinwonders,
+    ],
+    restaurants: [], hotels: [generic('H1', 12.245, 109.190)],
+    matrix: null, matrixIndex: new Map(),
+  };
+
+  it('VinWonders (marquee, score thấp) sống sót cap trong cụm — lịch 1 ngày', () => {
+    const req: TripRequest = { slug: 'nha-trang', days: 1, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+    const it = buildItinerary(req, ntStore);
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).toContain('VinWonders Nha Trang');
+  });
+
+  // Đà Nẵng: cụm trung tâm 3 điểm marquee (seed, mass cao) + cụm Bà Nà 1 điểm marquee ~40km (non-seed).
+  // Không force-keep → Bà Nà bị gap-stop loại ("ngoài vùng thuận tiện"). Có → Bà Nà giữ.
+  const dn = (id: string, name: string, lat: number, lon: number, ward: string): KbRecord => ({
+    id, name, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `số 1, ${ward}, thành phố Đà Nẵng` },
+    description: { value: 'có mô tả' },
+  });
+  const dnStore: Store = {
+    slug: 'da-nang', generatedAt: '2026-01-01', tam: { lat: 16.05, lon: 108.22 },
+    destinations: [
+      dn('NHS', 'Ngũ Hành Sơn', 16.00, 108.26, 'Phường Ngũ Hành Sơn'),
+      dn('MK', 'Biển Mỹ Khê', 16.06, 108.24, 'Phường Mỹ An'),
+      dn('LU', 'Chùa Linh Ứng', 16.10, 108.28, 'Phường Thọ Quang'),
+      dn('BANA', 'Khu du lịch Bà Nà Hills', 15.995, 107.99, 'Xã Hòa Ninh'), // ~40km tây
+    ],
+    restaurants: [], hotels: [dn('H1', 'KS', 16.05, 108.22, 'Phường Hải Châu')],
+    matrix: null, matrixIndex: new Map(),
+  };
+
+  it('Bà Nà (marquee ~40km, non-seed) KHÔNG bị loại — giữ trong lịch', () => {
+    const req: TripRequest = { slug: 'da-nang', days: 3, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+    const it = buildItinerary(req, dnStore);
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).toContain('Khu du lịch Bà Nà Hills');
+    expect(it.notes.some((n) => n.includes('ngoài vùng thuận tiện'))).toBe(false);
+  });
+});
