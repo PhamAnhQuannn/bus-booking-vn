@@ -403,12 +403,6 @@ export default function TroLyDuLichPage() {
     setTimeout(() => document.getElementById(`row-${day}-${order}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 70);
   }, []);
 
-  // Click compact row → toggle dossier accordion (selected = key card đang mở; single value → tự đóng card cũ).
-  const onSelectItem = useCallback((day: number, order: number) => {
-    setSelected((s) => (s && s.day === day && s.order === order ? null : { day, order }));
-    setActiveDay(day);
-  }, []);
-
   // ── điều khiển sidebar ──────────────────────────────────────────────────
   async function openConversation(id: string) {
     const c = await getConversation(id);
@@ -693,7 +687,6 @@ export default function TroLyDuLichPage() {
               pulseKey={pulseKey}
               hrefPdf={lastHref}
               hideMap
-              onSelectItem={onSelectItem}
               onActiveDayChange={setActiveDay}
             />
           ) : isGenerating ? (
