@@ -7,6 +7,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { isCitySlug } from "./cities";
+import { buildScheduleDetail } from "./hours";
 import type { KbMeta, KbOpeningSlot, KbRecord, PlaceRef } from "./types";
 
 // Slug lạ hoặc data chưa nạp được (R2 NoSuchKey / đĩa ENOENT). Caller bắt -> thông báo lịch sự (không 500).
@@ -140,6 +141,7 @@ export function toPlaceRef(rec: KbRecord): PlaceRef {
   const oh = rec.ext?.destination?.opening_hours;
   const sched: KbOpeningSlot[] = oh?.regular_schedule ?? [];
   const gio_mo = sched.length ? summariseHours(sched) : oh?.raw ?? null;
+  const gio_mo_chi_tiet = buildScheduleDetail(sched); // lịch theo ngày khi giờ khác nhau (null nếu đồng nhất)
   return {
     id: rec.id,
     name: rec.name,
@@ -152,6 +154,7 @@ export function toPlaceRef(rec: KbRecord): PlaceRef {
     phan_khuc: rec.ext?.hotel?.phan_khuc ?? null,
     so_phong: rec.ext?.hotel?.so_phong ?? null,
     gio_mo,
+    gio_mo_chi_tiet,
     goi_truoc: !gio_mo, // không có giờ -> phải gọi trước
     map_url: rec.ext?.destination?.map?.google_maps_url ?? null,
     source_ids: rec.source_ids ?? [],

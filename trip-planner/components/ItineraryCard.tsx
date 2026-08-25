@@ -15,7 +15,19 @@ import { displayCategory, itemBadge, areaLabel, vibeChip, stripCitySuffix, FACIL
 import { cardProfile, type SectionKey } from '@/trip-planner/lib/planner/cardProfile';
 import { fmtKm } from '@/trip-planner/lib/planner/fmt';
 import { buildOverview, withMeals } from '@/trip-planner/lib/planner/timeline';
+import { compressDays } from '@/trip-planner/lib/planner/hours';
 import { DayTabBar } from '@/trip-planner/components/DayTabBar';
+
+// Format lịch giờ theo ngày: [{d:[1..5],open,close}] + nhãn ngày (i18n) → "T2–T6 08:00–17:00 · T7,CN 08:00–21:00"
+function fmtScheduleSlots(slots: { d: number[]; open: string; close: string }[], dayShorts: string[]): string {
+  const lbl = (n: number) => dayShorts[n - 1] ?? String(n);
+  return slots
+    .map((s) => {
+      const ranges = compressDays(s.d).map(([a, b]) => (a === b ? lbl(a) : `${lbl(a)}–${lbl(b)}`)).join(', ');
+      return `${ranges} ${s.open}–${s.close}`;
+    })
+    .join(' · ');
+}
 
 type Props = {
   dto: PlannerDto;
@@ -24,8 +36,7 @@ type Props = {
   onHoverItem: (order: number | null) => void;
   onToggleDay: (day: number) => void;
   hrefPdf?: string; // link /lich-trinh?… để "Xuất PDF" + "Chia sẻ" (mock header actions)
-  compact?: boolean; // ≥1280: mọi ngày mở sẵn + compact row + dossier accordion + scrollspy
-  onSelectItem?: (day: number, order: number) => void; // compact: click row → toggle dossier
+  compact?: boolean; // ≥1280: mọi ngày mở sẵn + scrollspy + sticky chips + overview + meals
   onActiveDayChange?: (day: number) => void; // compact: scrollspy đặt ngày active
   onSeeFood?: () => void; // meal block "xem gợi ý quán" → chuyển tab Ăn uống
 };
@@ -89,23 +100,12 @@ function Badge({ it }: { it: DtoItem }) {
   );
 }
 
-function Row({ it, day, active, onHoverItem, hotelKm, compact, onSelectItem }: { it: DtoItem; day: number; active: boolean; onHoverItem: Props['onHoverItem']; hotelKm?: number | null; compact?: boolean; onSelectItem?: (day: number, order: number) => void }) {
+function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: number; active: boolean; onHoverItem: Props['onHoverItem']; hotelKm?: number | null }) {
   const [open, setOpen] = useState(false);
   const isDest = it.role === 'diem-den';
   const longMoTa = !!it.mo_ta && it.mo_ta.length > 150; // proxy: đủ dài để clamp 3 dòng → hiện "Xem thêm"
-  const showDossier = isDest && (!compact || active); // compact: dossier chỉ khi card đang mở (accordion)
+  const showDossier = isDest; // dossier LUÔN hiện (không ẩn sau click) — theo yêu cầu user 2026-08-24
   const t = useTranslations('planner');
-  // compact: header (buổi+tên+meta) là vùng click → toggle dossier; non-compact: header tĩnh (giữ nguyên).
-  const headerProps = compact
-    ? {
-        role: 'button' as const,
-        tabIndex: 0,
-        'aria-expanded': active,
-        onClick: () => onSelectItem?.(day, it.order),
-        onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectItem?.(day, it.order); } },
-        className: 'cursor-pointer rounded-md outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
-      }
-    : {};
   return (
     <>
       {it.leg_from_prev ? (
@@ -128,20 +128,17 @@ function Row({ it, day, active, onHoverItem, hotelKm, compact, onSelectItem }: {
             thời lượng ghé ("60-90 phút"), citation [S6] (ta chỉ có SỐ nguồn), khung giờ đồng hồ,
             "CHUẨN BỊ"/"TIP TUYẾN" (thay bằng "Có gì ở đây"/"Thực tế" từ data thật). = bịa nếu thêm. */}
         <article className={`min-w-0 flex-1 rounded-xl border p-3 transition-colors ${active ? 'border-primary/50 bg-primary/5' : 'border-border bg-white hover:border-primary/30'}`}>
-          <div {...headerProps}>
-            {/* HEADER: buổi + tên + badge xác minh (✓ Mở {giờ} · N nguồn = "Đã xác minh · S6" trung thực) */}
-            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-              <span className="text-xs font-semibold" style={{ color: SOFT }}>{t(`itinerary.buoi.${it.buoi}`)}</span>
-              <span className="text-[15px] font-semibold leading-snug" style={{ color: INK }}>{stripCitySuffix(it.name)}</span>
-              <Badge it={it} />
-              {compact ? <span className="ml-auto shrink-0 self-center text-[12px] transition-transform" style={{ color: FAINT, transform: active ? 'rotate(180deg)' : undefined }} aria-hidden>⌄</span> : null}
-            </div>
-            {/* META: category · trải nghiệm · cách KS (KHÔNG duration) */}
-            <div className="mt-1 flex flex-wrap items-center gap-x-2 text-[13px]" style={{ color: SOFT }}>
-              <span>{displayCategory(it)}</span>
-              {isDest && it.trai_nghiem && it.trai_nghiem !== displayCategory(it) ? <span>· {it.trai_nghiem}</span> : null}
-              {hotelKm != null ? <span>· {t('itinerary.fromHotel', { dist: fmtKm(hotelKm) ?? '' })}</span> : null}
-            </div>
+          {/* HEADER: buổi + tên + badge xác minh (✓ Mở {giờ} · N nguồn = "Đã xác minh · S6" trung thực) */}
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <span className="text-xs font-semibold" style={{ color: SOFT }}>{t(`itinerary.buoi.${it.buoi}`)}</span>
+            <span className="text-[15px] font-semibold leading-snug" style={{ color: INK }}>{stripCitySuffix(it.name)}</span>
+            <Badge it={it} />
+          </div>
+          {/* META: category · trải nghiệm · cách KS (KHÔNG duration) */}
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 text-[13px]" style={{ color: SOFT }}>
+            <span>{displayCategory(it)}</span>
+            {isDest && it.trai_nghiem && it.trai_nghiem !== displayCategory(it) ? <span>· {it.trai_nghiem}</span> : null}
+            {hotelKm != null ? <span>· {t('itinerary.fromHotel', { dist: fmtKm(hotelKm) ?? '' })}</span> : null}
           </div>
 
           {showDossier ? (() => {
@@ -202,12 +199,13 @@ function Row({ it, day, active, onHoverItem, hotelKm, compact, onSelectItem }: {
                 case 'cach_trung_tam': {
                   // B5.1: nhãn tiện ích ĐẦY ĐỦ qua FACILITY_LABELS (cấm viết tắt tự chế); key lạ → ẩn
                   const fac = it.facilities ? Object.entries(it.facilities).filter(([k, v]) => v && FACILITY_LABELS[k]).map(([k, v]) => FACILITY_LABELS[k] + (v === 'limited' ? t('itinerary.facilityLimited') : '')) : [];
-                  const hasThucTe = it.gio_mo || it.cach_trung_tam_km != null || it.gia_ve || fac.length;
+                  const schedule = it.gio_mo_chi_tiet && it.gio_mo_chi_tiet.length ? fmtScheduleSlots(it.gio_mo_chi_tiet, t('itinerary.dayShorts').split(',')) : null;
+                  const hasThucTe = it.gio_mo || schedule || it.cach_trung_tam_km != null || it.gia_ve || fac.length;
                   return hasThucTe ? (
                     <div key="thuc_te" className="mt-2 border-t border-border pt-2 text-[12px]" style={{ color: SOFT }}>
                       <div className="flex flex-wrap gap-x-3 gap-y-0.5">
-                        {/* badge "✓ Mở {giờ}" đã hiện giờ khi !goi_truoc → bỏ dòng này tránh trùng */}
-                        {it.gio_mo && it.goi_truoc ? <span>🕐 {t('itinerary.badgeOpen')} <span className="tabular-nums">{it.gio_mo}</span></span> : null}
+                        {/* Lịch giờ theo ngày (khi giờ khác nhau giữa các ngày) — badge chỉ hiện 1 khung */}
+                        {schedule ? <span>🕐 <span className="tabular-nums">{schedule}</span></span> : it.gio_mo && it.goi_truoc ? <span>🕐 {t('itinerary.badgeOpen')} <span className="tabular-nums">{it.gio_mo}</span></span> : null}
                         {it.gia_ve ? <span>{t('itinerary.ticketsLabel', { value: /^\s*(yes|có|co)\s*$/i.test(it.gia_ve) ? t('itinerary.ticketsPaidUnconfirmed') : it.gia_ve })}</span> : null}
                         {it.cach_trung_tam_km != null ? <span>{t('itinerary.fromCentre', { dist: fmtKm(it.cach_trung_tam_km) ?? '' })}</span> : null}
                       </div>
@@ -256,7 +254,7 @@ function havKm(aLat: number, aLon: number, bLat: number, bLon: number): number {
 // (Member-access thay vì literal `false` để không dính eslint no-constant-condition ở JSX.)
 const HEADER_ACTIONS = { enabled: false };
 
-export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleDay, hrefPdf, compact, onSelectItem, onActiveDayChange, onSeeFood }: Props) {
+export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleDay, hrefPdf, compact, onActiveDayChange, onSeeFood }: Props) {
   const t = useTranslations('planner');
   const overview = compact ? buildOverview(dto) : null; // strip tóm tắt chỉ ở chế độ compact (≥1280)
   const rootRef = useRef<HTMLDivElement>(null);
@@ -393,7 +391,7 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
                         ? Math.round(havKm(dto.hotel.lat, dto.hotel.lon, it.lat, it.lon) * 10) / 10
                         : null;
                     return (
-                      <Row key={it.order} it={it} day={d.day} active={selected?.day === d.day && selected?.order === it.order} onHoverItem={onHoverItem} hotelKm={hk} compact={compact} onSelectItem={onSelectItem} />
+                      <Row key={it.order} it={it} day={d.day} active={selected?.day === d.day && selected?.order === it.order} onHoverItem={onHoverItem} hotelKm={hk} />
                     );
                   })}
                 </div>
