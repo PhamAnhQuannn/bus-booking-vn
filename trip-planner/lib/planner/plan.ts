@@ -54,15 +54,21 @@ function fameSpotsForSlug(slug: string): string[] {
     if (a.slug === slug && a.signatureSpots) out.push(...a.signatureSpots);
   return out.map(foldText);
 }
-// số điểm trong cụm có tên khớp 1 signature-spot (fold + substring 2 chiều, guard >=5 ký tự tránh nhiễu).
+// TRỌNG SỐ nổi tiếng của cụm = độ ưu tiên CAO NHẤT trong các điểm khớp signatureSpots. signatureSpots
+// xếp theo độ nổi tiếng GIẢM DẦN (spot[0] = biểu tượng nhất của khu) → khớp sớm = trọng số cao (len-i).
+// 0 nếu không khớp. (fold + substring 2 chiều, guard >=5 ký tự tránh nhiễu.) Dùng để seed ngày theo
+// độ nổi tiếng: "đi Nha Trang" → cụm VinWonders (spot[0]) seed trước cụm Tháp Bà (spot sau).
 function regFame(pts: KbRecord[], fameSpots: string[]): number {
   if (!fameSpots.length) return 0;
-  let n = 0;
+  let best = 0;
   for (const p of pts) {
     const nm = foldText(p.name);
-    if (fameSpots.some((s) => (s.length >= 5 && nm.includes(s)) || (nm.length >= 5 && s.includes(nm)))) n++;
+    for (let i = 0; i < fameSpots.length; i++) {
+      const s = fameSpots[i];
+      if ((s.length >= 5 && nm.includes(s)) || (nm.length >= 5 && s.includes(nm))) { best = Math.max(best, fameSpots.length - i); break; }
+    }
   }
-  return n;
+  return best;
 }
 
 function meanLL(pts: LL[]): LL {
