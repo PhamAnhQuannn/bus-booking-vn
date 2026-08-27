@@ -279,14 +279,26 @@ export default function TroLyDuLichPage() {
     patchBot((m) => ({ ...m, planning: false, text: m.text || t(offline ? 'assistant.offline' : 'assistant.timeoutOrBusy'), error: true, retry: true, fallback: true }));
   }
 
+  // Đổi conversation: hủy request đang bay + xóa retry payload + hạ loading. Không có nó, request cũ
+  // (send/build) chạy tiếp và patchBot/setDto GHI CHÉO vào conversation MỚI (leak), nút "Thử lại" cũ
+  // vẫn bắn vào phiên mới. (Mục D)
+  function resetInFlight() {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    retryRef.current = null;
+    setLoading(false);
+  }
+
   // Thử lại từ bong bóng lỗi HOẶC empty-state panel — chạy lại đúng việc dang dở, không cần gõ lại.
+  // TÁI DÙNG bong bóng lỗi hiện tại (reset về placeholder) thay vì push bubble mới → không xếp chồng
+  // các bubble user/bot trùng lặp khi bấm Thử lại nhiều lần. (Mục D)
   function doRetry() {
     const r = retryRef.current;
     if (!r) return;
     retryRef.current = null;
-    patchBot((m) => ({ ...m, error: false, retry: false, fallback: false })); // gỡ cờ lỗi khỏi bong bóng cũ
-    if (r.kind === 'build') void buildFromSlots(r.slots);
-    else void send(r.text);
+    patchBot((m) => ({ ...m, text: '', error: false, retry: false, fallback: false, planning: r.kind === 'build', dto: undefined, href: undefined, suggestions: undefined }));
+    if (r.kind === 'build') void buildFromSlots(r.slots, { retry: true });
+    else void send(r.text, { retry: true });
   }
 
   // Fallback không-AI (Mục C): chat lỗi → mở luồng chip TẤT ĐỊNH (không gọi /api/planner/chat).
@@ -301,18 +313,20 @@ export default function TroLyDuLichPage() {
     advance(base); // thiếu slot → chip hỏi; đủ → dựng luôn qua engine
   }
 
-  async function buildFromSlots(s: Slots) {
+  async function buildFromSlots(s: Slots, opts: { retry?: boolean } = {}) {
     abortRef.current?.abort(); // hủy request cũ trước khi tạo mới (edit slot mid-build → dựng lại)
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     const timeout = setTimeout(() => ctrl.abort('timeout'), 45000); // 45s không phản hồi → hủy → lỗi
     const reqId = 'build-' + nowHHMM();
-    setMessages((prev) => [...prev, { role: 'bot', text: '', planning: true, time: nowHHMM() }]);
+    // retry: tái dùng bong bóng lỗi (doRetry đã reset về planning) → KHÔNG push bubble mới.
+    if (!opts.retry) setMessages((prev) => [...prev, { role: 'bot', text: '', planning: true, time: nowHHMM() }]);
     setLoading(true);
     try {
       const res = await fetch('/api/planner/itinerary?' + slotsToParams(s), { headers: { 'X-CSRF-Token': readCsrfToken() }, signal: ctrl.signal });
       if (!res.ok) throw new Error('build ' + res.status);
       const data = (await res.json()) as { dto: PlannerDto; href: string };
+      if (abortRef.current !== ctrl) return; // đổi conversation/abort giữa fetch↔parse → KHÔNG ghi chéo (Mục D)
       setDto(data.dto); setActiveDay(1); setSelected(null); setLastHref(data.href);
       patchBot((m) => ({ ...m, planning: false, text: t('assistant.buildSuccess'), dto: data.dto, href: data.href }));
     } catch (e) {
@@ -377,7 +391,7 @@ export default function TroLyDuLichPage() {
   }
 
   // Free-text → 1 Gemini call TRÍCH ràng buộc (stream prose + slots) → merge → advance.
-  async function send(raw: string) {
+  async function send(raw: string, opts: { retry?: boolean } = {}) {
     const text = raw.trim();
     if (!text || loading) return;
     setInput('');
@@ -394,7 +408,9 @@ export default function TroLyDuLichPage() {
       )
       .filter((m) => m.text);
 
-    setMessages((prev) => [...prev, { role: 'user', text, time: nowHHMM() }, { role: 'bot', text: '', time: nowHHMM() }]);
+    // retry: tái dùng bong bóng lỗi cũ (doRetry đã reset text/planning) → KHÔNG push user+bot mới
+    // (chống xếp chồng bubble trùng khi Thử lại nhiều lần). (Mục D)
+    if (!opts.retry) setMessages((prev) => [...prev, { role: 'user', text, time: nowHHMM() }, { role: 'bot', text: '', time: nowHHMM() }]);
     // OPTIMISTIC: bóc slot client NGAY (trước round-trip) → mount shell 2 cột + skeleton/funnel ≤400ms.
     const det0 = extractFromText(text);
     if (det0.dia_diem) setPendingDestination(det0.dia_diem);
@@ -513,6 +529,7 @@ export default function TroLyDuLichPage() {
 
   // ── điều khiển sidebar ──────────────────────────────────────────────────
   async function openConversation(id: string) {
+    resetInFlight(); // hủy request cũ + xóa retry trước khi tải phiên khác (chống ghi chéo) (Mục D)
     const c = await getConversation(id);
     if (!c) return;
     const msgs = fromStored(c.messages);
@@ -533,6 +550,7 @@ export default function TroLyDuLichPage() {
     setDrawerOpen(false); setSidebarCollapsed(true); // active → thu gọn sidebar (mock 3)
   }
   function newConversation() {
+    resetInFlight(); // hủy request đang bay + xóa retry (Mục D) — không để build/send cũ ghi vào phiên mới
     // Reset cờ transition cùng nhau TRƯỚC setMessages → phiên mới ở idle, slide sẵn sàng chạy lại.
     skipTransitionRef.current = false; transitionDoneRef.current = false; prevPhaseRef.current = 'idle';
     setSlots({}); setPendingDestination(null); setPendingEdit(null); setSlotCardCollapsed(null); setMessages([]); setDto(null); setSelected(null); setActiveDay(1);
@@ -877,6 +895,7 @@ export default function TroLyDuLichPage() {
         <div className="flex min-h-0 flex-col border-r border-[#E4D8C9]">
           {dto || tiledPending ? (
             <PlannerMapColumn
+              key={conversationId ?? 'new'} /* đổi conversation → remount map sạch (reset mapOff, tile mới), tránh map xám (Mục D) */
               dto={dto ?? undefined}
               pendingSlug={destSlug}
               activeDay={activeDay}
