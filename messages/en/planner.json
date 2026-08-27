@@ -284,7 +284,12 @@
     "budgetPerPerson": "~{amount}M/person",
     "budgetPerPersonK": "~{amount}k/person",
     "budgetInputPlaceholder": "e.g. 3",
-    "budgetInputUnit": "M/person"
+    "budgetInputUnit": "M/person",
+    "editShort": "Details",
+    "collapse": "Collapse",
+    "confirmRebuild": "Update and rebuild the plan?",
+    "rebuild": "Rebuild",
+    "cancel": "Cancel"
   },
   "progress": {
     "analyze": "Analyzing your request",

@@ -97,6 +97,8 @@ export default function TroLyDuLichPage() {
   const [loading, setLoading] = useState(false);
   const [slots, setSlots] = useState<Slots>({}); // ràng buộc tích luỹ — chip điền TẤT ĐỊNH (không Gemini)
   const [pendingDestination, setPendingDestination] = useState<string | null>(null); // slug điểm đến bóc SỚM (đang stream) → bung 2 cột trước khi đủ slot
+  const [pendingEdit, setPendingEdit] = useState<Slots | null>(null); // sửa slot SAU khi có dto → chờ xác nhận dựng lại
+  const [slotCardCollapsed, setSlotCardCollapsed] = useState<boolean | null>(null); // null=mặc định theo hasDto; true/false=user override
   const abortRef = useRef<AbortController | null>(null); // hủy chat/itinerary đang chạy (edit slot mid-build / timeout / unmount)
   // Việc cần thử lại khi lỗi/timeout (giữ nguyên slot/text — không bắt gõ lại).
   const retryRef = useRef<{ kind: 'send'; text: string } | { kind: 'build'; slots: Slots } | null>(null);
@@ -310,10 +312,16 @@ export default function TroLyDuLichPage() {
 
   // Sửa 1 slot từ SlotSummaryCard → cập nhật slots; nếu đủ slot → dựng lại (buildFromSlots tự abort
   // request cũ). Sửa lúc đang dựng = huỷ dở + dựng bản mới.
-  function onEditSlot(next: Slots) {
+  function applyEdit(next: Slots) {
     setSlots(next);
     if (next.dia_diem) setPendingDestination(next.dia_diem);
     if (complete(next)) void buildFromSlots(next);
+  }
+  // Sửa slot: phễu/building → áp ngay (abort request cũ trong buildFromSlots). Sau khi có kế hoạch (dto)
+  // → hỏi xác nhận trước khi dựng lại (tránh regenerate ngoài ý muốn).
+  function onEditSlot(next: Slots) {
+    if (hasDto) { setPendingEdit(next); return; }
+    applyEdit(next);
   }
 
   // Click chip → điền slot TẤT ĐỊNH (KHÔNG gọi /chat/Gemini) → advance.
@@ -500,13 +508,13 @@ export default function TroLyDuLichPage() {
     lastSavedRef.current = id + '|' + JSON.stringify(toStored(msgs));
     setMessages(msgs);
     setConversationId(id);
-    setDto(lastDto); setActiveDay(1); setSelected(null); setHoveredOrder(null); setSlots({}); setPendingDestination(null);
+    setDto(lastDto); setActiveDay(1); setSelected(null); setHoveredOrder(null); setSlots({}); setPendingDestination(null); setPendingEdit(null); setSlotCardCollapsed(null);
     setDrawerOpen(false); setSidebarCollapsed(true); // active → thu gọn sidebar (mock 3)
   }
   function newConversation() {
     // Reset cờ transition cùng nhau TRƯỚC setMessages → phiên mới ở idle, slide sẵn sàng chạy lại.
     skipTransitionRef.current = false; transitionDoneRef.current = false; prevPhaseRef.current = 'idle';
-    setSlots({}); setPendingDestination(null); setMessages([]); setDto(null); setSelected(null); setActiveDay(1);
+    setSlots({}); setPendingDestination(null); setPendingEdit(null); setSlotCardCollapsed(null); setMessages([]); setDto(null); setSelected(null); setActiveDay(1);
     setHoveredOrder(null); setResultFull(false); setInput(''); setConversationId(null); setDrawerOpen(false);
     setSidebarCollapsed(false); // về entry → mở lại sidebar
   }
@@ -620,7 +628,44 @@ export default function TroLyDuLichPage() {
   // Card tóm tắt slot (state Understood) — thay statusLine + PlannerStepper. Hiện khi đã có ≥1 slot.
   // Chip LUÔN bấm được (kể cả đang dựng) → sửa mid-build = huỷ + dựng lại (onEditSlot).
   const destName = CITIES.find((c) => c.slug === (slots.dia_diem ?? pendingDestination ?? ''))?.ten ?? '';
-  const slotCard = anySlot ? <SlotSummaryCard slots={slots} onEdit={onEditSlot} /> : null;
+  // Slot card GHIM (sticky) đầu vùng cuộn — không trôi mất khi chat dài. Sau reveal thu gọn 1 dòng.
+  const isCollapsed = slotCardCollapsed === null ? hasDto : slotCardCollapsed;
+  const slotCard = anySlot ? (
+    <div className="sticky top-0 z-raised -mx-4 mb-1 bg-white/95 px-4 pt-2 backdrop-blur-sm">
+      {isCollapsed ? (
+        <button type="button" onClick={() => setSlotCardCollapsed(false)}
+          className="flex w-full items-center gap-2 rounded-xl border border-[#F0EAE2] bg-white px-3 py-2 text-[13px] shadow-e1 outline-none focus-visible:ring-2 focus-visible:ring-ring/60">
+          <span aria-hidden>📍</span>
+          <span className="font-semibold text-foreground">{destName || '—'}</span>
+          {slots.days ? <span className="text-muted-foreground">· {t('slotCard.dayUnit', { n: slots.days })}</span> : null}
+          <span className="ml-auto font-semibold text-primary">{t('slotCard.editShort')} ▾</span>
+        </button>
+      ) : (
+        <>
+          <SlotSummaryCard slots={slots} onEdit={onEditSlot} />
+          {hasDto ? (
+            <button type="button" onClick={() => setSlotCardCollapsed(true)}
+              className="mt-0.5 px-1 text-[12px] font-semibold text-muted-foreground outline-none hover:text-primary focus-visible:text-primary">
+              {t('slotCard.collapse')} ▴
+            </button>
+          ) : null}
+        </>
+      )}
+      {pendingEdit ? (
+        <div className="mt-1.5 flex flex-wrap items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-[13px]">
+          <span className="font-medium text-foreground">{t('slotCard.confirmRebuild')}</span>
+          <button type="button" onClick={() => { applyEdit(pendingEdit); setPendingEdit(null); setSlotCardCollapsed(false); }}
+            className="ml-auto rounded-full bg-primary px-3 py-1 font-semibold text-primary-foreground outline-none hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/60">
+            {t('slotCard.rebuild')}
+          </button>
+          <button type="button" onClick={() => setPendingEdit(null)}
+            className="rounded-full border border-border px-3 py-1 font-semibold outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/60">
+            {t('slotCard.cancel')}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  ) : null;
   const progressBlock = buildingView ? <ProgressStages active={buildingView} settled={false} destination={destName} /> : null;
 
   const messagesBlock = (

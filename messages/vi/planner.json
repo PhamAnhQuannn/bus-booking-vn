@@ -284,7 +284,12 @@
     "budgetPerPerson": "~{amount} triệu/người",
     "budgetPerPersonK": "~{amount}k/người",
     "budgetInputPlaceholder": "vd 3",
-    "budgetInputUnit": "triệu/người"
+    "budgetInputUnit": "triệu/người",
+    "editShort": "Chi tiết",
+    "collapse": "Thu gọn",
+    "confirmRebuild": "Cập nhật và dựng lại kế hoạch?",
+    "rebuild": "Dựng lại",
+    "cancel": "Hủy"
   },
   "progress": {
     "analyze": "Phân tích yêu cầu",
