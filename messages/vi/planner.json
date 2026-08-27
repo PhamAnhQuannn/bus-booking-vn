@@ -233,5 +233,48 @@
   "metadata": {
     "scheduleTitle": "Lịch trình gợi ý",
     "assistantTitle": "Trợ lý du lịch | BBVN"
+  },
+  "slotCard": {
+    "title": "Mình hiểu yêu cầu của bạn:",
+    "destination": "Điểm đến",
+    "days": "Số ngày",
+    "groupPlaceholder": "Nhóm",
+    "budget": "Ngân sách",
+    "interests": "Sở thích",
+    "persons": "{n} người",
+    "dayUnit": "{n} ngày",
+    "searchCity": "Tìm thành phố…",
+    "noCity": "Không tìm thấy",
+    "done": "Xong",
+    "editDestination": "Sửa điểm đến: {value}",
+    "editDays": "Sửa số ngày: {value}",
+    "editGroup": "Sửa nhóm: {value}",
+    "editBudget": "Sửa ngân sách: {value}",
+    "editInterests": "Sửa sở thích: {value}",
+    "group": {
+      "cap-doi": "Cặp đôi",
+      "gia-dinh": "Gia đình",
+      "ban-be": "Bạn bè",
+      "cong-tac": "Công tác"
+    },
+    "budgetLabel": {
+      "tiet-kiem": "Tiết kiệm",
+      "vua": "Vừa phải",
+      "thoai-mai": "Thoải mái"
+    },
+    "interest": {
+      "ngam-canh": "Ngắm cảnh",
+      "tam-linh": "Tâm linh",
+      "lich-su-van-hoa": "Lịch sử - văn hoá",
+      "lang-man": "Lãng mạn",
+      "song-ao-chup-hinh": "Sống ảo",
+      "thu-gian-yen-tinh": "Thư giãn"
+    }
+  },
+  "progress": {
+    "analyze": "Phân tích yêu cầu",
+    "findSpots": "Đang tìm điểm tham quan ở {destination}…",
+    "route": "Đang tính lộ trình di chuyển…",
+    "cost": "Đang ước tính chi phí…"
   }
 }

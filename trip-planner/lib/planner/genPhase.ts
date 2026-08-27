@@ -16,13 +16,13 @@ export type GenPhase = 'welcome' | 'acknowledged' | 'understood' | 'building' | 
 
 export function deriveGenPhase(a: {
   messageCount: number;
-  isGenerating: boolean; // engine itinerary đang chạy (bot planning + loading)
+  building: boolean; // ĐANG hướng tới 1 kế hoạch: engine dựng (isGenerating) HOẶC đang chờ Gemini và đã biết điểm đến
   hasDto: boolean;
   hasError: boolean; // lượt cuối có bong bóng lỗi
   anySlot: boolean; // đã bóc được ít nhất 1 ràng buộc (kể cả điểm đến đang stream)
 }): GenPhase {
   if (a.messageCount === 0) return 'welcome';
-  if (a.isGenerating) return 'building'; // dựng thật thắng mọi cờ (kể cả regenerate khi đã có dto)
+  if (a.building) return 'building'; // skeleton + progress phủ CẢ pha chờ Gemini (khi đã biết điểm đến), không chỉ lúc build tất định
   if (a.hasError) return 'error';
   if (a.hasDto) return 'reveal';
   if (a.anySlot) return 'understood';

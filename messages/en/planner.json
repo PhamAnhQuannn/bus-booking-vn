@@ -233,5 +233,48 @@
   "metadata": {
     "scheduleTitle": "Suggested itinerary",
     "assistantTitle": "Travel Assistant | BBVN"
+  },
+  "slotCard": {
+    "title": "Here's what I understood:",
+    "destination": "Destination",
+    "days": "Days",
+    "groupPlaceholder": "Group",
+    "budget": "Budget",
+    "interests": "Interests",
+    "persons": "{n} people",
+    "dayUnit": "{n} days",
+    "searchCity": "Search city…",
+    "noCity": "No match",
+    "done": "Done",
+    "editDestination": "Edit destination: {value}",
+    "editDays": "Edit days: {value}",
+    "editGroup": "Edit group: {value}",
+    "editBudget": "Edit budget: {value}",
+    "editInterests": "Edit interests: {value}",
+    "group": {
+      "cap-doi": "Couple",
+      "gia-dinh": "Family",
+      "ban-be": "Friends",
+      "cong-tac": "Business"
+    },
+    "budgetLabel": {
+      "tiet-kiem": "Budget",
+      "vua": "Moderate",
+      "thoai-mai": "Comfortable"
+    },
+    "interest": {
+      "ngam-canh": "Sightseeing",
+      "tam-linh": "Spiritual",
+      "lich-su-van-hoa": "History & culture",
+      "lang-man": "Romantic",
+      "song-ao-chup-hinh": "Photo spots",
+      "thu-gian-yen-tinh": "Relaxing"
+    }
+  },
+  "progress": {
+    "analyze": "Analyzing your request",
+    "findSpots": "Finding places to visit in {destination}…",
+    "route": "Calculating travel routes…",
+    "cost": "Estimating costs…"
   }
 }

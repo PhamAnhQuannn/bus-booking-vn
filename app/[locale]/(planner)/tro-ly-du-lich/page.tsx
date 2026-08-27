@@ -23,8 +23,9 @@ import { SuggestionCards } from '@/trip-planner/components/SuggestionCards';
 import { PlannerSidebar } from '@/trip-planner/components/PlannerSidebar';
 import { PlannerEntry } from '@/trip-planner/components/PlannerEntry';
 import { PlannerComposer } from '@/trip-planner/components/PlannerComposer';
-import { PlannerStepper } from '@/trip-planner/components/PlannerStepper';
 import { PlanSkeleton } from '@/trip-planner/components/PlanSkeleton';
+import { SlotSummaryCard } from '@/trip-planner/components/SlotSummaryCard';
+import { ProgressStages } from '@/trip-planner/components/ProgressStages';
 import {
   type StoredMsg,
   type ConversationMeta,
@@ -41,6 +42,7 @@ import {
 import { type Slots, type Ask, nextAsk, optionalAsk, applyChip, complete, mergeIntent, slotsToParams, budgetAsk, transportAsk, foodAsk } from '@/trip-planner/lib/planner/slots';
 import { deriveLayoutPhase, type LayoutPhase } from '@/trip-planner/lib/planner/layoutPhase';
 import { deriveGenPhase } from '@/trip-planner/lib/planner/genPhase';
+import { CITIES } from '@/trip-planner/lib/planner/cities';
 import { useIsWide } from '@/trip-planner/components/useIsWide';
 // KIỂU only (erased lúc build → không kéo graph server vào client). Qua barrel = entry-point hợp lệ.
 import type { PlannerDto, ParsedIntent, DestinationSuggestion } from '@/trip-planner/lib/planner';
@@ -139,8 +141,11 @@ export default function TroLyDuLichPage() {
   const destKnown = !!slots.dia_diem || !!pendingDestination;
   const anySlot = destKnown || !!slots.days || !!slots.budget || !!slots.interests?.length || !!slots.nhom;
   const lastBotErr = (() => { for (let i = messages.length - 1; i >= 0; i--) { if (messages[i].role === 'bot') return !!(messages[i] as Extract<Msg, { role: 'bot' }>).error; } return false; })();
-  const genPhase = deriveGenPhase({ messageCount: messages.length, isGenerating, hasDto, hasError: lastBotErr, anySlot });
-  const buildingView = genPhase === 'building'; // skeleton CHỈ khi engine THỰC SỰ dựng (honest — không giả tiến độ)
+  // building = đang hướng tới kế hoạch: engine dựng (isGenerating) HOẶC đang chờ Gemini và đã biết điểm đến
+  // (pha chờ dài THẬT là Gemini) → skeleton + progress phủ cả khoảng đó, không để pane phải trống.
+  const building = !hasDto && (isGenerating || (loading && destKnown));
+  const genPhase = deriveGenPhase({ messageCount: messages.length, building, hasDto, hasError: lastBotErr, anySlot });
+  const buildingView = genPhase === 'building';
   const layoutPhase = deriveLayoutPhase({ messageCount: messages.length, hasDto, isGenerating, planned: hasDto || destKnown });
   const useWideLayout = isWide && (layoutPhase === 'collecting' || layoutPhase === 'planning');
   const shrinkMap = isWide && layoutPhase === 'planning' && (composerFocused || loading); // Phần 6 wiring (auto-thu)
@@ -273,6 +278,14 @@ export default function TroLyDuLichPage() {
     } finally {
       if (abortRef.current === ctrl) { abortRef.current = null; setLoading(false); } // chỉ request HIỆN TẠI mới được hạ loading (chống clobber khi đã có request mới)
     }
+  }
+
+  // Sửa 1 slot từ SlotSummaryCard → cập nhật slots; nếu đủ slot → dựng lại (buildFromSlots tự abort
+  // request cũ). Sửa lúc đang dựng = huỷ dở + dựng bản mới.
+  function onEditSlot(next: Slots) {
+    setSlots(next);
+    if (next.dia_diem) setPendingDestination(next.dia_diem);
+    if (complete(next)) void buildFromSlots(next);
   }
 
   // Click chip → điền slot TẤT ĐỊNH (KHÔNG gọi /chat/Gemini) → advance.
@@ -492,7 +505,7 @@ export default function TroLyDuLichPage() {
         hrefPdf={lastHref}
       />
     ) : buildingView ? (
-      planSkeleton
+      buildingPane
     ) : (
       emptyState
     );
@@ -535,23 +548,11 @@ export default function TroLyDuLichPage() {
     </div>
   );
 
-  // Dòng trạng thái gọn (pha collecting ≥1280) — thay stepper chấm-đường kéo dài.
-  const statusPersons = (slots.adults ?? 0) + (slots.children ?? 0) + (slots.elders ?? 0);
-  const statusItems: [string, boolean][] = [
-    [t('stepper.destination'), !!slots.dia_diem],
-    [t('stepper.days'), !!slots.days],
-    [t('stepper.group'), !!slots.nhom || statusPersons > 0],
-  ];
-  const statusLine = (
-    <p className="mb-1 px-1 text-[13px]">
-      {statusItems.map(([label, done], i) => (
-        <span key={label}>
-          <span style={{ color: done ? '#1E2433' : '#9AA0AC', fontWeight: done ? 600 : 400 }}>{label}{done ? ' ✓' : ' —'}</span>
-          {i < statusItems.length - 1 ? <span style={{ color: '#9AA0AC' }}> · </span> : null}
-        </span>
-      ))}
-    </p>
-  );
+  // Card tóm tắt slot (state Understood) — thay statusLine + PlannerStepper. Hiện khi đã có ≥1 slot.
+  // Chip LUÔN bấm được (kể cả đang dựng) → sửa mid-build = huỷ + dựng lại (onEditSlot).
+  const destName = CITIES.find((c) => c.slug === (slots.dia_diem ?? pendingDestination ?? ''))?.ten ?? '';
+  const slotCard = anySlot ? <SlotSummaryCard slots={slots} onEdit={onEditSlot} /> : null;
+  const progressBlock = buildingView ? <ProgressStages active={buildingView} settled={false} destination={destName} /> : null;
 
   const messagesBlock = (
     <div className="mt-3 flex flex-col">
@@ -657,6 +658,15 @@ export default function TroLyDuLichPage() {
       <div className="h-3" />
     </div>
   );
+  // Pha building trong pane phải = skeleton + mirror progress thu gọn ở đáy (bản chính ở khung chat).
+  const buildingPane = (
+    <div className="flex h-full flex-col bg-white">
+      <div className="min-h-0 flex-1 overflow-hidden">{planSkeleton}</div>
+      <div className="shrink-0 border-t border-[#F0EAE2] px-3">
+        <ProgressStages active={buildingView} settled={false} destination={destName} mirror />
+      </div>
+    </div>
+  );
 
   // ── CORE 3-pha (≥1280): collecting full-width || planning split ──────────
   const wideCore =
@@ -665,9 +675,10 @@ export default function TroLyDuLichPage() {
         {chatTopBar}
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           <div className="mx-auto flex w-full max-w-[780px] flex-1 flex-col px-4 pb-2 pt-3">
-            {statusLine}
+            {slotCard}
             {messagesBlock}
             {askBlock}
+            {progressBlock}
           </div>
         </div>
         {composerZone('max-w-[780px]')}
@@ -692,8 +703,10 @@ export default function TroLyDuLichPage() {
             {chatTopBar}
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
               <div className="flex w-full flex-1 flex-col px-4 pb-2 pt-3">
+                {slotCard}
                 {messagesBlock}
                 {askBlock}
+                {progressBlock}
               </div>
             </div>
             {composerZone('max-w-none')}
@@ -719,7 +732,7 @@ export default function TroLyDuLichPage() {
               onActiveDayChange={setActiveDay}
             />
           ) : buildingView ? (
-            planSkeleton
+            buildingPane
           ) : (
             emptyState
           )}
@@ -770,7 +783,7 @@ export default function TroLyDuLichPage() {
             <PlannerEntry onPick={send} disabled={loading} />
           ) : (
             <div className="mx-auto flex w-full max-w-[46rem] flex-1 flex-col px-4 pb-2 pt-3">
-              <PlannerStepper slots={slots} />
+              {slotCard}
               <div className="mt-3 flex flex-col">
                 {messages.map((m, idx) => {
                   // proximity: cùng người 8px, khác người 16px → thấy lượt-lời tức thì (Gestalt)
@@ -829,6 +842,7 @@ export default function TroLyDuLichPage() {
                   </div>
                 </div>
               ) : null}
+              {progressBlock}
             </div>
           )}
         </div>
