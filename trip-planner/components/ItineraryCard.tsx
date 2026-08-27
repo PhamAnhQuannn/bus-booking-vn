@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import type { PlannerDto, DtoItem } from '@/trip-planner/lib/planner/itineraryDto';
 import { cityName } from '@/trip-planner/lib/planner/cities';
-import { displayCategory, itemBadge, areaLabel, vibeChip, stripCitySuffix, FACILITY_LABELS } from '@/trip-planner/lib/planner/labels';
+import { displayCategory, itemBadge, areaLabel, vibeChip, stripCitySuffix, FACILITY_LABELS, isAllDay, moTaTrusted } from '@/trip-planner/lib/planner/labels';
 import { cardProfile, type SectionKey } from '@/trip-planner/lib/planner/cardProfile';
 import { fmtKm } from '@/trip-planner/lib/planner/fmt';
 import { buildOverview, withMeals } from '@/trip-planner/lib/planner/timeline';
@@ -72,7 +72,7 @@ function Badge({ it }: { it: DtoItem }) {
   if (b.tone === 'ok') {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-success px-2 py-0.5 text-xs font-bold text-success-foreground">
-        ✓ {t('itinerary.badgeOpen')} <span className="tabular-nums">{b.hours}</span>
+        ✓ {t('itinerary.badgeOpen')} <span className="tabular-nums">{isAllDay(b.hours) ? t('itinerary.allDay') : b.hours}</span>
         {/* provenance THẬT (source_ids.length) — KHÔNG phải citation [S] bịa */}
         {it.nguon ? <span className="font-semibold opacity-70">· {t('itinerary.sources', { count: it.nguon })}</span> : null}
       </span>
@@ -150,7 +150,7 @@ function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: numb
             const renderSection = (s: SectionKey) => {
               switch (s) {
                 case 'mo_ta':
-                  return it.mo_ta ? (
+                  return it.mo_ta && moTaTrusted(it) ? (
                     <div key="mo_ta">
                       {/* MÔ TẢ: mo_ta full, clamp 3 dòng + "Xem thêm" khi dài */}
                       <p className={`mt-2 text-[14px] leading-[1.6] ${open ? '' : 'line-clamp-3'}`} style={{ color: INK }}>{it.mo_ta}</p>
@@ -205,7 +205,7 @@ function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: numb
                     <div key="thuc_te" className="mt-2 border-t border-border pt-2 text-[12px]" style={{ color: SOFT }}>
                       <div className="flex flex-wrap gap-x-3 gap-y-0.5">
                         {/* Lịch giờ theo ngày (khi giờ khác nhau giữa các ngày) — badge chỉ hiện 1 khung */}
-                        {schedule ? <span>🕐 <span className="tabular-nums">{schedule}</span></span> : it.gio_mo && it.goi_truoc ? <span>🕐 {t('itinerary.badgeOpen')} <span className="tabular-nums">{it.gio_mo}</span></span> : null}
+                        {schedule ? <span>🕐 <span className="tabular-nums">{schedule}</span></span> : it.gio_mo && it.goi_truoc ? <span>🕐 {t('itinerary.badgeOpen')} <span className="tabular-nums">{isAllDay(it.gio_mo) ? t('itinerary.allDay') : it.gio_mo}</span></span> : null}
                         {it.gia_ve ? <span>{t('itinerary.ticketsLabel', { value: /^\s*(yes|có|co)\s*$/i.test(it.gia_ve) ? t('itinerary.ticketsPaidUnconfirmed') : it.gia_ve })}</span> : null}
                         {it.cach_trung_tam_km != null ? <span>{t('itinerary.fromCentre', { dist: fmtKm(it.cach_trung_tam_km) ?? '' })}</span> : null}
                       </div>

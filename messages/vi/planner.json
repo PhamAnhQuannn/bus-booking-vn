@@ -218,7 +218,8 @@
       "trua": "Trưa",
       "chieu": "Chiều",
       "toi": "Tối"
-    }
+    },
+    "allDay": "cả ngày"
   },
   "map": {
     "noBasemap": "Bản đồ nền khu vực này chưa có — vẫn hiển thị vị trí các điểm.",
@@ -279,7 +280,9 @@
       "mua-sam": "Mua sắm",
       "nong-nghiep-sinh-thai": "Nông nghiệp sinh thái",
       "bien-dao": "Biển đảo",
-      "suoi-nuoc-nong": "Suối nước nóng"
+      "suoi-nuoc-nong": "Suối nước nóng",
+      "ca-phe": "Cà phê / Quán xá",
+      "am-thuc": "Ẩm thực / Ăn uống"
     },
     "budgetPerPerson": "~{amount} triệu/người",
     "budgetPerPersonK": "~{amount}k/người",
@@ -289,7 +292,9 @@
     "collapse": "Thu gọn",
     "confirmRebuild": "Cập nhật và dựng lại kế hoạch?",
     "rebuild": "Dựng lại",
-    "cancel": "Hủy"
+    "cancel": "Hủy",
+    "confirmChange": "{changes} và dựng lại?",
+    "changeItem": "Đổi {slot} → “{value}”"
   },
   "progress": {
     "analyze": "Phân tích yêu cầu",

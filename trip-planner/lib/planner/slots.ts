@@ -126,13 +126,60 @@ const NHOM_KEYWORDS: [RegExp, Nhom][] = [
   [/công tác|đồng nghiệp|công ty|team building|đi team/i, "cong-tac"],
 ];
 
-// Bóc TẤT ĐỊNH từ free-text (client) cho budget-SỐ + nhóm — bù cho Gemini (schema thiếu 2 field này).
-// Gọi SAU Gemini rồi applyExtracted (tất định thắng). Trả Partial<Slots> chỉ chứa field bóc được.
+// Từ khóa sở thích → mã vibe (ca-phe/am-thuc là mã DISPLAY-only ngoài VIBE_VOCAB — engine bỏ qua).
+// Khớp trên text CÓ DẤU (VN keyboard mặc định có dấu) → ít false-positive.
+const INTEREST_KEYWORDS: [RegExp, string][] = [
+  [/cà phê|cafe|café|quán xá|coffee/i, "ca-phe"],
+  [/ẩm thực|ăn uống|đồ ăn|đồ nướng|hải sản|đặc sản|ăn ngon|ăn vặt/i, "am-thuc"],
+  [/chụp ảnh|sống ảo|check.?in|check in/i, "song-ao-chup-hinh"],
+  [/biển|đảo/i, "bien-dao"],
+  [/núi|trekking|leo núi|phượt|mạo hiểm|thác|hang động/i, "thien-nhien-mao-hiem"],
+  [/văn hoá|văn hóa|lịch sử|di tích|bảo tàng/i, "lich-su-van-hoa"],
+  [/chùa|tâm linh|đền thờ|nhà thờ|thiền/i, "tam-linh"],
+  [/nghỉ dưỡng|thư giãn|yên tĩnh|relax|resort|chill/i, "thu-gian-yen-tinh"],
+  [/mua sắm|shopping|chợ đêm/i, "mua-sam"],
+  [/cảnh đẹp|ngắm cảnh|hoàng hôn|thiên nhiên|view/i, "ngam-canh"],
+  [/lãng mạn|hẹn hò|honeymoon/i, "lang-man"],
+];
+
+const foldVi = (s: string): string => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d");
+
+// Sở thích từ free-text: scan keyword → mã; cụm trong "thích …" chưa khớp → LITERAL (không drop im lặng).
+function extractInterests(text: string): string[] {
+  const t = text.toLowerCase();
+  const codes = new Set<string>();
+  for (const [re, code] of INTEREST_KEYWORDS) if (re.test(t)) codes.add(code);
+  const m = t.match(/(?:thích|ưa thích|muốn|quan tâm|sở thích|mê|đam mê)\s+(.+)/i);
+  if (m) {
+    const clause = m[1].split(/[.!?\n]/)[0];
+    for (const raw of clause.split(/\s*(?:,|;|&|\bvà\b|\bcùng\b|\bvới\b)\s*/)) {
+      const ph = raw.trim().replace(/^(đi|các|những|thêm)\s+/, "");
+      if (!ph || ph.length > 24 || /\d/.test(ph)) continue;
+      if (INTEREST_KEYWORDS.some(([re]) => re.test(ph))) continue; // đã có mã
+      if (CITIES.some((c) => ph.includes(c.ten.toLowerCase()))) continue; // là tên thành phố
+      codes.add(ph); // LITERAL (chữ user, có dấu) — SlotSummaryCard hiển thị viết-hoa + warn
+    }
+  }
+  return [...codes];
+}
+
+// Bóc TẤT ĐỊNH từ free-text (client) — bù Gemini (budget-số/nhóm không có trong schema) + mount shell SỚM
+// (dia_diem/days) + đảm bảo interest không rơi. Gọi optimistic lúc gửi VÀ sau Gemini (applyExtracted, idempotent).
 export function extractFromText(text: string): Partial<Slots> {
   const out: Partial<Slots> = {};
   const t = text.toLowerCase();
+  const ft = foldVi(text);
   for (const [re, g] of NHOM_KEYWORDS) { if (re.test(t)) { out.nhom = g; break; } }
-  // ngân sách số: "<số> triệu/tr/củ/k/nghìn/ngàn/đồng" → VND/người (giả định /người trừ khi 'tổng/cả nhóm')
+  // điểm đến: match tên CITIES (không dấu), ưu tiên tên DÀI nhất (tránh khớp nhầm 1 phần).
+  const city = [...CITIES].sort((a, b) => b.ten.length - a.ten.length).find((c) => ft.includes(foldVi(c.ten)));
+  if (city) out.dia_diem = city.slug;
+  // số ngày: "N ngày" (1..7)
+  const dm = t.match(/(\d+)\s*ng[àa]y/);
+  if (dm) { const d = parseInt(dm[1], 10); if (d >= 1 && d <= 7) out.days = d; }
+  // số người: "N người/khách/đứa/thành viên" (không phải "N ngày")
+  const pm = t.match(/(\d+)\s*(người|khách|đứa|thành viên)\b/);
+  if (pm) out.adults = Math.max(parseInt(pm[1], 10), 1);
+  // ngân sách số: "<số> triệu/tr/củ/k/nghìn/ngàn/đồng" → VND/người
   const bm = t.match(/(\d+(?:[.,]\d+)?)\s*(triệu|tr|củ|k|nghìn|ngàn|đồng|vnđ|vnd)\b/i);
   if (bm) {
     const num = parseFloat(bm[1].replace(",", "."));
@@ -140,15 +187,21 @@ export function extractFromText(text: string): Partial<Slots> {
     let vnd = num;
     if (/^(triệu|tr|củ)$/.test(unit)) vnd = num * 1_000_000;
     else if (/^(k|nghìn|ngàn)$/.test(unit)) vnd = num * 1_000;
-    if (vnd >= 100_000) out.budgetPerPerson = Math.round(vnd); // ngưỡng lọc nhiễu ("3 ngày" không có đơn vị tiền)
+    if (vnd >= 100_000) out.budgetPerPerson = Math.round(vnd);
   }
+  const interests = extractInterests(text);
+  if (interests.length) out.interests = interests;
   return out;
 }
 
-// Áp Partial bóc tất định vào Slots: nhóm → preset party (withGroup); budget số → gán thẳng.
+// Áp Partial bóc tất định vào Slots: nhóm → preset party (withGroup); còn lại gán/union.
 export function applyExtracted(s: Slots, det: Partial<Slots>): Slots {
   let n: Slots = { ...s };
+  if (det.dia_diem) n.dia_diem = det.dia_diem;
+  if (det.days != null) n.days = det.days;
+  if (det.adults != null) { n.adults = det.adults; n.children = n.children ?? 0; n.elders = n.elders ?? 0; }
   if (det.budgetPerPerson != null) n.budgetPerPerson = det.budgetPerPerson;
+  if (det.interests?.length) n.interests = [...new Set([...(n.interests ?? []), ...det.interests])]; // union dedup
   if (det.nhom) n = persons(n) === 0 ? withGroup(n, det.nhom) : { ...n, nhom: det.nhom };
   return n;
 }

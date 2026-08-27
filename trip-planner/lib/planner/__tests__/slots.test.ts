@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { extractFromText, applyExtracted, withGroup, missingRequired, applyChip } from '../slots';
+import { isAllDay, moTaTrusted } from '../labels';
 import type { Slots } from '../slots';
 
 describe('extractFromText — bóc tất định budget-số + nhóm (bảng MỤC 3)', () => {
@@ -64,4 +65,47 @@ describe('missingRequired — đếm slot bắt buộc còn thiếu', () => {
     expect(missingRequired(s)).toBe(0);
   });
   it('chỉ có điểm đến → 2', () => expect(missingRequired({ dia_diem: 'da-lat' })).toBe(2));
+});
+
+describe('V3 B — bóc dia_diem/days/adults client (mount shell sớm)', () => {
+  it('"đi Đà Lạt 3 ngày 2 người" → da-lat + 3 + 2', () => {
+    const d = extractFromText('đi Đà Lạt 3 ngày 2 người ngắm cảnh');
+    expect(d.dia_diem).toBe('da-lat');
+    expect(d.days).toBe(3);
+    expect(d.adults).toBe(2);
+  });
+  it('không dấu "di nha trang" → nha-trang', () =>
+    expect(extractFromText('di nha trang cuoi tuan').dia_diem).toBe('nha-trang'));
+  it('"3 ngày" KHÔNG bị nhận là số người', () =>
+    expect(extractFromText('đi 3 ngày').adults).toBeUndefined());
+});
+
+describe('V3 C — sở thích không rơi tín hiệu', () => {
+  it('"cà phê và cảnh đẹp" → 2 chip (ca-phe + ngam-canh)', () => {
+    const d = extractFromText('mình thích cà phê và cảnh đẹp');
+    expect(d.interests).toContain('ca-phe');
+    expect(d.interests).toContain('ngam-canh');
+  });
+  it('"biển và đồ nướng" → bien-dao + am-thuc', () => {
+    const d = extractFromText('thích biển và đồ nướng');
+    expect(d.interests).toEqual(expect.arrayContaining(['bien-dao', 'am-thuc']));
+  });
+  it('"thích câu cá" (ngoài bảng) → literal "câu cá", KHÔNG drop', () =>
+    expect(extractFromText('mình thích câu cá').interests).toContain('câu cá'));
+  it('applyExtracted union interests (Gemini + client, dedup)', () => {
+    const n = applyExtracted({ interests: ['ngam-canh'] }, { interests: ['ca-phe', 'ngam-canh'] });
+    expect(n.interests).toEqual(['ngam-canh', 'ca-phe']);
+  });
+});
+
+describe('V3 E — isAllDay + moTaTrusted', () => {
+  it('00:00-23:59 → cả ngày', () => expect(isAllDay('00:00-23:59')).toBe(true));
+  it('08:00-17:00 → không', () => expect(isAllDay('08:00-17:00')).toBe(false));
+  it('null → false', () => expect(isAllDay(null)).toBe(false));
+  it('beach POI + URL Cầu_Trần_Phú → KHÔNG tin (ẩn)', () =>
+    expect(moTaTrusted({ category: 'Bãi biển', name: 'Bãi biển Trần Phú', mo_ta_nguon_url: 'https://vi.wikipedia.org/wiki/Cầu_Trần_Phú' })).toBe(false));
+  it('cầu POI + URL cầu → tin', () =>
+    expect(moTaTrusted({ category: 'Cầu / Điểm ngắm cảnh', name: 'Cầu Vàng', mo_ta_nguon_url: 'https://vi.wikipedia.org/wiki/Cầu_Vàng' })).toBe(true));
+  it('POI thường + URL không hạ tầng → tin', () =>
+    expect(moTaTrusted({ category: 'Chùa', name: 'Chùa Linh Ứng', mo_ta_nguon_url: 'https://vi.wikipedia.org/wiki/Chùa_Linh_Ứng' })).toBe(true));
 });

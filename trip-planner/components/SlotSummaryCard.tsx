@@ -19,8 +19,8 @@ import { withGroup, type Slots, type Nhom, type Budget } from '@/trip-planner/li
 
 const GROUP_CODES: Nhom[] = ['cap-doi', 'gia-dinh', 'ban-be', 'cong-tac'];
 const BUDGET_CODES: Budget[] = ['tiet-kiem', 'vua', 'thoai-mai'];
-// Đủ 11 mã VIBE_VOCAB → không còn raw-slug (vd 'bien-dao') trên chip.
-const INTEREST_CODES = ['ngam-canh', 'tam-linh', 'lich-su-van-hoa', 'thien-nhien-mao-hiem', 'mua-sam', 'nong-nghiep-sinh-thai', 'bien-dao', 'suoi-nuoc-nong', 'song-ao-chup-hinh', 'thu-gian-yen-tinh', 'lang-man'];
+// 11 mã VIBE_VOCAB + 2 mã DISPLAY-only (ca-phe/am-thuc) → không còn raw-slug trên chip.
+const INTEREST_CODES = ['ngam-canh', 'tam-linh', 'lich-su-van-hoa', 'thien-nhien-mao-hiem', 'mua-sam', 'nong-nghiep-sinh-thai', 'bien-dao', 'suoi-nuoc-nong', 'song-ao-chup-hinh', 'thu-gian-yen-tinh', 'lang-man', 'ca-phe', 'am-thuc'];
 const DAY_OPTIONS = [2, 3, 4, 5, 7];
 
 const cityName = (slug?: string) => CITIES.find((c) => c.slug === slug)?.ten ?? '';

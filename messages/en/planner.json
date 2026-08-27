@@ -218,7 +218,8 @@
       "trua": "Noon",
       "chieu": "Afternoon",
       "toi": "Evening"
-    }
+    },
+    "allDay": "all day"
   },
   "map": {
     "noBasemap": "No base map for this area yet — locations are still shown.",
@@ -279,7 +280,9 @@
       "mua-sam": "Shopping",
       "nong-nghiep-sinh-thai": "Eco-agriculture",
       "bien-dao": "Beaches & islands",
-      "suoi-nuoc-nong": "Hot springs"
+      "suoi-nuoc-nong": "Hot springs",
+      "ca-phe": "Coffee / Cafés",
+      "am-thuc": "Food & drink"
     },
     "budgetPerPerson": "~{amount}M/person",
     "budgetPerPersonK": "~{amount}k/person",
@@ -289,7 +292,9 @@
     "collapse": "Collapse",
     "confirmRebuild": "Update and rebuild the plan?",
     "rebuild": "Rebuild",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "confirmChange": "{changes} and rebuild?",
+    "changeItem": "Change {slot} → “{value}”"
   },
   "progress": {
     "analyze": "Analyzing your request",

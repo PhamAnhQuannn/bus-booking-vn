@@ -17,7 +17,7 @@ import L from 'leaflet';
 import { leafletLayer } from 'protomaps-leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { PlannerDto } from '@/trip-planner/lib/planner/itineraryDto';
-import { displayCategory, itemBadge } from '@/trip-planner/lib/planner/labels';
+import { displayCategory, itemBadge, isAllDay } from '@/trip-planner/lib/planner/labels';
 import { RouteBus } from '@/trip-planner/components/RouteBus';
 
 type Props = {
@@ -308,7 +308,7 @@ export default function PlannerMap({ dto, pendingSlug, activeDay, hoveredOrder, 
                 )}
               </div>
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-muted-foreground">
-                {sel.gio_mo ? <span className="tabular-nums">🕐 {sel.gio_mo}</span> : null}
+                {sel.gio_mo ? <span className="tabular-nums">🕐 {isAllDay(sel.gio_mo) ? t('itinerary.allDay') : sel.gio_mo}</span> : null}
                 {sel.leg_from_prev ? <span className="tabular-nums">🚗 {t('map.legFromPrev', { km: sel.leg_from_prev.km, minutes: sel.leg_from_prev.minutes })}</span> : null}
                 <span className="tabular-nums">{t('map.source', { source: sel.nguon })}</span>
               </div>

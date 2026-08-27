@@ -236,3 +236,28 @@ export function splitHoatDong(hoat_dong: { label: string }[]): { thamQuan: strin
   for (const h of hoat_dong) (PAID_MARKER.test(fold(h.label)) ? traPhi : thamQuan).push(h.label);
   return { thamQuan, traPhi };
 }
+
+// E2 — giờ 24/7: "HH:MM-HH:MM" mở ~cả ngày (start≤00:00 & end≥23:59) → UI hiển thị "cả ngày" thay range.
+export function isAllDay(gio: string | null | undefined): boolean {
+  if (!gio) return false;
+  const m = gio.match(/(\d{1,2}):(\d{2})\D+(\d{1,2}):(\d{2})/);
+  if (!m) return false;
+  const s = +m[1] * 60 + +m[2], e = +m[3] * 60 + +m[4];
+  return s <= 0 && (e >= 1439 || e === 0);
+}
+
+// E1 — mô tả Wikipedia đáng tin? false nếu loại BÀI (leading word của URL slug) mâu thuẫn loại POI
+// (vd POI "Bãi biển Trần Phú" nhưng URL "Cầu_Trần_Phú"). Band-aid tầng hiển thị; fix gốc = enrich_wikidata.py.
+const INFRA_HINTS = ["cau", "duong", "ga", "san bay", "ham", "deo", "quoc lo"];
+const foldPlain = (x: string): string => x.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d");
+export function moTaTrusted(item: { mo_ta_nguon_url?: string | null; category?: string | null; name?: string | null }): boolean {
+  const url = item.mo_ta_nguon_url;
+  if (!url) return true; // không nguồn wiki → không guard
+  let title = "";
+  try { title = decodeURIComponent(url.split("/").pop() || "").replace(/_/g, " "); } catch { title = ""; }
+  const t = foldPlain(title);
+  const infra = INFRA_HINTS.find((w) => t.startsWith(w + " ") || t === w);
+  if (!infra) return true; // bài không phải hạ tầng → tin
+  const poi = foldPlain(`${item.category ?? ""} ${item.name ?? ""}`);
+  return poi.includes(infra); // chỉ tin nếu POI cũng là hạ tầng đó
+}

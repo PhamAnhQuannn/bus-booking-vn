@@ -152,7 +152,8 @@ export default function TroLyDuLichPage() {
   const lastBotErr = (() => { for (let i = messages.length - 1; i >= 0; i--) { if (messages[i].role === 'bot') return !!(messages[i] as Extract<Msg, { role: 'bot' }>).error; } return false; })();
   // building = đang hướng tới kế hoạch: engine dựng (isGenerating) HOẶC đang chờ Gemini và đã biết điểm đến
   // (pha chờ dài THẬT là Gemini) → skeleton + progress phủ cả khoảng đó, không để pane phải trống.
-  const building = !hasDto && (isGenerating || (loading && destKnown));
+  // building (→ skeleton) CHỈ khi đủ slot (client biết) hoặc engine đang dựng; thiếu slot + đang chờ → funnelPane.
+  const building = !hasDto && (isGenerating || (loading && destKnown && complete(slots)));
   const genPhase = deriveGenPhase({ messageCount: messages.length, building, hasDto, hasError: lastBotErr, anySlot });
   const buildingView = genPhase === 'building';
   const layoutPhase = deriveLayoutPhase({ messageCount: messages.length, hasDto, isGenerating, planned: hasDto || destKnown });
@@ -381,6 +382,10 @@ export default function TroLyDuLichPage() {
       .filter((m) => m.text);
 
     setMessages((prev) => [...prev, { role: 'user', text, time: nowHHMM() }, { role: 'bot', text: '', time: nowHHMM() }]);
+    // OPTIMISTIC: bóc slot client NGAY (trước round-trip) → mount shell 2 cột + skeleton/funnel ≤400ms.
+    const det0 = extractFromText(text);
+    if (det0.dia_diem) setPendingDestination(det0.dia_diem);
+    if (Object.keys(det0).length) setSlots((prev) => applyExtracted(prev, det0));
     abortRef.current?.abort(); // hủy request cũ trước khi tạo mới
     const ctrl = new AbortController();
     abortRef.current = ctrl;
@@ -634,6 +639,21 @@ export default function TroLyDuLichPage() {
   const destName = CITIES.find((c) => c.slug === destSlug)?.ten ?? '';
   const tiledPending = !dto && !!destSlug && TILED.has(destSlug); // building + điểm đến có tile → map thật (overlay)
   // Slot card GHIM (sticky) đầu vùng cuộn — không trôi mất khi chat dài. Sau reveal thu gọn 1 dòng.
+  // Confirm bar nêu RÕ thay đổi: diff slots↔pendingEdit → "Đổi Nhóm → "Cặp đôi", ...".
+  const KNOWN_INTEREST = ['ngam-canh', 'tam-linh', 'lich-su-van-hoa', 'thien-nhien-mao-hiem', 'mua-sam', 'nong-nghiep-sinh-thai', 'bien-dao', 'suoi-nuoc-nong', 'song-ao-chup-hinh', 'thu-gian-yen-tinh', 'lang-man', 'ca-phe', 'am-thuc'];
+  const iLabel = (c: string) => (KNOWN_INTEREST.includes(c) ? t(`slotCard.interest.${c}`) : c.charAt(0).toUpperCase() + c.slice(1));
+  const budShort = (vnd: number) => { const m = Math.round(vnd / 100_000) / 10; return vnd >= 1_000_000 ? t('slotCard.budgetPerPerson', { amount: m % 1 === 0 ? String(m) : m.toFixed(1) }) : t('slotCard.budgetPerPersonK', { amount: Math.round(vnd / 1000) }); };
+  const describeChanges = (o: Slots, n: Slots): string => {
+    const items: string[] = [];
+    const push = (slotKey: string, val: string) => items.push(t('slotCard.changeItem', { slot: t(`slotCard.${slotKey}`), value: val }));
+    if (n.dia_diem !== o.dia_diem && n.dia_diem) push('destination', CITIES.find((c) => c.slug === n.dia_diem)?.ten ?? n.dia_diem);
+    if (n.days !== o.days && n.days) push('days', t('slotCard.dayUnit', { n: n.days }));
+    if (n.nhom !== o.nhom && n.nhom) push('groupPlaceholder', t(`slotCard.group.${n.nhom}`));
+    const budN = n.budgetPerPerson ? `n${n.budgetPerPerson}` : n.budget ?? '', budO = o.budgetPerPerson ? `n${o.budgetPerPerson}` : o.budget ?? '';
+    if (budN !== budO && (n.budgetPerPerson || n.budget)) push('budget', n.budgetPerPerson ? budShort(n.budgetPerPerson) : t(`slotCard.budgetLabel.${n.budget}`));
+    if ((n.interests ?? []).join(',') !== (o.interests ?? []).join(',')) push('interests', (n.interests ?? []).map(iLabel).join(', '));
+    return items.join(', ');
+  };
   const isCollapsed = slotCardCollapsed === null ? hasDto : slotCardCollapsed;
   const slotCard = anySlot ? (
     <div className="sticky top-0 z-raised -mx-4 mb-1 bg-white/95 px-4 pt-2 backdrop-blur-sm">
@@ -658,7 +678,7 @@ export default function TroLyDuLichPage() {
       )}
       {pendingEdit ? (
         <div className="mt-1.5 flex flex-wrap items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-[13px]">
-          <span className="font-medium text-foreground">{t('slotCard.confirmRebuild')}</span>
+          <span className="font-medium text-foreground">{describeChanges(slots, pendingEdit) ? t('slotCard.confirmChange', { changes: describeChanges(slots, pendingEdit) }) : t('slotCard.confirmRebuild')}</span>
           <button type="button" onClick={() => { applyEdit(pendingEdit); setPendingEdit(null); setSlotCardCollapsed(false); }}
             className="ml-auto rounded-full bg-primary px-3 py-1 font-semibold text-primary-foreground outline-none hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/60">
             {t('slotCard.rebuild')}

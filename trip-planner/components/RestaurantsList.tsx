@@ -7,13 +7,13 @@
  */
 
 import type { DtoRestaurant } from '@/trip-planner/lib/planner/itineraryDto';
-import { displayCategory, stripCitySuffix } from '@/trip-planner/lib/planner/labels';
+import { displayCategory, stripCitySuffix, isAllDay } from '@/trip-planner/lib/planner/labels';
 
 const INK = '#1E2433', SOFT = '#6B7280', FAINT = '#9AA0AC';
 
 function GioChip({ r }: { r: DtoRestaurant }) {
   if (!r.goi_truoc && r.gio_mo) {
-    return <span className="rounded-full bg-success px-2 py-0.5 text-[12px] font-bold text-success-foreground">✓ Mở {r.gio_mo}</span>;
+    return <span className="rounded-full bg-success px-2 py-0.5 text-[12px] font-bold text-success-foreground">✓ Mở {isAllDay(r.gio_mo) ? 'cả ngày' : r.gio_mo}</span>;
   }
   return <span className="rounded-full bg-muted px-2 py-0.5 text-[12px] font-bold" style={{ color: SOFT }}>Giờ: gọi trước để hỏi</span>;
 }
