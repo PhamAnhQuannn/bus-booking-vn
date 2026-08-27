@@ -55,6 +55,9 @@ const PlannerMapColumn = dynamic(() => import('@/trip-planner/components/Planner
 
 type Options = { slot: string; options: string[]; allowCustom: boolean };
 
+// Slug có tile map thật (đồng bộ PlannerMap.TILED_SLUGS) — client-safe, KHÔNG import PlannerMap (kéo Leaflet).
+const TILED = new Set(['da-lat', 'da-nang', 'nha-trang']);
+
 // Giờ HH:mm theo TZ VN — gọi trong HANDLER (không phải render body) nên không phạm RSC-purity.
 function nowHHMM(): string {
   return new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' }).format(Date.now());
@@ -627,7 +630,9 @@ export default function TroLyDuLichPage() {
 
   // Card tóm tắt slot (state Understood) — thay statusLine + PlannerStepper. Hiện khi đã có ≥1 slot.
   // Chip LUÔN bấm được (kể cả đang dựng) → sửa mid-build = huỷ + dựng lại (onEditSlot).
-  const destName = CITIES.find((c) => c.slug === (slots.dia_diem ?? pendingDestination ?? ''))?.ten ?? '';
+  const destSlug = slots.dia_diem ?? pendingDestination ?? undefined;
+  const destName = CITIES.find((c) => c.slug === destSlug)?.ten ?? '';
+  const tiledPending = !dto && !!destSlug && TILED.has(destSlug); // building + điểm đến có tile → map thật (overlay)
   // Slot card GHIM (sticky) đầu vùng cuộn — không trôi mất khi chat dài. Sau reveal thu gọn 1 dòng.
   const isCollapsed = slotCardCollapsed === null ? hasDto : slotCardCollapsed;
   const slotCard = anySlot ? (
@@ -811,9 +816,10 @@ export default function TroLyDuLichPage() {
         <style>{`@keyframes v4PaneIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}.v4-pane-in{animation:v4PaneIn .35s ease-out}@media (prefers-reduced-motion: reduce){.v4-pane-in{animation:none}}`}</style>
         {/* CỘT TRÁI — bản đồ (trên) + chat (dưới) */}
         <div className="flex min-h-0 flex-col border-r border-[#E4D8C9]">
-          {dto ? (
+          {dto || tiledPending ? (
             <PlannerMapColumn
-              dto={dto}
+              dto={dto ?? undefined}
+              pendingSlug={destSlug}
               activeDay={activeDay}
               hoveredOrder={hoveredOrder}
               selected={selected}

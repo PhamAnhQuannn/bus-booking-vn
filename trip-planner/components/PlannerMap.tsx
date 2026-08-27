@@ -18,9 +18,11 @@ import { leafletLayer } from 'protomaps-leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { PlannerDto } from '@/trip-planner/lib/planner/itineraryDto';
 import { displayCategory, itemBadge } from '@/trip-planner/lib/planner/labels';
+import { RouteBus } from '@/trip-planner/components/RouteBus';
 
 type Props = {
-  dto: PlannerDto;
+  dto?: PlannerDto; // optional: chưa có → map center theo pendingSlug (pha building), chưa vẽ pin
+  pendingSlug?: string; // điểm đến biết SỚM (trước dto) → center map + tile
   activeDay: number;
   hoveredOrder: number | null;
   selected: { day: number; order: number } | null;
@@ -31,7 +33,14 @@ type Props = {
 // Slug có PMTiles thật trong public/tiles/. cities.ts quảng cáo 28 slug nhưng chỉ 3 tile ship →
 // slug ngoài set này KHÔNG add tile layer (tránh request tile 404 → bản đồ xám); hiện nền kem + note.
 // Sinh thêm tile cho 25 tỉnh còn lại là việc DATA riêng. (#528)
-const TILED_SLUGS = new Set(['da-lat', 'da-nang', 'nha-trang']);
+export const TILED_SLUGS = new Set(['da-lat', 'da-nang', 'nha-trang']);
+
+// Tâm + zoom mặc định cho slug có tile (center map pha building TRƯỚC khi có dto item coords).
+const CITY_CENTER: Record<string, [number, number, number]> = {
+  'da-lat': [11.94, 108.44, 13],
+  'da-nang': [16.06, 108.22, 13],
+  'nha-trang': [12.24, 109.19, 13],
+};
 
 // Nền QUỐC GIA zoom-thấp fallback: 1 file /tiles/vietnam.pmtiles phủ CẢ nước cho slug không có tile
 // street-zoom riêng → hết "bản đồ trắng" trên mọi tỉnh cùng lúc. Same-origin nên CSP connect-src 'self'
@@ -108,8 +117,9 @@ function pinHtml(order: number): string {
     <span class="pm-no">${order}</span></div>`;
 }
 
-export default function PlannerMap({ dto, activeDay, hoveredOrder, selected, onPinClick, onCloseSheet }: Props) {
+export default function PlannerMap({ dto, pendingSlug, activeDay, hoveredOrder, selected, onPinClick, onCloseSheet }: Props) {
   const t = useTranslations('planner');
+  const slug = dto?.slug ?? pendingSlug; // slug hiệu lực: dto (reveal) hoặc pendingSlug (building)
   const boxRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const baseRef = useRef<{ layer: L.Layer; slug: string } | null>(null);
@@ -129,7 +139,8 @@ export default function PlannerMap({ dto, activeDay, hoveredOrder, selected, onP
     if (!boxRef.current || mapRef.current) return;
     // maxZoom 16: cho overzoom ~2 nấc trên trần tile (z14) vẫn đọc được; minZoom 10: tile chỉ phủ
     // bbox 1 thành phố, zoom xa hơn ra ngoài vùng dữ liệu cũng xám → chặn scroll-zoom trong vùng có tile.
-    const map = L.map(boxRef.current, { zoomControl: false, attributionControl: true, maxZoom: 16, minZoom: 10 }).setView([11.94, 108.44], 13);
+    const c = (slug && CITY_CENTER[slug]) || [11.94, 108.44, 13]; // center theo điểm đến (building) hoặc mặc định
+    const map = L.map(boxRef.current, { zoomControl: false, attributionControl: true, maxZoom: 16, minZoom: 10 }).setView([c[0], c[1]], c[2]);
     map.attributionControl.setPrefix('');
     L.control.zoom({ position: 'topright' }).addTo(map); // P0-6: né day-tabs (top-left)
     mapRef.current = map;
@@ -168,22 +179,22 @@ export default function PlannerMap({ dto, activeDay, hoveredOrder, selected, onP
   // đổi tile theo slug
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
-    if (baseRef.current?.slug === dto.slug) return;
+    if (!map || !slug) return;
+    if (baseRef.current?.slug === slug) return;
     if (baseRef.current) { map.removeLayer(baseRef.current.layer); baseRef.current = null; }
     // Tile riêng (street-zoom) cho slug curated; else nền quốc gia zoom-thấp (nếu bật); else bỏ layer
     // (nền kem + note) — KHÔNG request tile 404 → xám. (#528)
-    const tiled = TILED_SLUGS.has(dto.slug);
+    const tiled = TILED_SLUGS.has(slug);
     if (!tiled && !COUNTRY_BASEMAP.enabled) return;
     const layer = leafletLayer({
-      url: tiled ? `/tiles/${dto.slug}.pmtiles` : COUNTRY_BASEMAP.url,
+      url: tiled ? `/tiles/${slug}.pmtiles` : COUNTRY_BASEMAP.url,
       flavor: 'light',
       maxDataZoom: tiled ? 14 : COUNTRY_BASEMAP.maxDataZoom, // trần thật PMTiles; overzoom từ mức này lên
       attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a> · © <a href="https://protomaps.com">Protomaps</a>',
     }) as unknown as L.Layer;
     layer.addTo(map);
-    baseRef.current = { layer, slug: dto.slug };
-  }, [dto.slug]);
+    baseRef.current = { layer, slug };
+  }, [slug]);
 
   // vẽ pin + route cho ngày active; fit-bounds
   useEffect(() => {
@@ -191,6 +202,7 @@ export default function PlannerMap({ dto, activeDay, hoveredOrder, selected, onP
     if (!map || !overlay) return;
     overlay.clearLayers();
     markersRef.current.clear();
+    if (!dto) return; // pha building: chưa có kế hoạch → không vẽ pin/route
 
     const day = dto.days.find((d) => d.day === activeDay) ?? dto.days[0];
     if (!day) return;
@@ -241,7 +253,7 @@ export default function PlannerMap({ dto, activeDay, hoveredOrder, selected, onP
     if (c) c.style.marginBottom = selected ? '216px' : '';
   }, [selected]);
 
-  const sel = selected ? dto.days.find((d) => d.day === selected.day)?.items.find((i) => i.order === selected.order) ?? null : null;
+  const sel = dto && selected ? dto.days.find((d) => d.day === selected.day)?.items.find((i) => i.order === selected.order) ?? null : null;
   const on = sel ? openNow(sel.gio_mo) : null;
 
   return (
@@ -249,8 +261,15 @@ export default function PlannerMap({ dto, activeDay, hoveredOrder, selected, onP
       <style>{PIN_CSS}</style>
       <div ref={boxRef} className="h-full w-full" style={{ background: 'var(--bg-cream, #FBF2E7)' }} />
 
+      {/* Pha BUILDING (chưa dto): overlay kem bán trong suốt + bus signature; reveal → fade opacity→0,
+          GIỮ NGUYÊN map instance (pin/route thêm vào khi dto về). */}
+      <div className={`pointer-events-none absolute inset-0 transition-opacity duration-300 ${dto ? 'opacity-0' : 'opacity-100'}`}
+        style={{ background: 'rgba(251,242,231,0.5)' }} aria-hidden>
+        {!dto ? <RouteBus /> : null}
+      </div>
+
       {/* Không có tile riêng LẪN nền quốc gia → note thay vì để nền xám; pin vẫn hiện. (#528) */}
-      {!TILED_SLUGS.has(dto.slug) && !COUNTRY_BASEMAP.enabled ? (
+      {!TILED_SLUGS.has(slug ?? '') && !COUNTRY_BASEMAP.enabled ? (
         <div className="pointer-events-none absolute inset-x-3 top-3 z-[400] rounded-lg bg-white/90 px-3 py-2 text-center text-xs text-muted-foreground shadow-sm">
           {t('map.noBasemap')}
         </div>

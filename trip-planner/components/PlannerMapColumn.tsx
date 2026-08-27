@@ -14,7 +14,8 @@ import PlannerMap from '@/trip-planner/components/PlannerMap';
 import type { PlannerDto } from '@/trip-planner/lib/planner/itineraryDto';
 
 type Props = {
-  dto: PlannerDto;
+  dto?: PlannerDto; // optional: pha building center theo pendingSlug, chưa có pin
+  pendingSlug?: string;
   activeDay: number;
   hoveredOrder: number | null;
   selected: { day: number; order: number } | null;
@@ -27,7 +28,7 @@ const clamp = (lo: number, v: number, hi: number) => Math.max(lo, Math.min(hi, v
 const MIN_MAP = 180;
 const SHRINK_H = 180;
 
-export default function PlannerMapColumn({ dto, activeDay, hoveredOrder, selected, onPinClick, onCloseSheet, shrink }: Props) {
+export default function PlannerMapColumn({ dto, pendingSlug, activeDay, hoveredOrder, selected, onPinClick, onCloseSheet, shrink }: Props) {
   const t = useTranslations('planner');
   const rootRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(280); // px map; ResizeObserver ép về 40% cột
@@ -88,6 +89,7 @@ export default function PlannerMapColumn({ dto, activeDay, hoveredOrder, selecte
       <div className="relative overflow-hidden border border-border transition-[height] duration-200" style={{ height: displayH }}>
         <PlannerMap
           dto={dto}
+          pendingSlug={pendingSlug}
           activeDay={activeDay}
           hoveredOrder={hoveredOrder}
           selected={selected}
