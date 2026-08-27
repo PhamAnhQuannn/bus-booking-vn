@@ -40,7 +40,7 @@ import {
   deriveTitle,
 } from '@/trip-planner/lib/planner/conversationsClient';
 // Deep-import client-safe: máy trạng thái slot tất định (chip = $0, không Gemini).
-import { type Slots, type Ask, nextAsk, optionalAsk, applyChip, complete, mergeIntent, slotsToParams, budgetAsk, transportAsk, foodAsk } from '@/trip-planner/lib/planner/slots';
+import { type Slots, type Ask, nextAsk, optionalAsk, applyChip, complete, mergeIntent, slotsToParams, budgetAsk, transportAsk, foodAsk, extractFromText, applyExtracted, missingRequired } from '@/trip-planner/lib/planner/slots';
 import { deriveLayoutPhase, type LayoutPhase } from '@/trip-planner/lib/planner/layoutPhase';
 import { deriveGenPhase } from '@/trip-planner/lib/planner/genPhase';
 import { CITIES } from '@/trip-planner/lib/planner/cities';
@@ -430,7 +430,8 @@ export default function TroLyDuLichPage() {
     if (failed && !retryRef.current) { retryRef.current = { kind: 'send', text }; patchBot((m) => ({ ...m, retry: true })); }
     // Lỗi giữa chừng đã hiện bong bóng lỗi rồi — advance() ở đây sẽ thêm tin bot thứ 2 trái ngược
     // trong cùng lượt, nên chỉ advance khi KHÔNG lỗi và KHÔNG phải mode gợi ý. (#528)
-    if (!suggested && !failed) advance(mergeIntent(slots, partial)); // tất định: hỏi thêm bằng chip hoặc dựng — KHÔNG thêm Gemini
+    // tất định: Gemini partial + bóc client (budget-số + nhóm) → hỏi thêm bằng chip hoặc dựng — KHÔNG thêm Gemini
+    if (!suggested && !failed) advance(applyExtracted(mergeIntent(slots, partial), extractFromText(text)));
   }
 
   // Parse 1 SSE frame. token → patchBot; slots → trả {partial}; suggestions → gắn cards + báo suggested; error → patchBot + báo failed.
@@ -540,6 +541,18 @@ export default function TroLyDuLichPage() {
       </div>
     </div>
   );
+  // Panel pha PHỄU (đã có ≥1 slot, chưa build, chưa dto) — hướng người dùng vào việc còn thiếu.
+  const missing = missingRequired(slots);
+  const funnelPane = (
+    <div className="grid h-full w-full place-items-center bg-white p-6 text-center">
+      <div>
+        <div className="text-4xl" aria-hidden>💬</div>
+        <p className="mx-auto mt-3 max-w-[250px] text-sm font-semibold text-muted-foreground">
+          {t(missing > 0 ? 'assistant.funnelHint' : 'assistant.funnelHintReady', { n: missing })}
+        </p>
+      </div>
+    </div>
+  );
   const paneFor = (variant: 'inline' | 'overlay') =>
     dto ? (
       <PlannerPane
@@ -560,6 +573,8 @@ export default function TroLyDuLichPage() {
       buildingPane
     ) : lastBotErr ? (
       errorPane
+    ) : anySlot ? (
+      funnelPane
     ) : (
       emptyState
     );
@@ -800,6 +815,8 @@ export default function TroLyDuLichPage() {
             buildingPane
           ) : lastBotErr ? (
             errorPane
+          ) : anySlot ? (
+            funnelPane
           ) : (
             emptyState
           )}

@@ -24,7 +24,8 @@ export interface Slots {
   avoidSteep?: boolean;
   anchor?: string[]; // id điểm-đến khách chọn từ gợi ý vibe (mode discovery → anchor vào lịch)
   nhom?: Nhom; // loại nhóm (preset party + bias interests/pace)
-  budget?: Budget; // ngân sách (→ pace default; KHÔNG lọc theo giá — không có data giá)
+  budget?: Budget; // ngân sách HẠNG (→ pace default; KHÔNG lọc theo giá — không có data giá)
+  budgetPerPerson?: number; // ngân sách SỐ (VND/người) — CHỈ hiển thị; engine KHÔNG lọc theo giá
   transport?: Transport; // phương tiện (ghi lại + note; engine không đổi routing)
   food?: string[]; // sở thích ăn uống ('dia-phuong'|'chay'|'hai-san'|'binh-dan') → bias nhà hàng
 }
@@ -98,6 +99,60 @@ const INTEREST_LABEL: Record<string, string> = {
   "Thư giãn": "thu-gian-yen-tinh",
 };
 
+// Preset party + accessibility theo loại nhóm (dùng chung: chip 'nhom' LẪN bóc free-text).
+// KHÔNG tự thêm sở thích hiển thị (bỏ auto 'lang-man' cũ) — suy diễn chỉ NGẦM cho engine (avoidSteep),
+// không hiện như chip sở thích người dùng đã nói.
+export function withGroup(s: Slots, g: Nhom): Slots {
+  const n: Slots = { ...s, nhom: g };
+  if (persons(n) === 0) {
+    if (g === "cap-doi") n.adults = 2;
+    else if (g === "gia-dinh") { n.adults = 2; n.children = 2; }
+    else if (g === "ban-be") n.adults = 4;
+    else n.adults = 1; // công tác
+  }
+  if (g === "gia-dinh") n.avoidSteep = n.avoidSteep ?? true; // trẻ nhỏ → ưu tiên ít dốc (ngầm)
+  return n;
+}
+
+// Số slot BẮT BUỘC còn thiếu (điểm đến / số ngày / ≥1 người) — cho copy phễu "còn N câu hỏi".
+export function missingRequired(s: Slots): number {
+  return (s.dia_diem ? 0 : 1) + (s.days ? 0 : 1) + (persons(s) > 0 ? 0 : 1);
+}
+
+const NHOM_KEYWORDS: [RegExp, Nhom][] = [
+  [/c[aặ]p đôi|người yêu|2 đứa|hai đứa|honeymoon|tr[aă]ng m[aậ]t/i, "cap-doi"],
+  [/gia đình|bố mẹ|ba mẹ|vợ con|con nhỏ|con cái|cả nhà|đưa con/i, "gia-dinh"],
+  [/b[aạ]n bè|nhóm bạn|đám bạn|hội bạn|với bạn/i, "ban-be"],
+  [/công tác|đồng nghiệp|công ty|team building|đi team/i, "cong-tac"],
+];
+
+// Bóc TẤT ĐỊNH từ free-text (client) cho budget-SỐ + nhóm — bù cho Gemini (schema thiếu 2 field này).
+// Gọi SAU Gemini rồi applyExtracted (tất định thắng). Trả Partial<Slots> chỉ chứa field bóc được.
+export function extractFromText(text: string): Partial<Slots> {
+  const out: Partial<Slots> = {};
+  const t = text.toLowerCase();
+  for (const [re, g] of NHOM_KEYWORDS) { if (re.test(t)) { out.nhom = g; break; } }
+  // ngân sách số: "<số> triệu/tr/củ/k/nghìn/ngàn/đồng" → VND/người (giả định /người trừ khi 'tổng/cả nhóm')
+  const bm = t.match(/(\d+(?:[.,]\d+)?)\s*(triệu|tr|củ|k|nghìn|ngàn|đồng|vnđ|vnd)\b/i);
+  if (bm) {
+    const num = parseFloat(bm[1].replace(",", "."));
+    const unit = bm[2].toLowerCase();
+    let vnd = num;
+    if (/^(triệu|tr|củ)$/.test(unit)) vnd = num * 1_000_000;
+    else if (/^(k|nghìn|ngàn)$/.test(unit)) vnd = num * 1_000;
+    if (vnd >= 100_000) out.budgetPerPerson = Math.round(vnd); // ngưỡng lọc nhiễu ("3 ngày" không có đơn vị tiền)
+  }
+  return out;
+}
+
+// Áp Partial bóc tất định vào Slots: nhóm → preset party (withGroup); budget số → gán thẳng.
+export function applyExtracted(s: Slots, det: Partial<Slots>): Slots {
+  let n: Slots = { ...s };
+  if (det.budgetPerPerson != null) n.budgetPerPerson = det.budgetPerPerson;
+  if (det.nhom) n = persons(n) === 0 ? withGroup(n, det.nhom) : { ...n, nhom: det.nhom };
+  return n;
+}
+
 // Chip/custom → cập nhật Slots TẤT ĐỊNH (không Gemini).
 export function applyChip(s: Slots, slot: Ask["slot"], label: string): Slots {
   const n: Slots = { ...s };
@@ -137,17 +192,7 @@ export function applyChip(s: Slots, slot: Ask["slot"], label: string): Slots {
         if (m) { n.adults = Math.max(parseInt(m[1], 10), 1); n.children = n.children ?? 0; n.elders = n.elders ?? 0; }
         break;
       }
-      n.nhom = g;
-      // Preset party nếu khách chưa nhập số người; bias interests/accessibility (dùng field engine sẵn có).
-      if (persons(n) === 0) {
-        if (g === "cap-doi") { n.adults = 2; }
-        else if (g === "gia-dinh") { n.adults = 2; n.children = 2; }
-        else if (g === "ban-be") { n.adults = 4; }
-        else { n.adults = 1; } // công tác
-      }
-      if (g === "cap-doi" && !(n.interests ?? []).includes("lang-man")) n.interests = [...(n.interests ?? []), "lang-man"];
-      if (g === "gia-dinh") n.avoidSteep = n.avoidSteep ?? true; // đi cùng trẻ nhỏ → ưu tiên ít dốc
-      break;
+      return withGroup(n, g); // preset party + accessibility ngầm (KHÔNG tự thêm sở thích hiển thị)
     }
     case "ngan_sach": {
       const b = BUDGET_LABEL[t];
@@ -197,6 +242,7 @@ export function slotsToParams(s: Slots): string {
   if (s.interests?.length) q.set("interests", s.interests.join(","));
   if (s.anchor?.length) q.set("anchors", s.anchor.join(","));
   if (s.budget) q.set("budget", s.budget);
+  if (s.budgetPerPerson) q.set("budgetPerPerson", String(s.budgetPerPerson)); // engine bỏ qua — chỉ round-trip/hiển thị
   if (s.transport) q.set("transport", s.transport);
   if (s.food?.length) q.set("food", s.food.join(","));
   return q.toString();

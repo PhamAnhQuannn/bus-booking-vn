@@ -115,7 +115,9 @@
     "timeoutOrBusy": "Chưa tạo được kế hoạch. Có thể do kết nối hoặc hệ thống đang bận.",
     "offline": "Mất kết nối mạng. Kiểm tra kết nối và thử lại.",
     "retry": "Thử lại",
-    "panelErrorTitle": "Kế hoạch sẽ hiển thị ở đây"
+    "panelErrorTitle": "Kế hoạch sẽ hiển thị ở đây",
+    "funnelHint": "Trả lời thêm {n} câu hỏi nữa để mình dựng lịch trình cho bạn",
+    "funnelHintReady": "Chọn sở thích hoặc bỏ qua để mình dựng lịch trình"
   },
   "schedule": {
     "unsupportedTitle": "Chưa hỗ trợ thành phố này",
@@ -272,8 +274,17 @@
       "lich-su-van-hoa": "Lịch sử - văn hoá",
       "lang-man": "Lãng mạn",
       "song-ao-chup-hinh": "Sống ảo",
-      "thu-gian-yen-tinh": "Thư giãn"
-    }
+      "thu-gian-yen-tinh": "Thư giãn",
+      "thien-nhien-mao-hiem": "Thiên nhiên - mạo hiểm",
+      "mua-sam": "Mua sắm",
+      "nong-nghiep-sinh-thai": "Nông nghiệp sinh thái",
+      "bien-dao": "Biển đảo",
+      "suoi-nuoc-nong": "Suối nước nóng"
+    },
+    "budgetPerPerson": "~{amount} triệu/người",
+    "budgetPerPersonK": "~{amount}k/người",
+    "budgetInputPlaceholder": "vd 3",
+    "budgetInputUnit": "triệu/người"
   },
   "progress": {
     "analyze": "Phân tích yêu cầu",

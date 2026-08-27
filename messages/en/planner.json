@@ -115,7 +115,9 @@
     "timeoutOrBusy": "Couldn't build the plan. It may be your connection or the system is busy.",
     "offline": "You're offline. Check your connection and try again.",
     "retry": "Try again",
-    "panelErrorTitle": "Your plan will appear here"
+    "panelErrorTitle": "Your plan will appear here",
+    "funnelHint": "Answer {n} more question(s) so I can build your itinerary",
+    "funnelHintReady": "Pick interests or skip so I can build your plan"
   },
   "schedule": {
     "unsupportedTitle": "This city isn't supported yet",
@@ -272,8 +274,17 @@
       "lich-su-van-hoa": "History & culture",
       "lang-man": "Romantic",
       "song-ao-chup-hinh": "Photo spots",
-      "thu-gian-yen-tinh": "Relaxing"
-    }
+      "thu-gian-yen-tinh": "Relaxing",
+      "thien-nhien-mao-hiem": "Nature & adventure",
+      "mua-sam": "Shopping",
+      "nong-nghiep-sinh-thai": "Eco-agriculture",
+      "bien-dao": "Beaches & islands",
+      "suoi-nuoc-nong": "Hot springs"
+    },
+    "budgetPerPerson": "~{amount}M/person",
+    "budgetPerPersonK": "~{amount}k/person",
+    "budgetInputPlaceholder": "e.g. 3",
+    "budgetInputUnit": "M/person"
   },
   "progress": {
     "analyze": "Analyzing your request",

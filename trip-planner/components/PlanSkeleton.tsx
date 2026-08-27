@@ -58,6 +58,17 @@ function SkeletonCard() {
 export function PlanSkeleton({ className = '' }: { className?: string }) {
   return (
     <div aria-hidden className={`h-full w-full content-start overflow-hidden bg-white p-4 ${className}`}>
+      {/* chrome TĨNH (tabs + chip Ngày disabled) — khớp cấu trúc pane thật; chỉ nội dung card là skeleton */}
+      <div className="mb-3 flex gap-4 border-b border-[#F0EAE2] text-[13px] font-semibold">
+        <span className="-mb-px border-b-2 border-primary/40 pb-2 text-foreground/40">Lịch trình</span>
+        <span className="pb-2 text-muted-foreground/40">Khách sạn</span>
+        <span className="pb-2 text-muted-foreground/40">Ăn uống</span>
+      </div>
+      <div className="mb-3 flex gap-1.5">
+        {[1, 2, 3].map((d) => (
+          <span key={d} className={`rounded-full px-3 py-1 text-[12px] font-semibold ${d === 1 ? 'bg-primary/10 text-primary/50' : 'text-muted-foreground/40'}`}>Ngày {d}</span>
+        ))}
+      </div>
       {/* header số liệu (thay khi reveal) */}
       <div className="mb-4"><Bar w="w-2/3" h="h-8" /></div>
       {/* divider NGÀY 1 thật (khớp band card thật) */}
