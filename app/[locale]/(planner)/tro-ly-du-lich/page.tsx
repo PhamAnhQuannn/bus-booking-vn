@@ -26,6 +26,7 @@ import { PlannerComposer } from '@/trip-planner/components/PlannerComposer';
 import { PlanSkeleton } from '@/trip-planner/components/PlanSkeleton';
 import { SlotSummaryCard } from '@/trip-planner/components/SlotSummaryCard';
 import { ProgressStages } from '@/trip-planner/components/ProgressStages';
+import { RouteBus } from '@/trip-planner/components/RouteBus';
 import {
   type StoredMsg,
   type ConversationMeta,
@@ -654,7 +655,9 @@ export default function TroLyDuLichPage() {
   // map thật mount vào KHÔNG đẩy chat xuống (chống CLS lần 2). Cao ~40% cột khớp PlannerMapColumn.
   const mapReserve = (
     <div className="shrink-0" aria-hidden>
-      <div className="border border-border" style={{ height: '40%', minHeight: 180, background: 'var(--bg-cream, #FBF2E7)' }} />
+      <div className="relative overflow-hidden border border-border" style={{ height: '40%', minHeight: 180, background: 'var(--bg-cream, #FBF2E7)' }}>
+        <RouteBus />
+      </div>
       <div className="h-3" />
     </div>
   );
@@ -671,7 +674,7 @@ export default function TroLyDuLichPage() {
   // ── CORE 3-pha (≥1280): collecting full-width || planning split ──────────
   const wideCore =
     layoutPhase === 'collecting' ? (
-      <section className="flex min-h-0 w-full flex-1 flex-col">
+      <section className="bb-scene-in flex min-h-0 w-full flex-1 flex-col">
         {chatTopBar}
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           <div className="mx-auto flex w-full max-w-[780px] flex-1 flex-col px-4 pb-2 pt-3">
@@ -684,7 +687,7 @@ export default function TroLyDuLichPage() {
         {composerZone('max-w-[780px]')}
       </section>
     ) : (
-      <div className="grid min-h-0 w-full flex-1" style={{ gridTemplateColumns: 'minmax(420px,42%) 1fr' }}>
+      <div className="bb-scene-in grid min-h-0 w-full flex-1" style={{ gridTemplateColumns: 'minmax(420px,42%) 1fr' }}>
         <style>{`@keyframes v4PaneIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}.v4-pane-in{animation:v4PaneIn .35s ease-out}@media (prefers-reduced-motion: reduce){.v4-pane-in{animation:none}}`}</style>
         {/* CỘT TRÁI — bản đồ (trên) + chat (dưới) */}
         <div className="flex min-h-0 flex-col border-r border-[#E4D8C9]">

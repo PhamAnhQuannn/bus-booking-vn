@@ -332,3 +332,31 @@
 @media (prefers-reduced-motion: reduce) {
   .bb-shimmer { animation: none; background-image: none; }
 }
+
+/* Bus signature (RouteBus) — chạy theo offset-path, xoay theo hướng, bóng nhẹ. Điểm nhấn thương hiệu
+   DUY NHẤT của pha chờ. reduced-motion: đứng yên 1 điểm (offset-distance cố định). */
+.bb-bus {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 34px;
+  height: 21px;
+  offset-anchor: 50% 50%;
+  offset-rotate: auto;
+  animation: bb-bus-move 8s linear infinite;
+  filter: drop-shadow(0 2px 2px rgba(30, 36, 51, 0.25));
+}
+@keyframes bb-bus-move {
+  from { offset-distance: 0%; }
+  to { offset-distance: 100%; }
+}
+/* Fade-in khung 2 cột khi vào pha chờ (welcome → building) — nhẹ, không pop. */
+@keyframes bb-scene-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.bb-scene-in { animation: bb-scene-in 0.3s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .bb-bus { animation: none; offset-distance: 38%; }
+  .bb-scene-in { animation: none; }
+}
