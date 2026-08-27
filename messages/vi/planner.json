@@ -111,7 +111,11 @@
     "actionAddDayLabel": "➕ Thêm 1 ngày",
     "actionAddDayPrompt": "Thêm 1 ngày nữa vào lịch",
     "actionCheaperLabel": "💸 Tiết kiệm hơn",
-    "actionCheaperPrompt": "Cho mình phương án tiết kiệm hơn"
+    "actionCheaperPrompt": "Cho mình phương án tiết kiệm hơn",
+    "timeoutOrBusy": "Chưa tạo được kế hoạch. Có thể do kết nối hoặc hệ thống đang bận.",
+    "offline": "Mất kết nối mạng. Kiểm tra kết nối và thử lại.",
+    "retry": "Thử lại",
+    "panelErrorTitle": "Kế hoạch sẽ hiển thị ở đây"
   },
   "schedule": {
     "unsupportedTitle": "Chưa hỗ trợ thành phố này",

@@ -70,6 +70,7 @@ type Msg =
       dto?: PlannerDto;
       href?: string;
       error?: boolean;
+      retry?: boolean; // lỗi/timeout có thể thử lại (giữ nguyên slot/text)
       planning?: boolean;
       suggestions?: DestinationSuggestion[]; // mode vibe-discovery: điểm-đến có tên (KB)
       suggestCity?: string; // slug thành phố của gợi ý (để anchor/lên lịch)
@@ -97,6 +98,8 @@ export default function TroLyDuLichPage() {
   const [slots, setSlots] = useState<Slots>({}); // ràng buộc tích luỹ — chip điền TẤT ĐỊNH (không Gemini)
   const [pendingDestination, setPendingDestination] = useState<string | null>(null); // slug điểm đến bóc SỚM (đang stream) → bung 2 cột trước khi đủ slot
   const abortRef = useRef<AbortController | null>(null); // hủy chat/itinerary đang chạy (edit slot mid-build / timeout / unmount)
+  // Việc cần thử lại khi lỗi/timeout (giữ nguyên slot/text — không bắt gõ lại).
+  const retryRef = useRef<{ kind: 'send'; text: string } | { kind: 'build'; slots: Slots } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // ── lịch sử hội thoại (bền vững: authed→API, guest→localStorage) ──
@@ -261,22 +264,46 @@ export default function TroLyDuLichPage() {
   }
 
   // Dựng lịch qua engine deterministic ($0, KHÔNG Gemini). Route trả PlannerDto (không lộ phone).
+  // Hiện lỗi có nút Thử lại — giữ nguyên slot/text (không bắt gõ lại). Offline → thông điệp riêng.
+  function showError(kind: 'send' | 'build', payload: { text?: string; slots?: Slots }, reqId: string, e: unknown) {
+    const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+    console.error(`[planner] ${kind} failed`, reqId, e);
+    retryRef.current = kind === 'send' ? { kind, text: payload.text ?? '' } : { kind, slots: payload.slots ?? {} };
+    patchBot((m) => ({ ...m, planning: false, text: m.text || t(offline ? 'assistant.offline' : 'assistant.timeoutOrBusy'), error: true, retry: true }));
+  }
+
+  // Thử lại từ bong bóng lỗi HOẶC empty-state panel — chạy lại đúng việc dang dở, không cần gõ lại.
+  function doRetry() {
+    const r = retryRef.current;
+    if (!r) return;
+    retryRef.current = null;
+    patchBot((m) => ({ ...m, error: false, retry: false })); // gỡ cờ lỗi khỏi bong bóng cũ
+    if (r.kind === 'build') void buildFromSlots(r.slots);
+    else void send(r.text);
+  }
+
   async function buildFromSlots(s: Slots) {
     abortRef.current?.abort(); // hủy request cũ trước khi tạo mới (edit slot mid-build → dựng lại)
     const ctrl = new AbortController();
     abortRef.current = ctrl;
+    const timeout = setTimeout(() => ctrl.abort('timeout'), 45000); // 45s không phản hồi → hủy → lỗi
+    const reqId = 'build-' + nowHHMM();
     setMessages((prev) => [...prev, { role: 'bot', text: '', planning: true, time: nowHHMM() }]);
     setLoading(true);
     try {
       const res = await fetch('/api/planner/itinerary?' + slotsToParams(s), { headers: { 'X-CSRF-Token': readCsrfToken() }, signal: ctrl.signal });
-      if (!res.ok) throw new Error('build');
+      if (!res.ok) throw new Error('build ' + res.status);
       const data = (await res.json()) as { dto: PlannerDto; href: string };
       setDto(data.dto); setActiveDay(1); setSelected(null); setLastHref(data.href);
       patchBot((m) => ({ ...m, planning: false, text: t('assistant.buildSuccess'), dto: data.dto, href: data.href }));
     } catch (e) {
-      if ((e as Error)?.name === 'AbortError') return; // hủy có chủ đích — không báo lỗi (finally bỏ qua vì abortRef đã đổi)
-      patchBot((m) => ({ ...m, planning: false, text: t('assistant.buildFail'), error: true }));
+      if ((e as Error)?.name === 'AbortError') {
+        if (ctrl.signal.reason === 'timeout') showError('build', { slots: s }, reqId, e); // timeout → lỗi; user-abort → im lặng
+        return;
+      }
+      showError('build', { slots: s }, reqId, e);
     } finally {
+      clearTimeout(timeout);
       if (abortRef.current === ctrl) { abortRef.current = null; setLoading(false); } // chỉ request HIỆN TẠI mới được hạ loading (chống clobber khi đã có request mới)
     }
   }
@@ -346,6 +373,8 @@ export default function TroLyDuLichPage() {
     abortRef.current?.abort(); // hủy request cũ trước khi tạo mới
     const ctrl = new AbortController();
     abortRef.current = ctrl;
+    const timeout = setTimeout(() => ctrl.abort('timeout'), 45000); // 45s không phản hồi → hủy → lỗi
+    const reqId = 'chat-' + nowHHMM();
     setLoading(true);
     let partial: Partial<ParsedIntent> = {};
     let suggested = false; // mode vibe-discovery: có gợi ý → KHÔNG auto-advance (CTA lo bước kế)
@@ -359,7 +388,9 @@ export default function TroLyDuLichPage() {
         signal: ctrl.signal,
       });
       if (!res.ok || !res.body) {
-        patchBot((m) => ({ ...m, text: m.text || t('assistant.busy'), error: true }));
+        retryRef.current = { kind: 'send', text };
+        patchBot((m) => ({ ...m, text: m.text || t('assistant.busy'), error: true, retry: true }));
+        failed = true;
         return;
       }
       const reader = res.body.getReader();
@@ -384,12 +415,19 @@ export default function TroLyDuLichPage() {
         scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
       }
     } catch (e) {
-      if ((e as Error)?.name === 'AbortError') return; // hủy có chủ đích — không báo lỗi, không advance
-      patchBot((m) => ({ ...m, text: m.text || t('assistant.noConnection'), error: true }));
+      if ((e as Error)?.name === 'AbortError') {
+        if (ctrl.signal.reason === 'timeout') showError('send', { text }, reqId, e); // timeout → lỗi + Thử lại
+        failed = true;
+        return; // user-abort (edit slot/unmount) → im lặng
+      }
+      showError('send', { text }, reqId, e);
       failed = true;
     } finally {
+      clearTimeout(timeout);
       if (abortRef.current === ctrl) { abortRef.current = null; setLoading(false); } // chỉ request HIỆN TẠI mới hạ loading
     }
+    // Lỗi SSE-frame giữa chừng (server catch) đã hiện bong bóng lỗi nhưng chưa gắn Thử lại → gắn ở đây.
+    if (failed && !retryRef.current) { retryRef.current = { kind: 'send', text }; patchBot((m) => ({ ...m, retry: true })); }
     // Lỗi giữa chừng đã hiện bong bóng lỗi rồi — advance() ở đây sẽ thêm tin bot thứ 2 trái ngược
     // trong cùng lượt, nên chỉ advance khi KHÔNG lỗi và KHÔNG phải mode gợi ý. (#528)
     if (!suggested && !failed) advance(mergeIntent(slots, partial)); // tất định: hỏi thêm bằng chip hoặc dựng — KHÔNG thêm Gemini
@@ -489,6 +527,19 @@ export default function TroLyDuLichPage() {
       </div>
     </div>
   );
+  // Empty-state panel khi lượt cuối lỗi/timeout — icon + tiêu đề + Thử lại (chạy lại việc dang dở).
+  const errorPane = (
+    <div className="grid h-full w-full place-items-center bg-white p-6 text-center">
+      <div>
+        <div className="text-4xl" aria-hidden>🗺️</div>
+        <p className="mx-auto mt-3 max-w-[240px] text-sm font-semibold text-muted-foreground">{t('assistant.panelErrorTitle')}</p>
+        <button type="button" onClick={doRetry}
+          className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/60">
+          ↻ {t('assistant.retry')}
+        </button>
+      </div>
+    </div>
+  );
   const paneFor = (variant: 'inline' | 'overlay') =>
     dto ? (
       <PlannerPane
@@ -507,6 +558,8 @@ export default function TroLyDuLichPage() {
       />
     ) : buildingView ? (
       buildingPane
+    ) : lastBotErr ? (
+      errorPane
     ) : (
       emptyState
     );
@@ -574,7 +627,14 @@ export default function TroLyDuLichPage() {
                 {m.options && m.options.options.length && messages[idx + 1]?.role === 'user' ? (
                   <p className="mt-2 text-xs" style={{ color: '#9AA0AC' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
                 ) : null}
-                {m.error ? <p className="mt-2 text-xs text-muted-foreground">{t('assistant.tryAgain')}</p> : null}
+                {m.error && m.retry ? (
+                  <button type="button" onClick={doRetry}
+                    className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-primary px-3 py-1.5 text-xs font-semibold text-primary outline-none transition-colors hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-ring/60">
+                    ↻ {t('assistant.retry')}
+                  </button>
+                ) : m.error ? (
+                  <p className="mt-2 text-xs text-muted-foreground">{t('assistant.tryAgain')}</p>
+                ) : null}
               </div>
               {m.time ? <span className="mt-0.5 block px-1 text-[10px] text-muted-foreground">{m.time}</span> : null}
               {m.dto ? <TripReceipt dto={m.dto} onActivate={activateArtifact} onSelectDay={setActiveDay} /> : null}
@@ -718,24 +778,28 @@ export default function TroLyDuLichPage() {
         {/* CỘT PHẢI — kế hoạch full-height (map đã ở cột trái → hideMap) */}
         <section data-map-pane aria-busy={buildingView || undefined} className={`flex min-h-0 flex-col ${transitioning ? 'v4-pane-in' : ''}`}>
           {dto ? (
-            <PlannerPane
-              dto={dto}
-              activeDay={activeDay}
-              hoveredOrder={hoveredOrder}
-              selected={selected}
-              onPinClick={onPinClick}
-              onCloseSheet={() => setSelected(null)}
-              onSelectDay={setActiveDay}
-              onHoverItem={setHoveredOrder}
-              variant="inline"
-              onOpenFull={() => setResultFull(true)}
-              pulseKey={pulseKey}
-              hrefPdf={lastHref}
-              hideMap
-              onActiveDayChange={setActiveDay}
-            />
+            <div key="reveal" className="bb-fade-in flex min-h-0 flex-1 flex-col">
+              <PlannerPane
+                dto={dto}
+                activeDay={activeDay}
+                hoveredOrder={hoveredOrder}
+                selected={selected}
+                onPinClick={onPinClick}
+                onCloseSheet={() => setSelected(null)}
+                onSelectDay={setActiveDay}
+                onHoverItem={setHoveredOrder}
+                variant="inline"
+                onOpenFull={() => setResultFull(true)}
+                pulseKey={pulseKey}
+                hrefPdf={lastHref}
+                hideMap
+                onActiveDayChange={setActiveDay}
+              />
+            </div>
           ) : buildingView ? (
             buildingPane
+          ) : lastBotErr ? (
+            errorPane
           ) : (
             emptyState
           )}
@@ -808,7 +872,14 @@ export default function TroLyDuLichPage() {
                           {m.options && m.options.options.length && messages[idx + 1]?.role === 'user' ? (
                             <p className="mt-2 text-xs" style={{ color: '#9AA0AC' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
                           ) : null}
-                          {m.error ? <p className="mt-2 text-xs text-muted-foreground">{t('assistant.tryAgain')}</p> : null}
+                          {m.error && m.retry ? (
+                  <button type="button" onClick={doRetry}
+                    className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-primary px-3 py-1.5 text-xs font-semibold text-primary outline-none transition-colors hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-ring/60">
+                    ↻ {t('assistant.retry')}
+                  </button>
+                ) : m.error ? (
+                  <p className="mt-2 text-xs text-muted-foreground">{t('assistant.tryAgain')}</p>
+                ) : null}
                         </div>
                         {m.time ? <span className="mt-0.5 block px-1 text-[10px] text-muted-foreground">{m.time}</span> : null}
 

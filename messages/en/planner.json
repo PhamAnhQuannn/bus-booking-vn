@@ -111,7 +111,11 @@
     "actionAddDayLabel": "➕ Add a day",
     "actionAddDayPrompt": "Add one more day to the itinerary",
     "actionCheaperLabel": "💸 More budget-friendly",
-    "actionCheaperPrompt": "Give me a more budget-friendly option"
+    "actionCheaperPrompt": "Give me a more budget-friendly option",
+    "timeoutOrBusy": "Couldn't build the plan. It may be your connection or the system is busy.",
+    "offline": "You're offline. Check your connection and try again.",
+    "retry": "Try again",
+    "panelErrorTitle": "Your plan will appear here"
   },
   "schedule": {
     "unsupportedTitle": "This city isn't supported yet",
