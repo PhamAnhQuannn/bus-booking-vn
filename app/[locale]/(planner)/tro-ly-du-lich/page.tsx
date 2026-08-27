@@ -681,16 +681,16 @@ export default function TroLyDuLichPage() {
 
   // ── mảnh chat dùng chung (narrow + wide) ─────────────────────────────────
   const chatTopBar = (
-    <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#E4D8C9] px-4 py-2.5">
+    <div className="flex shrink-0 items-center justify-between gap-2 px-4 py-2.5">
       <button type="button" onClick={() => setDrawerOpen(true)} aria-label={t('assistant.historyAria')}
-        className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold lg:hidden">
+        className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[13px] font-semibold lg:hidden">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
         {t('assistant.history')}
       </button>
       <span className="hidden text-sm font-semibold text-muted-foreground lg:inline">{isEntry ? '' : t('assistant.assistantName')}</span>
       {!isEntry ? (
         <button type="button" onClick={newConversation}
-          className="shrink-0 whitespace-nowrap rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-primary/5">
+          className="shrink-0 whitespace-nowrap rounded-full border border-border px-3 py-1.5 text-[13px] font-semibold hover:bg-primary/5">
           {t('assistant.newConversation')}
         </button>
       ) : <span />}
@@ -734,7 +734,7 @@ export default function TroLyDuLichPage() {
           <SlotSummaryCard slots={slots} onEdit={onEditSlot} />
           {hasDto ? (
             <button type="button" onClick={() => setSlotCardCollapsed(true)}
-              className="mt-0.5 px-1 text-[12px] font-semibold text-muted-foreground outline-none hover:text-primary focus-visible:text-primary">
+              className="mt-0.5 px-1 text-[13px] font-semibold text-muted-foreground outline-none hover:text-primary focus-visible:text-primary">
               {t('slotCard.collapse')} ▴
             </button>
           ) : null}
@@ -764,7 +764,7 @@ export default function TroLyDuLichPage() {
         return m.role === 'user' ? (
           <div key={idx} style={{ marginTop: mt }} className="max-w-[min(78%,460px)] self-end rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-[15px] text-primary-foreground">
             {m.text}
-            {m.time ? <span className="mt-0.5 block text-right text-[10px] text-primary-foreground/70">{m.time} ✓✓</span> : null}
+            {m.time ? <span className="mt-0.5 block text-right text-[13px] text-primary-foreground/70">{m.time} ✓✓</span> : null}
           </div>
         ) : (
           <div key={idx} style={{ marginTop: mt }} className="flex w-full gap-2.5 self-start">
@@ -772,13 +772,13 @@ export default function TroLyDuLichPage() {
             <div className="min-w-0 max-w-[min(90%,560px)] flex-1">
               <div className="rounded-2xl rounded-bl-md border px-4 py-3 text-[15px] leading-6 text-foreground" style={{ background: '#FEFCF7', borderColor: '#F0EAE2' }}>
                 {m.text ? <p className="whitespace-pre-wrap">{m.text}</p> : <p className="text-muted-foreground">{t('assistant.typing')}</p>}
-                {m.planning ? <p className="mt-2 text-xs text-muted-foreground">{t('assistant.planningFromData')}</p> : null}
+                {m.planning ? <p className="mt-2 text-[13px] text-muted-foreground">{t('assistant.planningFromData')}</p> : null}
                 {m.options && m.options.options.length && messages[idx + 1]?.role === 'user' ? (
-                  <p className="mt-2 text-xs" style={{ color: '#9AA0AC' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
+                  <p className="mt-2 text-[13px]" style={{ color: '#9AA0AC' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
                 ) : null}
                 {renderErrorActions(m)}
               </div>
-              {m.time ? <span className="mt-0.5 block px-1 text-[10px] text-muted-foreground">{m.time}</span> : null}
+              {m.time ? <span className="mt-0.5 block px-1 text-[13px] text-muted-foreground">{m.time}</span> : null}
               {m.dto ? <TripReceipt dto={m.dto} onActivate={activateArtifact} onSelectDay={setActiveDay} /> : null}
               {m.suggestions ? (
                 <SuggestionCards
@@ -816,7 +816,7 @@ export default function TroLyDuLichPage() {
   const composerZone = (maxW: string) => (
     <div className={`mx-auto w-full shrink-0 px-4 pb-5 pt-3 ${maxW}`}>
       {!isEntry && dto && !activeAsk ? (
-        <p className="mb-2 px-1 text-xs leading-relaxed" style={{ color: '#9AA0AC' }}>
+        <p className="mb-2 px-1 text-[13px] leading-relaxed" style={{ color: '#9AA0AC' }}>
           {t.rich('assistant.tip', { b: (chunks) => <b className="font-semibold">{chunks}</b> })}
         </p>
       ) : null}
@@ -835,7 +835,7 @@ export default function TroLyDuLichPage() {
           {([[t('assistant.filterInterests'), 'so_thich'], [t('assistant.filterTransport'), 'phuong_tien'], [t('assistant.filterFood'), 'an_uong']] as [string, 'so_thich' | 'phuong_tien' | 'an_uong'][]).map(
             ([label, kind]) => (
               <button key={kind} type="button" onClick={() => openFilter(kind)} disabled={loading}
-                className="flex items-center gap-1.5 rounded-full border border-[#F0EAE2] bg-white px-3 py-1.5 text-[12.5px] font-medium text-foreground transition-colors hover:border-primary hover:bg-primary/5 disabled:opacity-40">
+                className="flex items-center gap-1.5 rounded-full border border-[#F0EAE2] bg-white px-3 py-1.5 text-[14px] font-medium text-foreground transition-colors hover:border-primary hover:bg-primary/5 disabled:opacity-40">
                 {label}
               </button>
             ),
@@ -844,7 +844,7 @@ export default function TroLyDuLichPage() {
       ) : null}
       <PlannerComposer value={input} onChange={setInput} onSubmit={() => send(input)} disabled={loading} busy={loading} />
       {isEntry ? (
-        <p className="mt-2.5 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+        <p className="mt-2.5 flex items-center justify-center gap-1.5 text-[13px] text-muted-foreground">
           <span aria-hidden>🔒</span> {t('assistant.privacy')}
         </p>
       ) : null}
@@ -976,16 +976,16 @@ export default function TroLyDuLichPage() {
         style={{ '--chat-w': chatW == null ? '37%' : chatW + 'px' } as React.CSSProperties}
         className={`flex min-h-0 w-full flex-col lg:min-w-0 ${isEntry ? 'lg:flex-1' : 'lg:w-[var(--chat-w,37%)] lg:shrink-0'}`}>
         {/* Top bar mảnh: nút mở lịch sử (mobile) + nút "mới" khi đang chat */}
-        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#E4D8C9] px-4 py-2.5">
+        <div className="flex shrink-0 items-center justify-between gap-2 px-4 py-2.5">
           <button type="button" onClick={() => setDrawerOpen(true)} aria-label={t('assistant.historyAria')}
-            className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold lg:hidden">
+            className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[13px] font-semibold lg:hidden">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
             {t('assistant.history')}
           </button>
           <span className="hidden text-sm font-semibold text-muted-foreground lg:inline">{isEntry ? '' : t('assistant.assistantName')}</span>
           {!isEntry ? (
             <button type="button" onClick={newConversation}
-              className="shrink-0 whitespace-nowrap rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-primary/5">
+              className="shrink-0 whitespace-nowrap rounded-full border border-border px-3 py-1.5 text-[13px] font-semibold hover:bg-primary/5">
               {t('assistant.newConversation')}
             </button>
           ) : <span />}
@@ -1004,7 +1004,7 @@ export default function TroLyDuLichPage() {
                   return m.role === 'user' ? (
                     <div key={idx} style={{ marginTop: mt }} className="max-w-[min(78%,460px)] self-end rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-[15px] text-primary-foreground">
                       {m.text}
-                      {m.time ? <span className="mt-0.5 block text-right text-[10px] text-primary-foreground/70">{m.time} ✓✓</span> : null}
+                      {m.time ? <span className="mt-0.5 block text-right text-[13px] text-primary-foreground/70">{m.time} ✓✓</span> : null}
                     </div>
                   ) : (
                     <div key={idx} style={{ marginTop: mt }} className="flex w-full gap-2.5 self-start">
@@ -1014,13 +1014,13 @@ export default function TroLyDuLichPage() {
                         {/* Bubble bot — nền #FEFCF7 + viền hairline #F0EAE2 (đo từ mock) */}
                         <div className="rounded-2xl rounded-bl-md border px-4 py-3 text-[15px] leading-6 text-foreground" style={{ background: '#FEFCF7', borderColor: '#F0EAE2' }}>
                           {m.text ? <p className="whitespace-pre-wrap">{m.text}</p> : <p className="text-muted-foreground">{t('assistant.typing')}</p>}
-                          {m.planning ? <p className="mt-2 text-xs text-muted-foreground">{t('assistant.planningFromData')}</p> : null}
+                          {m.planning ? <p className="mt-2 text-[13px] text-muted-foreground">{t('assistant.planningFromData')}</p> : null}
                           {m.options && m.options.options.length && messages[idx + 1]?.role === 'user' ? (
-                            <p className="mt-2 text-xs" style={{ color: '#9AA0AC' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
+                            <p className="mt-2 text-[13px]" style={{ color: '#9AA0AC' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
                           ) : null}
                           {renderErrorActions(m)}
                         </div>
-                        {m.time ? <span className="mt-0.5 block px-1 text-[10px] text-muted-foreground">{m.time}</span> : null}
+                        {m.time ? <span className="mt-0.5 block px-1 text-[13px] text-muted-foreground">{m.time}</span> : null}
 
                         {m.dto ? <TripReceipt dto={m.dto} onActivate={activateArtifact} onSelectDay={setActiveDay} /> : null}
                         {m.suggestions ? (
@@ -1064,7 +1064,7 @@ export default function TroLyDuLichPage() {
             Entry rộng ~800px khớp khối card; active hẹp hơn (45rem) cho dễ đọc chat. */}
         <div className={`mx-auto w-full shrink-0 px-4 pb-5 pt-3 ${isEntry ? 'max-w-[800px]' : 'max-w-[45rem]'}`}>
           {!isEntry && dto && !activeAsk ? (
-            <p className="mb-2 px-1 text-xs leading-relaxed" style={{ color: '#9AA0AC' }}>
+            <p className="mb-2 px-1 text-[13px] leading-relaxed" style={{ color: '#9AA0AC' }}>
               {t.rich('assistant.tip', { b: (chunks) => <b className="font-semibold">{chunks}</b> })}
             </p>
           ) : null}
@@ -1088,7 +1088,7 @@ export default function TroLyDuLichPage() {
               {([[t('assistant.filterInterests'), 'so_thich'], [t('assistant.filterTransport'), 'phuong_tien'], [t('assistant.filterFood'), 'an_uong']] as [string, 'so_thich' | 'phuong_tien' | 'an_uong'][]).map(
                 ([label, kind]) => (
                   <button key={kind} type="button" onClick={() => openFilter(kind)} disabled={loading}
-                    className="flex items-center gap-1.5 rounded-full border border-[#F0EAE2] bg-white px-3 py-1.5 text-[12.5px] font-medium text-foreground transition-colors hover:border-primary hover:bg-primary/5 disabled:opacity-40">
+                    className="flex items-center gap-1.5 rounded-full border border-[#F0EAE2] bg-white px-3 py-1.5 text-[14px] font-medium text-foreground transition-colors hover:border-primary hover:bg-primary/5 disabled:opacity-40">
                     {label}
                   </button>
                 ),
@@ -1097,7 +1097,7 @@ export default function TroLyDuLichPage() {
           ) : null}
           <PlannerComposer value={input} onChange={setInput} onSubmit={() => send(input)} disabled={loading} busy={loading} />
           {isEntry ? (
-            <p className="mt-2.5 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+            <p className="mt-2.5 flex items-center justify-center gap-1.5 text-[13px] text-muted-foreground">
               <span aria-hidden>🔒</span> {t('assistant.privacy')}
             </p>
           ) : null}
@@ -1126,7 +1126,7 @@ export default function TroLyDuLichPage() {
         <div className="fixed inset-0 z-overlay-panel flex flex-col bg-background">
           <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-3">
             <span className="text-sm font-semibold">{t('assistant.itineraryAndMap')}</span>
-            <button type="button" onClick={() => setResultFull(false)} className="rounded-full border border-border px-3 py-1.5 text-xs font-bold">
+            <button type="button" onClick={() => setResultFull(false)} className="rounded-full border border-border px-3 py-1.5 text-[13px] font-bold">
               {t('assistant.backToChat')}
             </button>
           </div>

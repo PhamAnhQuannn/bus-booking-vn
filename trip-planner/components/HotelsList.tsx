@@ -37,9 +37,9 @@ function HotelCard({ h, primary, firstStop }: { h: DtoHotel; primary?: boolean; 
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-[15px] font-semibold" style={{ color: INK }}>🏨 {stripCitySuffix(h.name)}</span>
         {primary ? (
-          <span className="shrink-0 text-[12px] font-semibold text-primary">Gợi ý chính</span>
+          <span className="shrink-0 text-[13px] font-semibold text-primary">Gợi ý chính</span>
         ) : (
-          <span className="shrink-0 text-[12px]" style={{ color: FAINT }} title={`${h.nguon} nguồn dữ liệu`}>{h.nguon} nguồn</span>
+          <span className="shrink-0 text-[13px]" style={{ color: FAINT }} title={`${h.nguon} nguồn dữ liệu`}>{h.nguon} nguồn</span>
         )}
       </div>
       {tier || h.so_phong ? (
@@ -56,7 +56,7 @@ function HotelCard({ h, primary, firstStop }: { h: DtoHotel; primary?: boolean; 
       ) : null}
       {primary ? (
         <div className="mt-2 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5">
-          <div className="text-[12px] font-bold uppercase tracking-wide text-primary">✨ Gợi ý biên tập</div>
+          <div className="text-[13px] font-bold uppercase tracking-wide text-primary">✨ Gợi ý biên tập</div>
           <p className="mt-0.5 text-[13px] leading-relaxed" style={{ color: SOFT }}>{HOTEL_REASON_GAN_TRONG_TAM}</p>
         </div>
       ) : null}
@@ -77,13 +77,13 @@ export function HotelsList({
   }
   return (
     <div className="@container flex flex-col gap-3 p-3">
-      <div className="text-[12px] font-bold uppercase tracking-wide" style={{ color: SOFT }}>Khách sạn gợi ý</div>
+      <div className="text-[13px] font-bold uppercase tracking-wide" style={{ color: SOFT }}>Khách sạn gợi ý</div>
       <div className="grid grid-cols-1 gap-3 @[1100px]:grid-cols-2">
         {hotel ? <HotelCard h={hotel} primary firstStop={firstStop} /> : null}
         {hotelAlts.map((h, i) => <HotelCard key={`alt-${i}`} h={h} />)}
       </div>
       {/* pháp lý phân hạng — 1 lần cho cả tab (không lặp mỗi card) */}
-      <p className="text-[12px] italic" style={{ color: FAINT }}>
+      <p className="text-[13px] italic" style={{ color: FAINT }}>
         Phân hạng theo quy ước dữ liệu, không phải xếp hạng sao chính thức.
       </p>
       {/* khối kết danh sách */}
@@ -91,7 +91,7 @@ export function HotelsList({
         <p className="text-[13px]" style={{ color: SOFT }}>Đã hết gợi ý khách sạn cho khu vực này.</p>
         {onAskAssistant ? (
           <button type="button" onClick={() => onAskAssistant('Gợi ý thêm khách sạn ở khu vực này')}
-            className="mt-1.5 rounded-full border border-primary/30 px-2.5 py-1 text-[12px] font-semibold text-primary hover:bg-primary/5">
+            className="mt-1.5 rounded-full border border-primary/30 px-2.5 py-1 text-[13px] font-semibold text-primary hover:bg-primary/5">
             Hỏi trợ lý thêm khách sạn
           </button>
         ) : null}
