@@ -8,7 +8,9 @@
   },
   "composer": {
     "placeholder": "Vd: Mình muốn đi Đà Lạt 3 ngày 2 đêm, ngân sách ~3 triệu/người",
-    "send": "Gửi"
+    "planningPlaceholder": "Đang lên kế hoạch...",
+    "send": "Gửi",
+    "sending": "Đang gửi"
   },
   "sidebar": {
     "openHistory": "Mở lịch sử",
@@ -229,6 +231,7 @@
     }
   },
   "metadata": {
-    "scheduleTitle": "Lịch trình gợi ý"
+    "scheduleTitle": "Lịch trình gợi ý",
+    "assistantTitle": "Trợ lý du lịch | BBVN"
   }
 }

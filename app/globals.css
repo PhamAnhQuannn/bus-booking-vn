@@ -314,3 +314,21 @@
     }
   }
 }
+
+/* Skeleton shimmer cho pha `building` của trợ lý du lịch — quét highlight CSS-only,
+   ngoài main thread. `.bb-shimmer` phủ 1 vệt sáng chạy trên nền `--muted`. Reduced-motion:
+   đóng băng về nền tĩnh 1 tông (không chuyển động nhưng placeholder vẫn đọc được). */
+@keyframes bb-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+.bb-shimmer {
+  background-color: var(--muted);
+  background-image: linear-gradient(90deg, transparent 0%, color-mix(in oklab, var(--card) 70%, transparent) 50%, transparent 100%);
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: bb-shimmer 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bb-shimmer { animation: none; background-image: none; }
+}

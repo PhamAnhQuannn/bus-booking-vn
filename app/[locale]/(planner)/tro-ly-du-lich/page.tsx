@@ -24,6 +24,7 @@ import { PlannerSidebar } from '@/trip-planner/components/PlannerSidebar';
 import { PlannerEntry } from '@/trip-planner/components/PlannerEntry';
 import { PlannerComposer } from '@/trip-planner/components/PlannerComposer';
 import { PlannerStepper } from '@/trip-planner/components/PlannerStepper';
+import { PlanSkeleton } from '@/trip-planner/components/PlanSkeleton';
 import {
   type StoredMsg,
   type ConversationMeta,
@@ -39,6 +40,7 @@ import {
 // Deep-import client-safe: máy trạng thái slot tất định (chip = $0, không Gemini).
 import { type Slots, type Ask, nextAsk, optionalAsk, applyChip, complete, mergeIntent, slotsToParams, budgetAsk, transportAsk, foodAsk } from '@/trip-planner/lib/planner/slots';
 import { deriveLayoutPhase, type LayoutPhase } from '@/trip-planner/lib/planner/layoutPhase';
+import { deriveGenPhase } from '@/trip-planner/lib/planner/genPhase';
 import { useIsWide } from '@/trip-planner/components/useIsWide';
 // KIỂU only (erased lúc build → không kéo graph server vào client). Qua barrel = entry-point hợp lệ.
 import type { PlannerDto, ParsedIntent, DestinationSuggestion } from '@/trip-planner/lib/planner';
@@ -90,6 +92,8 @@ export default function TroLyDuLichPage() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [slots, setSlots] = useState<Slots>({}); // ràng buộc tích luỹ — chip điền TẤT ĐỊNH (không Gemini)
+  const [pendingDestination, setPendingDestination] = useState<string | null>(null); // slug điểm đến bóc SỚM (đang stream) → bung 2 cột trước khi đủ slot
+  const abortRef = useRef<AbortController | null>(null); // hủy chat/itinerary đang chạy (edit slot mid-build / timeout / unmount)
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // ── lịch sử hội thoại (bền vững: authed→API, guest→localStorage) ──
@@ -130,7 +134,14 @@ export default function TroLyDuLichPage() {
   // isGenerating phủ khoảng trống lần dựng đầu (trước khi dto về). Regenerate: dto cũ vẫn trong mảng.
   const hasDto = useMemo(() => messages.some((m) => m.role === 'bot' && !!m.dto), [messages]);
   const isGenerating = loading && messages.some((m) => m.role === 'bot' && m.planning);
-  const layoutPhase = deriveLayoutPhase({ messageCount: messages.length, hasDto, isGenerating, planned: hasDto });
+  // Đã biết điểm đến (chip đặt slots.dia_diem HOẶC stream bóc sớm pendingDestination) → bung 2 cột sớm,
+  // KHÔNG đợi đủ slot (quyết định early-flip). destKnown OR vào `planned` của layoutPhase.
+  const destKnown = !!slots.dia_diem || !!pendingDestination;
+  const anySlot = destKnown || !!slots.days || !!slots.budget || !!slots.interests?.length || !!slots.nhom;
+  const lastBotErr = (() => { for (let i = messages.length - 1; i >= 0; i--) { if (messages[i].role === 'bot') return !!(messages[i] as Extract<Msg, { role: 'bot' }>).error; } return false; })();
+  const genPhase = deriveGenPhase({ messageCount: messages.length, isGenerating, hasDto, hasError: lastBotErr, anySlot });
+  const buildingView = genPhase === 'building'; // skeleton CHỈ khi engine THỰC SỰ dựng (honest — không giả tiến độ)
+  const layoutPhase = deriveLayoutPhase({ messageCount: messages.length, hasDto, isGenerating, planned: hasDto || destKnown });
   const useWideLayout = isWide && (layoutPhase === 'collecting' || layoutPhase === 'planning');
   const shrinkMap = isWide && layoutPhase === 'planning' && (composerFocused || loading); // Phần 6 wiring (auto-thu)
 
@@ -146,6 +157,9 @@ export default function TroLyDuLichPage() {
     }
     skipTransitionRef.current = false; // consume 1 lần khi đã tới planning
   }, [layoutPhase, isWide]);
+
+  // Hủy request đang chạy khi rời trang → không leak fetch/reader.
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   // Kéo splitter dọc: đổi độ rộng cột chat; pane plan (flex-1) tự co. Chỉ lg (splitter hidden <lg).
   function onSplitMove(e: React.PointerEvent) {
@@ -242,18 +256,22 @@ export default function TroLyDuLichPage() {
 
   // Dựng lịch qua engine deterministic ($0, KHÔNG Gemini). Route trả PlannerDto (không lộ phone).
   async function buildFromSlots(s: Slots) {
+    abortRef.current?.abort(); // hủy request cũ trước khi tạo mới (edit slot mid-build → dựng lại)
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
     setMessages((prev) => [...prev, { role: 'bot', text: '', planning: true, time: nowHHMM() }]);
     setLoading(true);
     try {
-      const res = await fetch('/api/planner/itinerary?' + slotsToParams(s), { headers: { 'X-CSRF-Token': readCsrfToken() } });
+      const res = await fetch('/api/planner/itinerary?' + slotsToParams(s), { headers: { 'X-CSRF-Token': readCsrfToken() }, signal: ctrl.signal });
       if (!res.ok) throw new Error('build');
       const data = (await res.json()) as { dto: PlannerDto; href: string };
       setDto(data.dto); setActiveDay(1); setSelected(null); setLastHref(data.href);
       patchBot((m) => ({ ...m, planning: false, text: t('assistant.buildSuccess'), dto: data.dto, href: data.href }));
-    } catch {
+    } catch (e) {
+      if ((e as Error)?.name === 'AbortError') return; // hủy có chủ đích — không báo lỗi (finally bỏ qua vì abortRef đã đổi)
       patchBot((m) => ({ ...m, planning: false, text: t('assistant.buildFail'), error: true }));
     } finally {
-      setLoading(false);
+      if (abortRef.current === ctrl) { abortRef.current = null; setLoading(false); } // chỉ request HIỆN TẠI mới được hạ loading (chống clobber khi đã có request mới)
     }
   }
 
@@ -311,6 +329,9 @@ export default function TroLyDuLichPage() {
       .filter((m) => m.text);
 
     setMessages((prev) => [...prev, { role: 'user', text, time: nowHHMM() }, { role: 'bot', text: '', time: nowHHMM() }]);
+    abortRef.current?.abort(); // hủy request cũ trước khi tạo mới
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
     setLoading(true);
     let partial: Partial<ParsedIntent> = {};
     let suggested = false; // mode vibe-discovery: có gợi ý → KHÔNG auto-advance (CTA lo bước kế)
@@ -321,6 +342,7 @@ export default function TroLyDuLichPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': readCsrfToken() },
         body: JSON.stringify({ history, locale }),
+        signal: ctrl.signal,
       });
       if (!res.ok || !res.body) {
         patchBot((m) => ({ ...m, text: m.text || t('assistant.busy'), error: true }));
@@ -338,17 +360,21 @@ export default function TroLyDuLichPage() {
           const frame = buffer.slice(0, sep);
           buffer = buffer.slice(sep + 2);
           const r = handleFrame(frame);
-          if (r?.partial) partial = { ...partial, ...r.partial };
+          if (r?.partial) {
+            partial = { ...partial, ...r.partial };
+            if (typeof partial.dia_diem === 'string' && partial.dia_diem) setPendingDestination(partial.dia_diem); // biết điểm đến sớm → bung 2 cột ngay
+          }
           if (r?.suggested) suggested = true;
           if (r?.failed) failed = true; // SSE error frame → chặn advance() bên dưới (#528)
         }
         scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
       }
-    } catch {
+    } catch (e) {
+      if ((e as Error)?.name === 'AbortError') return; // hủy có chủ đích — không báo lỗi, không advance
       patchBot((m) => ({ ...m, text: m.text || t('assistant.noConnection'), error: true }));
       failed = true;
     } finally {
-      setLoading(false);
+      if (abortRef.current === ctrl) { abortRef.current = null; setLoading(false); } // chỉ request HIỆN TẠI mới hạ loading
     }
     // Lỗi giữa chừng đã hiện bong bóng lỗi rồi — advance() ở đây sẽ thêm tin bot thứ 2 trái ngược
     // trong cùng lượt, nên chỉ advance khi KHÔNG lỗi và KHÔNG phải mode gợi ý. (#528)
@@ -421,13 +447,13 @@ export default function TroLyDuLichPage() {
     lastSavedRef.current = id + '|' + JSON.stringify(toStored(msgs));
     setMessages(msgs);
     setConversationId(id);
-    setDto(lastDto); setActiveDay(1); setSelected(null); setHoveredOrder(null); setSlots({});
+    setDto(lastDto); setActiveDay(1); setSelected(null); setHoveredOrder(null); setSlots({}); setPendingDestination(null);
     setDrawerOpen(false); setSidebarCollapsed(true); // active → thu gọn sidebar (mock 3)
   }
   function newConversation() {
     // Reset cờ transition cùng nhau TRƯỚC setMessages → phiên mới ở idle, slide sẵn sàng chạy lại.
     skipTransitionRef.current = false; transitionDoneRef.current = false; prevPhaseRef.current = 'idle';
-    setSlots({}); setMessages([]); setDto(null); setSelected(null); setActiveDay(1);
+    setSlots({}); setPendingDestination(null); setMessages([]); setDto(null); setSelected(null); setActiveDay(1);
     setHoveredOrder(null); setResultFull(false); setInput(''); setConversationId(null); setDrawerOpen(false);
     setSidebarCollapsed(false); // về entry → mở lại sidebar
   }
@@ -465,6 +491,8 @@ export default function TroLyDuLichPage() {
         pulseKey={pulseKey}
         hrefPdf={lastHref}
       />
+    ) : buildingView ? (
+      planSkeleton
     ) : (
       emptyState
     );
@@ -610,7 +638,7 @@ export default function TroLyDuLichPage() {
           )}
         </div>
       ) : null}
-      <PlannerComposer value={input} onChange={setInput} onSubmit={() => send(input)} disabled={loading} />
+      <PlannerComposer value={input} onChange={setInput} onSubmit={() => send(input)} disabled={loading} busy={loading} />
       {isEntry ? (
         <p className="mt-2.5 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
           <span aria-hidden>🔒</span> {t('assistant.privacy')}
@@ -619,13 +647,14 @@ export default function TroLyDuLichPage() {
     </div>
   );
 
-  // Skeleton pha planning khi đang generating chưa có dto (band giả + 3 block shimmer).
-  const planSkeleton = (
-    <div className="grid h-full w-full content-start gap-3 bg-white p-4">
-      <div className="h-9 w-2/3 animate-pulse rounded-lg bg-muted" />
-      {[0, 1, 2].map((i) => (
-        <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" style={{ animationDelay: `${i * 120}ms` }} />
-      ))}
+  // Skeleton pha `building` — anatomy đúng card lịch trình (xem PlanSkeleton), chống reflow khi reveal.
+  const planSkeleton = <PlanSkeleton />;
+  // Placeholder giữ chỗ map cột trái khi đã bung 2 cột nhưng CHƯA có dto (map thật cần dto) →
+  // map thật mount vào KHÔNG đẩy chat xuống (chống CLS lần 2). Cao ~40% cột khớp PlannerMapColumn.
+  const mapReserve = (
+    <div className="shrink-0" aria-hidden>
+      <div className="border border-border" style={{ height: '40%', minHeight: 180, background: 'var(--bg-cream, #FBF2E7)' }} />
+      <div className="h-3" />
     </div>
   );
 
@@ -658,7 +687,7 @@ export default function TroLyDuLichPage() {
               onCloseSheet={() => setSelected(null)}
               shrink={shrinkMap}
             />
-          ) : null}
+          ) : mapReserve}
           <div onFocusCapture={() => setComposerFocused(true)} onBlurCapture={() => setComposerFocused(false)} className="flex min-h-0 flex-1 flex-col">
             {chatTopBar}
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -671,7 +700,7 @@ export default function TroLyDuLichPage() {
           </div>
         </div>
         {/* CỘT PHẢI — kế hoạch full-height (map đã ở cột trái → hideMap) */}
-        <section data-map-pane className={`flex min-h-0 flex-col ${transitioning ? 'v4-pane-in' : ''}`}>
+        <section data-map-pane aria-busy={buildingView || undefined} className={`flex min-h-0 flex-col ${transitioning ? 'v4-pane-in' : ''}`}>
           {dto ? (
             <PlannerPane
               dto={dto}
@@ -689,7 +718,7 @@ export default function TroLyDuLichPage() {
               hideMap
               onActiveDayChange={setActiveDay}
             />
-          ) : isGenerating ? (
+          ) : buildingView ? (
             planSkeleton
           ) : (
             emptyState
@@ -839,7 +868,7 @@ export default function TroLyDuLichPage() {
               )}
             </div>
           ) : null}
-          <PlannerComposer value={input} onChange={setInput} onSubmit={() => send(input)} disabled={loading} />
+          <PlannerComposer value={input} onChange={setInput} onSubmit={() => send(input)} disabled={loading} busy={loading} />
           {isEntry ? (
             <p className="mt-2.5 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
               <span aria-hidden>🔒</span> {t('assistant.privacy')}
@@ -859,7 +888,7 @@ export default function TroLyDuLichPage() {
 
       {/* CỘT PHẢI — map + lịch trình (chỉ active, phần còn lại). Ẩn <lg (mở qua overlay/launcher). */}
       {!isEntry ? (
-        <section data-map-pane className="hidden lg:flex lg:h-full lg:flex-1 lg:min-w-0 lg:flex-col lg:border-l lg:border-[#E4D8C9]">
+        <section data-map-pane aria-busy={buildingView || undefined} className="hidden lg:flex lg:h-full lg:flex-1 lg:min-w-0 lg:flex-col lg:border-l lg:border-[#E4D8C9]">
           {paneFor('inline')}
         </section>
       ) : null}

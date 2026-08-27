@@ -8,7 +8,9 @@
   },
   "composer": {
     "placeholder": "e.g. I'd like to go to Đà Lạt for 3 days 2 nights, budget ~3 million/person",
-    "send": "Send"
+    "planningPlaceholder": "Planning your trip...",
+    "send": "Send",
+    "sending": "Sending"
   },
   "sidebar": {
     "openHistory": "Open history",
@@ -229,6 +231,7 @@
     }
   },
   "metadata": {
-    "scheduleTitle": "Suggested itinerary"
+    "scheduleTitle": "Suggested itinerary",
+    "assistantTitle": "Travel Assistant | BBVN"
   }
 }
