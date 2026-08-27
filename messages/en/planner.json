@@ -115,6 +115,8 @@
     "timeoutOrBusy": "Couldn't build the plan. It may be your connection or the system is busy.",
     "offline": "You're offline. Check your connection and try again.",
     "retry": "Try again",
+    "manualFallback": "Choose it yourself",
+    "manualFallbackHint": "No assistant needed — pick in a few taps",
     "panelErrorTitle": "Your plan will appear here",
     "funnelHint": "Answer {n} more question(s) so I can build your itinerary",
     "funnelHintReady": "Pick interests or skip so I can build your plan"

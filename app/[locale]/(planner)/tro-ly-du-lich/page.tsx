@@ -74,6 +74,7 @@ type Msg =
       href?: string;
       error?: boolean;
       retry?: boolean; // lỗi/timeout có thể thử lại (giữ nguyên slot/text)
+      fallback?: boolean; // chat lỗi → có luồng thủ công không-AI (Mục C): hiện nút "Tự chọn lịch trình"
       planning?: boolean;
       suggestions?: DestinationSuggestion[]; // mode vibe-discovery: điểm-đến có tên (KB)
       suggestCity?: string; // slug thành phố của gợi ý (để anchor/lên lịch)
@@ -275,7 +276,7 @@ export default function TroLyDuLichPage() {
     const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
     console.error(`[planner] ${kind} failed`, reqId, e);
     retryRef.current = kind === 'send' ? { kind, text: payload.text ?? '' } : { kind, slots: payload.slots ?? {} };
-    patchBot((m) => ({ ...m, planning: false, text: m.text || t(offline ? 'assistant.offline' : 'assistant.timeoutOrBusy'), error: true, retry: true }));
+    patchBot((m) => ({ ...m, planning: false, text: m.text || t(offline ? 'assistant.offline' : 'assistant.timeoutOrBusy'), error: true, retry: true, fallback: true }));
   }
 
   // Thử lại từ bong bóng lỗi HOẶC empty-state panel — chạy lại đúng việc dang dở, không cần gõ lại.
@@ -283,9 +284,21 @@ export default function TroLyDuLichPage() {
     const r = retryRef.current;
     if (!r) return;
     retryRef.current = null;
-    patchBot((m) => ({ ...m, error: false, retry: false })); // gỡ cờ lỗi khỏi bong bóng cũ
+    patchBot((m) => ({ ...m, error: false, retry: false, fallback: false })); // gỡ cờ lỗi khỏi bong bóng cũ
     if (r.kind === 'build') void buildFromSlots(r.slots);
     else void send(r.text);
+  }
+
+  // Fallback không-AI (Mục C): chat lỗi → mở luồng chip TẤT ĐỊNH (không gọi /api/planner/chat).
+  // Giữ slot đã bóc được từ tin user cuối; advance() hỏi phần còn thiếu bằng chip → buildFromSlots
+  // → /api/planner/itinerary ($0, không Gemini, không getEnv — sống kể cả khi chat 500).
+  function enterManual() {
+    if (loading) return;
+    const lastUser = [...messages].reverse().find((m): m is Extract<Msg, { role: 'user' }> => m.role === 'user');
+    const base = lastUser ? applyExtracted(slots, extractFromText(lastUser.text)) : slots;
+    retryRef.current = null;
+    patchBot((m) => ({ ...m, error: false, retry: false, fallback: false })); // gỡ trạng thái lỗi
+    advance(base); // thiếu slot → chip hỏi; đủ → dựng luôn qua engine
   }
 
   async function buildFromSlots(s: Slots) {
@@ -405,7 +418,7 @@ export default function TroLyDuLichPage() {
       });
       if (!res.ok || !res.body) {
         retryRef.current = { kind: 'send', text };
-        patchBot((m) => ({ ...m, text: m.text || t('assistant.busy'), error: true, retry: true }));
+        patchBot((m) => ({ ...m, text: m.text || t('assistant.busy'), error: true, retry: true, fallback: true }));
         failed = true;
         return;
       }
@@ -482,7 +495,7 @@ export default function TroLyDuLichPage() {
         // SSE error frame (server catch: Gemini quota/no_key/timeout/5xx) — bong bóng lỗi ĐÃ hiện.
         // Báo failed để send() KHÔNG advance() sau đó (2 tin trái nhau). Đây là đường lỗi PHỔ BIẾN,
         // khác đường network-exception ở ngoài catch của send(). (#528)
-        patchBot((m) => ({ ...m, planning: false, text: m.text || String(payload.message ?? t('assistant.genericError')), error: true }));
+        patchBot((m) => ({ ...m, planning: false, text: m.text || String(payload.message ?? t('assistant.genericError')), error: true, fallback: typeof payload.fallbackHref === 'string' && !!payload.fallbackHref }));
         return { failed: true };
       default:
         return null;
@@ -532,6 +545,33 @@ export default function TroLyDuLichPage() {
   }
   function onClearAll() { clearAllConversations().then(() => { newConversation(); reloadConversations(); }).catch(() => {}); }
 
+  // Hành động dưới bong bóng lỗi: Thử lại (chạy lại việc dang dở) + Tự chọn lịch trình (luồng thủ công
+  // không-AI, Mục C). Dùng chung cho cả 2 bố cục (wide/narrow) để không lệch nhau.
+  const renderErrorActions = (m: Extract<Msg, { role: 'bot' }>) =>
+    m.error ? (
+      <div className="mt-2 space-y-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          {m.retry ? (
+            <button type="button" onClick={doRetry}
+              className="inline-flex items-center gap-1.5 rounded-full border border-primary px-3 py-1.5 text-[13px] font-semibold text-primary outline-none transition-colors hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-ring/60">
+              ↻ {t('assistant.retry')}
+            </button>
+          ) : null}
+          {m.fallback ? (
+            <button type="button" onClick={enterManual}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3 py-1.5 text-[13px] font-semibold text-foreground outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring/60">
+              {t('assistant.manualFallback')}
+            </button>
+          ) : null}
+        </div>
+        {m.fallback ? (
+          <p className="text-[13px] text-muted-foreground">{t('assistant.manualFallbackHint')}</p>
+        ) : !m.retry ? (
+          <p className="text-[13px] text-muted-foreground">{t('assistant.tryAgain')}</p>
+        ) : null}
+      </div>
+    ) : null;
+
   // Pane phải (right-split): PlannerPane tự tính tier + mapH (aspect-lock). Dùng cho cột phải desktop
   // (inline) LẪN overlay fullscreen (overlay). variant đổi cách xử SHORT-tier.
   const emptyState = (
@@ -550,10 +590,16 @@ export default function TroLyDuLichPage() {
       <div>
         <div className="text-4xl" aria-hidden>🗺️</div>
         <p className="mx-auto mt-3 max-w-[240px] text-sm font-semibold text-muted-foreground">{t('assistant.panelErrorTitle')}</p>
-        <button type="button" onClick={doRetry}
-          className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/60">
-          ↻ {t('assistant.retry')}
-        </button>
+        <div className="mt-3 flex flex-col items-center gap-2">
+          <button type="button" onClick={doRetry}
+            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/60">
+            ↻ {t('assistant.retry')}
+          </button>
+          <button type="button" onClick={enterManual}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-4 py-2 text-[13px] font-semibold text-foreground outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring/60">
+            {t('assistant.manualFallback')}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -712,14 +758,7 @@ export default function TroLyDuLichPage() {
                 {m.options && m.options.options.length && messages[idx + 1]?.role === 'user' ? (
                   <p className="mt-2 text-xs" style={{ color: '#9AA0AC' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
                 ) : null}
-                {m.error && m.retry ? (
-                  <button type="button" onClick={doRetry}
-                    className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-primary px-3 py-1.5 text-xs font-semibold text-primary outline-none transition-colors hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-ring/60">
-                    ↻ {t('assistant.retry')}
-                  </button>
-                ) : m.error ? (
-                  <p className="mt-2 text-xs text-muted-foreground">{t('assistant.tryAgain')}</p>
-                ) : null}
+                {renderErrorActions(m)}
               </div>
               {m.time ? <span className="mt-0.5 block px-1 text-[10px] text-muted-foreground">{m.time}</span> : null}
               {m.dto ? <TripReceipt dto={m.dto} onActivate={activateArtifact} onSelectDay={setActiveDay} /> : null}
@@ -960,14 +999,7 @@ export default function TroLyDuLichPage() {
                           {m.options && m.options.options.length && messages[idx + 1]?.role === 'user' ? (
                             <p className="mt-2 text-xs" style={{ color: '#9AA0AC' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
                           ) : null}
-                          {m.error && m.retry ? (
-                  <button type="button" onClick={doRetry}
-                    className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-primary px-3 py-1.5 text-xs font-semibold text-primary outline-none transition-colors hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-ring/60">
-                    ↻ {t('assistant.retry')}
-                  </button>
-                ) : m.error ? (
-                  <p className="mt-2 text-xs text-muted-foreground">{t('assistant.tryAgain')}</p>
-                ) : null}
+                          {renderErrorActions(m)}
                         </div>
                         {m.time ? <span className="mt-0.5 block px-1 text-[10px] text-muted-foreground">{m.time}</span> : null}
 
