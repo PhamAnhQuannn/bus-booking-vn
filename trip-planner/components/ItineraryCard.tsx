@@ -260,6 +260,7 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
   const timelineNodes = buildTimeline(dto); // Trip Timeline (V5) — hiện CẢ mobile lẫn desktop
   const rootRef = useRef<HTMLDivElement>(null);
   const programmaticRef = useRef(false); // đang click-scroll → tạm khoá scrollspy (chống chip nhảy)
+  const pendingScrollCleanupRef = useRef<(() => void) | null>(null); // huỷ release của click trước (chống race đa-click)
 
   // Scrollspy (compact): band ngày nào ở dải giữa viewport → đặt ngày active. rootMargin -45%/-45%
   // = dải mỏng ở giữa → 1 band/lúc (hysteresis, không nhấp nháy chip khi đứng giữa 2 ngày).
@@ -290,6 +291,7 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
   //   (không programmatic) vẫn để scrollspy là nguồn active duy nhất.
   const goToDay = (day: number) => {
     if (!compact) { onActiveDayChange?.(day); return; }
+    pendingScrollCleanupRef.current?.(); // huỷ release/timeout của click TRƯỚC (chống race đa-click → active/spy loạn)
     programmaticRef.current = true;
     document.getElementById(`day-band-${day}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     const scrollRoot = rootRef.current?.closest('[data-pane-scroll]') as HTMLElement | null;
@@ -297,11 +299,13 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
     const release = () => {
       if (done) return;
       done = true;
+      pendingScrollCleanupRef.current = null;
       programmaticRef.current = false;
       onActiveDayChange?.(day); // active theo đích đã scroll tới → chip + node cùng sync, không bật ngược
     };
+    const timer = setTimeout(release, 700); // fallback (Safari không có scrollend)
     scrollRoot?.addEventListener('scrollend', release, { once: true });
-    setTimeout(release, 700); // fallback (Safari không có scrollend)
+    pendingScrollCleanupRef.current = () => { done = true; clearTimeout(timer); scrollRoot?.removeEventListener('scrollend', release); };
   };
 
   // Lưu chuyến đi (localStorage) + Chia sẻ (navigator.share/clipboard) — mock header actions.
@@ -329,7 +333,7 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
 
       {/* Chip ngày sticky (compact) — nav + scrollspy. overflow-hidden bỏ ở root để sticky bám pane-scroll. */}
       {compact ? (
-        <div className="sticky top-0 z-raised -mx-px border-b border-border bg-white/95 px-3 py-1.5 backdrop-blur">
+        <div className="sticky top-0 z-raised -mx-px border-b border-border bg-[var(--planner-surface)] px-3 py-1.5">
           <DayTabBar dto={dto} activeDay={activeDay} onSelect={goToDay} />
         </div>
       ) : null}

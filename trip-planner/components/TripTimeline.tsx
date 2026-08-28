@@ -11,13 +11,13 @@ import type { TimelineNode } from '../lib/planner/timeline';
 const TL_CSS = `
 .tl-list{ display:flex; align-items:flex-start; gap:0; overflow-x:auto; scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch; padding:2px; scrollbar-width:none; }
 .tl-list::-webkit-scrollbar{ display:none; }
-.tl-node{ scroll-snap-align:center; display:flex; flex-direction:column; gap:2px; min-width:150px; max-width:220px; padding:8px 10px; border-radius:12px; text-align:left; background:transparent; border:1px solid transparent; cursor:pointer; }
+.tl-node{ scroll-snap-align:center; display:flex; flex:1 1 0; flex-direction:column; gap:2px; min-width:150px; padding:8px 10px; border-radius:12px; text-align:left; background:transparent; border:1px solid transparent; cursor:pointer; }
 .tl-node:hover{ background:rgba(0,0,0,0.03); }
 .tl-node:focus-visible{ outline:2px solid var(--planner-orange-action); outline-offset:2px; }
 .tl-circle{ display:grid; place-items:center; width:28px; height:28px; border-radius:9999px; border:1.5px solid #D8D3CA; font-size:13px; font-weight:800; line-height:1; color:var(--planner-text); background:var(--planner-surface); }
 .tl-node[aria-current="true"] .tl-circle{ background:var(--planner-orange-action); border-color:var(--planner-orange-action); color:#fff; }
 .tl-area{ font-size:13px; font-weight:600; color:var(--planner-text); }
-.tl-route{ font-size:13px; color:var(--planner-text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tl-route{ font-size:13px; color:var(--planner-text-secondary); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
 .tl-conn{ flex:0 0 auto; align-self:flex-start; margin-top:21px; width:28px; height:0; border-top:2px dashed var(--planner-orange-signature); opacity:.4; }
 @keyframes tlDraw{ from{ transform:scaleX(0); } to{ transform:scaleX(1); } }
 .tl-draw .tl-conn{ transform-origin:left center; animation:tlDraw .3s ease-out both; animation-delay:calc(var(--i) * .18s); }
@@ -30,11 +30,15 @@ export function TripTimeline({ nodes, activeDay, onSelectDay }: {
   onSelectDay: (day: number) => void;
 }) {
   const t = useTranslations('planner');
+  const listRef = useRef<HTMLOListElement>(null);
   const activeRef = useRef<HTMLButtonElement>(null);
 
-  // Mobile cuộn ngang: node ngày active tự căn vào tầm nhìn khi scroll-spy đổi ngày.
+  // Căn node active vào tầm nhìn khi scroll-spy đổi ngày — CHỈ cuộn NGANG container <ol>, TUYỆT ĐỐI
+  // không dùng scrollIntoView (nó cuộn cả ancestor DỌC = kéo pane về đầu → vòng bounce với spy). (V5.1b FIX 1)
   useEffect(() => {
-    activeRef.current?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    const list = listRef.current, node = activeRef.current;
+    if (!list || !node) return;
+    list.scrollTo({ left: Math.max(0, node.offsetLeft - list.clientWidth / 2 + node.clientWidth / 2), behavior: 'smooth' });
   }, [activeDay]);
 
   if (nodes.length === 0) return null;
@@ -42,9 +46,9 @@ export function TripTimeline({ nodes, activeDay, onSelectDay }: {
   return (
     <nav aria-label={t('timeline.navLabel')} className="mx-3 mt-3 rounded-[10px] border border-border bg-[var(--planner-surface)] px-1 py-1.5">
       <style>{TL_CSS}</style>
-      <ol className="tl-list tl-draw">
+      <ol ref={listRef} className="tl-list tl-draw">
         {nodes.map((n, i) => (
-          <li key={n.day} className="flex items-start">
+          <li key={n.day} className="flex flex-1 items-start">
             {i > 0 ? <span className="tl-conn" style={{ ['--i' as string]: i - 1 }} aria-hidden /> : null}
             <button
               ref={n.day === activeDay ? activeRef : undefined}
@@ -55,7 +59,7 @@ export function TripTimeline({ nodes, activeDay, onSelectDay }: {
             >
               <span className="tl-circle" aria-hidden>{`N${n.day}`}</span>
               <span className="tl-area">
-                {n.area ? `${n.area} · ` : ''}{t('timeline.stops', { n: n.stops })}
+                {n.area ? `${n.area} ` : ''}<span style={{ whiteSpace: 'nowrap' }}>{n.area ? '· ' : ''}{t('timeline.stops', { n: n.stops })}</span>
               </span>
               <span className="tl-route">{n.first === n.last ? n.first : `${n.first} → ${n.last}`}</span>
             </button>
