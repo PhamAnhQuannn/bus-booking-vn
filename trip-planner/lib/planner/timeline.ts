@@ -17,6 +17,18 @@ export function buildOverview(dto: PlannerDto): OverviewDay[] {
   });
 }
 
+// Trip Timeline (V5 Mục 4): 1 node/ngày = khu vực · số điểm · điểm đầu→cuối. KHÔNG mô tả/giờ/giá.
+// Dữ liệu suy từ dto (không API). first/last = điểm-đến đầu & cuối ngày (1 điểm → first===last).
+export type TimelineNode = { day: number; area: string | null; stops: number; first: string; last: string };
+
+export function buildTimeline(dto: PlannerDto): TimelineNode[] {
+  return dto.days.map((d) => {
+    const dests = d.items.filter((i) => i.role === 'diem-den').map((i) => stripCitySuffix(i.name));
+    const first = dests[0] ?? '';
+    return { day: d.day, area: areaLabel(d.region_id), stops: dests.length, first, last: dests.length > 1 ? dests[dests.length - 1] : first };
+  });
+}
+
 export type DayRow = { kind: 'item'; it: DtoItem } | { kind: 'meal'; meal: 'trua' | 'toi' };
 
 export function withMeals(items: DtoItem[]): DayRow[] {

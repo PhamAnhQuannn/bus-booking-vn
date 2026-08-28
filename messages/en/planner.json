@@ -161,6 +161,10 @@
   "dayTabBar": {
     "day": "Day {day}"
   },
+  "timeline": {
+    "navLabel": "Days overview",
+    "stops": "{n} stops"
+  },
   "itinerary": {
     "title": "🏔 {city} · {days} days {nights} nights",
     "adults": "{count} adults",

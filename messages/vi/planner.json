@@ -161,6 +161,10 @@
   "dayTabBar": {
     "day": "Ngày {day}"
   },
+  "timeline": {
+    "navLabel": "Tổng quan các ngày",
+    "stops": "{n} điểm"
+  },
   "itinerary": {
     "title": "🏔 {city} · {days} ngày {nights} đêm",
     "adults": "{count} người lớn",

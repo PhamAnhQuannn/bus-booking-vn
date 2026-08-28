@@ -14,7 +14,8 @@ import { cityName } from '@/trip-planner/lib/planner/cities';
 import { displayCategory, itemBadge, areaLabel, vibeChip, stripCitySuffix, FACILITY_LABELS, isAllDay, moTaTrusted } from '@/trip-planner/lib/planner/labels';
 import { cardProfile, type SectionKey } from '@/trip-planner/lib/planner/cardProfile';
 import { fmtKm } from '@/trip-planner/lib/planner/fmt';
-import { buildOverview, withMeals } from '@/trip-planner/lib/planner/timeline';
+import { buildTimeline, withMeals } from '@/trip-planner/lib/planner/timeline';
+import { TripTimeline } from '@/trip-planner/components/TripTimeline';
 import { compressDays } from '@/trip-planner/lib/planner/hours';
 import { DayTabBar } from '@/trip-planner/components/DayTabBar';
 
@@ -256,7 +257,7 @@ const HEADER_ACTIONS = { enabled: false };
 
 export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleDay, hrefPdf, compact, onActiveDayChange, onSeeFood }: Props) {
   const t = useTranslations('planner');
-  const overview = compact ? buildOverview(dto) : null; // strip tóm tắt chỉ ở chế độ compact (≥1280)
+  const timelineNodes = buildTimeline(dto); // Trip Timeline (V5) — hiện CẢ mobile lẫn desktop
   const rootRef = useRef<HTMLDivElement>(null);
   const programmaticRef = useRef(false); // đang click-scroll → tạm khoá scrollspy (chống chip nhảy)
 
@@ -343,21 +344,8 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
         </div>
       ) : null}
 
-      {/* OVERVIEW strip (P4, compact) — tóm tắt 1 dòng/ngày, click → scroll tới band ngày */}
-      {overview ? (
-        <div className="mx-3 mt-3 rounded-[10px] p-3" style={{ background: '#FFF9F2' }}>
-          <div className="text-[13px] font-bold uppercase tracking-wide" style={{ color: FAINT }}>{t('itinerary.overviewTitle')}</div>
-          <div className="mt-1.5 space-y-0.5">
-            {overview.map((o) => (
-              <button key={o.day} type="button" onClick={() => goToDay(o.day)} className="block w-full truncate text-left text-[13px] hover:underline">
-                <span style={{ color: INK, fontWeight: 600 }}>{t('dayTabBar.day', { day: o.day })}</span>
-                {o.area ? <span style={{ color: SOFT }}> · {o.area}</span> : null}
-                <span style={{ color: SOFT }}> — {o.names.join(' → ')}{o.extra ? ` +${o.extra}` : ''}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
+      {/* Trip Timeline (V5 Mục 4) — dải node ngang thay khối tóm tắt; click node → scroll tới band ngày */}
+      <TripTimeline nodes={timelineNodes} activeDay={activeDay} onSelectDay={goToDay} />
 
       {/* DAYS — không divider giữa ngày; band + spine + whitespace 16 */}
       <div className="space-y-4 p-3">
