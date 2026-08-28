@@ -643,6 +643,7 @@ export default function TroLyDuLichPage() {
         onPinClick={onPinClick}
         onCloseSheet={() => setSelected(null)}
         onSelectDay={setActiveDay}
+        onActiveDayChange={setActiveDay}
         onHoverItem={setHoveredOrder}
         variant={variant}
         onOpenFull={() => setResultFull(true)}
