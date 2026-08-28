@@ -10,13 +10,16 @@
  *  3 card chia đều, ảnh ratio ~2.4:1. Màu: heading gần đen #0A0806 · muted #5C5A5A · border mờ #F0E9E1.
  */
 
+import { type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 import { PlannerImage } from '@/trip-planner/components/PlannerImage';
 import { VIBE_STARTERS, SAMPLE_CARDS } from '@/trip-planner/lib/planner/starters';
 
-type Props = { onPick: (prompt: string) => void; disabled?: boolean };
+// composerSlot (V5 Mục 2): ô nhập là focal point — page truyền vào để đặt NGAY sau subtitle
+// (input-first), chips gợi ý + card ví dụ nằm DƯỚI. Khi vào chat, composer chuyển về đáy (page lo).
+type Props = { onPick: (prompt: string) => void; disabled?: boolean; composerSlot?: ReactNode };
 
-export function PlannerEntry({ onPick, disabled }: Props) {
+export function PlannerEntry({ onPick, disabled, composerSlot }: Props) {
   const t = useTranslations('planner');
   return (
     <div className="mx-auto flex w-full max-w-[800px] flex-col px-4 pb-4 pt-6 lg:pt-9">
@@ -37,8 +40,11 @@ export function PlannerEntry({ onPick, disabled }: Props) {
         {t('entry.subheading')}
       </p>
 
+      {/* Ô NHẬP — focal point, ngay sau subtitle (input-first). */}
+      {composerSlot ? <div className="mx-auto mt-7 w-full max-w-[640px]">{composerSlot}</div> : null}
+
       {/* Gợi ý bắt đầu — 4 chip vibe (co theo nội dung, gap đều, căn giữa) */}
-      <p className="mt-12 text-sm font-medium text-[#33322F]">{t('entry.startersLabel')}</p>
+      <p className="mt-9 text-sm font-medium text-[#33322F]">{t('entry.startersLabel')}</p>
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {VIBE_STARTERS.map((v) => (
           <button

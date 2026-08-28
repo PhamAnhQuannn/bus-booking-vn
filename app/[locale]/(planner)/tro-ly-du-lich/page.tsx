@@ -994,7 +994,16 @@ export default function TroLyDuLichPage() {
 
         <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           {isEntry ? (
-            <PlannerEntry onPick={send} disabled={loading} />
+            <PlannerEntry onPick={send} disabled={loading} composerSlot={
+              <>
+                <div className="rounded-2xl ring-[1.5px] ring-[var(--planner-orange-action)] focus-within:ring-2">
+                  <PlannerComposer value={input} onChange={setInput} onSubmit={() => send(input)} disabled={loading} busy={loading} />
+                </div>
+                <p className="mt-2.5 flex items-center justify-center gap-1.5 text-[13px] text-muted-foreground">
+                  <span aria-hidden>🔒</span> {t('assistant.privacy')}
+                </p>
+              </>
+            } />
           ) : (
             <div className="mx-auto flex w-full max-w-[46rem] flex-1 flex-col px-4 pb-2 pt-3">
               {slotCard}
@@ -1096,11 +1105,12 @@ export default function TroLyDuLichPage() {
               )}
             </div>
           ) : null}
-          <PlannerComposer value={input} onChange={setInput} onSubmit={() => send(input)} disabled={loading} busy={loading} />
-          {isEntry ? (
-            <p className="mt-2.5 flex items-center justify-center gap-1.5 text-[13px] text-muted-foreground">
-              <span aria-hidden>🔒</span> {t('assistant.privacy')}
-            </p>
+          {/* Entry: composer đã lên trên (PlannerEntry, input-first). Active: composer về đáy — fade
+              vào mềm khi chuyển cảnh (V5 Mục 2, không true-FLIP; reduced-motion tắt qua bb-scene-in). */}
+          {!isEntry ? (
+            <div className="bb-scene-in">
+              <PlannerComposer value={input} onChange={setInput} onSubmit={() => send(input)} disabled={loading} busy={loading} />
+            </div>
           ) : null}
         </div>
       </section>
