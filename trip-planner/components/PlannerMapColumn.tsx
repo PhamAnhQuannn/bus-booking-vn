@@ -119,7 +119,7 @@ export default function PlannerMapColumn({ dto, pendingSlug, activeDay, hoveredO
         onLostPointerCapture={onHandleUp}
         className="group flex h-3 shrink-0 cursor-row-resize touch-none items-center justify-center"
       >
-        <span className="h-1 w-10 rounded-full bg-border transition-colors group-hover:bg-primary" />
+        <span className="h-1 w-10 rounded-full bg-[#D8D3CA] transition-colors group-hover:bg-primary" />
       </div>
     </div>
   );

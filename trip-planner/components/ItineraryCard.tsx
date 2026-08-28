@@ -94,7 +94,7 @@ function Badge({ it }: { it: DtoItem }) {
     );
   }
   return (
-    <span className="rounded-full bg-muted px-2 py-0.5 text-[13px] font-bold" style={{ color: SOFT }}
+    <span className="rounded-full border border-[#D8D3CA] px-2 py-0.5 text-[13px] font-bold" style={{ color: SOFT }}
       title={b.label === 'Nên gọi trước' ? t('itinerary.callAheadTitle') : undefined}>
       {b.label}
     </span>
@@ -154,7 +154,7 @@ function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: numb
                   return it.mo_ta && moTaTrusted(it) ? (
                     <div key="mo_ta">
                       {/* MÔ TẢ: mo_ta full, clamp 3 dòng + "Xem thêm" khi dài */}
-                      <p className={`mt-2 max-w-[72ch] text-[14px] leading-[1.6] ${open ? '' : 'line-clamp-3'}`} style={{ color: INK }}>{it.mo_ta}</p>
+                      <p className={`mt-2 max-w-[54ch] text-[14px] leading-[1.6] ${open ? '' : 'line-clamp-3'}`} style={{ color: INK }}>{it.mo_ta}</p>
                       {longMoTa ? (
                         <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
                           className="mt-0.5 text-[13px] font-semibold text-primary hover:underline">
@@ -180,7 +180,7 @@ function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: numb
                       <div className="text-[13px] font-bold uppercase tracking-wide" style={{ color: FAINT }}>{t('itinerary.whatsHere')}</div>
                       <div className="mt-1 flex flex-wrap gap-1.5">
                         {tham.map((label, i) => (
-                          <span key={`t-${i}`} className="rounded-full bg-muted px-2 py-0.5 text-[13px] font-semibold" style={{ color: SOFT }}>{label}</span>
+                          <span key={`t-${i}`} className="rounded-full border border-[#D8D3CA] px-2 py-0.5 text-[13px] font-semibold" style={{ color: SOFT }}>{label}</span>
                         ))}
                         {paid.map((label, i) => (
                           <span key={`p-${i}`} className="rounded-full border border-[#D8D3CA] px-2 py-0.5 text-[13px] font-semibold" style={{ color: INK }}>{label}</span>
@@ -223,7 +223,7 @@ function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: numb
             return (
               <>
                 {gt ? (
-                  <p className="mt-2 max-w-[72ch] text-[14px] leading-[1.6]" style={{ color: INK }}>{gt}</p>
+                  <p className="mt-2 max-w-[54ch] text-[14px] leading-[1.6]" style={{ color: INK }}>{gt}</p>
                 ) : null}
                 {sections.map(renderSection)}
                 {/* EDITORIAL tier (002): tách hẳn khỏi badge verified + mô tả — nhãn + disclaimer,
@@ -283,15 +283,25 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
     return () => io.disconnect();
   }, [compact, dto, activeDay, onActiveDayChange]);
 
-  // Click chip/dòng overview → smooth-scroll tới band ngày (khoá scrollspy tới khi scrollend).
+  // Click node/chip → điều hướng ngày. MỘT CHIỀU (V5.1 FIX 1):
+  // - non-compact (narrow): KHÔNG có scrollspy → set active trực tiếp (accordion mở ngày đó).
+  // - compact (wide): CHỈ scrollTo divider + TREO scrollspy suốt animation (chống bounce); khi scroll
+  //   xong set active = day ĐÍCH (deterministic — IO bị treo nên không tự bắt vị trí cuối). Cuộn TAY
+  //   (không programmatic) vẫn để scrollspy là nguồn active duy nhất.
   const goToDay = (day: number) => {
-    onActiveDayChange?.(day);
+    if (!compact) { onActiveDayChange?.(day); return; }
     programmaticRef.current = true;
     document.getElementById(`day-band-${day}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     const scrollRoot = rootRef.current?.closest('[data-pane-scroll]') as HTMLElement | null;
-    const release = () => { programmaticRef.current = false; };
+    let done = false;
+    const release = () => {
+      if (done) return;
+      done = true;
+      programmaticRef.current = false;
+      onActiveDayChange?.(day); // active theo đích đã scroll tới → chip + node cùng sync, không bật ngược
+    };
     scrollRoot?.addEventListener('scrollend', release, { once: true });
-    setTimeout(release, 600); // fallback Safari (không có scrollend)
+    setTimeout(release, 700); // fallback (Safari không có scrollend)
   };
 
   // Lưu chuyến đi (localStorage) + Chia sẻ (navigator.share/clipboard) — mock header actions.

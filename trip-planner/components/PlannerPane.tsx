@@ -168,7 +168,7 @@ export default function PlannerPane({ dto, activeDay, hoveredOrder, selected, on
           onLostPointerCapture={onHandleUp}
           className="group -my-1.5 flex h-3 shrink-0 cursor-row-resize touch-none items-center justify-center"
         >
-          <span className="h-1 w-10 rounded-full bg-border transition-colors group-hover:bg-primary" />
+          <span className="h-1 w-10 rounded-full bg-[#D8D3CA] transition-colors group-hover:bg-primary" />
         </div>
       ) : null}
 

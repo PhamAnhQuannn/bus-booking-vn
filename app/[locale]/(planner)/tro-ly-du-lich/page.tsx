@@ -1121,7 +1121,7 @@ export default function TroLyDuLichPage() {
         <div role="separator" aria-orientation="vertical" aria-label={t('assistant.splitterAria')}
           onPointerDown={onSplitDown} onPointerMove={onSplitMove} onPointerUp={onSplitUp} onLostPointerCapture={onSplitUp}
           className="group hidden w-2 shrink-0 cursor-col-resize touch-none items-center justify-center lg:flex">
-          <span className="h-10 w-1 rounded-full bg-border transition-colors group-hover:bg-primary" />
+          <span className="h-10 w-1 rounded-full bg-[#D8D3CA] transition-colors group-hover:bg-primary" />
         </div>
       ) : null}
 
