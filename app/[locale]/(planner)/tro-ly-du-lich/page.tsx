@@ -889,7 +889,7 @@ export default function TroLyDuLichPage() {
         {composerZone('max-w-[780px]')}
       </section>
     ) : (
-      <div className="bb-scene-in grid min-h-0 w-full flex-1" style={{ gridTemplateColumns: 'minmax(420px,42%) 1fr' }}>
+      <div className="bb-scene-in grid min-h-0 w-full flex-1" style={{ gridTemplateColumns: 'minmax(380px,38%) 1fr' }}>
         <style>{`@keyframes v4PaneIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}.v4-pane-in{animation:v4PaneIn .35s ease-out}@media (prefers-reduced-motion: reduce){.v4-pane-in{animation:none}}`}</style>
         {/* CỘT TRÁI — bản đồ (trên) + chat (dưới) */}
         <div className="flex min-h-0 flex-col border-r border-[#E4D8C9]">
@@ -904,6 +904,7 @@ export default function TroLyDuLichPage() {
               onPinClick={onPinClick}
               onCloseSheet={() => setSelected(null)}
               shrink={shrinkMap}
+              expanded={!!selected}
             />
           ) : mapReserve}
           <div onFocusCapture={() => setComposerFocused(true)} onBlurCapture={() => setComposerFocused(false)} className="flex min-h-0 flex-1 flex-col">

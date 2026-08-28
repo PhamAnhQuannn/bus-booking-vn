@@ -154,7 +154,7 @@ function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: numb
                   return it.mo_ta && moTaTrusted(it) ? (
                     <div key="mo_ta">
                       {/* MÔ TẢ: mo_ta full, clamp 3 dòng + "Xem thêm" khi dài */}
-                      <p className={`mt-2 text-[14px] leading-[1.6] ${open ? '' : 'line-clamp-3'}`} style={{ color: INK }}>{it.mo_ta}</p>
+                      <p className={`mt-2 max-w-[72ch] text-[14px] leading-[1.6] ${open ? '' : 'line-clamp-3'}`} style={{ color: INK }}>{it.mo_ta}</p>
                       {longMoTa ? (
                         <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
                           className="mt-0.5 text-[13px] font-semibold text-primary hover:underline">
@@ -223,7 +223,7 @@ function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: numb
             return (
               <>
                 {gt ? (
-                  <p className="mt-2 text-[14px] leading-[1.6]" style={{ color: INK }}>{gt}</p>
+                  <p className="mt-2 max-w-[72ch] text-[14px] leading-[1.6]" style={{ color: INK }}>{gt}</p>
                 ) : null}
                 {sections.map(renderSection)}
                 {/* EDITORIAL tier (002): tách hẳn khỏi badge verified + mô tả — nhãn + disclaimer,
