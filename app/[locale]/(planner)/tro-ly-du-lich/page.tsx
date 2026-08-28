@@ -770,11 +770,11 @@ export default function TroLyDuLichPage() {
           <div key={idx} style={{ marginTop: mt }} className="flex w-full gap-2.5 self-start">
             <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/10 text-base" aria-hidden>🤖</span>
             <div className="min-w-0 max-w-[min(90%,560px)] flex-1">
-              <div className="rounded-2xl rounded-bl-md border px-4 py-3 text-[15px] leading-6 text-foreground" style={{ background: '#FEFCF7', borderColor: '#F0EAE2' }}>
+              <div className="rounded-2xl rounded-bl-md border px-4 py-3 text-[15px] leading-6 text-foreground" style={{ background: 'var(--planner-surface)', borderColor: '#F0EAE2' }}>
                 {m.text ? <p className="whitespace-pre-wrap">{m.text}</p> : <p className="text-muted-foreground">{t('assistant.typing')}</p>}
                 {m.planning ? <p className="mt-2 text-[13px] text-muted-foreground">{t('assistant.planningFromData')}</p> : null}
                 {m.options && m.options.options.length && messages[idx + 1]?.role === 'user' ? (
-                  <p className="mt-2 text-[13px]" style={{ color: '#9AA0AC' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
+                  <p className="mt-2 text-[13px]" style={{ color: 'var(--planner-text-secondary)' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
                 ) : null}
                 {renderErrorActions(m)}
               </div>
@@ -816,7 +816,7 @@ export default function TroLyDuLichPage() {
   const composerZone = (maxW: string) => (
     <div className={`mx-auto w-full shrink-0 px-4 pb-5 pt-3 ${maxW}`}>
       {!isEntry && dto && !activeAsk ? (
-        <p className="mb-2 px-1 text-[13px] leading-relaxed" style={{ color: '#9AA0AC' }}>
+        <p className="mb-2 px-1 text-[13px] leading-relaxed" style={{ color: 'var(--planner-text-secondary)' }}>
           {t.rich('assistant.tip', { b: (chunks) => <b className="font-semibold">{chunks}</b> })}
         </p>
       ) : null}
@@ -954,7 +954,7 @@ export default function TroLyDuLichPage() {
     );
 
   return (
-    <main ref={mainRef} className="flex h-[calc(100dvh-56px)] w-full flex-col overflow-hidden bg-white lg:h-[calc(100dvh-64px)] lg:flex-row">
+    <main ref={mainRef} className="planner-scope flex h-[calc(100dvh-56px)] w-full flex-col overflow-hidden bg-[var(--planner-bg)] lg:h-[calc(100dvh-64px)] lg:flex-row">
       {/* SIDEBAR desktop — lịch sử / brand-intro. Rộng ~26%W (đo từ mock) + clamp → bền tỉ lệ. */}
       <div className={`hidden lg:flex lg:h-full lg:shrink-0 ${sidebarCollapsed ? '' : 'lg:w-[26%] lg:min-w-[264px] lg:max-w-[360px]'}`}>
         <PlannerSidebar {...sidebarProps} collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed((v) => !v)} />
@@ -1012,11 +1012,11 @@ export default function TroLyDuLichPage() {
                       <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/10 text-base" aria-hidden>🤖</span>
                       <div className="min-w-0 max-w-[min(90%,560px)] flex-1">
                         {/* Bubble bot — nền #FEFCF7 + viền hairline #F0EAE2 (đo từ mock) */}
-                        <div className="rounded-2xl rounded-bl-md border px-4 py-3 text-[15px] leading-6 text-foreground" style={{ background: '#FEFCF7', borderColor: '#F0EAE2' }}>
+                        <div className="rounded-2xl rounded-bl-md border px-4 py-3 text-[15px] leading-6 text-foreground" style={{ background: 'var(--planner-surface)', borderColor: '#F0EAE2' }}>
                           {m.text ? <p className="whitespace-pre-wrap">{m.text}</p> : <p className="text-muted-foreground">{t('assistant.typing')}</p>}
                           {m.planning ? <p className="mt-2 text-[13px] text-muted-foreground">{t('assistant.planningFromData')}</p> : null}
                           {m.options && m.options.options.length && messages[idx + 1]?.role === 'user' ? (
-                            <p className="mt-2 text-[13px]" style={{ color: '#9AA0AC' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
+                            <p className="mt-2 text-[13px]" style={{ color: 'var(--planner-text-secondary)' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
                           ) : null}
                           {renderErrorActions(m)}
                         </div>
@@ -1064,7 +1064,7 @@ export default function TroLyDuLichPage() {
             Entry rộng ~800px khớp khối card; active hẹp hơn (45rem) cho dễ đọc chat. */}
         <div className={`mx-auto w-full shrink-0 px-4 pb-5 pt-3 ${isEntry ? 'max-w-[800px]' : 'max-w-[45rem]'}`}>
           {!isEntry && dto && !activeAsk ? (
-            <p className="mb-2 px-1 text-[13px] leading-relaxed" style={{ color: '#9AA0AC' }}>
+            <p className="mb-2 px-1 text-[13px] leading-relaxed" style={{ color: 'var(--planner-text-secondary)' }}>
               {t.rich('assistant.tip', { b: (chunks) => <b className="font-semibold">{chunks}</b> })}
             </p>
           ) : null}

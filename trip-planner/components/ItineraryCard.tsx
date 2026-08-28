@@ -41,13 +41,13 @@ type Props = {
   onSeeFood?: () => void; // meal block "xem gợi ý quán" → chuyển tab Ăn uống
 };
 
-const INK = '#1E2433', SOFT = '#6B7280', FAINT = '#9AA0AC';
+const INK = '#1E2433', SOFT = '#6B7280', FAINT = 'var(--planner-text-secondary)';
 
 // spine + day-band CSS (scoped v5-*). Spine chạy qua tâm order-circle (left 24 = px-3 + nửa circle).
 const CARD_CSS = `
 .v5-daybody{position:relative}
 .v5-daybody::before{content:"";position:absolute;left:24px;top:16px;bottom:16px;width:2px;background:var(--primary-tint,#FDE4D6);border-radius:2px}
-.v5-band{background:#FFF9F2}
+.v5-band{background:var(--planner-surface)}
 .v5-band.v5-active{box-shadow:inset 3px 0 0 var(--primary,#F0561D)}
 `;
 
@@ -182,12 +182,12 @@ function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: numb
                           <span key={`t-${i}`} className="rounded-full bg-muted px-2 py-0.5 text-[13px] font-semibold" style={{ color: SOFT }}>{label}</span>
                         ))}
                         {paid.map((label, i) => (
-                          <span key={`p-${i}`} className="rounded-full bg-primary/10 px-2 py-0.5 text-[13px] font-semibold text-primary">{label}</span>
+                          <span key={`p-${i}`} className="rounded-full border border-[#D8D3CA] px-2 py-0.5 text-[13px] font-semibold" style={{ color: INK }}>{label}</span>
                         ))}
                         {vibes.map((v) => {
                           const c = vibeChip(v);
                           return (
-                            <span key={`v-${v}`} className="rounded-full border border-primary/30 px-2 py-0.5 text-[13px] font-semibold text-primary">
+                            <span key={`v-${v}`} className="rounded-full border border-[#D8D3CA] px-2 py-0.5 text-[13px] font-semibold" style={{ color: INK }}>
                               {c.emoji ? `${c.emoji} ` : ''}{c.label}
                             </span>
                           );
@@ -228,9 +228,9 @@ function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: numb
                 {/* EDITORIAL tier (002): tách hẳn khỏi badge verified + mô tả — nhãn + disclaimer,
                     KHÔNG trộn với fact. Chỉ hiện khi flag EDITORIAL_TIER bật + có câu (per-loại). */}
                 {it.phu_hop_voi ? (
-                  <div key="phu_hop_voi" className="mt-2 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5">
-                    <div className="text-[13px] font-bold uppercase tracking-wide text-primary">{t('itinerary.editorialTitle')}</div>
-                    <p className="mt-0.5 text-[13px] leading-relaxed" style={{ color: SOFT }}>{it.phu_hop_voi}</p>
+                  <div key="phu_hop_voi" className="mt-2 rounded-lg border border-[#F0D9C4] bg-[var(--planner-surface-editorial)] px-2.5 py-1.5">
+                    <div className="text-[13px] font-bold uppercase tracking-wide text-[var(--planner-editorial-text)]">{t('itinerary.editorialTitle')}</div>
+                    <p className="mt-0.5 text-[13px] leading-relaxed text-[var(--planner-editorial-text)]">{it.phu_hop_voi}</p>
                     <p className="mt-0.5 text-[13px] italic" style={{ color: FAINT }}>{t('itinerary.editorialDisclaimer')}</p>
                   </div>
                 ) : null}

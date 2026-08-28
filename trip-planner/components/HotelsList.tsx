@@ -11,7 +11,7 @@ import type { DtoHotel } from '@/trip-planner/lib/planner/itineraryDto';
 import { hotelTierLabel, stripCitySuffix } from '@/trip-planner/lib/planner/labels';
 import { fmtKm } from '@/trip-planner/lib/planner/fmt';
 
-const INK = '#1E2433', SOFT = '#6B7280', FAINT = '#9AA0AC';
+const INK = '#1E2433', SOFT = '#6B7280', FAINT = 'var(--planner-text-secondary)';
 
 // Lý do "Gợi ý chính" — rule chọn primary = gần trọng tâm tuyến (proximity to centroid).
 const HOTEL_REASON_GAN_TRONG_TAM = 'Gần các điểm tham quan chính của lịch trình này.';
@@ -32,12 +32,12 @@ function HotelCard({ h, primary, firstStop }: { h: DtoHotel; primary?: boolean; 
       ? fmtKm(havKm(h.lat, h.lon, firstStop.lat, firstStop.lon))
       : null;
   return (
-    <div className="max-w-[720px] rounded-[10px] border border-border bg-cream px-3.5 py-3 text-[13px] @[1100px]:max-w-none">
+    <div className="max-w-[720px] rounded-[10px] border border-border bg-[var(--planner-surface)] px-3.5 py-3 text-[13px] @[1100px]:max-w-none">
       {/* header: tên + badge cùng hàng */}
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-[15px] font-semibold" style={{ color: INK }}>🏨 {stripCitySuffix(h.name)}</span>
         {primary ? (
-          <span className="shrink-0 text-[13px] font-semibold text-primary">Gợi ý chính</span>
+          <span className="shrink-0 text-[13px] font-semibold text-[var(--planner-text)]">Gợi ý chính</span>
         ) : (
           <span className="shrink-0 text-[13px]" style={{ color: FAINT }} title={`${h.nguon} nguồn dữ liệu`}>{h.nguon} nguồn</span>
         )}
@@ -51,13 +51,13 @@ function HotelCard({ h, primary, firstStop }: { h: DtoHotel; primary?: boolean; 
       {h.address ? <div className="mt-0.5" style={{ color: SOFT }}>{h.address}</div> : null}
       {h.map_url ? (
         <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5" style={{ color: SOFT }}>
-          <a href={h.map_url} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:underline">Bản đồ →</a>
+          <a href={h.map_url} target="_blank" rel="noreferrer" className="font-semibold text-[var(--planner-orange-link)] hover:underline">Bản đồ →</a>
         </div>
       ) : null}
       {primary ? (
-        <div className="mt-2 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5">
-          <div className="text-[13px] font-bold uppercase tracking-wide text-primary">✨ Gợi ý biên tập</div>
-          <p className="mt-0.5 text-[13px] leading-relaxed" style={{ color: SOFT }}>{HOTEL_REASON_GAN_TRONG_TAM}</p>
+        <div className="mt-2 rounded-lg border border-[#F0D9C4] bg-[var(--planner-surface-editorial)] px-2.5 py-1.5">
+          <div className="text-[13px] font-bold uppercase tracking-wide text-[var(--planner-editorial-text)]">✨ Gợi ý biên tập</div>
+          <p className="mt-0.5 text-[13px] leading-relaxed text-[var(--planner-editorial-text)]">{HOTEL_REASON_GAN_TRONG_TAM}</p>
         </div>
       ) : null}
     </div>

@@ -9,7 +9,7 @@
 import type { DtoRestaurant } from '@/trip-planner/lib/planner/itineraryDto';
 import { displayCategory, stripCitySuffix, isAllDay } from '@/trip-planner/lib/planner/labels';
 
-const INK = '#1E2433', SOFT = '#6B7280', FAINT = '#9AA0AC';
+const INK = '#1E2433', SOFT = '#6B7280', FAINT = 'var(--planner-text-secondary)';
 
 function GioChip({ r }: { r: DtoRestaurant }) {
   if (!r.goi_truoc && r.gio_mo) {
@@ -20,7 +20,7 @@ function GioChip({ r }: { r: DtoRestaurant }) {
 
 function RestaurantCard({ r }: { r: DtoRestaurant }) {
   return (
-    <div className="max-w-[720px] rounded-[10px] border border-border bg-cream px-3.5 py-3 text-[13px] @[1100px]:max-w-none">
+    <div className="max-w-[720px] rounded-[10px] border border-border bg-[var(--planner-surface)] px-3.5 py-3 text-[13px] @[1100px]:max-w-none">
       <div className="flex items-baseline justify-between gap-2">
         <span className="min-w-0 text-[15px] font-semibold" style={{ color: INK }}>
           🍜 {stripCitySuffix(r.name)}
