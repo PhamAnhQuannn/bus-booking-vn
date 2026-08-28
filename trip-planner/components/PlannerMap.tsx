@@ -145,6 +145,9 @@ export default function PlannerMap({ dto, pendingSlug, activeDay, hoveredOrder, 
     L.control.zoom({ position: 'topright' }).addTo(map); // P0-6: né day-tabs (top-left)
     mapRef.current = map;
     overlayRef.current = L.layerGroup().addTo(map);
+    // V5.1 FIX 4: container có thể mount ở size 0/cũ (restore conversation từ sidebar) → Leaflet không
+    // recompute → tile trắng. Recompute sau layout đầu (rAF, không setTimeout mù).
+    requestAnimationFrame(() => mapRef.current?.invalidateSize());
     // Reset TẤT CẢ ref khi unmount — StrictMode (dev) mount 2 lần; nếu baseRef còn giữ layer của
     // map cũ, effect base-layer sẽ early-return và map mới thiếu basemap.
     return () => {
@@ -200,6 +203,7 @@ export default function PlannerMap({ dto, pendingSlug, activeDay, hoveredOrder, 
   useEffect(() => {
     const map = mapRef.current, overlay = overlayRef.current;
     if (!map || !overlay) return;
+    map.invalidateSize(); // V5.1 FIX 4: dto mới (restore) → recompute size + reload tile TRƯỚC fitBounds (chống map trắng)
     overlay.clearLayers();
     markersRef.current.clear();
     if (!dto) return; // pha building: chưa có kế hoạch → không vẽ pin/route
