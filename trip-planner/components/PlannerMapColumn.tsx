@@ -14,37 +14,41 @@ import PlannerMap from '@/trip-planner/components/PlannerMap';
 import type { PlannerDto } from '@/trip-planner/lib/planner/itineraryDto';
 
 type Props = {
-  dto: PlannerDto;
+  dto?: PlannerDto; // optional: pha building center theo pendingSlug, chưa có pin
+  pendingSlug?: string;
   activeDay: number;
   hoveredOrder: number | null;
   selected: { day: number; order: number } | null;
   onPinClick: (day: number, order: number) => void;
   onCloseSheet: () => void;
   shrink?: boolean; // focus input / stream dài → co tạm về SHRINK_H
+  expanded?: boolean; // bấm pin/node → map tạm NỞ (V5 Mục 3); rời tương tác thu về
 };
 
 const clamp = (lo: number, v: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const MIN_MAP = 180;
 const SHRINK_H = 180;
 
-export default function PlannerMapColumn({ dto, activeDay, hoveredOrder, selected, onPinClick, onCloseSheet, shrink }: Props) {
+export default function PlannerMapColumn({ dto, pendingSlug, activeDay, hoveredOrder, selected, onPinClick, onCloseSheet, shrink, expanded }: Props) {
   const t = useTranslations('planner');
   const rootRef = useRef<HTMLDivElement>(null);
-  const [height, setHeight] = useState(280); // px map; ResizeObserver ép về 40% cột
+  const [height, setHeight] = useState(220); // px map GỌN mặc định; ResizeObserver ép về 32% cột
+  const [maxH, setMaxH] = useState(9999); // trần (chừa chat) — dùng cho pha NỞ
   const [mapOff, setMapOff] = useState(false); // user bấm launcher → map ẩn hẳn
-  const userHRef = useRef<number | null>(null); // chiều cao user kéo chốt (null = auto 40%)
+  const userHRef = useRef<number | null>(null); // chiều cao user kéo chốt (null = auto 32%)
   const dragRef = useRef<{ startY: number; startH: number } | null>(null);
 
-  // 40% chiều cao cột trái (đo parentElement). Giữ ý user nếu đã kéo, ép vào biên.
+  // 32% chiều cao cột trái (đo parentElement) — GỌN để nhả chỗ cho messages. Giữ ý user nếu đã kéo.
   useEffect(() => {
     const el = rootRef.current;
     const col = el?.parentElement;
     if (!el || !col) return;
     const ro = new ResizeObserver(() => {
       const H = col.clientHeight;
-      const maxH = Math.max(MIN_MAP, H - 240); // chừa chat ≥ ~240
-      const target = userHRef.current != null ? userHRef.current : 0.4 * H;
-      setHeight(clamp(MIN_MAP, target, maxH));
+      const cap = Math.max(MIN_MAP, H - 240); // chừa chat ≥ ~240
+      setMaxH(cap);
+      const target = userHRef.current != null ? userHRef.current : 0.32 * H;
+      setHeight(clamp(MIN_MAP, target, cap));
     });
     ro.observe(col);
     return () => ro.disconnect();
@@ -67,7 +71,8 @@ export default function PlannerMapColumn({ dto, activeDay, hoveredOrder, selecte
     e.currentTarget.releasePointerCapture(e.pointerId);
   }
 
-  const displayH = shrink ? Math.min(height, SHRINK_H) : height;
+  // shrink (focus/loading) thắng; else NỞ khi tương tác (pin/node) tạm cao thêm ~160px trong trần; else GỌN.
+  const displayH = shrink ? Math.min(height, SHRINK_H) : expanded ? Math.min(height + 160, maxH) : height;
 
   if (mapOff) {
     return (
@@ -88,6 +93,7 @@ export default function PlannerMapColumn({ dto, activeDay, hoveredOrder, selecte
       <div className="relative overflow-hidden border border-border transition-[height] duration-200" style={{ height: displayH }}>
         <PlannerMap
           dto={dto}
+          pendingSlug={pendingSlug}
           activeDay={activeDay}
           hoveredOrder={hoveredOrder}
           selected={selected}
@@ -113,7 +119,7 @@ export default function PlannerMapColumn({ dto, activeDay, hoveredOrder, selecte
         onLostPointerCapture={onHandleUp}
         className="group flex h-3 shrink-0 cursor-row-resize touch-none items-center justify-center"
       >
-        <span className="h-1 w-10 rounded-full bg-border transition-colors group-hover:bg-primary" />
+        <span className="h-1 w-10 rounded-full bg-[#D8D3CA] transition-colors group-hover:bg-primary" />
       </div>
     </div>
   );

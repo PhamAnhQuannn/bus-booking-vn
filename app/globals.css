@@ -190,6 +190,37 @@
   --sidebar-ring: oklch(0.646 0.222 41.116);
 }
 
+/* ── Planner-only token layer (V5) ─────────────────────────────────────────
+   Scope: chỉ subtree `<main class="planner-scope">` của /tro-ly-du-lich. Navbar/footer
+   nằm NGOÀI <main> → KHÔNG bị ảnh hưởng. Nguyên tắc: cắt NGHĨA của cam (3 vai), không cắt
+   độ ấm; một màu = một nghĩa; surface 3 bậc; mọi text ≥4.5:1.
+   Override vài token gốc TRONG scope (--primary/--background/--card/--muted-foreground) để
+   auto-áp cho mọi bg-primary/text-primary/bg-card/bg-background/text-muted-foreground planner
+   mà không phải sửa từng call-site. */
+.planner-scope {
+  /* Cam 3 vai */
+  --planner-orange-action: #C2410C;    /* nút/chip active/bubble user/order-circle — chữ trắng ~4.9:1 */
+  --planner-orange-link: #B03A0E;      /* CHỈ link inline ("Xem thêm", "Bản đồ →") — trên trắng ~5.2:1 */
+  --planner-orange-signature: #F0561D; /* bus/route/pin/nét đứt timeline — KHÔNG dùng làm text */
+  /* Surface 3 bậc + peach editorial độc quyền */
+  --planner-bg: #FDF8F2;
+  --planner-surface: #FFFFFF;
+  --planner-surface-editorial: #FFF3E8;
+  --planner-editorial-text: #7A3A12;   /* nâu đậm trên peach ~8:1 */
+  /* Thang chữ — không giá trị nào <4.5:1 trên nền nó đứng */
+  --planner-text: #1E2433;
+  --planner-text-secondary: #545B66;   /* thay #9AA0AC (2.63:1) → ~5.4:1 */
+  --planner-text-muted: #6B7280;       /* ~4.8:1 */
+  /* Override token gốc TRONG scope (không đụng :root) */
+  --primary: var(--planner-orange-action);
+  --ring: var(--planner-orange-action);
+  --background: var(--planner-bg);
+  --card: var(--planner-surface);
+  --popover: var(--planner-surface);
+  --muted-foreground: var(--planner-text-secondary);
+  --bg-cream: var(--planner-surface); /* map cream reserve → surface (gom tông) */
+}
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);

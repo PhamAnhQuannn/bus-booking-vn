@@ -29,12 +29,12 @@ export function SuggestionCards({ items, vibe, onAdd, onPlan }: Props) {
             <li key={d.id} className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2">
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[14px] font-semibold">{d.name}</div>
-                {d.address ? <div className="truncate text-xs text-muted-foreground">{d.address}</div> : null}
+                {d.address ? <div className="truncate text-[13px] text-muted-foreground">{d.address}</div> : null}
               </div>
               <button
                 type="button"
                 onClick={() => onAdd(d.id, d.name)}
-                className="shrink-0 rounded-full border border-primary/40 bg-background px-2.5 py-1 text-xs font-bold text-primary hover:bg-primary/10"
+                className="shrink-0 rounded-full border border-primary/40 bg-background px-2.5 py-1 text-[13px] font-bold text-primary hover:bg-primary/10"
               >
                 {t('suggestions.add')}
               </button>
@@ -42,7 +42,7 @@ export function SuggestionCards({ items, vibe, onAdd, onPlan }: Props) {
           ))}
         </ul>
       ) : (
-        <p className="mt-1.5 text-xs text-muted-foreground">{t('suggestions.empty')}</p>
+        <p className="mt-1.5 text-[13px] text-muted-foreground">{t('suggestions.empty')}</p>
       )}
       <button
         type="button"

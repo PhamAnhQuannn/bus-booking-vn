@@ -40,7 +40,7 @@ import {
   deriveTitle,
 } from '@/trip-planner/lib/planner/conversationsClient';
 // Deep-import client-safe: máy trạng thái slot tất định (chip = $0, không Gemini).
-import { type Slots, type Ask, nextAsk, optionalAsk, applyChip, complete, mergeIntent, slotsToParams, budgetAsk, transportAsk, foodAsk } from '@/trip-planner/lib/planner/slots';
+import { type Slots, type Ask, nextAsk, optionalAsk, applyChip, complete, mergeIntent, slotsToParams, budgetAsk, transportAsk, foodAsk, extractFromText, applyExtracted, missingRequired } from '@/trip-planner/lib/planner/slots';
 import { deriveLayoutPhase, type LayoutPhase } from '@/trip-planner/lib/planner/layoutPhase';
 import { deriveGenPhase } from '@/trip-planner/lib/planner/genPhase';
 import { CITIES } from '@/trip-planner/lib/planner/cities';
@@ -54,6 +54,9 @@ const PlannerPane = dynamic(() => import('@/trip-planner/components/PlannerPane'
 const PlannerMapColumn = dynamic(() => import('@/trip-planner/components/PlannerMapColumn'), { ssr: false });
 
 type Options = { slot: string; options: string[]; allowCustom: boolean };
+
+// Slug có tile map thật (đồng bộ PlannerMap.TILED_SLUGS) — client-safe, KHÔNG import PlannerMap (kéo Leaflet).
+const TILED = new Set(['da-lat', 'da-nang', 'nha-trang']);
 
 // Giờ HH:mm theo TZ VN — gọi trong HANDLER (không phải render body) nên không phạm RSC-purity.
 function nowHHMM(): string {
@@ -71,6 +74,7 @@ type Msg =
       href?: string;
       error?: boolean;
       retry?: boolean; // lỗi/timeout có thể thử lại (giữ nguyên slot/text)
+      fallback?: boolean; // chat lỗi → có luồng thủ công không-AI (Mục C): hiện nút "Tự chọn lịch trình"
       planning?: boolean;
       suggestions?: DestinationSuggestion[]; // mode vibe-discovery: điểm-đến có tên (KB)
       suggestCity?: string; // slug thành phố của gợi ý (để anchor/lên lịch)
@@ -97,6 +101,8 @@ export default function TroLyDuLichPage() {
   const [loading, setLoading] = useState(false);
   const [slots, setSlots] = useState<Slots>({}); // ràng buộc tích luỹ — chip điền TẤT ĐỊNH (không Gemini)
   const [pendingDestination, setPendingDestination] = useState<string | null>(null); // slug điểm đến bóc SỚM (đang stream) → bung 2 cột trước khi đủ slot
+  const [pendingEdit, setPendingEdit] = useState<Slots | null>(null); // sửa slot SAU khi có dto → chờ xác nhận dựng lại
+  const [slotCardCollapsed, setSlotCardCollapsed] = useState<boolean | null>(null); // null=mặc định theo hasDto; true/false=user override
   const abortRef = useRef<AbortController | null>(null); // hủy chat/itinerary đang chạy (edit slot mid-build / timeout / unmount)
   // Việc cần thử lại khi lỗi/timeout (giữ nguyên slot/text — không bắt gõ lại).
   const retryRef = useRef<{ kind: 'send'; text: string } | { kind: 'build'; slots: Slots } | null>(null);
@@ -147,7 +153,8 @@ export default function TroLyDuLichPage() {
   const lastBotErr = (() => { for (let i = messages.length - 1; i >= 0; i--) { if (messages[i].role === 'bot') return !!(messages[i] as Extract<Msg, { role: 'bot' }>).error; } return false; })();
   // building = đang hướng tới kế hoạch: engine dựng (isGenerating) HOẶC đang chờ Gemini và đã biết điểm đến
   // (pha chờ dài THẬT là Gemini) → skeleton + progress phủ cả khoảng đó, không để pane phải trống.
-  const building = !hasDto && (isGenerating || (loading && destKnown));
+  // building (→ skeleton) CHỈ khi đủ slot (client biết) hoặc engine đang dựng; thiếu slot + đang chờ → funnelPane.
+  const building = !hasDto && (isGenerating || (loading && destKnown && complete(slots)));
   const genPhase = deriveGenPhase({ messageCount: messages.length, building, hasDto, hasError: lastBotErr, anySlot });
   const buildingView = genPhase === 'building';
   const layoutPhase = deriveLayoutPhase({ messageCount: messages.length, hasDto, isGenerating, planned: hasDto || destKnown });
@@ -269,31 +276,57 @@ export default function TroLyDuLichPage() {
     const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
     console.error(`[planner] ${kind} failed`, reqId, e);
     retryRef.current = kind === 'send' ? { kind, text: payload.text ?? '' } : { kind, slots: payload.slots ?? {} };
-    patchBot((m) => ({ ...m, planning: false, text: m.text || t(offline ? 'assistant.offline' : 'assistant.timeoutOrBusy'), error: true, retry: true }));
+    patchBot((m) => ({ ...m, planning: false, text: m.text || t(offline ? 'assistant.offline' : 'assistant.timeoutOrBusy'), error: true, retry: true, fallback: true }));
+  }
+
+  // Đổi conversation: hủy request đang bay + xóa retry payload + hạ loading. Không có nó, request cũ
+  // (send/build) chạy tiếp và patchBot/setDto GHI CHÉO vào conversation MỚI (leak), nút "Thử lại" cũ
+  // vẫn bắn vào phiên mới. (Mục D)
+  function resetInFlight() {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    retryRef.current = null;
+    setLoading(false);
   }
 
   // Thử lại từ bong bóng lỗi HOẶC empty-state panel — chạy lại đúng việc dang dở, không cần gõ lại.
+  // TÁI DÙNG bong bóng lỗi hiện tại (reset về placeholder) thay vì push bubble mới → không xếp chồng
+  // các bubble user/bot trùng lặp khi bấm Thử lại nhiều lần. (Mục D)
   function doRetry() {
     const r = retryRef.current;
     if (!r) return;
     retryRef.current = null;
-    patchBot((m) => ({ ...m, error: false, retry: false })); // gỡ cờ lỗi khỏi bong bóng cũ
-    if (r.kind === 'build') void buildFromSlots(r.slots);
-    else void send(r.text);
+    patchBot((m) => ({ ...m, text: '', error: false, retry: false, fallback: false, planning: r.kind === 'build', dto: undefined, href: undefined, suggestions: undefined }));
+    if (r.kind === 'build') void buildFromSlots(r.slots, { retry: true });
+    else void send(r.text, { retry: true });
   }
 
-  async function buildFromSlots(s: Slots) {
+  // Fallback không-AI (Mục C): chat lỗi → mở luồng chip TẤT ĐỊNH (không gọi /api/planner/chat).
+  // Giữ slot đã bóc được từ tin user cuối; advance() hỏi phần còn thiếu bằng chip → buildFromSlots
+  // → /api/planner/itinerary ($0, không Gemini, không getEnv — sống kể cả khi chat 500).
+  function enterManual() {
+    if (loading) return;
+    const lastUser = [...messages].reverse().find((m): m is Extract<Msg, { role: 'user' }> => m.role === 'user');
+    const base = lastUser ? applyExtracted(slots, extractFromText(lastUser.text)) : slots;
+    retryRef.current = null;
+    patchBot((m) => ({ ...m, error: false, retry: false, fallback: false })); // gỡ trạng thái lỗi
+    advance(base); // thiếu slot → chip hỏi; đủ → dựng luôn qua engine
+  }
+
+  async function buildFromSlots(s: Slots, opts: { retry?: boolean } = {}) {
     abortRef.current?.abort(); // hủy request cũ trước khi tạo mới (edit slot mid-build → dựng lại)
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     const timeout = setTimeout(() => ctrl.abort('timeout'), 45000); // 45s không phản hồi → hủy → lỗi
     const reqId = 'build-' + nowHHMM();
-    setMessages((prev) => [...prev, { role: 'bot', text: '', planning: true, time: nowHHMM() }]);
+    // retry: tái dùng bong bóng lỗi (doRetry đã reset về planning) → KHÔNG push bubble mới.
+    if (!opts.retry) setMessages((prev) => [...prev, { role: 'bot', text: '', planning: true, time: nowHHMM() }]);
     setLoading(true);
     try {
       const res = await fetch('/api/planner/itinerary?' + slotsToParams(s), { headers: { 'X-CSRF-Token': readCsrfToken() }, signal: ctrl.signal });
       if (!res.ok) throw new Error('build ' + res.status);
       const data = (await res.json()) as { dto: PlannerDto; href: string };
+      if (abortRef.current !== ctrl) return; // đổi conversation/abort giữa fetch↔parse → KHÔNG ghi chéo (Mục D)
       setDto(data.dto); setActiveDay(1); setSelected(null); setLastHref(data.href);
       patchBot((m) => ({ ...m, planning: false, text: t('assistant.buildSuccess'), dto: data.dto, href: data.href }));
     } catch (e) {
@@ -310,10 +343,16 @@ export default function TroLyDuLichPage() {
 
   // Sửa 1 slot từ SlotSummaryCard → cập nhật slots; nếu đủ slot → dựng lại (buildFromSlots tự abort
   // request cũ). Sửa lúc đang dựng = huỷ dở + dựng bản mới.
-  function onEditSlot(next: Slots) {
+  function applyEdit(next: Slots) {
     setSlots(next);
     if (next.dia_diem) setPendingDestination(next.dia_diem);
     if (complete(next)) void buildFromSlots(next);
+  }
+  // Sửa slot: phễu/building → áp ngay (abort request cũ trong buildFromSlots). Sau khi có kế hoạch (dto)
+  // → hỏi xác nhận trước khi dựng lại (tránh regenerate ngoài ý muốn).
+  function onEditSlot(next: Slots) {
+    if (hasDto) { setPendingEdit(next); return; }
+    applyEdit(next);
   }
 
   // Click chip → điền slot TẤT ĐỊNH (KHÔNG gọi /chat/Gemini) → advance.
@@ -352,7 +391,7 @@ export default function TroLyDuLichPage() {
   }
 
   // Free-text → 1 Gemini call TRÍCH ràng buộc (stream prose + slots) → merge → advance.
-  async function send(raw: string) {
+  async function send(raw: string, opts: { retry?: boolean } = {}) {
     const text = raw.trim();
     if (!text || loading) return;
     setInput('');
@@ -369,7 +408,13 @@ export default function TroLyDuLichPage() {
       )
       .filter((m) => m.text);
 
-    setMessages((prev) => [...prev, { role: 'user', text, time: nowHHMM() }, { role: 'bot', text: '', time: nowHHMM() }]);
+    // retry: tái dùng bong bóng lỗi cũ (doRetry đã reset text/planning) → KHÔNG push user+bot mới
+    // (chống xếp chồng bubble trùng khi Thử lại nhiều lần). (Mục D)
+    if (!opts.retry) setMessages((prev) => [...prev, { role: 'user', text, time: nowHHMM() }, { role: 'bot', text: '', time: nowHHMM() }]);
+    // OPTIMISTIC: bóc slot client NGAY (trước round-trip) → mount shell 2 cột + skeleton/funnel ≤400ms.
+    const det0 = extractFromText(text);
+    if (det0.dia_diem) setPendingDestination(det0.dia_diem);
+    if (Object.keys(det0).length) setSlots((prev) => applyExtracted(prev, det0));
     abortRef.current?.abort(); // hủy request cũ trước khi tạo mới
     const ctrl = new AbortController();
     abortRef.current = ctrl;
@@ -389,7 +434,7 @@ export default function TroLyDuLichPage() {
       });
       if (!res.ok || !res.body) {
         retryRef.current = { kind: 'send', text };
-        patchBot((m) => ({ ...m, text: m.text || t('assistant.busy'), error: true, retry: true }));
+        patchBot((m) => ({ ...m, text: m.text || t('assistant.busy'), error: true, retry: true, fallback: true }));
         failed = true;
         return;
       }
@@ -430,7 +475,8 @@ export default function TroLyDuLichPage() {
     if (failed && !retryRef.current) { retryRef.current = { kind: 'send', text }; patchBot((m) => ({ ...m, retry: true })); }
     // Lỗi giữa chừng đã hiện bong bóng lỗi rồi — advance() ở đây sẽ thêm tin bot thứ 2 trái ngược
     // trong cùng lượt, nên chỉ advance khi KHÔNG lỗi và KHÔNG phải mode gợi ý. (#528)
-    if (!suggested && !failed) advance(mergeIntent(slots, partial)); // tất định: hỏi thêm bằng chip hoặc dựng — KHÔNG thêm Gemini
+    // tất định: Gemini partial + bóc client (budget-số + nhóm) → hỏi thêm bằng chip hoặc dựng — KHÔNG thêm Gemini
+    if (!suggested && !failed) advance(applyExtracted(mergeIntent(slots, partial), extractFromText(text)));
   }
 
   // Parse 1 SSE frame. token → patchBot; slots → trả {partial}; suggestions → gắn cards + báo suggested; error → patchBot + báo failed.
@@ -465,7 +511,7 @@ export default function TroLyDuLichPage() {
         // SSE error frame (server catch: Gemini quota/no_key/timeout/5xx) — bong bóng lỗi ĐÃ hiện.
         // Báo failed để send() KHÔNG advance() sau đó (2 tin trái nhau). Đây là đường lỗi PHỔ BIẾN,
         // khác đường network-exception ở ngoài catch của send(). (#528)
-        patchBot((m) => ({ ...m, planning: false, text: m.text || String(payload.message ?? t('assistant.genericError')), error: true }));
+        patchBot((m) => ({ ...m, planning: false, text: m.text || String(payload.message ?? t('assistant.genericError')), error: true, fallback: typeof payload.fallbackHref === 'string' && !!payload.fallbackHref }));
         return { failed: true };
       default:
         return null;
@@ -483,6 +529,7 @@ export default function TroLyDuLichPage() {
 
   // ── điều khiển sidebar ──────────────────────────────────────────────────
   async function openConversation(id: string) {
+    resetInFlight(); // hủy request cũ + xóa retry trước khi tải phiên khác (chống ghi chéo) (Mục D)
     const c = await getConversation(id);
     if (!c) return;
     const msgs = fromStored(c.messages);
@@ -499,13 +546,14 @@ export default function TroLyDuLichPage() {
     lastSavedRef.current = id + '|' + JSON.stringify(toStored(msgs));
     setMessages(msgs);
     setConversationId(id);
-    setDto(lastDto); setActiveDay(1); setSelected(null); setHoveredOrder(null); setSlots({}); setPendingDestination(null);
+    setDto(lastDto); setActiveDay(1); setSelected(null); setHoveredOrder(null); setSlots({}); setPendingDestination(null); setPendingEdit(null); setSlotCardCollapsed(null);
     setDrawerOpen(false); setSidebarCollapsed(true); // active → thu gọn sidebar (mock 3)
   }
   function newConversation() {
+    resetInFlight(); // hủy request đang bay + xóa retry (Mục D) — không để build/send cũ ghi vào phiên mới
     // Reset cờ transition cùng nhau TRƯỚC setMessages → phiên mới ở idle, slide sẵn sàng chạy lại.
     skipTransitionRef.current = false; transitionDoneRef.current = false; prevPhaseRef.current = 'idle';
-    setSlots({}); setPendingDestination(null); setMessages([]); setDto(null); setSelected(null); setActiveDay(1);
+    setSlots({}); setPendingDestination(null); setPendingEdit(null); setSlotCardCollapsed(null); setMessages([]); setDto(null); setSelected(null); setActiveDay(1);
     setHoveredOrder(null); setResultFull(false); setInput(''); setConversationId(null); setDrawerOpen(false);
     setSidebarCollapsed(false); // về entry → mở lại sidebar
   }
@@ -514,6 +562,33 @@ export default function TroLyDuLichPage() {
     deleteConversation(id).then(() => { if (id === conversationId) newConversation(); reloadConversations(); }).catch(() => {});
   }
   function onClearAll() { clearAllConversations().then(() => { newConversation(); reloadConversations(); }).catch(() => {}); }
+
+  // Hành động dưới bong bóng lỗi: Thử lại (chạy lại việc dang dở) + Tự chọn lịch trình (luồng thủ công
+  // không-AI, Mục C). Dùng chung cho cả 2 bố cục (wide/narrow) để không lệch nhau.
+  const renderErrorActions = (m: Extract<Msg, { role: 'bot' }>) =>
+    m.error ? (
+      <div className="mt-2 space-y-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          {m.retry ? (
+            <button type="button" onClick={doRetry}
+              className="inline-flex items-center gap-1.5 rounded-full border border-primary px-3 py-1.5 text-[13px] font-semibold text-primary outline-none transition-colors hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-ring/60">
+              ↻ {t('assistant.retry')}
+            </button>
+          ) : null}
+          {m.fallback ? (
+            <button type="button" onClick={enterManual}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3 py-1.5 text-[13px] font-semibold text-foreground outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring/60">
+              {t('assistant.manualFallback')}
+            </button>
+          ) : null}
+        </div>
+        {m.fallback ? (
+          <p className="text-[13px] text-muted-foreground">{t('assistant.manualFallbackHint')}</p>
+        ) : !m.retry ? (
+          <p className="text-[13px] text-muted-foreground">{t('assistant.tryAgain')}</p>
+        ) : null}
+      </div>
+    ) : null;
 
   // Pane phải (right-split): PlannerPane tự tính tier + mapH (aspect-lock). Dùng cho cột phải desktop
   // (inline) LẪN overlay fullscreen (overlay). variant đổi cách xử SHORT-tier.
@@ -533,10 +608,28 @@ export default function TroLyDuLichPage() {
       <div>
         <div className="text-4xl" aria-hidden>🗺️</div>
         <p className="mx-auto mt-3 max-w-[240px] text-sm font-semibold text-muted-foreground">{t('assistant.panelErrorTitle')}</p>
-        <button type="button" onClick={doRetry}
-          className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/60">
-          ↻ {t('assistant.retry')}
-        </button>
+        <div className="mt-3 flex flex-col items-center gap-2">
+          <button type="button" onClick={doRetry}
+            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/60">
+            ↻ {t('assistant.retry')}
+          </button>
+          <button type="button" onClick={enterManual}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-4 py-2 text-[13px] font-semibold text-foreground outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring/60">
+            {t('assistant.manualFallback')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+  // Panel pha PHỄU (đã có ≥1 slot, chưa build, chưa dto) — hướng người dùng vào việc còn thiếu.
+  const missing = missingRequired(slots);
+  const funnelPane = (
+    <div className="grid h-full w-full place-items-center bg-white p-6 text-center">
+      <div>
+        <div className="text-4xl" aria-hidden>💬</div>
+        <p className="mx-auto mt-3 max-w-[250px] text-sm font-semibold text-muted-foreground">
+          {t(missing > 0 ? 'assistant.funnelHint' : 'assistant.funnelHintReady', { n: missing })}
+        </p>
       </div>
     </div>
   );
@@ -550,6 +643,7 @@ export default function TroLyDuLichPage() {
         onPinClick={onPinClick}
         onCloseSheet={() => setSelected(null)}
         onSelectDay={setActiveDay}
+        onActiveDayChange={setActiveDay}
         onHoverItem={setHoveredOrder}
         variant={variant}
         onOpenFull={() => setResultFull(true)}
@@ -560,6 +654,8 @@ export default function TroLyDuLichPage() {
       buildingPane
     ) : lastBotErr ? (
       errorPane
+    ) : anySlot ? (
+      funnelPane
     ) : (
       emptyState
     );
@@ -586,16 +682,16 @@ export default function TroLyDuLichPage() {
 
   // ── mảnh chat dùng chung (narrow + wide) ─────────────────────────────────
   const chatTopBar = (
-    <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#E4D8C9] px-4 py-2.5">
+    <div className="flex shrink-0 items-center justify-between gap-2 px-4 py-2.5">
       <button type="button" onClick={() => setDrawerOpen(true)} aria-label={t('assistant.historyAria')}
-        className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold lg:hidden">
+        className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[13px] font-semibold lg:hidden">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
         {t('assistant.history')}
       </button>
       <span className="hidden text-sm font-semibold text-muted-foreground lg:inline">{isEntry ? '' : t('assistant.assistantName')}</span>
       {!isEntry ? (
         <button type="button" onClick={newConversation}
-          className="shrink-0 whitespace-nowrap rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-primary/5">
+          className="shrink-0 whitespace-nowrap rounded-full border border-border px-3 py-1.5 text-[13px] font-semibold hover:bg-primary/5">
           {t('assistant.newConversation')}
         </button>
       ) : <span />}
@@ -604,8 +700,62 @@ export default function TroLyDuLichPage() {
 
   // Card tóm tắt slot (state Understood) — thay statusLine + PlannerStepper. Hiện khi đã có ≥1 slot.
   // Chip LUÔN bấm được (kể cả đang dựng) → sửa mid-build = huỷ + dựng lại (onEditSlot).
-  const destName = CITIES.find((c) => c.slug === (slots.dia_diem ?? pendingDestination ?? ''))?.ten ?? '';
-  const slotCard = anySlot ? <SlotSummaryCard slots={slots} onEdit={onEditSlot} /> : null;
+  const destSlug = slots.dia_diem ?? pendingDestination ?? undefined;
+  const destName = CITIES.find((c) => c.slug === destSlug)?.ten ?? '';
+  const tiledPending = !dto && !!destSlug && TILED.has(destSlug); // building + điểm đến có tile → map thật (overlay)
+  // Slot card GHIM (sticky) đầu vùng cuộn — không trôi mất khi chat dài. Sau reveal thu gọn 1 dòng.
+  // Confirm bar nêu RÕ thay đổi: diff slots↔pendingEdit → "Đổi Nhóm → "Cặp đôi", ...".
+  const KNOWN_INTEREST = ['ngam-canh', 'tam-linh', 'lich-su-van-hoa', 'thien-nhien-mao-hiem', 'mua-sam', 'nong-nghiep-sinh-thai', 'bien-dao', 'suoi-nuoc-nong', 'song-ao-chup-hinh', 'thu-gian-yen-tinh', 'lang-man', 'ca-phe', 'am-thuc'];
+  const iLabel = (c: string) => (KNOWN_INTEREST.includes(c) ? t(`slotCard.interest.${c}`) : c.charAt(0).toUpperCase() + c.slice(1));
+  const budShort = (vnd: number) => { const m = Math.round(vnd / 100_000) / 10; return vnd >= 1_000_000 ? t('slotCard.budgetPerPerson', { amount: m % 1 === 0 ? String(m) : m.toFixed(1) }) : t('slotCard.budgetPerPersonK', { amount: Math.round(vnd / 1000) }); };
+  const describeChanges = (o: Slots, n: Slots): string => {
+    const items: string[] = [];
+    const push = (slotKey: string, val: string) => items.push(t('slotCard.changeItem', { slot: t(`slotCard.${slotKey}`), value: val }));
+    if (n.dia_diem !== o.dia_diem && n.dia_diem) push('destination', CITIES.find((c) => c.slug === n.dia_diem)?.ten ?? n.dia_diem);
+    if (n.days !== o.days && n.days) push('days', t('slotCard.dayUnit', { n: n.days }));
+    if (n.nhom !== o.nhom && n.nhom) push('groupPlaceholder', t(`slotCard.group.${n.nhom}`));
+    const budN = n.budgetPerPerson ? `n${n.budgetPerPerson}` : n.budget ?? '', budO = o.budgetPerPerson ? `n${o.budgetPerPerson}` : o.budget ?? '';
+    if (budN !== budO && (n.budgetPerPerson || n.budget)) push('budget', n.budgetPerPerson ? budShort(n.budgetPerPerson) : t(`slotCard.budgetLabel.${n.budget}`));
+    if ((n.interests ?? []).join(',') !== (o.interests ?? []).join(',')) push('interests', (n.interests ?? []).map(iLabel).join(', '));
+    return items.join(', ');
+  };
+  const isCollapsed = slotCardCollapsed === null ? hasDto : slotCardCollapsed;
+  const slotCard = anySlot ? (
+    <div className="sticky top-0 z-raised -mx-4 mb-1 bg-white/95 px-4 pt-2 backdrop-blur-sm">
+      {isCollapsed ? (
+        <button type="button" onClick={() => setSlotCardCollapsed(false)}
+          className="flex w-full items-center gap-2 rounded-xl border border-[#F0EAE2] bg-white px-3 py-2 text-[13px] shadow-e1 outline-none focus-visible:ring-2 focus-visible:ring-ring/60">
+          <span aria-hidden>📍</span>
+          <span className="font-semibold text-foreground">{destName || '—'}</span>
+          {slots.days ? <span className="text-muted-foreground">· {t('slotCard.dayUnit', { n: slots.days })}</span> : null}
+          <span className="ml-auto font-semibold text-primary">{t('slotCard.editShort')} ▾</span>
+        </button>
+      ) : (
+        <>
+          <SlotSummaryCard slots={slots} onEdit={onEditSlot} />
+          {hasDto ? (
+            <button type="button" onClick={() => setSlotCardCollapsed(true)}
+              className="mt-0.5 px-1 text-[13px] font-semibold text-muted-foreground outline-none hover:text-primary focus-visible:text-primary">
+              {t('slotCard.collapse')} ▴
+            </button>
+          ) : null}
+        </>
+      )}
+      {pendingEdit ? (
+        <div className="mt-1.5 flex flex-wrap items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-[13px]">
+          <span className="font-medium text-foreground">{describeChanges(slots, pendingEdit) ? t('slotCard.confirmChange', { changes: describeChanges(slots, pendingEdit) }) : t('slotCard.confirmRebuild')}</span>
+          <button type="button" onClick={() => { applyEdit(pendingEdit); setPendingEdit(null); setSlotCardCollapsed(false); }}
+            className="ml-auto rounded-full bg-primary px-3 py-1 font-semibold text-primary-foreground outline-none hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/60">
+            {t('slotCard.rebuild')}
+          </button>
+          <button type="button" onClick={() => setPendingEdit(null)}
+            className="rounded-full border border-border px-3 py-1 font-semibold outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/60">
+            {t('slotCard.cancel')}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  ) : null;
   const progressBlock = buildingView ? <ProgressStages active={buildingView} settled={false} destination={destName} /> : null;
 
   const messagesBlock = (
@@ -615,28 +765,21 @@ export default function TroLyDuLichPage() {
         return m.role === 'user' ? (
           <div key={idx} style={{ marginTop: mt }} className="max-w-[min(78%,460px)] self-end rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-[15px] text-primary-foreground">
             {m.text}
-            {m.time ? <span className="mt-0.5 block text-right text-[10px] text-primary-foreground/70">{m.time} ✓✓</span> : null}
+            {m.time ? <span className="mt-0.5 block text-right text-[13px] text-primary-foreground/70">{m.time} ✓✓</span> : null}
           </div>
         ) : (
           <div key={idx} style={{ marginTop: mt }} className="flex w-full gap-2.5 self-start">
             <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/10 text-base" aria-hidden>🤖</span>
             <div className="min-w-0 max-w-[min(90%,560px)] flex-1">
-              <div className="rounded-2xl rounded-bl-md border px-4 py-3 text-[15px] leading-6 text-foreground" style={{ background: '#FEFCF7', borderColor: '#F0EAE2' }}>
+              <div className="rounded-2xl rounded-bl-md border px-4 py-3 text-[15px] leading-6 text-foreground" style={{ background: 'var(--planner-surface)', borderColor: '#F0EAE2' }}>
                 {m.text ? <p className="whitespace-pre-wrap">{m.text}</p> : <p className="text-muted-foreground">{t('assistant.typing')}</p>}
-                {m.planning ? <p className="mt-2 text-xs text-muted-foreground">{t('assistant.planningFromData')}</p> : null}
+                {m.planning ? <p className="mt-2 text-[13px] text-muted-foreground">{t('assistant.planningFromData')}</p> : null}
                 {m.options && m.options.options.length && messages[idx + 1]?.role === 'user' ? (
-                  <p className="mt-2 text-xs" style={{ color: '#9AA0AC' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
+                  <p className="mt-2 text-[13px]" style={{ color: 'var(--planner-text-secondary)' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
                 ) : null}
-                {m.error && m.retry ? (
-                  <button type="button" onClick={doRetry}
-                    className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-primary px-3 py-1.5 text-xs font-semibold text-primary outline-none transition-colors hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-ring/60">
-                    ↻ {t('assistant.retry')}
-                  </button>
-                ) : m.error ? (
-                  <p className="mt-2 text-xs text-muted-foreground">{t('assistant.tryAgain')}</p>
-                ) : null}
+                {renderErrorActions(m)}
               </div>
-              {m.time ? <span className="mt-0.5 block px-1 text-[10px] text-muted-foreground">{m.time}</span> : null}
+              {m.time ? <span className="mt-0.5 block px-1 text-[13px] text-muted-foreground">{m.time}</span> : null}
               {m.dto ? <TripReceipt dto={m.dto} onActivate={activateArtifact} onSelectDay={setActiveDay} /> : null}
               {m.suggestions ? (
                 <SuggestionCards
@@ -674,7 +817,7 @@ export default function TroLyDuLichPage() {
   const composerZone = (maxW: string) => (
     <div className={`mx-auto w-full shrink-0 px-4 pb-5 pt-3 ${maxW}`}>
       {!isEntry && dto && !activeAsk ? (
-        <p className="mb-2 px-1 text-xs leading-relaxed" style={{ color: '#9AA0AC' }}>
+        <p className="mb-2 px-1 text-[13px] leading-relaxed" style={{ color: 'var(--planner-text-secondary)' }}>
           {t.rich('assistant.tip', { b: (chunks) => <b className="font-semibold">{chunks}</b> })}
         </p>
       ) : null}
@@ -693,7 +836,7 @@ export default function TroLyDuLichPage() {
           {([[t('assistant.filterInterests'), 'so_thich'], [t('assistant.filterTransport'), 'phuong_tien'], [t('assistant.filterFood'), 'an_uong']] as [string, 'so_thich' | 'phuong_tien' | 'an_uong'][]).map(
             ([label, kind]) => (
               <button key={kind} type="button" onClick={() => openFilter(kind)} disabled={loading}
-                className="flex items-center gap-1.5 rounded-full border border-[#F0EAE2] bg-white px-3 py-1.5 text-[12.5px] font-medium text-foreground transition-colors hover:border-primary hover:bg-primary/5 disabled:opacity-40">
+                className="flex items-center gap-1.5 rounded-full border border-[#F0EAE2] bg-white px-3 py-1.5 text-[14px] font-medium text-foreground transition-colors hover:border-primary hover:bg-primary/5 disabled:opacity-40">
                 {label}
               </button>
             ),
@@ -702,7 +845,7 @@ export default function TroLyDuLichPage() {
       ) : null}
       <PlannerComposer value={input} onChange={setInput} onSubmit={() => send(input)} disabled={loading} busy={loading} />
       {isEntry ? (
-        <p className="mt-2.5 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+        <p className="mt-2.5 flex items-center justify-center gap-1.5 text-[13px] text-muted-foreground">
           <span aria-hidden>🔒</span> {t('assistant.privacy')}
         </p>
       ) : null}
@@ -747,19 +890,22 @@ export default function TroLyDuLichPage() {
         {composerZone('max-w-[780px]')}
       </section>
     ) : (
-      <div className="bb-scene-in grid min-h-0 w-full flex-1" style={{ gridTemplateColumns: 'minmax(420px,42%) 1fr' }}>
+      <div className="bb-scene-in grid min-h-0 w-full flex-1" style={{ gridTemplateColumns: 'minmax(380px,38%) 1fr' }}>
         <style>{`@keyframes v4PaneIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}.v4-pane-in{animation:v4PaneIn .35s ease-out}@media (prefers-reduced-motion: reduce){.v4-pane-in{animation:none}}`}</style>
         {/* CỘT TRÁI — bản đồ (trên) + chat (dưới) */}
         <div className="flex min-h-0 flex-col border-r border-[#E4D8C9]">
-          {dto ? (
+          {dto || tiledPending ? (
             <PlannerMapColumn
-              dto={dto}
+              key={conversationId ?? 'new'} /* đổi conversation → remount map sạch (reset mapOff, tile mới), tránh map xám (Mục D) */
+              dto={dto ?? undefined}
+              pendingSlug={destSlug}
               activeDay={activeDay}
               hoveredOrder={hoveredOrder}
               selected={selected}
               onPinClick={onPinClick}
               onCloseSheet={() => setSelected(null)}
               shrink={shrinkMap}
+              expanded={!!selected}
             />
           ) : mapReserve}
           <div onFocusCapture={() => setComposerFocused(true)} onBlurCapture={() => setComposerFocused(false)} className="flex min-h-0 flex-1 flex-col">
@@ -800,6 +946,8 @@ export default function TroLyDuLichPage() {
             buildingPane
           ) : lastBotErr ? (
             errorPane
+          ) : anySlot ? (
+            funnelPane
           ) : (
             emptyState
           )}
@@ -808,7 +956,7 @@ export default function TroLyDuLichPage() {
     );
 
   return (
-    <main ref={mainRef} className="flex h-[calc(100dvh-56px)] w-full flex-col overflow-hidden bg-white lg:h-[calc(100dvh-64px)] lg:flex-row">
+    <main ref={mainRef} className="planner-scope flex h-[calc(100dvh-56px)] w-full flex-col overflow-hidden bg-[var(--planner-bg)] lg:h-[calc(100dvh-64px)] lg:flex-row">
       {/* SIDEBAR desktop — lịch sử / brand-intro. Rộng ~26%W (đo từ mock) + clamp → bền tỉ lệ. */}
       <div className={`hidden lg:flex lg:h-full lg:shrink-0 ${sidebarCollapsed ? '' : 'lg:w-[26%] lg:min-w-[264px] lg:max-w-[360px]'}`}>
         <PlannerSidebar {...sidebarProps} collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed((v) => !v)} />
@@ -830,16 +978,16 @@ export default function TroLyDuLichPage() {
         style={{ '--chat-w': chatW == null ? '37%' : chatW + 'px' } as React.CSSProperties}
         className={`flex min-h-0 w-full flex-col lg:min-w-0 ${isEntry ? 'lg:flex-1' : 'lg:w-[var(--chat-w,37%)] lg:shrink-0'}`}>
         {/* Top bar mảnh: nút mở lịch sử (mobile) + nút "mới" khi đang chat */}
-        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#E4D8C9] px-4 py-2.5">
+        <div className="flex shrink-0 items-center justify-between gap-2 px-4 py-2.5">
           <button type="button" onClick={() => setDrawerOpen(true)} aria-label={t('assistant.historyAria')}
-            className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold lg:hidden">
+            className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[13px] font-semibold lg:hidden">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
             {t('assistant.history')}
           </button>
           <span className="hidden text-sm font-semibold text-muted-foreground lg:inline">{isEntry ? '' : t('assistant.assistantName')}</span>
           {!isEntry ? (
             <button type="button" onClick={newConversation}
-              className="shrink-0 whitespace-nowrap rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-primary/5">
+              className="shrink-0 whitespace-nowrap rounded-full border border-border px-3 py-1.5 text-[13px] font-semibold hover:bg-primary/5">
               {t('assistant.newConversation')}
             </button>
           ) : <span />}
@@ -847,7 +995,16 @@ export default function TroLyDuLichPage() {
 
         <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           {isEntry ? (
-            <PlannerEntry onPick={send} disabled={loading} />
+            <PlannerEntry onPick={send} disabled={loading} composerSlot={
+              <>
+                <div className="rounded-2xl ring-[1.5px] ring-[var(--planner-orange-action)] focus-within:ring-2">
+                  <PlannerComposer value={input} onChange={setInput} onSubmit={() => send(input)} disabled={loading} busy={loading} />
+                </div>
+                <p className="mt-2.5 flex items-center justify-center gap-1.5 text-[13px] text-muted-foreground">
+                  <span aria-hidden>🔒</span> {t('assistant.privacy')}
+                </p>
+              </>
+            } />
           ) : (
             <div className="mx-auto flex w-full max-w-[46rem] flex-1 flex-col px-4 pb-2 pt-3">
               {slotCard}
@@ -858,7 +1015,7 @@ export default function TroLyDuLichPage() {
                   return m.role === 'user' ? (
                     <div key={idx} style={{ marginTop: mt }} className="max-w-[min(78%,460px)] self-end rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-[15px] text-primary-foreground">
                       {m.text}
-                      {m.time ? <span className="mt-0.5 block text-right text-[10px] text-primary-foreground/70">{m.time} ✓✓</span> : null}
+                      {m.time ? <span className="mt-0.5 block text-right text-[13px] text-primary-foreground/70">{m.time} ✓✓</span> : null}
                     </div>
                   ) : (
                     <div key={idx} style={{ marginTop: mt }} className="flex w-full gap-2.5 self-start">
@@ -866,22 +1023,15 @@ export default function TroLyDuLichPage() {
                       <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/10 text-base" aria-hidden>🤖</span>
                       <div className="min-w-0 max-w-[min(90%,560px)] flex-1">
                         {/* Bubble bot — nền #FEFCF7 + viền hairline #F0EAE2 (đo từ mock) */}
-                        <div className="rounded-2xl rounded-bl-md border px-4 py-3 text-[15px] leading-6 text-foreground" style={{ background: '#FEFCF7', borderColor: '#F0EAE2' }}>
+                        <div className="rounded-2xl rounded-bl-md border px-4 py-3 text-[15px] leading-6 text-foreground" style={{ background: 'var(--planner-surface)', borderColor: '#F0EAE2' }}>
                           {m.text ? <p className="whitespace-pre-wrap">{m.text}</p> : <p className="text-muted-foreground">{t('assistant.typing')}</p>}
-                          {m.planning ? <p className="mt-2 text-xs text-muted-foreground">{t('assistant.planningFromData')}</p> : null}
+                          {m.planning ? <p className="mt-2 text-[13px] text-muted-foreground">{t('assistant.planningFromData')}</p> : null}
                           {m.options && m.options.options.length && messages[idx + 1]?.role === 'user' ? (
-                            <p className="mt-2 text-xs" style={{ color: '#9AA0AC' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
+                            <p className="mt-2 text-[13px]" style={{ color: 'var(--planner-text-secondary)' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
                           ) : null}
-                          {m.error && m.retry ? (
-                  <button type="button" onClick={doRetry}
-                    className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-primary px-3 py-1.5 text-xs font-semibold text-primary outline-none transition-colors hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-ring/60">
-                    ↻ {t('assistant.retry')}
-                  </button>
-                ) : m.error ? (
-                  <p className="mt-2 text-xs text-muted-foreground">{t('assistant.tryAgain')}</p>
-                ) : null}
+                          {renderErrorActions(m)}
                         </div>
-                        {m.time ? <span className="mt-0.5 block px-1 text-[10px] text-muted-foreground">{m.time}</span> : null}
+                        {m.time ? <span className="mt-0.5 block px-1 text-[13px] text-muted-foreground">{m.time}</span> : null}
 
                         {m.dto ? <TripReceipt dto={m.dto} onActivate={activateArtifact} onSelectDay={setActiveDay} /> : null}
                         {m.suggestions ? (
@@ -925,7 +1075,7 @@ export default function TroLyDuLichPage() {
             Entry rộng ~800px khớp khối card; active hẹp hơn (45rem) cho dễ đọc chat. */}
         <div className={`mx-auto w-full shrink-0 px-4 pb-5 pt-3 ${isEntry ? 'max-w-[800px]' : 'max-w-[45rem]'}`}>
           {!isEntry && dto && !activeAsk ? (
-            <p className="mb-2 px-1 text-xs leading-relaxed" style={{ color: '#9AA0AC' }}>
+            <p className="mb-2 px-1 text-[13px] leading-relaxed" style={{ color: 'var(--planner-text-secondary)' }}>
               {t.rich('assistant.tip', { b: (chunks) => <b className="font-semibold">{chunks}</b> })}
             </p>
           ) : null}
@@ -949,18 +1099,19 @@ export default function TroLyDuLichPage() {
               {([[t('assistant.filterInterests'), 'so_thich'], [t('assistant.filterTransport'), 'phuong_tien'], [t('assistant.filterFood'), 'an_uong']] as [string, 'so_thich' | 'phuong_tien' | 'an_uong'][]).map(
                 ([label, kind]) => (
                   <button key={kind} type="button" onClick={() => openFilter(kind)} disabled={loading}
-                    className="flex items-center gap-1.5 rounded-full border border-[#F0EAE2] bg-white px-3 py-1.5 text-[12.5px] font-medium text-foreground transition-colors hover:border-primary hover:bg-primary/5 disabled:opacity-40">
+                    className="flex items-center gap-1.5 rounded-full border border-[#F0EAE2] bg-white px-3 py-1.5 text-[14px] font-medium text-foreground transition-colors hover:border-primary hover:bg-primary/5 disabled:opacity-40">
                     {label}
                   </button>
                 ),
               )}
             </div>
           ) : null}
-          <PlannerComposer value={input} onChange={setInput} onSubmit={() => send(input)} disabled={loading} busy={loading} />
-          {isEntry ? (
-            <p className="mt-2.5 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
-              <span aria-hidden>🔒</span> {t('assistant.privacy')}
-            </p>
+          {/* Entry: composer đã lên trên (PlannerEntry, input-first). Active: composer về đáy — fade
+              vào mềm khi chuyển cảnh (V5 Mục 2, không true-FLIP; reduced-motion tắt qua bb-scene-in). */}
+          {!isEntry ? (
+            <div className="bb-scene-in">
+              <PlannerComposer value={input} onChange={setInput} onSubmit={() => send(input)} disabled={loading} busy={loading} />
+            </div>
           ) : null}
         </div>
       </section>
@@ -970,7 +1121,7 @@ export default function TroLyDuLichPage() {
         <div role="separator" aria-orientation="vertical" aria-label={t('assistant.splitterAria')}
           onPointerDown={onSplitDown} onPointerMove={onSplitMove} onPointerUp={onSplitUp} onLostPointerCapture={onSplitUp}
           className="group hidden w-2 shrink-0 cursor-col-resize touch-none items-center justify-center lg:flex">
-          <span className="h-10 w-1 rounded-full bg-border transition-colors group-hover:bg-primary" />
+          <span className="h-10 w-1 rounded-full bg-[#D8D3CA] transition-colors group-hover:bg-primary" />
         </div>
       ) : null}
 
@@ -987,7 +1138,7 @@ export default function TroLyDuLichPage() {
         <div className="fixed inset-0 z-overlay-panel flex flex-col bg-background">
           <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-3">
             <span className="text-sm font-semibold">{t('assistant.itineraryAndMap')}</span>
-            <button type="button" onClick={() => setResultFull(false)} className="rounded-full border border-border px-3 py-1.5 text-xs font-bold">
+            <button type="button" onClick={() => setResultFull(false)} className="rounded-full border border-border px-3 py-1.5 text-[13px] font-bold">
               {t('assistant.backToChat')}
             </button>
           </div>

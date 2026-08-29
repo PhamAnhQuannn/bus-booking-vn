@@ -15,28 +15,28 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Popover } from '@base-ui/react/popover';
 import { CITIES } from '@/trip-planner/lib/planner/cities';
-import type { Slots, Nhom, Budget } from '@/trip-planner/lib/planner/slots';
+import { withGroup, type Slots, type Nhom, type Budget } from '@/trip-planner/lib/planner/slots';
 
 const GROUP_CODES: Nhom[] = ['cap-doi', 'gia-dinh', 'ban-be', 'cong-tac'];
 const BUDGET_CODES: Budget[] = ['tiet-kiem', 'vua', 'thoai-mai'];
-const INTEREST_CODES = ['ngam-canh', 'tam-linh', 'lich-su-van-hoa', 'lang-man', 'song-ao-chup-hinh', 'thu-gian-yen-tinh'];
+// 11 mã VIBE_VOCAB + 2 mã DISPLAY-only (ca-phe/am-thuc) → không còn raw-slug trên chip.
+const INTEREST_CODES = ['ngam-canh', 'tam-linh', 'lich-su-van-hoa', 'thien-nhien-mao-hiem', 'mua-sam', 'nong-nghiep-sinh-thai', 'bien-dao', 'suoi-nuoc-nong', 'song-ao-chup-hinh', 'thu-gian-yen-tinh', 'lang-man', 'ca-phe', 'am-thuc'];
 const DAY_OPTIONS = [2, 3, 4, 5, 7];
 
 const cityName = (slug?: string) => CITIES.find((c) => c.slug === slug)?.ten ?? '';
 const persons = (s: Slots) => (s.adults ?? 0) + (s.children ?? 0) + (s.elders ?? 0);
 
-// nhom → preset party + bias (giữ đồng bộ applyChip trong slots.ts; set code trực tiếp, không qua nhãn VI).
-function withGroup(s: Slots, code: Nhom): Slots {
-  const n: Slots = { ...s, nhom: code };
-  if (persons(n) === 0) {
-    if (code === 'cap-doi') n.adults = 2;
-    else if (code === 'gia-dinh') { n.adults = 2; n.children = 2; }
-    else if (code === 'ban-be') n.adults = 4;
-    else n.adults = 1;
-  }
-  if (code === 'cap-doi' && !(n.interests ?? []).includes('lang-man')) n.interests = [...(n.interests ?? []), 'lang-man'];
-  if (code === 'gia-dinh') n.avoidSteep = n.avoidSteep ?? true;
-  return n;
+type Tr = ReturnType<typeof useTranslations>;
+// Nhãn mã sở thích; mã lạ → title-case + warn (TUYỆT ĐỐI không raw slug).
+function interestLabel(code: string, t: Tr): string {
+  if (INTEREST_CODES.includes(code)) return t(`slotCard.interest.${code}`);
+  console.warn('[SlotSummaryCard] thiếu nhãn cho mã sở thích:', code);
+  return code.charAt(0).toUpperCase() + code.slice(1).replace(/-/g, ' ');
+}
+// Ngân sách SỐ → "~3 triệu/người" (soft, chỉ hiển thị).
+function fmtBudget(vnd: number, t: Tr): string {
+  if (vnd >= 1_000_000) { const m = Math.round(vnd / 100_000) / 10; return t('slotCard.budgetPerPerson', { amount: m % 1 === 0 ? String(m) : m.toFixed(1) }); }
+  return t('slotCard.budgetPerPersonK', { amount: Math.round(vnd / 1000) });
 }
 
 type Props = { slots: Slots; disabled?: boolean; onEdit: (next: Slots) => void };
@@ -44,9 +44,8 @@ type Props = { slots: Slots; disabled?: boolean; onEdit: (next: Slots) => void }
 export function SlotSummaryCard({ slots, disabled, onEdit }: Props) {
   const t = useTranslations('planner');
   const groupLabel = slots.nhom ? t(`slotCard.group.${slots.nhom}`) : persons(slots) > 0 ? t('slotCard.persons', { n: persons(slots) }) : '';
-  const interestsLabel = (slots.interests ?? [])
-    .map((c) => (INTEREST_CODES.includes(c) ? t(`slotCard.interest.${c}`) : c))
-    .join(', ');
+  const budgetValue = slots.budgetPerPerson ? fmtBudget(slots.budgetPerPerson, t) : slots.budget ? t(`slotCard.budgetLabel.${slots.budget}`) : '';
+  const interestCodes = slots.interests ?? [];
 
   return (
     <div className="mb-2 rounded-2xl border border-[#F0EAE2] bg-white p-3 shadow-e1">
@@ -78,23 +77,25 @@ export function SlotSummaryCard({ slots, disabled, onEdit }: Props) {
           )}
         </Chip>
 
-        {/* 💰 Ngân sách */}
-        <Chip icon="💰" placeholder={t('slotCard.budget')} value={slots.budget ? t(`slotCard.budgetLabel.${slots.budget}`) : ''} disabled={disabled}
-          aria={t('slotCard.editBudget', { value: slots.budget ? t(`slotCard.budgetLabel.${slots.budget}`) : t('slotCard.budget') })}>
+        {/* 💰 Ngân sách — số (ưu tiên) hoặc hạng */}
+        <Chip icon="💰" placeholder={t('slotCard.budget')} value={budgetValue} disabled={disabled}
+          aria={t('slotCard.editBudget', { value: budgetValue || t('slotCard.budget') })}>
           {(close) => (
-            <OptionList options={BUDGET_CODES.map((c) => ({ code: c, label: t(`slotCard.budgetLabel.${c}`), active: slots.budget === c }))}
-              onPick={(code) => { onEdit({ ...slots, budget: code as Budget }); close(); }} />
+            <BudgetEditor slots={slots} t={t} onPick={(next) => { onEdit(next); close(); }} />
           )}
         </Chip>
 
-        {/* ❤️ Sở thích (multi — commit khi đóng) */}
-        <Chip icon="❤️" placeholder={t('slotCard.interests')} value={interestsLabel} disabled={disabled}
-          aria={t('slotCard.editInterests', { value: interestsLabel || t('slotCard.interests') })}>
-          {(close) => (
-            <InterestsEditor current={slots.interests ?? []} t={t}
-              onCommit={(next) => { onEdit({ ...slots, interests: next }); close(); }} />
-          )}
-        </Chip>
+        {/* ❤️ Sở thích — MỖI mã 1 chip riêng (không gộp); bấm bất kỳ để mở editor 11 mã */}
+        {(interestCodes.length ? interestCodes : [null]).map((code, i) => (
+          <Chip key={code ?? `empty-${i}`} icon="❤️" placeholder={t('slotCard.interests')}
+            value={code ? interestLabel(code, t) : ''} disabled={disabled}
+            aria={t('slotCard.editInterests', { value: code ? interestLabel(code, t) : t('slotCard.interests') })}>
+            {(close) => (
+              <InterestsEditor current={interestCodes} t={t}
+                onCommit={(next) => { onEdit({ ...slots, interests: next }); close(); }} />
+            )}
+          </Chip>
+        ))}
       </div>
     </div>
   );
@@ -191,6 +192,29 @@ function InterestsEditor({ current, onCommit, t }: { current: string[]; onCommit
         className="mt-1 rounded-lg bg-primary px-2.5 py-2 text-center text-[13px] font-semibold text-primary-foreground outline-none hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/60">
         {t('slotCard.done')}
       </button>
+    </div>
+  );
+}
+
+// Ngân sách — 3 preset hạng + ô nhập SỐ tự do (triệu/người). Số hủy hạng và ngược lại.
+function BudgetEditor({ slots, onPick, t }: { slots: Slots; onPick: (next: Slots) => void; t: Tr }) {
+  const [num, setNum] = useState(slots.budgetPerPerson ? String(Math.round(slots.budgetPerPerson / 100_000) / 10) : '');
+  const submitNum = () => { const v = parseFloat(num.replace(',', '.')); if (v > 0) onPick({ ...slots, budgetPerPerson: Math.round(v * 1_000_000), budget: undefined }); };
+  return (
+    <div className="flex flex-col gap-0.5">
+      <OptionList options={BUDGET_CODES.map((c) => ({ code: c, label: t(`slotCard.budgetLabel.${c}`), active: slots.budget === c && !slots.budgetPerPerson }))}
+        onPick={(code) => onPick({ ...slots, budget: code as Budget, budgetPerPerson: undefined })} />
+      <div className="mt-1 flex items-center gap-1.5 border-t border-[#F0EAE2] pt-2">
+        <input type="number" inputMode="decimal" min="0" step="0.5" value={num} onChange={(e) => setNum(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitNum(); } }}
+          placeholder={t('slotCard.budgetInputPlaceholder')}
+          className="w-16 rounded-lg border border-border bg-background px-2 py-1.5 text-[13px] outline-none focus-visible:border-primary" />
+        <span className="text-[13px] text-muted-foreground">{t('slotCard.budgetInputUnit')}</span>
+        <button type="button" onClick={submitNum}
+          className="ml-auto rounded-lg bg-primary px-2.5 py-1.5 text-[13px] font-semibold text-primary-foreground outline-none hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/60">
+          {t('slotCard.done')}
+        </button>
+      </div>
     </div>
   );
 }

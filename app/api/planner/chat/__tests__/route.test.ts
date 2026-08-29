@@ -22,6 +22,8 @@ const {
   usageMock,
   sessionIdMock,
   chatEnabledMock,
+  getEnvMock,
+  captureMock,
   warnMock,
   infoMock,
 } = vi.hoisted(() => ({
@@ -35,6 +37,8 @@ const {
   usageMock: vi.fn(async () => ({ callUsd: 0, dailyInputTokens: 0, dailyOutputTokens: 0, dailyUsd: 0 })),
   sessionIdMock: vi.fn<() => string | null>(() => 'sess-1'),
   chatEnabledMock: vi.fn<() => boolean>(() => true),
+  getEnvMock: vi.fn<() => { PLANNER_CHAT_ENABLED: boolean }>(),
+  captureMock: vi.fn(),
   warnMock: vi.fn(),
   infoMock: vi.fn(),
 }));
@@ -56,7 +60,7 @@ vi.mock('@/lib/analytics', () => ({
 }));
 
 vi.mock('@/lib/config', () => ({
-  getEnv: () => ({ PLANNER_CHAT_ENABLED: chatEnabledMock() }),
+  getEnv: () => getEnvMock(),
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -64,7 +68,7 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 vi.mock('@/lib/observability', () => ({
-  captureException: vi.fn(),
+  captureException: captureMock,
 }));
 
 // Planner engine: sanitizeHistory passes through; streamChat yields a done-only stream so
@@ -102,6 +106,9 @@ beforeEach(() => {
   usageMock.mockReset();
   sessionIdMock.mockReturnValue('sess-1');
   chatEnabledMock.mockReturnValue(true);
+  getEnvMock.mockReset();
+  getEnvMock.mockImplementation(() => ({ PLANNER_CHAT_ENABLED: chatEnabledMock() }));
+  captureMock.mockReset();
   warnMock.mockReset();
   infoMock.mockReset();
 });
@@ -168,5 +175,30 @@ describe('POST /api/planner/chat — alerting (#550)', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('Content-Type')).toContain('text/event-stream');
     expect(warnMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/planner/chat — env-config crash → graceful SSE (Mục B)', () => {
+  it('turns a pre-stream getEnv() throw into a 200 SSE error frame with fallbackHref + Sentry, not a raw 500', async () => {
+    getEnvMock.mockImplementation(() => {
+      throw new Error('Environment configuration error:\nSTORAGE_STUB must be false in production');
+    });
+    budgetLimitMock.mockClear();
+    const res = await POST(makeRequest());
+    // graceful, not a raw 500
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toContain('text/event-stream');
+    const text = await res.text();
+    expect(text).toContain('event: error');
+    // fallbackHref carried so the client can offer the manual (non-AI) flow
+    expect(text).toContain('fallbackHref');
+    expect(text).toContain('/tro-ly-du-lich?manual=1');
+    // observability: tagged as env_config so it is distinguishable from upstream/no_key
+    expect(captureMock).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ route: 'planner/chat', code: 'env_config' }),
+    );
+    // a config crash must not burn the daily budget
+    expect(budgetLimitMock).not.toHaveBeenCalled();
   });
 });

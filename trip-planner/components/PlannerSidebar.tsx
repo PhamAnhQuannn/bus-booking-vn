@@ -70,7 +70,7 @@ export function PlannerSidebar(props: Props) {
 
   if (collapsed) {
     return (
-      <div className="hidden shrink-0 flex-col items-center gap-3 border-r border-[#E4D8C9] bg-[#FDFAF7] px-2 py-4 lg:flex">
+      <div className="hidden shrink-0 flex-col items-center gap-3 border-r border-[#E4D8C9] bg-[var(--planner-bg)] px-2 py-4 lg:flex">
         <button type="button" onClick={onToggleCollapse} aria-label={t('sidebar.openHistory')}
           className="grid h-9 w-9 place-items-center rounded-lg text-muted-foreground hover:bg-primary/5">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -84,7 +84,7 @@ export function PlannerSidebar(props: Props) {
   }
 
   return (
-    <div className="flex h-full w-full flex-col overflow-y-auto border-r border-[#E4D8C9] bg-[#FDFAF7]">
+    <div className="flex h-full w-full flex-col overflow-y-auto border-r border-[#E4D8C9] bg-[var(--planner-bg)]">
       {hasHistory ? (
         <HistoryView
           {...{ authStatus, conversations, activeId, onNew, onOpen, onRename, onDelete, onClearAll, onToggleCollapse, menuId, setMenuId }}
@@ -241,7 +241,7 @@ function BrandIntro() {
         <div className="absolute inset-0 flex flex-col justify-between bg-gradient-to-t from-black/55 to-transparent p-4">
           <p className="max-w-[75%] text-sm font-bold leading-snug text-white">{t('sidebar.promoTitle')}</p>
           {/* Mock: pill nền trắng mờ + chữ cam (KHÔNG phải nút cam đặc) */}
-          <Link href="/" className="inline-flex w-fit rounded-lg bg-white/90 px-3.5 py-2 text-sm font-bold text-[#EA580C] shadow-sm hover:bg-white">
+          <Link href="/" className="inline-flex w-fit rounded-lg bg-white/90 px-3.5 py-2 text-sm font-bold text-[var(--planner-orange-link)] shadow-sm hover:bg-white">
             {t('sidebar.promoCta')}
           </Link>
         </div>

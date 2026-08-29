@@ -24,7 +24,8 @@ export interface Slots {
   avoidSteep?: boolean;
   anchor?: string[]; // id điểm-đến khách chọn từ gợi ý vibe (mode discovery → anchor vào lịch)
   nhom?: Nhom; // loại nhóm (preset party + bias interests/pace)
-  budget?: Budget; // ngân sách (→ pace default; KHÔNG lọc theo giá — không có data giá)
+  budget?: Budget; // ngân sách HẠNG (→ pace default; KHÔNG lọc theo giá — không có data giá)
+  budgetPerPerson?: number; // ngân sách SỐ (VND/người) — CHỈ hiển thị; engine KHÔNG lọc theo giá
   transport?: Transport; // phương tiện (ghi lại + note; engine không đổi routing)
   food?: string[]; // sở thích ăn uống ('dia-phuong'|'chay'|'hai-san'|'binh-dan') → bias nhà hàng
 }
@@ -98,6 +99,113 @@ const INTEREST_LABEL: Record<string, string> = {
   "Thư giãn": "thu-gian-yen-tinh",
 };
 
+// Preset party + accessibility theo loại nhóm (dùng chung: chip 'nhom' LẪN bóc free-text).
+// KHÔNG tự thêm sở thích hiển thị (bỏ auto 'lang-man' cũ) — suy diễn chỉ NGẦM cho engine (avoidSteep),
+// không hiện như chip sở thích người dùng đã nói.
+export function withGroup(s: Slots, g: Nhom): Slots {
+  const n: Slots = { ...s, nhom: g };
+  if (persons(n) === 0) {
+    if (g === "cap-doi") n.adults = 2;
+    else if (g === "gia-dinh") { n.adults = 2; n.children = 2; }
+    else if (g === "ban-be") n.adults = 4;
+    else n.adults = 1; // công tác
+  }
+  if (g === "gia-dinh") n.avoidSteep = n.avoidSteep ?? true; // trẻ nhỏ → ưu tiên ít dốc (ngầm)
+  return n;
+}
+
+// Số slot BẮT BUỘC còn thiếu (điểm đến / số ngày / ≥1 người) — cho copy phễu "còn N câu hỏi".
+export function missingRequired(s: Slots): number {
+  return (s.dia_diem ? 0 : 1) + (s.days ? 0 : 1) + (persons(s) > 0 ? 0 : 1);
+}
+
+const NHOM_KEYWORDS: [RegExp, Nhom][] = [
+  [/c[aặ]p đôi|người yêu|2 đứa|hai đứa|honeymoon|tr[aă]ng m[aậ]t/i, "cap-doi"],
+  [/gia đình|bố mẹ|ba mẹ|vợ con|con nhỏ|con cái|cả nhà|đưa con/i, "gia-dinh"],
+  [/b[aạ]n bè|nhóm bạn|đám bạn|hội bạn|với bạn/i, "ban-be"],
+  [/công tác|đồng nghiệp|công ty|team building|đi team/i, "cong-tac"],
+];
+
+// Từ khóa sở thích → mã vibe (ca-phe/am-thuc là mã DISPLAY-only ngoài VIBE_VOCAB — engine bỏ qua).
+// Khớp trên text CÓ DẤU (VN keyboard mặc định có dấu) → ít false-positive.
+const INTEREST_KEYWORDS: [RegExp, string][] = [
+  [/cà phê|cafe|café|quán xá|coffee/i, "ca-phe"],
+  [/ẩm thực|ăn uống|đồ ăn|đồ nướng|hải sản|đặc sản|ăn ngon|ăn vặt/i, "am-thuc"],
+  [/chụp ảnh|sống ảo|check.?in|check in/i, "song-ao-chup-hinh"],
+  [/biển|đảo/i, "bien-dao"],
+  [/núi|trekking|leo núi|phượt|mạo hiểm|thác|hang động/i, "thien-nhien-mao-hiem"],
+  [/văn hoá|văn hóa|lịch sử|di tích|bảo tàng/i, "lich-su-van-hoa"],
+  [/chùa|tâm linh|đền thờ|nhà thờ|thiền/i, "tam-linh"],
+  [/nghỉ dưỡng|thư giãn|yên tĩnh|relax|resort|chill/i, "thu-gian-yen-tinh"],
+  [/mua sắm|shopping|chợ đêm/i, "mua-sam"],
+  [/cảnh đẹp|ngắm cảnh|hoàng hôn|thiên nhiên|view/i, "ngam-canh"],
+  [/lãng mạn|hẹn hò|honeymoon/i, "lang-man"],
+];
+
+const foldVi = (s: string): string => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d");
+
+// Sở thích từ free-text: scan keyword → mã; cụm trong "thích …" chưa khớp → LITERAL (không drop im lặng).
+function extractInterests(text: string): string[] {
+  const t = text.toLowerCase();
+  const codes = new Set<string>();
+  for (const [re, code] of INTEREST_KEYWORDS) if (re.test(t)) codes.add(code);
+  const m = t.match(/(?:thích|ưa thích|muốn|quan tâm|sở thích|mê|đam mê)\s+(.+)/i);
+  if (m) {
+    const clause = m[1].split(/[.!?\n]/)[0];
+    for (const raw of clause.split(/\s*(?:,|;|&|\bvà\b|\bcùng\b|\bvới\b)\s*/)) {
+      const ph = raw.trim().replace(/^(đi|các|những|thêm)\s+/, "");
+      if (!ph || ph.length > 24 || /\d/.test(ph)) continue;
+      if (INTEREST_KEYWORDS.some(([re]) => re.test(ph))) continue; // đã có mã
+      if (CITIES.some((c) => ph.includes(c.ten.toLowerCase()))) continue; // là tên thành phố
+      codes.add(ph); // LITERAL (chữ user, có dấu) — SlotSummaryCard hiển thị viết-hoa + warn
+    }
+  }
+  return [...codes];
+}
+
+// Bóc TẤT ĐỊNH từ free-text (client) — bù Gemini (budget-số/nhóm không có trong schema) + mount shell SỚM
+// (dia_diem/days) + đảm bảo interest không rơi. Gọi optimistic lúc gửi VÀ sau Gemini (applyExtracted, idempotent).
+export function extractFromText(text: string): Partial<Slots> {
+  const out: Partial<Slots> = {};
+  const t = text.toLowerCase();
+  const ft = foldVi(text);
+  for (const [re, g] of NHOM_KEYWORDS) { if (re.test(t)) { out.nhom = g; break; } }
+  // điểm đến: match tên CITIES (không dấu), ưu tiên tên DÀI nhất (tránh khớp nhầm 1 phần).
+  const city = [...CITIES].sort((a, b) => b.ten.length - a.ten.length).find((c) => ft.includes(foldVi(c.ten)));
+  if (city) out.dia_diem = city.slug;
+  // số ngày: "N ngày" (1..7)
+  const dm = t.match(/(\d+)\s*ng[àa]y/);
+  if (dm) { const d = parseInt(dm[1], 10); if (d >= 1 && d <= 7) out.days = d; }
+  // số người: "N người/khách/đứa/thành viên" (không phải "N ngày")
+  const pm = t.match(/(\d+)\s*(người|khách|đứa|thành viên)\b/);
+  if (pm) out.adults = Math.max(parseInt(pm[1], 10), 1);
+  // ngân sách số: "<số> triệu/tr/củ/k/nghìn/ngàn/đồng" → VND/người
+  const bm = t.match(/(\d+(?:[.,]\d+)?)\s*(triệu|tr|củ|k|nghìn|ngàn|đồng|vnđ|vnd)\b/i);
+  if (bm) {
+    const num = parseFloat(bm[1].replace(",", "."));
+    const unit = bm[2].toLowerCase();
+    let vnd = num;
+    if (/^(triệu|tr|củ)$/.test(unit)) vnd = num * 1_000_000;
+    else if (/^(k|nghìn|ngàn)$/.test(unit)) vnd = num * 1_000;
+    if (vnd >= 100_000) out.budgetPerPerson = Math.round(vnd);
+  }
+  const interests = extractInterests(text);
+  if (interests.length) out.interests = interests;
+  return out;
+}
+
+// Áp Partial bóc tất định vào Slots: nhóm → preset party (withGroup); còn lại gán/union.
+export function applyExtracted(s: Slots, det: Partial<Slots>): Slots {
+  let n: Slots = { ...s };
+  if (det.dia_diem) n.dia_diem = det.dia_diem;
+  if (det.days != null) n.days = det.days;
+  if (det.adults != null) { n.adults = det.adults; n.children = n.children ?? 0; n.elders = n.elders ?? 0; }
+  if (det.budgetPerPerson != null) n.budgetPerPerson = det.budgetPerPerson;
+  if (det.interests?.length) n.interests = [...new Set([...(n.interests ?? []), ...det.interests])]; // union dedup
+  if (det.nhom) n = persons(n) === 0 ? withGroup(n, det.nhom) : { ...n, nhom: det.nhom };
+  return n;
+}
+
 // Chip/custom → cập nhật Slots TẤT ĐỊNH (không Gemini).
 export function applyChip(s: Slots, slot: Ask["slot"], label: string): Slots {
   const n: Slots = { ...s };
@@ -137,17 +245,7 @@ export function applyChip(s: Slots, slot: Ask["slot"], label: string): Slots {
         if (m) { n.adults = Math.max(parseInt(m[1], 10), 1); n.children = n.children ?? 0; n.elders = n.elders ?? 0; }
         break;
       }
-      n.nhom = g;
-      // Preset party nếu khách chưa nhập số người; bias interests/accessibility (dùng field engine sẵn có).
-      if (persons(n) === 0) {
-        if (g === "cap-doi") { n.adults = 2; }
-        else if (g === "gia-dinh") { n.adults = 2; n.children = 2; }
-        else if (g === "ban-be") { n.adults = 4; }
-        else { n.adults = 1; } // công tác
-      }
-      if (g === "cap-doi" && !(n.interests ?? []).includes("lang-man")) n.interests = [...(n.interests ?? []), "lang-man"];
-      if (g === "gia-dinh") n.avoidSteep = n.avoidSteep ?? true; // đi cùng trẻ nhỏ → ưu tiên ít dốc
-      break;
+      return withGroup(n, g); // preset party + accessibility ngầm (KHÔNG tự thêm sở thích hiển thị)
     }
     case "ngan_sach": {
       const b = BUDGET_LABEL[t];
@@ -197,6 +295,7 @@ export function slotsToParams(s: Slots): string {
   if (s.interests?.length) q.set("interests", s.interests.join(","));
   if (s.anchor?.length) q.set("anchors", s.anchor.join(","));
   if (s.budget) q.set("budget", s.budget);
+  if (s.budgetPerPerson) q.set("budgetPerPerson", String(s.budgetPerPerson)); // engine bỏ qua — chỉ round-trip/hiển thị
   if (s.transport) q.set("transport", s.transport);
   if (s.food?.length) q.set("food", s.food.join(","));
   return q.toString();

@@ -11,10 +11,11 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import type { PlannerDto, DtoItem } from '@/trip-planner/lib/planner/itineraryDto';
 import { cityName } from '@/trip-planner/lib/planner/cities';
-import { displayCategory, itemBadge, areaLabel, vibeChip, stripCitySuffix, FACILITY_LABELS } from '@/trip-planner/lib/planner/labels';
+import { displayCategory, itemBadge, areaLabel, vibeChip, stripCitySuffix, FACILITY_LABELS, isAllDay, moTaTrusted } from '@/trip-planner/lib/planner/labels';
 import { cardProfile, type SectionKey } from '@/trip-planner/lib/planner/cardProfile';
 import { fmtKm } from '@/trip-planner/lib/planner/fmt';
-import { buildOverview, withMeals } from '@/trip-planner/lib/planner/timeline';
+import { buildTimeline, withMeals } from '@/trip-planner/lib/planner/timeline';
+import { TripTimeline } from '@/trip-planner/components/TripTimeline';
 import { compressDays } from '@/trip-planner/lib/planner/hours';
 import { DayTabBar } from '@/trip-planner/components/DayTabBar';
 
@@ -41,13 +42,13 @@ type Props = {
   onSeeFood?: () => void; // meal block "xem gợi ý quán" → chuyển tab Ăn uống
 };
 
-const INK = '#1E2433', SOFT = '#6B7280', FAINT = '#9AA0AC';
+const INK = '#1E2433', SOFT = '#6B7280', FAINT = 'var(--planner-text-secondary)';
 
 // spine + day-band CSS (scoped v5-*). Spine chạy qua tâm order-circle (left 24 = px-3 + nửa circle).
 const CARD_CSS = `
 .v5-daybody{position:relative}
 .v5-daybody::before{content:"";position:absolute;left:24px;top:16px;bottom:16px;width:2px;background:var(--primary-tint,#FDE4D6);border-radius:2px}
-.v5-band{background:#FFF9F2}
+.v5-band{background:var(--planner-surface)}
 .v5-band.v5-active{box-shadow:inset 3px 0 0 var(--primary,#F0561D)}
 `;
 
@@ -58,7 +59,7 @@ function MealRow({ meal, onSeeFood }: { meal: 'trua' | 'toi'; onSeeFood?: () => 
       <span aria-hidden>{meal === 'trua' ? '🍜' : '🍲'}</span>
       <span>{t(meal === 'trua' ? 'itinerary.mealLunch' : 'itinerary.mealDinner')}</span>
       {onSeeFood ? (
-        <button type="button" onClick={onSeeFood} className="text-[12px] font-semibold text-primary hover:underline">
+        <button type="button" onClick={onSeeFood} className="text-[13px] font-semibold text-primary hover:underline">
           {t('itinerary.mealSeeFood')} →
         </button>
       ) : null}
@@ -71,8 +72,8 @@ function Badge({ it }: { it: DtoItem }) {
   const b = itemBadge(it);
   if (b.tone === 'ok') {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-success px-2 py-0.5 text-xs font-bold text-success-foreground">
-        ✓ {t('itinerary.badgeOpen')} <span className="tabular-nums">{b.hours}</span>
+      <span className="inline-flex items-center gap-1 rounded-full bg-success px-2 py-0.5 text-[13px] font-bold text-success-foreground">
+        ✓ {t('itinerary.badgeOpen')} <span className="tabular-nums">{isAllDay(b.hours) ? t('itinerary.allDay') : b.hours}</span>
         {/* provenance THẬT (source_ids.length) — KHÔNG phải citation [S] bịa */}
         {it.nguon ? <span className="font-semibold opacity-70">· {t('itinerary.sources', { count: it.nguon })}</span> : null}
       </span>
@@ -85,7 +86,7 @@ function Badge({ it }: { it: DtoItem }) {
         href={`https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(it.google_place_id)}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold hover:bg-primary/15"
+        className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[13px] font-bold hover:bg-primary/15"
         style={{ color: 'var(--primary,#F0561D)' }}
       >
         {t('itinerary.hoursOnGoogle')}
@@ -93,7 +94,7 @@ function Badge({ it }: { it: DtoItem }) {
     );
   }
   return (
-    <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold" style={{ color: SOFT }}
+    <span className="rounded-full border border-[#D8D3CA] px-2 py-0.5 text-[13px] font-bold" style={{ color: SOFT }}
       title={b.label === 'Nên gọi trước' ? t('itinerary.callAheadTitle') : undefined}>
       {b.label}
     </span>
@@ -110,7 +111,7 @@ function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: numb
     <>
       {it.leg_from_prev ? (
         // travel-leg: tầng FAINT (nhạt hơn metadata), nằm trên spine — nối 2 card
-        <div className="py-1 pl-9 text-xs font-semibold" style={{ color: FAINT }}>
+        <div className="py-1 pl-9 text-[13px] font-semibold" style={{ color: FAINT }}>
           🚗 {t('itinerary.legMinutes', { minutes: Math.round(it.leg_from_prev.minutes) })} · <span className="tabular-nums">{fmtKm(it.leg_from_prev.km)?.replace('~', '')}</span>
         </div>
       ) : null}
@@ -120,7 +121,7 @@ function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: numb
         onMouseLeave={() => onHoverItem(null)}
         className="mb-3 flex gap-3"
       >
-        <span className="mt-1 grid size-6 flex-none place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground"
+        <span className="mt-1 grid size-6 flex-none place-items-center rounded-full bg-primary text-[13px] font-bold text-primary-foreground"
           style={{ position: 'relative', zIndex: 1, boxShadow: active ? '0 0 0 1px #fff, 0 0 0 3px var(--primary,#F0561D)' : undefined }}>
           {it.order}
         </span>
@@ -130,7 +131,7 @@ function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: numb
         <article className={`min-w-0 flex-1 rounded-xl border p-3 transition-colors ${active ? 'border-primary/50 bg-primary/5' : 'border-border bg-white hover:border-primary/30'}`}>
           {/* HEADER: buổi + tên + badge xác minh (✓ Mở {giờ} · N nguồn = "Đã xác minh · S6" trung thực) */}
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            <span className="text-xs font-semibold" style={{ color: SOFT }}>{t(`itinerary.buoi.${it.buoi}`)}</span>
+            <span className="text-[13px] font-semibold" style={{ color: SOFT }}>{t(`itinerary.buoi.${it.buoi}`)}</span>
             <span className="text-[15px] font-semibold leading-snug" style={{ color: INK }}>{stripCitySuffix(it.name)}</span>
             <Badge it={it} />
           </div>
@@ -150,20 +151,20 @@ function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: numb
             const renderSection = (s: SectionKey) => {
               switch (s) {
                 case 'mo_ta':
-                  return it.mo_ta ? (
+                  return it.mo_ta && moTaTrusted(it) ? (
                     <div key="mo_ta">
                       {/* MÔ TẢ: mo_ta full, clamp 3 dòng + "Xem thêm" khi dài */}
-                      <p className={`mt-2 text-[14px] leading-[1.6] ${open ? '' : 'line-clamp-3'}`} style={{ color: INK }}>{it.mo_ta}</p>
+                      <p className={`mt-2 max-w-[54ch] text-[14px] leading-[1.6] ${open ? '' : 'line-clamp-3'}`} style={{ color: INK }}>{it.mo_ta}</p>
                       {longMoTa ? (
                         <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
-                          className="mt-0.5 text-[12px] font-semibold text-primary hover:underline">
+                          className="mt-0.5 text-[13px] font-semibold text-primary hover:underline">
                           {open ? t('itinerary.showLess') : t('itinerary.seeMore')}
                         </button>
                       ) : null}
                       {/* CC-BY-SA: mô tả trích Wikipedia → bắt buộc dẫn nguồn (B2) */}
                       {it.mo_ta_nguon_url ? (
                         <a href={it.mo_ta_nguon_url} target="_blank" rel="noreferrer"
-                          className="mt-0.5 block text-[12px] hover:underline" style={{ color: FAINT }}>{t('itinerary.fromWikipedia')}</a>
+                          className="mt-0.5 block text-[13px] hover:underline" style={{ color: FAINT }}>{t('itinerary.fromWikipedia')}</a>
                       ) : null}
                     </div>
                   ) : null;
@@ -176,18 +177,18 @@ function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: numb
                   if (!tham.length && !paid.length && !vibes.length) return null;
                   return (
                     <div key="hoat_dong" className="mt-2.5">
-                      <div className="text-[12px] font-bold uppercase tracking-wide" style={{ color: FAINT }}>{t('itinerary.whatsHere')}</div>
+                      <div className="text-[13px] font-bold uppercase tracking-wide" style={{ color: FAINT }}>{t('itinerary.whatsHere')}</div>
                       <div className="mt-1 flex flex-wrap gap-1.5">
                         {tham.map((label, i) => (
-                          <span key={`t-${i}`} className="rounded-full bg-muted px-2 py-0.5 text-[12px] font-semibold" style={{ color: SOFT }}>{label}</span>
+                          <span key={`t-${i}`} className="rounded-full border border-[#D8D3CA] px-2 py-0.5 text-[13px] font-semibold" style={{ color: SOFT }}>{label}</span>
                         ))}
                         {paid.map((label, i) => (
-                          <span key={`p-${i}`} className="rounded-full bg-primary/10 px-2 py-0.5 text-[12px] font-semibold text-primary">{label}</span>
+                          <span key={`p-${i}`} className="rounded-full border border-[#D8D3CA] px-2 py-0.5 text-[13px] font-semibold" style={{ color: INK }}>{label}</span>
                         ))}
                         {vibes.map((v) => {
                           const c = vibeChip(v);
                           return (
-                            <span key={`v-${v}`} className="rounded-full border border-primary/30 px-2 py-0.5 text-[12px] font-semibold text-primary">
+                            <span key={`v-${v}`} className="rounded-full border border-[#D8D3CA] px-2 py-0.5 text-[13px] font-semibold" style={{ color: INK }}>
                               {c.emoji ? `${c.emoji} ` : ''}{c.label}
                             </span>
                           );
@@ -202,10 +203,10 @@ function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: numb
                   const schedule = it.gio_mo_chi_tiet && it.gio_mo_chi_tiet.length ? fmtScheduleSlots(it.gio_mo_chi_tiet, t('itinerary.dayShorts').split(',')) : null;
                   const hasThucTe = it.gio_mo || schedule || it.cach_trung_tam_km != null || it.gia_ve || fac.length;
                   return hasThucTe ? (
-                    <div key="thuc_te" className="mt-2 border-t border-border pt-2 text-[12px]" style={{ color: SOFT }}>
+                    <div key="thuc_te" className="mt-2 border-t border-border pt-2 text-[13px]" style={{ color: SOFT }}>
                       <div className="flex flex-wrap gap-x-3 gap-y-0.5">
                         {/* Lịch giờ theo ngày (khi giờ khác nhau giữa các ngày) — badge chỉ hiện 1 khung */}
-                        {schedule ? <span>🕐 <span className="tabular-nums">{schedule}</span></span> : it.gio_mo && it.goi_truoc ? <span>🕐 {t('itinerary.badgeOpen')} <span className="tabular-nums">{it.gio_mo}</span></span> : null}
+                        {schedule ? <span>🕐 <span className="tabular-nums">{schedule}</span></span> : it.gio_mo && it.goi_truoc ? <span>🕐 {t('itinerary.badgeOpen')} <span className="tabular-nums">{isAllDay(it.gio_mo) ? t('itinerary.allDay') : it.gio_mo}</span></span> : null}
                         {it.gia_ve ? <span>{t('itinerary.ticketsLabel', { value: /^\s*(yes|có|co)\s*$/i.test(it.gia_ve) ? t('itinerary.ticketsPaidUnconfirmed') : it.gia_ve })}</span> : null}
                         {it.cach_trung_tam_km != null ? <span>{t('itinerary.fromCentre', { dist: fmtKm(it.cach_trung_tam_km) ?? '' })}</span> : null}
                       </div>
@@ -222,16 +223,16 @@ function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: numb
             return (
               <>
                 {gt ? (
-                  <p className="mt-2 text-[14px] leading-[1.6]" style={{ color: INK }}>{gt}</p>
+                  <p className="mt-2 max-w-[54ch] text-[14px] leading-[1.6]" style={{ color: INK }}>{gt}</p>
                 ) : null}
                 {sections.map(renderSection)}
                 {/* EDITORIAL tier (002): tách hẳn khỏi badge verified + mô tả — nhãn + disclaimer,
                     KHÔNG trộn với fact. Chỉ hiện khi flag EDITORIAL_TIER bật + có câu (per-loại). */}
                 {it.phu_hop_voi ? (
-                  <div key="phu_hop_voi" className="mt-2 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5">
-                    <div className="text-[12px] font-bold uppercase tracking-wide text-primary">{t('itinerary.editorialTitle')}</div>
-                    <p className="mt-0.5 text-[13px] leading-relaxed" style={{ color: SOFT }}>{it.phu_hop_voi}</p>
-                    <p className="mt-0.5 text-[12px] italic" style={{ color: FAINT }}>{t('itinerary.editorialDisclaimer')}</p>
+                  <div key="phu_hop_voi" className="mt-2 rounded-lg border border-[#F0D9C4] bg-[var(--planner-surface-editorial)] px-2.5 py-1.5">
+                    <div className="text-[13px] font-bold uppercase tracking-wide text-[var(--planner-editorial-text)]">{t('itinerary.editorialTitle')}</div>
+                    <p className="mt-0.5 text-[13px] leading-relaxed text-[var(--planner-editorial-text)]">{it.phu_hop_voi}</p>
+                    <p className="mt-0.5 text-[13px] italic" style={{ color: FAINT }}>{t('itinerary.editorialDisclaimer')}</p>
                   </div>
                 ) : null}
               </>
@@ -256,9 +257,10 @@ const HEADER_ACTIONS = { enabled: false };
 
 export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleDay, hrefPdf, compact, onActiveDayChange, onSeeFood }: Props) {
   const t = useTranslations('planner');
-  const overview = compact ? buildOverview(dto) : null; // strip tóm tắt chỉ ở chế độ compact (≥1280)
+  const timelineNodes = buildTimeline(dto); // Trip Timeline (V5) — hiện CẢ mobile lẫn desktop
   const rootRef = useRef<HTMLDivElement>(null);
   const programmaticRef = useRef(false); // đang click-scroll → tạm khoá scrollspy (chống chip nhảy)
+  const pendingScrollCleanupRef = useRef<(() => void) | null>(null); // huỷ release của click trước (chống race đa-click)
 
   // Scrollspy (compact): band ngày nào ở dải giữa viewport → đặt ngày active. rootMargin -45%/-45%
   // = dải mỏng ở giữa → 1 band/lúc (hysteresis, không nhấp nháy chip khi đứng giữa 2 ngày).
@@ -282,15 +284,28 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
     return () => io.disconnect();
   }, [compact, dto, activeDay, onActiveDayChange]);
 
-  // Click chip/dòng overview → smooth-scroll tới band ngày (khoá scrollspy tới khi scrollend).
+  // Click node/chip → điều hướng ngày. MỘT CHIỀU (V5.1 FIX 1):
+  // - non-compact (narrow): KHÔNG có scrollspy → set active trực tiếp (accordion mở ngày đó).
+  // - compact (wide): CHỈ scrollTo divider + TREO scrollspy suốt animation (chống bounce); khi scroll
+  //   xong set active = day ĐÍCH (deterministic — IO bị treo nên không tự bắt vị trí cuối). Cuộn TAY
+  //   (không programmatic) vẫn để scrollspy là nguồn active duy nhất.
   const goToDay = (day: number) => {
-    onActiveDayChange?.(day);
+    if (!compact) { onActiveDayChange?.(day); return; }
+    pendingScrollCleanupRef.current?.(); // huỷ release/timeout của click TRƯỚC (chống race đa-click → active/spy loạn)
     programmaticRef.current = true;
     document.getElementById(`day-band-${day}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     const scrollRoot = rootRef.current?.closest('[data-pane-scroll]') as HTMLElement | null;
-    const release = () => { programmaticRef.current = false; };
+    let done = false;
+    const release = () => {
+      if (done) return;
+      done = true;
+      pendingScrollCleanupRef.current = null;
+      programmaticRef.current = false;
+      onActiveDayChange?.(day); // active theo đích đã scroll tới → chip + node cùng sync, không bật ngược
+    };
+    const timer = setTimeout(release, 700); // fallback (Safari không có scrollend)
     scrollRoot?.addEventListener('scrollend', release, { once: true });
-    setTimeout(release, 600); // fallback Safari (không có scrollend)
+    pendingScrollCleanupRef.current = () => { done = true; clearTimeout(timer); scrollRoot?.removeEventListener('scrollend', release); };
   };
 
   // Lưu chuyến đi (localStorage) + Chia sẻ (navigator.share/clipboard) — mock header actions.
@@ -318,7 +333,7 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
 
       {/* Chip ngày sticky (compact) — nav + scrollspy. overflow-hidden bỏ ở root để sticky bám pane-scroll. */}
       {compact ? (
-        <div className="sticky top-0 z-raised -mx-px border-b border-border bg-white/95 px-3 py-1.5 backdrop-blur">
+        <div className="sticky top-0 z-raised -mx-px border-b border-border bg-[var(--planner-surface)] px-3 py-1.5">
           <DayTabBar dto={dto} activeDay={activeDay} onSelect={goToDay} />
         </div>
       ) : null}
@@ -328,36 +343,23 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
       {HEADER_ACTIONS.enabled ? (
         <div className="flex flex-wrap gap-2 border-b border-border px-4 py-3">
           <button type="button" onClick={saveTrip}
-            className="inline-flex items-center gap-1 rounded-lg border border-[#F0EAE2] bg-white px-2.5 py-1.5 text-xs font-semibold hover:border-primary hover:bg-primary/5">
+            className="inline-flex items-center gap-1 rounded-lg border border-[#F0EAE2] bg-white px-2.5 py-1.5 text-[13px] font-semibold hover:border-primary hover:bg-primary/5">
             {t('itinerary.saveTrip')}
           </button>
           {hrefPdf ? (
-            <a href={hrefPdf} className="inline-flex items-center gap-1 rounded-lg border border-[#F0EAE2] bg-white px-2.5 py-1.5 text-xs font-semibold hover:border-primary hover:bg-primary/5">
+            <a href={hrefPdf} className="inline-flex items-center gap-1 rounded-lg border border-[#F0EAE2] bg-white px-2.5 py-1.5 text-[13px] font-semibold hover:border-primary hover:bg-primary/5">
               {t('itinerary.exportPdf')}
             </a>
           ) : null}
           <button type="button" onClick={shareTrip}
-            className="inline-flex items-center gap-1 rounded-lg border border-[#F0EAE2] bg-white px-2.5 py-1.5 text-xs font-semibold hover:border-primary hover:bg-primary/5">
+            className="inline-flex items-center gap-1 rounded-lg border border-[#F0EAE2] bg-white px-2.5 py-1.5 text-[13px] font-semibold hover:border-primary hover:bg-primary/5">
             {t('itinerary.share')}
           </button>
         </div>
       ) : null}
 
-      {/* OVERVIEW strip (P4, compact) — tóm tắt 1 dòng/ngày, click → scroll tới band ngày */}
-      {overview ? (
-        <div className="mx-3 mt-3 rounded-[10px] p-3" style={{ background: '#FFF9F2' }}>
-          <div className="text-[12px] font-bold uppercase tracking-wide" style={{ color: FAINT }}>{t('itinerary.overviewTitle')}</div>
-          <div className="mt-1.5 space-y-0.5">
-            {overview.map((o) => (
-              <button key={o.day} type="button" onClick={() => goToDay(o.day)} className="block w-full truncate text-left text-[13px] hover:underline">
-                <span style={{ color: INK, fontWeight: 600 }}>{t('dayTabBar.day', { day: o.day })}</span>
-                {o.area ? <span style={{ color: SOFT }}> · {o.area}</span> : null}
-                <span style={{ color: SOFT }}> — {o.names.join(' → ')}{o.extra ? ` +${o.extra}` : ''}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
+      {/* Trip Timeline (V5 Mục 4) — dải node ngang thay khối tóm tắt; click node → scroll tới band ngày */}
+      <TripTimeline nodes={timelineNodes} activeDay={activeDay} onSelectDay={goToDay} />
 
       {/* DAYS — không divider giữa ngày; band + spine + whitespace 16 */}
       <div className="space-y-4 p-3">
@@ -376,7 +378,7 @@ export function ItineraryCard({ dto, activeDay, selected, onHoverItem, onToggleD
                 style={{ letterSpacing: '0.4px' }}
               >
                 <span className="text-[13.5px] font-[650] uppercase" style={{ color: INK, fontWeight: 650 }}>{t('dayTabBar.day', { day: d.day })}</span>
-                <span className="ml-auto text-xs font-semibold normal-case" style={{ color: SOFT, letterSpacing: 0 }}>
+                <span className="ml-auto text-[13px] font-semibold normal-case" style={{ color: SOFT, letterSpacing: 0 }}>
                   {area ? t('itinerary.area', { area }) : ''}{t('itinerary.stops', { stops })}
                 </span>
               </button>

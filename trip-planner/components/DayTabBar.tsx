@@ -17,7 +17,7 @@ type Props = {
 export function DayTabBar({ dto, activeDay, onSelect }: Props) {
   const t = useTranslations('planner');
   return (
-    <div className="inline-flex gap-1 rounded-full border border-[#F0EAE2] p-[3px] shadow-e1" style={{ background: '#FEFCF7' }}>
+    <div className="inline-flex gap-1 rounded-full border border-[#F0EAE2] p-[3px] shadow-e1" style={{ background: 'var(--planner-surface)' }}>
       {dto.days.map((d) => {
         const on = d.day === activeDay;
         return (
