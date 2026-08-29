@@ -47,6 +47,7 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
   --color-primary-strong: var(--primary-strong);
+  --color-badge-ai: var(--badge-ai);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -127,6 +128,10 @@
      `--primary`, so op/admin surfaces sharing components/ui/button.tsx are
      unaffected unless they explicitly opt in. */
   --primary-strong: oklch(0.553 0.195 38.4);
+  /* Cam sáng thương hiệu (redesign navbar) — dùng cho badge "AI" (khớp màu logo). #F05A1A.
+     Lưu ý: chữ trắng trên nền này ~3.2:1 — chấp nhận cho badge 10px trang trí/branding (khớp logo),
+     KHÔNG dùng làm nền cho text đọc dài. */
+  --badge-ai: #F05A1A;
   /* One shared value across secondary/muted/accent (#faece0), deeper than the
      field so bands, hovers and table stripes still read: 1.06 against the page,
      matching the 1.03 these had before. muted-foreground on it is 4.75 and

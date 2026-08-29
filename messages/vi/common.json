@@ -2,11 +2,11 @@
   "nav": {
     "primary": "Điều hướng chính",
     "bookTicket": "Đặt vé xe",
-    "tripPlanner": "Trợ lý du lịch",
-    "operators": "Nhà xe"
+    "tripPlanner": "Trợ lý du lịch"
   },
   "auth": {
-    "loginSignup": "Đăng nhập / Đăng ký"
+    "login": "Đăng nhập",
+    "signup": "Đăng ký"
   },
   "header": {
     "openMenu": "Mở menu điều hướng",

@@ -27,11 +27,13 @@ import { cn } from '@/lib/utils';
 const NAV: { href: string; labelKey: string; badge?: string }[] = [
   { href: '/', labelKey: 'nav.bookTicket' },
   { href: '/tro-ly-du-lich', labelKey: 'nav.tripPlanner', badge: 'AI' },
-  { href: '/op/register', labelKey: 'nav.operators' },
 ];
 
-/* Customer login (ADR-021). Operators reach their console from the "Nhà xe" nav item. */
-const LOGIN: { href: string; labelKey: string } = { href: '/auth/login', labelKey: 'auth.loginSignup' };
+/* Customer auth (ADR-021) — TÁCH 2 nút (redesign navbar): "Đăng nhập" → /auth/login,
+   "Đăng ký" → /auth/register (customer signup). KHÔNG trỏ /op/* (nhà xe vào qua footer —
+   audit F9 + guard #349). */
+const LOGIN = { href: '/auth/login', labelKey: 'auth.login' } as const;
+const SIGNUP = { href: '/auth/register', labelKey: 'auth.signup' } as const;
 
 /* Solid CTA fill uses `--primary-strong` (orange-700, ~4.7:1 on white), not
    `--primary` (~3.4:1) — the label is below the AA large-text threshold. */
@@ -44,6 +46,16 @@ const CTA_CLASS =
    had to agree and nothing enforced it. If those classes change, change this. */
 const BAR_H_PX = { base: 72, lg: 84 } as const;
 const barHeight = () => (window.innerWidth >= 1024 ? BAR_H_PX.lg : BAR_H_PX.base);
+
+/* Badge "AI" thống nhất toàn site (redesign): 1 màu `--badge-ai` (cam sáng #F05A1A), 1 component —
+   trước đây lặp 2 chỗ + dùng bg-primary-strong (trùng CTA). */
+function NavBadge({ label }: { label: string }) {
+  return (
+    <span className="ml-1.5 rounded-[4px] bg-badge-ai px-1.5 py-px text-[10px] font-bold uppercase leading-none tracking-wide text-white">
+      {label}
+    </span>
+  );
+}
 
 export function SiteHeader() {
   const pathname = usePathname();
@@ -173,7 +185,7 @@ export function SiteHeader() {
             //
             // The feather stays off: it exists to fade an OPAQUE bar into the
             // photo, and against a translucent bar it reads as a smear.
-            ? 'bg-background/40 backdrop-blur-md after:opacity-0'
+            ? 'bg-background/40 backdrop-blur-lg backdrop-saturate-[1.35] after:opacity-0'
             : scrolled
               ? 'bg-background/82 shadow-e1 backdrop-blur after:opacity-0'
               : 'bg-background',
@@ -217,7 +229,7 @@ export function SiteHeader() {
                 the reference's ~17px on an 1828 frame scales to ~13.4px here.
                 This also lands "VI" at nav size and keeps the button label one
                 step larger than the nav, both as measured. */}
-            <nav className="ml-16 flex items-center gap-4 text-lg" aria-label={t('nav.primary')}>
+            <nav className="ml-9 flex items-center gap-0.5" aria-label={t('nav.primary')}>
               {NAV.map((item) => {
                 // '/' would prefix-match every route, so it needs an exact match.
                 const active =
@@ -228,11 +240,11 @@ export function SiteHeader() {
                     href={item.href}
                     aria-current={active ? 'page' : undefined}
                     className={cn(
-                      'group relative inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-3 font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
+                      'group relative inline-flex h-9 items-center whitespace-nowrap rounded-[8px] px-3 text-[15px] font-medium outline-none transition-colors hover:bg-foreground/5 focus-visible:ring-2 focus-visible:ring-primary-strong focus-visible:ring-offset-2',
                       // Underline bar so the active state is not signalled by colour alone
                       // (WCAG 1.4.1) — deliberate improvement over the mockup, which
                       // signals active by colour only.
-                      'after:absolute after:inset-x-3 after:bottom-2 after:h-0.5 after:rounded-full after:bg-primary after:transition-opacity',
+                      'after:absolute after:inset-x-3 after:bottom-1 after:h-0.5 after:rounded-full after:bg-primary-strong after:transition-opacity',
                       // Active is signalled by WEIGHT + the orange underline, not by
                       // orange text. That is what lets the bar be real glass over
                       // the hero: #CA3500 has relative luminance 0.151 and needs its
@@ -248,18 +260,13 @@ export function SiteHeader() {
                     )}
                   >
                     {t(item.labelKey)}
-                    {item.badge && (
-                      <span className="ml-1.5 rounded bg-primary-strong px-1 py-px text-[10px] font-bold uppercase leading-none tracking-wide text-primary-foreground">
-                        {item.badge}
-                      </span>
-                    )}
+                    {item.badge && <NavBadge label={item.badge} />}
                   </Link>
                 );
               })}
             </nav>
-            <div className="ml-auto flex items-center gap-5">
-              {/* Real i18n (P0): the language switcher restored to the slot the inert
-                  2026-07-30 "VI" pill vacated ("Restore it alongside real i18n"). */}
+            {/* Nhóm phải: ngôn ngữ | vạch chia | Đăng nhập | Đăng ký (redesign: tách 2 nút, control 36px). */}
+            <div className="ml-auto flex items-center gap-1.5">
               <LanguageSwitcher />
               {authStatus === 'unknown' ? (
                 // Neutral placeholder while the bootstrap refresh resolves (DD-4):
@@ -267,25 +274,29 @@ export function SiteHeader() {
                 // user can't be mis-navigated to /auth/login mid-load.
                 <div
                   aria-hidden="true"
-                  className="h-11 w-32 animate-pulse rounded-full bg-muted motion-reduce:animate-none"
+                  className="h-9 w-40 animate-pulse rounded-[8px] bg-muted motion-reduce:animate-none"
                 />
               ) : authStatus === 'authed' ? (
                 <CustomerAccountMenu />
               ) : (
-                <Link
-                  href={LOGIN.href}
-                  className={cn(
-                    // border-primary/40: the reference's stroke samples (251,113,77),
-                    // far more saturated than /30 composites to. JPEG blur can only
-                    // wash a thin stroke toward its neighbour, so that is a floor.
-                    // bg-card, not a transparent interior: the scrim has faded to
-                    // ~0 this far right, so the label would otherwise sit on raw
-                    // sky pixels. The reference's own button carries a fill too.
-                    'inline-flex h-11 items-center whitespace-nowrap rounded-lg border border-primary/70 bg-card px-5 text-xl font-medium text-primary-strong outline-none transition-colors hover:bg-primary/5 focus-visible:ring-3 focus-visible:ring-ring/50'
-                  )}
-                >
-                  {t(LOGIN.labelKey)}
-                </Link>
+                <>
+                  <span aria-hidden="true" className="mx-1.5 h-[18px] w-px bg-foreground/15" />
+                  <Link
+                    href={LOGIN.href}
+                    className="inline-flex h-9 items-center whitespace-nowrap rounded-[8px] px-3 text-sm font-semibold text-foreground outline-none transition-colors hover:bg-foreground/5 focus-visible:ring-2 focus-visible:ring-primary-strong focus-visible:ring-offset-2"
+                  >
+                    {t(LOGIN.labelKey)}
+                  </Link>
+                  <Link
+                    href={SIGNUP.href}
+                    className={cn(
+                      'inline-flex h-9 items-center whitespace-nowrap rounded-[8px] px-4 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-primary-strong focus-visible:ring-offset-2',
+                      CTA_CLASS
+                    )}
+                  >
+                    {t(SIGNUP.labelKey)}
+                  </Link>
+                </>
               )}
             </div>
           </div>
@@ -359,11 +370,7 @@ export function SiteHeader() {
                   )}
                 >
                   {t(item.labelKey)}
-                  {item.badge && (
-                    <span className="ml-1.5 rounded bg-primary-strong px-1 py-px text-[10px] font-bold uppercase leading-none tracking-wide text-primary-foreground">
-                      {item.badge}
-                    </span>
-                  )}
+                  {item.badge && <NavBadge label={item.badge} />}
                 </Link>
               );
             })}
@@ -371,11 +378,11 @@ export function SiteHeader() {
           <div className="flex items-center justify-center border-t border-border px-2 py-3">
             <LanguageSwitcher onNavigate={() => setDrawerOpen(false)} />
           </div>
-          <div className="flex justify-center border-t border-border px-2 py-2">
+          <div className="flex flex-col gap-2 border-t border-border px-2 py-3">
             {authStatus === 'unknown' ? (
               <div
                 aria-hidden="true"
-                className="h-11 w-full animate-pulse rounded-full bg-muted motion-reduce:animate-none"
+                className="h-11 w-full animate-pulse rounded-[8px] bg-muted motion-reduce:animate-none"
               />
             ) : authStatus === 'authed' ? (
               // QA-H2: close the drawer when the account menu navigates or logs out —
@@ -383,17 +390,24 @@ export function SiteHeader() {
               // close over the destination.
               <CustomerAccountMenu onNavigate={() => setDrawerOpen(false)} />
             ) : (
-              <Link
-                href={LOGIN.href}
-                onClick={() => setDrawerOpen(false)}
-                className={cn(
-                  'flex h-11 w-full items-center justify-center gap-2 rounded-full px-4 text-sm font-medium',
-                  CTA_CLASS
-                )}
-              >
-                <LogInIcon className="size-4" />
-                {t(LOGIN.labelKey)}
-              </Link>
+              // Drawer guest: 2 nút (tap ≥44px). Đăng nhập ghost + Đăng ký solid — cùng route với desktop.
+              <>
+                <Link
+                  href={LOGIN.href}
+                  onClick={() => setDrawerOpen(false)}
+                  className="flex h-11 w-full items-center justify-center gap-2 rounded-[8px] border border-border text-sm font-semibold text-foreground outline-none transition-colors hover:bg-foreground/5 focus-visible:ring-2 focus-visible:ring-primary-strong"
+                >
+                  <LogInIcon className="size-4" />
+                  {t(LOGIN.labelKey)}
+                </Link>
+                <Link
+                  href={SIGNUP.href}
+                  onClick={() => setDrawerOpen(false)}
+                  className={cn('flex h-11 w-full items-center justify-center rounded-[8px] px-4 text-sm font-semibold', CTA_CLASS)}
+                >
+                  {t(SIGNUP.labelKey)}
+                </Link>
+              </>
             )}
           </div>
         </Dialog.Popup>

@@ -49,7 +49,10 @@ export function LanguageSwitcher({ onNavigate }: { onNavigate?: () => void }) {
         aria-label={`${locale === 'vi' ? 'Ngôn ngữ' : 'Language'}: ${current.native}`}
         disabled={pending}
         className={cn(
-          'inline-flex min-h-11 items-center gap-1.5 rounded-full border border-border bg-background px-3 text-sm font-medium outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:bg-muted disabled:opacity-50'
+          // Ghost (redesign): không viền/nền mặc định → chỉ hiện viền+nền trắng khi hover/mở (border
+          // trong suốt sẵn → không nhảy layout). Chữ foreground = legible trên kính hero như nav links.
+          // 44px tap trong drawer (<xl), 36px gọn ở desktop (xl).
+          'inline-flex min-h-11 items-center gap-1.5 rounded-[8px] border border-transparent px-2 text-[13px] font-semibold text-foreground outline-none transition-colors hover:border-border hover:bg-card focus-visible:ring-2 focus-visible:ring-primary-strong focus-visible:ring-offset-2 aria-expanded:border-border aria-expanded:bg-card disabled:opacity-50 xl:h-9 xl:min-h-9'
         )}
       >
         <Languages aria-hidden="true" className="size-4 text-muted-foreground" />

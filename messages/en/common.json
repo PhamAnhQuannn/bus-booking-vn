@@ -2,11 +2,11 @@
   "nav": {
     "primary": "Main navigation",
     "bookTicket": "Book tickets",
-    "tripPlanner": "Trip planner",
-    "operators": "Bus operators"
+    "tripPlanner": "Trip planner"
   },
   "auth": {
-    "loginSignup": "Log in / Sign up"
+    "login": "Log in",
+    "signup": "Sign up"
   },
   "header": {
     "openMenu": "Open navigation menu",
