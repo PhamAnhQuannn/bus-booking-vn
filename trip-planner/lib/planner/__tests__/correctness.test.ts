@@ -181,3 +181,101 @@ describe('buildItinerary — blob ngoại vi mass-lớn KHÔNG được chiếm 
     expect(it.notes.some((n) => n.includes('ngoài vùng thuận tiện'))).toBe(true);
   });
 });
+
+// MARQUEE surfacing (P0): điểm biểu tượng khớp signatureSpots của slug LUÔN có mặt trong lịch —
+// pin đầu cụm (sống sót packDays cap) + cụm marquee force-keep qua gap-stop (không bị "ngoài vùng
+// thuận tiện"). "Đi Nha Trang phải có VinWonders", "đi Đà Nẵng phải có Bà Nà".
+describe('buildItinerary — marquee (signatureSpots) luôn xuất hiện trong lịch (P0)', () => {
+  // Nha Trang: cụm trung tâm 1 ward, 4 điểm generic score cao + VinWonders score THẤP (id cuối). Không
+  // pin → cap budget 3 loại VinWonders. Có pin → VinWonders lên đầu, sống sót.
+  const generic = (id: string, lat: number, lon: number): KbRecord => ({
+    id, name: `Bảo tàng ${id}`, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `số 1, Phường Nha Trang, tỉnh Khánh Hòa` },
+    description: { value: 'có mô tả' }, // score cao (desc + >=5 nguồn)
+  });
+  const vinwonders: KbRecord = {
+    id: 'NT-Z', name: 'VinWonders Nha Trang', region_id: 'r', source_ids: ['s1'], // score thấp (1 nguồn, no desc)
+    coordinates: { latitude: 12.221, longitude: 109.247 },
+    address: { full_address: `Phường Nha Trang, tỉnh Khánh Hòa` },
+    category: { primary: 'Khu du lịch giải trí (vui chơi trả phí)' },
+  };
+  const ntStore: Store = {
+    slug: 'nha-trang', generatedAt: '2026-01-01', tam: { lat: 12.24, lon: 109.19 },
+    destinations: [
+      generic('B1', 12.245, 109.190), generic('B2', 12.246, 109.191),
+      generic('B3', 12.244, 109.192), generic('B4', 12.243, 109.189), vinwonders,
+    ],
+    restaurants: [], hotels: [generic('H1', 12.245, 109.190)],
+    matrix: null, matrixIndex: new Map(),
+  };
+
+  it('VinWonders (marquee, score thấp) sống sót cap trong cụm — lịch 1 ngày', () => {
+    const req: TripRequest = { slug: 'nha-trang', days: 1, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+    const it = buildItinerary(req, ntStore);
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).toContain('VinWonders Nha Trang');
+  });
+
+  // Đà Nẵng: cụm trung tâm 3 điểm marquee (seed, mass cao) + cụm Bà Nà 1 điểm marquee ~40km (non-seed).
+  // Không force-keep → Bà Nà bị gap-stop loại ("ngoài vùng thuận tiện"). Có → Bà Nà giữ.
+  const dn = (id: string, name: string, lat: number, lon: number, ward: string): KbRecord => ({
+    id, name, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `số 1, ${ward}, thành phố Đà Nẵng` },
+    description: { value: 'có mô tả' },
+  });
+  const dnStore: Store = {
+    slug: 'da-nang', generatedAt: '2026-01-01', tam: { lat: 16.05, lon: 108.22 },
+    destinations: [
+      dn('NHS', 'Ngũ Hành Sơn', 16.00, 108.26, 'Phường Ngũ Hành Sơn'),
+      dn('MK', 'Biển Mỹ Khê', 16.06, 108.24, 'Phường Mỹ An'),
+      dn('LU', 'Chùa Linh Ứng', 16.10, 108.28, 'Phường Thọ Quang'),
+      dn('BANA', 'Khu du lịch Bà Nà Hills', 15.995, 107.99, 'Xã Hòa Ninh'), // ~40km tây
+    ],
+    restaurants: [], hotels: [dn('H1', 'KS', 16.05, 108.22, 'Phường Hải Châu')],
+    matrix: null, matrixIndex: new Map(),
+  };
+
+  it('Bà Nà (marquee ~40km, non-seed) KHÔNG bị loại — giữ trong lịch', () => {
+    const req: TripRequest = { slug: 'da-nang', days: 3, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+    const it = buildItinerary(req, dnStore);
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).toContain('Khu du lịch Bà Nà Hills');
+    expect(it.notes.some((n) => n.includes('ngoài vùng thuận tiện'))).toBe(false);
+  });
+});
+
+// FAME = HẠNG signatureSpot biểu tượng nhất trong cụm, KHÔNG phải SỐ ĐẾM điểm khớp. "Đi Nha Trang":
+// cụm VinWonders (spot[0], khớp ÍT) phải seed TRƯỚC cụm nhiều điểm khớp spot MUỘN (Tháp Bà/Hòn Chồng/
+// Chợ Đầm). Seed quyết cụm-lõi compact → cụm KHÔNG-nổi-tiếng ở gần seed mới được giữ qua gap-stop.
+// 3 cụm: A=VinWonders (spot[0], fame=hạng 10) · C=điểm generic sát A ~0.7km (khác ward, fame 0, KHÔNG
+// marquee) · B=3 điểm khớp spot muộn ~21km (fame=hạng 8, count 3). Rank: seed=A(10>8) → C sát seed giữ.
+// Count cũ: seed=B(count 3>1) → C cách seed ~21km, không marquee → gap-stop LOẠI. Assert 'Điểm C' có mặt
+// ⇒ chỉ đúng khi seed theo HẠNG. Revert về count → seed=B → test FAIL.
+describe('buildItinerary — seed theo HẠNG signatureSpot biểu tượng, không theo SỐ ĐẾM điểm khớp', () => {
+  const mk = (id: string, name: string, lat: number, lon: number, ward: string, sources = 1): KbRecord => ({
+    id, name, region_id: 'r', source_ids: Array.from({ length: sources }, (_, i) => `s${i}`),
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `số 1, ${ward}, tỉnh Khánh Hòa` },
+  });
+  const store: Store = {
+    slug: 'nha-trang', generatedAt: '2026-01-01', tam: { lat: 12.30, lon: 109.21 },
+    destinations: [
+      mk('A', 'VinWonders Nha Trang', 12.22, 109.245, 'Phường Vĩnh Nguyên'),        // spot[0] → fame hạng 10
+      mk('C', 'Điểm C ven biển', 12.226, 109.243, 'Phường Phước Long', 5),          // sát A, khác ward, fame 0
+      mk('B1', 'Tháp Bà Ponagar', 12.400, 109.190, 'Phường Vĩnh Phước'),            // spot[2] → hạng 8
+      mk('B2', 'Hòn Chồng', 12.408, 109.192, 'Phường Vĩnh Phước'),                  // spot[5] → hạng 5
+      mk('B3', 'Chợ Đầm', 12.395, 109.185, 'Phường Vĩnh Phước'),                     // spot[6] → hạng 4  (count cụm B = 3)
+    ],
+    restaurants: [], hotels: [mk('H', 'KS', 12.22, 109.245, 'Phường Vĩnh Nguyên', 5)],
+    matrix: null, matrixIndex: new Map(),
+  };
+
+  it('cụm VinWonders (spot[0]) seed trước cụm nhiều điểm khớp spot muộn → điểm generic sát VinWonders được giữ', () => {
+    const req: TripRequest = { slug: 'nha-trang', days: 3, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+    const it = buildItinerary(req, store);
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).toContain('Điểm C ven biển'); // FAIL nếu seed=B (count) vì C cách seed ~21km bị gap-stop
+  });
+});

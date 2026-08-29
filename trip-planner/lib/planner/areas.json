@@ -21,6 +21,36 @@
     },
     "vinh-long": {
       "signatureSpots": ["cù lao an bình", "chợ nổi trà ôn", "văn thánh miếu", "lò gạch mang thít", "cồn phụng", "cồn quy", "sân chim vàm hồ", "ao bà om", "chùa âng", "biển ba động", "chùa hang", "chùa cò"]
+    },
+    "nha-trang": {
+      "signatureSpots": ["vinwonders", "vinpearl", "tháp bà ponagar", "hòn mun", "hòn tằm", "hòn chồng", "chợ đầm", "viện hải dương học", "dốc lết", "bãi dài"]
+    },
+    "da-nang": {
+      "signatureSpots": ["bà nà", "cầu vàng", "ngũ hành sơn", "biển mỹ khê", "bán đảo sơn trà", "chùa linh ứng", "sun world", "asia park", "đèo hải vân", "bảo tàng chăm"]
+    },
+    "da-lat": {
+      "signatureSpots": ["hồ xuân hương", "quảng trường lâm viên", "thung lũng tình yêu", "đồi chè cầu đất", "thiền viện trúc lâm", "hồ tuyền lâm", "ga đà lạt", "núi langbiang", "thác datanla", "dinh bảo đại"]
+    },
+    "ha-long": {
+      "signatureSpots": ["vịnh hạ long", "sun world hạ long", "bãi cháy", "hòn trống mái", "hang sửng sốt", "đảo ti tốp", "công viên rồng", "núi bài thơ", "hang đầu gỗ"]
+    },
+    "hue": {
+      "signatureSpots": ["đại nội", "kinh thành huế", "lăng khải định", "lăng tự đức", "lăng minh mạng", "chùa thiên mụ", "sông hương", "cầu tràng tiền", "đồi vọng cảnh"]
+    },
+    "phu-quoc": {
+      "signatureSpots": ["vinwonders phú quốc", "grand world", "hòn thơm", "cáp treo hòn thơm", "bãi sao", "sun world", "vinpearl safari", "dinh cậu", "làng chài hàm ninh", "bãi trường"]
+    },
+    "ninh-binh": {
+      "signatureSpots": ["tràng an", "tam cốc", "hang múa", "chùa bái đính", "cố đô hoa lư", "thung nham", "tuyệt tịnh cốc", "đầm vân long", "vườn quốc gia cúc phương"]
+    },
+    "vung-tau": {
+      "signatureSpots": ["tượng chúa kitô", "bãi sau", "bãi trước", "ngọn hải đăng", "hồ tràm", "bạch dinh", "thích ca phật đài", "hồ mây", "núi lớn"]
+    },
+    "quy-nhon": {
+      "signatureSpots": ["eo gió", "kỳ co", "ghềnh ráng", "tháp đôi", "bãi xép", "cù lao xanh", "đầm thị nại", "tịnh xá ngọc hòa", "tháp bánh ít"]
+    },
+    "sa-pa": {
+      "signatureSpots": ["fansipan", "phan xi păng", "nhà thờ đá sa pa", "thác bạc", "bản cát cát", "núi hàm rồng", "đèo ô quy hồ", "thung lũng mường hoa", "thác tình yêu", "bản tả van"]
     }
   },
   "areas": [
