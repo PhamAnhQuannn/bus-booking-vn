@@ -47,6 +47,7 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
   --color-primary-strong: var(--primary-strong);
+  --color-primary-tint: var(--primary-tint);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -127,6 +128,13 @@
      `--primary`, so op/admin surfaces sharing components/ui/button.tsx are
      unaffected unless they explicitly opt in. */
   --primary-strong: oklch(0.553 0.195 38.4);
+  /* Soft peach tint — badge/label chip fill (bg-primary-tint). Light enough that
+     text-primary-strong reads on it; distinct from a solid CTA. */
+  --primary-tint: oklch(0.9 0.06 45);
+  /* Sticky site-header height (SiteHeader.tsx). Single source of truth: the planner
+     workspace subtracts this from 100dvh — hardcoding it in both places is how the
+     header's 90px redesign silently desynced the planner (composer pushed off-screen). */
+  --site-header-h: 68px;
   /* One shared value across secondary/muted/accent (#faece0), deeper than the
      field so bands, hovers and table stripes still read: 1.06 against the page,
      matching the 1.03 these had before. muted-foreground on it is 4.75 and

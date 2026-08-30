@@ -6,7 +6,8 @@
     "operators": "Nhà xe"
   },
   "auth": {
-    "loginSignup": "Đăng nhập / Đăng ký"
+    "login": "Đăng nhập",
+    "register": "Đăng ký"
   },
   "header": {
     "openMenu": "Mở menu điều hướng",
