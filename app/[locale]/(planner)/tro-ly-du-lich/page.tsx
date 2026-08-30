@@ -956,7 +956,7 @@ export default function TroLyDuLichPage() {
     );
 
   return (
-    <main ref={mainRef} className="planner-scope flex h-[calc(100dvh-56px)] w-full flex-col overflow-hidden bg-[var(--planner-bg)] lg:h-[calc(100dvh-64px)] lg:flex-row">
+    <main ref={mainRef} className="planner-scope flex h-[calc(100dvh-var(--site-header-h))] w-full flex-col overflow-hidden bg-[var(--planner-bg)] lg:flex-row">
       {/* SIDEBAR desktop — lịch sử / brand-intro. Rộng ~26%W (đo từ mock) + clamp → bền tỉ lệ. */}
       <div className={`hidden lg:flex lg:h-full lg:shrink-0 ${sidebarCollapsed ? '' : 'lg:w-[26%] lg:min-w-[264px] lg:max-w-[360px]'}`}>
         <PlannerSidebar {...sidebarProps} collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed((v) => !v)} />
