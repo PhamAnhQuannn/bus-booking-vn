@@ -30,8 +30,14 @@ export default defineConfig({
   // cookies on http → bb_csrf/bb_hold never store → CSRF 403 on the hold POST.
   // Dev mode keeps cookies non-Secure so the browser booking flow works over http.
   // (ci.yml still runs `pnpm build` as a separate prerender/compile smoke check.)
+  //
+  // `--webpack` opts the E2E server OUT of Turbopack (Next 16's default): the Turbopack
+  // dev-stream intermittently crashed the webServer on CI —
+  // `TypeError: controller[kState].transformAlgorithm is not a function` +
+  // turbopack ChunkLoadError — wedging every later page.goto into a 30s timeout
+  // (mobile-390). Webpack sidesteps it. Local `pnpm dev` stays on Turbopack.
   webServer: {
-    command: 'pnpm dev',
+    command: 'pnpm dev --webpack',
     url: 'http://localhost:3001',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
