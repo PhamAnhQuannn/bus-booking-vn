@@ -133,7 +133,7 @@
   --primary-tint: oklch(0.9 0.06 45);
   /* Sticky site-header height (SiteHeader.tsx). Single source of truth: the planner
      workspace subtracts this from 100dvh — hardcoding it in both places is how the
-     header's 90px redesign silently desynced the planner (composer pushed off-screen). */
+     header redesign silently desynced the planner (composer pushed off-screen). */
   --site-header-h: 68px;
   /* One shared value across secondary/muted/accent (#faece0), deeper than the
      field so bands, hovers and table stripes still read: 1.06 against the page,
