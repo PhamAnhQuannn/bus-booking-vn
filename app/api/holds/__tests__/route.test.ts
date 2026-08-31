@@ -240,8 +240,9 @@ describe('POST /api/holds', () => {
   });
 
   it('falls back to the tighter anon IP bucket when bb_sid is absent (#359)', async () => {
-    // A real browser always has bb_sid by the time it POSTs — proxy.ts mints it on any
-    // safe-method request. A client that never issued a GET is a script.
+    // A consented browser has bb_sid by the time it POSTs — proxy.ts mints it on a
+    // safe-method request once cookie consent === 'accepted'. Absent bb_sid means either
+    // a script (never issued a GET) or a visitor who declined analytics cookies.
     sessionIdMock.mockReturnValue(null);
     vi.mocked(createHold).mockResolvedValueOnce(MOCK_HOLD_RESULT);
 
