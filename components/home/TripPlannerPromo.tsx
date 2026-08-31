@@ -49,7 +49,7 @@ export async function TripPlannerPromo() {
           <span className="inline-flex w-fit items-center gap-2 rounded-full border border-primary/20 bg-white/70 px-3 py-1 text-xs font-bold uppercase tracking-widest text-primary backdrop-blur">
             <Sparkles className="size-4" aria-hidden="true" />
             {t('planner.eyebrow')}
-            <span className="rounded bg-primary-strong px-1 py-px text-[10px] font-bold uppercase leading-none tracking-wide text-primary-foreground">
+            <span className="rounded-full border border-primary-strong/30 bg-primary-tint/60 px-2 py-0.5 text-[12px] font-bold uppercase leading-none tracking-[0.5px] text-primary-strong">
               AI
             </span>
           </span>

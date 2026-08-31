@@ -211,6 +211,8 @@
     "fromCentre": "📍 cách trung tâm {dist}",
     "ticketsLabel": "🎟️ Vé: {value}",
     "ticketsPaidUnconfirmed": "Có thu phí (chưa rõ mức)",
+    "ticketsFree": "Miễn phí",
+    "ticketsUnverified": "chưa xác minh — hỏi tại điểm",
     "fromHotel": "📍 cách KS {dist}",
     "sources": "{count} nguồn",
     "facilityLimited": " (hạn chế)",

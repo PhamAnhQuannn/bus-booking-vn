@@ -6,7 +6,8 @@
     "operators": "Bus operators"
   },
   "auth": {
-    "loginSignup": "Log in / Sign up"
+    "login": "Log in",
+    "register": "Sign up"
   },
   "header": {
     "openMenu": "Open navigation menu",

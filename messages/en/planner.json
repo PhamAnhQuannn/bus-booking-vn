@@ -211,6 +211,8 @@
     "fromCentre": "📍 {dist} from centre",
     "ticketsLabel": "🎟️ Tickets: {value}",
     "ticketsPaidUnconfirmed": "Paid (amount unconfirmed)",
+    "ticketsFree": "Free",
+    "ticketsUnverified": "unverified — ask on site",
     "fromHotel": "📍 {dist} from hotel",
     "sources": "{count} sources",
     "facilityLimited": " (limited)",

@@ -18,9 +18,10 @@ const LOCALES: { value: Locale; code: string; native: string }[] = [
  * CustomerAccountMenu for visual + keyboard consistency.
  *
  * - Trigger: `Languages` glyph (NOT a flag — flags map to countries, not languages;
- *   NOT `Globe` — that reads as region), current-locale code (VI/EN), chevron. Bordered
- *   `bg-background` pill so it stays legible over the frosted-glass hero header; NO orange
- *   text (fails contrast on the glass). Orange only in the focus ring + selected checkmark.
+ *   NOT `Globe` — that reads as region), current-locale code (VI/EN), chevron. A whisper
+ *   plate (`bg-background/60`, no border at rest) gives the dark label its own legible surface
+ *   over the dark hero corner where a bare-ghost trigger failed AA; border + `bg-card` on
+ *   hover/open. NO orange text (fails contrast on the glass). Orange only in focus ring + checkmark.
  * - Switching preserves the current pathname + query and rewrites the locale prefix
  *   (as-needed): vi = unprefixed, en = /en/…. Chevron becomes a spinner while pending.
  * - z-popover goes on Menu.Positioner, never Menu.Popup (DD-1 clip bug).
@@ -49,15 +50,17 @@ export function LanguageSwitcher({ onNavigate }: { onNavigate?: () => void }) {
         aria-label={`${locale === 'vi' ? 'Ngôn ngữ' : 'Language'}: ${current.native}`}
         disabled={pending}
         className={cn(
-          'inline-flex min-h-11 items-center gap-1.5 rounded-full border border-border bg-background px-3 text-sm font-medium outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:bg-muted disabled:opacity-50'
+          // Ghost: no fill/border at rest so the frosted bar shows through; a
+          // subtle border + card fill appears only on hover/open.
+          'inline-flex h-[50px] items-center gap-2 rounded-2xl border border-transparent bg-background/60 px-3 text-[18px] font-semibold text-foreground outline-none transition-colors hover:border-border hover:bg-card focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:border-border aria-expanded:bg-card disabled:opacity-50'
         )}
       >
-        <Languages aria-hidden="true" className="size-4 text-muted-foreground" />
+        <Languages aria-hidden="true" className="size-5 text-muted-foreground" />
         <span>{current.code}</span>
         {pending ? (
-          <Loader2 aria-hidden="true" className="size-3.5 animate-spin text-muted-foreground motion-reduce:animate-none" />
+          <Loader2 aria-hidden="true" className="size-4 animate-spin text-muted-foreground motion-reduce:animate-none" />
         ) : (
-          <ChevronDownIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
+          <ChevronDownIcon aria-hidden="true" className="size-4 text-muted-foreground" />
         )}
       </Menu.Trigger>
       <Menu.Portal>
