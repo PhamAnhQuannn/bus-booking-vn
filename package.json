@@ -51,7 +51,7 @@
     "leaflet": "^1.9.4",
     "lucide-react": "^1.33.0",
     "next": "16.2.11",
-    "next-intl": "^4.13.7",
+    "next-intl": "^4.14.0",
     "pino": "^10.3.1",
     "prisma": "^7.9.1",
     "protomaps-leaflet": "^5.1.0",
