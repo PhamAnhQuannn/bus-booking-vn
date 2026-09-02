@@ -20,6 +20,7 @@ import duong_dan_ra as _dr
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dia_diem_config import cfg as _cfg, slug_of as _slug_of
 import anh_huong as _ah                        # sap output theo THU TU anh huong (VQS noi bo)
+import diem_quan_trong as _dqt                  # sap DIEM DEN theo MUC DO QUAN TRONG (tier+booster+popularity)
 import trai_nghiem as _tn                       # nhan trai nghiem (category.primary -> "Ngam canh"...)
 import hoat_dong_derive as _hd                   # "Co gi o day" suy tu loai + tag OSM (rederivation)
 import vibes as _vb                             # slug vibe: rule (category) + fold cache LLM (enrich_vibes)
@@ -564,6 +565,12 @@ def _sap_log(recs, loai):
 nha_hang = _sap_log(nha_hang, "nha_hang")
 khach_san = _sap_log(khach_san, "khach_san")
 khach_san_dc = _sap_log(khach_san_dc, "khach_san")
+
+# Diem den: reorder theo MUC DO QUAN TRONG (importance = tier loai + booster nha-nuoc/tra-phi +
+# popularity Wilson). CHI THU TU doi — KHONG them field. Popularity tu noi-bo/pop_diem_den.json
+# (gitignored) neu co; thieu -> backbone-only (khong chim diem thieu place_id). rank_noi_bo_diem_den.py
+# sinh pop cache (opt-in, khong chay moi build).
+diem_den = _dqt.sap_xep(diem_den, _dqt.load_pop(CITY_DIR))
 
 # ── meta + ghi ─────────────────────────────────────────────────────────────
 lats = [d["coordinates"]["latitude"] for d in diem_den]

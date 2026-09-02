@@ -11,6 +11,11 @@ const PER_DAY: Record<TripRequest["pace"], number> = { relaxed: 2, moderate: 3, 
 const ASSUMED_SPEED_KMH = 25; // đổi km -> phút cho leg không có ma trận OSRM (khách sạn/nhà hàng)
 const MARQUEE_CARD_MAX = 2;   // region <=2 điểm + xa => outlier marquee (Bà Nà)
 const FAR_FACTOR = 2;         // "xa" = khoảng cách region->tâm > 2x trung vị
+const IMPORTANCE_W = 1.0;     // trần bonus importance cộng vào scoreDestination (thang ~0–6). KB ship
+                              // record theo THỨ TỰ importance (diem_quan_trong.sap_xep) -> array index =
+                              // rank; top nhận +IMPORTANCE_W, cuối +0. Bonus chảy vào cap-survival + seed.
+const AUTO_MARQUEE_K = 4;     // Phase 3: slug KHÔNG có signatureSpots hand-list -> auto-marquee top-K
+                              // theo importance (force-include như hand-list). Phủ 17/35 tp trước không có.
 // Compactness-at-selection (chọn theo cụm, quality trong cụm): dừng gộp cụm khi bước "nhảy cụm".
 const GAP_FACTOR = 2;         // bước thêm cụm > 2x trung vị các bước trước = nhảy cụm
 const ABS_GAP_KM = 8;         // sàn tuyệt đối: hop nội-thành nhỏ, cross-cụm lớn (tránh dừng nhầm ở n bước ít)
@@ -283,8 +288,16 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
 
   // A0/A6: chấm TOÀN BỘ (không slice-by-score sớm), cụm theo KHU HÀNH CHÍNH (ward); thiếu địa chỉ ->
   // fallback region_id; thiếu cả hai -> cụm toạ độ. (Cũ: cụm theo region_id = hướng la bàn -> trộn thị xã.)
+  // destRank: KB ship diem-den.json theo THỨ TỰ importance (build-time diem_quan_trong.sap_xep)
+  // -> array index của store.destinations = rank (0 = quan trọng nhất). Bonus có trần cộng vào
+  // scoreDestination (giữ nó thuần chất-lượng): importance chảy vào cap-survival + growCompact seed.
+  const destRank = new Map<string, number>();
+  store.destinations.forEach((r, i) => destRank.set(r.id, i));
+  const nDest = store.destinations.length;
+  const impBonus = (id: string): number =>
+    nDest <= 1 ? 0 : IMPORTANCE_W * (1 - (destRank.get(id) ?? nDest - 1) / (nDest - 1));
   const scoreOf = new Map<string, number>();
-  for (const r of withCoord) scoreOf.set(r.id, scoreDestination(r, req));
+  for (const r of withCoord) scoreOf.set(r.id, scoreDestination(r, req) + impBonus(r.id));
   const fameSpots = fameSpotsForSlug(req.slug); // signature-spots của slug (rỗng nếu ngoài registry)
   const groups = new Map<string, KbRecord[]>();
   const noRegion: KbRecord[] = [];
@@ -305,16 +318,32 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
       const nm = foldText(r.name);
       if (fameSpots.some((s) => (s.length >= 5 && nm.includes(s)) || (nm.length >= 5 && s.includes(nm)))) marqueeIds.add(r.id);
     }
+  else
+    // Phase 3: slug KHÔNG có signatureSpots hand-list (17/35 tp) → auto-marquee top-K theo importance
+    // (destRank; KB ship theo thứ tự importance). Cho 17 tp này lớp force-include mà trước KHÔNG hề có.
+    for (const r of [...withCoord]
+      .sort((a, b) => (destRank.get(a.id) ?? Infinity) - (destRank.get(b.id) ?? Infinity))
+      .slice(0, AUTO_MARQUEE_K))
+      marqueeIds.add(r.id);
   const pinIds = marqueeIds.size ? new Set<string>([...anchorIds, ...marqueeIds]) : anchorIds; // anchor ∪ marquee
+  // fame cụm: hand-list → hạng signatureSpot; auto (không hand-list) → theo importance rank của điểm marquee.
+  const regFameOf = (pts: KbRecord[]): number => {
+    if (fameSpots.length) return regFame(pts, fameSpots);
+    let best = 0;
+    for (const p of pts) if (marqueeIds.has(p.id)) best = Math.max(best, AUTO_MARQUEE_K - (destRank.get(p.id) ?? AUTO_MARQUEE_K));
+    return best;
+  };
 
   const regs: Reg[] = [...groups.entries()].map(([key, pts0]) => {
     // pts sort: anchor/marquee lên ĐẦU (sống sót packDays cap trong cụm) -> rồi quality giảm dần (A1 trong cụm)
     const pts = [...pts0].sort((a, b) =>
       (Number(pinIds.has(b.id)) - Number(pinIds.has(a.id))) ||
-      (scoreOf.get(b.id)! - scoreOf.get(a.id)!) || (a.id < b.id ? -1 : 1));
+      (scoreOf.get(b.id)! - scoreOf.get(a.id)!) ||
+      ((destRank.get(a.id) ?? Infinity) - (destRank.get(b.id) ?? Infinity)) || // importance-rank, thay tiebreak id lexical
+      (a.id < b.id ? -1 : 1));
     const centroid = meanLL(pts.map(co));
     const mass = pts.reduce((s, p) => s + scoreOf.get(p.id)!, 0);
-    return { key, pts, centroid, distTam: kmBetween(tam, centroid), card: pts.length, mass, fame: regFame(pts, fameSpots) };
+    return { key, pts, centroid, distTam: kmBetween(tam, centroid), card: pts.length, mass, fame: regFameOf(pts) };
   });
 
   // E1 anchor + marquee: cụm chứa anchor/marquee -> key (scan pts, KHÔNG dựa region_id vì điểm thiếu
