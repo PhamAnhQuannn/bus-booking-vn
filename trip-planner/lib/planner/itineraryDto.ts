@@ -38,6 +38,7 @@ export interface DtoItem {
   paid_activities: { ten: string }[]; // trò trả phí có tên (on-site geo-join) — hiếm, hiện nơi có
   gioi_thieu: string | null; // câu 1 "Giới thiệu nhanh" (intro.fact, baked build-time)
   phu_hop_voi: string | null; // câu 2 EDITORIAL (002) — hiện dưới nhãn "Gợi ý biên tập", null khi off/omit
+  loi_vao_dac_trung: string | null; // lối vào đặc trưng (cáp treo/tàu ra đảo) — chuyến đi LÀ điểm nhấn
 }
 
 export interface DtoDay {
@@ -114,6 +115,7 @@ function toItem(it: SlotItem, idx: number): DtoItem {
     paid_activities: (it.trai_nghiem_tra_phi ?? []).map((a) => ({ ten: a.ten })),
     gioi_thieu: it.gioi_thieu ?? null,
     phu_hop_voi: it.phu_hop_voi ?? null,
+    loi_vao_dac_trung: it.loi_vao_dac_trung ?? null,
   };
 }
 

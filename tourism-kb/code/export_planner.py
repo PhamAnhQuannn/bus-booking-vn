@@ -18,7 +18,7 @@ import unicodedata
 
 import duong_dan_ra as _dr
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from dia_diem_config import cfg as _cfg, slug_of as _slug_of
+from dia_diem_config import cfg as _cfg, slug_of as _slug_of, GHI_CHU_DIEM_DEN as _GHI_CHU
 import anh_huong as _ah                        # sap output theo THU TU anh huong (VQS noi bo)
 import diem_quan_trong as _dqt                  # sap DIEM DEN theo MUC DO QUAN TRONG (tier+booster+popularity)
 import trai_nghiem as _tn                       # nhan trai nghiem (category.primary -> "Ngam canh"...)
@@ -448,6 +448,11 @@ for r in PICKED:
         "hoat_dong_nguon": "loại hình + tag OSM",                         # rederivation, khong claim rieng (nhu trai_nghiem)
         "vibes": _vibes_v,                                                # slug vibe roi rac (VIBE_VOCAB)
         "vibes_nguon": _vibes_ng,                                         # rule | llm | rule+llm | none
+        # Loi vao/trai nghiem DAC TRUNG (cap treo vuot bien, tau ra dao...) — chinh chuyen di LA diem nhan,
+        # KHONG phai chi phi. Curated (GHI_CHU_DIEM_DEN theo ten) OR category "Cap treo". LUON emit (khong
+        # gate EDITORIAL_TIER) vi engine doc de: (a) khong phat "xa", (b) ngay dao lich 1 ngay, (c) hien card.
+        "loi_vao_dac_trung": (_GHI_CHU.get(_name) or _GHI_CHU.get(r["name"])
+                              or ("Đi cáp treo ngắm cảnh" if rec["category"]["primary"] == "Cáp treo" else None)),
         # EDITORIAL tier (002): cau "Phu hop voi khach muon..." keyed vibe-signature, controlled vocab,
         # nguoi duyet=owner, KHONG source_id (ngoai verified_fields). Gated kill-switch EDITORIAL_TIER.
         "phu_hop_voi": ({"value": _pv_val, "tier": "bien-tap", "is_editorial": True,

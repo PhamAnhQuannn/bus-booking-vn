@@ -312,6 +312,43 @@ describe('buildItinerary — Phase 3 auto-marquee top-K importance (slug không 
   });
 });
 
+// NGÀY ĐẢO: điểm marquee XA mà LỐI VÀO là trải nghiệm chữ ký (cáp treo/tàu ra đảo, ext.destination.
+// loi_vao_dac_trung) được slot NGAY CẢ lịch 1 ngày (ngày xoay quanh nó; khu trung tâm lùi note). Trước
+// đây far-marquee 1 ngày chỉ có note. Marquee xa KHÔNG sig-access vẫn note-only (không đổi).
+describe('buildItinerary — ngày đảo: lối vào đặc trưng (cáp treo) slot được lịch 1 ngày', () => {
+  const near = (id: string, lat: number, lon: number, ward: string): KbRecord => ({
+    id, name: `Gần ${id}`, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `số 1, ${ward}, thành phố Hà Nội` }, description: { value: 'x' },
+  });
+  const island = (sig: boolean): KbRecord => ({
+    id: 'ISL', name: 'Khu đảo cáp treo', region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: 21.40, longitude: 105.85 }, // ~40km bắc → far
+    address: { full_address: `số 1, Phường Đảo Xa, thành phố Hà Nội` }, description: { value: 'x' },
+    ext: { destination: sig ? { loi_vao_dac_trung: 'có cáp treo vượt biển ra đảo' } : {} },
+  });
+  const mkStore = (sig: boolean): Store => ({
+    slug: 'ha-noi', generatedAt: '2026-01-01', tam: { lat: 21.03, lon: 105.85 },
+    destinations: [island(sig), near('N1', 21.030, 105.850, 'Phường A'), near('N2', 21.033, 105.853, 'Phường B')],
+    restaurants: [], hotels: [near('H1', 21.030, 105.850, 'Phường A')],
+    matrix: null, matrixIndex: new Map(),
+  });
+  const req: TripRequest = { slug: 'ha-noi', days: 1, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+
+  it('days=1 + cáp treo → ngày đảo: điểm đảo CÓ trong lịch, khu trung tâm lùi note', () => {
+    const it = buildItinerary(req, mkStore(true));
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).toContain('Khu đảo cáp treo');            // ngày đảo — điểm hot có
+    expect(names.some((n) => n.startsWith('Gần'))).toBe(false); // khu trung tâm lùi (restDays=0)
+  });
+  it('days=1 KHÔNG cáp treo → KHÔNG ngày-đảo: khu trung tâm vẫn giữ (không bị drop)', () => {
+    const it = buildItinerary(req, mkStore(false));
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    // Không sig-access → protReg rỗng, restDays=1 → khu trung tâm KHÔNG bị lùi (đối lập với ngày-đảo).
+    expect(names.some((n) => n.startsWith('Gần'))).toBe(true);
+  });
+});
+
 // FAME = HẠNG signatureSpot biểu tượng nhất trong cụm, KHÔNG phải SỐ ĐẾM điểm khớp. "Đi Nha Trang":
 // cụm VinWonders (spot[0], khớp ÍT) phải seed TRƯỚC cụm nhiều điểm khớp spot MUỘN (Tháp Bà/Hòn Chồng/
 // Chợ Đầm). Seed quyết cụm-lõi compact → cụm KHÔNG-nổi-tiếng ở gần seed mới được giữ qua gap-stop.

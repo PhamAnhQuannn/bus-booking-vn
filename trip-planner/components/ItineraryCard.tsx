@@ -142,6 +142,11 @@ function Row({ it, day, active, onHoverItem, hotelKm }: { it: DtoItem; day: numb
             {hotelKm != null ? <span>· {t('itinerary.fromHotel', { dist: fmtKm(hotelKm) ?? '' })}</span> : null}
           </div>
 
+          {/* LỐI VÀO ĐẶC TRƯNG (cáp treo vượt biển, tàu ra đảo) — chuyến đi LÀ điểm nhấn, làm nổi bật */}
+          {isDest && it.loi_vao_dac_trung ? (
+            <div className="mt-1 text-[13px] font-semibold text-primary">🚡 {it.loi_vao_dac_trung}</div>
+          ) : null}
+
           {showDossier ? (() => {
             // Render section theo PROFILE của loại điểm (thứ tự + gate). landmark bỏ "Có gì ở đây";
             // paid_activity/environment là slot forward-compat (chưa có field trên DtoItem → no-op).
