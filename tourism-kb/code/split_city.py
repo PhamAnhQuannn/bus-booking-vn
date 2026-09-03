@@ -58,7 +58,7 @@ UNITS = [
     ("ca-mau", "mui-ca-mau", "Mũi Cà Mau", 8.57, 104.82),
     ("dak-lak", "tuy-hoa", "Tuy Hòa", 13.27, 109.25),
     ("gia-lai", "quy-nhon", "Quy Nhơn", 13.89, 109.11),
-    ("dong-nai", "vung-tau", "Vũng Tàu", 10.87, 107.10),
+    ("ho-chi-minh", "vung-tau", "Vũng Tàu", 10.35, 107.08),
     ("tay-ninh", "tay-ninh-tp", "Tây Ninh", 11.25, 106.20),
     ("lao-cai", "sa-pa", "Sa Pa", 22.34, 103.84),
     # Hub city-unit carve từ tỉnh phủ=0 (density-probe 2026-08-24) — lõi tham quan chặt.
