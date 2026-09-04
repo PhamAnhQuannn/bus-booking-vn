@@ -17,7 +17,7 @@
 
 import { useRef } from 'react';
 import { useTranslations } from 'next-intl';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { Link } from '@/i18n/navigation';
 import { searchHref } from '@/lib/search';
@@ -54,8 +54,17 @@ export function PopularDestinations() {
       <div className="mb-6 flex items-end justify-between gap-4">
         <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">{t('dest.title')}</h2>
         <div className="flex items-center gap-3">
-          {/* 2026-07-30: a "Xem tất cả" link pointed at "/" — same page. Removed until
-              a destination-index page exists. */}
+          {/* 2026-07-30: a "Xem tất cả" link pointed at "/" — same page, so it was
+              removed. There is no dedicated destination-index page, but /routes
+              (public browse-all-routes page) covers the same "browse everywhere we
+              go" intent — link restored to it. */}
+          <Link
+            href="/routes"
+            className="hidden items-center gap-1 text-sm font-medium text-primary-strong hover:underline sm:inline-flex"
+          >
+            {t('dest.viewAll')}
+            <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
+          </Link>
           <div className="hidden gap-2 md:flex">
             <button
               type="button"
