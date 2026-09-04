@@ -75,6 +75,14 @@ for slug in provinces:
 if not SLUG:
     run(["tourism-kb/code/split_city.py"], "split_city (propagate 13 sub-view)")
 
+# 4c) POST-EXPORT stages (durable — issue planner-postexport-stages-unwired): seed icon marquee +
+#     importance order. Idempotent/atomic. SAU split_city, TRUOC coverage-assert. Truoc day phai chay TAY.
+_units = ([SLUG] if SLUG else sorted(os.path.basename(os.path.dirname(p))
+          for p in glob.glob("tourism-kb/export/*/diem-den.json")))
+for slug in _units:
+    run(["tourism-kb/code/apply_area_seed.py", slug], "apply_area_seed %s" % slug)
+    run(["tourism-kb/code/apply_importance_order.py", slug], "apply_importance_order %s" % slug)
+
 # 5) assert coverage TOAN BO export (incl 13 split): moi diem-den co trai_nghiem + hoat_dong
 import json
 tot = miss_tn = miss_hd = 0
@@ -89,6 +97,41 @@ for f in glob.glob("tourism-kb/export/*/diem-den.json"):
 log("\ncoverage: %d diem | thieu trai_nghiem=%d | thieu hoat_dong=%d" % (tot, miss_tn, miss_hd))
 if miss_tn or miss_hd:
     failures.append("coverage thieu (trai_nghiem %d, hoat_dong %d)" % (miss_tn, miss_hd))
+
+# 5b) ICON-COMPLETENESS invariant (network-free — issue planner-postexport-stages-unwired):
+#     signatureSpots (areas.json) phai resolve trong export sau seed stage. WARNING (chua hard-fail:
+#     nhieu tp con icon-thieu chua seed het — vd da-lat "ga da lat"). Promote len failures khi tp complete.
+import unicodedata as _ud
+
+
+def _fold(s):
+    s = _ud.normalize("NFD", (s or "").lower())
+    s = "".join(ch for ch in s if _ud.category(ch) != "Mn")
+    return s.replace("đ", "d").replace("Đ", "d").strip()
+
+
+try:
+    _areas = json.load(io.open("trip-planner/lib/planner/areas.json", encoding="utf-8"))
+    _sig = {k: v.get("signatureSpots", []) for k, v in _areas.get("provinces", {}).items()}
+    for _a in _areas.get("areas", []):
+        if _a.get("slug") and _a.get("signatureSpots"):
+            _sig[_a["slug"]] = _a["signatureSpots"]
+    _icon_miss = []
+    for f in glob.glob("tourism-kb/export/*/diem-den.json"):
+        slug = os.path.basename(os.path.dirname(f))
+        sigs = _sig.get(slug)
+        if not sigs:
+            continue
+        names = [_fold(r.get("name", "")) for r in json.load(io.open(f, encoding="utf-8"))]
+        absent = [s for s in sigs if not any(_fold(s) in n or n in _fold(s) for n in names if len(n) >= 5)]
+        if absent:
+            _icon_miss.append("%s (%d): %s" % (slug, len(absent), ", ".join(absent)))
+    if _icon_miss:
+        log("\nWARN icon absent (signatureSpots khong co record trong export):")
+        for x in _icon_miss:
+            log("  - " + x)
+except (FileNotFoundError, ValueError) as _e:
+    log("(icon-assert bo qua: %s)" % _e)
 
 log("\n==== KET QUA: %s ====" % ("OK" if not failures else "FAIL (%d)" % len(failures)))
 for x in failures:

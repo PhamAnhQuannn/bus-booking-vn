@@ -122,3 +122,7 @@ xe-dau-keo-hop-tac-lien-he.txt
 # Python bytecode
 __pycache__/
 *.pyc
+
+# Generated planner artifacts (engine-test scenario dumps + guide data) — data, not committed
+/trip-planner/scenario-itineraries.md
+/trip-planner/scripts/guide-data.json

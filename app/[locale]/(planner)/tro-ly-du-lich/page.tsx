@@ -56,7 +56,7 @@ const PlannerMapColumn = dynamic(() => import('@/trip-planner/components/Planner
 type Options = { slot: string; options: string[]; allowCustom: boolean };
 
 // Slug có tile map thật (đồng bộ PlannerMap.TILED_SLUGS) — client-safe, KHÔNG import PlannerMap (kéo Leaflet).
-const TILED = new Set(['da-lat', 'da-nang', 'nha-trang']);
+const TILED = new Set(['da-lat', 'da-nang', 'nha-trang', 'ha-noi', 'ho-chi-minh', 'hue', 'hai-phong', 'ninh-binh', 'can-tho', 'bac-ninh', 'phu-tho', 'thai-nguyen', 'tuyen-quang', 'lao-cai', 'dong-thap', 'vinh-long', 'phu-quoc', 'quy-nhon', 'ha-long', 'vung-tau', 'dong-hoi', 'tuy-hoa', 'chau-doc', 'dong-ha', 'mong-cai', 'van-don', 'mui-ca-mau', 'tay-ninh-tp', 'sa-pa', 'ba-be', 'dien-bien-phu', 'dong-van', 'vinh', 'cao-bang-tp', 'thanh-hoa-tp']);
 
 // Giờ HH:mm theo TZ VN — gọi trong HANDLER (không phải render body) nên không phạm RSC-purity.
 function nowHHMM(): string {

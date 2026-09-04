@@ -1,6 +1,6 @@
 # Tourism KB Lessons — index
 
-Total lessons: 38
+Total lessons: 40
 
 ## ranking
 
@@ -29,6 +29,8 @@ Total lessons: 38
 
 ## build-pipeline
 
+- [2026-09-02 split_city carved Vũng Tàu from the wrong parent (dong-nai, not the post-merger ho-chi-minh) + a center 55km off, so a hot city was filled with another province's records](build-pipeline/2026-09-02-splitcity-wrong-parent-merged-province.md) — A split/carve UNIT of a merged province must use the post-2025 parent (parse_csdl_dest) and the real town coordinate; a wrong center passes every radius/centroid check because near() forces records to cluster around whatever center you give it — audit by record address-province and whether areas.json signatureSpots resolve to records, never centroid offset.
+- [2026-08-29 re-export lặng lẽ REVERT tên Google + place_id vì export_planner không consume `ten_google`](build-pipeline/2026-08-29-reexport-reverts-pass16-names.md) — Field đã enrich (ten_google, có name+place_id) mà renderer không đọc = data chết + regression rình rập; trước khi re-export/chạy lại stage, xác minh renderer consume mọi field enrichment quan trọng, không dựa post-export patch script (dễ mất source/bị ghi đè).
 - [2026-08-05 Overture-only acquisition for registry-less cities (NT/DN), and the cap-before-sort trap that makes a place_id resolver miss the export window](build-pipeline/2026-08-05-overture-acquisition-cap-before-sort.md) — For a new city without a state registry, bulk hotels from Overture ($0) and rank restaurants via a resolver that targets the export's OWN top-N selection (not nearest-center), or ranked⊄exported; unknown source must be labeled unknown (SRC_OT), not "self-registered".
 - [2026-07-31 the .docx build CRASHED, the .md had already been rewritten, and `kiem_parity.py` looked at the mismatched pair and said `KHỚP` — exit 0](build-pipeline/2026-07-31-docx-crash-parity-blessed-stale.md) — A crashed .docx renderer left a stale output and kiem_parity.py blessed it — a checker with no freshness test and hand-written markers cannot see staleness or unmodelled layers.
 - [2026-07-30 my own parity guard read "3 and 2, both ≥ 1" and called it a match — a presence check cannot police a count](build-pipeline/2026-07-30-parity-presence-vs-count.md) — A parity check asking 'present in both and above a minimum' cannot police a count — a warning rendered 3x vs 2x passed; compare counts, not presence.
