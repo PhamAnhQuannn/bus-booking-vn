@@ -301,12 +301,13 @@ async function HeroMarketingView() {
     }),
   ]);
 
-  // Popular trips = routes we actually operate, one card per underlying route (route
-  // diversity over boarding-town near-duplicates — selectPopularTrips caps to 1 card
-  // per route, preferring the route's own origin). Every card links via searchHref →
-  // alias resolution finds the one real trip (no separate trips, no oversell).
-  // Card image is keyed by ORIGIN (the pickup town) so cards don't all share one photo.
-  // Towns without their own Wikimedia photo fall back to a province image (IMAGE_FALLBACK).
+  // Popular trips = the routes we actually operate, FANNED OUT into one card per
+  // boarding point (route origin + each pickup town) so every pickup gets its own
+  // "Nông Cống → Sài Gòn" card — selectPopularTrips dedupes by origin→destination.
+  // Every card links via searchHref → alias resolution finds the one real trip (no
+  // separate trips, no oversell). Card image is keyed by ORIGIN (the pickup town) so
+  // cards don't all share one photo; towns without their own Wikimedia photo fall back
+  // to a province image (IMAGE_FALLBACK).
   const popularTrips = selectPopularTrips(activeRoutes, IMAGE_FALLBACK);
 
   return (

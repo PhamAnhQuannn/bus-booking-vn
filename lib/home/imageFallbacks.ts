@@ -4,7 +4,9 @@
  * fall back to a province image slug.
  */
 export const IMAGE_FALLBACK: Record<string, string> = {
+  // North (Thanh Hóa-side) pickup with no own photo → Thanh Hóa
   'nong-cong': 'thanh-hoa',
+  // South (Sài Gòn-side) pickups with no own photo → the corridor province they sit in
   'cho-tan-khai': 'binh-phuoc',
   'song-than': 'binh-duong',
   'an-phu': 'binh-duong',

@@ -1,10 +1,10 @@
 /**
  * Unit tests for selectPopularTrips — pure popular-trips card selection.
  *
- * Regression coverage for the landing-page near-duplicate bug: a route with
- * several boarding-town stops must contribute exactly one card, so the section
- * shows route diversity instead of N near-identical cards (same destination,
- * price, duration; differing only by pickup town).
+ * The single corridor's value is its many boarding towns, so a route is FANNED
+ * OUT into one card per boarding point (route origin + each stop) — a rider in
+ * each pickup town sees their own "Nông Cống → Sài Gòn" card. Cards are deduped
+ * by origin→destination and sliced to the limit.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -23,7 +23,7 @@ function route(overrides: Partial<ActiveRoute> & Pick<ActiveRoute, 'origin' | 'd
 }
 
 describe('selectPopularTrips', () => {
-  it('caps a route with multiple boarding-town stops to a single card', () => {
+  it('fans a route with multiple boarding-town stops into one card per pickup', () => {
     const routes: ActiveRoute[] = [
       route({
         origin: 'Thanh Hóa',
@@ -38,11 +38,16 @@ describe('selectPopularTrips', () => {
 
     const result = selectPopularTrips(routes, {});
 
-    expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({ origin: 'Thanh Hóa', destination: 'Sài Gòn' });
+    // Route origin + 3 pickups = 4 cards, all to the same destination.
+    expect(result.map((r) => `${r.origin}→${r.destination}`)).toEqual([
+      'Thanh Hóa→Sài Gòn',
+      'Nông Cống→Sài Gòn',
+      'Triệu Sơn→Sài Gòn',
+      'Quảng Xương→Sài Gòn',
+    ]);
   });
 
-  it('preserves distinct routes as separate cards', () => {
+  it('fans every route and preserves order across routes', () => {
     const routes: ActiveRoute[] = [
       route({
         origin: 'Thanh Hóa',
@@ -55,15 +60,45 @@ describe('selectPopularTrips', () => {
 
     const result = selectPopularTrips(routes, {});
 
-    expect(result).toHaveLength(3);
+    // First route fans into 2 cards (origin + 1 pickup); the other two have no
+    // boarding schedule → 1 card each. 4 total.
     expect(result.map((r) => `${r.origin}→${r.destination}`)).toEqual([
       'Thanh Hóa→Sài Gòn',
+      'Nông Cống→Sài Gòn',
       'Hà Nội→Đà Nẵng',
       'Sài Gòn→Đà Lạt',
     ]);
   });
 
-  it('slices the final diverse selection to the limit', () => {
+  it('dedupes to one card per origin→destination across stops and routes', () => {
+    const routes: ActiveRoute[] = [
+      // A stop whose point equals the route's own origin must not double-card it.
+      route({
+        origin: 'Thanh Hóa',
+        destination: 'Sài Gòn',
+        boardingSchedule: [
+          { point: 'Thanh Hóa', time: '02:30' },
+          { point: 'Nông Cống', time: '03:00' },
+        ],
+      }),
+      // A second route with the same origin+destination collapses into the same card.
+      route({
+        origin: 'Thanh Hóa',
+        destination: 'Sài Gòn',
+        boardingSchedule: [{ point: 'Nông Cống', time: '05:00' }],
+      }),
+    ];
+
+    const result = selectPopularTrips(routes, {});
+
+    // Only the two distinct origin→destination keys survive.
+    expect(result.map((r) => `${r.origin}→${r.destination}`)).toEqual([
+      'Thanh Hóa→Sài Gòn',
+      'Nông Cống→Sài Gòn',
+    ]);
+  });
+
+  it('slices the fanned-out selection to the limit', () => {
     const routes: ActiveRoute[] = Array.from({ length: 20 }, (_, i) =>
       route({ origin: `Origin ${i}`, destination: `Dest ${i}` }),
     );
