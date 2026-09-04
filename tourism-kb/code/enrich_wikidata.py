@@ -89,6 +89,22 @@ def _ten_khop(a, b):
     return False
 
 
+# typeLabel Wikidata co the la ha-tang giao thong (cau/duong/ham) trong khi diem KB la bai bien/nui/
+# ho... — trung TOPONYM (vd "Nha Trang") nhung KHAC LOAI hoan toan (Nha Trang tung khop nham voi bai
+# Wikidata ve MOT CAY CAU ten trung dia danh). _ten_khop chi xet ten, khong xet loai — them guard
+# rieng bang typeLabel de loai truong hop nay du ten khop.
+_HA_TANG_TYPE = ("cầu", "bridge", "đường", "road", "hầm", "tunnel", "cống")
+_BAI_BIEN_TU = ("bãi biển", "beach", "bờ biển")
+
+
+def _khac_loai(type_label, ten_diem):
+    """True neu typeLabel la ha-tang (cau/duong/ham) nhung diem KB la bai bien — khac lop doi tuong,
+    tu choi ngay ca khi _ten_khop() khop toponym."""
+    t = (type_label or "").lower()
+    n = (ten_diem or "").lower()
+    return any(w in t for w in _HA_TANG_TYPE) and any(w in n for w in _BAI_BIEN_TU)
+
+
 picked = json.load(io.open(os.path.join(RAW, "guide_data.json"), encoding="utf-8"))["picked"]
 name_of = {c["id"]: c["name"] for c in picked}
 rows = json.load(io.open(ENRICH, encoding="utf-8"))
@@ -131,7 +147,8 @@ for p in picked:
         d = hav((p["lat"], p["lon"]), (lat, lon))
         # identity 2 truc: ten khop MANH VA cung tinh (<6km — feature lon nhu VQG/ho
         # cach centroid vai km; ten manh + cung tinh = cung noi). Ten manh chan trung-am.
-        if d < bd and d < 6000 and _ten_khop(p["name"], lab):
+        # + guard loai: typeLabel ha-tang (cau/duong) khong duoc gan cho diem bai bien (_khac_loai).
+        if d < bd and d < 6000 and not _khac_loai(typ, p["name"]) and _ten_khop(p["name"], lab):
             bd, best = d, (q, lab, img)
     if best:
         qid_of[p["id"]] = best[0]

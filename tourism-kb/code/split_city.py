@@ -94,84 +94,115 @@ def write(slug, fn, data):
     os.replace(tmp, p)
 
 
-for parent, slug, ten, lat, lon in UNITS:
-    center = (lat, lon)
-    dd = load(parent, "diem-den.json") or []
-    nh = load(parent, "nha-hang.json") or []
-    ks = load(parent, "khach-san.json") or []
-    meta = load(parent, "meta.json") or {}
-    allow = WARD_ALLOW.get(slug)
-    sub_dd = [r for r in dd if ward_of(r) in allow] if allow else [r for r in dd if near(r, center, R_DD)]
-    sub_nh = [r for r in nh if near(r, center, R_ANU)]
-    sub_ks = [r for r in ks if near(r, center, R_ANU)]
-    if len(sub_dd) < 8:
-        print("  SKIP %-14s (%s): chi %d diem den" % (slug, ten, len(sub_dd)))
-        continue
-    m = dict(meta)                                   # copy parent (giu osrm_diem_den matrix — subset ID lookup)
-    m["dia_diem"] = slug
-    m["tam"] = {"lat": lat, "lon": lon}
-    m["so_luong"] = {"diem_den": len(sub_dd), "nha_hang": len(sub_nh), "khach_san": len(sub_ks),
-                     "khach_san_chi_dia_chi": 0}
-    _note = "city-unit tach tu %s (ban kinh %gkm)" % (parent, R_DD)
-    _gc = meta.get("ghi_chu")
-    m["ghi_chu"] = (_gc + [_note]) if isinstance(_gc, list) else ([_note] if _gc is None else [str(_gc), _note])
-    write(slug, "diem-den.json", sub_dd)
-    write(slug, "nha-hang.json", sub_nh)
-    write(slug, "khach-san.json", sub_ks)
-    write(slug, "meta.json", m)
-    pid = sum(1 for r in sub_dd if (r.get("external_ids") or {}).get("google_place_id"))
-    inmat = 0
-    ids = set((meta.get("osrm_diem_den") or {}).get("ids") or [])
-    inmat = sum(1 for r in sub_dd if r["id"] in ids)
-    print("  OK  %-14s (%-12s) dd=%2d nh=%3d ks=%3d | place_id=%2d matrix=%d/%d"
-          % (slug, ten, len(sub_dd), len(sub_nh), len(sub_ks), pid, inmat, len(sub_dd)))
-
-
-# ── Carve REGISTRY-DRIVEN tu trip-planner/lib/planner/areas.json ────────────────────────────────
-# Nguon DUY NHAT ve khu du lich trong tinh sap nhap (dong bo voi engine TS). Moi khu co "slug" ->
-# carve slug rieng bang WARD-ALLOW (chinh xac hon ban kinh khi 2 town <22km). ADDITIVE (khong tru parent
-# lan nay — carve nua voi lam parent te hon; fame-seed engine da lo parent-query dung khu). Subtractive
-# hoan toi khi phu du khu 1 parent. Nha-hang/khach-san lay ban kinh quanh center (dia chi ward khong sach).
-_areas_p = os.path.join("trip-planner", "lib", "planner", "areas.json")
-try:
-    _AREAS = json.load(io.open(_areas_p, encoding="utf-8")).get("areas", [])
-except FileNotFoundError:
-    _AREAS = []
-    print("  (areas.json khong thay -> bo qua carve registry)")
-
-for a in _AREAS:
+def carve_area(a, load_fn=load):
+    """Tach MOT khu tu mot entry areas.json (registry-driven carve). Tra ve (slug, ten, sub_dd, sub_nh,
+    sub_ks, meta) hoac None neu bo qua (thieu field / parent khong co export / qua it diem den). Tach
+    rieng ham nay (khong inline trong vong lap) de test duoc voi fixture tong hop, khong dung KB that —
+    logic subscript PHAI dung .get() (a["parent"]/a["center"]["lat"] cu se raise KeyError/TypeError
+    tren entry hong thay vi crash toan bo pipeline).
+    """
+    if not isinstance(a, dict):
+        return None
     slug = a.get("slug")
     if not slug:
-        continue
-    parent, ten = a["parent"], a.get("displayName", slug)
-    center = (a["center"]["lat"], a["center"]["lon"])
+        return None
+    parent = a.get("parent")
+    ten = a.get("displayName", slug)
+    center_raw = a.get("center")
+    if not isinstance(center_raw, dict):
+        center_raw = {}
+    lat, lon = center_raw.get("lat"), center_raw.get("lon")
+    if not parent or lat is None or lon is None:
+        print("  SKIP %-14s (%s): thieu parent/center trong areas.json" % (slug, ten))
+        return None
+    center = (lat, lon)
     allow = set(a.get("wardAllow") or [])
-    dd = load(parent, "diem-den.json") or []
-    nh = load(parent, "nha-hang.json") or []
-    ks = load(parent, "khach-san.json") or []
-    meta = load(parent, "meta.json") or {}
+    dd = load_fn(parent, "diem-den.json") or []
+    nh = load_fn(parent, "nha-hang.json") or []
+    ks = load_fn(parent, "khach-san.json") or []
+    meta = load_fn(parent, "meta.json") or {}
     if not dd:
         print("  SKIP %-14s (%s): parent %s khong co export" % (slug, ten, parent))
-        continue
+        return None
     sub_dd = [r for r in dd if ward_of(r) in allow]
     sub_nh = [r for r in nh if near(r, center, R_ANU)]
     sub_ks = [r for r in ks if near(r, center, R_ANU)]
     if len(sub_dd) < 8:
         print("  SKIP %-14s (%s): chi %d diem den" % (slug, ten, len(sub_dd)))
-        continue
-    m = dict(meta)
-    m["dia_diem"] = slug
-    m["tam"] = {"lat": center[0], "lon": center[1]}
-    m["so_luong"] = {"diem_den": len(sub_dd), "nha_hang": len(sub_nh), "khach_san": len(sub_ks),
-                     "khach_san_chi_dia_chi": 0}
-    _note = "carve tu %s (ward-allow registry, areas.json)" % parent
-    _gc = meta.get("ghi_chu")
-    m["ghi_chu"] = (_gc + [_note]) if isinstance(_gc, list) else ([_note] if _gc is None else [str(_gc), _note])
-    write(slug, "diem-den.json", sub_dd)
-    write(slug, "nha-hang.json", sub_nh)
-    write(slug, "khach-san.json", sub_ks)
-    write(slug, "meta.json", m)
-    ids = set((meta.get("osrm_diem_den") or {}).get("ids") or [])
-    inmat = sum(1 for r in sub_dd if r["id"] in ids)
-    print("  OK  %-14s (%-12s) dd=%2d nh=%3d ks=%3d | matrix=%d/%d"
-          % (slug, ten, len(sub_dd), len(sub_nh), len(sub_ks), inmat, len(sub_dd)))
+        return None
+    return slug, ten, center, sub_dd, sub_nh, sub_ks, meta
+
+
+def main():
+    for parent, slug, ten, lat, lon in UNITS:
+        center = (lat, lon)
+        dd = load(parent, "diem-den.json") or []
+        nh = load(parent, "nha-hang.json") or []
+        ks = load(parent, "khach-san.json") or []
+        meta = load(parent, "meta.json") or {}
+        allow = WARD_ALLOW.get(slug)
+        sub_dd = [r for r in dd if ward_of(r) in allow] if allow else [r for r in dd if near(r, center, R_DD)]
+        sub_nh = [r for r in nh if near(r, center, R_ANU)]
+        sub_ks = [r for r in ks if near(r, center, R_ANU)]
+        if len(sub_dd) < 8:
+            print("  SKIP %-14s (%s): chi %d diem den" % (slug, ten, len(sub_dd)))
+            continue
+        m = dict(meta)                                   # copy parent (giu osrm_diem_den matrix — subset ID lookup)
+        m["dia_diem"] = slug
+        m["tam"] = {"lat": lat, "lon": lon}
+        m["so_luong"] = {"diem_den": len(sub_dd), "nha_hang": len(sub_nh), "khach_san": len(sub_ks),
+                         "khach_san_chi_dia_chi": 0}
+        _note = "city-unit tach tu %s (ban kinh %gkm)" % (parent, R_DD)
+        _gc = meta.get("ghi_chu")
+        m["ghi_chu"] = (_gc + [_note]) if isinstance(_gc, list) else ([_note] if _gc is None else [str(_gc), _note])
+        write(slug, "diem-den.json", sub_dd)
+        write(slug, "nha-hang.json", sub_nh)
+        write(slug, "khach-san.json", sub_ks)
+        write(slug, "meta.json", m)
+        pid = sum(1 for r in sub_dd if (r.get("external_ids") or {}).get("google_place_id"))
+        inmat = 0
+        ids = set((meta.get("osrm_diem_den") or {}).get("ids") or [])
+        inmat = sum(1 for r in sub_dd if r["id"] in ids)
+        print("  OK  %-14s (%-12s) dd=%2d nh=%3d ks=%3d | place_id=%2d matrix=%d/%d"
+              % (slug, ten, len(sub_dd), len(sub_nh), len(sub_ks), pid, inmat, len(sub_dd)))
+
+    # ── Carve REGISTRY-DRIVEN tu trip-planner/lib/planner/areas.json ────────────────────────────
+    # Nguon DUY NHAT ve khu du lich trong tinh sap nhap (dong bo voi engine TS). Moi khu co "slug" ->
+    # carve slug rieng bang WARD-ALLOW (chinh xac hon ban kinh khi 2 town <22km). ADDITIVE (khong tru
+    # parent lan nay — carve nua voi lam parent te hon; fame-seed engine da lo parent-query dung khu).
+    # Subtractive hoan toi khi phu du khu 1 parent. Nha-hang/khach-san lay ban kinh quanh center (dia
+    # chi ward khong sach). Entry areas.json hong (thieu key / kieu sai) -> .get()-defensive + skip,
+    # khong crash ca pipeline (xem carve_area()).
+    _areas_p = os.path.join("trip-planner", "lib", "planner", "areas.json")
+    try:
+        _AREAS = json.load(io.open(_areas_p, encoding="utf-8")).get("areas", [])
+    except (FileNotFoundError, KeyError, TypeError, json.JSONDecodeError):
+        _AREAS = []
+        print("  (areas.json khong thay hoac loi doc -> bo qua carve registry)")
+
+    for a in _AREAS:
+        carved = carve_area(a)
+        if carved is None:
+            continue
+        slug, ten, center, sub_dd, sub_nh, sub_ks, meta = carved
+        parent = a.get("parent")
+        m = dict(meta)
+        m["dia_diem"] = slug
+        m["tam"] = {"lat": center[0], "lon": center[1]}
+        m["so_luong"] = {"diem_den": len(sub_dd), "nha_hang": len(sub_nh), "khach_san": len(sub_ks),
+                         "khach_san_chi_dia_chi": 0}
+        _note = "carve tu %s (ward-allow registry, areas.json)" % parent
+        _gc = meta.get("ghi_chu")
+        m["ghi_chu"] = (_gc + [_note]) if isinstance(_gc, list) else ([_note] if _gc is None else [str(_gc), _note])
+        write(slug, "diem-den.json", sub_dd)
+        write(slug, "nha-hang.json", sub_nh)
+        write(slug, "khach-san.json", sub_ks)
+        write(slug, "meta.json", m)
+        ids = set((meta.get("osrm_diem_den") or {}).get("ids") or [])
+        inmat = sum(1 for r in sub_dd if r["id"] in ids)
+        print("  OK  %-14s (%-12s) dd=%2d nh=%3d ks=%3d | matrix=%d/%d"
+              % (slug, ten, len(sub_dd), len(sub_nh), len(sub_ks), inmat, len(sub_dd)))
+
+
+if __name__ == "__main__":
+    main()
