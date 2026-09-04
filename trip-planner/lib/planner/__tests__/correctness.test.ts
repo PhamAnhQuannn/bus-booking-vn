@@ -382,3 +382,44 @@ describe('buildItinerary — seed theo HẠNG signatureSpot biểu tượng, kh�
     expect(names).toContain('Điểm C ven biển'); // FAIL nếu seed=B (count) vì C cách seed ~21km bị gap-stop
   });
 });
+
+// M4: regFameOf — cụm sig-access (lối vào đặc trưng) ngoài top-K importance vẫn phải THẮNG protReg
+// trước cụm auto-marquee importance CAO hơn nhưng KHÔNG sig-access. Trước fix: term ÂM (AUTO_MARQUEE_K -
+// destRank ngoài top-K) rớt fame=0 (Math.max không kéo lên) → cụm PLAIN (trong top-K, fame>0) thắng sort
+// theo fame desc, chiếm mất slot protReg (cap=1 với days=2) — cụm SIG (full-day tier, sigAccess bypass
+// isFar) bị đẩy xuống rest, KHÔNG được ngày riêng. Sau fix: per-điểm credit sàn 0 + cụm chứa sig-access
+// sàn fame=AUTO_MARQUEE_K → SIG(4) > PLAIN(3) → SIG thắng, có ngày riêng (protReg chunk = đúng pts của nó).
+describe('buildItinerary — sig-access ngoài top-K vẫn thắng protReg trước marquee importance cao hơn (M4)', () => {
+  const near = (id: string, lat: number, lon: number): KbRecord => ({
+    id, name: `Gần ${id}`, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `số 1, Phường Trung Tâm, thành phố Hà Nội` }, description: { value: 'x' },
+  });
+  const plain: KbRecord = { // index 1 → trong top-4 auto-marquee, KHÔNG sig-access, ~31km (far)
+    id: 'PLAIN', name: 'Điểm PLAIN', region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: 21.03, longitude: 105.55 },
+    address: { full_address: `số 1, Phường Xa Tây, thành phố Hà Nội` }, description: { value: 'x' },
+  };
+  const sig: KbRecord = { // index 5 → NGOÀI top-4 (destRank 5 > AUTO_MARQUEE_K 4), sig-access, ~5km
+    id: 'SIG', name: 'Điểm SIG', region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: 21.075, longitude: 105.85 },
+    address: { full_address: `số 1, Phường Sig Gần, thành phố Hà Nội` }, description: { value: 'x' },
+    ext: { destination: { loi_vao_dac_trung: 'có cáp treo vượt biển ra đảo' } },
+  };
+  const store: Store = {
+    slug: 'ha-noi', generatedAt: '2026-01-01', tam: { lat: 21.03, lon: 105.85 },
+    destinations: [ // thứ tự = importance rank
+      near('A', 21.031, 105.851), plain, near('B', 21.029, 105.852), near('C', 21.032, 105.849),
+      near('D', 21.030, 105.853), sig,
+    ],
+    restaurants: [], hotels: [near('H1', 21.030, 105.850)],
+    matrix: null, matrixIndex: new Map(),
+  };
+  it('cụm SIG (fame sàn AUTO_MARQUEE_K) được protReg riêng ngày, không bị PLAIN (fame thấp hơn) đè', () => {
+    const req: TripRequest = { slug: 'ha-noi', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+    const it = buildItinerary(req, store);
+    const sigDay = it.days.find((d) => d.items.some((i) => i.name === 'Điểm SIG'));
+    expect(sigDay).toBeDefined();
+    expect(sigDay!.items.map((i) => i.name)).toEqual(['Điểm SIG']); // protReg chunk = ĐÚNG pts của cụm SIG, không trộn PLAIN
+  });
+});

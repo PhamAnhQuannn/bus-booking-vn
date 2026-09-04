@@ -449,10 +449,10 @@ for r in PICKED:
         "vibes": _vibes_v,                                                # slug vibe roi rac (VIBE_VOCAB)
         "vibes_nguon": _vibes_ng,                                         # rule | llm | rule+llm | none
         # Loi vao/trai nghiem DAC TRUNG (cap treo vuot bien, tau ra dao...) — chinh chuyen di LA diem nhan,
-        # KHONG phai chi phi. Curated (GHI_CHU_DIEM_DEN theo ten) OR category "Cap treo". LUON emit (khong
-        # gate EDITORIAL_TIER) vi engine doc de: (a) khong phat "xa", (b) ngay dao lich 1 ngay, (c) hien card.
-        "loi_vao_dac_trung": (_GHI_CHU.get(_name) or _GHI_CHU.get(r["name"])
-                              or ("Đi cáp treo ngắm cảnh" if rec["category"]["primary"] == "Cáp treo" else None)),
+        # KHONG phai chi phi. Curated-only (GHI_CHU_DIEM_DEN theo ten) — KHONG category-blanket default (moi
+        # record "Cap treo" se sig-access va co the chiem ca day-slot du fame=0). LUON emit (khong gate
+        # EDITORIAL_TIER) vi engine doc de: (a) khong phat "xa", (b) ngay dao lich 1 ngay, (c) hien card.
+        "loi_vao_dac_trung": (_GHI_CHU.get(_name) or _GHI_CHU.get(r["name"]) or None),
         # EDITORIAL tier (002): cau "Phu hop voi khach muon..." keyed vibe-signature, controlled vocab,
         # nguoi duyet=owner, KHONG source_id (ngoai verified_fields). Gated kill-switch EDITORIAL_TIER.
         "phu_hop_voi": ({"value": _pv_val, "tier": "bien-tap", "is_editorial": True,
