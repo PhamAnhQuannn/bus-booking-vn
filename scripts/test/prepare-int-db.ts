@@ -1,21 +1,10 @@
 import { execSync } from 'child_process';
-import { URL } from 'url';
 
 import { loadEnvLocal } from '../../test/loadEnvLocal';
+import { assertDevDatabaseUrl } from '../../test/helpers/assertDevDatabaseUrl';
 
 const env = { ...loadEnvLocal(), ...process.env };
 Object.assign(process.env, env);
-
-function assertDevDatabaseUrl(value: string, label: string): void {
-  const url = new URL(value);
-  if (!['localhost', '127.0.0.1'].includes(url.hostname)) {
-    throw new Error(`${label} must point at localhost for integration tests`);
-  }
-
-  if (!url.pathname.endsWith('/bbvn_dev') && !url.pathname.endsWith('/bbvn_shadow')) {
-    throw new Error(`${label} must target the dev or shadow database`);
-  }
-}
 
 if (process.env.NODE_ENV === 'production') {
   throw new Error('prepare-int-db must never run in production');

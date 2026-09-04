@@ -7,3 +7,4 @@ export {
 } from './responseShape';
 export { hexMock } from './hexMock';
 export { vnLocalDate } from './vnDate';
+export { assertDevDatabaseUrl } from './assertDevDatabaseUrl';

@@ -20,14 +20,10 @@ WebKit bug and is unsupported in Safari — so only density is.
 
 | File | Pixels | Bytes | Serves |
 |------|--------|-------|--------|
-| `landing-golden-1280.jpg` | 768×1397 (portrait) | 212 KB | mobile `<768`, DPR1 + fallback |
-| `landing-golden-1280@2x.webp` | 1536×2794 | 272 KB | mobile DPR2 **and** DPR3 (covers 752@2× = 1504 and 430@3× = 1245) |
 | `landing-golden-md-1536.jpg` | 1536×1275 | 390 KB | md `768–1023`, DPR1 + fallback |
 | `landing-golden-md-1536@2x.webp` | 2048×1700 | 319 KB | md DPR2 (covers 1008@2× = 2016) |
 | `landing-golden-1920.jpg` | 1920×1081 | 434 KB | lg `1024–1919`, DPR1 + fallback |
 | `landing-golden-1920@2x.webp` | 3072×1729 | 480 KB | lg DPR2; 1.24× residual at the very top of the range |
-| `landing-golden-3840.jpg` | 2560×978 | 459 KB | 3xl `≥1920`, DPR1 + fallback |
-| `landing-golden-3840@2x.webp` | 3840×1468 | 400 KB | 3xl DPR2 (covers 1905@2× = 3810, i.e. 4K at 200% scaling) |
 | `contract-rental-thumb.jpg` | 576×256 | 41 KB | `components/home/ContractCarRental.tsx` — NOT a hero variant |
 
 The `1280` / `md-1536` / `1920` / `3840` in the filenames are historical and no
@@ -68,20 +64,5 @@ Variants cut with Pillow (`LANCZOS`, no super-resolution — the source is alrea
 sharp at panel scale and the dark scrim hides residual detail). Not driven by
 `hero-cut.py`; if you re-cut, keep the two-file 1×-jpg / 2×-webp shape the
 `image-set()` in `AuthSplitLayout.tsx` expects.
-
-## Unreferenced legacy assets
-
-Still on disk, referenced by nothing (grepped across `app/` and `components/`).
-Left in place deliberately — removing them is dead-asset cleanup, a separate
-concern from this change.
-
-| File | Bytes | Note |
-|------|-------|------|
-| `landing-golden-1774.jpg` | 268 KB | earlier 1774×887 generation of the same composition, superseded 2026-07-16 |
-| `landing-sunset-wide-1774.jpg` | 192 KB | bottom-anchored 1774×665 crop (src y=222) of the sunset generation, unused since 2026-07-16 |
-| `landing-sunset-1280.jpg` | 129 KB | sunset generation — bbvn bus on coastal highway, previous mobile hero |
-| `landing-sunset-1774.jpg` | 236 KB | same image, native resolution |
-| `landing-day-1280.jpg` | 132 KB | daylight variant, never shipped |
-| `landing-day-1774.jpg` | 245 KB | same image, native resolution |
 
 All owner-provided.

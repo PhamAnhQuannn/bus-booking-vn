@@ -8,6 +8,12 @@ export default defineConfig({
     globals: true,
     include: ['**/__tests__/**/*.int.test.ts'],
     exclude: ['node_modules', '.next', 'e2e'],
+    // L7: guard against a prod-looking DATABASE_URL. `scripts/test/prepare-int-db.ts` already
+    // enforces this when invoked via `pnpm test:all`/`pnpm vitest:int`, but running this config
+    // directly (`vitest run --config vitest.integration.config.ts <file>`) skips that script —
+    // this setupFiles entry re-asserts the same dev/shadow-only check so the config itself
+    // can't be pointed at a live database.
+    setupFiles: ['./test/assertIntDevDb.setup.ts'],
     testTimeout: 30_000,
     reporters: ['default'],
     // DATABASE_POOL_MAX must be >1 here and the default is now 1 (#301: correct for
