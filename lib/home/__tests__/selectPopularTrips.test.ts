@@ -98,7 +98,7 @@ describe('selectPopularTrips', () => {
     ]);
   });
 
-  it('slices the final diverse selection to the limit', () => {
+  it('slices the fanned-out selection to the limit', () => {
     const routes: ActiveRoute[] = Array.from({ length: 20 }, (_, i) =>
       route({ origin: `Origin ${i}`, destination: `Dest ${i}` }),
     );

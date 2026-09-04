@@ -20,7 +20,7 @@ import { slugify } from '@/lib/places';
 export interface PopularTripCard {
   origin: string;
   destination: string;
-  /** public/destinations/<slug>.jpg — slug of the destination (slugify'd server-side). */
+  /** public/destinations/<slug>.jpg — slug of the ORIGIN (pickup town), slugify'd server-side; may be an IMAGE_FALLBACK province slug. */
   slug: string;
   /** Cheapest upcoming fare (VND) — indicative "Từ" teaser. */
   price: number;
