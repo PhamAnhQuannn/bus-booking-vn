@@ -158,6 +158,7 @@ here + a `memory/lessons/<domain>/<YYYY-MM-DD>-<slug>.md` file.
 - Absence of an attribute ON an entity is not absence in the AREA — sub-features are mapped as separate records; query the bounding area for the feature type before declaring it unavailable. (2026-07-28 · bbox)
 - "Source X lacks field Y" is valid only for sources whose fields you enumerated — a source counted DONE on row-count alone has not been read; grep the raw payloads for the label. (2026-07-27 · unread-blob)
 - An extractor is not evidence the field exists — check its hit-rate against the stored corpus; a "not found" branch returning bare None/0 with no count hides a 0%-yield field. (2026-07-31 · hit-rate)
+- A split/carve UNIT of a MERGED province must use the post-2025 parent (`parse_csdl_dest`) and the real town coordinate; a wrong center passes every radius/centroid check because `near()` forces records to cluster around whatever center you give it — audit a UNIT by its records' address-province and whether `areas.json` signatureSpots resolve to records, never centroid offset. (2026-09-02 · splitcity-parent)
 
 **Quota & overwrite safety**
 - A source metered per DAY makes mid-run truncation the ordinary exit — never let a poorer/newer result overwrite a fuller one; write atomically (`os.replace`). (2026-07-29 · per-day-quota)

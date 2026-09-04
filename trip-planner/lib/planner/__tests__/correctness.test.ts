@@ -246,6 +246,109 @@ describe('buildItinerary — marquee (signatureSpots) luôn xuất hiện trong 
   });
 });
 
+// IMPORTANCE ORDER (Phase 2): KB ship diem-den.json theo thứ tự importance (build-time
+// diem_quan_trong.sap_xep) → runtime coi array index = rank, cộng bonus có trần vào scoreOf và dùng
+// destRank làm tiebreak (thay id lexical). Đây là cơ chế cho 17 tp KHÔNG có signatureSpots hand-list.
+describe('buildItinerary — thứ tự importance (destRank) quyết định sống sót cap, thay tiebreak id lexical', () => {
+  // slug KHÔNG có signatureSpots → không marquee pin. 4 điểm cùng ward, cùng tín hiệu chất-lượng
+  // (desc + >=5 nguồn) → scoreDestination BẰNG nhau; khác CHỈ ở thứ tự record (importance rank). Cap
+  // 1-ngày moderate = 3 → 1 điểm bị cắt. id đặt NGƯỢC importance: quan trọng nhất (index 0) id 'ZZZ'
+  // (lexical CUỐI), kém nhất (index 3) id 'AAA' (lexical ĐẦU). Tiebreak id cũ → 'AAA' sống / 'ZZZ' chết
+  // (SAI). destRank + bonus → 'ZZZ' sống / 'AAA' chết (ĐÚNG). Test này FAIL với code trước Phase 2.
+  const q = (id: string, lat: number, lon: number): KbRecord => ({
+    id, name: `Điểm ${id}`, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `số 1, Phường Hoàn Kiếm, thành phố Hà Nội` },
+    description: { value: 'có mô tả' },
+  });
+  const store: Store = {
+    slug: 'ha-noi', generatedAt: '2026-01-01', tam: { lat: 21.03, lon: 105.85 },
+    destinations: [ // thứ tự = importance (index 0 = quan trọng nhất)
+      q('ZZZ', 21.030, 105.850), q('MMM', 21.031, 105.851),
+      q('GGG', 21.029, 105.852), q('AAA', 21.028, 105.849),
+    ],
+    restaurants: [], hotels: [q('H1', 21.030, 105.850)],
+    matrix: null, matrixIndex: new Map(),
+  };
+  it('điểm importance cao nhất (index 0) sống sót cap; kém nhất (id lexical đầu) bị cắt', () => {
+    const req: TripRequest = { slug: 'ha-noi', days: 1, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+    const it = buildItinerary(req, store);
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).toContain('Điểm ZZZ');     // quan trọng nhất (index 0) — sống
+    expect(names).not.toContain('Điểm AAA'); // kém nhất (index 3) — bị cắt dù id lexical đầu
+  });
+});
+
+// Phase 3: slug KHÔNG có signatureSpots hand-list (17/35 tp: Hà Nội, HCM…) → auto-marquee top-K theo
+// importance (destRank). Trước Phase 3 các tp này có marqueeIds rỗng → điểm xa quan trọng bị gap-stop
+// loại. Giờ top-K importance được force-include như hand-list.
+describe('buildItinerary — Phase 3 auto-marquee top-K importance (slug không hand-list)', () => {
+  const near = (id: string, lat: number, lon: number): KbRecord => ({
+    id, name: `Gần ${id}`, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `số 1, Phường Trung Tâm, thành phố Hà Nội` }, description: { value: 'x' },
+  });
+  const far = (id: string, name: string, lat: number, lon: number, ward: string): KbRecord => ({
+    id, name, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `số 1, ${ward}, thành phố Hà Nội` }, description: { value: 'x' },
+  });
+  const store: Store = {
+    slug: 'ha-noi', generatedAt: '2026-01-01', tam: { lat: 21.03, lon: 105.85 },
+    destinations: [ // thứ tự = importance; TOP (index 0) trong top-K, LOW (cuối) ngoài top-K
+      far('TOP', 'Điểm xa quan trọng', 21.30, 105.85, 'Phường Xa Bắc'),   // index 0, ~30km
+      near('N1', 21.030, 105.850), near('N2', 21.031, 105.851), near('N3', 21.029, 105.852),
+      far('LOW', 'Điểm xa phụ', 20.76, 105.85, 'Phường Xa Nam'),           // index 4 (ngoài top-4), ~30km
+    ],
+    restaurants: [], hotels: [near('H1', 21.030, 105.850)],
+    matrix: null, matrixIndex: new Map(),
+  };
+  it('điểm xa top-importance được auto-marquee giữ; điểm xa importance thấp bị gap-stop loại', () => {
+    const req: TripRequest = { slug: 'ha-noi', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+    const it = buildItinerary(req, store);
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).toContain('Điểm xa quan trọng'); // index 0 → auto-marquee → own-day (2+ ngày)
+    expect(names).not.toContain('Điểm xa phụ');     // ngoài top-K → gap-stop loại
+  });
+});
+
+// NGÀY ĐẢO: điểm marquee XA mà LỐI VÀO là trải nghiệm chữ ký (cáp treo/tàu ra đảo, ext.destination.
+// loi_vao_dac_trung) được slot NGAY CẢ lịch 1 ngày (ngày xoay quanh nó; khu trung tâm lùi note). Trước
+// đây far-marquee 1 ngày chỉ có note. Marquee xa KHÔNG sig-access vẫn note-only (không đổi).
+describe('buildItinerary — ngày đảo: lối vào đặc trưng (cáp treo) slot được lịch 1 ngày', () => {
+  const near = (id: string, lat: number, lon: number, ward: string): KbRecord => ({
+    id, name: `Gần ${id}`, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `số 1, ${ward}, thành phố Hà Nội` }, description: { value: 'x' },
+  });
+  const island = (sig: boolean): KbRecord => ({
+    id: 'ISL', name: 'Khu đảo cáp treo', region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: 21.40, longitude: 105.85 }, // ~40km bắc → far
+    address: { full_address: `số 1, Phường Đảo Xa, thành phố Hà Nội` }, description: { value: 'x' },
+    ext: { destination: sig ? { loi_vao_dac_trung: 'có cáp treo vượt biển ra đảo' } : {} },
+  });
+  const mkStore = (sig: boolean): Store => ({
+    slug: 'ha-noi', generatedAt: '2026-01-01', tam: { lat: 21.03, lon: 105.85 },
+    destinations: [island(sig), near('N1', 21.030, 105.850, 'Phường A'), near('N2', 21.033, 105.853, 'Phường B')],
+    restaurants: [], hotels: [near('H1', 21.030, 105.850, 'Phường A')],
+    matrix: null, matrixIndex: new Map(),
+  });
+  const req: TripRequest = { slug: 'ha-noi', days: 1, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+
+  it('days=1 + cáp treo → ngày đảo: điểm đảo CÓ trong lịch, khu trung tâm lùi note', () => {
+    const it = buildItinerary(req, mkStore(true));
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).toContain('Khu đảo cáp treo');            // ngày đảo — điểm hot có
+    expect(names.some((n) => n.startsWith('Gần'))).toBe(false); // khu trung tâm lùi (restDays=0)
+  });
+  it('days=1 KHÔNG cáp treo → KHÔNG ngày-đảo: khu trung tâm vẫn giữ (không bị drop)', () => {
+    const it = buildItinerary(req, mkStore(false));
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    // Không sig-access → protReg rỗng, restDays=1 → khu trung tâm KHÔNG bị lùi (đối lập với ngày-đảo).
+    expect(names.some((n) => n.startsWith('Gần'))).toBe(true);
+  });
+});
+
 // FAME = HẠNG signatureSpot biểu tượng nhất trong cụm, KHÔNG phải SỐ ĐẾM điểm khớp. "Đi Nha Trang":
 // cụm VinWonders (spot[0], khớp ÍT) phải seed TRƯỚC cụm nhiều điểm khớp spot MUỘN (Tháp Bà/Hòn Chồng/
 // Chợ Đầm). Seed quyết cụm-lõi compact → cụm KHÔNG-nổi-tiếng ở gần seed mới được giữ qua gap-stop.
@@ -277,5 +380,53 @@ describe('buildItinerary — seed theo HẠNG signatureSpot biểu tượng, kh�
     const it = buildItinerary(req, store);
     const names = it.days.flatMap((d) => d.items.map((i) => i.name));
     expect(names).toContain('Điểm C ven biển'); // FAIL nếu seed=B (count) vì C cách seed ~21km bị gap-stop
+  });
+});
+
+// M4: regFameOf — cụm sig-access (lối vào đặc trưng) ngoài top-K importance vẫn phải THẮNG protReg
+// trước cụm auto-marquee importance CAO hơn nhưng KHÔNG sig-access. PLAIN là ĐỐI THỦ THẬT (không phải
+// strawman): destRank=1 nằm trong top-4 auto-marquee → vào marqueeIds → vào pinIds → cụm của nó vào
+// anchorKeys — nên nó qua protCand ở NHÁNH anchorFar (days>=2), CÙNG POOL cap=1 với SIG (nhánh sigAccess,
+// days>=1), KHÔNG cần điều kiện r.card<=MARQUEE_CARD_MAX && days>=3 của nhánh generic outlier. Đã verify
+// bằng cách revert riêng M4 floor: PLAIN(fame=3) thắng SIG(fame=0), chiếm trọn slot protReg (own-day
+// ['Điểm PLAIN']), SIG hoàn toàn biến mất khỏi lịch (không rơi vào rest — cụm 31km không đủ gần cụm seed
+// để lọt ngày rest còn lại) — test FAILS đúng như kỳ vọng khi thiếu fix. Sau fix: per-điểm credit sàn 0 +
+// cụm chứa sig-access sàn fame=AUTO_MARQUEE_K → SIG(4) > PLAIN(3) → SIG thắng, có ngày riêng ĐÚNG pts của
+// nó; PLAIN (thua slot, cũng không đủ gần để lọt ngày rest còn lại) biến mất khỏi lịch — chứng minh fame
+// sort thật sự quyết định, không phải trùng hợp do PLAIN không đủ điều kiện protCand.
+describe('buildItinerary — sig-access ngoài top-K vẫn thắng protReg trước marquee importance cao hơn (M4)', () => {
+  const near = (id: string, lat: number, lon: number): KbRecord => ({
+    id, name: `Gần ${id}`, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `số 1, Phường Trung Tâm, thành phố Hà Nội` }, description: { value: 'x' },
+  });
+  const plain: KbRecord = { // index 1 → trong top-4 auto-marquee, KHÔNG sig-access, ~31km (far)
+    id: 'PLAIN', name: 'Điểm PLAIN', region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: 21.03, longitude: 105.55 },
+    address: { full_address: `số 1, Phường Xa Tây, thành phố Hà Nội` }, description: { value: 'x' },
+  };
+  const sig: KbRecord = { // index 5 → NGOÀI top-4 (destRank 5 > AUTO_MARQUEE_K 4), sig-access, ~5km
+    id: 'SIG', name: 'Điểm SIG', region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: 21.075, longitude: 105.85 },
+    address: { full_address: `số 1, Phường Sig Gần, thành phố Hà Nội` }, description: { value: 'x' },
+    ext: { destination: { loi_vao_dac_trung: 'có cáp treo vượt biển ra đảo' } },
+  };
+  const store: Store = {
+    slug: 'ha-noi', generatedAt: '2026-01-01', tam: { lat: 21.03, lon: 105.85 },
+    destinations: [ // thứ tự = importance rank
+      near('A', 21.031, 105.851), plain, near('B', 21.029, 105.852), near('C', 21.032, 105.849),
+      near('D', 21.030, 105.853), sig,
+    ],
+    restaurants: [], hotels: [near('H1', 21.030, 105.850)],
+    matrix: null, matrixIndex: new Map(),
+  };
+  it('cụm SIG (fame sàn AUTO_MARQUEE_K) được protReg riêng ngày, không bị PLAIN (fame thấp hơn) đè', () => {
+    const req: TripRequest = { slug: 'ha-noi', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+    const it = buildItinerary(req, store);
+    const sigDay = it.days.find((d) => d.items.some((i) => i.name === 'Điểm SIG'));
+    expect(sigDay).toBeDefined();
+    expect(sigDay!.items.map((i) => i.name)).toEqual(['Điểm SIG']); // protReg chunk = ĐÚNG pts của cụm SIG, không trộn PLAIN
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).not.toContain('Điểm PLAIN'); // FAR thua slot protReg (cap=1) cho SIG — không lẫn vào ngày nào khác
   });
 });

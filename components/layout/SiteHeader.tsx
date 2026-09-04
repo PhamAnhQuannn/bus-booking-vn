@@ -10,7 +10,8 @@
  * customers see the CustomerAccountMenu (bookings / settings / logout). Sign-in state
  * comes from the client session store (useAuthStatus tri-state).
  *
- * The bar is a fixed-height (68px, `--site-header-h`) frosted-glass surface: translucent cream so the
+ * The bar is a fixed-height (`--site-header-h`, 69px total incl. the 1px border-b;
+ * inner row is `calc(var(--site-header-h) - 1px)`) frosted-glass surface: translucent cream so the
  * background behind it bleeds up (the hero photo on `/`, cream page elsewhere), with
  * a strong backdrop-blur so scrolling content stays unreadable through it. Only the
  * surface alpha changes on scroll (`.42` → `.55`); no other state.
@@ -109,7 +110,7 @@ export function SiteHeader() {
       >
         {/* Flat px-6 (24px gutter) with no max-width container: keeps the logo a
             constant distance from the window edge at every viewport. */}
-        <div className="flex h-[var(--site-header-h)] w-full items-center justify-between gap-5 px-6">
+        <div className="flex h-[calc(var(--site-header-h)_-_1px)] w-full items-center justify-between gap-5 px-6">
           {/* Left cluster: logo + nav packed tight beside it (50px gap), not centred. */}
           <div className="flex items-center">
             <Link

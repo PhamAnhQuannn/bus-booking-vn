@@ -56,7 +56,7 @@ const PlannerMapColumn = dynamic(() => import('@/trip-planner/components/Planner
 type Options = { slot: string; options: string[]; allowCustom: boolean };
 
 // Slug có tile map thật (đồng bộ PlannerMap.TILED_SLUGS) — client-safe, KHÔNG import PlannerMap (kéo Leaflet).
-const TILED = new Set(['da-lat', 'da-nang', 'nha-trang']);
+const TILED = new Set(['da-lat', 'da-nang', 'nha-trang', 'ha-noi', 'ho-chi-minh', 'hue', 'hai-phong', 'ninh-binh', 'can-tho', 'bac-ninh', 'phu-tho', 'thai-nguyen', 'tuyen-quang', 'lao-cai', 'dong-thap', 'vinh-long', 'phu-quoc', 'quy-nhon', 'ha-long', 'vung-tau', 'dong-hoi', 'tuy-hoa', 'chau-doc', 'dong-ha', 'mong-cai', 'van-don', 'mui-ca-mau', 'tay-ninh-tp', 'sa-pa', 'ba-be', 'dien-bien-phu', 'dong-van', 'vinh', 'cao-bang-tp', 'thanh-hoa-tp']);
 
 // Giờ HH:mm theo TZ VN — gọi trong HANDLER (không phải render body) nên không phạm RSC-purity.
 function nowHHMM(): string {
@@ -476,7 +476,13 @@ export default function TroLyDuLichPage() {
     // Lỗi giữa chừng đã hiện bong bóng lỗi rồi — advance() ở đây sẽ thêm tin bot thứ 2 trái ngược
     // trong cùng lượt, nên chỉ advance khi KHÔNG lỗi và KHÔNG phải mode gợi ý. (#528)
     // tất định: Gemini partial + bóc client (budget-số + nhóm) → hỏi thêm bằng chip hoặc dựng — KHÔNG thêm Gemini
-    if (!suggested && !failed) advance(applyExtracted(mergeIntent(slots, partial), extractFromText(text)));
+    if (!suggested && !failed) {
+      const merged = mergeIntent(slots, partial);
+      const det = extractFromText(text);
+      // Gemini đã có dia_diem (đáng tin hơn) → KHÔNG để bóc client đè (client chỉ substring-match, dễ nhầm).
+      if (merged.dia_diem && det.dia_diem) delete det.dia_diem;
+      advance(applyExtracted(merged, det));
+    }
   }
 
   // Parse 1 SSE frame. token → patchBot; slots → trả {partial}; suggestions → gắn cards + báo suggested; error → patchBot + báo failed.

@@ -178,6 +178,7 @@ export function toPlaceRef(rec: KbRecord): PlaceRef {
     // "Giới thiệu nhanh" V2 baked: câu 1 fact + câu 2 editorial (từ ext.destination.intro)
     gioi_thieu: rec.ext?.destination?.intro?.fact ?? null,
     phu_hop_voi: rec.ext?.destination?.intro?.editorial ?? rec.ext?.destination?.phu_hop_voi?.value ?? null,
+    loi_vao_dac_trung: rec.ext?.destination?.loi_vao_dac_trung ?? null, // cáp treo/tàu ra đảo — hiện trên card
   };
 }
 

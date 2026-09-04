@@ -418,8 +418,34 @@ if os.path.exists(_csdl_path):
 
 # id: theo (area, min tu tam)
 picked.sort(key=lambda c: (c["area"], c["min"]))
-for i, c in enumerate(picked, 1):
-    c["id"] = "%s-%02d" % (PREFIX, i)
+# R0 GUARD (id-stability): tai su dung id tu export LAN TRUOC theo fold-ten. enrichment.json/nominatim.json
+# key theo id ordinal nay; neu doi thanh phan picked -> id dich -> enrichment gan NHAM diem (bug BLOCKER).
+# Giu id cu cho record khop; chi cap id moi (tiep sau max ordinal) cho record moi. Lan dau (chua export) ->
+# ordinal tu 1 nhu cu. Bo qua id seed (-S<n>, khong phai ordinal thuan). Xem issue planner-builddiemden-id-reassignment.
+_prior_id = {}
+_prior_path = os.path.join(RAW, "..", "..", "..", "export", SLUG, "diem-den.json")
+try:
+    for _r in json.load(io.open(_prior_path, encoding="utf-8")):
+        _pid = _r.get("id") or ""
+        _suf = _pid.rsplit("-", 1)[-1]
+        if _pid.startswith(PREFIX + "-") and _suf.isdigit():
+            _prior_id.setdefault(fold(_r.get("name", "")), _pid)   # ten dau tien giu id (nhanh trung ten -> id moi)
+except (FileNotFoundError, ValueError):
+    pass
+_used = set()
+_maxn = 0
+for c in picked:                                   # pass 1: tai dung id cu
+    pid = _prior_id.get(fold(c["name"]))
+    if pid and pid not in _used:
+        c["id"] = pid
+        _used.add(pid)
+        _maxn = max(_maxn, int(pid.rsplit("-", 1)[-1]))
+_nxt = _maxn + 1
+for c in picked:                                   # pass 2: id moi cho record chua khop
+    if not c.get("id"):
+        c["id"] = "%s-%02d" % (PREFIX, _nxt)
+        _used.add(c["id"])
+        _nxt += 1
 
 # near: 3 gan nhat tu matrix (hoac haversine)
 near = {}
