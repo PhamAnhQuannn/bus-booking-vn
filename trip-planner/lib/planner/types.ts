@@ -70,6 +70,7 @@ export interface PlaceRef {
   trai_nghiem_tra_phi?: { ten: string; don_vi: string }[] | null; // trò trả phí có tên
   gioi_thieu?: string | null; // câu 1 "Giới thiệu nhanh" (intro.fact, build-time, lắp từ field)
   phu_hop_voi?: string | null; // EDITORIAL (002 bien-tap): câu 2 "Phù hợp với khách muốn…" (intro.editorial)
+  loi_vao_dac_trung?: string | null; // lối vào/trải nghiệm đặc trưng (cáp treo vượt biển, tàu ra đảo) — chuyến đi LÀ điểm nhấn
 }
 
 export interface SlotItem extends PlaceRef {
@@ -114,6 +115,7 @@ export interface KbDestinationExt {
   ticketing?: { value?: string | null }[]; // giá vé tham khảo (chuỗi, có thể nhiều nguồn xung đột)
   trai_nghiem_tra_phi?: { ten: string; don_vi: string }[] | null; // trò trả phí có tên (geo-join on-site Overture)
   phu_hop_voi?: { value?: string | null } | null; // EDITORIAL tier (002): "Phù hợp với khách muốn…" (bien-tap)
+  loi_vao_dac_trung?: string | null; // lối vào đặc trưng (cáp treo/tàu ra đảo) — curated, luôn emit; engine + card đọc
   intro?: { fact?: string | null; editorial?: string | null; tier?: string } | null; // "Giới thiệu nhanh" V2 (build-time)
   mo_ta?: string | null; // mô tả đã trim (B2, build-time) — ưu tiên hơn description.value
   mo_ta_nguon_url?: string | null; // link Wikipedia (CC-BY-SA) khi mo_ta trích Wikipedia

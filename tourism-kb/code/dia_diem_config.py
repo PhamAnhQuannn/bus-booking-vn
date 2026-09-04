@@ -453,11 +453,29 @@ def cfg(path):
     return CONFIG[slug_of(path)]
 
 
-# Ghi chu curator cho docx diem den (editorial, KHONG phai fact co source_id — giong alt/hint cua
+# Ghi chu curator cho diem den (editorial, KHONG phai fact co source_id — giong alt/hint cua
 # DIEM_CHOT). Chi note dung/khong tranh cai. Attraction cha gop cap treo/dac trung -> nguoi doc biet.
-# Chi render o tang docx (build_diem_den_docx.py), KHONG vao export JSON.
+# Render o docx (build_diem_den_docx.py) VA export JSON (export_planner -> ext.destination.loi_vao_dac_trung,
+# luon emit): "loi vao dac trung" (cap treo/dao) la trai nghiem, engine doc de uu tien (ngay dao) + hien card.
 GHI_CHU_DIEM_DEN = {
     "VinWonders Nha Trang": "có cáp treo vượt biển ra đảo Hòn Tre",
     "Bà Nà Hills": "có cáp treo lên đỉnh · Cầu Vàng",
     "Asia Park Đà Nẵng": "có vòng quay Sun Wheel",
 }
+
+# AREA_SEED — icon marquee resolve sẵn (Wikidata/Google), NẠP TỪ FILE gitignored raw/_shared/area_seed.json
+# (KHÔNG nhúng data literal vào code: giữ invariant code/=logic, data ở raw/wiki/output/R2 — G8 + repo public).
+# File là artifact regenerable (seed_missing_icons.py --write → convert grouped). Thiếu file → {} (không crash).
+# Shape: {slug: [{ten, lat, lon, loai, place_id, qid, mo_ta, alt, src, ...}]}. Đọc bởi apply_area_seed.py.
+def _load_area_seed():
+    import io as _io
+    import json as _json
+    import os as _os
+    p = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", "raw", "_shared", "area_seed.json")
+    try:
+        return _json.load(_io.open(p, encoding="utf-8"))
+    except (FileNotFoundError, ValueError):
+        return {}
+
+
+AREA_SEED = _load_area_seed()

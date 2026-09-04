@@ -18,8 +18,9 @@ import unicodedata
 
 import duong_dan_ra as _dr
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from dia_diem_config import cfg as _cfg, slug_of as _slug_of
+from dia_diem_config import cfg as _cfg, slug_of as _slug_of, GHI_CHU_DIEM_DEN as _GHI_CHU
 import anh_huong as _ah                        # sap output theo THU TU anh huong (VQS noi bo)
+import diem_quan_trong as _dqt                  # sap DIEM DEN theo MUC DO QUAN TRONG (tier+booster+popularity)
 import trai_nghiem as _tn                       # nhan trai nghiem (category.primary -> "Ngam canh"...)
 import hoat_dong_derive as _hd                   # "Co gi o day" suy tu loai + tag OSM (rederivation)
 import vibes as _vb                             # slug vibe: rule (category) + fold cache LLM (enrich_vibes)
@@ -348,13 +349,16 @@ for r in PICKED:
     if r.get("closed") or r.get("name") in CURATE_DROP:
         continue
     pid = r["id"]
-    _name = CURATE_RENAME.get(r["name"], r["name"])
+    _tg = e(pid, "ten_google")                        # pass16 Google displayName (+place_id) — durable qua enrichment
+    _name = (_tg or {}).get("value") or CURATE_RENAME.get(r["name"], r["name"])
     _loai = CURATE_LOAI.get(r["name"]) or rong(r.get("loai_vn"))
     alt = list(r.get("alt") or [])
     for f in ("ten_en", "ten_vi", "ten_khac"):
         ev = e(pid, f)
         if ev and ev["value"] not in alt:
             alt.append(ev["value"])
+    if _name != r["name"] and r["name"] not in alt:   # giu ten goc lam alt khi doi sang ten Google
+        alt.append(r["name"])
     addr = prov_val(pid, "dia_chi_day_du") or prov_val(pid, "dia_chi_osm")
     rec = core(
         pid, _name, r["lat"], r["lon"], _loai, r.get("loai_phu"),
@@ -366,7 +370,7 @@ for r in PICKED:
             or (e(pid, "website_osm") or {}).get("value") or (e(pid, "website_facility") or {}).get("value"),
         (prov_val(pid, "trang_facebook") or {}).get("value"),
         (prov_val(pid, "email") or prov_val(pid, "email_facebook") or {}).get("value"),
-        place_id_of(r["name"]), "source_node",
+        (_tg or {}).get("place_id") or place_id_of(r["name"]), "source_node",
     )
     rec["alternate_names"] = alt
     # description: verbatim wiki neu co, else template factual tu field (100% phu)
@@ -447,6 +451,11 @@ for r in PICKED:
         "hoat_dong_nguon": "loại hình + tag OSM",                         # rederivation, khong claim rieng (nhu trai_nghiem)
         "vibes": _vibes_v,                                                # slug vibe roi rac (VIBE_VOCAB)
         "vibes_nguon": _vibes_ng,                                         # rule | llm | rule+llm | none
+        # Loi vao/trai nghiem DAC TRUNG (cap treo vuot bien, tau ra dao...) — chinh chuyen di LA diem nhan,
+        # KHONG phai chi phi. Curated (GHI_CHU_DIEM_DEN theo ten) OR category "Cap treo". LUON emit (khong
+        # gate EDITORIAL_TIER) vi engine doc de: (a) khong phat "xa", (b) ngay dao lich 1 ngay, (c) hien card.
+        "loi_vao_dac_trung": (_GHI_CHU.get(_name) or _GHI_CHU.get(r["name"])
+                              or ("Đi cáp treo ngắm cảnh" if rec["category"]["primary"] == "Cáp treo" else None)),
         # EDITORIAL tier (002): cau "Phu hop voi khach muon..." keyed vibe-signature, controlled vocab,
         # nguoi duyet=owner, KHONG source_id (ngoai verified_fields). Gated kill-switch EDITORIAL_TIER.
         "phu_hop_voi": ({"value": _pv_val, "tier": "bien-tap", "is_editorial": True,
@@ -564,6 +573,12 @@ def _sap_log(recs, loai):
 nha_hang = _sap_log(nha_hang, "nha_hang")
 khach_san = _sap_log(khach_san, "khach_san")
 khach_san_dc = _sap_log(khach_san_dc, "khach_san")
+
+# Diem den: reorder theo MUC DO QUAN TRONG (importance = tier loai + booster nha-nuoc/tra-phi +
+# popularity Wilson). CHI THU TU doi — KHONG them field. Popularity tu noi-bo/pop_diem_den.json
+# (gitignored) neu co; thieu -> backbone-only (khong chim diem thieu place_id). rank_noi_bo_diem_den.py
+# sinh pop cache (opt-in, khong chay moi build).
+diem_den = _dqt.sap_xep(diem_den, _dqt.load_pop(CITY_DIR))
 
 # ── meta + ghi ─────────────────────────────────────────────────────────────
 lats = [d["coordinates"]["latitude"] for d in diem_den]
