@@ -70,6 +70,34 @@ describe('selectPopularTrips', () => {
     ]);
   });
 
+  it('dedupes to one card per origin→destination across stops and routes', () => {
+    const routes: ActiveRoute[] = [
+      // A stop whose point equals the route's own origin must not double-card it.
+      route({
+        origin: 'Thanh Hóa',
+        destination: 'Sài Gòn',
+        boardingSchedule: [
+          { point: 'Thanh Hóa', time: '02:30' },
+          { point: 'Nông Cống', time: '03:00' },
+        ],
+      }),
+      // A second route with the same origin+destination collapses into the same card.
+      route({
+        origin: 'Thanh Hóa',
+        destination: 'Sài Gòn',
+        boardingSchedule: [{ point: 'Nông Cống', time: '05:00' }],
+      }),
+    ];
+
+    const result = selectPopularTrips(routes, {});
+
+    // Only the two distinct origin→destination keys survive.
+    expect(result.map((r) => `${r.origin}→${r.destination}`)).toEqual([
+      'Thanh Hóa→Sài Gòn',
+      'Nông Cống→Sài Gòn',
+    ]);
+  });
+
   it('slices the final diverse selection to the limit', () => {
     const routes: ActiveRoute[] = Array.from({ length: 20 }, (_, i) =>
       route({ origin: `Origin ${i}`, destination: `Dest ${i}` }),
