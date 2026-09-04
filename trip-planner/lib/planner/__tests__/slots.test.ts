@@ -98,6 +98,33 @@ describe('V3 C — sở thích không rơi tín hiệu', () => {
   });
 });
 
+describe('extractFromText — false-positive regression (headcount/budget/city)', () => {
+  it('"tìm 3 khách sạn gần biển" KHÔNG set adults ("khách sạn" ≠ "khách")', () =>
+    expect(extractFromText('tìm 3 khách sạn gần biển').adults).toBeUndefined());
+  it('"gia đình 2 trẻ" KHÔNG set budgetPerPerson ("trẻ" ≠ "tr")', () =>
+    expect(extractFromText('gia đình 2 trẻ').budgetPerPerson).toBeUndefined());
+  it('"3 trái dừa" KHÔNG set budgetPerPerson ("trái" ≠ "tr")', () =>
+    expect(extractFromText('3 trái dừa').budgetPerPerson).toBeUndefined());
+  it('"500 ký hành lý" KHÔNG set budgetPerPerson ("ký" ≠ "k")', () =>
+    expect(extractFromText('500 ký hành lý').budgetPerPerson).toBeUndefined());
+  it('"tôi thích hoa huệ" KHÔNG set dia_diem (huệ ≠ Huế, không tín hiệu du lịch)', () =>
+    expect(extractFromText('tôi thích hoa huệ').dia_diem).toBeUndefined());
+  it('"vinh danh các anh hùng" KHÔNG set dia_diem (không tín hiệu du lịch)', () =>
+    expect(extractFromText('vinh danh các anh hùng').dia_diem).toBeUndefined());
+
+  // Positive controls — vẫn hoạt động bình thường sau khi siết boundary.
+  it('"đi Huế 3 ngày" → dia_diem=hue', () =>
+    expect(extractFromText('đi Huế 3 ngày').dia_diem).toBe('hue'));
+  it('"đi Vinh" → dia_diem=vinh', () =>
+    expect(extractFromText('đi Vinh').dia_diem).toBe('vinh'));
+  it('"2 người" → adults=2', () =>
+    expect(extractFromText('2 người').adults).toBe(2));
+  it('"2 triệu" → budgetPerPerson=2.000.000', () =>
+    expect(extractFromText('2 triệu').budgetPerPerson).toBe(2_000_000));
+  it('"300k" → budgetPerPerson=300.000', () =>
+    expect(extractFromText('300k').budgetPerPerson).toBe(300_000));
+});
+
 describe('V3 E — isAllDay + moTaTrusted', () => {
   it('00:00-23:59 → cả ngày', () => expect(isAllDay('00:00-23:59')).toBe(true));
   it('08:00-17:00 → không', () => expect(isAllDay('08:00-17:00')).toBe(false));

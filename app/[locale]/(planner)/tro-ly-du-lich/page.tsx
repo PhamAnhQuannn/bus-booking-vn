@@ -476,7 +476,13 @@ export default function TroLyDuLichPage() {
     // Lỗi giữa chừng đã hiện bong bóng lỗi rồi — advance() ở đây sẽ thêm tin bot thứ 2 trái ngược
     // trong cùng lượt, nên chỉ advance khi KHÔNG lỗi và KHÔNG phải mode gợi ý. (#528)
     // tất định: Gemini partial + bóc client (budget-số + nhóm) → hỏi thêm bằng chip hoặc dựng — KHÔNG thêm Gemini
-    if (!suggested && !failed) advance(applyExtracted(mergeIntent(slots, partial), extractFromText(text)));
+    if (!suggested && !failed) {
+      const merged = mergeIntent(slots, partial);
+      const det = extractFromText(text);
+      // Gemini đã có dia_diem (đáng tin hơn) → KHÔNG để bóc client đè (client chỉ substring-match, dễ nhầm).
+      if (merged.dia_diem && det.dia_diem) delete det.dia_diem;
+      advance(applyExtracted(merged, det));
+    }
   }
 
   // Parse 1 SSE frame. token → patchBot; slots → trả {partial}; suggestions → gắn cards + báo suggested; error → patchBot + báo failed.
