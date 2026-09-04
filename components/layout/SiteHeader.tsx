@@ -10,7 +10,8 @@
  * customers see the CustomerAccountMenu (bookings / settings / logout). Sign-in state
  * comes from the client session store (useAuthStatus tri-state).
  *
- * The bar is a fixed-height (90px) frosted-glass surface: translucent cream so the
+ * The bar is a fixed-height (`--site-header-h`, 69px total incl. the 1px border-b;
+ * inner row is `calc(var(--site-header-h) - 1px)`) frosted-glass surface: translucent cream so the
  * background behind it bleeds up (the hero photo on `/`, cream page elsewhere), with
  * a strong backdrop-blur so scrolling content stays unreadable through it. Only the
  * surface alpha changes on scroll (`.42` → `.55`); no other state.
@@ -46,8 +47,10 @@ const REGISTER: { href: string; labelKey: string } = { href: '/auth/register', l
 const CTA_CLASS =
   'bg-primary-strong text-primary-foreground shadow-e1 outline-none transition-colors hover:bg-primary-strong/90 focus-visible:ring-3 focus-visible:ring-ring/50';
 
-/* Shared AI badge chrome — identical to the content-section badge (TripPlannerPromo).
-   Keep the two in sync: changing one must change the other. */
+/* Shared AI badge chrome — same visual treatment (color/border/radius/type) as the
+   content-section badge (TripPlannerPromo). Keep that chrome in sync between the two.
+   The leading `ml-2` is nav-only: here the badge trails the link text and needs the gap,
+   whereas the promo badge already sits in a `gap-2` flex, so it omits `ml-2` deliberately. */
 const AI_BADGE_CLASS =
   'ml-2 rounded-full border border-primary-strong/30 bg-primary-tint/60 px-2 py-0.5 text-[12px] font-bold uppercase leading-none tracking-[0.5px] text-primary-strong';
 
@@ -107,7 +110,7 @@ export function SiteHeader() {
       >
         {/* Flat px-6 (24px gutter) with no max-width container: keeps the logo a
             constant distance from the window edge at every viewport. */}
-        <div className="flex h-[var(--site-header-h)] w-full items-center justify-between gap-5 px-6">
+        <div className="flex h-[calc(var(--site-header-h)_-_1px)] w-full items-center justify-between gap-5 px-6">
           {/* Left cluster: logo + nav packed tight beside it (50px gap), not centred. */}
           <div className="flex items-center">
             <Link

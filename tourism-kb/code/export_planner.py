@@ -349,16 +349,13 @@ for r in PICKED:
     if r.get("closed") or r.get("name") in CURATE_DROP:
         continue
     pid = r["id"]
-    _tg = e(pid, "ten_google")                        # pass16 Google displayName (+place_id) — durable qua enrichment
-    _name = (_tg or {}).get("value") or CURATE_RENAME.get(r["name"], r["name"])
+    _name = CURATE_RENAME.get(r["name"], r["name"])
     _loai = CURATE_LOAI.get(r["name"]) or rong(r.get("loai_vn"))
     alt = list(r.get("alt") or [])
     for f in ("ten_en", "ten_vi", "ten_khac"):
         ev = e(pid, f)
         if ev and ev["value"] not in alt:
             alt.append(ev["value"])
-    if _name != r["name"] and r["name"] not in alt:   # giu ten goc lam alt khi doi sang ten Google
-        alt.append(r["name"])
     addr = prov_val(pid, "dia_chi_day_du") or prov_val(pid, "dia_chi_osm")
     rec = core(
         pid, _name, r["lat"], r["lon"], _loai, r.get("loai_phu"),
@@ -370,7 +367,7 @@ for r in PICKED:
             or (e(pid, "website_osm") or {}).get("value") or (e(pid, "website_facility") or {}).get("value"),
         (prov_val(pid, "trang_facebook") or {}).get("value"),
         (prov_val(pid, "email") or prov_val(pid, "email_facebook") or {}).get("value"),
-        (_tg or {}).get("place_id") or place_id_of(r["name"]), "source_node",
+        place_id_of(r["name"]), "source_node",
     )
     rec["alternate_names"] = alt
     # description: verbatim wiki neu co, else template factual tu field (100% phu)
@@ -452,10 +449,10 @@ for r in PICKED:
         "vibes": _vibes_v,                                                # slug vibe roi rac (VIBE_VOCAB)
         "vibes_nguon": _vibes_ng,                                         # rule | llm | rule+llm | none
         # Loi vao/trai nghiem DAC TRUNG (cap treo vuot bien, tau ra dao...) — chinh chuyen di LA diem nhan,
-        # KHONG phai chi phi. Curated (GHI_CHU_DIEM_DEN theo ten) OR category "Cap treo". LUON emit (khong
-        # gate EDITORIAL_TIER) vi engine doc de: (a) khong phat "xa", (b) ngay dao lich 1 ngay, (c) hien card.
-        "loi_vao_dac_trung": (_GHI_CHU.get(_name) or _GHI_CHU.get(r["name"])
-                              or ("Đi cáp treo ngắm cảnh" if rec["category"]["primary"] == "Cáp treo" else None)),
+        # KHONG phai chi phi. Curated-only (GHI_CHU_DIEM_DEN theo ten) — KHONG category-blanket default (moi
+        # record "Cap treo" se sig-access va co the chiem ca day-slot du fame=0). LUON emit (khong gate
+        # EDITORIAL_TIER) vi engine doc de: (a) khong phat "xa", (b) ngay dao lich 1 ngay, (c) hien card.
+        "loi_vao_dac_trung": (_GHI_CHU.get(_name) or _GHI_CHU.get(r["name"]) or None),
         # EDITORIAL tier (002): cau "Phu hop voi khach muon..." keyed vibe-signature, controlled vocab,
         # nguoi duyet=owner, KHONG source_id (ngoai verified_fields). Gated kill-switch EDITORIAL_TIER.
         "phu_hop_voi": ({"value": _pv_val, "tier": "bien-tap", "is_editorial": True,

@@ -41,6 +41,7 @@ const OP_ACCESS_COOKIE = 'bb_op_access';
 const ADMIN_ACCESS_COOKIE = 'bb_admin_access';
 const SID_COOKIE = 'bb_sid'; // anonymous funnel session id (no PII)
 const SID_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
+const CONSENT_COOKIE = 'bb_consent'; // cookie-consent choice; 'accepted' unlocks analytics
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 // Exact-path exemptions (CSRF) — bank_transfer (SePay) sends no bb_csrf cookie.
@@ -110,7 +111,13 @@ function setSessionCookies(res: NextResponse, request: NextRequest): void {
       secure,
     });
   }
-  if (!request.cookies.get(SID_COOKIE)?.value) {
+  // Mint the funnel session id ONLY when the visitor accepted analytics cookies
+  // (PDPD opt-in). Without bb_sid, lib/analytics/track() no-ops, so 'necessary'
+  // / unanswered consent collects no FunnelEvent. See components/CookieConsent.tsx.
+  if (
+    request.cookies.get(CONSENT_COOKIE)?.value === 'accepted' &&
+    !request.cookies.get(SID_COOKIE)?.value
+  ) {
     res.cookies.set(SID_COOKIE, generateToken(), {
       httpOnly: true, // server-only; funnel correlation, never read by JS
       sameSite: 'lax',

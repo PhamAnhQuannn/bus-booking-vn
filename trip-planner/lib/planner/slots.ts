@@ -143,6 +143,10 @@ const INTEREST_KEYWORDS: [RegExp, string][] = [
 ];
 
 const foldVi = (s: string): string => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d");
+const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// Tên thành phố ngắn (≤4 ký tự sau fold, VD "hue"/"vinh") dễ khớp nhầm vào từ khác chứa nó
+// ("hoa huệ", "vinh danh") — chỉ nhận khi câu có tín hiệu ý định du lịch rõ ràng.
+const TRAVEL_INTENT_RE = /(đi|tới|đến|về|thăm|ghé|tại|du lịch|ở\s|khám phá)/;
 
 // Sở thích từ free-text: scan keyword → mã; cụm trong "thích …" chưa khớp → LITERAL (không drop im lặng).
 function extractInterests(text: string): string[] {
@@ -170,17 +174,27 @@ export function extractFromText(text: string): Partial<Slots> {
   const t = text.toLowerCase();
   const ft = foldVi(text);
   for (const [re, g] of NHOM_KEYWORDS) { if (re.test(t)) { out.nhom = g; break; } }
-  // điểm đến: match tên CITIES (không dấu), ưu tiên tên DÀI nhất (tránh khớp nhầm 1 phần).
-  const city = [...CITIES].sort((a, b) => b.ten.length - a.ten.length).find((c) => ft.includes(foldVi(c.ten)));
+  // điểm đến: match tên CITIES (không dấu) có biên (tránh khớp giữa từ khác, VD "hoa huệ" → "huệ"),
+  // ưu tiên tên DÀI nhất (tránh khớp nhầm 1 phần); tên ngắn (≤4) cần thêm tín hiệu ý định du lịch.
+  const city = [...CITIES]
+    .sort((a, b) => b.ten.length - a.ten.length)
+    .find((c) => {
+      const folded = foldVi(c.ten);
+      const bounded = new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(folded)}(?:$|[^a-z0-9])`).test(ft);
+      if (!bounded) return false;
+      if (folded.length <= 4 && !TRAVEL_INTENT_RE.test(t)) return false;
+      return true;
+    });
   if (city) out.dia_diem = city.slug;
   // số ngày: "N ngày" (1..7)
   const dm = t.match(/(\d+)\s*ng[àa]y/);
   if (dm) { const d = parseInt(dm[1], 10); if (d >= 1 && d <= 7) out.days = d; }
-  // số người: "N người/khách/đứa/thành viên" (không phải "N ngày")
-  const pm = t.match(/(\d+)\s*(người|khách|đứa|thành viên)\b/);
+  // số người: "N người/khách/đứa/thành viên" (không phải "N ngày"); "khách" loại trừ "khách sạn".
+  const pm = t.match(/(\d+)\s*(người|khách(?!\s*sạn)|đứa|thành viên)\b/);
   if (pm) out.adults = Math.max(parseInt(pm[1], 10), 1);
-  // ngân sách số: "<số> triệu/tr/củ/k/nghìn/ngàn/đồng" → VND/người
-  const bm = t.match(/(\d+(?:[.,]\d+)?)\s*(triệu|tr|củ|k|nghìn|ngàn|đồng|vnđ|vnd)\b/i);
+  // ngân sách số: "<số> triệu/tr/củ/k/nghìn/ngàn/đồng" → VND/người. \b là ASCII-only nên đơn vị ngắn
+  // (tr/k) khớp nhầm từ có dấu ("2 trẻ", "3 trái", "500 ký") → dùng biên Unicode-aware (?!\p{L}).
+  const bm = t.match(/(\d+(?:[.,]\d+)?)\s*(triệu|tr|củ|k|nghìn|ngàn|đồng|vnđ|vnd)(?!\p{L})/iu);
   if (bm) {
     const num = parseFloat(bm[1].replace(",", "."));
     const unit = bm[2].toLowerCase();

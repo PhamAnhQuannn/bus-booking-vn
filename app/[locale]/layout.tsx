@@ -9,7 +9,7 @@ import { SiteHeader } from "@/components/layout/SiteHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SessionBootstrap } from "@/components/auth/SessionBootstrap";
 import { CookieConsent } from "@/components/CookieConsent";
-import { Analytics } from "@vercel/analytics/next";
+import { ConsentedAnalytics } from "@/components/ConsentedAnalytics";
 import { SITE_URL } from "@/lib/seo";
 
 const beVietnam = Be_Vietnam_Pro({
@@ -99,7 +99,7 @@ export default async function LocaleLayout({
           <CookieConsent />
         </NextIntlClientProvider>
         {/* Dev mode loads an external debug script (va.vercel-scripts.com) that our CSP blocks — prod-only. */}
-        {process.env.NODE_ENV === "production" && <Analytics />}
+        {process.env.NODE_ENV === "production" && <ConsentedAnalytics />}
       </body>
     </html>
   );
