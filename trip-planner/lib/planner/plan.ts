@@ -365,6 +365,7 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
     const nm = foldText(r.name);
     for (let i = 0; i < fameSpots.length; i++) {
       const s = fameSpots[i];
+      // >= 5: độ dài tên gấp (folded) tối thiểu để khớp substring — tránh khớp giả do chuỗi ngắn (vd "hồ", "núi")
       if ((s.length >= 5 && boundedIncludes(nm, s)) || (nm.length >= 5 && boundedIncludes(s, nm))) return fameSpots.length - i;
     }
     return 0;
