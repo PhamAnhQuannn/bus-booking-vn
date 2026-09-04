@@ -183,7 +183,11 @@ function macroOrder(regs: Reg[], tam: LL): Reg[] {
   if (regs.length <= 1) return regs;
   const rem = [...regs].sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
   const out: Reg[] = [];
-  const cur = rem.reduce((best, r) => (kmBetween(tam, r.centroid) < kmBetween(tam, best.centroid) ? r : best), rem[0]);
+  // Bắt chuỗi NN từ cụm FAME cao nhất (biểu tượng nhất) → flagship luôn vào ngày đầu, packDays không cắt;
+  // route vẫn compact (NN từ đó). Tiebreak = gần tâm. Fame=0 hết → về nearest-tâm cũ. (re-apply sau merge #681 drop)
+  const cur = rem.reduce((best, r) =>
+    (r.fame > best.fame ||
+      (r.fame === best.fame && kmBetween(tam, r.centroid) < kmBetween(tam, best.centroid))) ? r : best, rem[0]);
   out.push(cur); rem.splice(rem.indexOf(cur), 1);
   while (rem.length) {
     const last = out[out.length - 1];
@@ -353,10 +357,24 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
     return best;
   };
 
+  // fameRankOf: hạng nổi tiếng 1 điểm = signatureSpot index thấp nhất khớp (spot[0]=biểu tượng nhất →
+  // hạng cao nhất). Tiebreak GIỮA pin: nhiều marquee CÙNG cụm → icon nổi tiếng nhất lên TRƯỚC (Tượng Chúa
+  // spot0 thắng Bãi Sau spot1). 0 nếu không khớp / slug không hand-list → không đổi. (re-apply sau merge #681 drop)
+  const fameRankOf = (r: KbRecord): number => {
+    if (!fameSpots.length) return 0;
+    const nm = foldText(r.name);
+    for (let i = 0; i < fameSpots.length; i++) {
+      const s = fameSpots[i];
+      if ((s.length >= 5 && boundedIncludes(nm, s)) || (nm.length >= 5 && boundedIncludes(s, nm))) return fameSpots.length - i;
+    }
+    return 0;
+  };
+
   const regs: Reg[] = [...groups.entries()].map(([key, pts0]) => {
-    // pts sort: anchor/marquee lên ĐẦU (sống sót packDays cap trong cụm) -> rồi quality giảm dần (A1 trong cụm)
+    // pts sort: anchor/marquee ĐẦU (sống sót packDays cap) -> độ-nổi-tiếng -> quality giảm dần (A1 trong cụm)
     const pts = [...pts0].sort((a, b) =>
       (Number(pinIds.has(b.id)) - Number(pinIds.has(a.id))) ||
+      (fameRankOf(b) - fameRankOf(a)) ||
       (scoreOf.get(b.id)! - scoreOf.get(a.id)!) ||
       ((destRank.get(a.id) ?? Infinity) - (destRank.get(b.id) ?? Infinity)) || // importance-rank, thay tiebreak id lexical
       (a.id < b.id ? -1 : 1));
