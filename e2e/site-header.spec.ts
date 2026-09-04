@@ -5,8 +5,8 @@
  * (#669) the single combined CTA was split into two customer buttons — "Đăng nhập"
  * (`/auth/login`) and "Đăng ký" (`/auth/register`) — neither pointing at the operator
  * console. Operator login stays reachable via the footer's "Hợp tác" column. These
- * tests pin the layout against a viewport-specific split (the header switches at xl):
- * at xl+ both CTAs sit inline in the bar; below xl the "Đăng ký" CTA stays in the bar
+ * tests pin the layout against a viewport-specific split (the header switches at md):
+ * at md+ both CTAs sit inline in the bar; below md the "Đăng ký" CTA stays in the bar
  * while "Đăng nhập" moves into the drawer.
  *
  * All tests run in the GUEST state (no session) — SessionBootstrap fires a refresh on
@@ -20,15 +20,15 @@ import { test, expect } from '@playwright/test';
 const CUSTOMER_LOGIN_LABEL = 'Đăng nhập';
 const CUSTOMER_REGISTER_LABEL = 'Đăng ký';
 const OPERATOR_LOGIN_LABEL = 'Đăng nhập nhà xe';
-/** Tailwind's xl. The header switches layouts here; both sides must be correct. */
-const XL_BREAKPOINT = 1280;
+/** Tailwind's md. The header switches layouts here; both sides must be correct. */
+const MD_BREAKPOINT = 768;
 
 test.describe('SiteHeader — login affordance (ADR-021)', () => {
-  test('at xl and above: the header CTAs are the CUSTOMER login + register', async ({
+  test('at md and above: the header CTAs are the CUSTOMER login + register', async ({
     page,
   }, testInfo) => {
     const width = testInfo.project.use.viewport?.width ?? 0;
-    test.skip(width < XL_BREAKPOINT, 'mobile layout is covered by its own test');
+    test.skip(width < MD_BREAKPOINT, 'mobile layout is covered by its own test');
 
     await page.goto('/');
 
@@ -45,11 +45,11 @@ test.describe('SiteHeader — login affordance (ADR-021)', () => {
     await expect(header.locator('a[href="/op/login"]:visible')).toHaveCount(0);
   });
 
-  test('below xl: the register CTA stays in the bar and the drawer offers login', async ({
+  test('below md: the register CTA stays in the bar and the drawer offers login', async ({
     page,
   }, testInfo) => {
     const width = testInfo.project.use.viewport?.width ?? 0;
-    test.skip(width >= XL_BREAKPOINT, 'drawer does not render at xl and above');
+    test.skip(width >= MD_BREAKPOINT, 'drawer does not render at md and above');
 
     await page.goto('/');
 
