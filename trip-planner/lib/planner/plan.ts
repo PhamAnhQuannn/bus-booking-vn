@@ -50,6 +50,15 @@ const clampInt = (v: number, lo: number, hi: number): number => Math.min(Math.ma
 // Slug ngoài registry → fameSpots rỗng → fame=0 mọi cụm → hành vi cũ (mass) giữ nguyên.
 const foldText = (s: string): string =>
   (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[đĐ]/g, "d").toLowerCase();
+const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// Word-boundary substring check (mirror slots.ts city-match): fame token ngắn (5 ký tự) dễ khớp GIỮA
+// một từ khác không liên quan — vd fame "hoa lu" (Hoa Lư) khớp nhầm giữa "Khách sạn Hoa Luxury" (chuỗi
+// con "hoa lu" nằm lọt trong "Hoa Luxury", không phải ranh giới từ). Biên = đầu/cuối chuỗi hoặc ký tự
+// không phải chữ/số (folded text chỉ còn a-z0-9 + khoảng trắng).
+function boundedIncludes(haystack: string, needle: string): boolean {
+  if (!needle) return false;
+  return new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(needle)}(?:$|[^a-z0-9])`).test(haystack);
+}
 
 function fameSpotsForSlug(slug: string): string[] {
   const out: string[] = [];
@@ -63,14 +72,14 @@ function fameSpotsForSlug(slug: string): string[] {
 // xếp theo độ nổi tiếng GIẢM DẦN (spot[0] = biểu tượng nhất của khu) → khớp sớm = trọng số cao (len-i).
 // 0 nếu không khớp. (fold + substring 2 chiều, guard >=5 ký tự tránh nhiễu.) Dùng để seed ngày theo
 // độ nổi tiếng: "đi Nha Trang" → cụm VinWonders (spot[0]) seed trước cụm Tháp Bà (spot sau).
-function regFame(pts: KbRecord[], fameSpots: string[]): number {
+export function regFame(pts: KbRecord[], fameSpots: string[]): number {
   if (!fameSpots.length) return 0;
   let best = 0;
   for (const p of pts) {
     const nm = foldText(p.name);
     for (let i = 0; i < fameSpots.length; i++) {
       const s = fameSpots[i];
-      if ((s.length >= 5 && nm.includes(s)) || (nm.length >= 5 && s.includes(nm))) { best = Math.max(best, fameSpots.length - i); break; }
+      if ((s.length >= 5 && boundedIncludes(nm, s)) || (nm.length >= 5 && boundedIncludes(s, nm))) { best = Math.max(best, fameSpots.length - i); break; }
     }
   }
   return best;
@@ -316,7 +325,7 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
   if (fameSpots.length)
     for (const r of withCoord) {
       const nm = foldText(r.name);
-      if (fameSpots.some((s) => (s.length >= 5 && nm.includes(s)) || (nm.length >= 5 && s.includes(nm)))) marqueeIds.add(r.id);
+      if (fameSpots.some((s) => (s.length >= 5 && boundedIncludes(nm, s)) || (nm.length >= 5 && boundedIncludes(s, nm)))) marqueeIds.add(r.id);
     }
   else
     // Phase 3: slug KHÔNG có signatureSpots hand-list (17/35 tp) → auto-marquee top-K theo importance
