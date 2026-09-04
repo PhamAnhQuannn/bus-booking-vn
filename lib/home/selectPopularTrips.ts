@@ -3,13 +3,14 @@
  * unit-testable without a DB — the RSC (app/[locale]/(customer)/page.tsx) just
  * calls this with the ActiveRoute rows + the image-fallback map.
  *
- * A route (r.origin, r.destination) may carry several boarding-town stops in
- * its `boardingSchedule` (parseBoardingSchedule). Expanding every stop into its
- * own card used to produce up to N near-identical cards per route — same
- * destination/price/duration, differing only by pickup town. This selection
- * caps the section to ROUTE diversity: at most one card per underlying route
- * (the route's own origin, unless it collides with an already-picked card —
- * then the next boarding-town variant is tried), THEN slices to `limit`.
+ * The product is a single physical corridor (Thanh Hóa ↔ Sài Gòn) whose value is
+ * its many boarding towns. A route (r.origin, r.destination) carries those pickups
+ * in its `boardingSchedule` (parseBoardingSchedule); we FAN each route out into one
+ * card PER boarding point (the route origin + every stop) so a rider in each pickup
+ * town sees their own "Nông Cống → Sài Gòn" card. Cards are deduped by
+ * `origin→destination`, then sliced to `limit`. `limit` is high enough to hold both
+ * directions' pickups (the corridor has ~14 boarding towns) so neither direction's
+ * towns get sliced off the tail.
  */
 
 import type { ActiveRoute } from '@/lib/core/db/getActiveRoutes';
@@ -30,7 +31,7 @@ export interface PopularTripCard {
 export function selectPopularTrips(
   routes: ActiveRoute[],
   imageFallback: Record<string, string>,
-  limit = 12,
+  limit = 24,
 ): PopularTripCard[] {
   const seenCards = new Set<string>();
   const out: PopularTripCard[] = [];
@@ -51,7 +52,6 @@ export function selectPopularTrips(
         price: r.minPrice,
         duration: r.minDurationMinutes,
       });
-      break; // cap: at most one card per underlying route
     }
   }
 
