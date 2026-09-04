@@ -96,7 +96,9 @@ model Operator {
   charterAssignments CharterRequest[]
   einvoices          EInvoice[]
 
-  @@index([status])
+  // Public/search visibility hot predicate (getPublicOperators): status IN (...) AND disabledAt IS NULL.
+  // Composite leftmost-prefix also serves the status-only filters (admin metrics/queues).
+  @@index([status, disabledAt])
 }
 
 enum BusType {
