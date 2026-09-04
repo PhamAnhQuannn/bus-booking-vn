@@ -30,16 +30,59 @@ type Props = {
   onCloseSheet: () => void;
 };
 
-// Slug có PMTiles thật trong public/tiles/. cities.ts quảng cáo 28 slug nhưng chỉ 3 tile ship →
-// slug ngoài set này KHÔNG add tile layer (tránh request tile 404 → bản đồ xám); hiện nền kem + note.
-// Sinh thêm tile cho 25 tỉnh còn lại là việc DATA riêng. (#528)
-export const TILED_SLUGS = new Set(['da-lat', 'da-nang', 'nha-trang']);
+// Slug có PMTiles basemap. Cả 35 tỉnh live (CITIES) đều phủ (#528): da-lat/da-nang/nha-trang là
+// file static trong public/tiles/; 32 slug còn lại serve qua R2 proxy `app/tiles/[slug]/route.ts`
+// (url đồng nhất `/tiles/<slug>.pmtiles` — static precedence lo 3 cũ, route lo 32 mới). bbox mỗi
+// slug cắt từ toạ độ điểm-đến engine phục vụ (union lịch 3+5 ngày); maxDataZoom theo span (tỉnh
+// mega-merge trải rộng dùng z12-13 thay z14). Slug ngoài set → nền kem + note (không request 404).
+export const TILED_SLUGS = new Set(['da-lat', 'da-nang', 'nha-trang', 'ha-noi', 'ho-chi-minh', 'hue', 'hai-phong', 'ninh-binh', 'can-tho', 'bac-ninh', 'phu-tho', 'thai-nguyen', 'tuyen-quang', 'lao-cai', 'dong-thap', 'vinh-long', 'phu-quoc', 'quy-nhon', 'ha-long', 'vung-tau', 'dong-hoi', 'tuy-hoa', 'chau-doc', 'dong-ha', 'mong-cai', 'van-don', 'mui-ca-mau', 'tay-ninh-tp', 'sa-pa', 'ba-be', 'dien-bien-phu', 'dong-van', 'vinh', 'cao-bang-tp', 'thanh-hoa-tp']);
+
+// maxDataZoom thật của mỗi tile (trần data PMTiles; overzoom từ mức này lên maxZoom 16). Mặc định 14;
+// tỉnh trải rộng cắt ở z12-13 để chặn size → PHẢI khai đúng, else protomaps request tile z14 không
+// tồn tại → blank. Chỉ liệt kê slug !=14.
+const TILE_MAXDATAZOOM: Record<string, number> = {
+  'can-tho': 13, 'bac-ninh': 12, 'phu-tho': 12, 'thai-nguyen': 12,
+  'tuyen-quang': 12, 'lao-cai': 13, 'dong-thap': 12, 'vinh-long': 12,
+  'phu-quoc': 13, 'van-don': 13,
+};
 
 // Tâm + zoom mặc định cho slug có tile (center map pha building TRƯỚC khi có dto item coords).
 const CITY_CENTER: Record<string, [number, number, number]> = {
-  'da-lat': [11.94, 108.44, 13],
+  'da-lat': [11.9295, 108.4859, 13],
   'da-nang': [16.06, 108.22, 13],
   'nha-trang': [12.24, 109.19, 13],
+  'ha-noi': [21.0188, 105.8426, 13],
+  'ho-chi-minh': [10.4954, 107.1363, 12],
+  'hue': [16.506, 107.551, 13],
+  'hai-phong': [20.8523, 106.7537, 13],
+  'ninh-binh': [20.253, 105.9425, 13],
+  'can-tho': [9.8025, 105.8262, 11],
+  'bac-ninh': [21.1386, 106.3905, 11],
+  'phu-tho': [21.0461, 105.3243, 11],
+  'thai-nguyen': [21.9806, 105.8149, 11],
+  'tuyen-quang': [22.5358, 105.3165, 11],
+  'lao-cai': [22.0522, 103.9722, 11],
+  'dong-thap': [10.4986, 105.9331, 11],
+  'vinh-long': [9.9899, 106.2824, 11],
+  'phu-quoc': [10.27, 103.9338, 12],
+  'quy-nhon': [13.8278, 109.2157, 12],
+  'ha-long': [20.9509, 107.0106, 13],
+  'vung-tau': [10.9339, 107.1615, 13],
+  'dong-hoi': [17.5897, 106.2907, 13],
+  'tuy-hoa': [13.2643, 109.2727, 13],
+  'chau-doc': [10.6079, 105.1012, 12],
+  'dong-ha': [16.8204, 107.1282, 13],
+  'mong-cai': [21.5132, 107.9989, 13],
+  'van-don': [21.0599, 107.476, 12],
+  'mui-ca-mau': [8.5574, 104.7912, 12],
+  'tay-ninh-tp': [11.3038, 106.1175, 14],
+  'sa-pa': [22.306, 103.8498, 13],
+  'ba-be': [22.4274, 105.6219, 13],
+  'dien-bien-phu': [21.3938, 102.9864, 13],
+  'dong-van': [23.1874, 105.2074, 13],
+  'vinh': [18.6822, 105.625, 13],
+  'cao-bang-tp': [22.7042, 106.2055, 13],
+  'thanh-hoa-tp': [19.838, 105.7612, 13],
 };
 
 // Nền QUỐC GIA zoom-thấp fallback: 1 file /tiles/vietnam.pmtiles phủ CẢ nước cho slug không có tile
@@ -151,6 +194,9 @@ export default function PlannerMap({ dto, pendingSlug, activeDay, hoveredOrder, 
     // Reset TẤT CẢ ref khi unmount — StrictMode (dev) mount 2 lần; nếu baseRef còn giữ layer của
     // map cũ, effect base-layer sẽ early-return và map mới thiếu basemap.
     return () => {
+      map.stop(); // abort any in-flight pan/zoom (fitBounds animate) — StrictMode dev double-mount
+      // removes this map while a reveal fitBounds animation is still running, and the dangling zoom
+      // frame then reads removed panes → "can't access property _leaflet_pos, el is undefined".
       map.remove();
       mapRef.current = null;
       overlayRef.current = null;
@@ -192,7 +238,7 @@ export default function PlannerMap({ dto, pendingSlug, activeDay, hoveredOrder, 
     const layer = leafletLayer({
       url: tiled ? `/tiles/${slug}.pmtiles` : COUNTRY_BASEMAP.url,
       flavor: 'light',
-      maxDataZoom: tiled ? 14 : COUNTRY_BASEMAP.maxDataZoom, // trần thật PMTiles; overzoom từ mức này lên
+      maxDataZoom: tiled ? (TILE_MAXDATAZOOM[slug] ?? 14) : COUNTRY_BASEMAP.maxDataZoom, // trần thật PMTiles/slug; overzoom từ mức này lên
       attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a> · © <a href="https://protomaps.com">Protomaps</a>',
     }) as unknown as L.Layer;
     layer.addTo(map);
