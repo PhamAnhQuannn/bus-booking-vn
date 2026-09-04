@@ -453,9 +453,10 @@ def cfg(path):
     return CONFIG[slug_of(path)]
 
 
-# Ghi chu curator cho docx diem den (editorial, KHONG phai fact co source_id — giong alt/hint cua
+# Ghi chu curator cho diem den (editorial, KHONG phai fact co source_id — giong alt/hint cua
 # DIEM_CHOT). Chi note dung/khong tranh cai. Attraction cha gop cap treo/dac trung -> nguoi doc biet.
-# Chi render o tang docx (build_diem_den_docx.py), KHONG vao export JSON.
+# Render o docx (build_diem_den_docx.py) VA export JSON (export_planner -> ext.destination.loi_vao_dac_trung,
+# luon emit): "loi vao dac trung" (cap treo/dao) la trai nghiem, engine doc de uu tien (ngay dao) + hien card.
 GHI_CHU_DIEM_DEN = {
     "VinWonders Nha Trang": "có cáp treo vượt biển ra đảo Hòn Tre",
     "Bà Nà Hills": "có cáp treo lên đỉnh · Cầu Vàng",

@@ -11,6 +11,11 @@ const PER_DAY: Record<TripRequest["pace"], number> = { relaxed: 2, moderate: 3, 
 const ASSUMED_SPEED_KMH = 25; // đổi km -> phút cho leg không có ma trận OSRM (khách sạn/nhà hàng)
 const MARQUEE_CARD_MAX = 2;   // region <=2 điểm + xa => outlier marquee (Bà Nà)
 const FAR_FACTOR = 2;         // "xa" = khoảng cách region->tâm > 2x trung vị
+const IMPORTANCE_W = 1.0;     // trần bonus importance cộng vào scoreDestination (thang ~0–6). KB ship
+                              // record theo THỨ TỰ importance (diem_quan_trong.sap_xep) -> array index =
+                              // rank; top nhận +IMPORTANCE_W, cuối +0. Bonus chảy vào cap-survival + seed.
+const AUTO_MARQUEE_K = 4;     // Phase 3: slug KHÔNG có signatureSpots hand-list -> auto-marquee top-K
+                              // theo importance (force-include như hand-list). Phủ 17/35 tp trước không có.
 // Compactness-at-selection (chọn theo cụm, quality trong cụm): dừng gộp cụm khi bước "nhảy cụm".
 const GAP_FACTOR = 2;         // bước thêm cụm > 2x trung vị các bước trước = nhảy cụm
 const ABS_GAP_KM = 8;         // sàn tuyệt đối: hop nội-thành nhỏ, cross-cụm lớn (tránh dừng nhầm ở n bước ít)
@@ -283,8 +288,16 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
 
   // A0/A6: chấm TOÀN BỘ (không slice-by-score sớm), cụm theo KHU HÀNH CHÍNH (ward); thiếu địa chỉ ->
   // fallback region_id; thiếu cả hai -> cụm toạ độ. (Cũ: cụm theo region_id = hướng la bàn -> trộn thị xã.)
+  // destRank: KB ship diem-den.json theo THỨ TỰ importance (build-time diem_quan_trong.sap_xep)
+  // -> array index của store.destinations = rank (0 = quan trọng nhất). Bonus có trần cộng vào
+  // scoreDestination (giữ nó thuần chất-lượng): importance chảy vào cap-survival + growCompact seed.
+  const destRank = new Map<string, number>();
+  store.destinations.forEach((r, i) => destRank.set(r.id, i));
+  const nDest = store.destinations.length;
+  const impBonus = (id: string): number =>
+    nDest <= 1 ? 0 : IMPORTANCE_W * (1 - (destRank.get(id) ?? nDest - 1) / (nDest - 1));
   const scoreOf = new Map<string, number>();
-  for (const r of withCoord) scoreOf.set(r.id, scoreDestination(r, req));
+  for (const r of withCoord) scoreOf.set(r.id, scoreDestination(r, req) + impBonus(r.id));
   const fameSpots = fameSpotsForSlug(req.slug); // signature-spots của slug (rỗng nếu ngoài registry)
   const groups = new Map<string, KbRecord[]>();
   const noRegion: KbRecord[] = [];
@@ -305,16 +318,42 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
       const nm = foldText(r.name);
       if (fameSpots.some((s) => (s.length >= 5 && nm.includes(s)) || (nm.length >= 5 && s.includes(nm)))) marqueeIds.add(r.id);
     }
+  else
+    // Phase 3: slug KHÔNG có signatureSpots hand-list (17/35 tp) → auto-marquee top-K theo importance
+    // (destRank; KB ship theo thứ tự importance). Cho 17 tp này lớp force-include mà trước KHÔNG hề có.
+    for (const r of [...withCoord]
+      .sort((a, b) => (destRank.get(a.id) ?? Infinity) - (destRank.get(b.id) ?? Infinity))
+      .slice(0, AUTO_MARQUEE_K))
+      marqueeIds.add(r.id);
+  // Lối vào đặc trưng (cáp treo vượt biển / tàu ra đảo): chuyến đi LÀ trải nghiệm khách săn → force-include
+  // như marquee (bất kể hand-list). Cho phép "ngày đảo" ở dưới + hiện nhãn trên card.
+  const hasSigAccess = (r: KbRecord) => !!r.ext?.destination?.loi_vao_dac_trung;
+  for (const r of withCoord) if (hasSigAccess(r)) marqueeIds.add(r.id);
   const pinIds = marqueeIds.size ? new Set<string>([...anchorIds, ...marqueeIds]) : anchorIds; // anchor ∪ marquee
+  // fame cụm: hand-list → hạng signatureSpot; auto (không hand-list) → theo importance rank của điểm marquee.
+  const regFameOf = (pts: KbRecord[]): number => {
+    if (fameSpots.length) return regFame(pts, fameSpots);
+    let best = 0;
+    // M4: per-điểm credit sàn 0 — điểm marquee (vd sig-access, luôn vào marqueeIds bất kể rank) có
+    // destRank NGOÀI top-K cho term ÂM; Math.max(best, term ÂM) không được để KÉO fame xuống dưới 0.
+    for (const p of pts) if (marqueeIds.has(p.id)) best = Math.max(best, AUTO_MARQUEE_K - (destRank.get(p.id) ?? AUTO_MARQUEE_K), 0);
+    // Cụm chứa điểm sig-access = full-day tier (đủ điều kiện protCand qua sigAccess ngay cả rank thấp) —
+    // sàn fame = AUTO_MARQUEE_K để KHÔNG bị cụm auto-marquee importance thường (rank cao hơn nhưng KHÔNG
+    // sig-access) đè trong sort protReg, giành mất ngày riêng của nó.
+    if (pts.some(hasSigAccess)) best = Math.max(best, AUTO_MARQUEE_K);
+    return best;
+  };
 
   const regs: Reg[] = [...groups.entries()].map(([key, pts0]) => {
     // pts sort: anchor/marquee lên ĐẦU (sống sót packDays cap trong cụm) -> rồi quality giảm dần (A1 trong cụm)
     const pts = [...pts0].sort((a, b) =>
       (Number(pinIds.has(b.id)) - Number(pinIds.has(a.id))) ||
-      (scoreOf.get(b.id)! - scoreOf.get(a.id)!) || (a.id < b.id ? -1 : 1));
+      (scoreOf.get(b.id)! - scoreOf.get(a.id)!) ||
+      ((destRank.get(a.id) ?? Infinity) - (destRank.get(b.id) ?? Infinity)) || // importance-rank, thay tiebreak id lexical
+      (a.id < b.id ? -1 : 1));
     const centroid = meanLL(pts.map(co));
     const mass = pts.reduce((s, p) => s + scoreOf.get(p.id)!, 0);
-    return { key, pts, centroid, distTam: kmBetween(tam, centroid), card: pts.length, mass, fame: regFame(pts, fameSpots) };
+    return { key, pts, centroid, distTam: kmBetween(tam, centroid), card: pts.length, mass, fame: regFameOf(pts) };
   });
 
   // E1 anchor + marquee: cụm chứa anchor/marquee -> key (scan pts, KHÔNG dựa region_id vì điểm thiếu
@@ -337,23 +376,41 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
   const med = median(kept.map((r) => r.distTam));
   const isFar = (r: Reg) => med > 0 && r.distTam > FAR_FACTOR * med;
   const anchorFar = (r: Reg) => anchorKeys.has(r.key) && isFar(r);
-  const protCand = kept.filter((r) => (anchorFar(r) ? days >= 2 : r.card <= MARQUEE_CARD_MAX && isFar(r) && days >= 3));
+  // Cụm marquee XA mà LỐI VÀO là trải nghiệm chữ ký (cáp treo/đảo) → NGÀY RIÊNG ngay cả days===1
+  // ("ngày đảo" — chuyến đi là điểm nhấn; khu trung tâm lùi sang note). Marquee xa thường vẫn cần 2+ ngày.
+  // Sig-access marquee (cáp treo/đảo) đáng NGÀY RIÊNG bất kể xa gần: điểm full-day + lối vào là trải nghiệm.
+  // KHÔNG cần isFar (VinWonders ~7km vẫn là ngày trọn). anchorFar (marquee xa thường) vẫn cần 2+ ngày.
+  const sigAccess = (r: Reg) => anchorKeys.has(r.key) && r.pts.some(hasSigAccess);
+  const protCand = kept.filter((r) =>
+    sigAccess(r) ? days >= 1 : anchorFar(r) ? days >= 2 : r.card <= MARQUEE_CARD_MAX && isFar(r) && days >= 3);
   let protReg: Reg[] = [];
-  if (protCand.length && days >= 2) {
-    protReg = [...protCand].sort((a, b) => (a.key < b.key ? -1 : 1)).slice(0, Math.max(0, days - 1)); // để lại >=1 ngày cho phần còn lại
+  if (protCand.length) {
+    // days>=2: để lại >=1 ngày cho phần còn lại. days===1: chỉ ngày-đảo sig-access mới lấy trọn 1 ngày.
+    const cap = days >= 2 ? Math.max(0, days - 1) : (protCand.some(sigAccess) ? 1 : 0);
+    protReg = [...protCand].sort((a, b) => (b.fame - a.fame) || (a.key < b.key ? -1 : 1)).slice(0, cap);
   }
-  if (days === 1) // marquee/anchor xa không nhét lịch 1 ngày -> gợi ý nới ngày (không drop âm thầm)
-    for (const r of kept.filter(anchorFar))
-      notes.push(`${r.pts[0].name} ở khu xa trung tâm — nên dành trọn 1 ngày; chọn lịch 2+ ngày để có trong lịch trình.`);
+  if (days === 1)
+    // G5: sigAccess KHÔNG yêu cầu isFar (cụm gần vẫn qualify) — chỉ anchorFar mới thật sự "ở khu xa
+    // trung tâm". Cụm sig-access GẦN bị gộp chung wording "xa" trước đây là sai (VinWonders ~7km).
+    for (const r of kept.filter((r) => anchorFar(r) || sigAccess(r)))
+      notes.push(protReg.includes(r) // ngày-đảo: đã nhét (lối vào là trải nghiệm) → không gợi "chọn 2+ để CÓ"
+        ? `${r.pts[0].name}: ngày này xoay quanh điểm này (lối vào là trải nghiệm). Chọn 2+ ngày để thêm khu trung tâm.`
+        : anchorFar(r)
+        ? `${r.pts[0].name} ở khu xa trung tâm — nên dành trọn 1 ngày; chọn lịch 2+ ngày để có trong lịch trình.`
+        : `${r.pts[0].name} có lối vào đặc trưng — nên dành trọn 1 ngày; chọn lịch 2+ ngày để có trong lịch trình.`);
 
   const rest = kept.filter((r) => !protReg.includes(r));
-  const restDays = Math.max(1, days - protReg.length);
+  const restDays = Math.max(0, days - protReg.length);
+  // M3: restDays===0 (protReg chiếm hết ngày, vd ngày-đảo 1 ngày) → MỌI cụm "rest" bị âm thầm loại
+  // (restChunks=[]), không note. Disclosure để khách biết những gì bị bỏ ngoài lịch.
+  if (restDays === 0 && rest.length)
+    notes.push(`${rest.slice(0, 3).map((r) => r.pts[0].name).join(", ")}${rest.length > 3 ? ` +${rest.length - 3} cụm khác` : ""} — ngày đã dành trọn cho lối vào đặc trưng, chưa đưa vào lịch.`);
   // E1: cụm anchor GẦN xử TRƯỚC trong packDays (không bị budget-break cắt); giữ macroOrder trong mỗi nhóm.
   const restMacro = macroOrder(rest, tam);
   const restOrdered = anchorKeys.size
     ? [...restMacro.filter((r) => anchorKeys.has(r.key)), ...restMacro.filter((r) => !anchorKeys.has(r.key))]
     : restMacro;
-  const restChunks = packDays(store, restOrdered, restDays, perDay);
+  const restChunks = restDays > 0 ? packDays(store, restOrdered, restDays, perDay) : []; // days===1 ngày-đảo: rest=0 ngày
   const chunks = [...restChunks, ...protReg.map((r) => r.pts)].filter((c) => c.length > 0);
   const keptCount = kept.reduce((s, r) => s + r.card, 0);
   if (keptCount < restDays * perDay)
