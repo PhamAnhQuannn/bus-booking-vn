@@ -8,7 +8,7 @@ import { ArrowRight, Bus, BusFront, ChevronRight, CreditCard, Headset, Home, Mai
 import { searchParamsSchema, searchFiltersSchema } from '@/lib/core/validation/search';
 import { track } from '@/lib/analytics';
 import { logger } from '@/lib/logger';
-import { searchTrips, SEARCH_PAGE_LIMIT, parseBoardingSchedule, nearestUpcomingTripDate } from '@/lib/trips';
+import { searchTrips, SEARCH_PAGE_LIMIT, nearestUpcomingTripDate } from '@/lib/trips';
 import { applyTripFilters, searchHref, todayVN } from '@/lib/search';
 import { SearchStoreHydrator } from '@/components/search/SearchStoreHydrator';
 import { EmptyState } from '@/components/search/EmptyState';
@@ -21,9 +21,8 @@ import { TripPlannerPromo } from '@/components/home/TripPlannerPromo';
 import { ContractCarRental } from '@/components/home/ContractCarRental';
 import { OperatorShowcase } from '@/components/home/OperatorShowcase';
 import { Card, CardContent } from '@/components/ui/card';
-import { slugify } from '@/lib/places';
 import { getActiveRoutes } from '@/lib/core/db/getActiveRoutes';
-import { getPublicOperators } from '@/lib/home';
+import { getPublicOperators, selectPopularTrips, IMAGE_FALLBACK } from '@/lib/home';
 import { organizationLd, jsonLdHtml, localeAlternates } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
@@ -302,43 +301,13 @@ async function HeroMarketingView() {
     }),
   ]);
 
-  // Popular trips = routes we actually operate, EXPANDED by boarding point so a rider in
-  // each pickup town sees their own "Nông Cống → Sài Gòn" card. Every card links via
-  // searchHref → alias resolution finds the one real trip (no separate trips, no oversell).
+  // Popular trips = routes we actually operate, one card per underlying route (route
+  // diversity over boarding-town near-duplicates — selectPopularTrips caps to 1 card
+  // per route, preferring the route's own origin). Every card links via searchHref →
+  // alias resolution finds the one real trip (no separate trips, no oversell).
   // Card image is keyed by ORIGIN (the pickup town) so cards don't all share one photo.
-  // Towns without their own Wikimedia photo fall back to a province image.
-  const IMAGE_FALLBACK: Record<string, string> = {
-    'nong-cong': 'thanh-hoa',
-    'cho-tan-khai': 'binh-phuoc',
-    'song-than': 'binh-duong',
-    'an-phu': 'binh-duong',
-    'tan-dong-hiep': 'binh-duong',
-    'nga-tu-mieu-ong-cu': 'binh-duong',
-    'nga-tu-550': 'binh-duong',
-  };
-  const seen = new Set<string>();
-  const popularTrips = activeRoutes
-    .flatMap((r) => {
-      const stops = parseBoardingSchedule(r.boardingSchedule);
-      const origins = [r.origin, ...stops.map((s) => s.point)];
-      return origins.map((origin) => {
-        const s = slugify(origin);
-        return {
-          origin,
-          destination: r.destination,
-          slug: IMAGE_FALLBACK[s] ?? s,
-          price: r.minPrice,
-          duration: r.minDurationMinutes,
-        };
-      });
-    })
-    .filter((t) => {
-      const k = `${t.origin}→${t.destination}`;
-      if (seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    })
-    .slice(0, 12);
+  // Towns without their own Wikimedia photo fall back to a province image (IMAGE_FALLBACK).
+  const popularTrips = selectPopularTrips(activeRoutes, IMAGE_FALLBACK);
 
   return (
     <main className="flex flex-1 flex-col bg-[#FFFCFA]">

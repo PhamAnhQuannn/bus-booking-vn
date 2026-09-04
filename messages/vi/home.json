@@ -65,7 +65,8 @@
   },
   "dest": {
     "title": "Điểm đến được yêu thích",
-    "findTripTo": "Tìm chuyến đi {name}"
+    "findTripTo": "Tìm chuyến đi {name}",
+    "viewAll": "Xem tất cả"
   },
   "rental": {
     "eyebrow": "Thuê xe hợp đồng",
@@ -83,7 +84,8 @@
     "findTrip": "Tìm chuyến {origin} đến {destination}",
     "findTripWithPrice": "Tìm chuyến {origin} đến {destination}, từ {price}",
     "fromPrice": "Từ {price}",
-    "findTicket": "Tìm vé"
+    "findTicket": "Tìm vé",
+    "viewAll": "Xem tất cả"
   },
   "operators": {
     "titleSingle": "Nhà xe đối tác",

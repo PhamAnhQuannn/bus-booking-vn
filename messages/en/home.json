@@ -65,7 +65,8 @@
   },
   "dest": {
     "title": "Popular destinations",
-    "findTripTo": "Find a trip to {name}"
+    "findTripTo": "Find a trip to {name}",
+    "viewAll": "View all"
   },
   "rental": {
     "eyebrow": "Contract car rental",
@@ -83,7 +84,8 @@
     "findTrip": "Find a trip from {origin} to {destination}",
     "findTripWithPrice": "Find a trip from {origin} to {destination}, from {price}",
     "fromPrice": "From {price}",
-    "findTicket": "Find tickets"
+    "findTicket": "Find tickets",
+    "viewAll": "View all"
   },
   "operators": {
     "titleSingle": "Partner operators",

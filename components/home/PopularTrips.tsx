@@ -67,8 +67,15 @@ export function PopularTrips({ trips }: { trips: PopularTrip[] }) {
         <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">{t('trips.title')}</h2>
         <div className="flex items-center gap-3">
           {/* 2026-07-30: a "Xem tất cả" link pointed at "/" — it reloaded this same
-              page. No route-index page exists to point it at, so it is gone until
-              one does. */}
+              page, so it was removed. /routes (public browse-all-routes page) now
+              exists — link restored to it. */}
+          <Link
+            href="/routes"
+            className="hidden items-center gap-1 text-sm font-medium text-primary-strong hover:underline sm:inline-flex"
+          >
+            {t('trips.viewAll')}
+            <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
+          </Link>
           {useCarousel && (
             <div className="hidden gap-2 md:flex">
               <button
