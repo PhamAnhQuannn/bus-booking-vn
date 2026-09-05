@@ -448,7 +448,7 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
   // anchorKeys nên packDays sẽ gộp nó theo point-count → long-leg zig-zag với flagship gần. Loại khỏi rest
   // + nêu note (mirror far-note days===1). Chỉ days>=2: days===1 đã note ở nhánh dưới. days>=3 không gate nên rỗng.
   const gatedFar = days >= 2
-    ? kept.filter((r) => anchorFar(r) && !sigAccess(r) && !isUserAnchor(r) && !protCand.includes(r))
+    ? kept.filter((r) => anchorFar(r) && !sigAccess(r) && !protCand.includes(r))
     : [];
   for (const r of gatedFar)
     notes.push(`${r.pts[0].name} ở khu xa trung tâm — nên dành trọn 1 ngày; chọn lịch 3+ ngày để có trong lịch trình.`);

@@ -519,4 +519,24 @@ describe('buildItinerary — far fame-7 marquee GIỮ ngày riêng khi đủ ng�
     });
     expect(mixed).toBe(false);
   });
+
+  // HEADLINE của Round-3 redesign (RC#1): sprawl-gate CHỈ chặn cụm far TRẢI RỘNG (span > WIDE_DAY_KM). Cụm
+  // far GỌN fame thấp KHÔNG được gate ngay cả ở days===2 — span nhỏ (<=25km) → farSprawlSteals false → giữ
+  // ngày riêng (protReg). Đây chính là hành vi over-broad đã regress 13 unit trước khi thêm span-guard: nếu
+  // gate bỏ qua guard span<=25 (chỉ xét fame<nearFameMax) thì cụm gọn fame-7 này sẽ bị farSprawlSteals=true →
+  // rớt khỏi protCand → gatedFar loại + note "3+ ngày" → BIẾN MẤT. Test này FAIL nếu span-guard bị bỏ.
+  it('2 ngày: cụm far GỌN (span<=25km) fame-7 KHÔNG bị gate — vẫn giữ ngày riêng (không demote/merge)', () => {
+    const it = buildItinerary(
+      { slug: 'da-lat', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' }, store);
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).toContain('Đồi Chè Cầu Đất'); // cụm far gọn KHÔNG bị demote khỏi lịch ở days===2
+    // ngày RIÊNG (protReg): KHÔNG ngày nào trộn Đồi Chè với flagship gần Hồ Xuân Hương
+    const mixed = it.days.some((d) => {
+      const nm = d.items.map((i) => i.name);
+      return nm.includes('Đồi Chè Cầu Đất') && nm.includes('Hồ Xuân Hương');
+    });
+    expect(mixed).toBe(false);
+    // KHÔNG bị sprawl-gate: KHÔNG có note gợi "3+ ngày" cho cụm này (đó là note của gatedFar)
+    expect(it.notes.some((n) => n.includes('Đồi Chè') && n.includes('3+ ngày'))).toBe(false);
+  });
 });
