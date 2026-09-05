@@ -409,8 +409,25 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
   // Sig-access marquee (cáp treo/đảo) đáng NGÀY RIÊNG bất kể xa gần: điểm full-day + lối vào là trải nghiệm.
   // KHÔNG cần isFar (VinWonders ~7km vẫn là ngày trọn). anchorFar (marquee xa thường) vẫn cần 2+ ngày.
   const sigAccess = (r: Reg) => anchorKeys.has(r.key) && r.pts.some(hasSigAccess);
+  // cụm chứa điểm khách CHỦ ĐỘNG chốt (user anchor, KHÔNG phải auto-marquee) — force-include tường minh.
+  const isUserAnchor = (r: Reg) => r.pts.some((p) => anchorIds.has(p.id));
+  // nearFameMax = fame flagship cụm GẦN nhất (precompute, không phụ thuộc thứ tự lặp) — dùng cho gate dưới.
+  const nearFameMax = Math.max(0, ...kept.filter((r) => !isFar(r)).map((r) => r.fame));
+  // FIX A (day-aware, sprawl-scoped gate): cấp NGÀY RIÊNG cho auto-marquee XA gần như luôn đúng — cụm far
+  // GỌN, dù fame thấp (Đồi Chè Đà Lạt fame7, Tân Trào, Mai Châu, Sân Chim Vàm Hồ), vẫn là một ngày mạch lạc,
+  // KHÔNG cắt cụm gần một cách hữu ích (near quá lớn thì cắt gì cũng cắt). CHỈ CHẶN cụm far mà bản thân nó
+  // TRẢI RỘNG > WIDE_DAY_KM — đó là "cụm" do nhiều điểm xa nhập lại (vd Vũng Tàu 19 điểm gộp hồ tràm span
+  // ~43km) → ngày đó là zig-zag thật, cấp ngày = hại. Và chỉ ở days===2: từ days>=3 có dư ngày, giữ nguyên
+  // hành vi master (far-marquee giữ ngày riêng). Ngoại lệ khỏi gate: user anchor (khách chốt tường minh) +
+  // sig-access (đảo/cáp treo, full-day logistics) — như cũ. r.fame < nearFameMax: chỉ chặn khi có flagship
+  // gần XỨNG ĐÁNG hơn để nhường ngày cho (cụm far sprawl mà fame > mọi cụm gần thì vẫn là điểm nhấn, giữ).
+  const WIDE_DAY_KM = 25;
+  const farSprawlSteals = (r: Reg) =>
+    !isUserAnchor(r) && r.fame < nearFameMax && spanKm(r.pts.map(co)) > WIDE_DAY_KM;
   const protCand = kept.filter((r) =>
-    sigAccess(r) ? days >= 1 : anchorFar(r) ? days >= 2 : r.card <= MARQUEE_CARD_MAX && isFar(r) && days >= 3);
+    sigAccess(r) ? days >= 1
+      : anchorFar(r) ? days >= 2 && (days >= 3 || !farSprawlSteals(r))
+        : r.card <= MARQUEE_CARD_MAX && isFar(r) && days >= 3);
   let protReg: Reg[] = [];
   if (protCand.length) {
     // days>=2: để lại >=1 ngày cho phần còn lại. days===1: chỉ ngày-đảo sig-access mới lấy trọn 1 ngày.
@@ -427,7 +444,16 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
         ? `${r.pts[0].name} ở khu xa trung tâm — nên dành trọn 1 ngày; chọn lịch 2+ ngày để có trong lịch trình.`
         : `${r.pts[0].name} có lối vào đặc trưng — nên dành trọn 1 ngày; chọn lịch 2+ ngày để có trong lịch trình.`);
 
-  const rest = kept.filter((r) => !protReg.includes(r));
+  // FIX B (RC#2): cụm far bị sprawl-gate LOẠI ở days===2 KHÔNG được rơi vào `rest` — restOrdered ưu tiên
+  // anchorKeys nên packDays sẽ gộp nó theo point-count → long-leg zig-zag với flagship gần. Loại khỏi rest
+  // + nêu note (mirror far-note days===1). Chỉ days>=2: days===1 đã note ở nhánh dưới. days>=3 không gate nên rỗng.
+  const gatedFar = days >= 2
+    ? kept.filter((r) => anchorFar(r) && !sigAccess(r) && !protCand.includes(r))
+    : [];
+  for (const r of gatedFar)
+    notes.push(`${r.pts[0].name} ở khu xa trung tâm — nên dành trọn 1 ngày; chọn lịch 3+ ngày để có trong lịch trình.`);
+
+  const rest = kept.filter((r) => !protReg.includes(r) && !gatedFar.includes(r));
   const restDays = Math.max(0, days - protReg.length);
   // M3: restDays===0 (protReg chiếm hết ngày, vd ngày-đảo 1 ngày) → MỌI cụm "rest" bị âm thầm loại
   // (restChunks=[]), không note. Disclosure để khách biết những gì bị bỏ ngoài lịch.
