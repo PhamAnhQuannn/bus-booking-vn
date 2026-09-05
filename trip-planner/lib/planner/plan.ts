@@ -100,6 +100,26 @@ function spanKm(pts: LL[]): number {
   for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) mx = Math.max(mx, kmBetween(pts[i], pts[j]));
   return mx;
 }
+
+// ── TRỌNG SỐ THỜI-LƯỢNG ngày ("1 tảng-to + vài sỏi/ngày") ────────────────────
+// Engine KHÔNG có mô hình giờ/năng-lượng: "1 slot" = điểm ngắm cảnh 30' HAY công viên 8h như nhau, nên
+// một ngày dễ bị nhồi 2 điểm trọn-ngày (vd Nha Trang: VinWonders + Hòn Tằm cùng ngày = bất khả ~13-17h).
+// Xấp xỉ thời-lượng bằng LOẠI HÌNH và bắt bất biến: mỗi ngày Σ dayWeight ≤ 1. FULL=1 (đảo/công viên giải
+// trí/vườn quốc gia/lối-vào-đặc-trưng — nửa-cả ngày), HALF=0.5 (thác/hang/núi/bãi biển/thung lũng — 2-3h),
+// SHORT=0 (chùa/đền/nhà thờ/bảo tàng/ngắm cảnh/chợ/công viên/hồ — nhanh, chồng bao nhiêu cũng được).
+// Category từ audit corpus (30 loại). SHORT không giới hạn count (perDay lo), chỉ FULL/HALF tính weight.
+const HALF_W = 0.5;
+const FULL_CAT = ["dao", "vuon quoc gia", "khu bao ton", "khu du lich giai tri", "khu vui choi"];
+const HALF_CAT = ["thac", "hang", "nui", "deo", "duong mon", "bai bien", "thung lung", "ban lang"];
+export function dayWeight(r: KbRecord): number {
+  if (r.ext?.destination?.loi_vao_dac_trung) return 1; // sig-access (cáp treo/tàu ra đảo) = trọn ngày
+  const cat = foldText(r.category?.primary ?? "");
+  if (FULL_CAT.some((t) => cat.includes(t))) return 1;
+  // đảo bị gán nhầm loại "Bãi biển" (Hòn Tằm) → FULL; nhưng "Hòn Chồng" (Điểm ngắm cảnh) KHÔNG lên (viewpoint bẫy)
+  if (/^(hon|dao|cu lao)\b/.test(foldText(r.name)) && (cat.includes("bai bien") || cat.includes("dao"))) return 1;
+  if (HALF_CAT.some((t) => cat.includes(t))) return HALF_W;
+  return 0;
+}
 // ── chấm điểm (thuần chất lượng, không địa lý) ──────────────────────────────
 function scoreDestination(rec: KbRecord, req: TripRequest): number {
   const d: KbDestinationExt = rec.ext?.destination ?? {};
@@ -201,10 +221,12 @@ function macroOrder(regs: Reg[], tam: LL): Reg[] {
 // Partition-first: gán TRỌN region vào từng ngày theo thứ tự macro (KHÔNG cắt index cơ học trên
 // chuỗi đã flatten — cắt index để ranh giới ngày rơi giữa 2 khu xa = bug "sáng nam, chiều bắc").
 // Ranh giới ngày luôn rơi trên BIÊN region; chỉ gộp khu nhỏ MACRO-KỀ vào chung 1 ngày khi còn chỗ.
-function packDays(store: Store, orderedRegs: Reg[], restDays: number, perDay: number): KbRecord[][] {
+function packDays(store: Store, orderedRegs: Reg[], restDays: number, perDay: number): { days: KbRecord[][]; dropped: KbRecord[] } {
   const budget = restDays * perDay;
   const days: KbRecord[][] = [];
+  const dropped: KbRecord[] = [];
   let cur: KbRecord[] = [];
+  let curW = 0;
   let taken = 0;
   for (const reg of orderedRegs) {
     if (taken >= budget) break;
@@ -214,16 +236,36 @@ function packDays(store: Store, orderedRegs: Reg[], restDays: number, perDay: nu
     if (taken + keep.length > budget) keep = keep.slice(0, budget - taken); // cap tổng = restDays*perDay
     const pts = orderLoop(store, keep, reg.centroid);
     taken += pts.length;
-    for (let o = 0; o < pts.length; o += perDay) {
-      const block = pts.slice(o, o + perDay); // <= perDay, cùng khu
-      if (cur.length && cur.length + block.length <= perDay) cur.push(...block); // gộp khu nhỏ kề
-      else { if (cur.length) days.push(cur); cur = [...block]; }
-      if (cur.length >= perDay) { days.push(cur); cur = []; } // ngày đầy -> khu kế bắt đầu ngày mới
+    // Chia cụm thành BLOCK (region-atomic — không cắt xuyên biên cụm): mỗi block ≤ perDay điểm VÀ Σweight ≤ 1
+    // (1 điểm-nặng + vài điểm-nhẹ). Điểm-đến toàn SHORT (w=0, đa số tp đô thị) → chỉ count-break = hệt cũ.
+    const blocks: KbRecord[][] = [];
+    let b: KbRecord[] = [], bw = 0;
+    for (const p of pts) {
+      const w = dayWeight(p);
+      if (b.length && (b.length >= perDay || bw + w > 1 + 1e-9)) { blocks.push(b); b = []; bw = 0; }
+      b.push(p); bw += w;
+    }
+    if (b.length) blocks.push(b);
+    for (const block of blocks) { // <= perDay + Σweight<=1, cùng khu
+      const bWeight = block.reduce((s, p) => s + dayWeight(p), 0);
+      if (cur.length && cur.length + block.length <= perDay && curW + bWeight <= 1 + 1e-9) { cur.push(...block); curW += bWeight; } // gộp khu nhỏ kề
+      else { if (cur.length) days.push(cur); cur = [...block]; curW = bWeight; }
+      if (cur.length >= perDay) { days.push(cur); cur = []; curW = 0; } // ngày đầy -> khu kế bắt đầu ngày mới
     }
   }
   if (cur.length) days.push(cur);
-  while (days.length > restDays) days[days.length - 2].push(...days.pop()!); // dồn dư (khu kề đuôi) vào ngày cuối
-  return days;
+  // Dồn dư (khu kề đuôi) vào ngày trước — nhưng CHỈ khi weight cho phép (Σ≤1): điểm-nặng không nhồi được vào
+  // ngày đã đủ nặng → bỏ + note ngoài (giữ bất biến). w=0 hết → tw+0<=1 luôn đúng → dồn hết, hệt cũ.
+  while (days.length > restDays) {
+    const last = days.pop()!;
+    const target = days[days.length - 1];
+    let tw = target.reduce((s, p) => s + dayWeight(p), 0);
+    for (const p of last) {
+      const w = dayWeight(p);
+      if (tw + w <= 1 + 1e-9) { target.push(p); tw += w; } else dropped.push(p);
+    }
+  }
+  return { days, dropped };
 }
 
 // A6 fallback: điểm thiếu region_id -> cụm bằng single-linkage theo km (ngưỡng ABS_GAP_KM). Tất định (sort id).
@@ -464,8 +506,32 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
   const restOrdered = anchorKeys.size
     ? [...restMacro.filter((r) => anchorKeys.has(r.key)), ...restMacro.filter((r) => !anchorKeys.has(r.key))]
     : restMacro;
-  const restChunks = restDays > 0 ? packDays(store, restOrdered, restDays, perDay) : []; // days===1 ngày-đảo: rest=0 ngày
-  const chunks = [...restChunks, ...protReg.map((r) => r.pts)].filter((c) => c.length > 0);
+  const packed = restDays > 0 ? packDays(store, restOrdered, restDays, perDay) : { days: [], dropped: [] }; // days===1 ngày-đảo: rest=0 ngày
+  // protReg mỗi cụm = 1 ngày, cắt theo TRỌNG SỐ THỜI-LƯỢNG (Σ≤1): giữ 1 điểm-nặng đầu cụm (đã sort pin/fame)
+  // + pebbles nhẹ; điểm-nặng thứ 2 cùng cụm (vd Ti Tốp + Sửng Sốt cùng ward) không nhồi chung ngày → drop+note.
+  const protDropped: KbRecord[] = [];
+  const protChunks: KbRecord[][] = [];
+  for (const r of protReg) {
+    const day: KbRecord[] = []; let w = 0;
+    for (const p of r.pts) {
+      const pw = dayWeight(p);
+      if (day.length && w + pw > 1 + 1e-9) { protDropped.push(p); continue; }
+      day.push(p); w += pw;
+    }
+    if (day.length) protChunks.push(day);
+  }
+  const allDropped = [...packed.dropped, ...protDropped].filter((p) => dayWeight(p) > 0); // chỉ note điểm-nặng bị bỏ
+  if (allDropped.length)
+    notes.push(`${allDropped.slice(0, 3).map((p) => p.name).join(", ")}${allDropped.length > 3 ? ` +${allDropped.length - 3} điểm` : ""} — cần trọn ngày riêng, chưa xếp đủ; chọn thêm ngày để có trong lịch.`);
+  // PR-B (placement): XEN ngày-anchor (protChunk = flagship trọn-ngày) với ngày rest thay vì dồn CUỐI —
+  // chống back-load (ngày đầu toàn điểm nhẹ, ngày cuối dồn nặng, vd Nha Trang cũ). Flagship DẪN ĐẦU (năng
+  // lượng cao, đặt tông chuyến đi) rồi xen kẽ nhẹ/nặng. Đô thị không có protChunk → A rỗng → giữ nguyên rest.
+  const interleaved: KbRecord[][] = [];
+  for (let i = 0; i < Math.max(protChunks.length, packed.days.length); i++) {
+    if (i < protChunks.length) interleaved.push(protChunks[i]);
+    if (i < packed.days.length) interleaved.push(packed.days[i]);
+  }
+  const chunks = interleaved.filter((c) => c.length > 0);
   const keptCount = kept.reduce((s, r) => s + r.card, 0);
   if (keptCount < restDays * perDay)
     notes.push("Ít điểm đến hơn nhịp yêu cầu — một số ngày ngắn hơn (thêm dữ liệu điểm đến để dày hơn).");
@@ -523,8 +589,15 @@ export function buildItinerary(req: TripRequest, store?: Store): Itinerary {
 
   // Timeline CHỈ điểm-đến (buổi sáng/chiều); nhà hàng KHÔNG slot vào ngày — thành list gợi ý riêng.
   const days: DayPlan[] = dayChunks.map((chunk, di) => {
-    const ordered = orderLoop(st, chunk, anchor);
+    let ordered = orderLoop(st, chunk, anchor);
     const m = Math.ceil(ordered.length / 2);
+    // PR-B: điểm NẶNG nhất (trọn-ngày) → buổi SÁNG (năng lượng cao, tránh dồn điểm mệt vào chiều). orderLoop
+    // là vòng kín (về khách sạn) nên đảo chiều giữ NGUYÊN chi phí tuyến. Chỉ đảo khi điểm nặng nhất rơi nửa
+    // sau. Đô thị toàn SHORT (w=0) → điểm nặng nhất = phần tử đầu (reduce lấy max đầu tiên), index 0 < m → no-op.
+    if (ordered.length > 1) {
+      const heavy = ordered.reduce((a, r, i) => (dayWeight(r) > a.w ? { w: dayWeight(r), i } : a), { w: dayWeight(ordered[0]), i: 0 });
+      if (heavy.i >= m) ordered = [...ordered].reverse();
+    }
     const items: SlotItem[] = [];
     ordered.slice(0, m).forEach((r) => items.push(slot(toPlaceRef(r), "diem-den", "sang")));
     ordered.slice(m).forEach((r) => items.push(slot(toPlaceRef(r), "diem-den", "chieu")));
