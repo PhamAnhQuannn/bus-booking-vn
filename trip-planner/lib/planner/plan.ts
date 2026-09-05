@@ -409,15 +409,18 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
   // Sig-access marquee (cáp treo/đảo) đáng NGÀY RIÊNG bất kể xa gần: điểm full-day + lối vào là trải nghiệm.
   // KHÔNG cần isFar (VinWonders ~7km vẫn là ngày trọn). anchorFar (marquee xa thường) vẫn cần 2+ ngày.
   const sigAccess = (r: Reg) => anchorKeys.has(r.key) && r.pts.some(hasSigAccess);
-  // root-cause #1: marquee XA (KHÔNG sig-access) chỉ được NGÀY RIÊNG nếu fame ≥ flagship GẦN nhất
-  // (nearFameMax). Trước đây anchorFar bất kể fame → điểm phụ xa (vd Hồ Tràm fame5, 30km) giành ngày,
-  // packDays cắt mất cụm flagship gần (Tượng Chúa fame9) nằm trong `rest`. sig-access (đảo/cáp treo) MIỄN
-  // gate — logistics full-day, không phải fame. nearFameMax precompute (không phụ thuộc thứ tự lặp).
+  // cụm chứa điểm khách CHỦ ĐỘNG chốt (user anchor, KHÔNG phải auto-marquee) — force-include tường minh.
+  const isUserAnchor = (r: Reg) => r.pts.some((p) => anchorIds.has(p.id));
+  // root-cause #1: chỉ AUTO-marquee XA (KHÔNG sig-access, KHÔNG phải user anchor) mới bị gate fame ≥ flagship
+  // GẦN nhất (nearFameMax). Trước đây anchorFar bất kể fame → auto-marquee phụ xa (vd Hồ Tràm fame5, 30km)
+  // giành ngày, packDays cắt mất cụm flagship gần (Tượng Chúa fame9) nằm trong `rest`. Ngoại lệ khỏi gate:
+  // (a) user anchor — khách force-include tường minh, phải giữ ngày riêng; (b) sig-access (đảo/cáp treo) —
+  // logistics full-day, không phải fame. nearFameMax precompute (không phụ thuộc thứ tự lặp).
   const nearFameMax = Math.max(0, ...kept.filter((r) => !isFar(r)).map((r) => r.fame));
   const protCand = kept.filter((r) =>
     sigAccess(r) ? days >= 1
-      : anchorFar(r) ? days >= 2 && r.fame >= nearFameMax
-        : r.card <= MARQUEE_CARD_MAX && isFar(r) && days >= 3 && r.fame >= nearFameMax);
+      : anchorFar(r) ? days >= 2 && (isUserAnchor(r) || r.fame >= nearFameMax)
+        : r.card <= MARQUEE_CARD_MAX && isFar(r) && days >= 3);
   let protReg: Reg[] = [];
   if (protCand.length) {
     // days>=2: để lại >=1 ngày cho phần còn lại. days===1: chỉ ngày-đảo sig-access mới lấy trọn 1 ngày.

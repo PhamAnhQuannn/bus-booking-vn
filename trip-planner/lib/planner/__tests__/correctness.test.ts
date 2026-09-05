@@ -430,3 +430,42 @@ describe('buildItinerary — sig-access ngoài top-K vẫn thắng protReg trư�
     expect(names).not.toContain('Điểm PLAIN'); // FAR thua slot protReg (cap=1) cho SIG — không lẫn vào ngày nào khác
   });
 });
+
+// RC#1 (PR #693): far AUTO-marquee fame THẤP KHÔNG được cướp NGÀY RIÊNG (protReg) của flagship GẦN fame
+// CAO. Vũng Tàu: Tượng Chúa Kitô (signatureSpot[0] → fame 9) GẦN tâm; Hồ Tràm (signatureSpot[4] → fame 5)
+// ~35km XA. Trước khi có gate (pre-PR), Hồ Tràm anchorFar (days>=2) chiếm protReg → ngày riêng solo, cụm
+// gần bị dồn còn 1 ngày → điểm gần bị packDays cắt. Gate r.fame >= nearFameMax (5 < 9) chặn Hồ Tràm lấy
+// ngày → cả cụm gần giữ nguyên. Hồ Tràm KHÔNG phải user anchor nên KHÔNG được exempt (FIX 1).
+describe('buildItinerary — far low-fame auto-marquee không cướp protReg-day của near flagship (RC#1)', () => {
+  const dst = (id: string, name: string, lat: number, lon: number, ward: string): KbRecord => ({
+    id, name, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `số 1, ${ward}, tỉnh Bà Rịa - Vũng Tàu` }, description: { value: 'x' },
+  });
+  const store: Store = {
+    slug: 'vung-tau', generatedAt: '2026-01-01', tam: { lat: 10.345, lon: 107.085 },
+    destinations: [
+      dst('TC', 'Tượng Chúa Kitô Vua', 10.335, 107.088, 'Phường Núi Nhỏ'), // fame 9, gần
+      dst('N1', 'Bảo tàng A', 10.346, 107.084, 'Phường Thắng Tam'),
+      dst('N2', 'Công viên B', 10.350, 107.080, 'Phường Thắng Tam'),
+      dst('N3', 'Chợ C', 10.352, 107.078, 'Phường Thắng Nhất'),
+      dst('N4', 'Đền D', 10.348, 107.082, 'Phường Thắng Nhất'),
+      dst('HT', 'Khu du lịch Hồ Tràm', 10.52, 107.42, 'Xã Hồ Tràm'), // fame 5, ~35km xa
+    ],
+    restaurants: [], hotels: [dst('H1', 'KS', 10.345, 107.085, 'Phường Thắng Tam')],
+    matrix: null, matrixIndex: new Map(),
+  };
+  const req: TripRequest = { slug: 'vung-tau', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+
+  it('Hồ Tràm (far, fame<nearFameMax) KHÔNG chiếm ngày solo; cả cụm flagship gần sống sót', () => {
+    const it = buildItinerary(req, store);
+    // far low-fame KHÔNG được protReg (ngày solo = chunk protReg 1 điểm)
+    const hoTramSolo = it.days.some((d) => d.items.length === 1 && d.items[0].name === 'Khu du lịch Hồ Tràm');
+    expect(hoTramSolo).toBe(false);
+    // near flagship + cụm gần giữ nguyên (KHÔNG bị dồn 1 ngày rồi packDays cắt — pre-gate cắt Chợ C/Đền D)
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).toContain('Tượng Chúa Kitô Vua');
+    expect(names).toContain('Chợ C');
+    expect(names).toContain('Đền D');
+  });
+});
