@@ -431,12 +431,14 @@ describe('buildItinerary — sig-access ngoài top-K vẫn thắng protReg trư�
   });
 });
 
-// RC#1 (PR #693): far AUTO-marquee fame THẤP KHÔNG được cướp NGÀY RIÊNG (protReg) của flagship GẦN fame
-// CAO. Vũng Tàu: Tượng Chúa Kitô (signatureSpot[0] → fame 9) GẦN tâm; Hồ Tràm (signatureSpot[4] → fame 5)
-// ~35km XA. Trước khi có gate (pre-PR), Hồ Tràm anchorFar (days>=2) chiếm protReg → ngày riêng solo, cụm
-// gần bị dồn còn 1 ngày → điểm gần bị packDays cắt. Gate r.fame >= nearFameMax (5 < 9) chặn Hồ Tràm lấy
-// ngày → cả cụm gần giữ nguyên. Hồ Tràm KHÔNG phải user anchor nên KHÔNG được exempt (FIX 1).
-describe('buildItinerary — far low-fame auto-marquee không cướp protReg-day của near flagship (RC#1)', () => {
+// RC#1 (PR #693): cụm XA TRẢI RỘNG (nhiều điểm xa nhập lại thành 1 ngày span >25km) fame THẤP KHÔNG được
+// cướp NGÀY RIÊNG (protReg) ở lịch 2 NGÀY của flagship GẦN fame CAO — ngày đó là zig-zag thật (vd Vũng Tàu
+// thực tế: cụm 19 điểm Long Hải/Long Điền gộp Hồ Tràm span ~43km). Tượng Chúa Kitô (signatureSpot[0] → fame 9)
+// GẦN tâm; cụm Hồ Tràm (signatureSpot[4] → fame 5) là cụm XA trải >25km. Trước fix, cụm này anchorFar (days>=2)
+// chiếm protReg → ngày zig-zag; hoặc bị re-queue vào `rest` (anchor-priority) → packDays gộp CHUNG ngày với
+// Tượng Chúa → 35km zig-zag. Sprawl-gate (fame 5 < nearFameMax 9 VÀ span >25km) + FIX B (loại khỏi rest, nêu
+// note) chặn cả hai. Chỉ ở days===2 (days>=3 có dư ngày → giữ ngày riêng, không gate — xem test 4-ngày dưới).
+describe('buildItinerary — far sprawling low-fame cluster không cướp protReg-day/không zig-zag near flagship (RC#1)', () => {
   const dst = (id: string, name: string, lat: number, lon: number, ward: string): KbRecord => ({
     id, name, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
     coordinates: { latitude: lat, longitude: lon },
@@ -450,16 +452,19 @@ describe('buildItinerary — far low-fame auto-marquee không cướp protReg-da
       dst('N2', 'Công viên B', 10.350, 107.080, 'Phường Thắng Tam'),
       dst('N3', 'Chợ C', 10.352, 107.078, 'Phường Thắng Nhất'),
       dst('N4', 'Đền D', 10.348, 107.082, 'Phường Thắng Nhất'),
-      dst('HT', 'Khu du lịch Hồ Tràm', 10.52, 107.42, 'Xã Hồ Tràm'), // fame 5, ~35km xa
+      // Cụm XA: cùng ward "Xã Hồ Tràm" → 1 Reg; đặt cách nhau để span >25km (cụm sprawl như thực tế).
+      dst('HT', 'Khu du lịch Hồ Tràm', 10.52, 107.42, 'Xã Hồ Tràm'), // fame 5, ~41km xa
+      dst('F2', 'Bãi biển Lộc An', 10.20, 107.30, 'Xã Hồ Tràm'),     // ~28km xa; HT↔F2 span ~38km
+      dst('F3', 'Đèo Nước Ngọt', 10.36, 107.36, 'Xã Hồ Tràm'),       // ~30km xa (đệm cụm)
     ],
     restaurants: [], hotels: [dst('H1', 'KS', 10.345, 107.085, 'Phường Thắng Tam')],
     matrix: null, matrixIndex: new Map(),
   };
   const req: TripRequest = { slug: 'vung-tau', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
 
-  it('Hồ Tràm (far, fame<nearFameMax) KHÔNG chiếm ngày solo; cả cụm flagship gần sống sót', () => {
+  it('cụm Hồ Tràm (far sprawl, fame<nearFameMax) KHÔNG chiếm ngày; cả cụm flagship gần sống sót', () => {
     const it = buildItinerary(req, store);
-    // far low-fame KHÔNG được protReg (ngày solo = chunk protReg 1 điểm)
+    // cụm far sprawl KHÔNG được protReg (không có ngày nào chỉ toàn điểm cụm Hồ Tràm)
     const hoTramSolo = it.days.some((d) => d.items.length === 1 && d.items[0].name === 'Khu du lịch Hồ Tràm');
     expect(hoTramSolo).toBe(false);
     // near flagship + cụm gần giữ nguyên (KHÔNG bị dồn 1 ngày rồi packDays cắt — pre-gate cắt Chợ C/Đền D)
@@ -467,5 +472,51 @@ describe('buildItinerary — far low-fame auto-marquee không cướp protReg-da
     expect(names).toContain('Tượng Chúa Kitô Vua');
     expect(names).toContain('Chợ C');
     expect(names).toContain('Đền D');
+    // FIX D(1): KHÔNG ngày nào chứa CẢ Tượng Chúa LẪN Hồ Tràm (chặn 35km zig-zag qua re-queue vào rest)
+    const zig = it.days.some((d) => {
+      const nm = d.items.map((i) => i.name);
+      return nm.includes('Tượng Chúa Kitô Vua') && nm.includes('Khu du lịch Hồ Tràm');
+    });
+    expect(zig).toBe(false);
+    // cụm far bị loại được NÊU NOTE (surface, không âm thầm bỏ)
+    expect(it.notes.some((n) => n.includes('Hồ Tràm') && n.includes('xa'))).toBe(true);
+  });
+});
+
+// FIX D(2) (PR #693): từ 3+ NGÀY có dư ngày → far marquee fame-7 GIỮ ngày riêng (gate CHỈ ở days===2). Đà Lạt:
+// Hồ Xuân Hương (signatureSpot[0] → fame 10) gần; Đồi Chè Cầu Đất (signatureSpot[3] → fame 7) ~14km xa, cụm GỌN.
+// Ở lịch 2 ngày cụm gọn này KHÔNG bị gate (không sprawl) → vẫn giữ; ở 4 ngày lại càng chắc chắn giữ ngày riêng.
+describe('buildItinerary — far fame-7 marquee GIỮ ngày riêng khi đủ ngày (RC#1 / FIX D2)', () => {
+  const dst = (id: string, name: string, lat: number, lon: number, ward: string): KbRecord => ({
+    id, name, region_id: 'r', source_ids: ['s1', 's2', 's3'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `số 1, ${ward}, tỉnh Lâm Đồng` }, description: { value: 'x' },
+  });
+  const store: Store = {
+    slug: 'da-lat', generatedAt: '2026-01-01', tam: { lat: 11.94, lon: 108.44 },
+    destinations: [
+      dst('HXH', 'Hồ Xuân Hương', 11.941, 108.439, 'Phường 1'), // fame 10, gần
+      dst('QT', 'Quảng trường Lâm Viên', 11.940, 108.442, 'Phường 1'),
+      dst('LS', 'Chùa Linh Sơn', 11.945, 108.435, 'Phường 2'),
+      dst('BT', 'Bảo tàng Lâm Đồng', 11.938, 108.448, 'Phường 3'),
+      // Đồi Chè Cầu Đất (fame 7) ~14km, cụm GỌN (không sprawl) → far marquee giữ ngày riêng
+      dst('DC', 'Đồi Chè Cầu Đất', 11.83, 108.51, 'Xã Xuân Trường'), // fame 7, xa
+      dst('VH', 'Vườn Hoa Cẩm Tú Cầu', 11.84, 108.50, 'Xã Xuân Trường'),
+    ],
+    restaurants: [], hotels: [dst('H1', 'KS', 11.94, 108.44, 'Phường 1')],
+    matrix: null, matrixIndex: new Map(),
+  };
+
+  it('4 ngày: Đồi Chè Cầu Đất (fame 7, xa) giữ ngày riêng — không trộn ngày với flagship gần', () => {
+    const it = buildItinerary(
+      { slug: 'da-lat', days: 4, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' }, store);
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).toContain('Đồi Chè Cầu Đất'); // far fame-7 vẫn có trong lịch (có ngày riêng)
+    // ngày riêng: KHÔNG ngày nào chứa cả Đồi Chè LẪN flagship gần Hồ Xuân Hương
+    const mixed = it.days.some((d) => {
+      const nm = d.items.map((i) => i.name);
+      return nm.includes('Đồi Chè Cầu Đất') && nm.includes('Hồ Xuân Hương');
+    });
+    expect(mixed).toBe(false);
   });
 });
