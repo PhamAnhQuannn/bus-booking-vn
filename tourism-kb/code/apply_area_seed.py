@@ -30,6 +30,12 @@ SIG_ACCESS = {
     "fansipan": "Đi cáp treo lên đỉnh Fansipan — nóc nhà Đông Dương",
     "phan xi păng": "Đi cáp treo lên đỉnh Fansipan — nóc nhà Đông Dương",
     "núi hàm rồng": "Leo núi ngắm toàn cảnh thị trấn Sa Pa",
+    # đảo/hang trong vịnh + cáp-treo-vượt-biển: chuyến đi LÀ trải nghiệm (tàu/cáp, ~nửa-cả ngày) →
+    # sig-access → engine cho NGÀY RIÊNG, miễn fame-gate (đóng RC#1b: ha-long trả lại đảo).
+    "đảo ti tốp": "Đi tàu ra đảo Ti Tốp — leo ngắm toàn vịnh Hạ Long",
+    "hang sửng sốt": "Đi tàu tham quan hang lớn nhất vịnh Hạ Long",
+    "hòn thơm": "Đi cáp treo vượt biển ra đảo — tuyến dài nhất thế giới",
+    "hòn mun": "Đi tàu ra đảo lặn ngắm san hô",
 }
 
 
