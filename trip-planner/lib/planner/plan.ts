@@ -523,7 +523,15 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
   const allDropped = [...packed.dropped, ...protDropped].filter((p) => dayWeight(p) > 0); // chỉ note điểm-nặng bị bỏ
   if (allDropped.length)
     notes.push(`${allDropped.slice(0, 3).map((p) => p.name).join(", ")}${allDropped.length > 3 ? ` +${allDropped.length - 3} điểm` : ""} — cần trọn ngày riêng, chưa xếp đủ; chọn thêm ngày để có trong lịch.`);
-  const chunks = [...packed.days, ...protChunks].filter((c) => c.length > 0);
+  // PR-B (placement): XEN ngày-anchor (protChunk = flagship trọn-ngày) với ngày rest thay vì dồn CUỐI —
+  // chống back-load (ngày đầu toàn điểm nhẹ, ngày cuối dồn nặng, vd Nha Trang cũ). Flagship DẪN ĐẦU (năng
+  // lượng cao, đặt tông chuyến đi) rồi xen kẽ nhẹ/nặng. Đô thị không có protChunk → A rỗng → giữ nguyên rest.
+  const interleaved: KbRecord[][] = [];
+  for (let i = 0; i < Math.max(protChunks.length, packed.days.length); i++) {
+    if (i < protChunks.length) interleaved.push(protChunks[i]);
+    if (i < packed.days.length) interleaved.push(packed.days[i]);
+  }
+  const chunks = interleaved.filter((c) => c.length > 0);
   const keptCount = kept.reduce((s, r) => s + r.card, 0);
   if (keptCount < restDays * perDay)
     notes.push("Ít điểm đến hơn nhịp yêu cầu — một số ngày ngắn hơn (thêm dữ liệu điểm đến để dày hơn).");
@@ -581,8 +589,15 @@ export function buildItinerary(req: TripRequest, store?: Store): Itinerary {
 
   // Timeline CHỈ điểm-đến (buổi sáng/chiều); nhà hàng KHÔNG slot vào ngày — thành list gợi ý riêng.
   const days: DayPlan[] = dayChunks.map((chunk, di) => {
-    const ordered = orderLoop(st, chunk, anchor);
+    let ordered = orderLoop(st, chunk, anchor);
     const m = Math.ceil(ordered.length / 2);
+    // PR-B: điểm NẶNG nhất (trọn-ngày) → buổi SÁNG (năng lượng cao, tránh dồn điểm mệt vào chiều). orderLoop
+    // là vòng kín (về khách sạn) nên đảo chiều giữ NGUYÊN chi phí tuyến. Chỉ đảo khi điểm nặng nhất rơi nửa
+    // sau. Đô thị toàn SHORT (w=0) → điểm nặng nhất = phần tử đầu (reduce lấy max đầu tiên), index 0 < m → no-op.
+    if (ordered.length > 1) {
+      const heavy = ordered.reduce((a, r, i) => (dayWeight(r) > a.w ? { w: dayWeight(r), i } : a), { w: dayWeight(ordered[0]), i: 0 });
+      if (heavy.i >= m) ordered = [...ordered].reverse();
+    }
     const items: SlotItem[] = [];
     ordered.slice(0, m).forEach((r) => items.push(slot(toPlaceRef(r), "diem-den", "sang")));
     ordered.slice(m).forEach((r) => items.push(slot(toPlaceRef(r), "diem-den", "chieu")));
