@@ -26,6 +26,20 @@ describe('dayWeight — bảng loại hình', () => {
     expect(dayWeight(rec('Fansipan', 'Núi / Đèo / Đường mòn', 'Đi cáp treo lên đỉnh'))).toBe(1);
   });
 
+  it('FULL=1: tên full-day thương-hiệu/loại dù category gán nhầm "Điểm tham quan"', () => {
+    expect(dayWeight(rec('sun world', 'Điểm tham quan'))).toBe(1);
+    expect(dayWeight(rec('VinWonders Vũ Yên', 'Điểm tham quan'))).toBe(1);
+    expect(dayWeight(rec('vinpearl', 'Điểm tham quan'))).toBe(1);
+    expect(dayWeight(rec('Vinpearl Safari Phú Quốc', 'Điểm tham quan'))).toBe(1);
+    expect(dayWeight(rec('Du lịch Cáp treo Vũng Tàu', 'Điểm tham quan'))).toBe(1);
+    expect(dayWeight(rec('Cáp treo Núi Sam', 'Đền / Miếu'))).toBe(1);
+    expect(dayWeight(rec('Công viên nước Đầm Sen', 'Điểm tham quan'))).toBe(1);
+  });
+
+  it('KHÔNG false-positive: "Chùa Linh Ứng - Bà Nà" (không token full-day) = SHORT', () => {
+    expect(dayWeight(rec('Chùa Linh Ứng - Bà Nà', 'Chùa / Thiền viện'))).toBe(0);
+  });
+
   it('FULL=1: tên "Hòn/Đảo/Cù Lao" khi loại là Bãi biển/Đảo (đảo bị gán nhầm Bãi biển)', () => {
     expect(dayWeight(rec('Hòn Tằm', 'Bãi biển'))).toBe(1);
     expect(dayWeight(rec('Cù Lao Chàm', 'Đảo'))).toBe(1);

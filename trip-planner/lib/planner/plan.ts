@@ -111,12 +111,19 @@ function spanKm(pts: LL[]): number {
 const HALF_W = 0.5;
 const FULL_CAT = ["dao", "vuon quoc gia", "khu bao ton", "khu du lich giai tri", "khu vui choi"];
 const HALF_CAT = ["thac", "hang", "nui", "deo", "duong mon", "bai bien", "thung lung", "ban lang"];
+// Tên full-day thương-hiệu/loại (folded, không dấu) mà DATA hay gán nhầm loại chung "Điểm tham quan"
+// (w=0) → lọt 2 điểm trọn-ngày chung 1 ngày mà Σ vẫn đọc =1 (vd phu-quoc VinWonders + sun world). Bắt
+// theo TÊN, trả FULL bất kể category — phủ MỌI tỉnh live, không cần sửa data. Chỉ token gần-như-chắc
+// full-day (KHÔNG "ba na" — sẽ bắt nhầm "Chùa Linh Ứng Bà Nà"; Bà Nà cáp treo đã category-FULL sẵn).
+const FULL_NAME = /(^|[^a-z])(sun ?world|vinwonders?|vinpearl|safari|cong vien nuoc|cap treo|cable car)([^a-z]|$)/;
 export function dayWeight(r: KbRecord): number {
   if (r.ext?.destination?.loi_vao_dac_trung) return 1; // sig-access (cáp treo/tàu ra đảo) = trọn ngày
   const cat = foldText(r.category?.primary ?? "");
   if (FULL_CAT.some((t) => cat.includes(t))) return 1;
+  const nm = foldText(r.name);
+  if (FULL_NAME.test(nm)) return 1; // full-day theo tên (category gán nhầm generic)
   // đảo bị gán nhầm loại "Bãi biển" (Hòn Tằm) → FULL; nhưng "Hòn Chồng" (Điểm ngắm cảnh) KHÔNG lên (viewpoint bẫy)
-  if (/^(hon|dao|cu lao)\b/.test(foldText(r.name)) && (cat.includes("bai bien") || cat.includes("dao"))) return 1;
+  if (/^(hon|dao|cu lao)\b/.test(nm) && (cat.includes("bai bien") || cat.includes("dao"))) return 1;
   if (HALF_CAT.some((t) => cat.includes(t))) return HALF_W;
   return 0;
 }
