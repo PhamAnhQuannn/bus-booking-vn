@@ -730,3 +730,81 @@ describe('buildItinerary — note drop dedupe: record trùng tên đã-xếp KH�
     expect(it.notes.some((n) => n.includes('Vườn quốc gia Tam Đảo') && n.includes('cần trọn ngày riêng'))).toBe(false);
   });
 });
+
+// FIX 1 round-3 (#698): CÔNG BỐ per-day PHỔ QUÁT. Một Reg ward-less (rơi về region_id) span ~40km, days=1,
+// một user anchor → nhánh đặt-chính (days.push) ship CẢ CỤM thành MỘT ngày span >25km. Trước round-3, chỉ
+// nhánh dồn-dư overflow kiểm span → ngày này ship ÂM THẦM (notes=[], zero disclosure). Fix: sau khi ráp
+// xong, mỗi ngày span > WIDE_DAY_KM phát ĐÚNG 1 note chặng dài. Đặt điểm KHÔNG đổi (mọi điểm vẫn có mặt).
+describe('buildItinerary — wide-day disclosure phổ quát: single-Reg ~40km ward-less days=1 (FIX 1 RC#3 #698)', () => {
+  // KHÔNG full_address → adminKey null → gom theo region_id 'r' = MỘT cụm. 3 điểm trải ~40km đông-tây.
+  const noWard = (id: string, lat: number, lon: number): KbRecord => ({
+    id, name: `Điểm ${id}`, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon }, description: { value: 'x' },
+  });
+  const store: Store = {
+    slug: 'ca-mau', generatedAt: '2026-01-01', tam: { lat: 10.0, lon: 105.18 },
+    destinations: [
+      noWard('D1', 10.0, 105.0),    // anchor (khách chốt)
+      noWard('D2', 10.0, 105.18),   // ~19.7km đông
+      noWard('D3', 10.0, 105.36),   // ~39.4km đông từ D1 → span cụm >25km
+    ],
+    restaurants: [], hotels: [noWard('H', 10.0, 105.18)],
+    matrix: null, matrixIndex: new Map(),
+  };
+  const req: TripRequest = { slug: 'ca-mau', days: 1, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate', anchors: ['D1'] };
+
+  it('cả 3 điểm được xếp (nhánh đặt-chính) VÀ phát note chặng dài cho ngày rộng (không còn âm thầm)', () => {
+    const it = buildItinerary(req, store);
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).toContain('Điểm D1'); // anchor giữ
+    expect(names).toContain('Điểm D2');
+    expect(names).toContain('Điểm D3');
+    expect(it.notes.some((n) => n.includes('chặng di chuyển dài'))).toBe(true); // FIX 1 RC#3: ngày rộng ĐƯỢC công bố
+  });
+});
+
+// FIX 2 round-3 (#698): note-dedupe PROXIMITY-SCOPED. Một record bị drop trùng TÊN với một record đã-xếp
+// nhưng CÁCH XA >2km = địa danh KHÁC (tên loại-hình chung: chợ/đình/miếu/đền…) → drop-note VẪN phải phát
+// (không bị nuốt oan). Trước round-3, dedupe chỉ khớp tên → note biến mất (SAI). Fix: chỉ nuốt khi twin <2km.
+describe('buildItinerary — note-dedupe proximity: twin đã-xếp XA (>2km) KHÔNG nuốt drop-note (FIX 2 RC#3 #698)', () => {
+  const dLon = (km: number) => km / 109.4;
+  const core = (id: string, lat: number, lon: number, ward: string, name?: string): KbRecord => ({
+    id, name: name ?? `Gần ${id}`, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `số 1, ${ward}, tỉnh Khánh Hòa` }, description: { value: 'x' },
+  });
+  // Cụm XA own-day (sig-access) chiếm 1 ngày (days=2 → cap=1 → restDays=1). Trong cụm này có sig-access FULL
+  // (pin, xếp) + "Đền Voi Phục" FULL trùng tên nhưng Σ-cut DROP. Bản "Đền Voi Phục" GẦN tâm (khác địa danh,
+  // ~30km từ cụm xa) đã xếp ở ngày rest. Cũ: khớp tên → nuốt note. Mới: twin cách >2km → drop-note vẫn phát.
+  const sig: KbRecord = {
+    id: 'SIG', name: 'Khu cáp treo Xa', region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: 10.0, longitude: 105.0 + dLon(30) }, // ~30km đông
+    address: { full_address: `số 1, Phường Xa, tỉnh Khánh Hòa` }, description: { value: 'x' },
+    ext: { destination: { loi_vao_dac_trung: 'có cáp treo vượt biển ra đảo' } }, // sig-access → FULL + marquee
+  };
+  const voiFar: KbRecord = { // trùng tên bản GẦN, nhưng ở cụm XA → Σ-cut drop (sau sig-access FULL)
+    id: 'VF', name: 'Đền Voi Phục', region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: 10.001, longitude: 105.0 + dLon(30) }, // cùng ward Xa, cạnh sig
+    address: { full_address: `số 2, Phường Xa, tỉnh Khánh Hòa` }, description: { value: 'x' },
+    category: { primary: 'Khu du lịch giải trí (vui chơi trả phí)' }, // FULL (w=1)
+  };
+  const store: Store = {
+    slug: 'nha-trang', generatedAt: '2026-01-01', tam: { lat: 10.0, lon: 105.0 },
+    destinations: [
+      core('C1', 10.0, 105.0, 'Phường Lõi', 'Đền Voi Phục'), // bản GẦN tâm — xếp ở ngày rest
+      core('C2', 10.001, 105.001, 'Phường Lõi'), core('C3', 9.999, 105.0, 'Phường Lõi'),
+      sig, voiFar,
+    ],
+    restaurants: [], hotels: [core('H', 10.0, 105.0, 'Phường Lõi')],
+    matrix: null, matrixIndex: new Map(),
+  };
+  const req: TripRequest = { slug: 'nha-trang', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+
+  it('bản "Đền Voi Phục" bị drop ở cụm xa VẪN vào note (twin đã-xếp cách >2km = địa danh khác)', () => {
+    const it = buildItinerary(req, store);
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).toContain('Đền Voi Phục'); // bản GẦN xếp trong lịch
+    // drop-note KHÔNG bị nuốt: twin xếp cách ~30km (>2km) → note "cần trọn ngày riêng" VẪN nhắc tên
+    expect(it.notes.some((n) => n.includes('Đền Voi Phục') && n.includes('cần trọn ngày riêng'))).toBe(true);
+  });
+});

@@ -103,6 +103,9 @@ function spanKm(pts: LL[]): number {
 // Ngưỡng "ngày rộng": một cặp điểm trong cùng NGÀY xa nhau > WIDE_DAY_KM = zig-zag không mạch lạc. Dùng
 // chung cho sprawl-gate (#693) và locality-guard của packDays (#698, không gộp/dồn điểm cross-region xa).
 const WIDE_DAY_KM = 25;
+// FIX 2 (#698 RC#3): quy ước dedup KB — hai record CÙNG TÊN mà cách nhau < NEAR_TWIN_KM = cùng một địa danh
+// (mirror pass16 fold-name<2km). Dùng để scope note-dedupe drop: chỉ nuốt note khi twin đã-xếp đủ GẦN.
+const NEAR_TWIN_KM = 2;
 // locality-guard: hai nhóm điểm có "xa nhau" không? true nếu CÓ cặp chéo > WIDE_DAY_KM. O(n·m), n,m ≤ perDay.
 function crossFar(a: KbRecord[], b: KbRecord[]): boolean {
   for (const p of a) for (const q of b) if (kmBetween(co(p), co(q)) > WIDE_DAY_KM) return true;
@@ -256,11 +259,10 @@ function macroOrder(regs: Reg[], tam: LL): Reg[] {
 // Ranh giới ngày luôn rơi trên BIÊN region; chỉ gộp khu nhỏ MACRO-KỀ vào chung 1 ngày khi còn chỗ.
 // anchorIds = điểm KHÁCH CHỦ ĐỘNG chốt (E1 force-include): dồn-dư KHÔNG được evict/drop chúng (grid không có
 // anchor nên bất biến với grid). Điểm anchor không đặt được ngày gọn → vẫn nhét ngày gần nhất (E1 thắng, hiếm).
-function packDays(store: Store, orderedRegs: Reg[], restDays: number, perDay: number, tam: LL, anchorIds: Set<string>): { days: KbRecord[][]; dropped: KbRecord[]; longLeg: KbRecord[] } {
+function packDays(store: Store, orderedRegs: Reg[], restDays: number, perDay: number, tam: LL, anchorIds: Set<string>): { days: KbRecord[][]; dropped: KbRecord[] } {
   const budget = restDays * perDay;
   const days: KbRecord[][] = [];
   const dropped: KbRecord[] = [];
-  const longLeg: KbRecord[] = []; // FIX 1 (#698): anchor buộc-đặt (E1) vào ngày span > WIDE_DAY_KM → công bố chặng dài (không âm thầm)
   let cur: KbRecord[] = [];
   let curW = 0;
   let taken = 0; // FIX 4 (#698): đếm điểm THỰC SỰ xếp — điểm bị drop (dồn-dư) trả lại budget để cụm sau vẫn được nhận.
@@ -283,10 +285,10 @@ function packDays(store: Store, orderedRegs: Reg[], restDays: number, perDay: nu
         if (s < bestSpan) { bestSpan = s; best = i; }
       }
       if (best >= 0 && bestSpan <= WIDE_DAY_KM) { days[best].push(p); continue; } // ngày gọn còn chỗ → nhét
-      // E1: user-anchor KHÔNG bị bỏ vì xa. Nhưng nếu ngày gần nhất còn-chỗ vẫn > WIDE_DAY_KM (đến đây best≥0
-      // ⇒ bestSpan > WIDE_DAY_KM tất yếu), đặt anchor vẫn tạo ngày-rộng → công bố chặng dài (FIX 1 #698 —
-      // HONOR E1 nhưng KHÔNG âm thầm reintro long-leg). best<0 (không ngày nào đủ weight) → bỏ + hoàn budget.
-      if (anchorIds.has(p.id)) { if (best >= 0) { days[best].push(p); if (bestSpan > WIDE_DAY_KM) longLeg.push(p); } else { dropped.push(p); taken -= 1; } continue; }
+      // E1: user-anchor KHÔNG bị bỏ vì xa. Ngày gần nhất còn-chỗ dù > WIDE_DAY_KM vẫn nhận anchor (HONOR E1);
+      // ngày-rộng đó được CÔNG BỐ ở tầng disclosure per-day phổ quát dưới buildDayChunks (FIX 1 #698 RC#3 —
+      // không âm thầm, không cần đánh dấu điểm ở đây). best<0 (không ngày nào đủ weight) → bỏ + hoàn budget.
+      if (anchorIds.has(p.id)) { if (best >= 0) { days[best].push(p); } else { dropped.push(p); taken -= 1; } continue; }
       // Không ngày nào GẦN nhận được p. Nếu p GẦN tâm hơn một điểm XA (KHÔNG phải anchor) đã xếp mà thay nó cho p
       // vào được ngày gọn (span≤WIDE_DAY_KM) → HOÁN (giữ điểm gần home, đẩy outlier xa ra + note): tránh outlier
       // chiếm mất ngày của khu trung tâm. Không hoán được → p mới là outlier thật → bỏ p (+note). Cả hai: hoàn budget.
@@ -332,7 +334,7 @@ function packDays(store: Store, orderedRegs: Reg[], restDays: number, perDay: nu
     }
   }
   flush();
-  return { days, dropped, longLeg };
+  return { days, dropped };
 }
 
 // A6 fallback: điểm thiếu region_id -> cụm bằng single-linkage theo km (ngưỡng ABS_GAP_KM). Tất định (sort id).
@@ -573,7 +575,7 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
   const restOrdered = anchorKeys.size
     ? [...restMacro.filter((r) => anchorKeys.has(r.key)), ...restMacro.filter((r) => !anchorKeys.has(r.key))]
     : restMacro;
-  const packed = restDays > 0 ? packDays(store, restOrdered, restDays, perDay, tam, anchorIds) : { days: [], dropped: [], longLeg: [] as KbRecord[] }; // days===1 ngày-đảo: rest=0 ngày
+  const packed = restDays > 0 ? packDays(store, restOrdered, restDays, perDay, tam, anchorIds) : { days: [] as KbRecord[][], dropped: [] as KbRecord[] }; // days===1 ngày-đảo: rest=0 ngày
   // protReg mỗi cụm = 1 ngày, cắt theo TRỌNG SỐ THỜI-LƯỢNG (Σ≤1): giữ 1 điểm-nặng đầu cụm (đã sort pin/fame)
   // + pebbles nhẹ; điểm-nặng thứ 2 cùng cụm (vd Ti Tốp + Sửng Sốt cùng ward) không nhồi chung ngày → drop+note.
   const protDropped: KbRecord[] = [];
@@ -599,19 +601,24 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
   // Note điểm-nặng bị bỏ (cần trọn ngày riêng) VÀ marquee/anchor bị bỏ do locality-guard (#698): điểm biểu-
   // tượng xa mà ngày gần nhất >WIDE_DAY_KM → không nhét được nếu KHÔNG tạo ngày-rộng (mega-tỉnh sáp nhập nhiều
   // điểm xa hơn số ngày) → công bố để khách biết (không âm thầm bỏ), thay vì cram vào ngày zig-zag.
-  // FIX 2 (#698): note-layer dedupe — bỏ khỏi note bất kỳ điểm bị drop mà một BẢN SAO cùng tên-folded ĐÃ xếp
-  // ở nơi khác trong lịch (KB có record trùng tên FULL+HALF, vd VQG Tam Đảo hai bản; bản kia đã có → note "chọn
-  // thêm ngày" thành SAI). Chỉ dedupe tầng note; KHÔNG đụng dữ liệu KB.
-  const placedFolded = new Set<string>([...protChunks, ...packed.days].flat().map((p) => foldText(p.name)));
+  // FIX 2 (#698 RC#3): note-layer dedupe PROXIMITY-SCOPED — chỉ bỏ khỏi note một điểm bị drop khi một BẢN SAO
+  // cùng tên-folded ĐÃ xếp mà CŨNG nằm trong <NEAR_TWIN_KM (mirror quy ước dedup KB: TÊN + <2km). Tên loại-hình
+  // chung (chợ/đình/miếu/cầu/thác) lặp ở nhiều phường khác nhau → nếu chỉ khớp tên (cũ) thì một địa danh KHÁC
+  // bị nuốt note oan; có twin đủ gần mới là trùng thật (vd VQG Tam Đảo hai bản cùng chỗ). Chỉ dedupe tầng note.
+  const placedByName = new Map<string, LL[]>();
+  for (const p of [...protChunks, ...packed.days].flat()) {
+    const k = foldText(p.name);
+    const arr = placedByName.get(k);
+    if (arr) arr.push(co(p)); else placedByName.set(k, [co(p)]);
+  }
   const allDropped = [...packed.dropped, ...protDropped]
     .filter((p) => dayWeight(p) > 0 || pinIds.has(p.id))
-    .filter((p) => !placedFolded.has(foldText(p.name)));
+    .filter((p) => { // giữ note nếu KHÔNG có twin đã-xếp trong <2km (địa danh khác dù trùng tên loại-hình)
+      const twins = placedByName.get(foldText(p.name));
+      return !twins || !twins.some((c) => kmBetween(c, co(p)) < NEAR_TWIN_KM);
+    });
   if (allDropped.length)
     notes.push(`${allDropped.slice(0, 3).map((p) => p.name).join(", ")}${allDropped.length > 3 ? ` +${allDropped.length - 3} điểm` : ""} — cần trọn ngày riêng, chưa xếp đủ; chọn thêm ngày để có trong lịch.`);
-  // FIX 1 (#698): anchor buộc-đặt vào ngày span > WIDE_DAY_KM (mega-tỉnh: nhiều anchor xa hơn số ngày rest) —
-  // giữ trong lịch theo E1 nhưng CÔNG BỐ chặng dài (mirror wording note "ở khu xa"), không âm thầm reintro long-leg.
-  for (const p of packed.longLeg)
-    notes.push(`${p.name} (điểm bạn chọn) ở khu xa — ngày này có chặng di chuyển dài; đã giữ trong lịch theo yêu cầu, chọn thêm ngày để tách riêng.`);
   // PR-B (placement): XEN ngày-anchor (protChunk = flagship trọn-ngày) với ngày rest thay vì dồn CUỐI —
   // chống back-load (ngày đầu toàn điểm nhẹ, ngày cuối dồn nặng, vd Nha Trang cũ). Flagship DẪN ĐẦU (năng
   // lượng cao, đặt tông chuyến đi) rồi xen kẽ nhẹ/nặng. Đô thị không có protChunk → A rỗng → giữ nguyên rest.
@@ -621,6 +628,15 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
     if (i < packed.days.length) interleaved.push(packed.days[i]);
   }
   const chunks = interleaved.filter((c) => c.length > 0);
+  // FIX 1 (#698 RC#3): CÔNG BỐ per-day PHỔ QUÁT — sau khi ráp xong MỌI ngày, ngày nào có cặp điểm nội-bộ xa
+  // > WIDE_DAY_KM (dù đến từ nhánh đặt-chính days.push, dồn-dư overflow, HAY một Reg ward-less ~40km một ngày —
+  // trước đây các nhánh này ship âm thầm không note) → phát ĐÚNG 1 note chặng dài cho ngày đó. Chỉ CÔNG BỐ,
+  // KHÔNG đổi điểm nào vào ngày nào (disclosure-only); span = max-pair (bất biến theo thứ tự). Tất định.
+  for (const day of chunks) {
+    const s = spanKm(day.map(co));
+    if (s > WIDE_DAY_KM)
+      notes.push(`${day[0].name}: ngày này có chặng di chuyển dài (~${Math.round(s)}km) — các điểm ở khu xa nhau.`);
+  }
   const keptCount = kept.reduce((s, r) => s + r.card, 0);
   if (keptCount < restDays * perDay)
     notes.push("Ít điểm đến hơn nhịp yêu cầu — một số ngày ngắn hơn (thêm dữ liệu điểm đến để dày hơn).");
