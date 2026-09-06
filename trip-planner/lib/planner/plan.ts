@@ -615,16 +615,21 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
     for (const p of [...protChunks, ...packed.days].flat()) addPlaced(p);
     const isTwin = (p: KbRecord) => { const a = placedTwin.get(foldText(p.name)); return !!a && a.some((c) => kmBetween(c, co(p)) < NEAR_TWIN_KM); };
     let spareSlots = restDays - packed.days.length; // ngày rest packDays BỎ TRỐNG → own-day cho flagship dư
-    // Cơ chế 1: own-day riêng dùng slot trống.
-    while (spillQueue.length && spareSlots > 0 && protChunks.length < cap) {
+    // Cơ chế 1: own-day riêng dùng slot trống. Cap-gate `protChunks.length < cap` giữ lại 1 ngày cho `rest`;
+    // nhưng khi rest.length===0 (KHÔNG có cụm rest nào để bảo vệ) ngày dành-riêng đó bị emit TRỐNG trong khi
+    // flagship dư bị drop oan → nới cap khi rest rỗng. Vẫn chặn bởi spareSlots (KHÔNG vượt số ngày thật `days`).
+    while (spillQueue.length && spareSlots > 0 && (protChunks.length < cap || rest.length === 0)) {
       const idx = spillQueue.findIndex((p) => !isTwin(p));
       if (idx < 0) break;
       const head = spillQueue.splice(idx, 1)[0];
       const chunk: KbRecord[] = [head]; let cw = dayWeight(head); addPlaced(head);
-      for (let i = spillQueue.length - 1; i >= 0; i--) {
-        const pw = dayWeight(spillQueue[i]);
-        if (cw + pw <= 1 + 1e-9 && !crossFar(chunk, [spillQueue[i]]) && !isTwin(spillQueue[i])) {
-          chunk.push(spillQueue[i]); cw += pw; addPlaced(spillQueue[i]); spillQueue.splice(i, 1);
+      // FIX (#698 R7): duyệt companion THEO ƯU TIÊN (FORWARD snapshot) — mirror cơ chế 2. Trước đây reverse-iterate
+      // (length-1→0) nạp điểm-nặng ƯU TIÊN THẤP (cuối queue) làm companion trước, ăn budget Σ≤1 mà lẽ ra dành cho
+      // điểm ưu tiên cao hơn. Xoá item đã đặt khỏi mảng sống theo IDENTITY (indexOf) — head vẫn là findIndex-first.
+      for (const q of [...spillQueue]) {
+        const pw = dayWeight(q);
+        if (cw + pw <= 1 + 1e-9 && !crossFar(chunk, [q]) && !isTwin(q)) {
+          chunk.push(q); cw += pw; addPlaced(q); const j = spillQueue.indexOf(q); if (j >= 0) spillQueue.splice(j, 1);
         }
       }
       protChunks.push(chunk);

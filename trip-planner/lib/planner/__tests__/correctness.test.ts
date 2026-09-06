@@ -904,3 +904,72 @@ describe('buildItinerary — spill cơ chế 2 nhường rest-day headroom theo 
     }
   });
 });
+
+// FIX (#698 R7 · A): cơ chế 1 own-day — cap-gate `protChunks.length < cap` GIỮ 1 ngày cho `rest`, nhưng khi
+// `rest` RỖNG (không cụm nào để bảo vệ) ngày đó bị emit KHÔNG dùng còn flagship dư bị drop + note "chọn thêm
+// ngày" oan. Fixture: 1 cụm 2 đảo sig-access (w=1) CÙNG ward, KHÔNG điểm-đến nào khác → rest=[]. days=2 →
+// cap=1: cơ chế 1 cũ bị chặn (protChunks=1 = cap) → đảo 2 rớt + chỉ 1 ngày ra lịch. Nới cap khi rest rỗng →
+// đảo 2 nhận own-day (đủ 2 ngày, không drop oan).
+describe('buildItinerary — spill cơ chế 1 dùng slot khi rest RỖNG (không drop oan, không note thừa) (FIX #698 R7)', () => {
+  const island = (id: string, lat: number, access: string): KbRecord => ({
+    id, name: `Đảo ${id}`, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: 109.25 },
+    address: { full_address: `số 1, Phường Đảo, tỉnh Khánh Hòa` }, description: { value: 'x' },
+    ext: { destination: { loi_vao_dac_trung: access } },
+  });
+  const islandA = island('A', 12.20, 'cáp treo vượt biển ra đảo');
+  const islandB = island('B', 12.24, 'tàu cao tốc ra đảo'); // ~4.4km cùng ward, tên khác → KHÔNG twin
+  const store: Store = {
+    slug: 'test-empty-rest', generatedAt: '2026-01-01', tam: { lat: 12.22, lon: 109.19 },
+    destinations: [islandA, islandB], // KHÔNG điểm nhẹ nào → rest = []
+    restaurants: [], hotels: [], matrix: null, matrixIndex: new Map(),
+  };
+  const req: TripRequest = { slug: 'test-empty-rest', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+
+  it('đảo dư nhận own-day (rest rỗng → dùng slot dành-riêng); KHÔNG note "chọn thêm ngày", không blank-day', () => {
+    const it = buildItinerary(req, store);
+    const has = (name: string) => it.days.some((d) => d.items.some((i) => i.name === name));
+    expect(has('Đảo A')).toBe(true);  // đảo 1 giữ own-day (protReg)
+    expect(has('Đảo B')).toBe(true);  // đảo 2 dư spill vào slot rest-rỗng (cũ: rớt + note)
+    expect(it.days.length).toBe(2);   // ĐỦ 2 ngày (cũ: 1 ngày + 1 ngày dành-riêng bỏ trống)
+    expect(it.days.every((d) => d.items.length > 0)).toBe(true); // không ngày trống
+    expect(it.notes.some((n) => n.includes('chọn thêm ngày'))).toBe(false); // không note drop oan
+    for (const d of it.days) // Σweight≤1: mỗi ngày ≤ 1 đảo
+      expect(d.items.filter((i) => i.name.startsWith('Đảo ')).length).toBeLessThanOrEqual(1);
+  });
+});
+
+// FIX (#698 R7 · B): cơ chế 1 chọn HEAD own-day + nạp companion THEO ƯU TIÊN (findIndex-first + forward snapshot),
+// mirror cơ chế 2 (R6). Khi CHỈ CÓ 1 slot own-day mà nhiều điểm-nặng tranh nhau, flagship ưu-tiên-CAO phải giành
+// slot; điểm ưu-tiên-thấp rớt + note. Fixture: 3 đảo sig-access (w=1) CÙNG ward → protReg 1 own-day giữ HIGH,
+// spillQueue=[MID, LOW]. rest=[] → cơ chế 1 mở ĐÚNG 1 slot (spareSlots=1) → MID (forward-first) thắng, LOW rớt.
+describe('buildItinerary — spill cơ chế 1: nhiều điểm-nặng tranh 1 own-day slot, ưu-tiên-cao thắng (FIX #698 R7)', () => {
+  const island = (id: string, lat: number, access: string): KbRecord => ({
+    id, name: `Đảo ${id}`, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: 109.25 },
+    address: { full_address: `số 1, Phường Đảo, tỉnh Khánh Hòa` }, description: { value: 'x' },
+    ext: { destination: { loi_vao_dac_trung: access } },
+  });
+  // Thứ tự mảng = importance rank (tiebreak within-cluster): HIGH(0) > MID(1) > LOW(2). Cả 3 sig-access (pin
+  // ngang, fame sàn ngang) → sort rơi về destRank → pts=[HIGH,MID,LOW]; HIGH→protChunk, spillQueue=[MID,LOW].
+  const iHigh = island('HIGH', 12.20, 'cáp treo vượt biển ra đảo');
+  const iMid = island('MID', 12.21, 'tàu cao tốc ra đảo');
+  const iLow = island('LOW', 12.22, 'tàu gỗ ra đảo');
+  const store: Store = {
+    slug: 'test-comp-ownday', generatedAt: '2026-01-01', tam: { lat: 12.22, lon: 109.19 },
+    destinations: [iHigh, iMid, iLow], // rest = [] → cơ chế 1 (own-day), spareSlots=1
+    restaurants: [], hotels: [], matrix: null, matrixIndex: new Map(),
+  };
+  const req: TripRequest = { slug: 'test-comp-ownday', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+
+  it('đảo ưu-tiên-cao (MID) giành own-day slot duy nhất; đảo ưu-tiên-thấp (LOW) rớt + note', () => {
+    const it = buildItinerary(req, store);
+    const has = (name: string) => it.days.some((d) => d.items.some((i) => i.name === name));
+    expect(has('Đảo HIGH')).toBe(true); // giữ own-day (protReg)
+    expect(has('Đảo MID')).toBe(true);  // spill ưu-tiên-CAO thắng own-day slot (findIndex-first)
+    expect(has('Đảo LOW')).toBe(false); // spill ưu-tiên-THẤP rớt (backward cũ sẽ giữ LOW → sai)
+    expect(it.notes.some((n) => n.includes('Đảo LOW'))).toBe(true); // công bố trung thực
+    for (const d of it.days) // Σweight≤1
+      expect(d.items.filter((i) => i.name.startsWith('Đảo ')).length).toBeLessThanOrEqual(1);
+  });
+});
