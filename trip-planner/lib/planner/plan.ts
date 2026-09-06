@@ -100,6 +100,14 @@ function spanKm(pts: LL[]): number {
   for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) mx = Math.max(mx, kmBetween(pts[i], pts[j]));
   return mx;
 }
+// Ngưỡng "ngày rộng": một cặp điểm trong cùng NGÀY xa nhau > WIDE_DAY_KM = zig-zag không mạch lạc. Dùng
+// chung cho sprawl-gate (#693) và locality-guard của packDays (#698, không gộp/dồn điểm cross-region xa).
+const WIDE_DAY_KM = 25;
+// locality-guard: hai nhóm điểm có "xa nhau" không? true nếu CÓ cặp chéo > WIDE_DAY_KM. O(n·m), n,m ≤ perDay.
+function crossFar(a: KbRecord[], b: KbRecord[]): boolean {
+  for (const p of a) for (const q of b) if (kmBetween(co(p), co(q)) > WIDE_DAY_KM) return true;
+  return false;
+}
 
 // ── TRỌNG SỐ THỜI-LƯỢNG ngày ("1 tảng-to + vài sỏi/ngày") ────────────────────
 // Engine KHÔNG có mô hình giờ/năng-lượng: "1 slot" = điểm ngắm cảnh 30' HAY công viên 8h như nhau, nên
@@ -111,20 +119,33 @@ function spanKm(pts: LL[]): number {
 const HALF_W = 0.5;
 const FULL_CAT = ["dao", "vuon quoc gia", "khu bao ton", "khu du lich giai tri", "khu vui choi"];
 const HALF_CAT = ["thac", "hang", "nui", "deo", "duong mon", "bai bien", "thung lung", "ban lang"];
-// Tên full-day thương-hiệu/loại (folded, không dấu) mà DATA hay gán nhầm loại chung "Điểm tham quan"
-// (w=0) → lọt 2 điểm trọn-ngày chung 1 ngày mà Σ vẫn đọc =1 (vd phu-quoc VinWonders + sun world). Bắt
-// theo TÊN, trả FULL bất kể category — phủ MỌI tỉnh live, không cần sửa data. Chỉ token gần-như-chắc
-// full-day (KHÔNG "ba na" — sẽ bắt nhầm "Chùa Linh Ứng Bà Nà"; Bà Nà cáp treo đã category-FULL sẵn).
-const FULL_NAME = /(^|[^a-z])(sun ?world|vinwonders?|vinpearl|safari|cong vien nuoc|cap treo|cable car)([^a-z]|$)/;
+// Loại hình NGẮN mạnh (chùa/đền/bảo tàng/chợ/công viên…): tín hiệu category đủ chắc để tên KHÔNG được lật
+// lên FULL (chống false-positive "Chùa … Safari"). Chỉ loại generic/mơ hồ ("Điểm tham quan") mới cho tên quyết.
+const SHORT_CAT = ["chua", "thien vien", "den", "mieu", "nha tho", "bao tang", "dinh", "di tich", "ngam canh", "cho", "cong vien", "vuon hoa", "ho", "dap", "cau"];
+// Tên full-day (folded, không dấu) mà DATA hay gán nhầm loại chung "Điểm tham quan" (w=0). Tách 2 lớp:
+// ACCESS (cáp treo/cable car) = lối vào trải nghiệm → trọn ngày BẤT kể loại (kể cả "Đền/Miếu"); BRAND
+// (công viên chủ đề/safari/công viên nước) chỉ lật khi category KHÔNG phải loại NGẮN mạnh (SHORT_CAT) —
+// tránh một cái tên tình cờ chứa token lật một điểm thật-sự-ngắn thành FULL.
+const FULL_ACCESS_NAME = /(^|[^a-z])(cap treo|cable car)([^a-z]|$)/;
+const FULL_BRAND_NAME = /(^|[^a-z])(sun ?world|vinwonders?|vinpearl|safari|cong vien nuoc)([^a-z]|$)/;
+const _dwCache = new WeakMap<KbRecord, number>(); // memo: dayWeight gọi rất nhiều lần/điểm; record ref bền
 export function dayWeight(r: KbRecord): number {
+  const c = _dwCache.get(r);
+  if (c !== undefined) return c;
+  const v = computeDayWeight(r);
+  _dwCache.set(r, v);
+  return v;
+}
+function computeDayWeight(r: KbRecord): number {
   if (r.ext?.destination?.loi_vao_dac_trung) return 1; // sig-access (cáp treo/tàu ra đảo) = trọn ngày
   const cat = foldText(r.category?.primary ?? "");
-  if (FULL_CAT.some((t) => cat.includes(t))) return 1;
+  if (FULL_CAT.some((t) => boundedIncludes(cat, t))) return 1;
   const nm = foldText(r.name);
-  if (FULL_NAME.test(nm)) return 1; // full-day theo tên (category gán nhầm generic)
+  if (FULL_ACCESS_NAME.test(nm)) return 1; // cáp treo/cable car = trọn ngày bất kể category
+  if (!SHORT_CAT.some((t) => boundedIncludes(cat, t)) && FULL_BRAND_NAME.test(nm)) return 1; // brand full-day trên category generic
   // đảo bị gán nhầm loại "Bãi biển" (Hòn Tằm) → FULL; nhưng "Hòn Chồng" (Điểm ngắm cảnh) KHÔNG lên (viewpoint bẫy)
-  if (/^(hon|dao|cu lao)\b/.test(nm) && (cat.includes("bai bien") || cat.includes("dao"))) return 1;
-  if (HALF_CAT.some((t) => cat.includes(t))) return HALF_W;
+  if (/^(hon|dao|cu lao)\b/.test(nm) && boundedIncludes(cat, "bai bien")) return 1;
+  if (HALF_CAT.some((t) => boundedIncludes(cat, t))) return HALF_W;
   return 0;
 }
 // ── chấm điểm (thuần chất lượng, không địa lý) ──────────────────────────────
@@ -228,13 +249,53 @@ function macroOrder(regs: Reg[], tam: LL): Reg[] {
 // Partition-first: gán TRỌN region vào từng ngày theo thứ tự macro (KHÔNG cắt index cơ học trên
 // chuỗi đã flatten — cắt index để ranh giới ngày rơi giữa 2 khu xa = bug "sáng nam, chiều bắc").
 // Ranh giới ngày luôn rơi trên BIÊN region; chỉ gộp khu nhỏ MACRO-KỀ vào chung 1 ngày khi còn chỗ.
-function packDays(store: Store, orderedRegs: Reg[], restDays: number, perDay: number): { days: KbRecord[][]; dropped: KbRecord[] } {
+// anchorIds = điểm KHÁCH CHỦ ĐỘNG chốt (E1 force-include): dồn-dư KHÔNG được evict/drop chúng (grid không có
+// anchor nên bất biến với grid). Điểm anchor không đặt được ngày gọn → vẫn nhét ngày gần nhất (E1 thắng, hiếm).
+function packDays(store: Store, orderedRegs: Reg[], restDays: number, perDay: number, tam: LL, anchorIds: Set<string>): { days: KbRecord[][]; dropped: KbRecord[] } {
   const budget = restDays * perDay;
   const days: KbRecord[][] = [];
   const dropped: KbRecord[] = [];
   let cur: KbRecord[] = [];
   let curW = 0;
-  let taken = 0;
+  let taken = 0; // FIX 4 (#698): đếm điểm THỰC SỰ xếp — điểm bị drop (dồn-dư) trả lại budget để cụm sau vẫn được nhận.
+  // Đẩy `cur` thành 1 ngày. Còn slot ngày (days < restDays) → mở ngày mới. Hết slot (dồn dư) → dồn TỪNG điểm dư
+  // vào ngày GẦN NHẤT còn chỗ-weight (span gộp nhỏ nhất) — KHÔNG vào "ngày cuối" tuỳ tiện (locality-guard
+  // #698/#694: chống long-leg cross-region). Nếu ngày gần nhất vẫn > WIDE_DAY_KM:
+  //   • điểm GẦN tâm (home, dist≤WIDE_DAY_KM) → vẫn nhét (không bỏ khu trung tâm vì một outlier chiếm mất ngày);
+  //   • điểm XA tâm (outlier thật, master cho ngày riêng nhờ dư budget — ở đây hết) → bỏ + hoàn budget (FIX 4).
+  // Điểm-nặng không ngày nào nhận nổi weight cũng bỏ. Điểm bị bỏ → note ngoài công bố.
+  const flush = () => {
+    if (!cur.length) return;
+    if (days.length < restDays) { days.push(cur); cur = []; curW = 0; return; }
+    const dayW = (d: KbRecord[]) => d.reduce((s, q) => s + dayWeight(q), 0);
+    for (const p of cur) {
+      const w = dayWeight(p);
+      let best = -1, bestSpan = Infinity;
+      for (let i = 0; i < days.length; i++) {
+        if (dayW(days[i]) + w > 1 + 1e-9) continue;
+        const s = spanKm([...days[i], p].map(co));
+        if (s < bestSpan) { bestSpan = s; best = i; }
+      }
+      if (best >= 0 && bestSpan <= WIDE_DAY_KM) { days[best].push(p); continue; } // ngày gọn còn chỗ → nhét
+      if (anchorIds.has(p.id)) { if (best >= 0) days[best].push(p); else { dropped.push(p); taken -= 1; } continue; } // E1: anchor không bị bỏ vì xa
+      // Không ngày nào GẦN nhận được p. Nếu p GẦN tâm hơn một điểm XA (KHÔNG phải anchor) đã xếp mà thay nó cho p
+      // vào được ngày gọn (span≤WIDE_DAY_KM) → HOÁN (giữ điểm gần home, đẩy outlier xa ra + note): tránh outlier
+      // chiếm mất ngày của khu trung tâm. Không hoán được → p mới là outlier thật → bỏ p (+note). Cả hai: hoàn budget.
+      const dp = kmBetween(co(p), tam);
+      let swI = -1, swJ = -1, swSpan = Infinity;
+      for (let i = 0; i < days.length; i++)
+        for (let j = 0; j < days[i].length; j++) {
+          const q = days[i][j];
+          if (anchorIds.has(q.id) || kmBetween(co(q), tam) <= dp) continue; // KHÔNG đẩy anchor; chỉ đẩy điểm XA tâm hơn p
+          if (dayW(days[i]) - dayWeight(q) + w > 1 + 1e-9) continue;
+          const s = spanKm([...days[i].slice(0, j), ...days[i].slice(j + 1), p].map(co));
+          if (s <= WIDE_DAY_KM && s < swSpan) { swSpan = s; swI = i; swJ = j; }
+        }
+      if (swI >= 0) { dropped.push(days[swI].splice(swJ, 1)[0]); taken -= 1; days[swI].push(p); }
+      else { dropped.push(p); taken -= 1; }
+    }
+    cur = []; curW = 0;
+  };
   for (const reg of orderedRegs) {
     if (taken >= budget) break;
     // Cap TRƯỚC orderLoop: giữ điểm ưu tiên cao (anchor + score — reg.pts đã sort đầu-cụm), rồi TSP-sắp CHỈ tập
@@ -245,33 +306,23 @@ function packDays(store: Store, orderedRegs: Reg[], restDays: number, perDay: nu
     taken += pts.length;
     // Chia cụm thành BLOCK (region-atomic — không cắt xuyên biên cụm): mỗi block ≤ perDay điểm VÀ Σweight ≤ 1
     // (1 điểm-nặng + vài điểm-nhẹ). Điểm-đến toàn SHORT (w=0, đa số tp đô thị) → chỉ count-break = hệt cũ.
-    const blocks: KbRecord[][] = [];
+    // Lưu SẴN weight mỗi block (nit d #698) — khỏi reduce lại ở vòng gộp.
+    const blocks: { pts: KbRecord[]; w: number }[] = [];
     let b: KbRecord[] = [], bw = 0;
     for (const p of pts) {
       const w = dayWeight(p);
-      if (b.length && (b.length >= perDay || bw + w > 1 + 1e-9)) { blocks.push(b); b = []; bw = 0; }
+      if (b.length && (b.length >= perDay || bw + w > 1 + 1e-9)) { blocks.push({ pts: b, w: bw }); b = []; bw = 0; }
       b.push(p); bw += w;
     }
-    if (b.length) blocks.push(b);
-    for (const block of blocks) { // <= perDay + Σweight<=1, cùng khu
-      const bWeight = block.reduce((s, p) => s + dayWeight(p), 0);
-      if (cur.length && cur.length + block.length <= perDay && curW + bWeight <= 1 + 1e-9) { cur.push(...block); curW += bWeight; } // gộp khu nhỏ kề
-      else { if (cur.length) days.push(cur); cur = [...block]; curW = bWeight; }
-      if (cur.length >= perDay) { days.push(cur); cur = []; curW = 0; } // ngày đầy -> khu kế bắt đầu ngày mới
+    if (b.length) blocks.push({ pts: b, w: bw });
+    for (const { pts: block, w: bWeight } of blocks) { // <= perDay + Σweight<=1, cùng khu
+      // gộp khu nhỏ kề: đủ chỗ (count + Σweight) VÀ gần (locality-guard #698 — không gộp block cross-region xa)
+      if (cur.length && cur.length + block.length <= perDay && curW + bWeight <= 1 + 1e-9 && !crossFar(cur, block)) { cur.push(...block); curW += bWeight; }
+      else { flush(); cur = [...block]; curW = bWeight; }
+      if (cur.length >= perDay) flush(); // ngày đầy -> khu kế bắt đầu ngày mới
     }
   }
-  if (cur.length) days.push(cur);
-  // Dồn dư (khu kề đuôi) vào ngày trước — nhưng CHỈ khi weight cho phép (Σ≤1): điểm-nặng không nhồi được vào
-  // ngày đã đủ nặng → bỏ + note ngoài (giữ bất biến). w=0 hết → tw+0<=1 luôn đúng → dồn hết, hệt cũ.
-  while (days.length > restDays) {
-    const last = days.pop()!;
-    const target = days[days.length - 1];
-    let tw = target.reduce((s, p) => s + dayWeight(p), 0);
-    for (const p of last) {
-      const w = dayWeight(p);
-      if (tw + w <= 1 + 1e-9) { target.push(p); tw += w; } else dropped.push(p);
-    }
-  }
+  flush();
   return { days, dropped };
 }
 
@@ -470,7 +521,7 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
   // hành vi master (far-marquee giữ ngày riêng). Ngoại lệ khỏi gate: user anchor (khách chốt tường minh) +
   // sig-access (đảo/cáp treo, full-day logistics) — như cũ. r.fame < nearFameMax: chỉ chặn khi có flagship
   // gần XỨNG ĐÁNG hơn để nhường ngày cho (cụm far sprawl mà fame > mọi cụm gần thì vẫn là điểm nhấn, giữ).
-  const WIDE_DAY_KM = 25;
+  // (WIDE_DAY_KM = 25 hoisted lên module-scope để packDays locality-guard #698 dùng chung.)
   const farSprawlSteals = (r: Reg) =>
     !isUserAnchor(r) && r.fame < nearFameMax && spanKm(r.pts.map(co)) > WIDE_DAY_KM;
   const protCand = kept.filter((r) =>
@@ -513,21 +564,31 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
   const restOrdered = anchorKeys.size
     ? [...restMacro.filter((r) => anchorKeys.has(r.key)), ...restMacro.filter((r) => !anchorKeys.has(r.key))]
     : restMacro;
-  const packed = restDays > 0 ? packDays(store, restOrdered, restDays, perDay) : { days: [], dropped: [] }; // days===1 ngày-đảo: rest=0 ngày
+  const packed = restDays > 0 ? packDays(store, restOrdered, restDays, perDay, tam, anchorIds) : { days: [], dropped: [] }; // days===1 ngày-đảo: rest=0 ngày
   // protReg mỗi cụm = 1 ngày, cắt theo TRỌNG SỐ THỜI-LƯỢNG (Σ≤1): giữ 1 điểm-nặng đầu cụm (đã sort pin/fame)
   // + pebbles nhẹ; điểm-nặng thứ 2 cùng cụm (vd Ti Tốp + Sửng Sốt cùng ward) không nhồi chung ngày → drop+note.
   const protDropped: KbRecord[] = [];
   const protChunks: KbRecord[][] = [];
   for (const r of protReg) {
+    // FIX 1 (#698): user-anchor (khách CHỦ ĐỘNG chốt) tuyệt đối KHÔNG bị Σ-cut đẩy ra để nhường một marquee
+    // fame cao hơn CÙNG cụm — E1 force-include bất biến. r.pts sort pin-first→fame, nên marquee fame cao lọt
+    // TRƯỚC anchor rồi lấp Σ=1 → anchor rớt. Nhấc user-anchor lên đầu (stable, giữ thứ tự fame trong mỗi bậc)
+    // để anchor chiếm slot trước; marquee thua slot bị drop thay (KHÔNG reintro Σ>1). Cụm không anchor: giữ y cũ.
+    const ordered = anchorIds.size
+      ? [...r.pts].sort((a, b) => Number(anchorIds.has(b.id)) - Number(anchorIds.has(a.id)))
+      : r.pts;
     const day: KbRecord[] = []; let w = 0;
-    for (const p of r.pts) {
+    for (const p of ordered) {
       const pw = dayWeight(p);
       if (day.length && w + pw > 1 + 1e-9) { protDropped.push(p); continue; }
       day.push(p); w += pw;
     }
     if (day.length) protChunks.push(day);
   }
-  const allDropped = [...packed.dropped, ...protDropped].filter((p) => dayWeight(p) > 0); // chỉ note điểm-nặng bị bỏ
+  // Note điểm-nặng bị bỏ (cần trọn ngày riêng) VÀ marquee/anchor bị bỏ do locality-guard (#698): điểm biểu-
+  // tượng xa mà ngày gần nhất >WIDE_DAY_KM → không nhét được nếu KHÔNG tạo ngày-rộng (mega-tỉnh sáp nhập nhiều
+  // điểm xa hơn số ngày) → công bố để khách biết (không âm thầm bỏ), thay vì cram vào ngày zig-zag.
+  const allDropped = [...packed.dropped, ...protDropped].filter((p) => dayWeight(p) > 0 || pinIds.has(p.id));
   if (allDropped.length)
     notes.push(`${allDropped.slice(0, 3).map((p) => p.name).join(", ")}${allDropped.length > 3 ? ` +${allDropped.length - 3} điểm` : ""} — cần trọn ngày riêng, chưa xếp đủ; chọn thêm ngày để có trong lịch.`);
   // PR-B (placement): XEN ngày-anchor (protChunk = flagship trọn-ngày) với ngày rest thay vì dồn CUỐI —
@@ -601,7 +662,9 @@ export function buildItinerary(req: TripRequest, store?: Store): Itinerary {
     // PR-B: điểm NẶNG nhất (trọn-ngày) → buổi SÁNG (năng lượng cao, tránh dồn điểm mệt vào chiều). orderLoop
     // là vòng kín (về khách sạn) nên đảo chiều giữ NGUYÊN chi phí tuyến. Chỉ đảo khi điểm nặng nhất rơi nửa
     // sau. Đô thị toàn SHORT (w=0) → điểm nặng nhất = phần tử đầu (reduce lấy max đầu tiên), index 0 < m → no-op.
-    if (ordered.length > 1) {
+    // FIX 3 (#698): reverse chỉ giữ chi phí khi orderLoop trả VÒNG KÍN (≤6 điểm brute-force). >6 orderLoop trả
+    // ĐƯỜNG HỞ (nearest-neighbor) — reverse sẽ đảo lộn tuyến hở; để nguyên thứ tự NN (không reverse).
+    if (ordered.length > 1 && ordered.length <= 6) {
       const heavy = ordered.reduce((a, r, i) => (dayWeight(r) > a.w ? { w: dayWeight(r), i } : a), { w: dayWeight(ordered[0]), i: 0 });
       if (heavy.i >= m) ordered = [...ordered].reverse();
     }
