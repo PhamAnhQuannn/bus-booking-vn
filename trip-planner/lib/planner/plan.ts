@@ -594,7 +594,10 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
     const day: KbRecord[] = []; let w = 0;
     for (const p of ordered) {
       const pw = dayWeight(p);
-      if (day.length && w + pw > 1 + 1e-9) { spillQueue.push(p); continue; }
+      // Σweight-cap (điểm-nặng dư) HOẶC perDay-cap (dư SỐ điểm — fix mega-day 27-33 stop): điểm-nặng còn-lại
+      // → spillQueue (thử own-day riêng); điểm NHẸ (SHORT w=0) dư count → protDropped (drop+note khi pinned),
+      // KHÔNG nhồi spillQueue để mech-1/2 khỏi re-place SHORT (comment L121 "perDay lo SHORT" giờ đúng cả protReg).
+      if (day.length && (w + pw > 1 + 1e-9 || day.length >= perDay)) { (pw > 0 ? spillQueue : protDropped).push(p); continue; }
       day.push(p); w += pw;
     }
     if (day.length) protChunks.push(day);
@@ -628,7 +631,7 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
       // điểm ưu tiên cao hơn. Xoá item đã đặt khỏi mảng sống theo IDENTITY (indexOf) — head vẫn là findIndex-first.
       for (const q of [...spillQueue]) {
         const pw = dayWeight(q);
-        if (cw + pw <= 1 + 1e-9 && !crossFar(chunk, [q]) && !isTwin(q)) {
+        if (cw + pw <= 1 + 1e-9 && chunk.length < perDay && !crossFar(chunk, [q]) && !isTwin(q)) {
           chunk.push(q); cw += pw; addPlaced(q); const j = spillQueue.indexOf(q); if (j >= 0) spillQueue.splice(j, 1);
         }
       }
@@ -646,6 +649,7 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
       const pw = dayWeight(p);
       let best = -1, bestSpan = Infinity;
       for (let i = 0; i < packed.days.length; i++) {
+        if (packed.days[i].length >= perDay) continue; // perDay-cap: KHÔNG nhồi quá nhịp vào ngày rest
         const dw = packed.days[i].reduce((s, q) => s + dayWeight(q), 0);
         if (dw + pw > 1 + 1e-9) continue;
         const s = spanKm([...packed.days[i], p].map(co));
