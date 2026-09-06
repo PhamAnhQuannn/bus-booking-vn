@@ -368,14 +368,18 @@ function clusterByCoord(pts: KbRecord[]): KbRecord[][] {
 // Neo khoảng cách vào SEED CỐ ĐỊNH (không centroid trôi -> chống chaining single-linkage): duyệt cụm
 // theo distToSeed tăng dần, DỪNG ở cụm đầu tiên "nhảy cụm" -> mọi cụm xa hơn đều LOẠI (compactness
 // thắng coverage — không kéo vào cho đủ số). Tất định. Trả kept (giữ) + dropped (loại-note).
-function growCompact(regs: Reg[], anchorKeys: Set<string>): { kept: Reg[]; dropped: Reg[] } {
+function growCompact(regs: Reg[], anchorKeys: Set<string>, fameCurated: boolean): { kept: Reg[]; dropped: Reg[] } {
   if (regs.length <= 1) return { kept: regs, dropped: [] };
   const sorted = [...regs].sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
   // Ứng viên seed = cụm ở nửa GẦN TÂM (distTam ≤ trung vị) để blob ngoại vi mass-lớn không chiếm seed —
   // NHƯNG cụm có FAME (khớp signatureSpots) luôn được vào pool dù xa, để tỉnh mega sáp nhập seed đúng khu
   // du lịch nổi tiếng cách tỉnh-lỵ >trung-vị (vd tuyen-quang -> Hà Giang). Blob ngoại vi fame=0 vẫn bị loại.
   const medTam = median(sorted.map((r) => r.distTam));
-  const seedPool = sorted.filter((r) => r.distTam <= medTam || r.fame > 0);
+  // fame bypass distTam-filter CHỈ khi fame là CURATED (hand-list signatureSpots) — hand-list fame đáng tin
+  // để seed đúng khu du lịch xa tỉnh-lỵ. Với slug AUTO (không hand-list), fame = raw destRank rank thô, KHÔNG
+  // được kéo seed ra xa (outlier importance-cao gap-stop lõi trung tâm — vd ha-noi cũ → Ba Vì). Far marquee
+  // vẫn force-keep qua anchorKeys, chỉ SEED phải ở gần tâm. (QA finding: seed guard cho 15 auto slug.)
+  const seedPool = sorted.filter((r) => r.distTam <= medTam || (r.fame > 0 && fameCurated));
   let seed = seedPool[0];
   for (const r of seedPool) {
     const better =
@@ -504,7 +508,7 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
 
   // A1/A2/A4/A5: chọn cụm COMPACT quanh seed TRƯỚC; cụm xa (nhảy cụm) bị LOẠI (compactness thắng coverage).
   // Anchor (nếu có) force-keep — không bị loại.
-  const { kept, dropped } = growCompact(regs, anchorKeys);
+  const { kept, dropped } = growCompact(regs, anchorKeys, fameSpots.length > 0);
   for (const r of dropped)
     notes.push(`${r.pts[0].name}${r.card > 1 ? ` +${r.card - 1} điểm` : ""} (cụm cách trung tâm ~${Math.round(r.distTam)}km) — ngoài vùng thuận tiện, chưa đưa vào lịch.`);
 
