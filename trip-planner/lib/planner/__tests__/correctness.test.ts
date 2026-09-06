@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { nights } from '../labels';
 import { requestFromParams, toURLSearchParams } from '../fromParams';
 import { buildItinerary } from '../plan';
-import type { Store } from '../store';
+import { haversine, type Store } from '../store';
 import type { KbRecord, TripRequest } from '../types';
 
 describe('nights() — clamp >= 0 (#529)', () => {
@@ -538,5 +538,438 @@ describe('buildItinerary — far fame-7 marquee GIỮ ngày riêng khi đủ ng�
     expect(mixed).toBe(false);
     // KHÔNG bị sprawl-gate: KHÔNG có note gợi "3+ ngày" cho cụm này (đó là note của gatedFar)
     expect(it.notes.some((n) => n.includes('Đồi Chè') && n.includes('3+ ngày'))).toBe(false);
+  });
+});
+
+// FIX 1 (#698): protChunk Σweight-cut KHÔNG được đẩy một USER ANCHOR (req.anchors) ra để nhường điểm marquee
+// fame cao hơn CÙNG cụm own-day. r.pts sort pin-first→fame → marquee lấp Σ=1 TRƯỚC, anchor (fame thấp) rớt.
+// Fix nhấc user-anchor lên đầu → anchor chiếm slot, marquee thua bị bỏ (KHÔNG reintro Σ>1). E1 bất biến.
+describe('buildItinerary — user anchor trong cụm own-day nặng KHÔNG bị Σ-cut đẩy ra cho marquee (FIX 1 #698)', () => {
+  const near = (id: string, lat: number, lon: number): KbRecord => ({
+    id, name: `Gần ${id}`, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `số 1, Phường Trung Tâm, thành phố Hà Nội` }, description: { value: 'x' },
+  });
+  // Cụm XA (own-day protReg): marquee FULL (auto-marquee top-K, importance cao) + user-anchor FULL (importance
+  // thấp, ngoài top-K) CÙNG ward. Cần cụm GIỮA (~7km) để median thấp → cụm xa isFar → protReg. Lõi = seed.
+  const marq: KbRecord = { id: 'MARQ', name: 'Khu vui chơi Xa', region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: 21.40, longitude: 105.85 },
+    address: { full_address: `số 1, Phường Xa, thành phố Hà Nội` }, description: { value: 'x' },
+    category: { primary: 'Khu vui chơi' } }; // FULL
+  const anc: KbRecord = { id: 'ANC', name: 'Công viên nước Khách Chọn', region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: 21.401, longitude: 105.851 },
+    address: { full_address: `số 1, Phường Xa, thành phố Hà Nội` }, description: { value: 'x' },
+    category: { primary: 'Khu vui chơi' } }; // FULL, cùng ward marquee
+  const store: Store = {
+    slug: 'ha-noi', generatedAt: '2026-01-01', tam: { lat: 21.03, lon: 105.85 },
+    destinations: [ // importance order: near A idx0 (lõi=seed), MARQ idx1 (auto-marquee), near B/C idx2/3, mid idx4, ANC idx5 (ngoài top-K)
+      near('A', 21.031, 105.851), marq, near('B', 21.029, 105.852), near('C', 21.032, 105.849),
+      { id: 'M1', name: 'Gần M1', region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+        coordinates: { latitude: 21.075, longitude: 105.850 },
+        address: { full_address: `số 1, Phường Giữa, thành phố Hà Nội` }, description: { value: 'x' } } as KbRecord,
+      anc,
+    ],
+    restaurants: [], hotels: [near('H1', 21.030, 105.850)],
+    matrix: null, matrixIndex: new Map(),
+  };
+  const req = (anchors?: string[]): TripRequest => ({ slug: 'ha-noi', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate', ...(anchors ? { anchors } : {}) });
+
+  it('KHÔNG anchor: điểm ANC (fame thấp) bị Σ-cut bỏ, marquee thắng own-day (baseline chứng minh cơ chế)', () => {
+    const names = buildItinerary(req(), store).days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).toContain('Khu vui chơi Xa');           // marquee thắng slot own-day
+    expect(names).not.toContain('Công viên nước Khách Chọn'); // ANC (chưa anchor) bị Σ-cut bỏ
+  });
+
+  it('CÓ anchor: user-anchor ANC được GIỮ (E1); marquee thua slot bị bỏ thay — Σ vẫn ≤1', () => {
+    const it = buildItinerary(req(['ANC']), store);
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).toContain('Công viên nước Khách Chọn'); // anchor KHÔNG bị đẩy ra (fix)
+    expect(names).toContain('Gần A');                     // lõi trung tâm vẫn còn
+    // KHÔNG cram: KHÔNG ngày nào chứa cả ANC lẫn MARQ (2 FULL) — giữ bất biến Σweight≤1
+    const cram = it.days.some((d) => {
+      const nm = d.items.map((i) => i.name);
+      return nm.includes('Công viên nước Khách Chọn') && nm.includes('Khu vui chơi Xa');
+    });
+    expect(cram).toBe(false);
+  });
+});
+
+// FIX 2 (#698): weight-carve giải phóng slot ngày; back-fill/dồn-dư của packDays KHÔNG được kéo điểm/cụm XA
+// (cross-region) vào chung một ngày (locality-guard) → không tạo ngày span >25km. Ở đây 2 user-anchor xa NGƯỢC
+// hướng (~30km mỗi bên, cách nhau ~62km): master cram cả hai vào 1 ngày (62km zig-zag); guard tách riêng.
+describe('buildItinerary — locality guard: điểm XA cross-region KHÔNG bị dồn chung ngày (>25km) (FIX 2 #698)', () => {
+  const dLat = (km: number) => km / 111;
+  const dLon = (km: number) => km / 109.4;
+  const P = (id: string, name: string, latkm: number, lonkm: number, ward: string, cat?: string): KbRecord => ({
+    id, name, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: 10.0 + dLat(latkm), longitude: 105.0 + dLon(lonkm) },
+    address: { full_address: `số 1, ${ward}, tỉnh Cà Mau` }, description: { value: 'x' },
+    ...(cat ? { category: { primary: cat } } : {}),
+  });
+  // Lõi trung tâm (2 FULL → Σw carve giải phóng slot) + 2 anchor XA ngược hướng (đông ~32km / tây ~30km).
+  const store: Store = {
+    slug: 'da-lat', generatedAt: '2026-01-01', tam: { lat: 10.0, lon: 105.0 },
+    destinations: [
+      P('F1', 'Khu vui chơi Một', 0, 0, 'Phường Lõi', 'Khu vui chơi'),
+      P('F2', 'Khu vui chơi Hai', 0, 0.3, 'Phường Lõi', 'Khu vui chơi'),
+      P('S1', 'Chùa Lõi', 0, 0.5, 'Phường Lõi'),
+      P('AE', 'Nhà thờ Đông', 0, 32, 'Phường Đông'),
+      P('AW', 'Đền Tây', 0, -30, 'Phường Tây'),
+    ],
+    restaurants: [], hotels: [P('H', 'KS', 0, 0.3, 'Phường Lõi')],
+    matrix: null, matrixIndex: new Map(),
+  };
+  const req: TripRequest = { slug: 'da-lat', days: 3, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate', anchors: ['AE', 'AW'] };
+
+  const daySpanKm = (items: { lat?: number | null; lon?: number | null }[]): number => {
+    const pts = items.filter((i) => i.lat != null && i.lon != null) as { lat: number; lon: number }[];
+    let m = 0;
+    for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++)
+      m = Math.max(m, haversine(pts[i].lat, pts[i].lon, pts[j].lat, pts[j].lon) / 1000);
+    return m;
+  };
+
+  it('KHÔNG ngày nào span >25km (điểm xa đông/tây KHÔNG bị dồn chung ngày như master)', () => {
+    const it = buildItinerary(req, store);
+    for (const d of it.days) expect(daySpanKm(d.items)).toBeLessThanOrEqual(25);
+  });
+
+  it('cả hai anchor XA vẫn có trong lịch (E1) nhưng ở HAI ngày khác nhau (không back-fill chung)', () => {
+    const it = buildItinerary(req, store);
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).toContain('Nhà thờ Đông');
+    expect(names).toContain('Đền Tây');
+    const together = it.days.some((d) => {
+      const nm = d.items.map((i) => i.name);
+      return nm.includes('Nhà thờ Đông') && nm.includes('Đền Tây');
+    });
+    expect(together).toBe(false); // KHÔNG cùng ngày (master dồn 62km — guard tách)
+  });
+});
+
+// FIX 1 round-2 (#698): dồn-dư của packDays buộc-đặt một USER ANCHOR (E1 — không được drop) vào ngày span
+// > WIDE_DAY_KM khi restDays=1 (một protReg sig-access đã chiếm 1 ngày) và có 2 anchor xa nhau ~30km. Trước
+// đây chỉ nhánh KHÔNG-anchor kiểm span; anchor lọt vào ngày rộng KHÔNG có note (notes=[]). Fix: VẪN giữ anchor
+// nhưng công bố chặng dài. Test: cả 2 anchor có trong lịch VÀ một note "chặng di chuyển dài" xuất hiện.
+describe('buildItinerary — anchor buộc-đặt vào ngày rộng (restDays=1) phát note chặng dài (FIX 1 RC#2 #698)', () => {
+  const dLon = (km: number) => km / 109.4;
+  const near = (id: string, lat: number, lon: number, ward: string): KbRecord => ({
+    id, name: `Gần ${id}`, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `số 1, ${ward}, tỉnh Lâm Đồng` }, description: { value: 'x' },
+  });
+  // slug 'da-lat' (có signatureSpots → auto-marquee TẮT); marquee CHỈ từ sig-access. Tên dưới không khớp sig da-lat.
+  // SIG (sig-access) ~10km bắc → protReg own-day (days=2, cap=1) → restDays=1. Hai user-anchor ~15km đông/tây
+  // (cách nhau ~30km) → cùng bị dồn vào ngày rest duy nhất → span ~30km > 25km → anchor buộc-đặt + note.
+  const sig: KbRecord = {
+    id: 'SIG', name: 'Khu cáp treo Bắc', region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: 10.09, longitude: 105.0 },
+    address: { full_address: `số 1, Phường Đảo, tỉnh Lâm Đồng` }, description: { value: 'x' },
+    ext: { destination: { loi_vao_dac_trung: 'có cáp treo vượt biển ra đảo' } },
+  };
+  const aE: KbRecord = { id: 'AE', name: 'Nhà thờ Đông', region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: 10.0, longitude: 105.0 + dLon(15) },
+    address: { full_address: `số 1, Phường Đông, tỉnh Lâm Đồng` }, description: { value: 'x' } };
+  const aW: KbRecord = { id: 'AW', name: 'Đền Tây', region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: 10.0, longitude: 105.0 - dLon(15) },
+    address: { full_address: `số 1, Phường Tây, tỉnh Lâm Đồng` }, description: { value: 'x' } };
+  const store: Store = {
+    slug: 'da-lat', generatedAt: '2026-01-01', tam: { lat: 10.0, lon: 105.0 },
+    destinations: [sig, aE, aW],
+    restaurants: [], hotels: [near('H', 10.0, 105.0, 'Phường Đảo')],
+    matrix: null, matrixIndex: new Map(),
+  };
+  const req: TripRequest = { slug: 'da-lat', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate', anchors: ['AE', 'AW'] };
+
+  it('cả hai anchor XA vẫn có trong lịch (E1) VÀ có note công bố chặng dài (không âm thầm)', () => {
+    const it = buildItinerary(req, store);
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).toContain('Nhà thờ Đông'); // anchor giữ (E1)
+    expect(names).toContain('Đền Tây');       // anchor giữ (E1)
+    expect(it.notes.some((n) => n.includes('chặng di chuyển dài'))).toBe(true); // FIX 1: long-leg được công bố
+  });
+});
+
+// FIX 2 round-2 (#698): note "chọn thêm ngày" của allDropped KHÔNG được liệt kê một record bị drop mà một
+// BẢN SAO CÙNG TÊN đã xếp ở nơi khác trong lịch (KB có record trùng tên FULL+HALF, vd VQG Tam Đảo). Bản FULL
+// (sig-access) chiếm own-day; bản HALF trùng tên bị Σ-cut drop — nhưng địa danh ĐÃ có trong lịch nên note "chưa
+// xếp đủ" là SAI. Fix: dedupe tầng note theo foldText tên đã-xếp. (KHÔNG đụng dữ liệu KB.)
+describe('buildItinerary — note drop dedupe: record trùng tên đã-xếp KHÔNG vào note (FIX 2 RC#2 #698)', () => {
+  const near = (id: string, lat: number, lon: number, ward: string): KbRecord => ({
+    id, name: `Gần ${id}`, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `số 1, ${ward}, tỉnh Vĩnh Phúc` }, description: { value: 'x' },
+  });
+  // Hai record CÙNG TÊN 'Vườn quốc gia Tam Đảo' cùng ward → 1 cụm own-day (sig-access). FULL (sig-access, pin
+  // đầu) xếp; HALF (category thác, w=0.5) Σ-cut drop. Bản FULL đã trong lịch → note KHÔNG được nhắc tên này.
+  const twinFull: KbRecord = {
+    id: 'TF', name: 'Vườn quốc gia Tam Đảo', region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: 10.10, longitude: 105.0 },
+    address: { full_address: `số 1, Phường Đảo, tỉnh Vĩnh Phúc` }, description: { value: 'x' },
+    ext: { destination: { loi_vao_dac_trung: 'có cáp treo lên đỉnh' } }, // sig-access → FULL + marquee
+  };
+  const twinHalf: KbRecord = {
+    id: 'TH', name: 'Vườn quốc gia Tam Đảo', region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: 10.101, longitude: 105.001 },
+    address: { full_address: `số 2, Phường Đảo, tỉnh Vĩnh Phúc` }, description: { value: 'x' },
+    category: { primary: 'Thác' }, // HALF (w=0.5)
+  };
+  const store: Store = {
+    slug: 'vinh-phuc', generatedAt: '2026-01-01', tam: { lat: 10.0, lon: 105.0 },
+    destinations: [twinFull, twinHalf, near('N1', 10.0, 105.0, 'Phường Lõi'), near('N2', 10.001, 105.001, 'Phường Lõi'), near('N3', 9.999, 105.0, 'Phường Lõi')],
+    restaurants: [], hotels: [near('H', 10.0, 105.0, 'Phường Lõi')],
+    matrix: null, matrixIndex: new Map(),
+  };
+  const req: TripRequest = { slug: 'vinh-phuc', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+
+  it('bản HALF trùng tên bị drop KHÔNG vào note "cần trọn ngày riêng" vì bản FULL đã có trong lịch', () => {
+    const it = buildItinerary(req, store);
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).toContain('Vườn quốc gia Tam Đảo'); // địa danh CÓ trong lịch (bản FULL)
+    // note "chưa xếp đủ; chọn thêm ngày" KHÔNG được liệt kê tên này (twin đã-xếp) → không có note sai
+    expect(it.notes.some((n) => n.includes('Vườn quốc gia Tam Đảo') && n.includes('cần trọn ngày riêng'))).toBe(false);
+  });
+});
+
+// FIX 1 round-3 (#698): CÔNG BỐ per-day PHỔ QUÁT. Một Reg ward-less (rơi về region_id) span ~40km, days=1,
+// một user anchor → nhánh đặt-chính (days.push) ship CẢ CỤM thành MỘT ngày span >25km. Trước round-3, chỉ
+// nhánh dồn-dư overflow kiểm span → ngày này ship ÂM THẦM (notes=[], zero disclosure). Fix: sau khi ráp
+// xong, mỗi ngày span > WIDE_DAY_KM phát ĐÚNG 1 note chặng dài. Đặt điểm KHÔNG đổi (mọi điểm vẫn có mặt).
+describe('buildItinerary — wide-day disclosure phổ quát: single-Reg ~40km ward-less days=1 (FIX 1 RC#3 #698)', () => {
+  // KHÔNG full_address → adminKey null → gom theo region_id 'r' = MỘT cụm. 3 điểm trải ~40km đông-tây.
+  const noWard = (id: string, lat: number, lon: number): KbRecord => ({
+    id, name: `Điểm ${id}`, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon }, description: { value: 'x' },
+  });
+  const store: Store = {
+    slug: 'ca-mau', generatedAt: '2026-01-01', tam: { lat: 10.0, lon: 105.18 },
+    destinations: [
+      noWard('D1', 10.0, 105.0),    // anchor (khách chốt)
+      noWard('D2', 10.0, 105.18),   // ~19.7km đông
+      noWard('D3', 10.0, 105.36),   // ~39.4km đông từ D1 → span cụm >25km
+    ],
+    restaurants: [], hotels: [noWard('H', 10.0, 105.18)],
+    matrix: null, matrixIndex: new Map(),
+  };
+  const req: TripRequest = { slug: 'ca-mau', days: 1, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate', anchors: ['D1'] };
+
+  it('cả 3 điểm được xếp (nhánh đặt-chính) VÀ phát note chặng dài cho ngày rộng (không còn âm thầm)', () => {
+    const it = buildItinerary(req, store);
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).toContain('Điểm D1'); // anchor giữ
+    expect(names).toContain('Điểm D2');
+    expect(names).toContain('Điểm D3');
+    const wideNote = it.notes.find((n) => n.includes('chặng di chuyển dài'));
+    expect(wideNote).toBeDefined(); // FIX 1 RC#3: ngày rộng ĐƯỢC công bố
+    // Round-4: note nêu ĐÚNG cặp endpoint tạo span (D1↔D3 ~39km), KHÔNG phải điểm xếp đầu; D2 (điểm giữa) không là endpoint.
+    expect(wideNote).toContain('Điểm D1');
+    expect(wideNote).toContain('Điểm D3');
+    expect(wideNote).toContain('~39km'); // giữ figure km
+    expect(wideNote).not.toContain('Điểm D2');
+  });
+});
+
+// FIX 2 round-3 (#698): note-dedupe PROXIMITY-SCOPED. Một record bị drop trùng TÊN với một record đã-xếp
+// nhưng CÁCH XA >2km = địa danh KHÁC (tên loại-hình chung: chợ/đình/miếu/đền…) → drop-note VẪN phải phát
+// (không bị nuốt oan). Trước round-3, dedupe chỉ khớp tên → note biến mất (SAI). Fix: chỉ nuốt khi twin <2km.
+describe('buildItinerary — note-dedupe proximity: twin đã-xếp XA (>2km) KHÔNG nuốt drop-note (FIX 2 RC#3 #698)', () => {
+  const dLon = (km: number) => km / 109.4;
+  const core = (id: string, lat: number, lon: number, ward: string, name?: string): KbRecord => ({
+    id, name: name ?? `Gần ${id}`, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `số 1, ${ward}, tỉnh Khánh Hòa` }, description: { value: 'x' },
+  });
+  // Cụm XA own-day (sig-access) chiếm 1 ngày (days=2 → cap=1 → restDays=1). Trong cụm này có sig-access FULL
+  // (pin, xếp) + "Đền Voi Phục" FULL trùng tên nhưng Σ-cut DROP. Bản "Đền Voi Phục" GẦN tâm (khác địa danh,
+  // ~30km từ cụm xa) đã xếp ở ngày rest. Cũ: khớp tên → nuốt note. Mới: twin cách >2km → drop-note vẫn phát.
+  const sig: KbRecord = {
+    id: 'SIG', name: 'Khu cáp treo Xa', region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: 10.0, longitude: 105.0 + dLon(30) }, // ~30km đông
+    address: { full_address: `số 1, Phường Xa, tỉnh Khánh Hòa` }, description: { value: 'x' },
+    ext: { destination: { loi_vao_dac_trung: 'có cáp treo vượt biển ra đảo' } }, // sig-access → FULL + marquee
+  };
+  const voiFar: KbRecord = { // trùng tên bản GẦN, nhưng ở cụm XA → Σ-cut drop (sau sig-access FULL)
+    id: 'VF', name: 'Đền Voi Phục', region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: 10.001, longitude: 105.0 + dLon(30) }, // cùng ward Xa, cạnh sig
+    address: { full_address: `số 2, Phường Xa, tỉnh Khánh Hòa` }, description: { value: 'x' },
+    category: { primary: 'Khu du lịch giải trí (vui chơi trả phí)' }, // FULL (w=1)
+  };
+  const store: Store = {
+    slug: 'nha-trang', generatedAt: '2026-01-01', tam: { lat: 10.0, lon: 105.0 },
+    destinations: [
+      core('C1', 10.0, 105.0, 'Phường Lõi', 'Đền Voi Phục'), // bản GẦN tâm — xếp ở ngày rest
+      core('C2', 10.001, 105.001, 'Phường Lõi'), core('C3', 9.999, 105.0, 'Phường Lõi'),
+      sig, voiFar,
+    ],
+    restaurants: [], hotels: [core('H', 10.0, 105.0, 'Phường Lõi')],
+    matrix: null, matrixIndex: new Map(),
+  };
+  const req: TripRequest = { slug: 'nha-trang', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+
+  it('bản "Đền Voi Phục" bị drop ở cụm xa VẪN vào note (twin đã-xếp cách >2km = địa danh khác)', () => {
+    const it = buildItinerary(req, store);
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).toContain('Đền Voi Phục'); // bản GẦN xếp trong lịch
+    // drop-note KHÔNG bị nuốt: twin xếp cách ~30km (>2km) → note "cần trọn ngày riêng" VẪN nhắc tên
+    expect(it.notes.some((n) => n.includes('Đền Voi Phục') && n.includes('cần trọn ngày riêng'))).toBe(true);
+  });
+});
+
+describe('buildItinerary — spill: flagship thứ 2 cùng ward nhận OWN-DAY khi còn ngày dư (FIX #698 R5)', () => {
+  // Hai đảo sig-access (w=1) CÙNG ward "Phường Đảo" (một cụm), khác tên, cách ~4.4km (>2km → KHÔNG twin).
+  // protReg dựng 1 ngày CHÍNH (giữ 1 đảo, Σ=1); đảo thứ 2 dư Σ-cut. days=7, rest chỉ vài điểm nhẹ → packDays
+  // dùng ~1 ngày, còn NHIỀU slot trống → Cơ chế 1 cấp đảo thứ 2 một OWN-DAY (không drop, không note "chọn thêm ngày").
+  const islandA: KbRecord = {
+    id: 'ISA', name: 'Đảo Hòn Thứ Nhất', region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: 12.20, longitude: 109.25 },
+    address: { full_address: `số 1, Phường Đảo, tỉnh Khánh Hòa` }, description: { value: 'x' },
+    ext: { destination: { loi_vao_dac_trung: 'có cáp treo vượt biển ra đảo' } },
+  };
+  const islandB: KbRecord = {
+    id: 'ISB', name: 'Đảo Hòn Thứ Hai', region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: 12.24, longitude: 109.25 }, // ~4.4km bắc của ISA, cùng ward
+    address: { full_address: `số 2, Phường Đảo, tỉnh Khánh Hòa` }, description: { value: 'x' },
+    ext: { destination: { loi_vao_dac_trung: 'tàu cao tốc ra đảo' } },
+  };
+  const light = (id: string, lat: number, lon: number): KbRecord => ({
+    id, name: `Điểm nhẹ ${id}`, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `số 9, Phường Trung, tỉnh Khánh Hòa` }, description: { value: 'x' },
+  });
+  const store: Store = {
+    slug: 'nha-trang', generatedAt: '2026-01-01', tam: { lat: 12.25, lon: 109.19 },
+    destinations: [islandA, islandB, light('L1', 12.25, 109.19), light('L2', 12.26, 109.19)],
+    restaurants: [], hotels: [light('H', 12.25, 109.19)], matrix: null, matrixIndex: new Map(),
+  };
+  const req: TripRequest = { slug: 'nha-trang', days: 7, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+
+  it('cả hai đảo có mặt, MỖI đảo một ngày riêng, KHÔNG note "chọn thêm ngày"', () => {
+    const it = buildItinerary(req, store);
+    const dayOf = (name: string) => it.days.findIndex((d) => d.items.some((i) => i.name === name));
+    const aDay = dayOf('Đảo Hòn Thứ Nhất'), bDay = dayOf('Đảo Hòn Thứ Hai');
+    expect(aDay).toBeGreaterThanOrEqual(0); // đảo 1 có trong lịch
+    expect(bDay).toBeGreaterThanOrEqual(0); // đảo 2 (spill) cũng có trong lịch
+    expect(aDay).not.toBe(bDay); // MỖI đảo một ngày riêng (hai đảo w=1 KHÔNG chung ngày → Σweight≤1)
+    // không còn false-drop → không note "chọn thêm ngày để có trong lịch"
+    expect(it.notes.some((n) => n.includes('chọn thêm ngày'))).toBe(false);
+    // không đảo nào bị nhồi chung ngày với đảo kia (mỗi ngày ≤ 1 đảo sig-access)
+    for (const d of it.days) {
+      const islands = d.items.filter((i) => i.name === 'Đảo Hòn Thứ Nhất' || i.name === 'Đảo Hòn Thứ Hai');
+      expect(islands.length).toBeLessThanOrEqual(1);
+    }
+  });
+});
+
+// FIX (#698 R6): cơ chế 2 (nhét dư vào ngày rest sẵn có) PHẢI duyệt spillQueue theo THỨ TỰ ƯU TIÊN (forward).
+// Trước đây duyệt REVERSE (length-1 downTo 0) → khi chỉ CÒN 1 slot rest-day, item ưu-tiên-THẤP-nhất giành slot,
+// flagship ưu-tiên-cao rớt oan. Fixture: 3 đảo sig-access (w=1) CÙNG ward → protReg 1 own-day giữ đảo cao nhất,
+// 2 đảo dư spill. days=2 → cap=1 (mechanism 1 own-day bị chặn), restDays=1 = 1 ngày lights (dw=0) nhận ĐÚNG 1
+// điểm-nặng → hai đảo dư tranh 1 slot. Ưu tiên = HIGH>MID>LOW theo importance rank (thứ tự mảng destinations).
+describe('buildItinerary — spill cơ chế 2 nhường rest-day headroom theo ưu tiên (flagship trước) (FIX #698 R6)', () => {
+  const island = (id: string, lat: number, access: string): KbRecord => ({
+    id, name: `Đảo ${id}`, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: 109.25 },
+    address: { full_address: `số 1, Phường Đảo, tỉnh Khánh Hòa` }, description: { value: 'x' },
+    ext: { destination: { loi_vao_dac_trung: access } },
+  });
+  const light = (id: string, lat: number, lon: number): KbRecord => ({
+    id, name: `Điểm nhẹ ${id}`, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `số 9, Phường Trung, tỉnh Khánh Hòa` }, description: { value: 'x' },
+  });
+  // Thứ tự mảng = importance rank: HIGH (0) > MID (1) > LOW (2). Cả 3 sig-access (pin ngang) → within-cluster
+  // sort rơi về impBonus(destRank) → HIGH giữ own-day, spillQueue=[MID, LOW]; forward → MID giành slot, LOW rớt.
+  const iHigh = island('HIGH', 12.20, 'cáp treo vượt biển ra đảo');
+  const iMid = island('MID', 12.21, 'tàu cao tốc ra đảo');
+  const iLow = island('LOW', 12.22, 'tàu gỗ ra đảo');
+  const store: Store = {
+    slug: 'test-comp-spill', generatedAt: '2026-01-01', tam: { lat: 12.22, lon: 109.20 },
+    destinations: [iHigh, iMid, iLow, light('L1', 12.22, 109.20), light('L2', 12.23, 109.20)],
+    restaurants: [], hotels: [light('H', 12.22, 109.20)], matrix: null, matrixIndex: new Map(),
+  };
+  const req: TripRequest = { slug: 'test-comp-spill', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+
+  it('đảo ưu-tiên-cao (MID) giành slot rest-day duy nhất; đảo ưu-tiên-thấp (LOW) rớt + note', () => {
+    const it = buildItinerary(req, store);
+    const has = (name: string) => it.days.some((d) => d.items.some((i) => i.name === name));
+    expect(has('Đảo HIGH')).toBe(true);  // giữ own-day (protReg)
+    expect(has('Đảo MID')).toBe(true);   // spill ưu-tiên-CAO thắng slot rest-day (forward iteration)
+    expect(has('Đảo LOW')).toBe(false);  // spill ưu-tiên-THẤP rớt (reverse cũ sẽ giữ LOW, bỏ MID → sai)
+    // LOW được công bố trung thực (không âm thầm bỏ)
+    expect(it.notes.some((n) => n.includes('Đảo LOW'))).toBe(true);
+    // KHÔNG ngày nào có 2 đảo (Σweight≤1 giữ nguyên)
+    for (const d of it.days) {
+      const isl = d.items.filter((i) => i.name.startsWith('Đảo '));
+      expect(isl.length).toBeLessThanOrEqual(1);
+    }
+  });
+});
+
+// FIX (#698 R7 · A): cơ chế 1 own-day — cap-gate `protChunks.length < cap` GIỮ 1 ngày cho `rest`, nhưng khi
+// `rest` RỖNG (không cụm nào để bảo vệ) ngày đó bị emit KHÔNG dùng còn flagship dư bị drop + note "chọn thêm
+// ngày" oan. Fixture: 1 cụm 2 đảo sig-access (w=1) CÙNG ward, KHÔNG điểm-đến nào khác → rest=[]. days=2 →
+// cap=1: cơ chế 1 cũ bị chặn (protChunks=1 = cap) → đảo 2 rớt + chỉ 1 ngày ra lịch. Nới cap khi rest rỗng →
+// đảo 2 nhận own-day (đủ 2 ngày, không drop oan).
+describe('buildItinerary — spill cơ chế 1 dùng slot khi rest RỖNG (không drop oan, không note thừa) (FIX #698 R7)', () => {
+  const island = (id: string, lat: number, access: string): KbRecord => ({
+    id, name: `Đảo ${id}`, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: 109.25 },
+    address: { full_address: `số 1, Phường Đảo, tỉnh Khánh Hòa` }, description: { value: 'x' },
+    ext: { destination: { loi_vao_dac_trung: access } },
+  });
+  const islandA = island('A', 12.20, 'cáp treo vượt biển ra đảo');
+  const islandB = island('B', 12.24, 'tàu cao tốc ra đảo'); // ~4.4km cùng ward, tên khác → KHÔNG twin
+  const store: Store = {
+    slug: 'test-empty-rest', generatedAt: '2026-01-01', tam: { lat: 12.22, lon: 109.19 },
+    destinations: [islandA, islandB], // KHÔNG điểm nhẹ nào → rest = []
+    restaurants: [], hotels: [], matrix: null, matrixIndex: new Map(),
+  };
+  const req: TripRequest = { slug: 'test-empty-rest', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+
+  it('đảo dư nhận own-day (rest rỗng → dùng slot dành-riêng); KHÔNG note "chọn thêm ngày", không blank-day', () => {
+    const it = buildItinerary(req, store);
+    const has = (name: string) => it.days.some((d) => d.items.some((i) => i.name === name));
+    expect(has('Đảo A')).toBe(true);  // đảo 1 giữ own-day (protReg)
+    expect(has('Đảo B')).toBe(true);  // đảo 2 dư spill vào slot rest-rỗng (cũ: rớt + note)
+    expect(it.days.length).toBe(2);   // ĐỦ 2 ngày (cũ: 1 ngày + 1 ngày dành-riêng bỏ trống)
+    expect(it.days.every((d) => d.items.length > 0)).toBe(true); // không ngày trống
+    expect(it.notes.some((n) => n.includes('chọn thêm ngày'))).toBe(false); // không note drop oan
+    for (const d of it.days) // Σweight≤1: mỗi ngày ≤ 1 đảo
+      expect(d.items.filter((i) => i.name.startsWith('Đảo ')).length).toBeLessThanOrEqual(1);
+  });
+});
+
+// FIX (#698 R7 · B): cơ chế 1 chọn HEAD own-day + nạp companion THEO ƯU TIÊN (findIndex-first + forward snapshot),
+// mirror cơ chế 2 (R6). Khi CHỈ CÓ 1 slot own-day mà nhiều điểm-nặng tranh nhau, flagship ưu-tiên-CAO phải giành
+// slot; điểm ưu-tiên-thấp rớt + note. Fixture: 3 đảo sig-access (w=1) CÙNG ward → protReg 1 own-day giữ HIGH,
+// spillQueue=[MID, LOW]. rest=[] → cơ chế 1 mở ĐÚNG 1 slot (spareSlots=1) → MID (forward-first) thắng, LOW rớt.
+describe('buildItinerary — spill cơ chế 1: nhiều điểm-nặng tranh 1 own-day slot, ưu-tiên-cao thắng (FIX #698 R7)', () => {
+  const island = (id: string, lat: number, access: string): KbRecord => ({
+    id, name: `Đảo ${id}`, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: 109.25 },
+    address: { full_address: `số 1, Phường Đảo, tỉnh Khánh Hòa` }, description: { value: 'x' },
+    ext: { destination: { loi_vao_dac_trung: access } },
+  });
+  // Thứ tự mảng = importance rank (tiebreak within-cluster): HIGH(0) > MID(1) > LOW(2). Cả 3 sig-access (pin
+  // ngang, fame sàn ngang) → sort rơi về destRank → pts=[HIGH,MID,LOW]; HIGH→protChunk, spillQueue=[MID,LOW].
+  const iHigh = island('HIGH', 12.20, 'cáp treo vượt biển ra đảo');
+  const iMid = island('MID', 12.21, 'tàu cao tốc ra đảo');
+  const iLow = island('LOW', 12.22, 'tàu gỗ ra đảo');
+  const store: Store = {
+    slug: 'test-comp-ownday', generatedAt: '2026-01-01', tam: { lat: 12.22, lon: 109.19 },
+    destinations: [iHigh, iMid, iLow], // rest = [] → cơ chế 1 (own-day), spareSlots=1
+    restaurants: [], hotels: [], matrix: null, matrixIndex: new Map(),
+  };
+  const req: TripRequest = { slug: 'test-comp-ownday', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+
+  it('đảo ưu-tiên-cao (MID) giành own-day slot duy nhất; đảo ưu-tiên-thấp (LOW) rớt + note', () => {
+    const it = buildItinerary(req, store);
+    const has = (name: string) => it.days.some((d) => d.items.some((i) => i.name === name));
+    expect(has('Đảo HIGH')).toBe(true); // giữ own-day (protReg)
+    expect(has('Đảo MID')).toBe(true);  // spill ưu-tiên-CAO thắng own-day slot (findIndex-first)
+    expect(has('Đảo LOW')).toBe(false); // spill ưu-tiên-THẤP rớt (backward cũ sẽ giữ LOW → sai)
+    expect(it.notes.some((n) => n.includes('Đảo LOW'))).toBe(true); // công bố trung thực
+    for (const d of it.days) // Σweight≤1
+      expect(d.items.filter((i) => i.name.startsWith('Đảo ')).length).toBeLessThanOrEqual(1);
   });
 });
