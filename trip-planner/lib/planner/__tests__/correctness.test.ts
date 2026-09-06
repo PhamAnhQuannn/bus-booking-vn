@@ -814,3 +814,48 @@ describe('buildItinerary — note-dedupe proximity: twin đã-xếp XA (>2km) KH
     expect(it.notes.some((n) => n.includes('Đền Voi Phục') && n.includes('cần trọn ngày riêng'))).toBe(true);
   });
 });
+
+describe('buildItinerary — spill: flagship thứ 2 cùng ward nhận OWN-DAY khi còn ngày dư (FIX #698 R5)', () => {
+  // Hai đảo sig-access (w=1) CÙNG ward "Phường Đảo" (một cụm), khác tên, cách ~4.4km (>2km → KHÔNG twin).
+  // protReg dựng 1 ngày CHÍNH (giữ 1 đảo, Σ=1); đảo thứ 2 dư Σ-cut. days=7, rest chỉ vài điểm nhẹ → packDays
+  // dùng ~1 ngày, còn NHIỀU slot trống → Cơ chế 1 cấp đảo thứ 2 một OWN-DAY (không drop, không note "chọn thêm ngày").
+  const islandA: KbRecord = {
+    id: 'ISA', name: 'Đảo Hòn Thứ Nhất', region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: 12.20, longitude: 109.25 },
+    address: { full_address: `số 1, Phường Đảo, tỉnh Khánh Hòa` }, description: { value: 'x' },
+    ext: { destination: { loi_vao_dac_trung: 'có cáp treo vượt biển ra đảo' } },
+  };
+  const islandB: KbRecord = {
+    id: 'ISB', name: 'Đảo Hòn Thứ Hai', region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: 12.24, longitude: 109.25 }, // ~4.4km bắc của ISA, cùng ward
+    address: { full_address: `số 2, Phường Đảo, tỉnh Khánh Hòa` }, description: { value: 'x' },
+    ext: { destination: { loi_vao_dac_trung: 'tàu cao tốc ra đảo' } },
+  };
+  const light = (id: string, lat: number, lon: number): KbRecord => ({
+    id, name: `Điểm nhẹ ${id}`, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `số 9, Phường Trung, tỉnh Khánh Hòa` }, description: { value: 'x' },
+  });
+  const store: Store = {
+    slug: 'nha-trang', generatedAt: '2026-01-01', tam: { lat: 12.25, lon: 109.19 },
+    destinations: [islandA, islandB, light('L1', 12.25, 109.19), light('L2', 12.26, 109.19)],
+    restaurants: [], hotels: [light('H', 12.25, 109.19)], matrix: null, matrixIndex: new Map(),
+  };
+  const req: TripRequest = { slug: 'nha-trang', days: 7, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+
+  it('cả hai đảo có mặt, MỖI đảo một ngày riêng, KHÔNG note "chọn thêm ngày"', () => {
+    const it = buildItinerary(req, store);
+    const dayOf = (name: string) => it.days.findIndex((d) => d.items.some((i) => i.name === name));
+    const aDay = dayOf('Đảo Hòn Thứ Nhất'), bDay = dayOf('Đảo Hòn Thứ Hai');
+    expect(aDay).toBeGreaterThanOrEqual(0); // đảo 1 có trong lịch
+    expect(bDay).toBeGreaterThanOrEqual(0); // đảo 2 (spill) cũng có trong lịch
+    expect(aDay).not.toBe(bDay); // MỖI đảo một ngày riêng (hai đảo w=1 KHÔNG chung ngày → Σweight≤1)
+    // không còn false-drop → không note "chọn thêm ngày để có trong lịch"
+    expect(it.notes.some((n) => n.includes('chọn thêm ngày'))).toBe(false);
+    // không đảo nào bị nhồi chung ngày với đảo kia (mỗi ngày ≤ 1 đảo sig-access)
+    for (const d of it.days) {
+      const islands = d.items.filter((i) => i.name === 'Đảo Hòn Thứ Nhất' || i.name === 'Đảo Hòn Thứ Hai');
+      expect(islands.length).toBeLessThanOrEqual(1);
+    }
+  });
+});

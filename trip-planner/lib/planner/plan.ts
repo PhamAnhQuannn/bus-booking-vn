@@ -576,10 +576,11 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
     ? [...restMacro.filter((r) => anchorKeys.has(r.key)), ...restMacro.filter((r) => !anchorKeys.has(r.key))]
     : restMacro;
   const packed = restDays > 0 ? packDays(store, restOrdered, restDays, perDay, tam, anchorIds) : { days: [] as KbRecord[][], dropped: [] as KbRecord[] }; // days===1 ngày-đảo: rest=0 ngày
-  // protReg mỗi cụm = 1 ngày, cắt theo TRỌNG SỐ THỜI-LƯỢNG (Σ≤1): giữ 1 điểm-nặng đầu cụm (đã sort pin/fame)
-  // + pebbles nhẹ; điểm-nặng thứ 2 cùng cụm (vd Ti Tốp + Sửng Sốt cùng ward) không nhồi chung ngày → drop+note.
+  // protReg mỗi cụm = 1 ngày CHÍNH, cắt theo TRỌNG SỐ THỜI-LƯỢNG (Σ≤1): giữ 1 điểm-nặng đầu cụm (đã sort pin/
+  // fame) + pebbles nhẹ; điểm-nặng thứ 2+ cùng cụm (vd vinpearl + Hòn Tằm, Ti Tốp + Sửng Sốt cùng ward) → spill.
   const protDropped: KbRecord[] = [];
   const protChunks: KbRecord[][] = [];
+  const spillQueue: KbRecord[] = []; // FIX (#698 R5): điểm-nặng dư Σ-cut — thử SPILL vào NGÀY DƯ trước khi drop.
   for (const r of protReg) {
     // FIX 1 (#698): user-anchor (khách CHỦ ĐỘNG chốt) KHÔNG bị Σ-cut đẩy ra để nhường một MARQUEE fame cao hơn
     // CÙNG cụm — E1 force-include bất biến TRƯỚC marquee. r.pts sort pin-first→fame, nên marquee fame cao lọt
@@ -593,10 +594,58 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
     const day: KbRecord[] = []; let w = 0;
     for (const p of ordered) {
       const pw = dayWeight(p);
-      if (day.length && w + pw > 1 + 1e-9) { protDropped.push(p); continue; }
+      if (day.length && w + pw > 1 + 1e-9) { spillQueue.push(p); continue; }
       day.push(p); w += pw;
     }
     if (day.length) protChunks.push(day);
+  }
+  // FIX (#698 R5): điểm-nặng protReg dư Σ-cut KHÔNG bị drop oan KHI CÒN CHỖ THẬT. Trước đây mỗi cụm protReg chỉ
+  // dựng ĐÚNG 1 ngày (Σ≤1); flagship thứ 2 cùng ward (Hòn Tằm/vinpearl, Ti Tốp) rớt + note "chọn thêm ngày" bắn
+  // ở CHÍNH max-day — dù còn ngày trống/ngày rest gần còn chỗ. Hai cơ chế bù (chỉ dùng CHỖ CÓ SẴN — KHÔNG giành
+  // ngày của rest, tránh đánh đổi flagship rest lấy overflow), cùng tôn trọng Σ≤1 & KHÔNG tạo ngày-rộng:
+  //   • Cơ chế 1 (own-day riêng, đúng doctrine): còn slot ngày packDays BỎ TRỐNG (packed.days.length < restDays)
+  //     VÀ protChunks.length < cap → mở own-day chunk cùng cụm (Σ≤1, gộp thêm điểm dư gần nếu !crossFar).
+  //   • Cơ chế 2 (fallback): nhét dư còn lại vào ngày rest sẵn có còn dư weight (Σ≤1) VÀ trong WIDE_DAY_KM.
+  // Twin-dedup theo QUY ƯỚC KB (TÊN-folded trùng + <NEAR_TWIN_KM) — tránh nhân bản KB-dup, KHÔNG nhầm điểm khác
+  // tên ở gần (Hòn Tằm ≠ Vịnh Nha Trang, vinpearl ≠ VinWonders) thành "trùng". Còn lại thật thiếu chỗ → drop+note.
+  if (spillQueue.length) {
+    const cap = days >= 2 ? Math.max(0, days - 1) : (protCand.some(sigAccess) ? 1 : 0);
+    const placedTwin = new Map<string, LL[]>();
+    const addPlaced = (p: KbRecord) => { const k = foldText(p.name); const a = placedTwin.get(k); if (a) a.push(co(p)); else placedTwin.set(k, [co(p)]); };
+    for (const p of [...protChunks, ...packed.days].flat()) addPlaced(p);
+    const isTwin = (p: KbRecord) => { const a = placedTwin.get(foldText(p.name)); return !!a && a.some((c) => kmBetween(c, co(p)) < NEAR_TWIN_KM); };
+    let spareSlots = restDays - packed.days.length; // ngày rest packDays BỎ TRỐNG → own-day cho flagship dư
+    // Cơ chế 1: own-day riêng dùng slot trống.
+    while (spillQueue.length && spareSlots > 0 && protChunks.length < cap) {
+      const idx = spillQueue.findIndex((p) => !isTwin(p));
+      if (idx < 0) break;
+      const head = spillQueue.splice(idx, 1)[0];
+      const chunk: KbRecord[] = [head]; let cw = dayWeight(head); addPlaced(head);
+      for (let i = spillQueue.length - 1; i >= 0; i--) {
+        const pw = dayWeight(spillQueue[i]);
+        if (cw + pw <= 1 + 1e-9 && !crossFar(chunk, [spillQueue[i]]) && !isTwin(spillQueue[i])) {
+          chunk.push(spillQueue[i]); cw += pw; addPlaced(spillQueue[i]); spillQueue.splice(i, 1);
+        }
+      }
+      protChunks.push(chunk);
+      spareSlots -= 1;
+    }
+    // Cơ chế 2: nhét dư còn lại vào ngày rest gần còn dư weight; twin đã xếp → KHÔNG nhân bản (rơi protDropped,
+    // note-dedup <2km nuốt). Không tạo ngày-rộng (span≤WIDE_DAY_KM).
+    for (let qi = spillQueue.length - 1; qi >= 0; qi--) {
+      const p = spillQueue[qi];
+      if (isTwin(p)) continue;
+      const pw = dayWeight(p);
+      let best = -1, bestSpan = Infinity;
+      for (let i = 0; i < packed.days.length; i++) {
+        const dw = packed.days[i].reduce((s, q) => s + dayWeight(q), 0);
+        if (dw + pw > 1 + 1e-9) continue;
+        const s = spanKm([...packed.days[i], p].map(co));
+        if (s <= WIDE_DAY_KM && s < bestSpan) { bestSpan = s; best = i; }
+      }
+      if (best >= 0) { packed.days[best].push(p); addPlaced(p); spillQueue.splice(qi, 1); }
+    }
+    for (const p of spillQueue) protDropped.push(p); // thật sự thiếu chỗ → công bố qua allDropped bên dưới
   }
   // Note điểm-nặng bị bỏ (cần trọn ngày riêng) VÀ marquee/anchor bị bỏ do locality-guard (#698): điểm biểu-
   // tượng xa mà ngày gần nhất >WIDE_DAY_KM → không nhét được nếu KHÔNG tạo ngày-rộng (mega-tỉnh sáp nhập nhiều
