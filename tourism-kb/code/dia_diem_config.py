@@ -461,6 +461,13 @@ GHI_CHU_DIEM_DEN = {
     "VinWonders Nha Trang": "có cáp treo vượt biển ra đảo Hòn Tre",
     "Bà Nà Hills": "có cáp treo lên đỉnh · Cầu Vàng",
     "Asia Park Đà Nẵng": "có vòng quay Sun Wheel",
+    # Batch 2026-09-06: flagship full-day các tỉnh live (nhãn name-derived, đúng-không-tranh-cãi).
+    # CHỈ tag điểm LÀ flagship của tỉnh (loi_vao_dac_trung → marquee own-day; tag điểm hạng-2 sẽ CƯỚP
+    # ngày của flagship thật — vd "sun world hạ long" từng đẩy tour vịnh Ti Tốp/Sửng Sốt khỏi lịch 2 ngày,
+    # ĐÃ BỎ. Engine vẫn cho các brand này FULL-weight qua FULL_BRAND_NAME, không cần tag để đúng thời-lượng).
+    "Cáp treo Núi Sam": "có tuyến cáp treo lên đỉnh Núi Sam",
+    "Du lịch Cáp treo Vũng Tàu": "có tuyến cáp treo lên núi",
+    "VinWonders Vũ Yên": "công viên giải trí VinWonders trên đảo Vũ Yên",
 }
 
 # AREA_SEED — icon marquee resolve sẵn (Wikidata/Google), NẠP TỪ FILE gitignored raw/_shared/area_seed.json
