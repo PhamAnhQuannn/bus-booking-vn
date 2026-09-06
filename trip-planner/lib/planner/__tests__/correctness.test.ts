@@ -646,3 +646,87 @@ describe('buildItinerary — locality guard: điểm XA cross-region KHÔNG bị
     expect(together).toBe(false); // KHÔNG cùng ngày (master dồn 62km — guard tách)
   });
 });
+
+// FIX 1 round-2 (#698): dồn-dư của packDays buộc-đặt một USER ANCHOR (E1 — không được drop) vào ngày span
+// > WIDE_DAY_KM khi restDays=1 (một protReg sig-access đã chiếm 1 ngày) và có 2 anchor xa nhau ~30km. Trước
+// đây chỉ nhánh KHÔNG-anchor kiểm span; anchor lọt vào ngày rộng KHÔNG có note (notes=[]). Fix: VẪN giữ anchor
+// nhưng công bố chặng dài. Test: cả 2 anchor có trong lịch VÀ một note "chặng di chuyển dài" xuất hiện.
+describe('buildItinerary — anchor buộc-đặt vào ngày rộng (restDays=1) phát note chặng dài (FIX 1 RC#2 #698)', () => {
+  const dLon = (km: number) => km / 109.4;
+  const near = (id: string, lat: number, lon: number, ward: string): KbRecord => ({
+    id, name: `Gần ${id}`, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `số 1, ${ward}, tỉnh Lâm Đồng` }, description: { value: 'x' },
+  });
+  // slug 'da-lat' (có signatureSpots → auto-marquee TẮT); marquee CHỈ từ sig-access. Tên dưới không khớp sig da-lat.
+  // SIG (sig-access) ~10km bắc → protReg own-day (days=2, cap=1) → restDays=1. Hai user-anchor ~15km đông/tây
+  // (cách nhau ~30km) → cùng bị dồn vào ngày rest duy nhất → span ~30km > 25km → anchor buộc-đặt + note.
+  const sig: KbRecord = {
+    id: 'SIG', name: 'Khu cáp treo Bắc', region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: 10.09, longitude: 105.0 },
+    address: { full_address: `số 1, Phường Đảo, tỉnh Lâm Đồng` }, description: { value: 'x' },
+    ext: { destination: { loi_vao_dac_trung: 'có cáp treo vượt biển ra đảo' } },
+  };
+  const aE: KbRecord = { id: 'AE', name: 'Nhà thờ Đông', region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: 10.0, longitude: 105.0 + dLon(15) },
+    address: { full_address: `số 1, Phường Đông, tỉnh Lâm Đồng` }, description: { value: 'x' } };
+  const aW: KbRecord = { id: 'AW', name: 'Đền Tây', region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: 10.0, longitude: 105.0 - dLon(15) },
+    address: { full_address: `số 1, Phường Tây, tỉnh Lâm Đồng` }, description: { value: 'x' } };
+  const store: Store = {
+    slug: 'da-lat', generatedAt: '2026-01-01', tam: { lat: 10.0, lon: 105.0 },
+    destinations: [sig, aE, aW],
+    restaurants: [], hotels: [near('H', 10.0, 105.0, 'Phường Đảo')],
+    matrix: null, matrixIndex: new Map(),
+  };
+  const req: TripRequest = { slug: 'da-lat', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate', anchors: ['AE', 'AW'] };
+
+  it('cả hai anchor XA vẫn có trong lịch (E1) VÀ có note công bố chặng dài (không âm thầm)', () => {
+    const it = buildItinerary(req, store);
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).toContain('Nhà thờ Đông'); // anchor giữ (E1)
+    expect(names).toContain('Đền Tây');       // anchor giữ (E1)
+    expect(it.notes.some((n) => n.includes('chặng di chuyển dài'))).toBe(true); // FIX 1: long-leg được công bố
+  });
+});
+
+// FIX 2 round-2 (#698): note "chọn thêm ngày" của allDropped KHÔNG được liệt kê một record bị drop mà một
+// BẢN SAO CÙNG TÊN đã xếp ở nơi khác trong lịch (KB có record trùng tên FULL+HALF, vd VQG Tam Đảo). Bản FULL
+// (sig-access) chiếm own-day; bản HALF trùng tên bị Σ-cut drop — nhưng địa danh ĐÃ có trong lịch nên note "chưa
+// xếp đủ" là SAI. Fix: dedupe tầng note theo foldText tên đã-xếp. (KHÔNG đụng dữ liệu KB.)
+describe('buildItinerary — note drop dedupe: record trùng tên đã-xếp KHÔNG vào note (FIX 2 RC#2 #698)', () => {
+  const near = (id: string, lat: number, lon: number, ward: string): KbRecord => ({
+    id, name: `Gần ${id}`, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `số 1, ${ward}, tỉnh Vĩnh Phúc` }, description: { value: 'x' },
+  });
+  // Hai record CÙNG TÊN 'Vườn quốc gia Tam Đảo' cùng ward → 1 cụm own-day (sig-access). FULL (sig-access, pin
+  // đầu) xếp; HALF (category thác, w=0.5) Σ-cut drop. Bản FULL đã trong lịch → note KHÔNG được nhắc tên này.
+  const twinFull: KbRecord = {
+    id: 'TF', name: 'Vườn quốc gia Tam Đảo', region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: 10.10, longitude: 105.0 },
+    address: { full_address: `số 1, Phường Đảo, tỉnh Vĩnh Phúc` }, description: { value: 'x' },
+    ext: { destination: { loi_vao_dac_trung: 'có cáp treo lên đỉnh' } }, // sig-access → FULL + marquee
+  };
+  const twinHalf: KbRecord = {
+    id: 'TH', name: 'Vườn quốc gia Tam Đảo', region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: 10.101, longitude: 105.001 },
+    address: { full_address: `số 2, Phường Đảo, tỉnh Vĩnh Phúc` }, description: { value: 'x' },
+    category: { primary: 'Thác' }, // HALF (w=0.5)
+  };
+  const store: Store = {
+    slug: 'vinh-phuc', generatedAt: '2026-01-01', tam: { lat: 10.0, lon: 105.0 },
+    destinations: [twinFull, twinHalf, near('N1', 10.0, 105.0, 'Phường Lõi'), near('N2', 10.001, 105.001, 'Phường Lõi'), near('N3', 9.999, 105.0, 'Phường Lõi')],
+    restaurants: [], hotels: [near('H', 10.0, 105.0, 'Phường Lõi')],
+    matrix: null, matrixIndex: new Map(),
+  };
+  const req: TripRequest = { slug: 'vinh-phuc', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+
+  it('bản HALF trùng tên bị drop KHÔNG vào note "cần trọn ngày riêng" vì bản FULL đã có trong lịch', () => {
+    const it = buildItinerary(req, store);
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).toContain('Vườn quốc gia Tam Đảo'); // địa danh CÓ trong lịch (bản FULL)
+    // note "chưa xếp đủ; chọn thêm ngày" KHÔNG được liệt kê tên này (twin đã-xếp) → không có note sai
+    expect(it.notes.some((n) => n.includes('Vườn quốc gia Tam Đảo') && n.includes('cần trọn ngày riêng'))).toBe(false);
+  });
+});

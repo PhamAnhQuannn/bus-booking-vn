@@ -128,6 +128,10 @@ const SHORT_CAT = ["chua", "thien vien", "den", "mieu", "nha tho", "bao tang", "
 // tránh một cái tên tình cờ chứa token lật một điểm thật-sự-ngắn thành FULL.
 const FULL_ACCESS_NAME = /(^|[^a-z])(cap treo|cable car)([^a-z]|$)/;
 const FULL_BRAND_NAME = /(^|[^a-z])(sun ?world|vinwonders?|vinpearl|safari|cong vien nuoc)([^a-z]|$)/;
+// NIT (#698): công viên nước = full-day, NHƯNG token SHORT "cong vien" khớp GIỮA category "cong vien nuoc"
+// (bounded — có khoảng trắng theo sau) → nếu để brand-override SAU gate SHORT_CAT thì water-park bị hạ oan
+// SHORT. Đánh giá riêng, TRƯỚC gate (theo tên HOẶC category). safari giữ trong gate (chống "Chùa … Safari").
+const FULL_WATERPARK_NAME = /(^|[^a-z])cong vien nuoc([^a-z]|$)/;
 const _dwCache = new WeakMap<KbRecord, number>(); // memo: dayWeight gọi rất nhiều lần/điểm; record ref bền
 export function dayWeight(r: KbRecord): number {
   const c = _dwCache.get(r);
@@ -142,6 +146,7 @@ function computeDayWeight(r: KbRecord): number {
   if (FULL_CAT.some((t) => boundedIncludes(cat, t))) return 1;
   const nm = foldText(r.name);
   if (FULL_ACCESS_NAME.test(nm)) return 1; // cáp treo/cable car = trọn ngày bất kể category
+  if (FULL_WATERPARK_NAME.test(nm) || boundedIncludes(cat, "cong vien nuoc")) return 1; // công viên nước = full-day (TRƯỚC gate SHORT_CAT). NIT #698
   if (!SHORT_CAT.some((t) => boundedIncludes(cat, t)) && FULL_BRAND_NAME.test(nm)) return 1; // brand full-day trên category generic
   // đảo bị gán nhầm loại "Bãi biển" (Hòn Tằm) → FULL; nhưng "Hòn Chồng" (Điểm ngắm cảnh) KHÔNG lên (viewpoint bẫy)
   if (/^(hon|dao|cu lao)\b/.test(nm) && boundedIncludes(cat, "bai bien")) return 1;
@@ -251,10 +256,11 @@ function macroOrder(regs: Reg[], tam: LL): Reg[] {
 // Ranh giới ngày luôn rơi trên BIÊN region; chỉ gộp khu nhỏ MACRO-KỀ vào chung 1 ngày khi còn chỗ.
 // anchorIds = điểm KHÁCH CHỦ ĐỘNG chốt (E1 force-include): dồn-dư KHÔNG được evict/drop chúng (grid không có
 // anchor nên bất biến với grid). Điểm anchor không đặt được ngày gọn → vẫn nhét ngày gần nhất (E1 thắng, hiếm).
-function packDays(store: Store, orderedRegs: Reg[], restDays: number, perDay: number, tam: LL, anchorIds: Set<string>): { days: KbRecord[][]; dropped: KbRecord[] } {
+function packDays(store: Store, orderedRegs: Reg[], restDays: number, perDay: number, tam: LL, anchorIds: Set<string>): { days: KbRecord[][]; dropped: KbRecord[]; longLeg: KbRecord[] } {
   const budget = restDays * perDay;
   const days: KbRecord[][] = [];
   const dropped: KbRecord[] = [];
+  const longLeg: KbRecord[] = []; // FIX 1 (#698): anchor buộc-đặt (E1) vào ngày span > WIDE_DAY_KM → công bố chặng dài (không âm thầm)
   let cur: KbRecord[] = [];
   let curW = 0;
   let taken = 0; // FIX 4 (#698): đếm điểm THỰC SỰ xếp — điểm bị drop (dồn-dư) trả lại budget để cụm sau vẫn được nhận.
@@ -277,7 +283,10 @@ function packDays(store: Store, orderedRegs: Reg[], restDays: number, perDay: nu
         if (s < bestSpan) { bestSpan = s; best = i; }
       }
       if (best >= 0 && bestSpan <= WIDE_DAY_KM) { days[best].push(p); continue; } // ngày gọn còn chỗ → nhét
-      if (anchorIds.has(p.id)) { if (best >= 0) days[best].push(p); else { dropped.push(p); taken -= 1; } continue; } // E1: anchor không bị bỏ vì xa
+      // E1: user-anchor KHÔNG bị bỏ vì xa. Nhưng nếu ngày gần nhất còn-chỗ vẫn > WIDE_DAY_KM (đến đây best≥0
+      // ⇒ bestSpan > WIDE_DAY_KM tất yếu), đặt anchor vẫn tạo ngày-rộng → công bố chặng dài (FIX 1 #698 —
+      // HONOR E1 nhưng KHÔNG âm thầm reintro long-leg). best<0 (không ngày nào đủ weight) → bỏ + hoàn budget.
+      if (anchorIds.has(p.id)) { if (best >= 0) { days[best].push(p); if (bestSpan > WIDE_DAY_KM) longLeg.push(p); } else { dropped.push(p); taken -= 1; } continue; }
       // Không ngày nào GẦN nhận được p. Nếu p GẦN tâm hơn một điểm XA (KHÔNG phải anchor) đã xếp mà thay nó cho p
       // vào được ngày gọn (span≤WIDE_DAY_KM) → HOÁN (giữ điểm gần home, đẩy outlier xa ra + note): tránh outlier
       // chiếm mất ngày của khu trung tâm. Không hoán được → p mới là outlier thật → bỏ p (+note). Cả hai: hoàn budget.
@@ -323,7 +332,7 @@ function packDays(store: Store, orderedRegs: Reg[], restDays: number, perDay: nu
     }
   }
   flush();
-  return { days, dropped };
+  return { days, dropped, longLeg };
 }
 
 // A6 fallback: điểm thiếu region_id -> cụm bằng single-linkage theo km (ngưỡng ABS_GAP_KM). Tất định (sort id).
@@ -564,16 +573,18 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
   const restOrdered = anchorKeys.size
     ? [...restMacro.filter((r) => anchorKeys.has(r.key)), ...restMacro.filter((r) => !anchorKeys.has(r.key))]
     : restMacro;
-  const packed = restDays > 0 ? packDays(store, restOrdered, restDays, perDay, tam, anchorIds) : { days: [], dropped: [] }; // days===1 ngày-đảo: rest=0 ngày
+  const packed = restDays > 0 ? packDays(store, restOrdered, restDays, perDay, tam, anchorIds) : { days: [], dropped: [], longLeg: [] as KbRecord[] }; // days===1 ngày-đảo: rest=0 ngày
   // protReg mỗi cụm = 1 ngày, cắt theo TRỌNG SỐ THỜI-LƯỢNG (Σ≤1): giữ 1 điểm-nặng đầu cụm (đã sort pin/fame)
   // + pebbles nhẹ; điểm-nặng thứ 2 cùng cụm (vd Ti Tốp + Sửng Sốt cùng ward) không nhồi chung ngày → drop+note.
   const protDropped: KbRecord[] = [];
   const protChunks: KbRecord[][] = [];
   for (const r of protReg) {
-    // FIX 1 (#698): user-anchor (khách CHỦ ĐỘNG chốt) tuyệt đối KHÔNG bị Σ-cut đẩy ra để nhường một marquee
-    // fame cao hơn CÙNG cụm — E1 force-include bất biến. r.pts sort pin-first→fame, nên marquee fame cao lọt
+    // FIX 1 (#698): user-anchor (khách CHỦ ĐỘNG chốt) KHÔNG bị Σ-cut đẩy ra để nhường một MARQUEE fame cao hơn
+    // CÙNG cụm — E1 force-include bất biến TRƯỚC marquee. r.pts sort pin-first→fame, nên marquee fame cao lọt
     // TRƯỚC anchor rồi lấp Σ=1 → anchor rớt. Nhấc user-anchor lên đầu (stable, giữ thứ tự fame trong mỗi bậc)
     // để anchor chiếm slot trước; marquee thua slot bị drop thay (KHÔNG reintro Σ>1). Cụm không anchor: giữ y cũ.
+    // LƯU Ý (FIX 4 #698): bảo vệ này CHỈ vs marquee — hai user-anchor CÙNG một cụm mà Σweight>1 thì anchor DƯ
+    // vẫn bị Σ-cut bỏ (+ công bố qua allDropped), không có ưu tiên giữa các anchor với nhau.
     const ordered = anchorIds.size
       ? [...r.pts].sort((a, b) => Number(anchorIds.has(b.id)) - Number(anchorIds.has(a.id)))
       : r.pts;
@@ -588,9 +599,19 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
   // Note điểm-nặng bị bỏ (cần trọn ngày riêng) VÀ marquee/anchor bị bỏ do locality-guard (#698): điểm biểu-
   // tượng xa mà ngày gần nhất >WIDE_DAY_KM → không nhét được nếu KHÔNG tạo ngày-rộng (mega-tỉnh sáp nhập nhiều
   // điểm xa hơn số ngày) → công bố để khách biết (không âm thầm bỏ), thay vì cram vào ngày zig-zag.
-  const allDropped = [...packed.dropped, ...protDropped].filter((p) => dayWeight(p) > 0 || pinIds.has(p.id));
+  // FIX 2 (#698): note-layer dedupe — bỏ khỏi note bất kỳ điểm bị drop mà một BẢN SAO cùng tên-folded ĐÃ xếp
+  // ở nơi khác trong lịch (KB có record trùng tên FULL+HALF, vd VQG Tam Đảo hai bản; bản kia đã có → note "chọn
+  // thêm ngày" thành SAI). Chỉ dedupe tầng note; KHÔNG đụng dữ liệu KB.
+  const placedFolded = new Set<string>([...protChunks, ...packed.days].flat().map((p) => foldText(p.name)));
+  const allDropped = [...packed.dropped, ...protDropped]
+    .filter((p) => dayWeight(p) > 0 || pinIds.has(p.id))
+    .filter((p) => !placedFolded.has(foldText(p.name)));
   if (allDropped.length)
     notes.push(`${allDropped.slice(0, 3).map((p) => p.name).join(", ")}${allDropped.length > 3 ? ` +${allDropped.length - 3} điểm` : ""} — cần trọn ngày riêng, chưa xếp đủ; chọn thêm ngày để có trong lịch.`);
+  // FIX 1 (#698): anchor buộc-đặt vào ngày span > WIDE_DAY_KM (mega-tỉnh: nhiều anchor xa hơn số ngày rest) —
+  // giữ trong lịch theo E1 nhưng CÔNG BỐ chặng dài (mirror wording note "ở khu xa"), không âm thầm reintro long-leg.
+  for (const p of packed.longLeg)
+    notes.push(`${p.name} (điểm bạn chọn) ở khu xa — ngày này có chặng di chuyển dài; đã giữ trong lịch theo yêu cầu, chọn thêm ngày để tách riêng.`);
   // PR-B (placement): XEN ngày-anchor (protChunk = flagship trọn-ngày) với ngày rest thay vì dồn CUỐI —
   // chống back-load (ngày đầu toàn điểm nhẹ, ngày cuối dồn nặng, vd Nha Trang cũ). Flagship DẪN ĐẦU (năng
   // lượng cao, đặt tông chuyến đi) rồi xen kẽ nhẹ/nặng. Đô thị không có protChunk → A rỗng → giữ nguyên rest.
@@ -662,11 +683,20 @@ export function buildItinerary(req: TripRequest, store?: Store): Itinerary {
     // PR-B: điểm NẶNG nhất (trọn-ngày) → buổi SÁNG (năng lượng cao, tránh dồn điểm mệt vào chiều). orderLoop
     // là vòng kín (về khách sạn) nên đảo chiều giữ NGUYÊN chi phí tuyến. Chỉ đảo khi điểm nặng nhất rơi nửa
     // sau. Đô thị toàn SHORT (w=0) → điểm nặng nhất = phần tử đầu (reduce lấy max đầu tiên), index 0 < m → no-op.
-    // FIX 3 (#698): reverse chỉ giữ chi phí khi orderLoop trả VÒNG KÍN (≤6 điểm brute-force). >6 orderLoop trả
-    // ĐƯỜNG HỞ (nearest-neighbor) — reverse sẽ đảo lộn tuyến hở; để nguyên thứ tự NN (không reverse).
+    // FIX 3 (#698): reverse chỉ áp dụng cho VÒNG KÍN (≤6 điểm brute-force). >6 orderLoop trả ĐƯỜNG HỞ (nearest-
+    // neighbor) → reverse đảo lộn tuyến hở; để nguyên. VÀ vì ma trận OSRM có thể BẤT ĐỐI XỨNG (dur[i][j]≠dur[j][i]),
+    // reverse KHÔNG chắc giữ nguyên chi phí → chỉ đảo khi tổng chi phí vòng KHÔNG tăng (so 2 chiều, giữ chiều rẻ).
     if (ordered.length > 1 && ordered.length <= 6) {
       const heavy = ordered.reduce((a, r, i) => (dayWeight(r) > a.w ? { w: dayWeight(r), i } : a), { w: dayWeight(ordered[0]), i: 0 });
-      if (heavy.i >= m) ordered = [...ordered].reverse();
+      if (heavy.i >= m) {
+        const loopCost = (arr: KbRecord[]): number => {
+          let c = legMin(st, null, anchor, arr[0].id, co(arr[0]));
+          for (let i = 0; i < arr.length - 1; i++) c += legMin(st, arr[i].id, co(arr[i]), arr[i + 1].id, co(arr[i + 1]));
+          return c + legMin(st, arr[arr.length - 1].id, co(arr[arr.length - 1]), null, anchor);
+        };
+        const rev = [...ordered].reverse();
+        if (loopCost(rev) <= loopCost(ordered) + 1e-9) ordered = rev; // đảo chỉ khi không đắt hơn (tất định)
+      }
     }
     const items: SlotItem[] = [];
     ordered.slice(0, m).forEach((r) => items.push(slot(toPlaceRef(r), "diem-den", "sang")));
