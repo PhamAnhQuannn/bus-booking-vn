@@ -633,9 +633,17 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
   // trước đây các nhánh này ship âm thầm không note) → phát ĐÚNG 1 note chặng dài cho ngày đó. Chỉ CÔNG BỐ,
   // KHÔNG đổi điểm nào vào ngày nào (disclosure-only); span = max-pair (bất biến theo thứ tự). Tất định.
   for (const day of chunks) {
-    const s = spanKm(day.map(co));
-    if (s > WIDE_DAY_KM)
-      notes.push(`${day[0].name}: ngày này có chặng di chuyển dài (~${Math.round(s)}km) — các điểm ở khu xa nhau.`);
+    const cs = day.map(co);
+    const s = spanKm(cs);
+    if (s > WIDE_DAY_KM) {
+      // Đặt tên ĐÚNG cặp endpoint tạo nên span (haversine = s), không phải day[0] (chỉ là điểm xếp đầu).
+      let ai = 0, bi = 0, mx = -1;
+      for (let i = 0; i < cs.length; i++) for (let j = i + 1; j < cs.length; j++) {
+        const d = kmBetween(cs[i], cs[j]);
+        if (d > mx) { mx = d; ai = i; bi = j; }
+      }
+      notes.push(`${day[ai].name} ↔ ${day[bi].name}: ngày này có chặng di chuyển dài (~${Math.round(s)}km) — hai điểm ở khu xa nhau.`);
+    }
   }
   const keptCount = kept.reduce((s, r) => s + r.card, 0);
   if (keptCount < restDays * perDay)

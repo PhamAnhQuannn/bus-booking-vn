@@ -759,7 +759,13 @@ describe('buildItinerary — wide-day disclosure phổ quát: single-Reg ~40km w
     expect(names).toContain('Điểm D1'); // anchor giữ
     expect(names).toContain('Điểm D2');
     expect(names).toContain('Điểm D3');
-    expect(it.notes.some((n) => n.includes('chặng di chuyển dài'))).toBe(true); // FIX 1 RC#3: ngày rộng ĐƯỢC công bố
+    const wideNote = it.notes.find((n) => n.includes('chặng di chuyển dài'));
+    expect(wideNote).toBeDefined(); // FIX 1 RC#3: ngày rộng ĐƯỢC công bố
+    // Round-4: note nêu ĐÚNG cặp endpoint tạo span (D1↔D3 ~39km), KHÔNG phải điểm xếp đầu; D2 (điểm giữa) không là endpoint.
+    expect(wideNote).toContain('Điểm D1');
+    expect(wideNote).toContain('Điểm D3');
+    expect(wideNote).toContain('~39km'); // giữ figure km
+    expect(wideNote).not.toContain('Điểm D2');
   });
 });
 
