@@ -262,7 +262,7 @@ describe('buildItinerary — thứ tự importance (destRank) quyết định s�
     description: { value: 'có mô tả' },
   });
   const store: Store = {
-    slug: 'ha-noi', generatedAt: '2026-01-01', tam: { lat: 21.03, lon: 105.85 },
+    slug: 'zz-auto-nohandlist', generatedAt: '2026-01-01', tam: { lat: 21.03, lon: 105.85 },
     destinations: [ // thứ tự = importance (index 0 = quan trọng nhất)
       q('ZZZ', 21.030, 105.850), q('MMM', 21.031, 105.851),
       q('GGG', 21.029, 105.852), q('AAA', 21.028, 105.849),
@@ -271,7 +271,7 @@ describe('buildItinerary — thứ tự importance (destRank) quyết định s�
     matrix: null, matrixIndex: new Map(),
   };
   it('điểm importance cao nhất (index 0) sống sót cap; kém nhất (id lexical đầu) bị cắt', () => {
-    const req: TripRequest = { slug: 'ha-noi', days: 1, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+    const req: TripRequest = { slug: 'zz-auto-nohandlist', days: 1, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
     const it = buildItinerary(req, store);
     const names = it.days.flatMap((d) => d.items.map((i) => i.name));
     expect(names).toContain('Điểm ZZZ');     // quan trọng nhất (index 0) — sống
@@ -294,7 +294,7 @@ describe('buildItinerary — Phase 3 auto-marquee top-K importance (slug không 
     address: { full_address: `số 1, ${ward}, thành phố Hà Nội` }, description: { value: 'x' },
   });
   const store: Store = {
-    slug: 'ha-noi', generatedAt: '2026-01-01', tam: { lat: 21.03, lon: 105.85 },
+    slug: 'zz-auto-nohandlist', generatedAt: '2026-01-01', tam: { lat: 21.03, lon: 105.85 },
     destinations: [ // thứ tự = importance; TOP (index 0) trong top-K, LOW (cuối) ngoài top-K
       far('TOP', 'Điểm xa quan trọng', 21.30, 105.85, 'Phường Xa Bắc'),   // index 0, ~30km
       near('N1', 21.030, 105.850), near('N2', 21.031, 105.851), near('N3', 21.029, 105.852),
@@ -304,7 +304,7 @@ describe('buildItinerary — Phase 3 auto-marquee top-K importance (slug không 
     matrix: null, matrixIndex: new Map(),
   };
   it('điểm xa top-importance được auto-marquee giữ; điểm xa importance thấp bị gap-stop loại', () => {
-    const req: TripRequest = { slug: 'ha-noi', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+    const req: TripRequest = { slug: 'zz-auto-nohandlist', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
     const it = buildItinerary(req, store);
     const names = it.days.flatMap((d) => d.items.map((i) => i.name));
     expect(names).toContain('Điểm xa quan trọng'); // index 0 → auto-marquee → own-day (2+ ngày)
@@ -328,12 +328,12 @@ describe('buildItinerary — ngày đảo: lối vào đặc trưng (cáp treo) 
     ext: { destination: sig ? { loi_vao_dac_trung: 'có cáp treo vượt biển ra đảo' } : {} },
   });
   const mkStore = (sig: boolean): Store => ({
-    slug: 'ha-noi', generatedAt: '2026-01-01', tam: { lat: 21.03, lon: 105.85 },
+    slug: 'zz-auto-nohandlist', generatedAt: '2026-01-01', tam: { lat: 21.03, lon: 105.85 },
     destinations: [island(sig), near('N1', 21.030, 105.850, 'Phường A'), near('N2', 21.033, 105.853, 'Phường B')],
     restaurants: [], hotels: [near('H1', 21.030, 105.850, 'Phường A')],
     matrix: null, matrixIndex: new Map(),
   });
-  const req: TripRequest = { slug: 'ha-noi', days: 1, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+  const req: TripRequest = { slug: 'zz-auto-nohandlist', days: 1, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
 
   it('days=1 + cáp treo → ngày đảo: điểm đảo CÓ trong lịch, khu trung tâm lùi note', () => {
     const it = buildItinerary(req, mkStore(true));
@@ -412,7 +412,7 @@ describe('buildItinerary — sig-access ngoài top-K vẫn thắng protReg trư�
     ext: { destination: { loi_vao_dac_trung: 'có cáp treo vượt biển ra đảo' } },
   };
   const store: Store = {
-    slug: 'ha-noi', generatedAt: '2026-01-01', tam: { lat: 21.03, lon: 105.85 },
+    slug: 'zz-auto-nohandlist', generatedAt: '2026-01-01', tam: { lat: 21.03, lon: 105.85 },
     destinations: [ // thứ tự = importance rank
       near('A', 21.031, 105.851), plain, near('B', 21.029, 105.852), near('C', 21.032, 105.849),
       near('D', 21.030, 105.853), sig,
@@ -421,7 +421,7 @@ describe('buildItinerary — sig-access ngoài top-K vẫn thắng protReg trư�
     matrix: null, matrixIndex: new Map(),
   };
   it('cụm SIG (fame sàn AUTO_MARQUEE_K) được protReg riêng ngày, không bị PLAIN (fame thấp hơn) đè', () => {
-    const req: TripRequest = { slug: 'ha-noi', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+    const req: TripRequest = { slug: 'zz-auto-nohandlist', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
     const it = buildItinerary(req, store);
     const sigDay = it.days.find((d) => d.items.some((i) => i.name === 'Điểm SIG'));
     expect(sigDay).toBeDefined();
@@ -561,7 +561,7 @@ describe('buildItinerary — user anchor trong cụm own-day nặng KHÔNG bị 
     address: { full_address: `số 1, Phường Xa, thành phố Hà Nội` }, description: { value: 'x' },
     category: { primary: 'Khu vui chơi' } }; // FULL, cùng ward marquee
   const store: Store = {
-    slug: 'ha-noi', generatedAt: '2026-01-01', tam: { lat: 21.03, lon: 105.85 },
+    slug: 'zz-auto-nohandlist', generatedAt: '2026-01-01', tam: { lat: 21.03, lon: 105.85 },
     destinations: [ // importance order: near A idx0 (lõi=seed), MARQ idx1 (auto-marquee), near B/C idx2/3, mid idx4, ANC idx5 (ngoài top-K)
       near('A', 21.031, 105.851), marq, near('B', 21.029, 105.852), near('C', 21.032, 105.849),
       { id: 'M1', name: 'Gần M1', region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
@@ -572,7 +572,7 @@ describe('buildItinerary — user anchor trong cụm own-day nặng KHÔNG bị 
     restaurants: [], hotels: [near('H1', 21.030, 105.850)],
     matrix: null, matrixIndex: new Map(),
   };
-  const req = (anchors?: string[]): TripRequest => ({ slug: 'ha-noi', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate', ...(anchors ? { anchors } : {}) });
+  const req = (anchors?: string[]): TripRequest => ({ slug: 'zz-auto-nohandlist', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate', ...(anchors ? { anchors } : {}) });
 
   it('KHÔNG anchor: điểm ANC (fame thấp) bị Σ-cut bỏ, marquee thắng own-day (baseline chứng minh cơ chế)', () => {
     const names = buildItinerary(req(), store).days.flatMap((d) => d.items.map((i) => i.name));
