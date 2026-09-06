@@ -632,8 +632,11 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
     }
     // Cơ chế 2: nhét dư còn lại vào ngày rest gần còn dư weight; twin đã xếp → KHÔNG nhân bản (rơi protDropped,
     // note-dedup <2km nuốt). Không tạo ngày-rộng (span≤WIDE_DAY_KM).
-    for (let qi = spillQueue.length - 1; qi >= 0; qi--) {
-      const p = spillQueue[qi];
+    // Duyệt spillQueue THEO THỨ TỰ ƯU TIÊN (FORWARD): queue được nạp cluster-by-cluster theo protReg fame-giảm,
+    // mỗi cụm pts đã sort pin-first→fame nên index 0 = ưu tiên cao nhất. Khi rest-day headroom khan hiếm và
+    // nhiều điểm-nặng tranh nhau, FLAGSHIP ưu tiên cao được giành slot TRƯỚC (mirror cơ chế 1). Duyệt trên bản
+    // chụp cố định + xoá item đã đặt khỏi mảng sống theo IDENTITY (indexOf) — tránh reverse-iterate làm đảo ưu tiên.
+    for (const p of [...spillQueue]) {
       if (isTwin(p)) continue;
       const pw = dayWeight(p);
       let best = -1, bestSpan = Infinity;
@@ -643,7 +646,7 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
         const s = spanKm([...packed.days[i], p].map(co));
         if (s <= WIDE_DAY_KM && s < bestSpan) { bestSpan = s; best = i; }
       }
-      if (best >= 0) { packed.days[best].push(p); addPlaced(p); spillQueue.splice(qi, 1); }
+      if (best >= 0) { packed.days[best].push(p); addPlaced(p); const j = spillQueue.indexOf(p); if (j >= 0) spillQueue.splice(j, 1); }
     }
     for (const p of spillQueue) protDropped.push(p); // thật sự thiếu chỗ → công bố qua allDropped bên dưới
   }

@@ -859,3 +859,48 @@ describe('buildItinerary — spill: flagship thứ 2 cùng ward nhận OWN-DAY k
     }
   });
 });
+
+// FIX (#698 R6): cơ chế 2 (nhét dư vào ngày rest sẵn có) PHẢI duyệt spillQueue theo THỨ TỰ ƯU TIÊN (forward).
+// Trước đây duyệt REVERSE (length-1 downTo 0) → khi chỉ CÒN 1 slot rest-day, item ưu-tiên-THẤP-nhất giành slot,
+// flagship ưu-tiên-cao rớt oan. Fixture: 3 đảo sig-access (w=1) CÙNG ward → protReg 1 own-day giữ đảo cao nhất,
+// 2 đảo dư spill. days=2 → cap=1 (mechanism 1 own-day bị chặn), restDays=1 = 1 ngày lights (dw=0) nhận ĐÚNG 1
+// điểm-nặng → hai đảo dư tranh 1 slot. Ưu tiên = HIGH>MID>LOW theo importance rank (thứ tự mảng destinations).
+describe('buildItinerary — spill cơ chế 2 nhường rest-day headroom theo ưu tiên (flagship trước) (FIX #698 R6)', () => {
+  const island = (id: string, lat: number, access: string): KbRecord => ({
+    id, name: `Đảo ${id}`, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: 109.25 },
+    address: { full_address: `số 1, Phường Đảo, tỉnh Khánh Hòa` }, description: { value: 'x' },
+    ext: { destination: { loi_vao_dac_trung: access } },
+  });
+  const light = (id: string, lat: number, lon: number): KbRecord => ({
+    id, name: `Điểm nhẹ ${id}`, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `số 9, Phường Trung, tỉnh Khánh Hòa` }, description: { value: 'x' },
+  });
+  // Thứ tự mảng = importance rank: HIGH (0) > MID (1) > LOW (2). Cả 3 sig-access (pin ngang) → within-cluster
+  // sort rơi về impBonus(destRank) → HIGH giữ own-day, spillQueue=[MID, LOW]; forward → MID giành slot, LOW rớt.
+  const iHigh = island('HIGH', 12.20, 'cáp treo vượt biển ra đảo');
+  const iMid = island('MID', 12.21, 'tàu cao tốc ra đảo');
+  const iLow = island('LOW', 12.22, 'tàu gỗ ra đảo');
+  const store: Store = {
+    slug: 'test-comp-spill', generatedAt: '2026-01-01', tam: { lat: 12.22, lon: 109.20 },
+    destinations: [iHigh, iMid, iLow, light('L1', 12.22, 109.20), light('L2', 12.23, 109.20)],
+    restaurants: [], hotels: [light('H', 12.22, 109.20)], matrix: null, matrixIndex: new Map(),
+  };
+  const req: TripRequest = { slug: 'test-comp-spill', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+
+  it('đảo ưu-tiên-cao (MID) giành slot rest-day duy nhất; đảo ưu-tiên-thấp (LOW) rớt + note', () => {
+    const it = buildItinerary(req, store);
+    const has = (name: string) => it.days.some((d) => d.items.some((i) => i.name === name));
+    expect(has('Đảo HIGH')).toBe(true);  // giữ own-day (protReg)
+    expect(has('Đảo MID')).toBe(true);   // spill ưu-tiên-CAO thắng slot rest-day (forward iteration)
+    expect(has('Đảo LOW')).toBe(false);  // spill ưu-tiên-THẤP rớt (reverse cũ sẽ giữ LOW, bỏ MID → sai)
+    // LOW được công bố trung thực (không âm thầm bỏ)
+    expect(it.notes.some((n) => n.includes('Đảo LOW'))).toBe(true);
+    // KHÔNG ngày nào có 2 đảo (Σweight≤1 giữ nguyên)
+    for (const d of it.days) {
+      const isl = d.items.filter((i) => i.name.startsWith('Đảo '));
+      expect(isl.length).toBeLessThanOrEqual(1);
+    }
+  });
+});
