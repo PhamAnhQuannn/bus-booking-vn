@@ -973,3 +973,101 @@ describe('buildItinerary — spill cơ chế 1: nhiều điểm-nặng tranh 1 o
       expect(d.items.filter((i) => i.name.startsWith('Đảo ')).length).toBeLessThanOrEqual(1);
   });
 });
+
+// #702: perDay-cap TRIM phải FAME/SIG-ACCESS-AWARE — điểm bị cắt khi ngày quá perDay = ƯU-TIÊN-THẤP-NHẤT
+// (filler SHORT), KHÔNG phải marquee SHORT. Bug: cụm Bà Nà (protReg far) có Cáp Treo (w=1) + "cầu vàng"
+// (marquee SHORT, khớp signature 'cầu vàng' → specFame 9) + "Chùa Linh Ứng - Bà Nà" (filler SHORT chỉ khớp
+// TÊN-KHU 'bà nà' → fameRankOf THỔI rank 10 nhưng specFame thật = 'chùa linh ứng' 5). perDay relaxed=2 buộc
+// cắt 1. Cũ (fameRankOf): giữ Cáp Treo+Chùa Linh Ứng, cắt cầu vàng (icon THẬT rớt). Nay (specFame): giữ
+// Cáp Treo+cầu vàng, cắt Chùa Linh Ứng. Filler bị cắt vẫn CÔNG BỐ (pin → allDropped). Σweight≤1 giữ nguyên.
+describe('buildItinerary — perDay-cap trim giữ marquee SHORT, cắt filler SHORT (fame/sig-access-aware, #702)', () => {
+  // slug 'da-nang' (hand-list); signatureSpots ...'bà nà'(0),'cầu vàng'(1)...'chùa linh ứng'(5)...
+  // Cụm Bà Nà = protReg ĐẢM BẢO qua sig-access (loi_vao_dac_trung → protCand mọi days) — cô lập nhánh
+  // perDay-cap trim khỏi biến động seed/isFar. 3 điểm cùng ward, sát nhau (<1km).
+  const bana = (id: string, name: string, sig = false): KbRecord => ({
+    id, name, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: 15.995 + (id.charCodeAt(0) % 5) * 0.001, longitude: 107.99 },
+    address: { full_address: `số 1, Xã Hòa Ninh, thành phố Đà Nẵng` }, description: { value: 'x' },
+    ext: { destination: sig ? { loi_vao_dac_trung: 'có cáp treo lên đỉnh Bà Nà' } : {} },
+  });
+  const store: Store = {
+    slug: 'da-nang', generatedAt: '2026-01-01', tam: { lat: 16.05, lon: 108.22 },
+    destinations: [
+      bana('A', 'Vé Cáp Treo Bà Nà Hill', true), // sig-access + w=1; khớp 'bà nà' → specFame 10 (dẫn ngày)
+      bana('B', 'cầu vàng'),                      // w=0 SHORT; khớp 'cầu vàng' → specFame 9 (MARQUEE THẬT)
+      bana('C', 'Chùa Linh Ứng - Bà Nà'),         // w=0 SHORT; khớp 'bà nà'+'chùa linh ứng' → specFame 5 (FILLER)
+    ],
+    restaurants: [], hotels: [bana('H1', 'KS Bà Nà')],
+    matrix: null, matrixIndex: new Map(),
+  };
+  it('cầu vàng (marquee SHORT) giữ, Chùa Linh Ứng (filler SHORT) bị cắt + công bố; Cáp Treo (w=1) giữ', () => {
+    const req: TripRequest = { slug: 'da-nang', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'relaxed' };
+    const it = buildItinerary(req, store);
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).toContain('cầu vàng');                    // marquee SHORT specFame-cao → GIỮ (cũ: rớt)
+    expect(names).toContain('Vé Cáp Treo Bà Nà Hill');      // heavy w=1 → giữ
+    expect(names).not.toContain('Chùa Linh Ứng - Bà Nà');   // filler SHORT (chỉ khớp tên-khu) → CẮT
+    expect(it.notes.some((n) => n.includes('Chùa Linh Ứng'))).toBe(true); // pin bị cắt vẫn CÔNG BỐ (không âm thầm)
+    const banaDay = it.days.find((d) => d.items.some((i) => i.name === 'cầu vàng'))!;
+    const dd = banaDay.items.filter((i) => i.role === 'diem-den');
+    expect(dd.length).toBeLessThanOrEqual(2); // perDay-cap relaxed=2 vẫn giữ (không tràn để nhét cả 3)
+  });
+});
+
+// #702 NIT: SEED GUARD hai hành vi. (a) slug CURATED (hand-list): seed = cụm chứa signatureSpot ('Hồ Hoàn
+// Kiếm' lõi) — cụm mass-lớn XA không-fame (Ba Vì ~50km) KHÔNG chiếm seed → bị gap-stop loại. (b) slug AUTO
+// (không hand-list): fameCurated=false → cụm XA raw-destRank-cao KHÔNG được bypass distTam-filter để seed
+// (chống ha-noi-cũ → Ba Vì). Lõi trung tâm (điểm NGOÀI top-K, không force-keep) chỉ sống nếu seed Ở lõi.
+describe('buildItinerary — seed guard: curated seeds fame-cluster; auto far-cluster bị chặn seed (#702)', () => {
+  const dst = (id: string, name: string, lat: number, lon: number, ward: string): KbRecord => ({
+    id, name, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `số 1, ${ward}, thành phố Hà Nội` }, description: { value: 'x' },
+  });
+  it('(a) ha-noi curated: seed = Hồ Hoàn Kiếm (lõi fame), cụm Ba Vì xa mass-lớn bị loại + note', () => {
+    const store: Store = {
+      slug: 'ha-noi', generatedAt: '2026-01-01', tam: { lat: 21.028, lon: 105.852 },
+      destinations: [
+        // Cụm Ba Vì XA (~50km tây), mass lớn (nhiều điểm), KHÔNG khớp signatureSpot ha-noi → fame 0.
+        dst('BV1', 'Vườn quốc gia Ba Vì', 21.08, 105.37, 'Xã Ba Vì'),
+        dst('BV2', 'Đền Thượng Ba Vì', 21.07, 105.36, 'Xã Ba Vì'),
+        dst('BV3', 'Thác Ba Vì', 21.09, 105.38, 'Xã Ba Vì'),
+        // Cụm lõi Hoàn Kiếm: 'Hồ Hoàn Kiếm' khớp signatureSpot[0] + 1 điểm generic.
+        dst('HK1', 'Hồ Hoàn Kiếm', 21.029, 105.852, 'Phường Hàng Trống'),
+        dst('HK2', 'Điểm lõi phụ', 21.030, 105.851, 'Phường Hàng Trống'),
+      ],
+      restaurants: [], hotels: [dst('H1', 'KS', 21.029, 105.852, 'Phường Hàng Trống')],
+      matrix: null, matrixIndex: new Map(),
+    };
+    const req: TripRequest = { slug: 'ha-noi', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+    const it = buildItinerary(req, store);
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).toContain('Hồ Hoàn Kiếm');                 // lõi fame seed → giữ
+    expect(names).not.toContain('Vườn quốc gia Ba Vì');       // cụm xa mass-lớn KHÔNG seed → gap-stop loại
+    expect(it.notes.some((n) => n.includes('ngoài vùng thuận tiện'))).toBe(true);
+  });
+  it('(b) auto slug: cụm xa raw-destRank-cao KHÔNG chiếm seed — lõi trung tâm (ngoài top-K) sống', () => {
+    // Thứ tự mảng = importance. index 0..3 = cụm XA (top-K auto-marquee, force-keep). index 4,5 = lõi generic
+    // NGOÀI top-K (không force-keep) — chỉ sống nếu seed Ở lõi. Guard fameCurated=false chặn cụm xa seed.
+    const store: Store = {
+      slug: 'zz-auto-nohandlist', generatedAt: '2026-01-01', tam: { lat: 21.030, lon: 105.851 },
+      destinations: [
+        dst('FAR1', 'Điểm xa quan trọng 1', 21.30, 105.85, 'Phường Xa Bắc'),   // ~30km
+        dst('FAR2', 'Điểm xa quan trọng 2', 21.301, 105.851, 'Phường Xa Bắc'),
+        dst('FAR3', 'Điểm xa quan trọng 3', 21.299, 105.852, 'Phường Xa Bắc'),
+        dst('FAR4', 'Điểm xa quan trọng 4', 21.302, 105.849, 'Phường Xa Bắc'),
+        dst('CORE1', 'Điểm lõi 1', 21.030, 105.851, 'Phường Lõi'),             // index 4, ngoài top-K
+        dst('CORE2', 'Điểm lõi 2', 21.031, 105.852, 'Phường Lõi'),             // index 5, ngoài top-K
+      ],
+      restaurants: [], hotels: [dst('H1', 'KS', 21.030, 105.851, 'Phường Lõi')],
+      matrix: null, matrixIndex: new Map(),
+    };
+    const req: TripRequest = { slug: 'zz-auto-nohandlist', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'moderate' };
+    const it = buildItinerary(req, store);
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    // Lõi generic ngoài top-K sống ⇒ seed Ở lõi (cụm xa raw-destRank-cao BỊ CHẶN seed). Nếu guard hỏng: cụm
+    // xa seed → lõi cách ~30km bị gap-stop → CORE mất.
+    expect(names).toContain('Điểm lõi 1');
+    expect(names).toContain('Điểm lõi 2');
+  });
+});
