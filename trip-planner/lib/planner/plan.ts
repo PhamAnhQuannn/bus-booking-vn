@@ -85,6 +85,26 @@ export function regFame(pts: KbRecord[], fameSpots: string[]): number {
   return best;
 }
 
+// specFameRank: hạng nổi tiếng của MỘT tên theo signature khớp CỤ THỂ NHẤT (match DÀI nhất), KHÔNG phải
+// signature khớp SỚM nhất. Độ cụ thể đo THEO NHÁNH: forward (signature token nằm TRONG tên record) →
+// s.length; reverse (tên record nằm trong cụm signature dài hơn) → nm.length (chính tên record), KHÔNG phải
+// cụm dài không liên quan — nếu không, 'hòn thơm' (rank đúng) bị alias dài 'cáp treo hòn thơm' đè xuống. (#702)
+export function specFameRank(name: string, fameSpots: string[]): number {
+  if (!fameSpots.length) return 0;
+  const nm = foldText(name);
+  let rank = 0, bestLen = -1;
+  for (let i = 0; i < fameSpots.length; i++) {
+    const s = fameSpots[i];
+    const fwd = s.length >= 5 && boundedIncludes(nm, s);
+    const rev = nm.length >= 5 && boundedIncludes(s, nm);
+    if (fwd || rev) {
+      const matchLen = fwd ? s.length : nm.length;
+      if (matchLen > bestLen) { bestLen = matchLen; rank = fameSpots.length - i; }
+    }
+  }
+  return rank;
+}
+
 function meanLL(pts: LL[]): LL {
   const n = pts.length || 1;
   return { lat: pts.reduce((s, p) => s + p.lat, 0) / n, lon: pts.reduce((s, p) => s + p.lon, 0) / n };
@@ -368,14 +388,18 @@ function clusterByCoord(pts: KbRecord[]): KbRecord[][] {
 // Neo khoảng cách vào SEED CỐ ĐỊNH (không centroid trôi -> chống chaining single-linkage): duyệt cụm
 // theo distToSeed tăng dần, DỪNG ở cụm đầu tiên "nhảy cụm" -> mọi cụm xa hơn đều LOẠI (compactness
 // thắng coverage — không kéo vào cho đủ số). Tất định. Trả kept (giữ) + dropped (loại-note).
-function growCompact(regs: Reg[], anchorKeys: Set<string>): { kept: Reg[]; dropped: Reg[] } {
+function growCompact(regs: Reg[], anchorKeys: Set<string>, fameCurated: boolean): { kept: Reg[]; dropped: Reg[] } {
   if (regs.length <= 1) return { kept: regs, dropped: [] };
   const sorted = [...regs].sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
   // Ứng viên seed = cụm ở nửa GẦN TÂM (distTam ≤ trung vị) để blob ngoại vi mass-lớn không chiếm seed —
   // NHƯNG cụm có FAME (khớp signatureSpots) luôn được vào pool dù xa, để tỉnh mega sáp nhập seed đúng khu
   // du lịch nổi tiếng cách tỉnh-lỵ >trung-vị (vd tuyen-quang -> Hà Giang). Blob ngoại vi fame=0 vẫn bị loại.
   const medTam = median(sorted.map((r) => r.distTam));
-  const seedPool = sorted.filter((r) => r.distTam <= medTam || r.fame > 0);
+  // fame bypass distTam-filter CHỈ khi fame là CURATED (hand-list signatureSpots) — hand-list fame đáng tin
+  // để seed đúng khu du lịch xa tỉnh-lỵ. Với slug AUTO (không hand-list), fame = raw destRank rank thô, KHÔNG
+  // được kéo seed ra xa (outlier importance-cao gap-stop lõi trung tâm — vd ha-noi cũ → Ba Vì). Far marquee
+  // vẫn force-keep qua anchorKeys, chỉ SEED phải ở gần tâm. (QA finding: seed guard cho 15 auto slug.)
+  const seedPool = sorted.filter((r) => r.distTam <= medTam || (r.fame > 0 && fameCurated));
   let seed = seedPool[0];
   for (const r of seedPool) {
     const better =
@@ -482,6 +506,32 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
     return 0;
   };
 
+  // specFameOf: hạng nổi tiếng theo signature khớp CỤ THỂ NHẤT (chuỗi signature DÀI nhất khớp), KHÔNG phải
+  // signature nổi-tiếng-nhất khớp SỚM. fameRankOf trả match ĐẦU (index thấp) → một điểm chỉ mang tên KHU
+  // ("Chùa Linh Ứng - Bà Nà" khớp 'bà nà' = tên khu rank cao) bị THỔI hạng lên bằng chính icon đặc trưng
+  // của khu ("cầu vàng" khớp 'cầu vàng'). Khi perDay-cap buộc cắt, dùng match cụ-thể-nhất để icon THẬT
+  // (cầu vàng, sf9) không bị filler chỉ-trùng-tên-khu (Chùa Linh Ứng, tên riêng khớp 'chùa linh ứng' sf5)
+  // đè. Slug ngoài hand-list → fameSpots rỗng → 0 (auto slug xếp theo importance/score bên dưới). (#702)
+  const specFameOf = (r: KbRecord): number => specFameRank(r.name, fameSpots);
+  // protCmp: xếp `ordered` trong vòng protReg (điểm rớt do perDay/Σ = ưu-tiên-thấp-nhất, tức cuối). Thang:
+  // user-anchor > pin(marquee) > hạng fame CỤ-THỂ (specFame — match signature DÀI nhất, KHÔNG để tên-khu thổi
+  // filler lên bằng icon) > chất-lượng > importance-rank > id. KHÔNG có tầng sig-access ở ĐÂY: sig-access luôn
+  // là pin w=1 nên đã dẫn ngày qua Σweight; thêm tầng chỉ ĐẢO thứ tự marquee trong ward sprawl mega (vd phú-quốc
+  // hòn thơm-nam đè grand world-bắc → ngày 37km). Đây là điểm sửa cốt lõi da-nang: cầu vàng(specFame9) không
+  // bị Chùa Linh Ứng(chỉ khớp tên-khu 'bà nà' → fameRank thổi 10, nhưng specFame thật 5) đè. (#702)
+  const protRank = (r: KbRecord): number =>
+    (anchorIds.has(r.id) ? 4000 : 0) + (pinIds.has(r.id) ? 2000 : 0) + specFameOf(r) * 10 + (scoreOf.get(r.id) ?? 0);
+  const protCmp = (a: KbRecord, b: KbRecord): number =>
+    (protRank(b) - protRank(a)) ||
+    ((destRank.get(a.id) ?? Infinity) - (destRank.get(b.id) ?? Infinity)) ||
+    (a.id < b.id ? -1 : 1);
+  // priScore: ƯU TIÊN GIỮ dùng cho HOÁN chỗ (cơ chế 2) — chọn filler thấp nhất để marquee dư đẩy ra. KHÁC
+  // protCmp: CÓ tầng sig-access (+1000) vì marquee sig-access (đảo/cáp treo full-day, vd đảo ti tốp specFame4)
+  // XỨNG đáng chiếm chỗ một điểm-cảnh fame-list cao hơn nhưng thường (Vịnh Hạ Long specFame9, Hòn Trống Mái
+  // specFame6) trên một ngày rest — trải nghiệm trọn-ngày > một view. Chỉ ảnh hưởng LỰA CHỌN nạn nhân hoán,
+  // KHÔNG xếp ngày (nên không đụng thứ tự ward sprawl). (#702)
+  const priScore = (r: KbRecord): number => protRank(r) + (hasSigAccess(r) ? 1000 : 0);
+
   const regs: Reg[] = [...groups.entries()].map(([key, pts0]) => {
     // pts sort: anchor/marquee ĐẦU (sống sót packDays cap) -> độ-nổi-tiếng -> quality giảm dần (A1 trong cụm)
     const pts = [...pts0].sort((a, b) =>
@@ -504,7 +554,7 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
 
   // A1/A2/A4/A5: chọn cụm COMPACT quanh seed TRƯỚC; cụm xa (nhảy cụm) bị LOẠI (compactness thắng coverage).
   // Anchor (nếu có) force-keep — không bị loại.
-  const { kept, dropped } = growCompact(regs, anchorKeys);
+  const { kept, dropped } = growCompact(regs, anchorKeys, fameSpots.length > 0);
   for (const r of dropped)
     notes.push(`${r.pts[0].name}${r.card > 1 ? ` +${r.card - 1} điểm` : ""} (cụm cách trung tâm ~${Math.round(r.distTam)}km) — ngoài vùng thuận tiện, chưa đưa vào lịch.`);
 
@@ -588,13 +638,18 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
     // để anchor chiếm slot trước; marquee thua slot bị drop thay (KHÔNG reintro Σ>1). Cụm không anchor: giữ y cũ.
     // LƯU Ý (FIX 4 #698): bảo vệ này CHỈ vs marquee — hai user-anchor CÙNG một cụm mà Σweight>1 thì anchor DƯ
     // vẫn bị Σ-cut bỏ (+ công bố qua allDropped), không có ưu tiên giữa các anchor với nhau.
-    const ordered = anchorIds.size
-      ? [...r.pts].sort((a, b) => Number(anchorIds.has(b.id)) - Number(anchorIds.has(a.id)))
-      : r.pts;
+    // #702: xếp theo protCmp (anchor>pin>fame cụ-thể>chất-lượng) TRƯỚC khi lấp — khi perDay/Σ buộc
+    // cắt, điểm rớt là điểm ƯU TIÊN THẤP NHẤT (filler SHORT), KHÔNG phải marquee SHORT tình cờ đứng cuối cụm.
+    // (Cũ: chỉ đẩy anchor lên đầu rồi lấp theo thứ tự r.pts — fameRankOf thổi hạng filler-trùng-tên-khu khiến
+    // cầu vàng/đảo ti tốp bị cắt cho một chùa/hang thường; nay match cụ-thể-nhất giữ đúng icon.)
+    const ordered = [...r.pts].sort(protCmp);
     const day: KbRecord[] = []; let w = 0;
     for (const p of ordered) {
       const pw = dayWeight(p);
-      if (day.length && w + pw > 1 + 1e-9) { spillQueue.push(p); continue; }
+      // Σweight-cap (điểm-nặng dư) HOẶC perDay-cap (dư SỐ điểm — fix mega-day 27-33 stop): điểm-nặng còn-lại
+      // → spillQueue (thử own-day riêng); điểm NHẸ (SHORT w=0) dư count → protDropped (drop+note khi pinned),
+      // KHÔNG nhồi spillQueue để mech-1/2 khỏi re-place SHORT (comment L121 "perDay lo SHORT" giờ đúng cả protReg).
+      if (day.length && (w + pw > 1 + 1e-9 || day.length >= perDay)) { (pw > 0 ? spillQueue : protDropped).push(p); continue; }
       day.push(p); w += pw;
     }
     if (day.length) protChunks.push(day);
@@ -628,7 +683,7 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
       // điểm ưu tiên cao hơn. Xoá item đã đặt khỏi mảng sống theo IDENTITY (indexOf) — head vẫn là findIndex-first.
       for (const q of [...spillQueue]) {
         const pw = dayWeight(q);
-        if (cw + pw <= 1 + 1e-9 && !crossFar(chunk, [q]) && !isTwin(q)) {
+        if (cw + pw <= 1 + 1e-9 && chunk.length < perDay && !crossFar(chunk, [q]) && !isTwin(q)) {
           chunk.push(q); cw += pw; addPlaced(q); const j = spillQueue.indexOf(q); if (j >= 0) spillQueue.splice(j, 1);
         }
       }
@@ -646,12 +701,44 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
       const pw = dayWeight(p);
       let best = -1, bestSpan = Infinity;
       for (let i = 0; i < packed.days.length; i++) {
+        if (packed.days[i].length >= perDay) continue; // perDay-cap: KHÔNG nhồi quá nhịp vào ngày rest
         const dw = packed.days[i].reduce((s, q) => s + dayWeight(q), 0);
         if (dw + pw > 1 + 1e-9) continue;
         const s = spanKm([...packed.days[i], p].map(co));
         if (s <= WIDE_DAY_KM && s < bestSpan) { bestSpan = s; best = i; }
       }
-      if (best >= 0) { packed.days[best].push(p); addPlaced(p); const j = spillQueue.indexOf(p); if (j >= 0) spillQueue.splice(j, 1); }
+      if (best >= 0) { packed.days[best].push(p); addPlaced(p); const j = spillQueue.indexOf(p); if (j >= 0) spillQueue.splice(j, 1); continue; }
+      // #702: KHÔNG còn ngày rest CÒN CHỖ (mọi ngày đã đủ perDay hoặc kín Σweight). Nếu p là MARQUEE/sig-access/
+      // pin (không phải điểm-nặng generic) → HOÁN vào ngày rest bằng cách đẩy filler ƯU TIÊN THẤP NHẤT ra (giữ
+      // count ≤ perDay, Σweight ≤ 1, span ≤ WIDE). Trước đây base "cram" p làm ngày count>perDay (mega-day);
+      // perDay-cap chặn cram nên marquee (đảo ti tốp, vinpearl) rớt oan dù ngày rest chỉ toàn filler nhẹ. Chỉ
+      // đẩy filler priScore < p (không bao giờ hi sinh điểm ưu tiên ≥ p; không đụng user-anchor). filler bị đẩy
+      // → protDropped (công bố nếu là pin; im lặng nếu filler thường). (mirror packDays swap ở L296-306.)
+      if (!(pinIds.has(p.id) || hasSigAccess(p))) continue;
+      let dI = -1, dJ = -1, dSpan = Infinity, dPri = Infinity;
+      for (let i = 0; i < packed.days.length; i++) {
+        if (packed.days[i].length > perDay) continue; // KHÔNG hoán vào ngày packDays block-merge đã quá perDay (giữ perDay-cap)
+        const dayW = packed.days[i].reduce((s, q) => s + dayWeight(q), 0);
+        for (let j = 0; j < packed.days[i].length; j++) {
+          const q = packed.days[i][j];
+          if (anchorIds.has(q.id) || priScore(q) >= priScore(p)) continue; // đừng đẩy anchor / điểm ưu tiên ≥ p
+          if (dayW - dayWeight(q) + pw > 1 + 1e-9) continue;                 // Σweight sau hoán
+          const rest = [...packed.days[i].slice(0, j), ...packed.days[i].slice(j + 1)];
+          const s = spanKm([...rest, p].map(co));
+          if (s > WIDE_DAY_KM) continue;                                     // KHÔNG tạo ngày-rộng
+          // Locality: marquee phải THUỘC cùng khu ngày này (≤ ABS_GAP_KM tới MỘT điểm còn lại) — không "airlift"
+          // một marquee XA (vd Sun World Bà Nà ~20km) vào ngày phố chỉ vì các điểm phố tình cờ sát nhau (span
+          // < WIDE nhưng marquee lạc lõng). Marquee xa không có ngày → drop+note (đúng far-marquee doctrine). (#702)
+          if (rest.length && !rest.some((x) => kmBetween(co(x), co(p)) <= ABS_GAP_KM)) continue;
+          const qp = priScore(q); // ưu tiên đẩy FILLER thấp nhất (mệnh lệnh: cắt ưu-tiên-thấp-nhất), rồi span gọn
+          if (qp < dPri || (qp === dPri && s < dSpan)) { dPri = qp; dSpan = s; dI = i; dJ = j; }
+        }
+      }
+      if (dI >= 0) {
+        protDropped.push(packed.days[dI].splice(dJ, 1)[0]);
+        packed.days[dI].push(p); addPlaced(p);
+        const j = spillQueue.indexOf(p); if (j >= 0) spillQueue.splice(j, 1);
+      }
     }
     for (const p of spillQueue) protDropped.push(p); // thật sự thiếu chỗ → công bố qua allDropped bên dưới
   }
