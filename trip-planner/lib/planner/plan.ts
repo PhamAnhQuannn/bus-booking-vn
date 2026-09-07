@@ -85,6 +85,26 @@ export function regFame(pts: KbRecord[], fameSpots: string[]): number {
   return best;
 }
 
+// specFameRank: hạng nổi tiếng của MỘT tên theo signature khớp CỤ THỂ NHẤT (match DÀI nhất), KHÔNG phải
+// signature khớp SỚM nhất. Độ cụ thể đo THEO NHÁNH: forward (signature token nằm TRONG tên record) →
+// s.length; reverse (tên record nằm trong cụm signature dài hơn) → nm.length (chính tên record), KHÔNG phải
+// cụm dài không liên quan — nếu không, 'hòn thơm' (rank đúng) bị alias dài 'cáp treo hòn thơm' đè xuống. (#702)
+export function specFameRank(name: string, fameSpots: string[]): number {
+  if (!fameSpots.length) return 0;
+  const nm = foldText(name);
+  let rank = 0, bestLen = -1;
+  for (let i = 0; i < fameSpots.length; i++) {
+    const s = fameSpots[i];
+    const fwd = s.length >= 5 && boundedIncludes(nm, s);
+    const rev = nm.length >= 5 && boundedIncludes(s, nm);
+    if (fwd || rev) {
+      const matchLen = fwd ? s.length : nm.length;
+      if (matchLen > bestLen) { bestLen = matchLen; rank = fameSpots.length - i; }
+    }
+  }
+  return rank;
+}
+
 function meanLL(pts: LL[]): LL {
   const n = pts.length || 1;
   return { lat: pts.reduce((s, p) => s + p.lat, 0) / n, lon: pts.reduce((s, p) => s + p.lon, 0) / n };
@@ -492,17 +512,7 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
   // của khu ("cầu vàng" khớp 'cầu vàng'). Khi perDay-cap buộc cắt, dùng match cụ-thể-nhất để icon THẬT
   // (cầu vàng, sf9) không bị filler chỉ-trùng-tên-khu (Chùa Linh Ứng, tên riêng khớp 'chùa linh ứng' sf5)
   // đè. Slug ngoài hand-list → fameSpots rỗng → 0 (auto slug xếp theo importance/score bên dưới). (#702)
-  const specFameOf = (r: KbRecord): number => {
-    if (!fameSpots.length) return 0;
-    const nm = foldText(r.name);
-    let rank = 0, bestLen = -1;
-    for (let i = 0; i < fameSpots.length; i++) {
-      const s = fameSpots[i];
-      if ((s.length >= 5 && boundedIncludes(nm, s)) || (nm.length >= 5 && boundedIncludes(s, nm)))
-        if (s.length > bestLen) { bestLen = s.length; rank = fameSpots.length - i; }
-    }
-    return rank;
-  };
+  const specFameOf = (r: KbRecord): number => specFameRank(r.name, fameSpots);
   // protCmp: xếp `ordered` trong vòng protReg (điểm rớt do perDay/Σ = ưu-tiên-thấp-nhất, tức cuối). Thang:
   // user-anchor > pin(marquee) > hạng fame CỤ-THỂ (specFame — match signature DÀI nhất, KHÔNG để tên-khu thổi
   // filler lên bằng icon) > chất-lượng > importance-rank > id. KHÔNG có tầng sig-access ở ĐÂY: sig-access luôn

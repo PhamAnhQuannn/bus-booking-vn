@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { nights } from '../labels';
 import { requestFromParams, toURLSearchParams } from '../fromParams';
-import { buildItinerary } from '../plan';
+import { buildItinerary, specFameRank } from '../plan';
 import { haversine, type Store } from '../store';
 import type { KbRecord, TripRequest } from '../types';
 
@@ -1011,6 +1011,31 @@ describe('buildItinerary — perDay-cap trim giữ marquee SHORT, cắt filler S
     const banaDay = it.days.find((d) => d.items.some((i) => i.name === 'cầu vàng'))!;
     const dd = banaDay.items.filter((i) => i.role === 'diem-den');
     expect(dd.length).toBeLessThanOrEqual(2); // perDay-cap relaxed=2 vẫn giữ (không tràn để nhét cả 3)
+  });
+});
+
+// #702 NIT: specFameRank đo độ cụ thể của match THEO NHÁNH. Bug cũ: một record tên NGẮN ('hòn thơm')
+// khớp signature cùng tên (rank 8) NHƯNG cũng khớp reverse một alias DÀI hơn ('cáp treo hòn thơm', rank 7)
+// — code cũ luôn dùng s.length (cụm dài) → 17>8 → ĐÈ xuống rank 7, dù không có record "Cáp Treo Hòn Thơm".
+// Nhánh reverse (tên record nằm TRONG cụm signature) phải đo bằng nm.length (chính tên record).
+describe('specFameRank — reverse-branch đo bằng độ dài tên record, không cụm alias dài (#702)', () => {
+  // Thứ tự nổi tiếng giảm dần: index 0 = rank N (biểu tượng nhất). 'hòn thơm'(rank 8) đứng TRƯỚC
+  // 'cáp treo hòn thơm'(rank 7). Record 'hòn thơm' khớp forward index-2 (s trong nm) VÀ reverse index-3
+  // (nm trong s). Đúng: rank 8 (tên riêng), KHÔNG 7 (alias dài).
+  const spots = [
+    'vinwonders phu quoc', 'grand world', 'hon thom', 'cap treo hon thom',
+    'bai sao', 'sun world', 'vinpearl safari', 'dinh cau',
+  ]; // 8 spots, đã fold; index 2='hon thom'(rank 6), index 3='cap treo hon thom'(rank 5)
+  it("record 'hòn thơm' resolve theo tên riêng (rank 6), KHÔNG bị alias dài đè (rank 5)", () => {
+    expect(specFameRank('Hòn Thơm', spots)).toBe(spots.length - 2); // = 6 (index 2), KHÔNG 5 (index 3)
+  });
+  it('forward-branch không đổi: signature token nằm trong tên record dài vẫn đo bằng s.length', () => {
+    // Tên record dài 'Khu Du Lịch Hòn Thơm' chứa 'hon thom'(index2) forward; alias index3 KHÔNG trong tên
+    // ('cap treo' vắng) và tên KHÔNG trong alias → chỉ index2 khớp → rank 6.
+    expect(specFameRank('Khu Du Lịch Hòn Thơm', spots)).toBe(spots.length - 2);
+  });
+  it('fameSpots rỗng → 0', () => {
+    expect(specFameRank('Hòn Thơm', [])).toBe(0);
   });
 });
 
