@@ -1,0 +1,4 @@
+// grid-diff-vs-master allowlist — INTENDED selection-quality trade-offs, one JSON object per line.
+// Schema: {"slug":"..","days":N,"pace":"relaxed|moderate|packed","kind":"NEW-WIDE|SIG-LOSS|NEW-OVERCAP|SILENT-VANISH|NEW-THROW","reason":"why","pr":"#NNN"}
+// A regression matching (slug,days,pace,kind) is suppressed from the gate. Entries self-expire once the
+// PR merges (the new base absorbs them). grid-diff prints paste-ready lines for each new regression.
