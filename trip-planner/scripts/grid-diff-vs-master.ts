@@ -137,7 +137,10 @@ function metricsOf(build: BuildFn, slug: string, days: number, pace: string, poo
 
 // ── diff one config → regression + fix records ─────────────────────────────────
 type Kind = "NEW-WIDE" | "SIG-LOSS" | "NEW-OVERCAP" | "SILENT-VANISH" | "NEW-THROW";
-type Reg = { slug: string; days: number; pace: string; kind: Kind; detail: string };
+// lateral (SIG-LOSS only): this config's TOTAL surfaced-marquee count did not drop (head ≥ base) —
+// a compensating SIG-GAIN offset it, i.e. the budget just picked a DIFFERENT flagship, not fewer.
+// Net-loss (lateral=false) = head surfaces strictly fewer marquees → the one that needs human eyes.
+type Reg = { slug: string; days: number; pace: string; kind: Kind; detail: string; lateral?: boolean };
 type Fix = { kind: "WIDE-FIXED" | "OVERCAP-FIXED" | "SIG-GAIN"; slug: string; days: number; pace: string };
 
 function diffConfig(slug: string, days: number, pace: string, base: ConfigMetric, head: ConfigMetric): { regs: Reg[]; fixes: Fix[] } {
@@ -162,10 +165,11 @@ function diffConfig(slug: string, days: number, pace: string, base: ConfigMetric
     if (bOver && !hOver) fixes.push({ kind: "OVERCAP-FIXED", slug, days, pace });
   }
   const bSet = new Set(base.marqueeSurfaced), hSet = new Set(head.marqueeSurfaced);
+  const lateral = hSet.size >= bSet.size; // config surfaces ≥ as many marquees → the loss is a swap, not a net drop
   for (const m of bSet)
     if (!hSet.has(m)) {
       const silent = !head.noteBlob.includes(m); // pin gone AND unnamed in any note = #703-2 detector
-      regs.push({ slug, days, pace, kind: silent ? "SILENT-VANISH" : "SIG-LOSS", detail: m });
+      regs.push({ slug, days, pace, kind: silent ? "SILENT-VANISH" : "SIG-LOSS", detail: m, lateral });
     }
   for (const m of hSet) if (!bSet.has(m)) fixes.push({ kind: "SIG-GAIN", slug, days, pace });
   return { regs, fixes };
@@ -268,26 +272,40 @@ function cleanupWorktree(sha: string) {
 
   // ── report ──
   const byKind = (arr: { kind: string }[]) => arr.reduce<Record<string, number>>((m, x) => ((m[x.kind] = (m[x.kind] || 0) + 1), m), {});
+  const sigLoss = regs.filter((r) => r.kind === "SIG-LOSS");
+  const latN = sigLoss.filter((r) => r.lateral).length;
   console.log(`── changed configs: ${changed} ──`);
   console.log("FIXES  :", JSON.stringify(byKind(fixes)));
-  console.log("REGRESS:", JSON.stringify(byKind(regs)), "\n");
+  console.log("REGRESS:", JSON.stringify(byKind(regs)));
+  if (sigLoss.length) console.log(`  └─ SIG-LOSS split: ${latN} lateral (compensated) / ${sigLoss.length - latN} NET-LOSS (scrutinize)`);
+  console.log("");
 
   const unallowed = regs.filter((r) => !allowSet.has(allowKey(r)));
   const allowed = regs.filter((r) => allowSet.has(allowKey(r)));
   if (allowed.length) console.log(`(${allowed.length} regression(s) suppressed by ${ALLOW_PATH})\n`);
 
   if (unallowed.length) {
-    console.log(`✗ ${unallowed.length} UN-ALLOWLISTED regression(s):\n`);
-    for (const r of unallowed.slice(0, 200))
-      console.log(`  ${r.kind.padEnd(13)} ${r.slug} ${r.days}d/${r.pace}: ${r.detail}`);
-    if (unallowed.length > 200) console.log(`  … +${unallowed.length - 200} more`);
-    console.log(`\nIf any are intended, append to ${ALLOW_PATH} (paste-ready):`);
+    // Surface NET-LOSS + non-SIG-LOSS regressions FIRST (need human eyes); lateral SIG-LOSS are compensated swaps.
+    const netLoss = unallowed.filter((r) => r.kind !== "SIG-LOSS" || !r.lateral);
+    const lateralLoss = unallowed.filter((r) => r.kind === "SIG-LOSS" && r.lateral);
+    console.log(`✗ ${unallowed.length} UN-ALLOWLISTED regression(s): ${netLoss.length} need review, ${lateralLoss.length} lateral SIG-LOSS\n`);
+    if (netLoss.length) {
+      console.log("  NEED REVIEW (net-loss / span / overcap / vanish):");
+      for (const r of netLoss.slice(0, 200)) console.log(`    ${r.kind.padEnd(13)} ${r.slug} ${r.days}d/${r.pace}: ${r.detail}`);
+    }
+    if (lateralLoss.length) {
+      console.log(`\n  LATERAL SIG-LOSS (net marquee count held ≥ base — a different flagship surfaced):`);
+      for (const r of lateralLoss.slice(0, 60)) console.log(`    ${r.slug} ${r.days}d/${r.pace}: −${r.detail}`);
+    }
+    const line = (r: Reg, reason: string) => JSON.stringify({ slug: r.slug, days: r.days, pace: r.pace, kind: r.kind, reason, pr: "TODO" });
+    console.log(`\nPaste-ready allow lines for ${ALLOW_PATH} (set pr, review each reason):`);
     const seen = new Set<string>();
     for (const r of unallowed) {
       const k = allowKey(r);
       if (seen.has(k)) continue;
       seen.add(k);
-      console.log(`  ${JSON.stringify({ slug: r.slug, days: r.days, pace: r.pace, kind: r.kind, reason: "TODO", pr: "TODO" })}`);
+      const reason = r.kind === "SIG-LOSS" && r.lateral ? "lateral reshuffle (net marquee ≥ base)" : "TODO-REVIEW";
+      console.log(`  ${line(r, reason)}`);
     }
     process.exit(1);
   }
