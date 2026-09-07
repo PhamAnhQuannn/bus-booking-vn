@@ -229,18 +229,20 @@ function cleanupWorktree(sha: string) {
   const pools = new Map<string, string[]>();
   for (const s of units) pools.set(s, marqueeNames(s));
 
-  // base metrics: cache by SHA, else build via worktree module
+  // base metrics: cache by SHA, incrementally covering units. A partial cache (from an earlier
+  // --slug run) MUST NOT silently skip units in a full run — compute any MISSING keys and merge.
   const cacheFile = baseCacheFile(baseSha);
-  let baseMetrics: Record<string, ConfigMetric>;
-  if (!REBUILD_BASE && fs.existsSync(cacheFile)) {
-    baseMetrics = JSON.parse(fs.readFileSync(cacheFile, "utf-8"));
-    console.log(`base: loaded cache ${path.relative(process.cwd(), cacheFile)}\n`);
+  let baseMetrics: Record<string, ConfigMetric> = {};
+  if (!REBUILD_BASE && fs.existsSync(cacheFile)) baseMetrics = JSON.parse(fs.readFileSync(cacheFile, "utf-8"));
+  const needKeys: [string, number, string][] = [];
+  for (const s of units) for (const d of DAYS) for (const p of PACES)
+    if (REBUILD_BASE || !(`${s}|${d}|${p}` in baseMetrics)) needKeys.push([s, d, p]);
+  if (!needKeys.length) {
+    console.log(`base: cache complete for ${units.length} unit(s) — ${path.relative(process.cwd(), cacheFile)}\n`);
   } else {
-    console.log("base: building via worktree…");
+    console.log(`base: building ${needKeys.length} missing config(s) via worktree…`);
     const buildBase = baseSha === headSha ? (buildHead as BuildFn) : await buildBaseModule(baseSha);
-    baseMetrics = {};
-    for (const s of units) for (const d of DAYS) for (const p of PACES)
-      baseMetrics[`${s}|${d}|${p}`] = metricsOf(buildBase, s, d, p, pools.get(s)!);
+    for (const [s, d, p] of needKeys) baseMetrics[`${s}|${d}|${p}`] = metricsOf(buildBase, s, d, p, pools.get(s)!);
     fs.mkdirSync(SCRATCH, { recursive: true });
     fs.writeFileSync(cacheFile, JSON.stringify(baseMetrics));
     if (baseSha !== headSha && !KEEP_WT) cleanupWorktree(baseSha);
