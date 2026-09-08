@@ -43,6 +43,7 @@ async function main(): Promise<void> {
   console.log(`Upload ${cities.length} thành phố${only.length ? ` (chỉ: ${only.join(', ')})` : ' (tất cả)'}…`);
   let n = 0;
   let bytes = 0;
+  const perSlug = new Map<string, number>();
   for (const c of cities) {
     for (const f of FILES) {
       const p = path.join(ROOT, c.slug, f);
@@ -61,10 +62,19 @@ async function main(): Promise<void> {
       );
       n += 1;
       bytes += body.byteLength;
+      perSlug.set(c.slug, (perSlug.get(c.slug) ?? 0) + 1);
       console.log(`  PUT tourism/${c.slug}/${f}  (${(body.byteLength / 1024).toFixed(0)} KB)`);
     }
   }
   console.log(`\nĐã upload ${n} file (${(bytes / 1e6).toFixed(1)} MB) cho ${cities.length} thành phố.`);
+  // Slug được YÊU CẦU tường minh mà upload 0 file (thiếu file / sai cwd) = FAIL, không im lặng thành công.
+  if (only.length) {
+    const empty = only.filter((s) => !(perSlug.get(s) ?? 0));
+    if (empty.length) {
+      console.error(`Slug yêu cầu nhưng upload 0 file: ${empty.join(', ')} (thiếu export hay sai cwd?). Dừng.`);
+      process.exit(1);
+    }
+  }
 }
 
 main().catch((e) => {
