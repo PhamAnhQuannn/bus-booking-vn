@@ -782,7 +782,17 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
       if (seen) seen.push(co(p)); else droppedTwin.set(k, [co(p)]);
       return true;
     })
-    .filter((p) => { // #700 (da-nang Sun World): không note-drop khi MỘT record CÙNG quần thể (complex_id) đã xếp
+    // #700 (da-nang Sun World): complex_id note-suppression is INTENTIONALLY scoped to THIS allDropped/perDay-cap
+    // path — the ONLY drop-note emitter where #700's da-nang case arises. There are 4 other emitters (growCompact
+    // whole-cluster ~559, days===1 far/sig-access ~602, gatedFar ~615, restDays===0 ~622); all fire BEFORE placement
+    // (`packed` @628, `protChunks` @634-744) so the final placed itinerary — and thus `placedComplex` — does not yet
+    // exist there. Structurally the case can't arise in those paths anyway: same-complex_id records are a tight geo
+    // quad → they land in ONE Reg, and a whole-cluster drop drops all siblings together (none placed → nothing to
+    // suppress against). Only the within-cluster Σweight/perDay cut here splits a complex's members between placed
+    // (protChunk) and dropped (protDropped). FOLLOW-UP: if complex_id curation ever spans across Reg boundaries (a
+    // sibling placed in one cluster, another dropped in a different one), extend suppression to those paths — which
+    // needs the placed set reordered ahead of note emission (a larger, riskier change; not warranted today).
+    .filter((p) => { // không note-drop khi MỘT record CÙNG quần thể (complex_id) đã xếp
       const cx = complexOf(p); // — tên khác nhau (Cầu Vàng/Chùa Linh Ứng/Cáp Treo Bà Nà) nhưng cùng khu → quần thể ĐÃ có mặt.
       return !cx || !placedComplex.has(cx); // no-op tới khi data có complex_id (curated ~4 record da-nang).
     });
