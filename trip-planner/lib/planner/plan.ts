@@ -298,17 +298,23 @@ function packDays(store: Store, orderedRegs: Reg[], restDays: number, perDay: nu
     const dayW = (d: KbRecord[]) => d.reduce((s, q) => s + dayWeight(q), 0);
     for (const p of cur) {
       const w = dayWeight(p);
+      // best = ngày nhận p tốt nhất tôn trọng Σweight VÀ perDay-count (#699: dồn-dư KHÔNG được vượt nhịp —
+      // trước đây chỉ chặn Σweight nên điểm SHORT w=0 nhồi vô hạn vào ngày đã đủ perDay). bestA = chỉ chặn
+      // Σweight (KHÔNG chặn count) — DÀNH RIÊNG cho E1 anchor (khách chốt tường minh thắng nhịp; giữ hành vi cũ).
       let best = -1, bestSpan = Infinity;
+      let bestA = -1, bestASpan = Infinity;
       for (let i = 0; i < days.length; i++) {
         if (dayW(days[i]) + w > 1 + 1e-9) continue;
         const s = spanKm([...days[i], p].map(co));
+        if (s < bestASpan) { bestASpan = s; bestA = i; }
+        if (days[i].length >= perDay) continue; // #699: perDay count-cap (E1 dùng bestA, miễn cap)
         if (s < bestSpan) { bestSpan = s; best = i; }
       }
       if (best >= 0 && bestSpan <= WIDE_DAY_KM) { days[best].push(p); continue; } // ngày gọn còn chỗ → nhét
-      // E1: user-anchor KHÔNG bị bỏ vì xa. Ngày gần nhất còn-chỗ dù > WIDE_DAY_KM vẫn nhận anchor (HONOR E1);
-      // ngày-rộng đó được CÔNG BỐ ở tầng disclosure per-day phổ quát dưới buildDayChunks (FIX 1 #698 RC#3 —
-      // không âm thầm, không cần đánh dấu điểm ở đây). best<0 (không ngày nào đủ weight) → bỏ + hoàn budget.
-      if (anchorIds.has(p.id)) { if (best >= 0) { days[best].push(p); } else { dropped.push(p); taken -= 1; } continue; }
+      // E1: user-anchor KHÔNG bị bỏ vì xa. Ngày gần nhất còn-chỗ-weight dù > WIDE_DAY_KM/đã đủ perDay vẫn nhận
+      // anchor (HONOR E1, dùng bestA miễn count-cap); ngày-rộng đó được CÔNG BỐ ở tầng disclosure per-day phổ
+      // quát dưới buildDayChunks (FIX 1 #698 RC#3). bestA<0 (không ngày nào đủ weight) → bỏ + hoàn budget.
+      if (anchorIds.has(p.id)) { if (bestA >= 0) { days[bestA].push(p); } else { dropped.push(p); taken -= 1; } continue; }
       // Không ngày nào GẦN nhận được p. Nếu p GẦN tâm hơn một điểm XA (KHÔNG phải anchor) đã xếp mà thay nó cho p
       // vào được ngày gọn (span≤WIDE_DAY_KM) → HOÁN (giữ điểm gần home, đẩy outlier xa ra + note): tránh outlier
       // chiếm mất ngày của khu trung tâm. Không hoán được → p mới là outlier thật → bỏ p (+note). Cả hai: hoàn budget.
