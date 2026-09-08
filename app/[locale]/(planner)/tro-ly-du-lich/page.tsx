@@ -47,6 +47,8 @@ import { CITIES } from '@/trip-planner/lib/planner/cities';
 import { useIsWide } from '@/trip-planner/components/useIsWide';
 // KIỂU only (erased lúc build → không kéo graph server vào client). Qua barrel = entry-point hợp lệ.
 import type { PlannerDto, ParsedIntent, DestinationSuggestion } from '@/trip-planner/lib/planner';
+// Helper thuần (không client) — tách ra ./messageUtils để unit test không kéo module-graph client.
+import { isPlaceholder, pruneTrailingPlaceholder } from './messageUtils';
 
 // PlannerPane gộp Leaflet → dynamic ssr:false. Chứa DayTabBar + map (aspect-lock) + itinerary card.
 const PlannerPane = dynamic(() => import('@/trip-planner/components/PlannerPane'), { ssr: false });
@@ -83,6 +85,8 @@ type Msg =
     };
 
 // Msg[] (UI, có field tạm) ↔ StoredMsg[] (bền vững, chỉ role/text/dto).
+// LƯU Ý: filter dưới CỐ Ý khác hasBotContent — chỉ giữ text.trim()||dto (StoredMsg chỉ có role/text/dto;
+// error/suggestions/options là trạng thái tạm, không persist), nên KHÔNG hợp nhất với isPlaceholder.
 function toStored(msgs: Msg[]): StoredMsg[] {
   return msgs
     .filter((m) => (m.text && m.text.trim()) || (m.role === 'bot' && m.dto))
@@ -250,9 +254,13 @@ export default function TroLyDuLichPage() {
     });
   }
 
+  // Push message(s) SAU khi bỏ placeholder đuôi chưa giải quyết → bubble cũ morph thay vì kẹt (xem
+  // pruneTrailingPlaceholder). Dùng cho MỌI chỗ push bot mới (send/pushAsk/buildFromSlots).
+  const pushMsgs = (...ms: Msg[]) => setMessages((prev) => [...pruneTrailingPlaceholder(prev), ...ms]);
+
   // Thêm 1 câu hỏi (chip chuẩn tất định) dưới dạng bot message.
   function pushAsk(a: Ask) {
-    setMessages((prev) => [...prev, { role: 'bot', text: a.prompt, time: nowHHMM(), options: { slot: a.slot, options: a.options, allowCustom: a.allowCustom } }]);
+    pushMsgs({ role: 'bot', text: a.prompt, time: nowHHMM(), options: { slot: a.slot, options: a.options, allowCustom: a.allowCustom } });
   }
 
   // Sau khi cập nhật slot: thiếu bắt buộc → hỏi (chip); đủ nhưng chưa hỏi sở thích → hỏi 1 lần; đủ → dựng.
@@ -320,7 +328,7 @@ export default function TroLyDuLichPage() {
     const timeout = setTimeout(() => ctrl.abort('timeout'), 45000); // 45s không phản hồi → hủy → lỗi
     const reqId = 'build-' + nowHHMM();
     // retry: tái dùng bong bóng lỗi (doRetry đã reset về planning) → KHÔNG push bubble mới.
-    if (!opts.retry) setMessages((prev) => [...prev, { role: 'bot', text: '', planning: true, time: nowHHMM() }]);
+    if (!opts.retry) pushMsgs({ role: 'bot', text: '', planning: true, time: nowHHMM() });
     setLoading(true);
     try {
       const res = await fetch('/api/planner/itinerary?' + slotsToParams(s), { headers: { 'X-CSRF-Token': readCsrfToken() }, signal: ctrl.signal });
@@ -410,7 +418,7 @@ export default function TroLyDuLichPage() {
 
     // retry: tái dùng bong bóng lỗi cũ (doRetry đã reset text/planning) → KHÔNG push user+bot mới
     // (chống xếp chồng bubble trùng khi Thử lại nhiều lần). (Mục D)
-    if (!opts.retry) setMessages((prev) => [...prev, { role: 'user', text, time: nowHHMM() }, { role: 'bot', text: '', time: nowHHMM() }]);
+    if (!opts.retry) pushMsgs({ role: 'user', text, time: nowHHMM() }, { role: 'bot', text: '', time: nowHHMM() });
     // OPTIMISTIC: bóc slot client NGAY (trước round-trip) → mount shell 2 cột + skeleton/funnel ≤400ms.
     const det0 = extractFromText(text);
     if (det0.dia_diem) setPendingDestination(det0.dia_diem);
@@ -764,27 +772,55 @@ export default function TroLyDuLichPage() {
   ) : null;
   const progressBlock = buildingView ? <ProgressStages active={buildingView} settled={false} destination={destName} /> : null;
 
+  // Dòng STATUS responsive trong bong bóng bot ĐANG chờ (placeholder đuôi + loading): 3 pha DẪN XUẤT từ
+  // state có sẵn (không field/timer/giả) — mỗi nhãn là 1 mốc THẬT: send()=phân tích → biết điểm đến=xác
+  // định chi tiết → planning(engine chạy)=dựng lịch. Thay "Trợ lý đang trả lời…" tĩnh. aria-live cho SR.
+  const botStatus = (m: Extract<Msg, { role: 'bot' }>, idx: number) =>
+    loading && idx === messages.length - 1 && isPlaceholder(m) ? (
+      <p role="status" aria-live="polite" className="flex items-center gap-1.5 text-muted-foreground">
+        <span aria-hidden className="inline-block motion-safe:animate-spin">◌</span>
+        {m.planning
+          ? destName
+            ? t('assistant.status.build', { destination: destName })
+            : t('assistant.status.buildGeneric')
+          : destKnown
+            ? destName
+              ? t('assistant.status.dest', { destination: destName })
+              : t('assistant.status.destGeneric')
+            : t('assistant.status.analyze')}
+      </p>
+    ) : null;
+
   const messagesBlock = (
     <div className="mt-3 flex flex-col">
       {messages.map((m, idx) => {
         const mt = idx === 0 ? 0 : messages[idx - 1].role === m.role ? 8 : 16;
-        return m.role === 'user' ? (
-          <div key={idx} style={{ marginTop: mt }} className="max-w-[min(78%,460px)] self-end rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-[15px] text-primary-foreground">
-            {m.text}
-            {m.time ? <span className="mt-0.5 block text-right text-[13px] text-primary-foreground/70">{m.time} ✓✓</span> : null}
-          </div>
-        ) : (
+        if (m.role === 'user') {
+          return (
+            <div key={idx} style={{ marginTop: mt }} className="max-w-[min(78%,460px)] self-end rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-[15px] text-primary-foreground">
+              {m.text}
+              {m.time ? <span className="mt-0.5 block text-right text-[13px] text-primary-foreground/70">{m.time} ✓✓</span> : null}
+            </div>
+          );
+        }
+        // Chỉ render bong bóng viền khi CÓ nội dung (text | status chờ | dòng đã-chọn | lỗi). Bot chỉ-gợi-ý
+        // (suggestions, không text/status) hiện SuggestionCards bên dưới → KHÔNG để hộp viền RỖNG ở trên.
+        const status = m.text ? null : botStatus(m, idx);
+        const pickedLine = !!m.options?.options.length && messages[idx + 1]?.role === 'user';
+        const showBubble = !!m.text || !!status || pickedLine || !!m.error;
+        return (
           <div key={idx} style={{ marginTop: mt }} className="flex w-full gap-2.5 self-start">
             <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/10 text-base" aria-hidden>🤖</span>
             <div className="min-w-0 max-w-[min(90%,560px)] flex-1">
-              <div className="rounded-2xl rounded-bl-md border px-4 py-3 text-[15px] leading-6 text-foreground" style={{ background: 'var(--planner-surface)', borderColor: '#F0EAE2' }}>
-                {m.text ? <p className="whitespace-pre-wrap">{m.text}</p> : <p className="text-muted-foreground">{t('assistant.typing')}</p>}
-                {m.planning ? <p className="mt-2 text-[13px] text-muted-foreground">{t('assistant.planningFromData')}</p> : null}
-                {m.options && m.options.options.length && messages[idx + 1]?.role === 'user' ? (
-                  <p className="mt-2 text-[13px]" style={{ color: 'var(--planner-text-secondary)' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
-                ) : null}
-                {renderErrorActions(m)}
-              </div>
+              {showBubble ? (
+                <div className="rounded-2xl rounded-bl-md border px-4 py-3 text-[15px] leading-6 text-foreground" style={{ background: 'var(--planner-surface)', borderColor: '#F0EAE2' }}>
+                  {m.text ? <p className="whitespace-pre-wrap">{m.text}</p> : status}
+                  {pickedLine ? (
+                    <p className="mt-2 text-[13px]" style={{ color: 'var(--planner-text-secondary)' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
+                  ) : null}
+                  {renderErrorActions(m)}
+                </div>
+              ) : null}
               {m.time ? <span className="mt-0.5 block px-1 text-[13px] text-muted-foreground">{m.time}</span> : null}
               {m.dto ? <TripReceipt dto={m.dto} onActivate={activateArtifact} onSelectDay={setActiveDay} /> : null}
               {m.suggestions ? (
@@ -1018,25 +1054,34 @@ export default function TroLyDuLichPage() {
                 {messages.map((m, idx) => {
                   // proximity: cùng người 8px, khác người 16px → thấy lượt-lời tức thì (Gestalt)
                   const mt = idx === 0 ? 0 : messages[idx - 1].role === m.role ? 8 : 16;
-                  return m.role === 'user' ? (
-                    <div key={idx} style={{ marginTop: mt }} className="max-w-[min(78%,460px)] self-end rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-[15px] text-primary-foreground">
-                      {m.text}
-                      {m.time ? <span className="mt-0.5 block text-right text-[13px] text-primary-foreground/70">{m.time} ✓✓</span> : null}
-                    </div>
-                  ) : (
+                  if (m.role === 'user') {
+                    return (
+                      <div key={idx} style={{ marginTop: mt }} className="max-w-[min(78%,460px)] self-end rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-[15px] text-primary-foreground">
+                        {m.text}
+                        {m.time ? <span className="mt-0.5 block text-right text-[13px] text-primary-foreground/70">{m.time} ✓✓</span> : null}
+                      </div>
+                    );
+                  }
+                  // Chỉ render bong bóng viền khi CÓ nội dung (text | status chờ | dòng đã-chọn | lỗi). Bot
+                  // chỉ-gợi-ý (suggestions, không text/status) hiện SuggestionCards bên dưới → KHÔNG hộp RỖNG.
+                  const status = m.text ? null : botStatus(m, idx);
+                  const pickedLine = !!m.options?.options.length && messages[idx + 1]?.role === 'user';
+                  const showBubble = !!m.text || !!status || pickedLine || !!m.error;
+                  return (
                     <div key={idx} style={{ marginTop: mt }} className="flex w-full gap-2.5 self-start">
                       {/* Avatar bot (mock: robot tròn nền cam nhạt) */}
                       <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/10 text-base" aria-hidden>🤖</span>
                       <div className="min-w-0 max-w-[min(90%,560px)] flex-1">
                         {/* Bubble bot — nền #FEFCF7 + viền hairline #F0EAE2 (đo từ mock) */}
-                        <div className="rounded-2xl rounded-bl-md border px-4 py-3 text-[15px] leading-6 text-foreground" style={{ background: 'var(--planner-surface)', borderColor: '#F0EAE2' }}>
-                          {m.text ? <p className="whitespace-pre-wrap">{m.text}</p> : <p className="text-muted-foreground">{t('assistant.typing')}</p>}
-                          {m.planning ? <p className="mt-2 text-[13px] text-muted-foreground">{t('assistant.planningFromData')}</p> : null}
-                          {m.options && m.options.options.length && messages[idx + 1]?.role === 'user' ? (
-                            <p className="mt-2 text-[13px]" style={{ color: 'var(--planner-text-secondary)' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
-                          ) : null}
-                          {renderErrorActions(m)}
-                        </div>
+                        {showBubble ? (
+                          <div className="rounded-2xl rounded-bl-md border px-4 py-3 text-[15px] leading-6 text-foreground" style={{ background: 'var(--planner-surface)', borderColor: '#F0EAE2' }}>
+                            {m.text ? <p className="whitespace-pre-wrap">{m.text}</p> : status}
+                            {pickedLine ? (
+                              <p className="mt-2 text-[13px]" style={{ color: 'var(--planner-text-secondary)' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
+                            ) : null}
+                            {renderErrorActions(m)}
+                          </div>
+                        ) : null}
                         {m.time ? <span className="mt-0.5 block px-1 text-[13px] text-muted-foreground">{m.time}</span> : null}
 
                         {m.dto ? <TripReceipt dto={m.dto} onActivate={activateArtifact} onSelectDay={setActiveDay} /> : null}

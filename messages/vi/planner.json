@@ -85,8 +85,13 @@
     "buildFail": "Chưa dựng được lịch, bạn thử lại nhé.",
     "busy": "Trợ lý đang bận, thử lại giúp mình nhé.",
     "noConnection": "Không kết nối được máy chủ, thử lại giúp mình nhé.",
-    "planningFromData": "Đang lập kế hoạch từ dữ liệu đã xác minh…",
-    "typing": "Trợ lý đang trả lời…",
+    "status": {
+      "analyze": "Đang phân tích yêu cầu…",
+      "dest": "Đang xác định chi tiết chuyến đi {destination}…",
+      "destGeneric": "Đang xác định chi tiết chuyến đi…",
+      "build": "Đang dựng lịch trình {destination}: điểm tham quan, chỗ ở, lộ trình…",
+      "buildGeneric": "Đang dựng lịch trình: điểm tham quan, chỗ ở, lộ trình…"
+    },
     "tryAgain": "Bạn thử nhắn lại giúp mình nhé.",
     "genericError": "Có lỗi xảy ra.",
     "selected": "Đã chọn: {choice}",
