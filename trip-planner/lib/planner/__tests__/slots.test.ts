@@ -110,6 +110,13 @@ describe('extractFromText — đổi/chuyển sang thành phố ngắn (stale-de
   // FP guard: không có cụm đổi-sang + tên thành phố → KHÔNG nhận
   it('"đổi tiền ở quán" → dia_diem undefined', () =>
     expect(extractFromText('đổi tiền ở quán').dia_diem).toBeUndefined());
+  it('"đổi qua Huế" → dia_diem=hue', () =>
+    expect(extractFromText('đổi qua Huế').dia_diem).toBe('hue'));
+  it('"chuyển qua Vinh" → dia_diem=vinh', () =>
+    expect(extractFromText('chuyển qua Vinh').dia_diem).toBe('vinh'));
+  // FP: cụm chuyển KHÔNG kề tên thành phố ("sang" theo sau "hoa", không phải "huế") → KHÔNG nhận
+  it('"đổi sang hoa huệ" → dia_diem undefined', () =>
+    expect(extractFromText('đổi sang hoa huệ').dia_diem).toBeUndefined());
 });
 
 describe('V3 C — sở thích không rơi tín hiệu', () => {

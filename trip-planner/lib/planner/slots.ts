@@ -146,7 +146,7 @@ const foldVi = (s: string): string => s.toLowerCase().normalize("NFD").replace(/
 const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 // Tên thành phố ngắn (≤4 ký tự sau fold, VD "hue"/"vinh") dễ khớp nhầm vào từ khác chứa nó
 // ("hoa huệ", "vinh danh") — chỉ nhận khi câu có tín hiệu ý định du lịch rõ ràng.
-const TRAVEL_INTENT_RE = /(đi|tới|đến|về|thăm|ghé|tại|du lịch|ở\s|khám phá|đổi sang|chuyển sang|đổi qua|chuyển qua)/;
+const TRAVEL_INTENT_RE = /(đi|tới|đến|về|thăm|ghé|tại|du lịch|ở\s|khám phá)/;
 
 // Sở thích từ free-text: scan keyword → mã; cụm trong "thích …" chưa khớp → LITERAL (không drop im lặng).
 function extractInterests(text: string): string[] {
@@ -182,7 +182,13 @@ export function extractFromText(text: string): Partial<Slots> {
       const folded = foldVi(c.ten);
       const bounded = new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(folded)}(?:$|[^a-z0-9])`).test(ft);
       if (!bounded) return false;
-      if (folded.length <= 4 && !TRAVEL_INTENT_RE.test(t)) return false;
+      if (folded.length <= 4) {
+        // "đổi/chuyển sang/qua <city>" phải KỀ tên thành phố (bù cụm chuyển thành phố ngắn), tránh
+        // "đổi sang hoa huệ"→hue. (Hạn chế heuristic: cụm ghép MỞ ĐẦU bằng tên như "chuyển sang vinh
+        // danh" vẫn khớp — cùng lớp "tại vinh danh" sẵn có; D chỉ tô nhãn optimistic, server vẫn dựng đúng.)
+        const switchAdj = new RegExp(`(?:doi|chuyen)\\s+(?:sang|qua)\\s+${escapeRegExp(folded)}(?:$|[^a-z0-9])`).test(ft);
+        if (!TRAVEL_INTENT_RE.test(t) && !switchAdj) return false;
+      }
       return true;
     });
   if (city) out.dia_diem = city.slug;
