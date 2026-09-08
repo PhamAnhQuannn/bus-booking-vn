@@ -61,17 +61,20 @@ const nameMatch = (a: string, b: string) => {
   if (!x || !y) return false;
   return (x.length >= 5 && y.includes(x)) || (y.length >= 5 && x.includes(y));
 };
-// widest diem-den pair of the day → span km + the two endpoint NAMES (so wide days key by identity,
-// not by day-index — a reorder must not create/mask a NEW-WIDE; see diffConfig).
-const widestPair = (pts: { name: string; lat: number | null; lon: number | null }[]): { km: number; a: string; b: string } => {
-  const p = pts.filter((q) => q.lat != null && q.lon != null) as { name: string; lat: number; lon: number }[];
-  let km = 0, a = "", b = "";
+// widest diem-den pair of the day → span km + the two endpoint IDS (so wide days key by identity,
+// not by day-index nor by NAME — two far-apart points can share a folded name in a merged mega-slug;
+// a reorder must not create/mask a NEW-WIDE; see diffConfig). NAMES kept only for the printed detail.
+const widestPair = (
+  pts: { id: string; name: string; lat: number | null; lon: number | null }[],
+): { km: number; aId: string; bId: string; a: string; b: string } => {
+  const p = pts.filter((q) => q.lat != null && q.lon != null) as { id: string; name: string; lat: number; lon: number }[];
+  let km = 0, aId = "", bId = "", a = "", b = "";
   for (let i = 0; i < p.length; i++)
     for (let j = i + 1; j < p.length; j++) {
       const d = haversine(p[i].lat, p[i].lon, p[j].lat, p[j].lon) / 1000;
-      if (d > km) { km = d; a = p[i].name; b = p[j].name; }
+      if (d > km) { km = d; aId = p[i].id; bId = p[j].id; a = p[i].name; b = p[j].name; }
     }
-  return { km, a, b };
+  return { km, aId, bId, a, b };
 };
 
 // units = every export dir with a diem-den.json (mirror smoke-all-units:9-13). NOT cities.ts's 35-slug
@@ -103,13 +106,16 @@ function marqueeNames(slug: string): string[] {
   // auto-marquee only when no hand-list. Engine (plan.ts:472-475) takes top-K over `withCoord`, so filter
   // to coordinate-bearing records BEFORE the top-K slice or the pool over-counts (17 auto-marquee slugs).
   if (!hl.length)
-    for (const r of recs.filter((r) => r.coordinates?.latitude != null).slice(0, AUTO_MARQUEE_K)) pool.add(r.name);
+    for (const r of recs
+      .filter((r) => r.coordinates?.latitude != null && r.coordinates?.longitude != null) // mirror plan.ts:433 withCoord (both lat AND lon)
+      .slice(0, AUTO_MARQUEE_K))
+      pool.add(r.name);
   for (const r of recs) if (r.ext?.destination?.loi_vao_dac_trung) pool.add(r.name); // sig-access
   return [...pool];
 }
 
 // ── per-config metrics ────────────────────────────────────────────────────────
-type WideDay = { key: string; span: number }; // key = folded, sorted max-pair endpoint names
+type WideDay = { key: string; detail: string; span: number }; // key = sorted max-pair endpoint IDS; detail = readable names
 type ConfigMetric =
   | { ok: false; err: string }
   | {
@@ -135,8 +141,9 @@ function metricsOf(build: BuildFn, slug: string, days: number, pace: string, poo
   for (const d of it.days) {
     const dd = d.items.filter((i) => i.role === "diem-den");
     counts.push(dd.length);
-    const w = widestPair(dd.map((i) => ({ name: i.name, lat: i.lat, lon: i.lon })));
-    if (w.km > WIDE_DAY_KM) wideDays.push({ key: [fold(w.a), fold(w.b)].sort().join(" ↔ "), span: w.km });
+    const w = widestPair(dd.map((i) => ({ id: i.id, name: i.name, lat: i.lat, lon: i.lon })));
+    if (w.km > WIDE_DAY_KM)
+      wideDays.push({ key: [w.aId, w.bId].sort().join("|"), detail: `${fold(w.a)} ↔ ${fold(w.b)}`, span: w.km });
     for (const i of dd) {
       const nf = fold(i.name);
       for (let k = 0; k < pool.length; k++)
@@ -164,14 +171,15 @@ function diffConfig(slug: string, days: number, pace: string, base: ConfigMetric
   }
   if (!base.ok) return { regs, fixes }; // base broken, head fixed → not a regression
 
-  // NEW-WIDE / WIDE-FIXED — SET-wise by max-pair endpoint-name key (multiset), NOT by day-index:
-  // days emit in itinerary order, so a reorder must not mask a new wide day nor invent churn.
+  // NEW-WIDE / WIDE-FIXED — SET-wise by max-pair endpoint-ID key (multiset), NOT by day-index:
+  // days emit in itinerary order, so a reorder must not mask a new wide day nor invent churn. Keyed by
+  // id (not name) because far-apart points can share a folded name in a merged mega-slug; detail shows names.
   const baseWide = new Map<string, number>();
   for (const w of base.wideDays) baseWide.set(w.key, (baseWide.get(w.key) ?? 0) + 1);
   for (const w of head.wideDays) {
     const n = baseWide.get(w.key) ?? 0;
     if (n > 0) baseWide.set(w.key, n - 1); // matches a base wide day of the same endpoints → not new
-    else regs.push({ slug, days, pace, kind: "NEW-WIDE", detail: `${w.key} ${w.span.toFixed(1)}km` });
+    else regs.push({ slug, days, pace, kind: "NEW-WIDE", detail: `${w.detail} ${w.span.toFixed(1)}km` });
   }
   for (const n of baseWide.values()) for (let k = 0; k < n; k++) fixes.push({ kind: "WIDE-FIXED", slug, days, pace }); // base wide day gone in head
 
