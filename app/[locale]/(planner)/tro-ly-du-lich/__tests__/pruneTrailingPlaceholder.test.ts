@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { pruneTrailingPlaceholder, isPlaceholder } from '../page';
+// Import từ module thuần ../messageUtils (KHÔNG ../page) → unit test không kéo module-graph client.
+import { pruneTrailingPlaceholder, isPlaceholder } from '../messageUtils';
 
 // Msg không export — fixture tối thiểu, cast qua unknown (helper chỉ đọc role/text/error/dto/suggestions/options).
 const M = (m: Record<string, unknown>) => m as unknown as Parameters<typeof isPlaceholder>[0];
@@ -28,6 +29,12 @@ describe('pruneTrailingPlaceholder / isPlaceholder (#UI orphan fix)', () => {
   it('GIỮ bubble câu hỏi (options + text)', () => {
     expect(isPlaceholder(bot({ text: 'Đi mấy ngày?', options: {} }))).toBe(false);
     expect(pruneTrailingPlaceholder([user(), bot({ text: 'Đi mấy ngày?', options: {} })])).toHaveLength(2);
+  });
+  it('GIỮ bot lỗi (error, text rỗng nhưng là bong bóng lỗi thật)', () => {
+    expect(isPlaceholder(bot({ error: true }))).toBe(false);
+  });
+  it('GIỮ bot có dto (text rỗng nhưng mang kết quả)', () => {
+    expect(isPlaceholder(bot({ dto: {} }))).toBe(false);
   });
   it('GIỮ khi đuôi là user (không phải bot)', () => {
     expect(pruneTrailingPlaceholder([bot({ text: 'a' }), user()])).toHaveLength(2);

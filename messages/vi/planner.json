@@ -88,7 +88,9 @@
     "status": {
       "analyze": "Đang phân tích yêu cầu…",
       "dest": "Đang xác định chi tiết chuyến đi {destination}…",
-      "build": "Đang dựng lịch trình {destination}: điểm tham quan, chỗ ở, lộ trình…"
+      "destGeneric": "Đang xác định chi tiết chuyến đi…",
+      "build": "Đang dựng lịch trình {destination}: điểm tham quan, chỗ ở, lộ trình…",
+      "buildGeneric": "Đang dựng lịch trình: điểm tham quan, chỗ ở, lộ trình…"
     },
     "tryAgain": "Bạn thử nhắn lại giúp mình nhé.",
     "genericError": "Có lỗi xảy ra.",

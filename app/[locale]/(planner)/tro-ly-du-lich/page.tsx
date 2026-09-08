@@ -47,6 +47,8 @@ import { CITIES } from '@/trip-planner/lib/planner/cities';
 import { useIsWide } from '@/trip-planner/components/useIsWide';
 // KIỂU only (erased lúc build → không kéo graph server vào client). Qua barrel = entry-point hợp lệ.
 import type { PlannerDto, ParsedIntent, DestinationSuggestion } from '@/trip-planner/lib/planner';
+// Helper thuần (không client) — tách ra ./messageUtils để unit test không kéo module-graph client.
+import { isPlaceholder, pruneTrailingPlaceholder } from './messageUtils';
 
 // PlannerPane gộp Leaflet → dynamic ssr:false. Chứa DayTabBar + map (aspect-lock) + itinerary card.
 const PlannerPane = dynamic(() => import('@/trip-planner/components/PlannerPane'), { ssr: false });
@@ -83,6 +85,8 @@ type Msg =
     };
 
 // Msg[] (UI, có field tạm) ↔ StoredMsg[] (bền vững, chỉ role/text/dto).
+// LƯU Ý: filter dưới CỐ Ý khác hasBotContent — chỉ giữ text.trim()||dto (StoredMsg chỉ có role/text/dto;
+// error/suggestions/options là trạng thái tạm, không persist), nên KHÔNG hợp nhất với isPlaceholder.
 function toStored(msgs: Msg[]): StoredMsg[] {
   return msgs
     .filter((m) => (m.text && m.text.trim()) || (m.role === 'bot' && m.dto))
@@ -90,20 +94,6 @@ function toStored(msgs: Msg[]): StoredMsg[] {
 }
 function fromStored(list: StoredMsg[]): Msg[] {
   return list.map((s) => (s.role === 'user' ? { role: 'user', text: s.text } : { role: 'bot', text: s.text, dto: s.dto ?? undefined }));
-}
-
-// Bong bóng bot "chỗ trống" (placeholder) đang chờ nội dung: KHÔNG text/error/dto/suggestions/options.
-// Đây là bubble mà send()/buildFromSlots() push rỗng rồi patch sau. Trạng thái status (đang phân tích/
-// dựng lịch…) hiện Ở ĐÂY và bị THAY khi nội dung thật về.
-export const isPlaceholder = (m: Msg): boolean =>
-  m.role === 'bot' && !m.text && !m.error && !m.dto && !m.suggestions && !m.options;
-// FIX orphan (#UI): trước khi push message mới, BỎ placeholder đuôi CHƯA giải quyết (send() push bubble
-// rỗng, rồi advance()→pushAsk/buildFromSlots push bubble MỚI → placeholder cũ kẹt vĩnh viễn trong hội
-// thoại = "Trợ lý đang trả lời…" treo). Prune+push trong 1 setState (key=idx) → React tái dùng DOM node
-// → bubble MORPH tại chỗ (không nháy), lifecycle abort-guarded (không tạo orphan mới).
-export function pruneTrailingPlaceholder(msgs: Msg[]): Msg[] {
-  const last = msgs[msgs.length - 1];
-  return last && isPlaceholder(last) ? msgs.slice(0, -1) : msgs;
 }
 
 export default function TroLyDuLichPage() {
@@ -790,9 +780,13 @@ export default function TroLyDuLichPage() {
       <p role="status" aria-live="polite" className="flex items-center gap-1.5 text-muted-foreground">
         <span aria-hidden className="inline-block motion-safe:animate-spin">◌</span>
         {m.planning
-          ? t('assistant.status.build', { destination: destName })
+          ? destName
+            ? t('assistant.status.build', { destination: destName })
+            : t('assistant.status.buildGeneric')
           : destKnown
-            ? t('assistant.status.dest', { destination: destName })
+            ? destName
+              ? t('assistant.status.dest', { destination: destName })
+              : t('assistant.status.destGeneric')
             : t('assistant.status.analyze')}
       </p>
     ) : null;
@@ -801,22 +795,32 @@ export default function TroLyDuLichPage() {
     <div className="mt-3 flex flex-col">
       {messages.map((m, idx) => {
         const mt = idx === 0 ? 0 : messages[idx - 1].role === m.role ? 8 : 16;
-        return m.role === 'user' ? (
-          <div key={idx} style={{ marginTop: mt }} className="max-w-[min(78%,460px)] self-end rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-[15px] text-primary-foreground">
-            {m.text}
-            {m.time ? <span className="mt-0.5 block text-right text-[13px] text-primary-foreground/70">{m.time} ✓✓</span> : null}
-          </div>
-        ) : (
+        if (m.role === 'user') {
+          return (
+            <div key={idx} style={{ marginTop: mt }} className="max-w-[min(78%,460px)] self-end rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-[15px] text-primary-foreground">
+              {m.text}
+              {m.time ? <span className="mt-0.5 block text-right text-[13px] text-primary-foreground/70">{m.time} ✓✓</span> : null}
+            </div>
+          );
+        }
+        // Chỉ render bong bóng viền khi CÓ nội dung (text | status chờ | dòng đã-chọn | lỗi). Bot chỉ-gợi-ý
+        // (suggestions, không text/status) hiện SuggestionCards bên dưới → KHÔNG để hộp viền RỖNG ở trên.
+        const status = m.text ? null : botStatus(m, idx);
+        const pickedLine = !!m.options?.options.length && messages[idx + 1]?.role === 'user';
+        const showBubble = !!m.text || !!status || pickedLine || !!m.error;
+        return (
           <div key={idx} style={{ marginTop: mt }} className="flex w-full gap-2.5 self-start">
             <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/10 text-base" aria-hidden>🤖</span>
             <div className="min-w-0 max-w-[min(90%,560px)] flex-1">
-              <div className="rounded-2xl rounded-bl-md border px-4 py-3 text-[15px] leading-6 text-foreground" style={{ background: 'var(--planner-surface)', borderColor: '#F0EAE2' }}>
-                {m.text ? <p className="whitespace-pre-wrap">{m.text}</p> : botStatus(m, idx)}
-                {m.options && m.options.options.length && messages[idx + 1]?.role === 'user' ? (
-                  <p className="mt-2 text-[13px]" style={{ color: 'var(--planner-text-secondary)' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
-                ) : null}
-                {renderErrorActions(m)}
-              </div>
+              {showBubble ? (
+                <div className="rounded-2xl rounded-bl-md border px-4 py-3 text-[15px] leading-6 text-foreground" style={{ background: 'var(--planner-surface)', borderColor: '#F0EAE2' }}>
+                  {m.text ? <p className="whitespace-pre-wrap">{m.text}</p> : status}
+                  {pickedLine ? (
+                    <p className="mt-2 text-[13px]" style={{ color: 'var(--planner-text-secondary)' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
+                  ) : null}
+                  {renderErrorActions(m)}
+                </div>
+              ) : null}
               {m.time ? <span className="mt-0.5 block px-1 text-[13px] text-muted-foreground">{m.time}</span> : null}
               {m.dto ? <TripReceipt dto={m.dto} onActivate={activateArtifact} onSelectDay={setActiveDay} /> : null}
               {m.suggestions ? (
@@ -1050,24 +1054,34 @@ export default function TroLyDuLichPage() {
                 {messages.map((m, idx) => {
                   // proximity: cùng người 8px, khác người 16px → thấy lượt-lời tức thì (Gestalt)
                   const mt = idx === 0 ? 0 : messages[idx - 1].role === m.role ? 8 : 16;
-                  return m.role === 'user' ? (
-                    <div key={idx} style={{ marginTop: mt }} className="max-w-[min(78%,460px)] self-end rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-[15px] text-primary-foreground">
-                      {m.text}
-                      {m.time ? <span className="mt-0.5 block text-right text-[13px] text-primary-foreground/70">{m.time} ✓✓</span> : null}
-                    </div>
-                  ) : (
+                  if (m.role === 'user') {
+                    return (
+                      <div key={idx} style={{ marginTop: mt }} className="max-w-[min(78%,460px)] self-end rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-[15px] text-primary-foreground">
+                        {m.text}
+                        {m.time ? <span className="mt-0.5 block text-right text-[13px] text-primary-foreground/70">{m.time} ✓✓</span> : null}
+                      </div>
+                    );
+                  }
+                  // Chỉ render bong bóng viền khi CÓ nội dung (text | status chờ | dòng đã-chọn | lỗi). Bot
+                  // chỉ-gợi-ý (suggestions, không text/status) hiện SuggestionCards bên dưới → KHÔNG hộp RỖNG.
+                  const status = m.text ? null : botStatus(m, idx);
+                  const pickedLine = !!m.options?.options.length && messages[idx + 1]?.role === 'user';
+                  const showBubble = !!m.text || !!status || pickedLine || !!m.error;
+                  return (
                     <div key={idx} style={{ marginTop: mt }} className="flex w-full gap-2.5 self-start">
                       {/* Avatar bot (mock: robot tròn nền cam nhạt) */}
                       <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/10 text-base" aria-hidden>🤖</span>
                       <div className="min-w-0 max-w-[min(90%,560px)] flex-1">
                         {/* Bubble bot — nền #FEFCF7 + viền hairline #F0EAE2 (đo từ mock) */}
-                        <div className="rounded-2xl rounded-bl-md border px-4 py-3 text-[15px] leading-6 text-foreground" style={{ background: 'var(--planner-surface)', borderColor: '#F0EAE2' }}>
-                          {m.text ? <p className="whitespace-pre-wrap">{m.text}</p> : botStatus(m, idx)}
-                          {m.options && m.options.options.length && messages[idx + 1]?.role === 'user' ? (
-                            <p className="mt-2 text-[13px]" style={{ color: 'var(--planner-text-secondary)' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
-                          ) : null}
-                          {renderErrorActions(m)}
-                        </div>
+                        {showBubble ? (
+                          <div className="rounded-2xl rounded-bl-md border px-4 py-3 text-[15px] leading-6 text-foreground" style={{ background: 'var(--planner-surface)', borderColor: '#F0EAE2' }}>
+                            {m.text ? <p className="whitespace-pre-wrap">{m.text}</p> : status}
+                            {pickedLine ? (
+                              <p className="mt-2 text-[13px]" style={{ color: 'var(--planner-text-secondary)' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
+                            ) : null}
+                            {renderErrorActions(m)}
+                          </div>
+                        ) : null}
                         {m.time ? <span className="mt-0.5 block px-1 text-[13px] text-muted-foreground">{m.time}</span> : null}
 
                         {m.dto ? <TripReceipt dto={m.dto} onActivate={activateArtifact} onSelectDay={setActiveDay} /> : null}

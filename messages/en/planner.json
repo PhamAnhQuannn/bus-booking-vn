@@ -88,7 +88,9 @@
     "status": {
       "analyze": "Analyzing your request…",
       "dest": "Working out the details for {destination}…",
-      "build": "Building your {destination} itinerary: places, stay, route…"
+      "destGeneric": "Working out your trip details…",
+      "build": "Building your {destination} itinerary: places, stay, route…",
+      "buildGeneric": "Building your itinerary: places, stay, route…"
     },
     "tryAgain": "Please try messaging again.",
     "genericError": "Something went wrong.",
