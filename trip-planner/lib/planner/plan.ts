@@ -59,6 +59,13 @@ function boundedIncludes(haystack: string, needle: string): boolean {
   if (!needle) return false;
   return new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(needle)}(?:$|[^a-z0-9])`).test(haystack);
 }
+// matchesSpot (#692): vị-từ khớp fame-spot dùng chung bởi regFame / marquee-detect / fameRankOf — "tên nm
+// khớp fame-spot s" HAI CHIỀU (spot nằm trong tên HOẶC tên nằm trong spot dài hơn), guard ≥5 ký tự mỗi chiều
+// tránh khớp giả do chuỗi ngắn. Trước đây chép byte-identical 3 nơi → sửa guard/fold 1 chỗ, 3 nơi đồng bộ.
+// (specFameRank KHÔNG dùng: nó cần biết khớp NHÁNH nào (fwd/rev) để đo độ-cụ-thể — giữ riêng.)
+function matchesSpot(nm: string, s: string): boolean {
+  return (s.length >= 5 && boundedIncludes(nm, s)) || (nm.length >= 5 && boundedIncludes(s, nm));
+}
 
 function fameSpotsForSlug(slug: string): string[] {
   const out: string[] = [];
@@ -79,7 +86,7 @@ export function regFame(pts: KbRecord[], fameSpots: string[]): number {
     const nm = foldText(p.name);
     for (let i = 0; i < fameSpots.length; i++) {
       const s = fameSpots[i];
-      if ((s.length >= 5 && boundedIncludes(nm, s)) || (nm.length >= 5 && boundedIncludes(s, nm))) { best = Math.max(best, fameSpots.length - i); break; }
+      if (matchesSpot(nm, s)) { best = Math.max(best, fameSpots.length - i); break; }
     }
   }
   return best;
@@ -470,7 +477,7 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
   if (fameSpots.length)
     for (const r of withCoord) {
       const nm = foldText(r.name);
-      if (fameSpots.some((s) => (s.length >= 5 && boundedIncludes(nm, s)) || (nm.length >= 5 && boundedIncludes(s, nm)))) marqueeIds.add(r.id);
+      if (fameSpots.some((s) => matchesSpot(nm, s))) marqueeIds.add(r.id);
     }
   else
     // Phase 3: slug KHÔNG có signatureSpots hand-list (17/35 tp) → auto-marquee top-K theo importance
@@ -507,7 +514,7 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
     for (let i = 0; i < fameSpots.length; i++) {
       const s = fameSpots[i];
       // >= 5: độ dài tên gấp (folded) tối thiểu để khớp substring — tránh khớp giả do chuỗi ngắn (vd "hồ", "núi")
-      if ((s.length >= 5 && boundedIncludes(nm, s)) || (nm.length >= 5 && boundedIncludes(s, nm))) return fameSpots.length - i;
+      if (matchesSpot(nm, s)) return fameSpots.length - i;
     }
     return 0;
   };
