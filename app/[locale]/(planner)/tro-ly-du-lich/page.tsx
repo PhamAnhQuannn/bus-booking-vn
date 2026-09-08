@@ -496,6 +496,7 @@ export default function TroLyDuLichPage() {
       if (d.budgetPerPerson != null) co.budgetPerPerson = d.budgetPerPerson;
       if (d.nhom) co.nhom = d.nhom;
       const restored = applyExtracted(slots, co);
+      setPendingDestination(restored.dia_diem ?? null); // revert điểm đến optimistic (bung 2 cột) về pre-send
       if (Object.keys(co).length) advance(restored); // budget/nhóm-only follow-up → dựng lại lịch cũ + field mới
       else setSlots(restored); // từ chối thuần → chỉ revert, KHÔNG dựng lại (dto cũ giữ nguyên)
     } else {
@@ -504,6 +505,9 @@ export default function TroLyDuLichPage() {
       const det = extractFromText(text);
       // Gemini đã có dia_diem (đáng tin hơn) → KHÔNG để bóc client đè (client chỉ substring-match, dễ nhầm).
       if (merged.dia_diem && det.dia_diem) delete det.dia_diem;
+      // Tương tự: server đã trích days (nó có history → tính tuyệt đối MỚI đúng) → KHÔNG để số client
+      // đè (relDay regex chỉ best-effort; cụm lỡ như "thêm được 2 ngày"/"cộng 2 ngày" vẫn lọt). Server-wins.
+      if (typeof partial.days === 'number' && partial.days > 0 && det.days != null) delete det.days;
       advance(applyExtracted(merged, det));
     }
   }
