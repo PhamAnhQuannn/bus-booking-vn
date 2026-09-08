@@ -432,6 +432,7 @@ export default function TroLyDuLichPage() {
     let partial: Partial<ParsedIntent> = {};
     let suggested = false; // mode vibe-discovery: có gợi ý → KHÔNG auto-advance (CTA lo bước kế)
     let failed = false; // stream lỗi giữa chừng → đã hiện bong bóng lỗi, KHÔNG advance (tránh 2 tin trái nhau)
+    let noop = false; // M2: server báo model KHÔNG gọi function (từ chối/lạc đề) → giữ lịch hiện tại
 
     try {
       const res = await fetch('/api/planner/chat', {
@@ -464,6 +465,7 @@ export default function TroLyDuLichPage() {
           }
           if (r?.suggested) suggested = true;
           if (r?.failed) failed = true; // SSE error frame → chặn advance() bên dưới (#528)
+          if (r?.noop) noop = true; // M2: model không hành động → giữ lịch (revert slot lõi bên dưới)
         }
         scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
       }
@@ -483,8 +485,21 @@ export default function TroLyDuLichPage() {
     if (failed && !retryRef.current) { retryRef.current = { kind: 'send', text }; patchBot((m) => ({ ...m, retry: true })); }
     // Lỗi giữa chừng đã hiện bong bóng lỗi rồi — advance() ở đây sẽ thêm tin bot thứ 2 trái ngược
     // trong cùng lượt, nên chỉ advance khi KHÔNG lỗi và KHÔNG phải mode gợi ý. (#528)
-    // tất định: Gemini partial + bóc client (budget-số + nhóm) → hỏi thêm bằng chip hoặc dựng — KHÔNG thêm Gemini
-    if (!suggested && !failed) {
+    if (failed || suggested) {
+      // bong bóng lỗi đã hiện / vibe CTA lo bước kế — KHÔNG advance.
+    } else if (noop) {
+      // M2: model KHÔNG gọi function (từ chối thành phố chưa hỗ trợ / lạc đề / chào hỏi). Hoàn tác slot
+      // LÕI mà optimistic đã ghi từ chữ user (revert về `slots` trước-send = giữ lịch cũ); chỉ giữ field
+      // CLIENT-ONLY không có trong schema trich (ngân sách-số + nhóm). "Đổi sang Hội An 2 ngày" → giữ lịch cũ.
+      const d = extractFromText(text);
+      const co: Partial<Slots> = {};
+      if (d.budgetPerPerson != null) co.budgetPerPerson = d.budgetPerPerson;
+      if (d.nhom) co.nhom = d.nhom;
+      const restored = applyExtracted(slots, co);
+      if (Object.keys(co).length) advance(restored); // budget/nhóm-only follow-up → dựng lại lịch cũ + field mới
+      else setSlots(restored); // từ chối thuần → chỉ revert, KHÔNG dựng lại (dto cũ giữ nguyên)
+    } else {
+      // tất định: Gemini partial + bóc client (budget-số + nhóm) → hỏi thêm bằng chip hoặc dựng — KHÔNG thêm Gemini
       const merged = mergeIntent(slots, partial);
       const det = extractFromText(text);
       // Gemini đã có dia_diem (đáng tin hơn) → KHÔNG để bóc client đè (client chỉ substring-match, dễ nhầm).
@@ -494,7 +509,7 @@ export default function TroLyDuLichPage() {
   }
 
   // Parse 1 SSE frame. token → patchBot; slots → trả {partial}; suggestions → gắn cards + báo suggested; error → patchBot + báo failed.
-  function handleFrame(frame: string): { partial?: Partial<ParsedIntent>; suggested?: boolean; failed?: boolean } | null {
+  function handleFrame(frame: string): { partial?: Partial<ParsedIntent>; suggested?: boolean; failed?: boolean; noop?: boolean } | null {
     let event = 'message';
     let data = '';
     for (const line of frame.split('\n')) {
@@ -527,6 +542,9 @@ export default function TroLyDuLichPage() {
         // khác đường network-exception ở ngoài catch của send(). (#528)
         patchBot((m) => ({ ...m, planning: false, text: m.text || String(payload.message ?? t('assistant.genericError')), error: true, fallback: typeof payload.fallbackHref === 'string' && !!payload.fallbackHref }));
         return { failed: true };
+      case 'noop':
+        // M2: model KHÔNG gọi function (từ chối/lạc đề) → giữ lịch hiện tại (send() không advance, revert slot lõi).
+        return { noop: true };
       default:
         return null;
     }
