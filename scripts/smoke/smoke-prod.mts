@@ -19,28 +19,41 @@ const BASE_URL = process.env.BASE_URL ?? 'http://localhost:3001';
 const BYPASS = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
 const EXTRA_HEADERS: Record<string, string> = BYPASS ? { 'x-vercel-protection-bypass': BYPASS } : {};
 
-async function protectionWall(baseUrl: string): Promise<string | null> {
+// A genuine SSO/protection signal (kind:'protection') gets the actionable Deployment-Protection
+// remediation. A preflight fetch THROW — DNS fail / connection refused / timeout, i.e. a real
+// app/edge outage — is a DIFFERENT problem (kind:'unreachable'); mislabeling it as a protection
+// config issue misdirects on-call. Both still exit 2 so the run alerts.
+type Wall = { kind: 'protection' | 'unreachable'; detail: string };
+
+async function protectionWall(baseUrl: string): Promise<Wall | null> {
   try {
     const r = await fetch(baseUrl, { redirect: 'manual', headers: EXTRA_HEADERS });
     const loc = r.headers.get('location') ?? '';
     const setCookie = r.headers.get('set-cookie') ?? '';
     if ((r.status >= 300 && r.status < 400 && /vercel\.com\/sso|\/sso-api/i.test(loc)) || /_vercel_sso_nonce/i.test(setCookie))
-      return `HTTP ${r.status}${loc ? ` → ${loc.split('?')[0]}` : ''}`;
+      return { kind: 'protection', detail: `HTTP ${r.status}${loc ? ` → ${loc.split('?')[0]}` : ''}` };
     return null;
   } catch (e) {
-    return `preflight fetch failed: ${(e as Error).message}`;
+    return { kind: 'unreachable', detail: (e as Error).message };
   }
 }
 
 async function main() {
   const wall = await protectionWall(BASE_URL);
-  if (wall) {
-    console.error(`BLOCKED: Vercel Deployment Protection is gating ${BASE_URL} (${wall}).`);
+  if (wall?.kind === 'protection') {
+    console.error(`BLOCKED: Vercel Deployment Protection is gating ${BASE_URL} (${wall.detail}).`);
     console.error('The app was never reached — no assertion below would be meaningful. Fix ONE of:');
     console.error('  1. Vercel → Settings → Deployment Protection: exclude Production (or "Only Preview").');
     console.error('  2. Trusted Sources: allow the CI caller development → production.');
     console.error('  3. Generate a Protection Bypass for Automation secret and set the GH Actions secret');
     console.error('     VERCEL_AUTOMATION_BYPASS_SECRET (this script forwards it as x-vercel-protection-bypass).');
+    process.exit(2);
+  }
+  if (wall?.kind === 'unreachable') {
+    console.error(`UNREACHABLE: preflight fetch to ${BASE_URL} failed (${wall.detail}).`);
+    console.error('The app/edge could not be reached — DNS failure, connection refused, or timeout.');
+    console.error('This is a network/deployment outage, NOT a Deployment Protection config issue.');
+    console.error('Check: the deployment finished and is serving, the hostname/DNS resolves, and the edge is up.');
     process.exit(2);
   }
   const checks: Check[] = [];
