@@ -92,6 +92,20 @@ function fromStored(list: StoredMsg[]): Msg[] {
   return list.map((s) => (s.role === 'user' ? { role: 'user', text: s.text } : { role: 'bot', text: s.text, dto: s.dto ?? undefined }));
 }
 
+// Bong bóng bot "chỗ trống" (placeholder) đang chờ nội dung: KHÔNG text/error/dto/suggestions/options.
+// Đây là bubble mà send()/buildFromSlots() push rỗng rồi patch sau. Trạng thái status (đang phân tích/
+// dựng lịch…) hiện Ở ĐÂY và bị THAY khi nội dung thật về.
+export const isPlaceholder = (m: Msg): boolean =>
+  m.role === 'bot' && !m.text && !m.error && !m.dto && !m.suggestions && !m.options;
+// FIX orphan (#UI): trước khi push message mới, BỎ placeholder đuôi CHƯA giải quyết (send() push bubble
+// rỗng, rồi advance()→pushAsk/buildFromSlots push bubble MỚI → placeholder cũ kẹt vĩnh viễn trong hội
+// thoại = "Trợ lý đang trả lời…" treo). Prune+push trong 1 setState (key=idx) → React tái dùng DOM node
+// → bubble MORPH tại chỗ (không nháy), lifecycle abort-guarded (không tạo orphan mới).
+export function pruneTrailingPlaceholder(msgs: Msg[]): Msg[] {
+  const last = msgs[msgs.length - 1];
+  return last && isPlaceholder(last) ? msgs.slice(0, -1) : msgs;
+}
+
 export default function TroLyDuLichPage() {
   const authStatus = useAuthStatus();
   const locale = useLocale(); // P3b: forwarded to /api/planner/chat so Gemini replies in the UI language
@@ -250,9 +264,13 @@ export default function TroLyDuLichPage() {
     });
   }
 
+  // Push message(s) SAU khi bỏ placeholder đuôi chưa giải quyết → bubble cũ morph thay vì kẹt (xem
+  // pruneTrailingPlaceholder). Dùng cho MỌI chỗ push bot mới (send/pushAsk/buildFromSlots).
+  const pushMsgs = (...ms: Msg[]) => setMessages((prev) => [...pruneTrailingPlaceholder(prev), ...ms]);
+
   // Thêm 1 câu hỏi (chip chuẩn tất định) dưới dạng bot message.
   function pushAsk(a: Ask) {
-    setMessages((prev) => [...prev, { role: 'bot', text: a.prompt, time: nowHHMM(), options: { slot: a.slot, options: a.options, allowCustom: a.allowCustom } }]);
+    pushMsgs({ role: 'bot', text: a.prompt, time: nowHHMM(), options: { slot: a.slot, options: a.options, allowCustom: a.allowCustom } });
   }
 
   // Sau khi cập nhật slot: thiếu bắt buộc → hỏi (chip); đủ nhưng chưa hỏi sở thích → hỏi 1 lần; đủ → dựng.
@@ -320,7 +338,7 @@ export default function TroLyDuLichPage() {
     const timeout = setTimeout(() => ctrl.abort('timeout'), 45000); // 45s không phản hồi → hủy → lỗi
     const reqId = 'build-' + nowHHMM();
     // retry: tái dùng bong bóng lỗi (doRetry đã reset về planning) → KHÔNG push bubble mới.
-    if (!opts.retry) setMessages((prev) => [...prev, { role: 'bot', text: '', planning: true, time: nowHHMM() }]);
+    if (!opts.retry) pushMsgs({ role: 'bot', text: '', planning: true, time: nowHHMM() });
     setLoading(true);
     try {
       const res = await fetch('/api/planner/itinerary?' + slotsToParams(s), { headers: { 'X-CSRF-Token': readCsrfToken() }, signal: ctrl.signal });
@@ -410,7 +428,7 @@ export default function TroLyDuLichPage() {
 
     // retry: tái dùng bong bóng lỗi cũ (doRetry đã reset text/planning) → KHÔNG push user+bot mới
     // (chống xếp chồng bubble trùng khi Thử lại nhiều lần). (Mục D)
-    if (!opts.retry) setMessages((prev) => [...prev, { role: 'user', text, time: nowHHMM() }, { role: 'bot', text: '', time: nowHHMM() }]);
+    if (!opts.retry) pushMsgs({ role: 'user', text, time: nowHHMM() }, { role: 'bot', text: '', time: nowHHMM() });
     // OPTIMISTIC: bóc slot client NGAY (trước round-trip) → mount shell 2 cột + skeleton/funnel ≤400ms.
     const det0 = extractFromText(text);
     if (det0.dia_diem) setPendingDestination(det0.dia_diem);
@@ -764,6 +782,21 @@ export default function TroLyDuLichPage() {
   ) : null;
   const progressBlock = buildingView ? <ProgressStages active={buildingView} settled={false} destination={destName} /> : null;
 
+  // Dòng STATUS responsive trong bong bóng bot ĐANG chờ (placeholder đuôi + loading): 3 pha DẪN XUẤT từ
+  // state có sẵn (không field/timer/giả) — mỗi nhãn là 1 mốc THẬT: send()=phân tích → biết điểm đến=xác
+  // định chi tiết → planning(engine chạy)=dựng lịch. Thay "Trợ lý đang trả lời…" tĩnh. aria-live cho SR.
+  const botStatus = (m: Extract<Msg, { role: 'bot' }>, idx: number) =>
+    loading && idx === messages.length - 1 && isPlaceholder(m) ? (
+      <p role="status" aria-live="polite" className="flex items-center gap-1.5 text-muted-foreground">
+        <span aria-hidden className="inline-block motion-safe:animate-spin">◌</span>
+        {m.planning
+          ? t('assistant.status.build', { destination: destName })
+          : destKnown
+            ? t('assistant.status.dest', { destination: destName })
+            : t('assistant.status.analyze')}
+      </p>
+    ) : null;
+
   const messagesBlock = (
     <div className="mt-3 flex flex-col">
       {messages.map((m, idx) => {
@@ -778,8 +811,7 @@ export default function TroLyDuLichPage() {
             <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/10 text-base" aria-hidden>🤖</span>
             <div className="min-w-0 max-w-[min(90%,560px)] flex-1">
               <div className="rounded-2xl rounded-bl-md border px-4 py-3 text-[15px] leading-6 text-foreground" style={{ background: 'var(--planner-surface)', borderColor: '#F0EAE2' }}>
-                {m.text ? <p className="whitespace-pre-wrap">{m.text}</p> : <p className="text-muted-foreground">{t('assistant.typing')}</p>}
-                {m.planning ? <p className="mt-2 text-[13px] text-muted-foreground">{t('assistant.planningFromData')}</p> : null}
+                {m.text ? <p className="whitespace-pre-wrap">{m.text}</p> : botStatus(m, idx)}
                 {m.options && m.options.options.length && messages[idx + 1]?.role === 'user' ? (
                   <p className="mt-2 text-[13px]" style={{ color: 'var(--planner-text-secondary)' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
                 ) : null}
@@ -1030,8 +1062,7 @@ export default function TroLyDuLichPage() {
                       <div className="min-w-0 max-w-[min(90%,560px)] flex-1">
                         {/* Bubble bot — nền #FEFCF7 + viền hairline #F0EAE2 (đo từ mock) */}
                         <div className="rounded-2xl rounded-bl-md border px-4 py-3 text-[15px] leading-6 text-foreground" style={{ background: 'var(--planner-surface)', borderColor: '#F0EAE2' }}>
-                          {m.text ? <p className="whitespace-pre-wrap">{m.text}</p> : <p className="text-muted-foreground">{t('assistant.typing')}</p>}
-                          {m.planning ? <p className="mt-2 text-[13px] text-muted-foreground">{t('assistant.planningFromData')}</p> : null}
+                          {m.text ? <p className="whitespace-pre-wrap">{m.text}</p> : botStatus(m, idx)}
                           {m.options && m.options.options.length && messages[idx + 1]?.role === 'user' ? (
                             <p className="mt-2 text-[13px]" style={{ color: 'var(--planner-text-secondary)' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
                           ) : null}

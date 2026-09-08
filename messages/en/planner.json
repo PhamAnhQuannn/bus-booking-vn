@@ -85,8 +85,11 @@
     "buildFail": "I couldn't build the itinerary — please try again.",
     "busy": "The assistant is busy, please try again.",
     "noConnection": "Couldn't reach the server, please try again.",
-    "planningFromData": "Planning from verified data…",
-    "typing": "The assistant is replying…",
+    "status": {
+      "analyze": "Analyzing your request…",
+      "dest": "Working out the details for {destination}…",
+      "build": "Building your {destination} itinerary: places, stay, route…"
+    },
     "tryAgain": "Please try messaging again.",
     "genericError": "Something went wrong.",
     "selected": "Selected: {choice}",
