@@ -12,8 +12,8 @@ const HEADERS = [
 ];
 const HTTPS_ONLY = 'strict-transport-security';
 
-export async function headersCheck(baseUrl: string): Promise<Check[]> {
-  const res = await fetch(`${baseUrl}/`);
+export async function headersCheck(baseUrl: string, extra: Record<string, string> = {}): Promise<Check[]> {
+  const res = await fetch(`${baseUrl}/`, { headers: extra });
   const isHttps = baseUrl.startsWith('https://');
   const out: Check[] = HEADERS.map((h) => ({
     name: `header ${h}`,
