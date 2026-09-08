@@ -182,7 +182,13 @@ export function extractFromText(text: string): Partial<Slots> {
       const folded = foldVi(c.ten);
       const bounded = new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(folded)}(?:$|[^a-z0-9])`).test(ft);
       if (!bounded) return false;
-      if (folded.length <= 4 && !TRAVEL_INTENT_RE.test(t)) return false;
+      if (folded.length <= 4) {
+        // "đổi/chuyển sang/qua <city>" phải KỀ tên thành phố (bù cụm chuyển thành phố ngắn), tránh
+        // "đổi sang hoa huệ"→hue. (Hạn chế heuristic: cụm ghép MỞ ĐẦU bằng tên như "chuyển sang vinh
+        // danh" vẫn khớp — cùng lớp "tại vinh danh" sẵn có; D chỉ tô nhãn optimistic, server vẫn dựng đúng.)
+        const switchAdj = new RegExp(`(?:doi|chuyen)\\s+(?:sang|qua)\\s+${escapeRegExp(folded)}(?:$|[^a-z0-9])`).test(ft);
+        if (!TRAVEL_INTENT_RE.test(t) && !switchAdj) return false;
+      }
       return true;
     });
   if (city) out.dia_diem = city.slug;

@@ -111,6 +111,8 @@ export default function TroLyDuLichPage() {
   // Việc cần thử lại khi lỗi/timeout (giữ nguyên slot/text — không bắt gõ lại).
   const retryRef = useRef<{ kind: 'send'; text: string } | { kind: 'build'; slots: Slots } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const composerInputRef = useRef<HTMLInputElement>(null); // focus lại ô nhập sau khi trợ lý trả lời (a11y)
+  const prevLoadingRef = useRef(false); // phát hiện cạnh loading true→false (chỉ focus khi vừa xong 1 lượt)
 
   // ── lịch sử hội thoại (bền vững: authed→API, guest→localStorage) ──
   const [conversations, setConversations] = useState<ConversationMeta[]>([]);
@@ -233,6 +235,13 @@ export default function TroLyDuLichPage() {
     lastSavedRef.current = sig;
     saveMessages(conversationId, stored).then(reloadConversations).catch(() => {});
   }, [messages, loading, conversationId, reloadConversations]);
+
+  // A11y: input bị disabled lúc trợ lý nghĩ → focus rơi xuống <body>. Trả focus về ô nhập khi vừa xong
+  // 1 lượt (cạnh loading true→false), KHÔNG focus lúc mới tải trang. preventScroll tránh nhảy khung.
+  useEffect(() => {
+    if (prevLoadingRef.current && !loading) composerInputRef.current?.focus({ preventScroll: true });
+    prevLoadingRef.current = loading;
+  }, [loading]);
 
   // Receipt/click artifact: mobile mở overlay; desktop nháy pane + cuộn card lên đầu.
   function activateArtifact() {
@@ -799,7 +808,7 @@ export default function TroLyDuLichPage() {
   // định chi tiết → planning(engine chạy)=dựng lịch. Thay "Trợ lý đang trả lời…" tĩnh. aria-live cho SR.
   const botStatus = (m: Extract<Msg, { role: 'bot' }>, idx: number) =>
     loading && idx === messages.length - 1 && isPlaceholder(m) ? (
-      <p role="status" aria-live="polite" className="flex items-center gap-1.5 text-muted-foreground">
+      <p role="status" aria-live="polite" aria-atomic="true" className="flex items-center gap-1.5 text-muted-foreground">
         <span aria-hidden className="inline-block motion-safe:animate-spin">◌</span>
         {m.planning
           ? destName
@@ -907,7 +916,7 @@ export default function TroLyDuLichPage() {
           )}
         </div>
       ) : null}
-      <PlannerComposer value={input} onChange={setInput} onSubmit={() => send(input)} disabled={loading} busy={loading} />
+      <PlannerComposer value={input} onChange={setInput} onSubmit={() => send(input)} disabled={loading} busy={loading} inputRef={composerInputRef} />
       {isEntry ? (
         <p className="mt-2.5 flex items-center justify-center gap-1.5 text-[13px] text-muted-foreground">
           <span aria-hidden>🔒</span> {t('assistant.privacy')}
@@ -1062,7 +1071,7 @@ export default function TroLyDuLichPage() {
             <PlannerEntry onPick={send} disabled={loading} composerSlot={
               <>
                 <div className="rounded-2xl ring-[1.5px] ring-[var(--planner-orange-action)] focus-within:ring-2">
-                  <PlannerComposer value={input} onChange={setInput} onSubmit={() => send(input)} disabled={loading} busy={loading} />
+                  <PlannerComposer value={input} onChange={setInput} onSubmit={() => send(input)} disabled={loading} busy={loading} inputRef={composerInputRef} />
                 </div>
                 <p className="mt-2.5 flex items-center justify-center gap-1.5 text-[13px] text-muted-foreground">
                   <span aria-hidden>🔒</span> {t('assistant.privacy')}
@@ -1183,7 +1192,7 @@ export default function TroLyDuLichPage() {
               vào mềm khi chuyển cảnh (V5 Mục 2, không true-FLIP; reduced-motion tắt qua bb-scene-in). */}
           {!isEntry ? (
             <div className="bb-scene-in">
-              <PlannerComposer value={input} onChange={setInput} onSubmit={() => send(input)} disabled={loading} busy={loading} />
+              <PlannerComposer value={input} onChange={setInput} onSubmit={() => send(input)} disabled={loading} busy={loading} inputRef={composerInputRef} />
             </div>
           ) : null}
         </div>
