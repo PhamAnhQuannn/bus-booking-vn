@@ -22,17 +22,11 @@ import { Link } from '@/i18n/navigation';
 import { searchHref } from '@/lib/search';
 import { formatVnd } from '@/lib/format';
 import { CardImage } from './CardImage';
-
-export interface PopularTrip {
-  origin: string;
-  destination: string;
-  /** public/destinations/<slug>.jpg — slug of the destination (slugify'd server-side). */
-  slug: string;
-  /** Cheapest upcoming fare (VND) — indicative "Từ" teaser. */
-  price: number;
-  /** Shortest route duration in minutes. */
-  duration: number;
-}
+// #691: consume the source-of-truth type instead of re-declaring it (the local copy had a stale
+// "slug of the destination" JSDoc — slug is the ORIGIN). type-only import → erased at compile time,
+// so the barrel's server-only transitives are NOT pulled into the 'use client' bundle (no runtime
+// footprint), and it satisfies the cross-domain barrel rule (boundaries/entry-point).
+import type { PopularTripCard } from '@/lib/home';
 
 /** "450" → "7h 30m", "120" → "2h 00m". Mirrors the mockup's duration format. */
 function formatDuration(minutes: number): string {
@@ -47,7 +41,7 @@ function formatDuration(minutes: number): string {
  * Empty → the section self-hides. `price` is an indicative "Từ" teaser (cheapest scheduled
  * future trip) — may be sold out, standard OTA "from" semantic.
  */
-export function PopularTrips({ trips }: { trips: PopularTrip[] }) {
+export function PopularTrips({ trips }: { trips: PopularTripCard[] }) {
   const t = useTranslations('home');
   const scrollerRef = useRef<HTMLUListElement>(null);
 
