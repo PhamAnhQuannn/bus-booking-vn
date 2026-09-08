@@ -6,6 +6,12 @@
 // config/slug + name-presence only; this catches the class #693 shipped blind (198 changed cases /
 // 62 new wide-days / 38 sig-losses).
 //
+// ENFORCEMENT (#710(1)): this is a LOCAL pre-PR gate, NOT a GitHub check — it needs the gitignored
+// `tourism-kb/export` KB, which no CI runner has. Run it from the repo root and confirm
+// `✓ 0 un-allowlisted regressions` BEFORE opening any PR that touches planner selection/day-distribution
+// (plan.ts buildDayChunks/packDays/growCompact/ranking, areas.json, or the KB export). Reviewers: ask
+// for the gate output in the PR body. (A CI job that fetches the KB would automate this — deferred.)
+//
 // Run from repo root:
 //   pnpm tsx trip-planner/scripts/grid-diff-vs-master.ts [--base <ref>] [--slug a,b,c]
 //                                                        [--rebuild-base] [--keep-worktree]
@@ -123,7 +129,7 @@ type ConfigMetric =
       dayCount: number;
       wideDays: WideDay[]; // days with span > WIDE_DAY_KM, keyed by endpoints (NOT day-index)
       counts: number[]; // diem-den count per day-index
-      marqueeSurfaced: string[]; // marquee pool names present as diem-den (folded)
+      marqueeSurfaced: { id: string; name: string }[]; // #710(3): surfaced marquee RECORDS (id-keyed, name for display)
       noteBlob: string; // folded joined notes (for SILENT-VANISH mention check)
     };
 
@@ -136,7 +142,8 @@ function metricsOf(build: BuildFn, slug: string, days: number, pace: string, poo
   }
   const wideDays: WideDay[] = [];
   const counts: number[] = [];
-  const surfaced = new Set<string>();
+  const surfaced: { id: string; name: string }[] = []; // #710(3): id-keyed — a placed record matching the pool
+  const seenId = new Set<string>();
   const poolFolded = pool.map(fold);
   for (const d of it.days) {
     const dd = d.items.filter((i) => i.role === "diem-den");
@@ -145,12 +152,12 @@ function metricsOf(build: BuildFn, slug: string, days: number, pace: string, poo
     if (w.km > WIDE_DAY_KM)
       wideDays.push({ key: [w.aId, w.bId].sort().join("|"), detail: `${fold(w.a)} ↔ ${fold(w.b)}`, span: w.km });
     for (const i of dd) {
+      if (seenId.has(i.id)) continue;
       const nf = fold(i.name);
-      for (let k = 0; k < pool.length; k++)
-        if (poolFolded[k] === nf || nameMatch(pool[k], i.name)) surfaced.add(poolFolded[k]);
+      if (poolFolded.some((pf, k) => pf === nf || nameMatch(pool[k], i.name))) { seenId.add(i.id); surfaced.push({ id: i.id, name: i.name }); }
     }
   }
-  return { ok: true, dayCount: it.days.length, wideDays, counts, marqueeSurfaced: [...surfaced], noteBlob: fold(it.notes.join(" ‖ ")) };
+  return { ok: true, dayCount: it.days.length, wideDays, counts, marqueeSurfaced: surfaced, noteBlob: fold(it.notes.join(" ‖ ")) };
 }
 
 // ── diff one config → regression + fix records ─────────────────────────────────
@@ -189,14 +196,19 @@ function diffConfig(slug: string, days: number, pace: string, base: ConfigMetric
   for (let k = 0; k < headOver - baseOver; k++)
     regs.push({ slug, days, pace, kind: "NEW-OVERCAP", detail: `overcap days ${baseOver}→${headOver} (cap ${cap})` });
   for (let k = 0; k < baseOver - headOver; k++) fixes.push({ kind: "OVERCAP-FIXED", slug, days, pace });
-  const bSet = new Set(base.marqueeSurfaced), hSet = new Set(head.marqueeSurfaced);
-  const lateral = hSet.size >= bSet.size; // config surfaces ≥ as many marquees → the loss is a swap, not a net drop
-  for (const m of bSet)
-    if (!hSet.has(m)) {
+  // #710(3): marquee axis id-keyed (was folded-name). Two far-apart twins that fold to the same name
+  // (merged mega-slug) no longer false-cancel: base surfacing twin-1's id vs head surfacing twin-2's id
+  // now registers a loss+gain. detail = folded record name (display + allowlist stability).
+  const bById = new Map(base.marqueeSurfaced.map((m) => [m.id, m.name] as const));
+  const hIds = new Set(head.marqueeSurfaced.map((m) => m.id));
+  const lateral = head.marqueeSurfaced.length >= base.marqueeSurfaced.length; // ≥ as many marquees → swap, not net drop
+  for (const [id, name] of bById)
+    if (!hIds.has(id)) {
+      const m = fold(name);
       const silent = !head.noteBlob.includes(m); // pin gone AND unnamed in any note = #703-2 detector
       regs.push({ slug, days, pace, kind: silent ? "SILENT-VANISH" : "SIG-LOSS", detail: m, lateral });
     }
-  for (const m of hSet) if (!bSet.has(m)) fixes.push({ kind: "SIG-GAIN", slug, days, pace });
+  for (const m of head.marqueeSurfaced) if (!bById.has(m.id)) fixes.push({ kind: "SIG-GAIN", slug, days, pace });
   return { regs, fixes };
 }
 
@@ -243,8 +255,12 @@ function kbFingerprint(): string {
   }
   return h.digest("hex").slice(0, 12);
 }
+// #710(2): mix a schema version into the cache key so a ConfigMetric shape change (e.g. marquee axis
+// name-key → id-key) never reuses a stale base cache for the same base-SHA + KB fingerprint (would
+// false-FAIL every case). Bump on any ConfigMetric shape change.
+const CACHE_VERSION = 3;
 function baseCacheFile(sha: string, kbFp: string): string {
-  return path.join(SCRATCH, `grid-base-${sha.slice(0, 12)}-${kbFp}.json`);
+  return path.join(SCRATCH, `grid-base-v${CACHE_VERSION}-${sha.slice(0, 12)}-${kbFp}.json`);
 }
 async function buildBaseModule(sha: string): Promise<BuildFn> {
   const wt = path.join(SCRATCH, `wt-${sha.slice(0, 12)}`);
