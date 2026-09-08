@@ -27,13 +27,13 @@ async function readFirstFrames(body: ReadableStream<Uint8Array>): Promise<string
   return buf;
 }
 
-export async function plannerCheck(baseUrl: string): Promise<Check[]> {
+export async function plannerCheck(baseUrl: string, extra: Record<string, string> = {}): Promise<Check[]> {
   const out: Check[] = [];
 
   // 1. Engine liveness (thuần GET, $0): dựng lịch tất định từ KB — bắt lỗi data/R2/engine.
   let dtoOk = false, itinStatus = 0;
   try {
-    const itin = await fetch(`${baseUrl}/api/planner/itinerary?slug=da-lat&days=3&adults=2`, { headers: { Accept: 'application/json' } });
+    const itin = await fetch(`${baseUrl}/api/planner/itinerary?slug=da-lat&days=3&adults=2`, { headers: { Accept: 'application/json', ...extra } });
     itinStatus = itin.status;
     const j = (await itin.json().catch(() => null)) as { dto?: unknown } | null;
     dtoOk = itin.status === 200 && !!j?.dto;
@@ -44,7 +44,7 @@ export async function plannerCheck(baseUrl: string): Promise<Check[]> {
   out.push({ name: 'planner itinerary (engine) 200 + dto', ok: dtoOk, detail: `status=${itinStatus}` });
 
   // 2. Chat liveness: 1 lượt Gemini thật. CSRF double-submit: lấy bb_csrf từ 1 GET rồi echo header+cookie.
-  const pre = await fetch(`${baseUrl}/tro-ly-du-lich`);
+  const pre = await fetch(`${baseUrl}/tro-ly-du-lich`, { headers: extra });
   const cookieLines = pre.headers.getSetCookie?.() ?? [pre.headers.get('set-cookie') ?? ''];
   let csrf: string | undefined;
   for (const line of cookieLines) {
@@ -65,7 +65,7 @@ export async function plannerCheck(baseUrl: string): Promise<Check[]> {
     try {
       const chat = await fetch(`${baseUrl}/api/planner/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': decodeURIComponent(csrf!), Cookie: `bb_csrf=${csrf}` },
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': decodeURIComponent(csrf!), Cookie: `bb_csrf=${csrf}`, ...extra },
         body: JSON.stringify({ history: [{ role: 'user', text: 'đi đà lạt 3 ngày 2 người' }], locale: 'vi' }),
         signal: ctrl.signal,
       });

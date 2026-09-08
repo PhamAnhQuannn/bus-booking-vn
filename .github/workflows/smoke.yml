@@ -41,6 +41,12 @@ jobs:
         continue-on-error: true # non-blocking: smoke fail chỉ báo động, KHÔNG làm run đỏ
         env:
           BASE_URL: ${{ github.event.deployment_status.environment_url }}
+          # #684: environment_url là URL per-build *.vercel.app bị Deployment Protection (SSO) chặn →
+          # smoke không tới được app. Nếu owner tạo Protection Bypass for Automation secret + set GH secret
+          # này, smoke:prod forward nó qua header x-vercel-protection-bypass. Vắng secret → smoke báo BLOCKED
+          # rõ ràng (không PASS/FAIL giả). Cách khác không cần secret: Trusted Sources dev→prod, hoặc loại
+          # Production khỏi phạm vi Deployment Protection.
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: pnpm smoke:prod
 
       - name: Open/append alert issue on failure (dedup by label)

@@ -8,7 +8,7 @@ const CONTRACT_FIELDS = [
   'operatorLegalName', 'routeOrigin', 'routeDestination',
 ];
 
-export async function httpAsserts(baseUrl: string): Promise<Check[]> {
+export async function httpAsserts(baseUrl: string, extra: Record<string, string> = {}): Promise<Check[]> {
   const out: Check[] = [];
   // Vietnam business date (Asia/Ho_Chi_Minh, UTC+7) — trip search filters by local date, so a naive
   // UTC "tomorrow" can miss/skew near 00:00–07:00 UTC. Shift +7h before taking the date.
@@ -18,7 +18,7 @@ export async function httpAsserts(baseUrl: string): Promise<Check[]> {
   const url = `${baseUrl}/api/trips/search?${q}`;
 
   // 1. 200 + JSON array + Cache-Control: no-store
-  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  const res = await fetch(url, { headers: { Accept: 'application/json', ...extra } });
   out.push({ name: 'search 200', ok: res.status === 200, detail: `status=${res.status}` });
   const cc = res.headers.get('cache-control') ?? '';
   out.push({ name: 'search Cache-Control no-store', ok: /no-store/i.test(cc), detail: cc });
@@ -35,13 +35,13 @@ export async function httpAsserts(baseUrl: string): Promise<Check[]> {
   }
 
   // 3. 400 on empty origin
-  const bad = await fetch(`${baseUrl}/api/trips/search?origin=&destination=TP.HCM&date=${tomorrow}&ticketCount=1`);
+  const bad = await fetch(`${baseUrl}/api/trips/search?origin=&destination=TP.HCM&date=${tomorrow}&ticketCount=1`, { headers: extra });
   out.push({ name: 'search 400 on empty origin', ok: bad.status === 400, detail: `status=${bad.status}` });
 
   // 4. homepage + health (read-only GET)
-  const home = await fetch(`${baseUrl}/`);
+  const home = await fetch(`${baseUrl}/`, { headers: extra });
   out.push({ name: 'homepage 200', ok: home.status === 200, detail: `status=${home.status}` });
-  const health = await fetch(`${baseUrl}/api/health`);
+  const health = await fetch(`${baseUrl}/api/health`, { headers: extra });
   out.push({ name: 'health 200', ok: health.status === 200, detail: `status=${health.status}` });
 
   return out;
