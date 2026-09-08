@@ -1096,3 +1096,45 @@ describe('buildItinerary — seed guard: curated seeds fame-cluster; auto far-cl
     expect(names).toContain('Điểm lõi 2');
   });
 });
+
+// #700 (da-nang Sun World): complex_id — record TÊN KHÁC NHAU cùng một quần thể. Khi một sibling ĐÃ xếp,
+// một sibling khác bị bỏ KHÔNG nên bắn note "chưa xếp đủ" (quần thể đã có mặt trong lịch). Optional/additive:
+// vắng complex_id (data chưa curate) → no-op, giữ hành vi cũ.
+describe('buildItinerary — complex_id: không note-drop khi sibling cùng quần thể đã xếp (#700)', () => {
+  const dst = (id: string, name: string, lat: number, lon: number, ward: string, complex_id?: string): KbRecord => ({
+    id, name, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    coordinates: { latitude: lat, longitude: lon },
+    address: { full_address: `số 1, ${ward}, thành phố Đà Nẵng` }, description: { value: 'x' },
+    ext: { destination: complex_id ? { complex_id } : {} },
+  });
+  // Cụm XA (protReg own-day, perDay relaxed=2): A + C xếp, B (ưu tiên thấp nhất, thứ 3) tràn -> protDropped
+  // -> note. A/B cùng 'bana'. Cụm mid phá median-degeneracy để isFar(cụm xa)=true. near N1 + mid M1 = rest.
+  const mk = (withComplex: boolean): Store => ({
+    slug: 'zz-auto-nohandlist', generatedAt: '2026-01-01', tam: { lat: 16.05, lon: 108.22 },
+    destinations: [
+      dst('A', 'Vé Cáp Treo Bà Nà Hill', 16.35, 108.22, 'Phường Xa', withComplex ? 'bana' : undefined), // rank0, xa
+      dst('C', 'Khu du lịch Suối Mơ', 16.351, 108.221, 'Phường Xa'),                                     // rank1, xa
+      dst('B', 'Cầu Vàng', 16.349, 108.219, 'Phường Xa', withComplex ? 'bana' : undefined),              // rank2, xa (thứ 3 -> tràn)
+      dst('N1', 'Điểm gần 1', 16.05, 108.22, 'Phường A'),                                                // rank3, gần
+      dst('M1', 'Điểm giữa', 16.10, 108.22, 'Phường Giữa'),                                              // rank4, ~5.5km
+    ],
+    restaurants: [], hotels: [dst('H1', 'KS', 16.05, 108.22, 'Phường A')],
+    matrix: null, matrixIndex: new Map(),
+  });
+  const req: TripRequest = { slug: 'zz-auto-nohandlist', days: 2, party: { adults: 2, children: 0, elders: 0 }, pace: 'relaxed' };
+
+  it('complex_id vắng (chưa curate): Cầu Vàng tràn khỏi ngày-cụm VÀ được note (hành vi cũ, no-op)', () => {
+    const it = buildItinerary(req, mk(false));
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).toContain('Vé Cáp Treo Bà Nà Hill'); // A xếp (protReg)
+    expect(names).not.toContain('Cầu Vàng');           // B tràn (perDay-cap)
+    expect(it.notes.some((n) => n.includes('Cầu Vàng'))).toBe(true); // không quần thể -> công bố như cũ
+  });
+  it('complex_id có: Cầu Vàng tràn nhưng KHÔNG bị note (Cáp Treo Bà Nà cùng quần thể đã xếp)', () => {
+    const it = buildItinerary(req, mk(true));
+    const names = it.days.flatMap((d) => d.items.map((i) => i.name));
+    expect(names).toContain('Vé Cáp Treo Bà Nà Hill'); // sibling quần thể đã xếp
+    expect(names).not.toContain('Cầu Vàng');           // vẫn tràn khỏi lịch
+    expect(it.notes.some((n) => n.includes('Cầu Vàng'))).toBe(false); // KHÔNG note (quần thể đã có mặt)
+  });
+});

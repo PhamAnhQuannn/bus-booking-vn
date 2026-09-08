@@ -756,10 +756,14 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
   // chung (chợ/đình/miếu/cầu/thác) lặp ở nhiều phường khác nhau → nếu chỉ khớp tên (cũ) thì một địa danh KHÁC
   // bị nuốt note oan; có twin đủ gần mới là trùng thật (vd VQG Tam Đảo hai bản cùng chỗ). Chỉ dedupe tầng note.
   const placedByName = new Map<string, LL[]>();
+  const placedComplex = new Set<string>(); // #700: complex_id của các điểm ĐÃ xếp (quần thể đã có mặt trong lịch)
+  const complexOf = (r: KbRecord) => r.ext?.destination?.complex_id || null;
   for (const p of [...protChunks, ...packed.days].flat()) {
     const k = foldText(p.name);
     const arr = placedByName.get(k);
     if (arr) arr.push(co(p)); else placedByName.set(k, [co(p)]);
+    const cx = complexOf(p);
+    if (cx) placedComplex.add(cx);
   }
   // FIX (#700): dedupe cũng TRONG chính tập bị bỏ, không chỉ với twin đã-xếp. Khi CẢ HAI bản của một record
   // KB-trùng (vd vinh-long "Nông trại Hải Vân" ×2, <2km) đều bị bỏ (không bản nào lọt placedByName), filter
@@ -777,6 +781,10 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
       if (seen && seen.some((c) => kmBetween(c, co(p)) < NEAR_TWIN_KM)) return false;
       if (seen) seen.push(co(p)); else droppedTwin.set(k, [co(p)]);
       return true;
+    })
+    .filter((p) => { // #700 (da-nang Sun World): không note-drop khi MỘT record CÙNG quần thể (complex_id) đã xếp
+      const cx = complexOf(p); // — tên khác nhau (Cầu Vàng/Chùa Linh Ứng/Cáp Treo Bà Nà) nhưng cùng khu → quần thể ĐÃ có mặt.
+      return !cx || !placedComplex.has(cx); // no-op tới khi data có complex_id (curated ~4 record da-nang).
     });
   if (allDropped.length)
     notes.push(`${allDropped.slice(0, 3).map((p) => p.name).join(", ")}${allDropped.length > 3 ? ` +${allDropped.length - 3} điểm` : ""} — cần trọn ngày riêng, chưa xếp đủ; chọn thêm ngày để có trong lịch.`);

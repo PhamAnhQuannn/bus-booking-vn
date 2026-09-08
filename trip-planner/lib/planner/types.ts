@@ -116,6 +116,9 @@ export interface KbDestinationExt {
   trai_nghiem_tra_phi?: { ten: string; don_vi: string }[] | null; // trò trả phí có tên (geo-join on-site Overture)
   phu_hop_voi?: { value?: string | null } | null; // EDITORIAL tier (002): "Phù hợp với khách muốn…" (bien-tap)
   loi_vao_dac_trung?: string | null; // lối vào đặc trưng (cáp treo/tàu ra đảo) — curated, luôn emit; engine + card đọc
+  complex_id?: string | null; // ID quần thể (curated): các record TÊN KHÁC NHAU cùng một khu (vd Bà Nà/Sun World:
+  // Vé Cáp Treo + Cầu Vàng + Chùa Linh Ứng) → engine coi là "cùng nơi" khi dedupe drop-note. Optional/additive;
+  // vắng ở mọi record chưa curate → no-op. Phân biệt với loi_vao_dac_trung (trải nghiệm lối vào) và tên-fold dedup.
   intro?: { fact?: string | null; editorial?: string | null; tier?: string } | null; // "Giới thiệu nhanh" V2 (build-time)
   mo_ta?: string | null; // mô tả đã trim (B2, build-time) — ưu tiên hơn description.value
   mo_ta_nguon_url?: string | null; // link Wikipedia (CC-BY-SA) khi mo_ta trích Wikipedia
