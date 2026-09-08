@@ -761,11 +761,22 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
     const arr = placedByName.get(k);
     if (arr) arr.push(co(p)); else placedByName.set(k, [co(p)]);
   }
+  // FIX (#700): dedupe cũng TRONG chính tập bị bỏ, không chỉ với twin đã-xếp. Khi CẢ HAI bản của một record
+  // KB-trùng (vd vinh-long "Nông trại Hải Vân" ×2, <2km) đều bị bỏ (không bản nào lọt placedByName), filter
+  // trên chỉ chặn twin đã-XẾP nên cả hai in note ("… , … chưa xếp đủ"). Giữ bản đầu, nuốt bản trùng-tên-<2km sau.
+  const droppedTwin = new Map<string, LL[]>();
   const allDropped = [...packed.dropped, ...protDropped]
     .filter((p) => dayWeight(p) > 0 || pinIds.has(p.id))
     .filter((p) => { // giữ note nếu KHÔNG có twin đã-xếp trong <2km (địa danh khác dù trùng tên loại-hình)
       const twins = placedByName.get(foldText(p.name));
       return !twins || !twins.some((c) => kmBetween(c, co(p)) < NEAR_TWIN_KM);
+    })
+    .filter((p) => { // dedupe trong tập dropped: cùng tên-folded + <NEAR_TWIN_KM = KB-dup, chỉ note MỘT lần
+      const k = foldText(p.name);
+      const seen = droppedTwin.get(k);
+      if (seen && seen.some((c) => kmBetween(c, co(p)) < NEAR_TWIN_KM)) return false;
+      if (seen) seen.push(co(p)); else droppedTwin.set(k, [co(p)]);
+      return true;
     });
   if (allDropped.length)
     notes.push(`${allDropped.slice(0, 3).map((p) => p.name).join(", ")}${allDropped.length > 3 ? ` +${allDropped.length - 3} điểm` : ""} — cần trọn ngày riêng, chưa xếp đủ; chọn thêm ngày để có trong lịch.`);
