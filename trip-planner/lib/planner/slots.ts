@@ -186,9 +186,15 @@ export function extractFromText(text: string): Partial<Slots> {
       return true;
     });
   if (city) out.dia_diem = city.slug;
-  // số ngày: "N ngày" (1..7)
-  const dm = t.match(/(\d+)\s*ng[àa]y/);
-  if (dm) { const d = parseInt(dm[1], 10); if (d >= 1 && d <= 7) out.days = d; }
+  // số ngày: "N ngày" (1..7) TUYỆT ĐỐI. Cụm TƯƠNG ĐỐI ("thêm/bớt N ngày", "N ngày nữa") do server
+  // (có history) tự cộng ra tuyệt đối MỚI → BỎ absolute client lượt đó (tránh optimistic co lịch +
+  // đè server: "thêm 1 ngày" ≠ days=1). Adjacency: marker phải KỀ "N ngày" → không bắt nhầm
+  // "3 ngày Đà Lạt, thêm quán ăn ngon".
+  const relDay = /(?:thêm|bớt|giảm|tăng|kéo dài|rút ngắn|gia hạn|nối)\s+\d+\s*ng[àa]y|\d+\s*ng[àa]y\s+(?:nữa|thêm)/i;
+  if (!relDay.test(t)) {
+    const dm = t.match(/(\d+)\s*ng[àa]y/);
+    if (dm) { const d = parseInt(dm[1], 10); if (d >= 1 && d <= 7) out.days = d; }
+  }
   // số người: "N người/khách/đứa/thành viên" (không phải "N ngày"); "khách" loại trừ "khách sạn".
   const pm = t.match(/(\d+)\s*(người|khách(?!\s*sạn)|đứa|thành viên)\b/);
   if (pm) out.adults = Math.max(parseInt(pm[1], 10), 1);

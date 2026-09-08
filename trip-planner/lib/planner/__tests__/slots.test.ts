@@ -80,6 +80,25 @@ describe('V3 B — bóc dia_diem/days/adults client (mount shell sớm)', () => 
     expect(extractFromText('đi 3 ngày').adults).toBeUndefined());
 });
 
+describe('extractFromText — cụm ngày TƯƠNG ĐỐI (M1) không co lịch', () => {
+  it('"Thêm 1 ngày nữa vào lịch" (chip) → days undefined (nhường server)', () =>
+    expect(extractFromText('Thêm 1 ngày nữa vào lịch').days).toBeUndefined());
+  it('"bớt 1 ngày" → days undefined', () =>
+    expect(extractFromText('bớt 1 ngày cho gọn').days).toBeUndefined());
+  it('"kéo dài thêm 2 ngày" → days undefined', () =>
+    expect(extractFromText('kéo dài thêm 2 ngày nữa').days).toBeUndefined());
+  // FP guard: "thêm" bổ nghĩa món ăn, KHÔNG kề "N ngày" → absolute sống
+  it('"3 ngày Đà Lạt, thêm quán ăn ngon" → days=3 (và da-lat)', () => {
+    const d = extractFromText('3 ngày Đà Lạt, thêm quán ăn ngon');
+    expect(d.days).toBe(3);
+    expect(d.dia_diem).toBe('da-lat');
+  });
+  it('"đi Huế 3 ngày" → days=3 (absolute vẫn hoạt động)', () =>
+    expect(extractFromText('đi Huế 3 ngày').days).toBe(3));
+  it('"cho mình lịch 5 ngày" → days=5', () =>
+    expect(extractFromText('cho mình lịch 5 ngày').days).toBe(5));
+});
+
 describe('V3 C — sở thích không rơi tín hiệu', () => {
   it('"cà phê và cảnh đẹp" → 2 chip (ca-phe + ngam-canh)', () => {
     const d = extractFromText('mình thích cà phê và cảnh đẹp');

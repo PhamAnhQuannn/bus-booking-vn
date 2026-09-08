@@ -184,15 +184,21 @@ export async function POST(req: NextRequest): Promise<Response> {
         try {
           // Extract-only: chỉ TRÍCH ràng buộc (prose + slots). Client TẤT ĐỊNH lo hỏi thêm + dựng lịch
           // qua /api/planner/itinerary → chip = $0, /chat chỉ chạy cho free-text.
+          // M2: model gọi trich (slots) HOẶC goi_y_vibe (suggest) → hành động. KHÔNG gọi function nào
+          // (từ chối thành phố ngoài danh sách / lạc đề / chào hỏi) → phát 'noop' để client GIỮ lịch
+          // hiện tại thay vì bóc slot từ chữ user rồi dựng đè (vd "Đổi sang Hội An 2 ngày" → giữ lịch cũ).
+          let sawAction = false;
           for await (const ev of streamChat(safeHistory, locale)) {
             if (ev.kind === 'token') {
               send('token', { text: ev.text });
             } else if (ev.kind === 'slots') {
+              sawAction = true;
               send('slots', { partial: ev.partial });
             } else if (ev.kind === 'sig') {
               // Chữ ký prose lượt này → client lưu, echo lại lượt sau để server verify.
               send('sig', { tag: ev.tag });
             } else if (ev.kind === 'suggest') {
+              sawAction = true;
               // mode discovery: LLM chỉ phát vibe slug — TÊN điểm lấy từ KB server-side (không LLM bịa).
               let items: DestinationSuggestion[] = [];
               try {
@@ -229,6 +235,7 @@ export async function POST(req: NextRequest): Promise<Response> {
             }
           }
           await recordUpstreamSuccess(); // #552: a healthy turn clears the breaker failure counter
+          if (!sawAction) send('noop', {}); // M2: không hành động → client giữ lịch hiện tại (không dựng đè)
           send('done', {});
         } catch (err) {
           const noKey = err instanceof ParseIntentError && err.code === 'no_key';
