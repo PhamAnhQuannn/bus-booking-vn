@@ -5,6 +5,7 @@
  * Bỏ paperclip/file-attachment (mock có nhưng chưa hỗ trợ). Enter = gửi.
  */
 
+import type { Ref } from 'react';
 import { useTranslations } from 'next-intl';
 
 type Props = {
@@ -14,9 +15,10 @@ type Props = {
   disabled?: boolean;
   busy?: boolean; // đang chờ trợ lý (state B) → khoá input, đổi placeholder, nút thành spinner
   placeholder?: string;
+  inputRef?: Ref<HTMLInputElement>; // page giữ ref → focus lại ô nhập sau khi trợ lý trả lời (a11y)
 };
 
-export function PlannerComposer({ value, onChange, onSubmit, disabled, busy, placeholder }: Props) {
+export function PlannerComposer({ value, onChange, onSubmit, disabled, busy, placeholder, inputRef }: Props) {
   const t = useTranslations('planner');
   const locked = disabled || busy;
   return (
@@ -29,6 +31,7 @@ export function PlannerComposer({ value, onChange, onSubmit, disabled, busy, pla
       }}
     >
       <input
+        ref={inputRef}
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}

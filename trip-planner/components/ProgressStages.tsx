@@ -7,8 +7,8 @@
  * Stage 4 (ước tính chi phí) CHỈ tick khi kết quả thật về (`settled`) → không bao giờ tự xong.
  * Response sớm hơn timer → fast-forward toàn bộ trong 600ms rồi để page vào reveal.
  *
- * a11y: vùng có role="status" + aria-live="polite" (mirror=false) đọc giai đoạn mới mỗi lần đổi.
- * mirror=true → bản thu gọn (aria-hidden, không live region) đặt ở cuối panel skeleton.
+ * a11y: aria-hidden (cả mirror=false lẫn mirror=true) — dòng status `<p>` ở transcript là live region
+ * DUY NHẤT announce giai đoạn (tránh double-announce 2 vùng aria-live cùng lúc). Đây chỉ trực quan.
  *
  * INVARIANT: chỉ nói TIẾN TRÌNH hệ thống — KHÔNG fact địa điểm.
  */
@@ -89,7 +89,7 @@ export function ProgressStages({ active, settled, destination, mirror }: Props) 
   }
 
   return (
-    <div role="status" aria-live="polite" className="mt-2 rounded-2xl border border-[#F0EAE2] bg-white/70 p-3 text-[13px]">
+    <div aria-hidden className="mt-2 rounded-2xl border border-[#F0EAE2] bg-white/70 p-3 text-[13px]">
       <ul className="flex flex-col gap-1.5">
         {rows.map((label, i) => {
           const done = i < stage;

@@ -146,7 +146,7 @@ const foldVi = (s: string): string => s.toLowerCase().normalize("NFD").replace(/
 const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 // Tên thành phố ngắn (≤4 ký tự sau fold, VD "hue"/"vinh") dễ khớp nhầm vào từ khác chứa nó
 // ("hoa huệ", "vinh danh") — chỉ nhận khi câu có tín hiệu ý định du lịch rõ ràng.
-const TRAVEL_INTENT_RE = /(đi|tới|đến|về|thăm|ghé|tại|du lịch|ở\s|khám phá)/;
+const TRAVEL_INTENT_RE = /(đi|tới|đến|về|thăm|ghé|tại|du lịch|ở\s|khám phá|đổi sang|chuyển sang|đổi qua|chuyển qua)/;
 
 // Sở thích từ free-text: scan keyword → mã; cụm trong "thích …" chưa khớp → LITERAL (không drop im lặng).
 function extractInterests(text: string): string[] {

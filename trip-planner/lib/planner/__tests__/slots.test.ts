@@ -99,6 +99,19 @@ describe('extractFromText — cụm ngày TƯƠNG ĐỐI (M1) không co lịch',
     expect(extractFromText('cho mình lịch 5 ngày').days).toBe(5));
 });
 
+describe('extractFromText — đổi/chuyển sang thành phố ngắn (stale-dest) nhận dia_diem', () => {
+  it('"Đổi sang Huế 3 ngày cho 4 người" → dia_diem=hue + days=3', () => {
+    const d = extractFromText('Đổi sang Huế 3 ngày cho 4 người');
+    expect(d.dia_diem).toBe('hue');
+    expect(d.days).toBe(3);
+  });
+  it('"chuyển sang Vinh" → dia_diem=vinh', () =>
+    expect(extractFromText('chuyển sang Vinh').dia_diem).toBe('vinh'));
+  // FP guard: không có cụm đổi-sang + tên thành phố → KHÔNG nhận
+  it('"đổi tiền ở quán" → dia_diem undefined', () =>
+    expect(extractFromText('đổi tiền ở quán').dia_diem).toBeUndefined());
+});
+
 describe('V3 C — sở thích không rơi tín hiệu', () => {
   it('"cà phê và cảnh đẹp" → 2 chip (ca-phe + ngam-canh)', () => {
     const d = extractFromText('mình thích cà phê và cảnh đẹp');
