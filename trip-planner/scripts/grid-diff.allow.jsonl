@@ -1,0 +1,6 @@
+// grid-diff-vs-master allowlist — INTENDED selection-quality trade-offs, one JSON object per line.
+// Schema: {"slug":"..","days":N,"pace":"relaxed|moderate|packed","kind":"NEW-WIDE|SIG-LOSS|NEW-OVERCAP|SILENT-VANISH|NEW-THROW","detail":"..?","reason":"why","pr":"#NNN"}
+// A regression matching (slug,days,pace,kind) is suppressed. `detail` scopes it to ONE named regression
+// (the dropped marquee name / wide-day "<a> ↔ <b> Xkm" / "overcap days N→M"): a line WITH detail matches
+// only that detail; OMIT detail to suppress every same-kind regression in the config (back-compat). Entries
+// self-expire once the PR merges (the new base absorbs them). grid-diff prints paste-ready lines to copy.
