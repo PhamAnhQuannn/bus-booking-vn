@@ -113,6 +113,10 @@ export default function TroLyDuLichPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const composerInputRef = useRef<HTMLInputElement>(null); // focus lại ô nhập sau khi trợ lý trả lời (a11y)
   const prevLoadingRef = useRef(false); // phát hiện cạnh loading true→false (chỉ focus khi vừa xong 1 lượt)
+  const overlayBackRef = useRef<HTMLButtonElement>(null); // nút "← Về hội thoại" — focus vào khi mở overlay dialog
+  const overlayOpenerRef = useRef<HTMLElement | null>(null); // phần tử mở overlay → trả focus khi đóng
+  const fabRef = useRef<HTMLButtonElement>(null); // FAB "🗺" — fallback trả focus (FAB unmount lúc mở, remount lúc đóng)
+  const prevResultFullRef = useRef(false); // phát hiện cạnh đóng overlay (true→false) — không cướp focus lúc tải
 
   // ── lịch sử hội thoại (bền vững: authed→API, guest→localStorage) ──
   const [conversations, setConversations] = useState<ConversationMeta[]>([]);
@@ -243,10 +247,32 @@ export default function TroLyDuLichPage() {
     prevLoadingRef.current = loading;
   }, [loading]);
 
+  // A11y modal: mở overlay → focus nút "← Về hội thoại" (nền <main> inert nên focus không lọt ra sau).
+  // Đóng (cạnh true→false) → trả focus về phần tử mở đã chụp lúc click (openResultOverlay); nếu nó đã
+  // unmount/ẩn (FAB) → fallback fabRef (FAB vừa remount). KHÔNG cướp focus lúc mới tải (guard prev).
+  useEffect(() => {
+    if (resultFull) {
+      overlayBackRef.current?.focus();
+    } else if (prevResultFullRef.current) {
+      const opener = overlayOpenerRef.current;
+      if (opener?.isConnected && opener.offsetParent !== null) opener.focus?.();
+      else fabRef.current?.focus?.();
+      overlayOpenerRef.current = null;
+    }
+    prevResultFullRef.current = resultFull;
+  }, [resultFull]);
+
+  // Mở overlay kết quả — CHỤP phần tử mở NGAY lúc click (trước khi FAB unmount / <main> inert cướp
+  // focus), để lúc đóng trả về đúng chỗ.
+  const openResultOverlay = () => {
+    overlayOpenerRef.current = (document.activeElement as HTMLElement) ?? null;
+    setResultFull(true);
+  };
+
   // Receipt/click artifact: mobile mở overlay; desktop nháy pane + cuộn card lên đầu.
   function activateArtifact() {
     if (typeof window !== 'undefined' && window.matchMedia('(max-width:1023px)').matches) {
-      setResultFull(true);
+      openResultOverlay();
     } else {
       setPulseKey((k) => k + 1);
       document.querySelector('main [data-map-pane] [class*="overflow-y-auto"]')?.scrollTo({ top: 0, behavior: 'smooth' });
@@ -691,7 +717,7 @@ export default function TroLyDuLichPage() {
         onActiveDayChange={setActiveDay}
         onHoverItem={setHoveredOrder}
         variant={variant}
-        onOpenFull={() => setResultFull(true)}
+        onOpenFull={openResultOverlay}
         pulseKey={pulseKey}
         hrefPdf={lastHref}
       />
@@ -1008,7 +1034,7 @@ export default function TroLyDuLichPage() {
                 onSelectDay={setActiveDay}
                 onHoverItem={setHoveredOrder}
                 variant="inline"
-                onOpenFull={() => setResultFull(true)}
+                onOpenFull={openResultOverlay}
                 pulseKey={pulseKey}
                 hrefPdf={lastHref}
                 hideMap
@@ -1029,7 +1055,8 @@ export default function TroLyDuLichPage() {
     );
 
   return (
-    <main ref={mainRef} className="planner-scope flex h-[calc(100dvh-var(--site-header-h))] w-full flex-col overflow-hidden bg-[var(--planner-bg)] lg:flex-row">
+    <>
+    <main ref={mainRef} inert={resultFull || undefined} className="planner-scope flex h-[calc(100dvh-var(--site-header-h))] w-full flex-col overflow-hidden bg-[var(--planner-bg)] lg:flex-row">
       {/* SIDEBAR desktop — lịch sử / brand-intro. Rộng ~26%W (đo từ mock) + clamp → bền tỉ lệ. */}
       <div className={`hidden lg:flex lg:h-full lg:shrink-0 ${sidebarCollapsed ? '' : 'lg:w-[26%] lg:min-w-[264px] lg:max-w-[360px]'}`}>
         <PlannerSidebar {...sidebarProps} collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed((v) => !v)} />
@@ -1177,7 +1204,7 @@ export default function TroLyDuLichPage() {
           ) : null}
           {/* Hàng filter chip (mock active) — mở picker slot Sở thích/Ngân sách/Phương tiện/Ăn uống */}
           {!isEntry && !activeAsk ? (
-            <div className="mb-2.5 flex flex-wrap gap-2">
+            <div className={`mb-2.5 flex flex-wrap gap-2 ${dto ? 'pr-[8.5rem] lg:pr-0' : ''}`}>
               {([[t('assistant.filterInterests'), 'so_thich'], [t('assistant.filterTransport'), 'phuong_tien'], [t('assistant.filterFood'), 'an_uong']] as [string, 'so_thich' | 'phuong_tien' | 'an_uong'][]).map(
                 ([label, kind]) => (
                   <button key={kind} type="button" onClick={() => openFilter(kind)} disabled={loading}
@@ -1214,28 +1241,32 @@ export default function TroLyDuLichPage() {
         </section>
       ) : null}
       </>)}
-
-      {/* Overlay fullscreen [tabs + map + card] — dùng mọi width (mobile FAB + desktop-short launcher). */}
-      {resultFull ? (
-        <div className="fixed inset-0 z-overlay-panel flex flex-col bg-background">
-          <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-3">
-            <span className="text-sm font-semibold">{t('assistant.itineraryAndMap')}</span>
-            <button type="button" onClick={() => setResultFull(false)} className="rounded-full border border-border px-3 py-1.5 text-[13px] font-bold">
-              {t('assistant.backToChat')}
-            </button>
-          </div>
-          <div className="min-h-0 flex-1">{paneFor('overlay')}</div>
-        </div>
-      ) : null}
-
-      {/* FAB mở overlay kết quả trên mobile (desktop dùng launcher trong pane) */}
-      {dto && !resultFull ? (
-        <button type="button" onClick={() => setResultFull(true)}
-          style={{ bottom: 'calc(5.5rem + env(safe-area-inset-bottom))', right: 'calc(1rem + env(safe-area-inset-right))' }}
-          className="fixed z-raised rounded-full bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-lg lg:hidden">
-          {t('assistant.openMapFab')}
-        </button>
-      ) : null}
     </main>
+
+    {/* Overlay fullscreen [tabs + map + card] — modal dialog. NGOÀI <main> (main inert khi mở) → nền
+        không nhận focus/AT, chỉ overlay tương tác. Esc đóng; focus vào/ra do effect [resultFull] lo. */}
+    {resultFull ? (
+      <div role="dialog" aria-modal="true" aria-labelledby="planner-result-title" tabIndex={-1}
+        onKeyDown={(e) => { if (e.key === 'Escape') setResultFull(false); }}
+        className="fixed inset-0 z-overlay-panel flex flex-col bg-background">
+        <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-3">
+          <span id="planner-result-title" className="text-sm font-semibold">{t('assistant.itineraryAndMap')}</span>
+          <button ref={overlayBackRef} type="button" onClick={() => setResultFull(false)} className="rounded-full border border-border px-3 py-1.5 text-[13px] font-bold">
+            {t('assistant.backToChat')}
+          </button>
+        </div>
+        <div className="min-h-0 flex-1">{paneFor('overlay')}</div>
+      </div>
+    ) : null}
+
+    {/* FAB mở overlay kết quả trên mobile (desktop dùng launcher trong pane) */}
+    {dto && !resultFull ? (
+      <button ref={fabRef} type="button" onClick={openResultOverlay}
+        style={{ bottom: 'calc(5.5rem + env(safe-area-inset-bottom))', right: 'calc(1rem + env(safe-area-inset-right))' }}
+        className="fixed z-raised rounded-full bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-lg lg:hidden">
+        {t('assistant.openMapFab')}
+      </button>
+    ) : null}
+    </>
   );
 }
