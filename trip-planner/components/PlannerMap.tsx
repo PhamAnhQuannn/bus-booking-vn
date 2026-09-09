@@ -275,7 +275,9 @@ export default function PlannerMap({ dto, pendingSlug, activeDay, hoveredOrder, 
       // đổi ngày (scrollspy/chip/pin) → fit về bound ngày active. animate:true tạo zoom-transition; nếu
       // pane ẩn (display:none → size 0, vd pane inline mobile) hoặc unmount giữa transition (overlay đóng
       // nhanh), frame zoom treo đọc pane size 0 → "_leaflet_pos" (uncaught). Bỏ animate → hết
-      // _onZoomTransitionEnd; guard size>0 → không fit pane ẩn (ResizeObserver invalidateSize fit lại khi hiện).
+      // _onZoomTransitionEnd; guard size>0 → không fit pane ẩn. Fit lại khi đổi ngày/dto kế (effect chạy
+      // lại, size>0). ResizeObserver chỉ invalidateSize = GIỮ tâm, KHÔNG re-fit (pane ẩn→hiện cùng instance
+      // qua breakpoint lg mà không đổi ngày → giữ tâm cũ; hiếm, non-blocking — xem issue theo dõi).
       map.fitBounds(L.latLngBounds(pts).pad(0.25), { padding: [30, 30], maxZoom: 14, animate: false });
     }
   }, [dto, activeDay]);
