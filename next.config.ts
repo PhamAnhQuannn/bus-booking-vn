@@ -36,7 +36,11 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  output: 'standalone',
+  // Standalone output is for the self-host Docker image (Dockerfile copies .next/standalone).
+  // On Vercel it is unnecessary AND triggers a Next 16.3.x packaging bug (onBuildComplete:
+  // ENOENT .next/next-server.js.nft.json) — Vercel sets VERCEL=1 at build, so skip standalone
+  // there and let Vercel package normally; Docker builds (no VERCEL) still emit standalone.
+  output: process.env.VERCEL ? undefined : 'standalone',
   // Hero LCP is served via next/image; prefer AVIF (smaller + sharper) then WebP.
   // `qualities` allowlists the non-default q=90 the hero <Image> requests (Next 16).
   images: { formats: ['image/avif', 'image/webp'], qualities: [75, 90] },
