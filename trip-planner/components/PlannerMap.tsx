@@ -271,9 +271,14 @@ export default function PlannerMap({ dto, pendingSlug, activeDay, hoveredOrder, 
     if (pts.length >= 2) {
       L.polyline(curvedLatLngs(pts), { color: '#F0561D', weight: 3.5, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }).addTo(overlay);
     }
-    if (pts.length) {
-      // đổi ngày (scrollspy/chip/pin) → fit về bound ngày active, animate 300ms (AC P6)
-      map.fitBounds(L.latLngBounds(pts).pad(0.25), { padding: [30, 30], maxZoom: 14, animate: true, duration: 0.3 });
+    if (pts.length && map.getSize().x > 0) {
+      // đổi ngày (scrollspy/chip/pin) → fit về bound ngày active. animate:true tạo zoom-transition; nếu
+      // pane ẩn (display:none → size 0, vd pane inline mobile) hoặc unmount giữa transition (overlay đóng
+      // nhanh), frame zoom treo đọc pane size 0 → "_leaflet_pos" (uncaught). Bỏ animate → hết
+      // _onZoomTransitionEnd; guard size>0 → không fit pane ẩn. Fit lại khi đổi ngày/dto kế (effect chạy
+      // lại, size>0). ResizeObserver chỉ invalidateSize = GIỮ tâm, KHÔNG re-fit (pane ẩn→hiện cùng instance
+      // qua breakpoint lg mà không đổi ngày → giữ tâm cũ; hiếm, non-blocking — xem issue theo dõi).
+      map.fitBounds(L.latLngBounds(pts).pad(0.25), { padding: [30, 30], maxZoom: 14, animate: false });
     }
   }, [dto, activeDay]);
 
