@@ -262,6 +262,15 @@ export default function TroLyDuLichPage() {
     prevResultFullRef.current = resultFull;
   }, [resultFull]);
 
+  // Esc đóng overlay kể cả khi focus rơi ra <body> (chạm map / vùng không focus được) — listener ở
+  // document, không chỉ trên subtree dialog (onKeyDown cũ bỏ). Chỉ gắn khi overlay mở; cleanup khi đóng.
+  useEffect(() => {
+    if (!resultFull) return;
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setResultFull(false); };
+    document.addEventListener('keydown', onEsc);
+    return () => document.removeEventListener('keydown', onEsc);
+  }, [resultFull]);
+
   // Mở overlay kết quả — CHỤP phần tử mở NGAY lúc click (trước khi FAB unmount / <main> inert cướp
   // focus), để lúc đóng trả về đúng chỗ.
   const openResultOverlay = () => {
@@ -1247,8 +1256,7 @@ export default function TroLyDuLichPage() {
         không nhận focus/AT, chỉ overlay tương tác. Esc đóng; focus vào/ra do effect [resultFull] lo. */}
     {resultFull ? (
       <div role="dialog" aria-modal="true" aria-labelledby="planner-result-title" tabIndex={-1}
-        onKeyDown={(e) => { if (e.key === 'Escape') setResultFull(false); }}
-        className="fixed inset-0 z-overlay-panel flex flex-col bg-background">
+        className="planner-scope fixed inset-0 z-overlay-panel flex flex-col bg-background">
         <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-3">
           <span id="planner-result-title" className="text-sm font-semibold">{t('assistant.itineraryAndMap')}</span>
           <button ref={overlayBackRef} type="button" onClick={() => setResultFull(false)} className="rounded-full border border-border px-3 py-1.5 text-[13px] font-bold">
@@ -1263,7 +1271,7 @@ export default function TroLyDuLichPage() {
     {dto && !resultFull ? (
       <button ref={fabRef} type="button" onClick={openResultOverlay}
         style={{ bottom: 'calc(5.5rem + env(safe-area-inset-bottom))', right: 'calc(1rem + env(safe-area-inset-right))' }}
-        className="fixed z-raised rounded-full bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-lg lg:hidden">
+        className="planner-scope fixed z-raised rounded-full bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-lg lg:hidden">
         {t('assistant.openMapFab')}
       </button>
     ) : null}
