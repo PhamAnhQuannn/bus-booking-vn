@@ -40,6 +40,9 @@
     "ha-noi": {
       "signatureSpots": ["hồ hoàn kiếm", "phố cổ hà nội", "văn miếu", "lăng chủ tịch hồ chí minh", "hoàng thành thăng long", "chùa một cột", "đền ngọc sơn", "nhà thờ lớn hà nội", "chùa trấn quốc", "hồ tây", "nhà tù hỏa lò", "cầu long biên", "bảo tàng dân tộc học"]
     },
+    "ho-chi-minh": {
+      "signatureSpots": ["dinh độc lập", "bảo tàng chứng tích chiến tranh", "bưu điện trung tâm sài gòn", "nhà hát thành phố hồ chí minh", "thảo cầm viên sài gòn", "bảo tàng mỹ thuật thành phố hồ chí minh", "địa đạo củ chi"]
+    },
     "phu-quoc": {
       "signatureSpots": ["vinwonders phú quốc", "grand world", "hòn thơm", "cáp treo hòn thơm", "bãi sao", "sun world", "vinpearl safari", "dinh cậu", "làng chài hàm ninh", "bãi trường"]
     },
@@ -48,6 +51,9 @@
     },
     "vung-tau": {
       "signatureSpots": ["tượng chúa kitô", "bãi sau", "bãi trước", "ngọn hải đăng", "hồ tràm", "bạch dinh", "thích ca phật đài", "hồ mây", "núi lớn"]
+    },
+    "con-dao": {
+      "signatureSpots": ["nhà tù côn đảo", "vườn quốc gia côn đảo", "dinh chúa đảo", "võ thị sáu", "vịnh đầm tre", "cầu ma thiên lãnh", "bãi ông đụng", "hòn bảy cạnh"]
     },
     "quy-nhon": {
       "signatureSpots": ["eo gió", "kỳ co", "ghềnh ráng", "tháp đôi", "bãi xép", "cù lao xanh", "đầm thị nại", "tịnh xá ngọc hòa", "tháp bánh ít"]

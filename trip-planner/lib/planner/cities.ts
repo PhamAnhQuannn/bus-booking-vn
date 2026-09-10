@@ -32,6 +32,7 @@ export const CITIES: City[] = [
   { slug: "quy-nhon", ten: "Quy Nhơn" },
   { slug: "ha-long", ten: "Hạ Long" },
   { slug: "vung-tau", ten: "Vũng Tàu" },
+  { slug: "con-dao", ten: "Côn Đảo" }, // đặc khu đảo (sáp nhập TP.HCM 2025) — điểm đến biển-đảo độc lập, tách khỏi ho-chi-minh
   { slug: "dong-hoi", ten: "Đồng Hới" },
   { slug: "tuy-hoa", ten: "Tuy Hòa" },
   { slug: "chau-doc", ten: "Châu Đốc" },
