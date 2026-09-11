@@ -69,6 +69,9 @@ function preStreamError(message: string): Response {
 }
 
 export async function POST(req: NextRequest): Promise<Response> {
+  // Latency instrumentation: mốc t0 tại entry để đo breakdown startup (preflight Redis + Gemini
+  // TTFT) — 1 dòng `planner.chat.latency` phát ở cuối stream/lỗi. Xem thêm 'planner.chat.usage'.
+  const t0 = performance.now();
   try {
     // Runtime kill-switch (#549): shut off the paid Gemini chat instantly during a cost/abuse
     // incident without unsetting GEMINI_API_KEY + redeploying. 503 before any work or body parse.
@@ -112,6 +115,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     // the global daily Gemini budget so no single caller can exhaust the free-tier quota.
     const ip = clientIp(req.headers);
 
+    const tBeforeBreaker = performance.now();
     // Circuit-breaker (#552): during a Gemini 429/5xx storm, short-circuit to 503 WITHOUT calling
     // Gemini or consuming the budget — checked before the budget bucket so doomed calls don't burn
     // the daily quota. Fail-open (breakerState returns closed on Redis error) so a blip can't wedge
@@ -128,6 +132,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       });
     }
 
+    const tAfterBreaker = performance.now();
     const sessionId = sessionIdFromRequest(req);
     const rl = sessionId
       ? await plannerChatRatelimit.limit(`planner-chat:${sessionId}`)
@@ -172,15 +177,37 @@ export async function POST(req: NextRequest): Promise<Response> {
       });
     }
 
+    const tAfterRl = performance.now();
     // Chống history-injection: chỉ tin model-turn có chữ ký hợp lệ (server đã ký ở lượt trước).
     // Turn `role:'model'` client bịa (không/sai chữ ký) bị DROP trước khi vào Gemini contents.
     const safeHistory = sanitizeHistory(history);
+    const tAfterSanitize = performance.now();
 
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
         const send = (event: string, data: unknown) =>
           controller.enqueue(encoder.encode(sse(event, data)));
+        // TTFT = t0 → event ĐẦU TIÊN yield ra khỏi streamChat (đo được ở đây vì route đã consume
+        // generator). ttft − preflight ≈ Gemini time-to-first-token. Xem plan latency instrumentation.
+        let firstEventAt: number | null = null;
+        const logLatency = (error: boolean) => {
+          const end = performance.now();
+          logger.info(
+            {
+              setup_ms: Math.round(tBeforeBreaker - t0), // getEnv + json parse + validate + clientIp
+              breaker_ms: Math.round(tAfterBreaker - tBeforeBreaker), // Redis: circuit-breaker read
+              ratelimit_ms: Math.round(tAfterRl - tAfterBreaker), // Redis: rate + per-ip + budget buckets
+              sanitize_ms: Math.round(tAfterSanitize - tAfterRl), // HMAC verify history (CPU)
+              preflight_ms: Math.round(tAfterSanitize - t0), // tổng trước khi mở stream Gemini
+              ttft_ms: firstEventAt !== null ? Math.round(firstEventAt - t0) : null,
+              stream_ms: firstEventAt !== null ? Math.round(end - firstEventAt) : null,
+              total_ms: Math.round(end - t0),
+              error,
+            },
+            'planner.chat.latency',
+          );
+        };
         try {
           // Extract-only: chỉ TRÍCH ràng buộc (prose + slots). Client TẤT ĐỊNH lo hỏi thêm + dựng lịch
           // qua /api/planner/itinerary → chip = $0, /chat chỉ chạy cho free-text.
@@ -189,6 +216,7 @@ export async function POST(req: NextRequest): Promise<Response> {
           // hiện tại thay vì bóc slot từ chữ user rồi dựng đè (vd "Đổi sang Hội An 2 ngày" → giữ lịch cũ).
           let sawAction = false;
           for await (const ev of streamChat(safeHistory, locale)) {
+            if (firstEventAt === null) firstEventAt = performance.now();
             if (ev.kind === 'token') {
               send('token', { text: ev.text });
             } else if (ev.kind === 'slots') {
@@ -225,6 +253,7 @@ export async function POST(req: NextRequest): Promise<Response> {
                   inputTokens: ev.inputTokens,
                   outputTokens: ev.outputTokens,
                   totalTokens: ev.totalTokens,
+                  thoughtsTokens: ev.thoughtsTokens, // thinking-model: token "suy nghĩ" ẩn trước token đầu (nguồn latency); 0 = không thinking
                   callUsd: acct.callUsd,
                   dailyInputTokens: acct.dailyInputTokens,
                   dailyOutputTokens: acct.dailyOutputTokens,
@@ -237,6 +266,7 @@ export async function POST(req: NextRequest): Promise<Response> {
           await recordUpstreamSuccess(); // #552: a healthy turn clears the breaker failure counter
           if (!sawAction) send('noop', {}); // M2: không hành động → client giữ lịch hiện tại (không dựng đè)
           send('done', {});
+          logLatency(false);
         } catch (err) {
           const noKey = err instanceof ParseIntentError && err.code === 'no_key';
           // #552: count a real upstream failure toward the breaker (no_key is a config error, not an
@@ -252,6 +282,7 @@ export async function POST(req: NextRequest): Promise<Response> {
               : 'Trợ lý đang bận, bạn thử nhắn lại sau nhé.',
             fallbackHref: FALLBACK_HREF,
           });
+          logLatency(true);
         } finally {
           controller.close();
         }

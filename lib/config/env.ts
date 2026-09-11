@@ -172,7 +172,8 @@ const envSchema = z.object({
 
   /**
    * Global daily Gemini request budget — free-tier quota backstop (#551). Consumed by
-   * plannerDailyBudget (lib/ratelimit). Free-tier ceiling ≈ 1000/day; raise once paid billing +
+   * plannerDailyBudget (lib/ratelimit). Free-tier ceiling MEASURED 2026-09-10 = 20/day for
+   * gemini-3.5-flash (not the ~1000/day once assumed); raise once paid billing +
    * a real budget exist. Declared here so it is validated + documented; a typo/non-numeric now
    * fails the boot instead of the old `Number()||1000` silently collapsing to 1000. lib/ratelimit
    * reads it via readPlannerGeminiDailyMax() (module-safe — no full-schema validation at import).

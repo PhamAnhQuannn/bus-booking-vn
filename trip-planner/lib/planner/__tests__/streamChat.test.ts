@@ -115,3 +115,34 @@ describe('streamChat — retry 5xx/upstream', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+describe('streamChat — usage/thoughtsTokens (đo thinking-model latency)', () => {
+  const sse = (body: string) =>
+    () => new Response(body, { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
+
+  it('usageMetadata có thoughtsTokenCount → usage event surface thoughtsTokens', async () => {
+    const body =
+      'data: {"candidates":[{"content":{"parts":[{"functionCall":{"name":"trich","args":{"dia_diem":"da-lat","days":3}}}]}}],"usageMetadata":{"promptTokenCount":2803,"candidatesTokenCount":56,"totalTokenCount":3236,"thoughtsTokenCount":385}}\n\n';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(sse(body)()));
+
+    const events = await drain(HISTORY);
+    const usage = events.find((e) => e.kind === 'usage') as
+      | { inputTokens: number; outputTokens: number; totalTokens: number; thoughtsTokens: number }
+      | undefined;
+    expect(usage).toBeDefined();
+    expect(usage!.thoughtsTokens).toBe(385);
+    expect(usage!.inputTokens).toBe(2803);
+    expect(usage!.outputTokens).toBe(56);
+  });
+
+  it('usageMetadata KHÔNG có thoughtsTokenCount → thoughtsTokens = 0 (không thinking)', async () => {
+    const body =
+      'data: {"candidates":[{"content":{"parts":[{"functionCall":{"name":"trich","args":{"dia_diem":"da-lat","days":3}}}]}}],"usageMetadata":{"promptTokenCount":2803,"candidatesTokenCount":56,"totalTokenCount":2859}}\n\n';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(sse(body)()));
+
+    const events = await drain(HISTORY);
+    const usage = events.find((e) => e.kind === 'usage') as { thoughtsTokens: number } | undefined;
+    expect(usage).toBeDefined();
+    expect(usage!.thoughtsTokens).toBe(0);
+  });
+});
