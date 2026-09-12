@@ -144,6 +144,32 @@ def carve_area(a, load_fn=load):
     return slug, ten, center, sub_dd, sub_nh, sub_ks, meta
 
 
+def subtract_from_parent(pdd, pmeta, drop_ids):
+    """PURE (khong I/O): tru diem-den da carve ra child (SUBTRACT_FROM_PARENT) khoi parent goc.
+    Tra ve (kept, new_meta, removed, warnings). Cap nhat so_luong.diem_den + ghi_chu tren BAN COPY
+    cua pmeta (khong mutate input). Tach rieng khoi main() de test duoc voi fixture, giong carve_area.
+    warnings != [] khi so_luong sai kieu (co nhung khong phai dict) -> caller PHAI in canh bao: neu am
+    tham bo qua thi diem-den.json co the co 309 diem con meta.so_luong.diem_den giu 446 cu (drift), va
+    drift do se khong thay trong log CI (lesson could-not-test / named-const: mot no-op phai keu ra)."""
+    drop = set(drop_ids)
+    kept = [r for r in pdd if r.get("id") not in drop]
+    removed = len(pdd) - len(kept)
+    warnings = []
+    new_meta = dict(pmeta)
+    sl = new_meta.get("so_luong")
+    if isinstance(sl, dict):
+        sl = dict(sl)
+        sl["diem_den"] = len(kept)
+        new_meta["so_luong"] = sl
+    elif sl is not None:  # co so_luong nhung sai kieu -> KHONG cap nhat duoc => canh bao (khong am tham)
+        warnings.append("so_luong kieu %s (khong phai dict) -> diem_den meta KHONG cap nhat, co the drift"
+                        % type(sl).__name__)
+    _note = "da tach %d diem-den ra child doc lap (%s)" % (removed, ", ".join(sorted(SUBTRACT_FROM_PARENT)))
+    _gc = new_meta.get("ghi_chu")
+    new_meta["ghi_chu"] = (_gc + [_note]) if isinstance(_gc, list) else ([_note] if _gc is None else [str(_gc), _note])
+    return kept, new_meta, removed, warnings
+
+
 def main():
     carved_ids = {}  # parent slug -> set(id diem-den da carve ra child subtractive) => tru khoi parent cuoi ham
     for parent, slug, ten, lat, lon in UNITS:
@@ -220,24 +246,19 @@ def main():
               % (slug, ten, len(sub_dd), len(sub_nh), len(sub_ks), inmat, len(sub_dd)))
 
     # ── SUBTRACTIVE: tru diem-den da carve ra child (SUBTRACT_FROM_PARENT) khoi parent ─────────────
-    # Doc parent GOC (child da carve o tren tu cung ban goc trong run nay), loc bo id da carve, cap nhat
-    # so_luong + ghi_chu, ghi lai. Chi diem-den. Parent khong co child subtractive -> khong dung toi.
+    # Doc parent GOC (child da carve o tren tu cung ban goc trong run nay), loc bo id da carve qua
+    # subtract_from_parent() (pure, test duoc), ghi lai. Chi diem-den. Parent khong co child subtractive
+    # -> khong dung toi. removed==0 (vd re-run standalone khi parent da bi tru) -> bo qua, khong ghi de.
     for parent, drop in carved_ids.items():
         pdd = load(parent, "diem-den.json") or []
-        kept = [r for r in pdd if r.get("id") not in drop]
-        removed = len(pdd) - len(kept)
+        pmeta = load(parent, "meta.json") or {}
+        kept, new_meta, removed, warnings = subtract_from_parent(pdd, pmeta, drop)
         if removed == 0:
             continue
-        pmeta = load(parent, "meta.json") or {}
-        sl = pmeta.get("so_luong")
-        if isinstance(sl, dict):
-            sl["diem_den"] = len(kept)
-        _note = "da tach %d diem-den ra child doc lap (%s)" % (removed, ", ".join(sorted(
-            s for s in SUBTRACT_FROM_PARENT)))
-        _gc = pmeta.get("ghi_chu")
-        pmeta["ghi_chu"] = (_gc + [_note]) if isinstance(_gc, list) else ([_note] if _gc is None else [str(_gc), _note])
+        for w in warnings:
+            print("  WARN %-14s %s" % (parent, w))
         write(parent, "diem-den.json", kept)
-        write(parent, "meta.json", pmeta)
+        write(parent, "meta.json", new_meta)
         print("  SUB %-14s diem-den %d -> %d (tru %d ra child)" % (parent, len(pdd), len(kept), removed))
 
 

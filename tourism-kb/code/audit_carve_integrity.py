@@ -122,13 +122,18 @@ def main():
     for s in slugs:
         if not audit(s, sig):
             bad += 1
-    # Leak-check: parent subtractive (mặc định tất cả; nếu chỉ định slug thì chỉ khi trùng LEAK_ZONES).
-    leak_slugs = [s for s in slugs if s in LEAK_ZONES] or (list(LEAK_ZONES) if len(sys.argv) <= 1 else [])
+    # Leak-check chạy trên PARENT (LEAK_ZONES keyed theo parent, vd ho-chi-minh — KHÔNG theo child
+    # vung-tau/con-dao). Không arg -> kiểm mọi zone. Có arg -> chỉ các parent được yêu cầu. Nếu chỉ
+    # định toàn child (vd `audit vung-tau con-dao`) thì KHÔNG parent nào khớp -> leak-check KHÔNG áp
+    # dụng: phải báo N/A rõ ràng, TUYỆT ĐỐI không in "0 LEAK" (lesson could-not-test: "không kiểm
+    # được" ≠ "kiểm và sạch" — chạy lại với slug parent, vd ho-chi-minh, để thực sự kiểm).
+    leak_slugs = list(LEAK_ZONES) if len(sys.argv) <= 1 else [s for s in slugs if s in LEAK_ZONES]
     leaks = 0
     for s in leak_slugs:
         if not leak_check(s):
             leaks += 1
-    print("\n%d carve · %d PROV MISMATCH · %d LEAK" % (len(slugs), bad, leaks))
+    leak_report = ("%d LEAK" % leaks) if leak_slugs else "LEAK N/A (không slug parent LEAK_ZONES nào được yêu cầu)"
+    print("\n%d carve · %d PROV MISMATCH · %s" % (len(slugs), bad, leak_report))
     sys.exit(1 if (bad or leaks) else 0)
 
 
