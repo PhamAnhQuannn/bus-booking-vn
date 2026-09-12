@@ -14,6 +14,15 @@ import duong_dan_ra as _dr
 R_DD = 22.0     # ban kinh diem den (km)
 R_ANU = 27.0    # ban kinh nha hang/khach san (rong hon chut)
 
+# Child slug o day duoc TRU khoi parent (subtractive carve) — mac dinh carve la ADDITIVE (giu parent).
+# Chi bat khi child la diem den DOC LAP, xa lom tam parent, gay nhieu itinerary parent (vd Vung Tau ~95km +
+# Con Dao ~180km deu do vao ho-chi-minh sau sap nhap 2025 -> auto-marquee seed nham cum bien, chon lap lai
+# loi trung tam SG). Opt-in tung slug => moi parent khac giu additive nhu cu (0 regression). Diem-den THOI
+# (nha-hang/khach-san engine re-filter theo centroid chuyen -> leak vo hai). LUU Y: subtract doc parent goc
+# TRONG cung 1 run (child carve TRUOC, tru parent SAU); chay lai split_city.py doc lap can re-export parent
+# truoc (rebuild_tourism.py da lo: export_planner -> split_city moi lan).
+SUBTRACT_FROM_PARENT = {"vung-tau", "con-dao"}
+
 # Tinh sap nhap MEGA co cac thi xa ranh gioi SAT nhau (vd Sa Pa <-> TP Lao Cai ~19km < R_DD) -> loc
 # ban kinh THUAN keo diem thi xa khac vao => RO. Voi cac slug o WARD_ALLOW, loc diem-den theo KHU HANH
 # CHINH (ward: Phuong/Xa/Thi tran dau tien trong full_address) thay ban kinh. Nha-hang/khach-san giu
@@ -59,6 +68,8 @@ UNITS = [
     ("dak-lak", "tuy-hoa", "Tuy Hòa", 13.27, 109.25),
     ("gia-lai", "quy-nhon", "Quy Nhơn", 13.89, 109.11),
     ("ho-chi-minh", "vung-tau", "Vũng Tàu", 10.35, 107.08),
+    ("ho-chi-minh", "con-dao", "Côn Đảo", 8.683, 106.607),   # đặc khu đảo (sáp nhập TP.HCM 2025) — điểm đến độc lập
+
     ("tay-ninh", "tay-ninh-tp", "Tây Ninh", 11.25, 106.20),
     ("lao-cai", "sa-pa", "Sa Pa", 22.34, 103.84),
     # Hub city-unit carve từ tỉnh phủ=0 (density-probe 2026-08-24) — lõi tham quan chặt.
@@ -133,7 +144,34 @@ def carve_area(a, load_fn=load):
     return slug, ten, center, sub_dd, sub_nh, sub_ks, meta
 
 
+def subtract_from_parent(pdd, pmeta, drop_ids):
+    """PURE (khong I/O): tru diem-den da carve ra child (SUBTRACT_FROM_PARENT) khoi parent goc.
+    Tra ve (kept, new_meta, removed, warnings). Cap nhat so_luong.diem_den + ghi_chu tren BAN COPY
+    cua pmeta (khong mutate input). Tach rieng khoi main() de test duoc voi fixture, giong carve_area.
+    warnings != [] khi so_luong sai kieu (co nhung khong phai dict) -> caller PHAI in canh bao: neu am
+    tham bo qua thi diem-den.json co the co 309 diem con meta.so_luong.diem_den giu 446 cu (drift), va
+    drift do se khong thay trong log CI (lesson could-not-test / named-const: mot no-op phai keu ra)."""
+    drop = set(drop_ids)
+    kept = [r for r in pdd if r.get("id") not in drop]
+    removed = len(pdd) - len(kept)
+    warnings = []
+    new_meta = dict(pmeta)
+    sl = new_meta.get("so_luong")
+    if isinstance(sl, dict):
+        sl = dict(sl)
+        sl["diem_den"] = len(kept)
+        new_meta["so_luong"] = sl
+    elif sl is not None:  # co so_luong nhung sai kieu -> KHONG cap nhat duoc => canh bao (khong am tham)
+        warnings.append("so_luong kieu %s (khong phai dict) -> diem_den meta KHONG cap nhat, co the drift"
+                        % type(sl).__name__)
+    _note = "da tach %d diem-den ra child doc lap (%s)" % (removed, ", ".join(sorted(SUBTRACT_FROM_PARENT)))
+    _gc = new_meta.get("ghi_chu")
+    new_meta["ghi_chu"] = (_gc + [_note]) if isinstance(_gc, list) else ([_note] if _gc is None else [str(_gc), _note])
+    return kept, new_meta, removed, warnings
+
+
 def main():
+    carved_ids = {}  # parent slug -> set(id diem-den da carve ra child subtractive) => tru khoi parent cuoi ham
     for parent, slug, ten, lat, lon in UNITS:
         center = (lat, lon)
         dd = load(parent, "diem-den.json") or []
@@ -159,6 +197,8 @@ def main():
         write(slug, "nha-hang.json", sub_nh)
         write(slug, "khach-san.json", sub_ks)
         write(slug, "meta.json", m)
+        if slug in SUBTRACT_FROM_PARENT:
+            carved_ids.setdefault(parent, set()).update(r["id"] for r in sub_dd)
         pid = sum(1 for r in sub_dd if (r.get("external_ids") or {}).get("google_place_id"))
         inmat = 0
         ids = set((meta.get("osrm_diem_den") or {}).get("ids") or [])
@@ -198,10 +238,28 @@ def main():
         write(slug, "nha-hang.json", sub_nh)
         write(slug, "khach-san.json", sub_ks)
         write(slug, "meta.json", m)
+        if slug in SUBTRACT_FROM_PARENT:
+            carved_ids.setdefault(parent, set()).update(r["id"] for r in sub_dd)
         ids = set((meta.get("osrm_diem_den") or {}).get("ids") or [])
         inmat = sum(1 for r in sub_dd if r["id"] in ids)
         print("  OK  %-14s (%-12s) dd=%2d nh=%3d ks=%3d | matrix=%d/%d"
               % (slug, ten, len(sub_dd), len(sub_nh), len(sub_ks), inmat, len(sub_dd)))
+
+    # ── SUBTRACTIVE: tru diem-den da carve ra child (SUBTRACT_FROM_PARENT) khoi parent ─────────────
+    # Doc parent GOC (child da carve o tren tu cung ban goc trong run nay), loc bo id da carve qua
+    # subtract_from_parent() (pure, test duoc), ghi lai. Chi diem-den. Parent khong co child subtractive
+    # -> khong dung toi. removed==0 (vd re-run standalone khi parent da bi tru) -> bo qua, khong ghi de.
+    for parent, drop in carved_ids.items():
+        pdd = load(parent, "diem-den.json") or []
+        pmeta = load(parent, "meta.json") or {}
+        kept, new_meta, removed, warnings = subtract_from_parent(pdd, pmeta, drop)
+        if removed == 0:
+            continue
+        for w in warnings:
+            print("  WARN %-14s %s" % (parent, w))
+        write(parent, "diem-den.json", kept)
+        write(parent, "meta.json", new_meta)
+        print("  SUB %-14s diem-den %d -> %d (tru %d ra child)" % (parent, len(pdd), len(kept), removed))
 
 
 if __name__ == "__main__":

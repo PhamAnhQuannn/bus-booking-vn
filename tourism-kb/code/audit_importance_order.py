@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Audit OFFLINE thu tu importance tren 35 tp LIVE (doc export san co, KHONG rebuild,
+"""Audit OFFLINE thu tu importance tren 36 tp LIVE (doc export san co, KHONG rebuild,
 KHONG goi API). Cong 1 cua plan: sweep hop ly · Thap Ba+Vinpearl top o Nha Trang ·
 khong tp nao sup ve mot category · diem thieu place_id KHONG chim het day.
 
@@ -21,14 +21,14 @@ import diem_quan_trong as dqt
 HERE = os.path.dirname(os.path.abspath(__file__))
 EXPORT = os.path.join(HERE, "..", "export")
 
-# 35 slug LIVE — nguon: trip-planner/lib/planner/cities.ts (CITY_SLUGS). Cap nhat neu cities.ts doi.
+# 36 slug LIVE — nguon: trip-planner/lib/planner/cities.ts (CITY_SLUGS). Cap nhat neu cities.ts doi.
 LIVE_SLUGS = [
     "da-lat", "nha-trang", "da-nang", "ha-noi", "ho-chi-minh", "hue", "hai-phong",
     "ninh-binh", "can-tho", "bac-ninh", "phu-tho", "thai-nguyen", "tuyen-quang",
     "lao-cai", "dong-thap", "vinh-long", "phu-quoc", "quy-nhon", "ha-long", "vung-tau",
     "dong-hoi", "tuy-hoa", "chau-doc", "dong-ha", "mong-cai", "van-don", "mui-ca-mau",
     "tay-ninh-tp", "sa-pa", "ba-be", "dien-bien-phu", "dong-van", "vinh", "cao-bang-tp",
-    "thanh-hoa-tp",
+    "thanh-hoa-tp", "con-dao",
 ]
 
 

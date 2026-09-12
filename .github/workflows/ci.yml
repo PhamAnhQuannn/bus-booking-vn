@@ -461,3 +461,13 @@ jobs:
         run: python tourism-kb/code/test_duong_dan_ra.py
         env:
           PYTHONIOENCODING: utf-8
+
+      # split_city.subtract_from_parent() is the one step that MUTATES the parent
+      # export (one-directional carve of Vũng Tàu/Côn Đảo out of ho-chi-minh). A
+      # destructive mutation needs assertions, not just syntax — these fixtures
+      # (no disk, no network) cover subtract-correctness, so_luong drift warning,
+      # and the three ghi_chu shapes. Same job: same Python, no dependencies.
+      - name: Subtract-carve unit tests (tourism-kb/code/split_city.py)
+        run: python tourism-kb/code/test_split_city.py
+        env:
+          PYTHONIOENCODING: utf-8
