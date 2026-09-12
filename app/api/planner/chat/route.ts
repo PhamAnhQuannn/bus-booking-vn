@@ -70,7 +70,9 @@ function preStreamError(message: string): Response {
 
 export async function POST(req: NextRequest): Promise<Response> {
   // Latency instrumentation: mốc t0 tại entry để đo breakdown startup (preflight Redis + Gemini
-  // TTFT) — 1 dòng `planner.chat.latency` phát ở cuối stream/lỗi. Xem thêm 'planner.chat.usage'.
+  // TTFT) — 1 dòng `planner.chat.latency` phát khi ĐÃ MỞ được stream (done/lỗi trong stream). Các
+  // short-circuit trước stream (kill-switch/body hỏng/breaker/ratelimit/getEnv throw) KHÔNG log dòng
+  // này — chúng đã có `planner.chat.denied.*`/`breaker.open` riêng. Xem thêm 'planner.chat.usage'.
   const t0 = performance.now();
   try {
     // Runtime kill-switch (#549): shut off the paid Gemini chat instantly during a cost/abuse
@@ -193,16 +195,18 @@ export async function POST(req: NextRequest): Promise<Response> {
         let firstEventAt: number | null = null;
         const logLatency = (error: boolean) => {
           const end = performance.now();
-          logger.info(
+          // camelCase để đồng bộ họ log `planner.chat.*` (inputTokens/dailyInputTokens/retryAfter/denier).
+          // error:true dùng warn (như breaker.open/denied.*) → lọc được theo level cho alerting.
+          logger[error ? 'warn' : 'info'](
             {
-              setup_ms: Math.round(tBeforeBreaker - t0), // getEnv + json parse + validate + clientIp
-              breaker_ms: Math.round(tAfterBreaker - tBeforeBreaker), // Redis: circuit-breaker read
-              ratelimit_ms: Math.round(tAfterRl - tAfterBreaker), // Redis: rate + per-ip + budget buckets
-              sanitize_ms: Math.round(tAfterSanitize - tAfterRl), // HMAC verify history (CPU)
-              preflight_ms: Math.round(tAfterSanitize - t0), // tổng trước khi mở stream Gemini
-              ttft_ms: firstEventAt !== null ? Math.round(firstEventAt - t0) : null,
-              stream_ms: firstEventAt !== null ? Math.round(end - firstEventAt) : null,
-              total_ms: Math.round(end - t0),
+              setupMs: Math.round(tBeforeBreaker - t0), // getEnv + json parse + validate + clientIp
+              breakerMs: Math.round(tAfterBreaker - tBeforeBreaker), // Redis: circuit-breaker read
+              ratelimitMs: Math.round(tAfterRl - tAfterBreaker), // Redis: rate + per-ip + budget buckets
+              sanitizeMs: Math.round(tAfterSanitize - tAfterRl), // HMAC verify history (CPU)
+              preflightMs: Math.round(tAfterSanitize - t0), // tổng trước khi mở stream Gemini
+              ttftMs: firstEventAt !== null ? Math.round(firstEventAt - t0) : null,
+              streamMs: firstEventAt !== null ? Math.round(end - firstEventAt) : null,
+              totalMs: Math.round(end - t0),
               error,
             },
             'planner.chat.latency',
