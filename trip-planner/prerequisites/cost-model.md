@@ -18,15 +18,16 @@ free tier lo ~vài nghìn lịch/tháng đầu. Không có khối tiền lớn �
 |---|---|---|---|
 | **Google Places** | place_id điểm đến | **$0** | Resolve 1 lần (IDs-Only Essentials, free 10k/tháng) — ĐÃ xong 1,086 điểm. Lưu **vĩnh viễn** (chỉ place_id, hợp ToS). |
 | **Google — giờ mở** | hiển thị giờ LIVE | **$0** | Dùng **LINK** `maps/place/?q=place_id:` — KHÔNG gọi Places API, KHÔNG cache → 0 phí/lượt + hợp ToS. |
-| **Gemini Flash** | chat trích ràng buộc | **~$0.005–0.03/lịch** | Biến phí chính. Chi tiết dưới. Free ~1000 req/ngày. |
+| **Gemini Flash** | chat trích ràng buộc | **~$0.005–0.03/lịch** | Biến phí chính. Chi tiết dưới. Free tier đo thật **20 req/ngày** cho gemini-3.5-flash (2026-09-10), KHÔNG phải ~1000. |
 | **Vercel Functions** | engine + chat stream | Pro tier | Build lịch ~ms; chat giữ stream vài giây/turn (Fluid Compute). |
 | **R2 (private)** | data KB JSON prod | **~$0** | ~27MB storage (free ≤10GB); đọc cache RAM → ít read. |
 | **OSRM/OSM/Wikidata/Overture** | routing + data | **$0** | Free/self-host; phí = licensing attribution (xem go-live-gate). |
 
 ## Gemini — biến phí chính
 
-Đơn giá (gemini-flash-latest ≈ 3.x Flash, 2026-08): **~$1.50/M input · ~$7.50/M output**. Free tier: Flash
-giữ free, **~1000 request/ngày**, 5–15 RPM.
+Đơn giá (gemini-flash-latest ≈ 3.x Flash, 2026-08): **~$1.50/M input · ~$7.50/M output**. Free tier ĐO THẬT
+(2026-09-10, từ body 429 của key hiện tại): gemini-3.5-flash = **5 req/phút + 20 req/NGÀY** (KHÔNG phải
+~1000/ngày như ước lượng cũ). Mỗi model có RPD riêng. ⚠ Con số ~1000 bên dưới là giả định cũ — coi là SAI.
 
 Ước token/turn (đo SYSTEM prompt thật + history 8-turn):
 - SYSTEM prompt (30 city + rule + chống-dụ, tiếng Việt) ≈ **2,000–2,500 input**.
@@ -50,7 +51,7 @@ Phí/lịch:
 
 ## Trigger trả tiền + đòn giảm phí
 
-- **Rời free Gemini** khi > ~1000 turn/ngày → bật billing. Giảm: **Flash-Lite** (6× rẻ) · **cache RAM store**
+- **Rời free Gemini** khi > **20 req/ngày** (đo thật cho 3.5-flash; con số ~1000 cũ là sai) → bật billing. Giảm: **Flash-Lite** (6× rẻ, và đo thật ~0.6s no-thinking) · **cache RAM store**
   (đã có) · **rate-limit/user** · rút gọn SYSTEM prompt (30 city → "danh sách" thay vì liệt kê nếu token căng).
 - **Vercel**: vượt Pro khi traffic cao → theo dõi Active-CPU; chat-stream giữ connection = CPU nhàn (I/O-bound).
 - **Google**: chỉ tốn nếu ĐỔI sang gọi Places API server-side (hiện KHÔNG — dùng link). Giữ link = $0.

@@ -86,7 +86,7 @@ export type StreamEvent =
   | { kind: "slots"; partial: Partial<ParsedIntent> }
   | { kind: "suggest"; dia_diem: string; vibe: string } // mode discovery: route lo lookup KB → tên
   | { kind: "sig"; tag: string } // cuối turn: HMAC ký prose server phát ra (client echo lại — chatSig.ts)
-  | { kind: "usage"; inputTokens: number; outputTokens: number; totalTokens: number } // #553: token thật/turn cho accounting
+  | { kind: "usage"; inputTokens: number; outputTokens: number; totalTokens: number; thoughtsTokens: number } // #553: token thật/turn cho accounting (thoughtsTokens = token "suy nghĩ" ẩn của thinking model — đo latency)
   | { kind: "ask"; slot: string; options: string[]; allowCustom: boolean }
   | { kind: "plan"; intent: ParsedIntent };
 
@@ -294,7 +294,7 @@ export async function* streamChat(history: ChatTurn[], locale: 'vi' | 'en' = 'vi
   let accProse = ""; // cộng dồn prose server phát ra → ký ở cuối turn (client echo tag để verify).
   // #553: Gemini trả usageMetadata (token thật) ở frame CUỐI của stream, luỹ kế. Giữ bản mới nhất,
   // phát 1 event "usage" ở cuối turn cho route accounting. Trước đây bị bỏ hẳn → không đo được spend.
-  let usage: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number } | null = null;
+  let usage: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number; thoughtsTokenCount?: number } | null = null;
 
   try {
     while (true) {
@@ -314,7 +314,7 @@ export async function* streamChat(history: ChatTurn[], locale: 'vi' | 'en' = 'vi
 
         let obj: {
           candidates?: { content?: { parts?: GeminiPart[] } }[];
-          usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number };
+          usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number; thoughtsTokenCount?: number };
         };
         try {
           obj = JSON.parse(payload);
@@ -351,6 +351,7 @@ export async function* streamChat(history: ChatTurn[], locale: 'vi' | 'en' = 'vi
         inputTokens: usage.promptTokenCount ?? 0,
         outputTokens: usage.candidatesTokenCount ?? 0,
         totalTokens: usage.totalTokenCount ?? 0,
+        thoughtsTokens: usage.thoughtsTokenCount ?? 0,
       };
   } catch (err) {
     // Idle-timeout abort or a stream read error -> ParseIntentError so the route shows the

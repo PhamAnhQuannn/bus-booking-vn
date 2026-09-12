@@ -508,7 +508,8 @@ export const plannerChatDailyPerIp = createRatelimit({ limit: 50, windowMs: 24 *
  * constant `planner-gemini:global` so every planner-chat turn consumes from ONE bucket.
  *
  * The per-session/IP limiters above slow a single abuser but cannot protect the Gemini
- * FREE-TIER quota, which is a single account-wide budget (~1000 requests/day): without
+ * FREE-TIER quota, which is a single per-model account-wide budget (MEASURED 2026-09-10:
+ * gemini-3.5-flash = 5 req/min + 20 req/DAY, not the ~1000/day once assumed): without
  * this, one IP (or organic traffic) can exhaust it and either fail every other user or —
  * once billing is enabled — run up unbounded spend. This bucket makes crossing the free
  * tier a controlled 429 rather than a surprise bill. Raise/disable via
