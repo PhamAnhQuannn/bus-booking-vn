@@ -17,8 +17,12 @@
 import { z } from 'zod';
 
 // z.coerce.number().int().positive() kills the old `Number()||1000` footgun: 0, negative, or
-// non-numeric now fail instead of silently collapsing to 1000. Free-tier ceiling default = 1000.
-export const plannerGeminiDailyMaxSchema = z.coerce.number().int().positive().default(1000);
+// non-numeric now fail instead of silently collapsing. Default = 20 to MATCH the measured free-tier
+// ceiling (2026-09-10: gemini-3.5-flash = 5 req/min + 20 req/DAY). The old default of 1000 was 50×
+// looser than reality, so requests 21-1000/day sailed past this fail-closed gate into raw upstream
+// 429s instead of a controlled degrade. When paid billing is enabled, set PLANNER_GEMINI_DAILY_MAX
+// to the real (higher) budget via env — this default only guards an unset env at the free ceiling.
+export const plannerGeminiDailyMaxSchema = z.coerce.number().int().positive().default(20);
 
 /**
  * Read PLANNER_GEMINI_DAILY_MAX standalone — NOT via getEnv() — so importing it does not trigger the

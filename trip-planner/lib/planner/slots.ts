@@ -148,13 +148,25 @@ const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\
 // ("hoa huệ", "vinh danh") — chỉ nhận khi câu có tín hiệu ý định du lịch rõ ràng.
 const TRAVEL_INTENT_RE = /(đi|tới|đến|về|thăm|ghé|tại|du lịch|ở\s|khám phá)/;
 
+// Phủ định VN: "không thích biển" TRƯỚC đây bị scan keyword thêm bien-dao (sai). Chặn khi có từ phủ
+// định trong CÙNG clause, TRƯỚC keyword. Không dùng 'k'/'no' (false-positive tiếng Việt).
+const NEGATION_RE = /(không|ko|đừng|chẳng|chả|chê|ghét|hông|hem)\b/i;
+// clause chứa vị trí idx = đoạn sau dấu ngắt/"và" gần nhất trước idx; test phủ định trên đoạn đó.
+function negatedBefore(t: string, idx: number): boolean {
+  const clause = t.slice(0, idx).split(/[,;.!?]|\bvà\b/).pop() ?? "";
+  return NEGATION_RE.test(clause);
+}
+
 // Sở thích từ free-text: scan keyword → mã; cụm trong "thích …" chưa khớp → LITERAL (không drop im lặng).
 function extractInterests(text: string): string[] {
   const t = text.toLowerCase();
   const codes = new Set<string>();
-  for (const [re, code] of INTEREST_KEYWORDS) if (re.test(t)) codes.add(code);
+  for (const [re, code] of INTEREST_KEYWORDS) {
+    const mm = re.exec(t);
+    if (mm && !negatedBefore(t, mm.index)) codes.add(code); // bỏ qua nếu bị phủ định ("không thích …")
+  }
   const m = t.match(/(?:thích|ưa thích|muốn|quan tâm|sở thích|mê|đam mê)\s+(.+)/i);
-  if (m) {
+  if (m && !negatedBefore(t, m.index ?? 0)) {
     const clause = m[1].split(/[.!?\n]/)[0];
     for (const raw of clause.split(/\s*(?:,|;|&|\bvà\b|\bcùng\b|\bvới\b)\s*/)) {
       const ph = raw.trim().replace(/^(đi|các|những|thêm)\s+/, "");

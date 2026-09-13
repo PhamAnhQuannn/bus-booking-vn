@@ -137,6 +137,25 @@ describe('V3 C — sở thích không rơi tín hiệu', () => {
   });
 });
 
+describe('extractFromText — phủ định KHÔNG thêm sở thích (negation guard)', () => {
+  it('"không thích biển" → KHÔNG có bien-dao', () =>
+    expect(extractFromText('không thích biển').interests ?? []).not.toContain('bien-dao'));
+  it('"đừng cho tâm linh" → KHÔNG có tam-linh', () =>
+    expect(extractFromText('đừng cho tâm linh').interests ?? []).not.toContain('tam-linh'));
+  it('"thích biển, không thích núi" → chỉ bien-dao (núi bị phủ định)', () => {
+    const d = extractFromText('thích biển, không thích núi');
+    expect(d.interests).toContain('bien-dao');
+    expect(d.interests ?? []).not.toContain('thien-nhien-mao-hiem');
+  });
+  it('"không thích tâm linh, chỉ muốn biển" → chỉ bien-dao', () => {
+    const d = extractFromText('không thích tâm linh, chỉ muốn biển');
+    expect(d.interests).toContain('bien-dao');
+    expect(d.interests ?? []).not.toContain('tam-linh');
+  });
+  it('positive vẫn hoạt động: "thích tâm linh" → tam-linh', () =>
+    expect(extractFromText('thích tâm linh').interests).toContain('tam-linh'));
+});
+
 describe('extractFromText — false-positive regression (headcount/budget/city)', () => {
   it('"tìm 3 khách sạn gần biển" KHÔNG set adults ("khách sạn" ≠ "khách")', () =>
     expect(extractFromText('tìm 3 khách sạn gần biển').adults).toBeUndefined());
