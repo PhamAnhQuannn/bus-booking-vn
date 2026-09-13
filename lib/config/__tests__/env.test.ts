@@ -405,9 +405,9 @@ describe('getEnv — Google OAuth client/server flag parity (#478)', () => {
 describe('readPlannerGeminiDailyMax (#551)', () => {
   // Standalone reader (module-safe) for lib/ratelimit — validates the same rule as the envSchema
   // field, so a typo/non-numeric fails LOUDLY instead of the old `Number()||1000` silently → 1000.
-  it('defaults to 1000 when unset', () => {
+  it('defaults to 20 (measured free-tier ceiling) when unset', () => {
     delete process.env.PLANNER_GEMINI_DAILY_MAX;
-    expect(readPlannerGeminiDailyMax()).toBe(1000);
+    expect(readPlannerGeminiDailyMax()).toBe(20);
   });
 
   it('coerces a valid numeric string', () => {

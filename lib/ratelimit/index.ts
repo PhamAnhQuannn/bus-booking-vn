@@ -10,7 +10,7 @@
 import type { Ratelimit as UpstashRatelimitClient } from '@upstash/ratelimit';
 import type Redis from 'ioredis';
 import { logger } from '@/lib/logger';
-import { readPlannerGeminiDailyMax } from '@/lib/core/config/plannerGeminiBudget';
+import { readPlannerGeminiDailyMax, plannerGeminiDailyMaxSchema } from '@/lib/core/config/plannerGeminiBudget';
 import { resolveRatelimitBackend } from '@/lib/core/http/ratelimitBackend';
 
 export interface RatelimitResult {
@@ -528,18 +528,22 @@ export const plannerChatDailyPerIp = createRatelimit({ limit: 50, windowMs: 24 *
 // top-level body runs on every site request path. readPlannerGeminiDailyMax() THROWS on an invalid
 // PLANNER_GEMINI_DAILY_MAX (0/negative/non-numeric) — letting a planner-only env typo crash the shared
 // ratelimit module and 500 every /api/* POST sitewide. Contain the blast radius: on invalid config,
-// log loudly and fall back to the schema default (1000, == unset behavior — bounded, not fail-open),
+// log loudly and fall back to the schema default (== unset behavior — bounded, not fail-open),
 // instead of taking the whole module down. readPlannerGeminiDailyMax() stays strict for getEnv()
 // boot-validation and its unit tests; only this module-load call site degrades gracefully.
 function plannerDailyLimitAtLoad(): number {
   try {
     return readPlannerGeminiDailyMax();
   } catch (err) {
+    // Derive the fallback from the schema default itself (parse(undefined)) so it can NEVER drift
+    // from plannerGeminiDailyMaxSchema — a hard-coded literal here silently reopened the gap when the
+    // default changed (was 1000 while the schema moved to the measured free-tier 20/day).
+    const fallback = plannerGeminiDailyMaxSchema.parse(undefined);
     logger.error(
-      { err },
-      'PLANNER_GEMINI_DAILY_MAX is invalid — falling back to 1000/day. Fix the env var; the planner cost cap is at the default until then.'
+      { err, fallback },
+      `PLANNER_GEMINI_DAILY_MAX is invalid — falling back to ${fallback}/day (schema default). Fix the env var; the planner cost cap is at the default until then.`
     );
-    return 1000; // schema default (plannerGeminiDailyMaxSchema.default) — keep in sync
+    return fallback;
   }
 }
 

@@ -148,20 +148,35 @@ const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\
 // ("hoa huệ", "vinh danh") — chỉ nhận khi câu có tín hiệu ý định du lịch rõ ràng.
 const TRAVEL_INTENT_RE = /(đi|tới|đến|về|thăm|ghé|tại|du lịch|ở\s|khám phá)/;
 
-// Sở thích từ free-text: scan keyword → mã; cụm trong "thích …" chưa khớp → LITERAL (không drop im lặng).
+// Phủ định VN: interests trong 1 clause CÓ từ phủ định thì KHÔNG trích ("không thích biển" ≠ bien-dao).
+// Tách câu thành CLAUSE theo dấu câu + liên từ ĐẢO NGHĨA "nhưng" — KHÔNG theo "và" (và = CỘNG, cùng cực
+// với clause: "không thích núi và biển" → cả hai bị phủ định). Rồi mỗi clause: phủ định → bỏ; khẳng định
+// → trích keyword + literal. Biên từ dùng (?:^|\P{L})…(?!\p{L}) — KHÔNG `\b` (ASCII \w nên "chê"/"chả"
+// cuối từ không khớp mà lại false-fire giữa "chảy"), KHÔNG lookbehind (Safari cũ chưa hỗ trợ). Đồng bộ
+// idiom (?!\p{L}) đã dùng ở ngân sách phía trên.
+const NEGATION_RE = /(?:^|\P{L})(?:không|ko|đừng|chẳng|chả|chê|ghét|hông|hem)(?!\p{L})/iu;
+const CLAUSE_SPLIT_RE = /[,;.!?\n]|\bnhưng\b/i;
+const INTEREST_VERB_RE = /(?:thích|ưa thích|muốn|quan tâm|sở thích|mê|đam mê)\s+(.+)/i;
+// Trong 1 clause "thích …", tách nhiều literal theo dấu + và/cùng/với (spaces bao quanh — tránh `\b`).
+const INTEREST_LITERAL_SPLIT_RE = /\s*(?:,|;|&)\s*|\s+(?:và|cùng|với)\s+/iu;
+
+// Sở thích từ free-text: PER-CLAUSE (phủ định độc lập từng clause) scan keyword → mã; cụm "thích …" chưa
+// khớp mã → LITERAL (không drop im lặng). Clause phủ định → bỏ qua CẢ keyword lẫn literal trong clause đó.
 function extractInterests(text: string): string[] {
   const t = text.toLowerCase();
   const codes = new Set<string>();
-  for (const [re, code] of INTEREST_KEYWORDS) if (re.test(t)) codes.add(code);
-  const m = t.match(/(?:thích|ưa thích|muốn|quan tâm|sở thích|mê|đam mê)\s+(.+)/i);
-  if (m) {
-    const clause = m[1].split(/[.!?\n]/)[0];
-    for (const raw of clause.split(/\s*(?:,|;|&|\bvà\b|\bcùng\b|\bvới\b)\s*/)) {
-      const ph = raw.trim().replace(/^(đi|các|những|thêm)\s+/, "");
-      if (!ph || ph.length > 24 || /\d/.test(ph)) continue;
-      if (INTEREST_KEYWORDS.some(([re]) => re.test(ph))) continue; // đã có mã
-      if (CITIES.some((c) => ph.includes(c.ten.toLowerCase()))) continue; // là tên thành phố
-      codes.add(ph); // LITERAL (chữ user, có dấu) — SlotSummaryCard hiển thị viết-hoa + warn
+  for (const clause of t.split(CLAUSE_SPLIT_RE)) {
+    if (!clause || NEGATION_RE.test(clause)) continue; // clause có từ phủ định → không trích gì trong đó
+    for (const [re, code] of INTEREST_KEYWORDS) if (re.test(clause)) codes.add(code);
+    const m = clause.match(INTEREST_VERB_RE);
+    if (m) {
+      for (const raw of m[1].split(INTEREST_LITERAL_SPLIT_RE)) {
+        const ph = raw.trim().replace(/^(đi|các|những|thêm)\s+/, "");
+        if (!ph || ph.length > 24 || /\d/.test(ph)) continue;
+        if (INTEREST_KEYWORDS.some(([re]) => re.test(ph))) continue; // đã có mã
+        if (CITIES.some((c) => ph.includes(c.ten.toLowerCase()))) continue; // là tên thành phố
+        codes.add(ph); // LITERAL (chữ user, có dấu) — SlotSummaryCard hiển thị viết-hoa + warn
+      }
     }
   }
   return [...codes];

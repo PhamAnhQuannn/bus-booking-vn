@@ -137,6 +137,42 @@ describe('V3 C — sở thích không rơi tín hiệu', () => {
   });
 });
 
+describe('extractFromText — phủ định KHÔNG thêm sở thích (negation guard)', () => {
+  it('"không thích biển" → KHÔNG có bien-dao', () =>
+    expect(extractFromText('không thích biển').interests ?? []).not.toContain('bien-dao'));
+  it('"đừng cho tâm linh" → KHÔNG có tam-linh', () =>
+    expect(extractFromText('đừng cho tâm linh').interests ?? []).not.toContain('tam-linh'));
+  it('"thích biển, không thích núi" → chỉ bien-dao (núi bị phủ định)', () => {
+    const d = extractFromText('thích biển, không thích núi');
+    expect(d.interests).toContain('bien-dao');
+    expect(d.interests ?? []).not.toContain('thien-nhien-mao-hiem');
+  });
+  it('"không thích tâm linh, chỉ muốn biển" → chỉ bien-dao', () => {
+    const d = extractFromText('không thích tâm linh, chỉ muốn biển');
+    expect(d.interests).toContain('bien-dao');
+    expect(d.interests ?? []).not.toContain('tam-linh');
+  });
+  it('positive vẫn hoạt động: "thích tâm linh" → tam-linh', () =>
+    expect(extractFromText('thích tâm linh').interests).toContain('tam-linh'));
+  // Biên Unicode-aware: "chê"/"chả" (cuối từ có dấu) PHẢI khớp phủ định — trước đây `\b` bỏ sót.
+  it('"chê biển" → KHÔNG có bien-dao', () =>
+    expect(extractFromText('chê biển').interests ?? []).not.toContain('bien-dao'));
+  it('"chả thích núi đâu" → KHÔNG có thien-nhien-mao-hiem', () =>
+    expect(extractFromText('chả thích núi đâu').interests ?? []).not.toContain('thien-nhien-mao-hiem'));
+  // …nhưng KHÔNG false-fire giữa từ: "chảy" chứa "chả" nhưng theo sau là chữ → không phải phủ định.
+  it('"nước chảy ra biển" → VẪN có bien-dao (chả không false-fire trong chảy)', () =>
+    expect(extractFromText('nước chảy ra biển').interests).toContain('bien-dao'));
+  // Phủ định 1 clause KHÔNG được nuốt literal khẳng định ở clause sau (regression: mất "câu cá").
+  it('"không thích núi, thích câu cá" → có câu cá, KHÔNG có thien-nhien-mao-hiem', () => {
+    const d = extractFromText('không thích núi, thích câu cá');
+    expect(d.interests).toContain('câu cá');
+    expect(d.interests ?? []).not.toContain('thien-nhien-mao-hiem');
+  });
+  // "nhưng" đảo cực: clause sau khẳng định lại biển → bien-dao trở lại (không bị clause phủ định trước nuốt).
+  it('"không thích biển nhưng vẫn muốn ra biển" → có bien-dao', () =>
+    expect(extractFromText('không thích biển nhưng vẫn muốn ra biển').interests).toContain('bien-dao'));
+});
+
 describe('extractFromText — false-positive regression (headcount/budget/city)', () => {
   it('"tìm 3 khách sạn gần biển" KHÔNG set adults ("khách sạn" ≠ "khách")', () =>
     expect(extractFromText('tìm 3 khách sạn gần biển').adults).toBeUndefined());
