@@ -154,6 +154,23 @@ describe('extractFromText — phủ định KHÔNG thêm sở thích (negation g
   });
   it('positive vẫn hoạt động: "thích tâm linh" → tam-linh', () =>
     expect(extractFromText('thích tâm linh').interests).toContain('tam-linh'));
+  // Biên Unicode-aware: "chê"/"chả" (cuối từ có dấu) PHẢI khớp phủ định — trước đây `\b` bỏ sót.
+  it('"chê biển" → KHÔNG có bien-dao', () =>
+    expect(extractFromText('chê biển').interests ?? []).not.toContain('bien-dao'));
+  it('"chả thích núi đâu" → KHÔNG có thien-nhien-mao-hiem', () =>
+    expect(extractFromText('chả thích núi đâu').interests ?? []).not.toContain('thien-nhien-mao-hiem'));
+  // …nhưng KHÔNG false-fire giữa từ: "chảy" chứa "chả" nhưng theo sau là chữ → không phải phủ định.
+  it('"nước chảy ra biển" → VẪN có bien-dao (chả không false-fire trong chảy)', () =>
+    expect(extractFromText('nước chảy ra biển').interests).toContain('bien-dao'));
+  // Phủ định 1 clause KHÔNG được nuốt literal khẳng định ở clause sau (regression: mất "câu cá").
+  it('"không thích núi, thích câu cá" → có câu cá, KHÔNG có thien-nhien-mao-hiem', () => {
+    const d = extractFromText('không thích núi, thích câu cá');
+    expect(d.interests).toContain('câu cá');
+    expect(d.interests ?? []).not.toContain('thien-nhien-mao-hiem');
+  });
+  // "nhưng" đảo cực: clause sau khẳng định lại biển → bien-dao trở lại (không bị clause phủ định trước nuốt).
+  it('"không thích biển nhưng vẫn muốn ra biển" → có bien-dao', () =>
+    expect(extractFromText('không thích biển nhưng vẫn muốn ra biển').interests).toContain('bien-dao'));
 });
 
 describe('extractFromText — false-positive regression (headcount/budget/city)', () => {
