@@ -27,6 +27,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  delete process.env.GEMINI_MODEL_OVERRIDE; // tránh rò env sang test sau nếu một expect ném giữa chừng
   vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -113,6 +114,46 @@ describe('streamChat — retry 5xx/upstream', () => {
 
     await expect(drain(HISTORY)).rejects.toMatchObject({ code: 'no_key' });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('generationConfig.thinkingConfig.thinkingBudget = 0 (tắt thinking-model)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(ok());
+    vi.stubGlobal('fetch', fetchMock);
+
+    await drain(HISTORY);
+
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as { body: string }).body);
+    expect(body.generationConfig.thinkingConfig.thinkingBudget).toBe(0);
+  });
+});
+
+describe('streamChat — GEMINI_MODEL_OVERRIDE (van rollback model, đọc PER-CALL)', () => {
+  // Đọc per-invocation (không cache module-load) → set env rồi gọi streamChat trực tiếp, KHÔNG cần
+  // vi.resetModules()/re-import. Cũng chứng minh 1 process đổi model giữa 2 lượt mà không reload.
+  it('override hợp lệ → đổi model trong URL; unset → gemini-3.5-flash mặc định', async () => {
+    process.env.GEMINI_MODEL_OVERRIDE = 'gemini-3.5-flash-lite';
+    const f1 = vi.fn().mockResolvedValue(ok());
+    vi.stubGlobal('fetch', f1);
+    await drain(HISTORY);
+    expect(String(f1.mock.calls[0][0])).toContain('/models/gemini-3.5-flash-lite:');
+
+    delete process.env.GEMINI_MODEL_OVERRIDE;
+    const f2 = vi.fn().mockResolvedValue(ok());
+    vi.stubGlobal('fetch', f2);
+    await drain(HISTORY);
+    expect(String(f2.mock.calls[0][0])).toContain('/models/gemini-3.5-flash:');
+  });
+
+  it('override xấu (-latest / khoảng trắng / `/`) → từ chối, fallback pin gemini-3.5-flash', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {}); // nuốt log cảnh báo cho output test sạch
+    for (const bad of ['gemini-flash-latest', 'gemini 3.5', 'foo/bar', 'gemini-2.5-flash-LATEST']) {
+      process.env.GEMINI_MODEL_OVERRIDE = bad;
+      const f = vi.fn().mockResolvedValue(ok());
+      vi.stubGlobal('fetch', f);
+      await drain(HISTORY);
+      expect(String(f.mock.calls[0][0])).toContain('/models/gemini-3.5-flash:');
+      delete process.env.GEMINI_MODEL_OVERRIDE;
+    }
   });
 });
 

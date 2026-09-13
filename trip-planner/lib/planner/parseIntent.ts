@@ -17,7 +17,22 @@ import { signModelTurn } from "./chatSig";
 const CITY_LIST = CITIES.map((c) => c.ten).join(", ");
 const CITY_CODE_MAP = CITIES.map((c) => `${c.ten}=${c.slug}`).join(", ");
 
-const GEMINI_MODEL = "gemini-3.5-flash";
+const GEMINI_MODEL_DEFAULT = "gemini-3.5-flash";
+// GEMINI_MODEL_OVERRIDE = van rollback: đổi sang bản DATED khác (vd gemini-3.5-flash-lite) qua env,
+// KHÔNG cần đổi code. LƯU Ý: env trên Vercel baked per-deploy → vẫn CẦN redeploy để giá trị mới có
+// hiệu lực (nhanh hơn sửa+merge code, không phải "hot" runtime). Đọc PER-CALL trong resolveGeminiModel
+// (không cache ở module-load) để đúng cả process dài + test được. Giá trị xấu (khoảng trắng, `/`, hay
+// alias `-latest` — đã cháy: flash-latest→3.7 thinking→503) → fallback pin + log, KHÔNG drift âm thầm.
+const MODEL_NAME_RE = /^[a-z0-9.-]+$/i; // model DATED hợp lệ: chữ/số/./- , không khoảng trắng, không `/`
+function resolveGeminiModel(): string {
+  const raw = process.env.GEMINI_MODEL_OVERRIDE?.trim();
+  if (!raw) return GEMINI_MODEL_DEFAULT;
+  if (!MODEL_NAME_RE.test(raw) || /latest/i.test(raw)) {
+    console.warn(`[planner] GEMINI_MODEL_OVERRIDE bị từ chối (${JSON.stringify(raw)}) → dùng ${GEMINI_MODEL_DEFAULT}`);
+    return GEMINI_MODEL_DEFAULT;
+  }
+  return raw;
+}
 const GEMINI_URL = (model: string, key: string) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${key}`;
 
@@ -238,7 +253,11 @@ export async function* streamChat(history: ChatTurn[], locale: 'vi' | 'en' = 'vi
     // BẮT BUỘC: không có tools thì Gemini KHÔNG function-call → không có `slots`/`suggest`,
     // bot hỏi lại thành phố dù khách đã nêu. Client parse part.functionCall bên dưới.
     tools: [{ functionDeclarations: [TRICH_DECL, GOI_Y_DECL] }],
-    generationConfig: { temperature: 0.3, maxOutputTokens: MAX_OUTPUT_TOKENS },
+    // thinkingBudget:0 tắt "suy nghĩ ẩn" của thinking-model — đo được ~377-409 thought token/lượt
+    // chặn token đầu → TTFT 11-19s. Tắt = TTFT ~0.6s, thoughts=0 (verify direct-Google TRƯỚC merge:
+    // 200 + thoughtsTokenCount=0 + trich/goi_y_vibe vẫn fire). Nếu API từ chối/floor field này hoặc
+    // extraction giảm chất lượng → rollback bằng GEMINI_MODEL_OVERRIDE=gemini-3.5-flash-lite (van env).
+    generationConfig: { temperature: 0.3, maxOutputTokens: MAX_OUTPUT_TOKENS, thinkingConfig: { thinkingBudget: 0 } },
   });
 
   // Backoff giữa các lần thử; abort trong lúc chờ = idle-timeout đã hết → fail-fast timeout.
@@ -256,7 +275,7 @@ export async function* streamChat(history: ChatTurn[], locale: 'vi' | 'en' = 'vi
   while (true) {
     attempt++;
     try {
-      res = await fetch(GEMINI_URL(GEMINI_MODEL, key), {
+      res = await fetch(GEMINI_URL(resolveGeminiModel(), key), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
