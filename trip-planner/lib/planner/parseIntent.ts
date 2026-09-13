@@ -17,10 +17,22 @@ import { signModelTurn } from "./chatSig";
 const CITY_LIST = CITIES.map((c) => c.ten).join(", ");
 const CITY_CODE_MAP = CITIES.map((c) => `${c.ten}=${c.slug}`).join(", ");
 
-// Model PIN cứng mặc định (xem note trên). GEMINI_MODEL_OVERRIDE = van rollback runtime: đổi sang
-// bản DATED khác (vd gemini-3.5-flash-lite) qua env mà KHÔNG redeploy nếu thinkingBudget=0 làm hỏng
-// function-calling. ĐỪNG trỏ vào alias `-latest` (đã cháy 1 lần: flash-latest→3.7 thinking→503).
-const GEMINI_MODEL = process.env.GEMINI_MODEL_OVERRIDE?.trim() || "gemini-3.5-flash";
+const GEMINI_MODEL_DEFAULT = "gemini-3.5-flash";
+// GEMINI_MODEL_OVERRIDE = van rollback: đổi sang bản DATED khác (vd gemini-3.5-flash-lite) qua env,
+// KHÔNG cần đổi code. LƯU Ý: env trên Vercel baked per-deploy → vẫn CẦN redeploy để giá trị mới có
+// hiệu lực (nhanh hơn sửa+merge code, không phải "hot" runtime). Đọc PER-CALL trong resolveGeminiModel
+// (không cache ở module-load) để đúng cả process dài + test được. Giá trị xấu (khoảng trắng, `/`, hay
+// alias `-latest` — đã cháy: flash-latest→3.7 thinking→503) → fallback pin + log, KHÔNG drift âm thầm.
+const MODEL_NAME_RE = /^[a-z0-9.-]+$/i; // model DATED hợp lệ: chữ/số/./- , không khoảng trắng, không `/`
+function resolveGeminiModel(): string {
+  const raw = process.env.GEMINI_MODEL_OVERRIDE?.trim();
+  if (!raw) return GEMINI_MODEL_DEFAULT;
+  if (!MODEL_NAME_RE.test(raw) || /latest/i.test(raw)) {
+    console.warn(`[planner] GEMINI_MODEL_OVERRIDE bị từ chối (${JSON.stringify(raw)}) → dùng ${GEMINI_MODEL_DEFAULT}`);
+    return GEMINI_MODEL_DEFAULT;
+  }
+  return raw;
+}
 const GEMINI_URL = (model: string, key: string) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${key}`;
 
@@ -263,7 +275,7 @@ export async function* streamChat(history: ChatTurn[], locale: 'vi' | 'en' = 'vi
   while (true) {
     attempt++;
     try {
-      res = await fetch(GEMINI_URL(GEMINI_MODEL, key), {
+      res = await fetch(GEMINI_URL(resolveGeminiModel(), key), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
