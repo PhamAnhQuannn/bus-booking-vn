@@ -114,6 +114,46 @@ describe('streamChat — retry 5xx/upstream', () => {
     await expect(drain(HISTORY)).rejects.toMatchObject({ code: 'no_key' });
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it('generationConfig.thinkingConfig.thinkingBudget = 0 (tắt thinking-model)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(ok());
+    vi.stubGlobal('fetch', fetchMock);
+
+    await drain(HISTORY);
+
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as { body: string }).body);
+    expect(body.generationConfig.thinkingConfig.thinkingBudget).toBe(0);
+  });
+});
+
+describe('streamChat — GEMINI_MODEL_OVERRIDE (van rollback model)', () => {
+  const drainMod = async (mod: typeof import('../parseIntent')) => {
+    const events = [];
+    for await (const ev of mod.streamChat(HISTORY)) events.push(ev);
+    return events;
+  };
+
+  it('override đổi model trong URL; unset → gemini-3.5-flash mặc định', async () => {
+    process.env.GEMINI_API_KEY = 'test-key';
+
+    // override set
+    process.env.GEMINI_MODEL_OVERRIDE = 'gemini-3.5-flash-lite';
+    vi.resetModules();
+    const modOverride = await import('../parseIntent');
+    const f1 = vi.fn().mockResolvedValue(ok());
+    vi.stubGlobal('fetch', f1);
+    await drainMod(modOverride);
+    expect(String(f1.mock.calls[0][0])).toContain('/models/gemini-3.5-flash-lite:');
+
+    // override unset → default
+    delete process.env.GEMINI_MODEL_OVERRIDE;
+    vi.resetModules();
+    const modDefault = await import('../parseIntent');
+    const f2 = vi.fn().mockResolvedValue(ok());
+    vi.stubGlobal('fetch', f2);
+    await drainMod(modDefault);
+    expect(String(f2.mock.calls[0][0])).toContain('/models/gemini-3.5-flash:');
+  });
 });
 
 describe('streamChat — usage/thoughtsTokens (đo thinking-model latency)', () => {

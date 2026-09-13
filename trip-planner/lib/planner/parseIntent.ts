@@ -17,7 +17,10 @@ import { signModelTurn } from "./chatSig";
 const CITY_LIST = CITIES.map((c) => c.ten).join(", ");
 const CITY_CODE_MAP = CITIES.map((c) => `${c.ten}=${c.slug}`).join(", ");
 
-const GEMINI_MODEL = "gemini-3.5-flash";
+// Model PIN cứng mặc định (xem note trên). GEMINI_MODEL_OVERRIDE = van rollback runtime: đổi sang
+// bản DATED khác (vd gemini-3.5-flash-lite) qua env mà KHÔNG redeploy nếu thinkingBudget=0 làm hỏng
+// function-calling. ĐỪNG trỏ vào alias `-latest` (đã cháy 1 lần: flash-latest→3.7 thinking→503).
+const GEMINI_MODEL = process.env.GEMINI_MODEL_OVERRIDE?.trim() || "gemini-3.5-flash";
 const GEMINI_URL = (model: string, key: string) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${key}`;
 
@@ -238,7 +241,11 @@ export async function* streamChat(history: ChatTurn[], locale: 'vi' | 'en' = 'vi
     // BẮT BUỘC: không có tools thì Gemini KHÔNG function-call → không có `slots`/`suggest`,
     // bot hỏi lại thành phố dù khách đã nêu. Client parse part.functionCall bên dưới.
     tools: [{ functionDeclarations: [TRICH_DECL, GOI_Y_DECL] }],
-    generationConfig: { temperature: 0.3, maxOutputTokens: MAX_OUTPUT_TOKENS },
+    // thinkingBudget:0 tắt "suy nghĩ ẩn" của thinking-model — đo được ~377-409 thought token/lượt
+    // chặn token đầu → TTFT 11-19s. Tắt = TTFT ~0.6s, thoughts=0 (verify direct-Google TRƯỚC merge:
+    // 200 + thoughtsTokenCount=0 + trich/goi_y_vibe vẫn fire). Nếu API từ chối/floor field này hoặc
+    // extraction giảm chất lượng → rollback bằng GEMINI_MODEL_OVERRIDE=gemini-3.5-flash-lite (van env).
+    generationConfig: { temperature: 0.3, maxOutputTokens: MAX_OUTPUT_TOKENS, thinkingConfig: { thinkingBudget: 0 } },
   });
 
   // Backoff giữa các lần thử; abort trong lúc chờ = idle-timeout đã hết → fail-fast timeout.
