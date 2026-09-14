@@ -53,7 +53,7 @@
     "next": "16.3.4",
     "next-intl": "^4.14.0",
     "pino": "^10.3.1",
-    "prisma": "^7.9.1",
+    "prisma": "^7.10.0",
     "protomaps-leaflet": "^5.1.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
