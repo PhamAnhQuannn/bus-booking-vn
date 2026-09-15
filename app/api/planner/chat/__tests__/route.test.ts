@@ -118,7 +118,8 @@ describe('POST /api/planner/chat — kill-switch (#549)', () => {
     chatEnabledMock.mockReturnValue(false);
     const res = await POST(makeRequest());
     expect(res.status).toBe(503);
-    expect(await res.json()).toEqual({ error: 'PLANNER_CHAT_DISABLED' });
+    // PR-1: `reason` cho client (chatErrorCopy) chọn copy degrade + cờ Thử lại.
+    expect(await res.json()).toEqual({ error: 'PLANNER_CHAT_DISABLED', reason: 'disabled' });
     // No budget consumed while disabled.
     expect(budgetLimitMock).not.toHaveBeenCalled();
     expect(sessionLimitMock).not.toHaveBeenCalled();
@@ -131,6 +132,8 @@ describe('POST /api/planner/chat — per-IP sub-cap (#547)', () => {
     const res = await POST(makeRequest());
     expect(res.status).toBe(429);
     expect(res.headers.get('Retry-After')).toBe('1234');
+    // PR-1: body carries the denying bucket as `reason` so the client shows the right degrade copy.
+    expect((await res.json()).reason).toBe('per-ip-daily');
     // The global budget must NOT be consumed once the per-IP cap already denied.
     expect(budgetLimitMock).not.toHaveBeenCalled();
     expect(warnMock).toHaveBeenCalledWith(
@@ -147,7 +150,7 @@ describe('POST /api/planner/chat — circuit-breaker (#552)', () => {
     budgetLimitMock.mockClear();
     const res = await POST(makeRequest());
     expect(res.status).toBe(503);
-    expect(await res.json()).toEqual({ error: 'UPSTREAM_UNAVAILABLE' });
+    expect(await res.json()).toEqual({ error: 'UPSTREAM_UNAVAILABLE', reason: 'breaker' });
     expect(res.headers.get('Retry-After')).toBe('45');
     // A doomed call must not burn the daily budget nor the per-session throttle.
     expect(budgetLimitMock).not.toHaveBeenCalled();

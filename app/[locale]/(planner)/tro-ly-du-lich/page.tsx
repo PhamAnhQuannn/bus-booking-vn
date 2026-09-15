@@ -42,6 +42,7 @@ import {
 // Deep-import client-safe: máy trạng thái slot tất định (chip = $0, không Gemini).
 import { type Slots, type Ask, nextAsk, optionalAsk, applyChip, complete, mergeIntent, slotsToParams, budgetAsk, transportAsk, foodAsk, extractFromText, applyExtracted, missingRequired } from '@/trip-planner/lib/planner/slots';
 import { deriveLayoutPhase, type LayoutPhase } from '@/trip-planner/lib/planner/layoutPhase';
+import { chatErrorCopy } from '@/trip-planner/lib/planner/chatErrorCopy';
 import { deriveGenPhase } from '@/trip-planner/lib/planner/genPhase';
 import { CITIES } from '@/trip-planner/lib/planner/cities';
 import { useIsWide } from '@/trip-planner/components/useIsWide';
@@ -486,8 +487,13 @@ export default function TroLyDuLichPage() {
         signal: ctrl.signal,
       });
       if (!res.ok || !res.body) {
-        retryRef.current = { kind: 'send', text };
-        patchBot((m) => ({ ...m, text: m.text || t('assistant.busy'), error: true, retry: true, fallback: true }));
+        // Degrade copy theo `reason` (429/503): hết-quota-hôm-nay (KHÔNG Thử lại, mời nút thủ công) vs
+        // tạm-thời/gửi-nhanh (CHO Thử lại). reason thiếu/không-JSON → copy "bận" chung.
+        let reason: string | undefined;
+        try { reason = ((await res.json()) as { reason?: string })?.reason; } catch { /* body không JSON */ }
+        const copy = chatErrorCopy(reason);
+        if (copy.retry) retryRef.current = { kind: 'send', text };
+        patchBot((m) => ({ ...m, text: m.text || t(copy.key), error: true, retry: copy.retry, fallback: true }));
         failed = true;
         return;
       }

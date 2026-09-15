@@ -78,7 +78,8 @@ export async function POST(req: NextRequest): Promise<Response> {
     // Runtime kill-switch (#549): shut off the paid Gemini chat instantly during a cost/abuse
     // incident without unsetting GEMINI_API_KEY + redeploying. 503 before any work or body parse.
     if (!getEnv().PLANNER_CHAT_ENABLED) {
-      return new Response(JSON.stringify({ error: 'PLANNER_CHAT_DISABLED' }), {
+      // reason: client (chatErrorCopy) chọn copy "tạm nghỉ" + KHÔNG gợi Thử lại (retry vô ích khi tắt).
+      return new Response(JSON.stringify({ error: 'PLANNER_CHAT_DISABLED', reason: 'disabled' }), {
         status: 503,
         headers: { 'Content-Type': 'application/json', 'Retry-After': '3600' },
       });
@@ -125,7 +126,8 @@ export async function POST(req: NextRequest): Promise<Response> {
     const breaker = await breakerState();
     if (breaker.open) {
       logger.warn({ retryAfter: breaker.retryAfter, ip }, 'planner.chat.breaker.open');
-      return new Response(JSON.stringify({ error: 'UPSTREAM_UNAVAILABLE' }), {
+      // reason: 'breaker' — upstream đang bão 429/5xx, cooldown ngắn → copy "tạm nghỉ" + CHO Thử lại sau.
+      return new Response(JSON.stringify({ error: 'UPSTREAM_UNAVAILABLE', reason: 'breaker' }), {
         status: 503,
         headers: {
           'Content-Type': 'application/json',
@@ -169,7 +171,9 @@ export async function POST(req: NextRequest): Promise<Response> {
           ? 'planner.chat.denied.budget_exhausted'
           : 'planner.chat.denied.rate_limited',
       );
-      return new Response(JSON.stringify({ error: 'TOO_MANY_REQUESTS' }), {
+      // reason = bucket đã chặn: 'global-budget'/'per-ip-daily' (hết lượt HÔM NAY → copy hết-quota, KHÔNG
+      // Thử lại) vs 'session'/'anon-ip' (gửi nhanh → copy chờ-chút, CHO Thử lại). Client map ở chatErrorCopy.
+      return new Response(JSON.stringify({ error: 'TOO_MANY_REQUESTS', reason: denier }), {
         status: 429,
         headers: {
           'Content-Type': 'application/json',
