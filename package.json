@@ -16,6 +16,7 @@
     "test:e2e": "playwright test",
     "smoke:local": "tsx scripts/smoke/smoke-local.mts",
     "smoke:prod": "tsx scripts/smoke/smoke-prod.mts",
+    "planner:llm-eval": "tsx --env-file=.env.local trip-planner/scripts/llm-eval.ts",
     "admin:create-operator": "tsx --env-file=.env.production scripts/admin/createOperator.ts",
     "admin:disable-operator": "tsx --env-file=.env.production scripts/admin/disableOperator.ts",
     "admin:reset-operator-admin-password": "tsx --env-file=.env.production scripts/admin/resetOperatorAdminPassword.ts",
