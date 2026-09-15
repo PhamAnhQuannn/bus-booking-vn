@@ -35,6 +35,7 @@ const TEMP = Number(val("--temp") ?? "0.3");
 const RUNS = Math.max(1, Number(val("--runs") ?? "1"));
 const THROTTLE_MS = Number(val("--throttle") ?? (PROVIDER === "groq" ? "45000" : "0")); // Groq 6000 TPM → ~45s/call
 const TTFT = has("--ttft");
+const ONLY = val("--only")?.split(",").map((s) => s.trim()).filter(Boolean); // chạy tập con fixture (debug fail)
 const TTFT_N = 10;
 const FIXTURES_PATH = "trip-planner/scripts/llm-eval.fixtures.jsonl";
 const SCRATCH = process.env.CLAUDE_SCRATCH || path.join(os.tmpdir(), "planner-llm-eval");
@@ -66,7 +67,21 @@ function loadFixtures(): Fixture[] {
 
 // ── provider call: trả function call ĐẦU TIÊN (name+raw args) hoặc null (không gọi = refusal) ──
 type Call = { fn: string; args: Record<string, unknown> } | null;
-const openaiTools = () => [TRICH_DECL, GOI_Y_DECL].map((d) => ({ type: "function", function: d }));
+// Groq validate tool-args server-side theo JSON-schema (Gemini KHÔNG). gpt-oss điền `null` cho field
+// CHƯA RÕ (adults/children…) → Groq 400 "expected integer, got null". Nới MỌI property nhận null (+ null
+// vào enum) CHỈ cho tool gửi Groq — đo được chất lượng thay vì crash. prod partialFromArgs/filterVibes đã
+// coi null = vắng. (Finding cho PR-7: adapter Groq phải gửi schema nới-null HOẶC strip null trước khi gửi.)
+function groqTolerant(decl: typeof TRICH_DECL | typeof GOI_Y_DECL) {
+  const d = JSON.parse(JSON.stringify(decl)) as { parameters?: { properties?: Record<string, { type?: unknown; enum?: unknown[] }> } };
+  const props = d.parameters?.properties ?? {};
+  for (const k of Object.keys(props)) {
+    const p = props[k];
+    p.type = Array.isArray(p.type) ? [...new Set([...(p.type as string[]), "null"])] : [p.type as string, "null"];
+    if (Array.isArray(p.enum) && !p.enum.includes(null)) p.enum = [...p.enum, null];
+  }
+  return d;
+}
+const openaiTools = () => [TRICH_DECL, GOI_Y_DECL].map((d) => ({ type: "function", function: groqTolerant(d) }));
 
 async function callGemini(f: Fixture): Promise<Call> {
   const key = process.env.GEMINI_API_KEY;
@@ -117,7 +132,7 @@ function logRate(tag: string, res: Response) {
 
 // ── scoring ──
 const setEq = (a: string[], b: string[]) => { const A = new Set(a), B = new Set(b); return A.size === B.size && [...A].every((x) => B.has(x)); };
-type Res = { id: string; category: Category; expectFn: string | null; gotFn: string | null; fnOk: boolean; enumOk: boolean; outOfEnum: number; pass: boolean };
+type Res = { id: string; category: Category; expectFn: string | null; gotFn: string | null; fnOk: boolean; enumOk: boolean; outOfEnum: number; pass: boolean; gotArgs: Record<string, unknown> | null; expect: Expect };
 
 function score(f: Fixture, call: Call): Res {
   const gotFn = call?.fn ?? null;
@@ -134,7 +149,7 @@ function score(f: Fixture, call: Call): Res {
     enumOk = false; // đáng lẽ gọi function mà không gọi (hoặc gọi sai fn)
   }
   const pass = f.expect.fn === null ? gotFn === null : fnOk && enumOk && outOfEnum === 0;
-  return { id: f.id, category: f.category, expectFn: f.expect.fn, gotFn, fnOk, enumOk, outOfEnum, pass };
+  return { id: f.id, category: f.category, expectFn: f.expect.fn, gotFn, fnOk, enumOk, outOfEnum, pass, gotArgs: call?.args ?? null, expect: f.expect };
 }
 
 // self-check (--dry): fixture "hoàn hảo" phải tự đạt pass=true + outOfEnum=0. Bắt lỗi fixture (slug/vibe sai
@@ -174,7 +189,15 @@ function report(tag: string, results: Res[]) {
   for (const c of CATEGORIES) console.log(`  ${c.padEnd(16)} ${m[c].pass}/${m[c].total} (${pct(m[c].pass, m[c].total).toFixed(1)}%)  out-of-enum=${m[c].ooe}`);
   console.log(`  ${"TỔNG".padEnd(16)} ${totalPass}/${results.length} (${pct(totalPass, results.length).toFixed(1)}%)  out-of-enum=${totalOoe}`);
   const fails = results.filter((r) => !r.pass);
-  if (fails.length) { console.log("  ── FAIL ──"); for (const r of fails) console.log(`    ${r.id.padEnd(12)} expect=${r.expectFn ?? "null"} got=${r.gotFn ?? "null"} fnOk=${r.fnOk} enumOk=${r.enumOk} ooe=${r.outOfEnum}`); }
+  if (fails.length) {
+    console.log("  ── FAIL ──");
+    for (const r of fails) {
+      const exp = JSON.stringify({ fn: r.expect.fn, ...(r.expect.dia_diem !== undefined && { dia_diem: r.expect.dia_diem }), ...(r.expect.vibe !== undefined && { vibe: r.expect.vibe }), ...(r.expect.interests !== undefined && { interests: r.expect.interests }), ...(r.expect.pace !== undefined && { pace: r.expect.pace }) });
+      console.log(`    ${r.id.padEnd(12)} expect=${r.expectFn ?? "null"} got=${r.gotFn ?? "null"} fnOk=${r.fnOk} enumOk=${r.enumOk} ooe=${r.outOfEnum}`);
+      console.log(`        want ${exp}`);
+      console.log(`        got  ${JSON.stringify(r.gotArgs)}`);
+    }
+  }
   return { m, totalOoe };
 }
 
@@ -224,7 +247,9 @@ async function ttftOne(f: Fixture): Promise<number> {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 (async () => {
-  const fixtures = loadFixtures();
+  const allFixtures = loadFixtures();
+  const fixtures = ONLY ? allFixtures.filter((f) => ONLY.includes(f.id)) : allFixtures;
+  if (ONLY) console.log(`[--only] ${fixtures.length}/${allFixtures.length} fixture: ${fixtures.map((f) => f.id).join(", ")}`);
   const cat = byCat(fixtures.map((f) => ({ category: f.category } as Res)));
   console.log(`fixtures: ${fixtures.length}` + CATEGORIES.map((c) => ` · ${c}=${cat[c].total}`).join(""));
   if (fixtures.length < 60) console.warn(`⚠ chỉ ${fixtures.length} fixture (<60) — dưới sàn PR-0.`);
@@ -247,18 +272,28 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     const useCache = PROVIDER === "gemini";
     if (useCache && fs.existsSync(baselineFile())) { cache = JSON.parse(fs.readFileSync(baselineFile(), "utf-8")).results ?? {}; }
     const results: Res[] = [];
+    let errored = 0;
     for (const f of fixtures) {
-      let call: Call;
+      let call: Call = null;
       if (useCache && f.id in cache) { call = cache[f.id]; }
       else {
-        try { call = await callProvider(f); } catch (e) { console.error(`   ✗ ${f.id}: ${String(e)}`); throw e; }
-        if (useCache) { cache[f.id] = call; fs.mkdirSync(SCRATCH, { recursive: true }); fs.writeFileSync(baselineFile(), JSON.stringify({ fingerprint: fingerprint(), model: GEMINI_MODEL, temp: TEMP, results: cache })); }
+        try {
+          call = await callProvider(f);
+          // Cache CHỈ khi thành công (KHÔNG cache lỗi → baseline Gemini không nhiễm null-giả).
+          if (useCache) { cache[f.id] = call; fs.mkdirSync(SCRATCH, { recursive: true }); fs.writeFileSync(baselineFile(), JSON.stringify({ fingerprint: fingerprint(), model: GEMINI_MODEL, temp: TEMP, results: cache })); }
+        } catch (e) {
+          // 1 fixture lỗi (400 schema / 429 / mạng) → ghi FAIL + tiếp, KHÔNG abort cả run.
+          console.error(`   ✗ ${f.id}: ${String(e).slice(0, 180)}`);
+          errored++;
+          call = null;
+        }
         if (THROTTLE_MS) await sleep(THROTTLE_MS);
       }
       results.push(score(f, call));
     }
     runResults.push(results);
     report(`run ${run}`, results);
+    if (errored) console.log(`  ⚠ ${errored} fixture lỗi request (đếm như FAIL; xem dòng ✗ trên).`);
   }
 
   if (RUNS >= 2) {
