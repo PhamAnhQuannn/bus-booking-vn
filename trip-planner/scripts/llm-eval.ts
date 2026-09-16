@@ -4,11 +4,12 @@
 //
 // Chạy từ repo root:
 //   pnpm tsx trip-planner/scripts/llm-eval.ts --dry                      # $0: validate fixtures + self-check, KHÔNG gọi API
-//   pnpm tsx trip-planner/scripts/llm-eval.ts --gemini --confirm         # gọi Gemini, cache baseline (60 req = ~3 ngày free-tier)
-//   pnpm tsx trip-planner/scripts/llm-eval.ts --groq --model llama-3.1-8b-instant --confirm
-//   ...thêm --ttft (đo TTFT stream 10 fixture) · --runs 2 (đo swing) · --throttle 45000 (ms/call Groq)
+//   pnpm tsx trip-planner/scripts/llm-eval.ts --gemini --gemini-key-env GEMINI_API_KEY_EVAL --confirm  # baseline (60 req = ~3 ngày free-tier)
+//   pnpm tsx trip-planner/scripts/llm-eval.ts --groq --model openai/gpt-oss-20b --confirm --ttft
+//   ...thêm --ttft (đo TTFT stream 10 fixture) · --runs 2 (đo swing) · --throttle 45000 (ms/call) · --only id1,id2 (debug)
 //
-// KEY: GEMINI_API_KEY (dev, project RIÊNG ≠ prod) + GROQ_API_KEY (dev). NODE_ENV=production → THROW.
+// KEY: --gemini-key-env trỏ ENV chứa key Gemini của PROJECT eval RIÊNG (≠ key prod, ≠ key prepay) — quota
+//      free tính per-PROJECT. GROQ_API_KEY (dev). NODE_ENV=production → THROW.
 // Baseline Gemini cache theo fingerprint(SYSTEM+decls+model+temp): đổi prompt/model → cache vô hiệu, chạy lại.
 //
 // GO/NO-GO (F1): ∀ lớp  Groq passRate ≥ Gemini−2pp  AND  RAW out-of-enum = 0  AND  refusal ≥ Gemini
@@ -29,8 +30,11 @@ const has = (f: string) => argv.includes(f);
 const val = (f: string) => { const i = argv.indexOf(f); return i >= 0 ? argv[i + 1] : undefined; };
 const DRY = has("--dry") || !has("--confirm");
 const PROVIDER: "gemini" | "groq" = has("--groq") ? "groq" : "gemini";
-const GROQ_MODEL = val("--model") ?? "llama-3.1-8b-instant";
+const GROQ_MODEL = val("--model") ?? "openai/gpt-oss-20b"; // catalog Groq 2026 (llama-3.1-8b ĐÃ BỎ → 404)
 const GEMINI_MODEL = val("--gemini-model") ?? "gemini-3.5-flash";
+// Tên ENV chứa key Gemini để đọc. Mặc định GEMINI_API_KEY; baseline PHẢI trỏ key của PROJECT eval RIÊNG
+// (vd GEMINI_API_KEY_EVAL) để KHÔNG vét chung quota 20/ngày của key prod. TUYỆT ĐỐI không trỏ key prepay.
+const GEMINI_KEY_ENV = val("--gemini-key-env") ?? "GEMINI_API_KEY";
 const TEMP = Number(val("--temp") ?? "0.3");
 const RUNS = Math.max(1, Number(val("--runs") ?? "1"));
 const THROTTLE_MS = Number(val("--throttle") ?? (PROVIDER === "groq" ? "45000" : "0")); // Groq 6000 TPM → ~45s/call
@@ -84,8 +88,8 @@ function groqTolerant(decl: typeof TRICH_DECL | typeof GOI_Y_DECL) {
 const openaiTools = () => [TRICH_DECL, GOI_Y_DECL].map((d) => ({ type: "function", function: groqTolerant(d) }));
 
 async function callGemini(f: Fixture): Promise<Call> {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) throw new Error("GEMINI_API_KEY chưa cấu hình");
+  const key = process.env[GEMINI_KEY_ENV];
+  if (!key) throw new Error(`${GEMINI_KEY_ENV} chưa cấu hình (--gemini-key-env)`);
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`, {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -226,7 +230,7 @@ function verdict(groq: Res[], gemini: Res[], ttft?: { p50: number; p95: number }
 async function ttftOne(f: Fixture): Promise<number> {
   const t0 = performance.now();
   if (PROVIDER === "gemini") {
-    const key = process.env.GEMINI_API_KEY!;
+    const key = process.env[GEMINI_KEY_ENV]!;
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${key}`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ system_instruction: { parts: [{ text: systemFor(f.locale ?? "vi") }] }, contents: [{ role: "user", parts: [{ text: f.prompt }] }], tools: [{ functionDeclarations: [TRICH_DECL, GOI_Y_DECL] }], generationConfig: { temperature: TEMP, thinkingConfig: { thinkingBudget: 0 } } }),
@@ -261,7 +265,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     const broken = results.filter((r) => !r.pass);
     if (broken.length || totalOoe) { console.error(`\n✗ ${broken.length} fixture KHÔNG tự đạt (expect không nhất quán / slug-vibe sai enum). Sửa fixture trước khi --confirm.`); process.exit(1); }
     console.log("\n✓ Fixtures nhất quán (mọi expect tự đạt pass, out-of-enum=0). Sẵn sàng --confirm khi có key.");
-    console.log("  Chạy thật: pnpm tsx trip-planner/scripts/llm-eval.ts --gemini --confirm   (rồi --groq --model … --confirm)");
+    console.log("  Chạy thật: --gemini --gemini-key-env GEMINI_API_KEY_EVAL --confirm   ·   --groq --model openai/gpt-oss-20b --confirm --ttft");
     return;
   }
 
