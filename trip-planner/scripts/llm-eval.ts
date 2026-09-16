@@ -72,16 +72,18 @@ function loadFixtures(): Fixture[] {
 // ── provider call: trả function call ĐẦU TIÊN (name+raw args) hoặc null (không gọi = refusal) ──
 type Call = { fn: string; args: Record<string, unknown> } | null;
 // Groq validate tool-args server-side theo JSON-schema (Gemini KHÔNG). gpt-oss điền `null` cho field
-// CHƯA RÕ (adults/children…) → Groq 400 "expected integer, got null". Nới MỌI property nhận null (+ null
-// vào enum) CHỈ cho tool gửi Groq — đo được chất lượng thay vì crash. prod partialFromArgs/filterVibes đã
-// coi null = vắng. (Finding cho PR-7: adapter Groq phải gửi schema nới-null HOẶC strip null trước khi gửi.)
+// SỐ chưa rõ (adults/children…) → Groq 400 "expected integer, got null". Nới null CHỈ cho field
+// integer/number/boolean (nguyên nhân 400). GIỮ enum string/array (dia_diem/vibe/pace/interests) STRICT:
+// nếu nới null vào enum → "mời" model (qwen) bỏ trống dia_diem → tính điểm KHÔNG công bằng. Với enum strict,
+// model null city → Groq 400 = fail ĐÚNG (nulling city LÀ fail). prod partialFromArgs/filterVibes coi null=vắng.
+// (Finding PR-7: adapter Groq gửi schema nới-null-số HOẶC strip null-số trước khi gửi.)
 function groqTolerant(decl: typeof TRICH_DECL | typeof GOI_Y_DECL) {
-  const d = JSON.parse(JSON.stringify(decl)) as { parameters?: { properties?: Record<string, { type?: unknown; enum?: unknown[] }> } };
+  const d = JSON.parse(JSON.stringify(decl)) as { parameters?: { properties?: Record<string, { type?: unknown }> } };
   const props = d.parameters?.properties ?? {};
   for (const k of Object.keys(props)) {
     const p = props[k];
-    p.type = Array.isArray(p.type) ? [...new Set([...(p.type as string[]), "null"])] : [p.type as string, "null"];
-    if (Array.isArray(p.enum) && !p.enum.includes(null)) p.enum = [...p.enum, null];
+    const t = Array.isArray(p.type) ? (p.type as string[]) : [p.type as string];
+    if (t.some((x) => x === "integer" || x === "number" || x === "boolean")) p.type = [...new Set([...t, "null"])];
   }
   return d;
 }
