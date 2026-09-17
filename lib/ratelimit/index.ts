@@ -11,6 +11,7 @@ import type { Ratelimit as UpstashRatelimitClient } from '@upstash/ratelimit';
 import type Redis from 'ioredis';
 import { logger } from '@/lib/logger';
 import { readPlannerGeminiDailyMax, plannerGeminiDailyMaxSchema } from '@/lib/core/config/plannerGeminiBudget';
+import { readPlannerGroqDailyMax, plannerGroqDailyMaxSchema } from '@/lib/core/config/plannerGroqBudget';
 import { resolveRatelimitBackend } from '@/lib/core/http/ratelimitBackend';
 
 export interface RatelimitResult {
@@ -553,12 +554,38 @@ export const plannerDailyBudget = createRatelimit({
   failClosed: true,
 });
 
-// Gemini cost controls that pair with the budget above (barrel re-exports).
+// PR-4: budget theo NGÀY per-provider. Groq song song plannerDailyLimitAtLoad — fallback schema default
+// (200) khi env invalid, KHÔNG crash module (readPlannerGroqDailyMax strict cho getEnv boot).
+function plannerGroqLimitAtLoad(): number {
+  try {
+    return readPlannerGroqDailyMax();
+  } catch (err) {
+    const fallback = plannerGroqDailyMaxSchema.parse(undefined);
+    logger.error(
+      { err, fallback },
+      `PLANNER_GROQ_DAILY_MAX is invalid — falling back to ${fallback}/day (schema default). Fix the env var; the Groq cost cap is at the default until then.`
+    );
+    return fallback;
+  }
+}
+
+// Factory per-provider (PR-7/PR-9 flip dùng). `plannerDailyBudget` ở trên GIỮ nguyên literal cho Gemini
+// (không đổi hành vi prod). Groq singleton dùng factory. Cả hai failClosed = backstop chi phí.
+export function plannerDailyBudgetFor(provider: 'gemini' | 'groq'): Ratelimit {
+  const limit = provider === 'groq' ? plannerGroqLimitAtLoad() : plannerDailyLimitAtLoad();
+  return createRatelimit({ limit, windowMs: 24 * 60 * 60_000, failClosed: true });
+}
+
+export const plannerGroqDailyBudget = plannerDailyBudgetFor('groq');
+
+// LLM cost controls per-provider (barrel re-exports).
 export {
   breakerState,
   recordUpstreamFailure,
   recordUpstreamSuccess,
   BREAKER_COOLDOWN_SEC,
   type BreakerState,
-} from './geminiBreaker'; // #552 circuit-breaker
-export { recordGeminiUsage, type GeminiUsageResult } from './geminiUsage'; // #553 token/$ accounting
+} from './geminiBreaker'; // #552 circuit-breaker (alias Gemini của createBreaker)
+export { createBreaker, type ProviderBreaker } from './upstreamBreaker'; // PR-4 factory per-provider
+export { recordGeminiUsage, type GeminiUsageResult } from './geminiUsage'; // #553 token/$ accounting (alias Gemini)
+export { recordLlmUsage, type LlmUsageResult, type LlmProvider } from './llmUsage'; // PR-4 per-provider
