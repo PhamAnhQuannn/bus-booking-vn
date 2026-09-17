@@ -159,6 +159,10 @@ const CLAUSE_SPLIT_RE = /[,;.!?\n]|\bnhưng\b/i;
 // Câu HỎI GỢI Ý / discovery ("chỗ nào lãng mạn?", "gợi ý đi đâu") — luồng goi_y_vibe của LLM, KHÔNG được
 // short-circuit (dựng lịch tất định sẽ nuốt ý hỏi gợi ý). Biên từ (?:^|\P{L})…(?!\p{L}) đồng bộ NEGATION_RE.
 const DISCOVERY_RE = /(?:^|\P{L})(?:gợi ý|chỗ nào|nơi nào|ở đâu|đi đâu|nên đi|giới thiệu)(?!\p{L})/iu;
+// Compound sentences ("4 người nhưng chỉ 2 đi") make first-match-wins extraction unsafe;
+// bail to /chat (LLM) when the turn has >1 day-count or >1 people-count.
+const DAY_COUNT_RE = /\d+\s*ng[àa]y/gi;
+const PERSON_COUNT_RE = /\d+\s*(?:người|khách(?!\s*sạn)|đứa|thành viên)/gi;
 const INTEREST_VERB_RE = /(?:thích|ưa thích|muốn|quan tâm|sở thích|mê|đam mê)\s+(.+)/i;
 // Trong 1 clause "thích …", tách nhiều literal theo dấu + và/cùng/với (spaces bao quanh — tránh `\b`).
 const INTEREST_LITERAL_SPLIT_RE = /\s*(?:,|;|&)\s*|\s+(?:và|cùng|với)\s+/iu;
@@ -356,5 +360,7 @@ export function shortCircuitEligible(text: string, slots: Slots): boolean {
   if (NEGATION_RE.test(text)) return false;
   if (/[?？]/.test(text)) return false;
   if (DISCOVERY_RE.test(text)) return false;
+  if ((text.match(DAY_COUNT_RE) ?? []).length > 1) return false;
+  if ((text.match(PERSON_COUNT_RE) ?? []).length > 1) return false;
   return complete(applyExtracted(slots, extractFromText(text)));
 }

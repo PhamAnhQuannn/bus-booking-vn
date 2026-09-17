@@ -460,7 +460,6 @@ export default function TroLyDuLichPage() {
       const finalSlots = applyExtracted(slots, extractFromText(text));
       pushMsgs({ role: 'user', text, time: nowHHMM() }); // advance() tự push bubble bot (chip/planning)
       if (finalSlots.dia_diem) setPendingDestination(finalSlots.dia_diem);
-      console.info('[planner] shortCircuit turn-1', { dia_diem: finalSlots.dia_diem, days: finalSlots.days });
       advance(finalSlots);
       return;
     }

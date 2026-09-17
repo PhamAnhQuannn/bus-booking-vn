@@ -54,6 +54,9 @@ describe('shortCircuitEligible — FALSE guard (phủ định / hỏi / discover
     expect(shortCircuitEligible('gợi ý Đà Nẵng 3 ngày 2 người', {})).toBe(false);
     expect(shortCircuitEligible('Đà Lạt 3 ngày 2 người nên đi đâu', {})).toBe(false);
   });
+  it('câu ghép nhiều số người ("nhưng") — first-match-wins trích sai, để LLM xử', () => {
+    expect(shortCircuitEligible('Gia đình tôi 4 người nhưng chỉ 2 người đi Đà Lạt 3 ngày', {})).toBe(false);
+  });
 });
 
 describe('shortCircuit — param-parity (dựng KHÔNG ẩu, giống luồng /chat)', () => {
