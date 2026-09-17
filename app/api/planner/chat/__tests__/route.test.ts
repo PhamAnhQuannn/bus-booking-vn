@@ -143,6 +143,43 @@ describe('POST /api/planner/chat — per-IP sub-cap (#547)', () => {
   });
 });
 
+describe('POST /api/planner/chat — per-session / anon-IP throttles', () => {
+  it('denies with 429 reason=session when the per-session bucket is exhausted', async () => {
+    sessionLimitMock.mockResolvedValue({ allowed: false, remaining: 0, retryAfter: 7 });
+    perIpLimitMock.mockClear();
+    budgetLimitMock.mockClear();
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(429);
+    expect(res.headers.get('Retry-After')).toBe('7');
+    expect((await res.json()).reason).toBe('session');
+    // Denied at the session throttle → neither the per-IP nor the global bucket is consumed.
+    expect(perIpLimitMock).not.toHaveBeenCalled();
+    expect(budgetLimitMock).not.toHaveBeenCalled();
+    expect(warnMock).toHaveBeenCalledWith(
+      expect.objectContaining({ denier: 'session' }),
+      'planner.chat.denied.rate_limited',
+    );
+  });
+
+  it('denies with 429 reason=anon-ip when there is no session and the anon bucket is exhausted', async () => {
+    sessionIdMock.mockReturnValue(null);
+    anonLimitMock.mockResolvedValue({ allowed: false, remaining: 0, retryAfter: 11 });
+    sessionLimitMock.mockClear();
+    budgetLimitMock.mockClear();
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(429);
+    expect(res.headers.get('Retry-After')).toBe('11');
+    expect((await res.json()).reason).toBe('anon-ip');
+    // Anonymous path uses the anon limiter, never the session one.
+    expect(sessionLimitMock).not.toHaveBeenCalled();
+    expect(budgetLimitMock).not.toHaveBeenCalled();
+    expect(warnMock).toHaveBeenCalledWith(
+      expect.objectContaining({ denier: 'anon-ip' }),
+      'planner.chat.denied.rate_limited',
+    );
+  });
+});
+
 describe('POST /api/planner/chat — circuit-breaker (#552)', () => {
   it('returns 503 without consuming the budget when the breaker is open', async () => {
     breakerStateMock.mockResolvedValue({ open: true, retryAfter: 45 });
@@ -167,6 +204,7 @@ describe('POST /api/planner/chat — alerting (#550)', () => {
     budgetLimitMock.mockResolvedValue({ allowed: false, remaining: 0, retryAfter: 60 });
     const res = await POST(makeRequest());
     expect(res.status).toBe(429);
+    expect((await res.json()).reason).toBe('global-budget');
     expect(warnMock).toHaveBeenCalledWith(
       expect.objectContaining({ denier: 'global-budget' }),
       'planner.chat.denied.budget_exhausted',

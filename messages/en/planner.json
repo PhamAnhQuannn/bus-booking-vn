@@ -86,7 +86,7 @@
     "busy": "The assistant is busy, please try again.",
     "quotaExhausted": "The AI assistant has used up today's free quota. You can build your itinerary with the button below.",
     "rateLimited": "You're sending a bit fast — wait a moment and try again.",
-    "paused": "The assistant is taking a short break, please try again in a few minutes.",
+    "paused": "The assistant is taking a short break, please try again later.",
     "noConnection": "Couldn't reach the server, please try again.",
     "status": {
       "analyze": "Analyzing your request…",

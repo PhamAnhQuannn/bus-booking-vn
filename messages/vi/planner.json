@@ -86,7 +86,7 @@
     "busy": "Trợ lý đang bận, thử lại giúp mình nhé.",
     "quotaExhausted": "Hôm nay trợ lý AI đã dùng hết lượt miễn phí. Bạn tự chọn lịch trình bằng nút bên dưới nhé.",
     "rateLimited": "Bạn gửi hơi nhanh, chờ một chút rồi thử lại giúp mình nhé.",
-    "paused": "Trợ lý đang tạm nghỉ, bạn thử lại sau ít phút nhé.",
+    "paused": "Trợ lý đang tạm nghỉ, bạn thử lại sau nhé.",
     "noConnection": "Không kết nối được máy chủ, thử lại giúp mình nhé.",
     "status": {
       "analyze": "Đang phân tích yêu cầu…",
