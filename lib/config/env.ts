@@ -15,6 +15,8 @@ import { isRealProduction } from '@/lib/core/config/deployTier';
 // callers importing from '@/lib/config' still get readPlannerGeminiDailyMax.
 import { plannerGeminiDailyMaxSchema } from '@/lib/core/config/plannerGeminiBudget';
 export { readPlannerGeminiDailyMax } from '@/lib/core/config/plannerGeminiBudget';
+import { plannerGroqDailyMaxSchema } from '@/lib/core/config/plannerGroqBudget';
+export { readPlannerGroqDailyMax } from '@/lib/core/config/plannerGroqBudget';
 
 const envSchema = z.object({
   /**
@@ -179,6 +181,13 @@ const envSchema = z.object({
    * reads it via readPlannerGeminiDailyMax() (module-safe — no full-schema validation at import).
    */
   PLANNER_GEMINI_DAILY_MAX: plannerGeminiDailyMaxSchema,
+
+  /**
+   * Global daily Groq request budget (PR-4, A+C: Groq primary + Gemini fallback). Consumed by
+   * plannerGroqDailyBudget (lib/ratelimit). Free-tier Groq ~14,400 RPD nhưng 6,000 TPM; default 200/day
+   * = trần an toàn canary (raise via env khi đo đủ). Validated here; typo/non-numeric fails boot.
+   */
+  PLANNER_GROQ_DAILY_MAX: plannerGroqDailyMaxSchema,
 
   // ---------------------------------------------------------------------------
   // Local fake-gateway stub (Phase 1 — run all online-payment stories with no
