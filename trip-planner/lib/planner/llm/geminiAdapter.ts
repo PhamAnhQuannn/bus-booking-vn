@@ -18,7 +18,7 @@ const GEMINI_MODEL_DEFAULT = "gemini-3.5-flash";
 // (không cache ở module-load) để đúng cả process dài + test được. Giá trị xấu (khoảng trắng, `/`, hay
 // alias `-latest` — đã cháy: flash-latest→3.7 thinking→503) → fallback pin + log, KHÔNG drift âm thầm.
 const MODEL_NAME_RE = /^[a-z0-9.-]+$/i; // model DATED hợp lệ: chữ/số/./- , không khoảng trắng, không `/`
-function resolveGeminiModel(): string {
+export function resolveGeminiModel(): string {
   const raw = process.env.GEMINI_MODEL_OVERRIDE?.trim();
   if (!raw) return GEMINI_MODEL_DEFAULT;
   if (!MODEL_NAME_RE.test(raw) || /latest/i.test(raw)) {
