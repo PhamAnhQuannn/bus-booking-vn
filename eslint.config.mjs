@@ -171,6 +171,7 @@ const eslintConfig = defineConfig([
                 "layoutPhase.{ts,tsx}", // trip-planner/lib/planner — pure derive pha bố cục (client-safe, no server)
                 "genPhase.{ts,tsx}", // trip-planner/lib/planner — pure derive pha sinh kế hoạch (client-safe, no server)
                 "conversationsClient.{ts,tsx}", // trip-planner/lib/planner — client-safe: lưu/đọc lịch sử (authFetch + localStorage)
+                "chatErrorCopy.{ts,tsx}", // trip-planner/lib/planner — pure: map reason lỗi chat → copy degrade (client)
               ],
             },
             { target: ["lib-core"], allow: "**" },

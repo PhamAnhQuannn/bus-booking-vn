@@ -43,6 +43,7 @@ import { sessionIdFromRequest } from '@/lib/analytics';
 import { captureException } from '@/lib/observability';
 import { getEnv } from '@/lib/config';
 import { logger } from '@/lib/logger';
+import type { ChatErrorReason } from '@/trip-planner/lib/planner/chatErrorCopy';
 
 function sse(event: string, data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -78,7 +79,8 @@ export async function POST(req: NextRequest): Promise<Response> {
     // Runtime kill-switch (#549): shut off the paid Gemini chat instantly during a cost/abuse
     // incident without unsetting GEMINI_API_KEY + redeploying. 503 before any work or body parse.
     if (!getEnv().PLANNER_CHAT_ENABLED) {
-      return new Response(JSON.stringify({ error: 'PLANNER_CHAT_DISABLED' }), {
+      // reason: client (chatErrorCopy) chọn copy "tạm nghỉ" + KHÔNG gợi Thử lại (retry vô ích khi tắt).
+      return new Response(JSON.stringify({ error: 'PLANNER_CHAT_DISABLED', reason: 'disabled' satisfies ChatErrorReason }), {
         status: 503,
         headers: { 'Content-Type': 'application/json', 'Retry-After': '3600' },
       });
@@ -125,7 +127,8 @@ export async function POST(req: NextRequest): Promise<Response> {
     const breaker = await breakerState();
     if (breaker.open) {
       logger.warn({ retryAfter: breaker.retryAfter, ip }, 'planner.chat.breaker.open');
-      return new Response(JSON.stringify({ error: 'UPSTREAM_UNAVAILABLE' }), {
+      // reason: 'breaker' — upstream đang bão 429/5xx, cooldown ngắn → copy "tạm nghỉ" + CHO Thử lại sau.
+      return new Response(JSON.stringify({ error: 'UPSTREAM_UNAVAILABLE', reason: 'breaker' satisfies ChatErrorReason }), {
         status: 503,
         headers: {
           'Content-Type': 'application/json',
@@ -151,7 +154,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     if (!rl.allowed || (perIp && !perIp.allowed) || (budget && !budget.allowed)) {
       // Which bucket denied — a distinct line for the GLOBAL budget so quota exhaustion is
       // greppable/alertable, vs the per-session/IP throttles which just mean one caller is noisy.
-      const denier = budget && !budget.allowed
+      const denier: ChatErrorReason = budget && !budget.allowed
         ? 'global-budget'
         : perIp && !perIp.allowed
           ? 'per-ip-daily'
@@ -169,7 +172,9 @@ export async function POST(req: NextRequest): Promise<Response> {
           ? 'planner.chat.denied.budget_exhausted'
           : 'planner.chat.denied.rate_limited',
       );
-      return new Response(JSON.stringify({ error: 'TOO_MANY_REQUESTS' }), {
+      // reason = bucket đã chặn: 'global-budget'/'per-ip-daily' (hết lượt HÔM NAY → copy hết-quota, KHÔNG
+      // Thử lại) vs 'session'/'anon-ip' (gửi nhanh → copy chờ-chút, CHO Thử lại). Client map ở chatErrorCopy.
+      return new Response(JSON.stringify({ error: 'TOO_MANY_REQUESTS', reason: denier }), {
         status: 429,
         headers: {
           'Content-Type': 'application/json',
