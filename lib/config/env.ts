@@ -189,6 +189,21 @@ const envSchema = z.object({
    */
   PLANNER_GROQ_DAILY_MAX: plannerGroqDailyMaxSchema,
 
+  /**
+   * Dev/test stub cho LLM planner-chat (PR-5). Default off. Bật (="true") → adapter trả SSE canned,
+   * KHÔNG gọi upstream (Gemini/Groq) → e2e + preview vô hạn $0. PROD-THROW: strict block dưới FAIL boot
+   * nếu bật ở prod thật (mirror STORAGE_STUB) — stub không bao giờ được arm trên prod.
+   */
+  PLANNER_LLM_STUB: z.string().default('false').transform((v) => v === 'true'),
+
+  /**
+   * Base URL override cho LLM (dev/test — trỏ mock server local giọng Gemini/Groq SSE). BỎ QUA ở prod
+   * thật (adapter ignore khi isRealProduction) — key nằm trong query/header nên base-url lạ = exfil key.
+   * Optional; unset = host thật.
+   */
+  GEMINI_BASE_URL: z.string().url().optional(),
+  GROQ_BASE_URL: z.string().url().optional(),
+
   // ---------------------------------------------------------------------------
   // Local fake-gateway stub (Phase 1 — run all online-payment stories with no
   // real PSP credentials). When PAYMENTS_STUB="true", getGatewayFor('momo')
@@ -753,6 +768,14 @@ const envSchema = z.object({
         code: z.ZodIssueCode.custom,
         path: ['STORAGE_STUB'],
         message: 'STORAGE_STUB must be false in production (real object storage required)',
+      });
+    }
+    // PR-5: LLM stub trả câu canned — bật ở prod = trợ lý phát nội dung giả cho khách. Fail boot.
+    if (env.PLANNER_LLM_STUB) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['PLANNER_LLM_STUB'],
+        message: 'PLANNER_LLM_STUB must be false in production (real LLM required)',
       });
     }
     // DIRECT_URL is required in production when using real payments (non-stub).

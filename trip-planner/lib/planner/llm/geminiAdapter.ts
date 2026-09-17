@@ -3,10 +3,12 @@
 // tương lai (PR-7). streamChat MOVE nguyên văn — hành vi byte-identical (streamChat.test.ts không đổi).
 // Model PIN cứng: alias `gemini-flash-latest` đã roll sang gemini-3.7-flash (thinking) → 503 → pin bản ổn định.
 
+import { isRealProduction } from "@/lib/core/config/deployTier";
 import { isCitySlug } from "../cities";
 import { filterVibes } from "../vibes";
 import { signModelTurn } from "../chatSig";
 import { systemFor, TRICH_DECL, GOI_Y_DECL, partialFromArgs } from "./prompt";
+import { stubStream } from "./llmStub";
 import { ParseIntentError, type ChatTurn, type StreamEvent } from "./types";
 
 const GEMINI_MODEL_DEFAULT = "gemini-3.5-flash";
@@ -25,8 +27,16 @@ function resolveGeminiModel(): string {
   }
   return raw;
 }
+const GEMINI_HOST_DEFAULT = "https://generativelanguage.googleapis.com";
+// GEMINI_BASE_URL (PR-5): trỏ mock server dev/test. BỎ QUA ở prod thật — key nằm trong query string,
+// base-url lạ = exfil key → prod luôn dùng host thật (isRealProduction gate). Đọc per-call (như model override).
+function resolveGeminiBaseUrl(): string {
+  const raw = process.env.GEMINI_BASE_URL?.trim();
+  if (raw && !isRealProduction()) return raw.replace(/\/+$/, "");
+  return GEMINI_HOST_DEFAULT;
+}
 const GEMINI_URL = (model: string, key: string) =>
-  `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${key}`;
+  `${resolveGeminiBaseUrl()}/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${key}`;
 
 // Bound each free-text turn: cap output tokens (cost) + abort a hung/slow upstream (latency).
 // 2048 leaves prose + the trich/goi_y_vibe function-call room so extraction isn't cut off.
@@ -63,6 +73,14 @@ interface GeminiPart {
 
 // Stream 1 lượt hội thoại. Yield token prose + tối đa 1 directive (ask/plan).
 export async function* streamChat(history: ChatTurn[], locale: 'vi' | 'en' = 'vi'): AsyncGenerator<StreamEvent> {
+  // PR-5 STUB (dev/test): trả SSE canned, KHÔNG gọi upstream (e2e/preview $0). Prod: getEnv() đã FAIL boot
+  // nếu PLANNER_LLM_STUB=true (env strict); defense-in-depth: inline throw nếu bằng cách nào đó chạy prod.
+  if (process.env.PLANNER_LLM_STUB === "true") {
+    if (isRealProduction()) throw new ParseIntentError("PLANNER_LLM_STUB không được bật ở production", "no_key");
+    yield* stubStream(history, locale);
+    return;
+  }
+
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new ParseIntentError("GEMINI_API_KEY chưa cấu hình", "no_key");
 
