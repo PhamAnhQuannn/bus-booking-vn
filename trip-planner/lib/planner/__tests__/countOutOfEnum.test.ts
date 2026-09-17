@@ -28,6 +28,7 @@ describe('countOutOfEnum — trich', () => {
 
   it('field CHƯA RÕ (empty/thiếu) KHÔNG tính là enum lạ', () => {
     expect(countOutOfEnum('trich', { dia_diem: '', days: 2, adults: 4 })).toBe(0); // thiếu ≠ bịa
+    expect(countOutOfEnum('trich', { pace: '' })).toBe(0);
     expect(countOutOfEnum('trich', {})).toBe(0);
   });
 

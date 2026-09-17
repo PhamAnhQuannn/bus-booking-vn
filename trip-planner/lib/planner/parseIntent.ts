@@ -192,7 +192,7 @@ function clampInt(v: unknown, def: number, min: number, max: number): number {
   return Math.min(Math.max(Math.trunc(n), min), max);
 }
 
-const PACE_ENUM: ReadonlySet<string> = new Set(["relaxed", "moderate", "packed"]);
+const PACE_ENUM: ReadonlySet<string> = new Set(TRICH_DECL.parameters.properties.pace.enum);
 
 // Đếm giá trị enum LẠ (ngoài allowlist) model phát ra — ĐẾM TRƯỚC khi partialFromArgs/filterVibes/
 // isCitySlug âm thầm loại. Đây là tín hiệu "trích SAI tự tin" (mã thành phố/vibe/pace bịa): mis-extract
@@ -209,7 +209,8 @@ export function countOutOfEnum(fnName: string, rawArgs: Record<string, unknown>)
   };
   if (fnName === "trich") {
     if (badSlug(rawArgs.dia_diem)) n++;
-    if (rawArgs.pace != null && !PACE_ENUM.has(String(rawArgs.pace))) n++;
+    const p = String(rawArgs.pace ?? "").trim();
+    if (p !== "" && !PACE_ENUM.has(p)) n++;
     if (Array.isArray(rawArgs.interests)) for (const it of rawArgs.interests) if (badVibe(it)) n++;
   } else if (fnName === "goi_y_vibe") {
     if (badSlug(rawArgs.dia_diem)) n++;

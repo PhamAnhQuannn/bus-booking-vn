@@ -89,19 +89,46 @@ function groqTolerant(decl: typeof TRICH_DECL | typeof GOI_Y_DECL) {
 }
 const openaiTools = () => [TRICH_DECL, GOI_Y_DECL].map((d) => ({ type: "function", function: groqTolerant(d) }));
 
+// Body builders dùng chung cho call chính (callGemini/callGroq) + đo TTFT (ttftOne) — 1 nguồn sự thật.
+const buildGeminiBody = (f: Fixture) => JSON.stringify({
+  system_instruction: { parts: [{ text: systemFor(f.locale ?? "vi") }] },
+  contents: [{ role: "user", parts: [{ text: f.prompt }] }],
+  tools: [{ functionDeclarations: [TRICH_DECL, GOI_Y_DECL] }],
+  generationConfig: { temperature: TEMP, thinkingConfig: { thinkingBudget: 0 } },
+});
+const buildGroqBody = (f: Fixture, stream = false) => JSON.stringify({
+  model: GROQ_MODEL, temperature: TEMP, ...(stream && { stream: true }), tool_choice: "auto", tools: openaiTools(),
+  messages: [{ role: "system", content: systemFor(f.locale ?? "vi") }, { role: "user", content: f.prompt }],
+});
+
+// POST có (a) timeout 60s/request — 1 request treo KHÔNG được kẹt cả run 65 fixture serial; (b) 429 → retry
+// ĐÚNG 1 lần sau backoff (Retry-After giây nếu có, mặc định 2s) — rate-limit KHÔNG được tính là model fail.
+const REQ_TIMEOUT_MS = 60_000;
+async function postJson(tag: string, url: string, headers: Record<string, string>, body: string): Promise<Response> {
+  const once = async () => {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), REQ_TIMEOUT_MS);
+    try { return await fetch(url, { method: "POST", headers, body, signal: ac.signal }); }
+    finally { clearTimeout(timer); }
+  };
+  let res = await once();
+  logRate(tag, res);
+  if (res.status === 429) {
+    const ra = Number(res.headers.get("retry-after"));
+    const waitMs = Number.isFinite(ra) && ra > 0 ? ra * 1000 : 2000;
+    console.log(`   [${tag}] 429 → retry 1 lần sau ${waitMs}ms`);
+    await sleep(waitMs);
+    res = await once();
+    logRate(tag, res);
+  }
+  return res;
+}
+
 async function callGemini(f: Fixture): Promise<Call> {
   const key = process.env[GEMINI_KEY_ENV];
   if (!key) throw new Error(`${GEMINI_KEY_ENV} chưa cấu hình (--gemini-key-env)`);
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`, {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      system_instruction: { parts: [{ text: systemFor(f.locale ?? "vi") }] },
-      contents: [{ role: "user", parts: [{ text: f.prompt }] }],
-      tools: [{ functionDeclarations: [TRICH_DECL, GOI_Y_DECL] }],
-      generationConfig: { temperature: TEMP, thinkingConfig: { thinkingBudget: 0 } },
-    }),
-  });
-  logRate("gemini", res);
+  const res = await postJson("gemini", `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+    { "Content-Type": "application/json" }, buildGeminiBody(f));
   if (!res.ok) throw new Error(`Gemini HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const j = await res.json();
   const parts = j.candidates?.[0]?.content?.parts ?? [];
@@ -112,14 +139,8 @@ async function callGemini(f: Fixture): Promise<Call> {
 async function callGroq(f: Fixture): Promise<Call> {
   const key = process.env.GROQ_API_KEY;
   if (!key) throw new Error("GROQ_API_KEY chưa cấu hình");
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({
-      model: GROQ_MODEL, temperature: TEMP, tool_choice: "auto", tools: openaiTools(),
-      messages: [{ role: "system", content: systemFor(f.locale ?? "vi") }, { role: "user", content: f.prompt }],
-    }),
-  });
-  logRate("groq", res);
+  const res = await postJson("groq", "https://api.groq.com/openai/v1/chat/completions",
+    { "Content-Type": "application/json", Authorization: `Bearer ${key}` }, buildGroqBody(f));
   if (!res.ok) throw new Error(`Groq HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const j = await res.json();
   const tc = j.choices?.[0]?.message?.tool_calls?.[0];
@@ -235,14 +256,14 @@ async function ttftOne(f: Fixture): Promise<number> {
     const key = process.env[GEMINI_KEY_ENV]!;
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${key}`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ system_instruction: { parts: [{ text: systemFor(f.locale ?? "vi") }] }, contents: [{ role: "user", parts: [{ text: f.prompt }] }], tools: [{ functionDeclarations: [TRICH_DECL, GOI_Y_DECL] }], generationConfig: { temperature: TEMP, thinkingConfig: { thinkingBudget: 0 } } }),
+      body: buildGeminiBody(f),
     });
     const reader = res.body!.getReader(); await reader.read(); reader.cancel();
   } else {
     const key = process.env.GROQ_API_KEY!;
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model: GROQ_MODEL, temperature: TEMP, stream: true, tool_choice: "auto", tools: openaiTools(), messages: [{ role: "system", content: systemFor(f.locale ?? "vi") }, { role: "user", content: f.prompt }] }),
+      body: buildGroqBody(f, true),
     });
     const reader = res.body!.getReader(); await reader.read(); reader.cancel();
   }
