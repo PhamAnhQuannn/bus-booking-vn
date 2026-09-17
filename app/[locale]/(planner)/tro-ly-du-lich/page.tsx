@@ -40,7 +40,7 @@ import {
   deriveTitle,
 } from '@/trip-planner/lib/planner/conversationsClient';
 // Deep-import client-safe: máy trạng thái slot tất định (chip = $0, không Gemini).
-import { type Slots, type Ask, nextAsk, optionalAsk, applyChip, complete, mergeIntent, slotsToParams, budgetAsk, transportAsk, foodAsk, extractFromText, applyExtracted, missingRequired } from '@/trip-planner/lib/planner/slots';
+import { type Slots, type Ask, nextAsk, optionalAsk, applyChip, complete, mergeIntent, slotsToParams, budgetAsk, transportAsk, foodAsk, extractFromText, applyExtracted, missingRequired, shortCircuitEligible } from '@/trip-planner/lib/planner/slots';
 import { deriveLayoutPhase, type LayoutPhase } from '@/trip-planner/lib/planner/layoutPhase';
 import { chatErrorCopy } from '@/trip-planner/lib/planner/chatErrorCopy';
 import { deriveGenPhase } from '@/trip-planner/lib/planner/genPhase';
@@ -452,6 +452,17 @@ export default function TroLyDuLichPage() {
     // Mock 3: vào active-chat → thu gọn sidebar (chat thành cột trái ~37%). User vẫn toggle được.
     if (messages.length === 0) setSidebarCollapsed(true);
     await ensureConversation(text);
+
+    // PR-2 SHORT-CIRCUIT turn-1: lượt đầu đã đủ ràng buộc (city+days+người) và KHÔNG phủ định/hỏi/discovery
+    // → BỎ round-trip LLM (/api/planner/chat, 11-19s), dựng tất định NGAY qua advance()→engine. Nhanh hơn,
+    // tiết kiệm quota, nhất quán mọi provider. advance() vẫn hỏi sở thích 1 lần (chip tất định) nếu chưa nêu.
+    if (!opts.retry && messages.length === 0 && shortCircuitEligible(text, slots)) {
+      const finalSlots = applyExtracted(slots, extractFromText(text));
+      pushMsgs({ role: 'user', text, time: nowHHMM() }); // advance() tự push bubble bot (chip/planning)
+      if (finalSlots.dia_diem) setPendingDestination(finalSlots.dia_diem);
+      advance(finalSlots);
+      return;
+    }
 
     const history = [...messages, { role: 'user' as const, text }]
       .map((m) =>
