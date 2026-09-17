@@ -10,7 +10,7 @@
 // bản ổn định để tránh alias trôi làm hỏng chat lần nữa.
 
 import { CITIES, CITY_SLUGS, isCitySlug } from "./cities";
-import { VIBE_VOCAB, filterVibes } from "./vibes";
+import { VIBE_VOCAB, filterVibes, isVibe } from "./vibes";
 import { signModelTurn } from "./chatSig";
 
 // Danh sách + mapping tên→slug DERIVE từ CITIES (single source) — thêm tỉnh = chỉ sửa cities.ts.
@@ -105,7 +105,7 @@ export type StreamEvent =
   | { kind: "ask"; slot: string; options: string[]; allowCustom: boolean }
   | { kind: "plan"; intent: ParsedIntent };
 
-const SYSTEM = `Bạn là trợ lý du lịch cho một ứng dụng đặt xe + lập lịch trình. Hiện có dữ liệu ${CITIES.length} tỉnh/thành: ${CITY_LIST}.
+export const SYSTEM = `Bạn là trợ lý du lịch cho một ứng dụng đặt xe + lập lịch trình. Hiện có dữ liệu ${CITIES.length} tỉnh/thành: ${CITY_LIST}.
 Nói tiếng Việt, thân thiện, ngắn gọn.
 
 QUY TẮC:
@@ -147,13 +147,13 @@ LANGUAGE OVERRIDE (highest priority — overrides the "Nói tiếng Việt" rule
 - Place names, opening hours and prices are still never invented — the app builds the itinerary from verified data.
 - All other rules (scope, anti-injection, no medical/legal/financial advice) stay in force unchanged.`;
 
-function systemFor(locale: 'vi' | 'en'): string {
+export function systemFor(locale: 'vi' | 'en'): string {
   return locale === 'en' ? SYSTEM + SYSTEM_EN_OVERRIDE : SYSTEM;
 }
 
 // Luồng mới: 1 hàm TRÍCH — model luôn gọi với ràng buộc trích được (field chưa rõ thì BỎ TRỐNG).
 // KHÔNG hỏi/dựng (client tất định lo). Tất cả optional -> partial.
-const TRICH_DECL = {
+export const TRICH_DECL = {
   name: "trich",
   description: "Trích ràng buộc chuyến đi từ lời khách. Điền field nào biết, BỎ TRỐNG field chưa rõ. KHÔNG tự hỏi/dựng lịch.",
   parameters: {
@@ -173,7 +173,7 @@ const TRICH_DECL = {
 };
 
 // Mode discovery: khách hỏi điểm theo vibe. Trả dia_diem + 1 mã vibe; route lo lookup KB → tên (LLM KHÔNG nêu tên).
-const GOI_Y_DECL = {
+export const GOI_Y_DECL = {
   name: "goi_y_vibe",
   description: "Gợi ý điểm đến theo 'không khí/vibe' khi khách HỎI (chưa cần cả lịch). Ứng dụng hiện danh sách điểm CÓ TÊN từ dữ liệu — bạn KHÔNG nêu tên.",
   parameters: {
@@ -190,6 +190,33 @@ function clampInt(v: unknown, def: number, min: number, max: number): number {
   const n = typeof v === "number" ? v : parseInt(String(v), 10);
   if (!Number.isFinite(n)) return def;
   return Math.min(Math.max(Math.trunc(n), min), max);
+}
+
+const PACE_ENUM: ReadonlySet<string> = new Set(TRICH_DECL.parameters.properties.pace.enum);
+
+// Đếm giá trị enum LẠ (ngoài allowlist) model phát ra — ĐẾM TRƯỚC khi partialFromArgs/filterVibes/
+// isCitySlug âm thầm loại. Đây là tín hiệu "trích SAI tự tin" (mã thành phố/vibe/pace bịa): mis-extract
+// của model yếu trả HTTP 200 + lịch trông bình thường → vô hình nếu không đếm. MỘT hàm dùng chung cho:
+// (a) harness eval-gate GO/NO-GO (planner-100convday PR-0), (b) log prod per-provider (PR-8) — để
+// ngưỡng "0/60" ở gate đo đúng cùng đại lượng với canary. Pure, KHÔNG throw: args rác vẫn đếm được.
+// KHÔNG tính field số (days/adults…): ngoài-range là clamp, không phải enum bịa.
+export function countOutOfEnum(fnName: string, rawArgs: Record<string, unknown>): number {
+  let n = 0;
+  const badSlug = (v: unknown) => typeof v === "string" && v.trim() !== "" && !isCitySlug(v.trim());
+  const badVibe = (v: unknown) => {
+    const s = String(v ?? "").trim().toLowerCase();
+    return s !== "" && !isVibe(s);
+  };
+  if (fnName === "trich") {
+    if (badSlug(rawArgs.dia_diem)) n++;
+    const p = String(rawArgs.pace ?? "").trim();
+    if (p !== "" && !PACE_ENUM.has(p)) n++;
+    if (Array.isArray(rawArgs.interests)) for (const it of rawArgs.interests) if (badVibe(it)) n++;
+  } else if (fnName === "goi_y_vibe") {
+    if (badSlug(rawArgs.dia_diem)) n++;
+    if (badVibe(rawArgs.vibe)) n++;
+  }
+  return n;
 }
 
 // Trích PARTIAL từ args `trich` — CHỈ field model thực sự trả (không default). Client biết còn thiếu gì.
