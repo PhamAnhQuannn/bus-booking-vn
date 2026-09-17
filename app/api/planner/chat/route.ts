@@ -198,6 +198,11 @@ export async function POST(req: NextRequest): Promise<Response> {
         // TTFT = t0 → event ĐẦU TIÊN yield ra khỏi streamChat (đo được ở đây vì route đã consume
         // generator). ttft − preflight ≈ Gemini time-to-first-token. Xem plan latency instrumentation.
         let firstEventAt: number | null = null;
+        // PR-8: provider thật + tổng enum bịa (out-of-enum RAW) turn này. outOfEnumCount = tín hiệu
+        // mis-extract per-provider — must-have TRƯỚC flip (không thấy trong log = KHÔNG flip). Xem plan F3.
+        let provider: string | null = null;
+        let providerModel: string | null = null;
+        let outOfEnumCount = 0;
         const logLatency = (error: boolean) => {
           const end = performance.now();
           // camelCase để đồng bộ họ log `planner.chat.*` (inputTokens/dailyInputTokens/retryAfter/denier).
@@ -212,6 +217,9 @@ export async function POST(req: NextRequest): Promise<Response> {
               ttftMs: firstEventAt !== null ? Math.round(firstEventAt - t0) : null,
               streamMs: firstEventAt !== null ? Math.round(end - firstEventAt) : null,
               totalMs: Math.round(end - t0),
+              provider, // PR-8: gemini | groq (null nếu turn hỏng trước khi provider khai)
+              providerModel,
+              outOfEnumCount, // PR-8: tổng enum bịa RAW turn này (0 = sạch); canary theo dõi per-provider
               error,
             },
             'planner.chat.latency',
@@ -225,11 +233,21 @@ export async function POST(req: NextRequest): Promise<Response> {
           // hiện tại thay vì bóc slot từ chữ user rồi dựng đè (vd "Đổi sang Hội An 2 ngày" → giữ lịch cũ).
           let sawAction = false;
           for await (const ev of streamChat(safeHistory, locale)) {
+            if (ev.kind === 'provider') {
+              // PR-8: adapter khai provider NGAY khi kết nối OK (trước token model) → log + client badge.
+              // KHÔNG tính vào TTFT: provider phát lúc nhận header, đo nó = che latency model nghĩ/token đầu
+              // (gate F1/F6 theo dõi time-to-first-TOKEN thật) → firstEventAt set ở event nội-dung đầu tiên.
+              provider = ev.id;
+              providerModel = ev.model;
+              send('provider', { id: ev.id, model: ev.model });
+              continue;
+            }
             if (firstEventAt === null) firstEventAt = performance.now();
             if (ev.kind === 'token') {
               send('token', { text: ev.text });
             } else if (ev.kind === 'slots') {
               sawAction = true;
+              outOfEnumCount += ev.dropped ?? 0;
               send('slots', { partial: ev.partial });
             } else if (ev.kind === 'sig') {
               // Chữ ký prose lượt này → client lưu, echo lại lượt sau để server verify.

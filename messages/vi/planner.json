@@ -98,6 +98,7 @@
     "tryAgain": "Bạn thử nhắn lại giúp mình nhé.",
     "genericError": "Có lỗi xảy ra.",
     "selected": "Đã chọn: {choice}",
+    "viaFallback": "chế độ dự phòng",
     "addAnchor": "Thêm {name} vào lịch",
     "planTrip": "Lên lịch trình",
     "historyAria": "Lịch sử trò chuyện",

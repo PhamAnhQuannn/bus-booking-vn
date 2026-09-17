@@ -14,7 +14,7 @@ import { isRealProduction } from "@/lib/core/config/deployTier";
 import { isCitySlug } from "../cities";
 import { filterVibes } from "../vibes";
 import { signModelTurn } from "../chatSig";
-import { systemFor, TRICH_DECL, GOI_Y_DECL, partialFromArgs } from "./prompt";
+import { systemFor, TRICH_DECL, GOI_Y_DECL, partialFromArgs, countOutOfEnum } from "./prompt";
 import { ParseIntentError, type ChatTurn, type StreamEvent } from "./types";
 
 const GROQ_MODEL_DEFAULT = "openai/gpt-oss-20b"; // catalog Groq 2026 (llama-3.1-8b bỏ → 404); override PLANNER_GROQ_MODEL
@@ -132,6 +132,9 @@ export async function* streamChat(history: ChatTurn[], locale: 'vi' | 'en' = 'vi
     await backoff(attempt);
   }
 
+  // PR-8: khai provider TRƯỚC token đầu → route log + client badge biết lịch đến từ Groq (fallback fire).
+  yield { kind: "provider", id: "groq", model: resolveGroqModel() };
+
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
@@ -182,7 +185,7 @@ export async function* streamChat(history: ChatTurn[], locale: 'vi' | 'en' = 'vi
       let args: Record<string, unknown>;
       try { args = JSON.parse(tc.args || "{}"); } catch { continue; }
       if (tc.name === "trich") {
-        yield { kind: "slots", partial: partialFromArgs(args) };
+        yield { kind: "slots", partial: partialFromArgs(args), dropped: countOutOfEnum("trich", args) };
       } else if (tc.name === "goi_y_vibe") {
         const dia = typeof args.dia_diem === "string" && isCitySlug(args.dia_diem) ? args.dia_diem : null;
         const vibes = filterVibes([String(args.vibe ?? "")]);
