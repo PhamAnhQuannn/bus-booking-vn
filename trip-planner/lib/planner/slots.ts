@@ -156,6 +156,9 @@ const TRAVEL_INTENT_RE = /(đi|tới|đến|về|thăm|ghé|tại|du lịch|ở\
 // idiom (?!\p{L}) đã dùng ở ngân sách phía trên.
 const NEGATION_RE = /(?:^|\P{L})(?:không|ko|đừng|chẳng|chả|chê|ghét|hông|hem)(?!\p{L})/iu;
 const CLAUSE_SPLIT_RE = /[,;.!?\n]|\bnhưng\b/i;
+// Câu HỎI GỢI Ý / discovery ("chỗ nào lãng mạn?", "gợi ý đi đâu") — luồng goi_y_vibe của LLM, KHÔNG được
+// short-circuit (dựng lịch tất định sẽ nuốt ý hỏi gợi ý). Biên từ (?:^|\P{L})…(?!\p{L}) đồng bộ NEGATION_RE.
+const DISCOVERY_RE = /(?:^|\P{L})(?:gợi ý|chỗ nào|nơi nào|ở đâu|đi đâu|nên đi|giới thiệu)(?!\p{L})/iu;
 const INTEREST_VERB_RE = /(?:thích|ưa thích|muốn|quan tâm|sở thích|mê|đam mê)\s+(.+)/i;
 // Trong 1 clause "thích …", tách nhiều literal theo dấu + và/cùng/với (spaces bao quanh — tránh `\b`).
 const INTEREST_LITERAL_SPLIT_RE = /\s*(?:,|;|&)\s*|\s+(?:và|cùng|với)\s+/iu;
@@ -340,4 +343,18 @@ export function slotsToParams(s: Slots): string {
   if (s.transport) q.set("transport", s.transport);
   if (s.food?.length) q.set("food", s.food.join(","));
   return q.toString();
+}
+
+// PR-2 short-circuit turn-1: lượt ĐẦU user gõ đủ ràng buộc → BỎ gọi LLM /api/planner/chat, dựng lịch tất
+// định ngay (nhanh hơn ~11-19s, tiết kiệm quota, nhất quán mọi provider). Pure — turn-1 (messages rỗng)
+// kiểm ở send() vì cần React state. Guard chặt tránh dựng ẩu / nuốt ý:
+//  - complete(applyExtracted(slots, extractFromText)) : đủ city+days+người SAU khi bóc tất định
+//  - !NEGATION_RE  : "…không thích biển" → để LLM xử (#730), KHÔNG short-circuit
+//  - no "?"        : câu hỏi = discovery, để goi_y_vibe
+//  - !DISCOVERY_RE : "chỗ nào/gợi ý/đi đâu" = hỏi gợi ý, để LLM
+export function shortCircuitEligible(text: string, slots: Slots): boolean {
+  if (NEGATION_RE.test(text)) return false;
+  if (/[?？]/.test(text)) return false;
+  if (DISCOVERY_RE.test(text)) return false;
+  return complete(applyExtracted(slots, extractFromText(text)));
 }
