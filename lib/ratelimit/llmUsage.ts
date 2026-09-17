@@ -94,7 +94,8 @@ export async function recordLlmUsage(
       dailyUsd: Number(dMicros) / 1e6,
     };
   } catch (err) {
-    logger.warn({ err, backend, provider }, 'planner.llm.usage.record_failed — accounting only, ignored');
+    // Event name stays provider-scoped (`planner.gemini.usage.*` byte-identical to the pre-factory module).
+    logger.warn({ err, backend, provider }, `planner.${provider}.usage.record_failed — accounting only, ignored`);
     // Fail-open: still return this call's estimate so the caller's per-turn log line is complete.
     return { callUsd, dailyInputTokens: inputTokens, dailyOutputTokens: outputTokens, dailyUsd: callUsd };
   }

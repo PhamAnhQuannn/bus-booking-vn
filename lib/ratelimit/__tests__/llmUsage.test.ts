@@ -2,13 +2,22 @@
 // Groq = $0 (nếu thiếu nhánh → bịa spend), counter memory tách provider, alias recordGeminiUsage.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/lib/core/http/ratelimitBackend', () => ({ resolveRatelimitBackend: () => 'memory' }));
-vi.mock('../rawRedisClient', () => ({ rawIoRedis: async () => ({}), rawUpstash: async () => ({}) }));
+let backend: 'memory' | 'ioredis' = 'memory';
+const fake = {
+  incrby: vi.fn(async () => 1),
+  expire: vi.fn(async () => 1),
+};
+
+vi.mock('@/lib/core/http/ratelimitBackend', () => ({ resolveRatelimitBackend: () => backend }));
+vi.mock('../rawRedisClient', () => ({ rawIoRedis: async () => fake, rawUpstash: async () => fake }));
 vi.mock('@/lib/logger', () => ({ logger: { warn: vi.fn(), error: vi.fn() } }));
 
 import { recordLlmUsage } from '../llmUsage';
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  backend = 'memory';
+  vi.clearAllMocks();
+});
 
 describe('recordLlmUsage — giá per-provider', () => {
   it('gemini: $1.5/1M in + $7.5/1M out', async () => {
@@ -34,6 +43,29 @@ describe('recordLlmUsage — counter memory tách provider', () => {
     const q = await recordLlmUsage('groq', 0, 0);
     expect(g.dailyInputTokens - gBase).toBe(100); // gemini +100, KHÔNG lây 700 của groq
     expect(q.dailyInputTokens - qBase).toBe(700); // groq +700, KHÔNG lây 100 của gemini
+  });
+});
+
+describe('recordLlmUsage — key Redis LITERAL (chống deploy đổi tên counter)', () => {
+  // Same day helper as llmUsage.vnDay() — Asia/Ho_Chi_Minh calendar day, YYYY-MM-DD.
+  const day = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+
+  it("gemini → 'planner-gemini:tok-in|tok-out|usd-micro:<day>'; groq → 'planner-groq:*' exact", async () => {
+    backend = 'ioredis';
+    await recordLlmUsage('gemini', 1000, 500);
+    expect(fake.incrby).toHaveBeenCalledWith(`planner-gemini:tok-in:${day}`, 1000);
+    expect(fake.incrby).toHaveBeenCalledWith(`planner-gemini:tok-out:${day}`, 500);
+    expect(fake.incrby).toHaveBeenCalledWith(`planner-gemini:usd-micro:${day}`, expect.any(Number));
+
+    await recordLlmUsage('groq', 700, 300);
+    expect(fake.incrby).toHaveBeenCalledWith(`planner-groq:tok-in:${day}`, 700);
+    expect(fake.incrby).toHaveBeenCalledWith(`planner-groq:tok-out:${day}`, 300);
+    expect(fake.incrby).toHaveBeenCalledWith(`planner-groq:usd-micro:${day}`, 0);
   });
 });
 

@@ -36,10 +36,15 @@ export interface ProviderBreaker {
 /**
  * Tạo 1 breaker cô lập cho `prefix` (vd 'planner-gemini', 'planner-groq'). Key Redis + in-mem state
  * RIÊNG per instance → 2 provider không đụng nhau. Ngưỡng/cửa sổ/cooldown giữ nguyên bản Gemini gốc.
+ * Construct once per prefix at module scope (see geminiBreaker.ts) — a second call with the same prefix
+ * forks independent in-memory state under the memory backend.
  */
 export function createBreaker(prefix: string): ProviderBreaker {
   const FAILS_KEY = `${prefix}:fails`;
   const OPEN_KEY = `${prefix}:open`;
+  // Log-event names stay provider-scoped (`planner.gemini.breaker.*` byte-identical to the pre-factory
+  // module — live dashboards grep them; Groq gets `planner.groq.breaker.*`).
+  const EVT = `planner.${prefix.replace(/^planner-/, '')}.breaker`;
 
   // in-process fallback (dev/CI 'memory' backend) — closure-local, RIÊNG cho instance này.
   let _memFails = 0;
@@ -57,7 +62,7 @@ export function createBreaker(prefix: string): ProviderBreaker {
       const ttl = await r.ttl(OPEN_KEY); // -2 = no key, -1 = no expiry, >=0 = seconds left
       return { open: ttl > 0, retryAfter: ttl > 0 ? ttl : 0 };
     } catch (err) {
-      logger.warn({ err, backend, prefix }, 'planner.llm.breaker.state_check_failed — fail-open');
+      logger.warn({ err, backend, prefix }, `${EVT}.state_check_failed — fail-open`);
       return { open: false, retryAfter: 0 };
     }
   }
@@ -76,7 +81,7 @@ export function createBreaker(prefix: string): ProviderBreaker {
           _memOpenUntil = now + COOLDOWN_SEC * 1000;
           _memFails = 0;
           _memFailsExp = 0;
-          logger.warn({ backend, prefix }, 'planner.llm.breaker.open');
+          logger.warn({ backend, prefix }, `${EVT}.open`);
         }
         return;
       }
@@ -87,10 +92,10 @@ export function createBreaker(prefix: string): ProviderBreaker {
         if (backend === 'ioredis') await (r as IORedisType).set(OPEN_KEY, '1', 'EX', COOLDOWN_SEC);
         else await (r as Awaited<ReturnType<typeof rawUpstash>>).set(OPEN_KEY, '1', { ex: COOLDOWN_SEC });
         await r.del(FAILS_KEY);
-        logger.warn({ backend, prefix }, 'planner.llm.breaker.open');
+        logger.warn({ backend, prefix }, `${EVT}.open`);
       }
     } catch (err) {
-      logger.warn({ err, backend, prefix }, 'planner.llm.breaker.record_failure_failed');
+      logger.warn({ err, backend, prefix }, `${EVT}.record_failure_failed`);
     }
   }
 
@@ -105,7 +110,7 @@ export function createBreaker(prefix: string): ProviderBreaker {
       const r = backend === 'ioredis' ? await rawIoRedis() : await rawUpstash();
       await r.del(FAILS_KEY);
     } catch (err) {
-      logger.warn({ err, backend, prefix }, 'planner.llm.breaker.record_success_failed');
+      logger.warn({ err, backend, prefix }, `${EVT}.record_success_failed`);
     }
   }
 

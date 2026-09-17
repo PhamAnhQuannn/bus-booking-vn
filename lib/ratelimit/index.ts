@@ -570,10 +570,11 @@ function plannerGroqLimitAtLoad(): number {
 }
 
 // Factory per-provider (PR-7/PR-9 flip dùng). `plannerDailyBudget` ở trên GIỮ nguyên literal cho Gemini
-// (không đổi hành vi prod). Groq singleton dùng factory. Cả hai failClosed = backstop chi phí.
-export function plannerDailyBudgetFor(provider: 'gemini' | 'groq'): Ratelimit {
-  const limit = provider === 'groq' ? plannerGroqLimitAtLoad() : plannerDailyLimitAtLoad();
-  return createRatelimit({ limit, windowMs: 24 * 60 * 60_000, failClosed: true });
+// (không đổi hành vi prod) — KHÔNG nhận 'gemini' ở đây, tránh fork 1 Ratelimit rời khỏi singleton đó.
+// Groq singleton dùng factory. Cả hai failClosed = backstop chi phí.
+export function plannerDailyBudgetFor(provider: 'groq'): Ratelimit {
+  void provider; // signature kept for the flip call-site; the type already pins it to 'groq'
+  return createRatelimit({ limit: plannerGroqLimitAtLoad(), windowMs: 24 * 60 * 60_000, failClosed: true });
 }
 
 export const plannerGroqDailyBudget = plannerDailyBudgetFor('groq');

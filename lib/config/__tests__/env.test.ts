@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { getEnv, _resetEnvCache, readPlannerGeminiDailyMax } from '../env';
+import { getEnv, _resetEnvCache, readPlannerGeminiDailyMax, readPlannerGroqDailyMax } from '../env';
 
 // Self-sufficient base so parsing does not depend on the ambient env: force the
 // other subsystems to stub mode (so their superRefine credential checks pass)
@@ -428,5 +428,33 @@ describe('readPlannerGeminiDailyMax (#551)', () => {
   it('THROWS on a negative value', () => {
     process.env.PLANNER_GEMINI_DAILY_MAX = '-5';
     expect(() => readPlannerGeminiDailyMax()).toThrow();
+  });
+});
+
+describe('readPlannerGroqDailyMax (PR-4)', () => {
+  // Groq sibling of the reader above — same strict rule (0/negative/non-numeric fail LOUDLY).
+  it('defaults to 200 (initial canary ceiling) when unset', () => {
+    delete process.env.PLANNER_GROQ_DAILY_MAX;
+    expect(readPlannerGroqDailyMax()).toBe(200);
+  });
+
+  it('coerces a valid numeric string', () => {
+    process.env.PLANNER_GROQ_DAILY_MAX = '2500';
+    expect(readPlannerGroqDailyMax()).toBe(2500);
+  });
+
+  it('THROWS on 0 instead of silently falling back', () => {
+    process.env.PLANNER_GROQ_DAILY_MAX = '0';
+    expect(() => readPlannerGroqDailyMax()).toThrow();
+  });
+
+  it('THROWS on a non-numeric value', () => {
+    process.env.PLANNER_GROQ_DAILY_MAX = 'lots';
+    expect(() => readPlannerGroqDailyMax()).toThrow();
+  });
+
+  it('THROWS on a negative value', () => {
+    process.env.PLANNER_GROQ_DAILY_MAX = '-5';
+    expect(() => readPlannerGroqDailyMax()).toThrow();
   });
 });
