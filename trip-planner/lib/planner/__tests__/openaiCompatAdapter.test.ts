@@ -65,6 +65,19 @@ describe('openaiCompatAdapter — accumulator tool-call theo index', () => {
     expect(suggest).toEqual({ kind: 'suggest', dia_diem: 'da-lat', vibe: 'lang-man' });
   });
 
+  it('(PR-8) khai provider=groq TRƯỚC token đầu + slots.dropped = countOutOfEnum RAW', async () => {
+    const chunks = [
+      // dia_diem hợp lệ nhưng interests có enum bịa "xyz-bịa" → dropped=1 (đếm RAW trước allowlist)
+      frame({ tool_calls: [{ index: 0, function: { name: 'trich', arguments: '{"dia_diem":"da-lat","days":3,"interests":["xyz-bịa","lang-man"]}' } }] }),
+    ];
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(streamRes(chunks)));
+
+    const events = await drain();
+    expect(events[0]).toEqual({ kind: 'provider', id: 'groq', model: 'openai/gpt-oss-20b' });
+    const slots = events.find((e) => e.kind === 'slots') as { dropped?: number } | undefined;
+    expect(slots?.dropped).toBe(1);
+  });
+
   it('(a) truncate TRƯỚC finish (args JSON dở) → 0 slots, KHÔNG throw', async () => {
     const chunks = [
       frame({ tool_calls: [{ index: 0, function: { name: 'trich', arguments: '{"dia_diem":"da-' } }] }),
