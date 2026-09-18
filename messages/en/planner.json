@@ -98,6 +98,7 @@
     "tryAgain": "Please try messaging again.",
     "genericError": "Something went wrong.",
     "selected": "Selected: {choice}",
+    "viaFallback": "fallback mode",
     "addAnchor": "Add {name} to plan",
     "planTrip": "Build itinerary",
     "historyAria": "Chat history",

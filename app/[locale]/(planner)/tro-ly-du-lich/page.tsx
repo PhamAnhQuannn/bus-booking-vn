@@ -83,6 +83,8 @@ type Msg =
       suggestCity?: string; // slug thành phố của gợi ý (để anchor/lên lịch)
       suggestVibe?: string; // mã vibe (nhãn header)
       sig?: string; // HMAC tag server ký prose lượt này — echo lại để server verify (chống injection)
+      provider?: string; // PR-8: provider phát lịch turn này (gemini|groq) — title của badge
+      isFallback?: boolean; // S6: server quyết (provider turn ≠ primary router) → badge "chế độ dự phòng"
     };
 
 // Msg[] (UI, có field tạm) ↔ StoredMsg[] (bền vững, chỉ role/text/dto).
@@ -592,6 +594,10 @@ export default function TroLyDuLichPage() {
       case 'sig':
         patchBot((m) => ({ ...m, sig: String(payload.tag ?? '') }));
         return null;
+      case 'provider':
+        // PR-8/S6: provider thật của turn (gemini|groq) + isFallback do SERVER tính (≠ primary router) → badge.
+        patchBot((m) => ({ ...m, provider: String(payload.id ?? ''), isFallback: payload.isFallback === true }));
+        return null;
       case 'slots': {
         const pt = payload.partial as Partial<ParsedIntent> | undefined;
         return pt ? { partial: pt } : null;
@@ -905,6 +911,9 @@ export default function TroLyDuLichPage() {
                 </div>
               ) : null}
               {m.time ? <span className="mt-0.5 block px-1 text-[13px] text-muted-foreground">{m.time}</span> : null}
+              {m.isFallback ? (
+                <span className="mt-0.5 ml-1 inline-block rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground" title={m.provider}>{t('assistant.viaFallback')}</span>
+              ) : null}
               {m.dto ? <TripReceipt dto={m.dto} onActivate={activateArtifact} onSelectDay={setActiveDay} /> : null}
               {m.suggestions ? (
                 <SuggestionCards
