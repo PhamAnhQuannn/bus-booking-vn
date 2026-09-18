@@ -9,7 +9,7 @@ export * from "./parseIntent";
 // tiếp. Named-export tường minh này GHI ĐÈ `streamChat` mà `export * from "./parseIntent"` mang tới
 // (ESM: explicit re-export thắng star-export cùng tên, không lỗi TS2308). parseIntent giữ
 // streamChat=geminiAdapter cho streamChat.test.ts (test provider Gemini biệt lập, không qua router).
-export { streamChat } from "./llm/router";
+export { streamChat, providerOrder } from "./llm/router"; // providerOrder: route tính isFallback (provider turn ≠ order[0]) server-side
 export * from "./cities";
 export * from "./itineraryDto";
 export * from "./slots"; // máy trạng thái slot tất định (client-safe) — chip điền slot không cần Gemini

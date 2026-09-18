@@ -26,6 +26,8 @@ const {
   captureMock,
   warnMock,
   infoMock,
+  streamEventsMock,
+  providerOrderMock,
 } = vi.hoisted(() => ({
   sessionLimitMock: vi.fn(async () => ({ allowed: true, remaining: 9, retryAfter: 0 })),
   anonLimitMock: vi.fn(async () => ({ allowed: true, remaining: 2, retryAfter: 0 })),
@@ -41,6 +43,9 @@ const {
   captureMock: vi.fn(),
   warnMock: vi.fn(),
   infoMock: vi.fn(),
+  // S6: events the mocked router yields (default none → done-only) + configured provider order.
+  streamEventsMock: vi.fn<() => unknown[]>(() => []),
+  providerOrderMock: vi.fn<() => string[]>(() => ['gemini', 'groq']),
 }));
 
 vi.mock('@/lib/ratelimit', () => ({
@@ -76,8 +81,9 @@ vi.mock('@/lib/observability', () => ({
 vi.mock('@/trip-planner/lib/planner', () => ({
   sanitizeHistory: (h: unknown) => h,
   streamChat: async function* () {
-    /* no events → route sends 'done' and closes */
+    yield* streamEventsMock(); // default [] → route sends 'done' and closes
   },
+  providerOrder: () => providerOrderMock(),
   getStore: vi.fn(),
   pickByVibe: vi.fn(),
   ParseIntentError: class extends Error {},
@@ -111,6 +117,8 @@ beforeEach(() => {
   captureMock.mockReset();
   warnMock.mockReset();
   infoMock.mockReset();
+  streamEventsMock.mockReturnValue([]);
+  providerOrderMock.mockReturnValue(['gemini', 'groq']);
 });
 
 describe('POST /api/planner/chat — kill-switch (#549)', () => {
@@ -241,5 +249,26 @@ describe('POST /api/planner/chat — env-config crash → graceful SSE (Mục B)
     );
     // a config crash must not burn the daily budget
     expect(budgetLimitMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/planner/chat — provider frame carries server-computed isFallback (S6)', () => {
+  const providerFrame = (text: string) => {
+    const line = text.split('\n').find((l, i, arr) => l.startsWith('data:') && arr[i - 1] === 'event: provider');
+    return JSON.parse(line!.slice('data:'.length));
+  };
+
+  it('isFallback=false when the streamed provider is the configured primary', async () => {
+    providerOrderMock.mockReturnValue(['gemini', 'groq']);
+    streamEventsMock.mockReturnValue([{ kind: 'provider', id: 'gemini', model: 'gemini-x' }]);
+    const text = await (await POST(makeRequest())).text();
+    expect(providerFrame(text)).toEqual({ id: 'gemini', model: 'gemini-x', isFallback: false });
+  });
+
+  it('isFallback=true when the streamed provider differs from the configured primary', async () => {
+    providerOrderMock.mockReturnValue(['groq', 'gemini']);
+    streamEventsMock.mockReturnValue([{ kind: 'provider', id: 'gemini', model: 'gemini-x' }]);
+    const text = await (await POST(makeRequest())).text();
+    expect(providerFrame(text)).toEqual({ id: 'gemini', model: 'gemini-x', isFallback: true });
   });
 });

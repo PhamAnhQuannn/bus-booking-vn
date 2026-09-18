@@ -19,6 +19,7 @@ export const dynamic = 'force-dynamic';
 import { type NextRequest } from 'next/server';
 import {
   streamChat,
+  providerOrder,
   sanitizeHistory,
   ParseIntentError,
   getStore,
@@ -239,7 +240,9 @@ export async function POST(req: NextRequest): Promise<Response> {
               // (gate F1/F6 theo dõi time-to-first-TOKEN thật) → firstEventAt set ở event nội-dung đầu tiên.
               provider = ev.id;
               providerModel = ev.model;
-              send('provider', { id: ev.id, model: ev.model });
+              // isFallback tính SERVER-SIDE (nguồn sự thật = providerOrder()[0], cùng env PLANNER_LLM_PRIMARY
+              // router đọc) → client chỉ render badge, KHÔNG so với bản sao NEXT_PUBLIC_ (S6: lệch env → badge sai).
+              send('provider', { id: ev.id, model: ev.model, isFallback: ev.id !== providerOrder()[0] });
               continue;
             }
             if (firstEventAt === null) firstEventAt = performance.now();
