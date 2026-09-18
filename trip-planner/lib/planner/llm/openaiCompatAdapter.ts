@@ -17,7 +17,7 @@ import { signModelTurn } from "../chatSig";
 import { systemFor, TRICH_DECL, GOI_Y_DECL, partialFromArgs } from "./prompt";
 import { ParseIntentError, type ChatTurn, type StreamEvent } from "./types";
 
-const GROQ_MODEL_DEFAULT = "openai/gpt-oss-20b"; // catalog Groq 2026 (llama-3.1-8b bỏ → 404); override PLANNER_GROQ_MODEL
+export const GROQ_MODEL_DEFAULT = "openai/gpt-oss-20b"; // catalog Groq 2026 (llama-3.1-8b bỏ → 404); override PLANNER_GROQ_MODEL
 const GROQ_HOST_DEFAULT = "https://api.groq.com";
 const MODEL_NAME_RE = /^[a-z0-9./_-]+$/i; // Groq model có namespace `/` (openai/…, qwen/…)
 const MAX_OUTPUT_TOKENS = 2048;
@@ -181,6 +181,7 @@ export async function* streamChat(history: ChatTurn[], locale: 'vi' | 'en' = 'vi
     for (const [, tc] of [...toolAcc.entries()].sort((a, b) => a[0] - b[0])) {
       let args: Record<string, unknown>;
       try { args = JSON.parse(tc.args || "{}"); } catch { continue; }
+      if (args === null || typeof args !== "object" || Array.isArray(args)) continue; // JSON hợp lệ nhưng không phải object (null/số/mảng) → drop
       if (tc.name === "trich") {
         yield { kind: "slots", partial: partialFromArgs(args) };
       } else if (tc.name === "goi_y_vibe") {

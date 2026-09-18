@@ -3,7 +3,7 @@
 // tại cuối stream. Test synthetic SSE (byte-chunk có kiểm soát) phủ: truncate→drop, index-gap, prose∥
 // tool_calls, >1 tool_call, prose UTF-8 cắt giữa "Đ" (decode stream:true), enum lậu→drop, retry/usage.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { streamChat } from '../llm/openaiCompatAdapter';
+import { GROQ_MODEL_DEFAULT, streamChat } from '../llm/openaiCompatAdapter';
 import { signModelTurn } from '../chatSig';
 import { ParseIntentError, type ChatTurn, type StreamEvent } from '../llm/types';
 
@@ -154,6 +154,19 @@ describe('openaiCompatAdapter — accumulator tool-call theo index', () => {
     expect(usage).toEqual({ kind: 'usage', inputTokens: 812, outputTokens: 24, totalTokens: 836, thoughtsTokens: 0 });
   });
 
+  it('args JSON hợp lệ nhưng KHÔNG phải object (`null`) → drop im lặng, 0 slots/suggest, KHÔNG throw', async () => {
+    const chunks = [
+      frame({ tool_calls: [{ index: 0, function: { name: 'trich', arguments: 'null' } }] }),
+      frame({ tool_calls: [{ index: 1, function: { name: 'goi_y_vibe', arguments: 'null' } }] }),
+      'data: [DONE]\n',
+    ];
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(streamRes(chunks)));
+
+    const events = await drain(); // JSON.parse('null') thành công → guard non-object phải drop, không TypeError
+    expect(events.some((e) => e.kind === 'slots')).toBe(false);
+    expect(events.some((e) => e.kind === 'suggest')).toBe(false);
+  });
+
   it('malformed frame (JSON dở) giữa stream → bỏ frame đó, không throw, vẫn trích frame hợp lệ', async () => {
     const chunks = [
       'data: {"choices":[{"delta":{"content":"x"}\n', // JSON không đóng → parse fail → skip
@@ -261,6 +274,6 @@ describe('openaiCompatAdapter — retry / config', () => {
     const f2 = vi.fn().mockResolvedValue(okFrame());
     vi.stubGlobal('fetch', f2);
     await drain();
-    expect(JSON.parse((f2.mock.calls[0][1] as { body: string }).body).model).toBe('openai/gpt-oss-20b');
+    expect(JSON.parse((f2.mock.calls[0][1] as { body: string }).body).model).toBe(GROQ_MODEL_DEFAULT);
   });
 });
