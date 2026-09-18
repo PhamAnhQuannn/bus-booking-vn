@@ -26,7 +26,7 @@ const MAX_ATTEMPTS = 3;
 const RETRY_BACKOFF_MS = 400;
 const RETRYABLE_STATUS = new Set([500, 502, 503, 504]);
 
-function resolveGroqModel(): string {
+export function resolveGroqModel(): string {
   const raw = process.env.PLANNER_GROQ_MODEL?.trim();
   if (!raw) return GROQ_MODEL_DEFAULT;
   if (!MODEL_NAME_RE.test(raw)) {
@@ -36,7 +36,7 @@ function resolveGroqModel(): string {
   return raw;
 }
 // GROQ_BASE_URL: mock server dev/test. BỎ QUA ở prod thật (key nằm header Authorization → base lạ = exfil).
-function resolveGroqBaseUrl(): string {
+export function resolveGroqBaseUrl(): string {
   const raw = process.env.GROQ_BASE_URL?.trim();
   if (raw && !isRealProduction()) return raw.replace(/\/+$/, "");
   return GROQ_HOST_DEFAULT;

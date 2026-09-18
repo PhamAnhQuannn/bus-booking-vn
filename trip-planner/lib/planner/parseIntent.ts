@@ -5,7 +5,7 @@
 // Giữ đường import cũ (`./parseIntent` + barrel) BẤT BIẾN → route/test/harness không đổi.
 // Tách theo hướng multi-provider (planner-100convday A+C: Groq primary + Gemini fallback).
 
-export type { ParsedIntent, ChatRole, ChatTurn, StreamEvent } from "./llm/types";
+export type { ParsedIntent, ChatRole, ChatTurn, StreamEvent, ProviderId } from "./llm/types";
 export { ParseIntentError } from "./llm/types";
 export { SYSTEM, systemFor, TRICH_DECL, GOI_Y_DECL, countOutOfEnum, partialFromArgs, intentToParams } from "./llm/prompt";
 export { streamChat } from "./llm/geminiAdapter";
