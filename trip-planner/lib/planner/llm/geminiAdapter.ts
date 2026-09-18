@@ -27,7 +27,7 @@ function resolveGeminiModel(): string {
   }
   return raw;
 }
-const GEMINI_HOST_DEFAULT = "https://generativelanguage.googleapis.com";
+export const GEMINI_HOST_DEFAULT = "https://generativelanguage.googleapis.com";
 // GEMINI_BASE_URL (PR-5): trỏ mock server dev/test. BỎ QUA ở prod thật — key nằm trong query string,
 // base-url lạ = exfil key → prod luôn dùng host thật (isRealProduction gate). Đọc per-call (như model override).
 function resolveGeminiBaseUrl(): string {

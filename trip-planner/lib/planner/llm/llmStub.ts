@@ -7,12 +7,15 @@
 //   __vibe__  → suggest (mode discovery)
 //   (mặc định) → slots trích sẵn (da-lat 3 ngày 2 người)
 
+import { isRealProduction } from "@/lib/core/config/deployTier";
 import { signModelTurn } from "../chatSig";
 import { ParseIntentError, type ChatTurn, type StreamEvent } from "./types";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export async function* stubStream(history: ChatTurn[], locale: 'vi' | 'en' = 'vi'): AsyncGenerator<StreamEvent> {
+  // Defense-in-depth (mirror lib/storage stub fns): tự re-check prod, không tin caller.
+  if (isRealProduction()) throw new ParseIntentError("PLANNER_LLM_STUB không được bật ở production", "no_key");
   const last = history[history.length - 1]?.text ?? "";
   if (last.includes("__error__")) throw new ParseIntentError("stub error", "upstream");
   if (last.includes("__slow__")) await sleep(1500);

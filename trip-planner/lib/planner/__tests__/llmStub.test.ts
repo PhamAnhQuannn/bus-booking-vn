@@ -3,6 +3,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { streamChat, ParseIntentError } from '../parseIntent';
 import type { ChatTurn } from '../parseIntent';
+import { GEMINI_HOST_DEFAULT } from '../llm/geminiAdapter';
+import { stubStream } from '../llm/llmStub';
 
 let realProd = false;
 vi.mock('@/lib/core/config/deployTier', () => ({ isRealProduction: () => realProd }));
@@ -72,6 +74,16 @@ describe('PLANNER_LLM_STUB — SSE canned, KHÔNG upstream', () => {
     vi.stubGlobal('fetch', vi.fn());
     await expect(drain(H('Đà Lạt 3 ngày'))).rejects.toMatchObject({ name: 'ParseIntentError' });
   });
+
+  it('PROD-GUARD defense-in-depth: stubStream gọi trực tiếp + isRealProduction → THROW', async () => {
+    realProd = true;
+    const events: unknown[] = [];
+    const run = async () => {
+      for await (const ev of stubStream(H('Đà Lạt 3 ngày'))) events.push(ev);
+    };
+    await expect(run()).rejects.toBeInstanceOf(ParseIntentError);
+    expect(events).toHaveLength(0);
+  });
 });
 
 describe('GEMINI_BASE_URL — override dev, IGNORE prod (exfil guard)', () => {
@@ -90,7 +102,7 @@ describe('GEMINI_BASE_URL — override dev, IGNORE prod (exfil guard)', () => {
     vi.stubGlobal('fetch', fetchMock);
     await drain(H('Đà Lạt'));
     const url = String(fetchMock.mock.calls[0][0]);
-    expect(url).toContain('https://generativelanguage.googleapis.com/');
+    expect(url).toContain(`${GEMINI_HOST_DEFAULT}/`);
     expect(url).not.toContain('evil.example');
   });
 });

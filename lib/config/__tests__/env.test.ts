@@ -86,6 +86,38 @@ describe('getEnv — production STORAGE_STUB fail-fast (SEC-DEV-STUB-PROD-SAFETY
   });
 });
 
+describe('getEnv — production PLANNER_LLM_STUB fail-fast (PR-5)', () => {
+  it('THROWS in production when PLANNER_LLM_STUB is true (real LLM required)', () => {
+    Object.assign(process.env, BASE, PROD_SECRETS, {
+      NODE_ENV: 'production',
+      PAYMENTS_STUB: 'true',
+      STORAGE_STUB: 'false',
+      STORAGE_BUCKET: 'b',
+      STORAGE_REGION: 'r',
+      STORAGE_ENDPOINT: 'https://r2',
+      STORAGE_ACCESS_KEY: 'ak',
+      STORAGE_SECRET_KEY: 'sk',
+      PLANNER_LLM_STUB: 'true',
+    });
+    expect(() => getEnv()).toThrow(/PLANNER_LLM_STUB must be false in production/);
+  });
+
+  it('does NOT throw for PLANNER_LLM_STUB in production when it is false', () => {
+    Object.assign(process.env, BASE, PROD_SECRETS, {
+      NODE_ENV: 'production',
+      PAYMENTS_STUB: 'true',
+      STORAGE_STUB: 'false',
+      STORAGE_BUCKET: 'b',
+      STORAGE_REGION: 'r',
+      STORAGE_ENDPOINT: 'https://r2',
+      STORAGE_ACCESS_KEY: 'ak',
+      STORAGE_SECRET_KEY: 'sk',
+      PLANNER_LLM_STUB: 'false',
+    });
+    expect(() => getEnv()).not.toThrow();
+  });
+});
+
 describe('getEnv — VERCEL_ENV preview tier is non-strict (#643)', () => {
   it('does NOT throw on a preview deploy missing prod secrets + STORAGE_STUB=true', () => {
     // Vercel sets NODE_ENV=production for preview builds too; VERCEL_ENV is the real discriminator.
