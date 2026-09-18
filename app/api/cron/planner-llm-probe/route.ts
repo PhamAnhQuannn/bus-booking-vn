@@ -36,10 +36,11 @@ export async function GET(req: NextRequest): Promise<Response> {
     const unhealthy = results.filter((r) => r.status === 'model_404' || r.status === 'down' || r.status === 'auth');
     for (const r of unhealthy) logger.warn(r, 'planner.llm.probe.unhealthy');
 
-    // model_404 = drift catalog (nghiêm trọng: lịch sẽ 404 khi provider này active) → page ops.
-    const drift = results.filter((r) => r.status === 'model_404');
+    // model_404 = drift catalog (nghiêm trọng: lịch sẽ 404 khi provider này active) · auth = key prod
+    // chết/bị thu hồi (Gemini là provider prod DUY NHẤT → planner tối) → page ops. down = transient, chỉ warn.
+    const drift = results.filter((r) => r.status === 'model_404' || r.status === 'auth');
     if (drift.length) {
-      captureException(new Error(`planner LLM model drift: ${drift.map((d) => `${d.provider}/${d.model}`).join(', ')}`), {
+      captureException(new Error(`planner LLM model drift / auth failure: ${drift.map((d) => `${d.provider}/${d.model}/${d.status}`).join(', ')}`), {
         route: 'cron/planner-llm-probe',
         drift,
       });
