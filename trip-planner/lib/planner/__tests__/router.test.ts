@@ -28,11 +28,12 @@ const throwsNow = (code: 'no_key' | 'upstream' = 'upstream') =>
 const P = (id: 'gemini' | 'groq'): StreamEvent => ({ kind: 'provider', id, model: `${id}-x` });
 const SLOTS: StreamEvent = { kind: 'slots', partial: { dia_diem: 'da-lat' } };
 
-async function drain(): Promise<StreamEvent[]> {
+async function drainOf(history: ChatTurn[]): Promise<StreamEvent[]> {
   const out: StreamEvent[] = [];
-  for await (const ev of streamChat(HISTORY)) out.push(ev);
+  for await (const ev of streamChat(history)) out.push(ev);
   return out;
 }
+const drain = () => drainOf(HISTORY);
 
 beforeEach(() => {
   geminiFn.mockReset();
@@ -40,6 +41,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   delete process.env.PLANNER_LLM_PRIMARY;
+  delete process.env.PLANNER_LLM_STUB; // #748: process-global — dọn tránh rò sang test khác (gate mới đọc nó)
 });
 
 describe('router — providerOrder', () => {
@@ -101,5 +103,44 @@ describe('router — fallback', () => {
     await expect(drain()).rejects.toMatchObject({ name: 'ParseIntentError' });
     expect(geminiFn).toHaveBeenCalledTimes(1);
     expect(groqFn).toHaveBeenCalledTimes(1);
+  });
+});
+
+// #748: stub gate TRƯỚC vòng provider → stub bật KHÔNG bao giờ chạm adapter thật (llmStub KHÔNG mock →
+// stubStream thật chạy: default yield slots; __error__ ném 'upstream' TRƯỚC content). Nếu adapter mock
+// bị gọi = gate hỏng (rơi vào vòng fallback = bug gốc). isRealProduction()=false ở vitest (NODE_ENV=test).
+describe('router — stub gate (#748)', () => {
+  it('stub=true + input thường → phục vụ stub, KHÔNG gọi geminiFn/groqFn', async () => {
+    process.env.PLANNER_LLM_STUB = 'true';
+    // để adapter mock ném nếu bị gọi → chứng minh KHÔNG bao giờ tới
+    geminiFn.mockImplementation(throwsNow('upstream'));
+    groqFn.mockImplementation(throwsNow('upstream'));
+
+    const events = await drain();
+    expect(geminiFn).not.toHaveBeenCalled();
+    expect(groqFn).not.toHaveBeenCalled();
+    expect(events.some((e) => e.kind === 'slots')).toBe(true);
+  });
+
+  it('stub=true + "__error__" → rejects upstream, KHÔNG fallthrough sang adapter (bug gốc #748)', async () => {
+    process.env.PLANNER_LLM_STUB = 'true';
+    geminiFn.mockImplementation(emit([SLOTS])); // nếu gate hỏng, fallthrough sẽ gọi cái này → slots
+    groqFn.mockImplementation(emit([SLOTS]));
+
+    await expect(drainOf([{ role: 'user', text: '__error__' }])).rejects.toMatchObject({ name: 'ParseIntentError', code: 'upstream' });
+    expect(geminiFn).not.toHaveBeenCalled();
+    expect(groqFn).not.toHaveBeenCalled();
+  });
+
+  it('stub=true + PLANNER_LLM_PRIMARY=groq → vẫn stub, groqFn KHÔNG bị gọi', async () => {
+    process.env.PLANNER_LLM_STUB = 'true';
+    process.env.PLANNER_LLM_PRIMARY = 'groq';
+    geminiFn.mockImplementation(throwsNow('upstream'));
+    groqFn.mockImplementation(throwsNow('upstream'));
+
+    const events = await drain();
+    expect(groqFn).not.toHaveBeenCalled();
+    expect(geminiFn).not.toHaveBeenCalled();
+    expect(events.some((e) => e.kind === 'slots')).toBe(true);
   });
 });
