@@ -23,14 +23,23 @@ const PLANNER_URL = '/vi/tro-ly-du-lich';
 const input = (page: Page) => page.locator('[data-testid="planner-input"]:visible');
 const sendBtn = (page: Page) => page.locator('[data-testid="planner-send"]:visible');
 
-// Route 'use client' → chờ hydrate xong trước khi fill, nếu không WebKit (mobile-390) mất input event.
+// Chờ network ổn định sau khi điều hướng (KHÔNG đảm bảo hydrate — xem sendMessage).
 async function gotoPlanner(page: Page) {
   await page.goto(PLANNER_URL);
   await page.waitForLoadState('networkidle');
 }
 
 async function sendMessage(page: Page, text: string) {
-  await input(page).fill(text);
+  // WebKit (mobile-390): input.fill() can dispatch its DOM `input` event before React
+  // finishes hydrating and attaches onChange → the fill is silently lost (controlled
+  // `value` stays ''), so the send button (disabled while !value.trim()) never enables.
+  // networkidle after goto does NOT guarantee hydration on WebKit. Retry the fill until
+  // the button reports enabled — self-heals once hydration lands.
+  await expect(async () => {
+    await input(page).fill(text);
+    await expect(sendBtn(page)).toBeEnabled({ timeout: 1000 });
+  }).toPass({ timeout: 15000 });
+
   await sendBtn(page).click();
 }
 
