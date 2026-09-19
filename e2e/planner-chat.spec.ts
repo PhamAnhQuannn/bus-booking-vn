@@ -23,6 +23,12 @@ const PLANNER_URL = '/vi/tro-ly-du-lich';
 const input = (page: Page) => page.locator('[data-testid="planner-input"]:visible');
 const sendBtn = (page: Page) => page.locator('[data-testid="planner-send"]:visible');
 
+// Route 'use client' → chờ hydrate xong trước khi fill, nếu không WebKit (mobile-390) mất input event.
+async function gotoPlanner(page: Page) {
+  await page.goto(PLANNER_URL);
+  await page.waitForLoadState('networkidle');
+}
+
 async function sendMessage(page: Page, text: string) {
   await input(page).fill(text);
   await sendBtn(page).click();
@@ -30,7 +36,7 @@ async function sendMessage(page: Page, text: string) {
 
 test.describe('planner chat (LLM stub)', () => {
   test('__error__ → bong bóng lỗi + nút tự chọn lịch trình (đường degrade)', async ({ page }) => {
-    await page.goto(PLANNER_URL);
+    await gotoPlanner(page);
     await sendMessage(page, 'test __error__');
 
     await expect(page.getByTestId('planner-error').last()).toBeVisible({ timeout: 15000 });
@@ -38,7 +44,7 @@ test.describe('planner chat (LLM stub)', () => {
   });
 
   test('__noop__ → prose bot, KHÔNG lỗi, giữ lịch', async ({ page }) => {
-    await page.goto(PLANNER_URL);
+    await gotoPlanner(page);
     await sendMessage(page, 'test __noop__');
 
     // Stub prose canned (vi): "Đây là gợi ý cho chuyến đi của bạn."
@@ -53,7 +59,7 @@ test.describe('planner chat (LLM stub)', () => {
       if (/api\.groq\.com|generativelanguage\.googleapis\.com/.test(r.url())) upstreamHits.push(r.url());
     });
 
-    await page.goto(PLANNER_URL);
+    await gotoPlanner(page);
     await sendMessage(page, 'test __noop__');
     await expect(page.getByTestId('planner-bot').last()).toBeVisible({ timeout: 15000 });
 
