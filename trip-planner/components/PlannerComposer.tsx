@@ -32,6 +32,7 @@ export function PlannerComposer({ value, onChange, onSubmit, disabled, busy, pla
     >
       <input
         ref={inputRef}
+        data-testid="planner-input"
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -41,6 +42,7 @@ export function PlannerComposer({ value, onChange, onSubmit, disabled, busy, pla
       />
       <button
         type="submit"
+        data-testid="planner-send"
         disabled={locked || !value.trim()}
         aria-label={busy ? t('composer.sending') : t('composer.send')}
         aria-busy={busy || undefined}

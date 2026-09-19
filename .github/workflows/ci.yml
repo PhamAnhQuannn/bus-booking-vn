@@ -201,6 +201,10 @@ jobs:
     env:
       DATABASE_URL: postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_dev
       PLAYWRIGHT_BASE_URL: http://localhost:3001
+      # planner-chat.spec.ts: chạy trợ lý du lịch trên LLM stub (SSE canned, KHÔNG chạm Google/Groq).
+      # Dev server = NODE_ENV=development nên env strict + inline isRealProduction guard KHÔNG chặn stub.
+      # Chỉ route /api/planner/chat đọc cờ này → spec khác không ảnh hưởng.
+      PLANNER_LLM_STUB: 'true'
       # See integration-tests: prod defaults to max:1; the app under e2e serves
       # concurrent requests from one Node process, so raise the pool here.
       DATABASE_POOL_MAX: '5'
@@ -302,6 +306,10 @@ jobs:
     env:
       DATABASE_URL: postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_dev
       PLAYWRIGHT_BASE_URL: http://localhost:3001
+      # planner-chat.spec.ts: chạy trợ lý du lịch trên LLM stub (SSE canned, KHÔNG chạm Google/Groq).
+      # Dev server = NODE_ENV=development nên env strict + inline isRealProduction guard KHÔNG chặn stub.
+      # Chỉ route /api/planner/chat đọc cờ này → spec khác không ảnh hưởng.
+      PLANNER_LLM_STUB: 'true'
       DATABASE_POOL_MAX: '5'
       HOLD_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       PAYMENTS_STUB: 'true'

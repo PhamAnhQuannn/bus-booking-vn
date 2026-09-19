@@ -679,7 +679,7 @@ export default function TroLyDuLichPage() {
             </button>
           ) : null}
           {m.fallback ? (
-            <button type="button" onClick={enterManual}
+            <button type="button" onClick={enterManual} data-testid="planner-fallback"
               className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3 py-1.5 text-[13px] font-semibold text-foreground outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring/60">
               {t('assistant.manualFallback')}
             </button>
@@ -902,7 +902,7 @@ export default function TroLyDuLichPage() {
             <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/10 text-base" aria-hidden>🤖</span>
             <div className="min-w-0 max-w-[min(90%,560px)] flex-1">
               {showBubble ? (
-                <div className="rounded-2xl rounded-bl-md border px-4 py-3 text-[15px] leading-6 text-foreground" style={{ background: 'var(--planner-surface)', borderColor: '#F0EAE2' }}>
+                <div data-testid={m.error ? 'planner-error' : 'planner-bot'} className="rounded-2xl rounded-bl-md border px-4 py-3 text-[15px] leading-6 text-foreground" style={{ background: 'var(--planner-surface)', borderColor: '#F0EAE2' }}>
                   {m.text ? <p className="whitespace-pre-wrap">{m.text}</p> : status}
                   {pickedLine ? (
                     <p className="mt-2 text-[13px]" style={{ color: 'var(--planner-text-secondary)' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
@@ -912,7 +912,7 @@ export default function TroLyDuLichPage() {
               ) : null}
               {m.time ? <span className="mt-0.5 block px-1 text-[13px] text-muted-foreground">{m.time}</span> : null}
               {m.isFallback ? (
-                <span className="mt-0.5 ml-1 inline-block rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground" title={m.provider}>{t('assistant.viaFallback')}</span>
+                <span data-testid="planner-fallback-badge" className="mt-0.5 ml-1 inline-block rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground" title={m.provider}>{t('assistant.viaFallback')}</span>
               ) : null}
               {m.dto ? <TripReceipt dto={m.dto} onActivate={activateArtifact} onSelectDay={setActiveDay} /> : null}
               {m.suggestions ? (
@@ -1167,7 +1167,7 @@ export default function TroLyDuLichPage() {
                       <div className="min-w-0 max-w-[min(90%,560px)] flex-1">
                         {/* Bubble bot — nền #FEFCF7 + viền hairline #F0EAE2 (đo từ mock) */}
                         {showBubble ? (
-                          <div className="rounded-2xl rounded-bl-md border px-4 py-3 text-[15px] leading-6 text-foreground" style={{ background: 'var(--planner-surface)', borderColor: '#F0EAE2' }}>
+                          <div data-testid={m.error ? 'planner-error' : 'planner-bot'} className="rounded-2xl rounded-bl-md border px-4 py-3 text-[15px] leading-6 text-foreground" style={{ background: 'var(--planner-surface)', borderColor: '#F0EAE2' }}>
                             {m.text ? <p className="whitespace-pre-wrap">{m.text}</p> : status}
                             {pickedLine ? (
                               <p className="mt-2 text-[13px]" style={{ color: 'var(--planner-text-secondary)' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
