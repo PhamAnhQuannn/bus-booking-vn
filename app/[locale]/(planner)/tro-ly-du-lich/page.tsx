@@ -1143,54 +1143,10 @@ export default function TroLyDuLichPage() {
           ) : (
             <div className="mx-auto flex w-full max-w-[46rem] flex-1 flex-col px-4 pb-2 pt-3">
               {slotCard}
-              <div className="mt-3 flex flex-col">
-                {messages.map((m, idx) => {
-                  // proximity: cùng người 8px, khác người 16px → thấy lượt-lời tức thì (Gestalt)
-                  const mt = idx === 0 ? 0 : messages[idx - 1].role === m.role ? 8 : 16;
-                  if (m.role === 'user') {
-                    return (
-                      <div key={idx} style={{ marginTop: mt }} className="max-w-[min(78%,460px)] self-end rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-[15px] text-primary-foreground">
-                        {m.text}
-                        {m.time ? <span className="mt-0.5 block text-right text-[13px] text-primary-foreground/70">{m.time} ✓✓</span> : null}
-                      </div>
-                    );
-                  }
-                  // Chỉ render bong bóng viền khi CÓ nội dung (text | status chờ | dòng đã-chọn | lỗi). Bot
-                  // chỉ-gợi-ý (suggestions, không text/status) hiện SuggestionCards bên dưới → KHÔNG hộp RỖNG.
-                  const status = m.text ? null : botStatus(m, idx);
-                  const pickedLine = !!m.options?.options.length && messages[idx + 1]?.role === 'user';
-                  const showBubble = !!m.text || !!status || pickedLine || !!m.error;
-                  return (
-                    <div key={idx} style={{ marginTop: mt }} className="flex w-full gap-2.5 self-start">
-                      {/* Avatar bot (mock: robot tròn nền cam nhạt) */}
-                      <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/10 text-base" aria-hidden>🤖</span>
-                      <div className="min-w-0 max-w-[min(90%,560px)] flex-1">
-                        {/* Bubble bot — nền #FEFCF7 + viền hairline #F0EAE2 (đo từ mock) */}
-                        {showBubble ? (
-                          <div data-testid={m.error ? 'planner-error' : 'planner-bot'} className="rounded-2xl rounded-bl-md border px-4 py-3 text-[15px] leading-6 text-foreground" style={{ background: 'var(--planner-surface)', borderColor: '#F0EAE2' }}>
-                            {m.text ? <p className="whitespace-pre-wrap">{m.text}</p> : status}
-                            {pickedLine ? (
-                              <p className="mt-2 text-[13px]" style={{ color: 'var(--planner-text-secondary)' }}>{t('assistant.selected', { choice: (messages[idx + 1] as { text: string }).text })}</p>
-                            ) : null}
-                            {renderErrorActions(m)}
-                          </div>
-                        ) : null}
-                        {m.time ? <span className="mt-0.5 block px-1 text-[13px] text-muted-foreground">{m.time}</span> : null}
-
-                        {m.dto ? <TripReceipt dto={m.dto} onActivate={activateArtifact} onSelectDay={setActiveDay} /> : null}
-                        {m.suggestions ? (
-                          <SuggestionCards
-                            items={m.suggestions}
-                            vibe={m.suggestVibe ?? ''}
-                            onAdd={(id, name) => onAddAnchor(m.suggestCity ?? '', id, name)}
-                            onPlan={() => onPlanVibe(m.suggestCity ?? '')}
-                          />
-                        ) : null}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              {/* #749: dùng CHUNG messagesBlock (định nghĩa 1 nơi) — KHÔNG copy map inline. Trước đây khối
+                  này là bản sao tay, làm badge fallback (m.isFallback) chỉ có ở layout wide → mobile mất badge.
+                  Mọi sửa bubble/testid/a11y giờ 1 nguồn. */}
+              {messagesBlock}
 
               {/* Inline ask-card (mock: "Bạn đi theo nhóm nào?" — pill trong card, chip đầu highlight cam) */}
               {activeAsk ? (
