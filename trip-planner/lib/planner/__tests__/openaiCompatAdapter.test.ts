@@ -42,6 +42,7 @@ beforeEach(() => {
 afterEach(() => {
   delete process.env.PLANNER_GROQ_MODEL;
   delete process.env.PLANNER_CHAT_SECRET;
+  delete process.env.PLANNER_LLM_STUB; // #748: process-global — dọn tránh rò sang test khác
   vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -238,6 +239,18 @@ describe('openaiCompatAdapter — retry / config', () => {
 
     await expect(drain()).rejects.toMatchObject({ code: 'upstream' });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('(#748) PLANNER_LLM_STUB=true → phục vụ stub, KHÔNG gọi fetch (gate import trực tiếp)', async () => {
+    // Chứng minh KHÔNG chạm network — PHẢI ở đây (adapter thật + fetch stub), KHÔNG ở router.test.ts
+    // (router mock cả 2 adapter → fetch-assert ở đó = false-green). isRealProduction()=false ở vitest.
+    process.env.PLANNER_LLM_STUB = 'true';
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const events = await drain();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(events.some((e) => e.kind === 'slots')).toBe(true);
   });
 
   it('thiếu GROQ_API_KEY → throw no_key, KHÔNG gọi fetch', async () => {

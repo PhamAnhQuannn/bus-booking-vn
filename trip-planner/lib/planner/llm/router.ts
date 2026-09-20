@@ -9,9 +9,11 @@
 // event 1 mình KHÔNG khoá fallback (khớp route.firstEventAt = event nội dung đầu, PR-8). Đã phát nội
 // dung → ném (không fallback: tránh double-stream/lịch nửa vời). Fallback TỐI ĐA 1 lần (order 2 phần tử).
 
-import type { ChatTurn, StreamEvent, ProviderId } from "./types";
+import { isRealProduction } from "@/lib/core/config/deployTier";
+import { ParseIntentError, type ChatTurn, type StreamEvent, type ProviderId } from "./types";
 import { streamChat as geminiStream } from "./geminiAdapter";
 import { streamChat as groqStream } from "./openaiCompatAdapter";
+import { stubStream } from "./llmStub";
 
 type Adapter = (history: ChatTurn[], locale?: "vi" | "en") => AsyncGenerator<StreamEvent>;
 const ADAPTERS: Record<ProviderId, Adapter> = { gemini: geminiStream, groq: groqStream };
@@ -24,6 +26,17 @@ export function providerOrder(): ProviderId[] {
 }
 
 export async function* streamChat(history: ChatTurn[], locale: "vi" | "en" = "vi"): AsyncGenerator<StreamEvent> {
+  // #748 STUB GATE — TRƯỚC vòng provider. Router KHÔNG phân biệt "stub cố tình ném" (vd __error__ ném
+  // trước content) với "provider chết" → nếu để stub throw vào vòng, fallback rơi xuống Groq adapter thật
+  // (ungated) = phá $0 stub / gọi upstream ngoài ý. Gate ở đây: stub bật → phục vụ stub, KHÔNG bao giờ
+  // vào fallback. Vá cả fallthrough LẪN PLANNER_LLM_PRIMARY=groq. Prod: getEnv() đã FAIL boot nếu stub
+  // bật (env strict); inline throw = defense-in-depth cho path getEnv chưa chạy (cron/edge/test).
+  if (process.env.PLANNER_LLM_STUB === "true") {
+    if (isRealProduction()) throw new ParseIntentError("PLANNER_LLM_STUB không được bật ở production", "no_key");
+    yield* stubStream(history, locale);
+    return;
+  }
+
   const order = providerOrder();
   for (let i = 0; i < order.length; i++) {
     const isLast = i === order.length - 1;

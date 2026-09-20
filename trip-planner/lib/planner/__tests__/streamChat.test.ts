@@ -28,6 +28,7 @@ beforeEach(() => {
 
 afterEach(() => {
   delete process.env.GEMINI_MODEL_OVERRIDE; // tránh rò env sang test sau nếu một expect ném giữa chừng
+  delete process.env.PLANNER_LLM_STUB; // #748: defensive — gate mới đọc cờ này ở nhiều path
   vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
