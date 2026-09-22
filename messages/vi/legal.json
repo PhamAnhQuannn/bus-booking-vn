@@ -136,7 +136,7 @@
         "<b>Neon:</b> Cơ sở dữ liệu PostgreSQL — khu vực Singapore.",
         "<b>Upstash:</b> Bộ nhớ đệm Redis — khu vực Singapore."
       ],
-      "note": "Việc chuyển dữ liệu ra nước ngoài tuân thủ các yêu cầu về đánh giá tác động chuyển dữ liệu xuyên biên giới (CDTIA) theo quy định PDPL 2025."
+      "note": "Việc chuyển dữ liệu ra nước ngoài tuân thủ các yêu cầu về đánh giá tác động chuyển dữ liệu xuyên biên giới (CDTIA) theo quy định PDPL 2025. Trợ lý AI xử lý tin nhắn của bạn qua nhà cung cấp mô hình ngôn ngữ ở nước ngoài; thông tin cá nhân được loại bỏ trước khi gửi."
     },
     "s7": {
       "title": "7. Thời gian lưu trữ",

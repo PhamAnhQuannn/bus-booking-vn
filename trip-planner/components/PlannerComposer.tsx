@@ -22,6 +22,7 @@ export function PlannerComposer({ value, onChange, onSubmit, disabled, busy, pla
   const t = useTranslations('planner');
   const locked = disabled || busy;
   return (
+    <>
     <form
       className="flex items-center gap-2.5 rounded-2xl border border-[#F0E9E1] bg-white py-2 pl-4 pr-2 shadow-[0_4px_16px_rgba(30,36,51,0.06)] transition-shadow focus-within:border-primary focus-within:shadow-[0_4px_20px_rgba(240,86,29,0.14)]"
       onSubmit={(e) => {
@@ -60,5 +61,7 @@ export function PlannerComposer({ value, onChange, onSubmit, disabled, busy, pla
         )}
       </button>
     </form>
+    <p className="mt-1.5 px-1 text-center text-xs text-muted-foreground">{t('composer.privacyHint')}</p>
+    </>
   );
 }
