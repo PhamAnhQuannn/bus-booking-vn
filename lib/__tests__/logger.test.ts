@@ -101,6 +101,29 @@ describe('logger redactPaths', () => {
     expect(redactPaths, 'missing buyerName redact path').toContain('buyerName');
   });
 
+  it('masks PDPL PII-key drift fields (displayName, contactName, contactEmail, accountHolderName, notes)', async () => {
+    const { loggerOptions } = await import('../logger');
+    const redactPaths = Array.isArray(loggerOptions.redact)
+      ? loggerOptions.redact
+      : (loggerOptions.redact as { paths: string[] }).paths;
+
+    const required = [
+      'displayName',
+      '*.displayName',
+      'contactName',
+      '*.contactName',
+      'contactEmail',
+      '*.contactEmail',
+      'accountHolderName',
+      '*.accountHolderName',
+      'notes',
+      '*.notes',
+    ];
+    for (const field of required) {
+      expect(redactPaths, `missing redact path: ${field}`).toContain(field);
+    }
+  });
+
   it('has redact coverage for all forbidden response fields', async () => {
     const { loggerOptions } = await import('../logger');
     const redactPaths = Array.isArray(loggerOptions.redact)

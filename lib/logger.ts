@@ -149,6 +149,21 @@ export const loggerOptions: LoggerOptions = {
       // deliberately NOT globally redacted here — rate-limit forensics log `ip` on purpose.
       'userAgent',
       '*.userAgent',
+      // PDPL PII-key drift fix: personal names + free-text notes carried on Customer /
+      // OperatorUser / PayoutAccount / CharterRequest / NotificationLog. Key-based
+      // redaction, so this strips a value only under a key literally named this — no
+      // current caller logs them for ops/support triage (grepped). `legalName`/`brandName`
+      // are intentionally NOT redacted (kept for operator-support correlation).
+      'displayName',
+      '*.displayName',
+      'contactName',
+      '*.contactName',
+      'contactEmail',
+      '*.contactEmail',
+      'accountHolderName',
+      '*.accountHolderName',
+      'notes',
+      '*.notes',
     ],
     censor: '[REDACTED]',
   },

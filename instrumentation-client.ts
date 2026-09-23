@@ -49,6 +49,12 @@ const REDACT_KEYS = new Set(
     'totpCode',
     'authorization',
     'cookie',
+    // PDPL PII-key drift fix — mirror lib/logger.ts + lib/observability/sentry.ts.
+    'displayName',
+    'contactName',
+    'contactEmail',
+    'accountHolderName',
+    'notes',
   ].map((k) => k.toLowerCase()),
 );
 
