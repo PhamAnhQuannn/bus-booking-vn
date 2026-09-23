@@ -126,17 +126,21 @@
     },
     "s6": {
       "title": "6. Storage and security",
-      "body": "Data is stored on servers in Singapore (Vercel, Neon, Upstash). We apply AES-256 encryption for sensitive information, SSL/TLS connection encryption, and strict access controls. Passwords are one-way hashed and never stored in plaintext."
+      "body": "Data is stored on servers in Singapore (Vercel, Neon, Upstash). We apply field-level AES-256 encryption to the most sensitive data (bank account numbers, two-factor authentication secrets); other personal data is encrypted at rest at the database layer. Connections are SSL/TLS encrypted and access is strictly controlled. Passwords are one-way hashed and never stored in plaintext."
     },
     "s6a": {
       "title": "6a. Cross-border data transfer",
-      "intro": "In accordance with Article 25 of the PDPL 2025 (Điều 25 Luật PDPL 2025) and Decree 356/2025/NĐ-CP, we notify you that your personal data is processed by cloud service providers in Singapore:",
+      "intro": "In accordance with Article 25 of the PDPL 2025 (Điều 25 Luật PDPL 2025) and Decree 356/2025/NĐ-CP, we notify you that your personal data is processed by service providers located abroad:",
       "items": [
         "<b>Vercel:</b> Application server (compute) — Singapore region (sin1).",
         "<b>Neon:</b> PostgreSQL database — Singapore region.",
-        "<b>Upstash:</b> Redis cache — Singapore region."
+        "<b>Upstash:</b> Redis cache — Singapore region.",
+        "<b>Google (Gemini):</b> AI assistant processing chat messages — United States. Personal information is removed before sending.",
+        "<b>Groq:</b> AI assistant processing chat messages — United States. Personal information is removed before sending.",
+        "<b>Google:</b> Sign-in with Google account (OAuth) — United States.",
+        "<b>Resend:</b> Transactional email delivery (ticket confirmations, notifications) — United States."
       ],
-      "note": "This cross-border data transfer complies with the cross-border data transfer impact assessment (CDTIA) requirements under the PDPL 2025. The AI assistant processes your messages via a language-model provider abroad; personal information is removed before sending."
+      "note": "This cross-border data transfer complies with the cross-border data transfer impact assessment (CDTIA) requirements under the PDPL 2025."
     },
     "s7": {
       "title": "7. Retention period",
@@ -169,7 +173,7 @@
     },
     "s9": {
       "title": "9. Cookies and tracking technologies",
-      "body": "We use technical cookies (login session, CSRF verification, seat holds) necessary to operate the service. We do not use advertising tracking cookies or third-party cookies."
+      "body": "We use technical cookies (login session, CSRF verification, seat holds) necessary to operate the service. We do not use advertising tracking cookies or third-party cookies. For non-logged-in users, AI assistant conversation history is stored only temporarily in your browser (session storage) and is automatically cleared when you close the tab; this data is not sent to our servers."
     },
     "s10": {
       "title": "10. Contact",
