@@ -113,8 +113,9 @@ export function scrubPii(value: unknown, seen: WeakSet<object> = new WeakSet()):
 function scrubMessage(message: string): string {
   let out = message;
   for (const key of REDACT_KEYS) {
-    // key=value or key: value (value = run of non-space/comma chars)
-    const re = new RegExp(`(${escapeRegExp(key)}\\s*[:=]\\s*)([^\\s,;]+)`, 'gi');
+    // key=value or key: value (value = everything up to the next comma/semicolon/end,
+    // so multi-word values like `notes: goi truoc khi den` are fully masked)
+    const re = new RegExp(`(${escapeRegExp(key)}\\s*[:=]\\s*)([^,;]+)`, 'gi');
     out = out.replace(re, `$1${REDACTED}`);
   }
   return out;
