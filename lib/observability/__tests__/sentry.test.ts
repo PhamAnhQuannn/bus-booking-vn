@@ -167,6 +167,12 @@ describe('captureMessage', () => {
     expect(sentryCaptureMessage).not.toHaveBeenCalled();
   });
 
+  it('masks a multi-word value up to the next delimiter, not just its first word', () => {
+    captureMessage('notes: goi truoc khi den, area=auth');
+    const [, message] = errorMock.mock.calls[0];
+    expect(message).toBe('notes: [REDACTED], area=auth');
+  });
+
   it('forwards to Sentry SDK when SENTRY_DSN is set', () => {
     getEnvMock.mockReturnValue({
       SENTRY_DSN: 'https://k@o.ingest.sentry.io/1',
