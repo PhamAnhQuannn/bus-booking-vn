@@ -78,6 +78,11 @@ export const generateTicketPdfs: JobCore = async (_tx, opts?: JobOpts) => {
       SELECT "id", "bookingRef", "confirmationToken", "buyerEmail", "paidAt"
       FROM "Booking"
       WHERE "ticketPdfKey" IS NULL
+        -- PDPL W3: never (re-)render a ticket for a booking whose PII snapshot was
+        -- scrubbed (account deletion / guest-365d). The retention sweeper purges any
+        -- existing PDF; without this guard the next tick would regenerate one with the
+        -- (now masked) buyer name/phone, defeating the purge (also guards the reassignBus re-key path).
+        AND "snapshotAnonymizedAt" IS NULL
         AND "status" IN (${Prisma.join(
           PAID_STATUSES.map((s) => Prisma.sql`${s}::"BookingStatus"`)
         )})

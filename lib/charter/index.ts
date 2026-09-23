@@ -5,6 +5,7 @@
 export {
   LEGAL_CHARTER_TRANSITIONS,
   CUSTOMER_CANCELLABLE_STATUSES,
+  TERMINAL_CHARTER_STATUSES,
   isLegalCharterTransition,
   transitionCharterRequest,
   type CharterTransitionClient,

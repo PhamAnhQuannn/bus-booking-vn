@@ -94,6 +94,18 @@ export function isLegalCharterTransition(from: CharterStatus, to: CharterStatus)
 }
 
 /**
+ * TERMINAL charter statuses = the states with no legal outgoing edge (empty list in
+ * LEGAL_CHARTER_TRANSITIONS): REJECTED / COMPLETED / CANCELLED. Derived from the map
+ * so it can never drift from the edge rule. The PDPL retention sweeper scrubs contact
+ * PII only on leads in a terminal state (a live lead still needs its contact).
+ */
+export const TERMINAL_CHARTER_STATUSES: ReadonlySet<CharterStatus> = new Set(
+  (Object.keys(LEGAL_CHARTER_TRANSITIONS) as CharterStatus[]).filter(
+    (s) => LEGAL_CHARTER_TRANSITIONS[s].length === 0,
+  ),
+);
+
+/**
  * Minimal Prisma surface the transition service needs. Accepting it by parameter
  * (rather than importing the app singleton) mirrors writeAdminAuditLog — keeps
  * the core usable from a route handler, a cron worker, or a test client.

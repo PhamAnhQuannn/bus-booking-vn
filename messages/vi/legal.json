@@ -143,6 +143,10 @@
       "items": [
         "Thông tin liên hệ đặt vé: cho đến khi bạn yêu cầu xóa hoặc hết nghĩa vụ lưu trữ pháp lý.",
         "Lịch sử đặt vé và chứng từ thanh toán: tối thiểu 5 năm theo quy định kế toán.",
+        "Lịch sử trò chuyện với trợ lý AI: 90 ngày kể từ lần trò chuyện gần nhất, hoặc xóa ngay khi bạn xóa tài khoản.",
+        "Nội dung thông báo (SMS/email) đã gửi: thông tin cá nhân được ẩn sau 180 ngày.",
+        "Yêu cầu thuê xe: thông tin liên hệ được ẩn 365 ngày sau khi yêu cầu kết thúc.",
+        "Vé điện tử (PDF): xóa cùng thời điểm thông tin liên hệ trên đơn được ẩn.",
         "Nhật ký truy cập: 90 ngày."
       ]
     },

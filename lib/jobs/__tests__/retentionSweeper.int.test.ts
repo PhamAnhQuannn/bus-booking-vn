@@ -241,3 +241,100 @@ describe('retentionSweeper integration (AC5)', () => {
     expect(JSON.parse(linkedOld!.rawBody).description).toBe('TRAN THI B chuyen khoan');
   });
 });
+
+/**
+ * PDPL hardening arms (W2 planner / W4 notification / W6 charter). Self-contained
+ * fixtures (own Customer); back-dates the age clocks via raw SQL because a Prisma
+ * update would re-bump @updatedAt / can't set createdAt. Ticket-PDF purge (W3) is
+ * covered by the unit test (storage delete + key NULL + loud-throw).
+ */
+describe('retentionSweeper PDPL arms integration', () => {
+  const p = {
+    customer: '',
+    staleConv: '',
+    recentConv: '',
+    staleMsg: '',
+    oldNotif: '',
+    recentNotif: '',
+    oldCharter: '',
+    liveCharter: '',
+  };
+
+  beforeAll(async () => {
+    const c = await prisma.customer.create({ data: { displayName: 'Retn PDPL Cust' } });
+    p.customer = c.id;
+
+    // Stale planner conversation (inactive > 90d) + a message → both HARD deleted.
+    const stale = await prisma.plannerConversation.create({
+      data: { customerId: c.id, title: 'stale', messages: { create: [{ role: 'user', text: 'đi Sa Pa' }] } },
+      include: { messages: true },
+    });
+    p.staleConv = stale.id;
+    p.staleMsg = stale.messages[0].id;
+    await prisma.$executeRaw`UPDATE "PlannerConversation" SET "updatedAt" = NOW() - INTERVAL '120 days' WHERE "id" = ${stale.id}`;
+
+    // Recent conversation → untouched.
+    const recent = await prisma.plannerConversation.create({ data: { customerId: c.id, title: 'recent' } });
+    p.recentConv = recent.id;
+
+    // Old sent notification (> 180d) → PII scrubbed. Recent one → untouched.
+    const oldN = await prisma.notificationLog.create({
+      data: { template: 'ticketReady', recipient: 'buyer@real.dev', payload: JSON.stringify({ buyerName: 'Real Name' }), status: 'sent' },
+    });
+    p.oldNotif = oldN.id;
+    await prisma.$executeRaw`UPDATE "NotificationLog" SET "createdAt" = NOW() - INTERVAL '200 days' WHERE "id" = ${oldN.id}`;
+    const recentN = await prisma.notificationLog.create({
+      data: { template: 'ticketReady', recipient: 'recent@real.dev', payload: JSON.stringify({ buyerName: 'Recent' }), status: 'sent' },
+    });
+    p.recentNotif = recentN.id;
+
+    // Old TERMINAL charter (> 365d, COMPLETED) → contact scrubbed. Old but LIVE
+    // (PUBLISHED) charter → untouched (an operator still needs the contact).
+    const oldC = await prisma.charterRequest.create({
+      data: { ref: 'CH-2026-RETN01', contactName: 'Charter Guest', contactPhone: '+8490xxxxxx4', contactEmail: 'charter@real.dev', destinations: [], startDate: new Date(Date.now() - 500 * DAY), passengers: 10, vehicleType: 'coach', status: 'COMPLETED' },
+    });
+    p.oldCharter = oldC.id;
+    await prisma.$executeRaw`UPDATE "CharterRequest" SET "updatedAt" = NOW() - INTERVAL '400 days' WHERE "id" = ${oldC.id}`;
+    const liveC = await prisma.charterRequest.create({
+      data: { ref: 'CH-2026-RETN02', contactName: 'Live Guest', contactPhone: '+8490xxxxxx3', contactEmail: 'live@real.dev', destinations: [], startDate: new Date(Date.now() + 30 * DAY), passengers: 5, vehicleType: 'coach', status: 'PUBLISHED' },
+    });
+    p.liveCharter = liveC.id;
+    await prisma.$executeRaw`UPDATE "CharterRequest" SET "updatedAt" = NOW() - INTERVAL '400 days' WHERE "id" = ${liveC.id}`;
+  });
+
+  afterAll(async () => {
+    await prisma.plannerConversation.deleteMany({ where: { id: { in: [p.staleConv, p.recentConv] } } });
+    await prisma.notificationLog.deleteMany({ where: { id: { in: [p.oldNotif, p.recentNotif] } } });
+    await prisma.charterRequest.deleteMany({ where: { id: { in: [p.oldCharter, p.liveCharter] } } });
+    await prisma.customer.deleteMany({ where: { id: p.customer } });
+  });
+
+  it('deletes stale planner chat, scrubs old notif + terminal charter; leaves recent/live', async () => {
+    const result = await runJob('retention-sweep', retentionSweeper);
+    expect(result.status).toBe('success');
+
+    // W2: stale conversation + its message HARD deleted; recent one kept.
+    expect(await prisma.plannerConversation.findUnique({ where: { id: p.staleConv } })).toBeNull();
+    expect(await prisma.plannerMessage.findUnique({ where: { id: p.staleMsg } })).toBeNull();
+    expect(await prisma.plannerConversation.findUnique({ where: { id: p.recentConv } })).not.toBeNull();
+
+    // W4: old sent notification scrubbed; recent one untouched.
+    const oldN = await prisma.notificationLog.findUnique({ where: { id: p.oldNotif } });
+    expect(oldN?.recipient).toBe('ANONYMIZED');
+    expect(oldN?.payload).toBe('{}');
+    expect(oldN?.redactedAt).toBeInstanceOf(Date);
+    const recentN = await prisma.notificationLog.findUnique({ where: { id: p.recentNotif } });
+    expect(recentN?.recipient).toBe('recent@real.dev');
+    expect(recentN?.redactedAt).toBeNull();
+
+    // W6: old terminal charter scrubbed; old-but-live charter untouched.
+    const oldC = await prisma.charterRequest.findUnique({ where: { id: p.oldCharter } });
+    expect(oldC?.contactName).toBe('[expired]');
+    expect(oldC?.contactEmail).toBe('[expired]');
+    expect(oldC?.notes).toBeNull();
+    expect(oldC?.contactScrubbedAt).toBeInstanceOf(Date);
+    const liveC = await prisma.charterRequest.findUnique({ where: { id: p.liveCharter } });
+    expect(liveC?.contactName).toBe('Live Guest');
+    expect(liveC?.contactScrubbedAt).toBeNull();
+  });
+});

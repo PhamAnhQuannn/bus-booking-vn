@@ -5,6 +5,9 @@ export {
   GUEST_PII_RETENTION_DAYS,
   KYB_DOC_RETENTION_DAYS,
   ORPHAN_PAYMENT_PII_RETENTION_DAYS,
+  PLANNER_CHAT_RETENTION_DAYS,
+  NOTIFICATION_PII_RETENTION_DAYS,
+  CHARTER_CONTACT_RETENTION_DAYS,
 } from './retentionPolicy';
 export { changePassword, ChangePasswordError } from './changePassword';
 export { changePhone, ChangePhoneError } from './changePhone';

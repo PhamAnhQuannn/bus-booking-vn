@@ -43,7 +43,26 @@
  *      SKIP LOCKED + a bounded LIMIT, like the KYB arm. The row is NEVER deleted (money
  *      evidence); erase ≠ delete (S04).
  *
- * rowsAffected = guest snapshots scrubbed + KYB docs purged + orphan bodies redacted.
+ *   4. PLANNER CHAT (90d, W2). Bounded batch DELETE of PlannerConversation rows
+ *      inactive past PLANNER_CHAT_RETENTION_DAYS (messages cascade). HARD delete — no
+ *      money/audit value, and a scrub would leave re-identifiable dtoJson snapshots.
+ *
+ *   5. TICKET PDF PURGE (W3). Per-row: for each Booking whose PII snapshot was scrubbed
+ *      (snapshotAnonymizedAt set) but whose ticket PDF object is still present
+ *      (ticketPdfKey set), deleteObject the PDF (it bakes buyerName/phone) then NULL the
+ *      key. Same per-row storage-side-effect shape as the KYB arm.
+ *
+ *   6. NOTIFICATION PII (180d, W4). Bulk UPDATE scrubs recipient/payload/lastError on
+ *      NON-pending NotificationLog rows past NOTIFICATION_PII_RETENTION_DAYS, stamping
+ *      redactedAt. Row KEPT (delivery-audit evidence). erase != delete (S04).
+ *
+ *   7. CHARTER CONTACT PII (365d, W6). Bulk UPDATE scrubs contactName/phone/email/notes
+ *      on TERMINAL CharterRequest leads past CHARTER_CONTACT_RETENTION_DAYS, stamping
+ *      contactScrubbedAt. ref/status/assignee retained (lead audit). erase != delete.
+ *
+ * rowsAffected = guest snapshots scrubbed + KYB docs purged + orphan bodies redacted +
+ * planner conversations deleted + ticket PDFs purged + notification rows scrubbed +
+ * charter leads scrubbed.
  */
 
 import type { JobCore } from './types';
@@ -54,6 +73,14 @@ const KYB_CLAIM_LIMIT = 200;
 /** Bound the per-tick orphan-PII redaction (#332), same rationale as KYB. */
 const ORPHAN_REDACT_LIMIT = 200;
 
+/** Bound the per-tick planner-conversation prune (W2). Batched so a launch backlog
+ *  can't hold the advisory-lock tx open on one giant DELETE; drains over ticks. */
+const PLANNER_DELETE_LIMIT = 200;
+const PLANNER_DELETE_MAX_BATCHES = 10;
+
+/** Bound the per-tick ticket-PDF purge (W3), same per-row rationale as KYB. */
+const PDF_PURGE_LIMIT = 200;
+
 interface KybPurgeRow {
   id: string;
   storageKey: string;
@@ -62,6 +89,11 @@ interface KybPurgeRow {
 interface OrphanRedactRow {
   id: string;
   rawBody: string;
+}
+
+interface TicketPdfPurgeRow {
+  id: string;
+  ticketPdfKey: string;
 }
 
 /**
@@ -115,7 +147,11 @@ export const retentionSweeper: JobCore = async (tx, opts) => {
     GUEST_PII_RETENTION_DAYS,
     KYB_DOC_RETENTION_DAYS,
     ORPHAN_PAYMENT_PII_RETENTION_DAYS,
+    PLANNER_CHAT_RETENTION_DAYS,
+    NOTIFICATION_PII_RETENTION_DAYS,
+    CHARTER_CONTACT_RETENTION_DAYS,
   } = await import('@/lib/account');
+  const { TERMINAL_CHARTER_STATUSES } = await import('@/lib/charter');
 
   const now = opts?.now ?? new Date();
 
@@ -209,8 +245,104 @@ export const retentionSweeper: JobCore = async (tx, opts) => {
     orphansRedacted += 1;
   }
 
+  // --- 4. Planner conversation retention (W2) — bounded batch DELETE, cascades ------
+  // A PlannerConversation (+ its PlannerMessage rows) carries free-text travel chat
+  // with no money/audit obligation, so past PLANNER_CHAT_RETENTION_DAYS from the last
+  // activity (updatedAt) the whole conversation is HARD DELETED — messages vanish via
+  // the ON DELETE CASCADE FK (schema). Batched with FOR UPDATE SKIP LOCKED so a launch
+  // backlog can't hold the tx open on one giant DELETE, and so a conversation locked by
+  // a concurrent replaceMessages (which holds FOR UPDATE) is skipped, not blocked.
+  let convosDeleted = 0;
+  for (let i = 0; i < PLANNER_DELETE_MAX_BATCHES; i++) {
+    const n = Number(
+      await tx.$executeRaw(Prisma.sql`
+        DELETE FROM "PlannerConversation"
+        WHERE "id" IN (
+          SELECT "id" FROM "PlannerConversation"
+          WHERE "updatedAt" < ${now}::timestamp - (${PLANNER_CHAT_RETENTION_DAYS} * INTERVAL '1 day')
+          ORDER BY "updatedAt" ASC
+          FOR UPDATE SKIP LOCKED
+          LIMIT ${PLANNER_DELETE_LIMIT}
+        )
+      `)
+    );
+    convosDeleted += n;
+    if (n < PLANNER_DELETE_LIMIT) break;
+  }
+
+  // --- 5. Ticket-PDF purge (W3) — per-row storage delete ---------------------------
+  // A rendered ticket PDF bakes buyerName/buyerPhone (generateTicketPdfs.ts). When a
+  // booking's guest PII snapshot is scrubbed (snapshotAnonymizedAt set — by account
+  // deletion OR the guest-365d arm above), the PDF object still holds that PII, so
+  // purge the object and NULL the key. Per-row (storage side effect); if deleteObject
+  // throws (real S3), the tick fails LOUDLY and the key is NOT nulled (no silent
+  // "purged"). generateTicketPdfs's claim is guarded so it never regenerates one.
+  const pdfCandidates = await tx.$queryRaw<TicketPdfPurgeRow[]>(Prisma.sql`
+    SELECT "id", "ticketPdfKey"
+    FROM "Booking"
+    WHERE "ticketPdfKey" IS NOT NULL
+      AND "snapshotAnonymizedAt" IS NOT NULL
+    FOR UPDATE SKIP LOCKED
+    LIMIT ${PDF_PURGE_LIMIT}
+  `);
+  let pdfsPurged = 0;
+  for (const row of pdfCandidates) {
+    await deleteObject(prisma, row.ticketPdfKey);
+    await tx.booking.update({
+      where: { id: row.id },
+      data: { ticketPdfKey: null, ticketPdfGeneratedAt: null },
+    });
+    pdfsPurged += 1;
+  }
+
+  // --- 6. NotificationLog PII scrub (W4) — bulk UPDATE ------------------------------
+  // recipient (phone/email) + payload (rendered SMS/email body w/ buyer name) +
+  // lastError are PII. Past NOTIFICATION_PII_RETENTION_DAYS from createdAt, on a
+  // NON-pending row (a pending row may still dispatch), scrub those fields and stamp
+  // redactedAt. Row KEPT (delivery-audit evidence). erase != delete (S04). Bulk (pure
+  // column overwrite, no side effect, idempotent via redactedAt predicate).
+  const notifResult = await tx.$executeRaw(Prisma.sql`
+    UPDATE "NotificationLog"
+    SET "recipient" = 'ANONYMIZED',
+        "payload" = '{}',
+        "lastError" = NULL,
+        "redactedAt" = ${now}
+    WHERE "redactedAt" IS NULL
+      AND "status" <> 'pending'::"NotificationStatus"
+      AND "createdAt" < ${now}::timestamp - (${NOTIFICATION_PII_RETENTION_DAYS} * INTERVAL '1 day')
+  `);
+  const notifScrubbed = Number(notifResult);
+
+  // --- 7. CharterRequest contact-PII scrub (W6) — bulk UPDATE ----------------------
+  // A charter lead (guest-allowed) holds contactName/Phone/Email/notes. Once TERMINAL
+  // (REJECTED/COMPLETED/CANCELLED) and past CHARTER_CONTACT_RETENTION_DAYS from the last
+  // transition (updatedAt), scrub the contact fields to masked placeholders and stamp
+  // contactScrubbedAt. ref/status/assignee/destinations KEPT (operator-lead audit). A
+  // live lead is never scrubbed (operator still needs the contact). erase != delete.
+  const charterResult = await tx.$executeRaw(Prisma.sql`
+    UPDATE "CharterRequest"
+    SET "contactName" = ${EXPIRED_BUYER_NAME},
+        "contactPhone" = ${EXPIRED_BUYER_PHONE},
+        "contactEmail" = '[expired]',
+        "notes" = NULL,
+        "contactScrubbedAt" = ${now}
+    WHERE "contactScrubbedAt" IS NULL
+      AND "status" IN (${Prisma.join(
+        [...TERMINAL_CHARTER_STATUSES].map((s) => Prisma.sql`${s}::"CharterStatus"`)
+      )})
+      AND "updatedAt" < ${now}::timestamp - (${CHARTER_CONTACT_RETENTION_DAYS} * INTERVAL '1 day')
+  `);
+  const chartersScrubbed = Number(charterResult);
+
   return {
-    rowsAffected: guestScrubbed + docsPurged + orphansRedacted,
+    rowsAffected:
+      guestScrubbed +
+      docsPurged +
+      orphansRedacted +
+      convosDeleted +
+      pdfsPurged +
+      notifScrubbed +
+      chartersScrubbed,
     status: 'success',
   };
 };
