@@ -40,6 +40,9 @@ export default defineConfig({
         'app/**/*.{ts,tsx,js,jsx}',
         'components/**/*.{ts,tsx,js,jsx}',
         'lib/**/*.{ts,tsx,js,jsx}',
+        // trip-planner ships in the same app (imported via @/trip-planner/*) — incl. the
+        // default production LLM adapter — but was invisible to the coverage gate until now.
+        'trip-planner/**/*.{ts,tsx,js,jsx}',
       ],
       exclude: [
         '**/__tests__/**',
