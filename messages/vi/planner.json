@@ -10,7 +10,8 @@
     "placeholder": "Vd: Mình muốn đi Đà Lạt 3 ngày 2 đêm, ngân sách ~3 triệu/người",
     "planningPlaceholder": "Đang lên kế hoạch...",
     "send": "Gửi",
-    "sending": "Đang gửi"
+    "sending": "Đang gửi",
+    "privacyHint": "Đừng nhập thông tin cá nhân (SĐT, email)."
   },
   "sidebar": {
     "openHistory": "Mở lịch sử",

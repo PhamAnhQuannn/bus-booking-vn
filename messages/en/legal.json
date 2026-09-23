@@ -136,7 +136,7 @@
         "<b>Neon:</b> PostgreSQL database — Singapore region.",
         "<b>Upstash:</b> Redis cache — Singapore region."
       ],
-      "note": "This cross-border data transfer complies with the cross-border data transfer impact assessment (CDTIA) requirements under the PDPL 2025."
+      "note": "This cross-border data transfer complies with the cross-border data transfer impact assessment (CDTIA) requirements under the PDPL 2025. The AI assistant processes your messages via a language-model provider abroad; personal information is removed before sending."
     },
     "s7": {
       "title": "7. Retention period",

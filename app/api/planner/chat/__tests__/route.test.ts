@@ -80,6 +80,7 @@ vi.mock('@/lib/observability', () => ({
 // the happy path returns a 200 SSE without any real Gemini call.
 vi.mock('@/trip-planner/lib/planner', () => ({
   sanitizeHistory: (h: unknown) => h,
+  redactTurns: (h: unknown) => h,
   streamChat: async function* () {
     yield* streamEventsMock(); // default [] → route sends 'done' and closes
   },

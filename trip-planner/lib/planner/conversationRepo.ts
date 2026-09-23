@@ -8,6 +8,7 @@
 
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/core/db/client';
+import { redactPii } from './llm/redact';
 
 export interface RepoMessage {
   role: string; // 'user' | 'bot'
@@ -26,6 +27,12 @@ export interface ConversationRow extends ConversationMetaRow {
 
 function toDtoJson(dto: unknown | null | undefined): Prisma.InputJsonValue | typeof Prisma.JsonNull {
   return dto == null ? Prisma.JsonNull : (dto as Prisma.InputJsonValue);
+}
+
+// Scrub PII (email/SĐT/CCCD/tên tự khai) khỏi text khách TRƯỚC khi lưu — cuộc trò chuyện lưu lại
+// cũng sạch định danh. Chỉ user-turn (bot-turn = prose server, không PII).
+function scrubStoredText(role: string, text: string): string {
+  return role === 'user' ? redactPii(text) : text;
 }
 
 export async function listConversations(customerId: string): Promise<ConversationMetaRow[]> {
@@ -73,12 +80,12 @@ export async function createConversation(
       customerId,
       title: title.slice(0, 200),
       messages: {
-        create: messages.map((m) => ({ role: m.role, text: m.text, dtoJson: toDtoJson(m.dto) })),
+        create: messages.map((m) => ({ role: m.role, text: scrubStoredText(m.role, m.text), dtoJson: toDtoJson(m.dto) })),
       },
     },
     select: { id: true, title: true, createdAt: true, updatedAt: true },
   });
-  return { ...c, messages };
+  return { ...c, messages: messages.map((m) => ({ ...m, text: scrubStoredText(m.role, m.text) })) };
 }
 
 /** Ghi đè toàn bộ messages (replace-all) + bump updatedAt. Trả false nếu không phải owner. */
@@ -99,7 +106,7 @@ export async function replaceMessages(customerId: string, id: string, messages: 
         data: messages.map((m, i) => ({
           conversationId: id,
           role: m.role,
-          text: m.text,
+          text: scrubStoredText(m.role, m.text),
           dtoJson: toDtoJson(m.dto),
           createdAt: new Date(base + i),
         })),
