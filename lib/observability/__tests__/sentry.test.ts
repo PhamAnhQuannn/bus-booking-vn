@@ -49,7 +49,7 @@ describe('scrubPii', () => {
       accessToken: 'jwt.abc',
       otpProof: 'proof.jwt',
       nested: { codeHash: 'a'.repeat(64), keep: 'ok' },
-      list: [{ recipient: '+84900000000' }, 'plain'],
+      list: [{ recipient: '+8490xxxxxx0' }, 'plain'],
       AccessToken: 'mixedcase',
     }) as Record<string, unknown>;
 
@@ -63,6 +63,26 @@ describe('scrubPii', () => {
     expect((out.list as unknown[])[0]).toEqual({ recipient: '[REDACTED]' });
     expect((out.list as unknown[])[1]).toBe('plain');
     expect(out.AccessToken).toBe('[REDACTED]'); // case-insensitive
+  });
+
+  it('masks the PDPL PII-key-drift additions but keeps operator business names', () => {
+    const out = scrubPii({
+      displayName: 'Nguyen Van A',
+      contactName: 'Tran Thi B',
+      contactEmail: 'b@real.dev',
+      accountHolderName: 'NGUYEN VAN A',
+      notes: 'goi truoc khi den',
+      legalName: 'Nha xe Phuong Trang', // ops triage — kept
+      brandName: 'Futa Bus', // ops triage — kept
+    }) as Record<string, unknown>;
+
+    expect(out.displayName).toBe('[REDACTED]');
+    expect(out.contactName).toBe('[REDACTED]');
+    expect(out.contactEmail).toBe('[REDACTED]');
+    expect(out.accountHolderName).toBe('[REDACTED]');
+    expect(out.notes).toBe('[REDACTED]');
+    expect(out.legalName).toBe('Nha xe Phuong Trang');
+    expect(out.brandName).toBe('Futa Bus');
   });
 
   it('is cycle-safe', () => {
