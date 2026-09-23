@@ -534,6 +534,10 @@ model NotificationLog {
   nextAttemptAt DateTime?
   /// Last delivery error message (truncated) — ops debugging only.
   lastError     String?
+  /// PDPL retention marker. NULL = PII (recipient/payload/lastError) still present.
+  /// The retention sweeper scrubs those PII fields past NOTIFICATION_PII_RETENTION_DAYS
+  /// and stamps this; the row is KEPT (delivery-audit evidence). erase != delete (S04).
+  redactedAt    DateTime?
   createdAt     DateTime            @default(now())
   booking       Booking?            @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
@@ -690,6 +694,12 @@ model PlannerConversation {
   messages   PlannerMessage[]
 
   @@index([customerId, updatedAt(sort: Desc)])
+  /// PDPL retention: the retention sweeper prunes conversations inactive past
+  /// PLANNER_CHAT_RETENTION_DAYS with a GLOBAL `updatedAt < cutoff` predicate (no
+  /// customerId). The composite above leads with customerId so it can't range-seek
+  /// that predicate — a standalone updatedAt index keeps the sweep an index scan
+  /// (same rationale as OtpAttempt's standalone createdAt index).
+  @@index([updatedAt])
 }
 
 /// Một lượt lời trong hội thoại. dtoJson = snapshot PlannerDto khi bot message mang lịch trình.
@@ -1226,6 +1236,11 @@ model CharterRequest {
   vehicleType        String
   budgetVnd          Int?
   notes              String?
+  /// PDPL retention marker. NULL = contact PII still present. The retention sweeper
+  /// scrubs contactName/Phone/Email/notes on TERMINAL leads past
+  /// CHARTER_CONTACT_RETENTION_DAYS and stamps this; ref/status/assignee/destinations
+  /// are KEPT (operator-lead audit trail). erase != delete (S04).
+  contactScrubbedAt  DateTime?
   status             CharterStatus @default(SUBMITTED)
   /// Set when status → ASSIGNED_DIRECT (direct assign) or → ACCEPTED from the
   /// public pool. Cleared (set null) on DECLINED / EXPIRED so the lead frees up.
@@ -1247,6 +1262,10 @@ model CharterRequest {
   assigneeOperator Operator? @relation(fields: [assigneeOperatorId], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt])
+  /// PDPL retention: the sweeper claims TERMINAL leads past the window with a
+  /// `status IN (...) AND updatedAt < cutoff` predicate — index it so the daily
+  /// scrub is an index scan, not a heap scan (cron-predicate-indexed rule).
+  @@index([status, updatedAt])
   @@index([assigneeOperatorId])
   // Issue 086: predicate indices for the charter-expiry sweeper's claim queries.
   //   ASSIGNED_DIRECT + acceptByAt <= now  → direct-assign timeout reroute.

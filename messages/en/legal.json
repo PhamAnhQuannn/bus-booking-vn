@@ -143,6 +143,10 @@
       "items": [
         "Booking contact information: until you request deletion or the legal retention obligation ends.",
         "Booking history and payment records: at least 5 years under accounting regulations.",
+        "AI assistant conversation history: 90 days from the last message, or deleted immediately when you delete your account.",
+        "Sent notification content (SMS/email): personal information is masked after 180 days.",
+        "Charter (vehicle hire) requests: contact information is masked 365 days after the request is closed (by an admin decision or cancellation).",
+        "E-tickets (PDF): deleted at the same time the booking's contact information is masked.",
         "Access logs: 90 days."
       ]
     },

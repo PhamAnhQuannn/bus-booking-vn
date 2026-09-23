@@ -16,11 +16,19 @@
  * all LedgerEntry rows (money + audit history) are untouched. Financial history is
  * immutable; personal data has a finite life.
  *
+ * PDPL hardening (2026-09): a SOFT delete never fires the Customer `onDelete: Cascade`
+ * relations, so several PII stores would outlive the deletion request. In the SAME tx
+ * we now also: HARD-delete the customer's PlannerConversation chat (W1), scrub their
+ * booking-notification recipient/payload (W4), and scrub contact PII on their TERMINAL
+ * charter leads (W6). The ticket-PDF object is purged by the retention sweeper on the
+ * next tick (snapshotAnonymizedAt gates it; W3) — kept out of this tx (storage I/O).
+ *
  * Returns a discriminated result { customer, alreadyDeleted } for idempotent 200.
  * Does NOT throw on second call — per plan rule "idempotent ops whose AC specifies 200+discriminator".
  */
 
 import { prisma } from '@/lib/core/db/client';
+import { TERMINAL_CHARTER_STATUSES } from '@/lib/charter';
 
 /**
  * Masked PII placeholders for the on-delete booking-snapshot scrub. The phone
@@ -96,6 +104,37 @@ export async function deleteAccount(customerId: string): Promise<DeleteAccountRe
         buyerPhone: DELETED_BUYER_PHONE,
         buyerEmail: null,
         snapshotAnonymizedAt: now,
+      },
+    });
+
+    // PDPL W1: a soft delete never fires the Customer→PlannerConversation cascade, so
+    // the customer's free-text planner chat would outlive their deletion request. HARD
+    // delete it here (messages cascade). No money/audit value — nothing to retain.
+    await tx.plannerConversation.deleteMany({ where: { customerId } });
+
+    // PDPL W4: scrub the customer's booking-notification PII immediately (recipient +
+    // payload carry buyer name/phone/email). Pending rows are ALSO marked failed so the
+    // dispatcher never sends a deleted customer's notification. Row kept (delivery audit).
+    await tx.notificationLog.updateMany({
+      where: { booking: { customerId }, redactedAt: null, status: 'pending' },
+      data: { recipient: 'ANONYMIZED', payload: '{}', lastError: null, redactedAt: now, status: 'failed' },
+    });
+    await tx.notificationLog.updateMany({
+      where: { booking: { customerId }, redactedAt: null, status: { not: 'pending' } },
+      data: { recipient: 'ANONYMIZED', payload: '{}', lastError: null, redactedAt: now },
+    });
+
+    // PDPL W6: scrub contact PII on the customer's TERMINAL charter leads. A LIVE lead
+    // keeps its contact (an operator is still handling it off-platform) and falls to the
+    // 365d sweeper arm once it goes terminal. ref/status/assignee retained (lead audit).
+    await tx.charterRequest.updateMany({
+      where: { customerId, contactScrubbedAt: null, status: { in: [...TERMINAL_CHARTER_STATUSES] } },
+      data: {
+        contactName: DELETED_BUYER_NAME,
+        contactPhone: DELETED_BUYER_PHONE,
+        contactEmail: '[deleted]',
+        notes: null,
+        contactScrubbedAt: now,
       },
     });
 

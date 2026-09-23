@@ -1,10 +1,9 @@
 /**
- * Retention policy windows (Issue 090, AC1).
+ * Retention policy windows (Issue 090, AC1; PDPL hardening 2026-09).
  *
- * Two distinct retention obligations, each with its own window. Both windows are
- * defined here as named constants and consumed by:
+ * Named retention windows, each its own constant, consumed by:
  *   - lib/jobs/retentionSweeper.ts  (the daily run-locked sweeper that enforces them)
- *   - lib/account/anonymizeCustomer.ts (the on-demand booking-snapshot scrub)
+ *   - lib/account/anonymizeCustomer.ts (the on-demand purge/scrub at account deletion)
  *
  * ERASE ≠ DELETE (S04): scrubbing a guest's PII snapshot does NOT delete the
  * booking. Money/audit columns (totalVnd, ticketCount, status, payment refs, the
@@ -55,3 +54,42 @@ export const KYB_DOC_RETENTION_DAYS = 90;
  * dispute, DS-010) before the payer detail is scrubbed. ERASE ≠ DELETE (S04).
  */
 export const ORPHAN_PAYMENT_PII_RETENTION_DAYS = 365;
+
+/**
+ * PLANNER_CHAT_RETENTION_DAYS — trip-planner conversation retention (90 days).
+ *
+ * A `PlannerConversation` (+ its `PlannerMessage` rows) carries the customer's
+ * free-text travel chat. Unlike bookings/payments it has NO money/audit obligation,
+ * so 90 days after the last activity (`updatedAt`) the whole conversation is HARD
+ * DELETED (messages cascade) — not scrubbed-in-place: a scrub leaves `dtoJson`
+ * itinerary snapshots that can be re-identified. Anchored on `updatedAt` (last turn),
+ * so an actively-used conversation keeps living until the customer stops.
+ *
+ * Also enforced eagerly at account deletion (lib/account/anonymizeCustomer.ts) —
+ * a soft delete never fires the Customer→PlannerConversation cascade.
+ */
+export const PLANNER_CHAT_RETENTION_DAYS = 90;
+
+/**
+ * NOTIFICATION_PII_RETENTION_DAYS — NotificationLog PII retention (180 days).
+ *
+ * A `NotificationLog` row stores `recipient` (phone/email) + `payload` (the rendered
+ * SMS/email body, embedding buyer name + trip detail) + `lastError`. 180 days after
+ * `createdAt`, on a NON-pending row, those PII fields are scrubbed (recipient
+ * 'ANONYMIZED', payload '{}', lastError NULL) and `redactedAt` is stamped. The row is
+ * KEPT (delivery-audit evidence: which template went out for which booking, when).
+ * erase != delete (S04).
+ */
+export const NOTIFICATION_PII_RETENTION_DAYS = 180;
+
+/**
+ * CHARTER_CONTACT_RETENTION_DAYS — CharterRequest contact-PII retention (365 days).
+ *
+ * A `CharterRequest` (guest-allowed: customerId nullable) holds `contactName/Phone/
+ * Email/notes`. 365 days after the lead reaches a TERMINAL status (REJECTED /
+ * COMPLETED / CANCELLED — anchored on `updatedAt`, the last transition), those contact
+ * fields are scrubbed to masked placeholders and `contactScrubbedAt` is stamped.
+ * ref/status/assignee/destinations are RETAINED (operator-lead audit trail). A live
+ * lead is NEVER scrubbed (an operator still needs the contact). erase != delete (S04).
+ */
+export const CHARTER_CONTACT_RETENTION_DAYS = 365;
