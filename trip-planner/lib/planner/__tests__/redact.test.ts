@@ -10,7 +10,7 @@ describe('redactPii — mask PII định danh', () => {
   });
 
   it('mask email', () => {
-    expect(redactPii('mail quan.pham@gmail.com đi')).toBe('mail [email] đi');
+    expect(redactPii('mail quan.test@example.com đi')).toBe('mail [email] đi');
   });
 
   it('mask CCCD/CMND đứng độc lập', () => {
@@ -33,6 +33,11 @@ describe('redactPii — mask PII định danh', () => {
     expect(redactPii('đi Sa Pa 3 ngày')).toBe('đi Sa Pa 3 ngày');
     expect(redactPii('Bến Tre 2 đêm')).toBe('Bến Tre 2 đêm');
     expect(redactPii('leo Sơn Trà rồi ra Hội An')).toBe('leo Sơn Trà rồi ra Hội An');
+  });
+
+  it('"tên" trần (từ thường) không phải marker — giữ địa danh/tên khách sạn', () => {
+    expect(redactPii('điểm đến tên Đà Lạt')).toBe('điểm đến tên Đà Lạt');
+    expect(redactPii('khách sạn tên Mường Thanh')).toBe('khách sạn tên Mường Thanh');
   });
 
   it('GIỮ tín hiệu intent (party/thời lượng/sở thích)', () => {

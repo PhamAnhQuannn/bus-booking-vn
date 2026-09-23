@@ -85,7 +85,7 @@ export async function createConversation(
     },
     select: { id: true, title: true, createdAt: true, updatedAt: true },
   });
-  return { ...c, messages };
+  return { ...c, messages: messages.map((m) => ({ ...m, text: scrubStoredText(m.role, m.text) })) };
 }
 
 /** Ghi đè toàn bộ messages (replace-all) + bump updatedAt. Trả false nếu không phải owner. */
