@@ -4,7 +4,11 @@
  * adminOnly. Idempotent: re-disabling an already-disabled staff is a 200 no-op.
  * Real HOF exercised (jwt + cookies + prisma.operatorUser mocked); disableStaff mocked.
  *
- * Coverage: 200 happy · 200 idempotent re-disable · 401 no cookie · 403 staff role · 404 not_found.
+ * Idempotency lives entirely in disableStaff (mocked here), not in a route-level branch —
+ * a route test re-asserting a mocked resolved value would be byte-equivalent to the happy
+ * path, so it is not covered here.
+ *
+ * Coverage: 200 happy · 401 no cookie · 403 staff role · 404 not_found.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -86,14 +90,6 @@ describe('POST /api/op/staff/[id]/disable', () => {
     expect(json.staff.disabled).toBe(true);
     expectNoForbiddenFields(json);
     expect(mockDisableStaff).toHaveBeenCalledWith({ operatorId: 'op-org-1', staffId: STAFF_ID });
-  });
-
-  it('returns 200 no-op on idempotent re-disable', async () => {
-    // disableStaff resolves the same already-disabled DTO — route still 200.
-    mockDisableStaff.mockResolvedValue({ ...STAFF_DTO, disabled: true });
-    const res = await POST(makePost(), ROUTE_CTX);
-    expect(res.status).toBe(200);
-    expect((await res.json()).staff.disabled).toBe(true);
   });
 
   it('returns 401 without a session cookie', async () => {

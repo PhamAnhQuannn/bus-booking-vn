@@ -7,6 +7,7 @@
  * Coverage:
  *   - 200 happy path (admin).
  *   - 200 alreadyDeparted idempotent.
+ *   - 200 staff assigned to THIS trip is admitted (staffTripScope pass).
  *   - 401 without cookie.
  *   - 404 staff assigned to a DIFFERENT trip (staffTripScope reject, service NOT called).
  *   - 404 not_found + 422 trip_cancelled domain errors.
@@ -96,6 +97,13 @@ describe('POST /api/op/trips/[id]/depart', () => {
     const res = await POST(makePost(), ROUTE_CTX);
     expect(res.status).toBe(200);
     expect((await res.json()).alreadyDeparted).toBe(true);
+  });
+
+  it('admits a staff member assigned to THIS trip', async () => {
+    mockOperatorFindUnique.mockResolvedValue({ ...STAFF_USER, assignedTripId: TRIP_ID });
+    const res = await POST(makePost(), ROUTE_CTX);
+    expect(res.status).toBe(200);
+    expect(mockMarkDeparted).toHaveBeenCalledTimes(1);
   });
 
   it('returns 401 without a session cookie', async () => {
