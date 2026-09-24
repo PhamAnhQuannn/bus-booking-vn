@@ -138,7 +138,8 @@
         "<b>Google (Gemini):</b> AI assistant processing chat messages — United States. Personal information is removed before sending.",
         "<b>Groq:</b> AI assistant processing chat messages — United States. Personal information is removed before sending.",
         "<b>Google:</b> Sign-in with Google account (OAuth) — United States.",
-        "<b>Resend:</b> Transactional email delivery (ticket confirmations, notifications) — United States."
+        "<b>Resend:</b> Transactional email delivery (ticket confirmations, notifications) — United States.",
+        "<b>Sentry:</b> Application error monitoring — United States. Receives technical error reports (IP address, browser user agent, page URL, error message); known personal-data fields are masked before sending."
       ],
       "note": "This cross-border data transfer complies with the cross-border data transfer impact assessment (CDTIA) requirements under the PDPL 2025."
     },
@@ -173,7 +174,7 @@
     },
     "s9": {
       "title": "9. Cookies and tracking technologies",
-      "body": "We use technical cookies (login session, CSRF verification, seat holds) necessary to operate the service. We do not use advertising tracking cookies or third-party cookies. For non-logged-in users, AI assistant conversation history is stored only temporarily in your browser (session storage) and is automatically cleared when you close the tab; this data is not sent to our servers."
+      "body": "We use technical cookies (login session, CSRF verification, seat holds) necessary to operate the service. We do not use advertising tracking cookies or third-party cookies. For non-logged-in users, AI assistant conversation history is stored only temporarily in your browser (session storage) and is automatically cleared when you close the tab; this history is not stored on our servers. Messages are still sent to the server for processing as described in Section 6a."
     },
     "s10": {
       "title": "10. Contact",
