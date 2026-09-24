@@ -29,8 +29,10 @@ const NATIONAL_ID = /(?<!\d)(?:\d{12}|\d{9})(?!\d)/g;
 // "khách sạn tên Mường Thanh") → nuốt địa danh → hỏng intent parse.
 // Over-mask sau marker rõ = hiếm + vô hại cho intent (thành phố lấy từ chỗ khác).
 // Từ đầu ≥2 chữ cái (tránh bắt "à"/"ơi" lạc); từ sau ≥1 chữ cái, tối đa 3 từ nữa (họ tên VN có
-// tên đệm 1 ký tự viết tắt, vd "Nguyễn Văn A").
-const NAME_VI = /((?:họ(?: và)? tên|(?:tôi|mình|em|tớ)\s+tên|tên(?:\s+của)?\s+(?:tôi|mình|em|tớ))\s*(?:là|:)?\s+)([\p{L}]{2,}(?:\s+[\p{L}]+){0,3})/giu;
+// tên đệm 1 ký tự viết tắt, vd "Nguyễn Văn A"). Negative-lookahead loại từ chức năng marker khỏi
+// phần tên → hàm IDEMPOTENT: chạy lại trên "tên tôi là [tên]" không bắt "tôi/là" làm tên (nếu không,
+// re-run sẽ mangle → "tên tôi [tên] [tên]"). Idempotency cần cho backfill (scripts/prod/backfill-planner-redact).
+const NAME_VI = /((?:họ(?: và)? tên|(?:tôi|mình|em|tớ)\s+tên|tên(?:\s+của)?\s+(?:tôi|mình|em|tớ))\s*(?:là|:)?\s+)(?!(?:tôi|mình|em|tớ|là|của|họ)(?![\p{L}]))([\p{L}]{2,}(?:\s+[\p{L}]+){0,3})/giu;
 const NAME_EN = /(\bmy name is\s+)([A-Za-z]{2,}(?:\s+[A-Za-z]+){0,3})/gi;
 
 /** Mask email / SĐT / CCCD-CMND / tên tự khai trong một chuỗi free-text. Thứ tự cố định. */

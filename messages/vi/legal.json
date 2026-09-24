@@ -126,17 +126,22 @@
     },
     "s6": {
       "title": "6. Lưu trữ và bảo mật",
-      "body": "Dữ liệu được lưu trữ trên máy chủ tại Singapore (Vercel, Neon, Upstash). Chúng tôi áp dụng mã hóa AES-256 cho thông tin nhạy cảm, mã hóa kết nối SSL/TLS, và kiểm soát truy cập nghiêm ngặt. Mật khẩu được băm (hash) một chiều, không lưu dạng rõ."
+      "body": "Dữ liệu được lưu trữ trên máy chủ tại Singapore (Vercel, Neon, Upstash). Chúng tôi áp dụng mã hóa AES-256 ở cấp trường cho các dữ liệu nhạy cảm nhất (số tài khoản ngân hàng, khóa xác thực hai lớp); dữ liệu cá nhân khác được mã hóa khi lưu trữ ở tầng cơ sở dữ liệu. Kết nối được mã hóa SSL/TLS và kiểm soát truy cập nghiêm ngặt. Mật khẩu được băm (hash) một chiều, không lưu dạng rõ."
     },
     "s6a": {
       "title": "6a. Chuyển dữ liệu ra nước ngoài",
-      "intro": "Theo Điều 25 Luật PDPL 2025 và Nghị định 356/2025/NĐ-CP, chúng tôi thông báo rằng dữ liệu cá nhân của bạn được xử lý bởi các nhà cung cấp dịch vụ đám mây tại Singapore:",
+      "intro": "Theo Điều 25 Luật PDPL 2025 và Nghị định 356/2025/NĐ-CP, chúng tôi thông báo rằng dữ liệu cá nhân của bạn được xử lý bởi các nhà cung cấp dịch vụ đặt tại nước ngoài:",
       "items": [
         "<b>Vercel:</b> Máy chủ ứng dụng (compute) — khu vực Singapore (sin1).",
         "<b>Neon:</b> Cơ sở dữ liệu PostgreSQL — khu vực Singapore.",
-        "<b>Upstash:</b> Bộ nhớ đệm Redis — khu vực Singapore."
+        "<b>Upstash:</b> Bộ nhớ đệm Redis — khu vực Singapore.",
+        "<b>Google (Gemini):</b> Trợ lý AI xử lý tin nhắn trò chuyện — Hoa Kỳ. Thông tin cá nhân được loại bỏ trước khi gửi.",
+        "<b>Groq:</b> Trợ lý AI xử lý tin nhắn trò chuyện — Hoa Kỳ. Thông tin cá nhân được loại bỏ trước khi gửi.",
+        "<b>Google:</b> Đăng nhập bằng tài khoản Google (OAuth) — Hoa Kỳ.",
+        "<b>Resend:</b> Gửi email giao dịch (xác nhận vé, thông báo) — Hoa Kỳ.",
+        "<b>Sentry:</b> Giám sát lỗi hệ thống — Hoa Kỳ. Nhận báo cáo lỗi kỹ thuật (địa chỉ IP, user agent trình duyệt, đường dẫn trang, thông điệp lỗi); các trường dữ liệu cá nhân đã biết được che trước khi gửi."
       ],
-      "note": "Việc chuyển dữ liệu ra nước ngoài tuân thủ các yêu cầu về đánh giá tác động chuyển dữ liệu xuyên biên giới (CDTIA) theo quy định PDPL 2025. Trợ lý AI xử lý tin nhắn của bạn qua nhà cung cấp mô hình ngôn ngữ ở nước ngoài; thông tin cá nhân được loại bỏ trước khi gửi."
+      "note": "Việc chuyển dữ liệu ra nước ngoài tuân thủ các yêu cầu về đánh giá tác động chuyển dữ liệu xuyên biên giới (CDTIA) theo quy định PDPL 2025."
     },
     "s7": {
       "title": "7. Thời gian lưu trữ",
@@ -169,7 +174,7 @@
     },
     "s9": {
       "title": "9. Cookie và công nghệ theo dõi",
-      "body": "Chúng tôi sử dụng cookie kỹ thuật (phiên đăng nhập, xác thực CSRF, giữ chỗ) cần thiết để vận hành dịch vụ. Chúng tôi không sử dụng cookie theo dõi quảng cáo hay cookie bên thứ ba."
+      "body": "Chúng tôi sử dụng cookie kỹ thuật (phiên đăng nhập, xác thực CSRF, giữ chỗ) cần thiết để vận hành dịch vụ. Chúng tôi không sử dụng cookie theo dõi quảng cáo hay cookie bên thứ ba. Với khách chưa đăng nhập, lịch sử trò chuyện với trợ lý AI chỉ được lưu tạm trên trình duyệt của bạn (bộ nhớ phiên) và tự động xóa khi bạn đóng tab; lịch sử này không được lưu trữ trên máy chủ của chúng tôi. Tin nhắn vẫn được gửi tới máy chủ để xử lý theo Mục 6a."
     },
     "s10": {
       "title": "10. Liên hệ",

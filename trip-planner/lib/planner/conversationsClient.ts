@@ -3,7 +3,8 @@
 /**
  * Lưu/đọc lịch sử hội thoại trợ lý — 1 interface, 2 nguồn (redesign v4):
  *  - Đã đăng nhập  → gọi API /api/planner/conversations qua authFetch (Bearer+CSRF, đồng bộ đa thiết bị).
- *  - Guest         → localStorage key 'bbvn_planner_convos' (per-device; upsell "Đăng nhập" để sync).
+ *  - Guest         → sessionStorage key 'bbvn_planner_convos' (PDPL: session-only, tự xóa khi đóng
+ *                    tab — không tồn tại vô hạn trên máy dùng chung; upsell "Đăng nhập" để lưu bền + sync).
  * Cùng shape trả về nên PlannerSidebar không cần phân biệt nguồn. Client-safe (không import server).
  *
  * Chuẩn hoá timestamp về epoch-ms ở cả 2 nguồn (API trả ISO string → Date.parse).
@@ -31,7 +32,7 @@ export interface ConversationMeta {
 }
 
 const LS_KEY = 'bbvn_planner_convos';
-const MAX_LOCAL = 30; // chặn phình localStorage
+const MAX_LOCAL = 30; // chặn phình bộ nhớ phiên
 
 function authed(): boolean {
   return getAccessToken() !== null;
@@ -48,19 +49,40 @@ function newId(): string {
   return `c_${Date.now()}_${Math.floor(Math.random() * 1e9)}`;
 }
 
-// ── localStorage (guest) ────────────────────────────────────────────────────
-function readLocal(): Conversation[] {
-  if (typeof window === 'undefined') return [];
+// ── sessionStorage (guest, session-only) ────────────────────────────────────
+// PDPL: guest chat lives only for the tab session (cleared on tab close), not
+// indefinitely on a shared/kiosk device. sessionStorage may be absent/blocked
+// (private window, SSR) → return null and degrade to no history.
+function guestStore(): Storage | null {
+  if (typeof window === 'undefined') return null;
   try {
-    const raw = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
+function readLocal(): Conversation[] {
+  const s = guestStore();
+  if (!s) return [];
+  // One-time migration: purge any pre-session-only guest history left in
+  // localStorage (older builds persisted it there indefinitely). Idempotent + cheap.
+  try {
+    window.localStorage.removeItem(LS_KEY);
+  } catch {
+    /* blocked — ignore */
+  }
+  try {
+    const raw = JSON.parse(s.getItem(LS_KEY) || '[]');
     return Array.isArray(raw) ? (raw as Conversation[]) : [];
   } catch {
     return [];
   }
 }
 function writeLocal(list: Conversation[]): void {
+  const s = guestStore();
+  if (!s) return;
   try {
-    localStorage.setItem(LS_KEY, JSON.stringify(list.slice(0, MAX_LOCAL)));
+    s.setItem(LS_KEY, JSON.stringify(list.slice(0, MAX_LOCAL)));
   } catch {
     /* quota — bỏ qua */
   }
