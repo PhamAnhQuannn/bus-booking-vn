@@ -190,6 +190,19 @@ describe('geminiAdapter — retry / fail-fast', () => {
     }
   });
 
+  it('(4e) fetch() REJECT (network/DNS lỗi, khác res.ok=false) × 3: retry backoff rồi hết attempt → throw ParseIntentError(upstream)', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error('network down'));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const captured = drain().catch((e) => e);
+    await vi.advanceTimersByTimeAsync(1200); // 400 + 800 backoff giữa 3 lần thử
+    const err = await captured;
+
+    expect(err).toMatchObject({ name: 'ParseIntentError', code: 'upstream' });
+    expect(err.message).toBe('Gemini fetch failed: Error: network down');
+    expect(fetchMock).toHaveBeenCalledTimes(3); // retry đúng GEMINI_MAX_ATTEMPTS rồi mới throw
+  });
+
   it('(5) idle-timeout: stream im lặng qua STREAM_TIMEOUT_MS → abort → throw "Gemini timeout"', async () => {
     // Response body treo mãi; wire abort-signal của fetch để error stream khi idle-timer bắn.
     const hangingRes = (signal: AbortSignal) =>
@@ -225,6 +238,19 @@ describe('geminiAdapter — gates / config', () => {
     const events = await drain();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(events.some((e) => e.kind === 'slots')).toBe(true); // stub mặc định phát slots da-lat
+  });
+
+  it('(6b) PLANNER_LLM_STUB=true + VERCEL_ENV=production (isRealProduction=true) → defense-in-depth throw no_key, KHÔNG phục vụ stub/gọi fetch', async () => {
+    process.env.PLANNER_LLM_STUB = 'true';
+    process.env.VERCEL_ENV = 'production'; // isRealProduction()=true
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(drain()).rejects.toMatchObject({
+      code: 'no_key',
+      message: 'PLANNER_LLM_STUB không được bật ở production',
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('(9) thiếu GEMINI_API_KEY → throw no_key, KHÔNG gọi fetch', async () => {
