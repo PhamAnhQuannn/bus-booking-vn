@@ -12,6 +12,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { LedgerEntryType } from '@prisma/client';
 import { prisma } from '@/lib/core/db/client';
 import { appendLedgerEntry, deriveOperatorBalance } from '../ledgerRepo';
 
@@ -89,5 +90,48 @@ describe('LedgerEntry immutability (DB trigger)', () => {
     const balance = await deriveOperatorBalance(operatorId);
     expect(typeof balance).toBe('bigint');
     expect(balance).toBe(BigInt('100000249999'));
+  });
+});
+
+describe('HD-009 — every LedgerEntryType round-trips its BigInt amount intact (#765c)', () => {
+  // AC(c): every enum value has a covered append + read-back. Iterating Object.values keeps
+  // this count-agnostic — a new LedgerEntryType (e.g. psp_fee) is covered the moment it is
+  // added to the schema, with no test edit. Amounts are large + signed to prove no float drift.
+  it.each(Object.values(LedgerEntryType))('stores and reads %s with the exact minor-unit amount', async (type) => {
+    // Positive for credit-like, negative for debit-like — sign is caller-supplied here.
+    const magnitude = BigInt('900000000001') + BigInt(Object.values(LedgerEntryType).indexOf(type));
+    const amountMinor = type === 'booking_credit' || type === 'payout_reversal' ? magnitude : -magnitude;
+    const sourceEventId = `hd009:type-coverage:${type}:${operatorId}`;
+
+    const res = await appendLedgerEntry({ operatorId, type, amountMinor, sourceEventId });
+    expect(res.created).toBe(true);
+
+    const row = await prisma.ledgerEntry.findUnique({
+      where: { sourceEventId },
+      select: { type: true, amount: true },
+    });
+    expect(row?.type).toBe(type);
+    expect(row?.amount).toBe(amountMinor); // exact BigInt, no Number coercion
+  });
+});
+
+describe('HD-009 — sourceEventId uniqueness is DB-enforced (#765d)', () => {
+  it('a duplicate sourceEventId insert is rejected by the unique index (P2002)', async () => {
+    const sourceEventId = `hd009:uniqueness:${operatorId}`;
+    const first = await appendLedgerEntry({
+      operatorId,
+      type: 'adjustment',
+      amountMinor: BigInt(1_234),
+      sourceEventId,
+    });
+    expect(first.created).toBe(true);
+
+    // Raw create bypasses appendLedgerEntry's P2002 catch, so the constraint surfaces.
+    await expect(
+      prisma.ledgerEntry.create({
+        data: { operatorId, type: 'adjustment', amount: BigInt(5_678), currency: 'VND', sourceEventId },
+        select: { id: true },
+      })
+    ).rejects.toMatchObject({ code: 'P2002' });
   });
 });

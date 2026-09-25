@@ -62,6 +62,7 @@ export interface AppendLedgerEntryResult {
 function toBigIntMinor(amount: bigint | number): bigint {
   if (typeof amount === 'bigint') return amount;
   // Defensive: callers should already pass integer minor units.
+  // bigint-exempt: coerces an already-integer minor-unit Number to BigInt; no fractional multiply.
   return BigInt(Math.round(amount));
 }
 
