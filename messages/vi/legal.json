@@ -135,6 +135,7 @@
         "<b>Vercel:</b> Máy chủ ứng dụng (compute) — khu vực Singapore (sin1).",
         "<b>Neon:</b> Cơ sở dữ liệu PostgreSQL — khu vực Singapore.",
         "<b>Upstash:</b> Bộ nhớ đệm Redis — khu vực Singapore.",
+        "<b>Cloudflare R2:</b> Lưu trữ tệp — hạ tầng toàn cầu của Cloudflare. Lưu vé điện tử PDF (tên hành khách, số điện thoại liên hệ, chi tiết chuyến đi) và giấy tờ định danh của nhà xe khi đăng ký. Tệp chỉ truy cập được qua đường dẫn ký số có thời hạn ngắn (5–15 phút).",
         "<b>Google (Gemini):</b> Trợ lý AI xử lý tin nhắn trò chuyện — Hoa Kỳ. Thông tin cá nhân được loại bỏ trước khi gửi.",
         "<b>Groq:</b> Trợ lý AI xử lý tin nhắn trò chuyện — Hoa Kỳ. Thông tin cá nhân được loại bỏ trước khi gửi.",
         "<b>Google:</b> Đăng nhập bằng tài khoản Google (OAuth) — Hoa Kỳ.",
