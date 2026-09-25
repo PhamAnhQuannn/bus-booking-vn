@@ -126,7 +126,7 @@
     },
     "s6": {
       "title": "6. Storage and security",
-      "body": "Data is stored on servers in Singapore (Vercel, Neon, Upstash). We apply field-level AES-256 encryption to the most sensitive data (bank account numbers, two-factor authentication secrets); other personal data is encrypted at rest at the database layer. Connections are SSL/TLS encrypted and access is strictly controlled. Passwords are one-way hashed and never stored in plaintext."
+      "body": "Data is stored on servers in Singapore (Vercel, Neon, Upstash). We apply field-level AES-256 encryption to the most sensitive data (bank account numbers, two-factor authentication secrets); other personal data is encrypted at rest at the database layer. Connections are SSL/TLS encrypted and access is strictly controlled. Passwords are one-way hashed and never stored in plaintext. Attachments (ticket PDFs, operator documents) are stored on Cloudflare R2 in the Asia-Pacific region."
     },
     "s6a": {
       "title": "6a. Cross-border data transfer",
@@ -135,6 +135,7 @@
         "<b>Vercel:</b> Application server (compute) — Singapore region (sin1).",
         "<b>Neon:</b> PostgreSQL database — Singapore region.",
         "<b>Upstash:</b> Redis cache — Singapore region.",
+        "<b>Cloudflare R2:</b> File storage — Asia-Pacific region. Holds e-ticket PDFs (passenger name, contact phone, trip details) and operator identity documents submitted during registration. Files are accessible only via short-lived signed links (5–15 minutes).",
         "<b>Google (Gemini):</b> AI assistant processing chat messages — United States. Personal information is removed before sending.",
         "<b>Groq:</b> AI assistant processing chat messages — United States. Personal information is removed before sending.",
         "<b>Google:</b> Sign-in with Google account (OAuth) — United States.",

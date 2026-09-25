@@ -126,7 +126,7 @@
     },
     "s6": {
       "title": "6. Lưu trữ và bảo mật",
-      "body": "Dữ liệu được lưu trữ trên máy chủ tại Singapore (Vercel, Neon, Upstash). Chúng tôi áp dụng mã hóa AES-256 ở cấp trường cho các dữ liệu nhạy cảm nhất (số tài khoản ngân hàng, khóa xác thực hai lớp); dữ liệu cá nhân khác được mã hóa khi lưu trữ ở tầng cơ sở dữ liệu. Kết nối được mã hóa SSL/TLS và kiểm soát truy cập nghiêm ngặt. Mật khẩu được băm (hash) một chiều, không lưu dạng rõ."
+      "body": "Dữ liệu được lưu trữ trên máy chủ tại Singapore (Vercel, Neon, Upstash). Chúng tôi áp dụng mã hóa AES-256 ở cấp trường cho các dữ liệu nhạy cảm nhất (số tài khoản ngân hàng, khóa xác thực hai lớp); dữ liệu cá nhân khác được mã hóa khi lưu trữ ở tầng cơ sở dữ liệu. Kết nối được mã hóa SSL/TLS và kiểm soát truy cập nghiêm ngặt. Mật khẩu được băm (hash) một chiều, không lưu dạng rõ. Tệp đính kèm (vé PDF, giấy tờ nhà xe) được lưu trên Cloudflare R2, khu vực châu Á – Thái Bình Dương."
     },
     "s6a": {
       "title": "6a. Chuyển dữ liệu ra nước ngoài",
@@ -135,6 +135,7 @@
         "<b>Vercel:</b> Máy chủ ứng dụng (compute) — khu vực Singapore (sin1).",
         "<b>Neon:</b> Cơ sở dữ liệu PostgreSQL — khu vực Singapore.",
         "<b>Upstash:</b> Bộ nhớ đệm Redis — khu vực Singapore.",
+        "<b>Cloudflare R2:</b> Lưu trữ tệp — khu vực châu Á – Thái Bình Dương. Lưu vé điện tử PDF (tên hành khách, số điện thoại liên hệ, chi tiết chuyến đi) và giấy tờ định danh của nhà xe khi đăng ký. Tệp chỉ truy cập được qua đường dẫn ký số có thời hạn ngắn (5–15 phút).",
         "<b>Google (Gemini):</b> Trợ lý AI xử lý tin nhắn trò chuyện — Hoa Kỳ. Thông tin cá nhân được loại bỏ trước khi gửi.",
         "<b>Groq:</b> Trợ lý AI xử lý tin nhắn trò chuyện — Hoa Kỳ. Thông tin cá nhân được loại bỏ trước khi gửi.",
         "<b>Google:</b> Đăng nhập bằng tài khoản Google (OAuth) — Hoa Kỳ.",
