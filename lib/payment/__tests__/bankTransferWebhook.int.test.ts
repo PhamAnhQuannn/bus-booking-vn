@@ -368,3 +368,104 @@ describe('bank_transfer webhook — orphan persistence (Bug B)', () => {
     expect(events[0].bookingId).toBe(lateBookingId);
   });
 });
+
+/**
+ * HD-006 (#767) — money-loss guards + idempotency under replay/race.
+ *
+ * Bearer timing-safety (SePay static token) lives at the route auth layer; VNPay HMAC
+ * round-trip is fully covered by lib/payment/__tests__/vnpay.test.ts (sign→verify, tamper,
+ * key-order, negative-amount). This block owns the amount guard + the exactly-once
+ * transition the money core must uphold.
+ */
+describe('HD-006 — webhook amount guard + replay/race idempotency (#767)', () => {
+  /** A fresh awaiting_payment booking on the module's seeded trip, tracked for cleanup. */
+  async function makeBooking(): Promise<{ id: string; ref: string }> {
+    const id = randomUUID();
+    extraBookingIds.push(id);
+    const ref = generateBookingRef();
+    await prisma.booking.create({
+      data: {
+        id,
+        bookingRef: ref,
+        confirmationToken: randomUUID().replace(/-/g, '') + 'hd',
+        tripId,
+        buyerName: 'HD006 Buyer',
+        buyerPhone: '+8490xxxxxx5',
+        ticketCount: 1,
+        totalVnd: GROSS,
+        paymentMethod: 'bank_transfer',
+        status: 'awaiting_payment',
+      },
+    });
+    return { id, ref };
+  }
+
+  /** SePay body for a given ref/amount/txn — hyphen-stripped memo, as banks deliver it. */
+  function sepayBody(ref: string, amount: number, txnId: string): string {
+    return JSON.stringify({
+      id: Number(txnId),
+      gateway: 'Sacombank',
+      transactionDate: '2026-07-23 15:00:00',
+      accountNumber: '030976167267',
+      subAccount: null,
+      transferType: 'in',
+      transferAmount: amount,
+      accumulated: 0,
+      code: null,
+      content: `${ref.replace(/-/g, '')} CKN 100000`,
+      referenceCode: 'VN0011911FT26204HD001',
+      description: `BankAPINotify ${ref.replace(/-/g, '')}`,
+    });
+  }
+
+  const call = (rawBody: string) =>
+    processPaymentWebhook({ rawBody, gateway: getBankTransferAdapter(), adapter: 'bank_transfer', proto: 'https', host: 'test.invalid' });
+
+  it('underpaid transfer is NOT marked paid — booking stays awaiting_payment, no ledger', async () => {
+    const { id, ref } = await makeBooking();
+    const txnId = String(Date.now() + 100);
+
+    const res = await call(sepayBody(ref, GROSS - 50_000, txnId)); // pays half
+    expect(res.status).toBe(200); // no enumeration signal
+
+    const row = await prisma.booking.findUnique({ where: { id }, select: { status: true } });
+    expect(row?.status).toBe('awaiting_payment'); // money-loss guard held
+
+    // PaymentEvent recorded for audit, but NO booking-paid ledger rows.
+    const events = await prisma.paymentEvent.findMany({ where: { bookingId: id } });
+    expect(events.length).toBe(1);
+    const entries = await prisma.ledgerEntry.findMany({ where: { bookingId: id } });
+    expect(entries.length).toBe(0);
+  });
+
+  it('a duplicate delivery of the SAME paid txn is idempotent — one event, two ledger rows', async () => {
+    const { id, ref } = await makeBooking();
+    const txnId = String(Date.now() + 200);
+    const body = sepayBody(ref, GROSS, txnId);
+
+    expect((await call(body)).status).toBe(200);
+    expect((await call(body)).status).toBe(200); // replay — no-op
+
+    const row = await prisma.booking.findUnique({ where: { id }, select: { status: true } });
+    expect(row?.status).toBe('paid');
+    // Exactly one PaymentEvent and exactly two ledger rows — the replay added neither.
+    expect((await prisma.paymentEvent.findMany({ where: { bookingId: id } })).length).toBe(1);
+    expect((await prisma.ledgerEntry.findMany({ where: { bookingId: id } })).length).toBe(2);
+  });
+
+  it('two concurrent identical deliveries apply the payment exactly once (race guard)', async () => {
+    const { id, ref } = await makeBooking();
+    const txnId = String(Date.now() + 300);
+    const body = sepayBody(ref, GROSS, txnId);
+
+    // Fire both at once; the @@unique(adapter,providerTxnId) + guarded paid-transition
+    // must let exactly one win. Neither call should throw.
+    const results = await Promise.all([call(body), call(body)]);
+    for (const r of results) expect(r.status).toBe(200);
+
+    const row = await prisma.booking.findUnique({ where: { id }, select: { status: true } });
+    expect(row?.status).toBe('paid');
+    expect((await prisma.paymentEvent.findMany({ where: { bookingId: id } })).length).toBe(1);
+    expect((await prisma.ledgerEntry.findMany({ where: { bookingId: id } })).length).toBe(2);
+  });
+});

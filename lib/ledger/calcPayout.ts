@@ -60,6 +60,8 @@ export function calcPayout(input: CalcPayoutInput): CalcPayoutResult {
   // Convert platformFeePct to a BigInt ratio to avoid float multiplication.
   // PRECISION = 1e10 captures up to 10 decimal places of the fee percentage.
   const PRECISION = BigInt(10_000_000_000);
+  // bigint-exempt: scales the fractional fee RATE to an integer basis (1e10) before the
+  // BigInt money multiply below — this is not a minor-unit × rate currency multiplication.
   const numerator = BigInt(Math.round(platformFeePct * 10_000_000_000));
   const grossBig = BigInt(gross);
 
