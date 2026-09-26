@@ -22,6 +22,8 @@ import { cookies } from 'next/headers';
 import { z } from 'zod';
 import { verifyOtpProof, verifyOperatorLoginOtp, operatorLoginStep2, AuthServiceError, rotateCsrf } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
+import { opVerifyOtpRatelimit } from '@/lib/ratelimit';
+import { clientIp } from '@/lib/core/http/clientIp';
 
 const REFRESH_COOKIE_MAX_AGE = 30 * 24 * 60 * 60;
 const ACCESS_COOKIE_MAX_AGE = 15 * 60;
@@ -32,6 +34,16 @@ const verifyOtpInput = z.object({
 });
 
 async function handler(req: Request): Promise<Response> {
+  // Per-IP throttle on the OTP-guessing step (before any OTP work), so one IP cannot
+  // spread guesses across many emails past the per-email lockout. Mirrors step-1 login.
+  const ipRl = await opVerifyOtpRatelimit.limit(`op-verify-otp:${clientIp(req.headers)}`);
+  if (!ipRl.allowed) {
+    return NextResponse.json(
+      { error: 'RATE_LIMITED' },
+      { status: 429, headers: { 'Retry-After': String(ipRl.retryAfter) } }
+    );
+  }
+
   let body: unknown;
   try {
     body = await req.json();
@@ -78,7 +90,7 @@ async function handler(req: Request): Promise<Response> {
   if (otpResult.status === 'gone') {
     return NextResponse.json({ error: 'expired' }, { status: 400 });
   }
-  if (otpResult.status === 'mismatch' || otpResult.status === 'attempt_cap') {
+  if (otpResult.status === 'mismatch') {
     return NextResponse.json({ error: 'invalid_code' }, { status: 400 });
   }
 
