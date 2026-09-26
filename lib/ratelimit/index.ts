@@ -367,6 +367,10 @@ export const opLoginRatelimit = createRatelimit({ limit: 10, windowMs: 60_000 })
  * Step 2 is the OTP-guessing endpoint; the per-email lockout alone lets one IP spread
  * guesses across many emails, so this caps distributed guessing before that lockout.
  * Keyed `op-verify-otp:<ip>`.
+ * Fail-open (no failClosed) is deliberate: this runs BEFORE OTP verification, so failing
+ * closed would 429 every operator 2FA login on a Redis outage. The per-account attempt cap
+ * is enforced in Postgres (operatorLoginOtp.ts), independent of this limiter — do not flip
+ * this to failClosed.
  */
 export const opVerifyOtpRatelimit = createRatelimit({ limit: 10, windowMs: 60_000 });
 
