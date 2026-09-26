@@ -90,7 +90,7 @@ export async function getOperatorKpis(input: GetOperatorKpisInput): Promise<Oper
     // Daily gross revenue (paid bookings) bucketed by VN-local departure date.
     prisma.$queryRaw<{ d: string; rev: bigint }[]>(
       Prisma.sql`
-        SELECT to_char((t."departureAt" AT TIME ZONE 'Asia/Ho_Chi_Minh')::date, 'YYYY-MM-DD') AS d,
+        SELECT to_char((t."departureAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh')::date, 'YYYY-MM-DD') AS d,
                COALESCE(SUM(b."totalVnd"), 0)::bigint AS rev
         FROM "Booking" b
         JOIN "Trip" t ON b."tripId" = t.id
