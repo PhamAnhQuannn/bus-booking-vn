@@ -363,6 +363,14 @@ export const adminTotpLockout = createRatelimit({
 export const opLoginRatelimit = createRatelimit({ limit: 10, windowMs: 60_000 });
 
 /**
+ * Operator verify-OTP (step 2) per-IP throttle: 10/min/IP — mirrors opLoginRatelimit.
+ * Step 2 is the OTP-guessing endpoint; the per-email lockout alone lets one IP spread
+ * guesses across many emails, so this caps distributed guessing before that lockout.
+ * Keyed `op-verify-otp:<ip>`.
+ */
+export const opVerifyOtpRatelimit = createRatelimit({ limit: 10, windowMs: 60_000 });
+
+/**
  * Operator login consecutive-failure lockout: 5 bad attempts per 15 min per
  * username → 429 (mirrors adminTotpLockout). Keyed `op-login-fail:<username>`,
  * consumed (`.limit`) ONLY on INVALID_CREDENTIALS. The operator username

@@ -43,7 +43,7 @@ export const loginInput = z.object({
 // exact-match lookup lowercased and returned invalid_credentials. Normalise server-side.
 export const operatorLoginInput = z.object({
   username: z.string().trim().toUpperCase().min(1, 'Username is required').max(64),
-  password: z.string().min(1, 'Password is required'),
+  password: z.string().min(1, 'Password is required').max(128, 'Password too long'),
 });
 
 export const otpSendInput = z.object({

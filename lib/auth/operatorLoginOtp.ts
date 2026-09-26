@@ -109,7 +109,7 @@ export async function sendOperatorLoginOtp(email: string): Promise<SendLoginOtpR
 }
 
 export interface VerifyLoginOtpResult {
-  status: 'ok' | 'mismatch' | 'gone' | 'attempt_cap' | 'locked_out';
+  status: 'ok' | 'mismatch' | 'gone' | 'locked_out';
 }
 
 export async function verifyOperatorLoginOtp(

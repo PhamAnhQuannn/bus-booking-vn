@@ -4,6 +4,7 @@ const {
   mockVerifyOtpProof,
   mockVerifyOperatorLoginOtp,
   mockOperatorLoginStep2,
+  mockOpVerifyOtpLimit,
   AuthServiceError,
   mockCookieStore,
   mockPrisma,
@@ -20,6 +21,7 @@ const {
     mockVerifyOtpProof: vi.fn(),
     mockVerifyOperatorLoginOtp: vi.fn(),
     mockOperatorLoginStep2: vi.fn(),
+    mockOpVerifyOtpLimit: vi.fn(),
     AuthServiceError,
     mockCookieStore: { set: vi.fn(), get: vi.fn(), has: vi.fn(), delete: vi.fn() },
     mockPrisma: {
@@ -27,6 +29,9 @@ const {
     },
   };
 });
+
+vi.mock('@/lib/ratelimit', () => ({ opVerifyOtpRatelimit: { limit: mockOpVerifyOtpLimit } }));
+vi.mock('@/lib/core/http/clientIp', () => ({ clientIp: () => '1.2.3.4' }));
 
 vi.mock('@/lib/auth', () => ({
   verifyOtpProof: mockVerifyOtpProof,
@@ -71,6 +76,7 @@ const STEP2_RESULT = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockOpVerifyOtpLimit.mockResolvedValue({ allowed: true, remaining: 9, retryAfter: 0 });
   mockVerifyOtpProof.mockResolvedValue(PROOF);
   mockPrisma.operatorUser.findUnique.mockResolvedValue({ email: 'op@example.com' });
   mockVerifyOperatorLoginOtp.mockResolvedValue({ status: 'ok' });
@@ -88,6 +94,20 @@ describe('POST /api/auth/login/verify-otp', () => {
     const cookieNames = mockCookieStore.set.mock.calls.map((c: string[]) => c[0]);
     expect(cookieNames).toContain('bb_op_access');
     expect(cookieNames).toContain('bb_op_refresh');
+  });
+
+  it('returns 429 RATE_LIMITED and skips OTP verification when the per-IP limiter denies', async () => {
+    mockOpVerifyOtpLimit.mockResolvedValue({ allowed: false, remaining: 0, retryAfter: 30 });
+
+    const res = await POST(makeRequest(VALID_BODY));
+    const json = await res.json();
+
+    expect(res.status).toBe(429);
+    expect(json.error).toBe('RATE_LIMITED');
+    expect(res.headers.get('Retry-After')).toBe('30');
+    // Throttle fires BEFORE any OTP work — no challenge/OTP calls.
+    expect(mockVerifyOtpProof).not.toHaveBeenCalled();
+    expect(mockVerifyOperatorLoginOtp).not.toHaveBeenCalled();
   });
 
   it('returns 400 for invalid challenge JWT', async () => {

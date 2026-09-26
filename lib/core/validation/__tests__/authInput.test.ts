@@ -26,6 +26,18 @@ describe('operatorLoginInput.username normalization (#452)', () => {
   });
 });
 
+describe('operatorLoginInput.password length bound (#458)', () => {
+  it('accepts a password up to 128 chars', () => {
+    const res = operatorLoginInput.safeParse({ username: 'PB-0001', password: 'a'.repeat(128) });
+    expect(res.success).toBe(true);
+  });
+
+  it('rejects a password longer than 128 chars', () => {
+    const res = operatorLoginInput.safeParse({ username: 'PB-0001', password: 'a'.repeat(129) });
+    expect(res.success).toBe(false);
+  });
+});
+
 describe('registerInput consent gate (#472)', () => {
   it('rejects registration with no acceptTerms', () => {
     const r = registerInput.safeParse({ email: 'a@b.co', password: 'Password1' });
