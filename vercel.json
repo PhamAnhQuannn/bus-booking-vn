@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/cron/sweep-holds",
-      "schedule": "0,30 * * * *"
+      "schedule": "0 * * * *"
     },
     {
       "path": "/api/cron/generate-trips",
@@ -11,15 +11,15 @@
     },
     {
       "path": "/api/cron/close-sales",
-      "schedule": "1,31 * * * *"
+      "schedule": "1 * * * *"
     },
     {
       "path": "/api/cron/complete-trips",
-      "schedule": "2,32 * * * *"
+      "schedule": "2 * * * *"
     },
     {
       "path": "/api/cron/send-reminders",
-      "schedule": "5,35 * * * *"
+      "schedule": "5 * * * *"
     },
     {
       "path": "/api/cron/process-payouts",
@@ -27,19 +27,19 @@
     },
     {
       "path": "/api/cron/dispatch-notifications",
-      "schedule": "0,30 * * * *"
+      "schedule": "0 * * * *"
     },
     {
       "path": "/api/cron/process-refunds",
-      "schedule": "3,33 * * * *"
+      "schedule": "3 * * * *"
     },
     {
       "path": "/api/cron/generate-ticket-pdfs",
-      "schedule": "2,32 * * * *"
+      "schedule": "3 * * * *"
     },
     {
       "path": "/api/cron/charter-expiry",
-      "schedule": "30 * * * *"
+      "schedule": "5 * * * *"
     },
     {
       "path": "/api/cron/retention",
@@ -47,11 +47,11 @@
     },
     {
       "path": "/api/cron/reconcile-payments",
-      "schedule": "4,34 * * * *"
+      "schedule": "4 * * * *"
     },
     {
       "path": "/api/cron/sweep-sessions",
-      "schedule": "45 * * * *"
+      "schedule": "5 * * * *"
     },
     {
       "path": "/api/cron/anonymize-customers",
