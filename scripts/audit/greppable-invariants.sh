@@ -383,14 +383,15 @@ $(git ls-files -- 'tourism-kb/code/*.json' 2>/dev/null || true)"
   fi
 }
 
-# ---------- G9: every app/api route has a sibling route test ----------
+# ---------- G9: every app route has a sibling route test ----------
 # A route handler without a test is how untested mutation endpoints keep landing
-# (see #774/#783). This is a ratchet: the 41 currently-untested routes are
+# (see #774/#783). This is a ratchet: the currently-untested routes are
 # grandfathered in scripts/audit/route-test-baseline.txt; a NEW route missing a
-# sibling __tests__/route.test.ts fails the gate. Fixed-string whole-line matching
-# so dynamic segments like [id] compare literally.
+# sibling __tests__/route.test.ts fails the gate, and the baseline may only SHRINK
+# (a PR that grows it fails, so a new route can't be silently grandfathered).
+# Fixed-string whole-line matching so dynamic segments like [id] compare literally.
 check_g9_route_test_sibling() {
-  echo "--- G9: app/api route-test siblings ---"
+  echo "--- G9: app route-test siblings ---"
   local baseline="scripts/audit/route-test-baseline.txt"
   if [ ! -f "$baseline" ]; then
     echo "FAIL  G9 baseline missing: $baseline"
@@ -400,6 +401,22 @@ check_g9_route_test_sibling() {
   # Grandfathered dirs (strip comment/blank lines; strip CR for Windows checkouts).
   local allow
   allow=$(grep -v '^[[:space:]]*#' "$baseline" | grep -v '^[[:space:]]*$' | tr -d '\r' || true)
+
+  # Ratchet: the baseline may only shrink. On a PR (GITHUB_BASE_REF set, base fetched
+  # via fetch-depth:0) reject any line this branch ADDED to the baseline, so a new
+  # untested route cannot be grandfathered in the same commit that introduces it.
+  # Skipped when the baseline does not yet exist on the base ref (the PR that first
+  # introduces it) — otherwise every line would read as "added".
+  if [ -n "${GITHUB_BASE_REF:-}" ] && git cat-file -e "origin/$GITHUB_BASE_REF:$baseline" 2>/dev/null; then
+    local added
+    added=$(git diff "origin/$GITHUB_BASE_REF...HEAD" -- "$baseline" 2>/dev/null \
+      | grep '^+[^+]' | grep -v '^+[[:space:]]*#' | grep -v '^+[[:space:]]*$' || true)
+    if [ -n "$added" ]; then
+      echo "FAIL  G9 baseline grew (ratchet only shrinks) — new grandfathered entries:"
+      printf '%s\n' "$added" | sed 's/^+/        /'
+      FAILURES=$((FAILURES + 1))
+    fi
+  fi
 
   local violations=""
   local missing=""
@@ -416,7 +433,7 @@ check_g9_route_test_sibling() {
       fi
     fi
   done <<EOF
-$(find app/api -name route.ts | sort)
+$(find app \( -name route.ts -o -name route.tsx \) | sort)
 EOF
 
   # Stale baseline entries (route now tested, or route deleted) → warn to prune.

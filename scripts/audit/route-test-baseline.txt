@@ -1,8 +1,10 @@
 # G9 route-test-sibling ratchet baseline (#778).
-# app/api/**/route.ts dirs that currently LACK a sibling __tests__/route.test.ts.
+# app/**/route.ts(x) dirs that currently LACK a sibling __tests__/route.test.ts.
 # Grandfathered so the gate is green today. This list may only SHRINK: a NEW route
 # must ship with a test (do not add it here). Remove an entry once its route gains a test.
-# Regenerate the raw set: find app/api -name route.ts, dirs missing __tests__/route.test.ts.
+# Regenerate: find app \( -name route.ts -o -name route.tsx \), dirs missing __tests__/route.test.ts.
+app/[locale]/dev/stub-storage/[...key]
+app/tiles/[slug]
 app/api/account/export
 app/api/admin/admins/[id]/reset-totp
 app/api/admin/auth/step-up

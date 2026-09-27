@@ -400,6 +400,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # G9 baseline-growth guard diffs against the PR base ref
 
       - name: Run greppable invariants G1-G9
         run: bash scripts/audit/greppable-invariants.sh
