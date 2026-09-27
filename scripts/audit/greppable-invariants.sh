@@ -383,6 +383,71 @@ $(git ls-files -- 'tourism-kb/code/*.json' 2>/dev/null || true)"
   fi
 }
 
+# ---------- G9: every app/api route has a sibling route test ----------
+# A route handler without a test is how untested mutation endpoints keep landing
+# (see #774/#783). This is a ratchet: the 41 currently-untested routes are
+# grandfathered in scripts/audit/route-test-baseline.txt; a NEW route missing a
+# sibling __tests__/route.test.ts fails the gate. Fixed-string whole-line matching
+# so dynamic segments like [id] compare literally.
+check_g9_route_test_sibling() {
+  echo "--- G9: app/api route-test siblings ---"
+  local baseline="scripts/audit/route-test-baseline.txt"
+  if [ ! -f "$baseline" ]; then
+    echo "FAIL  G9 baseline missing: $baseline"
+    FAILURES=$((FAILURES + 1))
+    return
+  fi
+  # Grandfathered dirs (strip comment/blank lines; strip CR for Windows checkouts).
+  local allow
+  allow=$(grep -v '^[[:space:]]*#' "$baseline" | grep -v '^[[:space:]]*$' | tr -d '\r' || true)
+
+  local violations=""
+  local missing=""
+  while IFS= read -r route; do
+    [ -n "$route" ] || continue
+    local dir
+    dir=$(dirname "$route")
+    if [ ! -f "$dir/__tests__/route.test.ts" ]; then
+      missing="$missing$dir
+"
+      if ! printf '%s\n' "$allow" | grep -Fxq "$dir"; then
+        violations="$violations$dir
+"
+      fi
+    fi
+  done <<EOF
+$(find app/api -name route.ts | sort)
+EOF
+
+  # Stale baseline entries (route now tested, or route deleted) → warn to prune.
+  local stale=""
+  while IFS= read -r entry; do
+    [ -n "$entry" ] || continue
+    if ! printf '%s\n' "$missing" | grep -Fxq "$entry"; then
+      stale="$stale$entry
+"
+    fi
+  done <<EOF
+$allow
+EOF
+
+  if [ -n "$(printf '%s' "$stale" | grep -v '^[[:space:]]*$' || true)" ]; then
+    echo "WARN  G9 baseline has stale entries (route now tested or removed) — prune them:"
+    printf '%s' "$stale" | grep -v '^[[:space:]]*$' | sed 's/^/        /'
+    WARNINGS=$((WARNINGS + 1))
+  fi
+
+  if [ -n "$(printf '%s' "$violations" | grep -v '^[[:space:]]*$' || true)" ]; then
+    echo "FAIL  G9 new route(s) without a sibling __tests__/route.test.ts:"
+    printf '%s' "$violations" | grep -v '^[[:space:]]*$' | sed 's/^/        /'
+    echo "      Add app/api/<route>/__tests__/route.test.ts. Only if a test is genuinely"
+    echo "      not applicable, add the dir to $baseline with a one-line reason."
+    FAILURES=$((FAILURES + 1))
+  else
+    echo "PASS"
+  fi
+}
+
 # ---------- Run all checks ----------
 check_g1_operator_id_body
 check_g2_self_fetch
@@ -392,10 +457,11 @@ check_g5_date_now_rsc
 check_g6_client_barrel
 check_g7_placeholder_contacts
 check_g8_tourism_artifacts
+check_g9_route_test_sibling
 
 # ---------- Summary ----------
 echo ""
-echo "=== Greppable Invariants (G1-G8) ==="
+echo "=== Greppable Invariants (G1-G9) ==="
 echo "Failures: $FAILURES"
 echo "Warnings: $WARNINGS"
 exit $((FAILURES > 0 ? 1 : 0))

@@ -401,7 +401,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Run greppable invariants G1-G6
+      - name: Run greppable invariants G1-G9
         run: bash scripts/audit/greppable-invariants.sh
 
   # ---- 8. Secret scanning (gitleaks) ----
