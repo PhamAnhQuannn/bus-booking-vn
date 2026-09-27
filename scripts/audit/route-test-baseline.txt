@@ -1,0 +1,48 @@
+# G9 route-test-sibling ratchet baseline (#778).
+# app/**/route.ts(x) dirs that currently LACK a sibling __tests__/route.test.ts.
+# Grandfathered so the gate is green today. This list may only SHRINK: a NEW route
+# must ship with a test (do not add it here). Remove an entry once its route gains a test.
+# Regenerate: find app \( -name route.ts -o -name route.tsx \), dirs missing __tests__/route.test.ts.
+app/[locale]/dev/stub-storage/[...key]
+app/tiles/[slug]
+app/api/account/export
+app/api/admin/admins/[id]/reset-totp
+app/api/admin/auth/step-up
+app/api/admin/auth/totp/confirm
+app/api/admin/auth/totp/enroll
+app/api/admin/moderation/routes/[id]/disable
+app/api/admin/moderation/routes/[id]/enable
+app/api/admin/moderation/trips/[id]/enable
+app/api/admin/operators/[id]/confirm-payout-account
+app/api/admin/operators/[id]/create-account
+app/api/admin/operators/[id]/request-info
+app/api/admin/operators/[id]/under-review
+app/api/admin/system/admins/[id]/role
+app/api/admin/system/audit/export
+app/api/auth/google/start
+app/api/auth/otp/test-peek
+app/api/bookings/[id]
+app/api/bookings/initiate
+app/api/bookings
+app/api/cron/process-refunds
+app/api/cron/reconcile-payments
+app/api/cron/sweep-sessions
+app/api/op/bookings/[id]
+app/api/op/bookings/cash
+app/api/op/bookings
+app/api/op/manifest/[tripId]
+app/api/op/reports/payouts/[id]/retry
+app/api/op/reports/payouts
+app/api/op/reports/revenue.csv
+app/api/op/reports/revenue
+app/api/op/routes/[id]/deactivate
+app/api/op/trips/[id]
+app/api/op/trips
+app/api/op/trips/upcoming
+app/api/op/trip-templates/[id]
+app/api/op/trip-templates
+app/api/ping
+app/api/planner/conversations/[id]
+app/api/planner/conversations
+app/api/planner/itinerary
+app/api/trips/search
