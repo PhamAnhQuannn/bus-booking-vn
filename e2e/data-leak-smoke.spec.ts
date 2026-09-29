@@ -12,6 +12,7 @@
 import { test, expect } from '@playwright/test';
 import { Client } from 'pg';
 import { primeCsrf } from './helpers/csrf';
+import { FORBIDDEN_FIELDS, collectKeys } from './helpers/forbiddenFields';
 import { hash } from '../lib/auth/password';
 const SANDBOX_ENABLED = process.env.E2E_DATA_LEAK_ENABLED === 'true';
 const DB_URL =
@@ -22,30 +23,6 @@ const SEED_USERNAME = 'PB-0001';
 
 const OP_B_PHONE = '+8490xxxxxx6';
 const OP_B_PASSWORD = 'BBOp2026!';
-
-const FORBIDDEN_FIELDS = [
-  'passwordHash',
-  'tempPasswordPlain',
-  'tempPassword',
-  'otpCode',
-  'codeHash',
-  'refreshTokenHash',
-  'totpSecret',
-  'confirmationToken',
-];
-
-function collectKeys(obj: unknown, prefix = ''): string[] {
-  if (!obj || typeof obj !== 'object') return [];
-  const keys: string[] = [];
-  for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
-    const full = prefix ? `${prefix}.${key}` : key;
-    keys.push(full);
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
-      keys.push(...collectKeys(value, full));
-    }
-  }
-  return keys;
-}
 
 async function prepareOpB(): Promise<{ opBId: string; opBBusId: string; opBTripId: string }> {
   const client = new Client({ connectionString: DB_URL });
