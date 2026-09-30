@@ -17,7 +17,18 @@ const STORE_KEY = 'bbvn_planner_convos';
 const input = (page: Page) => page.locator('[data-testid="planner-input"]:visible');
 const sendBtn = (page: Page) => page.locator('[data-testid="planner-send"]:visible');
 
+// Give each test a distinct client IP. The planner chat route throttles anonymous
+// callers at 3 turns/min/IP (plannerChatAnonRatelimit), and in CI there is no Redis so
+// the bucket is in-memory + process-global — every e2e request from 127.0.0.1 shares it.
+// Running after planner-chat.spec.ts (which spends the 3/min budget) meant the first send
+// here came back as the "gửi hơi nhanh" throttle (planner-error), not a bot reply, so
+// getByTestId('planner-bot') never appeared. clientIp() honours x-forwarded-for
+// (lib/core/http/clientIp.ts) and dev/CI trusts it, so a unique IP per test isolates the bucket.
+let ipSeq = 0;
+const nextClientIp = () => `10.13.${(ipSeq >> 8) & 0xff}.${ipSeq++ & 0xff}`;
+
 async function gotoPlanner(page: Page) {
+  await page.setExtraHTTPHeaders({ 'x-forwarded-for': nextClientIp() });
   await page.goto(PLANNER_URL);
   await page.waitForLoadState('networkidle');
 }
@@ -76,8 +87,12 @@ test.describe('guest planner privacy (#764)', () => {
     await page.evaluate((k) => localStorage.setItem(k, JSON.stringify([{ id: 'legacy', title: 'old', createdAt: 1, updatedAt: 1, messages: [] }])), STORE_KEY);
 
     await gotoPlanner(page);
-    const local = await page.evaluate((k) => localStorage.getItem(k), STORE_KEY);
-    expect(local).toBeNull(); // purged, not rewritten
+    // The purge runs inside the guest conversations mount effect (readLocal → listConversations),
+    // which is gated on authStatus resolving — that can land a tick after networkidle. Poll for
+    // the end-state rather than reading once, so the assertion isn't racing the effect.
+    await expect
+      .poll(() => page.evaluate((k) => localStorage.getItem(k), STORE_KEY), { timeout: 10000 })
+      .toBeNull(); // purged, not rewritten
   });
 
   test('the authed conversations API rejects a guest with 401 on GET/POST/DELETE', async ({ request }) => {
