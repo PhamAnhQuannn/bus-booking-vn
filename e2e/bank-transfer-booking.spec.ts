@@ -64,7 +64,16 @@ interface HeldSeat {
  * driving the hold API directly. Returns null when no seedable trip is found so the
  * caller can skip rather than fail on an unseeded DB.
  */
+// Each hold gets a distinct client IP. /api/holds throttles anonymous callers per IP
+// (holdsAnonRatelimit), and in CI that bucket is in-memory + process-global — shared by
+// EVERY hold in the sequential suite (this spec + hold-flow.spec.ts + …). Without isolation
+// this spec's holds drain the shared 127.0.0.1 bucket and a later spec's hold gets 429.
+// clientIp() honours x-forwarded-for (lib/core/http/clientIp.ts) and dev/CI trusts it.
+let ipSeq = 0;
+const nextClientIp = () => `10.60.${(ipSeq >> 8) & 0xff}.${ipSeq++ & 0xff}`;
+
 async function createHold(request: APIRequestContext, buyerPhone: string): Promise<HeldSeat | null> {
+  const xff = nextClientIp();
   const params = new URLSearchParams({
     origin: 'Sài Gòn',
     destination: 'Thanh Hóa',
@@ -87,7 +96,7 @@ async function createHold(request: APIRequestContext, buyerPhone: string): Promi
       buyerPhone,
       buyerEmail: 'bt-e2e@example.com',
     },
-    headers: { 'X-CSRF-Token': csrf },
+    headers: { 'X-CSRF-Token': csrf, 'x-forwarded-for': xff },
   });
   if (res.status() !== 200) return null;
   const { holdId } = await res.json();
@@ -148,6 +157,10 @@ async function withDb<T>(fn: (c: Client) => Promise<T>): Promise<T> {
 }
 
 test.describe('bank_transfer paid-booking journey', () => {
+  // CI (pnpm dev --webpack) compiles the stub-pay → webhook → result routes on first hit;
+  // the full round-trip can exceed Playwright's 30s default under cold-compile. 120s absorbs it.
+  test.describe.configure({ timeout: 120_000 });
+
   test('happy path: hold → initiate → synthetic IPN → paid → ticket', async ({
     page,
     request,
