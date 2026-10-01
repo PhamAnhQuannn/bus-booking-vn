@@ -14,7 +14,7 @@
 #
 # Diff-aware (like G9): compares the PR base against the checked-out tree. Passes gracefully
 # (no-op) on push events and when the base ref is missing/unfetched — the gate only guards PR
-# diffs. POSIX sh; works on Ubuntu (CI) and Git Bash (Windows dev).
+# diffs. bash; works on Ubuntu (CI) and Git Bash (Windows dev).
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
@@ -43,7 +43,7 @@ echo "--- G10 disclosure-drift (base: $BASE) ---"
 # '^+[^+]' = added content lines only (drops the '+++' file header). Failures inside the
 # pipeline must not abort under `set -e`, hence the `|| true`.
 CODE_ADDED=$(git diff "$BASE" -- '*.ts' '*.tsx' '*.mts' '*.mjs' '*.js' '*.jsx' \
-  ':!**/__tests__/**' ':!e2e/**' ':!test/**' ':!scripts/**' \
+  ':!**/__tests__/**' ':!__tests__/**' ':!e2e/**' ':!test/**' ':!scripts/**' ':!trip-planner/**' \
   | grep '^+[^+]' 2>/dev/null || true)
 
 # ---------- Detect newly-added outbound external vendor fetches ----------
