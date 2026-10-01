@@ -10,10 +10,12 @@
  *
  * The two boundary instants exercised (their UTC date differs from, or sits at the
  * edge of, their VN date):
- *   - 00:30 VN  = 17:30 UTC on the PREVIOUS calendar day. A UTC-day filter would
- *     wrongly place it on the previous day; the VN-day window must keep it on its VN date.
- *   - 23:30 VN  = 16:30 UTC same day, i.e. the last half hour of the VN day. It must
- *     stay on its VN date and never leak into the next VN date's window.
+ *   - 00:00:00.000 VN = 17:00 UTC on the PREVIOUS calendar day. A UTC-day filter would
+ *     wrongly place it on the previous day; the VN-day window must keep it on its VN date
+ *     (inclusive lower edge).
+ *   - 23:59:59.999 VN = 16:59:59.999 UTC same day, the last millisecond of the VN day. It
+ *     must stay on its VN date and never leak into the next VN date's window (inclusive
+ *     upper edge).
  *
  * "Now" is NOT frozen: searchTrips floors its window lower bound at the current instant
  * (an already-departed same-day trip is unbookable), and it reads `new Date()` internally
@@ -47,10 +49,10 @@ const D_PREV = vnLocalDate(BASE - DAY_MS); // previous VN date (adjacent UTC day
 const D_NEXT = vnLocalDate(BASE + DAY_MS); // next VN date
 
 // Boundary departure instants, expressed with the +07:00 offset the filter uses.
-//   early: VN D 00:30  = UTC (D-1) 17:30  -> UTC date is the PREVIOUS day
-//   late:  VN D 23:30  = UTC D 16:30       -> last half hour of the VN day
-const EARLY_DEPARTURE = new Date(`${D}T00:30:00+07:00`);
-const LATE_DEPARTURE = new Date(`${D}T23:30:00+07:00`);
+//   early: VN D 00:00:00.000  = UTC (D-1) 17:00  -> UTC date is the PREVIOUS day
+//   late:  VN D 23:59:59.999  = UTC D 16:59:59.999 -> last millisecond of the VN day
+const EARLY_DEPARTURE = new Date(`${D}T00:00:00.000+07:00`);
+const LATE_DEPARTURE = new Date(`${D}T23:59:59.999+07:00`);
 
 let operatorId: string;
 let routeId: string;
@@ -93,10 +95,14 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await prisma.trip.deleteMany({ where: { operatorId } });
-  await prisma.route.deleteMany({ where: { operatorId } });
-  await prisma.bus.deleteMany({ where: { operatorId } });
-  await prisma.operator.deleteMany({ where: { id: operatorId } });
+  // Guard: if beforeAll threw before operatorId was assigned, Prisma would drop the
+  // undefined filter and delete ALL rows.
+  if (operatorId) {
+    await prisma.trip.deleteMany({ where: { operatorId } });
+    await prisma.route.deleteMany({ where: { operatorId } });
+    await prisma.bus.deleteMany({ where: { operatorId } });
+    await prisma.operator.deleteMany({ where: { id: operatorId } });
+  }
   await prisma.$disconnect();
 });
 
@@ -115,23 +121,13 @@ describe('searchTrips — VN midnight-rollover boundary (Asia/Ho_Chi_Minh, #777)
     expect(ids).toEqual([earlyTripId, lateTripId].sort());
   });
 
-  it('includes a 00:30-VN trip in its VN date even though its UTC date is the previous day', async () => {
-    const { trips } = await searchTrips({ origin: ORIGIN, destination: DEST, date: D, ticketCount: 1 });
-    expect(trips.some((t) => t.tripId === earlyTripId)).toBe(true);
-  });
-
-  it('excludes the 00:30-VN trip from the previous VN date (the adjacent UTC day it falls in)', async () => {
+  it('excludes the 00:00-VN trip from the previous VN date (the adjacent UTC day it falls in)', async () => {
     const { trips } = await searchTrips({ origin: ORIGIN, destination: DEST, date: D_PREV, ticketCount: 1 });
-    expect(trips.some((t) => t.tripId === earlyTripId)).toBe(false);
+    expect(trips).toEqual([]);
   });
 
-  it('includes a 23:30-VN trip in its VN date (last half hour of the VN day)', async () => {
-    const { trips } = await searchTrips({ origin: ORIGIN, destination: DEST, date: D, ticketCount: 1 });
-    expect(trips.some((t) => t.tripId === lateTripId)).toBe(true);
-  });
-
-  it('excludes the 23:30-VN trip from the next VN date', async () => {
+  it('excludes the 23:59:59.999-VN trip from the next VN date', async () => {
     const { trips } = await searchTrips({ origin: ORIGIN, destination: DEST, date: D_NEXT, ticketCount: 1 });
-    expect(trips.some((t) => t.tripId === lateTripId)).toBe(false);
+    expect(trips).toEqual([]);
   });
 });
