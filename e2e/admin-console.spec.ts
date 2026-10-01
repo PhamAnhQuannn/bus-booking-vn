@@ -24,6 +24,7 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { randomBytes } from 'node:crypto';
 import { Client } from 'pg';
 import { hash } from '../lib/auth/password';
 import { generateTotpSecret, generateTotp } from '../lib/auth/totp';
@@ -34,7 +35,8 @@ const DB_URL =
 // Dedicated identities so this spec never disturbs the seeded SUPER_ADMIN / operators
 // that other specs and manual flows rely on.
 const ADMIN_EMAIL = 'e2e-admin-console@busbookvn.local';
-const ADMIN_PASSWORD = 'BBAdmin2026!console';
+// Per-run random password (never a committed credential); suffix satisfies complexity.
+const ADMIN_PASSWORD = `${randomBytes(12).toString('hex')}!Aa1`;
 const OPERATOR_EMAIL = 'e2e-admin-console-op@test.invalid';
 const OPERATOR_PHONE = '+8490xxxxxx7'; // gitleaks-safe placeholder — not a real number
 
@@ -43,20 +45,16 @@ let adminId = '';
 let operatorId = '';
 let totpSecret = '';
 
-// TOTP codes are single-use within the ±1 window (consumeJti replay guard). Track
-// what we've submitted and roll to the next 30s window rather than reuse a code.
+// TOTP codes are single-use within the ±1 window (consumeJti replay guard, keyed
+// adminId:code). If the current step's code was already spent, use the NEXT step's
+// code instead of waiting: it differs, and the server's ±1 window accepts it.
 const usedCodes = new Set<string>();
-async function freshTotp(): Promise<string> {
-  for (let i = 0; i < 40; i++) {
-    const code = generateTotp(totpSecret, Math.floor(Date.now() / 1000 / 30));
-    if (!usedCodes.has(code)) {
-      usedCodes.add(code);
-      return code;
-    }
-    // Same 30s window as a code we already spent — wait for the window to roll.
-    await new Promise((r) => setTimeout(r, 1000));
-  }
-  throw new Error('could not obtain an unused TOTP code within 40s');
+function freshTotp(): string {
+  const counter = Math.floor(Date.now() / 1000 / 30);
+  let code = generateTotp(totpSecret, counter);
+  if (usedCodes.has(code)) code = generateTotp(totpSecret, counter + 1);
+  usedCodes.add(code);
+  return code;
 }
 
 test.beforeAll(async () => {
@@ -94,7 +92,23 @@ test.beforeAll(async () => {
   }
 });
 
+test.afterAll(async () => {
+  const client = new Client({ connectionString: DB_URL });
+  await client.connect();
+  try {
+    if (operatorId) {
+      await client.query(`DELETE FROM "AdminAuditLog" WHERE target = $1`, [operatorId]);
+    }
+    await client.query(`DELETE FROM "Operator" WHERE "contactEmail" = $1`, [OPERATOR_EMAIL]);
+    await client.query(`DELETE FROM "AdminUser" WHERE email = $1`, [ADMIN_EMAIL]);
+  } finally {
+    await client.end();
+  }
+});
+
 test.describe('Admin console — operator suspend/reinstate journey', () => {
+  test.describe.configure({ timeout: 60_000 });
+
   test('login → TOTP step-up → suspend → reinstate → audit trail', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name === 'mobile-390', 'Admin console has no mobile-specific surface — chromium covers it');
 
@@ -106,7 +120,7 @@ test.describe('Admin console — operator suspend/reinstate journey', () => {
     await page.getByRole('button', { name: 'Tiếp tục' }).click();
 
     // --- 2. Per-login TOTP -----------------------------------------------------
-    const loginCode = await freshTotp();
+    const loginCode = freshTotp();
     await page.locator('#admin-totp-code').fill(loginCode);
     await page.getByRole('button', { name: 'Xác thực' }).click();
     // Lands on the console home once totpVerified flips true.
@@ -121,7 +135,7 @@ test.describe('Admin console — operator suspend/reinstate journey', () => {
     // The first privileged POST returns 403 STEP_UP_REQUIRED → inline TOTP prompt.
     const stepUpInput = page.getByTestId('stepup-code');
     await expect(stepUpInput).toBeVisible();
-    await stepUpInput.fill(await freshTotp());
+    await stepUpInput.fill(freshTotp());
     await page.getByRole('button', { name: 'Xác nhận' }).click();
 
     // After router.refresh() the RSC re-renders SUSPENDED: reinstate button + badge.
@@ -147,6 +161,7 @@ test.describe('Admin console — operator suspend/reinstate journey', () => {
          WHERE target = $1 AND action IN ('operator-status:SUSPENDED','operator-status:APPROVED')`,
         [operatorId]
       );
+      expect(rows).toHaveLength(2);
       const actions = rows.map((r) => r.action);
       expect(actions).toContain('operator-status:SUSPENDED');
       expect(actions).toContain('operator-status:APPROVED');
