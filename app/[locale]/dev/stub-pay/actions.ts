@@ -38,12 +38,14 @@ const STUB_ADAPTERS = new Set<OnlinePaymentMethod>(['momo', 'zalopay', 'card', '
 
 /**
  * bank_transfer is the live SePay/VietQR rail, NOT a stubbed PSP — there is no
- * MoMo-shaped stub IPN and PAYMENTS_STUB does not govern it. So instead of the
+ * MoMo-shaped stub IPN. Unlike the stub PSPs, this path reaches the REAL webhook with the
+ * real SEPAY_API_KEY, so it is gated on BOTH assertDevActionAllowed() AND PAYMENTS_STUB
+ * (checked in submitStubPayment before this runs). Instead of the
  * in-process processPaymentWebhook path the stub PSPs take, this simulates SePay's
  * external delivery: it POSTs a synthetic SePay IPN to the REAL webhook route,
  * authenticated with the server's own SEPAY_API_KEY, so the e2e exercises the real
  * auth + adapter + confirm path end-to-end. Dev-only (the whole action is
- * prod-guarded); the real key never leaves the server.
+ * prod-guarded + PAYMENTS_STUB-gated); the real key never leaves the server.
  *
  * providerTxnId (the SePay `id`) is a deterministic function of the bookingRef, so a
  * replayed IPN collides on PaymentEvent @@unique([adapter, providerTxnId]) and the
@@ -110,19 +112,27 @@ export async function submitStubPayment(outcome: StubOutcome, formData: FormData
     throw new Error(`stub-pay: invalid outcome ${outcome}`);
   }
 
+  // Second gate, ahead of EVERY path (incl. bank_transfer, which reaches the real webhook
+  // with the real SEPAY_API_KEY): assertDevActionAllowed() only blocks real production, so a
+  // PREVIEW deploy with a real key would otherwise let an unauthenticated direct POST mark
+  // any bookingRef paid.
+  const env = getEnv();
+  if (!env.PAYMENTS_STUB) {
+    throw new Error('stub-pay disabled: PAYMENTS_STUB is off');
+  }
+
   // bank_transfer takes the real-route path above; only a successful inbound transfer
   // maps to an IPN (a "fail" is simply no transfer → booking stays awaiting_payment).
   if (adapter === 'bank_transfer') {
     if (outcome === 'success') {
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw new Error('stub-pay: invalid amount');
+      }
       await postSyntheticSepayIpn({ bookingRef: orderId, amount });
     }
     redirect(redirectUrl);
   }
 
-  const env = getEnv();
-  if (!env.PAYMENTS_STUB) {
-    throw new Error('stub-pay disabled: PAYMENTS_STUB is off');
-  }
   if (!STUB_ADAPTERS.has(adapter as OnlinePaymentMethod)) {
     throw new Error(`stub-pay: unknown adapter ${adapter}`);
   }

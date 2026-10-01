@@ -19,7 +19,7 @@ import { isRealProduction } from '@/lib/core/config/deployTier';
  * #643: keys off VERCEL_ENV (not raw NODE_ENV) so `app/dev/*` surfaces (stub-pay, stub-storage)
  * stay reachable on PREVIEW deployments — needed to verify the booking→payment→ticket flow on a
  * preview URL — while still hard-404'ing on real production. Preview is SSO-gated + uses its own
- * throwaway DB, and no webhook route verifies a stub signature, so this does not arm a prod risk.
+ * throwaway DB, and the stub PSPs sign IPNs no real webhook route verifies. The bank_transfer stub-pay path DOES reach the real SePay webhook, so stub-pay additionally gates every path on PAYMENTS_STUB (preview must not arm it with a real SEPAY_API_KEY).
  */
 function isProd(): boolean {
   return isRealProduction();

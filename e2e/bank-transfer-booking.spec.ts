@@ -28,12 +28,10 @@
 import { test, expect, type APIRequestContext } from '@playwright/test';
 import { Client } from 'pg';
 import { primeCsrf } from './helpers/csrf';
+import { CONSENT_VERSION } from '../lib/booking/consent';
 
 const DB_URL =
   process.env.DATABASE_URL ?? 'postgresql://bbvn:bbvn_dev_password@localhost:5432/bbvn_dev';
-
-// Mirrors lib/booking/consent.ts CONSENT_VERSION — initiate 422s on a stale value.
-const CONSENT_VERSION = '2026-08';
 
 /**
  * VN-timezone "tomorrow" as YYYY-MM-DD (copied from hold-flow.spec.ts): seed +
@@ -70,7 +68,9 @@ interface HeldSeat {
 // this spec's holds drain the shared 127.0.0.1 bucket and a later spec's hold gets 429.
 // clientIp() honours x-forwarded-for (lib/core/http/clientIp.ts) and dev/CI trusts it.
 let ipSeq = 0;
-const nextClientIp = () => `10.60.${(ipSeq >> 8) & 0xff}.${ipSeq++ & 0xff}`;
+// TEST_PARALLEL_INDEX keeps IPs distinct across workers (each has its own ipSeq).
+const workerIdx = Number(process.env.TEST_PARALLEL_INDEX ?? 0);
+const nextClientIp = () => `10.${60 + workerIdx}.${(ipSeq >> 8) & 0xff}.${ipSeq++ & 0xff}`;
 
 async function createHold(request: APIRequestContext, buyerPhone: string): Promise<HeldSeat | null> {
   const xff = nextClientIp();
@@ -271,7 +271,7 @@ test.describe('bank_transfer paid-booking journey', () => {
     expect(res.status()).toBe(409);
     expect((await res.json()).error).toBe('HOLD_EXPIRED');
 
-    // Seat released: the expired hold was never consumed into a booking (Booking.holdId
+    // Hold not consumed / no booking created: the expired hold was never consumed into a booking (Booking.holdId
     // is a unique FK to the hold — a rejected checkout leaves zero booking rows for it).
     await withDb(async (c) => {
       const { rows } = await c.query(

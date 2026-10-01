@@ -213,11 +213,9 @@ jobs:
       # Route online payments through the local stub gateway for e2e.
       PAYMENTS_STUB: 'true'
       # #768: the bank_transfer e2e drives /dev/stub-pay, which POSTs a synthetic SePay IPN to the
-      # REAL webhook. The route checks the Apikey against SEPAY_API_KEY and the receiving account
-      # against VIETQR_ACCOUNT_NUMBER; the stub reads the same env, so both must be set (test values,
-      # dev/CI only) for the stub + route to agree — otherwise the IPN is 401 (auth) / orphaned (account).
+      # REAL webhook. The route checks the Apikey against SEPAY_API_KEY (401 if unset); the stub and
+      # route both read VIETQR_ACCOUNT_NUMBER from the same env default, so they agree.
       SEPAY_API_KEY: ci-test-sepay-key-not-for-prod
-      VIETQR_ACCOUNT_NUMBER: '3516205005863'
       # #473: run the customer auth E2E (login-lockout + otp-roundtrip), previously skipped because
       # E2E_AUTH_ENABLED was never set. The playwright webServer runs `pnpm dev` (NODE_ENV=development),
       # so the OTP peek route's dual-guard (NODE_ENV!=production AND OTP_PEEK_ENABLED) opens and the OTP
