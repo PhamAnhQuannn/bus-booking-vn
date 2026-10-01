@@ -6,7 +6,7 @@
 
 Master checklist for the first production deployment (Issue 094). Every item must be checked or explicitly deferred with documented rationale before going live with real users and real money.
 
-The **granular checklist** further down is the backing detail. The **Go/No-Go Gate** below is the concretized launch decision (issue #769): the small set of conditions that actually block Phase-1 launch, separated from what merely *should* be done and from what is *deliberately out of scope* for this launch. Phase-1 scope is a single family operator on a seed catalog (see the single-operator deferral register at the end) — several generic items above are therefore intentionally deferred, and the register records that so a future reader never mistakes a deliberate deferral for an oversight.
+The **granular checklist** further down is the backing detail. The **Go/No-Go Gate** below is the concretized launch decision (issue #769): the small set of conditions that actually block Phase-1 launch, separated from what merely *should* be done and from what is *deliberately out of scope* for this launch. Phase-1 scope is a single family operator on a seed catalog (see the single-operator deferral register at the end) — several generic items below are therefore intentionally deferred, and the register records that so a future reader never mistakes a deliberate deferral for an oversight.
 
 ## Go/No-Go Gate (concretized — #769)
 
@@ -19,7 +19,7 @@ Legend: ✅ done · 🟡 in progress / pending merge · ⛔ blocked (external) �
 | H1 | 4 PDPL retention migrations applied to prod **+ redact backfill run** | #762 | ⛔ blocked on Neon free-tier compute quota; runbook ready (`scripts/prod/backfill-planner-redact.ts`) |
 | H2 | HD-009 financial-integrity audit PASS (append-only ledger triggers, BigInt currency, 9 entry types, `sourceEventId` uniqueness) | #765, HD-009 | ✅ |
 | H3 | HD-005 tenant-isolation audit PASS (6 cross-operator entity pairs → 403/404, realm separation, no `operatorId`-from-body) | #766, HD-005 | ✅ |
-| H4 | HD-006 payment-webhook audit PASS (idempotent IPN, race→exactly-one, bearer timing-safe, HMAC round-trip) | #767, HD-006 | ✅ (SePay base; VNPay addendum tracked #120/#122–124) |
+| H4 | HD-006 payment-webhook audit PASS (idempotent IPN, race→exactly-one, bearer timing-safe, HMAC round-trip) | #767, HD-006 | ✅ (SePay base; VNPay addendum deferred (see D4; #120/#122–124)) |
 | H5 | HD-011 cron-resilience subset PASS (response contract, idempotent double-invoke) | #770, HD-011 | ✅ |
 | H6 | Guest planner privacy e2e green (session-only chat, never localStorage, never authed API) | #764 | 🟡 PR #801 (chromium e2e green; awaiting merge) |
 | H7 | geminiAdapter unit coverage green (default prod LLM adapter) | #763 | ✅ (PR #784) |
@@ -27,8 +27,7 @@ Legend: ✅ done · 🟡 in progress / pending merge · ⛔ blocked (external) �
 | H9 | Coverage blind-spot fix (trip-planner in coverage include) | #761 | ✅ |
 | H10 | `pnpm test:all` + required e2e + post-deploy smoke all green on the launch commit | GL-005 | 🟡 gated on Dependency Audit (PR #802) + #801 merge |
 | H11 | Admin seed password not a weak default | — | ✅ (`seed-admin.ts` uses `genTempPassword()`) |
-| H12 | Payment collection model legal clearance (Decree 52/2024 thu-hộ/chi-hộ: SBV IPS license OR legal opinion) | #779, HD-006 | ⛔ user-gated (legal) |
-| H13 | Cross-border disclosure legal copy human-reviewed + published | #779 | ⛔ user-gated (legal/vendor) |
+| H12 | Cross-border disclosure legal copy human-reviewed + published | #779 | ⛔ user-gated (legal/vendor) |
 
 ### SOFT — SHOULD be done; not a launch blocker at single-operator scale
 
@@ -45,9 +44,9 @@ Legend: ✅ done · 🟡 in progress / pending merge · ⛔ blocked (external) �
 | N1 | Tet-2000 / peak-surge capacity | #780 | No peak event at launch; single operator |
 | N2 | Chaos drills + stub-vs-real contract tests | #781 | Deferred until multi-operator / higher blast radius |
 | N3 | Formal runtime a11y + Core Web Vitals measurement | #780 | Deferred with the NFR bundle; not a money/PII risk |
-| N4 | MoMo / ZaloPay / card rails | #133, working-track/26–28 | Phase-1 is bank_transfer (web) + cash (operator walk-up) only |
+| N4 | MoMo / ZaloPay / VNPay / card rails (see D4) | #133, ADR-005 | Phase-1 is bank_transfer (web) + cash (operator walk-up) only |
 | N5 | CSP nonce (`script-src` still `'unsafe-inline'`) | #560 | Tracked P2 security hardening; not a launch gate |
-| N6 | Split-settlement payment model | #133 | Decree 52 wave-4; single bank account at launch |
+| N6 | Split-settlement payment model / Decree 52 clearance (see D6) | #133, GL-006 §Payment Model | Phase-1 single Agribank account, owner == operator (same legal entity): no SBV IPS license or legal opinion needed. Relevant only once an external operator is onboarded |
 
 **Verdict rule:** GO only when **every HARD blocker is ✅**. Each SOFT and NOT-required row must remain explicitly recorded (checked or deferred-with-rationale) — an un-annotated open item is itself a NO-GO, per the single-operator deferral discipline below.
 
@@ -105,11 +104,11 @@ Legend: ✅ done · 🟡 in progress / pending merge · ⛔ blocked (external) �
 - [ ] SePay webhook URL registered and receiving test transfers
 - [ ] SePay bearer token verification active on `/api/payments/bank_transfer/webhook`
 - [ ] Append-only ledger: triggers preventing UPDATE/DELETE active
-- [ ] `PAYMENTS_STUB=false` in production env
+- [ ] `PAYMENTS_STUB` may stay true (bank_transfer rail not governed by it); `STORAGE_STUB=false` and `PLANNER_LLM_STUB=false` are required and boot-enforced (`lib/config/env.ts`)
 - [ ] BookingRef extraction from memo working (case-insensitive regex)
 - [ ] Admin reconciliation dashboard for memo-mismatch transfers (~5%)
 - [ ] Manual refund process documented (no programmatic refund API for bank transfer)
-- [ ] Payment collection model: legal clearance obtained (SBV IPS license OR legal opinion -- Decree 52/2024)
+- [ ] Payment collection model: single Agribank account, owner == operator (GL-006); Decree 52/2024 clearance deferred to first external operator (N6/D6)
 - [ ] Payment anomaly alerting configured (failed webhook spikes, amount mismatches)
 
 ### Notifications (ADR-013, HD-008)
@@ -133,7 +132,7 @@ Legend: ✅ done · 🟡 in progress / pending merge · ⛔ blocked (external) �
 - [ ] DPO appointed (PDPL 2025 -- mandatory for sensitive-data platforms)
 - [ ] DPA signed with all processors (eSMS, Resend, MISA, VNPay, MoMo)
 - [ ] E-invoice transport fields mapped to MISA XML (Decree 70/2025 -- fine per invoice if missing)
-- [ ] Tax withholding `calcWithholding()` implemented OR pre-Jul-2026 deferral documented
+- [ ] Tax withholding `calcWithholding()` implemented OR deferral documented (D7)
 - [ ] DSAR response API implemented (data export/deletion within 72h)
 - [ ] `piiAnonymization` cron built and tested
 - [ ] Breach notification tabletop exercise completed
@@ -174,25 +173,26 @@ Legend: ✅ done · 🟡 in progress / pending merge · ⛔ blocked (external) �
 
 ## Single-Operator Deferral Register
 
-Phase-1 launches with **1–2 family operators on a seed catalog** (single bank account, no self-serve customer auth). The items below are **deliberately deferred because of that scope**, not forgotten. Each carries a trigger (the condition that re-opens it) and a sign-off. A future reviewer who finds one of these un-built should check the trigger before treating it as a gap.
+Phase-1 launches with **1–2 family operators on a seed catalog** (single bank account; customer-auth enablement tracked separately via ADR-021 / FI-016, see D10 and GL-006). The items below are **deliberately deferred because of that scope**, not forgotten. Each carries a trigger (the condition that re-opens it) and a sign-off. A future reviewer who finds one of these un-built should check the trigger before treating it as a gap.
 
 | ID | Deferred item | Ref | Trigger that re-opens it | Rationale | Signed off |
 |----|---------------|-----|--------------------------|-----------|------------|
 | D1 | Multi-operator tenant RLS (DB row-level security) | ADR-008 | ≥ 50 operators (Phase 3) | `withOperatorScope` + HD-005 negative tests cover isolation at this scale | ☐ _pending owner_ |
 | D2 | Staff / multi-user per operator | FI-001, ADR-003 D12 | 2nd operator user needed | Phase-1 = one operator user per company | ☐ _pending owner_ |
-| D3 | eSMS brandname SMS (stubbed) | #144 | Brandname approved (5–10wk) | OTP path stubbed for launch; deferral in working-track/… | ☐ _pending owner_ |
-| D4 | MoMo / ZaloPay / VNPay / card rails | #133, working-track/26–28 | Demand beyond bank_transfer+cash | Phase-1 payment scope frozen (ADR-005) | ☐ _pending owner_ |
+| D3 | eSMS brandname SMS (stubbed) | #144 | Brandname approved (5–10wk) | OTP path stubbed for launch; see GL-006 | ☐ _pending owner_ |
+| D4 | MoMo / ZaloPay / VNPay / card rails | #133, ADR-005, #120/#122–124 | Demand beyond bank_transfer+cash | Phase-1 payment scope frozen (ADR-005) | ☐ _pending owner_ |
 | D5 | Programmatic refund API (bank_transfer) | HD-006 | Refund volume warrants it | Manual refund runbook covers Phase-1 | ☐ _pending owner_ |
 | D6 | Split-settlement / thu-hộ-chi-hộ automation | #133 | Decree 52 wave-4 / multi-account | Single bank account at launch | ☐ _pending owner_ |
-| D7 | Tax withholding `calcWithholding()` | HD-009 | Pre-Jul-2026 regulatory date | Documented deferral; not due at launch | ☐ _pending owner_ |
+| D7 | Tax withholding `calcWithholding()` | HD-009 | First individual/household **external** operator onboarded | E-Commerce Law withholding (ADR-006, effective 1 Jul 2026) applies to third-party sellers; Phase-1 owner == operator (same legal entity, GL-006) so there is no third-party seller to withhold from | ☐ _pending owner_ |
 | D8 | Chargeback model + admin UI | #139 | First chargeback | Deferred P2 | ☐ _pending owner_ |
 | D9 | Complaint & support ticket system (Law 19/2023) | #136 | Post-launch wave-4 | Deferred compliance wave | ☐ _pending owner_ |
+| D10 | Customer auth (email+password + Google OAuth) — Phase-1 proxy 410 gate being lifted | ADR-021, FI-016, GL-006 | Customer-auth PR merged & enabled | Not a GL-001 launch gate; scope tracked in FI-016 / GL-006 | ☐ _pending owner_ |
 
 > Sign-off convention: replace `☐ _pending owner_` with `[x] <name/role> <YYYY-MM-DD>` when the deferral is accepted for launch. An un-signed row in this register is a NO-GO — a deferral must be *decided*, not defaulted.
 
 ## Verdict
 
-**GO** only when **every HARD blocker (H1–H13) is ✅** AND every SOFT / NOT-required / deferral-register row is explicitly annotated (checked, or deferred-with-rationale-and-sign-off). The granular checklist below is the backing evidence for the gate rows above.
+**GO** only when **every HARD blocker (H1–H12) is ✅** AND every SOFT / NOT-required / deferral-register row is explicitly annotated (checked, or deferred-with-rationale-and-sign-off). The granular checklist above is the backing evidence for the gate rows above.
 
 ## Cross-References
 
