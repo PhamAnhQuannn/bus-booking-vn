@@ -53,6 +53,10 @@ const ADMIN_PASSWORD = 'AdminDispatch2026!';
 // format `+8490xxxxxx[N]` keeps it out of the gitleaks phone regex.
 const CUSTOMER_PHONE = '+8490xxxxxx8';
 
+// Status badge copy from messages/vi/charter.json (`status.finding` / `status.matched`).
+const STATUS_FINDING = 'Đang tìm nhà xe';
+const STATUS_MATCHED = 'Đã ghép nhà xe';
+
 interface Ctx {
   operatorId: string;
   operatorPhone: string;
@@ -224,6 +228,7 @@ test.describe('Charter dispatch journey (request → dispatch → accept)', () =
     // and the ACCEPTED-only operator card (operator phone) is NOT yet present.
     await page.goto(`/charter/status/${ref}`);
     await expect(page.getByText(ref)).toBeVisible();
+    await expect(page.getByText(STATUS_FINDING).first()).toBeVisible();
     await expect(page.getByText(ctx.operatorPhone)).toHaveCount(0);
 
     // ───────────────────────── STEP 2 · DISPATCH (admin) ──────────────────────────
@@ -262,6 +267,7 @@ test.describe('Charter dispatch journey (request → dispatch → accept)', () =
     // UI: still pre-accept → operator card still absent (customer sees "finding").
     await page.goto(`/charter/status/${ref}`);
     await expect(page.getByText(ref)).toBeVisible();
+    await expect(page.getByText(STATUS_FINDING).first()).toBeVisible();
     await expect(page.getByText(ctx.operatorPhone)).toHaveCount(0);
 
     // ───────────────────────── STEP 3 · ACCEPT (operator) ─────────────────────────
@@ -282,6 +288,7 @@ test.describe('Charter dispatch journey (request → dispatch → accept)', () =
 
     // UI: the status page now shows the match — the operator contact card (its phone) appears.
     await page.goto(`/charter/status/${ref}`);
+    await expect(page.getByText(STATUS_MATCHED).first()).toBeVisible();
     await expect(page.getByText(ctx.operatorPhone)).toBeVisible();
   });
 });
