@@ -9,7 +9,7 @@
  *  - SANDBOX-GATED (E2E_ACCOUNT_ENABLED, like account-settings.spec.ts, because every
  *    registration shares the localhost IP and customerRegisterRatelimit is 5/15min): the
  *    authed export carries Cache-Control:no-store + no secrets, and account deletion is
- *    idempotent (second call → alreadyDeleted).
+ *    one-shot over HTTP (second call → 401, caller soft-deleted).
  */
 
 import { test, expect } from '@playwright/test';
@@ -39,14 +39,13 @@ test.describe('subject-rights + guest boundary — always on (#773)', () => {
     const { cookies } = await request.storageState();
     const csrf = getCsrf(cookies);
 
-    // Minimal/empty body → the handler may 400, but it must NOT be an auth (401) or
-    // existence (404) rejection: booking initiate is a guest rail.
+    // Empty body → Zod safeParse rejects with a deterministic 400 INVALID (not an auth 401
+    // or existence 404): booking initiate is a guest rail.
     const res = await request.post('/api/bookings/initiate', {
       data: {},
       headers: { 'X-CSRF-Token': csrf },
     });
-    expect(res.status()).not.toBe(401);
-    expect(res.status()).not.toBe(404);
+    expect(res.status()).toBe(400);
   });
 });
 
@@ -67,33 +66,35 @@ test.describe('authed subject-rights — gated (#773)', () => {
     }
   });
 
-  test('export returns no-store + leaks no secrets; delete is idempotent', async ({ page }) => {
+  test('export returns no-store + leaks no secrets; delete is one-shot', async ({ page }) => {
     await page.goto('/vi');
     const csrf = getCsrf((await page.context().storageState()).cookies);
-    await registerCustomer(page, BASE_URL, csrf, { email, password: PASSWORD });
+    const tok = await registerCustomer(page, BASE_URL, csrf, { email, password: PASSWORD });
 
     // Authed export: 200, Cache-Control no-store, no forbidden fields.
-    const exp = await page.evaluate(async (bu) => {
-      const r = await fetch(`${bu}/api/account/export`, { credentials: 'include' });
+    const exp = await page.evaluate(async ([bu, t]) => {
+      const r = await fetch(`${bu}/api/account/export`, { headers: { Authorization: `Bearer ${t}` }, credentials: 'include' });
       return { status: r.status, cacheControl: r.headers.get('cache-control'), body: await r.json() };
-    }, BASE_URL);
+    }, [BASE_URL, tok] as const);
     expect(exp.status).toBe(200);
     expect(exp.cacheControl).toContain('no-store');
     expectNoForbiddenFields(exp.body, 'account export');
 
-    // Delete is idempotent: first → alreadyDeleted false; second → alreadyDeleted true.
-    const del1 = await page.evaluate(async ([bu, cs]) => {
-      const r = await fetch(`${bu}/api/account/delete`, { method: 'DELETE', headers: { 'X-CSRF-Token': cs }, credentials: 'include' });
-      return { status: r.status, body: await r.json() };
-    }, [BASE_URL, csrf] as const);
+    // Delete: first → 200 alreadyDeleted false; second → 401 (caller now soft-deleted).
+    const del1 = await page.evaluate(async ([bu, cs, t]) => {
+      const r = await fetch(`${bu}/api/account/delete`, { method: 'DELETE', headers: { 'X-CSRF-Token': cs, Authorization: `Bearer ${t}` }, credentials: 'include' });
+      return { status: r.status, body: await r.json().catch(() => null) };
+    }, [BASE_URL, csrf, tok] as const);
     expect(del1.status).toBe(200);
     expect(del1.body.alreadyDeleted).toBe(false);
 
-    const del2 = await page.evaluate(async ([bu, cs]) => {
-      const r = await fetch(`${bu}/api/account/delete`, { method: 'DELETE', headers: { 'X-CSRF-Token': cs }, credentials: 'include' });
-      return { status: r.status, body: await r.json() };
-    }, [BASE_URL, csrf] as const);
-    expect(del2.status).toBe(200);
-    expect(del2.body.alreadyDeleted).toBe(true);
+    const del2 = await page.evaluate(async ([bu, cs, t]) => {
+      const r = await fetch(`${bu}/api/account/delete`, { method: 'DELETE', headers: { 'X-CSRF-Token': cs, Authorization: `Bearer ${t}` }, credentials: 'include' });
+      return { status: r.status, body: await r.json().catch(() => null) };
+    }, [BASE_URL, csrf, tok] as const);
+    // 2nd-delete HTTP contract is 401 by design: del1 soft-deletes + revokes sessions, so
+    // requireCustomerAuth rejects the caller before the handler. alreadyDeleted:true
+    // idempotency is covered at lib level (anonymizeCustomer.int.test.ts).
+    expect(del2.status).toBe(401);
   });
 });

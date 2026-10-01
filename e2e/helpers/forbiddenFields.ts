@@ -19,14 +19,16 @@ export const FORBIDDEN_FIELDS = [
   'confirmationToken',
 ];
 
-/** Every leaf key-path in a nested object (arrays not descended, matching the original). */
+/** Every leaf key-path in a nested object (arrays are descended into element-wise). */
 export function collectKeys(obj: unknown, prefix = ''): string[] {
   if (!obj || typeof obj !== 'object') return [];
   const keys: string[] = [];
   for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
     const full = prefix ? `${prefix}.${key}` : key;
     keys.push(full);
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
+    if (Array.isArray(value)) {
+      for (const el of value) keys.push(...collectKeys(el, full));
+    } else if (value && typeof value === 'object') {
       keys.push(...collectKeys(value, full));
     }
   }
