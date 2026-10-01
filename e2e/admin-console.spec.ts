@@ -96,9 +96,7 @@ test.afterAll(async () => {
   const client = new Client({ connectionString: DB_URL });
   await client.connect();
   try {
-    if (operatorId) {
-      await client.query(`DELETE FROM "AdminAuditLog" WHERE target = $1`, [operatorId]);
-    }
+    // AdminAuditLog is append-only (DB trigger blocks DELETE) — intentionally not cleaned.
     await client.query(`DELETE FROM "Operator" WHERE "contactEmail" = $1`, [OPERATOR_EMAIL]);
     await client.query(`DELETE FROM "AdminUser" WHERE email = $1`, [ADMIN_EMAIL]);
   } finally {
