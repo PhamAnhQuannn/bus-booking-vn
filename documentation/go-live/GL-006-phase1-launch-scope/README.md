@@ -106,7 +106,7 @@ Simplified from GL-001. Only items that apply to family operator + bank transfer
 - [ ] SePay webhook URL registered and tested with real transfer
 - [ ] SePay bearer token verification active
 - [ ] BookingRef extraction from memo working
-- [ ] `PAYMENTS_STUB=false` in production
+- [ ] `PAYMENTS_STUB` may stay true (bank_transfer rail not governed by it); `STORAGE_STUB=false` and `PLANNER_LLM_STUB=false` are required and boot-enforced (`lib/config/env.ts`)
 - [ ] Append-only ledger triggers active
 - [ ] Cash-at-boarding flow working (operator confirms on console)
 - [ ] Manual refund process documented
