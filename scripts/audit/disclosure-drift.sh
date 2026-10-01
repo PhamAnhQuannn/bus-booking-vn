@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# G7 disclosure-drift (#778) — CI-runnable, exit nonzero on FAIL.
+# G10 disclosure-drift (#778) — CI-runnable, exit nonzero on FAIL.
 #
 # WHY: Every outbound third-party call that processes personal data is a cross-border
 # sub-processor that PDPL 2025 (Art. 25 / Nghị định 356/2025/NĐ-CP) requires us to
@@ -30,12 +30,12 @@ elif [ -n "${GITHUB_BASE_REF:-}" ] && git cat-file -e "origin/${GITHUB_BASE_REF}
 fi
 
 if [ -z "$BASE" ]; then
-  echo "--- G7 disclosure-drift ---"
+  echo "--- G10 disclosure-drift ---"
   echo "PASS  (no PR base ref — push event or shallow checkout; gate is diff-only, no-op)"
   exit 0
 fi
 
-echo "--- G7 disclosure-drift (base: $BASE) ---"
+echo "--- G10 disclosure-drift (base: $BASE) ---"
 
 # ---------- Collect ADDED lines from the PR diff ----------
 # `git diff <base>` compares <base> against the working tree. On CI's clean PR checkout the
@@ -43,8 +43,7 @@ echo "--- G7 disclosure-drift (base: $BASE) ---"
 # '^+[^+]' = added content lines only (drops the '+++' file header). Failures inside the
 # pipeline must not abort under `set -e`, hence the `|| true`.
 CODE_ADDED=$(git diff "$BASE" -- '*.ts' '*.tsx' '*.mts' '*.mjs' '*.js' '*.jsx' \
-  | grep '^+[^+]' 2>/dev/null || true)
-PKG_ADDED=$(git diff "$BASE" -- package.json \
+  ':!**/__tests__/**' ':!e2e/**' ':!test/**' ':!scripts/**' \
   | grep '^+[^+]' 2>/dev/null || true)
 
 # ---------- Detect newly-added outbound external vendor fetches ----------
@@ -52,8 +51,8 @@ PKG_ADDED=$(git diff "$BASE" -- package.json \
 # a fetch to a template-var base URL, localhost, or a relative path is not a new vendor).
 # Allowlist first-party / non-personal-data hosts that are not sub-processors.
 VENDOR_FETCHES=$(printf '%s\n' "$CODE_ADDED" \
-  | grep -oE "fetch\(['\"]https://[A-Za-z0-9.-]+" 2>/dev/null \
-  | sed -E "s/^fetch\(['\"]https:\/\///" \
+  | grep -oE "(fetch\(|new URL\()['\"\`]https://[A-Za-z0-9.-]+" 2>/dev/null \
+  | sed -E "s/^.*https:\/\///" \
   | grep -viE '^(localhost|127\.0\.0\.1|0\.0\.0\.0)' \
   | grep -viE '(^|\.)lenxevn\.com$' \
   | grep -viE '(^|\.)(w3|schema)\.org$' \
@@ -64,10 +63,12 @@ VENDOR_FETCHES=$(printf '%s\n' "$CODE_ADDED" \
 # email, PSP, LLM, storage, OAuth, analytics, error-tracking). Ordinary utility deps
 # (zod, clsx, date-fns…) are not sub-processors and must not trip the gate.
 VENDOR_REGEX='aws-sdk|resend|sendgrid|mailgun|postmark|nodemailer|twilio|esms|stripe|vnpay|sepay|paypal|momo|zalopay|@sentry|@upstash|upstash|ioredis|openai|@google|googleapis|gemini|groq|@anthropic|mistral|cohere|firebase|supabase|@vercel/analytics|posthog|mixpanel|segment|datadog|arctic'
-VENDOR_DEPS=$(printf '%s\n' "$PKG_ADDED" \
-  | grep -E "^\+[[:space:]]*\"($VENDOR_REGEX)" 2>/dev/null \
-  | sed -E 's/^\+[[:space:]]*//; s/[[:space:]]*$//' \
-  | sort -u || true)
+# Diff dependency NAMES base-vs-head (runtime deps only) so a plain version bump of an
+# existing dep is not flagged; only newly-added names matching VENDOR_REGEX are.
+VENDOR_DEPS=$(comm -13 \
+    <(git show "$BASE:package.json" | jq -r '.dependencies // {} | keys[]' | sort) \
+    <(jq -r '.dependencies // {} | keys[]' package.json | sort) \
+  | grep -E "^($VENDOR_REGEX)" 2>/dev/null || true)
 
 if [ -z "$VENDOR_FETCHES" ] && [ -z "$VENDOR_DEPS" ]; then
   echo "PASS  (no new outbound vendor call or external-service dependency in this diff)"
@@ -77,13 +78,20 @@ fi
 # ---------- A new vendor was added — require a matching legal.json disclosure ----------
 LEGAL_CHANGED=$(git diff --name-only "$BASE" -- 'messages/*/legal.json' 2>/dev/null || true)
 
-if [ -n "$LEGAL_CHANGED" ]; then
-  echo "PASS  (new vendor(s) added, and legal disclosure was updated:)"
+# ALL locales must change together (a vi-only update leaves en undisclosed).
+MISSING_LOCALES=""
+for f in messages/*/legal.json; do
+  printf '%s\n' "$LEGAL_CHANGED" | grep -qxF "$f" || MISSING_LOCALES="$MISSING_LOCALES $f"
+done
+
+if [ -z "$MISSING_LOCALES" ]; then
+  echo "PASS  (new vendor(s) added, and legal disclosure was updated in all locales:)"
   printf '        %s\n' $LEGAL_CHANGED
   exit 0
 fi
 
 echo "FAIL  new outbound sub-processor(s) added WITHOUT a cross-border disclosure update."
+echo "      legal.json not changed in:$MISSING_LOCALES"
 echo "      PDPL 2025 requires listing each cross-border sub-processor in the privacy"
 echo "      policy. Update the 'Cross-border data transfer' section (privacy.s6a.items)"
 echo "      in every messages/*/legal.json, then re-run."

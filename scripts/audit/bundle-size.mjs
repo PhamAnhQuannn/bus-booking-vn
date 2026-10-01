@@ -132,6 +132,10 @@ for (const g of ['customer', 'operator', 'admin']) {
 let failures = 0;
 let warnings = 0;
 const customer = routes.filter((r) => r.group === 'customer');
+if (customer.length === 0) {
+  console.error('FAIL  no customer routes found in build manifests — gate misconfigured (route grouping or manifest paths changed).');
+  process.exit(1);
+}
 for (const r of customer) {
   const kb = r.gz / KB;
   if (kb > CUSTOMER_HARD_KB) {

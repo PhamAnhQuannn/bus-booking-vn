@@ -267,9 +267,10 @@ jobs:
       - name: Build Next.js app
         run: pnpm build
 
-      # Bundle-size budget gate (#778, FD-027 §4): parse .next/app-build-manifest.json for
-      # per-route first-load JS and fail if any CUSTOMER route exceeds the hard budget
-      # (200 KB gzipped). Runs once, on the required chromium shard, right after the build it
+      # Bundle-size budget gate (#778, FD-027 §4): parse .next/build-manifest.json + the
+      # client-reference manifests for per-route first-load JS and fail if any CUSTOMER route
+      # exceeds the hard budget (470 KB gzipped; warn at 440 KB; the 200 KB FD-027 target is
+      # reported only, not enforced). Runs once, on the required chromium shard, right after the build it
       # depends on — a bundle regression then blocks the required "E2E Tests (chromium)" check.
       - name: Bundle size budget (#778)
         if: matrix.project == 'chromium'
@@ -414,7 +415,7 @@ jobs:
       - name: Run greppable invariants G1-G9
         run: bash scripts/audit/greppable-invariants.sh
 
-  # ---- 7b. Disclosure drift (G7, #778) ----
+  # ---- 7b. Disclosure drift (G10, #778) ----
   # Diff-aware gate: fails a PR that adds a new outbound third-party vendor `fetch()` or a
   # new external-service runtime dependency WITHOUT updating the cross-border sub-processor
   # disclosure in messages/*/legal.json (PDPL 2025 Art. 25). fetch-depth:0 so the base ref
@@ -422,6 +423,7 @@ jobs:
   # to the branch-protection required-checks set alongside the other audit gates.
   disclosure-drift:
     name: Disclosure Drift
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
