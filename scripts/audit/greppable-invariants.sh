@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Greppable invariants G1-G8 (KG-14) — CI-runnable, exit nonzero on FAIL.
+# Greppable invariants G1-G9 (KG-14) — CI-runnable, exit nonzero on FAIL.
 # Codifies lessons from CLAUDE.md Mistake Log into automated grep checks.
 # Works on Ubuntu (CI) and Git Bash (Windows dev).
 set -uo pipefail
@@ -386,10 +386,47 @@ $(git ls-files -- 'tourism-kb/code/*.json' 2>/dev/null || true)"
 # ---------- G9: every app route has a sibling route test ----------
 # A route handler without a test is how untested mutation endpoints keep landing
 # (see #774/#783). This is a ratchet: the currently-untested routes are
-# grandfathered in scripts/audit/route-test-baseline.txt; a NEW route missing a
-# sibling __tests__/route.test.ts fails the gate, and the baseline may only SHRINK
-# (a PR that grows it fails, so a new route can't be silently grandfathered).
+# grandfathered in scripts/audit/route-test-baseline.txt; a NEW route without a
+# sibling test fails the gate, and the baseline may only SHRINK (a PR that grows it
+# fails, so a new route can't be silently grandfathered).
+# #794: detection is broadened beyond the fixed name __tests__/route.test.ts — a
+# route <dir>/route.ts(x) counts as TESTED if ANY __tests__/*.ts in its OWN dir or
+# its PARENT dir imports it (references ./route, ../route, or ../<r>/route for a
+# parent-dir test reaching into the subdir).
 # Fixed-string whole-line matching so dynamic segments like [id] compare literally.
+
+# #794: return 0 if some __tests__/*.ts imports the route at <dir>, else 1.
+#   $1 = route dir (e.g. app/api/trips/search), $2 = basename of that dir.
+# Own __tests__: a test importing './route' or '../route'.
+# Parent __tests__: a test importing '../<base>/route' (reaching into this subdir) —
+#   matched per-route so a shared parent __tests__ only counts for the right subdir.
+route_is_tested() {
+  local dir="$1"
+  local base="$2"
+  local parent esc_base
+  parent=$(dirname "$dir")
+  # Escape every non-[alnum_-] char so a regex-special basename ([id], [...key]) is literal.
+  esc_base=$(printf '%s' "$base" | sed 's/[^A-Za-z0-9_-]/\\&/g')
+  # #794: the standard sibling still counts (superset of the old check — no regression).
+  if [ -f "$dir/__tests__/route.test.ts" ]; then
+    return 0
+  fi
+  # #794: own __tests__ — any test importing ./route, ../route, or a longer relative
+  # path that lands on this route ((../)*<base>/route, e.g. ../../verify-otp/route).
+  # Known limits (accepted): a vi.mock('../route') or unused import counts as tested, and from
+  # __tests__ a same-basename child route can over-match.
+  if [ -d "$dir/__tests__" ] \
+    && grep -lE "['\"](\.\.?|(\.\./)*$esc_base)/route['\"]" "$dir"/__tests__/*.ts >/dev/null 2>&1; then
+    return 0
+  fi
+  # #794: parent __tests__ — a test reaching into this subdir via ../<base>/route
+  # (a shared parent __tests__ only counts for the subdir it actually imports).
+  if [ -d "$parent/__tests__" ] \
+    && grep -lE "['\"]\.\./$esc_base/route['\"]" "$parent"/__tests__/*.ts >/dev/null 2>&1; then
+    return 0
+  fi
+  return 1
+}
 check_g9_route_test_sibling() {
   echo "--- G9: app route-test siblings ---"
   local baseline="scripts/audit/route-test-baseline.txt"
@@ -407,13 +444,26 @@ check_g9_route_test_sibling() {
   # untested route cannot be grandfathered in the same commit that introduces it.
   # Skipped when the baseline does not yet exist on the base ref (the PR that first
   # introduces it) — otherwise every line would read as "added".
-  if [ -n "${GITHUB_BASE_REF:-}" ] && git cat-file -e "origin/$GITHUB_BASE_REF:$baseline" 2>/dev/null; then
-    local added
-    added=$(git diff "origin/$GITHUB_BASE_REF...HEAD" -- "$baseline" 2>/dev/null \
-      | grep '^+[^+]' | grep -v '^+[[:space:]]*#' | grep -v '^+[[:space:]]*$' || true)
-    if [ -n "$added" ]; then
-      echo "FAIL  G9 baseline grew (ratchet only shrinks) — new grandfathered entries:"
-      printf '%s\n' "$added" | sed 's/^+/        /'
+  if [ -n "${GITHUB_BASE_REF:-}" ]; then
+    if git cat-file -e "origin/$GITHUB_BASE_REF:$baseline" 2>/dev/null; then
+      local added
+      added=$(git diff "origin/$GITHUB_BASE_REF...HEAD" -- "$baseline" 2>/dev/null \
+        | grep '^+[^+]' | grep -v '^+[[:space:]]*#' | grep -v '^+[[:space:]]*$' || true)
+      if [ -n "$added" ]; then
+        echo "FAIL  G9 baseline grew (ratchet only shrinks) — new grandfathered entries:"
+        printf '%s\n' "$added" | sed 's/^+/        /'
+        FAILURES=$((FAILURES + 1))
+      fi
+    elif git cat-file -e "origin/$GITHUB_BASE_REF" 2>/dev/null; then
+      # #794: base ref is reachable but the baseline does not exist there — this is the
+      # PR that first introduces the baseline. Legit; skip the growth guard silently.
+      :
+    else
+      # #794: base ref itself is unreachable → almost certainly a shallow clone
+      # (actions/checkout without fetch-depth:0). Don't silently skip the ratchet —
+      # a dropped fetch-depth:0 would otherwise let a baseline-growing PR pass unchecked.
+      echo "FAIL  G9 growth guard cannot run: base ref origin/$GITHUB_BASE_REF unreachable"
+      echo "      (shallow clone? the ratchet needs fetch-depth:0 on actions/checkout)."
       FAILURES=$((FAILURES + 1))
     fi
   fi
@@ -422,9 +472,12 @@ check_g9_route_test_sibling() {
   local missing=""
   while IFS= read -r route; do
     [ -n "$route" ] || continue
-    local dir
+    local dir base
     dir=$(dirname "$route")
-    if [ ! -f "$dir/__tests__/route.test.ts" ]; then
+    base=$(basename "$dir")
+    # #794: broadened detection — tested if any __tests__/*.ts in the route's own or
+    # parent dir imports it, not only the fixed name __tests__/route.test.ts.
+    if ! route_is_tested "$dir" "$base"; then
       missing="$missing$dir
 "
       if ! printf '%s\n' "$allow" | grep -Fxq "$dir"; then
@@ -449,16 +502,21 @@ $allow
 EOF
 
   if [ -n "$(printf '%s' "$stale" | grep -v '^[[:space:]]*$' || true)" ]; then
-    echo "WARN  G9 baseline has stale entries (route now tested or removed) — prune them:"
+    # #794: a baseline entry no longer in `missing` (route is now tested or removed) is
+    # a stale grandfather — FAIL (was WARN) so the baseline is kept tight and honest.
+    echo "FAIL  G9 baseline has stale entries (route now tested or removed) — prune them:"
     printf '%s' "$stale" | grep -v '^[[:space:]]*$' | sed 's/^/        /'
-    WARNINGS=$((WARNINGS + 1))
+    echo "      Remove the line(s) above from $baseline."
+    FAILURES=$((FAILURES + 1))
   fi
 
   if [ -n "$(printf '%s' "$violations" | grep -v '^[[:space:]]*$' || true)" ]; then
-    echo "FAIL  G9 new route(s) without a sibling __tests__/route.test.ts:"
+    echo "FAIL  G9 new route(s) without a sibling route test:"
     printf '%s' "$violations" | grep -v '^[[:space:]]*$' | sed 's/^/        /'
-    echo "      Add app/api/<route>/__tests__/route.test.ts. Only if a test is genuinely"
-    echo "      not applicable, add the dir to $baseline with a one-line reason."
+    # #794: the gate covers every app/**/route.ts(x) and accepts broader test locations.
+    echo "      Any app/**/route.ts(x) needs a __tests__/*.ts that imports it (./route or"
+    echo "      ../route) in the route's own dir OR its parent dir. Only if a test is"
+    echo "      genuinely not applicable, add the dir to $baseline with a one-line reason."
     FAILURES=$((FAILURES + 1))
   else
     echo "PASS"

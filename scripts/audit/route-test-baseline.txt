@@ -22,7 +22,6 @@ app/api/admin/system/audit/export
 app/api/auth/google/start
 app/api/auth/otp/test-peek
 app/api/bookings/[id]
-app/api/bookings/initiate
 app/api/bookings
 app/api/cron/process-refunds
 app/api/cron/reconcile-payments
@@ -36,7 +35,6 @@ app/api/op/reports/payouts
 app/api/op/reports/revenue.csv
 app/api/op/reports/revenue
 app/api/op/routes/[id]/deactivate
-app/api/op/trips/[id]
 app/api/op/trips
 app/api/op/trips/upcoming
 app/api/op/trip-templates/[id]
@@ -45,4 +43,3 @@ app/api/ping
 app/api/planner/conversations/[id]
 app/api/planner/conversations
 app/api/planner/itinerary
-app/api/trips/search
