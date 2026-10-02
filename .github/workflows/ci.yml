@@ -219,6 +219,9 @@ jobs:
       # E2E_ACCOUNT_ENABLED specs stay gated because all registrations share the localhost IP and
       # customerRegisterRatelimit is 5/15min, so running every auth+account spec together trips the cap.
       E2E_AUTH_ENABLED: 'true'
+      # #776: run the charter dispatch journey (request→dispatch→accept). Makes exactly one
+      # /api/charter POST per run, well under the 5/hour per-IP cap, so it is safe in the shared-IP lane.
+      E2E_CHARTER_DISPATCH_ENABLED: 'true'
       OTP_PEEK_ENABLED: 'true'
       NOTIFY_STUB: 'true'
       # pnpm build sets NODE_ENV=production; env.ts superRefine requires these.
