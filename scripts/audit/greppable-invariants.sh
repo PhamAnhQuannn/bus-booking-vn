@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Greppable invariants G1-G8 (KG-14) — CI-runnable, exit nonzero on FAIL.
+# Greppable invariants G1-G9 (KG-14) — CI-runnable, exit nonzero on FAIL.
 # Codifies lessons from CLAUDE.md Mistake Log into automated grep checks.
 # Works on Ubuntu (CI) and Git Bash (Windows dev).
 set -uo pipefail
@@ -413,6 +413,8 @@ route_is_tested() {
   fi
   # #794: own __tests__ — any test importing ./route, ../route, or a longer relative
   # path that lands on this route ((../)*<base>/route, e.g. ../../verify-otp/route).
+  # Known limits (accepted): a vi.mock('../route') or unused import counts as tested, and from
+  # __tests__ a same-basename child route can over-match.
   if [ -d "$dir/__tests__" ] \
     && grep -lE "['\"](\.\.?|(\.\./)*$esc_base)/route['\"]" "$dir"/__tests__/*.ts >/dev/null 2>&1; then
     return 0
@@ -460,9 +462,9 @@ check_g9_route_test_sibling() {
       # #794: base ref itself is unreachable → almost certainly a shallow clone
       # (actions/checkout without fetch-depth:0). Don't silently skip the ratchet —
       # a dropped fetch-depth:0 would otherwise let a baseline-growing PR pass unchecked.
-      echo "WARN  G9 growth guard skipped: base ref origin/$GITHUB_BASE_REF unreachable"
+      echo "FAIL  G9 growth guard cannot run: base ref origin/$GITHUB_BASE_REF unreachable"
       echo "      (shallow clone? the ratchet needs fetch-depth:0 on actions/checkout)."
-      WARNINGS=$((WARNINGS + 1))
+      FAILURES=$((FAILURES + 1))
     fi
   fi
 
