@@ -39,7 +39,7 @@ vi.mock('../otp', async (importOriginal) => ({
 }));
 
 const email = (n: number) => `op-login-otp-792-${n}@example.com`;
-const TEST_EMAILS = [email(1), email(2), email(3)] as const;
+const TEST_EMAILS = [email(1), email(2), email(3), email(4)] as const;
 
 async function latestRow(addr: string) {
   return prisma.operatorOtpAttempt.findFirst({
@@ -122,5 +122,29 @@ describe('operator login OTP brute-force hardening (#792)', () => {
     const finalRow = await latestRow(addr);
     expect(finalRow?.attemptCount).toBe(MAX_VERIFY_FAILURES);
     expect(finalRow?.consumed).toBe(true);
+  });
+
+  it('(iv) resend over an EXPIRED unconsumed row resets attemptCount (no stale lockout)', async () => {
+    const addr = email(4);
+    await prisma.operatorOtpAttempt.deleteMany({ where: { phone: addr } });
+
+    // Stale row: operator mistyped twice days ago, OTP long expired, never consumed.
+    await prisma.operatorOtpAttempt.create({
+      data: {
+        phone: addr,
+        codeHash: 'stale',
+        salt: 'stale',
+        expiresAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+        consumed: false,
+        attemptCount: 2,
+      },
+    });
+
+    await sendOperatorLoginOtp(addr);
+    expect((await latestRow(addr))?.attemptCount).toBe(0);
+
+    // Two wrong guesses on the fresh OTP stay under the cap — no lockout.
+    expect((await verifyOperatorLoginOtp(addr, WRONG_CODE)).status).toBe('mismatch');
+    expect((await verifyOperatorLoginOtp(addr, WRONG_CODE)).status).toBe('mismatch');
   });
 });

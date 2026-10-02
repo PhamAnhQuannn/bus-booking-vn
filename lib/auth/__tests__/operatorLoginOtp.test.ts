@@ -112,6 +112,7 @@ describe('sendOperatorLoginOtp', () => {
     const sqlText = mockExecuteRaw.mock.calls[0][0].strings.join('');
     // The ON CONFLICT resend path must NOT zero the counter, else the cap is per-OTP-instance.
     expect(sqlText).not.toContain('"attemptCount" = 0');
+    expect(sqlText).toContain('CASE WHEN');
     // The other resend updates are preserved.
     expect(sqlText).toContain('"codeHash"');
     expect(sqlText).toContain('"expiresAt"');

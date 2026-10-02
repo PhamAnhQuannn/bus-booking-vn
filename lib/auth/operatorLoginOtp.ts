@@ -84,11 +84,13 @@ export async function sendOperatorLoginOtp(email: string): Promise<SendLoginOtpR
         NOW()
       )
       ON CONFLICT (phone) WHERE consumed = false
-      -- #792: the SET list deliberately does NOT zero attemptCount on resend. Resetting it
-      -- made the 3-wrong-guess cap per-OTP-instance instead of per-account (guess 2x,
-      -- re-request, repeat). The active unconsumed row carries its prior count across
-      -- resends so the cap is per-account; a fresh insert still starts at zero via default.
+      -- #792: attemptCount is NOT zeroed on resend while the superseded OTP is still live.
+      -- Resetting it made the 3-wrong-guess cap per-OTP-instance instead of per-account
+      -- (guess 2x, re-request, repeat). The count carries ONLY while the old row is unexpired;
+      -- an expired-but-unconsumed row resets to 0 so stale failures from days ago don't
+      -- pre-load today's OTP toward lockout. A fresh insert starts at zero via VALUES.
       DO UPDATE SET
+        "attemptCount" = CASE WHEN "OperatorOtpAttempt"."expiresAt" > NOW() THEN "OperatorOtpAttempt"."attemptCount" ELSE 0 END,
         "codeHash"    = EXCLUDED."codeHash",
         salt          = EXCLUDED.salt,
         "expiresAt"   = EXCLUDED."expiresAt",
