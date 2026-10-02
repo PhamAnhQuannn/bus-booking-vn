@@ -20,7 +20,7 @@ import { createRatelimit } from '@/lib/ratelimit';
 
 const OTP_TTL_SECONDS = 5 * 60;
 const OTP_EXPIRY_MINUTES = 5;
-const MAX_VERIFY_FAILURES = 3;
+export const MAX_VERIFY_FAILURES = 3;
 const LOCKOUT_WINDOW_MS = 15 * 60 * 1000;
 
 const opLoginOtpRatelimit = createRatelimit({ limit: 5, windowMs: LOCKOUT_WINDOW_MS });
@@ -84,11 +84,14 @@ export async function sendOperatorLoginOtp(email: string): Promise<SendLoginOtpR
         NOW()
       )
       ON CONFLICT (phone) WHERE consumed = false
+      -- #792: the SET list deliberately does NOT zero attemptCount on resend. Resetting it
+      -- made the 3-wrong-guess cap per-OTP-instance instead of per-account (guess 2x,
+      -- re-request, repeat). The active unconsumed row carries its prior count across
+      -- resends so the cap is per-account; a fresh insert still starts at zero via default.
       DO UPDATE SET
         "codeHash"    = EXCLUDED."codeHash",
         salt          = EXCLUDED.salt,
         "expiresAt"   = EXCLUDED."expiresAt",
-        "attemptCount" = 0,
         "createdAt"   = NOW()
     `
   );
@@ -121,90 +124,100 @@ export async function verifyOperatorLoginOtp(
     return { status: 'locked_out' };
   }
 
-  type OtpRow = { id: string; codeHash: string; salt: string; attemptCount: number };
-  const rows = await prisma.$queryRaw<OtpRow[]>(
-    Prisma.sql`
-      SELECT id, "codeHash", salt, "attemptCount"
-      FROM "OperatorOtpAttempt"
-      WHERE phone = ${email}
-        AND consumed = false
-        AND "expiresAt" > NOW()
-      ORDER BY "createdAt" DESC
-      LIMIT 1
-    `
-  );
-
-  if (rows.length === 0) {
-    return { status: 'gone' };
-  }
-
-  const row = rows[0];
-
-  if (row.attemptCount >= MAX_VERIFY_FAILURES) {
-    return { status: 'locked_out' };
-  }
-
-  const expectedHash = hashCode(plainCode, row.salt);
-  const expectedBuf = Buffer.from(expectedHash, 'hex');
-  const storedBuf = Buffer.from(row.codeHash, 'hex');
-  const hashMatch =
-    expectedBuf.length === storedBuf.length &&
-    crypto.timingSafeEqual(expectedBuf, storedBuf);
-
-  if (!hashMatch) {
-    const newAttemptCount = row.attemptCount + 1;
-
-    if (newAttemptCount >= MAX_VERIFY_FAILURES) {
-      const lockoutExpiry = new Date(Date.now() + LOCKOUT_WINDOW_MS);
-      await prisma.$executeRaw(
-        Prisma.sql`
-          UPDATE "OperatorOtpAttempt"
-          SET "attemptCount" = ${newAttemptCount},
-              consumed = true,
-              "consumedAt" = NOW(),
-              "expiresAt" = ${lockoutExpiry}
-          WHERE id = ${row.id}
-            AND consumed = false
-        `
-      );
-    } else {
-      await prisma.$executeRaw(
-        Prisma.sql`
-          UPDATE "OperatorOtpAttempt"
-          SET "attemptCount" = "attemptCount" + 1
-          WHERE id = ${row.id}
-            AND consumed = false
-        `
-      );
-    }
-    return { status: 'mismatch' };
-  }
-
-  const updated = await prisma.$executeRaw(
-    Prisma.sql`
-      UPDATE "OperatorOtpAttempt"
-      SET consumed = true,
-          "consumedAt" = NOW(),
-          "attemptCount" = "attemptCount" + 1
-      WHERE id = ${row.id}
-        AND consumed = false
-        AND "expiresAt" > NOW()
-        AND "codeHash" = ${row.codeHash}
-    `
-  );
-
-  if (updated === 0) {
-    const activeCheck = await prisma.$queryRaw<Array<{ id: string }>>(
+  // #792: read → lockout gate-check → increment/consume MUST be one transaction with the
+  // active OTP row locked FOR UPDATE. As three separate statements (TOCTOU), concurrent
+  // guesses all read the same pre-increment attemptCount and overshoot MAX_VERIFY_FAILURES.
+  // Callback-form tx + FOR UPDATE on the gating row — CLAUDE.md concurrency rule, mirrors
+  // app/api/op/trips/[id]/route.ts and trip-planner/lib/planner/conversationRepo.ts.
+  return prisma.$transaction(async (tx): Promise<VerifyLoginOtpResult> => {
+    type OtpRow = { id: string; codeHash: string; salt: string; attemptCount: number };
+    const rows = await tx.$queryRaw<OtpRow[]>(
       Prisma.sql`
-        SELECT id FROM "OperatorOtpAttempt"
+        SELECT id, "codeHash", salt, "attemptCount"
+        FROM "OperatorOtpAttempt"
         WHERE phone = ${email}
           AND consumed = false
           AND "expiresAt" > NOW()
+        ORDER BY "createdAt" DESC
         LIMIT 1
+        FOR UPDATE
       `
     );
-    return activeCheck.length > 0 ? { status: 'mismatch' } : { status: 'gone' };
-  }
 
-  return { status: 'ok' };
+    if (rows.length === 0) {
+      return { status: 'gone' };
+    }
+
+    const row = rows[0];
+
+    if (row.attemptCount >= MAX_VERIFY_FAILURES) {
+      return { status: 'locked_out' };
+    }
+
+    const expectedHash = hashCode(plainCode, row.salt);
+    const expectedBuf = Buffer.from(expectedHash, 'hex');
+    const storedBuf = Buffer.from(row.codeHash, 'hex');
+    const hashMatch =
+      expectedBuf.length === storedBuf.length &&
+      crypto.timingSafeEqual(expectedBuf, storedBuf);
+
+    if (!hashMatch) {
+      const newAttemptCount = row.attemptCount + 1;
+
+      if (newAttemptCount >= MAX_VERIFY_FAILURES) {
+        const lockoutExpiry = new Date(Date.now() + LOCKOUT_WINDOW_MS);
+        await tx.$executeRaw(
+          Prisma.sql`
+            UPDATE "OperatorOtpAttempt"
+            SET "attemptCount" = ${newAttemptCount},
+                consumed = true,
+                "consumedAt" = NOW(),
+                "expiresAt" = ${lockoutExpiry}
+            WHERE id = ${row.id}
+              AND consumed = false
+          `
+        );
+      } else {
+        await tx.$executeRaw(
+          Prisma.sql`
+            UPDATE "OperatorOtpAttempt"
+            SET "attemptCount" = "attemptCount" + 1
+            WHERE id = ${row.id}
+              AND consumed = false
+          `
+        );
+      }
+      return { status: 'mismatch' };
+    }
+
+    // #792: success does NOT increment attemptCount. A correct code on the 3rd try would
+    // otherwise take count 2→3 alongside consumed=true — exactly the lockout sentinel shape
+    // findLoginLockoutSentinel matches — locking the operator who just logged in out for the TTL.
+    const updated = await tx.$executeRaw(
+      Prisma.sql`
+        UPDATE "OperatorOtpAttempt"
+        SET consumed = true,
+            "consumedAt" = NOW()
+        WHERE id = ${row.id}
+          AND consumed = false
+          AND "expiresAt" > NOW()
+          AND "codeHash" = ${row.codeHash}
+      `
+    );
+
+    if (updated === 0) {
+      const activeCheck = await tx.$queryRaw<Array<{ id: string }>>(
+        Prisma.sql`
+          SELECT id FROM "OperatorOtpAttempt"
+          WHERE phone = ${email}
+            AND consumed = false
+            AND "expiresAt" > NOW()
+          LIMIT 1
+        `
+      );
+      return activeCheck.length > 0 ? { status: 'mismatch' } : { status: 'gone' };
+    }
+
+    return { status: 'ok' };
+  });
 }
