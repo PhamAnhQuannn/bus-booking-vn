@@ -25,6 +25,7 @@
  * not be able to arm this.
  */
 
+import crypto from 'crypto';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getEnv } from '@/lib/config';
@@ -35,26 +36,105 @@ import { processPaymentWebhook } from '@/lib/payment';
 
 const STUB_ADAPTERS = new Set<OnlinePaymentMethod>(['momo', 'zalopay', 'card', 'vnpay']);
 
+/**
+ * bank_transfer is the live SePay/VietQR rail, NOT a stubbed PSP — there is no
+ * MoMo-shaped stub IPN. Unlike the stub PSPs, this path reaches the REAL webhook with the
+ * real SEPAY_API_KEY, so it is gated on BOTH assertDevActionAllowed() AND PAYMENTS_STUB
+ * (checked in submitStubPayment before this runs). Instead of the
+ * in-process processPaymentWebhook path the stub PSPs take, this simulates SePay's
+ * external delivery: it POSTs a synthetic SePay IPN to the REAL webhook route,
+ * authenticated with the server's own SEPAY_API_KEY, so the e2e exercises the real
+ * auth + adapter + confirm path end-to-end. Dev-only (the whole action is
+ * prod-guarded + PAYMENTS_STUB-gated); the real key never leaves the server.
+ *
+ * providerTxnId (the SePay `id`) is a deterministic function of the bookingRef, so a
+ * replayed IPN collides on PaymentEvent @@unique([adapter, providerTxnId]) and the
+ * webhook no-ops idempotently — the same property SePay's own redelivery relies on.
+ */
+async function postSyntheticSepayIpn(input: { bookingRef: string; amount: number }): Promise<void> {
+  const env = getEnv();
+  const h = await headers();
+  const proto = h.get('x-forwarded-proto') ?? 'http';
+  const host = h.get('x-forwarded-host') ?? h.get('host') ?? '';
+  const base = host ? `${proto}://${host}` : '';
+
+  // Stable positive integer (< 2^48, safe) derived from the ref → deterministic redelivery.
+  const txnId = parseInt(
+    crypto.createHash('sha256').update(input.bookingRef).digest('hex').slice(0, 12),
+    16,
+  );
+  // Vietnamese bank memos strip the hyphens; the adapter re-inserts them (EXTRACT_REGEX).
+  const memo = input.bookingRef.replace(/-/g, '');
+
+  const ipn = {
+    id: txnId,
+    gateway: 'StubBank',
+    transactionDate: '2026-01-01 00:00:00',
+    // MUST equal the configured VietQR receiving account or the route holds it as an
+    // orphan (Issue 334) instead of crediting — read the same env the route checks.
+    accountNumber: env.VIETQR_ACCOUNT_NUMBER,
+    subAccount: null,
+    transferType: 'in',
+    transferAmount: input.amount,
+    accumulated: 0,
+    code: null,
+    content: `${memo} stub transfer`,
+    referenceCode: `STUB-${txnId}`,
+    description: `BankAPINotify ${memo}`,
+  };
+
+  const res = await fetch(`${base}/api/payments/bank_transfer/webhook`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      // SePay's own scheme; the route accepts `Apikey`/`Bearer`. Real key, real auth.
+      authorization: `Apikey ${env.SEPAY_API_KEY ?? ''}`,
+    },
+    body: JSON.stringify(ipn),
+  });
+  if (!res.ok) {
+    throw new Error(`stub-pay: synthetic SePay IPN rejected (${res.status})`);
+  }
+}
+
 export async function submitStubPayment(outcome: StubOutcome, formData: FormData): Promise<void> {
   assertDevActionAllowed(); // SEC-DEV-STUB-PROD-SAFETY (#559): shared prod guard.
-  const env = getEnv();
-  if (!env.PAYMENTS_STUB) {
-    throw new Error('stub-pay disabled: PAYMENTS_STUB is off');
-  }
 
   const adapter = String(formData.get('adapter') ?? '');
   const orderId = String(formData.get('orderId') ?? '');
   const amount = Number(formData.get('amount') ?? 0);
   const redirectUrl = String(formData.get('redirectUrl') ?? '');
 
-  if (!STUB_ADAPTERS.has(adapter as OnlinePaymentMethod)) {
-    throw new Error(`stub-pay: unknown adapter ${adapter}`);
-  }
   if (!orderId || !redirectUrl) {
     throw new Error('stub-pay: missing orderId/redirectUrl');
   }
   if (outcome !== 'success' && outcome !== 'fail') {
     throw new Error(`stub-pay: invalid outcome ${outcome}`);
+  }
+
+  // Second gate, ahead of EVERY path (incl. bank_transfer, which reaches the real webhook
+  // with the real SEPAY_API_KEY): assertDevActionAllowed() only blocks real production, so a
+  // PREVIEW deploy with a real key would otherwise let an unauthenticated direct POST mark
+  // any bookingRef paid.
+  const env = getEnv();
+  if (!env.PAYMENTS_STUB) {
+    throw new Error('stub-pay disabled: PAYMENTS_STUB is off');
+  }
+
+  // bank_transfer takes the real-route path above; only a successful inbound transfer
+  // maps to an IPN (a "fail" is simply no transfer → booking stays awaiting_payment).
+  if (adapter === 'bank_transfer') {
+    if (outcome === 'success') {
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw new Error('stub-pay: invalid amount');
+      }
+      await postSyntheticSepayIpn({ bookingRef: orderId, amount });
+    }
+    redirect(redirectUrl);
+  }
+
+  if (!STUB_ADAPTERS.has(adapter as OnlinePaymentMethod)) {
+    throw new Error(`stub-pay: unknown adapter ${adapter}`);
   }
 
   const h = await headers();
