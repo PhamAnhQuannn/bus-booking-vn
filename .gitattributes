@@ -1,0 +1,4 @@
+# Pin LF on audit baseline + shell scripts (#794): a CRLF re-save would otherwise
+# read as every line changed, tripping the G9 growth-guard with false "added" lines.
+scripts/audit/route-test-baseline.txt text eol=lf
+*.sh text eol=lf
