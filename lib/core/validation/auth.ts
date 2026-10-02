@@ -34,7 +34,7 @@ export const registerInput = z.object({
 
 export const loginInput = z.object({
   email: emailSchema,
-  password: z.string().min(1, 'Password is required'),
+  password: z.string().min(1, 'Password is required').max(128, 'Password too long'),
 });
 
 // 2026-06-06: operators log in by generated username (BRAND_ACRONYM-last4phone), not phone.

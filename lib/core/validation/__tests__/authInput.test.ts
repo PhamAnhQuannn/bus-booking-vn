@@ -66,3 +66,13 @@ describe('customer email normalization (case-stable account key)', () => {
     expect(parsed.email).toBe('user@example.com');
   });
 });
+
+describe('loginInput password length bound', () => {
+  it('accepts a 128-char password', () => {
+    expect(loginInput.safeParse({ email: 'a@example.com', password: 'a'.repeat(128) }).success).toBe(true);
+  });
+
+  it('rejects a 129-char password', () => {
+    expect(loginInput.safeParse({ email: 'a@example.com', password: 'a'.repeat(129) }).success).toBe(false);
+  });
+});

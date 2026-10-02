@@ -2,6 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockQueryRaw = vi.hoisted(() => vi.fn());
 const mockExecuteRaw = vi.hoisted(() => vi.fn());
+// verifyOperatorLoginOtp wraps its read→gate→write in prisma.$transaction (#792). The mock
+// runs the callback with a tx object whose $queryRaw/$executeRaw are the SAME mocks, so the
+// existing call-sequence expectations (sentinel on prisma, then tx reads/writes) still hold.
+const mockTransaction = vi.hoisted(() =>
+  vi.fn(async (cb: (tx: { $queryRaw: unknown; $executeRaw: unknown }) => unknown) =>
+    cb({ $queryRaw: mockQueryRaw, $executeRaw: mockExecuteRaw })
+  )
+);
 const mockRatelimit = vi.hoisted(() => ({ limit: vi.fn() }));
 const mockSendEmail = vi.hoisted(() => vi.fn());
 const mockStashTestOtp = vi.hoisted(() => vi.fn());
@@ -13,6 +21,7 @@ vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     $queryRaw: mockQueryRaw,
     $executeRaw: mockExecuteRaw,
+    $transaction: mockTransaction,
   },
 }));
 
@@ -94,6 +103,21 @@ describe('sendOperatorLoginOtp', () => {
     expect(mockExecuteRaw).not.toHaveBeenCalled();
   });
 
+  it('resend DO UPDATE does not reset attemptCount (#792 per-account cap)', async () => {
+    mockQueryRaw.mockResolvedValueOnce([]); // no lockout sentinel
+
+    await sendOperatorLoginOtp(TEST_EMAIL);
+
+    expect(mockExecuteRaw).toHaveBeenCalledOnce();
+    const sqlText = mockExecuteRaw.mock.calls[0][0].strings.join('');
+    // The ON CONFLICT resend path must NOT zero the counter, else the cap is per-OTP-instance.
+    expect(sqlText).not.toContain('"attemptCount" = 0');
+    expect(sqlText).toContain('CASE WHEN');
+    // The other resend updates are preserved.
+    expect(sqlText).toContain('"codeHash"');
+    expect(sqlText).toContain('"expiresAt"');
+  });
+
   it('returns rate_limited when rate limiter blocks', async () => {
     mockQueryRaw.mockResolvedValueOnce([]); // no sentinel
     mockRatelimit.limit.mockResolvedValue({ allowed: false, remaining: 0, retryAfter: 900 });
@@ -118,6 +142,23 @@ describe('verifyOperatorLoginOtp', () => {
     const result = await verifyOperatorLoginOtp(TEST_EMAIL, '123456');
 
     expect(result.status).toBe('ok');
+  });
+
+  it('success on 3rd try does not increment attemptCount (#792 no spurious lockout)', async () => {
+    mockQueryRaw.mockResolvedValueOnce([]); // no sentinel
+    mockQueryRaw.mockResolvedValueOnce(makeActiveRow({ attemptCount: 2 }));
+    mockHashCode.mockReturnValue(CORRECT_HASH); // correct code
+    mockExecuteRaw.mockResolvedValue(1);
+
+    const result = await verifyOperatorLoginOtp(TEST_EMAIL, '123456');
+
+    expect(result.status).toBe('ok');
+    expect(mockExecuteRaw).toHaveBeenCalledTimes(1);
+    const sqlText = mockExecuteRaw.mock.calls[0][0].strings.join('');
+    expect(sqlText).toContain('consumed = true');
+    // Must NOT bump the counter on success — 2→3 + consumed=true == the lockout sentinel shape.
+    expect(sqlText).not.toContain('"attemptCount" = "attemptCount" + 1');
+    expect(sqlText).not.toContain('"attemptCount"');
   });
 
   it('returns mismatch on wrong code (1st attempt)', async () => {
