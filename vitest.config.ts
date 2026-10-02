@@ -58,6 +58,18 @@ export default defineConfig({
         branches: 32,
         functions: 34,
         lines: 40,
+        // Per-directory coverage lock (C2, #778) — money/PII domains must not silently
+        // lose coverage. Vitest per-glob thresholds; set at/just below measured today
+        // (`pnpm test:cov`) so they pass now and only fail on a regression.
+        //   lib/einvoice — e-invoice issuance (money): measured 100/100/100/100.
+        //   lib/audit    — admin audit log + PII phone redaction: measured 100/100/100/100
+        //                  (tiny dir: 5 stmts, so thresholds leave 1-line headroom).
+        'lib/einvoice/**': { statements: 95, branches: 90, functions: 90, lines: 95 },
+        'lib/audit/**': { statements: 80, branches: 75, functions: 80, lines: 80 },
+        // lib/reports currently has ZERO test coverage (0/46 stmts) — the lock is a 0 floor
+        // that documents the gap and enumerates the dir; it becomes a real ratchet once
+        // tests land. FOLLOW-UP (#778): add tests for getBusPerformance / getOperatorKpis.
+        'lib/reports/**': { statements: 0, branches: 0, functions: 0, lines: 0 },
       },
     },
   },
