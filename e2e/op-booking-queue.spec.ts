@@ -444,7 +444,7 @@ test.describe('Operator booking queue + manifest (Issue 014)', () => {
 
   test('op/upcoming page renders upcoming trips table', async ({ page }) => {
     await page.goto('/op/login');
-    await page.fill('[name="phone"]', SEED_PHONE);
+    await page.fill('[name="username"]', SEED_USERNAME);
     await page.fill('[name="password"]', SEED_PASSWORD);
     await page.click('[type="submit"]');
     await page.waitForURL('**/op/dashboard');
@@ -461,7 +461,7 @@ test.describe('Operator booking queue + manifest (Issue 014)', () => {
 
   test('op/manifest/:tripId page renders ManifestRefresh island (AC7 Last-updated)', async ({ page }) => {
     await page.goto('/op/login');
-    await page.fill('[name="phone"]', SEED_PHONE);
+    await page.fill('[name="username"]', SEED_USERNAME);
     await page.fill('[name="password"]', SEED_PASSWORD);
     await page.click('[type="submit"]');
     await page.waitForURL('**/op/dashboard');
