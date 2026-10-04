@@ -375,6 +375,15 @@ export const opLoginRatelimit = createRatelimit({ limit: 10, windowMs: 60_000 })
 export const opVerifyOtpRatelimit = createRatelimit({ limit: 10, windowMs: 60_000 });
 
 /**
+ * Operator login OTP-resend (#457) per-IP throttle: 10/min/IP — mirrors opVerifyOtpRatelimit.
+ * Anti-flood only; the authoritative send cap is per-email (3/15min) inside
+ * sendOperatorLoginOtp (operatorLoginOtp.ts). Keyed `op-login-resend-otp:<ip>`.
+ * Fail-open (no failClosed), same reasoning as opVerifyOtpRatelimit: it runs before any
+ * send, so failing closed would block legitimate resends on a Redis outage.
+ */
+export const opLoginResendOtpRatelimit = createRatelimit({ limit: 10, windowMs: 60_000 });
+
+/**
  * Operator login consecutive-failure lockout: 5 bad attempts per 15 min per
  * username → 429 (mirrors adminTotpLockout). Keyed `op-login-fail:<username>`,
  * consumed (`.limit`) ONLY on INVALID_CREDENTIALS. The operator username

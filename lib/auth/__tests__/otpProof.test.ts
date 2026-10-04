@@ -67,10 +67,10 @@ describe('issueOtpProof / verifyOtpProof', () => {
   });
 
   it('op_pwd_reset proof allows replay (no jti gate)', async () => {
-    const token = await issueOtpProof('+84901234560', 'op_pwd_reset');
+    const token = await issueOtpProof('+8490xxxxxx0', 'op_pwd_reset');
     const first = await verifyOtpProof(token, 'op_pwd_reset');
     expect(first).not.toBeNull();
-    expect(first!.phone).toBe('+84901234560');
+    expect(first!.phone).toBe('+8490xxxxxx0');
     expect(first!.email).toBeUndefined();
     // op_pwd_reset does NOT consume jti — but jti is still present in payload
     const second = await verifyOtpProof(token, 'op_pwd_reset');
@@ -83,13 +83,23 @@ describe('issueOtpProof / verifyOtpProof', () => {
     expect(await verifyOtpProof(token, 'op_login')).toBeNull(); // replay blocked
   });
 
+  it('consume:false does NOT burn the jti — later consuming verify still succeeds (#457 resend)', async () => {
+    const token = await issueOtpProof('op-user-1', 'op_login');
+    // Resend decodes without consuming…
+    expect(await verifyOtpProof(token, 'op_login', { consume: false })).not.toBeNull();
+    expect(await verifyOtpProof(token, 'op_login', { consume: false })).not.toBeNull();
+    // …so the real verify can still claim it exactly once.
+    expect(await verifyOtpProof(token, 'op_login')).not.toBeNull();
+    expect(await verifyOtpProof(token, 'op_login')).toBeNull();
+  });
+
   it('rejects an op_login proof signed with the CUSTOMER secret (P18 realm split)', async () => {
     const token = await signRaw(CUSTOMER_SECRET, { email: 'op-user-1', purpose: 'op_login', jti: 'p18a' });
     expect(await verifyOtpProof(token, 'op_login')).toBeNull();
   });
 
   it('rejects an op_pwd_reset proof signed with the CUSTOMER secret (P18 realm split)', async () => {
-    const token = await signRaw(CUSTOMER_SECRET, { phone: '+84901234560', purpose: 'op_pwd_reset', jti: 'p18b' });
+    const token = await signRaw(CUSTOMER_SECRET, { phone: '+8490xxxxxx0', purpose: 'op_pwd_reset', jti: 'p18b' });
     expect(await verifyOtpProof(token, 'op_pwd_reset')).toBeNull();
   });
 

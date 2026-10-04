@@ -148,5 +148,21 @@ test.describe('Operator login page (DOM)', () => {
       await expect(page.getByText('Mã xác thực không đúng')).toBeVisible();
       await expect(page.locator('#op-login-otp')).toBeVisible(); // still on step 2
     });
+
+    // #457 — resend affordance + mid-flow state preservation.
+    test('shows a "Gửi lại mã" resend affordance (cooldown active right after send)', async ({ page }) => {
+      await submitPassword(page);
+      const resend = page.getByRole('button', { name: /Gửi lại mã/ });
+      await expect(resend).toBeVisible();
+      // The first code was just sent → the button is on cooldown (disabled, shows a countdown).
+      await expect(resend).toBeDisabled();
+      await expect(resend).toContainText(/\(\d+s\)/);
+    });
+
+    test('"← Quay lại" preserves the typed username', async ({ page }) => {
+      await submitPassword(page);
+      await page.getByRole('button', { name: '← Quay lại đăng nhập' }).click();
+      await expect(page.locator('[name="username"]')).toHaveValue(SEED_USERNAME);
+    });
   });
 });

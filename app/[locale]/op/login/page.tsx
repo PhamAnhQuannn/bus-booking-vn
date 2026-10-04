@@ -14,7 +14,7 @@
  * Otherwise → redirects to /op/dashboard.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, KeyRound, ShieldCheck, UserRound, Building2 } from 'lucide-react';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
@@ -33,6 +33,13 @@ import { cn } from '@/lib/utils';
 
 type Step = 'password' | 'otp';
 
+// #457: seconds to disable "Gửi lại mã" after an OTP send/resend, so a click burst
+// can't spam the email channel (the server also caps per-email at 3/15min).
+const RESEND_COOLDOWN_SECONDS = 30;
+// Session-only (never password) persistence of the OTP challenge so a refresh or an
+// accidental "← Quay lại" during step 2 doesn't drop the operator back to step 1.
+const OTP_FLOW_KEY = 'bb_op_login_otp';
+
 export default function OpLoginPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>('password');
@@ -40,8 +47,56 @@ export default function OpLoginPage() {
   const [loading, setLoading] = useState(false);
 
   // OTP step state
+  const [username, setUsername] = useState(''); // lifted so "← Quay lại" preserves it
   const [loginChallenge, setLoginChallenge] = useState('');
   const [maskedEmail, setMaskedEmail] = useState('');
+  const [resending, setResending] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendNotice, setResendNotice] = useState('');
+
+  // Restore an in-flight OTP challenge after a reload (sessionStorage; no password).
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(OTP_FLOW_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as { loginChallenge?: string; maskedEmail?: string; username?: string };
+      if (saved.loginChallenge) {
+        // Intentional setState-in-effect: reading sessionStorage during render would break
+        // SSR/hydration (server has no storage), so the restore must run post-mount.
+        /* eslint-disable react-hooks/set-state-in-effect */
+        setLoginChallenge(saved.loginChallenge);
+        setMaskedEmail(saved.maskedEmail ?? '');
+        setUsername(saved.username ?? '');
+        setStep('otp');
+        /* eslint-enable react-hooks/set-state-in-effect */
+      }
+    } catch {
+      /* private mode / blocked storage — degrade to no-persist */
+    }
+  }, []);
+
+  // Tick the resend cooldown down to zero.
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setTimeout(() => setResendCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendCooldown]);
+
+  function persistOtpFlow(challenge: string, email: string, user: string): void {
+    try {
+      sessionStorage.setItem(OTP_FLOW_KEY, JSON.stringify({ loginChallenge: challenge, maskedEmail: email, username: user }));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function clearOtpFlow(): void {
+    try {
+      sessionStorage.removeItem(OTP_FLOW_KEY);
+    } catch {
+      /* ignore */
+    }
+  }
 
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -88,6 +143,9 @@ export default function OpLoginPage() {
       if (json.otpRequired) {
         setLoginChallenge(json.loginChallenge);
         setMaskedEmail(json.maskedEmail);
+        setUsername(username); // lift for "← Quay lại" + reload persistence
+        persistOtpFlow(json.loginChallenge, json.maskedEmail, username);
+        setResendCooldown(RESEND_COOLDOWN_SECONDS);
         setStep('otp');
         return;
       }
@@ -131,12 +189,14 @@ export default function OpLoginPage() {
           // #454: the operator was disabled/removed BETWEEN password and OTP — the route
           // re-validates and returns 401. Don't show "wrong code"; send them back to re-login.
           setError('Tài khoản không khả dụng. Vui lòng đăng nhập lại.');
+          clearOtpFlow();
           setStep('password');
         } else {
           const json = await res.json().catch(() => ({}));
           const errCode = (json as { error?: string }).error ?? '';
           if (errCode === 'expired' || errCode === 'invalid_challenge') {
             setError('Mã xác thực đã hết hạn. Vui lòng đăng nhập lại.');
+            clearOtpFlow();
             setStep('password');
           } else {
             setError('Mã xác thực không đúng. Vui lòng thử lại.');
@@ -147,6 +207,7 @@ export default function OpLoginPage() {
 
       const json = await res.json();
 
+      clearOtpFlow();
       if (json.requiresPasswordChange) {
         router.push('/op/first-login');
       } else {
@@ -156,6 +217,50 @@ export default function OpLoginPage() {
       setError('Lỗi kết nối. Vui lòng thử lại.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleResend() {
+    if (resending || resendCooldown > 0) return;
+    setError('');
+    setResendNotice('');
+    setResending(true);
+    try {
+      const res = await fetch('/api/auth/login/resend-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': readCsrfToken(),
+        },
+        body: JSON.stringify({ loginChallenge }),
+      });
+
+      if (!res.ok) {
+        if (res.status === 429) {
+          setError('Bạn đã yêu cầu gửi mã quá nhiều lần. Vui lòng thử lại sau ít phút.');
+        } else {
+          const json = await res.json().catch(() => ({}));
+          const errCode = (json as { error?: string }).error ?? '';
+          if (errCode === 'invalid_challenge') {
+            setError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+            clearOtpFlow();
+            setStep('password');
+          } else {
+            setError('Không gửi lại được mã. Vui lòng thử lại.');
+          }
+        }
+        return;
+      }
+
+      const json = await res.json();
+      setLoginChallenge(json.loginChallenge);
+      persistOtpFlow(json.loginChallenge, maskedEmail, username);
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
+      setResendNotice('Đã gửi lại mã xác thực. Vui lòng kiểm tra email.');
+    } catch {
+      setError('Lỗi kết nối. Vui lòng thử lại.');
+    } finally {
+      setResending(false);
     }
   }
 
@@ -185,6 +290,7 @@ export default function OpLoginPage() {
                     id="op-login-username"
                     type="text"
                     name="username"
+                    defaultValue={username}
                     autoCapitalize="characters"
                     autoComplete="username"
                     required
@@ -264,20 +370,40 @@ export default function OpLoginPage() {
                   />
                 </div>
               </div>
+              {resendNotice && (
+                <p role="status" className="text-sm text-emerald-600">{resendNotice}</p>
+              )}
               <FormError id="op-login-error" message={error} />
               <Button type="submit" size="lg" disabled={loading} aria-busy={loading} className="h-12 w-full text-base">
                 {loading ? 'Đang xác thực...' : 'Xác nhận'}
               </Button>
-              <button
-                type="button"
-                className={cn(authLinkClass, 'text-sm')}
-                onClick={() => {
-                  setStep('password');
-                  setError('');
-                }}
-              >
-                ← Quay lại đăng nhập
-              </button>
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  className={cn(authLinkClass, 'text-sm')}
+                  onClick={() => {
+                    clearOtpFlow();
+                    setStep('password');
+                    setError('');
+                    setResendNotice('');
+                  }}
+                >
+                  ← Quay lại đăng nhập
+                </button>
+                <button
+                  type="button"
+                  className={cn(authLinkClass, 'text-sm disabled:opacity-50')}
+                  onClick={handleResend}
+                  disabled={resending || resendCooldown > 0}
+                  aria-busy={resending}
+                >
+                  {resending
+                    ? 'Đang gửi...'
+                    : resendCooldown > 0
+                      ? `Gửi lại mã (${resendCooldown}s)`
+                      : 'Gửi lại mã'}
+                </button>
+              </div>
             </form>
           )}
         </Card>

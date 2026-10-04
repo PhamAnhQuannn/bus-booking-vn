@@ -164,11 +164,19 @@ export async function issueOtpProof(identifier: string, purpose: OtpProofPurpose
 /**
  * Verify an OTP proof JWT.
  * Returns { email?, phone?, jti } if valid and purpose matches, null otherwise.
+ *
+ * `opts.consume` (default true) controls the one-shot jti claim for JTI_REQUIRED
+ * purposes. Pass `consume: false` ONLY to read a still-valid proof without burning it
+ * — e.g. the OTP-resend endpoint (#457) decodes the live op_login challenge to find the
+ * operator, re-sends the code, and issues a FRESH challenge; the eventual verify-otp
+ * call is still the single consumer. Every auth-completing caller keeps the default.
  */
 export async function verifyOtpProof(
   token: string,
-  purpose: OtpProofPurpose
+  purpose: OtpProofPurpose,
+  opts: { consume?: boolean } = {}
 ): Promise<OtpProofPayload | null> {
+  const { consume = true } = opts;
   try {
     const { payload } = await jwtVerify(token, getSecretForPurpose(purpose), {
       algorithms: ['HS256'],
@@ -184,7 +192,7 @@ export async function verifyOtpProof(
 
     const jti = payload['jti'] as string;
 
-    if (JTI_REQUIRED_PURPOSES.has(purpose)) {
+    if (consume && JTI_REQUIRED_PURPOSES.has(purpose)) {
       const exp = payload.exp as number | undefined;
       const ttlSec = exp ? Math.max(1, exp - Math.floor(Date.now() / 1000)) : OTP_PROOF_TTL_SECONDS;
       const consumed = await consumeJti(jti, ttlSec);
