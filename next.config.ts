@@ -6,7 +6,6 @@ import createNextIntlPlugin from "next-intl/plugin";
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
 const isProd = process.env.NODE_ENV === 'production';
-const hasSentry = !!process.env.NEXT_PUBLIC_SENTRY_DSN;
 
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -16,22 +15,9 @@ const securityHeaders = [
   ...(isProd
     ? [{ key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' }]
     : []),
-  {
-    key: 'Content-Security-Policy',
-    value: [
-      "default-src 'self'",
-      `script-src 'self' 'unsafe-inline'${isProd ? '' : " 'unsafe-eval'"}`,
-      // *.sentry.io (not *.ingest.sentry.io): regionalized DSNs use an extra label,
-      // e.g. o<org>.ingest.us.sentry.io / .de.sentry.io, which *.ingest.sentry.io does NOT match.
-      `connect-src 'self'${hasSentry ? ' https://*.sentry.io' : ''}${isProd ? '' : ' ws://localhost:* http://localhost:*'}`,
-      "img-src 'self' data: blob: https://img.vietqr.io",
-      "style-src 'self' 'unsafe-inline'",
-      "font-src 'self'",
-      "frame-ancestors 'none'",
-      "form-action 'self'",
-      "base-uri 'self'",
-    ].join('; '),
-  },
+  // Content-Security-Policy is NOT set here anymore (#560): a static header cannot carry a
+  // per-request script nonce. It is built per-request in proxy.ts (buildCsp) for page routes,
+  // where `script-src` uses `'nonce-<nonce>' 'strict-dynamic'` instead of `'unsafe-inline'`.
 ];
 
 const nextConfig: NextConfig = {

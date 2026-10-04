@@ -9,6 +9,7 @@
 import type { Metadata } from 'next';
 import { cache } from 'react';
 import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
 import { getTranslations } from 'next-intl/server';
 import { ArrowRight, Clock, Armchair, Phone, Timer, MapPin } from 'lucide-react';
 import { Link } from '@/i18n/navigation';
@@ -102,11 +103,15 @@ export default async function TripDetailPage({
     ]),
   ];
 
+  // CSP nonce (#560): carry proxy.ts's per-request nonce or the nonce-based script-src blocks it.
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
+
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-8">
       {/* SEO: BusTrip/Offer + breadcrumb structured data for rich results. */}
       <script
         type="application/ld+json"
+        nonce={nonce}
         // SEC-XSS-JSONLD (#557): jsonLdHtml escapes <>&/U+2028/9 so operator free-text
         // (route names, legalName) can't break out of the inline script. Never bare JSON.stringify.
         dangerouslySetInnerHTML={{ __html: jsonLdHtml(jsonLd) }}
