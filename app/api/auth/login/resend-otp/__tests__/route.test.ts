@@ -44,7 +44,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockResendLimit.mockResolvedValue({ allowed: true, remaining: 9, retryAfter: 0 });
   mockVerifyOtpProof.mockResolvedValue({ email: 'op-user-id-1', purpose: 'op_login' });
-  mockPrisma.operatorUser.findUnique.mockResolvedValue({ email: 'op@example.com' });
+  mockPrisma.operatorUser.findUnique.mockResolvedValue({ email: 'op@example.com', disabledAt: null });
   mockSendOperatorLoginOtp.mockResolvedValue({ ok: true });
   mockIssueOtpProof.mockResolvedValue('fresh-challenge-jwt');
 });
@@ -61,9 +61,23 @@ describe('POST /api/auth/login/resend-otp', () => {
     expect(mockIssueOtpProof).toHaveBeenCalledWith('op-user-id-1', 'op_login');
   });
 
-  it('decodes the challenge WITHOUT consuming its one-shot jti (consume:false)', async () => {
+  it('decodes the challenge WITHOUT consuming + with expiry tolerance (consume:false, clockTolerance)', async () => {
     await POST(makeRequest(VALID_BODY));
-    expect(mockVerifyOtpProof).toHaveBeenCalledWith('old-challenge-jwt', 'op_login', { consume: false });
+    expect(mockVerifyOtpProof).toHaveBeenCalledWith('old-challenge-jwt', 'op_login', {
+      consume: false,
+      clockTolerance: '10 minutes',
+    });
+  });
+
+  it('returns 400 invalid_challenge for a disabled operator (no OTP email sent)', async () => {
+    mockPrisma.operatorUser.findUnique.mockResolvedValue({ email: 'op@example.com', disabledAt: new Date() });
+
+    const res = await POST(makeRequest(VALID_BODY));
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error).toBe('invalid_challenge');
+    expect(mockSendOperatorLoginOtp).not.toHaveBeenCalled();
   });
 
   it('returns 429 RATE_LIMITED and does no OTP work when the per-IP limiter denies', async () => {

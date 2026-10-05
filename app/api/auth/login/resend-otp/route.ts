@@ -11,8 +11,15 @@
  * challenge window is refreshed in lockstep with the new code. The eventual verify-otp
  * call remains the single jti consumer.
  *
+ * The challenge TTL (5min) equals the OTP TTL, so by the time a code has "expired" the
+ * challenge is too. To actually serve the expired-code case (#457's whole point), resend
+ * decodes with a bounded clockTolerance (10min) → a challenge up to ~15min old still
+ * resolves the operator. This never lets an expired challenge COMPLETE login (verify-otp
+ * omits the tolerance, so jose rejects it); resend only mints a fresh code + challenge,
+ * gated by the per-IP + per-email caps.
+ *
  * 200 → { ok: true, loginChallenge }
- * 400 → INVALID (bad body) / invalid_challenge (bad or expired challenge)
+ * 400 → INVALID (bad body) / invalid_challenge (bad/too-old challenge, or disabled operator)
  * 429 → RATE_LIMITED (per-IP) / OTP_LOCKED_OUT / OTP_RATE_LIMITED (per-email)
  */
 
@@ -53,8 +60,12 @@ async function handler(req: Request): Promise<Response> {
     return NextResponse.json({ error: 'INVALID' }, { status: 400 });
   }
 
-  // Decode WITHOUT consuming — the verify-otp step stays the single jti consumer.
-  const proof = await verifyOtpProof(parsed.data.loginChallenge, 'op_login', { consume: false });
+  // Decode WITHOUT consuming (verify-otp stays the single jti consumer) and WITH a bounded
+  // expiry tolerance so a just-expired code can still be resent (#457).
+  const proof = await verifyOtpProof(parsed.data.loginChallenge, 'op_login', {
+    consume: false,
+    clockTolerance: '10 minutes',
+  });
   const operatorUserId = proof?.email;
   if (!operatorUserId) {
     return NextResponse.json({ error: 'invalid_challenge' }, { status: 400 });
@@ -63,9 +74,11 @@ async function handler(req: Request): Promise<Response> {
   const { prisma } = await import('@/lib/core/db/client');
   const user = await prisma.operatorUser.findUnique({
     where: { id: operatorUserId },
-    select: { email: true },
+    select: { email: true, disabledAt: true },
   });
-  if (!user?.email) {
+  // Uniform invalid_challenge (anti-enumeration) if the operator is gone, has no email, or
+  // was disabled mid-flow — don't email OTPs to a deactivated account.
+  if (!user?.email || user.disabledAt !== null) {
     return NextResponse.json({ error: 'invalid_challenge' }, { status: 400 });
   }
 

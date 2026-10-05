@@ -93,6 +93,30 @@ describe('issueOtpProof / verifyOtpProof', () => {
     expect(await verifyOtpProof(token, 'op_login')).toBeNull();
   });
 
+  it('clockTolerance lets resend decode a recently-expired op_login challenge, but not an old one (#457)', async () => {
+    const nowSec = Math.floor(Date.now() / 1000);
+    const sign = (expSecFromNow: number) =>
+      new SignJWT({ email: 'op-user-1', purpose: 'op_login', jti: `tol-${expSecFromNow}` })
+        .setProtectedHeader({ alg: 'HS256' })
+        .setIssuedAt()
+        .setExpirationTime(nowSec + expSecFromNow)
+        .sign(new TextEncoder().encode(OPERATOR_SECRET));
+
+    const expired1m = await sign(-60); // expired 1 min ago
+    const expired20m = await sign(-20 * 60); // expired 20 min ago
+
+    // Default (no tolerance) rejects any expired token — auth-completing callers are unaffected.
+    expect(await verifyOtpProof(expired1m, 'op_login', { consume: false })).toBeNull();
+    // Resend's 10-min tolerance accepts the just-expired one…
+    expect(
+      await verifyOtpProof(expired1m, 'op_login', { consume: false, clockTolerance: '10 minutes' })
+    ).not.toBeNull();
+    // …but still rejects one expired well beyond the window.
+    expect(
+      await verifyOtpProof(expired20m, 'op_login', { consume: false, clockTolerance: '10 minutes' })
+    ).toBeNull();
+  });
+
   it('rejects an op_login proof signed with the CUSTOMER secret (P18 realm split)', async () => {
     const token = await signRaw(CUSTOMER_SECRET, { email: 'op-user-1', purpose: 'op_login', jti: 'p18a' });
     expect(await verifyOtpProof(token, 'op_login')).toBeNull();
