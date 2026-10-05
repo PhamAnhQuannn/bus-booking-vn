@@ -195,7 +195,7 @@ async function decodeAdminJwt(
  * with no nonce hook, and a style nonce would break them with no XSS win worth the churn.
  * This is the documented degrade from the full-nonce ideal (issue #560).
  */
-function buildCsp(nonce: string, isProd: boolean, hasSentry: boolean): string {
+export function buildCsp(nonce: string, isProd: boolean, hasSentry: boolean): string {
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isProd ? '' : " 'unsafe-eval'"}`,
