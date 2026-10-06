@@ -49,6 +49,11 @@ export const MAX_ATTEMPTS = 5;
  * It rides the SAME Resend/NotificationLog pipeline as customer email, so a Resend
  * degradation takes it down exactly when it is needed. A failure to dispatch one of
  * these gets an extra, Resend-INDEPENDENT signal (see applyDispatchOutcome).
+ *
+ * Deliberately NOT included: `charterDeclined` is also ops-inbox (via OPS_EMAIL) but is
+ * a charter state-change whose source of truth is the admin charter queue, not this
+ * alert — outside #336's "unmatched-transfer alert can't silently die" AC. Add a
+ * template here only when its silent loss would leave money/ops state unrecoverable.
  */
 export const OPS_NOTIFICATION_TEMPLATES: ReadonlySet<string> = new Set(['opsUnmatchedPayment']);
 
