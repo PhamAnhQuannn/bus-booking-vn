@@ -10,12 +10,14 @@ import type { Check } from './http-asserts.mjs';
 
 const BASE_URL = process.env.BASE_URL ?? 'http://localhost:3001';
 
-// #684: the smoke runs against the deployment's per-build `environment_url` (a `*.vercel.app` URL),
-// which Vercel Deployment Protection (SSO) gates — every fetch is 302→vercel.com/sso-api. Because
-// fetch() follows redirects, the SSO LOGIN page returns 200 and SPOOFS "homepage/health 200" as PASS
-// while JSON routes hard-401 — a misleading 8-PASS/5-FAIL that hides "the app was never reached".
-// Detect protection up-front (manual redirect) and fail LOUDLY + actionably instead. We do NOT disable
-// protection; if the owner sets VERCEL_AUTOMATION_BYPASS_SECRET the checks send it as a bypass header.
+// #684/#823: the per-build `environment_url` (a `*.vercel.app` URL) is gated by Vercel Deployment
+// Protection (SSO) — every fetch is 302→vercel.com/sso-api. Because fetch() follows redirects, the SSO
+// LOGIN page returns 200 and SPOOFS "homepage/health 200" as PASS while JSON routes hard-401 — a
+// misleading 8-PASS/5-FAIL that hides "the app was never reached". So the workflow (smoke.yml) now
+// points BASE_URL at the public canonical domain (lenxevn.com), which is NOT SSO-gated, instead of the
+// per-build URL — that stopped the BLOCKED false-alarm issue on every prod deploy (#785, #823).
+// This preflight still detects protection up-front and fails LOUDLY + actionably if BASE_URL is ever a
+// gated URL again; if the owner sets VERCEL_AUTOMATION_BYPASS_SECRET the checks send it as a bypass header.
 const BYPASS = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
 const EXTRA_HEADERS: Record<string, string> = BYPASS ? { 'x-vercel-protection-bypass': BYPASS } : {};
 
