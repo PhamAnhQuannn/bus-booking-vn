@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import Image from 'next/image';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { Link, redirect } from '@/i18n/navigation';
@@ -310,10 +310,15 @@ async function HeroMarketingView() {
   // to a province image (IMAGE_FALLBACK).
   const popularTrips = selectPopularTrips(activeRoutes, IMAGE_FALLBACK);
 
+  // CSP nonce (#560): proxy.ts stamps a per-request nonce on x-nonce; the inline JSON-LD
+  // <script> must carry it or the nonce-based script-src blocks it.
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
+
   return (
     <main className="flex flex-1 flex-col bg-[#FFFCFA]">
       <script
         type="application/ld+json"
+        nonce={nonce}
         // SEC-XSS-JSONLD (#557): consistent hardened serializer for all inline JSON-LD.
         dangerouslySetInnerHTML={{ __html: jsonLdHtml(organizationLd()) }}
       />

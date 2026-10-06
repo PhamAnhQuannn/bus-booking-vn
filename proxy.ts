@@ -21,7 +21,7 @@
  * 308-redirected to the canonical unprefixed path before the guards run.
  */
 
-import { type NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 import createMiddleware from 'next-intl/middleware';
 import { routing } from '@/i18n/routing';
@@ -176,6 +176,44 @@ async function decodeAdminJwt(
   }
 }
 
+/**
+ * Per-request Content-Security-Policy with a script nonce (#560).
+ *
+ * `'unsafe-inline'` in script-src gave the CSP no teeth — any injected inline script
+ * (e.g. SEC-XSS-JSONLD) would execute. This replaces it with a per-request nonce +
+ * `'strict-dynamic'`:
+ *   - `'nonce-<nonce>'` whitelists exactly the scripts that carry this request's nonce.
+ *     Next's renderer reads the nonce from the `content-security-policy` REQUEST header
+ *     (set below) and stamps it onto every framework <script>; the two inline JSON-LD
+ *     blocks read it via headers().get('x-nonce').
+ *   - `'strict-dynamic'` lets those trusted scripts load their own children (Next chunk
+ *     loading, Vercel Analytics' injected /_vercel script) without host-listing them.
+ *     Browsers that honor strict-dynamic ignore `'self'`/host-sources in script-src;
+ *     `'self'` stays only as the fallback for older engines.
+ *
+ * style-src keeps `'unsafe-inline'` deliberately: Next/styled-jsx emit inline <style>
+ * with no nonce hook, and a style nonce would break them with no XSS win worth the churn.
+ * This is the documented degrade from the full-nonce ideal (issue #560).
+ */
+export function buildCsp(nonce: string, isProd: boolean, hasSentry: boolean): string {
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isProd ? '' : " 'unsafe-eval'"}`,
+    // *.sentry.io (not *.ingest.sentry.io): regionalized DSNs use an extra label,
+    // e.g. o<org>.ingest.us.sentry.io / .de.sentry.io, which *.ingest.sentry.io does NOT match.
+    `connect-src 'self'${hasSentry ? ' https://*.sentry.io' : ''}${isProd ? '' : ' ws://localhost:* http://localhost:*'}`,
+    "img-src 'self' data: blob: https://img.vietqr.io",
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self'",
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+    "base-uri 'self'",
+  ].join('; ');
+}
+
+const CSP_HEADER = 'Content-Security-Policy';
+const NONCE_HEADER = 'x-nonce';
+
 export async function proxy(request: NextRequest): Promise<NextResponse> {
   const { pathname } = new URL(request.url) as unknown as { pathname: string };
   const requestMethod = request.method;
@@ -296,8 +334,24 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   // requests. Non-safe page requests (server actions) are not CSRF-gated here — Issue
   // 096 covers the /api/* edge only (the /search RSC keeps its per-route protection).
   // -------------------------------------------------------------------------
-  const i18nResponse = handleI18nRouting(request);
+  // CSP nonce (#560). A fresh per-request nonce is stamped on the REQUEST headers so
+  // next-intl forwards it downstream (it copies `request.headers` onto its rewrite/next
+  // `request: { headers }`), where Next's renderer reads `content-security-policy` to
+  // nonce framework <script>s and the JSON-LD blocks read `x-nonce`. The same CSP goes on
+  // the RESPONSE so the browser enforces it. Only page routes reach here — /api returned
+  // above, and static assets / _next are excluded by the matcher.
+  const nonce = btoa(crypto.randomUUID());
+  const isProd = process.env.NODE_ENV === 'production';
+  const hasSentry = !!process.env.NEXT_PUBLIC_SENTRY_DSN;
+  const csp = buildCsp(nonce, isProd, hasSentry);
+  requestHeaders.set(NONCE_HEADER, nonce);
+  requestHeaders.set(CSP_HEADER, csp);
+
+  const i18nResponse = handleI18nRouting(
+    new NextRequest(request, { headers: requestHeaders })
+  );
   i18nResponse.headers.set(REQUEST_ID_HEADER, rid);
+  i18nResponse.headers.set(CSP_HEADER, csp);
   if (SAFE_METHODS.has(requestMethod)) {
     setSessionCookies(i18nResponse, request);
   }

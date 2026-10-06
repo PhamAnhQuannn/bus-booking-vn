@@ -29,6 +29,16 @@ const geistMono = Geist_Mono({
 // description (and adds hreflang alternates) on indexable funnel pages.
 const OG_LOCALE: Record<Locale, string> = { vi: "vi_VN", en: "en_US" };
 
+// #560: the whole localized subtree MUST render dynamically. proxy.ts now serves a
+// per-request nonce CSP (`script-src 'nonce-…' 'strict-dynamic'`) on every page route;
+// a statically prerendered page's build-time <script> tags carry no nonce, so under
+// strict-dynamic Chromium would block ALL framework/chunk scripts and the page would
+// never hydrate. Next documents this exact constraint ("when you use nonces in your CSP,
+// all pages must be dynamically rendered"). force-dynamic here covers every child segment
+// (the handful of pages that already set it stay consistent); generateStaticParams below
+// is kept only to enumerate the valid locale params.
+export const dynamic = 'force-dynamic';
+
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
@@ -71,7 +81,7 @@ export default async function LocaleLayout({
 }>) {
   const { locale } = await params;
   if (!hasLocale(routing.locales, locale)) notFound();
-  // Enable static rendering for the whole localized subtree.
+  // Pin the active locale into next-intl's request scope (harmless under force-dynamic above).
   setRequestLocale(locale);
   const messages = await getMessages();
 
