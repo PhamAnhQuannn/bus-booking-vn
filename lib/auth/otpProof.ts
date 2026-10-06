@@ -164,14 +164,29 @@ export async function issueOtpProof(identifier: string, purpose: OtpProofPurpose
 /**
  * Verify an OTP proof JWT.
  * Returns { email?, phone?, jti } if valid and purpose matches, null otherwise.
+ *
+ * `opts.consume` (default true) controls the one-shot jti claim for JTI_REQUIRED
+ * purposes. Pass `consume: false` ONLY to read a still-valid proof without burning it
+ * — e.g. the OTP-resend endpoint (#457) decodes the live op_login challenge to find the
+ * operator, re-sends the code, and issues a FRESH challenge; the eventual verify-otp
+ * call is still the single consumer. Every auth-completing caller keeps the default.
+ *
+ * `opts.clockTolerance` (default none) widens the `exp` acceptance window — forwarded to
+ * jose. ONLY the resend endpoint sets it, so a recently-expired challenge can still be
+ * decoded to re-send a code (#457). This never lets an expired proof COMPLETE login:
+ * auth-completing callers (verify-otp, reset, …) omit it, so jose rejects their expired
+ * tokens as before. Every existing caller is unchanged (default undefined).
  */
 export async function verifyOtpProof(
   token: string,
-  purpose: OtpProofPurpose
+  purpose: OtpProofPurpose,
+  opts: { consume?: boolean; clockTolerance?: string | number } = {}
 ): Promise<OtpProofPayload | null> {
+  const { consume = true, clockTolerance } = opts;
   try {
     const { payload } = await jwtVerify(token, getSecretForPurpose(purpose), {
       algorithms: ['HS256'],
+      ...(clockTolerance !== undefined ? { clockTolerance } : {}),
     });
     if (payload['purpose'] !== purpose || typeof payload['jti'] !== 'string') {
       return null;
@@ -184,7 +199,7 @@ export async function verifyOtpProof(
 
     const jti = payload['jti'] as string;
 
-    if (JTI_REQUIRED_PURPOSES.has(purpose)) {
+    if (consume && JTI_REQUIRED_PURPOSES.has(purpose)) {
       const exp = payload.exp as number | undefined;
       const ttlSec = exp ? Math.max(1, exp - Math.floor(Date.now() / 1000)) : OTP_PROOF_TTL_SECONDS;
       const consumed = await consumeJti(jti, ttlSec);
