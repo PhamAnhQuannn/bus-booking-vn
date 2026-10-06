@@ -55,9 +55,10 @@ export default function OpLoginPage() {
   const [resendNotice, setResendNotice] = useState('');
 
   // #459: abort the in-flight request on unmount so a late response never calls setState /
-  // router.push on a gone component. Only one request is ever in flight — each handler guards
-  // on `loading` (handleResend too), so login/verify/resend can't overlap — hence a single
-  // latest-controller ref is enough and the unmount cleanup aborts whatever is in flight.
+  // router.push / persistOtpFlow on a gone (or stepped-away) component. Only one request is
+  // ever in flight — login/verify/resend each early-return on both `loading` and `resending`,
+  // and the "← Quay lại" back button is disabled while either is set — so a single
+  // latest-controller ref always points at it and the unmount cleanup aborts it.
   const abortRef = useRef<AbortController | null>(null);
   useEffect(() => () => abortRef.current?.abort(), []);
 
@@ -107,7 +108,7 @@ export default function OpLoginPage() {
 
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (loading) return; // guard double-submit
+    if (loading || resending) return; // guard double-submit + don't overlap an in-flight resend
     setError('');
     setLoading(true); // #490 hide-on-submit handled by PasswordField revealResetKey={loading}
     const fd = new FormData(e.currentTarget);
@@ -402,6 +403,7 @@ export default function OpLoginPage() {
                 <button
                   type="button"
                   className={cn(authLinkClass, 'text-sm')}
+                  disabled={loading || resending}
                   onClick={() => {
                     clearOtpFlow();
                     setStep('password');
