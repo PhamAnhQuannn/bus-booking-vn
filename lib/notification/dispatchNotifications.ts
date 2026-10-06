@@ -36,11 +36,26 @@ import { prisma } from '@/lib/core/db/client';
 import { sendSmsBody } from '@/lib/notification/esms';
 import { sendEmail } from '@/lib/notification/email';
 import { logger } from '@/lib/logger';
-import { captureException } from '@/lib/observability';
+import { captureException, captureMessage } from '@/lib/observability';
 import type { JobCore, JobOpts } from '@/lib/jobs';
 
 /** Max delivery attempts before a row is left permanently failed (not reclaimed). */
 export const MAX_ATTEMPTS = 5;
+
+/**
+ * Templates whose delivery is an OPS alert, not a customer/operator message (#336).
+ * `opsUnmatchedPayment` is the held-booking "suspected orphan" alert to the ops inbox
+ * (enqueued by reconcilePayments) — the one channel meant to catch unmatched transfers.
+ * It rides the SAME Resend/NotificationLog pipeline as customer email, so a Resend
+ * degradation takes it down exactly when it is needed. A failure to dispatch one of
+ * these gets an extra, Resend-INDEPENDENT signal (see applyDispatchOutcome).
+ */
+export const OPS_NOTIFICATION_TEMPLATES: ReadonlySet<string> = new Set(['opsUnmatchedPayment']);
+
+/** True if a notification template is an ops-directed alert (see OPS_NOTIFICATION_TEMPLATES). */
+export function isOpsNotification(template: string): boolean {
+  return OPS_NOTIFICATION_TEMPLATES.has(template);
+}
 
 /** How many due rows to claim+dispatch per cron tick. */
 export const BATCH_SIZE = 50;
@@ -252,6 +267,29 @@ async function applyDispatchOutcome(row: DueRow, result: DispatchOutcome, now: D
     notificationId: row.id,
     channel: row.channel,
   });
+  // #336: an ops alert failing to dispatch means the one channel meant to catch
+  // unmatched transfers is itself down — and the generic captureException above cannot
+  // be told apart from any customer-email failure (no template/recipient). Emit an
+  // extra signal with a DISTINCT fingerprint so the ops channel's own degradation pages
+  // separately. captureMessage rides the Sentry/logger rail, NOT Resend, so it still
+  // fires when Resend is the thing that is down. Louder (`.dead`) once attempts are
+  // exhausted: the row will never be reclaimed, so the unmatched transfer is now
+  // silently stuck until someone reads the admin failure tile.
+  if (isOpsNotification(row.template)) {
+    const exhausted = nextAttempt >= MAX_ATTEMPTS;
+    captureMessage(
+      exhausted ? 'notification.ops_channel.dead' : 'notification.ops_channel.degraded',
+      {
+        area: 'notification.ops',
+        template: row.template,
+        channel: row.channel,
+        notificationId: row.id,
+        attempt: nextAttempt,
+        maxAttempts: MAX_ATTEMPTS,
+        outcome: result.outcome ?? 'unspecified',
+      }
+    );
+  }
 }
 
 /**
