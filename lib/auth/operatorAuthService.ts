@@ -7,8 +7,9 @@
  *   - When OperatorUser.email is set: returns { otpRequired: true, loginChallenge, maskedEmail }
  *     and sends OTP to email. Caller must verify via verifyOperatorLoginOtp + verifyOtpProof.
  *   - When OperatorUser.email is null: returns full session directly (password-only fallback).
- *   - Throws AuthServiceError('INVALID_CREDENTIALS') on failure (no enumeration)
- *   - Throws AuthServiceError('DISABLED') when disabledAt is set
+ *   - Throws AuthServiceError('INVALID_CREDENTIALS') on failure, INCLUDING when disabledAt is
+ *     set (a dummy verify runs first, so a disabled account is indistinguishable from a wrong
+ *     password — anti-enumeration; there is no separate 'DISABLED' code)
  *
  * operatorLoginStep2(loginChallenge) — complete login after OTP verification.
  *   Verifies the loginChallenge JWT, issues a full session.

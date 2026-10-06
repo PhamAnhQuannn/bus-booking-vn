@@ -14,7 +14,7 @@
  * Otherwise → redirects to /op/dashboard.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, KeyRound, ShieldCheck, UserRound, Building2 } from 'lucide-react';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
@@ -53,6 +53,12 @@ export default function OpLoginPage() {
   const [resending, setResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [resendNotice, setResendNotice] = useState('');
+
+  // #459: abort the in-flight request on unmount so a late response never calls setState /
+  // router.push on a gone component. Handlers are mutually exclusive (step-gated), so one
+  // latest-controller ref suffices; the unmount cleanup aborts whatever is in flight.
+  const abortRef = useRef<AbortController | null>(null);
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   // Restore an in-flight OTP challenge after a reload (sessionStorage; no password).
   useEffect(() => {
@@ -107,6 +113,8 @@ export default function OpLoginPage() {
     const username = fd.get('username') as string;
     const password = fd.get('password') as string;
 
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -115,6 +123,7 @@ export default function OpLoginPage() {
           'X-CSRF-Token': readCsrfToken(),
         },
         body: JSON.stringify({ scope: 'operator', username, password }),
+        signal: controller.signal,
       });
 
       if (!res.ok) {
@@ -155,10 +164,11 @@ export default function OpLoginPage() {
       } else {
         router.push('/op/dashboard');
       }
-    } catch {
+    } catch (err) {
+      if ((err as Error)?.name === 'AbortError') return; // unmounted mid-flight
       setError('Lỗi kết nối. Vui lòng thử lại.');
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   }
 
@@ -170,6 +180,8 @@ export default function OpLoginPage() {
     const fd = new FormData(e.currentTarget);
     const code = fd.get('code') as string;
 
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
       const res = await fetch('/api/auth/login/verify-otp', {
         method: 'POST',
@@ -178,6 +190,7 @@ export default function OpLoginPage() {
           'X-CSRF-Token': readCsrfToken(),
         },
         body: JSON.stringify({ loginChallenge, code }),
+        signal: controller.signal,
       });
 
       if (!res.ok) {
@@ -213,10 +226,11 @@ export default function OpLoginPage() {
       } else {
         router.push('/op/dashboard');
       }
-    } catch {
+    } catch (err) {
+      if ((err as Error)?.name === 'AbortError') return; // unmounted mid-flight
       setError('Lỗi kết nối. Vui lòng thử lại.');
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   }
 
@@ -225,6 +239,8 @@ export default function OpLoginPage() {
     setError('');
     setResendNotice('');
     setResending(true);
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
       const res = await fetch('/api/auth/login/resend-otp', {
         method: 'POST',
@@ -233,6 +249,7 @@ export default function OpLoginPage() {
           'X-CSRF-Token': readCsrfToken(),
         },
         body: JSON.stringify({ loginChallenge }),
+        signal: controller.signal,
       });
 
       if (!res.ok) {
@@ -257,10 +274,11 @@ export default function OpLoginPage() {
       persistOtpFlow(json.loginChallenge, maskedEmail, username);
       setResendCooldown(RESEND_COOLDOWN_SECONDS);
       setResendNotice('Đã gửi lại mã xác thực. Vui lòng kiểm tra email.');
-    } catch {
+    } catch (err) {
+      if ((err as Error)?.name === 'AbortError') return; // unmounted mid-flight
       setError('Lỗi kết nối. Vui lòng thử lại.');
     } finally {
-      setResending(false);
+      if (!controller.signal.aborted) setResending(false);
     }
   }
 
@@ -308,7 +326,6 @@ export default function OpLoginPage() {
                 id="op-login-password"
                 name="password"
                 label="Mật khẩu"
-                placeholder="Nhập mật khẩu của bạn"
                 autoComplete="current-password"
                 required
                 disabled={loading}
