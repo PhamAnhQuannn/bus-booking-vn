@@ -402,7 +402,7 @@ export default function OpLoginPage() {
               <div className="flex items-center justify-between">
                 <button
                   type="button"
-                  className={cn(authLinkClass, 'text-sm')}
+                  className={cn(authLinkClass, 'text-sm disabled:opacity-50')}
                   disabled={loading || resending}
                   onClick={() => {
                     clearOtpFlow();
