@@ -55,7 +55,9 @@ jobs:
         if: steps.smoke.outcome == 'failure'
         env:
           GH_TOKEN: ${{ github.token }}
-          URL: ${{ github.event.deployment_status.environment_url }}
+          # Report the URL actually smoked (same as the smoke step's BASE_URL), not the per-build
+          # environment_url — so a real alert names the host that failed.
+          URL: ${{ vars.SMOKE_PROD_URL || 'https://lenxevn.com' }}
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
