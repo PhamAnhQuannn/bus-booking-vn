@@ -55,8 +55,9 @@ export default function OpLoginPage() {
   const [resendNotice, setResendNotice] = useState('');
 
   // #459: abort the in-flight request on unmount so a late response never calls setState /
-  // router.push on a gone component. Handlers are mutually exclusive (step-gated), so one
-  // latest-controller ref suffices; the unmount cleanup aborts whatever is in flight.
+  // router.push on a gone component. Only one request is ever in flight — each handler guards
+  // on `loading` (handleResend too), so login/verify/resend can't overlap — hence a single
+  // latest-controller ref is enough and the unmount cleanup aborts whatever is in flight.
   const abortRef = useRef<AbortController | null>(null);
   useEffect(() => () => abortRef.current?.abort(), []);
 
@@ -174,7 +175,7 @@ export default function OpLoginPage() {
 
   async function handleOtpVerify(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (loading) return; // guard double-submit
+    if (loading || resending) return; // guard double-submit + don't overlap an in-flight resend
     setError('');
     setLoading(true);
     const fd = new FormData(e.currentTarget);
@@ -235,7 +236,10 @@ export default function OpLoginPage() {
   }
 
   async function handleResend() {
-    if (resending || resendCooldown > 0) return;
+    // Also gated on `loading` so resend can't race an in-flight verify (keeps the one
+    // AbortController ref unambiguous, and avoids resending against a challenge that
+    // verify is about to consume).
+    if (resending || resendCooldown > 0 || loading) return;
     setError('');
     setResendNotice('');
     setResending(true);
@@ -411,7 +415,7 @@ export default function OpLoginPage() {
                   type="button"
                   className={cn(authLinkClass, 'text-sm disabled:opacity-50')}
                   onClick={handleResend}
-                  disabled={resending || resendCooldown > 0}
+                  disabled={resending || resendCooldown > 0 || loading}
                   aria-busy={resending}
                 >
                   {resending
