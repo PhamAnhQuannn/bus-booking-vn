@@ -18,11 +18,14 @@ vi.mock('@/lib/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-// Issue 061: the failure path now alerts via captureException. Mock it so the
-// test stays a pure unit (no env validation / real logger emit) — additive,
-// the row-update assertions are unchanged.
+// Issue 061: the failure path now alerts via captureException. #336: an ops-directed
+// failure ALSO emits captureMessage (Resend-independent). Mock both so the test stays a
+// pure unit (no env validation / real logger emit) — additive, the row-update
+// assertions are unchanged.
+const captureMessageMock = vi.fn();
 vi.mock('@/lib/observability', () => ({
   captureException: vi.fn(),
+  captureMessage: (...a: unknown[]) => captureMessageMock(...a),
 }));
 
 const updateMock = vi.fn();
@@ -222,6 +225,62 @@ describe('dispatchNotifications — failure path (retry + backoff)', () => {
   it('backoff is capped (attemptCount high → 30 min, not 2^N)', () => {
     // 2^10 minutes would be 1024; cap is 30.
     expect(backoffMs(10, NOW).getTime()).toBe(NOW.getTime() + 30 * 60_000);
+  });
+});
+
+describe('dispatchNotifications — #336 ops-channel degradation signal', () => {
+  const opsRow = (over = {}) =>
+    row({ id: 'log-ops', channel: 'email', template: 'opsUnmatchedPayment', recipient: 'hotro@lenxevn.com', ...over });
+
+  it('emits an independent captureMessage when an OPS alert fails to dispatch (not exhausted → degraded)', async () => {
+    queryRawMock.mockResolvedValueOnce([opsRow({ attemptCount: 0 })]);
+    sendEmailMock.mockResolvedValueOnce({ ok: false, error: 'resend 503', outcome: 'unknown' });
+
+    await dispatchNotifications({} as never, { now: NOW });
+
+    expect(captureMessageMock).toHaveBeenCalledTimes(1);
+    expect(captureMessageMock).toHaveBeenCalledWith(
+      'notification.ops_channel.degraded',
+      expect.objectContaining({
+        area: 'notification.ops',
+        template: 'opsUnmatchedPayment',
+        channel: 'email',
+        notificationId: 'log-ops',
+        attempt: 1,
+        maxAttempts: MAX_ATTEMPTS,
+      })
+    );
+  });
+
+  it('escalates to .dead when the OPS alert exhausts its retries (nextAttempt === MAX_ATTEMPTS)', async () => {
+    // attemptCount 4 → nextAttempt 5 === MAX_ATTEMPTS → row never reclaimed again.
+    queryRawMock.mockResolvedValueOnce([opsRow({ attemptCount: MAX_ATTEMPTS - 1 })]);
+    sendEmailMock.mockResolvedValueOnce({ ok: false, error: 'resend 503', outcome: 'unknown' });
+
+    await dispatchNotifications({} as never, { now: NOW });
+
+    expect(captureMessageMock).toHaveBeenCalledWith(
+      'notification.ops_channel.dead',
+      expect.objectContaining({ template: 'opsUnmatchedPayment', attempt: MAX_ATTEMPTS })
+    );
+  });
+
+  it('does NOT emit the ops signal for a customer-template failure', async () => {
+    queryRawMock.mockResolvedValueOnce([row({ channel: 'email', template: 'customerBookingPaid', recipient: 'a@b.c' })]);
+    sendEmailMock.mockResolvedValueOnce({ ok: false, error: 'resend 503', outcome: 'unknown' });
+
+    await dispatchNotifications({} as never, { now: NOW });
+
+    expect(captureMessageMock).not.toHaveBeenCalled();
+  });
+
+  it('does NOT emit the ops signal when the OPS alert dispatches successfully', async () => {
+    queryRawMock.mockResolvedValueOnce([opsRow()]);
+    sendEmailMock.mockResolvedValueOnce({ ok: true, externalRef: 'stub_ops' });
+
+    await dispatchNotifications({} as never, { now: NOW });
+
+    expect(captureMessageMock).not.toHaveBeenCalled();
   });
 });
 
