@@ -14,7 +14,7 @@
  * Otherwise → redirects to /op/dashboard.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, KeyRound, ShieldCheck, UserRound, Building2 } from 'lucide-react';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
@@ -53,6 +53,14 @@ export default function OpLoginPage() {
   const [resending, setResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [resendNotice, setResendNotice] = useState('');
+
+  // #459: abort the in-flight request on unmount so a late response never calls setState /
+  // router.push / persistOtpFlow on a gone (or stepped-away) component. Only one request is
+  // ever in flight — login/verify/resend each early-return on both `loading` and `resending`,
+  // and the "← Quay lại" back button is disabled while either is set — so a single
+  // latest-controller ref always points at it and the unmount cleanup aborts it.
+  const abortRef = useRef<AbortController | null>(null);
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   // Restore an in-flight OTP challenge after a reload (sessionStorage; no password).
   useEffect(() => {
@@ -100,13 +108,15 @@ export default function OpLoginPage() {
 
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (loading) return; // guard double-submit
+    if (loading || resending) return; // guard double-submit + don't overlap an in-flight resend
     setError('');
     setLoading(true); // #490 hide-on-submit handled by PasswordField revealResetKey={loading}
     const fd = new FormData(e.currentTarget);
     const username = fd.get('username') as string;
     const password = fd.get('password') as string;
 
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -115,6 +125,7 @@ export default function OpLoginPage() {
           'X-CSRF-Token': readCsrfToken(),
         },
         body: JSON.stringify({ scope: 'operator', username, password }),
+        signal: controller.signal,
       });
 
       if (!res.ok) {
@@ -155,21 +166,24 @@ export default function OpLoginPage() {
       } else {
         router.push('/op/dashboard');
       }
-    } catch {
+    } catch (err) {
+      if ((err as Error)?.name === 'AbortError') return; // unmounted mid-flight
       setError('Lỗi kết nối. Vui lòng thử lại.');
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   }
 
   async function handleOtpVerify(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (loading) return; // guard double-submit
+    if (loading || resending) return; // guard double-submit + don't overlap an in-flight resend
     setError('');
     setLoading(true);
     const fd = new FormData(e.currentTarget);
     const code = fd.get('code') as string;
 
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
       const res = await fetch('/api/auth/login/verify-otp', {
         method: 'POST',
@@ -178,6 +192,7 @@ export default function OpLoginPage() {
           'X-CSRF-Token': readCsrfToken(),
         },
         body: JSON.stringify({ loginChallenge, code }),
+        signal: controller.signal,
       });
 
       if (!res.ok) {
@@ -213,18 +228,24 @@ export default function OpLoginPage() {
       } else {
         router.push('/op/dashboard');
       }
-    } catch {
+    } catch (err) {
+      if ((err as Error)?.name === 'AbortError') return; // unmounted mid-flight
       setError('Lỗi kết nối. Vui lòng thử lại.');
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   }
 
   async function handleResend() {
-    if (resending || resendCooldown > 0) return;
+    // Also gated on `loading` so resend can't race an in-flight verify (keeps the one
+    // AbortController ref unambiguous, and avoids resending against a challenge that
+    // verify is about to consume).
+    if (resending || resendCooldown > 0 || loading) return;
     setError('');
     setResendNotice('');
     setResending(true);
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
       const res = await fetch('/api/auth/login/resend-otp', {
         method: 'POST',
@@ -233,6 +254,7 @@ export default function OpLoginPage() {
           'X-CSRF-Token': readCsrfToken(),
         },
         body: JSON.stringify({ loginChallenge }),
+        signal: controller.signal,
       });
 
       if (!res.ok) {
@@ -257,10 +279,11 @@ export default function OpLoginPage() {
       persistOtpFlow(json.loginChallenge, maskedEmail, username);
       setResendCooldown(RESEND_COOLDOWN_SECONDS);
       setResendNotice('Đã gửi lại mã xác thực. Vui lòng kiểm tra email.');
-    } catch {
+    } catch (err) {
+      if ((err as Error)?.name === 'AbortError') return; // unmounted mid-flight
       setError('Lỗi kết nối. Vui lòng thử lại.');
     } finally {
-      setResending(false);
+      if (!controller.signal.aborted) setResending(false);
     }
   }
 
@@ -308,7 +331,6 @@ export default function OpLoginPage() {
                 id="op-login-password"
                 name="password"
                 label="Mật khẩu"
-                placeholder="Nhập mật khẩu của bạn"
                 autoComplete="current-password"
                 required
                 disabled={loading}
@@ -380,7 +402,8 @@ export default function OpLoginPage() {
               <div className="flex items-center justify-between">
                 <button
                   type="button"
-                  className={cn(authLinkClass, 'text-sm')}
+                  className={cn(authLinkClass, 'text-sm disabled:opacity-50')}
+                  disabled={loading || resending}
                   onClick={() => {
                     clearOtpFlow();
                     setStep('password');
@@ -394,7 +417,7 @@ export default function OpLoginPage() {
                   type="button"
                   className={cn(authLinkClass, 'text-sm disabled:opacity-50')}
                   onClick={handleResend}
-                  disabled={resending || resendCooldown > 0}
+                  disabled={resending || resendCooldown > 0 || loading}
                   aria-busy={resending}
                 >
                   {resending

@@ -96,7 +96,9 @@ function getContent(t: ReturnType<typeof useTranslations>): Record<Audience, Pan
       photo2x: '/hero/operator-depot@2x.webp',
       base: 'bg-[#111318]',
       ink: 'text-white',
-      inkMuted: 'text-white/70',
+      // #459: /70 over the variable-luminance depot photo fell short of AA; /85 matches the
+      // customer panel's muted-ink ratio and clears AA against the scrimmed backdrop.
+      inkMuted: 'text-white/85',
       monoLogo: true,
     },
   };
