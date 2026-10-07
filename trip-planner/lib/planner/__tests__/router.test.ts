@@ -6,9 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StreamEvent, ChatTurn } from '../llm/types';
 import { ParseIntentError } from '../llm/types';
 
-const { geminiFn, groqFn } = vi.hoisted(() => ({ geminiFn: vi.fn(), groqFn: vi.fn() }));
+const { geminiFn, groqFn, warnFn } = vi.hoisted(() => ({ geminiFn: vi.fn(), groqFn: vi.fn(), warnFn: vi.fn() }));
 vi.mock('../llm/geminiAdapter', () => ({ streamChat: geminiFn }));
 vi.mock('../llm/openaiCompatAdapter', () => ({ streamChat: groqFn }));
+// #826: router logs the swallowed primary error before fallback.
+vi.mock('@/lib/logger', () => ({ logger: { warn: warnFn, info: vi.fn(), error: vi.fn() } }));
 
 import { streamChat, providerOrder } from '../llm/router';
 
@@ -38,6 +40,7 @@ const drain = () => drainOf(HISTORY);
 beforeEach(() => {
   geminiFn.mockReset();
   groqFn.mockReset();
+  warnFn.mockReset();
 });
 afterEach(() => {
   delete process.env.PLANNER_LLM_PRIMARY;
@@ -65,6 +68,7 @@ describe('router — fallback', () => {
     expect(events.map((e) => e.kind)).toEqual(['provider', 'token', 'slots']);
     expect(geminiFn).toHaveBeenCalledTimes(1);
     expect(groqFn).not.toHaveBeenCalled();
+    expect(warnFn).not.toHaveBeenCalled(); // #826: no fallback → no fallback log
   });
 
   it('primary=groq ném TRƯỚC nội dung (no_key) → fallback gemini', async () => {
@@ -76,6 +80,12 @@ describe('router — fallback', () => {
     expect(geminiFn).toHaveBeenCalledTimes(1);
     expect(events.find((e) => e.kind === 'provider')).toEqual(P('gemini'));
     expect(events.some((e) => e.kind === 'slots')).toBe(true);
+    // #826: the swallowed primary (groq no_key) error is logged before falling back.
+    expect(warnFn).toHaveBeenCalledTimes(1);
+    expect(warnFn).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: 'groq', nextProvider: 'gemini', code: 'no_key', err: 'down' }),
+      'planner.router.fallback',
+    );
   });
 
   it('primary phát provider event RỒI ném (chưa có nội dung) → vẫn fallback', async () => {
@@ -95,6 +105,7 @@ describe('router — fallback', () => {
     geminiFn.mockImplementation(emit([P('gemini')]));
     await expect(drain()).rejects.toMatchObject({ name: 'ParseIntentError', code: 'upstream' });
     expect(geminiFn).not.toHaveBeenCalled();
+    expect(warnFn).not.toHaveBeenCalled(); // #826: rethrow after content → no fallback log
   });
 
   it('cả hai chết trước nội dung → ném (provider cuối)', async () => {
@@ -103,6 +114,12 @@ describe('router — fallback', () => {
     await expect(drain()).rejects.toMatchObject({ name: 'ParseIntentError' });
     expect(geminiFn).toHaveBeenCalledTimes(1);
     expect(groqFn).toHaveBeenCalledTimes(1);
+    // #826: primary (gemini, default order) fallback is logged once before the last (groq) rethrows.
+    expect(warnFn).toHaveBeenCalledTimes(1);
+    expect(warnFn).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: 'gemini', nextProvider: 'groq', code: 'upstream' }),
+      'planner.router.fallback',
+    );
   });
 });
 
