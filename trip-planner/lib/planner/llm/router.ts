@@ -10,6 +10,7 @@
 // dung → ném (không fallback: tránh double-stream/lịch nửa vời). Fallback TỐI ĐA 1 lần (order 2 phần tử).
 
 import { isRealProduction } from "@/lib/core/config/deployTier";
+import { logger } from "@/lib/logger";
 import { ParseIntentError, type ChatTurn, type StreamEvent, type ProviderId } from "./types";
 import { streamChat as geminiStream } from "./geminiAdapter";
 import { streamChat as groqStream } from "./openaiCompatAdapter";
@@ -50,6 +51,18 @@ export async function* streamChat(history: ChatTurn[], locale: "vi" | "en" = "vi
     } catch (err) {
       // Đã phát nội dung HOẶC là provider cuối → ném (route hiện degrade copy). Ngược lại rơi xuống provider kế.
       if (sawContent || isLast) throw err;
+      // #826: log lỗi provider primary BỊ NUỐT trước khi fallback — nếu không, lỗi provider cuối (vd Groq
+      // no_key) rethrow sẽ CHE nguyên nhân thật (vd Gemini chat-path fail). Message do adapter sinh
+      // ("Gemini HTTP 429", "Gemini timeout"...) — không chứa prompt/PII; KHÔNG log history.
+      logger.warn(
+        {
+          provider: order[i],
+          nextProvider: order[i + 1] ?? null,
+          code: err instanceof ParseIntentError ? err.code : "unknown",
+          err: err instanceof Error ? err.message : String(err),
+        },
+        "planner.router.fallback",
+      );
     }
   }
 }
