@@ -301,13 +301,18 @@ export async function POST(req: NextRequest): Promise<Response> {
           send('done', {});
           logLatency(false);
         } catch (err) {
-          const noKey = err instanceof ParseIntentError && err.code === 'no_key';
-          // #552: count a real upstream failure toward the breaker (no_key is a config error, not an
-          // upstream storm, so it must NOT trip the breaker).
-          if (!noKey) await recordUpstreamFailure();
+          // #606: classify the failure. ParseIntentError.code ∈ {no_key, upstream, bad_json}; anything
+          // else that escapes here is a LOCAL bug (e.g. a throw in sanitizeHistory/send), NOT Gemini.
+          const code: 'no_key' | 'upstream' | 'bad_json' | 'local' =
+            err instanceof ParseIntentError ? err.code : 'local';
+          const noKey = code === 'no_key';
+          // #552/#606: count toward the breaker ONLY on a TRUE upstream failure (Gemini 5xx/timeout).
+          // no_key = config error; bad_json = Gemini answered with junk (service is UP); local = our bug —
+          // none are an upstream storm, so none must trip the breaker (else it opens on the wrong signal).
+          if (code === 'upstream') await recordUpstreamFailure();
           // Surface the failure — this is the one paid upstream (Gemini); without this the
           // route is blind to quota-exhaustion / 5xx storms until users complain.
-          captureException(err, { route: 'planner/chat', code: noKey ? 'no_key' : 'upstream' });
+          captureException(err, { route: 'planner/chat', code });
           // fallbackHref: luồng thủ công (Mục C) chạy được kể cả khi Gemini/no_key hỏng.
           send('error', {
             message: noKey
