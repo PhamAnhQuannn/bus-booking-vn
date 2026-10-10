@@ -2,7 +2,7 @@
 //  (1) prefix isolation — mở breaker groq KHÔNG mở gemini (in-mem state RIÊNG per instance);
 //  (2) key Redis LITERAL — alias Gemini PHẢI sinh 'planner-gemini:fails'/'planner-gemini:open' y hệt bản
 //      cũ (nếu drift → deploy reset breaker prod đang chạy). Assert EXACT string, không stringContaining.
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 let backend: 'memory' | 'ioredis' | 'upstash' = 'memory';
 const fake = {
@@ -90,6 +90,31 @@ describe('createBreaker — fail-open khi Redis lỗi', () => {
     fake.ttl.mockRejectedValue(new Error('redis down'));
     const b = createBreaker('planner-gemini');
     expect(await b.breakerState()).toEqual({ open: false, retryAfter: 0 });
+  });
+});
+
+describe('createBreaker — window reset + cooldown expiry (memory, fake timers) (#606)', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('window reset: 4 fails, wait > WINDOW_SEC, 1 fail → still closed (counter reset, not 5-in-window)', async () => {
+    const b = createBreaker('planner-win');
+    for (let i = 0; i < THRESHOLD - 1; i++) await b.recordUpstreamFailure(); // 4 in-window
+    expect((await b.breakerState()).open).toBe(false);
+    vi.advanceTimersByTime(61_000); // > WINDOW_SEC (60s) → the failure window lapses
+    await b.recordUpstreamFailure(); // counts as #1 of a fresh window, not #5
+    expect((await b.breakerState()).open).toBe(false);
+  });
+
+  it('cooldown expiry: trip open (5 fails), wait > COOLDOWN_SEC → auto-closes', async () => {
+    const b = createBreaker('planner-cd');
+    for (let i = 0; i < THRESHOLD; i++) await b.recordUpstreamFailure(); // opens
+    const open = await b.breakerState();
+    expect(open.open).toBe(true);
+    expect(open.retryAfter).toBeGreaterThan(0);
+    expect(open.retryAfter).toBeLessThanOrEqual(60);
+    vi.advanceTimersByTime(61_000); // > COOLDOWN_SEC (60s)
+    expect((await b.breakerState()).open).toBe(false);
   });
 });
 

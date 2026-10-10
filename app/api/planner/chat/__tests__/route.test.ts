@@ -87,11 +87,20 @@ vi.mock('@/trip-planner/lib/planner', () => ({
   providerOrder: () => providerOrderMock(),
   getStore: vi.fn(),
   pickByVibe: vi.fn(),
-  ParseIntentError: class extends Error {},
+  // #606: carry `code` so the route's upstream-vs-local classification is testable.
+  ParseIntentError: class extends Error {
+    code: string;
+    constructor(message: string, code: string) {
+      super(message);
+      this.name = 'ParseIntentError';
+      this.code = code;
+    }
+  },
   CityDataUnavailableError: class extends Error {},
 }));
 
 import { POST } from '../route';
+import { ParseIntentError } from '@/trip-planner/lib/planner';
 import { NextRequest } from 'next/server';
 
 function makeRequest(headers?: Record<string, string>): NextRequest {
@@ -205,6 +214,53 @@ describe('POST /api/planner/chat — circuit-breaker (#552)', () => {
       expect.objectContaining({ retryAfter: 45 }),
       'planner.chat.breaker.open',
     );
+  });
+});
+
+describe('POST /api/planner/chat — breaker-trip scope (#606)', () => {
+  // The stream throws by having the mocked streamChat generator throw on first pull
+  // (yield* streamEventsMock() — a throwing impl propagates out before any yield).
+  const throwFromStream = (err: unknown) =>
+    streamEventsMock.mockImplementation(() => {
+      throw err;
+    });
+
+  async function postAndRead(): Promise<string> {
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200); // failures degrade to a 200 SSE error frame, never a raw 500
+    const text = await res.text();
+    expect(text).toContain('event: error');
+    expect(text).toContain('fallbackHref');
+    return text;
+  }
+
+  it("TRUE upstream (code='upstream') trips the breaker", async () => {
+    throwFromStream(new ParseIntentError('Gemini HTTP 503', 'upstream'));
+    await postAndRead();
+    expect(upstreamFailMock).toHaveBeenCalledTimes(1);
+    expect(captureMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ code: 'upstream' }));
+  });
+
+  it("bad_json (model junk, service UP) does NOT trip the breaker", async () => {
+    throwFromStream(new ParseIntentError('unparseable model output', 'bad_json'));
+    await postAndRead();
+    expect(upstreamFailMock).not.toHaveBeenCalled();
+    expect(captureMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ code: 'bad_json' }));
+  });
+
+  it("no_key (config) does NOT trip the breaker", async () => {
+    throwFromStream(new ParseIntentError('GEMINI_API_KEY chưa cấu hình', 'no_key'));
+    const text = await postAndRead();
+    expect(upstreamFailMock).not.toHaveBeenCalled();
+    expect(captureMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ code: 'no_key' }));
+    expect(text).toContain('Chưa cấu hình khoá Gemini'); // no_key keeps its distinct copy
+  });
+
+  it('a LOCAL bug (non-ParseIntentError) does NOT trip the breaker, tagged code=local', async () => {
+    throwFromStream(new Error('bug in sanitizeHistory'));
+    await postAndRead();
+    expect(upstreamFailMock).not.toHaveBeenCalled();
+    expect(captureMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ code: 'local' }));
   });
 });
 
