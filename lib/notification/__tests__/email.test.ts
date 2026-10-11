@@ -60,8 +60,8 @@ describe('sendEmail (stub)', () => {
   });
 
   it('renderEmailSubject maps known templates and falls back generically', () => {
-    expect(renderEmailSubject('customerBookingPaid')).toContain('LềnXe VN');
-    expect(renderEmailSubject('totally_unknown')).toBe('LềnXe VN');
+    expect(renderEmailSubject('customerBookingPaid')).toContain('BBVN');
+    expect(renderEmailSubject('totally_unknown')).toBe('BBVN');
   });
 });
 

@@ -125,7 +125,7 @@ export async function sendCustomerAccountOtp(
     const result = await sendEmail({
       to: identifier,
       template: 'otpCode',
-      payload: `LenXe VN: Ma xac thuc cua ban la ${code}. Ma co hieu luc trong ${OTP_EXPIRY_MINUTES} phut.`,
+      payload: `BBVN: Ma xac thuc cua ban la ${code}. Ma co hieu luc trong ${OTP_EXPIRY_MINUTES} phut.`,
     });
     logNotificationDispatchFailure('customer_otp_email', result);
   }
