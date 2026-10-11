@@ -13,13 +13,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Mock } from 'vitest';
 
+const { notifCreateMany, captureMessageMock } = vi.hoisted(() => ({
+  notifCreateMany: vi.fn(),
+  captureMessageMock: vi.fn(),
+}));
+vi.mock('@/lib/observability', () => ({ captureMessage: captureMessageMock }));
+
 vi.mock('@/lib/core/db/client', () => {
-  const txMock = { ledgerEntry: {} };
+  const txMock = { ledgerEntry: {}, notificationLog: { createMany: notifCreateMany } };
   return {
     prisma: {
       booking: { findUnique: vi.fn() },
       ledgerEntry: { findUnique: vi.fn() },
-      notificationLog: { create: vi.fn().mockResolvedValue({ id: 'nl-1' }) },
       $transaction: vi.fn((fn: (tx: typeof txMock) => Promise<unknown>) => fn(txMock)),
     },
   };
@@ -44,6 +49,7 @@ import { prisma } from '@/lib/core/db/client';
 import { appendLedgerEntry } from '@/lib/ledger';
 import { refundPayment } from '@/lib/payment/refund';
 import { refundOut, RefundOutError } from '../refundOut';
+import { OPS_ALERT_EMAIL } from '@/lib/notification';
 
 const bookingFind = prisma.booking.findUnique as unknown as Mock;
 const ledgerFind = prisma.ledgerEntry.findUnique as unknown as Mock;
@@ -54,11 +60,15 @@ const PAID_BOOKING = {
   id: 'bk-1',
   status: 'paid',
   paymentExternalRef: 'stub_BB-2026-abcd-ef01_success',
+  bookingRef: 'BB-2026-abcd-ef01',
+  buyerPhone: '+8490xxxxxx1',
+  buyerEmail: null,
   trip: { bus: { operatorId: 'op-1' } },
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  notifCreateMany.mockResolvedValue({ count: 1 });
   bookingFind.mockResolvedValue(PAID_BOOKING);
   ledgerFind.mockResolvedValue(null);
   psp.mockResolvedValue({ ok: true, refundTxnId: 'stub_refund_cancel:trip-1:bk-1' });
@@ -197,14 +207,41 @@ describe('refundOut', () => {
     expect(res).toEqual({ refunded: true, alreadyDone: false, manualRefundRequired: true });
     expect(append).toHaveBeenCalledTimes(2);
 
-    const notifCreate = (prisma.notificationLog as unknown as { create: Mock }).create;
-    expect(notifCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        template: 'manual_refund_required',
-        recipient: 'operator:op-1',
-        bookingId: 'bk-1',
-      }),
+    // #833: ops-inbox email (a real address the dispatcher can send to), enqueued in the
+    // same tx as the ledger legs, with a rendered sentence + the buyer contact.
+    expect(notifCreateMany).toHaveBeenCalledTimes(1);
+    const arg = notifCreateMany.mock.calls[0][0];
+    expect(arg.skipDuplicates).toBe(true);
+    expect(arg.data[0]).toMatchObject({
+      bookingId: 'bk-1',
+      channel: 'email',
+      template: 'manual_refund_required',
+      recipient: OPS_ALERT_EMAIL,
+      status: 'pending',
     });
+    expect(arg.data[0].payload).toContain('BB-2026-abcd-ef01');
+    expect(arg.data[0].payload).toContain('200000d');
+    expect(arg.data[0].payload).toContain('nha xe huy chuyen');
+    expect(arg.data[0].payload).toContain('+8490xxxxxx1');
+    expect(() => JSON.parse(arg.data[0].payload)).toThrow();
+
+    // Resend-independent Sentry signal, without the buyer contact.
+    expect(captureMessageMock).toHaveBeenCalledWith(
+      'payment.manual_refund_required',
+      expect.objectContaining({ bookingId: 'bk-1', amountMinor: 200_000, reason: 'operator_cancel' }),
+    );
+    expect(JSON.stringify(captureMessageMock.mock.calls[0])).not.toContain('+8490xxxxxx1');
+  });
+
+  it('PSP-ok refund sends no ops alert', async () => {
+    await refundOut({
+      bookingId: 'bk-1',
+      amountMinor: 1000,
+      reason: 'operator_cancel',
+      idempotencyKey: 'cancel:trip-3:bk-1',
+    });
+    expect(notifCreateMany).not.toHaveBeenCalled();
+    expect(captureMessageMock).not.toHaveBeenCalled();
   });
 });
 

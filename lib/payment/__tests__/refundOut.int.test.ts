@@ -4,7 +4,8 @@
  *
  * Seeds operator + route + bus + trip + a PAID booking with its booking_credit
  * ledger entry (the state after a successful payment, slice 049), then cancels
- * the trip via cancelTrip and asserts:
+ * the trip via cancelTrip (which enqueues a RefundObligation, #835) and drives
+ * the process-refunds job core, then asserts:
  *   - a refund_out (−total) AND a refund_debit (−total) entry now exist,
  *     keyed on the cancel-scoped idempotency key (distinct from the inbound
  *     payment key)
@@ -24,6 +25,7 @@ import { prisma } from '@/lib/core/db/client';
 import { appendLedgerEntry } from '@/lib/ledger';
 import { getOperatorBalance } from '@/lib/ledger';
 import { cancelTrip } from '@/lib/trips';
+import { processRefunds } from '@/lib/jobs';
 
 let operatorId: string;
 let routeId: string;
@@ -118,6 +120,7 @@ afterAll(async () => {
   );
 
   await prisma.notificationLog.deleteMany({ where: { bookingId } });
+  await prisma.refundObligation.deleteMany({ where: { bookingId } });
   await prisma.booking.deleteMany({ where: { id: bookingId } });
   await prisma.trip.deleteMany({ where: { routeId } });
   await prisma.route.delete({ where: { id: routeId } });
@@ -131,6 +134,10 @@ describe('Issue 051 — refund-out on operator trip-cancel', () => {
     const res = await cancelTrip(operatorId, tripId, 'Equipment failure requiring repair');
     expect(res.alreadyCancelled).toBe(false);
     expect(res.cancelledBookings).toBe(1);
+
+    // #835: cancel only enqueues a durable obligation (in the cancel tx); the cron core refunds it.
+    expect(await prisma.refundObligation.count({ where: { bookingId } })).toBe(1);
+    await processRefunds({} as never, { now: new Date() });
 
     const refundDebit = await prisma.ledgerEntry.findUnique({
       where: { sourceEventId: `refund_debit:cancel:${tripId}:${bookingId}` },

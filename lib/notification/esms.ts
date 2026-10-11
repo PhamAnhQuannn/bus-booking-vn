@@ -23,6 +23,11 @@ export type SmsTemplate =
   | 'customerPaymentReview'
   | 'customerPaymentUnverified'
   | 'opsUnmatchedPayment'
+  // #833: ops alert — a refund has no PSP rail, so a human must transfer it. Name
+  // matches the NotificationLog.template written by refundOut.
+  | 'manual_refund_required'
+  // #834: customer notice that the operator cancelled the trip (email or SMS).
+  | 'trip_cancelled'
   | 'otpCode'
   | 'manualBookingPaid'
   | 'manualBookingCash'
@@ -169,6 +174,25 @@ export function renderTemplate(template: SmsTemplate, payload: Record<string, st
       return (
         `BBVN OPS: Chuyen khoan chua khop dat cho ${payload.bookingRef} — ` +
         `${payload.amountVnd}d, ma GD ${payload.providerTxnId}. Doi chieu sao ke va xu ly.`
+      );
+    case 'manual_refund_required':
+      // #833: prod has no PSP refund rail, so every refund lands here. The ledger already
+      // shows the money as refunded; this email is the only trigger for the human transfer.
+      // Buyer contact is allowed in the ops email body (never in logs).
+      return (
+        `BBVN OPS: Can hoan tien thu cong ${payload.amountVnd}d cho dat cho ${payload.bookingRef} ` +
+        `(ly do: ${payload.reason}). Lien he khach: ${payload.buyerContact}. ` +
+        `Chuyen khoan hoan tien cho khach (cam ket 3-5 ngay lam viec) va doi chieu so cai.`
+      );
+    case 'trip_cancelled':
+      // #834: `refunded` 1 = booking was paid (full refund promised), 0 = never paid.
+      return (
+        `BBVN: Chuyen ${payload.route} khoi hanh ${payload.departureAt} (ma dat cho ${payload.bookingRef}) ` +
+        `da bi nha xe huy. ` +
+        (payload.refunded
+          ? `Ban se duoc hoan lai 100% so tien da thanh toan trong 3-5 ngay lam viec. `
+          : `Ban chua thanh toan nen khong bi tinh phi. `) +
+        `Ho tro: ${payload.supportEmail}.`
       );
     case 'otpCode':
       return `BusBookVN: Ma xac thuc cua ban la ${payload.code}. Het han sau ${payload.expiryMinutes} phut. Khong chia se ma nay.`;

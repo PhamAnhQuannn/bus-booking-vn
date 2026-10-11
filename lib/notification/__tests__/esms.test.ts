@@ -117,6 +117,31 @@ describe('renderTemplate — Bug B unmatched-payment templates', () => {
   });
 });
 
+describe('renderTemplate — refund / trip-cancel notices (#833, #834)', () => {
+  it('manual_refund_required carries ref, amount, reason and buyer contact for the ops inbox', () => {
+    const body = renderTemplate('manual_refund_required', {
+      bookingRef: 'BB-2026-abcd-1234',
+      amountVnd: 180000,
+      reason: 'nha xe huy chuyen',
+      buyerContact: 'rider@example.com',
+    });
+    expect(body).toContain('BB-2026-abcd-1234');
+    expect(body).toContain('180000d');
+    expect(body).toContain('nha xe huy chuyen');
+    expect(body).toContain('rider@example.com');
+  });
+
+  it('trip_cancelled promises the refund only when the booking was paid', () => {
+    const base = { bookingRef: 'BB-1', route: 'HN → HCM', departureAt: '01/06 08:00', supportEmail: 'hotro@lenxevn.com' };
+    const paid = renderTemplate('trip_cancelled', { ...base, refunded: 1 });
+    const unpaid = renderTemplate('trip_cancelled', { ...base, refunded: 0 });
+    expect(paid).toContain('hoan lai 100%');
+    expect(unpaid).not.toContain('hoan lai');
+    expect(unpaid).toContain('khong bi tinh phi');
+    expect(paid).toContain('hotro@lenxevn.com');
+  });
+});
+
 describe('renderTemplate — manual booking templates', () => {
   it('renders manualBookingPaid with all placeholders', () => {
     const body = renderTemplate('manualBookingPaid', {

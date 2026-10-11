@@ -27,6 +27,7 @@ export type EmailTemplate =
   | 'customerPaymentReview'
   | 'customerPaymentUnverified'
   | 'opsUnmatchedPayment'
+  | 'manual_refund_required'
   | 'operatorNewBooking'
   | 'bookingReminder24h'
   | 'payout_scheduled'
@@ -113,6 +114,7 @@ const SUBJECTS: Record<string, string> = {
   customerPaymentReview: 'BusBookVN — Dang doi chieu thanh toan',
   customerPaymentUnverified: 'BusBookVN — Can ho tro thanh toan',
   opsUnmatchedPayment: 'BBVN OPS — Chuyen khoan chua khop',
+  manual_refund_required: 'BBVN OPS — Can hoan tien thu cong',
   operatorNewBooking: 'BusBookVN — Khach dat ve moi',
   bookingReminder24h: 'BusBookVN — Nhac nho chuyen di',
   payout_scheduled: 'BusBookVN — Lich chi tra',

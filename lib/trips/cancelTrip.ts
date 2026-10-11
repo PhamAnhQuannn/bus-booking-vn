@@ -8,6 +8,9 @@
  *      Note: schema BookingStatus uses 'paid' for confirmed. Mapping below.
  *   4. UPDATE Hold status='cancelled_trip' WHERE status='active'
  *   5. INSERT NotificationLog (pending, kind='trip_cancelled') per affected Booking
+ *      (email when the buyer left one, else SMS; body is a rendered sentence, #834)
+ *   6. INSERT RefundObligation (pending) per paid Booking (#835) — driven by the
+ *      process-refunds cron, so a failed refund is retried instead of lost
  *
  * I1: $transaction callback form + SELECT FOR UPDATE.
  * I9: NotificationLog payload has NO raw phone (use recipientPhone column = `recipient`).
@@ -18,8 +21,16 @@ import { TripServiceError } from './errors';
 import type { TripDto } from './tripDto';
 import { toTripDto } from './toTripDto';
 import { randomUUID } from 'crypto';
-import { refundOut } from '@/lib/payment';
-import { logger } from '@/lib/logger';
+import { renderTemplate, SUPPORT_EMAIL } from '@/lib/notification';
+
+/** VN-local short date+time for notification bodies (mirrors processWebhook). */
+function formatDepartureForSms(d: Date): string {
+  return d.toLocaleString('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    dateStyle: 'short',
+    timeStyle: 'short',
+  });
+}
 
 export interface CancelTripResult {
   trip: TripDto;
@@ -35,7 +46,7 @@ export async function cancelTrip(
   cancelReason: string
 ): Promise<CancelTripResult> {
   try {
-    const { result, paidBookings } = await prisma.$transaction(async (tx) => {
+    const { result } = await prisma.$transaction(async (tx) => {
       // 1. SELECT FOR UPDATE to serialise concurrent cancel ops
       const locked = await tx.$queryRaw<{
         id: string;
@@ -84,7 +95,6 @@ export async function cancelTrip(
             cancelledHolds: 0,
             notificationsEnqueued: 0,
           },
-          paidBookings: [] as { id: string; totalVnd: number }[],
         };
       }
 
@@ -129,22 +139,21 @@ export async function cancelTrip(
           id: true,
           bookingRef: true,
           buyerPhone: true,
+          buyerEmail: true,
           customerId: true,
         },
       });
 
-      // Issue 051: capture the bookings that actually had money IN via the PSP
-      // (online-paid → paid / completed). These get a
-      // refund-out AFTER this cancel tx commits (refundOut opens its own tx and
-      // must see the committed trip_cancelled state). Cash bookings are excluded —
-      // cash was never collected through the platform, so there is nothing to
-      // refund out. Captured BEFORE the updateMany flips status.
+      // Issue 051: the bookings that actually had money IN via the PSP (online-paid →
+      // paid / completed) get a refund. Cash bookings are excluded — cash was never
+      // collected through the platform, so there is nothing to refund out. Captured
+      // BEFORE the updateMany flips status.
       const paidBookings = await tx.booking.findMany({
         where: {
           tripId,
           status: { in: ['paid', 'completed'] },
         },
-        select: { id: true, totalVnd: true },
+        select: { id: true, totalVnd: true, paymentExternalRef: true },
       });
 
       // 4. Bulk-update affected bookings
@@ -178,21 +187,45 @@ export async function cancelTrip(
         : tripRow.routeId;
 
       if (affectedBookings.length > 0) {
+        const paidIds = new Set(paidBookings.map((p) => p.id));
+        const departureLabel = formatDepartureForSms(tripRow.departureAt);
         await tx.notificationLog.createMany({
           data: affectedBookings.map((b) => ({
             id: randomUUID().replace(/-/g, '').slice(0, 25), // cuid-compatible length
             bookingId: b.id,
-            channel: 'sms' as const,
+            // unique(bookingId, template): one row per booking — email when we have one
+            // (#834: previously SMS only, and eSMS is not live), else the SMS fallback.
+            channel: b.buyerEmail ? ('email' as const) : ('sms' as const),
             template: 'trip_cancelled',
-            // I9: recipient column holds the phone — payload must NOT duplicate it
-            recipient: b.buyerPhone,
-            payload: JSON.stringify({
+            // I9: recipient column holds the contact — payload must NOT duplicate it
+            recipient: b.buyerEmail ?? b.buyerPhone,
+            // Rendered sentence, not JSON: the dispatcher sends the stored string verbatim.
+            payload: renderTemplate('trip_cancelled', {
               bookingRef: b.bookingRef,
               route: routeLabel,
-              departureAt: tripRow.departureAt.toISOString(),
+              departureAt: departureLabel,
+              refunded: paidIds.has(b.id) ? 1 : 0,
+              supportEmail: SUPPORT_EMAIL,
             }),
             status: 'pending' as const,
           })),
+        });
+      }
+
+      // 7. #835: durable refund obligations, committed atomically with the cancel (mirrors
+      // the #569 overpay path in processWebhook). The process-refunds cron drives them via
+      // refundOut with retry + backoff; the key is tied to the cancel event so a replay
+      // never double-refunds. skipDuplicates: idempotencyKey is unique.
+      if (paidBookings.length > 0) {
+        await tx.refundObligation.createMany({
+          data: paidBookings.map((b) => ({
+            bookingId: b.id,
+            amountMinor: b.totalVnd,
+            reason: 'operator_cancel',
+            idempotencyKey: `cancel:${tripId}:${b.id}`,
+            providerTxnId: b.paymentExternalRef ?? `cancel:${tripId}`,
+          })),
+          skipDuplicates: true,
         });
       }
 
@@ -204,33 +237,8 @@ export async function cancelTrip(
           cancelledHolds: holdResult.count,
           notificationsEnqueued: affectedBookings.length,
         },
-        paidBookings,
       };
     });
-
-    // ── Issue 051: refund-out per paid booking, AFTER the cancel tx commits ──
-    // refundOut opens its OWN transaction and reads the now-committed
-    // trip_cancelled booking state, so it must run post-commit (not inside the
-    // cancel tx). Idempotency key is tied to the cancel event
-    // (`cancel:<tripId>:<bookingId>`) so a re-cancel never double-refunds. Each
-    // refund is best-effort + logged: a single PSP/ledger failure must not undo
-    // the (already-committed) trip cancellation. Failed refunds are picked up by
-    // re-running cancel (idempotent) or a future reconciliation sweeper.
-    for (const b of paidBookings) {
-      try {
-        await refundOut({
-          bookingId: b.id,
-          amountMinor: b.totalVnd,
-          reason: 'operator_cancel',
-          idempotencyKey: `cancel:${tripId}:${b.id}`,
-        });
-      } catch (refundErr) {
-        logger.error(
-          { err: refundErr, tripId, bookingId: b.id },
-          'cancelTrip.refund_out.error — trip stays cancelled, refund needs retry'
-        );
-      }
-    }
 
     return result;
   } catch (e) {
