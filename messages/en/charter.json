@@ -48,7 +48,7 @@
   },
   "confirm": {
     "title": "Request received",
-    "desc": "We will contact you soon to advise on the itinerary and quote.",
+    "desc": "We have received your request and will forward it to a partner transport company, which will contact you to advise on the itinerary and quote.",
     "refLabel": "Request code",
     "trackStatus": "Track status",
     "goHome": "Back to home"
