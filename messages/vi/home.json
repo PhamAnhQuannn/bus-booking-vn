@@ -16,7 +16,7 @@
   "breadcrumb": {
     "home": "Trang chủ"
   },
-  "resultTagline": "Đặt vé rõ ràng – Xác nhận qua email",
+  "resultTagline": "Đặt vé minh bạch – Xác nhận qua email",
   "feature": {
     "paymentTitle": "Thanh toán đơn giản",
     "paymentSub": "Chuyển khoản VietQR, thanh toán trước",
@@ -24,14 +24,14 @@
     "emailSub": "Thông tin chuyến đi được gửi đến email của bạn",
     "verifiedTitle": "Nhà xe được xác minh",
     "verifiedSub": "Mỗi nhà xe đều được duyệt trước khi mở bán vé",
-    "pickupTitle": "Đón tại địa chỉ của bạn",
-    "pickupSub": "Nhập địa chỉ đón khi đặt vé, nhà xe sẽ gọi xác nhận"
+    "pickupTitle": "Chọn điểm đón khi đặt vé",
+    "pickupSub": "Chọn điểm đón của chuyến ngay khi đặt; nhà xe gọi xác nhận"
   },
   "trust": {
     "paymentTitle": "Thanh toán đơn giản",
     "paymentSub": "Nhiều phương thức, tiện lợi và an toàn",
     "emailTitle": "Xác nhận qua email",
-    "emailSub": "Vé điện tử gửi ngay, tiết kiệm thời gian",
+    "emailSub": "Vé điện tử được gửi qua email",
     "verifiedTitle": "Nhà xe được xác minh",
     "verifiedSub": "Hồ sơ nhà xe được xét duyệt trước khi mở bán",
     "supportTitle": "Hỗ trợ qua email",

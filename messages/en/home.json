@@ -16,7 +16,7 @@
   "breadcrumb": {
     "home": "Home"
   },
-  "resultTagline": "Clear booking – Email confirmation",
+  "resultTagline": "Transparent booking – Email confirmation",
   "feature": {
     "paymentTitle": "Simple payment",
     "paymentSub": "Pay upfront via VietQR bank transfer",
@@ -24,14 +24,14 @@
     "emailSub": "Your trip details are sent to your email",
     "verifiedTitle": "Verified operators",
     "verifiedSub": "Every operator is approved before selling tickets",
-    "pickupTitle": "Pickup at your address",
-    "pickupSub": "Enter your pickup address when booking; the operator will call to confirm"
+    "pickupTitle": "Choose your pickup point",
+    "pickupSub": "Pick the trip's boarding point when you book; the operator calls to confirm"
   },
   "trust": {
     "paymentTitle": "Simple payment",
     "paymentSub": "Multiple methods, convenient and secure",
     "emailTitle": "Email confirmation",
-    "emailSub": "E-ticket sent instantly, saving you time",
+    "emailSub": "Your e-ticket is sent by email",
     "verifiedTitle": "Verified operators",
     "verifiedSub": "Operator profiles are reviewed before sales open",
     "supportTitle": "Email support",
