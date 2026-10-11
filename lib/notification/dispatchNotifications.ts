@@ -55,7 +55,7 @@ export const MAX_ATTEMPTS = 5;
  * alert — outside #336's "unmatched-transfer alert can't silently die" AC. Add a
  * template here only when its silent loss would leave money/ops state unrecoverable.
  */
-export const OPS_NOTIFICATION_TEMPLATES: ReadonlySet<string> = new Set(['opsUnmatchedPayment']);
+export const OPS_NOTIFICATION_TEMPLATES: ReadonlySet<string> = new Set(['opsUnmatchedPayment', 'opsLatePayment']);
 
 /** True if a notification template is an ops-directed alert (see OPS_NOTIFICATION_TEMPLATES). */
 export function isOpsNotification(template: string): boolean {

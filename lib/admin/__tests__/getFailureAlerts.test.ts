@@ -29,8 +29,9 @@ function makePrisma() {
       // Two distinct paymentEvent.count queries: the actionable-orphan count (OR
       // predicate) and the account_mismatch tile (direct unmatchedReason equality).
       // Return different values so the assertions prove each routed to the right field.
-      count: vi.fn(async ({ where }: { where: { unmatchedReason?: unknown } }) =>
-        where?.unmatchedReason === 'account_mismatch' ? 1 : 4
+      count: vi.fn(async ({ where }: { where: { unmatchedReason?: unknown; bookingId?: unknown } }) =>
+        where?.bookingId && typeof where.bookingId === 'object' ? 6 // #836 linked-unfulfilled
+        : where?.unmatchedReason === 'account_mismatch' ? 1 : 4
       ),
     },
   };
@@ -46,6 +47,7 @@ describe('getFailureAlerts (#327)', () => {
       retryingNotifications: 7,
       orphanPayments: 4,
       mismatchedPayments: 1,
+      unfulfilledPayments: 6,
       failedPayouts: 2,
       recent: [expect.objectContaining({ id: 'n1', template: 'customerBookingPaid', attemptCount: 5 })],
     });
@@ -96,5 +98,17 @@ describe('getFailureAlerts (#327)', () => {
     expect(prisma.notificationLog.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { status: 'failed' }, take: 9 })
     );
+  });
+
+  it('counts LINKED unfulfilled payments separately from orphans (#836)', async () => {
+    const prisma = makePrisma();
+    await getFailureAlerts(5, prisma as never);
+
+    expect(prisma.paymentEvent.count).toHaveBeenCalledWith({
+      where: {
+        bookingId: { not: null },
+        unmatchedReason: { in: ['late_booking_terminal', 'duplicate_booking_paid', 'underpaid'] },
+      },
+    });
   });
 });

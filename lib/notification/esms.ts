@@ -23,6 +23,7 @@ export type SmsTemplate =
   | 'customerPaymentReview'
   | 'customerPaymentUnverified'
   | 'opsUnmatchedPayment'
+  | 'opsLatePayment'
   | 'otpCode'
   | 'manualBookingPaid'
   | 'manualBookingCash'
@@ -169,6 +170,14 @@ export function renderTemplate(template: SmsTemplate, payload: Record<string, st
       return (
         `BBVN OPS: Chuyen khoan chua khop dat cho ${payload.bookingRef} — ` +
         `${payload.amountVnd}d, ma GD ${payload.providerTxnId}. Doi chieu sao ke va xu ly.`
+      );
+    case 'opsLatePayment':
+      // #836: a matched transfer that could NOT be applied (booking already
+      // expired/paid, or underpaid). The money is held with no refund obligation.
+      return (
+        `BBVN OPS: Chuyen khoan khong ap dung duoc cho dat cho ${payload.bookingRef} ` +
+        `(${payload.reason}) — ${payload.amountVnd}d, ma GD ${payload.providerTxnId}. ` +
+        `Tien dang giu, can hoan/xu ly thu cong.`
       );
     case 'otpCode':
       return `BusBookVN: Ma xac thuc cua ban la ${payload.code}. Het han sau ${payload.expiryMinutes} phut. Khong chia se ma nay.`;
