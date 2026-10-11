@@ -189,7 +189,9 @@ export function renderTemplate(template: SmsTemplate, payload: Record<string, st
       return (
         `BBVN: Chuyen ${payload.route} khoi hanh ${payload.departureAt} (ma dat cho ${payload.bookingRef}) ` +
         `da bi nha xe huy. ` +
-        (payload.refunded
+        (payload.cash
+          ? `Ban da tra tien mat truc tiep, vui long lien he nha xe/quay ve noi ban da thanh toan de duoc hoan tien. `
+          : payload.refunded
           ? `Ban se duoc hoan lai 100% so tien da thanh toan trong 3-5 ngay lam viec. `
           : `Ban chua thanh toan nen khong bi tinh phi. `) +
         `Ho tro: ${payload.supportEmail}.`

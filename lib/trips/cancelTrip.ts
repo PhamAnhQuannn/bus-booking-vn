@@ -141,17 +141,23 @@ export async function cancelTrip(
           buyerPhone: true,
           buyerEmail: true,
           customerId: true,
+          paymentMethod: true,
         },
       });
 
       // Issue 051: the bookings that actually had money IN via the PSP (online-paid →
-      // paid / completed) get a refund. Cash bookings are excluded — cash was never
-      // collected through the platform, so there is nothing to refund out. Captured
-      // BEFORE the updateMany flips status.
+      // paid / completed) get a refund. Cash walk-up bookings (paymentMethod='cash') are
+      // excluded: the platform never collected that money, so there is nothing to refund
+      // out and no PSP/manual transfer to trigger. Before this change the filter was
+      // status-only, so cash bookings were (wrongly) run through refundOut as well; they
+      // now get NO refund_debit/refund_out, so the operator's booking_credit for a
+      // cancelled cash booking is not clawed back by the ledger (cash refund is settled
+      // by the operator at the counter). Captured BEFORE the updateMany flips status.
       const paidBookings = await tx.booking.findMany({
         where: {
           tripId,
           status: { in: ['paid', 'completed'] },
+          paymentMethod: { not: 'cash' },
         },
         select: { id: true, totalVnd: true, paymentExternalRef: true },
       });
@@ -205,6 +211,7 @@ export async function cancelTrip(
               route: routeLabel,
               departureAt: departureLabel,
               refunded: paidIds.has(b.id) ? 1 : 0,
+              cash: b.paymentMethod === 'cash' ? 1 : 0,
               supportEmail: SUPPORT_EMAIL,
             }),
             status: 'pending' as const,

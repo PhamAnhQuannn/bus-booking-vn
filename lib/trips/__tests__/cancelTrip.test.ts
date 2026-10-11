@@ -270,6 +270,31 @@ describe('cancelTrip', () => {
     expect(smsRow.payload).toContain('khong bi tinh phi');
   });
 
+  it('cash walk-up booking: no RefundObligation, cash-specific notice, paid query excludes cash', async () => {
+    p._txMock.$queryRaw.mockResolvedValue(LOCKED_SCHEDULED);
+    p._txMock.trip.update.mockResolvedValue(UPDATED_TRIP_ROW);
+    const cashBooking = { ...AFFECTED_BOOKINGS[1], paymentMethod: 'cash' };
+    p._txMock.booking.findMany
+      .mockResolvedValueOnce([cashBooking])
+      .mockResolvedValueOnce([]);
+    p._txMock.booking.updateMany.mockResolvedValue({ count: 1 });
+    p._txMock.hold.updateMany.mockResolvedValue({ count: 0 });
+    p._txMock.route.findUnique.mockResolvedValue({ origin: 'HN', destination: 'HCM' });
+    p._txMock.notificationLog.createMany.mockResolvedValue({ count: 1 });
+
+    await cancelTrip('op-1', 'trip-1', 'Equipment failure requiring repair');
+
+    expect(p._txMock.booking.findMany.mock.calls[1][0].where).toMatchObject({
+      paymentMethod: { not: 'cash' },
+    });
+    expect(p._txMock.refundObligation.createMany).not.toHaveBeenCalled();
+    const [row] = p._txMock.notificationLog.createMany.mock.calls[0][0].data;
+    expect(row.payload).toContain('tien mat');
+    expect(row.payload).toContain('nha xe');
+    expect(row.payload).not.toContain('hoan lai 100%');
+    expect(row.payload).not.toContain('khong bi tinh phi');
+  });
+
   it('notification payload does not contain the raw phone (I9)', async () => {
     p._txMock.$queryRaw.mockResolvedValue(LOCKED_SCHEDULED);
     p._txMock.trip.update.mockResolvedValue(UPDATED_TRIP_ROW);
