@@ -191,6 +191,7 @@
       "title": "7. Thời gian lưu trữ",
       "items": [
         "Thông tin liên hệ khi đặt vé với tư cách khách: được ẩn danh 365 ngày sau ngày khởi hành của chuyến đi, hoặc sớm hơn khi bạn yêu cầu xóa và pháp luật cho phép.",
+        "Thông tin liên hệ nhập vào bước giữ chỗ nhưng không hoàn tất đặt vé: được ẩn danh 30 ngày sau khi hết thời gian giữ chỗ. Dữ liệu thống kê quy trình đặt vé (gắn với cookie bb_sid): xóa sau khoảng 13 tháng.",
         "Thông tin tài khoản: cho đến khi bạn xóa tài khoản.",
         "Lịch sử đặt vé và chứng từ thanh toán: lưu tối thiểu 5 năm theo quy định kế toán. Với khách đặt vé không có tài khoản, thông tin định danh được ẩn danh như trên; với tài khoản, thông tin định danh được ẩn danh khi bạn xóa tài khoản. Bản ghi giao dịch tài chính được giữ lại.",
         "Thông tin người chuyển khoản trong giao dịch không khớp đơn đặt vé: được ẩn sau 365 ngày.",

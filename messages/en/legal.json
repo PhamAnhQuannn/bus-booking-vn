@@ -191,6 +191,7 @@
       "title": "7. Retention period",
       "items": [
         "Booking contact information of guest bookings: anonymised 365 days after the trip's departure date, or earlier when you request deletion and the law allows.",
+        "Contact details entered at the seat-hold step without a completed booking: anonymised 30 days after the hold expires. Booking-flow analytics data (linked to the bb_sid cookie): deleted after about 13 months.",
         "Account information: until you delete your account.",
         "Booking history and payment records: kept for at least 5 years under accounting regulations. For guest bookings, identifying information is anonymised as above; for accounts, identifying information is anonymised when you delete your account. Financial transaction records are retained.",
         "Payer information in bank transfers that do not match a booking: masked after 365 days.",
