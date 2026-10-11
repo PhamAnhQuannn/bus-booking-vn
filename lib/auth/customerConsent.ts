@@ -10,7 +10,7 @@
 import type { Prisma } from '@prisma/client';
 
 /** Current signup consent text version. Bump when the ToS / Privacy copy changes. */
-export const CUSTOMER_CONSENT_VERSION = '2026-08';
+export const CUSTOMER_CONSENT_VERSION = '2026-10';
 
 /** Documented CustomerConsent.consentType union. */
 export const CUSTOMER_CONSENT_TYPES = {

@@ -89,6 +89,12 @@ describe('CheckoutClient', () => {
     expect((boxes[1] as HTMLInputElement).disabled).toBe(false);
   });
 
+  it('#838 links Terms and Complaints next to the consent checkboxes', () => {
+    render(<CheckoutClient {...PROPS} />);
+    expect(screen.getByRole('link', { name: 'Điều khoản dịch vụ' }).getAttribute('href')).toBe('/terms');
+    expect(screen.getByRole('link', { name: 'Khiếu nại' }).getAttribute('href')).toBe('/khieu-nai');
+  });
+
   it('does not offer VNPay and shows a QR placeholder before consent', () => {
     render(<CheckoutClient {...PROPS} />);
     expect(screen.queryByText(/vnpay/i)).toBeNull();
