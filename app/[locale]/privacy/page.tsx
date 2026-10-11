@@ -125,7 +125,7 @@ export default async function PrivacyPage({
         <p className="text-sm leading-relaxed">
           {t.rich('privacy.s8.contact', {
             email: (c) => (
-              <a href="mailto:privacy@bbvn.vn" className="text-primary underline">
+              <a href="mailto:hotro@lenxevn.com" className="text-primary underline">
                 {c}
               </a>
             ),
@@ -149,7 +149,7 @@ export default async function PrivacyPage({
         <p className="text-sm leading-relaxed">
           {t.rich('privacy.s10.body', {
             email: (c) => (
-              <a href="mailto:privacy@bbvn.vn" className="text-primary underline">
+              <a href="mailto:hotro@lenxevn.com" className="text-primary underline">
                 {c}
               </a>
             ),

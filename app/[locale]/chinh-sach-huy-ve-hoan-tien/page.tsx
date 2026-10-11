@@ -94,7 +94,7 @@ export default async function CancellationRefundPage({
             <li key={i}>
               {t.rich(`refund.s6.items.${i}`, {
                 email: (c) => (
-                  <a href="mailto:support@bbvn.vn" className="text-primary underline">
+                  <a href="mailto:hotro@lenxevn.com" className="text-primary underline">
                     {c}
                   </a>
                 ),
@@ -128,7 +128,7 @@ export default async function CancellationRefundPage({
               </Link>
             ),
             email: (c) => (
-              <a href="mailto:support@bbvn.vn" className="text-primary underline">
+              <a href="mailto:hotro@lenxevn.com" className="text-primary underline">
                 {c}
               </a>
             ),

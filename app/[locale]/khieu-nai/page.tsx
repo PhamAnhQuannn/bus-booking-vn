@@ -26,7 +26,7 @@ export default async function ComplaintPage({
   const t = await getTranslations({ locale, namespace: 'legal' });
   const b = (c: React.ReactNode) => <strong>{c}</strong>;
   const email = (c: React.ReactNode) => (
-    <a href="mailto:support@bbvn.vn" className="text-primary underline">
+    <a href="mailto:hotro@lenxevn.com" className="text-primary underline">
       {c}
     </a>
   );

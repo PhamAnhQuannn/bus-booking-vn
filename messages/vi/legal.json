@@ -11,40 +11,47 @@
   "terms": {
     "meta": {
       "title": "Điều khoản dịch vụ | BBVN",
-      "description": "Điều khoản sử dụng dịch vụ đặt vé xe khách BBVN."
+      "description": "Điều khoản sử dụng dịch vụ đặt vé xe khách, tư vấn thuê xe hợp đồng và Trợ lý du lịch AI của LềnXe VN (BBVN)."
     },
     "h1": "Điều khoản dịch vụ",
-    "updated": "Cập nhật: Tháng 8, 2026",
-    "version": "Phiên bản: 2026-08",
+    "updated": "Cập nhật: Tháng 10, 2026",
+    "version": "Phiên bản: 2026-10",
     "s1": {
       "title": "1. Giới thiệu",
-      "body": "Điều khoản dịch vụ này (\"Điều khoản\") điều chỉnh việc sử dụng nền tảng đặt vé xe khách BBVN (\"Dịch vụ\"). Khi đặt vé qua BBVN, bạn đồng ý tuân thủ các Điều khoản này."
+      "body": "Điều khoản dịch vụ này (\"Điều khoản\") điều chỉnh việc bạn sử dụng website lenxevn.com và các dịch vụ trên đó (\"Dịch vụ\") của LềnXe VN (viết tắt BBVN), do CÔNG TY TNHH XÂY DỰNG – VẬN TẢI VÀ DỊCH VỤ THƯƠNG MẠI MINH QUÂN (\"chúng tôi\") vận hành. Mã số thuế: [MST]. Địa chỉ: [ĐỊA CHỈ]. Email: hotro@lenxevn.com. Khi đặt vé hoặc sử dụng các dịch vụ khác trên website, bạn đồng ý với các Điều khoản này. Nếu một quy định có thể hiểu theo nhiều cách, quy định đó được hiểu theo hướng có lợi cho người tiêu dùng."
     },
     "s2": {
       "title": "2. Dịch vụ cung cấp",
-      "intro": "BBVN là nền tảng trung gian kết nối khách hàng với nhà xe. Chúng tôi cung cấp:",
+      "intro": "BBVN là nền tảng trung gian kết nối khách hàng với nhà xe. Hiện tại chúng tôi cung cấp:",
       "items": [
-        "Tìm kiếm và so sánh chuyến xe khách liên tỉnh.",
-        "Đặt chỗ và thanh toán trước trực tuyến qua chuyển khoản ngân hàng (VietQR) hoặc VNPay.",
-        "Xác nhận vé và thông báo qua email."
+        "Tìm kiếm, so sánh và đặt vé các chuyến xe khách liên tỉnh của nhà xe đối tác.",
+        "Thanh toán trước trực tuyến bằng chuyển khoản ngân hàng (VietQR). Thanh toán qua VNPay sẽ được bổ sung khi hình thức này được kích hoạt.",
+        "Xác nhận vé và thông báo qua email.",
+        "Tư vấn và kết nối yêu cầu thuê xe hợp đồng tới các đơn vị vận tải đối tác (xem Mục 8).",
+        "Trợ lý du lịch AI: công cụ miễn phí cung cấp thông tin gợi ý lịch trình (xem Mục 7)."
       ],
-      "note": "BBVN không phải là nhà vận tải. Nhà xe chịu trách nhiệm về dịch vụ vận chuyển, an toàn và đúng giờ."
+      "note": "BBVN không phải là nhà vận tải. Dịch vụ vận chuyển do nhà xe thực hiện; nhà xe chịu trách nhiệm về chất lượng vận chuyển, an toàn và đúng giờ. BBVN chịu trách nhiệm về việc tiếp nhận đặt vé, xác nhận vé, xử lý thanh toán đặt vé trên website và hỗ trợ sau bán theo Điều khoản này. Dịch vụ không bao gồm tổ chức tour du lịch trọn gói."
     },
     "s3": {
-      "title": "3. Thông tin đặt vé",
+      "title": "3. Tài khoản và thông tin đặt vé",
       "items": [
+        "Bạn có thể đặt vé với tư cách khách (không cần tài khoản) hoặc tạo tài khoản để quản lý việc đặt vé thuận tiện hơn. Việc tạo tài khoản là tùy chọn.",
         "Khi đặt vé, bạn cung cấp thông tin liên hệ (tên, số điện thoại, email) cho mỗi lần đặt.",
-        "BBVN không yêu cầu tạo tài khoản. Mỗi lần đặt vé là giao dịch độc lập.",
-        "Bạn chịu trách nhiệm cung cấp thông tin chính xác để nhận xác nhận vé và liên hệ khi cần."
+        "Nếu tạo tài khoản, bạn chịu trách nhiệm giữ bí mật thông tin đăng nhập và các hoạt động diễn ra dưới tài khoản của mình; hãy báo ngay cho chúng tôi nếu nghi ngờ bị truy cập trái phép.",
+        "Bạn chịu trách nhiệm cung cấp thông tin chính xác để nhận xác nhận vé và liên hệ khi cần.",
+        "Người dưới 18 tuổi chỉ được đặt vé khi có sự đồng ý của cha mẹ hoặc người giám hộ. Khi đặt vé cho người dưới 16 tuổi, bạn xác nhận mình là cha mẹ/người giám hộ hoặc đã được họ đồng ý cho cung cấp thông tin của trẻ em.",
+        "Chúng tôi có thể tạm khóa hoặc chấm dứt tài khoản vi phạm Điều khoản (ví dụ gian lận, lạm dụng, dùng công cụ tự động), kèm thông báo lý do, và việc này không ảnh hưởng đến các đơn đặt vé đã được xác nhận."
       ]
     },
     "s4": {
       "title": "4. Đặt vé và thanh toán",
       "items": [
-        "Ghế được giữ chỗ tạm thời (tối đa 12 phút) trong lúc thanh toán.",
-        "Thanh toán qua chuyển khoản ngân hàng. Vé được xác nhận sau khi nhận được thanh toán thành công.",
-        "Giá vé hiển thị đã bao gồm tất cả phí. Không có phí ẩn.",
-        "Nếu thanh toán không hoàn tất trong thời gian giữ chỗ, ghế sẽ được trả lại để người khác đặt."
+        "Khi bạn chọn ghế, ghế được giữ chỗ tạm thời khoảng 10 phút để bạn nhập thông tin. Sau khi tạo đơn, bạn có tối đa 20 phút để hoàn tất chuyển khoản; đồng hồ đếm ngược được hiển thị trên trang thanh toán.",
+        "Hiện nay thanh toán bằng chuyển khoản ngân hàng qua mã VietQR, đến tài khoản ngân hàng hiển thị trên trang thanh toán. Vui lòng chuyển đúng số tiền và đúng nội dung chuyển khoản. VNPay sẽ áp dụng khi được kích hoạt.",
+        "Vé được xác nhận sau khi chúng tôi nhận được thanh toán thành công.",
+        "Giá vé và các khoản phí (nếu có) được hiển thị rõ trước khi bạn xác nhận thanh toán; bạn có thể xem lại và chỉnh sửa đơn trước khi xác nhận.",
+        "Nếu thanh toán không hoàn tất trong thời gian giữ chỗ, ghế sẽ được trả lại để người khác đặt. Nếu bạn đã chuyển khoản nhưng đơn đã hết hạn hoặc số tiền không khớp, vui lòng liên hệ chúng tôi để được xử lý.",
+        "Vé điện tử và email xác nhận đặt vé là chứng từ xác nhận giao dịch, không phải hóa đơn giá trị gia tăng. Nếu bạn cần hóa đơn, vui lòng liên hệ hotro@lenxevn.com kèm mã đặt vé; việc xuất hóa đơn được thực hiện theo quy định của pháp luật."
       ]
     },
     "s5": {
@@ -56,50 +63,83 @@
       "items": [
         "Cung cấp thông tin chính xác khi đặt vé (tên, số điện thoại).",
         "Có mặt tại điểm đón đúng giờ.",
-        "Tuân thủ quy định của nhà xe trong suốt chuyến đi.",
-        "Không sử dụng Dịch vụ cho mục đích gian lận hoặc bất hợp pháp."
+        "Tuân thủ quy định của nhà xe về hành lý, trẻ em, vật nuôi, hàng cấm và giấy tờ tùy thân trong suốt chuyến đi.",
+        "Không sử dụng Dịch vụ cho mục đích gian lận hoặc bất hợp pháp.",
+        "Không thu thập dữ liệu hàng loạt (scraping), không dùng công cụ tự động để đặt chỗ hoặc truy cập hệ thống, không cố ý gây gián đoạn hay vượt qua các biện pháp bảo vệ của website."
       ]
     },
     "s7": {
-      "title": "7. Giới hạn trách nhiệm",
-      "body": "BBVN không chịu trách nhiệm về: (a) chất lượng dịch vụ vận chuyển do nhà xe cung cấp; (b) thiệt hại do chậm trễ, hủy chuyến hoặc tai nạn trong quá trình vận chuyển; (c) mất mát hành lý hoặc tài sản cá nhân trên xe. Trách nhiệm bồi thường tối đa của BBVN không vượt quá giá trị vé đã thanh toán."
+      "title": "9. Giới hạn trách nhiệm",
+      "body": "Trong phạm vi pháp luật cho phép: (a) chúng tôi chịu trách nhiệm đối với phần dịch vụ do chúng tôi cung cấp, gồm vận hành nền tảng, xử lý đặt vé và thanh toán, và thông tin do chúng tôi đăng tải; (b) nhà xe hoặc đơn vị vận tải chịu trách nhiệm về chất lượng vận chuyển, việc chậm trễ, hủy chuyến, tai nạn và hành lý, tài sản trên xe — chúng tôi hỗ trợ chuyển khiếu nại và đề nghị xử lý theo Chính sách giải quyết khiếu nại; (c) ngoài nghĩa vụ hoàn tiền theo Chính sách hủy vé và hoàn tiền, mức bồi thường tối đa của chúng tôi cho một đơn đặt vé không vượt quá số tiền bạn đã thanh toán cho đơn đó; (d) giới hạn tại điểm (c) không áp dụng đối với hành vi cố ý hoặc sơ suất nghiêm trọng của chúng tôi, thiệt hại về tính mạng và sức khỏe, và mọi trường hợp pháp luật (bao gồm pháp luật bảo vệ quyền lợi người tiêu dùng) không cho phép giới hạn trách nhiệm; (e) chúng tôi không chịu trách nhiệm đối với việc chậm trễ hoặc không thực hiện nghĩa vụ do sự kiện bất khả kháng (thiên tai, dịch bệnh, chiến tranh, sự cố hạ tầng hoặc tấn công mạng nằm ngoài khả năng kiểm soát hợp lý), theo quy định pháp luật."
     },
     "s8": {
-      "title": "8. Sở hữu trí tuệ",
-      "body": "Toàn bộ nội dung, thiết kế, logo và mã nguồn của BBVN thuộc quyền sở hữu của chúng tôi và được bảo hộ theo pháp luật Việt Nam về sở hữu trí tuệ."
+      "title": "10. Sở hữu trí tuệ",
+      "body": "Toàn bộ nội dung, thiết kế, logo và mã nguồn của BBVN thuộc quyền sở hữu của chúng tôi hoặc bên cấp phép cho chúng tôi, và được bảo hộ theo pháp luật Việt Nam về sở hữu trí tuệ. Dữ liệu của bên thứ ba (xem nguồn dữ liệu tại Mục 7) thuộc quyền của chủ sở hữu theo giấy phép tương ứng. Bạn không được sao chép, phân phối hoặc khai thác thương mại nội dung của website khi chưa có sự đồng ý của chúng tôi, trừ phần dữ liệu mở được cấp phép riêng."
     },
     "s9": {
-      "title": "9. Thay đổi điều khoản",
-      "body": "Chúng tôi có thể cập nhật Điều khoản này. Thay đổi quan trọng sẽ được thông báo qua email tối thiểu 30 ngày trước khi có hiệu lực. Việc tiếp tục sử dụng Dịch vụ sau khi thay đổi đồng nghĩa với việc bạn chấp nhận Điều khoản mới."
+      "title": "11. Thay đổi điều khoản",
+      "body": "Chúng tôi có thể cập nhật Điều khoản này. Thay đổi ảnh hưởng đến quyền hoặc nghĩa vụ của bạn được thông báo trên website và qua email (nếu chúng tôi có địa chỉ email của bạn) tối thiểu 30 ngày trước khi có hiệu lực; thay đổi chỉ nhằm sửa lỗi trình bày hoặc theo yêu cầu bắt buộc của pháp luật có hiệu lực theo thời điểm pháp luật quy định. Thay đổi không áp dụng đối với các đơn đặt vé đã được xác nhận trước ngày có hiệu lực. Nếu không đồng ý với thay đổi, bạn có thể ngừng sử dụng Dịch vụ; việc tiếp tục sử dụng sau ngày có hiệu lực được hiểu là bạn chấp nhận Điều khoản mới."
     },
     "s10": {
-      "title": "10. Luật áp dụng",
-      "body": "Điều khoản này được điều chỉnh bởi pháp luật Việt Nam. Mọi tranh chấp sẽ được giải quyết tại tòa án có thẩm quyền tại Việt Nam."
+      "title": "12. Luật áp dụng và giải quyết tranh chấp",
+      "body": "Điều khoản này được điều chỉnh bởi pháp luật Việt Nam. Khi có tranh chấp, các bên ưu tiên thương lượng và hòa giải; bạn có thể gửi khiếu nại theo Chính sách giải quyết khiếu nại, liên hệ cơ quan quản lý nhà nước về bảo vệ người tiêu dùng, hoặc khởi kiện tại tòa án có thẩm quyền tại Việt Nam. Không có quy định nào trong Điều khoản này hạn chế quyền khiếu nại, khởi kiện hoặc các quyền khác của bạn theo pháp luật về bảo vệ quyền lợi người tiêu dùng. Nếu một quy định trong Điều khoản này bị tuyên vô hiệu hoặc không thể thi hành, các quy định còn lại vẫn có hiệu lực."
     },
     "s11": {
-      "title": "11. Liên hệ",
-      "body": "Nếu có câu hỏi về Điều khoản dịch vụ, vui lòng liên hệ qua email: <email>support@bbvn.vn</email>. Để khiếu nại, vui lòng xem <link>Chính sách giải quyết khiếu nại</link>."
+      "title": "13. Liên hệ",
+      "body": "Nếu có câu hỏi về Điều khoản dịch vụ, vui lòng liên hệ: Email <email>hotro@lenxevn.com</email>; Địa chỉ: [ĐỊA CHỈ]. Để khiếu nại, vui lòng xem <link>Chính sách giải quyết khiếu nại</link>."
+    },
+    "s12": {
+      "title": "7. Trợ lý du lịch AI",
+      "intro": "Trợ lý du lịch AI (\"Trợ lý\") là công cụ gợi ý lịch trình tự động trên website. Khi sử dụng Trợ lý, bạn đồng ý với các điều sau:",
+      "items": [
+        "Bạn đang trò chuyện với hệ thống trí tuệ nhân tạo (AI), không phải nhân viên của chúng tôi. Nội dung Trợ lý đưa ra do AI tạo tự động.",
+        "Trợ lý chỉ cung cấp thông tin tham khảo, miễn phí và theo nguyên trạng. Trợ lý không đặt chỗ, không báo giá, không bán tour hay dịch vụ nào, và nội dung của Trợ lý không phải là báo giá, cam kết hay hợp đồng. Dịch vụ chỉ phát sinh khi bạn đặt vé hoặc ký hợp đồng riêng với bên cung cấp.",
+        "Nội dung có thể chưa chính xác, chưa đầy đủ hoặc đã lỗi thời (giờ mở cửa, khoảng cách, thời gian di chuyển, tình trạng đường, thời tiết...). Hãy kiểm tra lại với nguồn chính thức hoặc đơn vị cung cấp trước khi khởi hành.",
+        "Trợ lý không thay thế tư vấn chuyên môn về y tế, pháp lý, thị thực, bảo hiểm, an toàn hay tài chính.",
+        "Vui lòng không nhập thông tin cá nhân của bạn hoặc của người khác (họ tên, số điện thoại, email, số căn cước/hộ chiếu...) vào khung trò chuyện. Hệ thống tự động che một số loại thông tin trước khi xử lý, nhưng cơ chế này chỉ ở mức cố gắng tối đa và không bảo đảm tuyệt đối. Bạn cho phép chúng tôi xử lý nội dung bạn nhập để cung cấp và vận hành Trợ lý.",
+        "Nội dung trò chuyện được gửi tới nhà cung cấp mô hình AI của bên thứ ba đặt tại Hoa Kỳ (Google Gemini; Groq khi được kích hoạt) để xử lý. Chi tiết xem Mục 6a Chính sách bảo mật.",
+        "Trợ lý chỉ dành cho người từ đủ 18 tuổi; bằng việc sử dụng Trợ lý, bạn xác nhận mình đáp ứng điều kiện này.",
+        "Bạn không được dùng công cụ tự động hoặc thu thập dữ liệu hàng loạt từ Trợ lý, không được tìm cách thao túng hay vượt qua hướng dẫn của hệ thống (prompt injection), và không được tạo nội dung trái pháp luật. Trợ lý có giới hạn số lượt sử dụng; chúng tôi có thể giới hạn hoặc tạm ngừng truy cập khi phát hiện vi phạm.",
+        "Trợ lý được cung cấp miễn phí, theo nguyên trạng. Trong phạm vi pháp luật cho phép, chúng tôi không chịu trách nhiệm về thiệt hại phát sinh do bạn dựa vào gợi ý của Trợ lý, trừ trường hợp cố ý, sơ suất nghiêm trọng của chúng tôi hoặc trường hợp pháp luật không cho phép loại trừ trách nhiệm."
+      ],
+      "note": "Nguồn dữ liệu: dữ liệu bản đồ và địa điểm © những người đóng góp OpenStreetMap, theo giấy phép Open Database License (ODbL) — openstreetmap.org/copyright; nội dung mô tả từ Wikipedia theo giấy phép CC BY-SA 4.0 (tác giả xem trong lịch sử bài viết); dữ liệu có cấu trúc từ Wikidata (CC0); dữ liệu địa điểm từ Overture Maps Foundation (overturemaps.org), theo giấy phép của từng bộ dữ liệu. Chúng tôi đã tổng hợp và chỉnh sửa các dữ liệu này."
+    },
+    "s13": {
+      "title": "8. Thuê xe hợp đồng",
+      "intro": "Trang Liên hệ đặt xe cho phép bạn gửi yêu cầu thuê xe hợp đồng (đi du lịch, đưa đón theo yêu cầu). Đối với dịch vụ này:",
+      "items": [
+        "Vai trò của chúng tôi là tư vấn và kết nối: chúng tôi tiếp nhận yêu cầu của bạn và chuyển tới một hoặc nhiều đơn vị vận tải đối tác để họ báo giá. Dịch vụ này miễn phí đối với bạn và không có thanh toán trên website.",
+        "Báo giá do đơn vị vận tải đưa ra. Hợp đồng vận chuyển được lập trực tiếp giữa bạn và đơn vị vận tải; đơn vị vận tải là bên cung cấp dịch vụ và chịu trách nhiệm về việc thực hiện hợp đồng, an toàn và chất lượng chuyến đi.",
+        "Đơn vị vận tải phải có giấy phép và đủ điều kiện kinh doanh vận tải hành khách bằng xe hợp đồng theo quy định pháp luật. Bạn nên yêu cầu đơn vị vận tải cung cấp giấy phép và lập hợp đồng bằng văn bản hoặc điện tử trước khi chuyến đi diễn ra.",
+        "Chúng tôi không bán vé lẻ từng chỗ trên xe hợp đồng.",
+        "Việc hủy, đổi và hoàn tiền đối với xe hợp đồng do hợp đồng giữa bạn và đơn vị vận tải quy định; Chính sách hủy vé và hoàn tiền của BBVN không áp dụng.",
+        "Thông tin trong yêu cầu của bạn được lưu và xử lý theo Chính sách bảo mật; thông tin liên hệ được ẩn 365 ngày sau khi yêu cầu kết thúc."
+      ]
     }
   },
   "privacy": {
     "meta": {
       "title": "Chính sách bảo mật | BBVN",
-      "description": "Cách BBVN thu thập, sử dụng và bảo vệ thông tin cá nhân của khách hàng."
+      "description": "Cách LềnXe VN (BBVN) thu thập, sử dụng và bảo vệ thông tin cá nhân của khách hàng khi đặt vé, gửi yêu cầu thuê xe và dùng Trợ lý du lịch AI."
     },
     "h1": "Chính sách bảo mật",
-    "updated": "Cập nhật: Tháng 7, 2026",
-    "version": "Phiên bản: 2026-07",
+    "updated": "Cập nhật: Tháng 10, 2026",
+    "version": "Phiên bản: 2026-10",
     "s1": {
       "title": "1. Giới thiệu",
-      "body": "BBVN (\"chúng tôi\") cam kết bảo vệ quyền riêng tư của bạn theo Luật Bảo vệ dữ liệu cá nhân số 91/2025/QH15 (PDPL 2025) và Nghị định 356/2025/NĐ-CP. Chính sách này mô tả cách chúng tôi thu thập, sử dụng, lưu trữ và bảo vệ thông tin cá nhân khi bạn sử dụng nền tảng đặt vé xe khách BBVN."
+      "body": "LềnXe VN (BBVN) do CÔNG TY TNHH XÂY DỰNG – VẬN TẢI VÀ DỊCH VỤ THƯƠNG MẠI MINH QUÂN (\"chúng tôi\") vận hành (MST: [MST]; địa chỉ: [ĐỊA CHỈ]; email: hotro@lenxevn.com) là bên kiểm soát dữ liệu cá nhân của bạn, cam kết bảo vệ quyền riêng tư của bạn theo Luật Bảo vệ dữ liệu cá nhân số 91/2025/QH15 (PDPL 2025) và Nghị định 356/2025/NĐ-CP. Chính sách này mô tả cách chúng tôi thu thập, sử dụng, lưu trữ và bảo vệ thông tin cá nhân khi bạn sử dụng website lenxevn.com: đặt vé xe khách, gửi yêu cầu thuê xe hợp đồng và trò chuyện với Trợ lý du lịch AI."
     },
     "s2": {
       "title": "2. Thông tin chúng tôi thu thập",
       "items": [
-        "<b>Thông tin liên hệ đặt vé:</b> Số điện thoại liên hệ (bắt buộc để đặt vé và nhận thông báo), họ tên, địa chỉ email (tùy chọn).",
+        "<b>Thông tin liên hệ đặt vé:</b> Số điện thoại liên hệ (bắt buộc để đặt vé và nhận thông báo), họ tên, địa chỉ email (tùy chọn khi đặt vé; bắt buộc đối với yêu cầu thuê xe).",
         "<b>Thông tin đặt vé:</b> Tên hành khách, số điện thoại liên hệ, email liên hệ, điểm đón, chi tiết chuyến đi.",
         "<b>Thông tin thanh toán:</b> Trạng thái thanh toán, mã giao dịch ngân hàng. Chúng tôi không lưu trữ số thẻ ngân hàng hay thông tin đăng nhập ngân hàng.",
-        "<b>Dữ liệu kỹ thuật:</b> Địa chỉ IP (dùng cho giới hạn truy cập), user agent trình duyệt, nhật ký truy cập."
+        "<b>Yêu cầu thuê xe hợp đồng:</b> Họ tên, số điện thoại, email, điểm đón, điểm đến, ngày đi, số người, loại xe và ghi chú do bạn nhập.",
+        "<b>Tài khoản (nếu bạn tạo):</b> Email, tên hiển thị, mật khẩu (băm một chiều); hoặc thông tin cơ bản từ tài khoản Google nếu bạn chọn đăng nhập bằng Google.",
+        "<b>Trò chuyện với Trợ lý du lịch AI:</b> Nội dung tin nhắn bạn nhập và lịch trình được gợi ý. Vui lòng không nhập thông tin cá nhân.",
+        "<b>Dữ liệu kỹ thuật:</b> Địa chỉ IP (dùng cho giới hạn truy cập), user agent trình duyệt, nhật ký truy cập.",
+        "<b>Nếu không cung cấp thông tin bắt buộc:</b> Chúng tôi không thể xử lý đặt vé, yêu cầu thuê xe hoặc liên hệ với bạn."
       ]
     },
     "s3": {
@@ -107,104 +147,126 @@
       "items": [
         "Xử lý và xác nhận đặt vé xe khách.",
         "Gửi thông báo qua email (xác nhận vé, nhắc nhở chuyến đi).",
+        "Tiếp nhận yêu cầu thuê xe hợp đồng và chuyển tới đơn vị vận tải để báo giá.",
+        "Vận hành tài khoản của bạn (nếu có) và Trợ lý du lịch AI.",
         "Hỗ trợ khách hàng và giải quyết tranh chấp.",
         "Cải thiện chất lượng dịch vụ và phát hiện gian lận."
       ]
     },
     "s4": {
       "title": "4. Cơ sở pháp lý",
-      "body": "Chúng tôi xử lý dữ liệu dựa trên: (a) sự đồng ý của bạn khi đặt vé; (b) thực hiện hợp đồng đặt vé; (c) nghĩa vụ pháp lý theo quy định kế toán và lưu trữ chứng từ."
+      "body": "Chúng tôi xử lý dữ liệu dựa trên: (a) sự đồng ý của bạn (khi đặt vé, đăng ký tài khoản hoặc bật cookie phân tích); (b) thực hiện hợp đồng hoặc yêu cầu của bạn (đặt vé, tiếp nhận và kết nối yêu cầu thuê xe, cung cấp Trợ lý du lịch AI); (c) nghĩa vụ pháp lý theo quy định kế toán và lưu trữ chứng từ. Dịch vụ không dành cho người dưới 16 tuổi tự đăng ký hoặc tự cung cấp dữ liệu; thông tin của trẻ em chỉ được cung cấp bởi cha mẹ hoặc người giám hộ. Trợ lý du lịch AI chỉ dành cho người từ đủ 18 tuổi. Nếu bạn cho rằng trẻ em đã tự cung cấp dữ liệu cho chúng tôi, vui lòng liên hệ để chúng tôi xóa. Việc rút lại sự đồng ý không ảnh hưởng đến tính hợp pháp của việc xử lý đã thực hiện trước đó."
     },
     "s5": {
       "title": "5. Chia sẻ dữ liệu",
-      "intro": "Chúng tôi chỉ chia sẻ thông tin cá nhân với:",
+      "intro": "Chúng tôi không bán dữ liệu cá nhân của bạn. Chúng tôi chỉ chia sẻ thông tin cá nhân với:",
       "items": [
-        "<b>Nhà xe:</b> Tên hành khách, số điện thoại liên hệ và điểm đón — để phục vụ chuyến đi.",
+        "<b>Nhà xe và đơn vị vận tải:</b> Tên hành khách, số điện thoại liên hệ và điểm đón (đặt vé); thông tin liên hệ và nội dung yêu cầu (thuê xe hợp đồng) — để phục vụ chuyến đi và báo giá (yêu cầu thuê xe có thể được gửi tới nhiều đơn vị vận tải đối tác).",
         "<b>Đối tác thanh toán:</b> Xử lý giao dịch chuyển khoản ngân hàng (VietQR). Chúng tôi không lưu trữ số thẻ ngân hàng hay thông tin đăng nhập ngân hàng.",
+        "<b>Nhà cung cấp hạ tầng và dịch vụ kỹ thuật:</b> Các bên xử lý dữ liệu thay mặt chúng tôi (lưu trữ, gửi email, giám sát lỗi, trợ lý AI), nêu tại Mục 6a.",
         "<b>Cơ quan nhà nước:</b> Khi có yêu cầu theo quy định pháp luật Việt Nam."
       ]
     },
     "s6": {
       "title": "6. Lưu trữ và bảo mật",
-      "body": "Dữ liệu được lưu trữ trên máy chủ tại Singapore (Vercel, Neon, Upstash). Chúng tôi áp dụng mã hóa AES-256 ở cấp trường cho các dữ liệu nhạy cảm nhất (số tài khoản ngân hàng, khóa xác thực hai lớp); dữ liệu cá nhân khác được mã hóa khi lưu trữ ở tầng cơ sở dữ liệu. Kết nối được mã hóa SSL/TLS và kiểm soát truy cập nghiêm ngặt. Mật khẩu được băm (hash) một chiều, không lưu dạng rõ. Tệp đính kèm (vé PDF, giấy tờ nhà xe) được lưu trên Cloudflare R2, khu vực châu Á – Thái Bình Dương."
+      "body": "Dữ liệu được lưu trữ trên máy chủ tại Singapore (Vercel, Neon, Upstash). Chúng tôi áp dụng mã hóa AES-256 ở cấp trường cho các dữ liệu nhạy cảm nhất (số tài khoản ngân hàng, khóa xác thực hai lớp); dữ liệu cá nhân khác được mã hóa khi lưu trữ ở tầng cơ sở dữ liệu. Kết nối được mã hóa SSL/TLS và kiểm soát truy cập theo phân quyền. Mật khẩu được băm (hash) một chiều, không lưu dạng rõ. Tệp đính kèm (vé PDF, giấy tờ nhà xe) được lưu trên Cloudflare R2, khu vực châu Á – Thái Bình Dương."
     },
     "s6a": {
       "title": "6a. Chuyển dữ liệu ra nước ngoài",
       "intro": "Theo Điều 25 Luật PDPL 2025 và Nghị định 356/2025/NĐ-CP, chúng tôi thông báo rằng dữ liệu cá nhân của bạn được xử lý bởi các nhà cung cấp dịch vụ đặt tại nước ngoài:",
       "items": [
-        "<b>Vercel:</b> Máy chủ ứng dụng (compute) — khu vực Singapore (sin1).",
+        "<b>Vercel:</b> Máy chủ ứng dụng (compute) — khu vực Singapore (sin1); và Vercel Web Analytics (thống kê lượt truy cập, chỉ khi bạn đồng ý cookie phân tích).",
         "<b>Neon:</b> Cơ sở dữ liệu PostgreSQL — khu vực Singapore.",
         "<b>Upstash:</b> Bộ nhớ đệm Redis — khu vực Singapore.",
         "<b>Cloudflare R2:</b> Lưu trữ tệp — khu vực châu Á – Thái Bình Dương. Lưu vé điện tử PDF (tên hành khách, số điện thoại liên hệ, chi tiết chuyến đi) và giấy tờ định danh của nhà xe khi đăng ký. Tệp chỉ truy cập được qua đường dẫn ký số có thời hạn ngắn (5–15 phút).",
-        "<b>Google (Gemini):</b> Trợ lý AI xử lý tin nhắn trò chuyện — Hoa Kỳ. Thông tin cá nhân được loại bỏ trước khi gửi.",
-        "<b>Groq:</b> Trợ lý AI xử lý tin nhắn trò chuyện — Hoa Kỳ. Thông tin cá nhân được loại bỏ trước khi gửi.",
+        "<b>Google (Gemini):</b> Trợ lý du lịch AI xử lý tin nhắn trò chuyện — Hoa Kỳ. Hệ thống tự động che số điện thoại, email, số giấy tờ và tên tự khai trước khi gửi; đây là cơ chế cố gắng tối đa, không bảo đảm tuyệt đối, nên bạn không nên nhập thông tin cá nhân vào khung trò chuyện.",
+        "<b>Groq:</b> Trợ lý du lịch AI xử lý tin nhắn trò chuyện — Hoa Kỳ. Chỉ dùng khi được kích hoạt (dự phòng); áp dụng cùng cơ chế che thông tin như trên.",
         "<b>Google:</b> Đăng nhập bằng tài khoản Google (OAuth) — Hoa Kỳ.",
         "<b>Resend:</b> Gửi email giao dịch (xác nhận vé, thông báo) — Hoa Kỳ.",
         "<b>Sentry:</b> Giám sát lỗi hệ thống — Hoa Kỳ. Nhận báo cáo lỗi kỹ thuật (địa chỉ IP, user agent trình duyệt, đường dẫn trang, thông điệp lỗi); các trường dữ liệu cá nhân đã biết được che trước khi gửi."
       ],
-      "note": "Việc chuyển dữ liệu ra nước ngoài tuân thủ các yêu cầu về đánh giá tác động chuyển dữ liệu xuyên biên giới (CDTIA) theo quy định PDPL 2025."
+      "note": "Khi chuyển dữ liệu ra nước ngoài, chúng tôi chỉ gửi phần dữ liệu cần thiết để cung cấp dịch vụ, truyền qua kết nối mã hóa (TLS), áp dụng cơ chế che một số thông tin định danh đối với nội dung trò chuyện với Trợ lý AI, và thực hiện các thủ tục liên quan theo quy định của pháp luật về bảo vệ dữ liệu cá nhân."
     },
     "s7": {
       "title": "7. Thời gian lưu trữ",
       "items": [
-        "Thông tin liên hệ đặt vé: cho đến khi bạn yêu cầu xóa hoặc hết nghĩa vụ lưu trữ pháp lý.",
-        "Lịch sử đặt vé và chứng từ thanh toán: tối thiểu 5 năm theo quy định kế toán.",
-        "Lịch sử trò chuyện với trợ lý AI: 90 ngày kể từ lần trò chuyện gần nhất, hoặc xóa ngay khi bạn xóa tài khoản.",
+        "Thông tin liên hệ khi đặt vé với tư cách khách: được ẩn danh 365 ngày sau ngày khởi hành của chuyến đi, hoặc sớm hơn khi bạn yêu cầu xóa và pháp luật cho phép.",
+        "Thông tin tài khoản: cho đến khi bạn xóa tài khoản.",
+        "Lịch sử đặt vé và chứng từ thanh toán: lưu tối thiểu 5 năm theo quy định kế toán. Với khách đặt vé không có tài khoản, thông tin định danh được ẩn danh như trên; với tài khoản, thông tin định danh được ẩn danh khi bạn xóa tài khoản. Bản ghi giao dịch tài chính được giữ lại.",
+        "Thông tin người chuyển khoản trong giao dịch không khớp đơn đặt vé: được ẩn sau 365 ngày.",
+        "Lịch sử trò chuyện với Trợ lý AI (tài khoản đã đăng nhập): 90 ngày kể từ lần trò chuyện gần nhất, hoặc xóa ngay khi bạn xóa tài khoản.",
         "Nội dung thông báo (SMS/email) đã gửi: thông tin cá nhân được ẩn sau 180 ngày.",
-        "Yêu cầu thuê xe: thông tin liên hệ được ẩn 365 ngày sau khi yêu cầu được đóng (theo quyết định của quản trị viên hoặc khi huỷ).",
-        "Vé điện tử (PDF): xóa cùng thời điểm thông tin liên hệ trên đơn được ẩn.",
-        "Nhật ký truy cập: 90 ngày."
+        "Yêu cầu thuê xe: thông tin liên hệ được ẩn 365 ngày sau khi yêu cầu kết thúc (hoàn tất, bị từ chối hoặc bị hủy); yêu cầu đang xử lý được giữ để phục vụ bạn.",
+        "Vé điện tử (PDF): được xóa hoặc ẩn thông tin cá nhân cùng thời điểm thông tin liên hệ trên đơn được ẩn.",
+        "Nhật ký truy cập và nhật ký lỗi kỹ thuật: lưu trong thời gian ngắn theo cấu hình của nhà cung cấp hạ tầng và giám sát lỗi, chỉ dùng để vận hành và bảo mật hệ thống.",
+        "Giấy tờ pháp lý của nhà xe (hồ sơ đăng ký): tệp được xóa 90 ngày sau khi nhà xe bị từ chối hoặc ngừng hợp tác; hồ sơ của nhà xe đang hoạt động được giữ để tuân thủ quy định."
       ]
     },
     "s8": {
       "title": "8. Quyền của bạn",
-      "intro": "Theo Luật PDPL 2025, bạn có các quyền sau:",
-      "tableHead": ["Quyền", "Thời hạn xử lý"],
-      "rows": [
-        ["Truy cập và xem thông tin cá nhân", "10 ngày làm việc"],
-        ["Yêu cầu chỉnh sửa thông tin không chính xác", "10 ngày làm việc"],
-        ["Yêu cầu xóa dữ liệu cá nhân", "20 ngày làm việc"],
-        ["Rút lại sự đồng ý xử lý dữ liệu", "15 ngày làm việc"]
+      "intro": "Theo Luật PDPL 2025, bạn có các quyền sau (ngoài ra bạn còn có quyền được biết, hạn chế hoặc phản đối việc xử lý, khiếu nại và yêu cầu bồi thường theo quy định pháp luật):",
+      "tableHead": [
+        "Quyền",
+        "Thời hạn xử lý"
       ],
-      "contact": "Để thực hiện các quyền này, vui lòng gửi email đến <email>privacy@bbvn.vn</email>.",
+      "rows": [
+        [
+          "Truy cập và xem thông tin cá nhân",
+          "Trong thời hạn luật định (chúng tôi phản hồi trong vòng 10 ngày làm việc)"
+        ],
+        [
+          "Yêu cầu chỉnh sửa thông tin không chính xác",
+          "Trong thời hạn luật định (chúng tôi phản hồi trong vòng 10 ngày làm việc)"
+        ],
+        [
+          "Yêu cầu xóa dữ liệu cá nhân",
+          "Trong thời hạn luật định (chúng tôi phản hồi trong vòng 10 ngày làm việc)"
+        ],
+        [
+          "Rút lại sự đồng ý xử lý dữ liệu",
+          "Trong thời hạn luật định (chúng tôi phản hồi trong vòng 10 ngày làm việc)"
+        ]
+      ],
+      "contact": "Để thực hiện các quyền này, vui lòng gửi email đến <email>hotro@lenxevn.com</email>.",
       "note": "Lưu ý: lịch sử đặt vé và chứng từ thanh toán vẫn được lưu theo nghĩa vụ pháp lý ngay cả sau khi xóa dữ liệu cá nhân."
     },
     "s8a": {
       "title": "8a. Thông báo vi phạm dữ liệu",
-      "body": "Trong trường hợp vi phạm dữ liệu cá nhân, chúng tôi sẽ thông báo cho cơ quan chức năng trong vòng 72 giờ và trong vòng 24 giờ nếu liên quan đến tấn công mạng, theo quy định PDPL 2025."
+      "body": "Trong trường hợp vi phạm dữ liệu cá nhân, chúng tôi sẽ thông báo cho cơ quan có thẩm quyền trong thời hạn luật định (72 giờ kể từ khi phát hiện) và thông báo cho bạn khi vi phạm có khả năng gây thiệt hại đến quyền và lợi ích của bạn, theo quy định của pháp luật."
     },
     "s9": {
       "title": "9. Cookie và công nghệ theo dõi",
-      "body": "Chúng tôi sử dụng cookie kỹ thuật (phiên đăng nhập, xác thực CSRF, giữ chỗ) cần thiết để vận hành dịch vụ. Chúng tôi không sử dụng cookie theo dõi quảng cáo hay cookie bên thứ ba. Với khách chưa đăng nhập, lịch sử trò chuyện với trợ lý AI chỉ được lưu tạm trên trình duyệt của bạn (bộ nhớ phiên) và tự động xóa khi bạn đóng tab; lịch sử này không được lưu trữ trên máy chủ của chúng tôi. Tin nhắn vẫn được gửi tới máy chủ để xử lý theo Mục 6a."
+      "body": "Chúng tôi sử dụng cookie kỹ thuật (phiên đăng nhập, xác thực CSRF, giữ chỗ) cần thiết để vận hành dịch vụ. Chúng tôi không sử dụng cookie theo dõi quảng cáo. Chỉ khi bạn đồng ý trên biểu ngữ cookie, chúng tôi mới bật Vercel Web Analytics để thống kê lượt truy cập; nếu bạn chọn chỉ cookie cần thiết, công cụ này không được tải. Với khách chưa đăng nhập, lịch sử trò chuyện với Trợ lý du lịch AI chỉ được lưu tạm trên trình duyệt của bạn (bộ nhớ phiên) và tự động xóa khi bạn đóng tab; lịch sử này không được lưu trữ trên máy chủ của chúng tôi. Tin nhắn vẫn được gửi tới máy chủ để xử lý theo Mục 6a."
     },
     "s10": {
       "title": "10. Liên hệ",
-      "body": "Phụ trách bảo vệ dữ liệu cá nhân — Email: <email>privacy@bbvn.vn</email>",
+      "body": "Phụ trách bảo vệ dữ liệu cá nhân — CÔNG TY TNHH XÂY DỰNG – VẬN TẢI VÀ DỊCH VỤ THƯƠNG MẠI MINH QUÂN, địa chỉ: [ĐỊA CHỈ], email: <email>hotro@lenxevn.com</email>",
       "authority": "Nếu bạn không hài lòng với cách xử lý khiếu nại, bạn có quyền liên hệ Cục Cạnh tranh và Bảo vệ người tiêu dùng (VCCA) hoặc cơ quan chức năng có thẩm quyền theo <link>Chính sách giải quyết khiếu nại</link>."
     }
   },
   "refund": {
     "meta": {
       "title": "Chính sách hủy vé và hoàn tiền | BBVN",
-      "description": "Chính sách hủy vé, hoàn tiền và các điều kiện áp dụng khi đặt vé xe khách qua BBVN."
+      "description": "Chính sách hủy vé, hoàn tiền và các điều kiện áp dụng khi đặt vé xe khách qua LềnXe VN (BBVN)."
     },
     "h1": "Chính sách hủy vé và hoàn tiền",
-    "updated": "Cập nhật: Tháng 8, 2026",
-    "version": "Phiên bản: 2026-08",
+    "updated": "Cập nhật: Tháng 10, 2026",
+    "version": "Phiên bản: 2026-10",
     "s1": {
       "title": "1. Giới thiệu",
-      "body": "Chính sách này là một phần không thể tách rời của <link>Điều khoản dịch vụ</link>. Chính sách áp dụng cho tất cả vé xe khách đặt qua bbvn.vn."
+      "body": "Chính sách này là một phần không thể tách rời của <link>Điều khoản dịch vụ</link>. Chính sách áp dụng cho tất cả vé xe khách đặt qua lenxevn.com."
     },
     "s2": {
       "title": "2. Phạm vi áp dụng",
       "items": [
-        "Áp dụng cho vé thanh toán trước qua chuyển khoản ngân hàng (VietQR) hoặc VNPay.",
-        "Không áp dụng cho đặt xe hợp đồng/thuê riêng — vui lòng liên hệ <charter>trang đặt xe riêng</charter>."
+        "Áp dụng cho vé xe khách thanh toán trước qua chuyển khoản ngân hàng (VietQR), và qua VNPay khi hình thức này được kích hoạt.",
+        "Không áp dụng cho xe hợp đồng/thuê riêng: việc hủy, đổi và hoàn tiền do hợp đồng giữa bạn và đơn vị vận tải quy định — xem <charter>trang liên hệ đặt xe</charter>.",
+        "Vé do nhà xe bán trực tiếp tại quầy hoặc trên xe không thuộc phạm vi chính sách này."
       ]
     },
     "s3": {
       "title": "3. Hủy vé theo yêu cầu khách hàng",
-      "body": "Vé đã thanh toán <b>không thể hủy hoặc hoàn tiền theo yêu cầu của khách hàng</b>. BBVN chỉ hoàn tiền trong trường hợp nhà xe hủy chuyến (xem Mục 5). Vui lòng kiểm tra kỹ thông tin chuyến đi và cân nhắc trước khi thanh toán."
+      "body": "Vé đã thanh toán <b>không thể hủy hoặc hoàn tiền theo yêu cầu của khách hàng</b>. BBVN chỉ hoàn tiền khi nhà xe hủy chuyến hoặc khi có lỗi từ phía BBVN (xem Mục 5). Vui lòng kiểm tra kỹ thông tin chuyến đi và cân nhắc trước khi thanh toán. Quy định này không loại trừ các quyền bắt buộc của bạn theo pháp luật."
     },
     "s4": {
       "title": "4. Không hoàn tiền trong các trường hợp",
@@ -212,73 +274,91 @@
         "Khách hàng tự ý không đi, đổi lịch cá nhân hoặc yêu cầu hủy vé.",
         "Khách hàng không có mặt tại điểm đón đúng giờ (no-show).",
         "Vé đã sử dụng hoặc chuyến đi đã khởi hành.",
-        "Phát hiện gian lận trong quá trình đặt vé hoặc thanh toán."
+        "Có căn cứ xác định gian lận trong quá trình đặt vé hoặc thanh toán."
       ]
     },
     "s5": {
-      "title": "5. Nhà xe hủy chuyến (xe không chạy)",
-      "intro": "Đây là trường hợp duy nhất được hoàn tiền. Khi nhà xe hủy chuyến:",
+      "title": "5. Nhà xe hủy chuyến hoặc lỗi từ phía BBVN",
+      "intro": "Bạn được hoàn tiền trong hai trường hợp: (1) nhà xe hủy chuyến (xe không chạy); (2) lỗi từ phía BBVN hoặc hệ thống, như thu tiền trùng, thu thừa hoặc đã thanh toán nhưng không thể xác nhận vé, sau khi BBVN đối soát giao dịch. Khi đó:",
       "items": [
-        "Hoàn tiền 100% giá vé (không trừ phí) trong vòng 3-5 ngày làm việc.",
-        "BBVN chủ động thông báo qua SMS/email ngay khi nhận thông tin từ nhà xe.",
-        "Khách hàng không cần thao tác hủy — hệ thống tự động xử lý hoàn tiền."
+        "Hoàn tiền 100% giá vé (hoặc phần tiền thu trùng/thu thừa), không trừ phí, trong vòng 3-5 ngày làm việc kể từ khi BBVN xác nhận trường hợp được hoàn tiền và nhận đủ thông tin tài khoản nhận tiền (nếu cần).",
+        "BBVN chủ động thông báo qua email (và SMS khi dịch vụ SMS đang hoạt động) ngay khi nhận thông tin từ nhà xe hoặc phát hiện lỗi; nếu bạn không để lại email, chúng tôi liên hệ qua số điện thoại đặt vé.",
+        "Khách hàng không cần thao tác hủy — BBVN chủ động xử lý hoàn tiền.",
+        "Nếu nhà xe thay đổi đáng kể giờ khởi hành hoặc điểm đón khiến bạn không thể sử dụng vé, hãy liên hệ BBVN trước giờ khởi hành; chúng tôi sẽ làm việc với nhà xe để đề xuất đổi chuyến hoặc hoàn tiền phù hợp với trường hợp đó."
       ]
     },
     "s6": {
-      "title": "6. Quy trình nhận hoàn tiền khi nhà xe hủy chuyến",
+      "title": "6. Quy trình nhận hoàn tiền",
       "items": [
-        "BBVN gửi thông báo hủy chuyến qua SMS/email tới số điện thoại/email đặt vé.",
+        "BBVN gửi thông báo qua email (và SMS khi dịch vụ SMS đang hoạt động) hoặc liên hệ qua số điện thoại đặt vé.",
         "Nếu cần, khách hàng cung cấp số tài khoản ngân hàng để nhận hoàn tiền.",
-        "Mọi thắc mắc, liên hệ BBVN qua email <email>support@bbvn.vn</email> (kèm mã đặt vé và số điện thoại đặt vé)."
+        "Mọi thắc mắc, liên hệ BBVN qua email <email>hotro@lenxevn.com</email> (kèm mã đặt vé và số điện thoại đặt vé)."
       ]
     },
     "s7": {
       "title": "7. Thời gian và phương thức hoàn tiền",
       "items": [
-        "Hoàn tiền qua chuyển khoản ngân hàng: 3-5 ngày làm việc kể từ khi nhà xe xác nhận hủy chuyến."
+        "Hoàn tiền qua chuyển khoản ngân hàng: 3-5 ngày làm việc kể từ khi BBVN xác nhận trường hợp được hoàn tiền và nhận đủ thông tin tài khoản nhận tiền (nếu cần)."
       ]
     },
     "s8": {
       "title": "8. Ghi chú về Luật Bảo vệ quyền lợi người tiêu dùng",
-      "body": "Theo Luật Bảo vệ quyền lợi người tiêu dùng 2023 (Luật 19/2023/QH15), quyền \"đổi trả hàng trong vòng X ngày\" (Điều 44) chỉ áp dụng cho bán hàng tận cửa (door-to-door), không áp dụng cho giao dịch đặt vé trực tuyến tự nguyện."
+      "body": "Chính sách này được áp dụng trong phạm vi pháp luật cho phép và không loại trừ các quyền bắt buộc của người tiêu dùng theo Luật Bảo vệ quyền lợi người tiêu dùng 2023 (Luật 19/2023/QH15)."
     },
     "s9": {
       "title": "9. Khiếu nại và liên hệ",
-      "body": "Nếu bạn không đồng ý với quyết định hoàn tiền, vui lòng xem <link>Chính sách giải quyết khiếu nại</link>. Email hỗ trợ: <email>support@bbvn.vn</email>"
+      "body": "Nếu bạn không đồng ý với quyết định hoàn tiền, vui lòng xem <link>Chính sách giải quyết khiếu nại</link>. Email hỗ trợ: <email>hotro@lenxevn.com</email>"
     },
     "s10": {
       "title": "10. Thay đổi chính sách",
-      "body": "Thay đổi quan trọng sẽ được thông báo tối thiểu 30 ngày trước khi có hiệu lực, phù hợp với <link>Điều khoản dịch vụ</link>."
+      "body": "Thay đổi quan trọng sẽ được thông báo tối thiểu 30 ngày trước khi có hiệu lực, phù hợp với <link>Điều khoản dịch vụ</link>, và không áp dụng cho vé đã được xác nhận trước ngày có hiệu lực."
     }
   },
   "complaints": {
     "meta": {
       "title": "Giải quyết khiếu nại | BBVN",
-      "description": "Quy trình tiếp nhận và giải quyết khiếu nại, tranh chấp khi sử dụng dịch vụ đặt vé xe khách BBVN."
+      "description": "Quy trình tiếp nhận và giải quyết khiếu nại, tranh chấp khi sử dụng dịch vụ của LềnXe VN (BBVN)."
     },
     "h1": "Chính sách giải quyết khiếu nại và tranh chấp",
-    "updated": "Cập nhật: Tháng 7, 2026",
-    "version": "Phiên bản: 2026-07",
+    "updated": "Cập nhật: Tháng 10, 2026",
+    "version": "Phiên bản: 2026-10",
     "s1": {
       "title": "1. Giới thiệu",
-      "body": "BBVN là nền tảng trung gian kết nối khách hàng với nhà xe. Nhà xe chịu trách nhiệm về dịch vụ vận chuyển. Chính sách này mô tả quy trình tiếp nhận và giải quyết khiếu nại theo Luật Bảo vệ quyền lợi người tiêu dùng 2023 (Luật 19/2023/QH15, Điều 37-39)."
+      "body": "LềnXe VN (BBVN), do CÔNG TY TNHH XÂY DỰNG – VẬN TẢI VÀ DỊCH VỤ THƯƠNG MẠI MINH QUÂN vận hành, là nền tảng trung gian kết nối khách hàng với nhà xe. Nhà xe chịu trách nhiệm về dịch vụ vận chuyển. Chính sách này mô tả quy trình tiếp nhận và giải quyết khiếu nại theo Luật Bảo vệ quyền lợi người tiêu dùng 2023 (Luật số 19/2023/QH15)."
     },
     "s2": {
       "title": "2. Kênh tiếp nhận khiếu nại",
       "items": [
-        "<b>Email (kênh chính thức):</b> <email>support@bbvn.vn</email>",
+        "<b>Email (kênh chính thức):</b> <email>hotro@lenxevn.com</email>",
+        "<b>Thư gửi qua bưu chính:</b> [ĐỊA CHỈ]",
         "<b>Thông tin cần cung cấp:</b> Mã đặt vé (nếu có), số điện thoại đặt vé, mô tả vấn đề, bằng chứng (nếu có)."
       ]
     },
     "s3": {
       "title": "3. Quy trình xử lý và thời hạn",
-      "tableHead": ["Bước", "Nội dung", "Thời hạn"],
-      "rows": [
-        ["1", "Tiếp nhận và xác nhận", "3 ngày làm việc"],
-        ["2", "Xem xét và đề xuất giải pháp", "7-30 ngày làm việc"],
-        ["3", "Thông báo kết quả", "Qua email"]
+      "tableHead": [
+        "Bước",
+        "Nội dung",
+        "Thời hạn"
       ],
-      "note": "Khiếu nại đơn giản (lỗi hệ thống, thanh toán không ghi nhận) được xử lý trong 7 ngày làm việc. Khiếu nại phức tạp (tranh chấp với nhà xe, hoàn tiền đặc biệt) có thể mất đến 30 ngày làm việc."
+      "rows": [
+        [
+          "1",
+          "Tiếp nhận và xác nhận",
+          "3 ngày làm việc"
+        ],
+        [
+          "2",
+          "Xem xét và đề xuất giải pháp",
+          "7-30 ngày làm việc"
+        ],
+        [
+          "3",
+          "Thông báo kết quả",
+          "Qua email"
+        ]
+      ],
+      "note": "Khiếu nại đơn giản (lỗi hệ thống, thanh toán không ghi nhận) được xử lý trong 7 ngày làm việc. Khiếu nại phức tạp (tranh chấp với nhà xe, hoàn tiền đặc biệt) có thể mất đến 30 ngày làm việc. Hoàn tiền thuộc Mục 5 Chính sách hủy vé và hoàn tiền được xử lý theo thời hạn riêng tại chính sách đó."
     },
     "s4": {
       "title": "4. Phân loại khiếu nại",
@@ -286,6 +366,7 @@
         "<b>Vấn đề đặt vé / thanh toán:</b> Thanh toán không ghi nhận, lỗi hệ thống, sai thông tin vé.",
         "<b>Vấn đề hoàn tiền:</b> Xem <link>Chính sách hủy vé và hoàn tiền</link>.",
         "<b>Chất lượng dịch vụ / thái độ nhà xe:</b> BBVN chuyển khiếu nại đến nhà xe liên quan.",
+        "<b>Yêu cầu thuê xe hợp đồng:</b> BBVN hỗ trợ chuyển khiếu nại tới đơn vị vận tải; hợp đồng vận chuyển do bạn và đơn vị vận tải trực tiếp thỏa thuận.",
         "<b>Vấn đề an toàn:</b> Xử lý khẩn cấp, không áp dụng thời hạn tiêu chuẩn."
       ]
     },
@@ -308,7 +389,7 @@
     },
     "s8": {
       "title": "8. Liên hệ",
-      "body": "Email: <email>support@bbvn.vn</email>"
+      "body": "Email: <email>hotro@lenxevn.com</email> — Địa chỉ: [ĐỊA CHỈ]"
     }
   }
 }

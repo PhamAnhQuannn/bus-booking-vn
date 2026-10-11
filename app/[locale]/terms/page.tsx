@@ -90,6 +90,28 @@ export default async function TermsPage({
         </ul>
       </section>
 
+      {/* s12/s13 render as Sections 7-8 (titles carry the display number); s7-s11 follow as 9-13. */}
+      <section className="flex flex-col gap-2">
+        <h2 className="text-lg font-semibold">{t('terms.s12.title')}</h2>
+        <p className="text-sm leading-relaxed">{t('terms.s12.intro')}</p>
+        <ul className="list-disc pl-6 text-sm leading-relaxed">
+          {(t.raw('terms.s12.items') as string[]).map((item, i) => (
+            <li key={i}>{item}</li>
+          ))}
+        </ul>
+        <p className="text-xs leading-relaxed text-muted-foreground">{t('terms.s12.note')}</p>
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <h2 className="text-lg font-semibold">{t('terms.s13.title')}</h2>
+        <p className="text-sm leading-relaxed">{t('terms.s13.intro')}</p>
+        <ul className="list-disc pl-6 text-sm leading-relaxed">
+          {(t.raw('terms.s13.items') as string[]).map((item, i) => (
+            <li key={i}>{item}</li>
+          ))}
+        </ul>
+      </section>
+
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold">{t('terms.s7.title')}</h2>
         <p className="text-sm leading-relaxed">{t('terms.s7.body')}</p>
@@ -115,7 +137,7 @@ export default async function TermsPage({
         <p className="text-sm leading-relaxed">
           {t.rich('terms.s11.body', {
             email: (c) => (
-              <a href="mailto:support@bbvn.vn" className="text-primary underline">
+              <a href="mailto:hotro@lenxevn.com" className="text-primary underline">
                 {c}
               </a>
             ),

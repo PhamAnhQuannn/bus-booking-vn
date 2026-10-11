@@ -36,6 +36,19 @@ describe('legal.json vi/en parity', () => {
   });
 });
 
+describe('no unfilled company-identity placeholders', () => {
+  // The 2026-10 rewrite left "[MST]" / "[ĐỊA CHỈ]" for the owner to fill from the ĐKKD.
+  // G7 only scans app/ components/ lib/, so without this a bracketed placeholder ships to
+  // prod the same way "1900 xxxx" did. Fill the real value or delete the sentence.
+  const PLACEHOLDER = /\[(MST|ĐỊA CHỈ|HOTLINE|NGƯỜI ĐẠI DIỆN|TAX CODE|ADDRESS|LEGAL REPRESENTATIVE)\]/;
+
+  for (const [locale, doc] of [['vi', vi], ['en', en]] as const) {
+    it(`${locale}: legal.json contains no bracketed placeholder`, () => {
+      expect(JSON.stringify(doc)).not.toMatch(PLACEHOLDER);
+    });
+  }
+});
+
 describe('cross-border disclosure (s6a) names every wired processor', () => {
   // PDPL Art.25 requires naming each cross-border recipient. Keep this list in sync with
   // the actual outbound integrations — the G7 CI grep guards additions of new vendors.
