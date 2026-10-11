@@ -1,6 +1,6 @@
 {
   "hero": {
-    "badge": "Easy booking – Safe travel",
+    "badge": "Easy booking",
     "titleLine1": "Book bus tickets",
     "titleLine2": "in just 30 seconds",
     "subtitle": "Find a trip, book it, and the operator calls to confirm. No on-screen seat selection needed.",
@@ -16,16 +16,16 @@
   "breadcrumb": {
     "home": "Home"
   },
-  "resultTagline": "Safe – On time – Attentive",
+  "resultTagline": "Clear booking – Email confirmation",
   "feature": {
     "paymentTitle": "Simple payment",
-    "paymentSub": "Pay upfront via VietQR transfer or VNPay",
+    "paymentSub": "Pay upfront via VietQR bank transfer",
     "emailTitle": "Email confirmation",
     "emailSub": "Your trip details are sent to your email",
     "verifiedTitle": "Verified operators",
     "verifiedSub": "Every operator is approved before selling tickets",
-    "pickupTitle": "Door-to-door pickup",
-    "pickupSub": "Pick-up at home or your hotel, drop-off where you need"
+    "pickupTitle": "Pickup at your address",
+    "pickupSub": "Enter your pickup address when booking; the operator will call to confirm"
   },
   "trust": {
     "paymentTitle": "Simple payment",
@@ -33,9 +33,9 @@
     "emailTitle": "Email confirmation",
     "emailSub": "E-ticket sent instantly, saving you time",
     "verifiedTitle": "Verified operators",
-    "verifiedSub": "Trusted partners, guaranteed quality",
-    "supportTitle": "24/7 support",
-    "supportSub": "Attentive advice and support anytime"
+    "verifiedSub": "Operator profiles are reviewed before sales open",
+    "supportTitle": "Email support",
+    "supportSub": "Write to our support email and we will reply"
   },
   "carousel": {
     "scrollLeft": "Scroll left",
@@ -89,6 +89,6 @@
   },
   "operators": {
     "titleSingle": "Partner operators",
-    "titlePlural": "Trusted partner operators"
+    "titlePlural": "Partner operators"
   }
 }

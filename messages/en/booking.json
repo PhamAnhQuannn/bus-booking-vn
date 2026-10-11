@@ -49,7 +49,7 @@
     "creatingQr": "Generating payment QR code...",
     "consentToShowQr": "Accept the terms above to show the payment QR code.",
     "fillToShowQr": "Fill in all details to show the payment QR code.",
-    "ticketSent": "After successful payment, the ticket will be sent via SMS and Email."
+    "ticketSent": "After successful payment, your e-ticket will be emailed to the address you entered."
   },
   "error": {
     "HOLD_EXPIRED": "Your seat hold expired. Please book again.",
@@ -107,12 +107,12 @@
     "aria": "Step {current} of {total}"
   },
   "badges": {
-    "badge1Title": "100% seat hold",
-    "badge1Detail": "Your ticket is held until you pay",
-    "badge2Title": "24/7 support",
-    "badge2Detail": "Advice and support anytime",
-    "badge3Title": "Safe – Trusted",
-    "badge3Detail": "BBVN – genuine operators, attentive service"
+    "badge1Title": "Seat held while you pay",
+    "badge1Detail": "Your seat is held temporarily during payment (countdown shown)",
+    "badge2Title": "Email support",
+    "badge2Detail": "Write to our support email and we will reply",
+    "badge3Title": "Secure payment",
+    "badge3Detail": "VietQR bank transfer, automatic confirmation"
   },
   "bankTransfer": {
     "title": "Bank transfer details",
