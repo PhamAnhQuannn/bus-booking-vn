@@ -52,6 +52,22 @@ export const sweepSessions: JobCore = async (tx) => {
     `
   );
 
-  const rowsAffected = customer.length + operator.length + admin.length + otp.length;
+  // #837: OperatorOtpAttempt (its `phone` column holds the operator email) was never pruned; same 7d window.
+  const operatorOtp = await tx.$queryRaw<{ id: string }[]>(
+    Prisma.sql`
+      WITH stale AS (
+        SELECT id FROM "OperatorOtpAttempt"
+        WHERE "createdAt" < NOW() - ${`${OTP_RETENTION_DAYS} days`}::interval
+        LIMIT ${BATCH_LIMIT}
+        FOR UPDATE SKIP LOCKED
+      )
+      DELETE FROM "OperatorOtpAttempt"
+      WHERE id IN (SELECT id FROM stale)
+      RETURNING id
+    `
+  );
+
+  const rowsAffected =
+    customer.length + operator.length + admin.length + otp.length + operatorOtp.length;
   return { rowsAffected, status: 'success' };
 };

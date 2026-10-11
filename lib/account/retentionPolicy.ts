@@ -93,3 +93,33 @@ export const NOTIFICATION_PII_RETENTION_DAYS = 180;
  * lead is NEVER scrubbed (an operator still needs the contact). erase != delete (S04).
  */
 export const CHARTER_CONTACT_RETENTION_DAYS = 365;
+
+/**
+ * HOLD_PII_RETENTION_DAYS — Hold buyer-PII retention (30 days). #837.
+ *
+ * A `Hold` carries the checkout snapshot (customerName/Phone/Email + pickupDetail),
+ * including abandoned checkouts that never became a booking. 30 days after a NON-active
+ * hold's `expiresAt` those fields are overwritten with masked placeholders (UPDATE, not
+ * DELETE: `Booking.holdId` is an FK with ON DELETE RESTRICT). Active holds are never
+ * touched. Also enforced eagerly at account deletion for holds linked to the customer's
+ * bookings (lib/account/anonymizeCustomer.ts). erase != delete (S04).
+ */
+export const HOLD_PII_RETENTION_DAYS = 30;
+
+/**
+ * MATCHED_PAYMENT_PII_RETENTION_DAYS — matched PaymentEvent payer-PII retention (365 days). #837.
+ *
+ * A MATCHED bank-transfer PaymentEvent (bookingId set) stores the same SePay rawBody as an
+ * orphan (payer name in `description`, free-text memo in `content`). Same strip-and-stamp
+ * redaction as the orphan arm, on the same window as guest bookings. Row is KEPT (money
+ * evidence); only the payer keys are nulled.
+ */
+export const MATCHED_PAYMENT_PII_RETENTION_DAYS = GUEST_PII_RETENTION_DAYS;
+
+/**
+ * FUNNEL_EVENT_RETENTION_DAYS — FunnelEvent retention (395 days, ~13 months). #837.
+ *
+ * FunnelEvent rows link a consent-gated anonymous session id (`bb_sid`) to trips/bookings.
+ * Analytics only — no money/audit value — so past the window they are HARD DELETED.
+ */
+export const FUNNEL_EVENT_RETENTION_DAYS = 395;

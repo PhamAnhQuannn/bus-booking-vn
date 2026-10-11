@@ -60,6 +60,10 @@
  *      on TERMINAL CharterRequest leads past CHARTER_CONTACT_RETENTION_DAYS, stamping
  *      contactScrubbedAt. ref/status/assignee retained (lead audit). erase != delete.
  *
+ *   8-11. (#837) matched PaymentEvent rawBody redaction (365d, reuses redactOrphanRawBody),
+ *      non-active Hold PII scrub (30d), Booking.pickupDetail backfill for already-scrubbed
+ *      snapshots, FunnelEvent hard delete (395d). The guest scrub (1) also clears pickupDetail.
+ *
  * rowsAffected = guest snapshots scrubbed + KYB docs purged + orphan bodies redacted +
  * planner conversations deleted + ticket PDFs purged + notification rows scrubbed +
  * charter leads scrubbed.
@@ -150,6 +154,9 @@ export const retentionSweeper: JobCore = async (tx, opts) => {
     PLANNER_CHAT_RETENTION_DAYS,
     NOTIFICATION_PII_RETENTION_DAYS,
     CHARTER_CONTACT_RETENTION_DAYS,
+    HOLD_PII_RETENTION_DAYS,
+    MATCHED_PAYMENT_PII_RETENTION_DAYS,
+    FUNNEL_EVENT_RETENTION_DAYS,
   } = await import('@/lib/account');
   const { TERMINAL_CHARTER_STATUSES } = await import('@/lib/charter');
 
@@ -159,6 +166,9 @@ export const retentionSweeper: JobCore = async (tx, opts) => {
   // never match the gitleaks \+84[35789]\d{8} regex — \d{8} can't consume 'x').
   const EXPIRED_BUYER_NAME = '[expired]';
   const EXPIRED_BUYER_PHONE = '+8490xxxxxx0';
+  // #837: pickupDetail is a free-text address. A CHECK requires >=5 chars when
+  // customPickupRequested, so the scrub writes a placeholder rather than NULL.
+  const REMOVED_PICKUP = '[removed]';
 
   // --- 1. Guest PII scrub (single bulk UPDATE) --------------------------------
   // Scrub guest snapshots whose trip departed > GUEST_PII_RETENTION_DAYS ago and
@@ -170,6 +180,7 @@ export const retentionSweeper: JobCore = async (tx, opts) => {
     SET "buyerName" = ${EXPIRED_BUYER_NAME},
         "buyerPhone" = ${EXPIRED_BUYER_PHONE},
         "buyerEmail" = NULL,
+        "pickupDetail" = CASE WHEN b."pickupDetail" IS NULL THEN NULL ELSE ${REMOVED_PICKUP} END,
         "snapshotAnonymizedAt" = ${now}
     FROM "Trip" t
     WHERE b."tripId" = t."id"
@@ -334,8 +345,89 @@ export const retentionSweeper: JobCore = async (tx, opts) => {
   `);
   const chartersScrubbed = Number(charterResult);
 
+  // --- 8. Matched PaymentEvent PII redaction (#837) — per-row, FOR UPDATE SKIP LOCKED --
+  // Same SePay payer keys as the orphan arm, on MATCHED events (bookingId set), after
+  // MATCHED_PAYMENT_PII_RETENTION_DAYS. bank_transfer only (JSON shape). Row KEPT.
+  const matchedCandidates = await tx.$queryRaw<OrphanRedactRow[]>(Prisma.sql`
+    SELECT pe."id", pe."rawBody"
+    FROM "PaymentEvent" pe
+    WHERE pe."bookingId" IS NOT NULL
+      AND pe."redactedAt" IS NULL
+      AND pe."adapter" = 'bank_transfer'
+      AND pe."receivedAt" < ${now}::timestamp - (${MATCHED_PAYMENT_PII_RETENTION_DAYS} * INTERVAL '1 day')
+    FOR UPDATE OF pe SKIP LOCKED
+    LIMIT ${ORPHAN_REDACT_LIMIT}
+  `);
+  let matchedRedacted = 0;
+  for (const row of matchedCandidates) {
+    const redacted = redactOrphanRawBody(row.rawBody);
+    if (redacted === null) {
+      logger.warn(
+        { paymentEventId: row.id },
+        'retention.matched_redact_parse_miss — rawBody not JSON; stamping redactedAt without change'
+      );
+    }
+    await tx.paymentEvent.update({
+      where: { id: row.id },
+      data: { rawBody: redacted ?? row.rawBody, redactedAt: now },
+    });
+    matchedRedacted += 1;
+  }
+
+  // --- 9. Hold buyer-PII scrub (#837) — bulk UPDATE ---------------------------------
+  // Non-active holds past HOLD_PII_RETENTION_DAYS after expiresAt (served by the
+  // [status, expiresAt] index). UPDATE not DELETE: Booking.holdId FK is RESTRICT.
+  // The phone-placeholder predicate makes the arm idempotent (no marker column).
+  const holdResult = await tx.$executeRaw(Prisma.sql`
+    UPDATE "Hold"
+    SET "customerName" = ${EXPIRED_BUYER_NAME},
+        "customerPhone" = ${EXPIRED_BUYER_PHONE},
+        "customerEmail" = NULL,
+        "pickupDetail" = CASE WHEN "pickupDetail" IS NULL THEN NULL ELSE ${REMOVED_PICKUP} END
+    WHERE "status" <> 'active'::"HoldStatus"
+      AND "expiresAt" < ${now}::timestamp - (${HOLD_PII_RETENTION_DAYS} * INTERVAL '1 day')
+      AND "customerPhone" <> ${EXPIRED_BUYER_PHONE}
+  `);
+  const holdsScrubbed = Number(holdResult);
+
+  // --- 10. Booking.pickupDetail backfill (#837) — bulk UPDATE -----------------------
+  // Bookings whose snapshot was ALREADY scrubbed (account deletion / pre-#837 sweeper)
+  // but whose free-text pickup address survived. New scrubs clear it in the same UPDATE.
+  const pickupResult = await tx.$executeRaw(Prisma.sql`
+    UPDATE "Booking"
+    SET "pickupDetail" = ${REMOVED_PICKUP}
+    WHERE "snapshotAnonymizedAt" IS NOT NULL
+      AND "pickupDetail" IS NOT NULL
+      AND "pickupDetail" <> ${REMOVED_PICKUP}
+  `);
+  const pickupScrubbed = Number(pickupResult);
+
+  // --- 11. FunnelEvent prune (#837) — bounded batch DELETE ---------------------------
+  // Consent-gated analytics rows linking bb_sid to trips/bookings; no money/audit value.
+  let funnelDeleted = 0;
+  for (let i = 0; i < PLANNER_DELETE_MAX_BATCHES; i++) {
+    const n = Number(
+      await tx.$executeRaw(Prisma.sql`
+        DELETE FROM "FunnelEvent"
+        WHERE "id" IN (
+          SELECT "id" FROM "FunnelEvent"
+          WHERE "createdAt" < ${now}::timestamp - (${FUNNEL_EVENT_RETENTION_DAYS} * INTERVAL '1 day')
+          ORDER BY "createdAt" ASC
+          FOR UPDATE SKIP LOCKED
+          LIMIT ${PLANNER_DELETE_LIMIT}
+        )
+      `)
+    );
+    funnelDeleted += n;
+    if (n < PLANNER_DELETE_LIMIT) break;
+  }
+
   return {
     rowsAffected:
+      matchedRedacted +
+      holdsScrubbed +
+      pickupScrubbed +
+      funnelDeleted +
       guestScrubbed +
       docsPurged +
       orphansRedacted +
