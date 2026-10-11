@@ -200,7 +200,7 @@ export async function initiateOnlineBooking(
   const gatewayResult = await gateway.createPayment({
     orderId: bookingRef,
     amount: totalVnd,
-    orderInfo: `BusBookVN: ${routeLabel}`,
+    orderInfo: `LenXe VN: ${routeLabel}`,
     ipnUrl,
     redirectUrl,
     requestId: bookingId,

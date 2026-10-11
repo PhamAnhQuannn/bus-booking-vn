@@ -50,7 +50,7 @@ export interface CreateOperatorAccountResult {
 
 function renderAccountCreatedBody(username: string, loginUrl: string, setupUrl: string): string {
   return [
-    'Tài khoản nhà xe của bạn trên BusBookVN đã được tạo.',
+    'Tài khoản nhà xe của bạn trên LềnXe VN đã được tạo.',
     '',
     `Tên đăng nhập: ${username}`,
     '',

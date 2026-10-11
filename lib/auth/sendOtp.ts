@@ -73,7 +73,7 @@ export async function sendOtp(rawEmail: string): Promise<SendOtpResult> {
   const result = await sendEmail({
     to: email,
     template: 'otpCode',
-    payload: `BusBookVN: Ma xac thuc cua ban la ${code}. Ma co hieu luc trong ${OTP_EXPIRY_MINUTES} phut.`,
+    payload: `LenXe VN: Ma xac thuc cua ban la ${code}. Ma co hieu luc trong ${OTP_EXPIRY_MINUTES} phut.`,
   });
   logNotificationDispatchFailure('auth_otp_email', result);
 

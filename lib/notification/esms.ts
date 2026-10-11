@@ -111,13 +111,13 @@ export function renderTemplate(template: SmsTemplate, payload: Record<string, st
   switch (template) {
     case 'bookingPendingCash':
       return (
-        `BusBookVN: dat cho ${payload.ticketCount} ve, chuyen ${payload.route} ` +
+        `LenXe VN: dat cho ${payload.ticketCount} ve, chuyen ${payload.route} ` +
         `${payload.departureAt}. Tra tien mat khi len xe. Ma: ${payload.bookingRef}. ` +
         `Xac nhan: ${payload.confirmationUrl}`
       );
     case 'operatorNewBooking':
       return (
-        `BusBookVN: ${payload.ticketCount} khach moi, chuyen ${payload.route} ` +
+        `LenXe VN: ${payload.ticketCount} khach moi, chuyen ${payload.route} ` +
         `${payload.departureAt}. SDT: ${payload.buyerPhone}. Ma: ${payload.bookingRef}.` +
         // Chosen boarding point along the route (which of the ~10 stops the passenger boards at).
         (payload.boardingPoint
@@ -129,7 +129,7 @@ export function renderTemplate(template: SmsTemplate, payload: Record<string, st
     case 'customerBookingPaid':
       // Method-neutral: bank transfer (VietQR) is the live rail; MoMo is not in use.
       return (
-        `BusBookVN: Thanh toan thanh cong. ${payload.ticketCount} ve, chuyen ` +
+        `LenXe VN: Thanh toan thanh cong. ${payload.ticketCount} ve, chuyen ` +
         `${payload.route} ${payload.departureAt}. Ma: ${payload.bookingRef}.` +
         // Chosen boarding point — so the "you're confirmed" message tells the rider
         // where to board, not just later via the ticket email.
@@ -142,7 +142,7 @@ export function renderTemplate(template: SmsTemplate, payload: Record<string, st
       // Issue 095: reconciliation sweeper expiry notice — the hold lapsed with no
       // confirmed payment, so the booking is released.
       return (
-        `BusBookVN: Dat cho ${payload.bookingRef} (chuyen ${payload.route} ` +
+        `LenXe VN: Dat cho ${payload.bookingRef} (chuyen ${payload.route} ` +
         `${payload.departureAt}) da het han do chua thanh toan. Vui long dat lai neu can.`
       );
     case 'customerPaymentReview':
@@ -150,7 +150,7 @@ export function renderTemplate(template: SmsTemplate, payload: Record<string, st
       // so it is held for manual reconciliation. Reassure the customer instead of
       // leaving them in silence — they DID pay; we just can't auto-match it yet.
       return (
-        `BusBookVN: Chung toi da nhan duoc mot khoan chuyen khoan cho dat cho ` +
+        `LenXe VN: Chung toi da nhan duoc mot khoan chuyen khoan cho dat cho ` +
         `${payload.bookingRef} nhung dang doi chieu. Chung toi se xac nhan trong vong 24h. ` +
         `Ho tro: ${payload.supportEmail}.`
       );
@@ -158,7 +158,7 @@ export function renderTemplate(template: SmsTemplate, payload: Record<string, st
       // Bug B: the hold lapsed (24h) with no manual resolution. NEVER tell a customer
       // whose money we detected that they "didn't pay" — point them to support.
       return (
-        `BusBookVN: Chung toi chua doi chieu duoc thanh toan cho dat cho ${payload.bookingRef} ` +
+        `LenXe VN: Chung toi chua doi chieu duoc thanh toan cho dat cho ${payload.bookingRef} ` +
         `(chuyen ${payload.route} ${payload.departureAt}). Vui long lien he ${payload.supportEmail} ` +
         `de duoc ho tro.`
       );
@@ -171,32 +171,32 @@ export function renderTemplate(template: SmsTemplate, payload: Record<string, st
         `${payload.amountVnd}d, ma GD ${payload.providerTxnId}. Doi chieu sao ke va xu ly.`
       );
     case 'otpCode':
-      return `BusBookVN: Ma xac thuc cua ban la ${payload.code}. Het han sau ${payload.expiryMinutes} phut. Khong chia se ma nay.`;
+      return `LenXe VN: Ma xac thuc cua ban la ${payload.code}. Het han sau ${payload.expiryMinutes} phut. Khong chia se ma nay.`;
     case 'manualBookingPaid':
       return (
-        `BusBookVN: Nha xe xac nhan ${payload.ticketCount} ve, chuyen ${payload.route} ` +
+        `LenXe VN: Nha xe xac nhan ${payload.ticketCount} ve, chuyen ${payload.route} ` +
         `${payload.departureAt}. Da thanh toan. Ma dat cho: ${payload.bookingRef}. ` +
         `Ho tro: ${payload.operatorPhone}`
       );
     case 'manualBookingCash':
       return (
-        `BusBookVN: Nha xe giu cho ${payload.ticketCount} ve, chuyen ${payload.route} ` +
+        `LenXe VN: Nha xe giu cho ${payload.ticketCount} ve, chuyen ${payload.route} ` +
         `${payload.departureAt}. Vui long tra tien mat khi len xe. Ma dat cho: ${payload.bookingRef}. ` +
         `Ho tro: ${payload.operatorPhone}`
       );
     case 'staffTempPassword':
       return (
-        `BusBookVN: Tai khoan nhan vien da tao. SDT dang nhap: ${payload.phone}. ` +
+        `LenXe VN: Tai khoan nhan vien da tao. SDT dang nhap: ${payload.phone}. ` +
         `Mat khau tam thoi: ${payload.tempPassword}. Dang nhap va doi mat khau: ${payload.loginUrl}`
       );
     case 'operatorAdminTempPassword':
       return (
-        `BusBookVN: Tai khoan quan tri nha xe. SDT dang nhap: ${payload.phone}. ` +
+        `LenXe VN: Tai khoan quan tri nha xe. SDT dang nhap: ${payload.phone}. ` +
         `Mat khau tam thoi: ${payload.tempPassword}. Dang nhap va doi mat khau: ${payload.loginUrl}`
       );
     case 'bookingReminder24h':
       return (
-        `BusBookVN: Nhac nho chuyen ${payload.route} khoi hanh ${payload.departureAt} ` +
+        `LenXe VN: Nhac nho chuyen ${payload.route} khoi hanh ${payload.departureAt} ` +
         `(con ~24h). ${payload.ticketCount} ve. Ma dat cho: ${payload.bookingRef}.` +
         (payload.boardingPoint
           ? ` Don tai: ${payload.boardingPoint}${payload.boardingTime ? ` ${payload.boardingTime}` : ''}.`

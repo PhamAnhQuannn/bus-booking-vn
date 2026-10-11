@@ -113,7 +113,7 @@ function shell(opts: {
   <tr><td align="center">
     <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
       <tr><td style="background:${BRAND};padding:20px 28px;">
-        <img src="${logoUrl}" alt="BusBookVN" width="140" style="display:block;border:0;height:auto;">
+        <img src="${logoUrl}" alt="LềnXe VN" width="140" style="display:block;border:0;height:auto;">
       </td></tr>
       <tr><td style="padding:28px;">
         <h1 style="margin:0 0 16px;font-size:19px;line-height:1.35;color:${BRAND_DARK};">${escapeHtml(title)}</h1>
@@ -124,7 +124,7 @@ function shell(opts: {
       <tr><td style="padding:18px 28px;background:#fafafa;border-top:1px solid #f0f0f0;">
         <p style="margin:0;font-size:12px;line-height:1.6;color:#6b7280;">
           Hỗ trợ: <a href="mailto:${SUPPORT_EMAIL}" style="color:${BRAND_DARK};text-decoration:none;">${SUPPORT_EMAIL}</a><br>
-          BusBookVN — lenxevn.com
+          LềnXe VN — lenxevn.com
         </p>
       </td></tr>
     </table>
@@ -133,10 +133,10 @@ function shell(opts: {
 </body></html>`;
 }
 
-/** Strip the "BusBookVN — " / "BBVN — " / "BBVN OPS — " prefix from a subject to
+/** Strip the "LềnXe VN — " / "BusBookVN — " / "BBVN — " / "BBVN OPS — " prefix from a subject to
  *  reuse it as an in-body title. */
 function titleFromSubject(subject: string): string {
-  return subject.replace(/^(?:BusBookVN|BBVN(?:\s+OPS)?)\s*[—-]\s*/u, '').trim() || 'Thông báo';
+  return subject.replace(/^(?:LềnXe VN|BusBookVN|BBVN(?:\s+OPS)?)\s*[—-]\s*/u, '').trim() || 'Thông báo';
 }
 
 /** Per-template CTA label for the URL pulled out of a plain-text SMS body. */
