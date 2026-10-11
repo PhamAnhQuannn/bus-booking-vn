@@ -8,7 +8,7 @@
  *   - an expired KYB doc (operator REJECTED, uploadedAt > 90d ago)     → must be purged
  *   - an OLD orphan PaymentEvent (#332, bookingId NULL, received > 365d ago) → PII redacted
  *   - a RECENT orphan PaymentEvent (received now)                      → must be untouched
- *   - an OLD LINKED PaymentEvent (bookingId set, received > 365d ago)  → must be untouched
+ *   - an OLD LINKED PaymentEvent (#837, bookingId set, received > 365d ago) → PII redacted, evidence kept
  *
  * Runs the sweeper via runJob (the real 'retention-sweep' advisory lock + JobRunLog
  * path) and asserts the outcomes. The sweeper uses NOW(); the old booking's trip is
@@ -235,10 +235,16 @@ describe('retentionSweeper integration (AC5)', () => {
     expect(orphanRecent?.redactedAt).toBeNull();
     expect(JSON.parse(orphanRecent!.rawBody).description).toBe('TRAN THI B chuyen khoan');
 
-    // OLD but LINKED event untouched (bookingId IS NULL gate excludes it).
+    // #837: OLD LINKED (matched) event is redacted too — payer keys nulled, money evidence
+    // (amount / reference) and the bookingId link kept.
     const linkedOld = await prisma.paymentEvent.findUnique({ where: { id: ids.linkedOld } });
-    expect(linkedOld?.redactedAt).toBeNull();
-    expect(JSON.parse(linkedOld!.rawBody).description).toBe('TRAN THI B chuyen khoan');
+    expect(linkedOld?.redactedAt).toBeInstanceOf(Date);
+    expect(linkedOld?.bookingId).toBe(ids.recentBooking);
+    const linkedBody = JSON.parse(linkedOld!.rawBody);
+    expect(linkedBody.description).toBeNull();
+    expect(linkedBody.content).toBeNull();
+    expect(linkedBody.transferAmount).toBe(150000);
+    expect(linkedBody.referenceCode).toBe('FT2026010199');
   });
 });
 
