@@ -29,7 +29,7 @@
   },
   "trust": {
     "paymentTitle": "Simple payment",
-    "paymentSub": "Multiple methods, convenient and secure",
+    "paymentSub": "Prepay by VietQR bank transfer",
     "emailTitle": "Email confirmation",
     "emailSub": "Your e-ticket is sent by email",
     "verifiedTitle": "Verified operators",
