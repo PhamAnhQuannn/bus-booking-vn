@@ -132,7 +132,7 @@
     "s2": {
       "title": "2. Information we collect",
       "items": [
-        "<b>Booking contact information:</b> Contact phone number (required to book tickets and receive notifications), full name, email address (optional for bookings; required for charter requests).",
+        "<b>Booking contact information:</b> Contact phone number, full name and email address (required for online bookings, used to send your e-ticket and notifications; required for charter requests). For tickets bought at the operator counter, email is optional.",
         "<b>Booking information:</b> Passenger name, contact phone number, contact email, pickup point, trip details.",
         "<b>Payment information:</b> Payment status, bank transaction reference. We do not store bank card numbers or bank login credentials.",
         "<b>Charter requests:</b> Full name, phone number, email, pickup point, destination, travel date, number of passengers, vehicle type and notes you enter.",
@@ -236,7 +236,7 @@
     },
     "s9": {
       "title": "9. Cookies and tracking technologies",
-      "body": "We use technical cookies (login session, CSRF verification, seat holds) necessary to operate the service. We do not use advertising tracking cookies. Only if you agree on the cookie banner do we enable Vercel Web Analytics to measure visits; if you choose necessary cookies only, this tool is not loaded. For non-logged-in users, AI Travel Assistant conversation history is stored only temporarily in your browser (session storage) and is automatically cleared when you close the tab; this history is not stored on our servers. Messages are still sent to the server for processing as described in Section 6a."
+      "body": "We use technical cookies (login session, CSRF verification, seat holds) necessary to operate the service. We do not use advertising tracking cookies. Only if you agree on the cookie banner do we enable Vercel Web Analytics to measure visits; we also set the bb_sid cookie (an anonymous session id containing no contact details) to measure the steps of the booking flow, which may be linked to your booking reference if you complete a booking. If you choose necessary cookies only, these tools are not loaded and no bb_sid cookie is set. For non-logged-in users, AI Travel Assistant conversation history is stored only temporarily in your browser (session storage) and is automatically cleared when you close the tab; this history is not stored on our servers. Messages are still sent to the server for processing as described in Section 6a. When you click \"Save trip\", the itinerary is stored in your browser storage (localStorage) on your device; during checkout, the phone number you enter is kept temporarily in your browser session storage to refill the form. You can remove this data by clearing site data in your browser."
     },
     "s10": {
       "title": "10. Contact",
@@ -282,7 +282,7 @@
       "intro": "You are refunded in two cases: (1) the bus operator cancels the trip (the bus does not run); (2) an error on BBVN's side or in the system, such as a duplicate or excess charge, or payment received but the ticket cannot be confirmed, after BBVN reconciles the transaction. In these cases:",
       "items": [
         "The refund is 100% of the ticket price (or the duplicated/excess amount), with no fees deducted, within 3-5 working days from the date BBVN confirms the case is eligible and has received the receiving-account details (if needed).",
-        "BBVN proactively notifies you by email (and by SMS when the SMS service is active) as soon as it receives the information from the bus operator or detects the error; if you did not leave an email, we contact you via the booking phone number.",
+        "BBVN proactively notifies you by email (and by SMS when the SMS service is active) as soon as it receives the information from the bus operator or detects the error; for counter tickets without an email, we contact you via the booking phone number.",
         "The customer does not need to take any cancellation action — BBVN processes the refund.",
         "If the bus operator significantly changes the departure time or pickup point so that you cannot use the ticket, please contact BBVN before departure; we will work with the operator to propose a trip change or an appropriate refund for that case."
       ]

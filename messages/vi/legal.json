@@ -132,7 +132,7 @@
     "s2": {
       "title": "2. Thông tin chúng tôi thu thập",
       "items": [
-        "<b>Thông tin liên hệ đặt vé:</b> Số điện thoại liên hệ (bắt buộc để đặt vé và nhận thông báo), họ tên, địa chỉ email (tùy chọn khi đặt vé; bắt buộc đối với yêu cầu thuê xe).",
+        "<b>Thông tin liên hệ đặt vé:</b> Số điện thoại liên hệ, họ tên và địa chỉ email (bắt buộc khi đặt vé trực tuyến, dùng để gửi vé điện tử và thông báo; bắt buộc đối với yêu cầu thuê xe). Với vé mua trực tiếp tại quầy nhà xe, email là tùy chọn.",
         "<b>Thông tin đặt vé:</b> Tên hành khách, số điện thoại liên hệ, email liên hệ, điểm đón, chi tiết chuyến đi.",
         "<b>Thông tin thanh toán:</b> Trạng thái thanh toán, mã giao dịch ngân hàng. Chúng tôi không lưu trữ số thẻ ngân hàng hay thông tin đăng nhập ngân hàng.",
         "<b>Yêu cầu thuê xe hợp đồng:</b> Họ tên, số điện thoại, email, điểm đón, điểm đến, ngày đi, số người, loại xe và ghi chú do bạn nhập.",
@@ -236,7 +236,7 @@
     },
     "s9": {
       "title": "9. Cookie và công nghệ theo dõi",
-      "body": "Chúng tôi sử dụng cookie kỹ thuật (phiên đăng nhập, xác thực CSRF, giữ chỗ) cần thiết để vận hành dịch vụ. Chúng tôi không sử dụng cookie theo dõi quảng cáo. Chỉ khi bạn đồng ý trên biểu ngữ cookie, chúng tôi mới bật Vercel Web Analytics để thống kê lượt truy cập; nếu bạn chọn chỉ cookie cần thiết, công cụ này không được tải. Với khách chưa đăng nhập, lịch sử trò chuyện với Trợ lý du lịch AI chỉ được lưu tạm trên trình duyệt của bạn (bộ nhớ phiên) và tự động xóa khi bạn đóng tab; lịch sử này không được lưu trữ trên máy chủ của chúng tôi. Tin nhắn vẫn được gửi tới máy chủ để xử lý theo Mục 6a."
+      "body": "Chúng tôi sử dụng cookie kỹ thuật (phiên đăng nhập, xác thực CSRF, giữ chỗ) cần thiết để vận hành dịch vụ. Chúng tôi không sử dụng cookie theo dõi quảng cáo. Chỉ khi bạn đồng ý trên biểu ngữ cookie, chúng tôi mới bật Vercel Web Analytics để thống kê lượt truy cập; đồng thời đặt cookie bb_sid (mã phiên ẩn danh, không chứa thông tin liên hệ) để thống kê các bước trong quy trình đặt vé, có thể gắn với mã đặt vé nếu bạn hoàn tất đặt vé. Nếu bạn chọn chỉ cookie cần thiết, các công cụ này không được tải và cookie bb_sid không được tạo. Với khách chưa đăng nhập, lịch sử trò chuyện với Trợ lý du lịch AI chỉ được lưu tạm trên trình duyệt của bạn (bộ nhớ phiên) và tự động xóa khi bạn đóng tab; lịch sử này không được lưu trữ trên máy chủ của chúng tôi. Tin nhắn vẫn được gửi tới máy chủ để xử lý theo Mục 6a. Khi bạn bấm \"Lưu chuyến đi\", lịch trình được lưu trong bộ nhớ trình duyệt (localStorage) trên thiết bị của bạn; trong lúc đặt vé, số điện thoại bạn nhập được lưu tạm trong bộ nhớ phiên của trình duyệt để điền lại biểu mẫu. Bạn có thể xóa các dữ liệu này bằng cách xóa dữ liệu trang web trong trình duyệt."
     },
     "s10": {
       "title": "10. Liên hệ",
@@ -282,7 +282,7 @@
       "intro": "Bạn được hoàn tiền trong hai trường hợp: (1) nhà xe hủy chuyến (xe không chạy); (2) lỗi từ phía BBVN hoặc hệ thống, như thu tiền trùng, thu thừa hoặc đã thanh toán nhưng không thể xác nhận vé, sau khi BBVN đối soát giao dịch. Khi đó:",
       "items": [
         "Hoàn tiền 100% giá vé (hoặc phần tiền thu trùng/thu thừa), không trừ phí, trong vòng 3-5 ngày làm việc kể từ khi BBVN xác nhận trường hợp được hoàn tiền và nhận đủ thông tin tài khoản nhận tiền (nếu cần).",
-        "BBVN chủ động thông báo qua email (và SMS khi dịch vụ SMS đang hoạt động) ngay khi nhận thông tin từ nhà xe hoặc phát hiện lỗi; nếu bạn không để lại email, chúng tôi liên hệ qua số điện thoại đặt vé.",
+        "BBVN chủ động thông báo qua email (và SMS khi dịch vụ SMS đang hoạt động) ngay khi nhận thông tin từ nhà xe hoặc phát hiện lỗi; với vé mua tại quầy không có email, chúng tôi liên hệ qua số điện thoại đặt vé.",
         "Khách hàng không cần thao tác hủy — BBVN chủ động xử lý hoàn tiền.",
         "Nếu nhà xe thay đổi đáng kể giờ khởi hành hoặc điểm đón khiến bạn không thể sử dụng vé, hãy liên hệ BBVN trước giờ khởi hành; chúng tôi sẽ làm việc với nhà xe để đề xuất đổi chuyến hoặc hoàn tiền phù hợp với trường hợp đó."
       ]
