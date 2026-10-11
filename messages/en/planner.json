@@ -11,7 +11,7 @@
     "planningPlaceholder": "Planning your trip...",
     "send": "Send",
     "sending": "Sending",
-    "privacyHint": "Please don't enter personal info (phone, email)."
+    "privacyHint": "You are chatting with an AI. Content is for reference only; double-check before you travel. Please don't enter personal info (phone, email). <link>Terms</link>"
   },
   "sidebar": {
     "openHistory": "Open history",
@@ -42,7 +42,7 @@
     "capabilitiesTitle": "Here's how I can help:",
     "capability1": "Suggest destinations that suit you",
     "capability2": "Build a detailed day-by-day itinerary",
-    "capability3": "Book bus tickets and recommend trusted operators",
+    "capability3": "Suggest suitable bus trips",
     "capability4": "Suggest places to eat, stay, and play",
     "capability5": "Estimate costs and travel times",
     "promoAlt": "Book BBVN bus tickets",

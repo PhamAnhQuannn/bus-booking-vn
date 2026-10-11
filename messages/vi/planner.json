@@ -11,7 +11,7 @@
     "planningPlaceholder": "Đang lên kế hoạch...",
     "send": "Gửi",
     "sending": "Đang gửi",
-    "privacyHint": "Đừng nhập thông tin cá nhân (SĐT, email)."
+    "privacyHint": "Bạn đang trò chuyện với AI. Nội dung chỉ để tham khảo, hãy kiểm tra lại trước khi đi. Đừng nhập thông tin cá nhân (SĐT, email). <link>Điều khoản</link>"
   },
   "sidebar": {
     "openHistory": "Mở lịch sử",
@@ -42,7 +42,7 @@
     "capabilitiesTitle": "Mình có thể giúp bạn:",
     "capability1": "Gợi ý điểm đến phù hợp với bạn",
     "capability2": "Lên lịch trình chi tiết theo ngày",
-    "capability3": "Đặt vé xe, gợi ý nhà xe uy tín",
+    "capability3": "Gợi ý chuyến xe phù hợp",
     "capability4": "Gợi ý ăn uống, lưu trú, vui chơi",
     "capability5": "Ước tính chi phí và thời gian di chuyển",
     "promoAlt": "Đặt vé xe BBVN",
