@@ -121,6 +121,7 @@ describe('anthropicAdapter — request / lỗi', () => {
     expect(headers['anthropic-version']).toBe('2023-06-01');
     const body = JSON.parse(String(init.body));
     expect(body.model).toBe(CLAUDE_MODEL_DEFAULT);
+    expect(body.temperature).toBe(0.3); // Haiku default nhận temperature
     expect(body.stream).toBe(true);
     expect(typeof body.system).toBe('string');
     expect(body.tools.map((t: { name: string }) => t.name)).toEqual(['trich', 'goi_y_vibe']);
@@ -135,7 +136,9 @@ describe('anthropicAdapter — request / lỗi', () => {
 
     process.env.PLANNER_CLAUDE_MODEL = 'claude-sonnet-5-5';
     await drain();
-    expect(JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body)).model).toBe('claude-sonnet-5-5');
+    const sonnetBody = JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body));
+    expect(sonnetBody.model).toBe('claude-sonnet-5-5');
+    expect(sonnetBody).not.toHaveProperty('temperature'); // model mới từ chối temperature tuỳ chỉnh
 
     process.env.PLANNER_CLAUDE_MODEL = 'bad model/../x';
     await drain();

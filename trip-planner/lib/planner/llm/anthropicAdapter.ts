@@ -98,7 +98,9 @@ export async function* streamChat(history: ChatTurn[], locale: 'vi' | 'en' = 'vi
   const requestBody = JSON.stringify({
     model,
     max_tokens: MAX_OUTPUT_TOKENS,
-    temperature: 0.3,
+    // Model Claude mới (Sonnet/Opus 5.x, Fable) từ chối temperature khác mặc định → 400 → fallback âm thầm.
+    // Chỉ gửi cho Haiku (default); override khác dùng mặc định của model.
+    ...(model.startsWith("claude-haiku") ? { temperature: 0.3 } : {}),
     stream: true,
     system: systemFor(locale),
     tools: anthropicTools(),
