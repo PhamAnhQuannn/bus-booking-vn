@@ -6,9 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StreamEvent, ChatTurn } from '../llm/types';
 import { ParseIntentError } from '../llm/types';
 
-const { geminiFn, groqFn, warnFn } = vi.hoisted(() => ({ geminiFn: vi.fn(), groqFn: vi.fn(), warnFn: vi.fn() }));
+const { geminiFn, groqFn, claudeFn, warnFn } = vi.hoisted(() => ({ geminiFn: vi.fn(), groqFn: vi.fn(), claudeFn: vi.fn(), warnFn: vi.fn() }));
 vi.mock('../llm/geminiAdapter', () => ({ streamChat: geminiFn }));
 vi.mock('../llm/openaiCompatAdapter', () => ({ streamChat: groqFn }));
+vi.mock('../llm/anthropicAdapter', () => ({ streamChat: claudeFn }));
 // #826: router logs the swallowed primary error before fallback.
 vi.mock('@/lib/logger', () => ({ logger: { warn: warnFn, info: vi.fn(), error: vi.fn() } }));
 
@@ -27,7 +28,7 @@ const throwsNow = (code: 'no_key' | 'upstream' = 'upstream') =>
     throw new ParseIntentError('down', code);
   };
 
-const P = (id: 'gemini' | 'groq'): StreamEvent => ({ kind: 'provider', id, model: `${id}-x` });
+const P = (id: 'gemini' | 'groq' | 'claude'): StreamEvent => ({ kind: 'provider', id, model: `${id}-x` });
 const SLOTS: StreamEvent = { kind: 'slots', partial: { dia_diem: 'da-lat' } };
 
 async function drainOf(history: ChatTurn[]): Promise<StreamEvent[]> {
@@ -40,6 +41,7 @@ const drain = () => drainOf(HISTORY);
 beforeEach(() => {
   geminiFn.mockReset();
   groqFn.mockReset();
+  claudeFn.mockReset();
   warnFn.mockReset();
 });
 afterEach(() => {
@@ -159,5 +161,29 @@ describe('router — stub gate (#748)', () => {
     expect(groqFn).not.toHaveBeenCalled();
     expect(geminiFn).not.toHaveBeenCalled();
     expect(events.some((e) => e.kind === 'slots')).toBe(true);
+  });
+});
+
+describe('router — claude (opt-in)', () => {
+  it('PLANNER_LLM_PRIMARY=claude → [claude, gemini]; default KHÔNG có claude', () => {
+    expect(providerOrder()).not.toContain('claude');
+    process.env.PLANNER_LLM_PRIMARY = 'claude';
+    expect(providerOrder()).toEqual(['claude', 'gemini']);
+  });
+
+  it('claude happy → chỉ gọi claude', async () => {
+    process.env.PLANNER_LLM_PRIMARY = 'claude';
+    claudeFn.mockImplementation(emit([P('claude'), SLOTS]));
+    expect(await drain()).toEqual([P('claude'), SLOTS]);
+    expect(geminiFn).not.toHaveBeenCalled();
+    expect(groqFn).not.toHaveBeenCalled();
+  });
+
+  it('claude ném trước nội dung → fallback gemini', async () => {
+    process.env.PLANNER_LLM_PRIMARY = 'claude';
+    claudeFn.mockImplementation(throwsNow('no_key'));
+    geminiFn.mockImplementation(emit([P('gemini'), SLOTS]));
+    expect(await drain()).toEqual([P('gemini'), SLOTS]);
+    expect(groqFn).not.toHaveBeenCalled();
   });
 });

@@ -38,6 +38,7 @@ import {
   recordUpstreamFailure,
   recordUpstreamSuccess,
   recordGeminiUsage,
+  recordLlmUsage,
   BREAKER_COOLDOWN_SEC,
 } from '@/lib/ratelimit';
 import { clientIp } from '@/lib/core/http/clientIp';
@@ -221,7 +222,7 @@ export async function POST(req: NextRequest): Promise<Response> {
               ttftMs: firstEventAt !== null ? Math.round(firstEventAt - t0) : null,
               streamMs: firstEventAt !== null ? Math.round(end - firstEventAt) : null,
               totalMs: Math.round(end - t0),
-              provider, // PR-8: gemini | groq (null nếu turn hỏng trước khi provider khai)
+              provider, // PR-8: gemini | groq | claude (null nếu turn hỏng trước khi provider khai)
               providerModel,
               outOfEnumCount, // PR-8: tổng enum bịa RAW turn này (0 = sạch); canary theo dõi per-provider
               error,
@@ -280,7 +281,10 @@ export async function POST(req: NextRequest): Promise<Response> {
             } else if (ev.kind === 'usage') {
               // #553: real token usage Gemini returned this turn → daily $ accounting + a per-turn
               // log line ops can aggregate. recordGeminiUsage fails open, so it never breaks the stream.
-              const acct = await recordGeminiUsage(ev.inputTokens, ev.outputTokens);
+              // Claude trả phí giá riêng → counter `planner-claude:*`; còn lại giữ alias Gemini như cũ.
+              const acct = provider === 'claude'
+                ? await recordLlmUsage('claude', ev.inputTokens, ev.outputTokens)
+                : await recordGeminiUsage(ev.inputTokens, ev.outputTokens);
               logger.info(
                 {
                   inputTokens: ev.inputTokens,

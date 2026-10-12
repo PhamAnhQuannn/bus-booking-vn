@@ -14,15 +14,17 @@ import { logger } from "@/lib/logger";
 import { ParseIntentError, type ChatTurn, type StreamEvent, type ProviderId } from "./types";
 import { streamChat as geminiStream } from "./geminiAdapter";
 import { streamChat as groqStream } from "./openaiCompatAdapter";
+import { streamChat as claudeStream } from "./anthropicAdapter";
 import { stubStream } from "./llmStub";
 
 type Adapter = (history: ChatTurn[], locale?: "vi" | "en") => AsyncGenerator<StreamEvent>;
-const ADAPTERS: Record<ProviderId, Adapter> = { gemini: geminiStream, groq: groqStream };
+const ADAPTERS: Record<ProviderId, Adapter> = { gemini: geminiStream, groq: groqStream, claude: claudeStream };
 
 // Order theo PLANNER_LLM_PRIMARY (đọc per-call: env Vercel baked per-deploy nhưng process dài + test được).
-// Giá trị lạ → mặc định gemini primary (an toàn: gemini là provider đã chạy prod).
+// Giá trị lạ → mặc định gemini primary (an toàn: gemini là provider đã chạy prod). "claude" → [claude, gemini].
 export function providerOrder(): ProviderId[] {
   const primary = (process.env.PLANNER_LLM_PRIMARY ?? "gemini").trim().toLowerCase();
+  if (primary === "claude") return ["claude", "gemini"]; // opt-in (trả phí); default giữ nguyên
   return primary === "groq" ? ["groq", "gemini"] : ["gemini", "groq"];
 }
 

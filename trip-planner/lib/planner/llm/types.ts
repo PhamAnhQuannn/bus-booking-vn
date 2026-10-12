@@ -26,7 +26,7 @@ export interface ParsedIntent {
 // (ask/plan giữ cho tương thích kiểu; luồng mới dùng `slots` — chip + build là TẤT ĐỊNH ở client.)
 // Provider phát lịch turn này (PR-8): id + model để route log per-provider + client badge khi ≠ primary.
 // A+C: primary=groq, fallback=gemini — badge cho biết fallback đã fire (Groq outage/breaker mở).
-export type ProviderId = "gemini" | "groq";
+export type ProviderId = "gemini" | "groq" | "claude";
 
 export type StreamEvent =
   | { kind: "provider"; id: ProviderId; model: string } // phát 1 lần, TRƯỚC token đầu (adapter tự khai)

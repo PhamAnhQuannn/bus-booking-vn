@@ -93,3 +93,33 @@ describe('probe — song song', () => {
     expect(results.map((r) => r.provider)).toEqual(['groq', 'gemini']);
   });
 });
+
+describe('probe — Claude (models metadata)', () => {
+  beforeEach(() => { process.env.ANTHROPIC_API_KEY = 'ak-test'; delete process.env.PLANNER_CLAUDE_MODEL; });
+  afterEach(() => { delete process.env.ANTHROPIC_API_KEY; });
+
+  it('200 → ok; key ở header x-api-key, không trong URL', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(json({ id: 'claude-haiku-4-5' }));
+    vi.stubGlobal('fetch', fetchMock);
+    const [r] = await probePlannerProviders(['claude']);
+    expect(r).toMatchObject({ provider: 'claude', model: 'claude-haiku-4-5', status: 'ok' });
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('https://api.anthropic.com/v1/models/claude-haiku-4-5');
+    expect(url).not.toContain('ak-test');
+    expect((init.headers as Record<string, string>)['x-api-key']).toBe('ak-test');
+  });
+
+  it('404 → model_404 · 401 → auth', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(json({}, 404)).mockResolvedValueOnce(json({}, 401)));
+    expect((await probePlannerProviders(['claude']))[0].status).toBe('model_404');
+    expect((await probePlannerProviders(['claude']))[0]).toMatchObject({ status: 'auth', httpStatus: 401 });
+  });
+
+  it('thiếu ANTHROPIC_API_KEY → skipped_no_key, KHÔNG fetch', async () => {
+    delete process.env.ANTHROPIC_API_KEY;
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    expect((await probePlannerProviders(['claude']))[0].status).toBe('skipped_no_key');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});

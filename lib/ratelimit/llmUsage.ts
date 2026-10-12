@@ -13,12 +13,13 @@ import { logger } from '@/lib/logger';
 import { resolveRatelimitBackend } from '@/lib/core/http/ratelimitBackend';
 import { rawIoRedis, rawUpstash } from './rawRedisClient';
 
-export type LlmProvider = 'gemini' | 'groq';
+export type LlmProvider = 'gemini' | 'groq' | 'claude';
 
 // $ / 1e6 token, per provider. Groq free-tier = 0 (KHÔNG tính giá Gemini → tránh bịa spend).
 const PRICE: Record<LlmProvider, { in: number; out: number }> = {
   gemini: { in: 1.5, out: 7.5 },
   groq: { in: 0, out: 0 },
+  claude: { in: 1, out: 5 }, // claude-haiku-4-5 (VERIFY tại nguồn — pricing trôi)
 };
 const RETENTION_SEC = 48 * 60 * 60; // keep a day's counters ~48h for ops to read
 

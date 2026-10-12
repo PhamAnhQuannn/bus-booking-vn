@@ -8,6 +8,7 @@
 
 import { resolveGroqModel, resolveGroqBaseUrl } from "./openaiCompatAdapter";
 import { resolveGeminiModel } from "./geminiAdapter";
+import { resolveClaudeModel, resolveAnthropicBaseUrl } from "./anthropicAdapter";
 import type { ProviderId } from "./types";
 
 export type ProbeStatus = "ok" | "model_404" | "auth" | "down" | "skipped_no_key";
@@ -70,7 +71,23 @@ async function probeGemini(): Promise<ProbeResult> {
   }
 }
 
-const PROBES: Record<ProviderId, () => Promise<ProbeResult>> = { groq: probeGroq, gemini: probeGemini };
+// Claude: GET /v1/models/{model} (metadata, 0 token). Key ở header `x-api-key` → không bao giờ trong URL.
+async function probeClaude(): Promise<ProbeResult> {
+  const model = resolveClaudeModel();
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) return { provider: "claude", model, status: "skipped_no_key" };
+  try {
+    const res = await timedGet(`${resolveAnthropicBaseUrl()}/v1/models/${model}`, { "x-api-key": key, "anthropic-version": "2023-06-01" });
+    if (res.status === 404) return { provider: "claude", model, status: "model_404", httpStatus: 404 };
+    if (res.status === 401 || res.status === 403) return { provider: "claude", model, status: "auth", httpStatus: res.status };
+    if (!res.ok) return { provider: "claude", model, status: "down", httpStatus: res.status };
+    return { provider: "claude", model, status: "ok", httpStatus: res.status };
+  } catch (err) {
+    return { provider: "claude", model, status: "down", detail: String(err) };
+  }
+}
+
+const PROBES: Record<ProviderId, () => Promise<ProbeResult>> = { groq: probeGroq, gemini: probeGemini, claude: probeClaude };
 
 // Probe song song; mỗi probe tự fail-soft nên Promise.all không reject.
 export async function probePlannerProviders(providers: ProviderId[]): Promise<ProbeResult[]> {
