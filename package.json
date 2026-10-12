@@ -38,7 +38,7 @@
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.10.0",
     "@react-pdf/renderer": "^4.9.0",
-    "@sentry/nextjs": "^10.69.0",
+    "@sentry/nextjs": "^10.76.2",
     "@upstash/ratelimit": "^2.2.0",
     "@upstash/redis": "^1.38.4",
     "@vercel/analytics": "^2.0.1",
