@@ -72,8 +72,8 @@ const FEATURES = [
   { icon: MapPin, titleKey: 'feature.pickupTitle', subKey: 'feature.pickupSub' },
 ] as const;
 
-// Trust strip trên trang kết quả (mockup S1). Chỉ dùng claim kiểm chứng được — "Hỗ trợ 24/7"
-// được xác nhận là dịch vụ thật (khác các claim marketing bịa đã gỡ trong review honest-copy).
+// Trust strip trên trang kết quả (mockup S1). Chỉ dùng claim kiểm chứng được (hỗ trợ qua email, không nêu giờ);
+// các claim marketing bịa đã gỡ trong review honest-copy.
 const RESULT_TRUST = [
   { icon: ShieldCheck, titleKey: 'trust.paymentTitle', subKey: 'trust.paymentSub' },
   { icon: MailCheck, titleKey: 'trust.emailTitle', subKey: 'trust.emailSub' },
