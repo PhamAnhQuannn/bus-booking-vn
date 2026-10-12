@@ -148,6 +148,8 @@ const envSchema = z.object({
 
   /** Gemini API key cho chat planner (aistudio.google.com, free tier). Đọc server-side. */
   GEMINI_API_KEY: z.string().optional(),
+  /** Planner chat: Anthropic Claude key — dùng khi PLANNER_LLM_PRIMARY=claude (trả phí; cần CDTIA trước prod). */
+  ANTHROPIC_API_KEY: z.string().optional(),
 
   /**
    * HMAC-SHA256 secret ký từng model-turn của planner chat (chống history-injection:

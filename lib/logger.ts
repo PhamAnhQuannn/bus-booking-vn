@@ -122,6 +122,8 @@ export const loggerOptions: LoggerOptions = {
       'RESEND_API_KEY',          // email: Resend transactional email API key (never log)
       'SEPAY_API_KEY',           // bank transfer: SePay webhook bearer token (never log)
       'GEMINI_API_KEY',          // planner chat: Gemini Generative Language API key (never log)
+      'GROQ_API_KEY',            // planner chat: Groq API key (never log)
+      'ANTHROPIC_API_KEY',       // planner chat: Anthropic Claude API key (never log)
       'VNPAY_HASH_SECRET',       // VNPay: HMAC-SHA512 signing secret (never log)
       'VNPAY_TMN_CODE',          // VNPay: merchant terminal code (never log)
       'GOOGLE_CLIENT_SECRET',    // Google OAuth: client secret (never log)
