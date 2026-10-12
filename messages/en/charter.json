@@ -1,7 +1,7 @@
 {
   "page": {
     "title": "Charter a vehicle",
-    "subtitle": "Charter a vehicle for travel or door-to-door transfers. Leave your details below — the BBVN team will call to advise on the itinerary and quote within 15 minutes."
+    "subtitle": "Charter a vehicle for travel or door-to-door transfers. Leave your details below — we forward your request to a partner transport company, which will advise on the itinerary and quote."
   },
   "form": {
     "aria": "Charter a vehicle",
@@ -49,7 +49,7 @@
   },
   "confirm": {
     "title": "Request received",
-    "desc": "We will contact you soon to advise on the itinerary and quote.",
+    "desc": "We have received your request and will forward it to a partner transport company, which will contact you to advise on the itinerary and quote.",
     "refLabel": "Request code",
     "trackStatus": "Track status",
     "goHome": "Back to home"

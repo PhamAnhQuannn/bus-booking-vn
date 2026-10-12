@@ -57,6 +57,7 @@ export default async function LichTrinhPage({ searchParams }: { searchParams: Pr
           {req.party.children > 0 ? ` · ${t('schedule.children', { count: req.party.children })}` : ''}
           {' · '}{t('schedule.dataSource', { source: it.generated_from })}
         </p>
+        <p className="mt-1 text-xs text-muted-foreground">{t('schedule.aiNotice')}</p>
       </header>
 
       <a
@@ -131,6 +132,8 @@ export default async function LichTrinhPage({ searchParams }: { searchParams: Pr
           ))}
         </ul>
       </aside>
+
+      <p className="mt-4 text-xs text-muted-foreground">{t('schedule.attribution')}</p>
     </main>
   );
 }
