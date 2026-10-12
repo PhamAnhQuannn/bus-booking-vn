@@ -27,7 +27,8 @@
     "notes": "Ghi chú (tuỳ chọn)",
     "notesPlaceholder": "Lịch trình, điểm đón, yêu cầu thêm…",
     "submit": "Gửi yêu cầu",
-    "submitting": "Đang gửi…"
+    "submitting": "Đang gửi…",
+    "consent": "Bằng việc gửi yêu cầu, bạn đồng ý với <terms>Điều khoản sử dụng</terms> và <privacy>Chính sách bảo mật</privacy>, và cho phép chúng tôi chuyển thông tin yêu cầu tới đơn vị vận tải đối tác để báo giá."
   },
   "validation": {
     "reqName": "Vui lòng nhập họ tên",
