@@ -57,6 +57,8 @@ export const MAX_ATTEMPTS = 5;
  */
 export const OPS_NOTIFICATION_TEMPLATES: ReadonlySet<string> = new Set([
   'opsUnmatchedPayment',
+  // #836: late/underpaid/duplicate transfer alert to ops — silent loss = held booking never resolved.
+  'opsLatePayment',
   // #833: the only trigger for a manual refund transfer — silent loss = customer never repaid.
   'manual_refund_required',
 ]);

@@ -23,6 +23,8 @@ export type SmsTemplate =
   | 'customerPaymentReview'
   | 'customerPaymentUnverified'
   | 'opsUnmatchedPayment'
+  // #836: ops alert — a matched transfer that could not be applied (late/underpaid/dup).
+  | 'opsLatePayment'
   // #833: ops alert — a refund has no PSP rail, so a human must transfer it. Name
   // matches the NotificationLog.template written by refundOut.
   | 'manual_refund_required'
@@ -174,6 +176,14 @@ export function renderTemplate(template: SmsTemplate, payload: Record<string, st
       return (
         `BBVN OPS: Chuyen khoan chua khop dat cho ${payload.bookingRef} — ` +
         `${payload.amountVnd}d, ma GD ${payload.providerTxnId}. Doi chieu sao ke va xu ly.`
+      );
+    case 'opsLatePayment':
+      // #836: a matched transfer that could NOT be applied (booking already
+      // expired/paid, or underpaid). The money is held with no refund obligation.
+      return (
+        `BBVN OPS: Chuyen khoan khong ap dung duoc cho dat cho ${payload.bookingRef} ` +
+        `(${payload.reason}) — ${payload.amountVnd}d, ma GD ${payload.providerTxnId}. ` +
+        `Tien dang giu, can hoan/xu ly thu cong.`
       );
     case 'manual_refund_required':
       // #833: prod has no PSP refund rail, so every refund lands here. The ledger already
