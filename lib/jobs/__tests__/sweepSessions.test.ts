@@ -17,9 +17,9 @@ function sqlText(arg: unknown): string {
 }
 
 describe('sweepSessions', () => {
-  it('prunes all three session tables + OtpAttempt and sums rowsAffected', async () => {
+  it('prunes all three session tables + OtpAttempt + OperatorOtpAttempt and sums rowsAffected', async () => {
     const calls: string[] = [];
-    const returns = [idRows(2), idRows(1), idRows(0), idRows(3)]; // Session, Operator, Admin, Otp
+    const returns = [idRows(2), idRows(1), idRows(0), idRows(3), idRows(4)]; // Session, Operator, Admin, Otp, OperatorOtp
     let i = 0;
     const $queryRaw = vi.fn().mockImplementation((arg: unknown) => {
       calls.push(sqlText(arg));
@@ -28,19 +28,20 @@ describe('sweepSessions', () => {
 
     const result = await sweepSessions({ $queryRaw } as never, undefined);
 
-    expect(result).toEqual({ rowsAffected: 6, status: 'success' });
-    expect($queryRaw).toHaveBeenCalledTimes(4);
+    expect(result).toEqual({ rowsAffected: 10, status: 'success' });
+    expect($queryRaw).toHaveBeenCalledTimes(5);
 
     const allSql = calls.join(' || ');
     expect(allSql).toContain('OperatorSession'); // #474
     expect(allSql).toContain('AdminSession'); // #474
     expect(allSql).toContain('OtpAttempt'); // #475
+    expect(allSql).toContain('OperatorOtpAttempt'); // #837
   });
 
   it('returns 0 when every table is already clean', async () => {
     const $queryRaw = vi.fn().mockResolvedValue(idRows(0));
     const result = await sweepSessions({ $queryRaw } as never, undefined);
     expect(result).toEqual({ rowsAffected: 0, status: 'success' });
-    expect($queryRaw).toHaveBeenCalledTimes(4);
+    expect($queryRaw).toHaveBeenCalledTimes(5);
   });
 });

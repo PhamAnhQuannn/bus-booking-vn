@@ -8,6 +8,9 @@ export {
   PLANNER_CHAT_RETENTION_DAYS,
   NOTIFICATION_PII_RETENTION_DAYS,
   CHARTER_CONTACT_RETENTION_DAYS,
+  HOLD_PII_RETENTION_DAYS,
+  MATCHED_PAYMENT_PII_RETENTION_DAYS,
+  FUNNEL_EVENT_RETENTION_DAYS,
 } from './retentionPolicy';
 export { changePassword, ChangePasswordError } from './changePassword';
 export { changePhone, ChangePhoneError } from './changePhone';

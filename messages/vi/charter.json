@@ -1,7 +1,7 @@
 {
   "page": {
     "title": "Liên hệ đặt xe",
-    "subtitle": "Thuê xe hợp đồng đi du lịch, đưa đón theo yêu cầu. Để lại thông tin bên dưới — tổng đài BBVN sẽ liên hệ tư vấn lịch trình và báo giá trong vòng 15 phút."
+    "subtitle": "Thuê xe hợp đồng đi du lịch, đưa đón theo yêu cầu. Để lại thông tin bên dưới — chúng tôi chuyển yêu cầu tới đơn vị vận tải đối tác để tư vấn lịch trình và báo giá."
   },
   "form": {
     "aria": "Liên hệ đặt xe",
@@ -27,7 +27,8 @@
     "notes": "Ghi chú (tuỳ chọn)",
     "notesPlaceholder": "Lịch trình, điểm đón, yêu cầu thêm…",
     "submit": "Gửi yêu cầu",
-    "submitting": "Đang gửi…"
+    "submitting": "Đang gửi…",
+    "consent": "Bằng việc gửi yêu cầu, bạn đồng ý với <terms>Điều khoản sử dụng</terms> và <privacy>Chính sách bảo mật</privacy>, và cho phép chúng tôi chuyển thông tin yêu cầu tới đơn vị vận tải đối tác để báo giá."
   },
   "validation": {
     "reqName": "Vui lòng nhập họ tên",
@@ -48,7 +49,7 @@
   },
   "confirm": {
     "title": "Đã nhận yêu cầu",
-    "desc": "Chúng tôi sẽ liên hệ với bạn sớm để tư vấn lịch trình và báo giá.",
+    "desc": "Chúng tôi đã nhận yêu cầu và sẽ chuyển tới đơn vị vận tải đối tác; đối tác sẽ liên hệ với bạn để tư vấn lịch trình và báo giá.",
     "refLabel": "Mã yêu cầu",
     "trackStatus": "Theo dõi trạng thái",
     "goHome": "Về trang chủ"

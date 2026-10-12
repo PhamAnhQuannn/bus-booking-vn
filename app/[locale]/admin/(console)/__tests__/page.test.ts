@@ -33,6 +33,7 @@ import { getActionQueue, getFailureAlerts } from '@/lib/admin';
 
 // Vietnamese labels that render ONLY inside the canSeeFinance ternary (page.tsx:251-264).
 const ORPHAN_TILE = 'Giao dịch chưa khớp';
+const UNFULFILLED_TILE = 'Chuyển khoản không áp dụng được';
 const FAILED_PAYOUT_TILE = 'Chi trả thất bại';
 
 const METRICS = {
@@ -52,6 +53,7 @@ const FAILURES = {
   deadNotifications: 0,
   retryingNotifications: 0,
   orphanPayments: 5,
+  unfulfilledPayments: 2,
   failedPayouts: 3,
   recent: [],
 };
@@ -76,6 +78,7 @@ describe('AdminOverviewPage — canSeeFinance money-flow tile gating (#393.1)', 
     mockRole('SUPPORT');
     const html = renderToStaticMarkup(await AdminOverviewPage());
     expect(html).not.toContain(ORPHAN_TILE);
+    expect(html).not.toContain(UNFULFILLED_TILE);
     expect(html).not.toContain(FAILED_PAYOUT_TILE);
   });
 
@@ -83,6 +86,7 @@ describe('AdminOverviewPage — canSeeFinance money-flow tile gating (#393.1)', 
     mockRole('FINANCE');
     const html = renderToStaticMarkup(await AdminOverviewPage());
     expect(html).toContain(ORPHAN_TILE);
+    expect(html).toContain(UNFULFILLED_TILE);
     expect(html).toContain(FAILED_PAYOUT_TILE);
   });
 
@@ -90,6 +94,7 @@ describe('AdminOverviewPage — canSeeFinance money-flow tile gating (#393.1)', 
     mockRole('SUPER_ADMIN');
     const html = renderToStaticMarkup(await AdminOverviewPage());
     expect(html).toContain(ORPHAN_TILE);
+    expect(html).toContain(UNFULFILLED_TILE);
     expect(html).toContain(FAILED_PAYOUT_TILE);
   });
 });

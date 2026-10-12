@@ -45,7 +45,7 @@ import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/core/db/client';
 import { createNotificationLog } from '@/lib/core/db/notificationLogRepo';
-import { renderTemplate, dispatchOne } from '@/lib/notification';
+import { renderTemplate, dispatchOne, OPS_ALERT_EMAIL } from '@/lib/notification';
 import { logger } from '@/lib/logger';
 import { captureException, captureMessage } from '@/lib/observability';
 import { track, sessionIdForBooking } from '@/lib/analytics';
@@ -88,6 +88,21 @@ export const UNMATCHED_REASON = {
   ACCOUNT_MISMATCH: 'account_mismatch',
   NO_BOOKING_REF: 'no_booking_ref_in_memo',
   BOOKING_NOT_FOUND: 'booking_not_found',
+} as const;
+
+/**
+ * #836: reasons a LINKED PaymentEvent (bookingId set) holds money that could not be
+ * applied to its booking. Stamped on `PaymentEvent.unmatchedReason` (same top-level
+ * column) so the admin tile can count them; orphan counts filter `bookingId: null`
+ * and are unaffected. No auto-refund — ops reconcile by hand.
+ */
+export const UNFULFILLED_REASON = {
+  /** Transfer landed after the booking expired/was cancelled. */
+  LATE_BOOKING_TERMINAL: 'late_booking_terminal',
+  /** Second transfer for a booking that is already paid. */
+  DUPLICATE_BOOKING_PAID: 'duplicate_booking_paid',
+  /** Transfer below the fare; booking left awaiting_payment, partial amount held. */
+  UNDERPAID: 'underpaid',
 } as const;
 
 /**
@@ -236,6 +251,8 @@ export async function processPaymentWebhook(
   // post-commit (instant email) instead of waiting for the next dispatch cron tick.
   let customerNotifId: string | null = null;
   let operatorNotifId: string | null = null;
+  // #836: set in-tx when a matched transfer could not be applied; alerted post-commit.
+  let unfulfilledReason: string | null = null;
   // #569: overpay + oversold refund-outs are enqueued as durable RefundObligation rows
   // inside the paid tx below (was a captured box + best-effort after()).
 
@@ -295,6 +312,7 @@ export async function processPaymentWebhook(
           { adapter, bookingRef, expectedVnd: booking.totalVnd, receivedVnd: amount },
           'payment.webhook.amount_mismatch — underpaid paid event rejected, not marked paid'
         );
+        unfulfilledReason = UNFULFILLED_REASON.UNDERPAID;
       } else if (status === 'paid') {
         if (amount > booking.totalVnd) {
           // Overpayment: still mark paid, but the difference must NOT be silently kept.
@@ -490,6 +508,13 @@ export async function processPaymentWebhook(
             { adapter, bookingRef, currentStatus: booking.status, target: 'paid' },
             'payment.webhook.transition_skipped — not a legal predecessor, no-op'
           );
+          // #836: the money is real but unapplied (late after expiry, or a duplicate on
+          // a paid booking). A retry of this delivery P2002s at the create above, so this
+          // runs once per providerTxnId.
+          unfulfilledReason =
+            booking.status === 'paid'
+              ? UNFULFILLED_REASON.DUPLICATE_BOOKING_PAID
+              : UNFULFILLED_REASON.LATE_BOOKING_TERMINAL;
         }
       } else if (status === 'failed') {
         // Failure: monotonic guarded transition; predecessors from the same map.
@@ -511,6 +536,14 @@ export async function processPaymentWebhook(
         );
       }
       // Unknown status: PaymentEvent row recorded, no transition
+
+      // #836: tag the linked event so the admin tile can count unapplied money.
+      if (unfulfilledReason) {
+        await tx.paymentEvent.update({
+          where: { adapter_providerTxnId: { adapter, providerTxnId } },
+          data: { unmatchedReason: unfulfilledReason },
+        });
+      }
     });
   } catch (err: unknown) {
     if (
@@ -525,6 +558,45 @@ export async function processPaymentWebhook(
     // Additive + non-throwing; the rethrow + status write are unchanged.
     captureException(err, { adapter, bookingRef, area: 'payment.webhook' });
     throw err;
+  }
+
+  // #836: alert on money held but not applied. Post-commit and non-throwing — the
+  // PaymentEvent is already durable and a failed alert must not make SePay retry a 200.
+  // Once per providerTxnId (a retry exits at the P2002 above). The ops email is unique
+  // per (bookingId, template), so a 2nd unapplied transfer on one booking only pages
+  // Sentry; the P2002 is swallowed.
+  const alertReason = unfulfilledReason as string | null;
+  if (alertReason) {
+    logger.warn(
+      { adapter, bookingRef, providerTxnId, reason: alertReason },
+      'payment.webhook.unfulfilled_payment — transfer not applied, money held, manual action needed'
+    );
+    captureMessage('payment.webhook.unfulfilled_payment', {
+      adapter,
+      bookingRef,
+      providerTxnId,
+      reason: alertReason,
+      area: 'payment.webhook.unfulfilled',
+    });
+    try {
+      await createNotificationLog({
+        bookingId: booking.id,
+        channel: 'email',
+        template: 'opsLatePayment',
+        recipient: OPS_ALERT_EMAIL,
+        payload: renderTemplate('opsLatePayment', {
+          bookingRef: booking.bookingRef,
+          amountVnd: amount,
+          providerTxnId,
+          reason: alertReason,
+        }),
+        status: 'pending',
+      });
+    } catch (err) {
+      if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')) {
+        captureException(err, { adapter, bookingRef, area: 'payment.webhook.unfulfilled' });
+      }
+    }
   }
 
   // Funnel: booking_paid (post-commit, fire-and-forget). The webhook has no user

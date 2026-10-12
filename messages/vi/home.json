@@ -1,6 +1,6 @@
 {
   "hero": {
-    "badge": "Đặt vé dễ dàng – Đi xe an toàn",
+    "badge": "Đặt vé dễ dàng",
     "titleLine1": "Đặt vé xe khách",
     "titleLine2": "chỉ trong 30 giây",
     "subtitle": "Tìm chuyến, đặt vé, nhà xe gọi xác nhận. Không cần chọn ghế trên màn hình.",
@@ -16,26 +16,26 @@
   "breadcrumb": {
     "home": "Trang chủ"
   },
-  "resultTagline": "An toàn – Đúng giờ – Tận tâm",
+  "resultTagline": "Đặt vé minh bạch – Xác nhận qua email",
   "feature": {
     "paymentTitle": "Thanh toán đơn giản",
-    "paymentSub": "Chuyển khoản VietQR hoặc VNPay, thanh toán trước",
+    "paymentSub": "Chuyển khoản VietQR, thanh toán trước",
     "emailTitle": "Xác nhận qua email",
     "emailSub": "Thông tin chuyến đi được gửi đến email của bạn",
     "verifiedTitle": "Nhà xe được xác minh",
     "verifiedSub": "Mỗi nhà xe đều được duyệt trước khi mở bán vé",
-    "pickupTitle": "Đón trả tận nơi",
-    "pickupSub": "Đón tại nhà hoặc khách sạn, trả đúng điểm bạn cần"
+    "pickupTitle": "Chọn điểm đón khi đặt vé",
+    "pickupSub": "Chọn điểm đón của chuyến ngay khi đặt; nhà xe gọi xác nhận"
   },
   "trust": {
     "paymentTitle": "Thanh toán đơn giản",
-    "paymentSub": "Nhiều phương thức, tiện lợi và an toàn",
+    "paymentSub": "Chuyển khoản VietQR, thanh toán trước",
     "emailTitle": "Xác nhận qua email",
-    "emailSub": "Vé điện tử gửi ngay, tiết kiệm thời gian",
+    "emailSub": "Vé điện tử được gửi qua email",
     "verifiedTitle": "Nhà xe được xác minh",
-    "verifiedSub": "Đối tác uy tín, chất lượng đảm bảo",
-    "supportTitle": "Hỗ trợ 24/7",
-    "supportSub": "Tư vấn, hỗ trợ tận tâm mọi lúc"
+    "verifiedSub": "Hồ sơ nhà xe được xét duyệt trước khi mở bán",
+    "supportTitle": "Hỗ trợ qua email",
+    "supportSub": "Gửi yêu cầu tới email hỗ trợ, chúng tôi sẽ phản hồi"
   },
   "carousel": {
     "scrollLeft": "Cuộn sang trái",
@@ -73,11 +73,11 @@
     "cta": "Xem dịch vụ thuê xe",
     "title": "Dịch vụ thuê xe cho mọi nhu cầu",
     "copy": "Xe 4 – 45 chỗ cho nhóm, doanh nghiệp, sự kiện, du lịch, cưới hỏi…",
-    "imgAlt": "Xe hợp đồng BBVN",
-    "trust1": "Xe đời mới, sạch sẽ",
-    "trust2": "Tài xế kinh nghiệm",
-    "trust3": "Giá minh bạch",
-    "trust4": "Hỗ trợ tận tâm"
+    "imgAlt": "Xe hợp đồng của đơn vị vận tải đối tác",
+    "trust1": "Kết nối đơn vị vận tải đối tác",
+    "trust2": "Đơn vị vận tải đối tác báo giá",
+    "trust3": "Gửi yêu cầu không mất phí",
+    "trust4": "Hỗ trợ qua email"
   },
   "trips": {
     "title": "Tuyến đường phổ biến",
@@ -89,6 +89,6 @@
   },
   "operators": {
     "titleSingle": "Nhà xe đối tác",
-    "titlePlural": "Nhà xe đối tác uy tín"
+    "titlePlural": "Nhà xe đối tác"
   }
 }

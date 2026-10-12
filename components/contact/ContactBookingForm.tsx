@@ -14,7 +14,7 @@ import { useTranslations } from 'next-intl';
 import { Send } from 'lucide-react';
 import { z } from 'zod';
 
-import { useRouter } from '@/i18n/navigation';
+import { Link, useRouter } from '@/i18n/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -257,6 +257,21 @@ export function ContactBookingForm() {
           {error}
         </p>
       )}
+
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        {t.rich('form.consent', {
+          terms: (c) => (
+            <Link href="/terms" className="text-primary underline">
+              {c}
+            </Link>
+          ),
+          privacy: (c) => (
+            <Link href="/privacy" className="text-primary underline">
+              {c}
+            </Link>
+          ),
+        })}
+      </p>
 
       <Button
         type="submit"

@@ -7,6 +7,7 @@
  * min font 12px. Không fabricate — thiếu field → ẩn.
  */
 
+import { useTranslations } from 'next-intl';
 import type { DtoHotel } from '@/trip-planner/lib/planner/itineraryDto';
 import { hotelTierLabel, stripCitySuffix } from '@/trip-planner/lib/planner/labels';
 import { fmtKm } from '@/trip-planner/lib/planner/fmt';
@@ -26,6 +27,7 @@ function havKm(aLat: number, aLon: number, bLat: number, bLon: number): number {
 }
 
 function HotelCard({ h, primary, firstStop }: { h: DtoHotel; primary?: boolean; firstStop?: FirstStop }) {
+  const t = useTranslations('planner');
   const tier = hotelTierLabel(h.phan_khuc);
   const dist =
     primary && firstStop && firstStop.lat != null && firstStop.lon != null && h.lat != null && h.lon != null
@@ -56,7 +58,7 @@ function HotelCard({ h, primary, firstStop }: { h: DtoHotel; primary?: boolean; 
       ) : null}
       {primary ? (
         <div className="mt-2 rounded-lg border border-[#F0D9C4] bg-[var(--planner-surface-editorial)] px-2.5 py-1.5">
-          <div className="text-[13px] font-bold uppercase tracking-wide text-[var(--planner-editorial-text)]">✨ Gợi ý biên tập</div>
+          <div className="text-[13px] font-bold uppercase tracking-wide text-[var(--planner-editorial-text)]">{t('itinerary.editorialTitle')}</div>
           <p className="mt-0.5 text-[13px] leading-relaxed text-[var(--planner-editorial-text)]">{HOTEL_REASON_GAN_TRONG_TAM}</p>
         </div>
       ) : null}

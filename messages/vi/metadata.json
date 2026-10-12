@@ -1,11 +1,11 @@
 {
   "site": {
     "title": "Đặt vé xe khách | BBVN",
-    "description": "Tìm và đặt vé xe khách liên tỉnh trên toàn quốc."
+    "description": "Tìm chuyến, đặt vé xe khách liên tỉnh và nhận vé điện tử qua email."
   },
   "home": {
     "title": "Đặt vé xe khách | BBVN",
-    "description": "Tìm và đặt vé xe khách liên tỉnh trên toàn quốc, đặt trong 30 giây.",
+    "description": "Tìm chuyến, đặt vé xe khách liên tỉnh và nhận vé điện tử qua email, đặt trong 30 giây.",
     "searchTitle": "{origin} → {destination} | BBVN",
     "searchDescription": "Tìm chuyến xe từ {origin} đến {destination}"
   },
@@ -20,6 +20,6 @@
   },
   "charter": {
     "title": "Liên hệ đặt xe | BBVN",
-    "description": "Đặt xe du lịch, thuê xe hợp đồng — để lại thông tin, BBVN tư vấn và báo giá nhanh."
+    "description": "Đặt xe du lịch, thuê xe hợp đồng — để lại thông tin, chúng tôi chuyển tới đơn vị vận tải đối tác để báo giá."
   }
 }

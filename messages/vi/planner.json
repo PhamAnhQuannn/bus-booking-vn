@@ -2,7 +2,7 @@
   "entry": {
     "mascotAlt": "Trợ lý BBVN AI",
     "heading": "Bạn muốn đi đâu hôm nay?",
-    "subheading": "Hãy chia sẻ với mình ý tưởng chuyến đi của bạn, mình sẽ giúp bạn lên kế hoạch chi tiết và tối ưu nhất!",
+    "subheading": "Hãy chia sẻ với mình ý tưởng chuyến đi của bạn, mình sẽ giúp bạn lên kế hoạch chi tiết!",
     "startersLabel": "Gợi ý bắt đầu:",
     "samplesLabel": "Bạn có thể thử những câu hỏi như:"
   },
@@ -11,7 +11,7 @@
     "planningPlaceholder": "Đang lên kế hoạch...",
     "send": "Gửi",
     "sending": "Đang gửi",
-    "privacyHint": "Đừng nhập thông tin cá nhân (SĐT, email)."
+    "privacyHint": "Bạn đang trò chuyện với AI. Nội dung chỉ để tham khảo, hãy kiểm tra lại trước khi đi. Đừng nhập thông tin cá nhân (SĐT, email). <link>Điều khoản</link>"
   },
   "sidebar": {
     "openHistory": "Mở lịch sử",
@@ -38,17 +38,17 @@
     "brandEyebrow": "AI Trợ lý du lịch",
     "brandGreeting": "Xin chào!",
     "brandIntro": "Mình là BBVN AI",
-    "brandBubble": "Mình sẽ giúp bạn lên kế hoạch chuyến đi hoàn hảo từ A–Z chỉ trong vài phút.",
+    "brandBubble": "Mình sẽ gợi ý lịch trình chuyến đi cho bạn chỉ trong vài phút.",
     "capabilitiesTitle": "Mình có thể giúp bạn:",
     "capability1": "Gợi ý điểm đến phù hợp với bạn",
     "capability2": "Lên lịch trình chi tiết theo ngày",
-    "capability3": "Đặt vé xe, gợi ý nhà xe uy tín",
+    "capability3": "Gợi ý chuyến xe phù hợp",
     "capability4": "Gợi ý ăn uống, lưu trú, vui chơi",
-    "capability5": "Ước tính chi phí và thời gian di chuyển",
+    "capability5": "Ước tính thời gian di chuyển",
     "promoAlt": "Đặt vé xe BBVN",
     "promoTitle": "Đặt vé xe dễ dàng cho hành trình của bạn",
     "promoCta": "Đặt vé ngay",
-    "brandFooter": "BBVN AI sử dụng công nghệ trí tuệ nhân tạo để mang đến trải nghiệm tốt nhất cho bạn."
+    "brandFooter": "BBVN AI dùng công nghệ trí tuệ nhân tạo để gợi ý lịch trình; nội dung chỉ để tham khảo."
   },
   "stepper": {
     "title": "Thông tin chuyến đi",
@@ -60,7 +60,8 @@
     "title": "Lịch trình {city} · {days} ngày {nights} đêm",
     "dayChip": "N{day}",
     "viewDetailDesktop": "Xem chi tiết + bản đồ ở bên phải",
-    "viewDetailMobile": "Nhấn để xem lịch trình + bản đồ"
+    "viewDetailMobile": "Nhấn để xem lịch trình + bản đồ",
+    "aiNotice": "Lịch trình do hệ thống tự động tổng hợp từ dữ liệu công khai, chỉ để tham khảo; hãy kiểm tra lại trước khi đi."
   },
   "suggestions": {
     "heading": "Gợi ý điểm {vibe}",
@@ -152,6 +153,8 @@
     "sources": "nguồn: {count}",
     "updated": "cập nhật {date}",
     "notesTitle": "Lưu ý",
+    "aiNotice": "Lịch trình do hệ thống tự động tổng hợp từ dữ liệu công khai, chỉ để tham khảo; hãy kiểm tra lại trước khi đi.",
+    "attribution": "Dữ liệu: © OpenStreetMap contributors (ODbL), Wikipedia (CC BY-SA 4.0), Overture Maps.",
     "pace": {
       "relaxed": "thư giãn",
       "packed": "dày",
@@ -216,7 +219,7 @@
     "seeMore": "Xem thêm ⌄",
     "showLess": "Thu gọn ⌃",
     "fromWikipedia": "Theo Wikipedia ↗",
-    "editorialTitle": "✨ Gợi ý biên tập",
+    "editorialTitle": "✨ Gợi ý tự động",
     "editorialDisclaimer": "Gợi ý soạn theo loại hình — không phải thông tin đã xác minh.",
     "fromCentre": "📍 cách trung tâm {dist}",
     "ticketsLabel": "🎟️ Vé: {value}",

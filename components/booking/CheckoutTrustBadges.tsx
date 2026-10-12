@@ -1,7 +1,7 @@
 /**
  * CheckoutTrustBadges — the three reassurance badges shown under the order
- * summary on the merged checkout page (Giữ chỗ 100% / Hỗ trợ 24/7 / An toàn –
- * Uy tín). Static copy; rendered as a sibling of BookingSummaryRail so the shared
+ * summary on the merged checkout page (seat hold / email support / secure payment).
+ * Static copy; rendered as a sibling of BookingSummaryRail so the shared
  * rail stays lean and the badges only appear at checkout.
  */
 

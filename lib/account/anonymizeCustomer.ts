@@ -37,6 +37,7 @@ import { TERMINAL_CHARTER_STATUSES } from '@/lib/charter';
  */
 const DELETED_BUYER_NAME = '[deleted]';
 const DELETED_BUYER_PHONE = '+8490xxxxxx0';
+const REMOVED_PICKUP = '[removed]';
 
 export interface DeleteAccountResult {
   customer: {
@@ -77,6 +78,10 @@ export async function deleteAccount(customerId: string): Promise<DeleteAccountRe
         displayName: 'Deleted user',  // AC5: anonymize buyer-name identity
         deletedAt: now,
         anonymizedAt: now,
+        // #837: login already rejects deleted accounts (deletedAt filter), so drop the
+        // credential + verification stamp now instead of waiting for the 24-month job.
+        passwordHash: null,
+        emailVerifiedAt: null,
       },
       select: { id: true, deletedAt: true, anonymizedAt: true, phone: true },
     });
@@ -105,6 +110,29 @@ export async function deleteAccount(customerId: string): Promise<DeleteAccountRe
         buyerEmail: null,
         snapshotAnonymizedAt: now,
       },
+    });
+    // #837: also scrub the free-text pickup address (separate call so rows already
+    // snapshot-scrubbed are covered). Placeholder, not null: a CHECK requires >=5 chars
+    // when customPickupRequested. NULL pickups stay NULL.
+    await tx.booking.updateMany({
+      where: { customerId, pickupDetail: { not: null } },
+      data: { pickupDetail: REMOVED_PICKUP },
+    });
+
+    // #837: Hold carries the same checkout snapshot (name/phone/email/pickup) and has no
+    // customerId — reach it through the customer's bookings. Active holds are left alone
+    // (still in use; the retention sweeper scrubs them 30d after they expire).
+    await tx.hold.updateMany({
+      where: { booking: { customerId }, status: { not: 'active' } },
+      data: {
+        customerName: DELETED_BUYER_NAME,
+        customerPhone: DELETED_BUYER_PHONE,
+        customerEmail: null,
+      },
+    });
+    await tx.hold.updateMany({
+      where: { booking: { customerId }, status: { not: 'active' }, pickupDetail: { not: null } },
+      data: { pickupDetail: REMOVED_PICKUP },
     });
 
     // PDPL W1: a soft delete never fires the Customer→PlannerConversation cascade, so

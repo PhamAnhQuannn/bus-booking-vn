@@ -7,6 +7,7 @@
 
 import type { Ref } from 'react';
 import { useTranslations } from 'next-intl';
+import { Link } from '@/i18n/navigation';
 
 type Props = {
   value: string;
@@ -61,7 +62,15 @@ export function PlannerComposer({ value, onChange, onSubmit, disabled, busy, pla
         )}
       </button>
     </form>
-    <p className="mt-1.5 px-1 text-center text-xs text-muted-foreground">{t('composer.privacyHint')}</p>
+    <p className="mt-1.5 px-1 text-center text-xs text-muted-foreground">
+      {t.rich('composer.privacyHint', {
+        link: (c) => (
+          <Link href="/terms" className="underline">
+            {c}
+          </Link>
+        ),
+      })}
+    </p>
     </>
   );
 }

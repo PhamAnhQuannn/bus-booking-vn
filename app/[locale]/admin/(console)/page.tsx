@@ -261,6 +261,11 @@ export default async function AdminOverviewPage() {
                 hint="vào nhầm tài khoản — không tự đối soát được"
               />
               <MetricCard
+                label="Chuyển khoản không áp dụng được"
+                value={vnd.format(failures.unfulfilledPayments)}
+                hint="đến muộn / trùng / thiếu tiền — đang giữ tiền, cần hoàn thủ công"
+              />
+              <MetricCard
                 label="Chi trả thất bại"
                 value={vnd.format(failures.failedPayouts)}
                 hint="giải ngân bị lỗi"

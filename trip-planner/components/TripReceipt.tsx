@@ -46,6 +46,7 @@ export function TripReceipt({ dto, onActivate, onSelectDay }: Props) {
           <span className="hidden lg:inline">{t('receipt.viewDetailDesktop')}</span>
           <span className="lg:hidden">{t('receipt.viewDetailMobile')}</span>
         </div>
+        <p className="mt-1 text-xs text-muted-foreground">{t('receipt.aiNotice')}</p>
       </div>
       <span className="shrink-0 text-lg text-primary" aria-hidden="true">→</span>
     </div>

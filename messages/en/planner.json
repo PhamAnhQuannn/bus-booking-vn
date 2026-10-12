@@ -2,7 +2,7 @@
   "entry": {
     "mascotAlt": "BBVN AI assistant",
     "heading": "Where would you like to go today?",
-    "subheading": "Share your trip ideas with me and I'll help you build a detailed, optimized plan!",
+    "subheading": "Share your trip ideas with me and I'll help you build a detailed plan!",
     "startersLabel": "Suggestions to start:",
     "samplesLabel": "You can try questions like:"
   },
@@ -11,7 +11,7 @@
     "planningPlaceholder": "Planning your trip...",
     "send": "Send",
     "sending": "Sending",
-    "privacyHint": "Please don't enter personal info (phone, email)."
+    "privacyHint": "You are chatting with an AI. Content is for reference only; double-check before you travel. Please don't enter personal info (phone, email). <link>Terms</link>"
   },
   "sidebar": {
     "openHistory": "Open history",
@@ -38,17 +38,17 @@
     "brandEyebrow": "AI Travel Assistant",
     "brandGreeting": "Hi there!",
     "brandIntro": "I'm BBVN AI",
-    "brandBubble": "I'll help you plan the perfect trip from A to Z in just a few minutes.",
+    "brandBubble": "I'll help you draft a trip itinerary in just a few minutes.",
     "capabilitiesTitle": "Here's how I can help:",
     "capability1": "Suggest destinations that suit you",
     "capability2": "Build a detailed day-by-day itinerary",
-    "capability3": "Book bus tickets and recommend trusted operators",
+    "capability3": "Suggest suitable bus trips",
     "capability4": "Suggest places to eat, stay, and play",
-    "capability5": "Estimate costs and travel times",
+    "capability5": "Estimate travel times",
     "promoAlt": "Book BBVN bus tickets",
     "promoTitle": "Book bus tickets easily for your journey",
     "promoCta": "Book now",
-    "brandFooter": "BBVN AI uses artificial intelligence to bring you the best experience."
+    "brandFooter": "BBVN AI uses artificial intelligence to suggest itineraries; content is for reference only."
   },
   "stepper": {
     "title": "Trip details",
@@ -60,7 +60,8 @@
     "title": "{city} itinerary · {days} days {nights} nights",
     "dayChip": "D{day}",
     "viewDetailDesktop": "See details + map on the right",
-    "viewDetailMobile": "Tap to view itinerary + map"
+    "viewDetailMobile": "Tap to view itinerary + map",
+    "aiNotice": "This itinerary is automatically compiled from public data for reference only; please verify before you travel."
   },
   "suggestions": {
     "heading": "Suggested {vibe} spots",
@@ -152,6 +153,8 @@
     "sources": "sources: {count}",
     "updated": "updated {date}",
     "notesTitle": "Notes",
+    "aiNotice": "This itinerary is automatically compiled from public data for reference only; please verify before you travel.",
+    "attribution": "Data: © OpenStreetMap contributors (ODbL), Wikipedia (CC BY-SA 4.0), Overture Maps.",
     "pace": {
       "relaxed": "relaxed",
       "packed": "packed",
@@ -216,7 +219,7 @@
     "seeMore": "See more ⌄",
     "showLess": "Show less ⌃",
     "fromWikipedia": "From Wikipedia ↗",
-    "editorialTitle": "✨ Editorial suggestion",
+    "editorialTitle": "✨ Automated suggestion",
     "editorialDisclaimer": "A suggestion drafted for this type — not verified information.",
     "fromCentre": "📍 {dist} from centre",
     "ticketsLabel": "🎟️ Tickets: {value}",

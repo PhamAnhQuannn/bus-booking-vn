@@ -497,7 +497,7 @@ model RefundObligation {
   bookingId      String    @db.Uuid
   /// VND minor units (Int, matches Booking.totalVnd). Passed to refundOut as-is.
   amountMinor    Int
-  /// refundOut RefundReason: 'overpay_difference' | 'oversold_race'.
+  /// refundOut RefundReason: 'overpay_difference' | 'oversold_race' | 'operator_cancel'.
   reason         String
   /// Unique = idempotent enqueue: a replayed paid IPN cannot create a second obligation.
   idempotencyKey String    @unique
