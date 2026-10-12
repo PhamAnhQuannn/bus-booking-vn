@@ -55,7 +55,13 @@ export const MAX_ATTEMPTS = 5;
  * alert — outside #336's "unmatched-transfer alert can't silently die" AC. Add a
  * template here only when its silent loss would leave money/ops state unrecoverable.
  */
-export const OPS_NOTIFICATION_TEMPLATES: ReadonlySet<string> = new Set(['opsUnmatchedPayment', 'opsLatePayment']);
+export const OPS_NOTIFICATION_TEMPLATES: ReadonlySet<string> = new Set([
+  'opsUnmatchedPayment',
+  // #836: late/underpaid/duplicate transfer alert to ops — silent loss = held booking never resolved.
+  'opsLatePayment',
+  // #833: the only trigger for a manual refund transfer — silent loss = customer never repaid.
+  'manual_refund_required',
+]);
 
 /** True if a notification template is an ops-directed alert (see OPS_NOTIFICATION_TEMPLATES). */
 export function isOpsNotification(template: string): boolean {

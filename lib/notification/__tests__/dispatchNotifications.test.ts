@@ -56,6 +56,7 @@ import {
   dispatchOne,
   backoffMs,
   MAX_ATTEMPTS,
+  isOpsNotification,
 } from '../dispatchNotifications';
 
 const NOW = new Date('2026-06-02T12:00:00.000Z');
@@ -262,6 +263,19 @@ describe('dispatchNotifications — #336 ops-channel degradation signal', () => 
     expect(captureMessageMock).toHaveBeenCalledWith(
       'notification.ops_channel.dead',
       expect.objectContaining({ template: 'opsUnmatchedPayment', attempt: MAX_ATTEMPTS })
+    );
+  });
+
+  it('#833: a manual_refund_required alert is an OPS notification with its own subject', async () => {
+    expect(isOpsNotification('manual_refund_required')).toBe(true);
+    queryRawMock.mockResolvedValueOnce([opsRow({ template: 'manual_refund_required', attemptCount: 0 })]);
+    sendEmailMock.mockResolvedValueOnce({ ok: false, error: 'resend 503', outcome: 'unknown' });
+
+    await dispatchNotifications({} as never, { now: NOW });
+
+    expect(captureMessageMock).toHaveBeenCalledWith(
+      'notification.ops_channel.degraded',
+      expect.objectContaining({ template: 'manual_refund_required' })
     );
   });
 

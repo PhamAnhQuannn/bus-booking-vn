@@ -64,7 +64,8 @@ export const processRefunds: JobCore = async (_tx, opts?: JobOpts) => {
   for (const row of rows) {
     try {
       // refundOut is idempotent (alreadyDone / manualRefundRequired both count as satisfied —
-      // the ledger obligation is discharged; a no-PSP manual transfer is a separate ops task).
+      // the ledger obligation is discharged; the no-PSP manual transfer is triggered by the
+      // manual_refund_required ops email + Sentry alert that refundOut enqueues, #833).
       await refundOut({
         bookingId: row.bookingId,
         amountMinor: row.amountMinor,

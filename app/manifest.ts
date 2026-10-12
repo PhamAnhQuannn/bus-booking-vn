@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'BBVN — Đặt vé xe khách',
     short_name: 'BBVN',
-    description: 'Tìm và đặt vé xe khách liên tỉnh trên toàn quốc, đặt trong 30 giây.',
+    description: 'Tìm và đặt vé xe khách liên tỉnh, đặt trong 30 giây.',
     start_url: '/',
     display: 'standalone',
     background_color: '#ffffff',

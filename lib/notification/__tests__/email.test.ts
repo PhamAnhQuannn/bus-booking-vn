@@ -62,6 +62,7 @@ describe('sendEmail (stub)', () => {
   it('renderEmailSubject maps known templates and falls back generically', () => {
     expect(renderEmailSubject('customerBookingPaid')).toContain('BusBookVN');
     expect(renderEmailSubject('totally_unknown')).toBe('BusBookVN');
+    expect(renderEmailSubject('manual_refund_required')).toBe('BBVN OPS — Can hoan tien thu cong');
   });
 });
 
