@@ -109,19 +109,19 @@ const STUB_PROVIDER_REF_PREFIX = 'stub_email_';
  * dispatcher hands sendSms a pre-rendered string-ish payload.
  */
 const SUBJECTS: Record<string, string> = {
-  otpCode: 'BusBookVN — Mã xác thực OTP',
-  customerBookingPaid: 'BusBookVN — Xac nhan thanh toan',
-  customerBookingExpired: 'BusBookVN — Dat cho da het han',
-  customerPaymentReview: 'BusBookVN — Dang doi chieu thanh toan',
-  customerPaymentUnverified: 'BusBookVN — Can ho tro thanh toan',
+  otpCode: 'BBVN — Mã xác thực OTP',
+  customerBookingPaid: 'BBVN — Xac nhan thanh toan',
+  customerBookingExpired: 'BBVN — Dat cho da het han',
+  customerPaymentReview: 'BBVN — Dang doi chieu thanh toan',
+  customerPaymentUnverified: 'BBVN — Can ho tro thanh toan',
   opsUnmatchedPayment: 'BBVN OPS — Chuyen khoan chua khop',
   opsLatePayment: 'BBVN OPS — Chuyen khoan khong ap dung duoc',
   manual_refund_required: 'BBVN OPS — Can hoan tien thu cong',
-  operatorNewBooking: 'BusBookVN — Khach dat ve moi',
-  bookingReminder24h: 'BusBookVN — Nhac nho chuyen di',
-  payout_scheduled: 'BusBookVN — Lich chi tra',
-  trip_cancelled: 'BusBookVN — Chuyen di bi huy',
-  operatorPending: 'BusBookVN — Ho so dang ky dang duoc xem xet',
+  operatorNewBooking: 'BBVN — Khach dat ve moi',
+  bookingReminder24h: 'BBVN — Nhac nho chuyen di',
+  payout_scheduled: 'BBVN — Lich chi tra',
+  trip_cancelled: 'BBVN — Chuyen di bi huy',
+  operatorPending: 'BBVN — Ho so dang ky dang duoc xem xet',
   // Issue 079: operator approval-state decision emails (both decision directions
   // + the under-review / resubmit states). Subjects kept minimal.
   operatorApproved: 'Tài khoản nhà xe đã được duyệt — go live',
@@ -145,7 +145,7 @@ const SUBJECTS: Record<string, string> = {
 
 /** Resolve a subject line for the template; falls back to a generic subject. */
 export function renderEmailSubject(template: string): string {
-  return SUBJECTS[template] ?? 'BusBookVN';
+  return SUBJECTS[template] ?? 'BBVN';
 }
 
 /**
