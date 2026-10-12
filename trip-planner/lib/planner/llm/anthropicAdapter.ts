@@ -47,10 +47,11 @@ const anthropicTools = () =>
   [TRICH_DECL, GOI_Y_DECL].map((d) => ({ name: d.name, description: d.description, input_schema: d.parameters }));
 
 // Messages API: turn đầu PHẢI là user + role xen kẽ. History client có thể mở bằng model turn (lời chào)
-// hoặc 2 turn cùng role liền nhau → bỏ model đầu, gộp turn cùng role.
+// hoặc 2 turn cùng role liền nhau → bỏ model đầu, gộp turn cùng role, bỏ turn rỗng.
 export function toAnthropicMessages(history: ChatTurn[]): { role: "user" | "assistant"; content: string }[] {
   const out: { role: "user" | "assistant"; content: string }[] = [];
   for (const t of history) {
+    if (!t.text.trim()) continue; // Anthropic 400 trên text rỗng/chỉ-khoảng-trắng → bỏ turn
     const role = t.role === "model" ? "assistant" : "user";
     if (!out.length && role === "assistant") continue;
     const last = out[out.length - 1];

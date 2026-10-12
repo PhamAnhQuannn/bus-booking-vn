@@ -208,4 +208,15 @@ describe('toAnthropicMessages', () => {
       { role: 'assistant', content: 'c' },
     ]);
   });
+
+  it('bỏ turn rỗng/chỉ-khoảng-trắng (Anthropic 400) rồi mới áp luật user-đầu + xen kẽ', () => {
+    const out = toAnthropicMessages([
+      { role: 'user', text: '  ' },
+      { role: 'model', text: 'Xin chào' },
+      { role: 'user', text: 'a' },
+      { role: 'model', text: '' },
+      { role: 'user', text: 'b' },
+    ]);
+    expect(out).toEqual([{ role: 'user', content: 'a\n\nb' }]);
+  });
 });
