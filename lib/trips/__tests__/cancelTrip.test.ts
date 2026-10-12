@@ -13,6 +13,7 @@ vi.mock('@/lib/core/db/client', () => {
     hold: { updateMany: vi.fn() },
     route: { findUnique: vi.fn() },
     notificationLog: { createMany: vi.fn() },
+    refundObligation: { createMany: vi.fn() },
   };
 
   return {
@@ -23,15 +24,9 @@ vi.mock('@/lib/core/db/client', () => {
   };
 });
 
-// Issue 051: cancelTrip now triggers refundOut per paid booking post-commit.
-vi.mock('@/lib/payment', () => ({
-  refundOut: vi.fn().mockResolvedValue({ refunded: true, alreadyDone: false }),
-}));
-
 import { cancelTrip } from '../cancelTrip';
 import { TripServiceError } from '../errors';
 import { prisma } from '@/lib/core/db/client';
-import { refundOut } from '@/lib/payment';
 
 const p = prisma as unknown as {
   $transaction: Mock;
@@ -42,6 +37,7 @@ const p = prisma as unknown as {
     hold: { updateMany: Mock };
     route: { findUnique: Mock };
     notificationLog: { createMany: Mock };
+    refundObligation: { createMany: Mock };
   };
 };
 
@@ -98,19 +94,21 @@ const AFFECTED_BOOKINGS = [
     id: '550e8400-e29b-41d4-a716-446655440000',
     bookingRef: 'BB-2026-abc1-def2',
     buyerPhone: '+8490xxxxxx1',
+    buyerEmail: 'rider1@example.com',
     customerId: 'cust-1',
   },
   {
     id: '550e8400-e29b-41d4-a716-446655440001',
     bookingRef: 'BB-2026-abc2-def3',
     buyerPhone: '+8490xxxxxx2',
+    buyerEmail: null,
     customerId: null,
   },
 ];
 
 const PAID_BOOKINGS = [
-  { id: '550e8400-e29b-41d4-a716-446655440000', totalVnd: 180000 },
-  { id: '550e8400-e29b-41d4-a716-446655440001', totalVnd: 90000 },
+  { id: '550e8400-e29b-41d4-a716-446655440000', totalVnd: 180000, paymentExternalRef: 'txn-1' },
+  { id: '550e8400-e29b-41d4-a716-446655440001', totalVnd: 90000, paymentExternalRef: null },
 ];
 
 describe('cancelTrip', () => {
@@ -137,7 +135,7 @@ describe('cancelTrip', () => {
     expect(result.trip.status).toBe('cancelled');
   });
 
-  it('Issue 051: triggers refundOut per paid booking with cancel-scoped idempotency key', async () => {
+  it('#835: enqueues a RefundObligation per paid booking INSIDE the tx with the cancel-scoped key', async () => {
     p._txMock.$queryRaw.mockResolvedValue(LOCKED_SCHEDULED);
     p._txMock.trip.update.mockResolvedValue(UPDATED_TRIP_ROW);
     p._txMock.booking.findMany
@@ -150,22 +148,28 @@ describe('cancelTrip', () => {
 
     await cancelTrip('op-1', 'trip-1', 'Equipment failure requiring repair');
 
-    expect(refundOut).toHaveBeenCalledTimes(2);
-    expect(refundOut).toHaveBeenCalledWith({
-      bookingId: PAID_BOOKINGS[0].id,
-      amountMinor: 180000,
-      reason: 'operator_cancel',
-      idempotencyKey: `cancel:trip-1:${PAID_BOOKINGS[0].id}`,
-    });
-    expect(refundOut).toHaveBeenCalledWith({
-      bookingId: PAID_BOOKINGS[1].id,
-      amountMinor: 90000,
-      reason: 'operator_cancel',
-      idempotencyKey: `cancel:trip-1:${PAID_BOOKINGS[1].id}`,
+    expect(p._txMock.refundObligation.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          bookingId: PAID_BOOKINGS[0].id,
+          amountMinor: 180000,
+          reason: 'operator_cancel',
+          idempotencyKey: `cancel:trip-1:${PAID_BOOKINGS[0].id}`,
+          providerTxnId: 'txn-1',
+        },
+        {
+          bookingId: PAID_BOOKINGS[1].id,
+          amountMinor: 90000,
+          reason: 'operator_cancel',
+          idempotencyKey: `cancel:trip-1:${PAID_BOOKINGS[1].id}`,
+          providerTxnId: 'cancel:trip-1',
+        },
+      ],
+      skipDuplicates: true,
     });
   });
 
-  it('Issue 051: a single refundOut failure does not fail the cancel (best-effort)', async () => {
+  it('#835: a failing obligation insert fails the whole cancel tx (no inline best-effort refund)', async () => {
     p._txMock.$queryRaw.mockResolvedValue(LOCKED_SCHEDULED);
     p._txMock.trip.update.mockResolvedValue(UPDATED_TRIP_ROW);
     p._txMock.booking.findMany
@@ -175,14 +179,25 @@ describe('cancelTrip', () => {
     p._txMock.hold.updateMany.mockResolvedValue({ count: 0 });
     p._txMock.route.findUnique.mockResolvedValue({ origin: 'HN', destination: 'HCM' });
     p._txMock.notificationLog.createMany.mockResolvedValue({ count: 2 });
-    (refundOut as unknown as Mock).mockRejectedValueOnce(new Error('psp down'));
+    p._txMock.refundObligation.createMany.mockRejectedValueOnce(new Error('db blip'));
 
-    const result = await cancelTrip('op-1', 'trip-1', 'Equipment failure requiring repair');
+    await expect(cancelTrip('op-1', 'trip-1', 'Equipment failure requiring repair')).rejects.toThrow('db blip');
+  });
 
-    // Cancel still reports success even though one refund threw.
-    expect(result.alreadyCancelled).toBe(false);
-    expect(result.cancelledBookings).toBe(2);
-    expect(refundOut).toHaveBeenCalledTimes(2);
+  it('no paid bookings -> no RefundObligation insert', async () => {
+    p._txMock.$queryRaw.mockResolvedValue(LOCKED_SCHEDULED);
+    p._txMock.trip.update.mockResolvedValue(UPDATED_TRIP_ROW);
+    p._txMock.booking.findMany
+      .mockResolvedValueOnce([AFFECTED_BOOKINGS[0]])
+      .mockResolvedValueOnce([]);
+    p._txMock.booking.updateMany.mockResolvedValue({ count: 1 });
+    p._txMock.hold.updateMany.mockResolvedValue({ count: 0 });
+    p._txMock.route.findUnique.mockResolvedValue({ origin: 'HN', destination: 'HCM' });
+    p._txMock.notificationLog.createMany.mockResolvedValue({ count: 1 });
+
+    await cancelTrip('op-1', 'trip-1', 'Equipment failure requiring repair');
+
+    expect(p._txMock.refundObligation.createMany).not.toHaveBeenCalled();
   });
 
   it('throws not_found for cross-operator or missing trip', async () => {
@@ -229,10 +244,39 @@ describe('cancelTrip', () => {
     expect(p._txMock.notificationLog.createMany).not.toHaveBeenCalled();
   });
 
-  it('notification payload does not contain raw phone (I9)', async () => {
+  it('#834: emails buyers who left an email, SMS otherwise; body is a rendered sentence, not JSON', async () => {
     p._txMock.$queryRaw.mockResolvedValue(LOCKED_SCHEDULED);
     p._txMock.trip.update.mockResolvedValue(UPDATED_TRIP_ROW);
-    p._txMock.booking.findMany.mockResolvedValue([AFFECTED_BOOKINGS[0]]);
+    p._txMock.booking.findMany
+      .mockResolvedValueOnce(AFFECTED_BOOKINGS)
+      .mockResolvedValueOnce([PAID_BOOKINGS[0]]);
+    p._txMock.booking.updateMany.mockResolvedValue({ count: 2 });
+    p._txMock.hold.updateMany.mockResolvedValue({ count: 0 });
+    p._txMock.route.findUnique.mockResolvedValue({ origin: 'HN', destination: 'HCM' });
+    p._txMock.notificationLog.createMany.mockResolvedValue({ count: 2 });
+
+    await cancelTrip('op-1', 'trip-1', 'Equipment failure requiring repair');
+
+    const [emailRow, smsRow] = p._txMock.notificationLog.createMany.mock.calls[0][0].data;
+    expect(emailRow).toMatchObject({ channel: 'email', template: 'trip_cancelled', recipient: 'rider1@example.com' });
+    expect(smsRow).toMatchObject({ channel: 'sms', template: 'trip_cancelled', recipient: '+8490xxxxxx2' });
+    for (const row of [emailRow, smsRow]) {
+      expect(() => JSON.parse(row.payload)).toThrow();
+      expect(row.payload).toContain('HN → HCM');
+      expect(row.payload).toContain('da bi nha xe huy');
+    }
+    // Paid booking is promised the refund; the never-paid one is told there is no charge.
+    expect(emailRow.payload).toContain('hoan lai 100%');
+    expect(smsRow.payload).toContain('khong bi tinh phi');
+  });
+
+  it('cash walk-up booking: no RefundObligation, cash-specific notice, paid query excludes cash', async () => {
+    p._txMock.$queryRaw.mockResolvedValue(LOCKED_SCHEDULED);
+    p._txMock.trip.update.mockResolvedValue(UPDATED_TRIP_ROW);
+    const cashBooking = { ...AFFECTED_BOOKINGS[1], paymentMethod: 'cash' };
+    p._txMock.booking.findMany
+      .mockResolvedValueOnce([cashBooking])
+      .mockResolvedValueOnce([]);
     p._txMock.booking.updateMany.mockResolvedValue({ count: 1 });
     p._txMock.hold.updateMany.mockResolvedValue({ count: 0 });
     p._txMock.route.findUnique.mockResolvedValue({ origin: 'HN', destination: 'HCM' });
@@ -240,19 +284,31 @@ describe('cancelTrip', () => {
 
     await cancelTrip('op-1', 'trip-1', 'Equipment failure requiring repair');
 
-    const callArgs = p._txMock.notificationLog.createMany.mock.calls[0][0];
-    const logEntry = callArgs.data[0];
+    expect(p._txMock.booking.findMany.mock.calls[1][0].where).toMatchObject({
+      paymentMethod: { not: 'cash' },
+    });
+    expect(p._txMock.refundObligation.createMany).not.toHaveBeenCalled();
+    const [row] = p._txMock.notificationLog.createMany.mock.calls[0][0].data;
+    expect(row.payload).toContain('tien mat');
+    expect(row.payload).toContain('nha xe');
+    expect(row.payload).not.toContain('hoan lai 100%');
+    expect(row.payload).not.toContain('khong bi tinh phi');
+  });
 
-    // Parse the payload and ensure phone is NOT in it (I9 compliance)
-    const payload = JSON.parse(logEntry.payload);
-    expect(payload).not.toHaveProperty('phone');
-    expect(payload).not.toHaveProperty('buyerPhone');
-    expect(payload).not.toHaveProperty('recipientPhone');
-    // But the recipient column (not in payload) should hold the phone
-    expect(logEntry.recipient).toBe('+8490xxxxxx1');
-    // Payload should have route info
-    expect(payload).toHaveProperty('bookingRef');
-    expect(payload).toHaveProperty('route');
-    expect(payload).toHaveProperty('departureAt');
+  it('notification payload does not contain the raw phone (I9)', async () => {
+    p._txMock.$queryRaw.mockResolvedValue(LOCKED_SCHEDULED);
+    p._txMock.trip.update.mockResolvedValue(UPDATED_TRIP_ROW);
+    p._txMock.booking.findMany.mockResolvedValue([AFFECTED_BOOKINGS[1]]);
+    p._txMock.booking.updateMany.mockResolvedValue({ count: 1 });
+    p._txMock.hold.updateMany.mockResolvedValue({ count: 0 });
+    p._txMock.route.findUnique.mockResolvedValue({ origin: 'HN', destination: 'HCM' });
+    p._txMock.notificationLog.createMany.mockResolvedValue({ count: 1 });
+
+    await cancelTrip('op-1', 'trip-1', 'Equipment failure requiring repair');
+
+    const logEntry = p._txMock.notificationLog.createMany.mock.calls[0][0].data[0];
+    expect(logEntry.payload).not.toContain('+8490xxxxxx2');
+    expect(logEntry.recipient).toBe('+8490xxxxxx2');
+    expect(logEntry.payload).toContain(AFFECTED_BOOKINGS[1].bookingRef);
   });
 });

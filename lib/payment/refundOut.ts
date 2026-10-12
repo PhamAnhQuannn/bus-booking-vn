@@ -45,6 +45,8 @@ import { prisma } from '@/lib/core/db/client';
 import { appendLedgerEntry } from '@/lib/ledger';
 import { refundPayment } from './refund';
 import { logger } from '@/lib/logger';
+import { captureMessage } from '@/lib/observability';
+import { renderTemplate, OPS_ALERT_EMAIL } from '@/lib/notification';
 
 export type RefundReason =
   | 'operator_cancel'
@@ -85,6 +87,12 @@ const REFUNDABLE_STATUSES = new Set([
   'refunded', // Issue 100: oversold-race — paid→refunded in same tx, ledger written post-commit
 ]);
 
+const MANUAL_REFUND_REASON_LABEL: Record<RefundReason, string> = {
+  operator_cancel: 'nha xe huy chuyen',
+  overpay_difference: 'khach chuyen du tien',
+  oversold_race: 'het cho sau khi thanh toan',
+};
+
 export class RefundOutError extends Error {
   constructor(public code: string) {
     super(code);
@@ -106,6 +114,9 @@ export async function refundOut(input: RefundOutInput): Promise<RefundOutResult>
       id: true,
       status: true,
       paymentExternalRef: true,
+      bookingRef: true,
+      buyerPhone: true,
+      buyerEmail: true,
       trip: { select: { bus: { select: { operatorId: true } } } },
     },
   });
@@ -181,17 +192,39 @@ export async function refundOut(input: RefundOutInput): Promise<RefundOutResult>
         },
         tx
       );
+      // #833: ops alert in the SAME tx as the ledger legs — the replay short-circuit above
+      // keys on refund_out, so an alert enqueued after commit would be lost forever if the
+      // process died in between. unique(bookingId, template) means a 2nd manual refund on
+      // one booking (overpay + oversold) is skipped; skipDuplicates keeps it from aborting
+      // the tx, and the captureMessage below still reports every refund individually.
+      await tx.notificationLog.createMany({
+        data: [
+          {
+            bookingId,
+            channel: 'email',
+            template: 'manual_refund_required',
+            recipient: OPS_ALERT_EMAIL,
+            payload: renderTemplate('manual_refund_required', {
+              bookingRef: booking.bookingRef,
+              amountVnd: amountMinor,
+              reason: MANUAL_REFUND_REASON_LABEL[reason],
+              buyerContact: booking.buyerEmail ?? booking.buyerPhone,
+            }),
+            status: 'pending',
+          },
+        ],
+        skipDuplicates: true,
+      });
     });
 
-    await prisma.notificationLog.create({
-      data: {
-        bookingId,
-        channel: 'email',
-        template: 'manual_refund_required',
-        recipient: `operator:${operatorId}`,
-        payload: JSON.stringify({ bookingId, amountMinor, reason, idempotencyKey }),
-        status: 'pending',
-      },
+    // Resend-independent signal (Sentry/logger rail), same as the unmatched-payment alert.
+    // No buyer contact in the context.
+    captureMessage('payment.manual_refund_required', {
+      area: 'payment.refund',
+      bookingId,
+      reason,
+      amountMinor,
+      idempotencyKey,
     });
 
     logger.info(
