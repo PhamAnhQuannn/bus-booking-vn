@@ -5,8 +5,9 @@
  * constants are mocked. The lock `tx` (the JobCore's first arg) is a stub whose
  * $executeRaw / $queryRaw return staged values BY CALL ORDER, because several arms
  * share them:
- *   $executeRaw order: 1=guest scrub, 2..=planner-delete batches, then notif, then charter.
- *   $queryRaw   order: 1=KYB claim, 2=orphan claim, 3=ticket-PDF purge claim.
+ *   $executeRaw order: 1=guest scrub, 2..=planner-delete batches, then notif, charter,
+ *     hold scrub, booking pickupDetail backfill, then funnel-delete batches (#837).
+ *   $queryRaw   order: 1=KYB claim, 2=orphan claim, 3=ticket-PDF purge claim, 4=matched-event claim.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -26,6 +27,9 @@ vi.mock('@/lib/account/retentionPolicy', () => ({
   PLANNER_CHAT_RETENTION_DAYS: 90,
   NOTIFICATION_PII_RETENTION_DAYS: 180,
   CHARTER_CONTACT_RETENTION_DAYS: 365,
+  HOLD_PII_RETENTION_DAYS: 30,
+  MATCHED_PAYMENT_PII_RETENTION_DAYS: 365,
+  FUNNEL_EVENT_RETENTION_DAYS: 395,
 }));
 vi.mock('@/lib/charter', () => ({
   TERMINAL_CHARTER_STATUSES: new Set(['REJECTED', 'COMPLETED', 'CANCELLED']),
@@ -59,6 +63,13 @@ interface MakeTxOpts {
   notifCount?: number;
   /** Affected-row count the CharterRequest scrub $executeRaw resolves to. */
   charterCount?: number;
+  /** #837 arms. */
+  holdCount?: number;
+  pickupCount?: number;
+  /** Row counts each FunnelEvent-delete batch resolves to (default [0]). */
+  funnelBatches?: number[];
+  /** Matched PaymentEvent rows (4th $queryRaw). */
+  matchedRows?: Array<{ id: string; rawBody: string }>;
 }
 
 /**
@@ -74,7 +85,7 @@ function makeTx(
   orphanRows: unknown[] = [],
   opts: MakeTxOpts = {},
 ) {
-  const { plannerBatches = [0], pdfRows = [], notifCount = 0, charterCount = 0 } = opts;
+  const { plannerBatches = [0], pdfRows = [], notifCount = 0, charterCount = 0, holdCount = 0, pickupCount = 0, funnelBatches = [0], matchedRows = [] } = opts;
   const kybUpdate = vi.fn().mockResolvedValue({});
   const paymentEventUpdate = vi.fn().mockResolvedValue({});
   const bookingUpdate = vi.fn().mockResolvedValue({});
@@ -85,13 +96,17 @@ function makeTx(
   for (const b of plannerBatches) execRaw.mockResolvedValueOnce(b);
   execRaw.mockResolvedValueOnce(notifCount);
   execRaw.mockResolvedValueOnce(charterCount);
+  execRaw.mockResolvedValueOnce(holdCount);
+  execRaw.mockResolvedValueOnce(pickupCount);
+  for (const b of funnelBatches) execRaw.mockResolvedValueOnce(b);
 
   // $queryRaw staged by order: KYB claim, orphan claim, PDF purge claim.
   const queryRaw = vi
     .fn()
     .mockResolvedValueOnce(kybRows)
     .mockResolvedValueOnce(orphanRows)
-    .mockResolvedValueOnce(pdfRows);
+    .mockResolvedValueOnce(pdfRows)
+    .mockResolvedValueOnce(matchedRows);
 
   return {
     tx: {
@@ -105,6 +120,7 @@ function makeTx(
     paymentEventUpdate,
     bookingUpdate,
     execRaw,
+    queryRaw,
   };
 }
 
@@ -120,8 +136,8 @@ describe('retentionSweeper', () => {
     const { tx, execRaw } = makeTx(4, []);
     const res = await retentionSweeper(tx, { now: NOW });
 
-    // $executeRaw now fires for guest + 1 (empty) planner batch + notif + charter = 4.
-    expect(execRaw).toHaveBeenCalledTimes(4);
+    // $executeRaw: guest + 1 planner + notif + charter + hold + pickup + 1 funnel = 7.
+    expect(execRaw).toHaveBeenCalledTimes(7);
     expect(res).toEqual({ rowsAffected: 4, status: 'success' });
   });
 
@@ -223,8 +239,8 @@ describe('retentionSweeper', () => {
     const { tx, execRaw } = makeTx(0, [], [], { plannerBatches: [200, 50] });
     const res = await retentionSweeper(tx, { now: NOW });
     expect(res.rowsAffected).toBe(250);
-    // guest + 2 planner batches + notif + charter = 5 $executeRaw calls.
-    expect(execRaw).toHaveBeenCalledTimes(5);
+    // guest + 2 planner batches + notif + charter + hold + pickup + funnel = 8 $executeRaw calls.
+    expect(execRaw).toHaveBeenCalledTimes(8);
   });
 
   // --- W3: ticket-PDF purge --------------------------------------------------------
@@ -266,5 +282,88 @@ describe('retentionSweeper', () => {
     const res = await retentionSweeper(tx, { now: NOW });
     // 3 guest + 1 kyb + 1 orphan + 4 planner + 1 pdf + 6 notif + 2 charter = 18.
     expect(res.rowsAffected).toBe(18);
+  });
+
+  // --- #837: matched PaymentEvent redaction ----------------------------------------
+  it('redacts payer PII on a MATCHED bank_transfer event, keeps evidence, stamps redactedAt', async () => {
+    const { tx, paymentEventUpdate } = makeTx(0, [], [], {
+      matchedRows: [{ id: 'pe_matched_1', rawBody: SEPAY_ORPHAN_BODY }],
+    });
+    const res = await retentionSweeper(tx, { now: NOW });
+    expect(paymentEventUpdate).toHaveBeenCalledTimes(1);
+    const call = paymentEventUpdate.mock.calls[0][0] as {
+      where: { id: string };
+      data: { rawBody: string; redactedAt: Date };
+    };
+    expect(call.where).toEqual({ id: 'pe_matched_1' });
+    expect(call.data.redactedAt).toBe(NOW);
+    const body = JSON.parse(call.data.rawBody);
+    expect(body.description).toBeNull();
+    expect(body.content).toBeNull();
+    expect(body.transferAmount).toBe(200000);
+    expect(body.referenceCode).toBe('FT2026080112345');
+    expect(res.rowsAffected).toBe(1);
+  });
+
+  it('matched arm: non-JSON body is left unchanged but still stamped', async () => {
+    const { tx, paymentEventUpdate } = makeTx(0, [], [], {
+      matchedRows: [{ id: 'pe_matched_bad', rawBody: 'x=1&y=2' }],
+    });
+    await retentionSweeper(tx, { now: NOW });
+    const call = paymentEventUpdate.mock.calls[0][0] as { data: { rawBody: string; redactedAt: Date } };
+    expect(call.data.rawBody).toBe('x=1&y=2');
+    expect(call.data.redactedAt).toBe(NOW);
+  });
+
+  // --- #837: SQL predicates of the new arms ----------------------------------------
+  function sqlOf(call: unknown[]): string {
+    const q = call[0] as { strings: string[] };
+    return q.strings.join('?');
+  }
+
+  it('guest scrub UPDATE also clears Booking.pickupDetail', async () => {
+    const { tx, execRaw } = makeTx(0, []);
+    await retentionSweeper(tx, { now: NOW });
+    expect(sqlOf(execRaw.mock.calls[0])).toContain('"pickupDetail"');
+  });
+
+  it('matched claim targets bookingId IS NOT NULL bank_transfer events', async () => {
+    const { tx, queryRaw } = makeTx(0, []);
+    await retentionSweeper(tx, { now: NOW });
+    const sql = sqlOf(queryRaw.mock.calls[3]);
+    expect(sql).toContain('"bookingId" IS NOT NULL');
+    expect(sql).toContain('"redactedAt" IS NULL');
+    expect(sql).toContain("'bank_transfer'");
+  });
+
+  it('Hold scrub: UPDATE (not DELETE) of NON-active holds, counted in rowsAffected', async () => {
+    const { tx, execRaw } = makeTx(0, [], [], { holdCount: 9 });
+    const res = await retentionSweeper(tx, { now: NOW });
+    // exec order: guest, planner(1), notif, charter, hold
+    const sql = sqlOf(execRaw.mock.calls[4]);
+    expect(sql).toContain('UPDATE "Hold"');
+    expect(sql).not.toContain('DELETE');
+    expect(sql).toContain("<> 'active'::\"HoldStatus\"");
+    expect(sql).toContain('"customerEmail" = NULL');
+    expect(res.rowsAffected).toBe(9);
+  });
+
+  it('Booking.pickupDetail backfill counts already-scrubbed snapshots', async () => {
+    const { tx, execRaw } = makeTx(0, [], [], { pickupCount: 4 });
+    const res = await retentionSweeper(tx, { now: NOW });
+    const sql = sqlOf(execRaw.mock.calls[5]);
+    expect(sql).toContain('"snapshotAnonymizedAt" IS NOT NULL');
+    expect(sql).toContain('"pickupDetail" IS NOT NULL');
+    expect(res.rowsAffected).toBe(4);
+  });
+
+  it('FunnelEvent prune: DELETE by createdAt, loops until a batch is under the limit', async () => {
+    const { tx, execRaw } = makeTx(0, [], [], { funnelBatches: [200, 30] });
+    const res = await retentionSweeper(tx, { now: NOW });
+    const sql = sqlOf(execRaw.mock.calls[6]);
+    expect(sql).toContain('DELETE FROM "FunnelEvent"');
+    expect(sql).toContain('"createdAt" <');
+    expect(execRaw).toHaveBeenCalledTimes(8);
+    expect(res.rowsAffected).toBe(230);
   });
 });
