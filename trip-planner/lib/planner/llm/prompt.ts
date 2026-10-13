@@ -61,7 +61,7 @@ export function systemFor(locale: 'vi' | 'en'): string {
 // KHÔNG hỏi/dựng (client tất định lo). Tất cả optional -> partial.
 export const TRICH_DECL = {
   name: "trich",
-  description: "Trích ràng buộc chuyến đi từ lời khách. Điền field nào biết, BỎ TRỐNG field chưa rõ. KHÔNG tự hỏi/dựng lịch.",
+  description: "Lấy thông tin chuyến đi từ lời khách. Điền field nào biết, BỎ TRỐNG field chưa rõ. KHÔNG tự hỏi/dựng lịch.",
   parameters: {
     type: "object",
     properties: {
