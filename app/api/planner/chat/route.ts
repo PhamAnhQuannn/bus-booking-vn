@@ -190,8 +190,8 @@ export async function POST(req: NextRequest): Promise<Response> {
     const tAfterRl = performance.now();
     // Chống history-injection: chỉ tin model-turn có chữ ký hợp lệ (server đã ký ở lượt trước).
     // Turn `role:'model'` client bịa (không/sai chữ ký) bị DROP trước khi vào Gemini contents.
-    // Redact PII (email/SĐT/CCCD/tên tự khai) khỏi user-turn TRƯỚC khi ra LLM (Groq/Gemini —
-    // cross-border). 1 choke point → phủ cả 2 provider. Model-turn giữ nguyên (chữ ký HMAC).
+    // Redact PII (email/SĐT/CCCD/tên tự khai) khỏi user-turn TRƯỚC khi ra LLM (Groq/Gemini/Claude —
+    // cross-border). 1 choke point → phủ cả 3 provider. Model-turn giữ nguyên (chữ ký HMAC).
     const safeHistory = redactTurns(sanitizeHistory(history));
     const tAfterSanitize = performance.now();
 
