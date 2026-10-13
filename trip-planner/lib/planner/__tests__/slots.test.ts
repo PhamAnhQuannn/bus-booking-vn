@@ -250,6 +250,12 @@ describe('extractFromText — nhịp độ + không coi "muốn …" là sở th
   });
   it('phủ định: "không cần kín lịch" KHÔNG thành packed', () =>
     expect(extractFromText('đi thoải mái, không cần kín lịch').pace).toBeUndefined());
+  it('false-positive: chill/vibe, "nhiều nơi" nghĩa khác, "không thong thả"', () => {
+    expect(extractFromText('Đà Lạt 2 ngày, thích quán cà phê chill').pace).toBeUndefined();
+    expect(extractFromText('Đà Lạt có nhiều nơi ăn ngon không').pace).toBeUndefined();
+    expect(extractFromText('đi nhưng không thong thả').pace).toBeUndefined();
+    expect(extractFromText('muốn ghé nhiều nơi nhất có thể').pace).toBe('packed');
+  });
   it('applyExtracted ghi pace', () =>
     expect(applyExtracted({}, extractFromText('đi thư thả')).pace).toBe('relaxed'));
   it('"muốn ghé X" / "muốn vui vẻ…" không thành sở thích literal; "muốn ra biển" vẫn bien-dao', () => {

@@ -170,13 +170,15 @@ const INTEREST_VERB_RE = /(?:thích|ưa thích|quan tâm|sở thích|mê|đam m�
 // Nhịp độ từ free-text. Trước đây chỉ LLM trích pace → lượt-1 short-circuit ("… đi thong thả …") mất pace.
 // relaxed xét TRƯỚC lọc phủ định vì chính cụm có "không" ("không vội"); packed chỉ ở clause KHÔNG phủ định
 // ("không cần kín lịch" ≠ packed).
-const PACE_RELAXED_RE = /(?:^|\P{L})(?:thong thả|thư thả|chậm rãi|nhẹ nhàng|không vội|ko vội|chill|relax(?:ed|ing)?)(?!\p{L})/iu;
-const PACE_PACKED_RE = /(?:^|\P{L})(?:(?:đi )?(?:được )?nhiều (?:chỗ|nơi|điểm)|kín lịch|dày đặc|tranh thủ tối đa|càng nhiều càng tốt|packed)(?!\p{L})/iu;
+const PACE_NOT_RUSH_RE = /(?:^|\P{L})(?:không|ko) vội(?!\p{L})/iu;
+const PACE_RELAXED_RE = /(?:^|\P{L})(?:thong thả|thư thả|chậm rãi|nhẹ nhàng|relax(?:ed|ing)?)(?!\p{L})/iu;
+const PACE_PACKED_RE = /(?:^|\P{L})(?:(?:đi|ghé|tham quan) (?:được )?nhiều (?:chỗ|nơi|điểm)|kín lịch|dày đặc|tranh thủ tối đa|càng nhiều càng tốt|packed)(?!\p{L})/iu;
 const PACE_MODERATE_RE = /(?:^|\P{L})(?:vừa phải|cân bằng|moderate)(?!\p{L})/iu;
 function extractPace(text: string): Pace | undefined {
   const t = text.toLowerCase();
-  if (PACE_RELAXED_RE.test(t)) return "relaxed";
+  if (PACE_NOT_RUSH_RE.test(t)) return "relaxed";
   const clauses = t.split(CLAUSE_SPLIT_RE).filter((c) => c && !NEGATION_RE.test(c));
+  if (clauses.some((c) => PACE_RELAXED_RE.test(c))) return "relaxed"; // "không thong thả" ≠ relaxed
   if (clauses.some((c) => PACE_PACKED_RE.test(c))) return "packed";
   if (clauses.some((c) => PACE_MODERATE_RE.test(c))) return "moderate";
   return undefined;
