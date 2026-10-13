@@ -264,3 +264,15 @@ describe('extractFromText — nhịp độ + không coi "muốn …" là sở th
     expect(extractFromText('chỉ muốn ra biển').interests).toEqual(['bien-dao']);
   });
 });
+
+describe('extractPace — cụm mơ hồ chỉ tính khi gắn với đi/lịch/nhịp (Fable R1)', () => {
+  it.each([
+    ['món ăn nhẹ nhàng, dễ ăn', undefined],
+    ['thời tiết nhẹ nhàng mát mẻ', undefined],
+    ['sáng sớm sương mù dày đặc', undefined],
+    ['giá vừa phải là được', undefined],
+    ['muốn đi nhẹ nhàng thôi', 'relaxed'],
+    ['lịch dày đặc cũng được', 'packed'],
+    ['nhịp vừa phải', 'moderate'],
+  ])('%s → %s', (t, want) => expect(extractFromText(t).pace).toBe(want));
+});

@@ -169,11 +169,12 @@ const PERSON_COUNT_RE = /\d+\s*(?:người|khách(?!\s*sạn)|đứa|thành viê
 const INTEREST_VERB_RE = /(?:thích|ưa thích|quan tâm|sở thích|mê|đam mê)\s+(.+)/i;
 // Nhịp độ từ free-text. Trước đây chỉ LLM trích pace → lượt-1 short-circuit ("… đi thong thả …") mất pace.
 // relaxed xét TRƯỚC lọc phủ định vì chính cụm có "không" ("không vội"); packed chỉ ở clause KHÔNG phủ định
-// ("không cần kín lịch" ≠ packed).
+// ("không cần kín lịch" ≠ packed). Cụm mơ hồ (nhẹ nhàng / dày đặc / vừa phải) chỉ tính khi gắn với
+// đi/lịch/nhịp — "món ăn nhẹ nhàng", "sương mù dày đặc", "giá vừa phải" KHÔNG phải nhịp độ.
 const PACE_NOT_RUSH_RE = /(?:^|\P{L})(?:không|ko) vội(?!\p{L})/iu;
-const PACE_RELAXED_RE = /(?:^|\P{L})(?:thong thả|thư thả|chậm rãi|nhẹ nhàng|relax(?:ed|ing)?)(?!\p{L})/iu;
-const PACE_PACKED_RE = /(?:^|\P{L})(?:(?:đi|ghé|tham quan) (?:được )?nhiều (?:chỗ|nơi|điểm)|kín lịch|dày đặc|tranh thủ tối đa|càng nhiều càng tốt|packed)(?!\p{L})/iu;
-const PACE_MODERATE_RE = /(?:^|\P{L})(?:vừa phải|cân bằng|moderate)(?!\p{L})/iu;
+const PACE_RELAXED_RE = /(?:^|\P{L})(?:thong thả|thư thả|chậm rãi|(?:đi|lịch|nhịp) nhẹ nhàng|relax(?:ed|ing)?)(?!\p{L})/iu;
+const PACE_PACKED_RE = /(?:^|\P{L})(?:(?:đi|ghé|tham quan) (?:được )?nhiều (?:chỗ|nơi|điểm)|kín lịch|lịch (?:kín|dày đặc)|tranh thủ tối đa|càng nhiều càng tốt|packed)(?!\p{L})/iu;
+const PACE_MODERATE_RE = /(?:^|\P{L})(?:(?:đi|lịch|nhịp|tốc độ) (?:vừa phải|cân bằng)|moderate)(?!\p{L})/iu;
 function extractPace(text: string): Pace | undefined {
   const t = text.toLowerCase();
   if (PACE_NOT_RUSH_RE.test(t)) return "relaxed";

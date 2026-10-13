@@ -571,6 +571,9 @@ export default function TroLyDuLichPage() {
       // Tương tự: server đã trích days (nó có history → tính tuyệt đối MỚI đúng) → KHÔNG để số client
       // đè (relDay regex chỉ best-effort; cụm lỡ như "thêm được 2 ngày"/"cộng 2 ngày" vẫn lọt). Server-wins.
       if (typeof partial.days === 'number' && partial.days > 0 && det.days != null) delete det.days;
+      // Pace: server-wins như dia_diem/days — LLM hiểu ngữ cảnh, regex client chỉ là bù cho lượt-1 short-circuit
+      // (không có LLM). Không xoá → "món ăn nhẹ nhàng" từng đè pace đúng của LLM.
+      if (partial.pace && det.pace) delete det.pace;
       advance(applyExtracted(merged, det));
     }
   }
