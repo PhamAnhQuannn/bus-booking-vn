@@ -18,6 +18,14 @@ const EMAIL = /[\w.+-]+@[\w-]+\.[\w.-]+/g;
 // digit run (#394) → không nuốt đuôi order-id/txn-ref dài hơn. Bounded 8-10 chữ số theo sau.
 const PHONE = /(?<!\d)(?:\+?84|0)[\s.-]?\d(?:[\s.-]?\d){7,9}\b/g;
 
+// SĐT ĐỌC BẰNG CHỮ ("không chín một hai …"): khách né regex số, hoặc đọc theo thói quen. ≥9 token chữ-số
+// liên tiếp (có dấu / không dấu / EN, cho phép lẫn 1 chữ số đơn) = gần như chắc chắn là số điện thoại;
+// câu tự nhiên không có 9 từ chữ-số liền nhau ("ba ngày hai đêm" chỉ 2). Bắt được nhờ eval hội thoại
+// (planner-conv-eval pilot: số đọc chữ lọt tới LLM 3 lượt).
+const DIGIT_WORD =
+  String.raw`(?:không|khong|một|mot|mốt|hai|ba|bốn|bon|tư|tu|năm|nam|lăm|lam|sáu|sau|bảy|bẩy|bay|tám|tam|chín|chin|linh|lẻ|le|zero|oh|one|two|three|four|five|six|seven|eight|nine|\d)`;
+const SPELLED_PHONE = new RegExp(String.raw`(?<!\p{L})${DIGIT_WORD}(?:[\s,.-]+${DIGIT_WORD}){8,}(?!\p{L})`, "giu");
+
 // CCCD (12) / CMND (9) đứng độc lập, khác 10 chữ số của phone. Chạy SAU phone (phone đã bị thay
 // bằng chữ) nên không đụng số điện thoại. `(?<!\d)...(?!\d)` → chỉ khối số đúng độ dài, không cắt
 // giữa run dài hơn (order-id, mã vé).
@@ -40,6 +48,7 @@ export function redactPii(text: string): string {
   return text
     .replace(EMAIL, "[email]")
     .replace(PHONE, "[sđt]")
+    .replace(SPELLED_PHONE, "[sđt]")
     .replace(NATIONAL_ID, "[cccd]")
     .replace(NAME_VI, "$1[tên]")
     .replace(NAME_EN, "$1[tên]");

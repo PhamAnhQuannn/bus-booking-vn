@@ -9,6 +9,29 @@ describe('redactPii — mask PII định danh', () => {
     expect(redactPii('số 0912.345.678')).toBe('số [sđt]');
   });
 
+  it('mask SĐT đọc bằng chữ (có dấu / không dấu / EN / lẫn chữ số)', () => {
+    expect(redactPii('liên hệ em qua số không chín không không không không không không hai bốn nhé')).toBe('liên hệ em qua số [sđt] nhé');
+    expect(redactPii('sdt khong chin mot hai, ba bon nam, sau bay tam')).toBe('sdt [sđt]');
+    expect(redactPii('call zero nine one two three four five six seven eight')).toBe('call [sđt]');
+    expect(redactPii('số không 9 1 hai ba 4 năm sáu bảy')).toBe('số [sđt]');
+  });
+
+  it('KHÔNG nhầm câu thường có vài từ chữ-số', () => {
+    expect(redactPii('đi ba ngày hai đêm, một hai người')).toBe('đi ba ngày hai đêm, một hai người');
+    expect(redactPii('nam hai người lớn ba trẻ em')).toBe('nam hai người lớn ba trẻ em');
+    expect(redactPii('một hai ba bốn năm sáu bảy tám')).toBe('một hai ba bốn năm sáu bảy tám'); // 8 token < 9
+  });
+
+  it('SĐT đọc chữ: idempotent (backfill re-run) + câu thật có nhiều từ chữ-số vẫn nguyên', () => {
+    const once = redactPii('số không chín một hai ba bốn năm sáu bảy tám nhé');
+    expect(once).toBe('số [sđt] nhé');
+    expect(redactPii(once)).toBe(once);
+    const ok = 'đi Đà Lạt ba ngày hai đêm, hai người lớn một trẻ em năm tuổi, bảy tám giờ sáng';
+    expect(redactPii(ok)).toBe(ok);
+    const long = 'không '.repeat(400) + 'x';
+    expect(redactPii(long)).toBe('[sđt] x');
+  });
+
   it('mask email', () => {
     expect(redactPii('mail quan.test@example.com đi')).toBe('mail [email] đi');
   });
