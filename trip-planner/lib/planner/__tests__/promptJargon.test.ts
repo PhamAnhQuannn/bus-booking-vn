@@ -19,3 +19,16 @@ describe('system prompt — không mồi thuật ngữ nội bộ', () => {
 describe('tool declaration — model nhìn thấy mô tả tool', () => {
   it('mô tả trich không chứa "ràng buộc"', () => expect(TRICH_DECL.description).not.toMatch(/ràng buộc/i));
 });
+
+// planner-conv-eval: phân tích 1.219 hội thoại — trợ lý hỏi checklist nhóm chung cho mọi khách, không có lời
+// khuyên riêng cho trẻ em/xe lăn, và chỉ 52% hội thoại xe lăn được ghi nhận wheelchair.
+describe('system prompt — luật theo nhóm khách', () => {
+  const s = systemFor('vi');
+  it('xe lăn → wheelchair + avoidSteep', () => expect(s).toMatch(/xe lăn[^\n]*wheelchair = true/));
+  it('trẻ nhỏ: điền children, không tự đặt pace', () => expect(s).toMatch(/Có trẻ nhỏ -> điền children/));
+  it('1 câu riêng cho nhóm, không hứa dữ liệu chưa xác minh', () => expect(s).toMatch(/ĐÚNG 1 câu ngắn dành cho nhóm/));
+  it('không hỏi lại / không liệt kê danh sách câu hỏi', () => expect(s).toMatch(/KHÔNG liệt kê danh sách câu hỏi/));
+  it('vẫn hỏi thành phố khi gợi ý vibe mà chưa rõ thành phố (không under-ask)', () => expect(s).toMatch(/riêng khi khách HỎI GỢI Ý mà chưa rõ thành phố thì vẫn hỏi thành phố/));
+  it('câu riêng cho nhóm không hứa chỗ nghỉ / lối xe lăn', () => expect(s).not.toMatch(/có chỗ nghỉ giữa buổi\)/));
+  it('bản EN giữ nguyên các luật nhóm khách', () => expect(systemFor('en')).toContain(s));
+});
