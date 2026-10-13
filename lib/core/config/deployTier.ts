@@ -30,3 +30,13 @@ export function isRealProduction(): boolean {
     ? process.env.VERCEL_ENV === 'production'
     : process.env.NODE_ENV === 'production';
 }
+
+/**
+ * Local-only gate for dev/eval harness flags (PLANNER_EVAL_MODE, PLANNER_LLM_FALLBACK).
+ * Stricter than `!isRealProduction()`: Vercel PREVIEW deployments are publicly reachable and
+ * spend real LLM quota, so they must not honour limiter-bypass flags either. `VERCEL` is set
+ * on every Vercel deployment (preview + production) and never on a local machine.
+ */
+export function isLocalEvalHarnessAllowed(): boolean {
+  return !process.env.VERCEL && !isRealProduction();
+}

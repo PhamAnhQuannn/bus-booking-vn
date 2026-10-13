@@ -42,6 +42,7 @@ import {
   BREAKER_COOLDOWN_SEC,
 } from '@/lib/ratelimit';
 import { clientIp } from '@/lib/core/http/clientIp';
+import { isLocalEvalHarnessAllowed } from '@/lib/core/config/deployTier';
 import { sessionIdFromRequest } from '@/lib/analytics';
 import { captureException } from '@/lib/observability';
 import { getEnv } from '@/lib/config';
@@ -122,12 +123,17 @@ export async function POST(req: NextRequest): Promise<Response> {
     // the global daily Gemini budget so no single caller can exhaust the free-tier quota.
     const ip = clientIp(req.headers);
 
+    // Eval harness (planner-conv-eval): PLANNER_EVAL_MODE=1 bỏ breaker + mọi limiter/budget để runner
+    // Playwright chạy hàng nghìn lượt từ 1 IP local. KHÔNG BAO GIỜ hiệu lực ở prod thật (đọc fresh mỗi
+    // request); chi phí eval chặn ở eval-proxy (ledger), không ở đây.
+    const evalMode = process.env.PLANNER_EVAL_MODE === '1' && isLocalEvalHarnessAllowed();
+
     const tBeforeBreaker = performance.now();
     // Circuit-breaker (#552): during a Gemini 429/5xx storm, short-circuit to 503 WITHOUT calling
     // Gemini or consuming the budget — checked before the budget bucket so doomed calls don't burn
     // the daily quota. Fail-open (breakerState returns closed on Redis error) so a blip can't wedge
     // the assistant shut; the fail-closed plannerDailyBudget stays the cost backstop.
-    const breaker = await breakerState();
+    const breaker = evalMode ? { open: false, retryAfter: 0 } : await breakerState();
     if (breaker.open) {
       logger.warn({ retryAfter: breaker.retryAfter, ip }, 'planner.chat.breaker.open');
       // reason: 'breaker' — upstream đang bão 429/5xx, cooldown ngắn → copy "tạm nghỉ" + CHO Thử lại sau.
@@ -142,13 +148,15 @@ export async function POST(req: NextRequest): Promise<Response> {
 
     const tAfterBreaker = performance.now();
     const sessionId = sessionIdFromRequest(req);
-    const rl = sessionId
-      ? await plannerChatRatelimit.limit(`planner-chat:${sessionId}`)
-      : await plannerChatAnonRatelimit.limit(`planner-chat-anon:${ip}`);
+    const rl = evalMode
+      ? { allowed: true, remaining: Infinity, retryAfter: 0 }
+      : sessionId
+        ? await plannerChatRatelimit.limit(`planner-chat:${sessionId}`)
+        : await plannerChatAnonRatelimit.limit(`planner-chat-anon:${ip}`);
     // Per-IP DAILY sub-cap (#547) — bb_sid is attacker-mintable, so the per-session throttle
     // above can be rotated away; this caps any single IP at 50/day so no one IP drains the whole
     // global budget. Checked before the global bucket so a drained IP doesn't consume it.
-    const perIp = rl.allowed
+    const perIp = rl.allowed && !evalMode
       ? await plannerChatDailyPerIp.limit(`planner-gemini-ip:${ip}`)
       : null;
     const budget = rl.allowed && perIp?.allowed
