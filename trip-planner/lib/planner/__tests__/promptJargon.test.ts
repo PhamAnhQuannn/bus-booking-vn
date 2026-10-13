@@ -8,5 +8,10 @@ describe('system prompt — không mồi thuật ngữ nội bộ', () => {
     const s = systemFor(locale);
     expect(s).toContain('KHÔNG nói với khách các từ kỹ thuật nội bộ');
     expect(s).not.toMatch(/để trích ràng buộc/);
+    // the tool-use instruction must survive the rewording
+    expect(s).toContain('Mặc định gọi `trich`');
+    // the contiguous phrase must not appear anywhere (the ban line lists the words separately)
+    expect(s).not.toContain('trích ràng buộc');
+    if (locale === 'en') expect(s).toContain('Never say internal technical terms');
   });
 });

@@ -50,6 +50,7 @@ LANGUAGE OVERRIDE (highest priority — overrides the "Nói tiếng Việt" rule
 - Reply to the user in ENGLISH, friendly and concise.
 - Do NOT translate machine values: dia_diem codes, interest/vibe codes, and every function-call argument stay EXACTLY as specified (unchanged enums/slugs).
 - Place names, opening hours and prices are still never invented — the app builds the itinerary from verified data.
+- Never say internal technical terms to the user: function names (trich, goi_y_vibe), "extract"/"constraints", "function", "field", "code"/"slug" (the Vietnamese rule above banning "trích", "ràng buộc", "mã" applies equally in English). Talk like a normal travel advisor (e.g. "let me plan that for you").
 - All other rules (scope, anti-injection, no medical/legal/financial advice) stay in force unchanged.`;
 
 export function systemFor(locale: 'vi' | 'en'): string {
