@@ -28,8 +28,8 @@ export async function GET(req: NextRequest): Promise<Response> {
   if (unauthorized) return unauthorized;
 
   try {
-    // Gemini 1/ngày: chỉ probe ở slot đầu ngày (UTC 0). Groq mọi lần. Lịch `0 */6 * * *` → UTC {0,6,12,18}.
-    const providers: ProviderId[] = new Date().getUTCHours() === 0 ? ['groq', 'gemini'] : ['groq'];
+    // Gemini + Claude 1/ngày: chỉ probe ở slot đầu ngày (UTC 0). Groq mọi lần. Lịch `0 */6 * * *` → UTC {0,6,12,18}.
+    const providers: ProviderId[] = new Date().getUTCHours() === 0 ? ['groq', 'gemini', 'claude'] : ['groq'];
     const results = await probePlannerProviders(providers);
 
     // model_404/down/auth = bất thường → warn (lọc alert theo level). skipped_no_key/ok = im.
