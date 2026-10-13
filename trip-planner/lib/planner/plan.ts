@@ -188,7 +188,8 @@ function computeDayWeight(r: KbRecord): number {
 // núi, thác ở 29–43% — chỉ dựa prominence_m (thường thiếu trong KB) nên không bắt được; và trẻ em hoàn toàn
 // không ảnh hưởng lịch (cùng tỉ lệ chùa/di tích như nhóm người lớn). Nhận diện theo LOẠI + TÊN.
 const STEEP_CAT = ["hang", "nui", "deo", "duong mon", "thac", "thung lung"];
-const STEEP_NAME = /(?:^|[^\p{L}])(?:hang|động|núi|đỉnh|đèo|thác|leo)(?![\p{L}])/iu;
+// "động" chỉ khi đứng ĐẦU tên ("Động Phong Nha") hoặc sau "hang" — tránh "Cung văn hóa Lao động", "Động vật".
+const STEEP_NAME = /(?:^|[^\p{L}])(?:hang|núi|đỉnh|đèo|thác|leo)(?![\p{L}])|^động\s(?!vật)/iu;
 const KID_CAT = ["khu vui choi", "khu du lich giai tri", "cong vien", "vuon hoa", "bai bien", "nong trai", "vuon thu", "thuy cung"];
 const KID_NAME = /(?:^|[^\p{L}])(?:vui chơi|công viên|thủy cung|thuỷ cung|vườn thú|thảo cầm viên|bãi biển|công viên nước)(?![\p{L}])/iu;
 const STEEP_PENALTY = 6; // > thang chất lượng (0–6) → điểm dốc rơi xuống cuối, vẫn còn nếu tp không có điểm khác
@@ -543,8 +544,13 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
   // fameRankOf: hạng nổi tiếng 1 điểm = signatureSpot index thấp nhất khớp (spot[0]=biểu tượng nhất →
   // hạng cao nhất). Tiebreak GIỮA pin: nhiều marquee CÙNG cụm → icon nổi tiếng nhất lên TRƯỚC (Tượng Chúa
   // spot0 thắng Bãi Sau spot1). 0 nếu không khớp / slug không hand-list → không đổi. (re-apply sau merge #681 drop)
+  // Nhóm cần đi nhẹ: điểm phải leo/hang KHÔNG được thổi hạng nhờ fame hand-list (Fable R1 #866: −6 nằm DƯỚI
+  // tầng fame nên Ngũ Hành Sơn/Hàm Rồng/Mã Pì Lèng vẫn được giữ, điểm phẳng cùng khu bị cắt). Anchor của khách
+  // và điểm có lối vào đặc trưng (cáp treo) giữ nguyên fame.
+  const gentleSteep = (r: KbRecord): boolean =>
+    needsGentle(req) && !anchorIds.has(r.id) && !hasSigAccess(r) && isSteepish(r);
   const fameRankOf = (r: KbRecord): number => {
-    if (!fameSpots.length) return 0;
+    if (!fameSpots.length || gentleSteep(r)) return 0;
     const nm = foldText(r.name);
     for (let i = 0; i < fameSpots.length; i++) {
       const s = fameSpots[i];
@@ -560,7 +566,7 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
   // của khu ("cầu vàng" khớp 'cầu vàng'). Khi perDay-cap buộc cắt, dùng match cụ-thể-nhất để icon THẬT
   // (cầu vàng, sf9) không bị filler chỉ-trùng-tên-khu (Chùa Linh Ứng, tên riêng khớp 'chùa linh ứng' sf5)
   // đè. Slug ngoài hand-list → fameSpots rỗng → 0 (auto slug xếp theo importance/score bên dưới). (#702)
-  const specFameOf = (r: KbRecord): number => specFameRank(r.name, fameSpots);
+  const specFameOf = (r: KbRecord): number => (gentleSteep(r) ? 0 : specFameRank(r.name, fameSpots));
   // protCmp: xếp `ordered` trong vòng protReg (điểm rớt do perDay/Σ = ưu-tiên-thấp-nhất, tức cuối). Thang:
   // user-anchor > pin(marquee) > hạng fame CỤ-THỂ (specFame — match signature DÀI nhất, KHÔNG để tên-khu thổi
   // filler lên bằng icon) > chất-lượng > importance-rank > id. KHÔNG có tầng sig-access ở ĐÂY: sig-access luôn
@@ -974,21 +980,23 @@ export function buildItinerary(req: TripRequest, store?: Store): Itinerary {
   const notes: string[] = [...planNotes];
   if (goiTruoc) notes.push(`${goiTruoc} địa điểm chưa có giờ mở xác minh — nên GỌI TRƯỚC khi đến.`);
   const allItems = days.flatMap((d) => d.items).filter((i) => i.role === "diem-den");
-  if (req.party.elders > 0 || req.accessibility?.avoidSteep) {
+  if (needsGentle(req)) { // gồm xe lăn-only (Fable R1 #866: trước đây xe lăn bị phạt dốc nhưng không được báo)
     // Trung thực: điểm leo/hang/thác có thể VẪN còn (khách tự chọn, hoặc thành phố ít điểm khác) → nói rõ số lượng.
     const steepKept = allItems.filter((i) => { const r = st.destinations.find((d) => d.id === i.id); return !!r && isSteepish(r); }).length;
     notes.push(steepKept
-      ? `Có người lớn tuổi / cần tránh dốc: đã đẩy điểm phải leo, hang động, thác xuống cuối, nhưng vẫn còn ${steepKept} điểm có thể phải leo/đi bộ nhiều (do bạn chọn hoặc thành phố ít điểm thay thế) — nên hỏi lại về đường đi trước.`
-      : "Có người lớn tuổi / cần tránh dốc: đã đẩy điểm phải leo, hang động, thác xuống cuối; lịch này không còn điểm như vậy.");
+      ? `Có người lớn tuổi / xe lăn / cần tránh dốc: đã đẩy điểm phải leo, hang động, thác xuống cuối, nhưng vẫn còn ${steepKept} điểm có thể phải leo/đi bộ nhiều (do bạn chọn hoặc thành phố ít điểm thay thế) — nên hỏi lại về đường đi trước.`
+      : "Có người lớn tuổi / xe lăn / cần tránh dốc: đã đẩy điểm phải leo, hang động, thác xuống cuối; lịch này không còn điểm như vậy.");
   }
   if (req.accessibility?.wheelchair)
     // Trung thực: dữ liệu lối xe lăn (OSM) thưa — không hứa "tiếp cận được".
     notes.push("Có người ngồi xe lăn: đã ưu tiên điểm có lối xe lăn theo dữ liệu, nhưng nhiều nơi chưa có thông tin — nên gọi trước để hỏi lối đi.");
   if (req.party.children > 0) {
-    const kid = allItems.filter((i) => i.category && KID_CAT.some((t) => boundedIncludes(foldText(i.category ?? ""), t))).length;
+    // Đếm theo record (loại + tên, cùng isKidFriendly của chấm điểm). Câu 0-điểm chỉ nói về LỊCH NÀY, không
+    // khẳng định về dữ liệu thành phố (Fable R1: trước đây nói "ít điểm vui chơi trong dữ liệu" dù KB có ≥3).
+    const kid = allItems.filter((i) => { const r = st.destinations.find((d) => d.id === i.id); return !!r && isKidFriendly(r); }).length;
     notes.push(kid
       ? `Có trẻ nhỏ: đã ưu tiên ${kid} điểm vui chơi / công viên / biển phù hợp với trẻ.`
-      : "Có trẻ nhỏ: thành phố này ít điểm vui chơi cho trẻ trong dữ liệu — lịch giữ các điểm gần, ít di chuyển.");
+      : "Có trẻ nhỏ: lịch này chưa có điểm vui chơi riêng cho trẻ — bạn có thể nhắn để đổi một điểm.");
   }
   // Phương tiện: chỉ GHI LẠI (không có ma trận thời gian riêng theo phương tiện → không đổi thứ tự/route).
   if (req.transport) {

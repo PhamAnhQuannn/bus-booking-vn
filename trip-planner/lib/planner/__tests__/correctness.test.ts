@@ -1209,3 +1209,39 @@ describe('buildItinerary — theo nhóm khách (người già / xe lăn / trẻ 
     expect(buildItinerary(req, store).notes.join(' ')).toMatch(/vẫn còn 1 điểm/);
   });
 });
+
+// Fable R1 #866: điểm dốc nằm trong signatureSpots hand-list (fame tier xếp TRÊN điểm chất lượng) vẫn được giữ
+// cho người già, điểm phẳng cùng khu bị cắt. Giờ fame của điểm dốc = 0 với nhóm cần đi nhẹ.
+describe('buildItinerary — fame hand-list không thổi điểm dốc cho nhóm cần đi nhẹ', () => {
+  const p = (id: string, name: string, cat: string, lat: number): KbRecord => ({
+    id, name, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'], category: { primary: cat },
+    coordinates: { latitude: lat, longitude: 108.26 },
+    address: { full_address: 'số 1, Phường Ngũ Hành Sơn, thành phố Đà Nẵng' }, description: { value: 'x' },
+  } as KbRecord);
+  const store: Store = {
+    slug: 'da-nang', generatedAt: '2026-01-01', tam: { lat: 16.0, lon: 108.26 },
+    destinations: [
+      p('NHS', 'Danh thắng Ngũ Hành Sơn', 'Núi / Đèo / Đường mòn', 16.003),
+      p('CQ', 'Chùa Quán Thế Âm', 'Chùa / Thiền viện', 16.004),
+      p('LD', 'Làng đá Mỹ nghệ Non Nước', 'Điểm tham quan', 16.002),
+    ],
+    restaurants: [], hotels: [p('H1', 'KS', 'Khách sạn', 16.0)], matrix: null, matrixIndex: new Map(),
+  };
+  const names = (party: TripRequest['party'], accessibility?: TripRequest['accessibility']) =>
+    buildItinerary({ slug: 'da-nang', days: 1, pace: 'relaxed', party, accessibility }, store).days.flatMap((d) => d.items.map((i) => i.name));
+  it('khách thường: Ngũ Hành Sơn (fame) được giữ — đối chứng', () =>
+    expect(names({ adults: 2, children: 0, elders: 0 })).toContain('Danh thắng Ngũ Hành Sơn'));
+  it('người già: Ngũ Hành Sơn nhường chỗ cho điểm phẳng cùng khu', () =>
+    expect(names({ adults: 1, children: 0, elders: 2 })).not.toContain('Danh thắng Ngũ Hành Sơn'));
+  it('xe lăn-only cũng được báo bằng ghi chú tránh dốc', () => {
+    const it = buildItinerary({ slug: 'da-nang', days: 1, pace: 'relaxed', party: { adults: 2, children: 0, elders: 0 }, accessibility: { wheelchair: true } }, store);
+    expect(it.notes.join(' ')).toMatch(/xe lăn \/ cần tránh dốc/);
+  });
+  it('"Cung văn hóa Lao động" / "Động vật" không bị coi là dốc; "Động Phong Nha" có', async () => {
+    const { isSteepish } = await import('../plan');
+    const r = (name: string) => ({ id: 'x', name, category: { primary: 'Điểm tham quan' } } as KbRecord);
+    expect(isSteepish(r('Cung văn hóa Lao động'))).toBe(false);
+    expect(isSteepish(r('Vườn Động vật'))).toBe(false);
+    expect(isSteepish(r('Động Phong Nha'))).toBe(true);
+  });
+});
