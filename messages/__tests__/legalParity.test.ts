@@ -52,7 +52,7 @@ describe('no unfilled company-identity placeholders', () => {
 describe('cross-border disclosure (s6a) names every wired processor', () => {
   // PDPL Art.25 requires naming each cross-border recipient. Keep this list in sync with
   // the actual outbound integrations — the G7 CI grep guards additions of new vendors.
-  const REQUIRED = ['Vercel', 'Neon', 'Upstash', 'Cloudflare', 'Gemini', 'Groq', 'Resend', 'Sentry'];
+  const REQUIRED = ['Vercel', 'Neon', 'Upstash', 'Cloudflare', 'Gemini', 'Anthropic', 'Groq', 'Resend', 'Sentry'];
 
   for (const [locale, doc] of [['vi', vi], ['en', en]] as const) {
     it(`${locale}: s6a lists all cross-border recipients`, () => {
