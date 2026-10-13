@@ -11,95 +11,135 @@
   "terms": {
     "meta": {
       "title": "Terms of Service | BBVN",
-      "description": "Terms for using the BBVN bus ticket booking service."
+      "description": "Terms for using the BBVN bus ticket booking service, charter consultation and AI Travel Assistant."
     },
     "h1": "Terms of Service",
-    "updated": "Updated: August 2026",
-    "version": "Version: 2026-08",
+    "updated": "Updated: October 2026",
+    "version": "Version: 2026-10",
     "s1": {
       "title": "1. Introduction",
-      "body": "These Terms of Service (\"Terms\") govern the use of the BBVN bus ticket booking platform (\"Service\"). By booking a ticket through BBVN, you agree to comply with these Terms."
+      "body": "These Terms of Service (\"Terms\") govern your use of the website lenxevn.com and the services on it (the \"Service\") provided by BBVN, operated by MINH QUAN CONSTRUCTION – TRANSPORT AND TRADING SERVICES COMPANY LIMITED (CÔNG TY TNHH XÂY DỰNG – VẬN TẢI VÀ DỊCH VỤ THƯƠNG MẠI MINH QUÂN) (\"we\"). Tax code: [TAX CODE]. Address: [ADDRESS]. Email: hotro@lenxevn.com. By booking a ticket or using any other service on the website, you agree to these Terms. If a provision can be understood in more than one way, it is interpreted in the consumer's favour."
     },
     "s2": {
       "title": "2. Services provided",
-      "intro": "BBVN is an intermediary platform connecting customers with bus operators. We provide:",
+      "intro": "BBVN is an intermediary platform connecting customers with bus operators. We currently provide:",
       "items": [
-        "Search and comparison of inter-provincial bus trips.",
-        "Reservation and online prepayment via bank transfer (VietQR) or VNPay.",
-        "Ticket confirmation and notifications via email."
+        "Searching, comparing and booking intercity bus trips run by partner bus operators.",
+        "Online prepaid payment by bank transfer (VietQR). VNPay payment will be added when it is activated.",
+        "Ticket confirmation and notifications by email.",
+        "Consultation and referral of charter (contract-vehicle) requests to partner transport companies (see Section 8).",
+        "AI Travel Assistant: a free tool that provides itinerary suggestions for information purposes (see Section 7)."
       ],
-      "note": "BBVN is not a carrier. Bus operators are responsible for the transport service, safety and punctuality."
+      "note": "BBVN is not a transport operator. The transport service is performed by the bus operator, which is responsible for transport quality, safety and punctuality. BBVN is responsible for receiving bookings, confirming tickets, processing payment for bookings made on the website, and after-sales support under these Terms. The Service does not include organising package tours."
     },
     "s3": {
-      "title": "3. Booking information",
+      "title": "3. Account and booking information",
       "items": [
-        "When booking a ticket, you provide contact information (name, phone number, email) for each booking.",
-        "BBVN does not require you to create an account. Each booking is an independent transaction.",
-        "You are responsible for providing accurate information to receive ticket confirmation and to be contacted when needed."
+        "You may book as a guest (no account needed) or create an account to manage bookings more conveniently. Creating an account is optional.",
+        "When booking, you provide contact information (name, phone number, email) for each booking.",
+        "If you create an account, you are responsible for keeping your login credentials confidential and for activity under your account; tell us immediately if you suspect unauthorised access.",
+        "You are responsible for providing accurate information so that you can receive ticket confirmation and be contacted when needed.",
+        "Persons under 18 may book only with the consent of a parent or guardian. When booking for a person under 16, you confirm you are the parent/guardian or have their consent to provide the child's information.",
+        "We may suspend or terminate an account that breaches these Terms (for example fraud, abuse or use of automated tools), with notice of the reason; this does not affect bookings already confirmed."
       ]
     },
     "s4": {
       "title": "4. Booking and payment",
       "items": [
-        "Seats are held temporarily (up to 12 minutes) during payment.",
-        "Payment is made via bank transfer. Tickets are confirmed after payment is successfully received.",
-        "The displayed ticket price includes all fees. There are no hidden fees.",
-        "If payment is not completed within the hold period, the seat will be released for others to book."
+        "When you select seats, they are held temporarily for about 10 minutes while you enter your details. After the order is created, you have up to 20 minutes to complete the bank transfer; a countdown is shown on the payment page.",
+        "Payment is currently made by bank transfer via VietQR code to the bank account shown on the payment page. Please transfer the exact amount with the exact transfer content. VNPay will apply when it is activated.",
+        "The ticket is confirmed once we have successfully received your payment.",
+        "The ticket price and any fees are shown clearly before you confirm payment; you can review and change your order before confirming.",
+        "If payment is not completed within the hold period, the seats are released for others to book. If you have transferred money but the order has expired or the amount does not match, please contact us so that we can resolve it.",
+        "The e-ticket and booking confirmation email are transaction confirmations, not VAT invoices. If you need an invoice, please contact hotro@lenxevn.com with your booking code; invoices are issued in accordance with law."
       ]
     },
     "s5": {
       "title": "5. Cancellation and refund",
-      "body": "The cancellation and refund policy is set out in detail in the <link>Cancellation & Refund Policy</link>. That policy is an inseparable part of these Terms of Service."
+      "body": "The cancellation and refund rules are set out in detail in the <link>Cancellation & Refund Policy</link>. That policy is an inseparable part of these Terms of Service."
     },
     "s6": {
       "title": "6. Customer responsibilities",
       "items": [
         "Provide accurate information when booking (name, phone number).",
-        "Be present at the pickup point on time.",
-        "Comply with the bus operator's rules throughout the trip.",
-        "Do not use the Service for fraudulent or unlawful purposes."
+        "Be at the pickup point on time.",
+        "Follow the bus operator's rules on luggage, children, pets, prohibited goods and identity documents throughout the trip.",
+        "Do not use the Service for fraudulent or unlawful purposes.",
+        "Do not scrape data in bulk, use automated tools to book or access the system, or deliberately disrupt or circumvent the website's protective measures."
       ]
     },
     "s7": {
-      "title": "7. Limitation of liability",
-      "body": "BBVN is not responsible for: (a) the quality of the transport service provided by the bus operator; (b) damages caused by delay, trip cancellation or accidents during transport; (c) loss of luggage or personal property on the bus. BBVN's maximum compensation liability shall not exceed the value of the ticket paid."
+      "title": "9. Limitation of liability",
+      "body": "To the extent permitted by law: (a) we are responsible for the part of the service we provide, including operating the platform, processing bookings and payments, and information we publish; (b) the bus operator or transport company is responsible for transport quality, delays, trip cancellations, accidents, and luggage and property on board — we help forward complaints and request resolution under the Complaint Resolution Policy; (c) apart from refund obligations under the Cancellation & Refund Policy, our maximum compensation for a booking does not exceed the amount you paid for that booking; (d) the limit in point (c) does not apply to our intentional fault or gross negligence, to loss of life or injury to health, or to any case where the law (including consumer protection law) does not allow liability to be limited; (e) we are not liable for delay or failure to perform caused by force majeure (natural disaster, epidemic, war, infrastructure failure or cyberattack beyond our reasonable control), as provided by law."
     },
     "s8": {
-      "title": "8. Intellectual property",
-      "body": "All content, design, logo and source code of BBVN belong to us and are protected under Vietnamese intellectual property law."
+      "title": "10. Intellectual property",
+      "body": "All content, design, logos and source code of BBVN belong to us or our licensors and are protected under Vietnamese intellectual property law. Third-party data (see the data sources in Section 7) belongs to its owners under the applicable licences. You may not copy, distribute or commercially exploit website content without our consent, except for open data licensed separately."
     },
     "s9": {
-      "title": "9. Changes to the terms",
-      "body": "We may update these Terms. Material changes will be notified by email at least 30 days before they take effect. Continued use of the Service after a change means you accept the new Terms."
+      "title": "11. Changes to these Terms",
+      "body": "We may update these Terms. Changes affecting your rights or obligations will be announced on the website and by email (if we have your email address) at least 30 days before they take effect; changes that only correct presentation errors or are required by law take effect when the law requires. Changes do not apply to bookings already confirmed before the effective date. If you do not agree to a change, you may stop using the Service; continuing to use it after the effective date means you accept the new Terms."
     },
     "s10": {
-      "title": "10. Governing law",
-      "body": "These Terms are governed by Vietnamese law. Any disputes shall be resolved by the competent court in Vietnam."
+      "title": "12. Governing law and dispute resolution",
+      "body": "These Terms are governed by Vietnamese law. In the event of a dispute, the parties first seek to negotiate and mediate; you may file a complaint under the Complaint Resolution Policy, contact the state consumer protection authority, or sue at a competent court in Vietnam. Nothing in these Terms limits your right to complain, sue or exercise any other right under consumer protection law. If any provision of these Terms is held invalid or unenforceable, the remaining provisions remain in effect."
     },
     "s11": {
-      "title": "11. Contact",
-      "body": "If you have questions about these Terms of Service, please contact us by email: <email>support@bbvn.vn</email>. To file a complaint, please see the <link>Complaint Resolution Policy</link>."
+      "title": "13. Contact",
+      "body": "If you have questions about these Terms of Service, please contact: Email <email>hotro@lenxevn.com</email>; Address: [ADDRESS]. To file a complaint, please see the <link>Complaint Resolution Policy</link>."
+    },
+    "s12": {
+      "title": "7. AI Travel Assistant",
+      "intro": "The AI Travel Assistant (\"Assistant\") is an automated itinerary-suggestion tool on the website. By using the Assistant, you agree to the following:",
+      "items": [
+        "You are chatting with an artificial intelligence (AI) system, not a member of our staff. The content the Assistant gives is generated automatically by AI.",
+        "The Assistant provides reference information only, free of charge and on an \"as is\" basis. The Assistant does not make bookings, quote prices or sell any tour or service, and its content is not a quotation, commitment or contract. A service arises only when you book a ticket or sign a separate contract with the provider.",
+        "The content may be inaccurate, incomplete or out of date (opening hours, distances, travel times, road conditions, weather, etc.). Please verify with official sources or the provider before you travel.",
+        "The Assistant is not a substitute for professional medical, legal, visa, insurance, safety or financial advice.",
+        "Please do not enter personal information about yourself or others (full name, phone number, email, ID/passport number, etc.) in the chat box. The system automatically masks some types of information before processing, but this is a best-effort mechanism and is not guaranteed. You allow us to process the content you enter in order to provide and operate the Assistant.",
+        "Chat content is sent to a third-party AI model provider located in the United States (Anthropic Claude; Google Gemini and Groq as fallback) for processing. See Section 6a of the Privacy Policy.",
+        "The Assistant is for people aged 18 and over only; by using the Assistant, you confirm that you meet this condition.",
+        "You must not use automated tools or bulk-collect data from the Assistant, try to manipulate or bypass the system's instructions (prompt injection), or generate unlawful content. The Assistant has usage limits; we may restrict or suspend access if we detect a violation.",
+        "The Assistant is provided free of charge and on an \"as is\" basis. To the extent permitted by law, we are not liable for damage arising from your reliance on the Assistant's suggestions, except in cases of our intentional fault or gross negligence, or where the law does not allow liability to be excluded."
+      ],
+      "note": "Data sources: map and place data © OpenStreetMap contributors, under the Open Database License (ODbL) — openstreetmap.org/copyright; descriptive text from Wikipedia under the CC BY-SA 4.0 licence (authors are listed in each article's history); structured data from Wikidata (CC0); place data from the Overture Maps Foundation (overturemaps.org), under the licence of each dataset. We have compiled and modified this data."
+    },
+    "s13": {
+      "title": "8. Charter (contract-vehicle) hire",
+      "intro": "The \"Contact for vehicle booking\" page lets you submit a request to hire a vehicle under contract (tourism, custom transfers). For this service:",
+      "items": [
+        "Our role is to consult and connect: we receive your request and forward it to one or more partner transport companies for a quotation. This service is free for you and no payment is taken on the website.",
+        "The quotation is provided by the transport company. The transport contract is made directly between you and the transport company; the transport company is the service provider and is responsible for performing the contract and for the safety and quality of the trip.",
+        "The transport company must hold a licence and meet the legal conditions for passenger transport by contract vehicle. You should ask the transport company to show its licence and to put the contract in writing or electronic form before the trip.",
+        "We do not sell individual seats on contract vehicles.",
+        "Cancellation, changes and refunds for contract vehicles are governed by the contract between you and the transport company; BBVN's Cancellation & Refund Policy does not apply.",
+        "The information in your request is stored and processed in accordance with the Privacy Policy; contact details are masked 365 days after the request ends."
+      ]
     }
   },
   "privacy": {
     "meta": {
       "title": "Privacy Policy | BBVN",
-      "description": "How BBVN collects, uses and protects customers' personal information."
+      "description": "How BBVN collects, uses and protects customers' personal information when booking tickets, submitting charter requests and using the AI Travel Assistant."
     },
     "h1": "Privacy Policy",
-    "updated": "Updated: July 2026",
-    "version": "Version: 2026-07",
+    "updated": "Updated: October 2026",
+    "version": "Version: 2026-10",
     "s1": {
       "title": "1. Introduction",
-      "body": "BBVN (\"we\") is committed to protecting your privacy in accordance with the Personal Data Protection Law No. 91/2025/QH15 (PDPL 2025) and Decree 356/2025/NĐ-CP. This policy describes how we collect, use, store and protect personal information when you use the BBVN bus ticket booking platform."
+      "body": "BBVN, operated by MINH QUAN CONSTRUCTION – TRANSPORT AND TRADING SERVICES COMPANY LIMITED (CÔNG TY TNHH XÂY DỰNG – VẬN TẢI VÀ DỊCH VỤ THƯƠNG MẠI MINH QUÂN) (\"we\") (tax code: [TAX CODE]; address: [ADDRESS]; email: hotro@lenxevn.com), is the controller of your personal data and is committed to protecting your privacy in accordance with the Personal Data Protection Law No. 91/2025/QH15 (PDPL 2025) and Decree 356/2025/NĐ-CP. This policy describes how we collect, use, store and protect personal information when you use the website lenxevn.com: booking bus tickets, submitting charter requests and chatting with the AI Travel Assistant."
     },
     "s2": {
       "title": "2. Information we collect",
       "items": [
-        "<b>Booking contact information:</b> Contact phone number (required to book tickets and receive notifications), full name, email address (optional).",
+        "<b>Booking contact information:</b> Contact phone number, full name and email address (required for online bookings, used to send your e-ticket and notifications; required for charter requests). For tickets bought at the operator counter, email is optional.",
         "<b>Booking information:</b> Passenger name, contact phone number, contact email, pickup point, trip details.",
         "<b>Payment information:</b> Payment status, bank transaction reference. We do not store bank card numbers or bank login credentials.",
-        "<b>Technical data:</b> IP address (used for access rate-limiting), browser user agent, access logs."
+        "<b>Charter requests:</b> Full name, phone number, email, pickup point, destination, travel date, number of passengers, vehicle type and notes you enter.",
+        "<b>Account (if you create one):</b> Email, display name, password (one-way hashed); or basic information from your Google account if you choose to sign in with Google.",
+        "<b>AI Travel Assistant chats:</b> The messages you type and the itineraries suggested. Please do not enter personal information.",
+        "<b>Technical data:</b> IP address (used for access rate-limiting), browser user agent, access logs.",
+        "<b>If required information is not provided:</b> We cannot process the booking or charter request, or contact you."
       ]
     },
     "s3": {
@@ -107,104 +147,127 @@
       "items": [
         "Process and confirm bus ticket bookings.",
         "Send email notifications (ticket confirmation, trip reminders).",
+        "Receive charter requests and forward them to transport companies for quotation.",
+        "Operate your account (if any) and the AI Travel Assistant.",
         "Support customers and resolve disputes.",
         "Improve service quality and detect fraud."
       ]
     },
     "s4": {
       "title": "4. Legal basis",
-      "body": "We process data based on: (a) your consent when booking; (b) performance of the booking contract; (c) legal obligations under accounting and record-keeping regulations."
+      "body": "We process data on the basis of: (a) your consent (when booking, registering an account or enabling analytics cookies); (b) performance of a contract or your request (booking tickets, receiving and referring charter requests, providing the AI Travel Assistant); (c) legal obligations under accounting and record-keeping regulations. The Service is not for persons under 16 to register or provide data themselves; children's information may only be provided by a parent or guardian. The AI Travel Assistant is for people aged 18 and over only. If you believe a child has provided data to us themselves, please contact us so that we can delete it. Withdrawing consent does not affect the lawfulness of processing carried out before the withdrawal."
     },
     "s5": {
       "title": "5. Data sharing",
-      "intro": "We only share personal information with:",
+      "intro": "We do not sell your personal data. We only share personal information with:",
       "items": [
-        "<b>Bus operators:</b> Passenger name, contact phone number and pickup point — to serve the trip.",
+        "<b>Bus operators and transport companies:</b> Passenger name, contact phone number and pickup point (ticket bookings); contact information and request details (charter hire) — to serve the trip and provide a quotation (a charter request may be sent to several partner transport companies).",
         "<b>Payment partners:</b> Processing bank transfer transactions (VietQR). We do not store bank card numbers or bank login credentials.",
+        "<b>Infrastructure and technical service providers:</b> Parties that process data on our behalf (hosting, email delivery, error monitoring, AI assistant), listed in Section 6a.",
         "<b>State authorities:</b> Upon request in accordance with Vietnamese law."
       ]
     },
     "s6": {
       "title": "6. Storage and security",
-      "body": "Data is stored on servers in Singapore (Vercel, Neon, Upstash). We apply field-level AES-256 encryption to the most sensitive data (bank account numbers, two-factor authentication secrets); other personal data is encrypted at rest at the database layer. Connections are SSL/TLS encrypted and access is strictly controlled. Passwords are one-way hashed and never stored in plaintext. Attachments (ticket PDFs, operator documents) are stored on Cloudflare R2 in the Asia-Pacific region."
+      "body": "Data is stored on servers in Singapore (Vercel, Neon, Upstash). We apply field-level AES-256 encryption to the most sensitive data (bank account numbers, two-factor authentication secrets); other personal data is encrypted at rest at the database layer. Connections are SSL/TLS encrypted and access is controlled by role-based permissions. Passwords are one-way hashed and never stored in plaintext. Attachments (ticket PDFs, operator documents) are stored on Cloudflare R2 in the Asia-Pacific region."
     },
     "s6a": {
       "title": "6a. Cross-border data transfer",
       "intro": "In accordance with Article 25 of the PDPL 2025 (Điều 25 Luật PDPL 2025) and Decree 356/2025/NĐ-CP, we notify you that your personal data is processed by service providers located abroad:",
       "items": [
-        "<b>Vercel:</b> Application server (compute) — Singapore region (sin1).",
+        "<b>Vercel:</b> Application server (compute) — Singapore region (sin1); and Vercel Web Analytics (visit statistics, only if you accept analytics cookies).",
         "<b>Neon:</b> PostgreSQL database — Singapore region.",
         "<b>Upstash:</b> Redis cache — Singapore region.",
         "<b>Cloudflare R2:</b> File storage — Asia-Pacific region. Holds e-ticket PDFs (passenger name, contact phone, trip details) and operator identity documents submitted during registration. Files are accessible only via short-lived signed links (5–15 minutes).",
-        "<b>Google (Gemini):</b> AI assistant processing chat messages — United States. Personal information is removed before sending.",
-        "<b>Groq:</b> AI assistant processing chat messages — United States. Personal information is removed before sending.",
+        "<b>Anthropic (Claude) and Google (Gemini):</b> AI Travel Assistant processing chat messages — United States. The system automatically masks phone numbers, emails, ID numbers and self-declared names before sending; this is a best-effort mechanism and is not guaranteed, so you should not enter personal information in the chat box.",
+        "<b>Groq:</b> AI Travel Assistant processing chat messages — United States. Used only when activated (fallback); the same masking mechanism applies.",
         "<b>Google:</b> Sign-in with Google account (OAuth) — United States.",
         "<b>Resend:</b> Transactional email delivery (ticket confirmations, notifications) — United States.",
         "<b>Sentry:</b> Application error monitoring — United States. Receives technical error reports (IP address, browser user agent, page URL, error message); known personal-data fields are masked before sending."
       ],
-      "note": "This cross-border data transfer complies with the cross-border data transfer impact assessment (CDTIA) requirements under the PDPL 2025."
+      "note": "When transferring data abroad, we send only the data needed to provide the service, over encrypted connections (TLS), apply masking of certain identifiers to AI Assistant chat content, and carry out the related procedures required by personal-data protection law."
     },
     "s7": {
       "title": "7. Retention period",
       "items": [
-        "Booking contact information: until you request deletion or the legal retention obligation ends.",
-        "Booking history and payment records: at least 5 years under accounting regulations.",
-        "AI assistant conversation history: 90 days from the last message, or deleted immediately when you delete your account.",
+        "Booking contact information of guest bookings: anonymised 365 days after the trip's departure date, or earlier when you request deletion and the law allows.",
+        "Contact details entered at the seat-hold step without a completed booking: anonymised 30 days after the hold expires. Booking-flow analytics data (linked to the bb_sid cookie): deleted after about 13 months.",
+        "Account information: until you delete your account.",
+        "Booking history and payment records: kept for at least 5 years under accounting regulations. For guest bookings, identifying information is anonymised as above; for accounts, identifying information is anonymised when you delete your account. Financial transaction records are retained.",
+        "Payer information in bank transfers that do not match a booking: masked after 365 days.",
+        "AI assistant conversation history (signed-in accounts): 90 days from the last message, or deleted immediately when you delete your account.",
         "Sent notification content (SMS/email): personal information is masked after 180 days.",
-        "Charter (vehicle hire) requests: contact information is masked 365 days after the request is closed (by an admin decision or cancellation).",
-        "E-tickets (PDF): deleted at the same time the booking's contact information is masked.",
-        "Access logs: 90 days."
+        "Charter requests: contact information is masked 365 days after the request ends (completed, rejected or cancelled); requests still in progress are kept to serve you.",
+        "E-tickets (PDF): deleted or stripped of personal information at the same time the booking's contact information is masked.",
+        "Access logs and technical error logs: kept for a short period according to the settings of our infrastructure and error-monitoring providers, and used only to operate and secure the system.",
+        "Operators' legal documents (registration files): deleted 90 days after the operator is rejected or stops cooperating; files of active operators are retained for compliance."
       ]
     },
     "s8": {
       "title": "8. Your rights",
-      "intro": "Under the PDPL 2025, you have the following rights:",
-      "tableHead": ["Right", "Processing time"],
-      "rows": [
-        ["Access and view your personal information", "10 working days"],
-        ["Request correction of inaccurate information", "10 working days"],
-        ["Request deletion of personal data", "20 working days"],
-        ["Withdraw consent to data processing", "15 working days"]
+      "intro": "Under the PDPL 2025, you have the following rights (you also have the right to be informed, to restrict or object to processing, to complain and to claim compensation as provided by law):",
+      "tableHead": [
+        "Right",
+        "Processing time"
       ],
-      "contact": "To exercise these rights, please send an email to <email>privacy@bbvn.vn</email>.",
+      "rows": [
+        [
+          "Access and view your personal information",
+          "Within the statutory period (we respond within 10 working days)"
+        ],
+        [
+          "Request correction of inaccurate information",
+          "Within the statutory period (we respond within 10 working days)"
+        ],
+        [
+          "Request deletion of personal data",
+          "Within the statutory period (we respond within 10 working days)"
+        ],
+        [
+          "Withdraw consent to data processing",
+          "Within the statutory period (we respond within 10 working days)"
+        ]
+      ],
+      "contact": "To exercise these rights, please send an email to <email>hotro@lenxevn.com</email>.",
       "note": "Note: booking history and payment records are still retained under legal obligations even after personal data is deleted."
     },
     "s8a": {
       "title": "8a. Data breach notification",
-      "body": "In the event of a personal data breach, we will notify the authorities within 72 hours, and within 24 hours if a cyberattack is involved, in accordance with the PDPL 2025."
+      "body": "In the event of a personal data breach, we will notify the competent authority within the statutory period (72 hours of discovery) and notify you when the breach is likely to harm your rights and interests, as provided by law."
     },
     "s9": {
       "title": "9. Cookies and tracking technologies",
-      "body": "We use technical cookies (login session, CSRF verification, seat holds) necessary to operate the service. We do not use advertising tracking cookies or third-party cookies. For non-logged-in users, AI assistant conversation history is stored only temporarily in your browser (session storage) and is automatically cleared when you close the tab; this history is not stored on our servers. Messages are still sent to the server for processing as described in Section 6a."
+      "body": "We use technical cookies (login session, CSRF verification, seat holds) necessary to operate the service. We do not use advertising tracking cookies. Only if you agree on the cookie banner do we enable Vercel Web Analytics to measure visits; we also set the bb_sid cookie (an anonymous session id containing no contact details) to measure the steps of the booking flow, which may be linked to your booking reference if you complete a booking. If you choose necessary cookies only, these tools are not loaded and no bb_sid cookie is set. For non-logged-in users, AI Travel Assistant conversation history is stored only temporarily in your browser (session storage) and is automatically cleared when you close the tab; this history is not stored on our servers. Messages are still sent to the server for processing as described in Section 6a. When you click \"Save trip\", the itinerary is stored in your browser storage (localStorage) on your device; during checkout, the phone number you enter is kept temporarily in your browser session storage to refill the form. You can remove this data by clearing site data in your browser."
     },
     "s10": {
       "title": "10. Contact",
-      "body": "Personal data protection officer — Email: <email>privacy@bbvn.vn</email>",
+      "body": "Personal data protection contact — MINH QUAN CONSTRUCTION – TRANSPORT AND TRADING SERVICES COMPANY LIMITED (CÔNG TY TNHH XÂY DỰNG – VẬN TẢI VÀ DỊCH VỤ THƯƠNG MẠI MINH QUÂN), address: [ADDRESS], email: <email>hotro@lenxevn.com</email>",
       "authority": "If you are not satisfied with how a complaint is handled, you have the right to contact the Competition and Consumer Protection Authority (VCCA) or the competent authority in accordance with the <link>Complaint Resolution Policy</link>."
     }
   },
   "refund": {
     "meta": {
       "title": "Cancellation & Refund Policy | BBVN",
-      "description": "Cancellation, refund policy and applicable conditions when booking bus tickets through BBVN."
+      "description": "Cancellation and refund policy and applicable conditions when booking bus tickets through BBVN."
     },
     "h1": "Cancellation & Refund Policy",
-    "updated": "Updated: August 2026",
-    "version": "Version: 2026-08",
+    "updated": "Updated: October 2026",
+    "version": "Version: 2026-10",
     "s1": {
       "title": "1. Introduction",
-      "body": "This policy is an inseparable part of the <link>Terms of Service</link>. It applies to all bus tickets booked through bbvn.vn."
+      "body": "This policy is an inseparable part of the <link>Terms of Service</link>. It applies to all bus tickets booked through lenxevn.com."
     },
     "s2": {
       "title": "2. Scope of application",
       "items": [
-        "Applies to prepaid tickets via bank transfer (VietQR) or VNPay.",
-        "Does not apply to charter/private-hire bookings — please contact the <charter>private charter page</charter>."
+        "Applies to prepaid bus tickets via bank transfer (VietQR), and via VNPay when it is activated.",
+        "Does not apply to charter/private-hire vehicles: cancellation, changes and refunds are governed by the contract between you and the transport company — see the <charter>vehicle booking contact page</charter>.",
+        "Tickets sold directly by the bus operator at the counter or on board are outside the scope of this policy."
       ]
     },
     "s3": {
       "title": "3. Cancellation at the customer's request",
-      "body": "A paid ticket <b>cannot be cancelled or refunded at the customer's request</b>. BBVN only issues refunds when the bus operator cancels the trip (see Section 5). Please check the trip details carefully and consider before paying."
+      "body": "A paid ticket <b>cannot be cancelled or refunded at the customer's request</b>. BBVN only issues refunds when the bus operator cancels the trip or when there is an error on BBVN's side (see Section 5). Please check the trip details carefully and consider before paying. This rule does not exclude your mandatory rights under the law."
     },
     "s4": {
       "title": "4. No refund in the following cases",
@@ -212,73 +275,91 @@
         "The customer voluntarily does not travel, changes personal plans, or requests cancellation.",
         "The customer is not present at the pickup point on time (no-show).",
         "The ticket has been used or the trip has already departed.",
-        "Fraud is detected during the booking or payment process."
+        "There are grounds to establish fraud during the booking or payment process."
       ]
     },
     "s5": {
-      "title": "5. Bus operator cancels the trip (bus does not run)",
-      "intro": "This is the only case eligible for a refund. When the bus operator cancels the trip:",
+      "title": "5. Bus operator cancels the trip or BBVN-side error",
+      "intro": "You are refunded in two cases: (1) the bus operator cancels the trip (the bus does not run); (2) an error on BBVN's side or in the system, such as a duplicate or excess charge, or payment received but the ticket cannot be confirmed, after BBVN reconciles the transaction. In these cases:",
       "items": [
-        "100% of the ticket price is refunded (no fees deducted) within 3-5 working days.",
-        "BBVN proactively notifies you via SMS/email as soon as it receives the information from the bus operator.",
-        "The customer does not need to take any cancellation action — the system automatically processes the refund."
+        "The refund is 100% of the ticket price (or the duplicated/excess amount), with no fees deducted, within 3-5 working days from the date BBVN confirms the case is eligible and has received the receiving-account details (if needed).",
+        "BBVN proactively notifies you by email (and by SMS when the SMS service is active) as soon as it receives the information from the bus operator or detects the error; for counter tickets without an email, we contact you via the booking phone number.",
+        "The customer does not need to take any cancellation action — BBVN processes the refund.",
+        "If the bus operator significantly changes the departure time or pickup point so that you cannot use the ticket, please contact BBVN before departure; we will work with the operator to propose a trip change or an appropriate refund for that case."
       ]
     },
     "s6": {
-      "title": "6. Refund process when the bus operator cancels the trip",
+      "title": "6. Refund process",
       "items": [
-        "BBVN sends a trip cancellation notice via SMS/email to the booking phone number/email.",
+        "BBVN sends a notice by email (and by SMS when the SMS service is active) or contacts you via the booking phone number.",
         "If needed, the customer provides a bank account number to receive the refund.",
-        "For any questions, contact BBVN by email <email>support@bbvn.vn</email> (including the booking code and booking phone number)."
+        "For any questions, contact BBVN by email <email>hotro@lenxevn.com</email> (including the booking code and booking phone number)."
       ]
     },
     "s7": {
       "title": "7. Refund timing and method",
       "items": [
-        "Refund via bank transfer: 3-5 working days from when the bus operator confirms the trip cancellation."
+        "Refund via bank transfer: 3-5 working days from the date BBVN confirms the case is eligible and has received the receiving-account details (if needed)."
       ]
     },
     "s8": {
       "title": "8. Note on the Law on Protection of Consumer Rights",
-      "body": "Under the Law on Protection of Consumer Rights 2023 (Luật 19/2023/QH15), the right to \"return goods within X days\" (Điều 44) applies only to door-to-door sales, and does not apply to voluntary online ticket booking transactions."
+      "body": "This policy applies to the extent permitted by law and does not exclude consumers' mandatory rights under the Law on Protection of Consumer Rights 2023 (Luật 19/2023/QH15)."
     },
     "s9": {
       "title": "9. Complaints and contact",
-      "body": "If you disagree with a refund decision, please see the <link>Complaint Resolution Policy</link>. Support email: <email>support@bbvn.vn</email>"
+      "body": "If you disagree with a refund decision, please see the <link>Complaint Resolution Policy</link>. Support email: <email>hotro@lenxevn.com</email>"
     },
     "s10": {
       "title": "10. Changes to the policy",
-      "body": "Material changes will be notified at least 30 days before they take effect, consistent with the <link>Terms of Service</link>."
+      "body": "Material changes will be notified at least 30 days before they take effect, consistent with the <link>Terms of Service</link>, and do not apply to tickets confirmed before the effective date."
     }
   },
   "complaints": {
     "meta": {
       "title": "Complaint Resolution | BBVN",
-      "description": "The process for receiving and resolving complaints and disputes when using the BBVN bus ticket booking service."
+      "description": "The process for receiving and resolving complaints and disputes when using BBVN services."
     },
     "h1": "Complaint and Dispute Resolution Policy",
-    "updated": "Updated: July 2026",
-    "version": "Version: 2026-07",
+    "updated": "Updated: October 2026",
+    "version": "Version: 2026-10",
     "s1": {
       "title": "1. Introduction",
-      "body": "BBVN is an intermediary platform connecting customers with bus operators. Bus operators are responsible for the transport service. This policy describes the process for receiving and resolving complaints in accordance with the Law on Protection of Consumer Rights 2023 (Luật 19/2023/QH15, Điều 37-39)."
+      "body": "BBVN, operated by MINH QUAN CONSTRUCTION – TRANSPORT AND TRADING SERVICES COMPANY LIMITED (CÔNG TY TNHH XÂY DỰNG – VẬN TẢI VÀ DỊCH VỤ THƯƠNG MẠI MINH QUÂN), is an intermediary platform connecting customers with bus operators. Bus operators are responsible for the transport service. This policy describes the process for receiving and resolving complaints in accordance with the Law on Protection of Consumer Rights 2023 (Law No. 19/2023/QH15)."
     },
     "s2": {
       "title": "2. Complaint channels",
       "items": [
-        "<b>Email (official channel):</b> <email>support@bbvn.vn</email>",
+        "<b>Email (official channel):</b> <email>hotro@lenxevn.com</email>",
+        "<b>Post:</b> [ADDRESS]",
         "<b>Information to provide:</b> Booking code (if any), booking phone number, description of the issue, evidence (if any)."
       ]
     },
     "s3": {
       "title": "3. Handling process and timelines",
-      "tableHead": ["Step", "Content", "Timeline"],
-      "rows": [
-        ["1", "Receipt and acknowledgement", "3 working days"],
-        ["2", "Review and propose a solution", "7-30 working days"],
-        ["3", "Notify the result", "By email"]
+      "tableHead": [
+        "Step",
+        "Content",
+        "Timeline"
       ],
-      "note": "Simple complaints (system errors, unrecorded payments) are handled within 7 working days. Complex complaints (disputes with the bus operator, special refunds) may take up to 30 working days."
+      "rows": [
+        [
+          "1",
+          "Receipt and acknowledgement",
+          "3 working days"
+        ],
+        [
+          "2",
+          "Review and propose a solution",
+          "7-30 working days"
+        ],
+        [
+          "3",
+          "Notify the result",
+          "By email"
+        ]
+      ],
+      "note": "Simple complaints (system errors, unrecorded payments) are handled within 7 working days. Complex complaints (disputes with the bus operator, special refunds) may take up to 30 working days. Refunds under Section 5 of the Cancellation & Refund Policy follow the separate timelines in that policy."
     },
     "s4": {
       "title": "4. Complaint categories",
@@ -286,6 +367,7 @@
         "<b>Booking / payment issues:</b> Unrecorded payment, system errors, incorrect ticket information.",
         "<b>Refund issues:</b> See the <link>Cancellation & Refund Policy</link>.",
         "<b>Service quality / bus operator conduct:</b> BBVN forwards the complaint to the relevant bus operator.",
+        "<b>Charter (contract-vehicle) requests:</b> BBVN helps forward complaints to the transport company; the transport contract is agreed directly between you and the transport company.",
         "<b>Safety issues:</b> Handled urgently; standard timelines do not apply."
       ]
     },
@@ -308,7 +390,7 @@
     },
     "s8": {
       "title": "8. Contact",
-      "body": "Email: <email>support@bbvn.vn</email>"
+      "body": "Email: <email>hotro@lenxevn.com</email> — Address: [ADDRESS]"
     }
   }
 }
