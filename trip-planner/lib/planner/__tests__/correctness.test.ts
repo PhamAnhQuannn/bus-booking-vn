@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { nights } from '../labels';
 import { requestFromParams, toURLSearchParams } from '../fromParams';
-import { buildItinerary, specFameRank } from '../plan';
+import { buildItinerary, isSteepish, specFameRank } from '../plan';
 import { haversine, type Store } from '../store';
 import type { KbRecord, TripRequest } from '../types';
 
@@ -1195,5 +1195,17 @@ describe('buildItinerary — theo nhóm khách (người già / xe lăn / trẻ 
     expect(n({ adults: 2, children: 0, elders: 0 })).not.toContain('Khu vui chơi Sao Mai'); // đối chứng: kém quan trọng nhất
     expect(n({ adults: 2, children: 2, elders: 0 })).toContain('Khu vui chơi Sao Mai');
     expect(buildItinerary({ ...base, days: 3, party: { adults: 2, children: 2, elders: 0 } }, kidStore).notes.join(' ')).toMatch(/Có trẻ nhỏ/);
+  });
+
+  it('isSteepish: loại phẳng (hồ / khu giải trí) mang tên núi/thác KHÔNG bị coi là dốc; loại hang/núi vẫn bắt', () => {
+    expect(isSteepish(p('A', 'Hồ Núi Cốc', 'Hồ / Đập', 21))).toBe(false);
+    expect(isSteepish(p('B', 'Bà Nà Hills', 'Khu du lịch giải trí (vui chơi trả phí)', 21))).toBe(false);
+    expect(isSteepish(p('C', 'Chợ Đồng Xuân', 'Chợ', 21))).toBe(false); // "đồng" ≠ "động"
+    expect(isSteepish(p('D', 'Hang Sửng Sốt', 'Hang động', 21))).toBe(true);
+    expect(isSteepish(p('E', 'Núi Sam', 'Điểm tham quan', 21))).toBe(true);
+  });
+  it('note trung thực: anchor dốc còn trong lịch → note nói còn điểm phải leo', () => {
+    const req = { ...base, party: { adults: 1, children: 0, elders: 2 }, anchors: ['CAVE'] };
+    expect(buildItinerary(req, store).notes.join(' ')).toMatch(/vẫn còn 1 điểm/);
   });
 });

@@ -192,10 +192,13 @@ const STEEP_NAME = /(?:^|[^\p{L}])(?:hang|động|núi|đỉnh|đèo|thác|leo)(
 const KID_CAT = ["khu vui choi", "khu du lich giai tri", "cong vien", "vuon hoa", "bai bien", "nong trai", "vuon thu", "thuy cung"];
 const KID_NAME = /(?:^|[^\p{L}])(?:vui chơi|công viên|thủy cung|thuỷ cung|vườn thú|thảo cầm viên|bãi biển|công viên nước)(?![\p{L}])/iu;
 const STEEP_PENALTY = 6; // > thang chất lượng (0–6) → điểm dốc rơi xuống cuối, vẫn còn nếu tp không có điểm khác
+// Tên chứa "núi/thác/hang…" nhưng LOẠI phẳng (hồ, đập, khu giải trí/vui chơi, nông trại) → KHÔNG phải điểm dốc
+// (vd "Hồ Thác Bà", "Bà Nà Hills", "Hồ Núi Cốc"). Chỉ chặn nhánh TÊN; loại hang/núi/thác vẫn bắt như thường.
+const FLAT_CAT = ["ho", "dap", "khu vui choi", "khu du lich giai tri", "nong trai", "vuon hoa"];
 export function isSteepish(rec: KbRecord): boolean {
   const cat = foldText(rec.category?.primary ?? "");
   if (STEEP_CAT.some((t) => boundedIncludes(cat, t))) return true;
-  if (STEEP_NAME.test((rec.name || "").toLowerCase())) return true;
+  if (!FLAT_CAT.some((t) => boundedIncludes(cat, t)) && STEEP_NAME.test((rec.name || "").toLowerCase())) return true;
   const prom = rec.ext?.destination?.environment?.prominence_m;
   return typeof prom === "number" && Math.abs(prom) > 100;
 }
@@ -521,7 +524,7 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
   // Nhóm cần đi nhẹ (người già / tránh dốc / xe lăn): điểm biểu tượng phải leo/vào hang KHÔNG force-include —
   // vẫn được chọn theo điểm nếu thành phố không còn điểm khác. Điểm khách tự chọn (anchor) luôn giữ.
   if (needsGentle(req))
-    for (const r of withCoord) if (marqueeIds.has(r.id) && !anchorIds.has(r.id) && isSteepish(r)) marqueeIds.delete(r.id);
+    for (const r of withCoord) if (marqueeIds.has(r.id) && !anchorIds.has(r.id) && !hasSigAccess(r) && isSteepish(r)) marqueeIds.delete(r.id);
   const pinIds = marqueeIds.size ? new Set<string>([...anchorIds, ...marqueeIds]) : anchorIds; // anchor ∪ marquee
   // fame cụm: hand-list → hạng signatureSpot; auto (không hand-list) → theo importance rank của điểm marquee.
   const regFameOf = (pts: KbRecord[]): number => {
@@ -971,8 +974,13 @@ export function buildItinerary(req: TripRequest, store?: Store): Itinerary {
   const notes: string[] = [...planNotes];
   if (goiTruoc) notes.push(`${goiTruoc} địa điểm chưa có giờ mở xác minh — nên GỌI TRƯỚC khi đến.`);
   const allItems = days.flatMap((d) => d.items).filter((i) => i.role === "diem-den");
-  if (req.party.elders > 0 || req.accessibility?.avoidSteep)
-    notes.push("Có người lớn tuổi / cần tránh dốc: đã đẩy điểm phải leo, hang động, thác xuống cuối khi có điểm thay thế.");
+  if (req.party.elders > 0 || req.accessibility?.avoidSteep) {
+    // Trung thực: điểm leo/hang/thác có thể VẪN còn (khách tự chọn, hoặc thành phố ít điểm khác) → nói rõ số lượng.
+    const steepKept = allItems.filter((i) => { const r = st.destinations.find((d) => d.id === i.id); return !!r && isSteepish(r); }).length;
+    notes.push(steepKept
+      ? `Có người lớn tuổi / cần tránh dốc: đã đẩy điểm phải leo, hang động, thác xuống cuối, nhưng vẫn còn ${steepKept} điểm có thể phải leo/đi bộ nhiều (do bạn chọn hoặc thành phố ít điểm thay thế) — nên hỏi lại về đường đi trước.`
+      : "Có người lớn tuổi / cần tránh dốc: đã đẩy điểm phải leo, hang động, thác xuống cuối; lịch này không còn điểm như vậy.");
+  }
   if (req.accessibility?.wheelchair)
     // Trung thực: dữ liệu lối xe lăn (OSM) thưa — không hứa "tiếp cận được".
     notes.push("Có người ngồi xe lăn: đã ưu tiên điểm có lối xe lăn theo dữ liệu, nhưng nhiều nơi chưa có thông tin — nên gọi trước để hỏi lối đi.");
