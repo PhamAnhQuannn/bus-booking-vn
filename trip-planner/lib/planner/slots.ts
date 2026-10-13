@@ -163,7 +163,27 @@ const DISCOVERY_RE = /(?:^|\P{L})(?:gợi ý|chỗ nào|nơi nào|ở đâu|đi 
 // bail to /chat (LLM) when the turn has >1 day-count or >1 people-count.
 const DAY_COUNT_RE = /\d+\s*ng[àa]y/gi;
 const PERSON_COUNT_RE = /\d+\s*(?:người|khách(?!\s*sạn)|đứa|thành viên)/gi;
-const INTEREST_VERB_RE = /(?:thích|ưa thích|muốn|quan tâm|sở thích|mê|đam mê)\s+(.+)/i;
+// KHÔNG gồm "muốn": "muốn ghé Mũi Gành Dầu" / "muốn vui vẻ với gia đình" là ý định/hành trình, không phải
+// sở thích — eval hội thoại (planner-conv-eval) thấy chúng thành chip sở thích rác. Sở thích nêu qua "muốn"
+// vẫn được bắt bằng keyword ("muốn ra biển" → bien-dao).
+const INTEREST_VERB_RE = /(?:thích|ưa thích|quan tâm|sở thích|mê|đam mê)\s+(.+)/i;
+// Nhịp độ từ free-text. Trước đây chỉ LLM trích pace → lượt-1 short-circuit ("… đi thong thả …") mất pace.
+// relaxed xét TRƯỚC lọc phủ định vì chính cụm có "không" ("không vội"); packed chỉ ở clause KHÔNG phủ định
+// ("không cần kín lịch" ≠ packed). Cụm mơ hồ (nhẹ nhàng / dày đặc / vừa phải) chỉ tính khi gắn với
+// đi/lịch/nhịp — "món ăn nhẹ nhàng", "sương mù dày đặc", "giá vừa phải" KHÔNG phải nhịp độ.
+const PACE_NOT_RUSH_RE = /(?:^|\P{L})(?:không|ko) vội(?!\p{L})/iu;
+const PACE_RELAXED_RE = /(?:^|\P{L})(?:thong thả|thư thả|chậm rãi|(?:đi|lịch|nhịp) nhẹ nhàng|relax(?:ed|ing)?)(?!\p{L})/iu;
+const PACE_PACKED_RE = /(?:^|\P{L})(?:(?:đi|ghé|tham quan) (?:được )?nhiều (?:chỗ|nơi|điểm)|kín lịch|lịch (?:kín|dày đặc)|tranh thủ tối đa|càng nhiều càng tốt|packed)(?!\p{L})/iu;
+const PACE_MODERATE_RE = /(?:^|\P{L})(?:(?:đi|lịch|nhịp|tốc độ) (?:vừa phải|cân bằng)|moderate)(?!\p{L})/iu;
+function extractPace(text: string): Pace | undefined {
+  const t = text.toLowerCase();
+  if (PACE_NOT_RUSH_RE.test(t)) return "relaxed";
+  const clauses = t.split(CLAUSE_SPLIT_RE).filter((c) => c && !NEGATION_RE.test(c));
+  if (clauses.some((c) => PACE_RELAXED_RE.test(c))) return "relaxed"; // "không thong thả" ≠ relaxed
+  if (clauses.some((c) => PACE_PACKED_RE.test(c))) return "packed";
+  if (clauses.some((c) => PACE_MODERATE_RE.test(c))) return "moderate";
+  return undefined;
+}
 // Trong 1 clause "thích …", tách nhiều literal theo dấu + và/cùng/với (spaces bao quanh — tránh `\b`).
 const INTEREST_LITERAL_SPLIT_RE = /\s*(?:,|;|&)\s*|\s+(?:và|cùng|với)\s+/iu;
 
@@ -253,6 +273,8 @@ export function extractFromText(text: string): Partial<Slots> {
     else if (/^(k|nghìn|ngàn)$/.test(unit)) vnd = num * 1_000;
     if (vnd >= 100_000) out.budgetPerPerson = Math.round(vnd);
   }
+  const pace = extractPace(text);
+  if (pace) out.pace = pace;
   const interests = extractInterests(text);
   if (interests.length) out.interests = interests;
   return out;
@@ -267,6 +289,7 @@ export function applyExtracted(s: Slots, det: Partial<Slots>): Slots {
   if (det.children != null) n.children = det.children;
   if (det.elders != null) n.elders = det.elders;
   if (det.budgetPerPerson != null) n.budgetPerPerson = det.budgetPerPerson;
+  if (det.pace) n.pace = det.pace;
   if (det.interests?.length) n.interests = [...new Set([...(n.interests ?? []), ...det.interests])]; // union dedup
   if (det.nhom) n = persons(n) === 0 ? withGroup(n, det.nhom) : { ...n, nhom: det.nhom };
   return n;

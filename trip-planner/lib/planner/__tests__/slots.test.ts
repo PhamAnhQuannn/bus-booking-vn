@@ -239,3 +239,40 @@ describe('extractFromText — tách người lớn / trẻ em / người lớn t
     expect([s.adults, s.children, s.elders]).toEqual([2, 3, 1]);
   });
 });
+
+describe('extractFromText — nhịp độ + không coi "muốn …" là sở thích (planner-conv-eval)', () => {
+  it('pace từ free-text (lượt-1 short-circuit không qua LLM)', () => {
+    expect(extractFromText('Quy Nhơn 2 ngày cho 6 người, thích biển đảo, đi thong thả').pace).toBe('relaxed');
+    expect(extractFromText('đi chậm rãi, không vội nhé').pace).toBe('relaxed');
+    expect(extractFromText('muốn đi được nhiều chỗ nhất có thể').pace).toBe('packed');
+    expect(extractFromText('lịch vừa phải thôi').pace).toBe('moderate');
+    expect(extractFromText('đi Đà Lạt 3 ngày 2 người').pace).toBeUndefined();
+  });
+  it('phủ định: "không cần kín lịch" KHÔNG thành packed', () =>
+    expect(extractFromText('đi thoải mái, không cần kín lịch').pace).toBeUndefined());
+  it('false-positive: chill/vibe, "nhiều nơi" nghĩa khác, "không thong thả"', () => {
+    expect(extractFromText('Đà Lạt 2 ngày, thích quán cà phê chill').pace).toBeUndefined();
+    expect(extractFromText('Đà Lạt có nhiều nơi ăn ngon không').pace).toBeUndefined();
+    expect(extractFromText('đi nhưng không thong thả').pace).toBeUndefined();
+    expect(extractFromText('muốn ghé nhiều nơi nhất có thể').pace).toBe('packed');
+  });
+  it('applyExtracted ghi pace', () =>
+    expect(applyExtracted({}, extractFromText('đi thư thả')).pace).toBe('relaxed'));
+  it('"muốn ghé X" / "muốn vui vẻ…" không thành sở thích literal; "muốn ra biển" vẫn bien-dao', () => {
+    expect(extractFromText('muốn ghé Mũi Gành Dầu và Dinh Cậu').interests).toBeUndefined();
+    expect(extractFromText('muốn vui vẻ với gia đình thôi').interests).toBeUndefined();
+    expect(extractFromText('chỉ muốn ra biển').interests).toEqual(['bien-dao']);
+  });
+});
+
+describe('extractPace — cụm mơ hồ chỉ tính khi gắn với đi/lịch/nhịp (Fable R1)', () => {
+  it.each([
+    ['món ăn nhẹ nhàng, dễ ăn', undefined],
+    ['thời tiết nhẹ nhàng mát mẻ', undefined],
+    ['sáng sớm sương mù dày đặc', undefined],
+    ['giá vừa phải là được', undefined],
+    ['muốn đi nhẹ nhàng thôi', 'relaxed'],
+    ['lịch dày đặc cũng được', 'packed'],
+    ['nhịp vừa phải', 'moderate'],
+  ])('%s → %s', (t, want) => expect(extractFromText(t).pace).toBe(want));
+});
