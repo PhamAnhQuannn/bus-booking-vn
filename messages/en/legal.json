@@ -179,7 +179,7 @@
         "<b>Neon:</b> PostgreSQL database — Singapore region.",
         "<b>Upstash:</b> Redis cache — Singapore region.",
         "<b>Cloudflare R2:</b> File storage — Asia-Pacific region. Holds e-ticket PDFs (passenger name, contact phone, trip details) and operator identity documents submitted during registration. Files are accessible only via short-lived signed links (5–15 minutes).",
-        "<b>Google (Gemini):</b> AI Travel Assistant processing chat messages — United States. The system automatically masks phone numbers, emails, ID numbers and self-declared names before sending; this is a best-effort mechanism and is not guaranteed, so you should not enter personal information in the chat box.",
+        "<b>Anthropic (Claude) and Google (Gemini):</b> AI Travel Assistant processing chat messages — United States. The system automatically masks phone numbers, emails, ID numbers and self-declared names before sending; this is a best-effort mechanism and is not guaranteed, so you should not enter personal information in the chat box.",
         "<b>Groq:</b> AI Travel Assistant processing chat messages — United States. Used only when activated (fallback); the same masking mechanism applies.",
         "<b>Google:</b> Sign-in with Google account (OAuth) — United States.",
         "<b>Resend:</b> Transactional email delivery (ticket confirmations, notifications) — United States.",
