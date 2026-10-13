@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { nights } from '../labels';
 import { requestFromParams, toURLSearchParams } from '../fromParams';
-import { buildItinerary, specFameRank } from '../plan';
+import { buildItinerary, isSteepish, specFameRank } from '../plan';
 import { haversine, type Store } from '../store';
 import type { KbRecord, TripRequest } from '../types';
 
@@ -1136,5 +1136,112 @@ describe('buildItinerary — complex_id: không note-drop khi sibling cùng qu�
     expect(names).toContain('Vé Cáp Treo Bà Nà Hill'); // sibling quần thể đã xếp
     expect(names).not.toContain('Cầu Vàng');           // vẫn tràn khỏi lịch
     expect(it.notes.some((n) => n.includes('Cầu Vàng'))).toBe(false); // KHÔNG note (quần thể đã có mặt)
+  });
+});
+
+// planner-conv-eval: lịch theo nhóm khách. Eval 1.181 lịch thấy lịch "tránh dốc"/người già/xe lăn vẫn có
+// hang/núi/thác ở 29–43% (chỉ dựa prominence_m thường thiếu), và trẻ em không ảnh hưởng lịch.
+describe('buildItinerary — theo nhóm khách (người già / xe lăn / trẻ em)', () => {
+  const p = (id: string, name: string, cat: string, lat: number): KbRecord => ({
+    id, name, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'],
+    category: { primary: cat },
+    coordinates: { latitude: lat, longitude: 105.85 },
+    address: { full_address: `số 1, Phường Trung Tâm, thành phố Thử` }, description: { value: 'x' },
+  } as KbRecord);
+  // Thứ tự = importance: hang động quan trọng nhất (auto-marquee top-K) → luôn được force-include cho khách thường.
+  const store: Store = {
+    slug: 'zz-auto-nohandlist', generatedAt: '2026-01-01', tam: { lat: 21.03, lon: 105.85 },
+    destinations: [
+      p('CAVE', 'Hang Sửng Sốt', 'Hang động', 21.030),
+      p('FALL', 'Thác Bạc', 'Thác nước', 21.031),
+      p('PAG', 'Chùa Một Cột', 'Chùa / Thiền viện', 21.029),
+      p('MUS', 'Bảo tàng Lịch sử', 'Bảo tàng', 21.032),
+      p('PARK', 'Khu vui chơi Sao Mai', 'Khu vui chơi', 21.028),
+    ],
+    restaurants: [], hotels: [p('H1', 'KS', 'Khách sạn', 21.030)],
+    matrix: null, matrixIndex: new Map(),
+  };
+  const names = (req: TripRequest) => buildItinerary(req, store).days.flatMap((d) => d.items.map((i) => i.name));
+  const base: TripRequest = { slug: 'zz-auto-nohandlist', days: 1, party: { adults: 2, children: 0, elders: 0 }, pace: 'relaxed' };
+
+  it('khách thường: hang động (marquee) vẫn có — đối chứng', () =>
+    expect(names(base)).toContain('Hang Sửng Sốt'));
+  it('có người già: không còn hang/thác khi có điểm thay thế + note', () => {
+    const req = { ...base, party: { adults: 1, children: 0, elders: 2 } };
+    const n = names(req);
+    expect(n).not.toContain('Hang Sửng Sốt');
+    expect(n).not.toContain('Thác Bạc');
+    expect(buildItinerary(req, store).notes.join(' ')).toMatch(/tránh dốc/);
+  });
+  it('xe lăn (không người già): cũng tránh hang/thác + note trung thực "nên gọi trước"', () => {
+    const req = { ...base, accessibility: { wheelchair: true } };
+    expect(names(req)).not.toContain('Hang Sửng Sốt');
+    expect(buildItinerary(req, store).notes.join(' ')).toMatch(/xe lăn.*gọi trước/);
+  });
+  it('anchor khách tự chọn luôn giữ dù dốc', () =>
+    expect(names({ ...base, party: { adults: 1, children: 0, elders: 2 }, anchors: ['CAVE'] })).toContain('Hang Sửng Sốt'));
+  it('có trẻ em: trong chỗ trống còn lại, điểm vui chơi thắng điểm thường quan trọng hơn + note', () => {
+    // 4 marquee (top-K) + 3 điểm thường; 3 ngày relaxed = 6 chỗ → còn 2 chỗ cho 3 điểm thường.
+    const kidStore: Store = {
+      ...store,
+      destinations: [
+        ...store.destinations.slice(0, 4),
+        p('T2', 'Đền Ngọc Sơn', 'Đền / Miếu', 21.0285),
+        p('T3', 'Nhà thờ Lớn', 'Nhà thờ', 21.0295),
+        p('PARK', 'Khu vui chơi Sao Mai', 'Khu vui chơi', 21.028),
+      ],
+    };
+    const n = (party: TripRequest['party']) => buildItinerary({ ...base, days: 3, party }, kidStore).days.flatMap((d) => d.items.map((i) => i.name));
+    expect(n({ adults: 2, children: 0, elders: 0 })).not.toContain('Khu vui chơi Sao Mai'); // đối chứng: kém quan trọng nhất
+    expect(n({ adults: 2, children: 2, elders: 0 })).toContain('Khu vui chơi Sao Mai');
+    expect(buildItinerary({ ...base, days: 3, party: { adults: 2, children: 2, elders: 0 } }, kidStore).notes.join(' ')).toMatch(/Có trẻ nhỏ/);
+  });
+
+  it('isSteepish: loại phẳng (hồ / khu giải trí) mang tên núi/thác KHÔNG bị coi là dốc; loại hang/núi vẫn bắt', () => {
+    expect(isSteepish(p('A', 'Hồ Núi Cốc', 'Hồ / Đập', 21))).toBe(false);
+    expect(isSteepish(p('B', 'Bà Nà Hills', 'Khu du lịch giải trí (vui chơi trả phí)', 21))).toBe(false);
+    expect(isSteepish(p('C', 'Chợ Đồng Xuân', 'Chợ', 21))).toBe(false); // "đồng" ≠ "động"
+    expect(isSteepish(p('D', 'Hang Sửng Sốt', 'Hang động', 21))).toBe(true);
+    expect(isSteepish(p('E', 'Núi Sam', 'Điểm tham quan', 21))).toBe(true);
+  });
+  it('note trung thực: anchor dốc còn trong lịch → note nói còn điểm phải leo', () => {
+    const req = { ...base, party: { adults: 1, children: 0, elders: 2 }, anchors: ['CAVE'] };
+    expect(buildItinerary(req, store).notes.join(' ')).toMatch(/vẫn còn 1 điểm/);
+  });
+});
+
+// Fable R1 #866: điểm dốc nằm trong signatureSpots hand-list (fame tier xếp TRÊN điểm chất lượng) vẫn được giữ
+// cho người già, điểm phẳng cùng khu bị cắt. Giờ fame của điểm dốc = 0 với nhóm cần đi nhẹ.
+describe('buildItinerary — fame hand-list không thổi điểm dốc cho nhóm cần đi nhẹ', () => {
+  const p = (id: string, name: string, cat: string, lat: number): KbRecord => ({
+    id, name, region_id: 'r', source_ids: ['s1', 's2', 's3', 's4', 's5'], category: { primary: cat },
+    coordinates: { latitude: lat, longitude: 108.26 },
+    address: { full_address: 'số 1, Phường Ngũ Hành Sơn, thành phố Đà Nẵng' }, description: { value: 'x' },
+  } as KbRecord);
+  const store: Store = {
+    slug: 'da-nang', generatedAt: '2026-01-01', tam: { lat: 16.0, lon: 108.26 },
+    destinations: [
+      p('NHS', 'Danh thắng Ngũ Hành Sơn', 'Núi / Đèo / Đường mòn', 16.003),
+      p('CQ', 'Chùa Quán Thế Âm', 'Chùa / Thiền viện', 16.004),
+      p('LD', 'Làng đá Mỹ nghệ Non Nước', 'Điểm tham quan', 16.002),
+    ],
+    restaurants: [], hotels: [p('H1', 'KS', 'Khách sạn', 16.0)], matrix: null, matrixIndex: new Map(),
+  };
+  const names = (party: TripRequest['party'], accessibility?: TripRequest['accessibility']) =>
+    buildItinerary({ slug: 'da-nang', days: 1, pace: 'relaxed', party, accessibility }, store).days.flatMap((d) => d.items.map((i) => i.name));
+  it('khách thường: Ngũ Hành Sơn (fame) được giữ — đối chứng', () =>
+    expect(names({ adults: 2, children: 0, elders: 0 })).toContain('Danh thắng Ngũ Hành Sơn'));
+  it('người già: Ngũ Hành Sơn nhường chỗ cho điểm phẳng cùng khu', () =>
+    expect(names({ adults: 1, children: 0, elders: 2 })).not.toContain('Danh thắng Ngũ Hành Sơn'));
+  it('xe lăn-only cũng được báo bằng ghi chú tránh dốc', () => {
+    const it = buildItinerary({ slug: 'da-nang', days: 1, pace: 'relaxed', party: { adults: 2, children: 0, elders: 0 }, accessibility: { wheelchair: true } }, store);
+    expect(it.notes.join(' ')).toMatch(/xe lăn \/ cần tránh dốc/);
+  });
+  it('"Cung văn hóa Lao động" / "Động vật" không bị coi là dốc; "Động Phong Nha" có', async () => {
+    const { isSteepish } = await import('../plan');
+    const r = (name: string) => ({ id: 'x', name, category: { primary: 'Điểm tham quan' } } as KbRecord);
+    expect(isSteepish(r('Cung văn hóa Lao động'))).toBe(false);
+    expect(isSteepish(r('Vườn Động vật'))).toBe(false);
+    expect(isSteepish(r('Động Phong Nha'))).toBe(true);
   });
 });
