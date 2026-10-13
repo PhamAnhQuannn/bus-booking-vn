@@ -211,3 +211,27 @@ describe('V3 E — isAllDay + moTaTrusted', () => {
   it('POI thường + URL không hạ tầng → tin', () =>
     expect(moTaTrusted({ category: 'Chùa', name: 'Chùa Linh Ứng', mo_ta_nguon_url: 'https://vi.wikipedia.org/wiki/Chùa_Linh_Ứng' })).toBe(true));
 });
+
+describe('extractFromText — tách người lớn / trẻ em / người lớn tuổi (planner-conv-eval)', () => {
+  const party = (t: string) => { const d = extractFromText(t); return [d.adults, d.children, d.elders]; };
+  it('"2 người lớn 3 trẻ em" → 2/3 (trước đây mất trẻ em)', () =>
+    expect(party('đặt tour Đồng Hới 3 ngày cho 2 người lớn 3 trẻ em')).toEqual([2, 3, undefined]));
+  it('người lớn + người già + bé', () => {
+    expect(party('3 người lớn, 1 người già và 2 bé')).toEqual([3, 2, 1]);
+    expect(party('2 người lớn đi cùng 2 ông bà')).toEqual([2, undefined, 2]);
+  });
+  it('"N người, trong đó M trẻ em" → người lớn = phần còn lại', () =>
+    expect(party('nhóm 5 người, trong đó 2 trẻ em')).toEqual([3, 2, undefined]));
+  it('"vợ chồng và 2 con" → trẻ 2, người lớn để trống (mặc định 2 khi dựng)', () =>
+    expect(party('vợ chồng và 2 con đi Đà Lạt')).toEqual([undefined, 2, undefined]));
+  it('"người lớn tuổi" không bị nhận là "người lớn"', () =>
+    expect(party('2 người lớn tuổi')).toEqual([undefined, undefined, 2]));
+  it('giữ hành vi cũ: "2 người" → 2 người lớn; "khách sạn" không phải người', () => {
+    expect(party('đi 2 người')).toEqual([2, undefined, undefined]);
+    expect(extractFromText('3 khách sạn đẹp').adults).toBeUndefined();
+  });
+  it('applyExtracted ghi children/elders', () => {
+    const s = applyExtracted({}, extractFromText('2 người lớn 3 trẻ em 1 người già'));
+    expect([s.adults, s.children, s.elders]).toEqual([2, 3, 1]);
+  });
+});

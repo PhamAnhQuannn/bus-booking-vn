@@ -223,9 +223,23 @@ export function extractFromText(text: string): Partial<Slots> {
     const dm = t.match(/(\d+)\s*ng[àa]y/);
     if (dm) { const d = parseInt(dm[1], 10); if (d >= 1 && d <= 7) out.days = d; }
   }
-  // số người: "N người/khách/đứa/thành viên" (không phải "N ngày"); "khách" loại trừ "khách sạn".
-  const pm = t.match(/(\d+)\s*(người|khách(?!\s*sạn)|đứa|thành viên)\b/);
-  if (pm) out.adults = Math.max(parseInt(pm[1], 10), 1);
+  // số người: tách NGƯỜI LỚN / TRẺ EM / NGƯỜI LỚN TUỔI. Trước đây chỉ bắt "N người" → "2 người lớn 3 trẻ em"
+  // dựng lịch 2 người lớn, 0 trẻ (lượt-1 short-circuit không qua LLM nên không ai sửa lại) — eval hội thoại
+  // (planner-conv-eval) bắt được. Biên Unicode (?!\p{L}) thay \b (ASCII-only, hỏng sau chữ có dấu).
+  const num = (re: RegExp) => { const m = t.match(re); return m ? parseInt(m[1], 10) : undefined; };
+  const kids = num(/(\d+)\s*(?:trẻ em|trẻ nhỏ|trẻ|em bé|bé|cháu nhỏ|con nhỏ|con)(?!\p{L})/u);
+  const olds = num(/(\d+)\s*(?:người già|người lớn tuổi|người cao tuổi|cụ|ông bà)(?!\p{L})/u);
+  const grown = num(/(\d+)\s*người lớn(?!\s*tuổi)(?!\p{L})/u);
+  // "N người/khách/thành viên" chung (không phải "N người lớn/già/cao tuổi"); "khách" loại "khách sạn".
+  const total = num(/(\d+)\s*(?:người(?!\s*(?:lớn|già|cao tuổi))|khách(?!\s*sạn)|đứa|thành viên)(?!\p{L})/u);
+  if (kids != null) out.children = kids;
+  if (olds != null) out.elders = olds;
+  if (grown != null) out.adults = grown;
+  else if (total != null) {
+    // "4 người, trong đó 2 trẻ em" → tổng gồm cả trẻ/người già: người lớn = phần còn lại (nếu ≥1).
+    const rest = total - (kids ?? 0) - (olds ?? 0);
+    out.adults = Math.max(kids != null || olds != null ? (rest >= 1 ? rest : total) : total, 1);
+  } // chỉ nêu trẻ/người già → để adults trống (slotsToParams mặc định 2 người lớn đi kèm)
   // ngân sách số: "<số> triệu/tr/củ/k/nghìn/ngàn/đồng" → VND/người. \b là ASCII-only nên đơn vị ngắn
   // (tr/k) khớp nhầm từ có dấu ("2 trẻ", "3 trái", "500 ký") → dùng biên Unicode-aware (?!\p{L}).
   const bm = t.match(/(\d+(?:[.,]\d+)?)\s*(triệu|tr|củ|k|nghìn|ngàn|đồng|vnđ|vnd)(?!\p{L})/iu);
@@ -248,6 +262,8 @@ export function applyExtracted(s: Slots, det: Partial<Slots>): Slots {
   if (det.dia_diem) n.dia_diem = det.dia_diem;
   if (det.days != null) n.days = det.days;
   if (det.adults != null) { n.adults = det.adults; n.children = n.children ?? 0; n.elders = n.elders ?? 0; }
+  if (det.children != null) n.children = det.children;
+  if (det.elders != null) n.elders = det.elders;
   if (det.budgetPerPerson != null) n.budgetPerPerson = det.budgetPerPerson;
   if (det.interests?.length) n.interests = [...new Set([...(n.interests ?? []), ...det.interests])]; // union dedup
   if (det.nhom) n = persons(n) === 0 ? withGroup(n, det.nhom) : { ...n, nhom: det.nhom };
