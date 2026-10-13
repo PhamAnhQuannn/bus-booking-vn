@@ -183,6 +183,30 @@ function computeDayWeight(r: KbRecord): number {
   if (HALF_CAT.some((t) => boundedIncludes(cat, t))) return HALF_W;
   return 0;
 }
+// ── theo nhóm khách ─────────────────────────────────────────────────────────
+// Eval hội thoại (planner-conv-eval, 1.181 lịch): lịch có người già / "tránh dốc" / xe lăn vẫn chứa hang,
+// núi, thác ở 29–43% — chỉ dựa prominence_m (thường thiếu trong KB) nên không bắt được; và trẻ em hoàn toàn
+// không ảnh hưởng lịch (cùng tỉ lệ chùa/di tích như nhóm người lớn). Nhận diện theo LOẠI + TÊN.
+const STEEP_CAT = ["hang", "nui", "deo", "duong mon", "thac", "thung lung"];
+const STEEP_NAME = /(?:^|[^\p{L}])(?:hang|động|núi|đỉnh|đèo|thác|leo)(?![\p{L}])/iu;
+const KID_CAT = ["khu vui choi", "khu du lich giai tri", "cong vien", "vuon hoa", "bai bien", "nong trai", "vuon thu", "thuy cung"];
+const KID_NAME = /(?:^|[^\p{L}])(?:vui chơi|công viên|thủy cung|thuỷ cung|vườn thú|thảo cầm viên|bãi biển|công viên nước)(?![\p{L}])/iu;
+const STEEP_PENALTY = 6; // > thang chất lượng (0–6) → điểm dốc rơi xuống cuối, vẫn còn nếu tp không có điểm khác
+export function isSteepish(rec: KbRecord): boolean {
+  const cat = foldText(rec.category?.primary ?? "");
+  if (STEEP_CAT.some((t) => boundedIncludes(cat, t))) return true;
+  if (STEEP_NAME.test((rec.name || "").toLowerCase())) return true;
+  const prom = rec.ext?.destination?.environment?.prominence_m;
+  return typeof prom === "number" && Math.abs(prom) > 100;
+}
+export function isKidFriendly(rec: KbRecord): boolean {
+  const cat = foldText(rec.category?.primary ?? "");
+  return KID_CAT.some((t) => boundedIncludes(cat, t)) || KID_NAME.test((rec.name || "").toLowerCase());
+}
+// Người già / tránh dốc / xe lăn: cần lịch đi nhẹ (không leo, không hang).
+const needsGentle = (req: TripRequest): boolean =>
+  req.party.elders > 0 || !!req.accessibility?.avoidSteep || !!req.accessibility?.wheelchair;
+
 // ── chấm điểm (thuần chất lượng, không địa lý) ──────────────────────────────
 function scoreDestination(rec: KbRecord, req: TripRequest): number {
   const d: KbDestinationExt = rec.ext?.destination ?? {};
@@ -191,8 +215,12 @@ function scoreDestination(rec: KbRecord, req: TripRequest): number {
   if (d.opening_hours?.regular_schedule?.length) s += 1;
   if ((rec.source_ids?.length ?? 0) >= 5) s += 1;
   if (req.accessibility?.wheelchair && d.facilities?.wheelchair_access) s += 3;
-  const prom = d.environment?.prominence_m;
-  if ((req.party.elders > 0 || req.accessibility?.avoidSteep) && typeof prom === "number" && Math.abs(prom) > 100) s -= 2;
+  // Điểm khách TỰ CHỌN (anchor) không bị phạt — ý khách thắng heuristic.
+  if (needsGentle(req) && isSteepish(rec) && !req.anchors?.includes(rec.id)) s -= STEEP_PENALTY;
+  if (req.party.children > 0) {
+    if (isKidFriendly(rec)) s += 2;
+    if (boundedIncludes(foldText(rec.category?.primary ?? ""), "duong mon")) s -= 3; // trekking với trẻ nhỏ
+  }
   if (req.interests?.length && d.vibes?.length) {
     // khớp interests (slug vibe đã validate) với vibes[] KB bằng EXACT-SET — không substring
     // (tránh compound false-positive; vibes là mảng slug rời rạc). +2 soft bonus, không filter.
@@ -490,6 +518,10 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
   // như marquee (bất kể hand-list). Cho phép "ngày đảo" ở dưới + hiện nhãn trên card.
   const hasSigAccess = (r: KbRecord) => !!r.ext?.destination?.loi_vao_dac_trung;
   for (const r of withCoord) if (hasSigAccess(r)) marqueeIds.add(r.id);
+  // Nhóm cần đi nhẹ (người già / tránh dốc / xe lăn): điểm biểu tượng phải leo/vào hang KHÔNG force-include —
+  // vẫn được chọn theo điểm nếu thành phố không còn điểm khác. Điểm khách tự chọn (anchor) luôn giữ.
+  if (needsGentle(req))
+    for (const r of withCoord) if (marqueeIds.has(r.id) && !anchorIds.has(r.id) && isSteepish(r)) marqueeIds.delete(r.id);
   const pinIds = marqueeIds.size ? new Set<string>([...anchorIds, ...marqueeIds]) : anchorIds; // anchor ∪ marquee
   // fame cụm: hand-list → hạng signatureSpot; auto (không hand-list) → theo importance rank của điểm marquee.
   const regFameOf = (pts: KbRecord[]): number => {
@@ -938,7 +970,18 @@ export function buildItinerary(req: TripRequest, store?: Store): Itinerary {
   const goiTruoc = days.flatMap((d) => d.items).filter((i) => i.goi_truoc).length;
   const notes: string[] = [...planNotes];
   if (goiTruoc) notes.push(`${goiTruoc} địa điểm chưa có giờ mở xác minh — nên GỌI TRƯỚC khi đến.`);
-  if (req.party.elders > 0) notes.push("Có người lớn tuổi: đã ưu tiên điểm ít dốc + có lối tiếp cận khi dữ liệu cho phép.");
+  const allItems = days.flatMap((d) => d.items).filter((i) => i.role === "diem-den");
+  if (req.party.elders > 0 || req.accessibility?.avoidSteep)
+    notes.push("Có người lớn tuổi / cần tránh dốc: đã đẩy điểm phải leo, hang động, thác xuống cuối khi có điểm thay thế.");
+  if (req.accessibility?.wheelchair)
+    // Trung thực: dữ liệu lối xe lăn (OSM) thưa — không hứa "tiếp cận được".
+    notes.push("Có người ngồi xe lăn: đã ưu tiên điểm có lối xe lăn theo dữ liệu, nhưng nhiều nơi chưa có thông tin — nên gọi trước để hỏi lối đi.");
+  if (req.party.children > 0) {
+    const kid = allItems.filter((i) => i.category && KID_CAT.some((t) => boundedIncludes(foldText(i.category ?? ""), t))).length;
+    notes.push(kid
+      ? `Có trẻ nhỏ: đã ưu tiên ${kid} điểm vui chơi / công viên / biển phù hợp với trẻ.`
+      : "Có trẻ nhỏ: thành phố này ít điểm vui chơi cho trẻ trong dữ liệu — lịch giữ các điểm gần, ít di chuyển.");
+  }
   // Phương tiện: chỉ GHI LẠI (không có ma trận thời gian riêng theo phương tiện → không đổi thứ tự/route).
   if (req.transport) {
     const TR: Record<string, string> = { "xe-khach": "xe khách", "tu-lai": "tự lái", "xe-may": "xe máy" };
