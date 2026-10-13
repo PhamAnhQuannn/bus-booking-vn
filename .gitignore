@@ -126,3 +126,7 @@ __pycache__/
 # Generated planner artifacts (engine-test scenario dumps + guide data) — data, not committed
 /trip-planner/scenario-itineraries.md
 /trip-planner/scripts/guide-data.json
+
+# Planner conversation-simulation data (scenario catalogs, transcripts, metrics, eval-proxy ledger) —
+# derived from gitignored tourism/trend data. Code under trip-planner/scripts/conv-sim/ only.
+/trip-planner/.eval-data/

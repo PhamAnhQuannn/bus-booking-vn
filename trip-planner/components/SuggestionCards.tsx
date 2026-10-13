@@ -21,7 +21,7 @@ export function SuggestionCards({ items, vibe, onAdd, onPlan }: Props) {
   // Nhãn vibe từ catalog; mã lạ (không có key) rơi về chính mã vibe.
   const label = t.has(`suggestions.vibe.${vibe}`) ? t(`suggestions.vibe.${vibe}`) : vibe;
   return (
-    <div className="mt-2 rounded-2xl border border-border bg-primary/5 p-3">
+    <div data-testid="planner-suggestions" className="mt-2 rounded-2xl border border-border bg-primary/5 p-3">
       <b className="text-[13px] font-semibold">{t('suggestions.heading', { vibe: label })}</b>
       {items.length ? (
         <ul className="mt-2 flex flex-col gap-1.5">

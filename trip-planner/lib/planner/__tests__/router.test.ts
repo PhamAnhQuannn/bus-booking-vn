@@ -187,3 +187,25 @@ describe('router — claude (opt-in)', () => {
     expect(groqFn).not.toHaveBeenCalled();
   });
 });
+
+describe('router — PLANNER_LLM_FALLBACK=off (eval)', () => {
+  afterEach(() => {
+    delete process.env.PLANNER_LLM_FALLBACK;
+    delete process.env.VERCEL_ENV;
+  });
+
+  it('off → chỉ primary; primary ném trước nội dung → ném, KHÔNG gọi provider kế', async () => {
+    process.env.PLANNER_LLM_FALLBACK = 'off';
+    process.env.PLANNER_LLM_PRIMARY = 'claude';
+    expect(providerOrder()).toEqual(['claude']);
+    claudeFn.mockImplementation(throwsNow('upstream'));
+    await expect(drain()).rejects.toMatchObject({ code: 'upstream' });
+    expect(geminiFn).not.toHaveBeenCalled();
+  });
+
+  it('prod thật bỏ qua cờ → giữ lưới fallback', () => {
+    process.env.PLANNER_LLM_FALLBACK = 'off';
+    process.env.VERCEL_ENV = 'production';
+    expect(providerOrder()).toEqual(['gemini', 'groq']);
+  });
+});

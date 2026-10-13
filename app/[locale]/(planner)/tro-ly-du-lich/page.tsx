@@ -937,6 +937,7 @@ export default function TroLyDuLichPage() {
         <div className="flex flex-wrap gap-2">
           {activeAsk.options.map((opt, i) => (
             <button key={opt} type="button" onClick={() => onChip(activeAsk.slot, opt)} disabled={loading}
+              data-testid="planner-chip" data-slot={activeAsk.slot}
               className={`rounded-full px-3.5 py-2 text-[13px] font-semibold transition-colors disabled:opacity-40 ${
                 i === 0 ? 'bg-primary text-primary-foreground hover:opacity-90' : 'border border-[#F0EAE2] text-foreground hover:border-primary hover:bg-primary/5'
               }`}>
@@ -1156,6 +1157,7 @@ export default function TroLyDuLichPage() {
                     <div className="flex flex-wrap gap-2">
                       {activeAsk.options.map((opt, i) => (
                         <button key={opt} type="button" onClick={() => onChip(activeAsk.slot, opt)} disabled={loading}
+                          data-testid="planner-chip" data-slot={activeAsk.slot}
                           className={`rounded-full px-3.5 py-2 text-[13px] font-semibold transition-colors disabled:opacity-40 ${
                             i === 0 ? 'bg-primary text-primary-foreground hover:opacity-90' : 'border border-[#F0EAE2] text-foreground hover:border-primary hover:bg-primary/5'
                           }`}>

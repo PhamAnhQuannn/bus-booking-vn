@@ -24,8 +24,14 @@ const ADAPTERS: Record<ProviderId, Adapter> = { gemini: geminiStream, groq: groq
 // Giá trị lạ → mặc định gemini primary (an toàn: gemini là provider đã chạy prod). "claude" → [claude, gemini].
 export function providerOrder(): ProviderId[] {
   const primary = (process.env.PLANNER_LLM_PRIMARY ?? "gemini").trim().toLowerCase();
-  if (primary === "claude") return ["claude", "gemini"]; // opt-in (trả phí); default giữ nguyên
-  return primary === "groq" ? ["groq", "gemini"] : ["gemini", "groq"];
+  const order: ProviderId[] =
+    primary === "claude" ? ["claude", "gemini"] // opt-in (trả phí); default giữ nguyên
+    : primary === "groq" ? ["groq", "gemini"]
+    : ["gemini", "groq"];
+  // Eval (planner-conv-eval): PLANNER_LLM_FALLBACK=off → CHỈ primary, để so provider không lẫn lượt
+  // fallback âm thầm. Bỏ qua ở prod thật (prod luôn giữ lưới fallback).
+  if (process.env.PLANNER_LLM_FALLBACK === "off" && !isRealProduction()) return order.slice(0, 1);
+  return order;
 }
 
 export async function* streamChat(history: ChatTurn[], locale: "vi" | "en" = "vi"): AsyncGenerator<StreamEvent> {

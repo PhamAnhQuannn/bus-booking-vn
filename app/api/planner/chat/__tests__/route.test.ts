@@ -9,7 +9,7 @@
  * Mocks the planner engine + ratelimit so no Gemini/Redis/Prisma is touched.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const {
   sessionLimitMock,
@@ -327,5 +327,36 @@ describe('POST /api/planner/chat — provider frame carries server-computed isFa
     streamEventsMock.mockReturnValue([{ kind: 'provider', id: 'gemini', model: 'gemini-x' }]);
     const text = await (await POST(makeRequest())).text();
     expect(providerFrame(text)).toEqual({ id: 'gemini', model: 'gemini-x', isFallback: true });
+  });
+});
+
+describe('POST /api/planner/chat — PLANNER_EVAL_MODE (planner-conv-eval harness)', () => {
+  afterEach(() => {
+    delete process.env.PLANNER_EVAL_MODE;
+    delete process.env.VERCEL_ENV;
+  });
+
+  const drainAll = () => {
+    breakerStateMock.mockResolvedValue({ open: true, retryAfter: 60 });
+    for (const m of [sessionLimitMock, anonLimitMock, perIpLimitMock, budgetLimitMock])
+      m.mockResolvedValue({ allowed: false, remaining: 0, retryAfter: 99 });
+  };
+
+  it('non-prod: bypasses breaker + every limiter/budget → 200 SSE, limiters never consulted', async () => {
+    process.env.PLANNER_EVAL_MODE = '1';
+    drainAll();
+    for (const m of [sessionLimitMock, anonLimitMock, perIpLimitMock, budgetLimitMock, breakerStateMock]) m.mockClear();
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    for (const m of [sessionLimitMock, anonLimitMock, perIpLimitMock, budgetLimitMock, breakerStateMock])
+      expect(m).not.toHaveBeenCalled();
+  });
+
+  it('real production ignores the flag → limiters still deny', async () => {
+    process.env.PLANNER_EVAL_MODE = '1';
+    process.env.VERCEL_ENV = 'production';
+    drainAll();
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(503); // breaker open → refused before limiters
   });
 });
