@@ -73,8 +73,8 @@ describe('GET /api/cron/planner-llm-probe', () => {
     });
   });
 
-  describe('rate-cap gate (Gemini 1/ngày)', () => {
-    it('UTC hour 0 → probes both groq + gemini', async () => {
+  describe('rate-cap gate (Gemini + Claude 1/ngày)', () => {
+    it('UTC hour 0 → probes groq + gemini + claude', async () => {
       vi.setSystemTime(new Date('2026-09-18T00:00:00Z'));
       await GET(authed());
       expect(probePlannerProviders).toHaveBeenCalledWith(['groq', 'gemini', 'claude']);
