@@ -22,6 +22,16 @@ describe('redactPii — mask PII định danh', () => {
     expect(redactPii('một hai ba bốn năm sáu bảy tám')).toBe('một hai ba bốn năm sáu bảy tám'); // 8 token < 9
   });
 
+  it('SĐT đọc chữ: idempotent (backfill re-run) + câu thật có nhiều từ chữ-số vẫn nguyên', () => {
+    const once = redactPii('số không chín một hai ba bốn năm sáu bảy tám nhé');
+    expect(once).toBe('số [sđt] nhé');
+    expect(redactPii(once)).toBe(once);
+    const ok = 'đi Đà Lạt ba ngày hai đêm, hai người lớn một trẻ em năm tuổi, bảy tám giờ sáng';
+    expect(redactPii(ok)).toBe(ok);
+    const long = 'không '.repeat(400) + 'x';
+    expect(redactPii(long)).toBe('[sđt] x');
+  });
+
   it('mask email', () => {
     expect(redactPii('mail quan.test@example.com đi')).toBe('mail [email] đi');
   });
