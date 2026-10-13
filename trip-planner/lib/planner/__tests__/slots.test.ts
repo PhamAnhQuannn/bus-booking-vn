@@ -222,6 +222,10 @@ describe('extractFromText — tách người lớn / trẻ em / người lớn t
   });
   it('"N người, trong đó M trẻ em" → người lớn = phần còn lại', () =>
     expect(party('nhóm 5 người, trong đó 2 trẻ em')).toEqual([3, 2, undefined]));
+  it('"2 người, 1 bé" mơ hồ → giữ 2 người lớn + 1 trẻ; "1 con đường" không phải trẻ', () => {
+    expect(party('đi 2 người, 1 bé')).toEqual([2, 1, undefined]);
+    expect(party('đi Đà Lạt 2 người theo 1 con đường ven biển')).toEqual([2, undefined, undefined]);
+  });
   it('"vợ chồng và 2 con" → trẻ 2, người lớn để trống (mặc định 2 khi dựng)', () =>
     expect(party('vợ chồng và 2 con đi Đà Lạt')).toEqual([undefined, 2, undefined]));
   it('"người lớn tuổi" không bị nhận là "người lớn"', () =>

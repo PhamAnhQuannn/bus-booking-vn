@@ -227,7 +227,7 @@ export function extractFromText(text: string): Partial<Slots> {
   // dựng lịch 2 người lớn, 0 trẻ (lượt-1 short-circuit không qua LLM nên không ai sửa lại) — eval hội thoại
   // (planner-conv-eval) bắt được. Biên Unicode (?!\p{L}) thay \b (ASCII-only, hỏng sau chữ có dấu).
   const num = (re: RegExp) => { const m = t.match(re); return m ? parseInt(m[1], 10) : undefined; };
-  const kids = num(/(\d+)\s*(?:trẻ em|trẻ nhỏ|trẻ|em bé|bé|cháu nhỏ|con nhỏ|con)(?!\p{L})/u);
+  const kids = num(/(\d+)\s*(?:trẻ em|trẻ nhỏ|trẻ|em bé|bé|cháu nhỏ|con nhỏ|con(?!\s+(?:đường|chó|mèo|sông|phố|suối|đò|thuyền|ngựa|voi|bò|trâu)))(?!\p{L})/u);
   const olds = num(/(\d+)\s*(?:người già|người lớn tuổi|người cao tuổi|cụ|ông bà)(?!\p{L})/u);
   const grown = num(/(\d+)\s*người lớn(?!\s*tuổi)(?!\p{L})/u);
   // "N người/khách/thành viên" chung (không phải "N người lớn/già/cao tuổi"); "khách" loại "khách sạn".
@@ -237,8 +237,10 @@ export function extractFromText(text: string): Partial<Slots> {
   if (grown != null) out.adults = grown;
   else if (total != null) {
     // "4 người, trong đó 2 trẻ em" → tổng gồm cả trẻ/người già: người lớn = phần còn lại (nếu ≥1).
+    // CHỈ trừ khi có dấu hiệu "bao gồm" (trong đó/gồm/có N); "2 người, 1 bé" mơ hồ → giữ nghĩa cũ (2 người lớn + 1 bé).
+    const incl = /trong đó|bao gồm|gồm|(?:^|\P{L})có\s+\d/u.test(t);
     const rest = total - (kids ?? 0) - (olds ?? 0);
-    out.adults = Math.max(kids != null || olds != null ? (rest >= 1 ? rest : total) : total, 1);
+    out.adults = Math.max(incl && (kids != null || olds != null) && rest >= 1 ? rest : total, 1);
   } // chỉ nêu trẻ/người già → để adults trống (slotsToParams mặc định 2 người lớn đi kèm)
   // ngân sách số: "<số> triệu/tr/củ/k/nghìn/ngàn/đồng" → VND/người. \b là ASCII-only nên đơn vị ngắn
   // (tr/k) khớp nhầm từ có dấu ("2 trẻ", "3 trái", "500 ký") → dùng biên Unicode-aware (?!\p{L}).
