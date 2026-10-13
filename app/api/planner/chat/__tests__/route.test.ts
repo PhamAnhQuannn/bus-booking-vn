@@ -334,6 +334,7 @@ describe('POST /api/planner/chat — PLANNER_EVAL_MODE (planner-conv-eval harnes
   afterEach(() => {
     delete process.env.PLANNER_EVAL_MODE;
     delete process.env.VERCEL_ENV;
+    delete process.env.VERCEL;
   });
 
   const drainAll = () => {
@@ -350,6 +351,15 @@ describe('POST /api/planner/chat — PLANNER_EVAL_MODE (planner-conv-eval harnes
     expect(res.status).toBe(200);
     for (const m of [sessionLimitMock, anonLimitMock, perIpLimitMock, budgetLimitMock, breakerStateMock])
       expect(m).not.toHaveBeenCalled();
+  });
+
+  it('Vercel preview also ignores the flag', async () => {
+    process.env.PLANNER_EVAL_MODE = '1';
+    process.env.VERCEL = '1';
+    process.env.VERCEL_ENV = 'preview';
+    drainAll();
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(503);
   });
 
   it('real production ignores the flag → limiters still deny', async () => {

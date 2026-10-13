@@ -9,7 +9,7 @@
 // event 1 mình KHÔNG khoá fallback (khớp route.firstEventAt = event nội dung đầu, PR-8). Đã phát nội
 // dung → ném (không fallback: tránh double-stream/lịch nửa vời). Fallback TỐI ĐA 1 lần (order 2 phần tử).
 
-import { isRealProduction } from "@/lib/core/config/deployTier";
+import { isRealProduction, isLocalEvalHarnessAllowed } from "@/lib/core/config/deployTier";
 import { logger } from "@/lib/logger";
 import { ParseIntentError, type ChatTurn, type StreamEvent, type ProviderId } from "./types";
 import { streamChat as geminiStream } from "./geminiAdapter";
@@ -30,7 +30,7 @@ export function providerOrder(): ProviderId[] {
     : ["gemini", "groq"];
   // Eval (planner-conv-eval): PLANNER_LLM_FALLBACK=off → CHỈ primary, để so provider không lẫn lượt
   // fallback âm thầm. Bỏ qua ở prod thật (prod luôn giữ lưới fallback).
-  if (process.env.PLANNER_LLM_FALLBACK === "off" && !isRealProduction()) return order.slice(0, 1);
+  if (process.env.PLANNER_LLM_FALLBACK === "off" && isLocalEvalHarnessAllowed()) return order.slice(0, 1);
   return order;
 }
 

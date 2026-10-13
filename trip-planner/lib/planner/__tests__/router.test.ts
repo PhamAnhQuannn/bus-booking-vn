@@ -192,6 +192,7 @@ describe('router — PLANNER_LLM_FALLBACK=off (eval)', () => {
   afterEach(() => {
     delete process.env.PLANNER_LLM_FALLBACK;
     delete process.env.VERCEL_ENV;
+    delete process.env.VERCEL;
   });
 
   it('off → chỉ primary; primary ném trước nội dung → ném, KHÔNG gọi provider kế', async () => {
@@ -206,6 +207,21 @@ describe('router — PLANNER_LLM_FALLBACK=off (eval)', () => {
   it('prod thật bỏ qua cờ → giữ lưới fallback', () => {
     process.env.PLANNER_LLM_FALLBACK = 'off';
     process.env.VERCEL_ENV = 'production';
+    expect(providerOrder()).toEqual(['gemini', 'groq']);
+  });
+});
+
+describe('router — PLANNER_LLM_FALLBACK=off ignored on Vercel preview', () => {
+  afterEach(() => {
+    delete process.env.PLANNER_LLM_FALLBACK;
+    delete process.env.VERCEL_ENV;
+    delete process.env.VERCEL;
+  });
+
+  it('preview keeps fallback net', () => {
+    process.env.PLANNER_LLM_FALLBACK = 'off';
+    process.env.VERCEL = '1';
+    process.env.VERCEL_ENV = 'preview';
     expect(providerOrder()).toEqual(['gemini', 'groq']);
   });
 });

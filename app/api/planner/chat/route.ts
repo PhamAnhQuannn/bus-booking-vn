@@ -42,7 +42,7 @@ import {
   BREAKER_COOLDOWN_SEC,
 } from '@/lib/ratelimit';
 import { clientIp } from '@/lib/core/http/clientIp';
-import { isRealProduction } from '@/lib/core/config/deployTier';
+import { isLocalEvalHarnessAllowed } from '@/lib/core/config/deployTier';
 import { sessionIdFromRequest } from '@/lib/analytics';
 import { captureException } from '@/lib/observability';
 import { getEnv } from '@/lib/config';
@@ -126,7 +126,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     // Eval harness (planner-conv-eval): PLANNER_EVAL_MODE=1 bỏ breaker + mọi limiter/budget để runner
     // Playwright chạy hàng nghìn lượt từ 1 IP local. KHÔNG BAO GIỜ hiệu lực ở prod thật (đọc fresh mỗi
     // request); chi phí eval chặn ở eval-proxy (ledger), không ở đây.
-    const evalMode = process.env.PLANNER_EVAL_MODE === '1' && !isRealProduction();
+    const evalMode = process.env.PLANNER_EVAL_MODE === '1' && isLocalEvalHarnessAllowed();
 
     const tBeforeBreaker = performance.now();
     // Circuit-breaker (#552): during a Gemini 429/5xx storm, short-circuit to 503 WITHOUT calling
