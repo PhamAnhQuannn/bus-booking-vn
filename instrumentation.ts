@@ -16,12 +16,17 @@ export async function register(): Promise<void> {
   if (process.env.SENTRY_DSN && process.env.NEXT_RUNTIME === 'nodejs') {
     const Sentry = await import('@sentry/nextjs');
     const { scrubPii } = await import('@/lib/observability/sentry');
+    const { scrubSentryEvent } = await import('@/lib/observability/sentryScrub');
 
     Sentry.init({
       dsn: process.env.SENTRY_DSN,
       environment: process.env.NODE_ENV ?? 'development',
       tracesSampleRate: 0,
+      // #842: never attach IPs / cookies / request bodies automatically.
+      sendDefaultPii: false,
       beforeSend(event) {
+        // #842: emails/VN phones in exception values, message and breadcrumbs.
+        scrubSentryEvent(event);
         if (event.extra) {
           event.extra = scrubPii(event.extra) as Record<string, unknown>;
         }

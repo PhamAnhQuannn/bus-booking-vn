@@ -36,6 +36,75 @@ describe('exportCustomerData', () => {
     expect(serialized).not.toContain('confirmationToken');
   });
 
+  it('#842: includes planner chats, charter requests, booking notifications + consents', async () => {
+    await exportCustomerData('cust-1');
+    const { select } = mockFindUnique.mock.calls[0][0];
+    expect(select.plannerConversations.select.messages.select).toEqual({
+      role: true,
+      text: true,
+      createdAt: true,
+    });
+    expect(select.charterRequests.select).toMatchObject({ ref: true, contactPhone: true, notes: true });
+    expect(select.bookings.select.consents.select).toEqual({
+      consentType: true,
+      version: true,
+      consentedAt: true,
+    });
+    expect(select.bookings.select.notifications.select).toMatchObject({
+      template: true,
+      recipient: true,
+      payload: true,
+    });
+  });
+
+  it("#842: reaches new data only via the customer's relations (no top-level where on other models)", async () => {
+    await exportCustomerData('cust-1');
+    const arg = mockFindUnique.mock.calls[0][0];
+    // Single scoped query: every nested relation hangs off customer id 'cust-1'.
+    expect(mockFindUnique).toHaveBeenCalledTimes(1);
+    expect(arg.where).toEqual({ id: 'cust-1' });
+  });
+
+  it('#842: omits ops-internal fields (delivery-retry state, operator assignment, admin notes)', async () => {
+    await exportCustomerData('cust-1');
+    const serialized = JSON.stringify(mockFindUnique.mock.calls[0][0]);
+    for (const f of [
+      'keySalt',
+      'attemptCount',
+      'nextAttemptAt',
+      'lastError',
+      'externalRef',
+      'assigneeOperatorId',
+      'rejectionReason',
+      'dtoJson',
+    ]) {
+      expect(serialized).not.toContain(f);
+    }
+  });
+
+  it('#842: drops operator/ops-alert notification rows (recipient is not the buyer)', async () => {
+    mockFindUnique.mockResolvedValueOnce({
+      id: 'cust-1',
+      bookings: [
+        {
+          buyerEmail: 'rider@example.com',
+          buyerPhone: '+8490xxxxxx1',
+          notifications: [
+            { template: 'customerBookingPaid', recipient: 'rider@example.com' },
+            { template: 'bookingReminder24h', recipient: '+8490xxxxxx1' },
+            { template: 'operatorNewBooking', recipient: 'op@example.com' },
+            { template: 'manual_refund_required', recipient: 'ops@example.com' },
+          ],
+        },
+      ],
+    });
+    const out = await exportCustomerData('cust-1');
+    expect(out!.bookings[0].notifications.map((n) => n.template)).toEqual([
+      'customerBookingPaid',
+      'bookingReminder24h',
+    ]);
+  });
+
   it('returns the customer row (or null when not found)', async () => {
     expect(await exportCustomerData('cust-1')).toMatchObject({ id: 'cust-1' });
     mockFindUnique.mockResolvedValueOnce(null);
