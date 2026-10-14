@@ -23,6 +23,7 @@ export {
   type GoogleIdentityInput,
   type ResolveGoogleResult,
 } from './linkGoogleAccount';
+export { CUSTOMER_CONSENT_VERSION } from './customerConsent';
 export { readCsrfToken } from './csrfClient';
 export { generateToken as generateCsrfToken } from './csrf';
 export { rotateCsrf } from './csrfRotate';

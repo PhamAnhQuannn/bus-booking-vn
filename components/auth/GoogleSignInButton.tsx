@@ -11,6 +11,7 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { Link } from '@/i18n/navigation';
 import { Button } from '@/components/ui/button';
 
 const ENABLED = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED === 'true';
@@ -78,6 +79,22 @@ export function GoogleSignInButton({ returnTo }: { returnTo?: string }) {
           </>
         )}
       </Button>
+      {/* #841 (PDPL): a Google signup creates the account without the register form's
+          checkbox, so the ToS/Privacy notice is shown before the OAuth redirect. */}
+      <p className="text-center text-xs leading-relaxed text-muted-foreground">
+        {t.rich('google.consent', {
+          terms: (c) => (
+            <Link href="/terms" className="text-primary underline">
+              {c}
+            </Link>
+          ),
+          privacy: (c) => (
+            <Link href="/privacy" className="text-primary underline">
+              {c}
+            </Link>
+          ),
+        })}
+      </p>
     </div>
   );
 }

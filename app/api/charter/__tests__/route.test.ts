@@ -18,6 +18,7 @@ vi.mock('@/lib/auth/requireCustomerAuth', () => ({ getCustomerOptional: mockGetC
 
 import { POST } from '../route';
 import { NextRequest } from 'next/server';
+import { CUSTOMER_CONSENT_VERSION } from '@/lib/auth/customerConsent';
 
 function makeRequest(body: unknown): NextRequest {
   return new NextRequest('http://localhost/api/charter', {
@@ -38,6 +39,7 @@ const VALID = {
   passengers: 16,
   vehicleType: 'coach',
   notes: 'Đón tại khách sạn',
+  acceptPrivacy: true, // #841 consent checkbox
   company: '', // honeypot empty
 };
 
@@ -81,6 +83,26 @@ describe('POST /api/charter', () => {
 
   it('returns 400 for a bad body (missing required fields)', async () => {
     const res = await POST(makeRequest({ contactName: '', destinationNames: [], passengers: 0 }));
+    expect(res.status).toBe(400);
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it('#841: persists the consent version on success', async () => {
+    await POST(makeRequest(VALID));
+    expect(mockCreate.mock.calls[0][1].consentVersion).toBe(CUSTOMER_CONSENT_VERSION);
+  });
+
+  it('#841: returns 400 when acceptPrivacy is missing (no create)', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { acceptPrivacy, ...noConsent } = VALID;
+    const res = await POST(makeRequest(noConsent));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'INVALID' });
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it('#841: returns 400 when acceptPrivacy is false', async () => {
+    const res = await POST(makeRequest({ ...VALID, acceptPrivacy: false }));
     expect(res.status).toBe(400);
     expect(mockCreate).not.toHaveBeenCalled();
   });

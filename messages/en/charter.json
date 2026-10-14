@@ -28,7 +28,7 @@
     "notesPlaceholder": "Itinerary, pickup point, extra requests…",
     "submit": "Send request",
     "submitting": "Sending…",
-    "consent": "By sending this request, you agree to the <terms>Terms of Use</terms> and <privacy>Privacy Policy</privacy>, and allow us to share your request with partner transport operators so they can quote."
+    "consent": "I agree to the <terms>Terms of Use</terms> and <privacy>Privacy Policy</privacy>, and allow BBVN to share my request with partner transport operators so they can quote."
   },
   "validation": {
     "reqName": "Please enter your name",
@@ -40,7 +40,8 @@
     "reqDate": "Please choose a departure date",
     "reqPeople": "Please enter the number of people",
     "reqVehicle": "Please choose a vehicle type",
-    "reqPeopleNum": "Please enter the number of people."
+    "reqPeopleNum": "Please enter the number of people.",
+    "reqConsent": "Please agree to the Terms of Use and Privacy Policy to send your request"
   },
   "errors": {
     "rateLimit": "You have sent too many requests. Please try again later.",
