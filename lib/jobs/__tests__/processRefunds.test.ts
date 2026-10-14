@@ -92,16 +92,19 @@ describe('processRefunds', () => {
 
     const result = await processRefunds({} as never, { now: NOW });
 
-    expect(updateMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          status: 'failed',
-          attemptCount: 1,
-          lastError: 'psp_down',
-          nextAttemptAt: refundBackoff(1, NOW),
-        }),
+    // #833: guarded — a row refundOut already flipped to manual_pending (tx committed, only the
+    // post-commit bookkeeping threw) must NOT be demoted to failed, or the next tick's
+    // alreadyDone path would mark it done with no money sent.
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { id: 'ob-1', status: { not: 'manual_pending' } },
+      data: expect.objectContaining({
+        status: 'failed',
+        attemptCount: 1,
+        lastError: 'psp_down',
+        nextAttemptAt: refundBackoff(1, NOW),
       }),
-    );
+    });
+    expect(JSON.stringify(updateMock.mock.calls)).not.toContain('"failed"');
     expect(result.rowsAffected).toBe(0);
   });
 

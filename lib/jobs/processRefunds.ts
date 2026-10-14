@@ -87,8 +87,12 @@ export const processRefunds: JobCore = async (_tx, opts?: JobOpts) => {
       done += 1;
     } catch (err) {
       const nextAttempt = row.attemptCount + 1;
-      await prisma.refundObligation.update({
-        where: { id: row.id },
+      // #833: guarded like the done path. If refundOut's manual tx already COMMITTED
+      // (row is 'manual_pending', ledger legs written) and only the post-commit bookkeeping
+      // threw, demoting to 'failed' would let the next tick hit alreadyDone → 'done' with no
+      // money ever sent. An owed row stays owed; only pending/failed rows record the failure.
+      await prisma.refundObligation.updateMany({
+        where: { id: row.id, status: { not: MANUAL_REFUND_PENDING } },
         data: {
           status: 'failed',
           attemptCount: nextAttempt,
