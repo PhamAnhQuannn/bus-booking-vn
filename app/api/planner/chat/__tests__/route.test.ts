@@ -28,6 +28,9 @@ const {
   infoMock,
   streamEventsMock,
   providerOrderMock,
+  breakerForMock,
+  claudeBreaker,
+  llmUsageMock,
 } = vi.hoisted(() => ({
   sessionLimitMock: vi.fn(async () => ({ allowed: true, remaining: 9, retryAfter: 0 })),
   anonLimitMock: vi.fn(async () => ({ allowed: true, remaining: 2, retryAfter: 0 })),
@@ -46,6 +49,14 @@ const {
   // S6: events the mocked router yields (default none → done-only) + configured provider order.
   streamEventsMock: vi.fn<() => unknown[]>(() => []),
   providerOrderMock: vi.fn<() => string[]>(() => ['gemini', 'groq']),
+  // #853: route chọn breaker theo providerOrder()[0]. 'gemini' → các mock alias cũ (breakerStateMock…).
+  breakerForMock: vi.fn(),
+  claudeBreaker: {
+    breakerState: vi.fn(async () => ({ open: false, retryAfter: 0 })),
+    recordUpstreamFailure: vi.fn(async () => {}),
+    recordUpstreamSuccess: vi.fn(async () => {}),
+  },
+  llmUsageMock: vi.fn(async () => ({ callUsd: 0, dailyInputTokens: 0, dailyOutputTokens: 0, dailyUsd: 0 })),
 }));
 
 vi.mock('@/lib/ratelimit', () => ({
@@ -53,10 +64,9 @@ vi.mock('@/lib/ratelimit', () => ({
   plannerChatAnonRatelimit: { limit: anonLimitMock },
   plannerChatDailyPerIp: { limit: perIpLimitMock },
   plannerDailyBudget: { limit: budgetLimitMock },
-  breakerState: breakerStateMock,
-  recordUpstreamFailure: upstreamFailMock,
-  recordUpstreamSuccess: upstreamSuccessMock,
+  plannerBreakerFor: breakerForMock,
   recordGeminiUsage: usageMock,
+  recordLlmUsage: llmUsageMock,
   BREAKER_COOLDOWN_SEC: 60,
 }));
 
@@ -129,6 +139,19 @@ beforeEach(() => {
   infoMock.mockReset();
   streamEventsMock.mockReturnValue([]);
   providerOrderMock.mockReturnValue(['gemini', 'groq']);
+  breakerForMock.mockReset();
+  breakerForMock.mockImplementation((p: string) =>
+    p === 'claude'
+      ? claudeBreaker
+      : {
+          breakerState: breakerStateMock,
+          recordUpstreamFailure: upstreamFailMock,
+          recordUpstreamSuccess: upstreamSuccessMock,
+        },
+  );
+  Object.values(claudeBreaker).forEach((m) => m.mockClear());
+  claudeBreaker.breakerState.mockResolvedValue({ open: false, retryAfter: 0 });
+  llmUsageMock.mockReset();
 });
 
 describe('POST /api/planner/chat — kill-switch (#549)', () => {
@@ -368,5 +391,61 @@ describe('POST /api/planner/chat — PLANNER_EVAL_MODE (planner-conv-eval harnes
     drainAll();
     const res = await POST(makeRequest());
     expect(res.status).toBe(503); // breaker open → refused before limiters
+  });
+});
+
+describe('POST /api/planner/chat — breaker + usage theo provider (#853)', () => {
+  const usageEv = { kind: 'usage', inputTokens: 100, outputTokens: 20, totalTokens: 120, thoughtsTokens: 0 };
+
+  it('default gemini primary: breaker gemini (alias cũ) + usage qua recordGeminiUsage', async () => {
+    streamEventsMock.mockReturnValue([{ kind: 'provider', id: 'gemini', model: 'g' }, usageEv]);
+    await (await POST(makeRequest())).text();
+    expect(breakerForMock).toHaveBeenCalledWith('gemini');
+    expect(breakerStateMock).toHaveBeenCalled();
+    expect(upstreamSuccessMock).toHaveBeenCalledTimes(1);
+    expect(usageMock).toHaveBeenCalledWith(100, 20);
+    expect(llmUsageMock).not.toHaveBeenCalled();
+    expect(budgetLimitMock).toHaveBeenCalledWith('planner-gemini:global');
+  });
+
+  it('claude primary: gate + success + usage đi breaker/counter claude, KHÔNG đụng gemini', async () => {
+    providerOrderMock.mockReturnValue(['claude', 'gemini']);
+    breakerStateMock.mockClear();
+    streamEventsMock.mockReturnValue([{ kind: 'provider', id: 'claude', model: 'c' }, usageEv]);
+    await (await POST(makeRequest())).text();
+    expect(breakerForMock).toHaveBeenCalledWith('claude');
+    expect(claudeBreaker.breakerState).toHaveBeenCalled();
+    expect(claudeBreaker.recordUpstreamSuccess).toHaveBeenCalledTimes(1);
+    expect(breakerStateMock).not.toHaveBeenCalled();
+    expect(upstreamSuccessMock).not.toHaveBeenCalled();
+    expect(llmUsageMock).toHaveBeenCalledWith('claude', 100, 20);
+    expect(usageMock).not.toHaveBeenCalled();
+    // Budget request-count vẫn 1 bucket global (giữ key — không reset counter prod).
+    expect(budgetLimitMock).toHaveBeenCalledWith('planner-gemini:global');
+  });
+
+  it('claude primary: upstream failure trips the CLAUDE breaker, not gemini', async () => {
+    providerOrderMock.mockReturnValue(['claude', 'gemini']);
+    streamEventsMock.mockImplementation(() => {
+      throw new ParseIntentError('Claude HTTP 529', 'upstream');
+    });
+    await (await POST(makeRequest())).text();
+    expect(claudeBreaker.recordUpstreamFailure).toHaveBeenCalledTimes(1);
+    expect(upstreamFailMock).not.toHaveBeenCalled();
+  });
+
+  it('claude primary + open claude breaker → 503 breaker', async () => {
+    providerOrderMock.mockReturnValue(['claude', 'gemini']);
+    claudeBreaker.breakerState.mockResolvedValue({ open: true, retryAfter: 30 });
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(503);
+    expect(res.headers.get('Retry-After')).toBe('30');
+  });
+
+  it('groq served (fallback): usage priced as groq, not gemini', async () => {
+    streamEventsMock.mockReturnValue([{ kind: 'provider', id: 'groq', model: 'q' }, usageEv]);
+    await (await POST(makeRequest())).text();
+    expect(llmUsageMock).toHaveBeenCalledWith('groq', 100, 20);
+    expect(usageMock).not.toHaveBeenCalled();
   });
 });

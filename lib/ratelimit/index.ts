@@ -609,5 +609,6 @@ export {
   type BreakerState,
 } from './geminiBreaker'; // #552 circuit-breaker (alias Gemini của createBreaker)
 export { createBreaker, type ProviderBreaker } from './upstreamBreaker'; // PR-4 factory per-provider
+export { plannerBreakerFor } from './providerBreaker'; // #853 breaker theo provider primary
 export { recordGeminiUsage, type GeminiUsageResult } from './geminiUsage'; // #553 token/$ accounting (alias Gemini)
 export { recordLlmUsage, type LlmUsageResult, type LlmProvider } from './llmUsage'; // PR-4 per-provider

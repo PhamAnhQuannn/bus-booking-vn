@@ -128,3 +128,40 @@ describe('geminiBreaker alias — trỏ instance planner-gemini', () => {
     expect(gb.BREAKER_COOLDOWN_SEC).toBe(60);
   });
 });
+
+describe('plannerBreakerFor — breaker theo provider primary (#853)', () => {
+  it("gemini → key LITERAL 'planner-gemini:*' (y hệt alias cũ, không reset breaker prod)", async () => {
+    backend = 'ioredis';
+    fake.incr.mockResolvedValue(THRESHOLD);
+    fake.ttl.mockResolvedValue(10);
+    const { plannerBreakerFor } = await import('../providerBreaker');
+    const gb = await import('../geminiBreaker');
+    const b = plannerBreakerFor('gemini');
+    expect(b.breakerState).toBe(gb.breakerState); // CHÍNH instance alias, không fork
+    await b.recordUpstreamFailure();
+    expect(fake.incr).toHaveBeenCalledWith('planner-gemini:fails');
+    expect(fake.set).toHaveBeenCalledWith('planner-gemini:open', '1', 'EX', 60);
+    await b.breakerState();
+    expect(fake.ttl).toHaveBeenCalledWith('planner-gemini:open');
+  });
+
+  it("claude → 'planner-claude:*', groq → 'planner-groq:*'", async () => {
+    backend = 'ioredis';
+    fake.incr.mockResolvedValue(THRESHOLD);
+    const { plannerBreakerFor } = await import('../providerBreaker');
+    await plannerBreakerFor('claude').recordUpstreamFailure();
+    expect(fake.incr).toHaveBeenCalledWith('planner-claude:fails');
+    expect(fake.set).toHaveBeenCalledWith('planner-claude:open', '1', 'EX', 60);
+    await plannerBreakerFor('groq').recordUpstreamFailure();
+    expect(fake.incr).toHaveBeenCalledWith('planner-groq:fails');
+    expect(fake.incr).not.toHaveBeenCalledWith('planner-gemini:fails');
+  });
+
+  it('singleton per provider (memory): mở claude KHÔNG mở gemini, gọi lại trả cùng instance', async () => {
+    const { plannerBreakerFor } = await import('../providerBreaker');
+    expect(plannerBreakerFor('claude')).toBe(plannerBreakerFor('claude'));
+    for (let i = 0; i < THRESHOLD; i++) await plannerBreakerFor('claude').recordUpstreamFailure();
+    expect((await plannerBreakerFor('claude').breakerState()).open).toBe(true);
+    expect((await plannerBreakerFor('gemini').breakerState()).open).toBe(false);
+  });
+});
