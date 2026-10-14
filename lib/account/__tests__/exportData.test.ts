@@ -82,6 +82,29 @@ describe('exportCustomerData', () => {
     }
   });
 
+  it('#842: drops operator/ops-alert notification rows (recipient is not the buyer)', async () => {
+    mockFindUnique.mockResolvedValueOnce({
+      id: 'cust-1',
+      bookings: [
+        {
+          buyerEmail: 'rider@example.com',
+          buyerPhone: '+8490xxxxxx1',
+          notifications: [
+            { template: 'customerBookingPaid', recipient: 'rider@example.com' },
+            { template: 'bookingReminder24h', recipient: '+8490xxxxxx1' },
+            { template: 'operatorNewBooking', recipient: 'op@example.com' },
+            { template: 'manual_refund_required', recipient: 'ops@example.com' },
+          ],
+        },
+      ],
+    });
+    const out = await exportCustomerData('cust-1');
+    expect(out!.bookings[0].notifications.map((n) => n.template)).toEqual([
+      'customerBookingPaid',
+      'bookingReminder24h',
+    ]);
+  });
+
   it('returns the customer row (or null when not found)', async () => {
     expect(await exportCustomerData('cust-1')).toMatchObject({ id: 'cust-1' });
     mockFindUnique.mockResolvedValueOnce(null);

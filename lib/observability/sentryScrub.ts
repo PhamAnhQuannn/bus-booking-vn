@@ -13,13 +13,15 @@
  */
 
 const EMAIL_IN_TEXT = /[\w.+-]+@[\w-]+\.[\w.-]+/g;
-// VN mobile, with/without +84 / leading 0, tolerating spaces/dots/dashes; `(?<!\d)` keeps it
-// from matching inside a longer digit run (order ids, txn refs) — see redactErrorText #394.
-const PHONE_IN_TEXT = /(?<!\d)(?:\+?84|0)[\s.-]?\d(?:[\s.-]?\d){7,9}\b/g;
+// VN mobile, with/without +84 / leading 0, tolerating spaces/dots/dashes. The leading
+// non-digit group (instead of a lookbehind: Safari < 16.4 throws SyntaxError at parse, which
+// would break the browser bundle) keeps it out of longer digit runs (order ids, txn refs)
+// — see redactErrorText #394.
+const PHONE_IN_TEXT = /(^|\D)(?:\+?84|0)[\s.-]?\d(?:[\s.-]?\d){7,9}\b/g;
 
 /** Mask emails and VN phone numbers in a free-text string. */
 export function scrubText(text: string): string {
-  return text.replace(EMAIL_IN_TEXT, '[email]').replace(PHONE_IN_TEXT, '[phone]');
+  return text.replace(EMAIL_IN_TEXT, '[email]').replace(PHONE_IN_TEXT, '$1[phone]');
 }
 
 /** Deep-scrub every string value (keys untouched). Cycle-safe. */

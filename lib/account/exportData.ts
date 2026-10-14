@@ -117,5 +117,18 @@ export async function exportCustomerData(customerId: string) {
     },
   });
 
-  return customer;
+  if (!customer) return customer;
+
+  // #842: booking-linked NotificationLog also holds operator-facing and ops-alert rows
+  // (operatorNewBooking -> operator email, manual_refund_required -> OPS_ALERT_EMAIL). Those
+  // are not the data subject's data: keep only rows delivered to the booking's own buyer contact.
+  return {
+    ...customer,
+    bookings: customer.bookings.map((b) => ({
+      ...b,
+      notifications: b.notifications.filter(
+        (n) => n.recipient === b.buyerEmail || n.recipient === b.buyerPhone,
+      ),
+    })),
+  };
 }
