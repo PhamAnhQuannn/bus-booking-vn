@@ -19,7 +19,7 @@
  * (default https://lenxevn.com) so the buttons are clickable in a mail client.
  */
 
-import { SUPPORT_EMAIL, REFUND_POLICY_PATH, COMPLAINTS_PATH } from '@/lib/core/supportLinks';
+import { SUPPORT_EMAIL, REFUND_POLICY_PATH, COMPLAINTS_PATH, publicSiteUrl } from '@/lib/core/supportLinks';
 
 const BRAND = '#ea580c'; // primary orange (matches the site --primary token)
 const BRAND_DARK = '#c2410c';
@@ -31,7 +31,7 @@ const BRAND_DARK = '#c2410c';
  *  emailStubbed(). Default is the prod origin (NOT storage's localhost default):
  *  an email link must never point at localhost. */
 function publicBaseUrl(): string {
-  return (process.env.NEXT_PUBLIC_BASE_URL?.replace(/\/+$/, '') || 'https://lenxevn.com');
+  return publicSiteUrl();
 }
 
 /** Resolve a possibly-relative URL/token to an absolute https URL. */
