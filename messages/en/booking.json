@@ -135,7 +135,8 @@
     "retry": "Try again",
     "waiting": "Waiting for payment confirmation...",
     "expiredMsg": "The payment window has expired. If you have transferred, please wait a moment or contact support.",
-    "countdown": "Please complete the transfer within {minutes} minutes — {time} left"
+    "countdown": "Please complete the transfer within {minutes} minutes — {time} left",
+    "contactRef": "Contact {email} with your booking code {ref} if you need help."
   },
   "copy": {
     "copy": "Copy",
@@ -174,7 +175,15 @@
     "scanReceipt": "Scan to view receipt & ticket status",
     "changePickup": "Need to change pickup point? Please contact the operator",
     "icsSummary": "Bus trip {origin} → {destination}",
-    "icsDesc": "Booking code {ref}"
+    "icsDesc": "Booking code {ref}",
+    "pendingTitle": "Booking awaiting payment",
+    "pendingMsg": "Your ticket is confirmed only once payment is complete.",
+    "continuePayment": "Continue to payment",
+    "inactiveTitle": "Booking no longer active",
+    "contactRef": "Need help? Contact {email} with your booking code {ref}.",
+    "refundPolicy": "Cancellation & refund policy",
+    "complaints": "Complaints",
+    "support": "Support"
   },
   "result": {
     "paidTitle": "Payment successful",

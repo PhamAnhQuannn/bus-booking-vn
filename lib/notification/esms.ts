@@ -104,7 +104,7 @@ export function clearTestOtpSink(): void {
  * real, billable Vietnamese service range we hold no number in. Removed rather
  * than masked; restore a real line here and in both templates together. #350.
  */
-export const SUPPORT_EMAIL = 'hotro@lenxevn.com';
+export { SUPPORT_EMAIL } from '@/lib/core/supportLinks';
 /**
  * Recipient of the internal opsUnmatchedPayment alert. Distinct name from the
  * env-configurable `OPS_EMAIL` (lib/config/env.ts, charter-decline) to avoid the

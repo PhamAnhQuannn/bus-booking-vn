@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { Link, useRouter } from '@/i18n/navigation';
+import { SUPPORT_EMAIL } from '@/lib/core/supportLinks';
 
 interface BankTransferClientProps {
   bookingRef: string;
@@ -119,6 +120,9 @@ export function BankTransferClient({
         <p className="text-sm text-destructive">
           {t('transfer.failedMsg')}
         </p>
+        <p className="text-sm text-muted-foreground">
+          {t('transfer.contactRef', { email: SUPPORT_EMAIL, ref: bookingRef })}
+        </p>
         <Link
           href="/"
           className="text-sm font-medium text-primary underline underline-offset-4"
@@ -155,7 +159,8 @@ export function BankTransferClient({
       {remainingMs !== null &&
         (expired ? (
           <p className="text-sm font-medium text-destructive" role="status" aria-live="polite">
-            {t('transfer.expiredMsg')}
+            {t('transfer.expiredMsg')}{' '}
+            {t('transfer.contactRef', { email: SUPPORT_EMAIL, ref: bookingRef })}
           </p>
         ) : (
           <p className="text-sm font-semibold text-warning-foreground" role="status" aria-live="polite">

@@ -85,6 +85,26 @@ describe('BankTransferClient', () => {
     expect(screen.getByText(/Giao dịch chưa hoàn tất hoặc đã bị hủy/)).toBeDefined();
     expect(screen.getByText('Tìm chuyến khác')).toBeDefined();
     expect(mockReplace).not.toHaveBeenCalled();
+    // #843: contact-us-with-your-booking-ref line.
+    expect(screen.getByText(`Liên hệ hotro@lenxevn.com kèm mã đặt vé ${PROPS.bookingRef} nếu bạn cần hỗ trợ.`)).toBeDefined();
+  });
+
+  it('expired countdown adds the contact-with-booking-ref line (#843)', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: 'awaiting_payment' }),
+    });
+
+    const deadlineIso = new Date(Date.now() - 1000).toISOString();
+    render(<BankTransferClient {...PROPS} deadlineIso={deadlineIso} />);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    const status = screen.getByRole('status');
+    expect(status.textContent).toContain('Đã hết thời gian thanh toán');
+    expect(status.textContent).toContain(`Liên hệ hotro@lenxevn.com kèm mã đặt vé ${PROPS.bookingRef}`);
   });
 
   it('shows a live transfer countdown when a deadline is provided', async () => {

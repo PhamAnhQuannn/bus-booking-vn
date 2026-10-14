@@ -18,8 +18,9 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
-import { CheckCircle2, CalendarPlus } from 'lucide-react';
+import { CheckCircle2, CalendarPlus, Clock, XCircle } from 'lucide-react';
 import { getBookingByConfirmationToken } from '@/lib/booking';
+import { SUPPORT_EMAIL, REFUND_POLICY_PATH, COMPLAINTS_PATH } from '@/lib/core/supportLinks';
 import { mintTicketToken, ticketQrDataUrl } from '@/lib/ticketing';
 import { bookingStatusVariant } from '@/lib/op/statusLabels';
 import { buttonVariants } from '@/components/ui/button';
@@ -73,6 +74,25 @@ function buildCalendarHref(opts: { ref: string; departure: Date; summary: string
   return `data:text/calendar;charset=utf-8,${encodeURIComponent(ics)}`;
 }
 
+/** #843: page state from booking status. Only paid/completed is a success; a stale
+ *  tab / copied link on an unpaid or dead booking must not say "Đặt vé thành công". */
+type ConfirmationState = 'success' | 'pending' | 'inactive';
+
+function confirmationState(status: string): ConfirmationState {
+  if (status === 'paid' || status === 'completed') return 'success';
+  if (status === 'awaiting_payment') return 'pending';
+  return 'inactive';
+}
+
+/** Where an awaiting_payment booking resumes payment: the VietQR page for bank
+ *  transfer, else the result page (gateway pending/retry state). */
+function paymentResumeHref(booking: { bookingRef: string; totalVnd: number; paymentMethod: string }, token: string): string {
+  if (booking.paymentMethod === 'bank_transfer') {
+    return `/booking/bank-transfer?bookingRef=${encodeURIComponent(booking.bookingRef)}&amount=${booking.totalVnd}`;
+  }
+  return `/booking/result/${token}`;
+}
+
 export default async function ConfirmationPage({ params }: ConfirmationPageProps) {
   const { token } = await params;
 
@@ -85,35 +105,72 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
 
   const unitPrice = trip.price;
   const t = await getTranslations('booking');
+  const state = confirmationState(booking.status);
 
   // Receipt QR shown DIRECTLY on the page (right after payment): scanning it opens the
   // public /verify receipt. Rendered as an inline SVG data-URI — web isn't subject to
   // the mail-client image stripping the email path works around, so no hosted PNG
   // needed. Absolute origin from the request headers so the QR is scannable on
   // whatever host served the page (devtunnel / prod).
-  const receiptToken = await mintTicketToken({
-    bookingRef: booking.bookingRef,
-    confirmationToken: token,
-  });
-  const hdrs = await headers();
-  const proto = hdrs.get('x-forwarded-proto') ?? 'https';
-  const host = hdrs.get('host') ?? '';
-  const receiptQrDataUrl = host
-    ? ticketQrDataUrl(`${proto}://${host}/verify/${receiptToken}`, { size: 200 })
-    : null;
+  // #843: only a paid booking has a receipt — no QR for unpaid/dead bookings.
+  let receiptQrDataUrl: string | null = null;
+  if (state === 'success') {
+    const receiptToken = await mintTicketToken({
+      bookingRef: booking.bookingRef,
+      confirmationToken: token,
+    });
+    const hdrs = await headers();
+    const proto = hdrs.get('x-forwarded-proto') ?? 'https';
+    const host = hdrs.get('host') ?? '';
+    receiptQrDataUrl = host
+      ? ticketQrDataUrl(`${proto}://${host}/verify/${receiptToken}`, { size: 200 })
+      : null;
+  }
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col-reverse gap-6 px-4 py-8 md:grid md:grid-cols-[1fr_20rem] md:items-start">
       <div className="flex flex-col gap-6">
-        {/* Success header */}
-        <header className="flex flex-col items-center gap-3 text-center">
-          <span className="flex size-14 items-center justify-center rounded-full bg-success text-success-foreground">
-            <CheckCircle2 className="size-8" aria-hidden="true" />
-          </span>
-          <h1 className="text-2xl font-bold">{t('confirm.success')}</h1>
+        {/* Status-aware header (#843) */}
+        <header className="flex flex-col items-center gap-3 text-center" data-state={state}>
+          {state === 'success' ? (
+            <span className="flex size-14 items-center justify-center rounded-full bg-success text-success-foreground">
+              <CheckCircle2 className="size-8" aria-hidden="true" />
+            </span>
+          ) : state === 'pending' ? (
+            <span className="flex size-14 items-center justify-center rounded-full bg-warning text-warning-foreground">
+              <Clock className="size-8" aria-hidden="true" />
+            </span>
+          ) : (
+            <span className="flex size-14 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+              <XCircle className="size-8" aria-hidden="true" />
+            </span>
+          )}
+          <h1 className="text-2xl font-bold">
+            {state === 'success'
+              ? t('confirm.success')
+              : state === 'pending'
+                ? t('confirm.pendingTitle')
+                : t('confirm.inactiveTitle')}
+          </h1>
           <Badge variant={bookingStatusVariant(booking.status)}>
             {t(`status.${booking.status}`)}
           </Badge>
+          {state === 'pending' ? (
+            <>
+              <p className="text-sm text-muted-foreground">{t('confirm.pendingMsg')}</p>
+              <Link
+                href={paymentResumeHref(booking, token)}
+                className={buttonVariants({ variant: 'default', size: 'sm' })}
+              >
+                {t('confirm.continuePayment')}
+              </Link>
+            </>
+          ) : null}
+          {state === 'inactive' ? (
+            <p className="text-sm text-muted-foreground">
+              {t('confirm.contactRef', { email: SUPPORT_EMAIL, ref: booking.bookingRef })}
+            </p>
+          ) : null}
         </header>
 
         {/* Prominent e-ticket ref */}
@@ -216,6 +273,26 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
             '.'
           )}
         </p>
+
+        {/* #843: support channel + policy/complaint links. */}
+        <nav
+          aria-label={t('confirm.support')}
+          className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm text-muted-foreground"
+          data-testid="support-links"
+        >
+          <span>
+            {t('confirm.support')}:{' '}
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="font-medium text-primary hover:underline">
+              {SUPPORT_EMAIL}
+            </a>
+          </span>
+          <Link href={REFUND_POLICY_PATH} className="text-primary hover:underline">
+            {t('confirm.refundPolicy')}
+          </Link>
+          <Link href={COMPLAINTS_PATH} className="text-primary hover:underline">
+            {t('confirm.complaints')}
+          </Link>
+        </nav>
 
         {/* Forward CTAs — no post-payment dead-end. */}
         <div className="flex flex-col gap-2 sm:flex-row">

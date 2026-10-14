@@ -135,7 +135,8 @@
     "retry": "Thử lại",
     "waiting": "Đang chờ xác nhận thanh toán...",
     "expiredMsg": "Đã hết thời gian thanh toán. Nếu bạn đã chuyển khoản, vui lòng đợi trong giây lát hoặc liên hệ hỗ trợ.",
-    "countdown": "Vui lòng hoàn tất chuyển khoản trong vòng {minutes} phút — còn {time}"
+    "countdown": "Vui lòng hoàn tất chuyển khoản trong vòng {minutes} phút — còn {time}",
+    "contactRef": "Liên hệ {email} kèm mã đặt vé {ref} nếu bạn cần hỗ trợ."
   },
   "copy": {
     "copy": "Sao chép",
@@ -174,7 +175,15 @@
     "scanReceipt": "Quét mã để xem biên nhận & trạng thái vé",
     "changePickup": "Cần đổi điểm đón? Vui lòng liên hệ nhà xe",
     "icsSummary": "Chuyến xe {origin} → {destination}",
-    "icsDesc": "Mã đặt vé {ref}"
+    "icsDesc": "Mã đặt vé {ref}",
+    "pendingTitle": "Đặt vé đang chờ thanh toán",
+    "pendingMsg": "Vé chỉ được xác nhận sau khi thanh toán hoàn tất.",
+    "continuePayment": "Tiếp tục thanh toán",
+    "inactiveTitle": "Đặt vé không còn hiệu lực",
+    "contactRef": "Cần hỗ trợ? Liên hệ {email} kèm mã đặt vé {ref}.",
+    "refundPolicy": "Chính sách hủy vé & hoàn tiền",
+    "complaints": "Khiếu nại",
+    "support": "Hỗ trợ"
   },
   "result": {
     "paidTitle": "Thanh toán thành công",
