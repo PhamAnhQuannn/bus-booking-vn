@@ -12,6 +12,8 @@
  */
 
 import * as Sentry from '@sentry/nextjs';
+// #842: zero-import, client-safe free-text scrub (deep import — never the barrel).
+import { scrubSentryEvent } from '@/lib/observability/sentryScrub';
 
 const REDACT_KEYS = new Set(
   [
@@ -84,7 +86,11 @@ if (dsn) {
     dsn,
     environment: process.env.NODE_ENV ?? 'development',
     tracesSampleRate: 0,
+    // #842: never attach IPs / cookies / request bodies automatically.
+    sendDefaultPii: false,
     beforeSend(event) {
+      // #842: emails/VN phones in exception values, message and breadcrumbs.
+      scrubSentryEvent(event);
       if (event.extra) {
         event.extra = scrubClientPii(event.extra) as Record<string, unknown>;
       }
