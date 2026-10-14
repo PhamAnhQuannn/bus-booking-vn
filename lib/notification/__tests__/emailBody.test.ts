@@ -10,6 +10,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { renderEmailBody } from '../emailBody';
+import { SUPPORT_EMAIL, REFUND_POLICY_PATH, COMPLAINTS_PATH } from '@/lib/core/supportLinks';
 
 describe('renderEmailBody', () => {
   it('ticketReady: renders receipt rows + single "Xem biên nhận" button → /verify, not raw JSON', () => {
@@ -102,6 +103,24 @@ describe('renderEmailBody', () => {
     expect(() => renderEmailBody('ticketReady', bad, 'BBVN — Vé')).not.toThrow();
     const { html } = renderEmailBody('ticketReady', bad, 'BBVN — Vé');
     expect(html).toContain('/brand/logo-horizontal-white.png'); // still shell-wrapped
+  });
+
+  it('footer carries support email + absolute refund-policy and complaints links (#843)', () => {
+    for (const [template, payload] of [
+      ['ticketReady', JSON.stringify({ bookingRef: 'BB-1', verifyUrl: '/verify/t' })],
+      ['customerBookingPaid', 'BBVN: Thanh toan thanh cong.'],
+    ] as const) {
+      const { html, text } = renderEmailBody(template, payload, 'BBVN — X');
+      expect(html).toContain(`mailto:${SUPPORT_EMAIL}`);
+      expect(html).toContain(`<a href="https://lenxevn.com${REFUND_POLICY_PATH}"`);
+      expect(html).toContain(`<a href="https://lenxevn.com${COMPLAINTS_PATH}"`);
+      expect(html).toContain('Chính sách hủy vé &amp; hoàn tiền');
+      expect(html).toContain('Khiếu nại');
+      if (template === 'ticketReady') {
+        expect(text).toContain(`https://lenxevn.com${REFUND_POLICY_PATH}`);
+        expect(text).toContain(`https://lenxevn.com${COMPLAINTS_PATH}`);
+      }
+    }
   });
 
   it('escapes HTML in payload text (no injection into the shell)', () => {

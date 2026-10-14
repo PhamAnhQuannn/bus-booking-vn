@@ -26,12 +26,19 @@ import {
   Svg,
   Rect,
   Font,
+  Link,
   renderToBuffer,
 } from '@react-pdf/renderer';
 import path from 'node:path';
 import type { ReactElement } from 'react';
 import { ticketQrMatrix } from '@/lib/ticketing';
 import { mintTicketToken } from '@/lib/ticketing';
+import {
+  SUPPORT_EMAIL,
+  REFUND_POLICY_PATH,
+  COMPLAINTS_PATH,
+  publicSiteUrl,
+} from '@/lib/core/supportLinks';
 import type { CustomerBookingDetail } from './getCustomerBookingDetail';
 
 // Register a Unicode-complete Vietnamese-supporting font. The core PDF font
@@ -62,6 +69,8 @@ const styles = StyleSheet.create({
   footer: { marginTop: 32, fontSize: 9, color: '#aaa' },
   qrSection: { marginTop: 20, alignItems: 'center' },
   qrCaption: { fontSize: 8, color: '#888', marginTop: 6 },
+  support: { marginTop: 8, fontSize: 9, color: '#666' },
+  supportLink: { color: '#c2410c' },
 });
 
 /** Fixed QR render size (pt) inside the A5 ticket. */
@@ -114,7 +123,7 @@ function formatVnd(amount: number): string {
   return `${amount.toLocaleString('vi-VN')} ₫`;
 }
 
-function TicketDocument({
+export function TicketDocument({
   booking,
   token,
 }: {
@@ -174,6 +183,26 @@ function TicketDocument({
 
         <Text style={styles.footer}>
           Xuất trình vé này cùng giấy tờ tùy thân khi lên xe. Chỗ ngồi do nhà xe sắp xếp.
+        </Text>
+
+        {/* #843: support channel + policy/complaint links (absolute, trusted env base). */}
+        <Text style={styles.support}>
+          Hỗ trợ:{' '}
+          <Link src={`mailto:${SUPPORT_EMAIL}`} style={styles.supportLink}>
+            {SUPPORT_EMAIL}
+          </Link>
+        </Text>
+        <Text style={styles.support}>
+          Chính sách hủy vé & hoàn tiền:{' '}
+          <Link src={publicSiteUrl(REFUND_POLICY_PATH)} style={styles.supportLink}>
+            {publicSiteUrl(REFUND_POLICY_PATH)}
+          </Link>
+        </Text>
+        <Text style={styles.support}>
+          Khiếu nại:{' '}
+          <Link src={publicSiteUrl(COMPLAINTS_PATH)} style={styles.supportLink}>
+            {publicSiteUrl(COMPLAINTS_PATH)}
+          </Link>
         </Text>
       </Page>
     </Document>
