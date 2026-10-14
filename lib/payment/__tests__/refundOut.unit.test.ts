@@ -13,10 +13,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Mock } from 'vitest';
 
-const { notifCreateMany, captureMessageMock, obligationUpsert } = vi.hoisted(() => ({
+const { notifCreateMany, captureMessageMock, obligationUpsert, obligationUpdateMany } = vi.hoisted(() => ({
   notifCreateMany: vi.fn(),
   captureMessageMock: vi.fn(),
   obligationUpsert: vi.fn(),
+  obligationUpdateMany: vi.fn(),
 }));
 vi.mock('@/lib/observability', () => ({ captureMessage: captureMessageMock }));
 
@@ -24,7 +25,7 @@ vi.mock('@/lib/core/db/client', () => {
   const txMock = {
     ledgerEntry: {},
     notificationLog: { createMany: notifCreateMany },
-    refundObligation: { upsert: obligationUpsert },
+    refundObligation: { upsert: obligationUpsert, updateMany: obligationUpdateMany },
   };
   return {
     prisma: {
@@ -259,7 +260,12 @@ describe('refundOut', () => {
         providerTxnId: PAID_BOOKING.paymentExternalRef,
         status: MANUAL_REFUND_PENDING,
       },
-      update: { status: MANUAL_REFUND_PENDING },
+      update: {},
+    });
+    // Only open rows flip — never revert a row an admin already marked paid ('done').
+    expect(obligationUpdateMany).toHaveBeenCalledWith({
+      where: { idempotencyKey: 'admin-refund:abc', status: { in: ['pending', 'failed'] } },
+      data: { status: MANUAL_REFUND_PENDING },
     });
   });
 

@@ -235,7 +235,14 @@ export async function refundOut(input: RefundOutInput): Promise<RefundOutResult>
           providerTxnId: booking.paymentExternalRef ?? '',
           status: MANUAL_REFUND_PENDING,
         },
-        update: { status: MANUAL_REFUND_PENDING },
+        update: {},
+      });
+      // Only open rows flip to owed. A losing racer (passed the layer-1 check, then queued
+      // behind the winner + an admin mark-paid) must NOT revert a 'done' row to owed —
+      // that would make the customer get paid twice.
+      await tx.refundObligation.updateMany({
+        where: { idempotencyKey, status: { in: ['pending', 'failed'] } },
+        data: { status: MANUAL_REFUND_PENDING },
       });
     });
 
