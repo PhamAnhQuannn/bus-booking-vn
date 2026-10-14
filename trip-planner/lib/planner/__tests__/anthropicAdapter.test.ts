@@ -170,6 +170,36 @@ describe('anthropicAdapter — request / lỗi', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('429 rate-limit → fail-fast upstream (KHÔNG retry — chỉ 5xx/529 retry)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(status(429));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const err = await drain().catch((e) => e);
+    expect(err).toBeInstanceOf(ParseIntentError);
+    expect(err.code).toBe('upstream');
+    expect(err.message).toBe('Claude HTTP 429');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('timeout (fetch treo quá STREAM_TIMEOUT_MS → abort) → ParseIntentError upstream "Claude timeout"', async () => {
+    // fetch treo tới khi signal abort (giống fetch thật) → adapter map abort thành upstream.
+    const fetchMock = vi.fn().mockImplementation(
+      (_url: string, init: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const p = drain().catch((e) => e);
+    await vi.advanceTimersByTimeAsync(30_000);
+    const err = await p;
+    expect(err).toBeInstanceOf(ParseIntentError);
+    expect(err.code).toBe('upstream');
+    expect(err.message).toBe('Claude timeout');
+    expect(fetchMock).toHaveBeenCalledTimes(1); // abort KHÔNG retry
+  });
+
   it('không có key → no_key, không gọi fetch', async () => {
     delete process.env.ANTHROPIC_API_KEY;
     const fetchMock = vi.fn();

@@ -28,15 +28,14 @@ import {
   CityDataUnavailableError,
   type ChatTurn,
   type DestinationSuggestion,
+  type ProviderId,
 } from '@/trip-planner/lib/planner';
 import {
   plannerChatRatelimit,
   plannerChatAnonRatelimit,
   plannerChatDailyPerIp,
   plannerDailyBudget,
-  breakerState,
-  recordUpstreamFailure,
-  recordUpstreamSuccess,
+  plannerBreakerFor,
   recordGeminiUsage,
   recordLlmUsage,
   BREAKER_COOLDOWN_SEC,
@@ -128,12 +127,15 @@ export async function POST(req: NextRequest): Promise<Response> {
     // request); chi phí eval chặn ở eval-proxy (ledger), không ở đây.
     const evalMode = process.env.PLANNER_EVAL_MODE === '1' && isLocalEvalHarnessAllowed();
 
+    // #853: breaker theo provider PRIMARY (cùng nguồn providerOrder()[0] với isFallback) — Claude primary
+    // đếm/mở `planner-claude:*`, không lẫn nhãn Gemini. Default gemini → đúng instance alias cũ (key y hệt).
+    const upstreamBreaker = plannerBreakerFor(providerOrder()[0]);
     const tBeforeBreaker = performance.now();
     // Circuit-breaker (#552): during a Gemini 429/5xx storm, short-circuit to 503 WITHOUT calling
     // Gemini or consuming the budget — checked before the budget bucket so doomed calls don't burn
     // the daily quota. Fail-open (breakerState returns closed on Redis error) so a blip can't wedge
     // the assistant shut; the fail-closed plannerDailyBudget stays the cost backstop.
-    const breaker = evalMode ? { open: false, retryAfter: 0 } : await breakerState();
+    const breaker = evalMode ? { open: false, retryAfter: 0 } : await upstreamBreaker.breakerState();
     if (breaker.open) {
       logger.warn({ retryAfter: breaker.retryAfter, ip }, 'planner.chat.breaker.open');
       // reason: 'breaker' — upstream đang bão 429/5xx, cooldown ngắn → copy "tạm nghỉ" + CHO Thử lại sau.
@@ -159,6 +161,9 @@ export async function POST(req: NextRequest): Promise<Response> {
     const perIp = rl.allowed && !evalMode
       ? await plannerChatDailyPerIp.limit(`planner-gemini-ip:${ip}`)
       : null;
+    // #853: GIỮ 1 bucket global `planner-gemini:global` cho MỌI provider — đây là backstop ĐẾM REQUEST/ngày
+    // (fail-closed), không phải $ per-provider (đó là recordLlmUsage). Đổi tên key = reset counter đang chạy +
+    // gãy dashboard; nhãn "gemini" là lịch sử, sức chứa vẫn theo PLANNER_GEMINI_DAILY_MAX.
     const budget = rl.allowed && perIp?.allowed
       ? await plannerDailyBudget.limit('planner-gemini:global')
       : null;
@@ -213,7 +218,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         let firstEventAt: number | null = null;
         // PR-8: provider thật + tổng enum bịa (out-of-enum RAW) turn này. outOfEnumCount = tín hiệu
         // mis-extract per-provider — must-have TRƯỚC flip (không thấy trong log = KHÔNG flip). Xem plan F3.
-        let provider: string | null = null;
+        let provider: ProviderId | null = null;
         let providerModel: string | null = null;
         let outOfEnumCount = 0;
         const logLatency = (error: boolean) => {
@@ -289,9 +294,10 @@ export async function POST(req: NextRequest): Promise<Response> {
             } else if (ev.kind === 'usage') {
               // #553: real token usage Gemini returned this turn → daily $ accounting + a per-turn
               // log line ops can aggregate. recordGeminiUsage fails open, so it never breaks the stream.
-              // Claude trả phí giá riêng → counter `planner-claude:*`; còn lại giữ alias Gemini như cũ.
-              const acct = provider === 'claude'
-                ? await recordLlmUsage('claude', ev.inputTokens, ev.outputTokens)
+              // #853: counter + bảng giá theo provider THẬT phục vụ lượt này (`planner-claude:*`, Groq $0) —
+              // Gemini (hoặc chưa khai provider) giữ alias recordGeminiUsage → key `planner-gemini:*` y hệt cũ.
+              const acct = provider && provider !== 'gemini'
+                ? await recordLlmUsage(provider, ev.inputTokens, ev.outputTokens)
                 : await recordGeminiUsage(ev.inputTokens, ev.outputTokens);
               logger.info(
                 {
@@ -308,7 +314,7 @@ export async function POST(req: NextRequest): Promise<Response> {
               );
             }
           }
-          await recordUpstreamSuccess(); // #552: a healthy turn clears the breaker failure counter
+          await upstreamBreaker.recordUpstreamSuccess(); // #552: a healthy turn clears the breaker failure counter
           if (!sawAction) send('noop', {}); // M2: không hành động → client giữ lịch hiện tại (không dựng đè)
           send('done', {});
           logLatency(false);
@@ -321,7 +327,7 @@ export async function POST(req: NextRequest): Promise<Response> {
           // #552/#606: count toward the breaker ONLY on a TRUE upstream failure (Gemini 5xx/timeout).
           // no_key = config error; bad_json = Gemini answered with junk (service is UP); local = our bug —
           // none are an upstream storm, so none must trip the breaker (else it opens on the wrong signal).
-          if (code === 'upstream') await recordUpstreamFailure();
+          if (code === 'upstream') await upstreamBreaker.recordUpstreamFailure();
           // Surface the failure — this is the one paid upstream (Gemini); without this the
           // route is blind to quota-exhaustion / 5xx storms until users complain.
           captureException(err, { route: 'planner/chat', code });
