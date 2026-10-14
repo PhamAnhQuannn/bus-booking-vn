@@ -25,6 +25,7 @@ function makePrisma() {
       ]),
     },
     payout: { count: vi.fn(async () => 2) },
+    refundObligation: { count: vi.fn(async () => 8) },
     paymentEvent: {
       // Two distinct paymentEvent.count queries: the actionable-orphan count (OR
       // predicate) and the account_mismatch tile (direct unmatchedReason equality).
@@ -48,6 +49,7 @@ describe('getFailureAlerts (#327)', () => {
       orphanPayments: 4,
       mismatchedPayments: 1,
       unfulfilledPayments: 6,
+      owedManualRefunds: 8,
       failedPayouts: 2,
       recent: [expect.objectContaining({ id: 'n1', template: 'customerBookingPaid', attemptCount: 5 })],
     });
@@ -108,7 +110,15 @@ describe('getFailureAlerts (#327)', () => {
       where: {
         bookingId: { not: null },
         unmatchedReason: { in: ['late_booking_terminal', 'duplicate_booking_paid', 'underpaid'] },
+        resolvedAt: null,
       },
     });
+  });
+
+  it('counts owed manual refunds (manual_pending obligations) (#833)', async () => {
+    const prisma = makePrisma();
+    const result = await getFailureAlerts(5, prisma as never);
+    expect(prisma.refundObligation.count).toHaveBeenCalledWith({ where: { status: 'manual_pending' } });
+    expect(result.owedManualRefunds).toBe(8);
   });
 });

@@ -11,6 +11,9 @@
  *                          reads; each row → Retry/Approve buttons)
  *   - Ledger view        (operator picker via ?operatorId= → getLedgerView table +
  *                          balance summary + manual-adjustment form)
+ *   - Owed money         (#833/#851 getManualRefundQueue: manual refunds not yet
+ *                          transferred + unapplied linked transfers; each row → bank-ref
+ *                          close-out action)
  *   - Refund-out form    (bookingId + amount + reason)
  *   - Chargeback form    (bookingId + amount)
  *   - FeeConfig editor   (current global rate via getEffectiveFeeRate(null, now) +
@@ -25,7 +28,7 @@ import type { PayoutStatus } from '@prisma/client';
 
 import { requireAdminPage } from '@/lib/auth';
 import { getPayoutQueue, type PayoutQueueRow } from '@/lib/admin';
-import { getLedgerView } from '@/lib/admin';
+import { getLedgerView, getManualRefundQueue } from '@/lib/admin';
 import { getEffectiveFeeRate } from '@/lib/ledger';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -87,11 +90,12 @@ export default async function AdminFinancePage({ searchParams }: PageProps) {
   const operatorId = sp.operatorId?.trim() || undefined;
 
   // Payout queue: the two actionable statuses (requested + failed).
-  const [requestedQueue, failedQueue, globalFeePpm, ledger] = await Promise.all([
+  const [requestedQueue, failedQueue, globalFeePpm, ledger, owed] = await Promise.all([
     getPayoutQueue({ status: 'requested' }),
     getPayoutQueue({ status: 'failed' }),
     getEffectiveFeeRate(null, now),
     operatorId ? getLedgerView({ operatorId }) : Promise.resolve(null),
+    getManualRefundQueue(),
   ]);
 
   const queueRows: PayoutQueueRow[] = [...requestedQueue.items, ...failedQueue.items];
@@ -237,6 +241,92 @@ export default async function AdminFinancePage({ searchParams }: PageProps) {
               Nhập mã nhà xe để xem sổ cái và thực hiện điều chỉnh thủ công.
             </p>
           )}
+        </CardContent>
+      </Card>
+
+      {/* ── Owed money (#833 / #851) ──────────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle as="h2" className="text-lg">
+            Tiền còn nợ khách
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <section className="space-y-2">
+            <h3 className="text-sm font-semibold">Hoàn tiền thủ công chưa chuyển</h3>
+            <p className="text-xs text-muted-foreground">
+              Đã ghi sổ hoàn tiền nhưng chưa có cổng hoàn tiền tự động. Chuyển khoản cho khách
+              rồi nhập mã giao dịch ngân hàng để xác nhận.
+            </p>
+            {owed.refunds.length === 0 ? (
+              <p className="text-sm text-muted-foreground" data-testid="owed-refunds-empty">
+                Không có khoản hoàn tiền nào đang chờ chuyển.
+              </p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-muted-foreground">
+                    <th className="py-1 font-medium">Mã đặt vé</th>
+                    <th className="py-1 font-medium">Số tiền</th>
+                    <th className="py-1 font-medium">Lý do</th>
+                    <th className="py-1 font-medium">Ghi sổ lúc</th>
+                    <th className="py-1 font-medium">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {owed.refunds.map((r) => (
+                    <tr key={r.id} className="border-b border-border/50" data-testid={`owed-refund-row-${r.id}`}>
+                      <td className="py-1 font-mono text-xs">{r.bookingRef ?? '—'}</td>
+                      <td className="py-1">{formatVnd(r.amountMinor)}</td>
+                      <td className="py-1">{r.reason}</td>
+                      <td className="py-1">{formatDate(r.createdAt)}</td>
+                      <td className="py-1">
+                        <FinanceActions kind="owed-refund" obligationId={r.id} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </section>
+
+          <section className="space-y-2">
+            <h3 className="text-sm font-semibold">Chuyển khoản không áp dụng được</h3>
+            <p className="text-xs text-muted-foreground">
+              Tiền đến muộn, trùng, hoặc thiếu so với giá vé. Xử lý thủ công (hoàn tiền hoặc thu
+              thêm) rồi nhập mã giao dịch để đóng.
+            </p>
+            {owed.payments.length === 0 ? (
+              <p className="text-sm text-muted-foreground" data-testid="unfulfilled-payments-empty">
+                Không có chuyển khoản nào cần xử lý.
+              </p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-muted-foreground">
+                    <th className="py-1 font-medium">Mã đặt vé</th>
+                    <th className="py-1 font-medium">Mã GD đến</th>
+                    <th className="py-1 font-medium">Lý do</th>
+                    <th className="py-1 font-medium">Nhận lúc</th>
+                    <th className="py-1 font-medium">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {owed.payments.map((p) => (
+                    <tr key={p.id} className="border-b border-border/50" data-testid={`unfulfilled-payment-row-${p.id}`}>
+                      <td className="py-1 font-mono text-xs">{p.bookingRef ?? '—'}</td>
+                      <td className="py-1 font-mono text-xs">{p.providerTxnId}</td>
+                      <td className="py-1">{p.unmatchedReason ?? '—'}</td>
+                      <td className="py-1">{formatDate(p.receivedAt)}</td>
+                      <td className="py-1">
+                        <FinanceActions kind="unfulfilled-payment" paymentEventId={p.id} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </section>
         </CardContent>
       </Card>
 

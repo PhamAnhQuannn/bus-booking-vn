@@ -43,6 +43,17 @@ export function payoutIdFromUrl(req: NextRequest): string | null {
   return decodeURIComponent(parts[idx + 1]) || null;
 }
 
+/**
+ * Pull the path segment right after `segment` (e.g. the [id] in
+ * /api/admin/finance/refunds/<id>/mark-paid). Returns null when absent.
+ */
+export function idAfterSegment(req: NextRequest, segment: string): string | null {
+  const parts = req.nextUrl.pathname.split('/').filter(Boolean);
+  const idx = parts.indexOf(segment);
+  if (idx === -1 || idx + 1 >= parts.length) return null;
+  return decodeURIComponent(parts[idx + 1]) || null;
+}
+
 /** Read + JSON-parse the request body; returns the bad-request Response on failure. */
 export async function readJsonBody(
   req: NextRequest

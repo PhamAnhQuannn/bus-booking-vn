@@ -9,6 +9,8 @@
  *   - refund-out   → refund-out form (bookingId + amount + reason)
  *   - chargeback   → chargeback form (bookingId + amount)
  *   - global-fee   → global platform-fee % form
+ *   - owed-refund  → #833 "Đã chuyển khoản" + bank ref for a manual refund still owed
+ *   - unfulfilled-payment → #851 "Đã xử lý" + bank ref for an unapplied transfer
  *
  * EVERY action goes through the step-up loop (mirrors OperatorActions, Issue 067):
  * POST the action → if 403 STEP_UP_REQUIRED, reveal a TOTP prompt → POST
@@ -35,7 +37,9 @@ type Props =
   | { kind: 'adjustment'; operatorId: string | undefined }
   | { kind: 'refund-out' }
   | { kind: 'chargeback' }
-  | { kind: 'global-fee'; currentFeePpm: number };
+  | { kind: 'global-fee'; currentFeePpm: number }
+  | { kind: 'owed-refund'; obligationId: string }
+  | { kind: 'unfulfilled-payment'; paymentEventId: string };
 
 /** A pending request awaiting a step-up retry: the path + the JSON body to re-POST. */
 interface PendingReq {
@@ -242,6 +246,26 @@ export function FinanceActions(props: Props) {
         onSubmit={(bookingId, amountMinor, _reason, liability) =>
           run('/api/admin/finance/chargeback', { bookingId, amountMinor, liability })
         }
+      />
+    );
+  }
+
+  // ── owed-refund / unfulfilled-payment: close out with a bank ref ───────────
+  if (props.kind === 'owed-refund' || props.kind === 'unfulfilled-payment') {
+    const isRefund = props.kind === 'owed-refund';
+    const rowId = isRefund ? props.obligationId : props.paymentEventId;
+    const path = isRefund
+      ? `/api/admin/finance/refunds/${props.obligationId}/mark-paid`
+      : `/api/admin/finance/unfulfilled-payments/${props.paymentEventId}/resolve`;
+    return (
+      <BankRefForm
+        testId={`${props.kind}-${rowId}`}
+        submitLabel={isRefund ? 'Đã chuyển khoản' : 'Đã xử lý'}
+        busy={busy}
+        disabled={pending !== null}
+        errorBlock={errorBlock}
+        stepUpBlock={stepUpBlock}
+        onSubmit={(bankRef) => run(path, { bankRef })}
       />
     );
   }
@@ -463,6 +487,61 @@ function BookingAmountForm({
   );
 }
 
+function BankRefForm({
+  testId,
+  submitLabel,
+  busy,
+  disabled,
+  errorBlock,
+  stepUpBlock,
+  onSubmit,
+}: FormShellProps & {
+  testId: string;
+  submitLabel: string;
+  onSubmit: (bankRef: string) => void;
+}) {
+  const [bankRef, setBankRef] = useState('');
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setLocalError(null);
+    if (bankRef.trim().length === 0) {
+      setLocalError('Cần nhập mã giao dịch ngân hàng.');
+      return;
+    }
+    onSubmit(bankRef.trim());
+  }
+
+  return (
+    <form className="space-y-2" onSubmit={submit} data-testid={`${testId}-form`}>
+      {errorBlock}
+      {localError ? (
+        <Alert variant="error">
+          <AlertDescription>{localError}</AlertDescription>
+        </Alert>
+      ) : null}
+      {stepUpBlock}
+      {!disabled ? (
+        <div className="flex items-end gap-2">
+          <Input
+            aria-label="Mã giao dịch ngân hàng"
+            value={bankRef}
+            onChange={(e) => setBankRef(e.target.value)}
+            maxLength={100}
+            placeholder="Mã GD (FT…)"
+            className="max-w-40"
+            data-testid={`${testId}-bankref`}
+          />
+          <Button type="submit" variant="outline" disabled={busy} data-testid={`${testId}-submit`}>
+            {busy ? 'Đang xử lý…' : submitLabel}
+          </Button>
+        </div>
+      ) : null}
+    </form>
+  );
+}
+
 function GlobalFeeForm({
   currentFeePpm,
   busy,
@@ -537,6 +616,14 @@ async function describeError(res: Response): Promise<string> {
       return 'Chi trả này không ở trạng thái có thể phê duyệt (yêu cầu).';
     case 'NOT_REFUNDABLE':
       return 'Đặt vé này không ở trạng thái có thể hoàn tiền.';
+    case 'REFUND_NOT_FOUND':
+      return 'Không tìm thấy khoản hoàn tiền.';
+    case 'NOT_OWED':
+      return 'Khoản hoàn tiền này đã được xác nhận hoặc không phải hoàn thủ công.';
+    case 'PAYMENT_EVENT_NOT_FOUND':
+      return 'Không tìm thấy giao dịch.';
+    case 'NOT_RESOLVABLE':
+      return 'Giao dịch này đã được xử lý hoặc không thuộc diện cần xử lý.';
     case 'INVALID_AMOUNT':
       return 'Số tiền không hợp lệ.';
     case 'INVALID':

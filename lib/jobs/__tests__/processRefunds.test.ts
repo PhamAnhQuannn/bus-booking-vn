@@ -5,8 +5,9 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { updateMock, refundOutMock, queryRawMock } = vi.hoisted(() => ({
+const { updateMock, updateManyMock, refundOutMock, queryRawMock } = vi.hoisted(() => ({
   updateMock: vi.fn(),
+  updateManyMock: vi.fn(),
   refundOutMock: vi.fn(),
   queryRawMock: vi.fn(),
 }));
@@ -14,10 +15,10 @@ const { updateMock, refundOutMock, queryRawMock } = vi.hoisted(() => ({
 vi.mock('@/lib/core/db/client', () => ({
   prisma: {
     $transaction: (fn: (tx: { $queryRaw: typeof queryRawMock }) => unknown) => fn({ $queryRaw: queryRawMock }),
-    refundObligation: { update: updateMock },
+    refundObligation: { update: updateMock, updateMany: updateManyMock },
   },
 }));
-vi.mock('@/lib/payment', () => ({ refundOut: refundOutMock }));
+vi.mock('@/lib/payment', () => ({ refundOut: refundOutMock, MANUAL_REFUND_PENDING: 'manual_pending' }));
 vi.mock('@/lib/observability', () => ({ captureException: vi.fn() }));
 
 import { processRefunds, refundBackoff } from '../processRefunds';
@@ -35,6 +36,7 @@ const row = {
 beforeEach(() => {
   vi.clearAllMocks();
   updateMock.mockResolvedValue({});
+  updateManyMock.mockResolvedValue({ count: 1 });
 });
 
 describe('processRefunds', () => {
@@ -50,17 +52,37 @@ describe('processRefunds', () => {
       reason: 'overpay_difference',
       idempotencyKey: 'overpay:b1:tx1',
     });
-    expect(updateMock).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 'ob-1' }, data: expect.objectContaining({ status: 'done', nextAttemptAt: null }) }),
-    );
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { id: 'ob-1', status: { not: 'manual_pending' } },
+      data: expect.objectContaining({ status: 'done', nextAttemptAt: null }),
+    });
     expect(result).toEqual({ rowsAffected: 1, status: 'success' });
+  });
+
+  it('#833: a manual refund is NOT finished — status left as manual_pending (set by refundOut), never done', async () => {
+    queryRawMock.mockResolvedValueOnce([row]);
+    refundOutMock.mockResolvedValueOnce({ refunded: true, alreadyDone: false, manualRefundRequired: true });
+
+    const result = await processRefunds({} as never, { now: NOW });
+
+    expect(updateManyMock).not.toHaveBeenCalled();
+    expect(updateMock).toHaveBeenCalledWith({
+      where: { id: 'ob-1' },
+      data: { attemptCount: 1, lastError: null, nextAttemptAt: null },
+    });
+    expect(JSON.stringify(updateMock.mock.calls)).not.toContain('"done"');
+    expect(result.rowsAffected).toBe(1);
   });
 
   it('treats an already-done (idempotent) refund as satisfied', async () => {
     queryRawMock.mockResolvedValueOnce([row]);
     refundOutMock.mockResolvedValueOnce({ refunded: false, alreadyDone: true });
     const result = await processRefunds({} as never, { now: NOW });
-    expect(updateMock).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: 'done' }) }));
+    // Guarded: if another caller's manual refund already set manual_pending, it stays owed.
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { id: 'ob-1', status: { not: 'manual_pending' } },
+      data: expect.objectContaining({ status: 'done' }),
+    });
     expect(result.rowsAffected).toBe(1);
   });
 

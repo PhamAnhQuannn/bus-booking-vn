@@ -15,7 +15,7 @@
 
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/core/db/client';
-import { refundOut, type RefundReason } from '@/lib/payment';
+import { refundOut, MANUAL_REFUND_PENDING, type RefundReason } from '@/lib/payment';
 import { logger } from '@/lib/logger';
 import { captureException } from '@/lib/observability';
 import type { JobCore, JobOpts } from './types';
@@ -63,19 +63,27 @@ export const processRefunds: JobCore = async (_tx, opts?: JobOpts) => {
 
   for (const row of rows) {
     try {
-      // refundOut is idempotent (alreadyDone / manualRefundRequired both count as satisfied —
-      // the ledger obligation is discharged; the no-PSP manual transfer is triggered by the
-      // manual_refund_required ops email + Sentry alert that refundOut enqueues, #833).
-      await refundOut({
+      const result = await refundOut({
         bookingId: row.bookingId,
         amountMinor: row.amountMinor,
         reason: row.reason as RefundReason,
         idempotencyKey: row.idempotencyKey,
       });
-      await prisma.refundObligation.update({
-        where: { id: row.id },
-        data: { status: 'done', attemptCount: row.attemptCount + 1, lastError: null, nextAttemptAt: null },
-      });
+      const settled = { attemptCount: row.attemptCount + 1, lastError: null, nextAttemptAt: null };
+      if (result.manualRefundRequired) {
+        // #833: no PSP — refundOut already flipped this row to 'manual_pending' in its ledger
+        // tx. The money is still OWED; only an admin "mark paid" finishes it. Status is left
+        // untouched so a concurrent mark-paid can never be reverted here.
+        await prisma.refundObligation.update({ where: { id: row.id }, data: settled });
+      } else {
+        // PSP refund, or alreadyDone (ledger legs already exist). If those legs came from a
+        // manual refund by another caller, refundOut already set 'manual_pending' on this key
+        // — the guard keeps that owed state instead of overwriting it with 'done'.
+        await prisma.refundObligation.updateMany({
+          where: { id: row.id, status: { not: MANUAL_REFUND_PENDING } },
+          data: { status: 'done', ...settled },
+        });
+      }
       done += 1;
     } catch (err) {
       const nextAttempt = row.attemptCount + 1;

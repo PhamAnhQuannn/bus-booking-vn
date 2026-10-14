@@ -13,14 +13,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Mock } from 'vitest';
 
-const { notifCreateMany, captureMessageMock } = vi.hoisted(() => ({
+const { notifCreateMany, captureMessageMock, obligationUpsert } = vi.hoisted(() => ({
   notifCreateMany: vi.fn(),
   captureMessageMock: vi.fn(),
+  obligationUpsert: vi.fn(),
 }));
 vi.mock('@/lib/observability', () => ({ captureMessage: captureMessageMock }));
 
 vi.mock('@/lib/core/db/client', () => {
-  const txMock = { ledgerEntry: {}, notificationLog: { createMany: notifCreateMany } };
+  const txMock = {
+    ledgerEntry: {},
+    notificationLog: { createMany: notifCreateMany },
+    refundObligation: { upsert: obligationUpsert },
+  };
   return {
     prisma: {
       booking: { findUnique: vi.fn() },
@@ -48,7 +53,7 @@ vi.mock('@/lib/logger', () => ({
 import { prisma } from '@/lib/core/db/client';
 import { appendLedgerEntry } from '@/lib/ledger';
 import { refundPayment } from '@/lib/payment/refund';
-import { refundOut, RefundOutError } from '../refundOut';
+import { refundOut, RefundOutError, MANUAL_REFUND_PENDING } from '../refundOut';
 import { OPS_ALERT_EMAIL } from '@/lib/notification';
 
 const bookingFind = prisma.booking.findUnique as unknown as Mock;
@@ -233,7 +238,32 @@ describe('refundOut', () => {
     expect(JSON.stringify(captureMessageMock.mock.calls[0])).not.toContain('+8490xxxxxx1');
   });
 
-  it('PSP-ok refund sends no ops alert', async () => {
+  it('manual refund records the owed money: upserts the obligation as manual_pending in the ledger tx (#833)', async () => {
+    psp.mockResolvedValueOnce({ ok: false, manualRefundRequired: true });
+
+    await refundOut({
+      bookingId: 'bk-1',
+      amountMinor: 150_000,
+      reason: 'operator_cancel',
+      idempotencyKey: 'admin-refund:abc',
+    });
+
+    expect(obligationUpsert).toHaveBeenCalledTimes(1);
+    expect(obligationUpsert).toHaveBeenCalledWith({
+      where: { idempotencyKey: 'admin-refund:abc' },
+      create: {
+        bookingId: 'bk-1',
+        amountMinor: 150_000,
+        reason: 'operator_cancel',
+        idempotencyKey: 'admin-refund:abc',
+        providerTxnId: PAID_BOOKING.paymentExternalRef,
+        status: MANUAL_REFUND_PENDING,
+      },
+      update: { status: MANUAL_REFUND_PENDING },
+    });
+  });
+
+  it('PSP-ok refund sends no ops alert and records nothing as owed', async () => {
     await refundOut({
       bookingId: 'bk-1',
       amountMinor: 1000,
@@ -242,6 +272,7 @@ describe('refundOut', () => {
     });
     expect(notifCreateMany).not.toHaveBeenCalled();
     expect(captureMessageMock).not.toHaveBeenCalled();
+    expect(obligationUpsert).not.toHaveBeenCalled();
   });
 });
 

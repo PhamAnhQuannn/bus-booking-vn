@@ -19,7 +19,12 @@
  *                          match sets bookingId, so it drops out of the count.
  *   - unfulfilledPayments  #836: LINKED PaymentEvents (bookingId set) whose money could not
  *                          be applied — late after expiry, duplicate on a paid booking, or
- *                          underpaid. Distinct from orphans (bookingId NULL).
+ *                          underpaid. Distinct from orphans (bookingId NULL). #851: only
+ *                          UNRESOLVED ones (resolvedAt NULL) — an admin "mark resolved"
+ *                          drops a row out, so the tile is not a ratchet.
+ *   - owedManualRefunds    #833: RefundObligation rows in 'manual_pending' — refunds recorded
+ *                          on the no-PSP manual rail whose bank transfer an admin has not
+ *                          yet confirmed. Money still owed to a customer.
  *   - failedPayouts        count of Payout rows in status=failed (PayoutStatus.failed).
  *   - recent               last N failed notifications (id/template/recipient/createdAt/
  *                          lastError) for an at-a-glance list. Recipient is the only
@@ -31,7 +36,7 @@
 
 import { prisma as defaultPrisma } from '@/lib/core/db/client';
 import { MAX_ATTEMPTS } from '@/lib/notification';
-import { UNMATCHED_REASON, UNFULFILLED_REASON } from '@/lib/payment';
+import { UNMATCHED_REASON, UNFULFILLED_REASON, MANUAL_REFUND_PENDING } from '@/lib/payment';
 
 export interface FailureAlertItem {
   id: string;
@@ -54,12 +59,17 @@ export interface FailureAlerts {
   mismatchedPayments: number;
   /** #836: linked-but-unapplied transfers (late / duplicate / underpaid). */
   unfulfilledPayments: number;
+  /** #833: manual refunds recorded but not yet transferred (status 'manual_pending'). */
+  owedManualRefunds: number;
   failedPayouts: number;
   recent: FailureAlertItem[];
 }
 
 /** Minimal prisma surface — lets unit tests inject stubs. */
-type PrismaLike = Pick<typeof defaultPrisma, 'notificationLog' | 'payout' | 'paymentEvent'>;
+type PrismaLike = Pick<
+  typeof defaultPrisma,
+  'notificationLog' | 'payout' | 'paymentEvent' | 'refundObligation'
+>;
 
 export async function getFailureAlerts(
   limit = 5,
@@ -71,6 +81,7 @@ export async function getFailureAlerts(
     orphanPayments,
     mismatchedPayments,
     unfulfilledPayments,
+    owedManualRefunds,
     failedPayouts,
     recent,
   ] = await Promise.all([
@@ -103,8 +114,10 @@ export async function getFailureAlerts(
         where: {
           bookingId: { not: null },
           unmatchedReason: { in: Object.values(UNFULFILLED_REASON) },
+          resolvedAt: null,
         },
       }),
+      prisma.refundObligation.count({ where: { status: MANUAL_REFUND_PENDING } }),
       prisma.payout.count({ where: { status: 'failed' } }),
       prisma.notificationLog.findMany({
         where: { status: 'failed' },
@@ -127,6 +140,7 @@ export async function getFailureAlerts(
     orphanPayments,
     mismatchedPayments,
     unfulfilledPayments,
+    owedManualRefunds,
     failedPayouts,
     recent,
   };

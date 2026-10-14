@@ -35,6 +35,7 @@ import { getActionQueue, getFailureAlerts } from '@/lib/admin';
 const ORPHAN_TILE = 'Giao dịch chưa khớp';
 const UNFULFILLED_TILE = 'Chuyển khoản không áp dụng được';
 const FAILED_PAYOUT_TILE = 'Chi trả thất bại';
+const OWED_REFUND_TILE = 'Hoàn tiền thủ công chưa chuyển';
 
 const METRICS = {
   customers: 10,
@@ -54,6 +55,7 @@ const FAILURES = {
   retryingNotifications: 0,
   orphanPayments: 5,
   unfulfilledPayments: 2,
+  owedManualRefunds: 1,
   failedPayouts: 3,
   recent: [],
 };
@@ -79,6 +81,7 @@ describe('AdminOverviewPage — canSeeFinance money-flow tile gating (#393.1)', 
     const html = renderToStaticMarkup(await AdminOverviewPage());
     expect(html).not.toContain(ORPHAN_TILE);
     expect(html).not.toContain(UNFULFILLED_TILE);
+    expect(html).not.toContain(OWED_REFUND_TILE);
     expect(html).not.toContain(FAILED_PAYOUT_TILE);
   });
 
@@ -87,6 +90,7 @@ describe('AdminOverviewPage — canSeeFinance money-flow tile gating (#393.1)', 
     const html = renderToStaticMarkup(await AdminOverviewPage());
     expect(html).toContain(ORPHAN_TILE);
     expect(html).toContain(UNFULFILLED_TILE);
+    expect(html).toContain(OWED_REFUND_TILE);
     expect(html).toContain(FAILED_PAYOUT_TILE);
   });
 
@@ -95,6 +99,7 @@ describe('AdminOverviewPage — canSeeFinance money-flow tile gating (#393.1)', 
     const html = renderToStaticMarkup(await AdminOverviewPage());
     expect(html).toContain(ORPHAN_TILE);
     expect(html).toContain(UNFULFILLED_TILE);
+    expect(html).toContain(OWED_REFUND_TILE);
     expect(html).toContain(FAILED_PAYOUT_TILE);
   });
 });
