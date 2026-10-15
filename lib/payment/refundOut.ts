@@ -93,6 +93,12 @@ const MANUAL_REFUND_REASON_LABEL: Record<RefundReason, string> = {
   oversold_race: 'het cho sau khi thanh toan',
 };
 
+/**
+ * #833: RefundObligation.status for a refund recorded on the manual (no-PSP) rail whose money
+ * has NOT been transferred yet. Only an admin "mark paid" moves it to 'done'.
+ */
+export const MANUAL_REFUND_PENDING = 'manual_pending';
+
 export class RefundOutError extends Error {
   constructor(public code: string) {
     super(code);
@@ -214,6 +220,29 @@ export async function refundOut(input: RefundOutInput): Promise<RefundOutResult>
           },
         ],
         skipDuplicates: true,
+      });
+      // #833: the money is OWED, not gone. Record it on the obligation keyed by the same
+      // idempotencyKey, in this tx, so every manual refund lands in the admin owed list:
+      // cron-driven rows (pending → manual_pending), and direct callers with no row yet
+      // (admin refund-out, reconcile oversold) get one created.
+      await tx.refundObligation.upsert({
+        where: { idempotencyKey },
+        create: {
+          bookingId,
+          amountMinor,
+          reason,
+          idempotencyKey,
+          providerTxnId: booking.paymentExternalRef ?? '',
+          status: MANUAL_REFUND_PENDING,
+        },
+        update: {},
+      });
+      // Only open rows flip to owed. A losing racer (passed the layer-1 check, then queued
+      // behind the winner + an admin mark-paid) must NOT revert a 'done' row to owed —
+      // that would make the customer get paid twice.
+      await tx.refundObligation.updateMany({
+        where: { idempotencyKey, status: { in: ['pending', 'failed'] } },
+        data: { status: MANUAL_REFUND_PENDING },
       });
     });
 

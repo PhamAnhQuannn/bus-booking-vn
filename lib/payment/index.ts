@@ -15,10 +15,17 @@ export { refundPayment } from './refund';
 export {
   refundOut,
   RefundOutError,
+  MANUAL_REFUND_PENDING,
   type RefundOutInput,
   type RefundOutResult,
   type RefundReason,
 } from './refundOut';
+export {
+  markManualRefundPaid,
+  resolveUnfulfilledPayment,
+  type MarkManualRefundPaidResult,
+  type ResolveUnfulfilledPaymentResult,
+} from './manualRefund';
 export { getGatewayFor } from './select';
 export { isVnpaySelectable } from './vnpaySelectable';
 export type { OnlinePaymentMethod } from './select';

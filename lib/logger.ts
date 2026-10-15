@@ -116,6 +116,14 @@ export const loggerOptions: LoggerOptions = {
       '*.accountNumber',         // Issue 078: nested payout-account number (real harm if leaked)
       'rawBody',                 // #332: PaymentEvent raw webhook body — carries payer name/bank account (SePay). Not logged today; redact so an accidentally-logged PaymentEvent row can't leak it.
       '*.rawBody',               // #332: nested PaymentEvent.rawBody
+      // #833/#851: admin-entered bank transaction refs for manual refunds / resolved transfers.
+      // Not a secret, but free text an admin may fill with account details. Never logged today.
+      'bankRef',
+      '*.bankRef',
+      'manualBankRef',
+      '*.manualBankRef',
+      'resolvedBankRef',
+      '*.resolvedBankRef',
       'ESMS_API_KEY',            // SMS-OTP: eSMS provider credential
       'ESMS_SECRET_KEY',         // SMS-OTP: eSMS provider credential (never log)
       'MISA_API_KEY',            // e-invoice: MISA meInvoice API key (never log)

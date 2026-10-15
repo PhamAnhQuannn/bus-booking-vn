@@ -263,7 +263,12 @@ export default async function AdminOverviewPage() {
               <MetricCard
                 label="Chuyển khoản không áp dụng được"
                 value={vnd.format(failures.unfulfilledPayments)}
-                hint="đến muộn / trùng / thiếu tiền — đang giữ tiền, cần hoàn thủ công"
+                hint="đến muộn / trùng / thiếu tiền — đang giữ tiền, xử lý ở tab Tài chính"
+              />
+              <MetricCard
+                label="Hoàn tiền thủ công chưa chuyển"
+                value={vnd.format(failures.owedManualRefunds)}
+                hint="đã ghi sổ hoàn tiền, chưa xác nhận chuyển khoản — tab Tài chính"
               />
               <MetricCard
                 label="Chi trả thất bại"
