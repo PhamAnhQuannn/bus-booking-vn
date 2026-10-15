@@ -63,6 +63,11 @@ export interface CreateCharterRequestInput {
   vehicleType: string;
   budgetVnd?: number | null;
   notes?: string | null;
+  /**
+   * #841 (PDPL): consent text version the requester accepted on the form. The route
+   * only calls this after validating `acceptPrivacy: true`; consentedAt is stamped here.
+   */
+  consentVersion: string;
 }
 
 export interface CreateCharterRequestResult {
@@ -81,6 +86,7 @@ export async function createCharterRequest(
   const destinations = input.destinationNames.map((n) => n.trim()).filter((n) => n.length > 0);
 
   let result: CreateCharterRequestResult | null = null;
+  const consentedAt = new Date();
 
   for (let attempt = 0; attempt < MAX_REF_ATTEMPTS; attempt++) {
     const ref = generateCharterRef();
@@ -102,6 +108,8 @@ export async function createCharterRequest(
           vehicleType: input.vehicleType,
           budgetVnd: input.budgetVnd ?? null,
           notes: input.notes ?? null,
+          consentVersion: input.consentVersion,
+          consentedAt,
           // STATUS DECISION (see file header): the submit IS SUBMITTED →
           // ADMIN_REVIEW; create directly in ADMIN_REVIEW.
           status: 'ADMIN_REVIEW',

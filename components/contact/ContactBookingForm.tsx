@@ -18,6 +18,7 @@ import { Link, useRouter } from '@/i18n/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { DatePicker } from '@/components/ui/date-picker';
 import { cn } from '@/lib/utils';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
@@ -41,6 +42,8 @@ export function ContactBookingForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  // #841 (PDPL): explicit ToS + Privacy consent checkbox — the server requires acceptPrivacy: true.
+  const [acceptPrivacy, setAcceptPrivacy] = useState(false);
   // Audit F26: synchronous re-entry guard. `submitting` state is async — a second
   // click dispatched before React re-renders still enters this handler. A ref is
   // checked/set synchronously before any await, closing that window.
@@ -79,9 +82,10 @@ export function ContactBookingForm() {
       people: str('people'),
       vehicle: str('vehicle'),
     });
-    if (!parsed.success) {
+    if (!parsed.success || !acceptPrivacy) {
       const errors: Record<string, string> = {};
-      for (const issue of parsed.error.issues) {
+      if (!acceptPrivacy) errors.acceptPrivacy = t('validation.reqConsent');
+      for (const issue of parsed.success ? [] : parsed.error.issues) {
         const key = String(issue.path[0]);
         // First issue per field wins (presence check is ordered ahead of the
         // email format check) — an empty field must surface "required", not a
@@ -114,6 +118,7 @@ export function ContactBookingForm() {
       passengers,
       vehicleType: str('vehicle'),
       notes: str('notes') || null,
+      acceptPrivacy: true,
       // Honeypot — hidden field, must stay empty.
       company: str('company'),
     };
@@ -258,20 +263,36 @@ export function ContactBookingForm() {
         </p>
       )}
 
-      <p className="text-xs leading-relaxed text-muted-foreground">
-        {t.rich('form.consent', {
-          terms: (c) => (
-            <Link href="/terms" className="text-primary underline">
-              {c}
-            </Link>
-          ),
-          privacy: (c) => (
-            <Link href="/privacy" className="text-primary underline">
-              {c}
-            </Link>
-          ),
-        })}
-      </p>
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-start gap-2.5">
+          <Checkbox
+            id="acceptPrivacy"
+            checked={acceptPrivacy}
+            onCheckedChange={(checked) => setAcceptPrivacy(checked === true)}
+            aria-invalid={fieldErrors.acceptPrivacy ? true : undefined}
+            aria-describedby={fieldErrors.acceptPrivacy ? 'acceptPrivacy-error' : undefined}
+            className="mt-0.5"
+          />
+          <Label htmlFor="acceptPrivacy" className="block text-xs font-normal leading-relaxed text-muted-foreground">
+            {t.rich('form.consent', {
+              terms: (c) => (
+                <Link href="/terms" className="text-primary underline">
+                  {c}
+                </Link>
+              ),
+              privacy: (c) => (
+                <Link href="/privacy" className="text-primary underline">
+                  {c}
+                </Link>
+              ),
+            })}{' '}
+            <span aria-hidden="true" className="text-destructive">*</span>
+          </Label>
+        </div>
+        {fieldErrors.acceptPrivacy && (
+          <p id="acceptPrivacy-error" className="text-destructive text-sm mt-1">{fieldErrors.acceptPrivacy}</p>
+        )}
+      </div>
 
       <Button
         type="submit"

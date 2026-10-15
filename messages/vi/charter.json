@@ -28,7 +28,7 @@
     "notesPlaceholder": "Lịch trình, điểm đón, yêu cầu thêm…",
     "submit": "Gửi yêu cầu",
     "submitting": "Đang gửi…",
-    "consent": "Bằng việc gửi yêu cầu, bạn đồng ý với <terms>Điều khoản sử dụng</terms> và <privacy>Chính sách bảo mật</privacy>, và cho phép chúng tôi chuyển thông tin yêu cầu tới đơn vị vận tải đối tác để báo giá."
+    "consent": "Tôi đồng ý với <terms>Điều khoản sử dụng</terms> và <privacy>Chính sách bảo mật</privacy>, và cho phép BBVN chuyển thông tin yêu cầu tới đơn vị vận tải đối tác để báo giá."
   },
   "validation": {
     "reqName": "Vui lòng nhập họ tên",
@@ -40,7 +40,8 @@
     "reqDate": "Vui lòng chọn ngày khởi hành",
     "reqPeople": "Vui lòng nhập số người",
     "reqVehicle": "Vui lòng chọn loại xe",
-    "reqPeopleNum": "Vui lòng nhập số người."
+    "reqPeopleNum": "Vui lòng nhập số người.",
+    "reqConsent": "Vui lòng đồng ý với Điều khoản sử dụng và Chính sách bảo mật để gửi yêu cầu"
   },
   "errors": {
     "rateLimit": "Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau.",

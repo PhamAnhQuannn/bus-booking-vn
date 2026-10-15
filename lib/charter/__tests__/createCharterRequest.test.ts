@@ -31,6 +31,7 @@ const baseInput = {
   startDate: new Date('2026-07-01T00:00:00Z'),
   passengers: 16,
   vehicleType: 'coach',
+  consentVersion: '2026-08',
 };
 
 function makePrisma(createImpl: (args: unknown) => unknown) {
@@ -88,6 +89,20 @@ describe('createCharterRequest', () => {
 
     const data = prisma.charterRequest.create.mock.calls[0][0].data;
     expect(data.status).toBe('ADMIN_REVIEW');
+  });
+
+  it('#841: persists the consent version + a server-side consentedAt timestamp', async () => {
+    const prisma = makePrisma((args) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = (args as any).data;
+      return { id: 'ch_1', ref: data.ref };
+    });
+
+    await createCharterRequest(prisma, baseInput);
+
+    const data = prisma.charterRequest.create.mock.calls[0][0].data;
+    expect(data.consentVersion).toBe('2026-08');
+    expect(data.consentedAt).toBeInstanceOf(Date);
   });
 
   it('generates a ref matching CHARTER_REF_REGEX and returns it', async () => {

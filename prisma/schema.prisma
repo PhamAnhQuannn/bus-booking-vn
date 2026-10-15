@@ -1259,6 +1259,11 @@ model CharterRequest {
   /// CHARTER_CONTACT_RETENTION_DAYS and stamps this; ref/status/assignee/destinations
   /// are KEPT (operator-lead audit trail). erase != delete (S04).
   contactScrubbedAt  DateTime?
+  /// #841 (PDPL): ToS + Privacy consent version the requester accepted on the charter
+  /// form (CUSTOMER_CONSENT_VERSION). Nullable: pre-#841 rows have no consent record.
+  consentVersion     String?
+  /// #841: server-side timestamp of the charter-form consent.
+  consentedAt        DateTime?
   status             CharterStatus @default(SUBMITTED)
   /// Set when status → ASSIGNED_DIRECT (direct assign) or → ACCEPTED from the
   /// public pool. Cleared (set null) on DECLINED / EXPIRED so the lead frees up.

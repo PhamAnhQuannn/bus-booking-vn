@@ -26,6 +26,7 @@ import { Prisma } from '@prisma/client';
 import { checkCustomerActive } from './assertCustomerActive';
 import { backfillGuestBookingsByEmail } from '@/lib/booking';
 import { asProvenEmail } from '@/lib/core/validation/provenEmail';
+import { recordRegistrationConsent } from './customerConsent';
 
 const PROVIDER = 'google';
 
@@ -141,6 +142,10 @@ export async function resolveGoogleLogin(identity: GoogleIdentityInput): Promise
       await tx.account.create({
         data: { customerId: created.id, provider: PROVIDER, providerAccountId: identity.sub, email },
       });
+      // #841 (PDPL 91/2025): Google signup records ToS + Privacy consent evidence atomically
+      // with the Customer row, exactly as password register() does (#472). The consent notice
+      // is shown on GoogleSignInButton before the user starts the OAuth flow.
+      await recordRegistrationConsent(tx, created.id);
       // Claim guest bookings for this now-verified email. asProvenEmail must never brand an
       // unproven address (IDOR guard, provenEmail.ts); the L3′ guard makes email proven here.
       if (created.email) {

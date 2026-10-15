@@ -9,6 +9,7 @@ const { mockPrisma, mockBackfill } = vi.hoisted(() => ({
   mockPrisma: {
     account: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     customer: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
+    customerConsent: { createMany: vi.fn() },
     $transaction: vi.fn(),
   },
   mockBackfill: vi.fn(),
@@ -18,6 +19,7 @@ vi.mock('@/lib/core/db/client', () => ({ prisma: mockPrisma }));
 vi.mock('@/lib/booking', () => ({ backfillGuestBookingsByEmail: mockBackfill }));
 
 import { resolveGoogleLogin } from '../linkGoogleAccount';
+import { CUSTOMER_CONSENT_VERSION } from '../customerConsent';
 
 const IDENTITY = { sub: 'google-sub-1', email: 'Trip@Example.com', emailVerified: true };
 
@@ -118,6 +120,30 @@ describe('resolveGoogleLogin', () => {
     expect(mockBackfill).toHaveBeenCalledWith(mockPrisma, 'cust-new', 'trip@example.com');
   });
 
+  it('#841: L3 records ToS + Privacy signup consent in the create transaction', async () => {
+    mockPrisma.account.findUnique.mockResolvedValue(null);
+    mockPrisma.customer.findFirst.mockResolvedValue(null);
+    mockPrisma.customer.create.mockResolvedValue({ id: 'cust-new', email: 'trip@example.com' });
+
+    await resolveGoogleLogin({ ...IDENTITY, emailVerified: true });
+
+    expect(mockPrisma.customerConsent.createMany).toHaveBeenCalledWith({
+      data: [
+        { customerId: 'cust-new', consentType: 'tos', version: CUSTOMER_CONSENT_VERSION },
+        { customerId: 'cust-new', consentType: 'privacy', version: CUSTOMER_CONSENT_VERSION },
+      ],
+    });
+  });
+
+  it('#841: L2 (existing customer link) do not write new signup consent rows', async () => {
+    mockPrisma.account.findUnique.mockResolvedValue(null);
+    mockPrisma.customer.findFirst.mockResolvedValue({ id: 'cust-2', emailVerifiedAt: null, suspendedAt: null });
+
+    await resolveGoogleLogin({ ...IDENTITY, emailVerified: true });
+
+    expect(mockPrisma.customerConsent.createMany).not.toHaveBeenCalled();
+  });
+
   it("L3': REFUSES an unverified Google email (no email-squat takeover, HD-012 L1)", async () => {
     mockPrisma.account.findUnique.mockResolvedValue(null);
     mockPrisma.customer.findFirst.mockResolvedValue(null);
@@ -130,5 +156,6 @@ describe('resolveGoogleLogin', () => {
     expect(mockPrisma.customer.create).not.toHaveBeenCalled();
     expect(mockPrisma.account.create).not.toHaveBeenCalled();
     expect(mockBackfill).not.toHaveBeenCalled();
+    expect(mockPrisma.customerConsent.createMany).not.toHaveBeenCalled();
   });
 });

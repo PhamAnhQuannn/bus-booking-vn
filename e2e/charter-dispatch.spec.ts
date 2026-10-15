@@ -210,6 +210,7 @@ test.describe('Charter dispatch journey (request → dispatch → accept)', () =
         startDate,
         passengers: 30,
         vehicleType: 'coach',
+        acceptPrivacy: true, // #841 consent checkbox (required)
         company: '', // honeypot left empty
       },
       headers: { 'X-CSRF-Token': csrf },

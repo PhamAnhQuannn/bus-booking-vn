@@ -9,7 +9,7 @@
  *
  * Pipeline:
  *   1. Rate-limit per-IP (5/hour → 429) — volume cap on the public POST.
- *   2. Parse + zod-validate (400 on a bad body).
+ *   2. Parse + zod-validate (400 on a bad body, incl. missing `acceptPrivacy: true`).
  *   3. HONEYPOT spam guard: a hidden field (`company`) that legit humans leave
  *      empty. If it's filled, a bot tripped it → return 200 OK and DROP silently
  *      (no row, no notification). We return 200 (not 4xx) so we don't tip the bot
@@ -27,7 +27,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/core/db/client';
 import { createCharterRequest } from '@/lib/charter';
-import { getCustomerOptional } from '@/lib/auth';
+import { getCustomerOptional, CUSTOMER_CONSENT_VERSION } from '@/lib/auth';
 import { charterRatelimit } from '@/lib/ratelimit';
 import { clientIp } from '@/lib/core/http/clientIp';
 import { withErrorHandler } from '@/lib/withErrorHandler';
@@ -46,6 +46,8 @@ const charterSchema = z.object({
   vehicleType: z.string().trim().min(1).max(60),
   budgetVnd: z.number().int().min(0).optional().nullable(),
   notes: z.string().trim().max(2000).optional().nullable(),
+  // #841 (PDPL 91/2025): explicit ToS + Privacy consent (form checkbox) — required.
+  acceptPrivacy: z.literal(true),
   // Honeypot: must be empty. A non-empty value means a bot filled the hidden field.
   company: z.string().optional(),
 });
@@ -115,6 +117,8 @@ async function handler(req: NextRequest): Promise<Response> {
     vehicleType: parsed.data.vehicleType,
     budgetVnd: parsed.data.budgetVnd ?? null,
     notes: parsed.data.notes ?? null,
+    // #841: the ToS + Privacy text the form links is the signup consent text.
+    consentVersion: CUSTOMER_CONSENT_VERSION,
   });
 
   return NextResponse.json({ ref }, { status: 201 });
