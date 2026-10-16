@@ -67,3 +67,32 @@ export function cityName(slug: string | null | undefined): string {
 export function isCitySlug(slug: string | null | undefined): boolean {
   return !!slug && _TEN.has(slug);
 }
+
+// #721: chuẩn hoá raw `dia_diem` do model phát → slug trong allowlist (hoặc null). SINGLE source cho cả
+// partialFromArgs (chấp nhận gì) lẫn isUnsupportedCity (từ chối gì) — "đã hỗ trợ" = đúng thứ partialFromArgs nhận.
+// So khớp không dấu/hoa-thường/dấu câu theo slug, tên hiển thị, hoặc alias phổ biến ("Sài Gòn", "TP.HCM", "Dalat"...).
+// Bỏ tiền tố hành chính chung (TP./Thành phố/Tỉnh/Thủ đô) SAU khi fold → "TP. Đà Lạt"/"Thành phố Hà Nội" vẫn là
+// thành phố đã hỗ trợ (không bị badCity → noop oan).
+const _foldCity = (s: string): string =>
+  s.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+    .replace(/^(tp|thanh-pho|tinh|thu-do)-/, "");
+const _ALIASES: Record<string, string[]> = {
+  "ho-chi-minh": ["Sài Gòn", "Saigon", "TP.HCM", "TPHCM", "HCM", "HCMC", "Ho Chi Minh City", "TP Hồ Chí Minh", "Thành phố Hồ Chí Minh"],
+  "ha-noi": ["Hanoi", "Thủ đô Hà Nội"],
+  "da-lat": ["Dalat"],
+  "da-nang": ["Danang"],
+  "nha-trang": ["Nhatrang"],
+  "hai-phong": ["Haiphong"],
+  "hue": ["Thừa Thiên Huế", "Thua Thien Hue"],
+  "sa-pa": ["Sapa"],
+  "vung-tau": ["Bà Rịa Vũng Tàu", "Ba Ria Vung Tau"],
+};
+const _BY_KEY = new Map<string, string>();
+for (const c of CITIES) { _BY_KEY.set(c.slug, c.slug); _BY_KEY.set(_foldCity(c.ten), c.slug); }
+for (const [slug, list] of Object.entries(_ALIASES)) for (const a of list) _BY_KEY.set(_foldCity(a), slug);
+export function resolveCitySlug(raw: unknown): string | null {
+  return typeof raw === "string" ? (_BY_KEY.get(_foldCity(raw)) ?? null) : null;
+}
+export function isUnsupportedCity(raw: unknown): boolean {
+  return typeof raw === "string" && raw.trim() !== "" && resolveCitySlug(raw) === null;
+}

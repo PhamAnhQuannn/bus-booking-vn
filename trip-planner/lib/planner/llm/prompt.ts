@@ -1,9 +1,9 @@
 // LLM prompt + declarations + trích/đếm enum — provider-AGNOSTIC (dùng cho Gemini VÀ openai-compat).
 // Tách khỏi parseIntent (PR-3). LLM CHỈ trích enum; engine deterministic (plan.ts) dựng lịch từ KB.
 
-import { CITIES, CITY_SLUGS, isCitySlug } from "../cities";
+import { CITIES, CITY_SLUGS, isCitySlug, isUnsupportedCity, resolveCitySlug } from "../cities";
 import { VIBE_VOCAB, filterVibes, isVibe } from "../vibes";
-import type { ParsedIntent } from "./types";
+import type { ParsedIntent, StreamEvent } from "./types";
 
 // Danh sách + mapping tên→slug DERIVE từ CITIES (single source) — thêm tỉnh = chỉ sửa cities.ts.
 const CITY_LIST = CITIES.map((c) => c.ten).join(", ");
@@ -133,7 +133,8 @@ export function countOutOfEnum(fnName: string, rawArgs: Record<string, unknown>)
 // interests nới rộng (khớp nhãn trải nghiệm ở engine), không lọc theo tập hẹp cũ.
 export function partialFromArgs(args: Record<string, unknown>): Partial<ParsedIntent> {
   const p: Partial<ParsedIntent> = {};
-  if (typeof args.dia_diem === "string" && isCitySlug(args.dia_diem)) p.dia_diem = args.dia_diem;
+  const dd = resolveCitySlug(args.dia_diem);
+  if (dd) p.dia_diem = dd;
   if (args.days != null) p.days = clampInt(args.days, 3, 1, 7);
   if (args.adults != null) p.adults = clampInt(args.adults, 2, 1, 12);
   if (args.children != null) p.children = clampInt(args.children, 0, 0, 12);
@@ -146,6 +147,13 @@ export function partialFromArgs(args: Record<string, unknown>): Partial<ParsedIn
   if (typeof args.wheelchair === "boolean") p.wheelchair = args.wheelchair;
   if (typeof args.avoidSteep === "boolean") p.avoidSteep = args.avoidSteep;
   return p;
+}
+
+// Event `slots` từ args `trich` (chung 3 adapter). #721: badCity=true khi model CÃI prompt, gọi trich cho thành
+// phố ngoài allowlist → route chặn cả frame (phát noop) để client giữ lịch cũ. Field chỉ có khi true.
+export function trichEvent(args: Record<string, unknown>): Extract<StreamEvent, { kind: "slots" }> {
+  const ev = { kind: "slots" as const, partial: partialFromArgs(args), dropped: countOutOfEnum("trich", args) };
+  return isUnsupportedCity(args.dia_diem) ? { ...ev, badCity: true } : ev;
 }
 
 // ParsedIntent -> query params (cùng khoá với requestFromParams) để dùng lại engine + link /lich-trinh.

@@ -31,7 +31,7 @@ export type ProviderId = "gemini" | "groq" | "claude";
 export type StreamEvent =
   | { kind: "provider"; id: ProviderId; model: string } // phát 1 lần, TRƯỚC token đầu (adapter tự khai)
   | { kind: "token"; text: string }
-  | { kind: "slots"; partial: Partial<ParsedIntent>; dropped?: number } // dropped = countOutOfEnum RAW (enum bịa model phát trước allowlist) — log per-provider, must-have trước flip
+  | { kind: "slots"; partial: Partial<ParsedIntent>; dropped?: number; badCity?: boolean } // badCity (#721) = trich nêu thành phố NGOÀI allowlist → route chặn frame; dropped = countOutOfEnum RAW (enum bịa model phát trước allowlist) — log per-provider, must-have trước flip
   | { kind: "suggest"; dia_diem: string; vibe: string } // mode discovery: route lo lookup KB → tên
   | { kind: "sig"; tag: string } // cuối turn: HMAC ký prose server phát ra (client echo lại — chatSig.ts)
   | { kind: "usage"; inputTokens: number; outputTokens: number; totalTokens: number; thoughtsTokens: number } // #553: token thật/turn cho accounting (thoughtsTokens = token "suy nghĩ" ẩn của thinking model — đo latency)
