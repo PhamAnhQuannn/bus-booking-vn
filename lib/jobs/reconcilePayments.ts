@@ -368,6 +368,9 @@ export const reconcilePayments: JobCore = async (tx, opts) => {
       WHERE pe."bookingId" = ${booking.id}::uuid
          OR (
            pe."bookingId" IS NULL
+           -- #331: an orphan an admin resolved (refunded by hand / not ours) no longer
+           -- holds a booking on suspicion, so it can expire normally.
+           AND pe."resolvedAt" IS NULL
            AND pe."receivedAt" >= ${new Date(
              (booking.holdCreatedAt ?? booking.createdAt).getTime() -
                DEGRADED_MATCH_WINDOW_MINUTES * 60_000

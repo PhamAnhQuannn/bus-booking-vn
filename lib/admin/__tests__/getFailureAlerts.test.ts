@@ -76,6 +76,7 @@ describe('getFailureAlerts (#327)', () => {
     expect(prisma.paymentEvent.count).toHaveBeenCalledWith({
       where: {
         bookingId: null,
+        resolvedAt: null,
         OR: [{ unmatchedReason: null }, { unmatchedReason: { not: 'account_mismatch' } }],
       },
     });
@@ -88,7 +89,7 @@ describe('getFailureAlerts (#327)', () => {
     // The misdirected-transfer tile is a DEDICATED count, kept out of the actionable
     // orphan number but still surfaced so the money is never invisible.
     expect(prisma.paymentEvent.count).toHaveBeenCalledWith({
-      where: { bookingId: null, unmatchedReason: 'account_mismatch' },
+      where: { bookingId: null, resolvedAt: null, unmatchedReason: 'account_mismatch' },
     });
     expect(result.mismatchedPayments).toBe(1);
   });

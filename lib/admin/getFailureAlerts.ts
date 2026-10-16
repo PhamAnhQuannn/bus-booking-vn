@@ -95,9 +95,11 @@ export async function getFailureAlerts(
       // is unresolvable, so counting it made the "cần xử lý" tile a ratchet that never
       // returns to zero. NULL unmatchedReason = legacy orphan (pre-column) → still
       // actionable, hence the explicit OR rather than a bare `not` (which drops NULLs).
+      // #331: an orphan an admin resolved (refunded by hand / not ours) leaves the count.
       prisma.paymentEvent.count({
         where: {
           bookingId: null,
+          resolvedAt: null,
           OR: [
             { unmatchedReason: null },
             { unmatchedReason: { not: UNMATCHED_REASON.ACCOUNT_MISMATCH } },
@@ -108,7 +110,7 @@ export async function getFailureAlerts(
       // misdirected transfer stays visible to the admin even though it is unactionable
       // and excluded from the "cần xử lý" count above.
       prisma.paymentEvent.count({
-        where: { bookingId: null, unmatchedReason: UNMATCHED_REASON.ACCOUNT_MISMATCH },
+        where: { bookingId: null, resolvedAt: null, unmatchedReason: UNMATCHED_REASON.ACCOUNT_MISMATCH },
       }),
       prisma.paymentEvent.count({
         where: {

@@ -20,6 +20,11 @@ export {
   type OwedManualRefundRow,
   type UnresolvedPaymentRow,
 } from './getManualRefundQueue';
+export {
+  getOrphanPaymentQueue,
+  type OrphanPaymentRow,
+  type SuspectedBookingRow,
+} from './getOrphanPaymentQueue';
 export { redactErrorText } from './redactErrorText';
 export { getLedgerView } from './getLedgerView';
 export { getOpenReports, getModeratedItems } from './getModerationQueue';

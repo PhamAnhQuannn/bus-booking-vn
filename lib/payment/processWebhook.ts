@@ -274,8 +274,11 @@ export async function processPaymentWebhook(
       // A row that is already LINKED does not match `bookingId: null`, so a genuine
       // duplicate delivery still falls through to the create → P2002 → outer catch
       // → 200 idempotent no-op, exactly as before.
+      // #331: a RESOLVED orphan (admin refunded it by hand / not our money) must not be
+      // claimable — a late redelivery would otherwise pay a booking from refunded money.
+      // Unclaimed → create → P2002 → idempotent 200 no-op.
       const claimedOrphan = await tx.paymentEvent.updateMany({
-        where: { adapter, providerTxnId, bookingId: null },
+        where: { adapter, providerTxnId, bookingId: null, resolvedAt: null },
         data: { bookingId: booking.id },
       });
       if (claimedOrphan.count > 0) {

@@ -109,6 +109,16 @@ describe('unfulfilled payment alert (#836)', () => {
     expect(h.createNotificationLog).toHaveBeenCalledWith(expect.objectContaining({ template: 'opsLatePayment' }));
   });
 
+  it('never claims a RESOLVED orphan (#331): claim predicate requires resolvedAt null', async () => {
+    h.findUnique.mockResolvedValue(booking('payment_failed_expired'));
+    await run();
+    expect(h.tx.paymentEvent.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { adapter: 'bank_transfer', providerTxnId: 'tx-1', bookingId: null, resolvedAt: null },
+      })
+    );
+  });
+
   it('webhook retry (P2002 on the event insert) sends NO second alert', async () => {
     h.findUnique.mockResolvedValue(booking('payment_failed_expired'));
     h.tx.paymentEvent.create.mockRejectedValue(

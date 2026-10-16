@@ -14,6 +14,8 @@
  *   - Owed money         (#833/#851 getManualRefundQueue: manual refunds not yet
  *                          transferred + unapplied linked transfers; each row → bank-ref
  *                          close-out action)
+ *   - Reconciliation     (#331 getOrphanPaymentQueue: unmatched transfers, each with the
+ *                          awaiting_payment bookings held on it; link → booking or resolve)
  *   - Refund-out form    (bookingId + amount + reason)
  *   - Chargeback form    (bookingId + amount)
  *   - FeeConfig editor   (current global rate via getEffectiveFeeRate(null, now) +
@@ -28,8 +30,9 @@ import type { PayoutStatus } from '@prisma/client';
 
 import { requireAdminPage } from '@/lib/auth';
 import { getPayoutQueue, type PayoutQueueRow } from '@/lib/admin';
-import { getLedgerView, getManualRefundQueue } from '@/lib/admin';
+import { getLedgerView, getManualRefundQueue, getOrphanPaymentQueue } from '@/lib/admin';
 import { getEffectiveFeeRate } from '@/lib/ledger';
+import { UNMATCHED_REASON } from '@/lib/payment';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -56,6 +59,13 @@ function formatDate(d: Date | null): string {
 
 function formatPct(ppm: number): string {
   return `${ppm / 10000}%`;
+}
+
+/** #331: a held booking auto-expires at 24h (SUSPECTED_HOLD_MAX_AGE); flag at half that. */
+const ORPHAN_URGENT_HOURS = 12;
+
+function ageHours(from: Date, now: Date): number {
+  return Math.floor((now.getTime() - from.getTime()) / 3_600_000);
 }
 
 const PAYOUT_STATUS_VARIANT: Record<PayoutStatus, 'neutral' | 'pending' | 'success' | 'danger'> = {
@@ -90,12 +100,13 @@ export default async function AdminFinancePage({ searchParams }: PageProps) {
   const operatorId = sp.operatorId?.trim() || undefined;
 
   // Payout queue: the two actionable statuses (requested + failed).
-  const [requestedQueue, failedQueue, globalFeePpm, ledger, owed] = await Promise.all([
+  const [requestedQueue, failedQueue, globalFeePpm, ledger, owed, orphans] = await Promise.all([
     getPayoutQueue({ status: 'requested' }),
     getPayoutQueue({ status: 'failed' }),
     getEffectiveFeeRate(null, now),
     operatorId ? getLedgerView({ operatorId }) : Promise.resolve(null),
     getManualRefundQueue(),
+    getOrphanPaymentQueue(),
   ]);
 
   const queueRows: PayoutQueueRow[] = [...requestedQueue.items, ...failedQueue.items];
@@ -327,6 +338,72 @@ export default async function AdminFinancePage({ searchParams }: PageProps) {
               </table>
             )}
           </section>
+        </CardContent>
+      </Card>
+
+      {/* ── Reconciliation: orphan transfers + held bookings (#331) ─────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle as="h2" className="text-lg">
+            Đối soát chuyển khoản chưa khớp
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <p className="text-xs text-muted-foreground">
+            Chuyển khoản không có mã đặt vé trong nội dung. Đặt vé &quot;nghi khớp&quot; đang bị giữ
+            chờ thanh toán và tự hết hạn sau 24 giờ. Đối chiếu sao kê ngân hàng rồi khớp với đặt vé
+            (xác nhận đã thanh toán qua đối soát), hoặc đóng giao dịch nếu đã hoàn tiền / không phải
+            tiền của mình.
+          </p>
+          {orphans.length === 0 ? (
+            <p className="text-sm text-muted-foreground" data-testid="orphan-payments-empty">
+              Không có chuyển khoản nào chưa khớp.
+            </p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-muted-foreground">
+                  <th className="py-1 font-medium">Mã GD đến</th>
+                  <th className="py-1 font-medium">Số tiền</th>
+                  <th className="py-1 font-medium">Lý do</th>
+                  <th className="py-1 font-medium">Nhận lúc</th>
+                  <th className="py-1 font-medium">Đặt vé nghi khớp</th>
+                  <th className="py-1 font-medium">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orphans.map((o) => {
+                  const age = ageHours(o.receivedAt, now);
+                  return (
+                    <tr key={o.id} className="border-b border-border/50 align-top" data-testid={`orphan-payment-row-${o.id}`}>
+                      <td className="py-1 font-mono text-xs">{o.providerTxnId}</td>
+                      <td className="py-1">{o.amountVnd === null ? '—' : formatVnd(o.amountVnd)}</td>
+                      <td className="py-1">{o.unmatchedReason ?? '—'}</td>
+                      <td className="py-1">
+                        {formatDate(o.receivedAt)}{' '}
+                        <Badge variant={age >= ORPHAN_URGENT_HOURS ? 'danger' : 'neutral'}>{age} giờ</Badge>
+                      </td>
+                      <td className="py-1 font-mono text-xs">
+                        {o.suspectedBookings.length === 0
+                          ? '—'
+                          : o.suspectedBookings.map((b) => <div key={b.bookingRef}>{b.bookingRef}</div>)}
+                      </td>
+                      <td className="space-y-2 py-1">
+                        {o.unmatchedReason !== UNMATCHED_REASON.ACCOUNT_MISMATCH && o.amountVnd !== null ? (
+                          <FinanceActions
+                            kind="orphan-link"
+                            paymentEventId={o.id}
+                            suggestedBookingRef={o.suspectedBookings.length === 1 ? o.suspectedBookings[0].bookingRef : ''}
+                          />
+                        ) : null}
+                        <FinanceActions kind="orphan-resolve" paymentEventId={o.id} />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </CardContent>
       </Card>
 
