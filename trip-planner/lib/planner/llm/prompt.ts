@@ -1,7 +1,7 @@
 // LLM prompt + declarations + trích/đếm enum — provider-AGNOSTIC (dùng cho Gemini VÀ openai-compat).
 // Tách khỏi parseIntent (PR-3). LLM CHỈ trích enum; engine deterministic (plan.ts) dựng lịch từ KB.
 
-import { CITIES, CITY_SLUGS, isCitySlug, isUnsupportedCity } from "../cities";
+import { CITIES, CITY_SLUGS, isCitySlug, isUnsupportedCity, resolveCitySlug } from "../cities";
 import { VIBE_VOCAB, filterVibes, isVibe } from "../vibes";
 import type { ParsedIntent, StreamEvent } from "./types";
 
@@ -133,7 +133,8 @@ export function countOutOfEnum(fnName: string, rawArgs: Record<string, unknown>)
 // interests nới rộng (khớp nhãn trải nghiệm ở engine), không lọc theo tập hẹp cũ.
 export function partialFromArgs(args: Record<string, unknown>): Partial<ParsedIntent> {
   const p: Partial<ParsedIntent> = {};
-  if (typeof args.dia_diem === "string" && isCitySlug(args.dia_diem)) p.dia_diem = args.dia_diem;
+  const dd = resolveCitySlug(args.dia_diem);
+  if (dd) p.dia_diem = dd;
   if (args.days != null) p.days = clampInt(args.days, 3, 1, 7);
   if (args.adults != null) p.adults = clampInt(args.adults, 2, 1, 12);
   if (args.children != null) p.children = clampInt(args.children, 0, 0, 12);

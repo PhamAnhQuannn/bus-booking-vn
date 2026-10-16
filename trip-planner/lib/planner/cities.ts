@@ -68,12 +68,28 @@ export function isCitySlug(slug: string | null | undefined): boolean {
   return !!slug && _TEN.has(slug);
 }
 
-// #721: model gọi `trich` với dia_diem NGOÀI allowlist (vd "hoi-an")? So khớp không dấu theo slug HOẶC tên
-// ("Huế"/"hue"/"Hồ Chí Minh" = đã hỗ trợ → false, giữ hành vi cũ). Rỗng/không phải chuỗi → false (không nêu city).
+// #721: chuẩn hoá raw `dia_diem` do model phát → slug trong allowlist (hoặc null). SINGLE source cho cả
+// partialFromArgs (chấp nhận gì) lẫn isUnsupportedCity (từ chối gì) — "đã hỗ trợ" = đúng thứ partialFromArgs nhận.
+// So khớp không dấu/hoa-thường/dấu câu theo slug, tên hiển thị, hoặc alias phổ biến ("Sài Gòn", "TP.HCM", "Dalat"...).
 const _foldCity = (s: string): string =>
-  s.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/\s+/g, "-");
-const _KNOWN = new Set<string>();
-for (const c of CITIES) { _KNOWN.add(c.slug); _KNOWN.add(_foldCity(c.ten)); }
+  s.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const _ALIASES: Record<string, string[]> = {
+  "ho-chi-minh": ["Sài Gòn", "Saigon", "TP.HCM", "TPHCM", "HCM", "HCMC", "Ho Chi Minh City", "TP Hồ Chí Minh", "Thành phố Hồ Chí Minh"],
+  "ha-noi": ["Hanoi", "Thủ đô Hà Nội"],
+  "da-lat": ["Dalat"],
+  "da-nang": ["Danang"],
+  "nha-trang": ["Nhatrang"],
+  "hai-phong": ["Haiphong"],
+  "hue": ["Thừa Thiên Huế", "Thua Thien Hue"],
+  "sa-pa": ["Sapa"],
+  "vung-tau": ["Bà Rịa Vũng Tàu", "Ba Ria Vung Tau"],
+};
+const _BY_KEY = new Map<string, string>();
+for (const c of CITIES) { _BY_KEY.set(c.slug, c.slug); _BY_KEY.set(_foldCity(c.ten), c.slug); }
+for (const [slug, list] of Object.entries(_ALIASES)) for (const a of list) _BY_KEY.set(_foldCity(a), slug);
+export function resolveCitySlug(raw: unknown): string | null {
+  return typeof raw === "string" ? (_BY_KEY.get(_foldCity(raw)) ?? null) : null;
+}
 export function isUnsupportedCity(raw: unknown): boolean {
-  return typeof raw === "string" && raw.trim() !== "" && !_KNOWN.has(_foldCity(raw));
+  return typeof raw === "string" && raw.trim() !== "" && resolveCitySlug(raw) === null;
 }
