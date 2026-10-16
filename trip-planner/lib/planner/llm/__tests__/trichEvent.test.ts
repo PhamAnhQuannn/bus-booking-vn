@@ -11,6 +11,9 @@ describe('isUnsupportedCity (#721)', () => {
   it.each(['Sài Gòn', 'Saigon', 'TP.HCM', 'HCM', 'Hanoi', 'Dalat', 'Sapa', 'Thừa Thiên Huế'])('alias %s → supported', (c) => {
     expect(isUnsupportedCity(c)).toBe(false);
   });
+  it.each(['TP. Đà Lạt', 'Thành phố Hà Nội', 'TP Huế', 'Tỉnh Ninh Bình', 'Thủ đô Hà Nội'])('generic admin prefix %s → supported', (c) => {
+    expect(isUnsupportedCity(c)).toBe(false);
+  });
   it.each(['hoi-an', 'Hội An', 'mui-ne', 'Bangkok'])('unsupported %s → true', (c) => {
     expect(isUnsupportedCity(c)).toBe(true);
   });

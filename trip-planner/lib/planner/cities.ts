@@ -71,8 +71,11 @@ export function isCitySlug(slug: string | null | undefined): boolean {
 // #721: chuẩn hoá raw `dia_diem` do model phát → slug trong allowlist (hoặc null). SINGLE source cho cả
 // partialFromArgs (chấp nhận gì) lẫn isUnsupportedCity (từ chối gì) — "đã hỗ trợ" = đúng thứ partialFromArgs nhận.
 // So khớp không dấu/hoa-thường/dấu câu theo slug, tên hiển thị, hoặc alias phổ biến ("Sài Gòn", "TP.HCM", "Dalat"...).
+// Bỏ tiền tố hành chính chung (TP./Thành phố/Tỉnh/Thủ đô) SAU khi fold → "TP. Đà Lạt"/"Thành phố Hà Nội" vẫn là
+// thành phố đã hỗ trợ (không bị badCity → noop oan).
 const _foldCity = (s: string): string =>
-  s.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  s.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+    .replace(/^(tp|thanh-pho|tinh|thu-do)-/, "");
 const _ALIASES: Record<string, string[]> = {
   "ho-chi-minh": ["Sài Gòn", "Saigon", "TP.HCM", "TPHCM", "HCM", "HCMC", "Ho Chi Minh City", "TP Hồ Chí Minh", "Thành phố Hồ Chí Minh"],
   "ha-noi": ["Hanoi", "Thủ đô Hà Nội"],
