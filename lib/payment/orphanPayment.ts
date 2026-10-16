@@ -56,8 +56,8 @@ export async function linkOrphanPayment(input: {
     if (events.length === 0) return { ok: false, error: 'not_found' };
     const ev = events[0];
 
-    const bookings = await tx.$queryRaw<Array<{ id: string; status: string; totalVnd: number }>>`
-      SELECT "id", "status"::text AS "status", "totalVnd"
+    const bookings = await tx.$queryRaw<Array<{ id: string; status: string; totalVnd: number; paymentMethod: string }>>`
+      SELECT "id", "status"::text AS "status", "totalVnd", "paymentMethod"::text AS "paymentMethod"
       FROM "Booking" WHERE "bookingRef" = ${bookingRef} FOR UPDATE
     `;
     if (bookings.length === 0) return { ok: false, error: 'booking_not_found' };
@@ -81,6 +81,9 @@ export async function linkOrphanPayment(input: {
     if (booking.status !== 'awaiting_payment') {
       return { ok: false, error: 'booking_not_awaiting_payment' };
     }
+    // Same-rail rule as the sweeper's degraded match: a bank transfer only settles a
+    // booking that was created to be paid by bank transfer (not cash / VNPay).
+    if (booking.paymentMethod !== ev.adapter) return { ok: false, error: 'not_linkable' };
     // EXACT amount (the degraded-match rule): an underpay would never confirm, and an
     // overpay delta has no refund obligation on the reconcile path.
     const { amount, success } = recoverSepayEvent(ev.rawBody);

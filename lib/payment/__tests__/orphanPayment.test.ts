@@ -37,7 +37,7 @@ const orphan = {
   unmatchedReason: 'no_booking_ref_in_memo' as string | null,
   resolvedAt: null as Date | null,
 };
-const booking = { id: BOOKING_ID, status: 'awaiting_payment', totalVnd: FARE };
+const booking = { id: BOOKING_ID, status: 'awaiting_payment', totalVnd: FARE, paymentMethod: 'bank_transfer' };
 
 function sql(callIndex: number): string {
   return String(queryRawMock.mock.calls[callIndex][0].join('?'));
@@ -94,6 +94,12 @@ describe('linkOrphanPayment', () => {
     ['non-bank-transfer', { adapter: 'vnpay' }],
   ])('not_linkable when %s', async (_label, patch) => {
     queryRawMock.mockResolvedValueOnce([{ ...orphan, ...patch }]).mockResolvedValueOnce([booking]);
+    expect(await link()).toEqual({ ok: false, error: 'not_linkable' });
+    expect(eventUpdate).not.toHaveBeenCalled();
+  });
+
+  it.each(['cash', 'vnpay'])('not_linkable when the booking was created for rail %s', async (paymentMethod) => {
+    queryRawMock.mockResolvedValueOnce([orphan]).mockResolvedValueOnce([{ ...booking, paymentMethod }]);
     expect(await link()).toEqual({ ok: false, error: 'not_linkable' });
     expect(eventUpdate).not.toHaveBeenCalled();
   });
