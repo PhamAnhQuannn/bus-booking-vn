@@ -26,6 +26,12 @@ export {
   type MarkManualRefundPaidResult,
   type ResolveUnfulfilledPaymentResult,
 } from './manualRefund';
+export {
+  linkOrphanPayment,
+  resolveOrphanPayment,
+  type LinkOrphanPaymentResult,
+  type ResolveOrphanPaymentResult,
+} from './orphanPayment';
 export { getGatewayFor } from './select';
 export { isVnpaySelectable } from './vnpaySelectable';
 export type { OnlinePaymentMethod } from './select';
