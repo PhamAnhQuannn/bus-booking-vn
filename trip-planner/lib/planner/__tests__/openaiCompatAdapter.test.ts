@@ -225,6 +225,15 @@ describe('openaiCompatAdapter — retry / config', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
+  it('#622: 503 × 3 → onRetry gọi 2 lần (attempt cuối ném → router đếm)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(status(503)));
+    const onRetry = vi.fn();
+    const captured = (async () => { for await (const _ of streamChat(HISTORY, 'vi', { onRetry })) void _; })().catch((e) => e);
+    await vi.advanceTimersByTimeAsync(1200);
+    expect(await captured).toMatchObject({ code: 'upstream' });
+    expect(onRetry).toHaveBeenCalledTimes(2);
+  });
+
   it('401: lỗi key → throw NGAY, KHÔNG retry', async () => {
     const fetchMock = vi.fn().mockResolvedValue(status(401));
     vi.stubGlobal('fetch', fetchMock);

@@ -38,6 +38,22 @@ export type StreamEvent =
   | { kind: "ask"; slot: string; options: string[]; allowCustom: boolean }
   | { kind: "plan"; intent: ParsedIntent };
 
+// #622: adapter báo MỖI lần thử upstream hỏng mà nó tự retry (5xx/fetch lỗi → backoff → thử lại). Lần
+// hỏng CUỐI không báo ở đây — nó ném ParseIntentError('upstream') và router đếm. → breaker đếm theo
+// request upstream THẬT, không theo lượt.
+export interface AdapterOpts {
+  onRetry?: () => Promise<void> | void;
+}
+
+// #829: route tiêm accounting breaker per-provider vào router (trip-planner KHÔNG import lib/ratelimit).
+// skip = provider có breaker đang mở → bỏ qua, sang provider kế. onUpstreamFailure = mỗi attempt
+// code==='upstream' (kể cả lỗi bị fallback nuốt + retry trong adapter); onSuccess = provider ĐÃ phục vụ.
+export interface RouterHooks {
+  skip?: ReadonlySet<ProviderId>;
+  onUpstreamFailure?: (provider: ProviderId) => Promise<void> | void;
+  onSuccess?: (provider: ProviderId) => Promise<void> | void;
+}
+
 export class ParseIntentError extends Error {
   constructor(
     message: string,

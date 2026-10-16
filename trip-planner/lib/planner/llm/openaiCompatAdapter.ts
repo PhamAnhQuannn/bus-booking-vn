@@ -16,7 +16,7 @@ import { filterVibes } from "../vibes";
 import { signModelTurn } from "../chatSig";
 import { systemFor, TRICH_DECL, GOI_Y_DECL, trichEvent } from "./prompt";
 import { stubStream } from "./llmStub";
-import { ParseIntentError, type ChatTurn, type StreamEvent } from "./types";
+import { ParseIntentError, type AdapterOpts, type ChatTurn, type StreamEvent } from "./types";
 
 export const GROQ_MODEL_DEFAULT = "openai/gpt-oss-20b"; // catalog Groq 2026 (llama-3.1-8b bỏ → 404); override PLANNER_GROQ_MODEL
 const GROQ_HOST_DEFAULT = "https://api.groq.com";
@@ -78,7 +78,7 @@ interface Chunk {
 }
 
 // Stream 1 lượt Groq. Cùng StreamEvent contract như geminiAdapter (router swap được).
-export async function* streamChat(history: ChatTurn[], locale: 'vi' | 'en' = 'vi'): AsyncGenerator<StreamEvent> {
+export async function* streamChat(history: ChatTurn[], locale: 'vi' | 'en' = 'vi', opts: AdapterOpts = {}): AsyncGenerator<StreamEvent> {
   // #748 STUB GATE (mirror geminiAdapter) — defense-in-depth cho caller import adapter TRỰC TIẾP (bỏ
   // router, vd openaiCompatAdapter.test.ts). Không gate = stub bật + có GROQ_API_KEY → chạm Groq thật.
   if (process.env.PLANNER_LLM_STUB === "true") {
@@ -112,6 +112,7 @@ export async function* streamChat(history: ChatTurn[], locale: 'vi' | 'en' = 'vi
   const backoff = async (n: number) => {
     try { await sleep(RETRY_BACKOFF_MS * n, controller.signal); }
     catch { clearTimeout(timer); throw new ParseIntentError("Groq timeout", "upstream"); }
+    await opts.onRetry?.(); // #622: attempt vừa hỏng + SẮP thử lại → đếm 1
   };
 
   let res: Response;

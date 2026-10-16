@@ -159,6 +159,17 @@ describe('anthropicAdapter — request / lỗi', () => {
     expect(events.some((e) => e.kind === 'token')).toBe(true);
   });
 
+  it('#622: 529 → retry → OK: onRetry gọi đúng 1 lần (attempt hỏng được retry)', async () => {
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(status(529))
+      .mockResolvedValueOnce(streamRes([sse({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'ok' } })])));
+    const onRetry = vi.fn();
+    const p = (async () => { for await (const _ of streamChat(HISTORY, 'vi', { onRetry })) void _; })();
+    await vi.runAllTimersAsync();
+    await p;
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
   it('401 → fail-fast upstream, message không chứa key', async () => {
     const fetchMock = vi.fn().mockResolvedValue(status(401));
     vi.stubGlobal('fetch', fetchMock);

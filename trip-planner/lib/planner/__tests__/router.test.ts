@@ -225,3 +225,132 @@ describe('router — PLANNER_LLM_FALLBACK=off ignored on Vercel preview', () => 
     expect(providerOrder()).toEqual(['gemini', 'groq']);
   });
 });
+
+// #829/#622: accounting breaker per-provider qua hooks route tiêm (router không import lib/ratelimit).
+describe('router — breaker hooks per-provider (#829/#622)', () => {
+  const mkHooks = (skip: string[] = []) => ({
+    skip: new Set(skip) as ReadonlySet<'gemini' | 'groq' | 'claude'>,
+    onUpstreamFailure: vi.fn(async () => {}),
+    onSuccess: vi.fn(async () => {}),
+  });
+  const drainWith = async (hooks: ReturnType<typeof mkHooks>) => {
+    const out: StreamEvent[] = [];
+    for await (const ev of streamChat(HISTORY, 'vi', hooks)) out.push(ev);
+    return out;
+  };
+
+  it('primary pre-content upstream → fail trên primary, success trên fallback, primary KHÔNG reset', async () => {
+    process.env.PLANNER_LLM_PRIMARY = 'claude';
+    claudeFn.mockImplementation(throwsNow('upstream'));
+    geminiFn.mockImplementation(emit([P('gemini'), SLOTS]));
+    const hooks = mkHooks();
+    expect(await drainWith(hooks)).toEqual([P('gemini'), SLOTS]);
+    expect(hooks.onUpstreamFailure).toHaveBeenCalledTimes(1);
+    expect(hooks.onUpstreamFailure).toHaveBeenCalledWith('claude');
+    expect(hooks.onSuccess).toHaveBeenCalledTimes(1);
+    expect(hooks.onSuccess).toHaveBeenCalledWith('gemini');
+  });
+
+  it('happy primary → success CHỈ primary, không failure', async () => {
+    process.env.PLANNER_LLM_PRIMARY = 'claude';
+    claudeFn.mockImplementation(emit([P('claude'), SLOTS]));
+    const hooks = mkHooks();
+    await drainWith(hooks);
+    expect(hooks.onSuccess).toHaveBeenCalledWith('claude');
+    expect(hooks.onSuccess).toHaveBeenCalledTimes(1);
+    expect(hooks.onUpstreamFailure).not.toHaveBeenCalled();
+  });
+
+  it('primary breaker mở (skip) → KHÔNG gọi primary, đi thẳng fallback', async () => {
+    process.env.PLANNER_LLM_PRIMARY = 'claude';
+    claudeFn.mockImplementation(emit([P('claude'), SLOTS]));
+    geminiFn.mockImplementation(emit([P('gemini'), SLOTS]));
+    const hooks = mkHooks(['claude']);
+    expect(await drainWith(hooks)).toEqual([P('gemini'), SLOTS]);
+    expect(claudeFn).not.toHaveBeenCalled();
+    expect(hooks.onSuccess).toHaveBeenCalledWith('gemini');
+    expect(hooks.onUpstreamFailure).not.toHaveBeenCalled();
+    expect(warnFn).toHaveBeenCalledWith(expect.objectContaining({ skipped: ['claude'] }), 'planner.router.breaker_skip');
+  });
+
+  it('mọi provider skip → ném upstream, không gọi adapter, không hook', async () => {
+    process.env.PLANNER_LLM_PRIMARY = 'claude';
+    const hooks = mkHooks(['claude', 'gemini']);
+    await expect(drainWith(hooks)).rejects.toMatchObject({ name: 'ParseIntentError', code: 'upstream' });
+    expect(claudeFn).not.toHaveBeenCalled();
+    expect(geminiFn).not.toHaveBeenCalled();
+    expect(hooks.onUpstreamFailure).not.toHaveBeenCalled();
+  });
+
+  it('no_key KHÔNG đếm upstream (#828 semantics)', async () => {
+    process.env.PLANNER_LLM_PRIMARY = 'claude';
+    claudeFn.mockImplementation(throwsNow('no_key'));
+    geminiFn.mockImplementation(emit([P('gemini'), SLOTS]));
+    const hooks = mkHooks();
+    await drainWith(hooks);
+    expect(hooks.onUpstreamFailure).not.toHaveBeenCalled();
+    expect(hooks.onSuccess).toHaveBeenCalledWith('gemini');
+  });
+
+  it('bad_json KHÔNG đếm upstream', async () => {
+    process.env.PLANNER_LLM_PRIMARY = 'claude';
+    claudeFn.mockImplementation(async function* (): AsyncGenerator<StreamEvent> {
+      throw new ParseIntentError('junk', 'bad_json');
+    });
+    geminiFn.mockImplementation(emit([P('gemini'), SLOTS]));
+    const hooks = mkHooks();
+    await drainWith(hooks);
+    expect(hooks.onUpstreamFailure).not.toHaveBeenCalled();
+  });
+
+  it('mid-stream fail SAU nội dung → đếm ĐÚNG 1 lần, ném, không fallback, không success', async () => {
+    process.env.PLANNER_LLM_PRIMARY = 'claude';
+    claudeFn.mockImplementation(emit([P('claude'), SLOTS], true));
+    const hooks = mkHooks();
+    await expect(drainWith(hooks)).rejects.toMatchObject({ code: 'upstream' });
+    expect(hooks.onUpstreamFailure).toHaveBeenCalledTimes(1);
+    expect(hooks.onUpstreamFailure).toHaveBeenCalledWith('claude');
+    expect(hooks.onSuccess).not.toHaveBeenCalled();
+    expect(geminiFn).not.toHaveBeenCalled();
+  });
+
+  it('cả hai upstream chết → mỗi provider đếm 1 lần trên breaker của nó', async () => {
+    process.env.PLANNER_LLM_PRIMARY = 'claude';
+    claudeFn.mockImplementation(throwsNow('upstream'));
+    geminiFn.mockImplementation(throwsNow('upstream'));
+    const hooks = mkHooks();
+    await expect(drainWith(hooks)).rejects.toMatchObject({ code: 'upstream' });
+    expect(hooks.onUpstreamFailure.mock.calls).toEqual([['claude'], ['gemini']]);
+  });
+
+  it('#829 gốc: gemini upstream + groq no_key → ném lỗi upstream của gemini (không che thành no_key)', async () => {
+    geminiFn.mockImplementation(async function* (): AsyncGenerator<StreamEvent> {
+      throw new ParseIntentError('Gemini HTTP 503', 'upstream');
+    });
+    groqFn.mockImplementation(throwsNow('no_key'));
+    const hooks = mkHooks();
+    await expect(drainWith(hooks)).rejects.toMatchObject({ code: 'upstream', message: 'Gemini HTTP 503' });
+    expect(hooks.onUpstreamFailure).toHaveBeenCalledTimes(1);
+    expect(hooks.onUpstreamFailure).toHaveBeenCalledWith('gemini');
+  });
+
+  it('#622: mỗi attempt adapter retry (onRetry) cũng đếm trên breaker provider đó', async () => {
+    process.env.PLANNER_LLM_PRIMARY = 'claude';
+    // adapter giả: 2 attempt 5xx được retry (onRetry) rồi attempt cuối ném upstream → 3 lần đếm.
+    claudeFn.mockImplementation(async function* (_h: ChatTurn[], _l: string, opts?: { onRetry?: () => Promise<void> | void }): AsyncGenerator<StreamEvent> {
+      await opts?.onRetry?.();
+      await opts?.onRetry?.();
+      throw new ParseIntentError('Claude HTTP 529', 'upstream');
+    });
+    geminiFn.mockImplementation(emit([P('gemini'), SLOTS]));
+    const hooks = mkHooks();
+    await drainWith(hooks);
+    expect(hooks.onUpstreamFailure.mock.calls).toEqual([['claude'], ['claude'], ['claude']]);
+    expect(hooks.onSuccess).toHaveBeenCalledWith('gemini');
+  });
+
+  it('không truyền hooks → hành vi cũ (không lỗi)', async () => {
+    geminiFn.mockImplementation(emit([P('gemini'), SLOTS]));
+    expect(await drain()).toEqual([P('gemini'), SLOTS]);
+  });
+});

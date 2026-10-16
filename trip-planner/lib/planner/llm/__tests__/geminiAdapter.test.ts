@@ -180,6 +180,21 @@ describe('geminiAdapter — retry / fail-fast', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('(4f) #622: 503 × 3 → onRetry gọi 2 lần (attempt cuối ném → router đếm) = 3 attempt; 429 → 0', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(statusRes(503)));
+    const onRetry = vi.fn();
+    const captured = (async () => { for await (const _ of streamChat(HISTORY, 'vi', { onRetry })) void _; })().catch((e) => e);
+    await vi.advanceTimersByTimeAsync(1200);
+    expect(await captured).toMatchObject({ code: 'upstream' });
+    expect(onRetry).toHaveBeenCalledTimes(2);
+
+    vi.unstubAllGlobals();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(statusRes(429)));
+    const onRetry429 = vi.fn();
+    await expect((async () => { for await (const _ of streamChat(HISTORY, 'vi', { onRetry: onRetry429 })) void _; })()).rejects.toMatchObject({ code: 'upstream' });
+    expect(onRetry429).not.toHaveBeenCalled();
+  });
+
   it('(4d) 401 / 400: lỗi key/config → fail-fast, KHÔNG retry', async () => {
     for (const code of [401, 400]) {
       vi.unstubAllGlobals();
