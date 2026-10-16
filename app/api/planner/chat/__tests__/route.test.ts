@@ -449,3 +449,44 @@ describe('POST /api/planner/chat — breaker + usage theo provider (#853)', () =
     expect(usageMock).not.toHaveBeenCalled();
   });
 });
+
+describe('POST /api/planner/chat — unsupported-city guard on slots frame (#721)', () => {
+  const events = (text: string) =>
+    text.split('\n\n').filter(Boolean).map((f) => {
+      const ev = f.split('\n').find((l) => l.startsWith('event:'))!.slice(6).trim();
+      const data = f.split('\n').find((l) => l.startsWith('data:'))!.slice(5).trim();
+      return { ev, data: JSON.parse(data) };
+    });
+
+  it('supported city: slots frame passes through unchanged, no noop, no warn', async () => {
+    streamEventsMock.mockReturnValue([{ kind: 'slots', partial: { dia_diem: 'hue', days: 3 }, dropped: 0 }]);
+    const fr = events(await (await POST(makeRequest())).text());
+    expect(fr.find((f) => f.ev === 'slots')?.data).toEqual({ partial: { dia_diem: 'hue', days: 3 } });
+    expect(fr.some((f) => f.ev === 'noop')).toBe(false);
+    expect(warnMock).not.toHaveBeenCalledWith(expect.anything(), 'planner.chat.unsupported_city_slots');
+  });
+
+  it('unsupported city: whole slots frame suppressed (days too) → noop, structured warn without PII', async () => {
+    streamEventsMock.mockReturnValue([
+      { kind: 'provider', id: 'gemini', model: 'g' },
+      { kind: 'slots', partial: { days: 2, adults: 3 }, dropped: 1, badCity: true },
+    ]);
+    const fr = events(await (await POST(makeRequest())).text());
+    expect(fr.some((f) => f.ev === 'slots')).toBe(false);
+    expect(fr.map((f) => f.ev).slice(-2)).toEqual(['noop', 'done']);
+    expect(warnMock).toHaveBeenCalledWith(
+      { provider: 'gemini', droppedSlots: ['days', 'adults'] },
+      'planner.chat.unsupported_city_slots',
+    );
+  });
+
+  it('bad trich + a valid action in the same turn: valid frame kept, bad one dropped, no noop', async () => {
+    streamEventsMock.mockReturnValue([
+      { kind: 'slots', partial: { days: 2 }, dropped: 1, badCity: true },
+      { kind: 'slots', partial: { adults: 4 }, dropped: 0 },
+    ]);
+    const fr = events(await (await POST(makeRequest())).text());
+    expect(fr.filter((f) => f.ev === 'slots').map((f) => f.data)).toEqual([{ partial: { adults: 4 } }]);
+    expect(fr.some((f) => f.ev === 'noop')).toBe(false);
+  });
+});

@@ -1,9 +1,9 @@
 // LLM prompt + declarations + trích/đếm enum — provider-AGNOSTIC (dùng cho Gemini VÀ openai-compat).
 // Tách khỏi parseIntent (PR-3). LLM CHỈ trích enum; engine deterministic (plan.ts) dựng lịch từ KB.
 
-import { CITIES, CITY_SLUGS, isCitySlug } from "../cities";
+import { CITIES, CITY_SLUGS, isCitySlug, isUnsupportedCity } from "../cities";
 import { VIBE_VOCAB, filterVibes, isVibe } from "../vibes";
-import type { ParsedIntent } from "./types";
+import type { ParsedIntent, StreamEvent } from "./types";
 
 // Danh sách + mapping tên→slug DERIVE từ CITIES (single source) — thêm tỉnh = chỉ sửa cities.ts.
 const CITY_LIST = CITIES.map((c) => c.ten).join(", ");
@@ -146,6 +146,13 @@ export function partialFromArgs(args: Record<string, unknown>): Partial<ParsedIn
   if (typeof args.wheelchair === "boolean") p.wheelchair = args.wheelchair;
   if (typeof args.avoidSteep === "boolean") p.avoidSteep = args.avoidSteep;
   return p;
+}
+
+// Event `slots` từ args `trich` (chung 3 adapter). #721: badCity=true khi model CÃI prompt, gọi trich cho thành
+// phố ngoài allowlist → route chặn cả frame (phát noop) để client giữ lịch cũ. Field chỉ có khi true.
+export function trichEvent(args: Record<string, unknown>): Extract<StreamEvent, { kind: "slots" }> {
+  const ev = { kind: "slots" as const, partial: partialFromArgs(args), dropped: countOutOfEnum("trich", args) };
+  return isUnsupportedCity(args.dia_diem) ? { ...ev, badCity: true } : ev;
 }
 
 // ParsedIntent -> query params (cùng khoá với requestFromParams) để dùng lại engine + link /lich-trinh.

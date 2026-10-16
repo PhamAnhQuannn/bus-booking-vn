@@ -266,6 +266,14 @@ export async function POST(req: NextRequest): Promise<Response> {
             if (ev.kind === 'token') {
               send('token', { text: ev.text });
             } else if (ev.kind === 'slots') {
+              if (ev.badCity) {
+                // #721: model CÃI prompt, gọi trich cho thành phố NGOÀI allowlist → chặn CẢ frame (days/adults…
+                // đi kèm là của chuyến bị từ chối; client còn tự bóc lại từ chữ nên bỏ riêng dia_diem KHÔNG đủ).
+                // Không set sawAction → cuối lượt phát 'noop' → client giữ lịch cũ y như nhánh từ chối prose (#720).
+                outOfEnumCount += ev.dropped ?? 0;
+                logger.warn({ provider, droppedSlots: Object.keys(ev.partial) }, 'planner.chat.unsupported_city_slots');
+                continue;
+              }
               sawAction = true;
               outOfEnumCount += ev.dropped ?? 0;
               send('slots', { partial: ev.partial });

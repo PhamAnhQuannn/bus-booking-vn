@@ -7,7 +7,7 @@ import { isRealProduction } from "@/lib/core/config/deployTier";
 import { isCitySlug } from "../cities";
 import { filterVibes } from "../vibes";
 import { signModelTurn } from "../chatSig";
-import { systemFor, TRICH_DECL, GOI_Y_DECL, partialFromArgs, countOutOfEnum } from "./prompt";
+import { systemFor, TRICH_DECL, GOI_Y_DECL, trichEvent } from "./prompt";
 import { stubStream } from "./llmStub";
 import { ParseIntentError, type ChatTurn, type StreamEvent } from "./types";
 
@@ -201,7 +201,7 @@ export async function* streamChat(history: ChatTurn[], locale: 'vi' | 'en' = 'vi
           } else if (part.functionCall) {
             const { name, args = {} } = part.functionCall;
             if (name === "trich") {
-              yield { kind: "slots", partial: partialFromArgs(args), dropped: countOutOfEnum("trich", args) };
+              yield trichEvent(args);
             } else if (name === "goi_y_vibe") {
               const dia = typeof args.dia_diem === "string" && isCitySlug(args.dia_diem) ? args.dia_diem : null;
               const vibes = filterVibes([String(args.vibe ?? "")]); // allowlist vibe

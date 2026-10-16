@@ -67,3 +67,13 @@ export function cityName(slug: string | null | undefined): string {
 export function isCitySlug(slug: string | null | undefined): boolean {
   return !!slug && _TEN.has(slug);
 }
+
+// #721: model gọi `trich` với dia_diem NGOÀI allowlist (vd "hoi-an")? So khớp không dấu theo slug HOẶC tên
+// ("Huế"/"hue"/"Hồ Chí Minh" = đã hỗ trợ → false, giữ hành vi cũ). Rỗng/không phải chuỗi → false (không nêu city).
+const _foldCity = (s: string): string =>
+  s.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/\s+/g, "-");
+const _KNOWN = new Set<string>();
+for (const c of CITIES) { _KNOWN.add(c.slug); _KNOWN.add(_foldCity(c.ten)); }
+export function isUnsupportedCity(raw: unknown): boolean {
+  return typeof raw === "string" && raw.trim() !== "" && !_KNOWN.has(_foldCity(raw));
+}
