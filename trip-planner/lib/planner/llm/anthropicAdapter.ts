@@ -15,7 +15,7 @@ import { filterVibes } from "../vibes";
 import { signModelTurn } from "../chatSig";
 import { systemFor, TRICH_DECL, GOI_Y_DECL, trichEvent } from "./prompt";
 import { stubStream } from "./llmStub";
-import { ParseIntentError, type ChatTurn, type StreamEvent } from "./types";
+import { ParseIntentError, type AdapterOpts, type ChatTurn, type StreamEvent } from "./types";
 
 export const CLAUDE_MODEL_DEFAULT = "claude-haiku-4-5"; // cheapest-first; override PLANNER_CLAUDE_MODEL
 const ANTHROPIC_HOST_DEFAULT = "https://api.anthropic.com";
@@ -79,7 +79,7 @@ interface SseEvent {
 }
 
 // Stream 1 lượt Claude. Cùng StreamEvent contract như geminiAdapter.
-export async function* streamChat(history: ChatTurn[], locale: 'vi' | 'en' = 'vi'): AsyncGenerator<StreamEvent> {
+export async function* streamChat(history: ChatTurn[], locale: 'vi' | 'en' = 'vi', opts: AdapterOpts = {}): AsyncGenerator<StreamEvent> {
   // #748 STUB GATE (mirror các adapter khác) — defense-in-depth cho caller import adapter trực tiếp.
   if (process.env.PLANNER_LLM_STUB === "true") {
     if (isRealProduction()) throw new ParseIntentError("PLANNER_LLM_STUB không được bật ở production", "no_key");
@@ -112,6 +112,7 @@ export async function* streamChat(history: ChatTurn[], locale: 'vi' | 'en' = 'vi
   const backoff = async (n: number) => {
     try { await sleep(RETRY_BACKOFF_MS * n, controller.signal); }
     catch { clearTimeout(timer); throw new ParseIntentError("Claude timeout", "upstream"); }
+    await opts.onRetry?.(); // #622: attempt vừa hỏng + SẮP thử lại → đếm 1
   };
 
   let res: Response;

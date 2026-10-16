@@ -9,7 +9,7 @@ import { filterVibes } from "../vibes";
 import { signModelTurn } from "../chatSig";
 import { systemFor, TRICH_DECL, GOI_Y_DECL, trichEvent } from "./prompt";
 import { stubStream } from "./llmStub";
-import { ParseIntentError, type ChatTurn, type StreamEvent } from "./types";
+import { ParseIntentError, type AdapterOpts, type ChatTurn, type StreamEvent } from "./types";
 
 const GEMINI_MODEL_DEFAULT = "gemini-3.5-flash";
 // GEMINI_MODEL_OVERRIDE = van rollback: đổi sang bản DATED khác (vd gemini-3.5-flash-lite) qua env,
@@ -72,7 +72,7 @@ interface GeminiPart {
 }
 
 // Stream 1 lượt hội thoại. Yield token prose + tối đa 1 directive (ask/plan).
-export async function* streamChat(history: ChatTurn[], locale: 'vi' | 'en' = 'vi'): AsyncGenerator<StreamEvent> {
+export async function* streamChat(history: ChatTurn[], locale: 'vi' | 'en' = 'vi', opts: AdapterOpts = {}): AsyncGenerator<StreamEvent> {
   // PR-5 STUB (dev/test): trả SSE canned, KHÔNG gọi upstream (e2e/preview $0). Prod: getEnv() đã FAIL boot
   // nếu PLANNER_LLM_STUB=true (env strict); defense-in-depth: inline throw nếu bằng cách nào đó chạy prod.
   if (process.env.PLANNER_LLM_STUB === "true") {
@@ -115,6 +115,7 @@ export async function* streamChat(history: ChatTurn[], locale: 'vi' | 'en' = 'vi
       clearTimeout(timer);
       throw new ParseIntentError("Gemini timeout", "upstream");
     }
+    await opts.onRetry?.(); // #622: attempt vừa hỏng + SẮP thử lại → đếm 1 (backoff timeout thì lỗi ném ra tự đếm)
   };
 
   let res: Response;

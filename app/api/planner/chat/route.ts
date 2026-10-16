@@ -20,6 +20,7 @@ import { type NextRequest } from 'next/server';
 import {
   streamChat,
   providerOrder,
+  providerHasKey,
   sanitizeHistory,
   redactTurns,
   ParseIntentError,
@@ -127,23 +128,32 @@ export async function POST(req: NextRequest): Promise<Response> {
     // request); chi phí eval chặn ở eval-proxy (ledger), không ở đây.
     const evalMode = process.env.PLANNER_EVAL_MODE === '1' && isLocalEvalHarnessAllowed();
 
-    // #853: breaker theo provider PRIMARY (cùng nguồn providerOrder()[0] với isFallback) — Claude primary
-    // đếm/mở `planner-claude:*`, không lẫn nhãn Gemini. Default gemini → đúng instance alias cũ (key y hệt).
-    const upstreamBreaker = plannerBreakerFor(providerOrder()[0]);
+    // #853/#829: breaker PER-PROVIDER (`planner-<provider>:*`; gemini = đúng instance alias cũ, key y hệt).
+    // Router bỏ qua provider có breaker mở (skip) và tự ghi fail/success lên breaker của provider từng
+    // attempt — route KHÔNG ghi nữa (tránh double-count). Route chỉ 503 khi KHÔNG còn provider phục vụ được.
+    const order = providerOrder();
     const tBeforeBreaker = performance.now();
-    // Circuit-breaker (#552): during a Gemini 429/5xx storm, short-circuit to 503 WITHOUT calling
-    // Gemini or consuming the budget — checked before the budget bucket so doomed calls don't burn
-    // the daily quota. Fail-open (breakerState returns closed on Redis error) so a blip can't wedge
-    // the assistant shut; the fail-closed plannerDailyBudget stays the cost backstop.
-    const breaker = evalMode ? { open: false, retryAfter: 0 } : await upstreamBreaker.breakerState();
-    if (breaker.open) {
-      logger.warn({ retryAfter: breaker.retryAfter, ip }, 'planner.chat.breaker.open');
+    // Circuit-breaker (#552): during a 429/5xx storm, short-circuit to 503 WITHOUT calling the LLM
+    // or consuming the budget — checked before the budget bucket so doomed calls don't burn the daily
+    // quota. Fail-open (breakerState returns closed on Redis error) so a blip can't wedge the assistant
+    // shut; the fail-closed plannerDailyBudget stays the cost backstop.
+    const states = evalMode
+      ? order.map(() => ({ open: false, retryAfter: 0 }))
+      : await Promise.all(order.map((p) => plannerBreakerFor(p).breakerState()));
+    const skip = new Set(order.filter((_, i) => states[i].open));
+    // Provider chưa có key (prod default: groq) KHÔNG tính là "phục vụ được" — skip sang nó chỉ ra no_key.
+    // Không provider nào mở → đi tiếp như cũ (kể cả không key nào → route hiện copy no_key).
+    const servable = order.filter((p) => !skip.has(p) && providerHasKey(p));
+    if (skip.size > 0 && servable.length === 0) {
+      // Retry-After = provider mở sớm nhất hết cooldown.
+      const retryAfter = Math.min(...states.filter((st) => st.open).map((st) => st.retryAfter || BREAKER_COOLDOWN_SEC));
+      logger.warn({ retryAfter, ip, skipped: [...skip] }, 'planner.chat.breaker.open');
       // reason: 'breaker' — upstream đang bão 429/5xx, cooldown ngắn → copy "tạm nghỉ" + CHO Thử lại sau.
       return new Response(JSON.stringify({ error: 'UPSTREAM_UNAVAILABLE', reason: 'breaker' satisfies ChatErrorReason }), {
         status: 503,
         headers: {
           'Content-Type': 'application/json',
-          'Retry-After': String(breaker.retryAfter || BREAKER_COOLDOWN_SEC),
+          'Retry-After': String(retryAfter),
         },
       });
     }
@@ -250,7 +260,11 @@ export async function POST(req: NextRequest): Promise<Response> {
           // (từ chối thành phố ngoài danh sách / lạc đề / chào hỏi) → phát 'noop' để client GIỮ lịch
           // hiện tại thay vì bóc slot từ chữ user rồi dựng đè (vd "Đổi sang Hội An 2 ngày" → giữ lịch cũ).
           let sawAction = false;
-          for await (const ev of streamChat(safeHistory, locale)) {
+          for await (const ev of streamChat(safeHistory, locale, {
+            skip,
+            onUpstreamFailure: (p) => plannerBreakerFor(p).recordUpstreamFailure(),
+            onSuccess: (p) => plannerBreakerFor(p).recordUpstreamSuccess(),
+          })) {
             if (ev.kind === 'provider') {
               // PR-8: adapter khai provider NGAY khi kết nối OK (trước token model) → log + client badge.
               // KHÔNG tính vào TTFT: provider phát lúc nhận header, đo nó = che latency model nghĩ/token đầu
@@ -322,7 +336,6 @@ export async function POST(req: NextRequest): Promise<Response> {
               );
             }
           }
-          await upstreamBreaker.recordUpstreamSuccess(); // #552: a healthy turn clears the breaker failure counter
           if (!sawAction) send('noop', {}); // M2: không hành động → client giữ lịch hiện tại (không dựng đè)
           send('done', {});
           logLatency(false);
@@ -332,10 +345,8 @@ export async function POST(req: NextRequest): Promise<Response> {
           const code: 'no_key' | 'upstream' | 'bad_json' | 'local' =
             err instanceof ParseIntentError ? err.code : 'local';
           const noKey = code === 'no_key';
-          // #552/#606: count toward the breaker ONLY on a TRUE upstream failure (Gemini 5xx/timeout).
-          // no_key = config error; bad_json = Gemini answered with junk (service is UP); local = our bug —
-          // none are an upstream storm, so none must trip the breaker (else it opens on the wrong signal).
-          if (code === 'upstream') await upstreamBreaker.recordUpstreamFailure();
+          // #552/#606/#829: breaker accounting lives in the router (onUpstreamFailure hook, per provider,
+          // ONLY code==='upstream'). Recording here too would double-count the final error.
           // Surface the failure — this is the one paid upstream (Gemini); without this the
           // route is blind to quota-exhaustion / 5xx storms until users complain.
           captureException(err, { route: 'planner/chat', code });

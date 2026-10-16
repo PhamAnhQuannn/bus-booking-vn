@@ -30,7 +30,10 @@ const {
   providerOrderMock,
   breakerForMock,
   claudeBreaker,
+  groqBreaker,
   llmUsageMock,
+  providerHasKeyMock,
+  streamHooksRef,
 } = vi.hoisted(() => ({
   sessionLimitMock: vi.fn(async () => ({ allowed: true, remaining: 9, retryAfter: 0 })),
   anonLimitMock: vi.fn(async () => ({ allowed: true, remaining: 2, retryAfter: 0 })),
@@ -56,7 +59,23 @@ const {
     recordUpstreamFailure: vi.fn(async () => {}),
     recordUpstreamSuccess: vi.fn(async () => {}),
   },
+  // #829: groq breaker riêng để test gate per-provider (primary mở + fallback đóng).
+  groqBreaker: {
+    breakerState: vi.fn(async () => ({ open: false, retryAfter: 0 })),
+    recordUpstreamFailure: vi.fn(async () => {}),
+    recordUpstreamSuccess: vi.fn(async () => {}),
+  },
   llmUsageMock: vi.fn(async () => ({ callUsd: 0, dailyInputTokens: 0, dailyOutputTokens: 0, dailyUsd: 0 })),
+  // #829: mirror prod — gemini + claude có key, groq KHÔNG.
+  providerHasKeyMock: vi.fn((p: string) => p !== 'groq'),
+  // #829: hooks route tiêm vào router (lần gọi streamChat gần nhất).
+  streamHooksRef: {
+    current: null as null | {
+      skip?: ReadonlySet<string>;
+      onUpstreamFailure?: (p: string) => Promise<void>;
+      onSuccess?: (p: string) => Promise<void>;
+    },
+  },
 }));
 
 vi.mock('@/lib/ratelimit', () => ({
@@ -91,10 +110,12 @@ vi.mock('@/lib/observability', () => ({
 vi.mock('@/trip-planner/lib/planner', () => ({
   sanitizeHistory: (h: unknown) => h,
   redactTurns: (h: unknown) => h,
-  streamChat: async function* () {
+  streamChat: async function* (_h: unknown, _l: unknown, hooks: typeof streamHooksRef.current) {
+    streamHooksRef.current = hooks;
     yield* streamEventsMock(); // default [] → route sends 'done' and closes
   },
   providerOrder: () => providerOrderMock(),
+  providerHasKey: (p: string) => providerHasKeyMock(p),
   getStore: vi.fn(),
   pickByVibe: vi.fn(),
   // #606: carry `code` so the route's upstream-vs-local classification is testable.
@@ -143,15 +164,22 @@ beforeEach(() => {
   breakerForMock.mockImplementation((p: string) =>
     p === 'claude'
       ? claudeBreaker
-      : {
-          breakerState: breakerStateMock,
-          recordUpstreamFailure: upstreamFailMock,
-          recordUpstreamSuccess: upstreamSuccessMock,
-        },
+      : p === 'groq'
+        ? groqBreaker
+        : {
+            breakerState: breakerStateMock,
+            recordUpstreamFailure: upstreamFailMock,
+            recordUpstreamSuccess: upstreamSuccessMock,
+          },
   );
-  Object.values(claudeBreaker).forEach((m) => m.mockClear());
-  claudeBreaker.breakerState.mockResolvedValue({ open: false, retryAfter: 0 });
+  for (const b of [claudeBreaker, groqBreaker]) {
+    Object.values(b).forEach((m) => m.mockClear());
+    b.breakerState.mockResolvedValue({ open: false, retryAfter: 0 });
+  }
+  breakerStateMock.mockClear();
   llmUsageMock.mockReset();
+  providerHasKeyMock.mockImplementation((p: string) => p !== 'groq');
+  streamHooksRef.current = null;
 });
 
 describe('POST /api/planner/chat — kill-switch (#549)', () => {
@@ -257,10 +285,10 @@ describe('POST /api/planner/chat — breaker-trip scope (#606)', () => {
     return text;
   }
 
-  it("TRUE upstream (code='upstream') trips the breaker", async () => {
+  it("TRUE upstream (code='upstream'): route does NOT record itself — router hook owns it (#829, no double count)", async () => {
     throwFromStream(new ParseIntentError('Gemini HTTP 503', 'upstream'));
     await postAndRead();
-    expect(upstreamFailMock).toHaveBeenCalledTimes(1);
+    expect(upstreamFailMock).not.toHaveBeenCalled();
     expect(captureMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ code: 'upstream' }));
   });
 
@@ -402,6 +430,9 @@ describe('POST /api/planner/chat — breaker + usage theo provider (#853)', () =
     await (await POST(makeRequest())).text();
     expect(breakerForMock).toHaveBeenCalledWith('gemini');
     expect(breakerStateMock).toHaveBeenCalled();
+    // #829: route không tự reset — success qua hook router, map đúng breaker gemini (alias cũ).
+    expect(upstreamSuccessMock).not.toHaveBeenCalled();
+    await streamHooksRef.current!.onSuccess!('gemini');
     expect(upstreamSuccessMock).toHaveBeenCalledTimes(1);
     expect(usageMock).toHaveBeenCalledWith(100, 20);
     expect(llmUsageMock).not.toHaveBeenCalled();
@@ -415,8 +446,8 @@ describe('POST /api/planner/chat — breaker + usage theo provider (#853)', () =
     await (await POST(makeRequest())).text();
     expect(breakerForMock).toHaveBeenCalledWith('claude');
     expect(claudeBreaker.breakerState).toHaveBeenCalled();
+    await streamHooksRef.current!.onSuccess!('claude');
     expect(claudeBreaker.recordUpstreamSuccess).toHaveBeenCalledTimes(1);
-    expect(breakerStateMock).not.toHaveBeenCalled();
     expect(upstreamSuccessMock).not.toHaveBeenCalled();
     expect(llmUsageMock).toHaveBeenCalledWith('claude', 100, 20);
     expect(usageMock).not.toHaveBeenCalled();
@@ -424,22 +455,64 @@ describe('POST /api/planner/chat — breaker + usage theo provider (#853)', () =
     expect(budgetLimitMock).toHaveBeenCalledWith('planner-gemini:global');
   });
 
-  it('claude primary: upstream failure trips the CLAUDE breaker, not gemini', async () => {
+  it('claude primary: onUpstreamFailure hook maps each provider to ITS breaker (route records nothing itself)', async () => {
     providerOrderMock.mockReturnValue(['claude', 'gemini']);
     streamEventsMock.mockImplementation(() => {
       throw new ParseIntentError('Claude HTTP 529', 'upstream');
     });
     await (await POST(makeRequest())).text();
+    expect(claudeBreaker.recordUpstreamFailure).not.toHaveBeenCalled();
+    await streamHooksRef.current!.onUpstreamFailure!('claude');
     expect(claudeBreaker.recordUpstreamFailure).toHaveBeenCalledTimes(1);
     expect(upstreamFailMock).not.toHaveBeenCalled();
+    await streamHooksRef.current!.onUpstreamFailure!('gemini');
+    expect(upstreamFailMock).toHaveBeenCalledTimes(1);
   });
 
-  it('claude primary + open claude breaker → 503 breaker', async () => {
+  it('#829: claude breaker open + gemini closed → no 503, router skips claude', async () => {
     providerOrderMock.mockReturnValue(['claude', 'gemini']);
     claudeBreaker.breakerState.mockResolvedValue({ open: true, retryAfter: 30 });
     const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    await res.text();
+    expect([...streamHooksRef.current!.skip!]).toEqual(['claude']);
+    expect(budgetLimitMock).toHaveBeenCalled();
+  });
+
+  it('#829: claude + gemini both open → 503 breaker, Retry-After = soonest close', async () => {
+    providerOrderMock.mockReturnValue(['claude', 'gemini']);
+    claudeBreaker.breakerState.mockResolvedValue({ open: true, retryAfter: 30 });
+    breakerStateMock.mockResolvedValue({ open: true, retryAfter: 12 });
+    budgetLimitMock.mockClear();
+    const res = await POST(makeRequest());
     expect(res.status).toBe(503);
-    expect(res.headers.get('Retry-After')).toBe('30');
+    expect(await res.json()).toEqual({ error: 'UPSTREAM_UNAVAILABLE', reason: 'breaker' });
+    expect(res.headers.get('Retry-After')).toBe('12');
+    expect(budgetLimitMock).not.toHaveBeenCalled();
+  });
+
+  it('#829: default gemini open + groq closed but NO key → still 503 (no skip into a certain no_key)', async () => {
+    breakerStateMock.mockResolvedValue({ open: true, retryAfter: 40 });
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(503);
+    expect(res.headers.get('Retry-After')).toBe('40');
+  });
+
+  it('#829: default gemini open + groq keyed + closed → 200, skip gemini', async () => {
+    breakerStateMock.mockResolvedValue({ open: true, retryAfter: 40 });
+    providerHasKeyMock.mockReturnValue(true);
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    await res.text();
+    expect([...streamHooksRef.current!.skip!]).toEqual(['gemini']);
+  });
+
+  it('#829: no breaker open → empty skip; every provider in order is gated once', async () => {
+    providerOrderMock.mockReturnValue(['claude', 'gemini']);
+    await (await POST(makeRequest())).text();
+    expect(streamHooksRef.current!.skip!.size).toBe(0);
+    expect(claudeBreaker.breakerState).toHaveBeenCalledTimes(1);
+    expect(breakerStateMock).toHaveBeenCalledTimes(1);
   });
 
   it('groq served (fallback): usage priced as groq, not gemini', async () => {
