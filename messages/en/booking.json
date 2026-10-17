@@ -42,6 +42,8 @@
     "termsIncomplete": "Please fill in valid passenger details to continue.",
     "termsLegend": "Required booking terms",
     "viewDetails": "View details",
+    "termsLink": "Terms of Service",
+    "complaintsLink": "Complaints",
     "paymentMethod": "Payment method",
     "bankTransfer": "Bank transfer (VietQR)",
     "processing": "Processing...",

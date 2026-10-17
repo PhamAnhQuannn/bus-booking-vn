@@ -25,6 +25,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { Link } from '@/i18n/navigation';
 import { Loader2 } from 'lucide-react';
 import { createHoldRequest } from '@/lib/api';
 import { customerFormSchema } from '@/lib/booking/customerFormSchema';
@@ -575,6 +576,15 @@ export function CheckoutClient({
                 </a>
               </span>
             </label>
+            <p className="text-sm text-muted-foreground">
+              <Link href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                {t('checkout.termsLink')}
+              </Link>
+              {' · '}
+              <Link href="/khieu-nai" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                {t('checkout.complaintsLink')}
+              </Link>
+            </p>
           </fieldset>
         </CardContent>
       </Card>
