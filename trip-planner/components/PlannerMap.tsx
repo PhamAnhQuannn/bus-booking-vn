@@ -168,6 +168,10 @@ export default function PlannerMap({ dto, pendingSlug, activeDay, hoveredOrder, 
   const baseRef = useRef<{ layer: L.Layer; slug: string } | null>(null);
   const overlayRef = useRef<L.LayerGroup | null>(null);
   const markersRef = useRef<Map<number, L.Marker>>(new Map());
+  // Re-fit to the active day's bounds, held in a ref so the ResizeObserver (which has no [dto,activeDay]
+  // deps) can call the latest fit after a hidden→visible pane transition. Set by the pin/route effect.
+  const fitActiveDayRef = useRef<() => void>(() => {});
+  const prevWidthRef = useRef(0); // last observed box width; 0 = pane was display:none (size 0)
   // Keep the latest onPinClick in a ref so the pin/route effect doesn't depend on it — the parent
   // recreates the callback each render, and having it in the deps made the effect clear+rebuild the
   // markers and refit bounds on every hover, re-panning the map. Synced in an effect (not during
@@ -211,14 +215,21 @@ export default function PlannerMap({ dto, pendingSlug, activeDay, hoveredOrder, 
   useEffect(() => {
     const box = boxRef.current;
     if (!box) return;
-    const ro = new ResizeObserver(() => {
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
       requestAnimationFrame(() => {
         const map = mapRef.current;
         if (!map) return;
+        // Pane ẩn (display:none, vd map inline mobile dưới lg) → size 0 → fit bị skip. Khi hiện lại qua
+        // breakpoint mà KHÔNG đổi ngày, invalidateSize chỉ giữ tâm cũ → stale center. Phát hiện 0→+ và
+        // re-fit về ngày active. (#727)
+        const grew = prevWidthRef.current === 0 && w > 0;
+        prevWidthRef.current = w;
         // invalidateSize (_rawPanBy) ghi đè transform _mapPane, core Leaflet KHÔNG guard _animatingZoom;
         // nếu box resize trùng cửa sổ zoom-anim ~250ms → desync tile pane → xám. Hoãn tới zoomend.
         if ((map as { _animatingZoom?: boolean })._animatingZoom) { map.once('zoomend', () => map.invalidateSize()); return; }
         map.invalidateSize();
+        if (grew) fitActiveDayRef.current();
       });
     });
     ro.observe(box);
@@ -271,15 +282,18 @@ export default function PlannerMap({ dto, pendingSlug, activeDay, hoveredOrder, 
     if (pts.length >= 2) {
       L.polyline(curvedLatLngs(pts), { color: '#F0561D', weight: 3.5, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }).addTo(overlay);
     }
-    if (pts.length && map.getSize().x > 0) {
-      // đổi ngày (scrollspy/chip/pin) → fit về bound ngày active. animate:true tạo zoom-transition; nếu
-      // pane ẩn (display:none → size 0, vd pane inline mobile) hoặc unmount giữa transition (overlay đóng
-      // nhanh), frame zoom treo đọc pane size 0 → "_leaflet_pos" (uncaught). Bỏ animate → hết
-      // _onZoomTransitionEnd; guard size>0 → không fit pane ẩn. Fit lại khi đổi ngày/dto kế (effect chạy
-      // lại, size>0). ResizeObserver chỉ invalidateSize = GIỮ tâm, KHÔNG re-fit (pane ẩn→hiện cùng instance
-      // qua breakpoint lg mà không đổi ngày → giữ tâm cũ; hiếm, non-blocking — xem issue theo dõi).
-      map.fitBounds(L.latLngBounds(pts).pad(0.25), { padding: [30, 30], maxZoom: 14, animate: false });
-    }
+    // đổi ngày (scrollspy/chip/pin) → fit về bound ngày active. animate:true tạo zoom-transition; nếu
+    // pane ẩn (display:none → size 0, vd pane inline mobile) hoặc unmount giữa transition (overlay đóng
+    // nhanh), frame zoom treo đọc pane size 0 → "_leaflet_pos" (uncaught). Bỏ animate → hết
+    // _onZoomTransitionEnd; guard size>0 → không fit pane ẩn. Giữ trong ref để ResizeObserver re-fit khi
+    // pane ẩn→hiện cùng instance qua breakpoint lg mà không đổi ngày (0→+ width), chống stale center (#727).
+    const fitActiveDay = () => {
+      const m = mapRef.current;
+      if (!m || !pts.length || m.getSize().x === 0) return;
+      m.fitBounds(L.latLngBounds(pts).pad(0.25), { padding: [30, 30], maxZoom: 14, animate: false });
+    };
+    fitActiveDayRef.current = fitActiveDay;
+    fitActiveDay();
   }, [dto, activeDay]);
 
   // nhấn mạnh pin khi hover row bên card / được chọn: pm-big + z-index; pin đang focus nháy ring 0.6s.
