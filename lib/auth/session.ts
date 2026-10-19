@@ -320,9 +320,17 @@ export async function findCustomerSessionIdByRefresh(
   if (!verified || verified.payload.customerId !== customerId) return null;
   const row = await prisma.session.findUnique({
     where: { refreshTokenHash: verified.hash },
-    select: { id: true, customerId: true },
+    select: { id: true, customerId: true, tokenFamily: true },
   });
-  return row && row.customerId === customerId ? row.id : null;
+  if (!row || row.customerId !== customerId) return null;
+  // A dead cookie (whole family revoked/expired, e.g. a stale bb_rt) must not be accepted as
+  // "the current device": keeping a family with no live row would make revoke-others sign out
+  // EVERY live session. A just-rotated row still passes — its successor is live.
+  const live = await prisma.session.findFirst({
+    where: { customerId, tokenFamily: row.tokenFamily, revokedAt: null, expiresAt: { gt: new Date() } },
+    select: { id: true },
+  });
+  return live ? row.id : null;
 }
 
 /**

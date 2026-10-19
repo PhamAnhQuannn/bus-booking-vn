@@ -514,7 +514,7 @@ const envSchema = z.object({
    * "true"/"false" overrides. Fail-open on HIBP outage. Read directly from process.env in
    * lib/auth/breachedPassword.ts (module-safe); declared here for documentation + validation.
    */
-  HIBP_ENABLED: z.enum(['true', 'false']).optional(),
+  HIBP_ENABLED: z.preprocess((v) => (v === '' ? undefined : v), z.enum(['true', 'false']).optional()),
 
   // ---------------------------------------------------------------------------
   // Self-hosted Redis (Issue 083 — ioredis).

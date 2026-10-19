@@ -101,4 +101,15 @@ describe('findCustomerSessionIdByRefresh', () => {
     expect(await findCustomerSessionIdByRefresh('garbage', customerId)).toBeNull();
     expect(await findCustomerSessionIdByRefresh(s.refreshToken, other)).toBeNull();
   });
+  it('rejects a dead cookie (whole family revoked) but accepts a just-rotated one', async () => {
+    const customerId = await seedCustomer();
+    const s = await createSession(customerId);
+    const rotated = await rotateRefresh(s.refreshHash);
+    expect('refreshToken' in rotated).toBe(true);
+    // old (revoked) token whose successor is live → still resolves
+    expect(await findCustomerSessionIdByRefresh(s.refreshToken, customerId)).not.toBeNull();
+    // kill the whole family → stale cookie must not count as "current device"
+    await prisma.session.updateMany({ where: { customerId }, data: { revokedAt: new Date() } });
+    expect(await findCustomerSessionIdByRefresh(s.refreshToken, customerId)).toBeNull();
+  });
 });
