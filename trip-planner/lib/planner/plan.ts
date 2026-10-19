@@ -138,6 +138,13 @@ function crossFar(a: KbRecord[], b: KbRecord[]): boolean {
   for (const p of a) for (const q of b) if (kmBetween(co(p), co(q)) > WIDE_DAY_KM) return true;
   return false;
 }
+// #694: packDays CHỈ gộp một block vào ngày đang dựng khi TÂM hai nhóm cách nhau ≤ MERGE_GAP_KM (ngoài crossFar
+// cặp-điểm ≤ WIDE_DAY_KM). crossFar một mình vẫn cho gộp hai khu cách tâm ~20-24km (ngày zig-zag "sáng khu A, chiều
+// khu B"). Chọn 15 từ dữ liệu grid (62 unit × 6 ngày × 3 nhịp, 656 lần gộp): khoảng cách tâm p50 9.4 / p75 14.2 /
+// p90 19.4km. ABS_GAP_KM=8 (hay 10/12) chặn ~một nửa số lần gộp → ngày rest cạn sớm → 30 marquee rớt, trong khi số
+// ngày >20km giảm ÍT hơn (247→209; điểm dư bị dồn-dư vào ngày khác). 15 = ngày >20km 247→198, >15km 486→393, chỉ 6
+// marquee đổi; 18 gần như không cắt gì. Block bị từ chối mở NGÀY MỚI (dùng ngày rest còn trống) hoặc qua dồn-dư.
+const MERGE_GAP_KM = 15;
 
 // ── TRỌNG SỐ THỜI-LƯỢNG ngày ("1 tảng-to + vài sỏi/ngày") ────────────────────
 // Engine KHÔNG có mô hình giờ/năng-lượng: "1 slot" = điểm ngắm cảnh 30' HAY công viên 8h như nhau, nên
@@ -318,7 +325,9 @@ function macroOrder(regs: Reg[], tam: LL): Reg[] {
 // Ranh giới ngày luôn rơi trên BIÊN region; chỉ gộp khu nhỏ MACRO-KỀ vào chung 1 ngày khi còn chỗ.
 // anchorIds = điểm KHÁCH CHỦ ĐỘNG chốt (E1 force-include): dồn-dư KHÔNG được evict/drop chúng (grid không có
 // anchor nên bất biến với grid). Điểm anchor không đặt được ngày gọn → vẫn nhét ngày gần nhất (E1 thắng, hiếm).
-function packDays(store: Store, orderedRegs: Reg[], restDays: number, perDay: number, tam: LL, anchorIds: Set<string>): { days: KbRecord[][]; dropped: KbRecord[] } {
+// pinIds (#703.2): pin bị cắt bởi budget (slice/break) → `dropped` để allDropped CÔNG BỐ (trước đây biến mất im lặng).
+// flagshipId (#703.1): điểm #1 CỦA TỈNH (marquee hạng cao nhất, null nếu cụm nó isFar) — hoán dồn-dư KHÔNG đẩy nó ra.
+function packDays(store: Store, orderedRegs: Reg[], restDays: number, perDay: number, tam: LL, anchorIds: Set<string>, pinIds: Set<string>, flagshipId: string | null): { days: KbRecord[][]; dropped: KbRecord[] } {
   const budget = restDays * perDay;
   const days: KbRecord[][] = [];
   const dropped: KbRecord[] = [];
@@ -363,6 +372,11 @@ function packDays(store: Store, orderedRegs: Reg[], restDays: number, perDay: nu
         for (let j = 0; j < days[i].length; j++) {
           const q = days[i][j];
           if (anchorIds.has(q.id) || kmBetween(co(q), tam) <= dp) continue; // KHÔNG đẩy anchor; chỉ đẩy điểm XA tâm hơn p
+          // #703.1: "home beats outlier" (#698/#702) áp cho pin top-K PHỤ ở xa (nhường lõi trung tâm), KHÔNG cho điểm #1
+          // của tỉnh — flagship giữ chỗ, p (filler / pin hạng thấp hơn) mới là phần bị bỏ (+note). (vd vinh: Bãi Lữ #1.)
+          // Ngoại lệ: p là bản KB CÙNG TÊN (vd ca-mau hai record "Vườn quốc gia Mũi Cà Mau" cách 2.6km) — địa danh vẫn ở
+          // trong lịch, giữ chuỗi hoán như cũ.
+          if (q.id === flagshipId && !(foldText(q.name) === foldText(p.name) && kmBetween(co(q), co(p)) <= MERGE_GAP_KM)) continue;
           if (dayW(days[i]) - dayWeight(q) + w > 1 + 1e-9) continue;
           const s = spanKm([...days[i].slice(0, j), ...days[i].slice(j + 1), p].map(co));
           if (s <= WIDE_DAY_KM && s < swSpan) { swSpan = s; swI = i; swJ = j; }
@@ -372,12 +386,19 @@ function packDays(store: Store, orderedRegs: Reg[], restDays: number, perDay: nu
     }
     cur = []; curW = 0;
   };
+  let exhausted = false;
   for (const reg of orderedRegs) {
-    if (taken >= budget) break;
+    // #703.2: pin (marquee/anchor) bị budget cắt (cả cụm sau khi hết budget, hoặc đuôi slice) → `dropped` để allDropped
+    // CÔNG BỐ; trước đây biến mất im lặng (vd dong-hoi 3d: Hang Sơn Đoòng #2). Filler thường vẫn cắt im lặng như cũ.
+    // `exhausted` giữ ngữ nghĩa `break` cũ: hết budget một lần là DỪNG nhận cụm (budget hoàn lại sau đó không mở lại).
+    if (exhausted || taken >= budget) { exhausted = true; dropped.push(...reg.pts.filter((p) => pinIds.has(p.id))); continue; }
     // Cap TRƯỚC orderLoop: giữ điểm ưu tiên cao (anchor + score — reg.pts đã sort đầu-cụm), rồi TSP-sắp CHỈ tập
     // giữ lại. (Cũ: orderLoop cả cụm RỒI slice = cắt theo đuôi hình học -> rớt điểm score cao/anchor; sai intent A1.)
     let keep = reg.pts;
-    if (taken + keep.length > budget) keep = keep.slice(0, budget - taken); // cap tổng = restDays*perDay
+    if (taken + keep.length > budget) { // cap tổng = restDays*perDay
+      dropped.push(...keep.slice(budget - taken).filter((p) => pinIds.has(p.id)));
+      keep = keep.slice(0, budget - taken);
+    }
     const pts = orderLoop(store, keep, reg.centroid);
     taken += pts.length;
     // Chia cụm thành BLOCK (region-atomic — không cắt xuyên biên cụm): mỗi block ≤ perDay điểm VÀ Σweight ≤ 1
@@ -392,8 +413,10 @@ function packDays(store: Store, orderedRegs: Reg[], restDays: number, perDay: nu
     }
     if (b.length) blocks.push({ pts: b, w: bw });
     for (const { pts: block, w: bWeight } of blocks) { // <= perDay + Σweight<=1, cùng khu
-      // gộp khu nhỏ kề: đủ chỗ (count + Σweight) VÀ gần (locality-guard #698 — không gộp block cross-region xa)
-      if (cur.length && cur.length + block.length <= perDay && curW + bWeight <= 1 + 1e-9 && !crossFar(cur, block)) { cur.push(...block); curW += bWeight; }
+      // gộp khu nhỏ kề: đủ chỗ (count + Σweight) VÀ gần (locality-guard #698 — không gộp block cross-region xa;
+      // #694 — tâm hai nhóm ≤ MERGE_GAP_KM, không ghép hai khu khác nhau thành một ngày zig-zag)
+      if (cur.length && cur.length + block.length <= perDay && curW + bWeight <= 1 + 1e-9 && !crossFar(cur, block) &&
+        kmBetween(meanLL(cur.map(co)), meanLL(block.map(co))) <= MERGE_GAP_KM) { cur.push(...block); curW += bWeight; }
       else { flush(); cur = [...block]; curW = bWeight; }
       if (cur.length >= perDay) flush(); // ngày đầy -> khu kế bắt đầu ngày mới
     }
@@ -502,6 +525,7 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
   clusterByCoord(noRegion).forEach((cl, i) => groups.set(`__geo__${i}`, cl));
 
   const anchorIds = new Set(req.anchors ?? []); // E1: id điểm khách chọn (force-include)
+  const withCoordById = new Map(withCoord.map((r) => [r.id, r] as const));
   // Marquee (điểm biểu tượng khớp signatureSpots của slug) = force-include NHƯ anchor: pin đầu cụm
   // (sống sót packDays cap) + cụm được force-keep qua gap-stop + own-day nếu xa. Slug không có
   // signatureSpots → marqueeIds rỗng → pinIds = anchorIds (hành vi cũ). "Đi khu nổi tiếng LUÔN có marquee."
@@ -679,7 +703,16 @@ function buildDayChunks(store: Store, req: TripRequest, days: number, perDay: nu
   const restOrdered = anchorKeys.size
     ? [...restMacro.filter((r) => anchorKeys.has(r.key)), ...restMacro.filter((r) => !anchorKeys.has(r.key))]
     : restMacro;
-  const packed = restDays > 0 ? packDays(store, restOrdered, restDays, perDay, tam, anchorIds) : { days: [] as KbRecord[][], dropped: [] as KbRecord[] }; // days===1 ngày-đảo: rest=0 ngày
+  // #703.1: điểm #1 của tỉnh = marquee hạng cao nhất (hand-list: signatureSpot sớm nhất; auto: importance rank thấp nhất).
+  // Chỉ bảo vệ khi cụm của nó KHÔNG isFar — flagship XA (outlier, vd đảo ~40km ở lịch 1 ngày) vẫn nhường lõi trung tâm
+  // như doctrine far-marquee (đã có note "nên dành trọn 1 ngày").
+  const flagship0 = [...marqueeIds].sort((a, b) => {
+    const ra = withCoordById.get(a)!, rb = withCoordById.get(b)!;
+    return (fameRankOf(rb) - fameRankOf(ra)) || ((destRank.get(a) ?? Infinity) - (destRank.get(b) ?? Infinity)) || (a < b ? -1 : 1);
+  })[0];
+  const flagshipReg = flagship0 ? rest.find((r) => r.pts.some((p) => p.id === flagship0)) : undefined;
+  const flagshipId = flagshipReg && !isFar(flagshipReg) ? flagship0 : null;
+  const packed = restDays > 0 ? packDays(store, restOrdered, restDays, perDay, tam, anchorIds, pinIds, flagshipId) : { days: [] as KbRecord[][], dropped: [] as KbRecord[] }; // days===1 ngày-đảo: rest=0 ngày
   // protReg mỗi cụm = 1 ngày CHÍNH, cắt theo TRỌNG SỐ THỜI-LƯỢNG (Σ≤1): giữ 1 điểm-nặng đầu cụm (đã sort pin/
   // fame) + pebbles nhẹ; điểm-nặng thứ 2+ cùng cụm (vd vinpearl + Hòn Tằm, Ti Tốp + Sửng Sốt cùng ward) → spill.
   const protDropped: KbRecord[] = [];
