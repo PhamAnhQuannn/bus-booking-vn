@@ -9,7 +9,8 @@
     "genericError": "Có lỗi xảy ra. Vui lòng thử lại.",
     "connError": "Lỗi kết nối.",
     "connErrorRetry": "Lỗi kết nối. Vui lòng thử lại.",
-    "cancel": "Hủy"
+    "cancel": "Hủy",
+    "close": "Đóng"
   },
   "page": {
     "breadcrumbHome": "Trang chủ",

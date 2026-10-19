@@ -9,7 +9,8 @@
     "genericError": "Something went wrong. Please try again.",
     "connError": "Connection error.",
     "connErrorRetry": "Connection error. Please try again.",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "close": "Close"
   },
   "page": {
     "breadcrumbHome": "Home",

@@ -24,8 +24,9 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  closeLabel = "Đóng",
   ...props
-}: DialogPrimitive.Popup.Props & { showCloseButton?: boolean }) {
+}: DialogPrimitive.Popup.Props & { showCloseButton?: boolean; closeLabel?: string }) {
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Backdrop
@@ -44,7 +45,7 @@ function DialogContent({
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            aria-label="Đóng"
+            aria-label={closeLabel}
             className="absolute top-4 right-4 rounded-sm opacity-70 outline-none transition-opacity hover:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/50 [&_svg]:size-4"
           >
             <XIcon />

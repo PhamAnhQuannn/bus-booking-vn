@@ -16,7 +16,7 @@ const emailSchema = z.string().trim().toLowerCase().email().max(254);
 
 const phoneSchema = z.string().trim().regex(/^(0|\+84)[35789][0-9]{8}$/);
 
-const passwordSchema = z
+export const passwordSchema = z
   .string()
   .min(8, 'Password must be at least 8 characters')
   .max(128, 'Password must be at most 128 characters')

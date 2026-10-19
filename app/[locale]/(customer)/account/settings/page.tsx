@@ -432,7 +432,7 @@ function DeleteAccountForm() {
               </Button>
             )}
           />
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md" closeLabel={t('common.close')}>
             <DialogHeader>
               <DialogTitle>{t('delete.dialogTitle')}</DialogTitle>
               <DialogDescription>
