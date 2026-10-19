@@ -121,6 +121,8 @@ export default function ForgotPasswordPage() {
         setError(t('reset.passwordReused'));
       } else if (code_err === 'WEAK_PASSWORD') {
         setError(t('reset.weakPassword'));
+      } else if (code_err === 'BREACHED_PASSWORD') {
+        setError(t('reset.breachedPassword'));
       } else if (code_err === 'INVALID_PROOF') {
         setError(t('reset.invalidProof'));
       } else {

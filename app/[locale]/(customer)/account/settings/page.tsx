@@ -6,6 +6,7 @@
  * Sections:
  *   AC4 — Change display name (PATCH /api/account/name)
  *   AC2 — Change password (POST /api/account/password)
+ *   #497 — Sign out of other devices (POST /api/account/sessions/revoke-others)
  *   AC3 — Change phone: step 1 send OTP (POST /api/account/phone/init),
  *                        step 2 verify  (POST /api/account/phone/confirm)
  *   AC5 — Delete account (DELETE /api/account/delete)
@@ -184,6 +185,7 @@ function ChangePasswordForm() {
       const code = (json as { error?: string }).error ?? '';
       if (code === 'CURRENT_PASSWORD_WRONG') setErrMsg(t('password.wrongCurrent'));
       else if (code === 'PASSWORD_REUSED') setErrMsg(t('password.reused'));
+      else if (code === 'BREACHED_PASSWORD') setErrMsg(t('password.breached'));
       else if (res.status === 401) setErrMsg(t('common.sessionExpired'));
       else setErrMsg(t('common.genericError'));
       setStatus('err');
@@ -217,6 +219,60 @@ function ChangePasswordForm() {
           <FormStatus status={status} okMessage={t('password.ok')} errMessage={errMsg} />
           <Button type="submit" disabled={loading} className="self-start">
             {loading ? t('password.processing') : t('password.submit')}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---- sub-form: sign out of other devices (#497) ----------------------------
+
+function SignOutOtherDevicesForm() {
+  const t = useTranslations('account');
+  const [status, setStatus] = useState<'idle' | 'ok' | 'err'>('idle');
+  const [okMsg, setOkMsg] = useState('');
+  const [errMsg, setErrMsg] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setStatus('idle');
+    setLoading(true);
+    try {
+      const res = await authFetch('/api/account/sessions/revoke-others', { method: 'POST' });
+      if (res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setOkMsg(t('sessions.ok', { count: (json as { revoked?: number }).revoked ?? 0 }));
+        setStatus('ok');
+        return;
+      }
+      const json = await res.json().catch(() => ({}));
+      const code = (json as { error?: string }).error ?? '';
+      if (code === 'RATE_LIMITED') setErrMsg(t('sessions.rateLimited'));
+      else if (code === 'SESSION_UNKNOWN') setErrMsg(t('sessions.sessionUnknown'));
+      else if (res.status === 401) setErrMsg(t('common.sessionExpired'));
+      else setErrMsg(t('common.genericError'));
+      setStatus('err');
+    } catch {
+      setErrMsg(t('common.connError'));
+      setStatus('err');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle as="h2">{t('sessions.title')}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <p className="text-sm text-muted-foreground">{t('sessions.description')}</p>
+          <FormStatus status={status} okMessage={okMsg} errMessage={errMsg} />
+          <Button type="submit" variant="outline" disabled={loading} className="self-start">
+            {loading ? t('sessions.processing') : t('sessions.submit')}
           </Button>
         </form>
       </CardContent>
@@ -498,6 +554,7 @@ export default function AccountSettingsPage() {
       <LanguageCard />
       <ChangeNameForm />
       <ChangePasswordForm />
+      <SignOutOtherDevicesForm />
       <ChangePhoneForm />
       <DeleteAccountForm />
     </main>

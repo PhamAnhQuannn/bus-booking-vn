@@ -18,7 +18,7 @@ import crypto from 'crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/core/db/client';
 import { signAccess } from './jwt';
-import { produce, generateFamily } from './refreshToken';
+import { produce, generateFamily, verify as verifyRefreshToken } from './refreshToken';
 import { generateToken as generateCsrf } from './csrf';
 import { checkCustomerActive } from './assertCustomerActive';
 
@@ -300,4 +300,73 @@ export async function revokeSession(refreshHash: string): Promise<void> {
   } catch {
     // Idempotent — ignore "not found" errors
   }
+}
+
+// ---------------------------------------------------------------------------
+// findCustomerSessionIdByRefresh / revokeOtherCustomerSessions (#497)
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve the caller's current Session row from the raw bb_rt cookie value. Returns null
+ * when the token fails HMAC verification, has no row, or belongs to another customer.
+ * A just-rotated (revoked) row still resolves — its tokenFamily is what the caller keeps,
+ * so a refresh racing the revoke-others request does not lose the current device.
+ */
+export async function findCustomerSessionIdByRefresh(
+  refreshToken: string,
+  customerId: string
+): Promise<string | null> {
+  const verified = verifyRefreshToken(refreshToken);
+  if (!verified || verified.payload.customerId !== customerId) return null;
+  const row = await prisma.session.findUnique({
+    where: { refreshTokenHash: verified.hash },
+    select: { id: true, customerId: true, tokenFamily: true },
+  });
+  if (!row || row.customerId !== customerId) return null;
+  // A dead cookie (whole family revoked/expired, e.g. a stale bb_rt) must not be accepted as
+  // "the current device": keeping a family with no live row would make revoke-others sign out
+  // EVERY live session. A just-rotated row still passes — its successor is live.
+  const live = await prisma.session.findFirst({
+    where: { customerId, tokenFamily: row.tokenFamily, revokedAt: null, expiresAt: { gt: new Date() } },
+    select: { id: true },
+  });
+  return live ? row.id : null;
+}
+
+/**
+ * Revoke every live session of `customerId` EXCEPT the whole tokenFamily of
+ * `keepSessionId` (the current device). Keeping the family — not just the row — means a
+ * refresh rotation that lands concurrently (new row, same family) survives.
+ * Modeled on revokeAllOperatorSessions, scoped to `revokedAt: null` so already-dead rows
+ * keep their original revokedAt.
+ *
+ * Lock-then-write: the customer's live rows are locked FOR UPDATE first, so an in-flight
+ * rotation on another device commits before the updateMany; the updateMany (fresh
+ * READ COMMITTED snapshot) then also catches the successor row that rotation inserted.
+ *
+ * Returns null when `keepSessionId` is not this customer's session (caller → 4xx).
+ */
+export async function revokeOtherCustomerSessions(
+  customerId: string,
+  keepSessionId: string
+): Promise<{ revoked: number } | null> {
+  return prisma.$transaction(async (tx) => {
+    const keep = await tx.session.findFirst({
+      where: { id: keepSessionId, customerId },
+      select: { tokenFamily: true },
+    });
+    if (!keep) return null;
+
+    await tx.$queryRaw(Prisma.sql`
+      SELECT id FROM "Session"
+      WHERE "customerId" = ${customerId} AND "revokedAt" IS NULL
+      FOR UPDATE
+    `);
+
+    const { count } = await tx.session.updateMany({
+      where: { customerId, revokedAt: null, NOT: { tokenFamily: keep.tokenFamily } },
+      data: { revokedAt: new Date() },
+    });
+    return { revoked: count };
+  });
 }

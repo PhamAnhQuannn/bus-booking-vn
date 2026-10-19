@@ -11,7 +11,7 @@ export const runtime = 'nodejs';
 import { type NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { registerInput } from '@/lib/core/validation/auth';
-import { register, AuthServiceError, verifyOtpProof } from '@/lib/auth';
+import { register, AuthServiceError, verifyOtpProof, isPasswordBreached } from '@/lib/auth';
 import { withErrorHandler } from '@/lib/withErrorHandler';
 import { clientIp } from '@/lib/core/http/clientIp';
 import { customerRegisterRatelimit } from '@/lib/ratelimit';
@@ -55,6 +55,13 @@ async function handler(req: NextRequest): Promise<Response> {
   }
 
   const { email, otpProof, password, displayName } = parsed.data;
+
+  // #497: HIBP k-anonymity check (fail-open) after schema validation and BEFORE the one-shot
+  // OTP proof is consumed — a breached choice must not burn the proof (user would have to
+  // restart email verification). register() hashes only after this gate.
+  if (await isPasswordBreached(password)) {
+    return NextResponse.json({ error: 'BREACHED_PASSWORD' }, { status: 400 });
+  }
 
   const proof = await verifyOtpProof(otpProof, 'otp_proof');
   if (!proof) {

@@ -44,7 +44,10 @@ export function createBreaker(prefix: string): ProviderBreaker {
   const OPEN_KEY = `${prefix}:open`;
   // Log-event names stay provider-scoped (`planner.gemini.breaker.*` byte-identical to the pre-factory
   // module — live dashboards grep them; Groq gets `planner.groq.breaker.*`).
-  const EVT = `planner.${prefix.replace(/^planner-/, '')}.breaker`;
+  // Non-planner prefixes (e.g. 'hibp', #497) log as `<prefix>.breaker`.
+  const EVT = prefix.startsWith('planner-')
+    ? `planner.${prefix.replace(/^planner-/, '')}.breaker`
+    : `${prefix}.breaker`;
 
   // in-process fallback (dev/CI 'memory' backend) — closure-local, RIÊNG cho instance này.
   let _memFails = 0;

@@ -95,4 +95,12 @@ describe('POST /api/auth/reset-password', () => {
     const res = await POST(req);
     expect(res.status).toBe(400);
   });
+
+  it('returns 400 BREACHED_PASSWORD when the new password is in HIBP (#497)', async () => {
+    mockResetPassword.mockRejectedValue(new ResetPasswordError('BREACHED_PASSWORD'));
+    const res = await POST(makeRequest({ otpProof: 'proof', newPassword: 'Password1' }));
+    const json = await res.json();
+    expect(res.status).toBe(400);
+    expect(json.error).toBe('BREACHED_PASSWORD');
+  });
 });

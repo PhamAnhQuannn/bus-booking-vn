@@ -508,6 +508,14 @@ const envSchema = z.object({
     .default('false')
     .transform((v) => v === 'true'),
 
+  /**
+   * #497: HIBP Pwned Passwords breached-password check at register / reset / change-password.
+   * Unset → ON only when NODE_ENV=production (tests + the e2e dev server never call the network);
+   * "true"/"false" overrides. Fail-open on HIBP outage. Read directly from process.env in
+   * lib/auth/breachedPassword.ts (module-safe); declared here for documentation + validation.
+   */
+  HIBP_ENABLED: z.preprocess((v) => (v === '' ? undefined : v), z.enum(['true', 'false']).optional()),
+
   // ---------------------------------------------------------------------------
   // Self-hosted Redis (Issue 083 — ioredis).
   // REDIS_PROVIDER unset/memory → InMemoryRatelimit + in-memory JTI store.

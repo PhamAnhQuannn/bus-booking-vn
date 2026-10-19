@@ -78,6 +78,8 @@ export {
 export { requireOperatorAuth, type OperatorAuthContext } from './requireOperatorAuth';
 export { requireStepUp } from './requireStepUp';
 export { safeReturnTo } from './safeReturnTo';
+export { findCustomerSessionIdByRefresh, revokeOtherCustomerSessions } from './session';
+export { isPasswordBreached } from './breachedPassword';
 export { sendOtp } from './sendOtp';
 export {
   ChangePasswordSchema,

@@ -11,11 +11,12 @@
  */
 
 import { prisma } from '@/lib/core/db/client';
-import { verify as verifyPassword, hash as hashPassword } from '@/lib/auth';
+import { verify as verifyPassword, hash as hashPassword, isPasswordBreached } from '@/lib/auth';
 
 export type ChangePasswordErrorCode =
   | 'CURRENT_PASSWORD_WRONG'
   | 'PASSWORD_REUSED'
+  | 'BREACHED_PASSWORD'
   | 'CUSTOMER_NOT_FOUND';
 
 export class ChangePasswordError extends Error {
@@ -54,6 +55,12 @@ export async function changePassword(
     if (sameAsOld) {
       throw new ChangePasswordError('PASSWORD_REUSED');
     }
+  }
+
+  // #497: HIBP k-anonymity check (fail-open) — after the current-password gate so the
+  // endpoint is not an unauthenticated breach oracle, before hashing.
+  if (await isPasswordBreached(newPassword)) {
+    throw new ChangePasswordError('BREACHED_PASSWORD');
   }
 
   const newHash = await hashPassword(newPassword);
