@@ -36,7 +36,17 @@
     "submit": "Đổi mật khẩu",
     "mismatch": "Mật khẩu xác nhận không khớp.",
     "wrongCurrent": "Mật khẩu hiện tại không đúng.",
-    "reused": "Mật khẩu mới không được trùng mật khẩu cũ."
+    "reused": "Mật khẩu mới không được trùng mật khẩu cũ.",
+    "breached": "Mật khẩu mới đã xuất hiện trong các vụ rò rỉ dữ liệu. Vui lòng chọn mật khẩu khác."
+  },
+  "sessions": {
+    "title": "Đăng xuất khỏi các thiết bị khác",
+    "description": "Đăng xuất tài khoản khỏi mọi trình duyệt và thiết bị khác. Thiết bị này vẫn giữ đăng nhập.",
+    "submit": "Đăng xuất thiết bị khác",
+    "processing": "Đang xử lý...",
+    "ok": "Đã đăng xuất {count} phiên trên các thiết bị khác.",
+    "rateLimited": "Bạn thao tác quá nhiều lần. Vui lòng thử lại sau.",
+    "sessionUnknown": "Không xác định được phiên hiện tại. Vui lòng đăng nhập lại rồi thử lại."
   },
   "phone": {
     "title": "Đổi số điện thoại",

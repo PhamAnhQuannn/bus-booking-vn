@@ -8,12 +8,13 @@
 
 import { prisma } from '@/lib/core/db/client';
 import { verifyOtpProof } from '@/lib/auth';
-import { verify as verifyPassword, hash as hashPassword } from '@/lib/auth';
+import { verify as verifyPassword, hash as hashPassword, isPasswordBreached } from '@/lib/auth';
 
 export type ResetPasswordErrorCode =
   | 'INVALID_PROOF'
   | 'CUSTOMER_NOT_FOUND'
-  | 'PASSWORD_REUSED';
+  | 'PASSWORD_REUSED'
+  | 'BREACHED_PASSWORD';
 
 export class ResetPasswordError extends Error {
   constructor(public readonly code: ResetPasswordErrorCode) {
@@ -26,6 +27,10 @@ export async function resetPassword(
   otpProof: string,
   newPassword: string
 ): Promise<void> {
+  // #497: HIBP k-anonymity check (fail-open) BEFORE the one-shot proof is consumed, so a
+  // breached choice lets the user pick another password without requesting a new OTP.
+  if (await isPasswordBreached(newPassword)) throw new ResetPasswordError('BREACHED_PASSWORD');
+
   const proof = await verifyOtpProof(otpProof, 'reset_password');
   if (!proof || !proof.email) throw new ResetPasswordError('INVALID_PROOF');
 

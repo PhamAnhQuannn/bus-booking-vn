@@ -10,6 +10,7 @@
  *   422 PASSWORD_REUSED — newPassword equals current
  *   401 UNAUTHORIZED — missing/invalid Bearer token
  *   400 WEAK_PASSWORD — newPassword fails schema
+ *   400 BREACHED_PASSWORD — newPassword found in HIBP Pwned Passwords (#497)
  */
 
 export const runtime = 'nodejs';
@@ -53,6 +54,9 @@ async function handler(req: NextRequest, { customerId }: { customerId: string })
       }
       if (err.code === 'PASSWORD_REUSED') {
         return NextResponse.json({ error: 'PASSWORD_REUSED' }, { status: 422 });
+      }
+      if (err.code === 'BREACHED_PASSWORD') {
+        return NextResponse.json({ error: 'BREACHED_PASSWORD' }, { status: 400 });
       }
       if (err.code === 'CUSTOMER_NOT_FOUND') {
         return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });

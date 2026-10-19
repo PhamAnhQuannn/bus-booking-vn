@@ -106,6 +106,8 @@ function ResetPasswordPageInner() {
         setError(t('reset.passwordReused'));
       } else if (errCode === 'WEAK_PASSWORD') {
         setError(t('reset.weakPassword'));
+      } else if (errCode === 'BREACHED_PASSWORD') {
+        setError(t('reset.breachedPassword'));
       } else if (errCode === 'INVALID_PROOF') {
         setError(t('reset.invalidProof'));
       } else {

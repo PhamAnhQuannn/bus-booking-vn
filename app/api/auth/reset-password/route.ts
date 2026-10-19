@@ -9,6 +9,7 @@
  *   401 INVALID_PROOF — proof invalid, expired, already used, or wrong purpose
  *   422 PASSWORD_REUSED — new password equals current
  *   400 WEAK_PASSWORD — password fails validation
+ *   400 BREACHED_PASSWORD — password found in HIBP Pwned Passwords (#497)
  */
 
 export const runtime = 'nodejs';
@@ -51,6 +52,9 @@ async function handler(req: NextRequest): Promise<Response> {
       }
       if (err.code === 'PASSWORD_REUSED') {
         return NextResponse.json({ error: 'PASSWORD_REUSED' }, { status: 422 });
+      }
+      if (err.code === 'BREACHED_PASSWORD') {
+        return NextResponse.json({ error: 'BREACHED_PASSWORD' }, { status: 400 });
       }
     }
     throw err;

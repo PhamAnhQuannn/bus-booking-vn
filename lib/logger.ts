@@ -79,8 +79,11 @@ export const loggerOptions: LoggerOptions = {
       'loginChallenge',
       'accessToken',
       'refreshToken',
+      'password',
       '*.password',
       '*.passwordHash',
+      'passwordSha1',            // #497: HIBP k-anonymity — full SHA-1 of a password. Never logged; redact defensively.
+      '*.passwordSha1',
       '*.otpCode',
       '*.code',
       '*.accessToken',

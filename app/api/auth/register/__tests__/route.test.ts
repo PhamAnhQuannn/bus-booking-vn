@@ -9,7 +9,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SignJWT } from 'jose';
 import crypto from 'crypto';
 
-const { mockRegister, mockCookieStore, AuthServiceError, mockRlLimit } = vi.hoisted(() => {
+const { mockRegister, mockCookieStore, AuthServiceError, mockRlLimit, mockBreached } = vi.hoisted(() => {
   class AuthServiceError extends Error {
     code: string;
     constructor(code: string) {
@@ -24,8 +24,12 @@ const { mockRegister, mockCookieStore, AuthServiceError, mockRlLimit } = vi.hois
     mockCookieStore,
     AuthServiceError,
     mockRlLimit: vi.fn(),
+    mockBreached: vi.fn(),
   };
 });
+
+// #497: HIBP check — deep-path mock (the barrel re-exports it from this module).
+vi.mock('@/lib/auth/breachedPassword', () => ({ isPasswordBreached: mockBreached }));
 
 vi.mock('@/lib/auth/authService', () => ({
   register: mockRegister,
@@ -83,6 +87,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockRegister.mockResolvedValue(AUTH_RESULT);
   mockRlLimit.mockResolvedValue({ allowed: true, remaining: 4, retryAfter: 0 });
+  mockBreached.mockResolvedValue(false);
 });
 
 describe('POST /api/auth/register', () => {
@@ -184,5 +189,20 @@ describe('POST /api/auth/register', () => {
     expect(json.error).toBe('RATE_LIMITED');
     expect(res.headers.get('Retry-After')).toBe('900');
     expect(mockRegister).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 BREACHED_PASSWORD without consuming the OTP proof (#497)', async () => {
+    mockBreached.mockResolvedValueOnce(true);
+    const otpProof = await makeOtpProof(TEST_EMAIL, 300, 'breached-retry-jti');
+    const res = await POST(makeRequest({ email: TEST_EMAIL, otpProof, password: 'Password1', acceptTerms: true }));
+    const json = await res.json();
+    expect(res.status).toBe(400);
+    expect(json.error).toBe('BREACHED_PASSWORD');
+    expect(mockBreached).toHaveBeenCalledWith('Password1');
+    expect(mockRegister).not.toHaveBeenCalled();
+
+    // Same proof still usable with a different (non-breached) password.
+    const retry = await POST(makeRequest({ email: TEST_EMAIL, otpProof, password: 'Different9', acceptTerms: true }));
+    expect(retry.status).toBe(201);
   });
 });

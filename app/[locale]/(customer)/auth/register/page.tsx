@@ -190,7 +190,9 @@ function RegisterPageInner() {
             ? t('register.emailTaken')
             : json.error === 'WEAK_PASSWORD'
               ? WEAK_PW_MSG
-              : t('register.registerFailed'),
+              : json.error === 'BREACHED_PASSWORD'
+                ? t('register.breachedPassword')
+                : t('register.registerFailed'),
         );
         return;
       }

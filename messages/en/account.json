@@ -36,7 +36,17 @@
     "submit": "Change password",
     "mismatch": "Password confirmation does not match.",
     "wrongCurrent": "Current password is incorrect.",
-    "reused": "The new password must not match the old one."
+    "reused": "The new password must not match the old one.",
+    "breached": "The new password has appeared in a known data breach. Please choose a different one."
+  },
+  "sessions": {
+    "title": "Sign out of other devices",
+    "description": "Sign your account out of every other browser and device. This device stays signed in.",
+    "submit": "Sign out other devices",
+    "processing": "Processing...",
+    "ok": "Signed out {count} session(s) on other devices.",
+    "rateLimited": "Too many attempts. Please try again later.",
+    "sessionUnknown": "Could not identify your current session. Please sign in again and retry."
   },
   "phone": {
     "title": "Change phone number",

@@ -429,6 +429,13 @@ export const customerLoginLockout = createRatelimit({
 export const customerRegisterRatelimit = createRatelimit({ limit: 5, windowMs: 15 * 60_000 });
 
 /**
+ * "Sign out of all other devices" (#497): 5 requests/15min per customer, keyed
+ * `account-revoke-others:<customerId>`. Per-customer (not per-IP) — the action is
+ * authenticated, and the cost being bounded is repeated bulk session writes for one account.
+ */
+export const accountRevokeOthersRatelimit = createRatelimit({ limit: 5, windowMs: 15 * 60_000 });
+
+/**
  * SHARED OTP-send budget per identifier (email or phone): 3 sends/15min (#469). Keyed
  * `otp-send:<identifier>`. ONE bucket consumed by BOTH the registration OTP path
  * (lib/auth/sendOtp) AND the account OTP path (lib/account/customerOtp), so an attacker
