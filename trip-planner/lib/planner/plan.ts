@@ -376,7 +376,7 @@ function packDays(store: Store, orderedRegs: Reg[], restDays: number, perDay: nu
           // của tỉnh — flagship giữ chỗ, p (filler / pin hạng thấp hơn) mới là phần bị bỏ (+note). (vd vinh: Bãi Lữ #1.)
           // Ngoại lệ: p là bản KB CÙNG TÊN (vd ca-mau hai record "Vườn quốc gia Mũi Cà Mau" cách 2.6km) — địa danh vẫn ở
           // trong lịch, giữ chuỗi hoán như cũ.
-          if (q.id === flagshipId && foldText(q.name) !== foldText(p.name)) continue;
+          if (q.id === flagshipId && !(foldText(q.name) === foldText(p.name) && kmBetween(co(q), co(p)) <= MERGE_GAP_KM)) continue;
           if (dayW(days[i]) - dayWeight(q) + w > 1 + 1e-9) continue;
           const s = spanKm([...days[i].slice(0, j), ...days[i].slice(j + 1), p].map(co));
           if (s <= WIDE_DAY_KM && s < swSpan) { swSpan = s; swI = i; swJ = j; }
