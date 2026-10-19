@@ -1,15 +1,16 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { Menu } from '@base-ui/react/menu';
 import { ChevronDownIcon, LogOutIcon, TicketIcon, SettingsIcon } from 'lucide-react';
+import { Link, useRouter } from '@/i18n/navigation';
 import { readCsrfToken } from '@/lib/auth/csrfClient';
 import { clearSession, useDisplayName } from '@/lib/auth/clientSession';
 import { cn } from '@/lib/utils';
 
 export function CustomerAccountMenu({ onNavigate }: { onNavigate?: () => void }) {
+  const t = useTranslations('common.accountMenu');
   const router = useRouter();
   const displayName = useDisplayName();
   const [pending, setPending] = React.useState(false);
@@ -31,7 +32,7 @@ export function CustomerAccountMenu({ onNavigate }: { onNavigate?: () => void })
     router.refresh();
   }
 
-  const name = displayName ?? 'Khách hàng';
+  const name = displayName ?? t('fallbackName');
   const initials = displayName
     ? displayName
         .split(/\s+/)
@@ -40,7 +41,7 @@ export function CustomerAccountMenu({ onNavigate }: { onNavigate?: () => void })
         .map((p) => p.charAt(0))
         .join('')
         .toUpperCase()
-    : 'KH';
+    : t('fallbackInitials');
 
   return (
     <Menu.Root>
@@ -49,7 +50,7 @@ export function CustomerAccountMenu({ onNavigate }: { onNavigate?: () => void })
         // name span is hidden (avatar + chevron are aria-hidden), so without this the
         // trigger had no accessible name on mobile (AX-1). min-h-11 meets the 44px
         // tap-target floor the rest of the header already keeps (AX-tap).
-        aria-label={`Tài khoản: ${name}`}
+        aria-label={t('triggerAria', { name })}
         className={cn(
           'inline-flex min-h-11 items-center gap-2 rounded-full border border-border bg-background px-2 py-1 text-sm font-medium outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:bg-muted'
         )}
@@ -93,7 +94,7 @@ export function CustomerAccountMenu({ onNavigate }: { onNavigate?: () => void })
                 />
               }
             >
-              <TicketIcon aria-hidden="true" className="size-4" /> Lịch sử đặt vé
+              <TicketIcon aria-hidden="true" className="size-4" /> {t('bookings')}
             </Menu.Item>
             <Menu.Item
               render={
@@ -104,7 +105,7 @@ export function CustomerAccountMenu({ onNavigate }: { onNavigate?: () => void })
                 />
               }
             >
-              <SettingsIcon aria-hidden="true" className="size-4" /> Cài đặt
+              <SettingsIcon aria-hidden="true" className="size-4" /> {t('settings')}
             </Menu.Item>
             <Menu.Separator className="my-1 h-px bg-border" />
             <Menu.Item
@@ -116,7 +117,7 @@ export function CustomerAccountMenu({ onNavigate }: { onNavigate?: () => void })
               className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-destructive outline-none transition-colors hover:bg-destructive/10 data-[highlighted]:bg-destructive/10 disabled:opacity-50"
             >
               <LogOutIcon aria-hidden="true" className="size-4" />
-              {pending ? 'Đang đăng xuất…' : 'Đăng xuất'}
+              {pending ? t('loggingOut') : t('logout')}
             </Menu.Item>
           </Menu.Popup>
         </Menu.Positioner>

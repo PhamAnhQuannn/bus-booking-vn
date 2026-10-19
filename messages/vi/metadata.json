@@ -21,5 +21,14 @@
   "charter": {
     "title": "Liên hệ đặt xe | BBVN",
     "description": "Đặt xe du lịch, thuê xe hợp đồng — để lại thông tin, chúng tôi chuyển tới đơn vị vận tải đối tác để báo giá."
+  },
+  "account": {
+    "title": "Tài khoản | BBVN"
+  },
+  "auth": {
+    "loginTitle": "Đăng nhập | BBVN",
+    "registerTitle": "Đăng ký | BBVN",
+    "forgotPasswordTitle": "Quên mật khẩu | BBVN",
+    "resetPasswordTitle": "Đặt lại mật khẩu | BBVN"
   }
 }

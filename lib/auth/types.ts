@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+import { passwordSchema } from '@/lib/core/validation/auth';
 
 // ---------------------------------------------------------------------------
 // Shared primitives
@@ -13,12 +14,8 @@ import { z } from 'zod';
 
 export const phoneSchema = z.string().trim().regex(/^(0|\+84)[35789][0-9]{8}$/);
 
-export const passwordSchema = z
-  .string()
-  .min(8, 'Password must be at least 8 characters')
-  .max(128, 'Password must be at most 128 characters')
-  .regex(/[a-zA-Z]/, 'Password must contain at least one letter')
-  .regex(/[0-9]/, 'Password must contain at least one digit');
+// Single source of truth for the password policy (lib/core) — re-exported so the barrel keeps it.
+export { passwordSchema };
 
 // ---------------------------------------------------------------------------
 // POST /api/auth/login — discriminated union on scope

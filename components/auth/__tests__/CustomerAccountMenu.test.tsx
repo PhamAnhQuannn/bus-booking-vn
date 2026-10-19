@@ -42,6 +42,20 @@ describe('CustomerAccountMenu', () => {
     expect(await screen.findByText('Đăng xuất')).toBeDefined();
   });
 
+  it('renders the localized (vi) trigger aria-label and menu items', async () => {
+    setDisplayName('Nguyen Van A');
+    render(<CustomerAccountMenu />);
+    const trigger = screen.getByRole('button', { name: 'Tài khoản: Nguyen Van A' });
+    fireEvent.click(trigger);
+    expect(await screen.findByText('Lịch sử đặt vé')).toBeDefined();
+    expect(screen.getByText('Cài đặt')).toBeDefined();
+  });
+
+  it('falls back to the localized customer label in the aria-label', () => {
+    render(<CustomerAccountMenu />);
+    expect(screen.getByRole('button', { name: 'Tài khoản: Khách hàng' })).toBeDefined();
+  });
+
   it('logout click POSTs /api/auth/logout with the CSRF header and redirects home', async () => {
     setDisplayName('Nguyen Van A');
     const fetchMock = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }));

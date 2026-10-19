@@ -31,5 +31,14 @@
       "becomePartner": "Become a partner",
       "operatorLogin": "Operator log in"
     }
+  },
+  "accountMenu": {
+    "fallbackName": "Customer",
+    "fallbackInitials": "CU",
+    "triggerAria": "Account: {name}",
+    "bookings": "Booking history",
+    "settings": "Settings",
+    "loggingOut": "Logging out…",
+    "logout": "Log out"
   }
 }

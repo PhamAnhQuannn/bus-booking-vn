@@ -31,5 +31,14 @@
       "becomePartner": "Trở thành đối tác",
       "operatorLogin": "Đăng nhập nhà xe"
     }
+  },
+  "accountMenu": {
+    "fallbackName": "Khách hàng",
+    "fallbackInitials": "KH",
+    "triggerAria": "Tài khoản: {name}",
+    "bookings": "Lịch sử đặt vé",
+    "settings": "Cài đặt",
+    "loggingOut": "Đang đăng xuất…",
+    "logout": "Đăng xuất"
   }
 }
