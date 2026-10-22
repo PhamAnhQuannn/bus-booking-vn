@@ -74,11 +74,11 @@ async function fetchActiveRoutes(): Promise<ActiveRoute[]> {
 }
 
 /**
- * Cached public catalog read (revalidate 300s, tag 'catalog'). Pure catalog data —
- * no live seat/hold/price — so a ≤5-min staleness is fine. Keeps this repeated
+ * Cached public catalog read (revalidate 3600s, tag 'catalog'). Pure catalog data —
+ * no live seat/hold/price — so a ≤1-h staleness is fine. Keeps this repeated
  * hot-path read (home + /routes) off the pool-max-2 Neon connection budget.
  *
- * On-demand invalidation is DELIBERATELY NOT wired (accept the ≤5-min auto-heal).
+ * On-demand invalidation is DELIBERATELY NOT wired (accept the ≤1-h auto-heal).
  * If ever needed, invalidate from a Server Action / Route Handler after a catalog
  * mutation with the Next 16 two-arg form `revalidateTag('catalog', 'max')` (SWR) or
  * `updateTag('catalog')` (immediate) — the bare `revalidateTag('catalog')` is
@@ -87,5 +87,7 @@ async function fetchActiveRoutes(): Promise<ActiveRoute[]> {
  */
 export const getActiveRoutes = unstable_cache(fetchActiveRoutes, ['active-routes'], {
   tags: ['catalog'],
-  revalidate: 300,
+  // 1 h, not 5 min: a 60 s uptime poll of `/` at 300 s kept Neon from ever autosuspending
+  // (5-min idle) → Free compute quota exhausted 2026-10-19 (#879).
+  revalidate: 3600,
 });

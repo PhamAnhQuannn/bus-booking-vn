@@ -46,13 +46,15 @@ async function fetchPublicOperators(): Promise<PublicOperator[]> {
 }
 
 /**
- * Cached public catalog read (revalidate 300s, tag 'catalog'). Same policy as
- * getActiveRoutes: pure catalog metadata, no live seat/price, so a ≤5-min staleness
+ * Cached public catalog read (revalidate 3600s, tag 'catalog'). Same policy as
+ * getActiveRoutes: pure catalog metadata, no live seat/price, so a ≤1-h staleness
  * is fine. On-demand invalidation deliberately NOT wired — if ever needed, use the
  * Next 16 two-arg `revalidateTag('catalog', 'max')` / `updateTag('catalog')` from a
  * Route Handler (the bare single-arg form is deprecated). See getActiveRoutes.ts.
  */
 export const getPublicOperators = unstable_cache(fetchPublicOperators, ['public-operators'], {
   tags: ['catalog'],
-  revalidate: 300,
+  // 1 h, not 5 min: a 60 s uptime poll of `/` at 300 s kept Neon from ever autosuspending
+  // (5-min idle) → Free compute quota exhausted 2026-10-19 (#879).
+  revalidate: 3600,
 });
