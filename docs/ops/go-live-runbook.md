@@ -76,6 +76,12 @@ Never log or paste secret VALUES. Read a value only via a scoped `vercel env pul
   (URL from your vault, never on argv/chat — same pattern as `backup-ondemand.sh`).
 - **Errors:** Sentry Issues, `environment:production`. High-priority → email alert.
 - **Uptime:** external monitor on `GET /api/ping` (no-DB liveness); `/api/health` DB-readiness at 15–30 min.
+  **Never poll `/` or any DB-backed route at high frequency.** Prod Neon is on the Free tier (~191
+  compute-h/month) and only stops billing after 5 min idle. Anything that touches the DB more often than
+  every ~5 min keeps it awake 24/7 (~730 h/month) and exhausts the quota in ~8–20 days. That happened twice:
+  2026-09-26 (monitor on `/api/health`) and 2026-10-19 (#879, 60 s monitor on `/` + 300 s catalog cache).
+  Budget today: the hourly cron window (minutes 0–5) ≈ 24 wakes × ~10 min ≈ 120 h/month. The catalog
+  cache is now 1 h. Re-check this budget before adding a cron or a frequent DB read.
 
 ## 5. Rollback
 See `docs/ops/runbooks/rollback.md` (primary: Vercel "Promote previous deployment", < 5 min, no rebuild).
