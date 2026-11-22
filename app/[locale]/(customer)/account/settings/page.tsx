@@ -27,6 +27,7 @@ import { FormError } from '@/components/auth/FormError';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LanguageSwitcher } from '@/components/i18n/LanguageSwitcher';
+import { ENABLED_LOCALES } from '@/i18n/routing';
 import {
   Dialog,
   DialogClose,
@@ -551,7 +552,9 @@ export default function AccountSettingsPage() {
         </ol>
       </nav>
       <h1 className="text-2xl font-bold">{t('page.title')}</h1>
-      <LanguageCard />
+      {/* Only show the display-language card when there's more than one enabled locale
+          (EN is currently disabled → VI-only → nothing to switch). */}
+      {ENABLED_LOCALES.length > 1 && <LanguageCard />}
       <ChangeNameForm />
       <ChangePasswordForm />
       <SignOutOtherDevicesForm />

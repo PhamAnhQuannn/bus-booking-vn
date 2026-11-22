@@ -9,6 +9,8 @@
  * :3001 (the project's dev port — :3000 is a different app).
  */
 
+import { ENABLED_LOCALES, type Locale } from '@/i18n/routing';
+
 export const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, '') ?? 'http://localhost:3001';
 
@@ -27,14 +29,20 @@ export function localeAlternates(path: string, locale: string = 'vi'): {
   languages: Record<string, string>;
 } {
   const p = path === '/' ? '' : path.replace(/\/+$/, '');
-  const vi = p || '/';
-  const en = `/en${p}`;
-  // Canonical is SELF-referential: the en page must point at the en URL, not vi. A vi canonical
-  // on /en/… tells Google the English page is a duplicate of the Vietnamese one → English pages
-  // get de-indexed, defeating the point of shipping them. x-default stays vi (the default locale).
+  // vi (default) is unprefixed; any other locale lives under `/<loc>`.
+  const urlFor = (loc: string): string => (loc === 'vi' ? p || '/' : `/${loc}${p}`);
+  // Only advertise ENABLED_LOCALES (EN is currently disabled → vi-only). Driving the
+  // hreflang set off this list means re-enabling EN restores the alternates automatically.
+  const languages: Record<string, string> = {};
+  for (const loc of ENABLED_LOCALES) languages[loc] = urlFor(loc);
+  languages['x-default'] = urlFor('vi');
+  // Canonical is SELF-referential per locale: an en page points at its own en URL, not vi
+  // (a vi canonical on /en/… de-indexes the English page). Falls back to vi for a
+  // disabled/unknown locale. x-default stays vi (the default locale).
+  const canonicalLocale = ENABLED_LOCALES.includes(locale as Locale) ? locale : 'vi';
   return {
-    canonical: locale === 'en' ? en : vi,
-    languages: { vi, en, 'x-default': vi },
+    canonical: urlFor(canonicalLocale),
+    languages,
   };
 }
 
