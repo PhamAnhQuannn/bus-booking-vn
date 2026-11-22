@@ -5,13 +5,17 @@ import { useLocale } from 'next-intl';
 import { Menu } from '@base-ui/react/menu';
 import { Languages, ChevronDownIcon, CheckIcon, Loader2 } from 'lucide-react';
 import { usePathname, useRouter } from '@/i18n/navigation';
-import type { Locale } from '@/i18n/routing';
+import { ENABLED_LOCALES, type Locale } from '@/i18n/routing';
 import { cn } from '@/lib/utils';
 
-const LOCALES: { value: Locale; code: string; native: string }[] = [
+const ALL_LOCALES: { value: Locale; code: string; native: string }[] = [
   { value: 'vi', code: 'VI', native: 'Tiếng Việt' },
   { value: 'en', code: 'EN', native: 'English' },
 ];
+
+// Only user-facing (ENABLED_LOCALES) entries are offered. EN is currently disabled,
+// so this is VI-only and the switcher hides itself (see the length guard below).
+const LOCALES = ALL_LOCALES.filter((l) => ENABLED_LOCALES.includes(l.value));
 
 /**
  * Header language switcher (Fable design). Base UI Menu + RadioGroup, mirroring
@@ -27,6 +31,13 @@ const LOCALES: { value: Locale; code: string; native: string }[] = [
  * - z-popover goes on Menu.Positioner, never Menu.Popup (DD-1 clip bug).
  */
 export function LanguageSwitcher({ onNavigate }: { onNavigate?: () => void }) {
+  // Nothing to switch between when only one locale is enabled — hide the control
+  // everywhere it renders (header desktop + mobile, account settings card).
+  if (LOCALES.length < 2) return null;
+  return <LanguageSwitcherMenu onNavigate={onNavigate} />;
+}
+
+function LanguageSwitcherMenu({ onNavigate }: { onNavigate?: () => void }) {
   const locale = useLocale() as Locale;
   const router = useRouter();
   const pathname = usePathname();

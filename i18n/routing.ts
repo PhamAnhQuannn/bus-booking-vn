@@ -28,3 +28,10 @@ export const routing = defineRouting({
 });
 
 export type Locale = (typeof routing.locales)[number];
+
+// User-facing locales. EN is disabled (broken in many pieces) but kept in
+// routing.locales above so its routes, `type Locale`, and messages/en/* stay valid
+// and dormant — nothing is deleted. Every user-facing surface (LanguageSwitcher,
+// account settings, sitemap/hreflang) reads THIS list, not routing.locales.
+// Re-enable EN: add 'en' here AND revert the proxy `if (localized)` redirect in proxy.ts.
+export const ENABLED_LOCALES: readonly Locale[] = ['vi'];

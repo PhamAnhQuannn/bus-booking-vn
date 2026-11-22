@@ -82,21 +82,12 @@ const OP_API_AUTH_PREFIX = '/api/op/auth/';
 // /admin/* PAGE paths that do NOT require a valid admin session (exact-match, Issue 010).
 const ADMIN_AUTH_FREE_PATHS = new Set(['/admin/login', '/admin/enroll-totp']);
 
-// Non-localized surfaces: staff consoles + API. These live outside app/[locale] and
-// must never carry a locale prefix. Matched (prefix) on the locale-stripped path.
-const NON_LOCALIZED_PREFIXES = ['/op', '/admin', '/dev', '/api'];
-
 /** Remove the `/en` locale prefix (vi is the unprefixed default). Returns the
  *  canonical, locale-free pathname used for every guard comparison. */
 function stripLocale(pathname: string): string {
   if (pathname === '/en') return '/';
   if (pathname.startsWith('/en/')) return pathname.slice(3);
   return pathname;
-}
-
-/** True when the (locale-stripped) path targets a non-localized surface. */
-function isNonLocalized(stripped: string): boolean {
-  return NON_LOCALIZED_PREFIXES.some((p) => stripped === p || stripped.startsWith(`${p}/`));
 }
 
 /** Issue the CSRF double-submit + anonymous-session cookies on a response if the
@@ -240,10 +231,14 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   const localized = stripped !== pathname; // request carried an /en prefix
 
   // -------------------------------------------------------------------------
-  // Non-localized surfaces (/op, /admin, /dev, /api) must never carry a locale.
-  // 308-redirect an /en variant to the canonical path before the guards run.
+  // EN is disabled (see ENABLED_LOCALES in i18n/routing.ts). VI is the unprefixed
+  // default, so a `localized` request is always an /en page — 308-redirect EVERY
+  // /en variant to the canonical VI path before the guards run. This also covers the
+  // non-localized surfaces (/op, /admin, /dev, /api), which must never carry a locale.
+  // Re-enable EN: narrow this to redirect only the non-localized surfaces again — gate
+  // on `stripped === p || stripped.startsWith(`${p}/`)` for p in ['/op','/admin','/dev','/api'].
   // -------------------------------------------------------------------------
-  if (localized && isNonLocalized(stripped)) {
+  if (localized) {
     const url = new URL(request.url);
     url.pathname = stripped;
     return withRid(NextResponse.redirect(url, 308));
